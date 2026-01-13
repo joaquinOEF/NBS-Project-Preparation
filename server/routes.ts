@@ -610,12 +610,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/projects', requireAuth, async (req: any, res) => {
     try {
       const { actionId, actionName, actionDescription, actionType, cityId } = req.body;
+      
+      if (!actionId || !actionName || !actionDescription || !actionType || !cityId) {
+        return res.status(400).json({ message: 'Missing required fields' });
+      }
+      
+      if (!['mitigation', 'adaptation'].includes(actionType)) {
+        return res.status(400).json({ message: 'actionType must be mitigation or adaptation' });
+      }
+      
       const project = await storage.createProject({
-        actionId,
-        actionName,
-        actionDescription,
-        actionType,
-        cityId,
+        actionId: String(actionId),
+        actionName: String(actionName),
+        actionDescription: String(actionDescription),
+        actionType: String(actionType),
+        cityId: String(cityId),
         status: 'initiated',
       });
       res.json({ project });

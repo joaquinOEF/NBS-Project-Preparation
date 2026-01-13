@@ -25,7 +25,14 @@ The application includes a **Sample Data Mode** that allows users to explore the
 ## Sample Data Configuration:
 - **Sample City**: Porto Alegre, Brazil (LOCODE: BR POA)
 - **Sample Inventories**: 2023, 2022
-- **Sample Actions**: Includes mitigation and adaptation actions with realistic data
+- **Sample Actions**: 6 climate actions (3 mitigation, 3 adaptation)
+  - Urban Reforestation Program (Mitigation)
+  - Green Building Standards (Mitigation)
+  - Sustainable Urban Mobility (Mitigation)
+  - Nature Based Solutions for Climate Resilience (Adaptation)
+  - Heat Wave Early Warning System (Adaptation)
+  - Coastal Flood Protection (Adaptation)
+- **Initiated Projects**: Stored in localStorage as `nbs_sample_projects`
 
 ## Files Involved:
 - `client/src/core/contexts/sample-data-context.tsx` - Sample data provider and data
@@ -63,7 +70,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Data Storage Design
 - **PostgreSQL Schema**: Drizzle ORM with strongly-typed database operations
-- **Entities**: Users, Cities, Boundaries, and Sessions with proper relationships
+- **Entities**: Users, Cities, Sessions, and Projects with proper relationships
 - **Storage Interface**: Abstract storage layer allowing seamless transition between in-memory and database implementations
 
 ## Authentication & Authorization
