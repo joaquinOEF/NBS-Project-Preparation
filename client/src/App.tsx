@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/core/components/ui/toaster';
 import { TooltipProvider } from '@/core/components/ui/tooltip';
 import { CityCatalystTab } from '@/core/components/layout/citycatalyst-tab';
+import { SampleDataProvider } from '@/core/contexts/sample-data-context';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -42,11 +43,13 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-        <CityCatalystTab />
-      </TooltipProvider>
+      <SampleDataProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+          <CityCatalystTab />
+        </TooltipProvider>
+      </SampleDataProvider>
     </QueryClientProvider>
   );
 }

@@ -1,23 +1,25 @@
 {
   "login": {
-    "title": "Welcome to a CC POC Module",
+    "title": "Welcome to NBS Project Builder",
     "subtitle": "Connect your CityCatalyst account to access your data.",
     "continueButton": "Continue with CityCatalyst",
-    "sampleButton": "Use Sample User (for testing)"
+    "sampleButton": "Use Sample Data",
+    "sampleButtonDescription": "Explore with sample data from Porto Alegre"
   },
   "citySelection": {
     "title": "Select a City",
-    "subtitle": "Choose a city to see its data",
+    "subtitle": "Choose a city to view climate actions",
     "searchPlaceholder": "Search cities...",
     "allProjects": "All Projects",
     "noCitiesFound": "No cities match your search criteria.",
     "noCitiesAvailable": "No cities available.",
-    "clearSearch": "Clear search"
+    "clearSearch": "Clear search",
+    "sampleDataBadge": "Sample Data"
   },
   "header": {
-    "title": "CC POC Module",
-    "subtitle": "Example Integration Module",
-    "iconAlt": "CC POC Module Icon"
+    "title": "NBS Project Builder",
+    "subtitle": "Nature Based Solutions",
+    "iconAlt": "NBS Project Builder Icon"
   },
   "navigation": {
     "home": "Home",
@@ -64,7 +66,16 @@
     "backToCities": "Back to Cities",
     "errorLoadingCity": "Error Loading City Information",
     "failedToLoadCity": "Failed to load information for city",
-    "unknownError": "Unknown error occurred"
+    "unknownError": "Unknown error occurred",
+    "climateActions": "Climate Actions",
+    "mitigationActions": "Mitigation Actions",
+    "adaptationActions": "Adaptation Actions",
+    "mitigationDescription": "Actions to reduce greenhouse gas emissions and limit climate change.",
+    "adaptationDescription": "Actions to build resilience and adapt to climate change impacts.",
+    "mitigationCardDescription": "Explore evidence-based actions to reduce emissions and achieve climate targets.",
+    "adaptationCardDescription": "Discover strategies to strengthen resilience against climate risks and impacts.",
+    "viewActions": "View Actions",
+    "sampleDataNotice": "You are viewing sample data"
   },
   "user": {
     "userData": "User Data",

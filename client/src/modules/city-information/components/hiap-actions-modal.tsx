@@ -14,10 +14,9 @@ import {
   CardTitle,
 } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
-import { Button } from '@/core/components/ui/button';
 import { Skeleton } from '@/core/components/ui/skeleton';
 import { useHIAPData } from '../hooks/useHIAPData';
-import { HIAPData, HIAPRankedAction } from '../types/city-info';
+import { HIAPRankedAction } from '../types/city-info';
 import {
   Leaf,
   Shield,
@@ -31,8 +30,19 @@ import {
   Wind,
   Home,
   Car,
-  Factory,
 } from 'lucide-react';
+
+interface SampleAction {
+  id: string;
+  name: string;
+  description: string;
+  ghg_reduction_potential?: string;
+  risk_addressed?: string;
+  cost_level: string;
+  implementation_timeline: string;
+  co_benefits: string[];
+  kpis: string[];
+}
 
 interface HIAPActionsModalProps {
   inventoryId: string;
@@ -40,6 +50,8 @@ interface HIAPActionsModalProps {
   trigger: React.ReactNode;
   title: string;
   description: string;
+  isSampleMode?: boolean;
+  sampleData?: { data: { actions: SampleAction[] } };
 }
 
 export function HIAPActionsModal({
@@ -48,6 +60,8 @@ export function HIAPActionsModal({
   trigger,
   title,
   description,
+  isSampleMode = false,
+  sampleData,
 }: HIAPActionsModalProps) {
   const [open, setOpen] = useState(false);
 
@@ -56,22 +70,17 @@ export function HIAPActionsModal({
     isLoading,
     error,
   } = useHIAPData(
-    open ? inventoryId : undefined, // Only fetch when modal is open
+    open && !isSampleMode ? inventoryId : undefined,
     actionType,
     'en'
   );
 
   const getCostColor = (cost: string) => {
-    switch (cost) {
-      case 'low':
-        return 'text-green-600 bg-green-50';
-      case 'medium':
-        return 'text-yellow-600 bg-yellow-50';
-      case 'high':
-        return 'text-red-600 bg-red-50';
-      default:
-        return 'text-gray-600 bg-gray-50';
-    }
+    const costLower = cost.toLowerCase();
+    if (costLower === 'low') return 'text-green-600 bg-green-50';
+    if (costLower === 'medium') return 'text-yellow-600 bg-yellow-50';
+    if (costLower === 'high') return 'text-red-600 bg-red-50';
+    return 'text-gray-600 bg-gray-50';
   };
 
   const getCobenefit = (value: number) => {
@@ -104,6 +113,88 @@ export function HIAPActionsModal({
       </div>
     );
   };
+
+  const renderSampleActionCard = (action: SampleAction, index: number) => (
+    <Card key={action.id} className='border' data-testid={`card-action-${index}`}>
+      <CardHeader className='pb-3'>
+        <div className='flex items-center justify-between mb-2'>
+          <Badge
+            variant={actionType === 'mitigation' ? 'default' : 'secondary'}
+            className='text-xs'
+          >
+            Action #{index + 1}
+          </Badge>
+          <div className='flex gap-2'>
+            <Badge
+              variant='outline'
+              className={`text-xs ${getCostColor(action.cost_level)}`}
+            >
+              {action.cost_level} cost
+            </Badge>
+            <Badge variant='outline' className='text-xs'>
+              <Clock className='h-3 w-3 mr-1' />
+              {action.implementation_timeline}
+            </Badge>
+          </div>
+        </div>
+        <CardTitle className='text-sm font-medium leading-tight'>
+          {action.name}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className='pt-0 space-y-4'>
+        <p className='text-sm text-muted-foreground'>{action.description}</p>
+
+        {action.ghg_reduction_potential && (
+          <div>
+            <label className='text-xs font-medium text-muted-foreground'>
+              GHG Reduction Potential:
+            </label>
+            <Badge variant='secondary' className='ml-2 text-xs'>
+              {action.ghg_reduction_potential}
+            </Badge>
+          </div>
+        )}
+
+        {action.risk_addressed && (
+          <div>
+            <label className='text-xs font-medium text-muted-foreground'>
+              Risk Addressed:
+            </label>
+            <Badge variant='outline' className='ml-2 text-xs'>
+              {action.risk_addressed}
+            </Badge>
+          </div>
+        )}
+
+        <div>
+          <label className='text-xs font-medium text-muted-foreground'>
+            Co-benefits:
+          </label>
+          <div className='flex flex-wrap gap-1 mt-1'>
+            {action.co_benefits.map((benefit, idx) => (
+              <Badge key={idx} variant='outline' className='text-xs'>
+                {benefit}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className='text-xs font-medium text-muted-foreground'>
+            Key Performance Indicators:
+          </label>
+          <ul className='text-xs text-muted-foreground mt-1 space-y-1'>
+            {action.kpis.map((kpi, idx) => (
+              <li key={idx} className='flex items-start gap-1'>
+                <Target className='h-3 w-3 text-primary mt-0.5 flex-shrink-0' />
+                <span className='flex-1'>{kpi}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   const renderActionCard = (action: HIAPRankedAction, index: number) => (
     <Card
@@ -139,7 +230,6 @@ export function HIAPActionsModal({
       <CardContent className='pt-0 space-y-4'>
         <p className='text-sm text-muted-foreground'>{action.description}</p>
 
-        {/* Sectors & Subsectors */}
         <div>
           <label className='text-xs font-medium text-muted-foreground'>
             Sectors:
@@ -153,7 +243,6 @@ export function HIAPActionsModal({
           </div>
         </div>
 
-        {/* Co-benefits */}
         <div>
           <label className='text-xs font-medium text-muted-foreground'>
             Co-benefits:
@@ -165,7 +254,6 @@ export function HIAPActionsModal({
           </div>
         </div>
 
-        {/* GHG Reduction Potential */}
         {action.GHGReductionPotential &&
           Object.values(action.GHGReductionPotential).some(v => v) && (
             <div>
@@ -184,7 +272,6 @@ export function HIAPActionsModal({
             </div>
           )}
 
-        {/* Dependencies */}
         {action.dependencies && action.dependencies.length > 0 && (
           <div>
             <label className='text-xs font-medium text-muted-foreground'>
@@ -201,7 +288,6 @@ export function HIAPActionsModal({
           </div>
         )}
 
-        {/* Key Performance Indicators */}
         {action.keyPerformanceIndicators &&
           action.keyPerformanceIndicators.length > 0 && (
             <div>
@@ -219,7 +305,6 @@ export function HIAPActionsModal({
             </div>
           )}
 
-        {/* Powers and Mandates */}
         <div className='flex justify-between text-xs'>
           <span className='text-muted-foreground'>Implementation Level:</span>
           <div className='flex gap-1'>
@@ -235,6 +320,25 @@ export function HIAPActionsModal({
   );
 
   const renderContent = () => {
+    if (isSampleMode && sampleData) {
+      const actions = sampleData.data.actions || [];
+      return (
+        <div className='space-y-4'>
+          <div className='flex items-center justify-between'>
+            <h4 className='font-medium text-sm'>
+              {actions.length} Sample Actions
+            </h4>
+            <Badge variant='secondary' className='text-xs'>
+              Sample Data
+            </Badge>
+          </div>
+          <div className='grid grid-cols-1 gap-4 max-h-96 overflow-y-auto'>
+            {actions.map((action, index) => renderSampleActionCard(action, index))}
+          </div>
+        </div>
+      );
+    }
+
     if (isLoading) {
       return (
         <div className='space-y-4'>
@@ -283,7 +387,6 @@ export function HIAPActionsModal({
       );
     }
 
-    // Extract rankedActions from the actual API response structure
     const actions = hiapData.data.rankedActions || [];
 
     if (!Array.isArray(actions) || actions.length === 0) {

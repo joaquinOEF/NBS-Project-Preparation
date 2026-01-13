@@ -24,11 +24,11 @@ async function getCityInformation(
   return await res.json();
 }
 
-export function useCityInformation(cityId: string | undefined) {
+export function useCityInformation(cityId: string | undefined, enabled: boolean = true) {
   return useQuery({
     queryKey: ['/api/city-information', cityId],
     queryFn: () => getCityInformation(cityId!),
-    enabled: !!cityId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !!cityId && enabled,
+    staleTime: 5 * 60 * 1000,
   });
 }

@@ -1,27 +1,29 @@
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Card, CardContent } from '@/core/components/ui/card';
-import { CCTerraButton, TitleLarge, BodyMedium } from '@oef/components';
+import { CCTerraButton, TitleLarge, BodyMedium, BodySmall } from '@oef/components';
+import { Button } from '@/core/components/ui/button';
 import { useAuth } from '@/core/hooks/useAuth';
 import { initiateOAuth } from '@/core/services/authService';
 import { useToast } from '@/core/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { analytics } from '@/core/lib/analytics';
-import { ArrowRight } from 'lucide-react';
+import { useSampleData } from '@/core/contexts/sample-data-context';
+import { ArrowRight, Database } from 'lucide-react';
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const { t } = useTranslation();
+  const { isSampleMode, setSampleMode } = useSampleData();
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated || isSampleMode) {
       setLocation('/cities');
     }
-  }, [isAuthenticated, setLocation]);
+  }, [isAuthenticated, isSampleMode, setLocation]);
 
-  // Track page view on component mount
   useEffect(() => {
     analytics.navigation.pageViewed('Login');
   }, []);
@@ -41,22 +43,11 @@ export default function Login() {
     }
   };
 
-  const handleSampleLogin = async () => {
-    try {
-      analytics.auth.loginAttempt('sample');
-      // For development: trigger the sample user creation
-      await handleOAuthLogin();
-    } catch (error: any) {
-      analytics.auth.loginFailure(
-        error.message || 'validation_error',
-        'sample'
-      );
-      toast({
-        title: t('errors.authenticationFailed'),
-        description: error.message || t('errors.validationError'),
-        variant: 'destructive',
-      });
-    }
+  const handleSampleLogin = () => {
+    analytics.auth.loginAttempt('sample_data');
+    analytics.auth.loginSuccess('sample_user', 'sample_data');
+    setSampleMode(true);
+    setLocation('/cities');
   };
 
   if (isLoading) {
@@ -99,19 +90,29 @@ export default function Login() {
                 {t('login.continueButton')}
               </CCTerraButton>
 
-              {/* Sample User Button - Currently not working properly */}
-              {/* TODO: Fix sample user authentication flow */}
-              {/*
-              <div className="text-center">
-                <Button 
-                  variant="link"
-                  onClick={handleSampleLogin}
-                  data-testid="button-sample-login"
-                >
-                  {t('login.sampleButton')}
-                </Button>
+              <div className='relative'>
+                <div className='absolute inset-0 flex items-center'>
+                  <span className='w-full border-t' />
+                </div>
+                <div className='relative flex justify-center text-xs uppercase'>
+                  <span className='bg-card px-2 text-muted-foreground'>
+                    or
+                  </span>
+                </div>
               </div>
-              */}
+
+              <Button
+                variant='outline'
+                className='w-full'
+                onClick={handleSampleLogin}
+                data-testid='button-sample-login'
+              >
+                <Database className='w-4 h-4 mr-2' />
+                {t('login.sampleButton')}
+              </Button>
+              <BodySmall className='text-center text-muted-foreground'>
+                {t('login.sampleButtonDescription')}
+              </BodySmall>
             </div>
           </CardContent>
         </Card>

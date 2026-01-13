@@ -1,15 +1,35 @@
 # Overview
 
-This is a **template for CityCatalyst API integration modules** - a comprehensive proof-of-concept that demonstrates how to build applications that connect with CityCatalyst's climate data platform. The template showcases OAuth 2.0 authentication, emissions inventory display, climate risk assessment (CCRA), and health impact assessment policy (HIAP) data integration.
+This is the **NBS Project Builder** - a Nature Based Solutions planning tool that connects with CityCatalyst's climate data platform. The application helps cities explore climate action recommendations including mitigation and adaptation strategies.
 
-**Purpose**: This template is designed for **remixing and adaptation** to specific use cases. When you remix this project, you should define your specific use case and adapt the template accordingly.
+**Purpose**: This application demonstrates climate action planning with a focus on nature-based solutions, leveraging CityCatalyst's HIAP (Health Impact Assessment Policy) data for evidence-based action recommendations.
 
-**What it demonstrates:**
-- Complete CityCatalyst OAuth 2.0 PKCE authentication flow
-- City emissions inventory data display with GPC sector breakdowns
-- Climate Change Risk Assessment (CCRA) visualization
-- Health Impact Assessment Policy (HIAP) action recommendations
-- Comprehensive API integration patterns for climate data applications
+**What it provides:**
+- CityCatalyst OAuth 2.0 PKCE authentication flow
+- Sample data mode for exploring without authentication
+- Climate Actions display (Mitigation and Adaptation)
+- Internationalization support (English and Portuguese)
+- PostHog analytics integration
+
+# Sample Data Mode
+
+The application includes a **Sample Data Mode** that allows users to explore the platform without requiring CityCatalyst authentication.
+
+## How Sample Data Mode Works:
+1. On the login page, click "Use Sample Data" button
+2. The app loads sample data for **Porto Alegre, Brazil**
+3. Navigate through the app with simulated API responses
+4. Sample data persists in localStorage as `nbs_sample_mode`
+5. Logout clears the sample mode and returns to login
+
+## Sample Data Configuration:
+- **Sample City**: Porto Alegre, Brazil (LOCODE: BR POA)
+- **Sample Inventories**: 2023, 2022
+- **Sample Actions**: Includes mitigation and adaptation actions with realistic data
+
+## Files Involved:
+- `client/src/core/contexts/sample-data-context.tsx` - Sample data provider and data
+- Components check `isSampleMode` to switch between real API and sample data
 
 # Development Contract
 
@@ -33,7 +53,7 @@ Preferred communication style: Simple, everyday language.
 - **Wouter Routing**: Lightweight client-side routing for single-page application navigation
 - **Tailwind CSS + shadcn/ui**: Utility-first CSS framework with pre-built accessible components
 - **React Query/TanStack Query**: Declarative data fetching, caching, and synchronization
-- **Leaflet Maps**: Interactive mapping library for boundary visualization and selection
+- **Sample Data Context**: React context for managing sample data mode state
 
 ## Backend Architecture
 - **Express.js with TypeScript**: RESTful API server with type safety
@@ -48,6 +68,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Authentication & Authorization
 - **OAuth 2.0 PKCE Flow**: Secure authentication with CityCatalyst using Proof Key for Code Exchange
+- **Sample Data Mode**: Alternative authentication bypass for exploration
 - **Session Management**: Server-side session storage with secure token handling
 - **Project-based Access Control**: User access to cities based on project membership
 
@@ -57,14 +78,9 @@ Preferred communication style: Simple, everyday language.
 - **Request Validation**: Type-safe request/response validation using Zod schemas
 - **Rate Limiting**: Protection against abuse (configured for production deployment)
 
-## Mapping & GIS Integration
-- **Overpass API Integration**: Query OpenStreetMap data for administrative boundaries
-- **GeoJSON Processing**: Standard geospatial data format for boundary representation
-- **Boundary Scoring**: Algorithm to rank boundary alternatives based on relevance
-- **Interactive Visualization**: Real-time map updates with boundary overlays and selection
-
 ## Frontend State Management
 - **React Query Cache**: Server state management with automatic background updates
+- **Sample Data Context**: Context provider for sample mode state management
 - **Local Component State**: UI state managed with React hooks
 - **Form Handling**: React Hook Form with validation for user inputs
 - **Toast Notifications**: User feedback for actions and errors
@@ -81,11 +97,6 @@ Preferred communication style: Simple, everyday language.
 - **CityCatalyst OAuth**: OAuth 2.0 provider for user authentication and project access
 - **JWT Token Handling**: Access and refresh token management for API calls
 
-## Geospatial Data Sources
-- **Overpass API**: OpenStreetMap data query service for boundary discovery
-- **OpenStreetMap**: Base map tiles and administrative boundary data
-- **Nominatim API**: Geocoding service for location search (optional enhancement)
-
 ## Database
 - **PostgreSQL**: Production database with spatial extensions support
 - **Neon Database**: Cloud PostgreSQL service (based on connection string pattern)
@@ -97,7 +108,6 @@ Preferred communication style: Simple, everyday language.
 ## UI Component Libraries
 - **Radix UI**: Accessible, unstyled component primitives
 - **Lucide Icons**: Modern icon library for UI elements
-- **Leaflet**: Open-source mapping library for interactive maps
 
 ## Development Tools
 - **Drizzle Kit**: Database migration and introspection tools
@@ -118,22 +128,6 @@ Comprehensive API documentation is maintained in the service files for easy deve
 
 ### Available API Endpoints
 
-**Inventory Management:**
-- `getInventoriesByCity()` - List all inventories for multiple cities
-- `getInventoryDetails(inventoryId)` - Get basic inventory metadata
-- `getInventoryDownload(inventoryId)` - Get comprehensive emissions data with GPC sector breakdown
-- `getInventory(locode, year)` - Legacy endpoint for LOCODE-based access
-
-**City Information:**
-- `getCityDetail(cityId)` - Get detailed city information using UUID
-- `getCityBoundary(locode)` - Retrieve city boundary as GeoJSON
-
-**Climate Risk Assessment:**
-- `getCCRADashboard(cityId, inventoryId)` - Get climate change risk assessment data
-  - Returns topRisks array with hazard, exposure, and vulnerability scores
-  - Supports infrastructure and public health impact categories
-  - Provides normalized risk scores for comparative analysis
-
 **Health Impact Assessment & Policy (HIAP):**
 - `getHIAPData(inventoryId, actionType, language)` - Get ranked climate action recommendations
   - Returns ranked lists of mitigation and adaptation actions
@@ -141,21 +135,21 @@ Comprehensive API documentation is maintained in the service files for easy deve
   - Supports multiple languages (en, pt, es, de, fr)
   - Provides detailed action metadata: costs, timelines, KPIs, and dependencies
 
+**City Information:**
+- `getCityDetail(cityId)` - Get detailed city information using UUID
+- `getCityBoundary(locode)` - Retrieve city boundary as GeoJSON
+
 ### Frontend Integration Patterns
 - **React Query Hooks**: Located in `client/src/modules/city-information/hooks/`
 - **Type Definitions**: Located in `client/src/modules/city-information/types/city-info.ts`
 - **Service Functions**: Located in `client/src/modules/city-information/services/`
+- **Sample Data Context**: Located in `client/src/core/contexts/sample-data-context.tsx`
 
 ### Development Guidelines
 - All API functions include comprehensive JSDoc documentation
 - TypeScript interfaces ensure type safety across frontend/backend
 - Error handling follows consistent patterns with proper HTTP status codes
 - Authentication is handled automatically via OAuth 2.0 PKCE flow
-
-**For Future Remixes:**
-- Check `server/services/cityService.ts` for complete API documentation
-- Review existing hooks in `client/src/modules/city-information/hooks/` for integration patterns
-- Use type definitions in `city-info.ts` for frontend development
-- Follow authentication patterns established in existing routes
+- Sample data mode bypasses API calls with local mock data
 
 **💡 When in doubt**: Always refer to the official [CityCatalyst Documentation](https://citycatalyst.openearth.dev/docs/) for the latest API specifications, authentication requirements, and best practices.

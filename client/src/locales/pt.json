@@ -1,23 +1,25 @@
 {
   "login": {
-    "title": "Bem-vindo ao Módulo CC POC",
+    "title": "Bem-vindo ao NBS Project Builder",
     "subtitle": "Conecte sua conta CityCatalyst para acessar seus dados.",
     "continueButton": "Continuar com CityCatalyst",
-    "sampleButton": "Usar Usuário de Exemplo (para testes)"
+    "sampleButton": "Usar Dados de Exemplo",
+    "sampleButtonDescription": "Explore com dados de exemplo de Porto Alegre"
   },
   "citySelection": {
     "title": "Selecione uma Cidade",
-    "subtitle": "Escolha uma cidade para ver seus dados",
+    "subtitle": "Escolha uma cidade para ver ações climáticas",
     "searchPlaceholder": "Pesquisar cidades...",
     "allProjects": "Todos os Projetos",
     "noCitiesFound": "Nenhuma cidade corresponde aos seus critérios de pesquisa.",
     "noCitiesAvailable": "Nenhuma cidade disponível.",
-    "clearSearch": "Limpar pesquisa"
+    "clearSearch": "Limpar pesquisa",
+    "sampleDataBadge": "Dados de Exemplo"
   },
   "header": {
-    "title": "Módulo CC POC",
-    "subtitle": "Módulo de Exemplo de Integração",
-    "iconAlt": "Ícone do Módulo CC POC"
+    "title": "NBS Project Builder",
+    "subtitle": "Soluções Baseadas na Natureza",
+    "iconAlt": "Ícone do NBS Project Builder"
   },
   "navigation": {
     "home": "Início",
@@ -64,7 +66,16 @@
     "backToCities": "Voltar para Cidades",
     "errorLoadingCity": "Erro ao Carregar Informações da Cidade",
     "failedToLoadCity": "Falha ao carregar informações da cidade",
-    "unknownError": "Erro desconhecido ocorreu"
+    "unknownError": "Erro desconhecido ocorreu",
+    "climateActions": "Ações Climáticas",
+    "mitigationActions": "Ações de Mitigação",
+    "adaptationActions": "Ações de Adaptação",
+    "mitigationDescription": "Ações para reduzir emissões de gases de efeito estufa e limitar mudanças climáticas.",
+    "adaptationDescription": "Ações para construir resiliência e adaptar-se aos impactos das mudanças climáticas.",
+    "mitigationCardDescription": "Explore ações baseadas em evidências para reduzir emissões e atingir metas climáticas.",
+    "adaptationCardDescription": "Descubra estratégias para fortalecer a resiliência contra riscos e impactos climáticos.",
+    "viewActions": "Ver Ações",
+    "sampleDataNotice": "Você está visualizando dados de exemplo"
   },
   "user": {
     "userData": "Dados do Usuário",

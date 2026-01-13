@@ -1,5 +1,6 @@
 import { CCTerraButton } from '@oef/components';
 import { TitleMedium, BodySmall } from '@oef/components';
+import { Badge } from '@/core/components/ui/badge';
 import { useAuth } from '@/core/hooks/useAuth';
 import { initiateOAuth } from '@/core/services/authService';
 import { useToast } from '@/core/hooks/use-toast';
@@ -13,6 +14,7 @@ import {
 import { LogOut } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { analytics } from '@/core/lib/analytics';
+import { useSampleData } from '@/core/contexts/sample-data-context';
 import posthog from 'posthog-js';
 
 export function Header() {
@@ -20,6 +22,7 @@ export function Header() {
   const { toast } = useToast();
   const { t } = useTranslation();
   const [, setLocation] = useLocation();
+  const { isSampleMode, clearSampleMode } = useSampleData();
 
   const handleLogin = async () => {
     try {
@@ -36,10 +39,20 @@ export function Header() {
 
   const handleLogout = async () => {
     try {
+      if (isSampleMode) {
+        analytics.auth.logout('sample_user');
+        clearSampleMode();
+        setLocation('/login');
+        toast({
+          title: t('navigation.logout'),
+          description: t('common.success'),
+        });
+        return;
+      }
+
       const userId = user?.id || 'unknown';
       analytics.auth.logout(userId);
       await logout();
-      // Reset PostHog user identification on logout
       if (posthog) {
         posthog.reset();
       }
@@ -55,6 +68,9 @@ export function Header() {
       });
     }
   };
+
+  const showUserInfo = isAuthenticated && user;
+  const showSampleInfo = isSampleMode && !isAuthenticated;
 
   return (
     <header className='bg-primary shadow-sm'>
@@ -83,7 +99,7 @@ export function Header() {
             <LanguageSwitcher />
             {isLoading ? (
               <div className='h-8 w-24 bg-white/20 animate-pulse rounded'></div>
-            ) : isAuthenticated && user ? (
+            ) : showUserInfo ? (
               <div className='flex items-center space-x-3'>
                 <div className='text-sm'>
                   <BodySmall
@@ -100,6 +116,27 @@ export function Header() {
                     {user.email}
                   </BodySmall>
                 </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <CCTerraButton
+                      variant='text'
+                      onClick={handleLogout}
+                      data-testid='button-logout'
+                      className='h-8 w-8 p-0 text-white hover:bg-white/10 transition-colors'
+                    >
+                      <LogOut className='h-4 w-4' />
+                    </CCTerraButton>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{t('navigation.logout')}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            ) : showSampleInfo ? (
+              <div className='flex items-center space-x-3'>
+                <Badge variant='secondary' className='bg-white/20 text-white'>
+                  {t('citySelection.sampleDataBadge')}
+                </Badge>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <CCTerraButton

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { User, AuthState } from '@/core/types/auth';
@@ -6,6 +6,15 @@ import {
   getUserProfile,
   logout as logoutService,
 } from '@/core/services/authService';
+
+const SAMPLE_MODE_KEY = 'nbs_sample_mode';
+
+function isSampleModeActive(): boolean {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem(SAMPLE_MODE_KEY) === 'true';
+  }
+  return false;
+}
 
 export function useAuth(): AuthState & {
   logout: () => Promise<void>;
@@ -22,18 +31,22 @@ export function useAuth(): AuthState & {
   } = useQuery<User | null>({
     queryKey: ['/api/user/profile'],
     queryFn: async () => {
+      if (isSampleModeActive()) {
+        return null;
+      }
       try {
         const profile = await getUserProfile();
         return profile;
       } catch (error: any) {
         if (error.message.includes('401')) {
-          return null; // Not authenticated
+          return null;
         }
         throw error;
       }
     },
     retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
+    enabled: !isSampleModeActive(),
   });
 
   const logoutMutation = useMutation({
@@ -44,33 +57,27 @@ export function useAuth(): AuthState & {
     },
   });
 
-  // Auto-retry OAuth on single-use code error with complete cache clearing
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const hasRetryParam =
       urlParams.get('retry') || urlParams.get('clear_cache');
 
-    if (hasRetryParam && !user && !isLoading) {
+    if (hasRetryParam && !user && !isLoading && !isSampleModeActive()) {
       console.log(
         '🔄 Auto-retrying OAuth with fresh state due to single-use code error...'
       );
 
-      // Clear ALL browser cache and OAuth state
       const clearBrowserCache = () => {
-        // Clear URL parameters
         const newUrl = new URL(window.location.href);
         newUrl.search = '';
         newUrl.hash = '';
         window.history.replaceState({}, '', newUrl.toString());
 
-        // Clear any OAuth-related session storage
         sessionStorage.removeItem('oauth_state');
         sessionStorage.removeItem('code_verifier');
 
-        // Clear React Query cache for auth-related queries
         queryClient.clear();
 
-        // Force a small delay to ensure clean state, then initiate fresh OAuth
         setTimeout(() => {
           console.log('✨ Initiating completely fresh OAuth flow...');
           initiateCityCatalystAuth();
@@ -95,7 +102,7 @@ export function useAuth(): AuthState & {
 
   return {
     user: user || null,
-    isLoading,
+    isLoading: isSampleModeActive() ? false : isLoading,
     isAuthenticated: !!user,
     logout: logoutMutation.mutateAsync,
     refetch,
