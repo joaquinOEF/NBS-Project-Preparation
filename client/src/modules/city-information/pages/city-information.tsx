@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/c
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Skeleton } from '@/core/components/ui/skeleton';
+import { Header } from '@/core/components/layout/header';
 import {
   HeadlineLarge,
   DisplayLarge,
@@ -126,6 +127,7 @@ export default function CityInformation() {
   if (isLoading && !useSampleContent) {
     return (
       <div className='min-h-screen bg-background'>
+        <Header />
         <div className='container mx-auto px-4 py-8'>
           <Skeleton className='h-8 w-32 mb-4' />
           <Skeleton className='h-12 w-64 mb-2' />
@@ -138,6 +140,7 @@ export default function CityInformation() {
   if (error && !isSampleMode && !isSampleRoute) {
     return (
       <div className='min-h-screen bg-background'>
+        <Header />
         <div className='container mx-auto px-4 py-8'>
           <Link href={`${routePrefix}/cities`}>
             <Button variant='ghost' className='mb-4'>
@@ -193,6 +196,7 @@ export default function CityInformation() {
 
   return (
     <div className='min-h-screen bg-background'>
+      <Header />
       <div className='container mx-auto px-4 py-8'>
         <Link href={`${routePrefix}/cities`}>
           <Button variant='ghost' className='mb-4'>
