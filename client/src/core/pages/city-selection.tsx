@@ -10,12 +10,16 @@ import { City } from '@/core/types/city';
 import { useTranslation } from 'react-i18next';
 import { analytics } from '@/core/lib/analytics';
 import { useSampleData } from '@/core/contexts/sample-data-context';
+import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 
 export default function CitySelection() {
   const [, setLocation] = useLocation();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
   const { isSampleMode, sampleCity } = useSampleData();
+  const { isSampleRoute } = useSampleRoute();
+  
+  const useSampleContent = isSampleMode || isSampleRoute;
 
   useEffect(() => {
     analytics.navigation.pageViewed('City Selection');
@@ -24,10 +28,10 @@ export default function CitySelection() {
   const { data: inventoriesData, isLoading: citiesLoading } = useQuery<{ data: any[] }>({
     queryKey: ['/api/citycatalyst/inventories'],
     staleTime: 5 * 60 * 1000,
-    enabled: !isSampleMode,
+    enabled: !useSampleContent,
   });
 
-  if (!authLoading && !isAuthenticated && !isSampleMode) {
+  if (!authLoading && !isAuthenticated && !useSampleContent) {
     setLocation('/login');
     return null;
   }
@@ -37,12 +41,13 @@ export default function CitySelection() {
     if (city) {
       analytics.navigation.citySelected(cityId, city.name);
     }
-    setLocation(`/city-information/${cityId}`);
+    const prefix = useSampleContent ? '/sample' : '';
+    setLocation(`${prefix}/city-information/${cityId}`);
   };
 
   let cities: City[] = [];
 
-  if (isSampleMode) {
+  if (useSampleContent) {
     cities = [
       {
         id: sampleCity.locode,
@@ -82,7 +87,7 @@ export default function CitySelection() {
     });
   }
 
-  const isLoading = authLoading || (!isSampleMode && citiesLoading);
+  const isLoading = authLoading || (!useSampleContent && citiesLoading);
 
   if (isLoading) {
     return (
@@ -119,7 +124,7 @@ export default function CitySelection() {
             <HeadlineLarge data-testid='text-page-title'>
               {t('citySelection.title')}
             </HeadlineLarge>
-            {isSampleMode && (
+            {useSampleContent && (
               <Badge variant='secondary' data-testid='badge-sample-mode'>
                 {t('citySelection.sampleDataBadge')}
               </Badge>

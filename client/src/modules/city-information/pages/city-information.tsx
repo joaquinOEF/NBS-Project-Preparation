@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSampleData } from '@/core/contexts/sample-data-context';
+import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/core/lib/queryClient';
 import { track } from '@/core/lib/analytics';
@@ -41,12 +42,15 @@ export default function CityInformation() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { isSampleMode, sampleCity, sampleActions, initiatedProjects, initiateProject } = useSampleData();
+  const { isSampleRoute, routePrefix } = useSampleRoute();
 
-  const { data: cityInfo, isLoading, error } = useCityInformation(cityId, !isSampleMode);
+  const shouldFetchFromApi = !isSampleMode && !isSampleRoute;
+  
+  const { data: cityInfo, isLoading, error } = useCityInformation(cityId, shouldFetchFromApi);
 
   const { data: projectsData } = useQuery<{ projects: Project[] }>({
     queryKey: ['/api/projects', cityId],
-    enabled: !isSampleMode && !!cityId,
+    enabled: shouldFetchFromApi && !!cityId,
   });
 
   const createProjectMutation = useMutation({
@@ -64,18 +68,20 @@ export default function CityInformation() {
     },
   });
 
-  const cityData = isSampleMode ? sampleCity : cityInfo?.data;
+  const useSampleContent = isSampleMode || isSampleRoute;
+  
+  const cityData = useSampleContent ? sampleCity : cityInfo?.data;
   const city = cityData ? {
     name: cityData.name,
     country: cityData.country,
     locode: cityData.locode,
   } : null;
 
-  const cityActions = isSampleMode 
+  const cityActions = useSampleContent 
     ? sampleActions.filter(a => a.cityId === cityId)
     : [];
 
-  const initiatedProjectIds = isSampleMode 
+  const initiatedProjectIds = useSampleContent 
     ? initiatedProjects 
     : (projectsData?.projects || []).map(p => p.actionId);
 
@@ -91,9 +97,9 @@ export default function CityInformation() {
       isSampleMode,
     });
 
-    if (isSampleMode) {
+    if (isSampleMode || isSampleRoute) {
       initiateProject(action.id);
-      setLocation(`/project/${action.id}`);
+      setLocation(`${routePrefix}/project/${action.id}`);
     } else {
       createProjectMutation.mutate(action, {
         onSuccess: (response: any) => {
@@ -110,14 +116,14 @@ export default function CityInformation() {
       isSampleMode,
     });
 
-    if (isSampleMode) {
-      setLocation(`/project/${actionId}`);
+    if (isSampleMode || isSampleRoute) {
+      setLocation(`${routePrefix}/project/${actionId}`);
     } else if (projectId) {
       setLocation(`/project/${projectId}`);
     }
   };
 
-  if (isLoading && !isSampleMode) {
+  if (isLoading && !useSampleContent) {
     return (
       <div className='min-h-screen bg-background'>
         <div className='container mx-auto px-4 py-8'>
@@ -129,11 +135,11 @@ export default function CityInformation() {
     );
   }
 
-  if (error && !isSampleMode) {
+  if (error && !isSampleMode && !isSampleRoute) {
     return (
       <div className='min-h-screen bg-background'>
         <div className='container mx-auto px-4 py-8'>
-          <Link href='/cities'>
+          <Link href={`${routePrefix}/cities`}>
             <Button variant='ghost' className='mb-4'>
               <ArrowLeft className='h-4 w-4 mr-2' />
               {t('common.back')}
@@ -146,7 +152,7 @@ export default function CityInformation() {
   }
 
   const renderActionCard = (action: { id: string; name: string; description: string; type: string; cityId: string }, isInitiated: boolean) => {
-    const project = !isSampleMode 
+    const project = !useSampleContent 
       ? (projectsData?.projects || []).find(p => p.actionId === action.id)
       : null;
 
@@ -188,7 +194,7 @@ export default function CityInformation() {
   return (
     <div className='min-h-screen bg-background'>
       <div className='container mx-auto px-4 py-8'>
-        <Link href='/cities'>
+        <Link href={`${routePrefix}/cities`}>
           <Button variant='ghost' className='mb-4'>
             <ArrowLeft className='h-4 w-4 mr-2' />
             {t('common.back')}
@@ -200,7 +206,7 @@ export default function CityInformation() {
             <DisplayLarge data-testid='text-city-name'>
               {city?.name}
             </DisplayLarge>
-            {isSampleMode && (
+            {useSampleContent && (
               <Badge variant='secondary' data-testid='badge-sample-mode'>
                 {t('citySelection.sampleDataBadge')}
               </Badge>
@@ -218,7 +224,7 @@ export default function CityInformation() {
           </div>
         </div>
 
-        {isSampleMode && (
+        {useSampleContent && (
           <div className='mb-6 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center gap-3'>
             <AlertCircle className='h-5 w-5 text-blue-600' />
             <BodySmall className='text-blue-700 dark:text-blue-300'>

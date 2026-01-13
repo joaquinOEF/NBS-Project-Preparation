@@ -12,6 +12,10 @@ export const moduleRegistry: ModuleRegistry = {
         path: '/city-information/:cityId',
         component: CityInformation,
       },
+      {
+        path: '/sample/city-information/:cityId',
+        component: CityInformation,
+      },
     ],
     enabled: true,
   },

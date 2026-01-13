@@ -112,12 +112,14 @@ const PROJECTS_STORAGE_KEY = 'nbs_sample_projects';
 const SampleDataContext = createContext<SampleDataContextType | undefined>(undefined);
 
 export function SampleDataProvider({ children }: { children: ReactNode }) {
-  const [isSampleMode, setIsSampleMode] = useState<boolean>(() => {
+  const [storedSampleMode, setStoredSampleMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem(STORAGE_KEY) === 'true';
     }
     return false;
   });
+
+  const isSampleMode = storedSampleMode;
 
   const [initiatedProjects, setInitiatedProjects] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
@@ -129,13 +131,13 @@ export function SampleDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      if (isSampleMode) {
+      if (storedSampleMode) {
         localStorage.setItem(STORAGE_KEY, 'true');
       } else {
         localStorage.removeItem(STORAGE_KEY);
       }
     }
-  }, [isSampleMode]);
+  }, [storedSampleMode]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -144,11 +146,11 @@ export function SampleDataProvider({ children }: { children: ReactNode }) {
   }, [initiatedProjects]);
 
   const setSampleMode = (value: boolean) => {
-    setIsSampleMode(value);
+    setStoredSampleMode(value);
   };
 
   const clearSampleMode = () => {
-    setIsSampleMode(false);
+    setStoredSampleMode(false);
     setInitiatedProjects([]);
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(PROJECTS_STORAGE_KEY);

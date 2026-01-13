@@ -7,6 +7,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { Skeleton } from '@/core/components/ui/skeleton';
 import { useTranslation } from 'react-i18next';
 import { useSampleData } from '@/core/contexts/sample-data-context';
+import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 
 interface Project {
   id: string;
@@ -22,20 +23,21 @@ export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { t } = useTranslation();
   const { isSampleMode, sampleActions, initiatedProjects } = useSampleData();
+  const { isSampleRoute, routePrefix } = useSampleRoute();
 
   const { data: projectData, isLoading } = useQuery<{ project: Project }>({
     queryKey: ['/api/project', projectId],
-    enabled: !isSampleMode && !!projectId,
+    enabled: !isSampleMode && !isSampleRoute && !!projectId,
   });
 
-  if (isSampleMode) {
+  if (isSampleMode || isSampleRoute) {
     const action = sampleActions.find(a => a.id === projectId);
     const isInitiated = initiatedProjects.includes(projectId || '');
     
     if (!action || !isInitiated) {
       return (
         <div className="container mx-auto px-4 py-8">
-          <Link href="/cities">
+          <Link href={`${routePrefix}/cities`}>
             <Button variant="ghost" className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
               {t('common.back')}
@@ -48,7 +50,7 @@ export default function ProjectPage() {
 
     return (
       <div className="container mx-auto px-4 py-8">
-        <Link href={`/cities/${action.cityId}`}>
+        <Link href={`${routePrefix}/city-information/${action.cityId}`}>
           <Button variant="ghost" className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             {t('common.back')}
@@ -96,7 +98,7 @@ export default function ProjectPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <Link href={`/cities/${project.cityId}`}>
+      <Link href={`/city-information/${project.cityId}`}>
         <Button variant="ghost" className="mb-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
           {t('common.back')}

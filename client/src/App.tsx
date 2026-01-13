@@ -26,6 +26,10 @@ function Router() {
       <Route path='/auth/callback' component={OAuthCallback} />
       <Route path='/cities' component={CitySelection} />
       <Route path='/project/:projectId' component={ProjectPage} />
+      
+      {/* Sample mode routes - no API calls, uses local data */}
+      <Route path='/sample/cities' component={CitySelection} />
+      <Route path='/sample/project/:projectId' component={ProjectPage} />
 
       {/* Dynamically loaded module routes */}
       <DynamicModuleRoutes />

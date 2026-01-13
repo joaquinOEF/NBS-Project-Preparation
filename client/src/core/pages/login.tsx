@@ -19,8 +19,10 @@ export default function Login() {
   const { isSampleMode, setSampleMode } = useSampleData();
 
   useEffect(() => {
-    if (isAuthenticated || isSampleMode) {
+    if (isAuthenticated) {
       setLocation('/cities');
+    } else if (isSampleMode) {
+      setLocation('/sample/cities');
     }
   }, [isAuthenticated, isSampleMode, setLocation]);
 
@@ -47,7 +49,7 @@ export default function Login() {
     analytics.auth.loginAttempt('sample_data');
     analytics.auth.loginSuccess('sample_user', 'sample_data');
     setSampleMode(true);
-    setLocation('/cities');
+    setLocation('/sample/cities');
   };
 
   if (isLoading) {
