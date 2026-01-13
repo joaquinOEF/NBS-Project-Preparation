@@ -5,247 +5,117 @@ import {
   type InsertCity,
   type Session,
   type InsertSession,
+  type Project,
+  type InsertProject,
+  users,
+  cities,
+  sessions,
+  projects,
 } from '@shared/schema';
-import { randomUUID } from 'crypto';
+import { db } from './db';
+import { eq, inArray } from 'drizzle-orm';
 
 export interface IStorage {
-  // User methods
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
 
-  // City methods
   getCities(): Promise<City[]>;
   getCitiesByProjectIds(projectIds: string[]): Promise<City[]>;
   getCity(cityId: string): Promise<City | undefined>;
   createCity(city: InsertCity): Promise<City>;
   createOrUpdateCity(city: InsertCity): Promise<City>;
 
-  // Session methods
   getSession(id: string): Promise<Session | undefined>;
   getSessionByToken(token: string): Promise<Session | undefined>;
   createSession(session: InsertSession): Promise<Session>;
-  updateSession(
-    id: string,
-    updates: Partial<Session>
-  ): Promise<Session | undefined>;
+  updateSession(id: string, updates: Partial<Session>): Promise<Session | undefined>;
   deleteSession(id: string): Promise<void>;
 
-  // OAuth code tracking methods (to prevent "Single-use code" errors)
   isCodeConsumed(code: string): Promise<boolean>;
   markCodeAsConsumed(code: string): Promise<void>;
+
+  getProjectsByCityId(cityId: string): Promise<Project[]>;
+  getProject(id: string): Promise<Project | undefined>;
+  createProject(project: InsertProject): Promise<Project>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private cities: Map<string, City>;
-  private sessions: Map<string, Session>;
-  private consumedCodes: Set<string>;
+export class DatabaseStorage implements IStorage {
+  private consumedCodes: Set<string> = new Set();
 
-  constructor() {
-    this.users = new Map();
-    this.cities = new Map();
-    this.sessions = new Map();
-    this.consumedCodes = new Set();
-
-    // Initialize with sample data for Ciudad Autónoma de Buenos Aires
-    this.initializeSampleData();
-  }
-
-  private initializeSampleData() {
-    const sampleCity: City = {
-      id: randomUUID(),
-      cityId: 'city-buenos-aires',
-      name: 'Ciudad Autónoma de Buenos Aires',
-      country: 'Argentina',
-      locode: 'AR_BAI',
-      projectId: 'project-south-america',
-      currentBoundary: {
-        type: 'Polygon',
-        coordinates: [
-          [
-            [-58.5319, -34.5268],
-            [-58.335, -34.5268],
-            [-58.335, -34.7051],
-            [-58.5319, -34.7051],
-            [-58.5319, -34.5268],
-          ],
-        ],
-      },
-      metadata: {
-        area: 203.5,
-        population: 3075646,
-        region: 'Capital Federal',
-      },
-      createdAt: new Date(),
-    };
-    this.cities.set(sampleCity.id, sampleCity);
-  }
-
-  // User methods
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.email === email);
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = {
-      ...insertUser,
-      id,
-      title: insertUser.title || null,
-      projects: insertUser.projects
-        ? (insertUser.projects as string[]).slice()
-        : [],
-      accessToken: insertUser.accessToken || null,
-      refreshToken: insertUser.refreshToken || null,
-      tokenExpiry: insertUser.tokenExpiry || null,
-      createdAt: new Date(),
-    };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
-  async updateUser(
-    id: string,
-    updates: Partial<User>
-  ): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (!user) return undefined;
-
-    const updatedUser = { ...user, ...updates };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+    const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    return user || undefined;
   }
 
-  // City methods
   async getCities(): Promise<City[]> {
-    return Array.from(this.cities.values());
+    return db.select().from(cities);
   }
 
   async getCitiesByProjectIds(projectIds: string[]): Promise<City[]> {
-    console.log('🔍 Looking for cities with project IDs:', projectIds);
-    const matchingCities = Array.from(this.cities.values()).filter(city =>
-      projectIds.includes(city.projectId)
-    );
-    console.log(`📦 Found ${matchingCities.length} cities in local storage`);
-
-    // If no cities found, create some sample cities for the user's projects
-    if (matchingCities.length === 0 && projectIds.length > 0) {
-      console.log('🏗️ Creating sample cities for testing...');
-      const sampleCities: City[] = [];
-
-      for (let i = 0; i < Math.min(3, projectIds.length); i++) {
-        const projectId = projectIds[i];
-        const sampleCity: City = {
-          id: `sample-city-${i + 1}`,
-          cityId: projectId,
-          name: `Sample City ${i + 1}`,
-          country: 'Sample Country',
-          locode: `SC${i + 1}`,
-          projectId: projectId,
-          currentBoundary: null,
-          metadata: { area: 100 + i * 50 },
-          createdAt: new Date(),
-        };
-
-        this.cities.set(sampleCity.id, sampleCity);
-        sampleCities.push(sampleCity);
-      }
-
-      console.log(`✅ Created ${sampleCities.length} sample cities`);
-      return sampleCities;
-    }
-
-    return matchingCities;
+    if (projectIds.length === 0) return [];
+    return db.select().from(cities).where(inArray(cities.projectId, projectIds));
   }
 
   async getCity(cityId: string): Promise<City | undefined> {
-    return Array.from(this.cities.values()).find(
-      city => city.cityId === cityId
-    );
+    const [city] = await db.select().from(cities).where(eq(cities.cityId, cityId));
+    return city || undefined;
   }
 
   async createCity(insertCity: InsertCity): Promise<City> {
-    const id = randomUUID();
-    const city: City = {
-      ...insertCity,
-      id,
-      locode: insertCity.locode || null,
-      currentBoundary: insertCity.currentBoundary || null,
-      metadata: insertCity.metadata || {},
-      createdAt: new Date(),
-    };
-    this.cities.set(id, city);
+    const [city] = await db.insert(cities).values(insertCity).returning();
     return city;
   }
 
   async createOrUpdateCity(insertCity: InsertCity): Promise<City> {
-    // Check if city with same cityId already exists
     const existing = await this.getCity(insertCity.cityId);
     if (existing) {
-      // Update existing city
-      const updatedCity: City = {
-        ...existing,
-        ...insertCity,
-        id: existing.id,
-        createdAt: existing.createdAt,
-        locode: insertCity.locode || null,
-        metadata: insertCity.metadata || {},
-      };
-      this.cities.set(existing.id, updatedCity);
-      return updatedCity;
-    } else {
-      // Create new city
-      return await this.createCity(insertCity);
+      const [city] = await db.update(cities).set(insertCity).where(eq(cities.cityId, insertCity.cityId)).returning();
+      return city;
     }
+    return this.createCity(insertCity);
   }
 
-  // Session methods
   async getSession(id: string): Promise<Session | undefined> {
-    return this.sessions.get(id);
+    const [session] = await db.select().from(sessions).where(eq(sessions.id, id));
+    return session || undefined;
   }
 
   async getSessionByToken(token: string): Promise<Session | undefined> {
-    return Array.from(this.sessions.values()).find(
-      session => session.token === token
-    );
+    const [session] = await db.select().from(sessions).where(eq(sessions.token, token));
+    return session || undefined;
   }
 
   async createSession(insertSession: InsertSession): Promise<Session> {
-    const id = randomUUID();
-    const session: Session = {
-      ...insertSession,
-      id,
-      codeVerifier: insertSession.codeVerifier || null,
-      state: insertSession.state || null,
-      createdAt: new Date(),
-    };
-    this.sessions.set(id, session);
+    const [session] = await db.insert(sessions).values(insertSession).returning();
     return session;
   }
 
-  async updateSession(
-    id: string,
-    updates: Partial<Session>
-  ): Promise<Session | undefined> {
-    const session = this.sessions.get(id);
-    if (!session) return undefined;
-
-    const updatedSession = { ...session, ...updates };
-    this.sessions.set(id, updatedSession);
-    return updatedSession;
+  async updateSession(id: string, updates: Partial<Session>): Promise<Session | undefined> {
+    const [session] = await db.update(sessions).set(updates).where(eq(sessions.id, id)).returning();
+    return session || undefined;
   }
 
   async deleteSession(id: string): Promise<void> {
-    this.sessions.delete(id);
+    await db.delete(sessions).where(eq(sessions.id, id));
   }
 
-  // OAuth code tracking methods
   async isCodeConsumed(code: string): Promise<boolean> {
     return this.consumedCodes.has(code);
   }
@@ -253,6 +123,20 @@ export class MemStorage implements IStorage {
   async markCodeAsConsumed(code: string): Promise<void> {
     this.consumedCodes.add(code);
   }
+
+  async getProjectsByCityId(cityId: string): Promise<Project[]> {
+    return db.select().from(projects).where(eq(projects.cityId, cityId));
+  }
+
+  async getProject(id: string): Promise<Project | undefined> {
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    return project || undefined;
+  }
+
+  async createProject(insertProject: InsertProject): Promise<Project> {
+    const [project] = await db.insert(projects).values(insertProject).returning();
+    return project;
+  }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

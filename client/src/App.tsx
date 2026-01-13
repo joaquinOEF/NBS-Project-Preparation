@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 // Core pages
 import Login from '@/core/pages/login';
 import CitySelection from '@/core/pages/city-selection';
+import ProjectPage from '@/core/pages/project';
 import { OAuthCallback } from '@/core/components/auth/oauth-callback';
 import NotFound from '@/core/pages/not-found';
 
@@ -24,6 +25,7 @@ function Router() {
       <Route path='/login' component={Login} />
       <Route path='/auth/callback' component={OAuthCallback} />
       <Route path='/cities' component={CitySelection} />
+      <Route path='/project/:projectId' component={ProjectPage} />
 
       {/* Dynamically loaded module routes */}
       <DynamicModuleRoutes />

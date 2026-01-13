@@ -75,7 +75,19 @@
     "mitigationCardDescription": "Explore ações baseadas em evidências para reduzir emissões e atingir metas climáticas.",
     "adaptationCardDescription": "Descubra estratégias para fortalecer a resiliência contra riscos e impactos climáticos.",
     "viewActions": "Ver Ações",
-    "sampleDataNotice": "Você está visualizando dados de exemplo"
+    "sampleDataNotice": "Você está visualizando dados de exemplo",
+    "selectedActions": "Ações Selecionadas",
+    "initiatedProjects": "Projetos Iniciados",
+    "startProject": "Iniciar Projeto",
+    "goToProject": "Ir para Projeto",
+    "noSelectedActions": "Nenhuma ação selecionada",
+    "emptySelectedActionsHint": "Acesse o Priorizador de Ações de Alto Impacto para identificar ações relevantes para sua cidade",
+    "noInitiatedProjects": "Nenhum projeto iniciado ainda",
+    "mitigation": "Mitigação",
+    "adaptation": "Adaptação"
+  },
+  "project": {
+    "notFound": "Projeto não encontrado"
   },
   "user": {
     "userData": "Dados do Usuário",
@@ -87,6 +99,7 @@
   },
   "common": {
     "loading": "Carregando...",
+    "back": "Voltar",
     "error": "Erro",
     "success": "Sucesso",
     "save": "Salvar",
@@ -108,6 +121,7 @@
   },
   "errors": {
     "notFound": "Página não encontrada",
+    "loadFailed": "Falha ao carregar dados",
     "unauthorized": "Acesso não autorizado",
     "serverError": "Erro interno do servidor",
     "networkError": "Falha na conexão de rede",

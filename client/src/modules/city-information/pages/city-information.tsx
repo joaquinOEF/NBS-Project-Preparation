@@ -1,127 +1,199 @@
-import { useParams, Link } from 'wouter';
-import { useMemo } from 'react';
-import { Header } from '@/core/components/layout/header';
+import { useParams, Link, useLocation } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
-import { CCTerraButton } from '@oef/components';
+import { Skeleton } from '@/core/components/ui/skeleton';
 import {
-  DisplayLarge,
   HeadlineLarge,
-  TitleMedium,
-  BodyMedium,
+  DisplayLarge,
   BodySmall,
 } from '@oef/components';
-import { Skeleton } from '@/core/components/ui/skeleton';
 import { useCityInformation } from '../hooks/useCityInformation';
-import { HIAPActionsModal } from '../components/hiap-actions-modal';
 import {
   MapPin,
   Globe,
   ArrowLeft,
-  Shield,
   Leaf,
-  HeartHandshake,
+  Shield,
   AlertCircle,
+  ArrowRight,
+  FolderOpen,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useSampleData, SAMPLE_HIAP_MITIGATION_DATA, SAMPLE_HIAP_ADAPTATION_DATA } from '@/core/contexts/sample-data-context';
+import { useSampleData } from '@/core/contexts/sample-data-context';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/core/lib/queryClient';
+import { track } from '@/core/lib/analytics';
+
+interface Project {
+  id: string;
+  actionId: string;
+  actionName: string;
+  actionDescription: string;
+  actionType: string;
+  cityId: string;
+  status: string;
+}
 
 export default function CityInformation() {
   const { cityId } = useParams<{ cityId: string }>();
   const { t } = useTranslation();
-  const { isSampleMode, sampleCity } = useSampleData();
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const { isSampleMode, sampleCity, sampleActions, initiatedProjects, initiateProject } = useSampleData();
 
   const { data: cityInfo, isLoading, error } = useCityInformation(cityId, !isSampleMode);
 
-  const latestInventory = useMemo(() => {
+  const { data: projectsData } = useQuery<{ projects: Project[] }>({
+    queryKey: ['/api/projects', cityId],
+    enabled: !isSampleMode && !!cityId,
+  });
+
+  const createProjectMutation = useMutation({
+    mutationFn: async (action: { id: string; name: string; description: string; type: string; cityId: string }) => {
+      return apiRequest('POST', '/api/projects', {
+        actionId: action.id,
+        actionName: action.name,
+        actionDescription: action.description,
+        actionType: action.type,
+        cityId: action.cityId,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', cityId] });
+    },
+  });
+
+  const cityData = isSampleMode ? sampleCity : cityInfo?.data;
+  const city = cityData ? {
+    name: cityData.name,
+    country: cityData.country,
+    locode: cityData.locode,
+  } : null;
+
+  const cityActions = isSampleMode 
+    ? sampleActions.filter(a => a.cityId === cityId)
+    : [];
+
+  const initiatedProjectIds = isSampleMode 
+    ? initiatedProjects 
+    : (projectsData?.projects || []).map(p => p.actionId);
+
+  const selectedActions = cityActions.filter(a => !initiatedProjectIds.includes(a.id));
+  const initiatedProjectActions = cityActions.filter(a => initiatedProjectIds.includes(a.id));
+
+  const handleStartProject = (action: { id: string; name: string; description: string; type: string; cityId: string }) => {
+    track('Climate Action - Start Project', {
+      actionId: action.id,
+      actionName: action.name,
+      actionType: action.type,
+      cityId: action.cityId,
+      isSampleMode,
+    });
+
     if (isSampleMode) {
-      return sampleCity.years[0];
+      initiateProject(action.id);
+      setLocation(`/project/${action.id}`);
+    } else {
+      createProjectMutation.mutate(action, {
+        onSuccess: (response: any) => {
+          setLocation(`/project/${response.project.id}`);
+        },
+      });
     }
-    if (!cityInfo?.data?.years || cityInfo.data.years.length === 0) return null;
-    return [...cityInfo.data.years].sort(
-      (a, b) => (b.year || 0) - (a.year || 0)
-    )[0];
-  }, [cityInfo?.data?.years, isSampleMode, sampleCity]);
+  };
 
-  const city = isSampleMode ? sampleCity : cityInfo?.data;
-  const showLoading = !isSampleMode && isLoading;
-  const showError = !isSampleMode && (error || !cityInfo);
+  const handleGoToProject = (actionId: string, projectId?: string) => {
+    track('Climate Action - Go to Project', {
+      actionId,
+      projectId,
+      isSampleMode,
+    });
 
-  if (showLoading) {
+    if (isSampleMode) {
+      setLocation(`/project/${actionId}`);
+    } else if (projectId) {
+      setLocation(`/project/${projectId}`);
+    }
+  };
+
+  if (isLoading && !isSampleMode) {
     return (
       <div className='min-h-screen bg-background'>
-        <Header />
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-          <div className='space-y-6'>
-            <Skeleton className='h-8 w-64' />
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-              <Skeleton className='h-48' />
-              <Skeleton className='h-48' />
-            </div>
-          </div>
+        <div className='container mx-auto px-4 py-8'>
+          <Skeleton className='h-8 w-32 mb-4' />
+          <Skeleton className='h-12 w-64 mb-2' />
+          <Skeleton className='h-6 w-48' />
         </div>
       </div>
     );
   }
 
-  if (showError) {
+  if (error && !isSampleMode) {
     return (
       <div className='min-h-screen bg-background'>
-        <Header />
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-          <div className='mb-6'>
-            <Link href='/cities'>
-              <CCTerraButton
-                variant='text'
-                className='mb-4'
-                data-testid='button-back-to-cities'
-              >
-                <ArrowLeft className='h-4 w-4 mr-2' />
-                {t('cityInfo.backToCities')}
-              </CCTerraButton>
-            </Link>
-          </div>
-          <Card>
-            <CardContent className='pt-6'>
-              <div className='text-center'>
-                <TitleMedium className='mb-2'>
-                  {t('cityInfo.errorLoadingCity')}
-                </TitleMedium>
-                <BodyMedium>
-                  {t('cityInfo.failedToLoadCity')}: {cityId}
-                </BodyMedium>
-                {error && (
-                  <BodySmall className='mt-2'>
-                    {error instanceof Error
-                      ? error.message
-                      : t('cityInfo.unknownError')}
-                  </BodySmall>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+        <div className='container mx-auto px-4 py-8'>
+          <Link href='/cities'>
+            <Button variant='ghost' className='mb-4'>
+              <ArrowLeft className='h-4 w-4 mr-2' />
+              {t('common.back')}
+            </Button>
+          </Link>
+          <p className='text-destructive'>{t('errors.loadFailed')}</p>
         </div>
       </div>
     );
   }
+
+  const renderActionCard = (action: { id: string; name: string; description: string; type: string; cityId: string }, isInitiated: boolean) => {
+    const project = !isSampleMode 
+      ? (projectsData?.projects || []).find(p => p.actionId === action.id)
+      : null;
+
+    return (
+      <Card key={action.id} className='mb-4'>
+        <CardHeader className='pb-3'>
+          <div className='flex items-center justify-between'>
+            <CardTitle className='text-lg'>{action.name}</CardTitle>
+            <Badge variant={action.type === 'mitigation' ? 'default' : 'secondary'}>
+              {action.type === 'mitigation' ? t('cityInfo.mitigation') : t('cityInfo.adaptation')}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className='text-sm text-muted-foreground mb-4'>{action.description}</p>
+          {isInitiated ? (
+            <Button 
+              onClick={() => handleGoToProject(action.id, project?.id)}
+              className='w-full'
+            >
+              {t('cityInfo.goToProject')}
+              <ArrowRight className='h-4 w-4 ml-2' />
+            </Button>
+          ) : (
+            <Button 
+              onClick={() => handleStartProject(action)}
+              variant='outline'
+              className='w-full'
+              disabled={createProjectMutation.isPending}
+            >
+              {t('cityInfo.startProject')}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className='min-h-screen bg-background'>
-      <Header />
-
-      <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-        <div className='mb-6'>
-          <Link href='/cities'>
-            <CCTerraButton
-              variant='text'
-              className='mb-4'
-              data-testid='button-back-to-cities'
-            >
-              <ArrowLeft className='h-4 w-4 mr-2' />
-              {t('cityInfo.backToCities')}
-            </CCTerraButton>
-          </Link>
-        </div>
+      <div className='container mx-auto px-4 py-8'>
+        <Link href='/cities'>
+          <Button variant='ghost' className='mb-4'>
+            <ArrowLeft className='h-4 w-4 mr-2' />
+            {t('common.back')}
+          </Button>
+        </Link>
 
         <div className='mb-8'>
           <div className='flex items-center gap-3 mb-2'>
@@ -155,83 +227,44 @@ export default function CityInformation() {
           </div>
         )}
 
-        {latestInventory && (
-          <div className='mb-8'>
-            <div className='flex items-center gap-2 mb-6'>
-              <HeartHandshake className='h-5 w-5' />
-              <HeadlineLarge>
-                {t('cityInfo.climateActions')}
-              </HeadlineLarge>
-              <Badge variant='outline' data-testid='badge-hiap-year'>
-                {latestInventory.year || 'N/A'}
-              </Badge>
+        <div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
+          <div>
+            <div className='flex items-center gap-2 mb-4'>
+              <Leaf className='h-5 w-5 text-green-600' />
+              <HeadlineLarge>{t('cityInfo.selectedActions')}</HeadlineLarge>
             </div>
-
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-              <HIAPActionsModal
-                inventoryId={latestInventory.inventoryId}
-                actionType='mitigation'
-                title={t('cityInfo.mitigationActions')}
-                description={t('cityInfo.mitigationDescription')}
-                isSampleMode={isSampleMode}
-                sampleData={SAMPLE_HIAP_MITIGATION_DATA}
-                trigger={
-                  <Card
-                    className='cursor-pointer hover:shadow-md transition-shadow'
-                    data-testid='card-mitigation-actions'
-                  >
-                    <CardHeader>
-                      <CardTitle className='flex items-center gap-2'>
-                        <Leaf className='h-5 w-5 text-green-600' />
-                        {t('cityInfo.mitigationActions')}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className='text-sm text-muted-foreground mb-4'>
-                        {t('cityInfo.mitigationCardDescription')}
-                      </p>
-                      <div className='flex items-center text-sm text-primary font-medium'>
-                        {t('cityInfo.viewActions')}
-                        <ArrowLeft className='h-4 w-4 ml-2 rotate-180' />
-                      </div>
-                    </CardContent>
-                  </Card>
-                }
-              />
-
-              <HIAPActionsModal
-                inventoryId={latestInventory.inventoryId}
-                actionType='adaptation'
-                title={t('cityInfo.adaptationActions')}
-                description={t('cityInfo.adaptationDescription')}
-                isSampleMode={isSampleMode}
-                sampleData={SAMPLE_HIAP_ADAPTATION_DATA}
-                trigger={
-                  <Card
-                    className='cursor-pointer hover:shadow-md transition-shadow'
-                    data-testid='card-adaptation-actions'
-                  >
-                    <CardHeader>
-                      <CardTitle className='flex items-center gap-2'>
-                        <Shield className='h-5 w-5 text-blue-600' />
-                        {t('cityInfo.adaptationActions')}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className='text-sm text-muted-foreground mb-4'>
-                        {t('cityInfo.adaptationCardDescription')}
-                      </p>
-                      <div className='flex items-center text-sm text-primary font-medium'>
-                        {t('cityInfo.viewActions')}
-                        <ArrowLeft className='h-4 w-4 ml-2 rotate-180' />
-                      </div>
-                    </CardContent>
-                  </Card>
-                }
-              />
-            </div>
+            
+            {selectedActions.length > 0 ? (
+              selectedActions.map(action => renderActionCard(action, false))
+            ) : (
+              <Card className='border-dashed'>
+                <CardContent className='py-8 text-center'>
+                  <FolderOpen className='h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50' />
+                  <p className='text-muted-foreground mb-2'>{t('cityInfo.noSelectedActions')}</p>
+                  <p className='text-sm text-muted-foreground'>{t('cityInfo.emptySelectedActionsHint')}</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
-        )}
+
+          <div>
+            <div className='flex items-center gap-2 mb-4'>
+              <Shield className='h-5 w-5 text-blue-600' />
+              <HeadlineLarge>{t('cityInfo.initiatedProjects')}</HeadlineLarge>
+            </div>
+            
+            {initiatedProjectActions.length > 0 ? (
+              initiatedProjectActions.map(action => renderActionCard(action, true))
+            ) : (
+              <Card className='border-dashed'>
+                <CardContent className='py-8 text-center'>
+                  <FolderOpen className='h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50' />
+                  <p className='text-muted-foreground'>{t('cityInfo.noInitiatedProjects')}</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

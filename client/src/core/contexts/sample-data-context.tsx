@@ -5,6 +5,9 @@ interface SampleDataContextType {
   setSampleMode: (value: boolean) => void;
   sampleCity: SampleCityData;
   clearSampleMode: () => void;
+  sampleActions: SampleAction[];
+  initiatedProjects: string[];
+  initiateProject: (actionId: string) => void;
 }
 
 export interface SampleCityData {
@@ -24,6 +27,14 @@ export interface SampleInventoryYear {
   inventoryId: string;
   year: number;
   status: string;
+}
+
+export interface SampleAction {
+  id: string;
+  name: string;
+  description: string;
+  type: 'mitigation' | 'adaptation';
+  cityId: string;
 }
 
 const SAMPLE_CITY: SampleCityData = {
@@ -50,7 +61,53 @@ const SAMPLE_CITY: SampleCityData = {
   ],
 };
 
+const SAMPLE_ACTIONS: SampleAction[] = [
+  {
+    id: 'sample-mit-1',
+    name: 'Urban Reforestation Program',
+    description: 'Large-scale urban tree planting to reduce heat island effect and sequester carbon.',
+    type: 'mitigation',
+    cityId: 'BR POA',
+  },
+  {
+    id: 'sample-mit-2',
+    name: 'Green Building Standards',
+    description: 'Mandate energy-efficient construction standards for new buildings.',
+    type: 'mitigation',
+    cityId: 'BR POA',
+  },
+  {
+    id: 'sample-mit-3',
+    name: 'Sustainable Urban Mobility',
+    description: 'Expand public transit and cycling infrastructure to reduce vehicle emissions.',
+    type: 'mitigation',
+    cityId: 'BR POA',
+  },
+  {
+    id: 'sample-ada-1',
+    name: 'Nature Based Solutions for Climate Resilience',
+    description: 'Implement green infrastructure including wetlands, bioswales, and urban forests for flood management and cooling.',
+    type: 'adaptation',
+    cityId: 'BR POA',
+  },
+  {
+    id: 'sample-ada-2',
+    name: 'Heat Wave Early Warning System',
+    description: 'Community-based heat warning and cooling center network for vulnerable populations.',
+    type: 'adaptation',
+    cityId: 'BR POA',
+  },
+  {
+    id: 'sample-ada-3',
+    name: 'Coastal Flood Protection',
+    description: 'Develop comprehensive flood protection through drainage improvements and natural barriers.',
+    type: 'adaptation',
+    cityId: 'BR POA',
+  },
+];
+
 const STORAGE_KEY = 'nbs_sample_mode';
+const PROJECTS_STORAGE_KEY = 'nbs_sample_projects';
 
 const SampleDataContext = createContext<SampleDataContextType | undefined>(undefined);
 
@@ -60,6 +117,14 @@ export function SampleDataProvider({ children }: { children: ReactNode }) {
       return localStorage.getItem(STORAGE_KEY) === 'true';
     }
     return false;
+  });
+
+  const [initiatedProjects, setInitiatedProjects] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(PROJECTS_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    }
+    return [];
   });
 
   useEffect(() => {
@@ -72,13 +137,27 @@ export function SampleDataProvider({ children }: { children: ReactNode }) {
     }
   }, [isSampleMode]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(initiatedProjects));
+    }
+  }, [initiatedProjects]);
+
   const setSampleMode = (value: boolean) => {
     setIsSampleMode(value);
   };
 
   const clearSampleMode = () => {
     setIsSampleMode(false);
+    setInitiatedProjects([]);
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(PROJECTS_STORAGE_KEY);
+  };
+
+  const initiateProject = (actionId: string) => {
+    if (!initiatedProjects.includes(actionId)) {
+      setInitiatedProjects(prev => [...prev, actionId]);
+    }
   };
 
   return (
@@ -88,6 +167,9 @@ export function SampleDataProvider({ children }: { children: ReactNode }) {
         setSampleMode,
         sampleCity: SAMPLE_CITY,
         clearSampleMode,
+        sampleActions: SAMPLE_ACTIONS,
+        initiatedProjects,
+        initiateProject,
       }}
     >
       {children}
@@ -105,74 +187,12 @@ export function useSampleData() {
 
 export const SAMPLE_HIAP_MITIGATION_DATA = {
   data: {
-    actions: [
-      {
-        id: 'sample-mit-1',
-        name: 'Urban Reforestation Program',
-        description: 'Implement large-scale urban tree planting to reduce heat island effect and sequester carbon.',
-        ghg_reduction_potential: 'High',
-        cost_level: 'Medium',
-        implementation_timeline: '3-5 years',
-        co_benefits: ['Air quality improvement', 'Urban cooling', 'Biodiversity'],
-        kpis: ['Trees planted', 'CO2 sequestered', 'Temperature reduction'],
-      },
-      {
-        id: 'sample-mit-2',
-        name: 'Green Building Standards',
-        description: 'Mandate energy-efficient construction standards for new buildings.',
-        ghg_reduction_potential: 'High',
-        cost_level: 'Low',
-        implementation_timeline: '1-2 years',
-        co_benefits: ['Energy savings', 'Improved indoor air quality', 'Job creation'],
-        kpis: ['Energy efficiency rating', 'Buildings certified', 'Energy saved'],
-      },
-      {
-        id: 'sample-mit-3',
-        name: 'Sustainable Urban Mobility',
-        description: 'Expand public transit and cycling infrastructure to reduce vehicle emissions.',
-        ghg_reduction_potential: 'Very High',
-        cost_level: 'High',
-        implementation_timeline: '5-10 years',
-        co_benefits: ['Reduced congestion', 'Health benefits', 'Equity'],
-        kpis: ['Modal shift percentage', 'Km of bike lanes', 'Transit ridership'],
-      },
-    ],
+    actions: SAMPLE_ACTIONS.filter(a => a.type === 'mitigation'),
   },
 };
 
 export const SAMPLE_HIAP_ADAPTATION_DATA = {
   data: {
-    actions: [
-      {
-        id: 'sample-ada-1',
-        name: 'Flood Risk Management',
-        description: 'Develop comprehensive flood protection through green infrastructure and drainage improvements.',
-        risk_addressed: 'Flooding',
-        cost_level: 'High',
-        implementation_timeline: '3-5 years',
-        co_benefits: ['Water quality', 'Recreation areas', 'Property protection'],
-        kpis: ['Flood events mitigated', 'Area protected', 'Damage reduction'],
-      },
-      {
-        id: 'sample-ada-2',
-        name: 'Heat Wave Early Warning System',
-        description: 'Implement community-based heat warning and cooling center network.',
-        risk_addressed: 'Extreme Heat',
-        cost_level: 'Low',
-        implementation_timeline: '1 year',
-        co_benefits: ['Public health protection', 'Community engagement', 'Equity'],
-        kpis: ['Warning response time', 'People reached', 'Heat-related illness reduction'],
-      },
-      {
-        id: 'sample-ada-3',
-        name: 'Wetland Restoration',
-        description: 'Restore urban wetlands for natural water management and ecosystem services.',
-        risk_addressed: 'Water Scarcity / Flooding',
-        cost_level: 'Medium',
-        implementation_timeline: '2-4 years',
-        co_benefits: ['Biodiversity', 'Recreation', 'Carbon sequestration'],
-        kpis: ['Wetland area restored', 'Species diversity', 'Water retention capacity'],
-      },
-    ],
+    actions: SAMPLE_ACTIONS.filter(a => a.type === 'adaptation'),
   },
 };

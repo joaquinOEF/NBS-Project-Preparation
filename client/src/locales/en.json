@@ -75,7 +75,19 @@
     "mitigationCardDescription": "Explore evidence-based actions to reduce emissions and achieve climate targets.",
     "adaptationCardDescription": "Discover strategies to strengthen resilience against climate risks and impacts.",
     "viewActions": "View Actions",
-    "sampleDataNotice": "You are viewing sample data"
+    "sampleDataNotice": "You are viewing sample data",
+    "selectedActions": "Selected Actions",
+    "initiatedProjects": "Initiated Projects",
+    "startProject": "Start Project",
+    "goToProject": "Go to Project",
+    "noSelectedActions": "No selected actions",
+    "emptySelectedActionsHint": "Go to the High Impact Action Prioritizer to identify actions that are relevant for your city",
+    "noInitiatedProjects": "No initiated projects yet",
+    "mitigation": "Mitigation",
+    "adaptation": "Adaptation"
+  },
+  "project": {
+    "notFound": "Project not found"
   },
   "user": {
     "userData": "User Data",
@@ -87,6 +99,7 @@
   },
   "common": {
     "loading": "Loading...",
+    "back": "Back",
     "error": "Error",
     "success": "Success",
     "save": "Save",
@@ -108,6 +121,7 @@
   },
   "errors": {
     "notFound": "Page not found",
+    "loadFailed": "Failed to load data",
     "unauthorized": "Unauthorized access",
     "serverError": "Server error occurred",
     "networkError": "Network connection failed",

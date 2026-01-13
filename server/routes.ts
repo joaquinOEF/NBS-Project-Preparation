@@ -581,7 +581,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Register module routes
+  // Project routes (for authenticated users)
+  app.get('/api/projects/:cityId', requireAuth, async (req: any, res) => {
+    try {
+      const { cityId } = req.params;
+      const projects = await storage.getProjectsByCityId(cityId);
+      res.json({ projects });
+    } catch (error) {
+      console.error('Get projects error:', error);
+      res.status(500).json({ message: 'Failed to fetch projects' });
+    }
+  });
+
+  app.get('/api/project/:projectId', requireAuth, async (req: any, res) => {
+    try {
+      const { projectId } = req.params;
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ message: 'Project not found' });
+      }
+      res.json({ project });
+    } catch (error) {
+      console.error('Get project error:', error);
+      res.status(500).json({ message: 'Failed to fetch project' });
+    }
+  });
+
+  app.post('/api/projects', requireAuth, async (req: any, res) => {
+    try {
+      const { actionId, actionName, actionDescription, actionType, cityId } = req.body;
+      const project = await storage.createProject({
+        actionId,
+        actionName,
+        actionDescription,
+        actionType,
+        cityId,
+        status: 'initiated',
+      });
+      res.json({ project });
+    } catch (error) {
+      console.error('Create project error:', error);
+      res.status(500).json({ message: 'Failed to create project' });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

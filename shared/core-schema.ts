@@ -3,7 +3,6 @@ import { pgTable, text, varchar, jsonb, timestamp } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
-// Generic core entities that are reusable across all modules
 export const users = pgTable('users', {
   id: varchar('id')
     .primaryKey()
@@ -44,7 +43,19 @@ export const sessions = pgTable('sessions', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
-// Insert schemas
+export const projects = pgTable('projects', {
+  id: varchar('id')
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  actionId: text('action_id').notNull(),
+  actionName: text('action_name').notNull(),
+  actionDescription: text('action_description').notNull(),
+  actionType: text('action_type').notNull(),
+  cityId: text('city_id').notNull(),
+  status: text('status').notNull().default('initiated'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -60,7 +71,11 @@ export const insertSessionSchema = createInsertSchema(sessions).omit({
   createdAt: true,
 });
 
-// Types
+export const insertProjectSchema = createInsertSchema(projects).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
@@ -69,3 +84,6 @@ export type InsertCity = z.infer<typeof insertCitySchema>;
 
 export type Session = typeof sessions.$inferSelect;
 export type InsertSession = z.infer<typeof insertSessionSchema>;
+
+export type Project = typeof projects.$inferSelect;
+export type InsertProject = z.infer<typeof insertProjectSchema>;
