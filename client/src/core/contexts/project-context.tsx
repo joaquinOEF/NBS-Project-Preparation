@@ -348,6 +348,73 @@ const defaultFunderSelection: FunderSelectionData = {
   shortlistedFunds: [],
 };
 
+export const sampleFunderSelection: FunderSelectionData = {
+  status: 'DRAFT',
+  questionnaire: {
+    projectName: 'Nature Based Solutions for Climate Resilience',
+    projectDescription: 'Implement green infrastructure including wetlands, bioswales, and urban forests for flood management and cooling.',
+    sectors: ['CLIMATE', 'WATER', 'URBAN_DEVELOPMENT'],
+    projectStage: 'PREPARATION',
+    existingElements: ['FEASIBILITY_STUDY', 'STAKEHOLDER_MAPPING'],
+    budgetPreparation: 'USD_100K_500K',
+    budgetImplementation: 'USD_5M_20M',
+    generatesRevenue: 'PARTIAL',
+    repaymentSource: 'USER_FEES',
+    investmentSize: 'USD_5M_20M',
+    fundingReceiver: 'MUNICIPAL_GOVERNMENT',
+    canTakeDebt: 'YES_WITH_SOVEREIGN',
+    nationalApproval: 'NOT_REQUIRED',
+    openToBundling: 'YES',
+  },
+  pathway: {
+    primary: 'BLENDED_FINANCE',
+    secondary: 'PUBLIC_PROGRAM',
+    readinessLevel: 'CONCEPT_NOTE',
+    limitingFactors: ['MRV_CAPACITY', 'LOCAL_CAPACITY'],
+  },
+  selectedFunds: ['GCF', 'AF'],
+  shortlistedFunds: ['GCF', 'AF', 'CIF', 'GEF'],
+};
+
+export const sampleSiteExplorer: SiteExplorerData = {
+  selectedZones: [
+    {
+      zoneId: 'zone-1',
+      hazardType: 'FLOOD',
+      riskScore: 0.78,
+      area: 45000,
+      interventionType: 'sponge_network',
+    },
+    {
+      zoneId: 'zone-2',
+      hazardType: 'HEAT',
+      riskScore: 0.85,
+      area: 32000,
+      interventionType: 'cooling_network',
+    },
+    {
+      zoneId: 'zone-3',
+      hazardType: 'LANDSLIDE',
+      riskScore: 0.65,
+      area: 28000,
+      interventionType: 'slope_stabilization',
+    },
+  ],
+  layerPreferences: {
+    flood: true,
+    heat: true,
+    landslide: true,
+    vegetation: true,
+    population: true,
+  },
+  hazardSummary: {
+    floodCells: 156,
+    heatCells: 234,
+    landslideCells: 89,
+    totalCells: 479,
+  },
+};
+
 interface ProjectContextValue {
   context: ProjectContextData | null;
   loadContext: (projectId: string) => ProjectContextData | null;
@@ -518,10 +585,10 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
       stakeholders: defaultStakeholders,
       sites: defaultSites,
       hazardFocus: ['FLOOD', 'HEAT', 'LANDSLIDE'],
-      funderSelection: { ...defaultFunderSelection },
+      funderSelection: { ...sampleFunderSelection },
       operations: omData ? JSON.parse(omData) : null,
       businessModel: bmData ? JSON.parse(bmData) : null,
-      siteExplorer: null,
+      siteExplorer: { ...sampleSiteExplorer },
       impactModel: null,
       lastUpdated: {
         operations: omData ? new Date().toISOString() : undefined,

@@ -15,7 +15,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/core/comp
 import { ScrollArea } from '@/core/components/ui/scroll-area';
 import { useTranslation } from 'react-i18next';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
-import { useProjectContext, ImpactModelData, PrioritizationWeights, LensType, InterventionBundle, NarrativeBlock, CoBenefitCard, SignalCard } from '@/core/contexts/project-context';
+import { useProjectContext, ImpactModelData, PrioritizationWeights, LensType, InterventionBundle, NarrativeBlock, CoBenefitCard, SignalCard, sampleSiteExplorer, sampleFunderSelection } from '@/core/contexts/project-context';
 import { useToast } from '@/core/hooks/use-toast';
 
 type WizardStep = 'setup' | 'generate' | 'curate' | 'lenses' | 'export';
@@ -323,7 +323,7 @@ function GenerateStep({
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('impactModel.targetHazards')}:</span>
-                <span>{[...new Set(data.interventionBundles.flatMap(b => b.targetHazards))].join(', ') || '-'}</span>
+                <span>{Array.from(new Set(data.interventionBundles.flatMap(b => b.targetHazards))).join(', ') || '-'}</span>
               </div>
             </div>
           </div>
@@ -903,12 +903,15 @@ export default function ImpactModelPage() {
     toast({ title: t('impactModel.signalsPushed'), description: t('impactModel.bmSignalsPushed') });
   };
 
-  const siteExplorerZones = context?.siteExplorer?.selectedZones?.map(zone => {
+  const rawZones = context?.siteExplorer?.selectedZones ?? sampleSiteExplorer.selectedZones;
+  const siteExplorerZones = rawZones.map(zone => {
     if (typeof zone === 'string') {
-      return { zoneId: zone, name: zone, hazardType: 'FLOOD' };
+      return { zoneId: zone, name: zone, hazardType: 'FLOOD' as const };
     }
     return zone;
-  }) || [];
+  });
+
+  const funderPathway = context?.funderSelection?.pathway ?? sampleFunderSelection.pathway;
 
   const canProceed = () => {
     switch (currentStep) {
