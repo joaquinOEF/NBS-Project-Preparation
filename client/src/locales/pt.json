@@ -100,6 +100,13 @@
     "contextModalTitle": "Contexto do Projeto",
     "contextModalDescription": "Todos os dados coletados nos módulos deste projeto",
     "contextEmpty": "Nenhum dado de contexto salvo ainda. Complete os módulos para construir o contexto do seu projeto.",
+    "dataFlow": {
+      "title": "Fluxo de Dados Entre Módulos",
+      "toggle": "Fluxo de Dados",
+      "connections": "Conexões de Dados",
+      "hasData": "Com dados",
+      "noData": "Sem dados ainda"
+    },
     "contextSections": {
       "projectInfo": "Informações do Projeto",
       "stakeholders": "Partes Interessadas",

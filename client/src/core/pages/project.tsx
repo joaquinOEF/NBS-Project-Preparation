@@ -245,9 +245,129 @@ function ImpactModelHighlight({ data }: { data: ProjectContextData['impactModel'
   );
 }
 
+function DataFlowDiagram({ context }: { context: ProjectContextData | null }) {
+  const { t } = useTranslation();
+  
+  const modules = [
+    { 
+      id: 'funder', 
+      name: t('project.contextSections.funderSelection'),
+      color: 'bg-green-500',
+      hasData: Boolean(context?.funderSelection && context.funderSelection.status && context.funderSelection.status !== 'NOT_STARTED'),
+      outputs: ['pathway', 'constraints', 'funds']
+    },
+    { 
+      id: 'site', 
+      name: t('project.contextSections.siteExplorer'),
+      color: 'bg-blue-500',
+      hasData: Boolean(context?.siteExplorer?.selectedZones && context.siteExplorer.selectedZones.length > 0),
+      outputs: ['zones', 'risks', 'interventions']
+    },
+    { 
+      id: 'impact', 
+      name: t('project.contextSections.impactModel'),
+      color: 'bg-purple-500',
+      hasData: Boolean(context?.impactModel && context.impactModel.status && context.impactModel.status !== 'NOT_STARTED'),
+      outputs: ['narratives', 'co-benefits', 'signals']
+    },
+    { 
+      id: 'ops', 
+      name: t('project.contextSections.operations'),
+      color: 'bg-orange-500',
+      hasData: Boolean(context?.operations && context.operations.status && context.operations.status !== 'NOT_STARTED'),
+      outputs: ['costs', 'tasks', 'roles']
+    },
+    { 
+      id: 'biz', 
+      name: t('project.contextSections.businessModel'),
+      color: 'bg-emerald-500',
+      hasData: Boolean(context?.businessModel && context.businessModel.status && context.businessModel.status !== 'NOT_STARTED'),
+      outputs: ['revenue', 'financing']
+    },
+  ];
+
+  const connections = [
+    { from: 'funder', to: 'impact', label: 'pathway' },
+    { from: 'funder', to: 'biz', label: 'pathway' },
+    { from: 'site', to: 'impact', label: 'zones' },
+    { from: 'impact', to: 'ops', label: 'O&M signals' },
+    { from: 'impact', to: 'biz', label: 'revenue signals' },
+    { from: 'ops', to: 'biz', label: 'costs' },
+  ];
+
+  return (
+    <div className="p-4 bg-muted/30 rounded-lg">
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-5 gap-2">
+          {modules.map((mod) => (
+            <div 
+              key={mod.id}
+              className={`relative p-2 rounded-lg border-2 text-center text-xs ${
+                mod.hasData 
+                  ? `${mod.color}/20 border-current` 
+                  : 'bg-muted/50 border-dashed border-muted-foreground/30'
+              }`}
+              style={{ borderColor: mod.hasData ? undefined : undefined }}
+            >
+              <div className={`w-2 h-2 rounded-full ${mod.hasData ? mod.color : 'bg-muted-foreground/30'} mx-auto mb-1`} />
+              <span className={mod.hasData ? 'font-medium' : 'text-muted-foreground'}>
+                {mod.name}
+              </span>
+              {mod.hasData && (
+                <div className="mt-1 flex flex-wrap gap-0.5 justify-center">
+                  {mod.outputs.map(o => (
+                    <span key={o} className="text-[9px] bg-background/50 px-1 rounded">{o}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">{t('project.dataFlow.connections')}:</p>
+          <div className="flex flex-wrap gap-2">
+            {connections.map((conn, i) => {
+              const fromMod = modules.find(m => m.id === conn.from);
+              const toMod = modules.find(m => m.id === conn.to);
+              const isActive = fromMod?.hasData;
+              
+              return (
+                <div 
+                  key={i}
+                  className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-full ${
+                    isActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  <span>{fromMod?.name?.split(' ')[0]}</span>
+                  <span>→</span>
+                  <span>{toMod?.name?.split(' ')[0]}</span>
+                  <span className="opacity-60">({conn.label})</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 text-[10px] text-muted-foreground border-t pt-2">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <span>{t('project.dataFlow.hasData')}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
+            <span>{t('project.dataFlow.noData')}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ContextViewer({ context }: { context: ProjectContextData | null }) {
   const { t } = useTranslation();
   const [showRawJson, setShowRawJson] = useState(false);
+  const [showDataFlow, setShowDataFlow] = useState(true);
   
   if (!context) {
     return (
@@ -277,12 +397,26 @@ function ContextViewer({ context }: { context: ProjectContextData | null }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button 
+          variant={showDataFlow ? 'default' : 'ghost'} 
+          size="sm" 
+          onClick={() => setShowDataFlow(!showDataFlow)}
+        >
+          {t('project.dataFlow.toggle')}
+        </Button>
         <Button variant="ghost" size="sm" onClick={() => setShowRawJson(true)}>
           Show Raw JSON
         </Button>
       </div>
-      <ScrollArea className="h-[55vh]">
+      
+      {showDataFlow && (
+        <ContextSection title={t('project.dataFlow.title')} defaultOpen={true}>
+          <DataFlowDiagram context={context} />
+        </ContextSection>
+      )}
+      
+      <ScrollArea className="h-[50vh]">
         <div className="space-y-2 pr-4">
           <ContextSection title={t('project.contextSections.projectInfo')} defaultOpen={true}>
             <div className="space-y-1 text-sm">
