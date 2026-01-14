@@ -1,0 +1,275 @@
+Below is a **clear, operational answer** to two questions:
+
+1. **Do any of these sources require an API key?**
+2. **What is the most effective way to access each dataset in practice (for an MVP and beyond)?**
+
+---
+
+## Short answer (executive summary)
+
+* **You can build the entire prototype with *zero API keys***.
+* The safest, most scalable approach is **direct access to Cloud Optimized GeoTIFFs (COGs) or static downloads**, plus **local caching**.
+* A few sources *offer* APIs, but you should **avoid them** unless you need near-real-time data.
+
+---
+
+## Dataset-by-dataset: API key requirements and access strategy
+
+### **1) Copernicus DEM GLO-30 / FABDEM**
+
+**API key required?** ❌ No (for static datasets)
+
+**Best access method:**
+
+* Download or stream **Cloud Optimized GeoTIFFs (COGs)** from open repositories
+* Read only the bounding box window you need using HTTP range requests
+
+**Notes:**
+
+* Avoid Sentinel Hub / Copernicus APIs unless you need dynamic processing (they require accounts and quotas)
+* COG access is stable, fast, and reproducible
+
+**Verdict:**
+✅ **No key, ideal for production**
+
+---
+
+### **2) ESA WorldCover (10 m)**
+
+**API key required?** ❌ No
+
+**Best access method:**
+
+* Static **COG tiles** (3×3 degree tiles, EPSG:4326)
+* Download once per tile, cache locally or in object storage
+
+**Notes:**
+
+* Tiles are large but manageable
+* Zonal statistics on a coarser grid are fast once cached
+
+**Verdict:**
+✅ **No key, very safe**
+
+---
+
+### **3) MapBiomas (Brazil only)**
+
+**API key required?** ❌ No
+
+**Best access method:**
+
+* Static raster downloads (GeoTIFF)
+* Country-specific, so cache by biome or state
+
+**Notes:**
+
+* Excellent quality for Brazil
+* Slightly more manual data management, but no auth
+
+**Verdict:**
+✅ **No key, Brazil-optimized**
+
+---
+
+### **4) JRC Global Surface Water**
+
+**API key required?** ❌ No
+
+**Best access method:**
+
+* Static raster downloads (COGs available)
+* Use “occurrence” or “seasonality” layers only
+
+**Notes:**
+
+* Very stable dataset
+* Perfect for floodplain adjacency proxies
+
+**Verdict:**
+✅ **No key, very safe**
+
+---
+
+### **5) HydroSHEDS / HydroRIVERS**
+
+**API key required?** ❌ No
+
+**Best access method:**
+
+* Download vector datasets by continent or region
+* Clip to city bounding box on the backend
+
+**Notes:**
+
+* Use HydroRIVERS (vector lines) for distance-to-river
+* No reason to query APIs here
+
+**Verdict:**
+✅ **No key, lightweight**
+
+---
+
+### **6) OpenStreetMap (waterways, canals)**
+
+**API key required?** ❌ No (but rate-limited)
+
+**Best access method:**
+
+* Overpass API queries for `waterway=*`
+* Cache results per city/bbox immediately
+
+**Notes:**
+
+* Overpass has rate limits, not keys
+* Cache aggressively to avoid repeated queries
+
+**Verdict:**
+⚠️ **No key, but cache immediately**
+
+---
+
+### **7) Hansen Global Forest Change (Tree canopy)**
+
+**API key required?** ❌ No
+
+**Best access method:**
+
+* Static tiled downloads (10×10 degree GeoTIFFs)
+* Use `treecover2000` band only
+
+**Notes:**
+
+* Very widely used
+* Zonal mean is cheap once raster is clipped
+
+**Verdict:**
+✅ **No key, very safe**
+
+---
+
+### **8) GHSL Built-Up Grid**
+
+**API key required?** ❌ No
+
+**Best access method:**
+
+* Static raster downloads (choose one epoch, e.g. 2020)
+* Clip + zonal mean
+
+**Notes:**
+
+* Portal is sometimes slow, but no auth
+* Cache aggressively
+
+**Verdict:**
+✅ **No key, safe**
+
+---
+
+### **9) WorldPop (population)**
+
+**API key required?** ❌ No
+
+**Best access method:**
+
+* Static raster downloads by country/year
+* Use population counts (not density if possible)
+
+**Notes:**
+
+* Also mirrored on humanitarian data portals
+* Zonal sum is trivial
+
+**Verdict:**
+✅ **No key, very safe**
+
+---
+
+### **10) MODIS Land Surface Temperature (optional)**
+
+**API key required?** ⚠️ Depends
+
+**Options:**
+
+* **Direct download (no key)** from public data mirrors (slower)
+* **NASA Earthdata login** required for official APIs (not ideal for MVP)
+
+**Recommendation:**
+
+* Treat LST as **optional validation**
+* Use preprocessed or mirrored datasets if needed
+
+**Verdict:**
+⚠️ **Avoid unless necessary**
+
+---
+
+### **11) Copernicus EMS Flood Extents (validation)**
+
+**API key required?** ❌ No
+
+**Best access method:**
+
+* Download shapefiles for specific events
+* Overlay only; do not integrate into core pipeline
+
+**Verdict:**
+✅ **No key, event-based**
+
+---
+
+## Summary table (keys vs no keys)
+
+| Dataset           | API Key Needed | Recommended Access |
+| ----------------- | -------------- | ------------------ |
+| Copernicus DEM    | ❌ No           | COG window reads   |
+| ESA WorldCover    | ❌ No           | COG tiles          |
+| MapBiomas         | ❌ No           | Static GeoTIFF     |
+| JRC Surface Water | ❌ No           | Static raster      |
+| HydroSHEDS/RIVERS | ❌ No           | Static vector      |
+| OSM Overpass      | ❌ No           | Query + cache      |
+| Hansen Forest     | ❌ No           | Static tiles       |
+| GHSL Built-Up     | ❌ No           | Static raster      |
+| WorldPop          | ❌ No           | Static raster      |
+| MODIS LST         | ⚠️ Sometimes   | Optional           |
+| Copernicus EMS    | ❌ No           | Event shapefiles   |
+
+---
+
+## Recommended access pattern (this is key)
+
+### **Golden rule**
+
+> **Prefer static, versioned datasets over APIs.**
+
+### Practical implementation pattern
+
+1. Resolve city AOI (bbox or polygon)
+2. Identify intersecting tiles per dataset
+3. Download once → cache locally or in object storage
+4. Clip + resample to working grid
+5. Save derived metrics to DB
+6. Never re-download unless:
+
+   * dataset version changes
+   * AOI changes
+
+This is **faster, cheaper, and more reproducible** than APIs.
+
+---
+
+## Why this matters for your platform
+
+* No API keys → fewer onboarding issues for users
+* No quotas → predictable costs
+* Deterministic outputs → easier validation
+* Easier open-source or NGO deployment
+
+This is exactly how serious planning platforms avoid operational fragility.
+
+If you want next, I can:
+
+* Propose a **tile index + caching schema**
+* Recommend **which datasets to pre-seed** globally vs on-demand
+* Help you write a realization like: *“This platform uses only open, key-free global datasets”* for funders

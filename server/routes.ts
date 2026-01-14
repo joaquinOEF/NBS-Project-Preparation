@@ -22,6 +22,12 @@ import {
 } from './services/cityService';
 import { getCityBoundary as getOSMCityBoundary } from './services/osmService';
 import { getElevationData } from './services/copernicusService';
+import { getLandcoverData } from './services/worldcoverService';
+import { getSurfaceWaterData } from './services/surfaceWaterService';
+import { getRiversData } from './services/riversService';
+import { getForestCanopyData } from './services/forestService';
+import { getPopulationData } from './services/populationService';
+import type { LayerType } from '../shared/geospatial-schema';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -668,6 +674,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Get elevation data error:', error);
       res.status(500).json({ message: error.message || 'Failed to fetch elevation data' });
+    }
+  });
+
+  app.post('/api/geospatial/layer/:layerType', async (req: any, res) => {
+    try {
+      const { layerType } = req.params as { layerType: LayerType };
+      const { cityLocode, bounds } = req.body;
+      
+      if (!cityLocode || !bounds) {
+        return res.status(400).json({ message: 'cityLocode and bounds are required' });
+      }
+
+      console.log(`🗺️ Getting ${layerType} layer for ${cityLocode}`);
+
+      let result;
+      switch (layerType) {
+        case 'landcover':
+          result = await getLandcoverData(cityLocode, bounds);
+          break;
+        case 'surface_water':
+          result = await getSurfaceWaterData(cityLocode, bounds);
+          break;
+        case 'rivers':
+          result = await getRiversData(cityLocode, bounds);
+          break;
+        case 'forest_canopy':
+          result = await getForestCanopyData(cityLocode, bounds);
+          break;
+        case 'population':
+          result = await getPopulationData(cityLocode, bounds);
+          break;
+        default:
+          return res.status(400).json({ message: `Unknown layer type: ${layerType}` });
+      }
+
+      res.json({ data: result });
+    } catch (error: any) {
+      console.error(`Get ${req.params.layerType} layer error:`, error);
+      res.status(500).json({ message: error.message || 'Failed to fetch layer data' });
     }
   });
 
