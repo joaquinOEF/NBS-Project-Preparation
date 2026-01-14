@@ -1,0 +1,134 @@
+Business Model Prompt
+
+You are a senior full-stack engineer building on an existing Replit prototype for CityCatalyst’s Project Preparation Module.
+Goal Implement a new “Business Model” stage + component for pre-feasibility (concept note depth) that fits the existing UX patterns and data model conventions already used in the prototype. All previous steps (Problem, Site, Budget, Impact, Implementors, MRV, Readiness, and Operations/O&M) already exist and are loaded into the project context. 
+
+Your implementation must: 1) Prefill Business Model fields from existing project context (agentic/context-aware prefill). 2) Provide a guided Business Model builder (archetypes + payer logic + revenue stack with confidence). 3) Include a conversational assistant on the BM page that can propose edits, generate value-flow logic, and draft concept note text. 4) Include a simple diagram generator (text-based output) for the business model value flow that can be pasted into Miro AI diagram generator. 5) Produce a “Business Model Playbook” preview and a “Bankability/Readiness Gate” status. 6) Cross-check consistency with Operations/O&M (e.g., if outcome/performance-linked, ensure verifier and O&M funding concept exists; do not block, but flag).
+Constraints / UX conventions
+Inherit the existing UI layout, routing, state management, and styling decisions in the prototype.
+Keep the user flow lightweight: archetypes, ranges, checklists, and confidence tags; avoid full financial modeling.
+Progressive disclosure: show NBS-specific recommendations only when action_type == "NBS".
+Avoid duplicating fields already captured in other steps; link and import them.
+Any agentic changes must be user-confirmed before applying.
+Deliverables A) New route/page: Project Prep → Finance → “Business Model” B) New persistent component data object stored on the Project record: business_model C) Prefill logic that reads existing project context and populates defaults D) Embedded chat assistant panel with suggested actions E) Diagram generator output (Miro AI prompt text) F) Business Model Playbook preview + exportable snippet for concept note G) Bankability/readiness status + blockers integrated into overall readiness model
+
+1) Data model (add to Project schema / state) Add a new object: business_model with this shape (TypeScript interfaces if applicable):
+business_model: {   status: "NOT_STARTED" | "DRAFT" | "READY",
+// Imported context snapshot (for traceability; editable)   imported_context: {     action_type?: string,                // e.g., "NBS"     hazard_focus?: string[],             // e.g., ["FLOOD","HEAT"]     problem_summary?: string,     objectives?: string[],     solution_archetype?: string,         // from technology/solution step     sites?: Array<{ id: string, name: string }>,     stakeholders?: Array<{ id: string, name: string, type: string }>,     implementors?: Array<{ id: string, name: string, type: string }>,     budget_band?: { low?: number, mid?: number, high?: number, currency?: string },     political_readiness?: { level?: "LOW"|"MEDIUM"|"HIGH", notes?: string },     financial_readiness?: { level?: "LOW"|"MEDIUM"|"HIGH", notes?: string },     mrv_intent?: { indicators?: string[] },     operations_summary?: {       operating_model?: string,       operator_entity_id?: string,       verifier_entity_id?: string,       om_funding_mechanisms?: string[]     }   },
+// Core BM choices   primary_archetype: "PUBLIC_PROGRAM" | "UTILITY_SERVICE" | "SERVICE_CONTRACT" | "LAND_VALUE_CAPTURE" | "BLENDED_FINANCE" | "CREDIT_ADDON" | "INSURANCE_LINKED" | null,
+payer_beneficiary_map: {     beneficiaries: Array<{ stakeholder_id: string, benefit_type?: string }>,     candidate_payers: Array<{ stakeholder_id: string, mechanism_hint?: string }>,     primary_payer_id: string | null   },
+payment_mechanism: {     type: "CITY_BUDGET" | "FEE_TARIFF" | "AVAILABILITY_PAYMENT" | "DEVELOPER_CONTRIBUTION" | "OUTCOME_PAYMENT" | "CONCESSION_REVENUE" | "CREDIT_REVENUE" | null,     basis: "ASSET_UPTIME" | "SERVICE_DELIVERY" | "OUTCOME_VERIFIED" | "ANNUAL_APPROPRIATION" | "PERMITS_FEES" | "CREDITS_SOLD" | null,     duration_years: 1 | 3 | 5 | 10 | null,     legal_instrument_hint?: "ORDINANCE" | "MOU" | "SERVICE_CONTRACT" | "TARIFF_RESOLUTION" | "DEVELOPMENT_AGREEMENT" | "INSURANCE_POLICY" | "OTHER" | null   },
+revenue_stack: Array<{    revenue_type: "BUDGET_ALLOCATION" | "FEE_TARIFF_ALLOCATION" | "SERVICE_CONTRACT_PAYMENTS" | "DEVELOPER_FEES" | "DISTRICT_LEVY" | "PHILANTHROPY_GRANT" | "DFI_LOAN" | "BOND_PROCEEDS" | "CREDIT_REVENUE" | "CORPORATE_CO_FUNDING",    role: "PRIMARY_DURABLE" | "SECONDARY_SUPPORT" | "UPSIDE_OPTIONAL",    confidence: "HIGH" | "MEDIUM" | "LOW",    duration_years?: 1 | 3 | 5 | 10,    prerequisites?: string[],         // what must be true (data/policy/contract)    notes?: string  }>,
+sources_and_uses_rom: {     capex_band?: { low?: number, mid?: number, high?: number, currency?: string },     opex_band?: { low?: number, mid?: number, high?: number, currency?: string },     mrv_budget_band?: { low?: number, mid?: number, high?: number, currency?: string },     assumptions?: string   },
+financing_pathway: {     pathway: "PUBLIC_CAPEX" | "DFI_LOAN" | "MUNICIPAL_BOND" | "BLENDED_VEHICLE" | "PPP_LIGHT" | "PHILANTHROPY_ONLY" | null,     rationale?: string,     eligibility_notes?: string[]   },
+enabling_actions: Array<{    action: string,    category: "POLICY" | "CONTRACTING" | "DATA_MRV" | "GOVERNANCE" | "PROCUREMENT" | "CAPACITY",    priority: "HIGH" | "MEDIUM" | "LOW",    owner_stakeholder_id?: string  }>,
+bm_risks: Array<{    risk_type: "COUNTERPARTY_CREDIT" | "POLICY_CHANGE" | "REVENUE_VOLATILITY" | "MRV_ATTRIBUTION" | "MARKET_DEMAND" | "IMPLEMENTATION_CAPACITY",    risk_level: "LOW" | "MEDIUM" | "HIGH",    mitigation: string  }>,
+readiness: {     blockers: string[], // computed     checklist: {       primary_archetype_selected: boolean,       primary_payer_selected: boolean,       one_high_confidence_revenue_line: boolean,       duration_set: boolean,       financing_pathway_selected: boolean,       consistency_checked_with_ops: boolean     }   } }
+
+2) Prefill logic (agentic/context-aware) Implement buildBusinessModelPrefill(project): Partial that:
+Copies imported_context snapshot from prior steps (problem, hazards, stakeholders, budget band, readiness levels, MRV indicators, ops summary)
+Infers likely beneficiaries and candidate payers:
+If hazard_focus includes FLOOD → utility/stormwater program and property owners become candidates
+If HEAT → city/public health/energy utility candidates; building owners for ESCO-like paths
+If LANDSLIDE → transport/road authority/utility asset operators candidates
+Suggest a primary archetype (with a recommended badge) using simple rules:
+If a utility exists and flood-related → UTILITY_SERVICE
+If clear single asset operator benefits (roads/utility) → SERVICE_CONTRACT
+If budget band exists but readiness low → PUBLIC_PROGRAM + PHILANTHROPY_ESTABLISHMENT_GRANT
+If redevelopment district present → LAND_VALUE_CAPTURE
+If mixed funding needed → BLENDED_FINANCE
+Pre-populate payment_mechanism.type and basis accordingly
+Pre-populate revenue_stack with:
+1 primary durable line (confidence HIGH if it’s an existing budget/fee; otherwise MEDIUM)
+1 supportive line (philanthropy for establishment period) if action_type==NBS
+1 optional upside line (credits) as LOW confidence by default (do not oversell)
+Pre-populate sources_and_uses_rom using project budget bands and operations O&M bands
+Pre-populate enabling_actions based on gaps (e.g., “Pass ordinance to earmark fee”, “Sign stewardship/service contract”, “Define MRV protocol”, “Identify creditworthy payer”)
+
+Add a “We already know…” panel (or something similar to this concept) on the BM page:
+Show imported context
+Allow [Accept Prefill] [Re-run Suggestions] [Edit imported snapshot] Edits to imported snapshot must not overwrite upstream step data.
+
+3) UI requirements (wireframe-level) Implement the BM page with the existing layout conventions, for example:
+Left sidebar: wizard navigation
+Main content: guided builder panels
+Right side: collapsible “Ask CityCatalyst” assistant
+
+Main content sections (single page with anchored sections OR 4-step subwizard, depending on existing patterns): A) Overview + Prefill Summary
+Imported context summary and “Re-run BM Suggestions” B) Payers & Beneficiaries Map
+Beneficiaries multi-select (from stakeholders)
+Candidate payers multi-select (from stakeholders)
+Primary payer selector (required)
+Quick hint chips per stakeholder (“Utility”, “Developer”, “Health”, “Transport”, etc.) C) Business Model Archetype Selector
+7 archetype cards:
+Public program
+Utility service
+Service contract (availability-style)
+Land value capture
+Blended finance
+Credit add-on (supplementary)
+Insurance-linked (innovative)
+Show “Recommended” banner + rationale D) Revenue Stack Builder (confidence-based)
+Table with rows:
+Revenue type
+Role (Primary durable / Secondary support / Upside optional)
+Confidence (High/Med/Low)
+Duration
+Prerequisites (multi-select tags)
+Notes
+Constraint: Require at least one HIGH confidence line to mark READY E) Financing Pathway Match
+Dropdown with recommended option
+Rationale text
+Eligibility notes checklist F) Enabling Actions + Risks + Readiness Gate
+Enabling actions list (editable; can assign owner)
+BM risks list (auto-suggest + editable)
+Readiness checklist + blockers
+Value Flow Canvas (embedded visualization) Include a simple “Value Flow Canvas” panel (not a full diagram):
+Shows: Primary payer → mechanism/fund → implementor/operator → verified outcomes
+Updates live with user selections
+Consistency banner with Operations/O&M If operations_om exists:
+Check if verifier is set when payment basis is OUTCOME_VERIFIED
+Check if O&M funding exists when revenue stack expects multi-year payments
+If inconsistent: show warnings and suggested fixes; do not block completion
+4) Conversational assistant (embedded) Add right panel “Ask CityCatalyst” that supports:
+Suggested prompt buttons:
+“Recommend a primary business model for this project”
+“Propose 2 credible revenue stacks without relying on credits”
+“Generate enabling actions to make this bankable”
+“Draft the Business Model section for the concept note”
+“Generate a Miro value-flow diagram prompt” Assistant requirements:
+Reads project context + current business_model draft
+Returns suggestions as structured deltas (JSON patch or recommended field updates) + explanation
+Requires user confirmation to apply changes
+If LLM integration exists, reuse it; otherwise stub with deterministic rule-based responses with the same interface for future swap.
+5) Diagram generator (AI prompt output or basic manual one with simple components) Add a button “Generate  Diagram Prompt” that outputs a text blob for an AI diagram generator such as Miro AI, or a basic internal diagram UI that has basic components, boxes and arrows for outlining the business model.  It must reflect current selections and include:
+Nodes: payer(s), mechanism/fund, program operator, implementors, MRV/verifier, beneficiaries/outcomes
+Edges: money flows, governance/contract flows, data/MRV flows, outcome flows
+Must include confidence tags for each revenue line (optional as labels)
+Example output should follow the same “Title / Diagram type / Nodes / Directed edges” style used elsewhere in the prototype.
+6) Business Model Playbook preview + concept note snippet Add a “Playbook Preview” accordion (or modal) that renders:
+Primary archetype + rationale
+Payer/beneficiary logic
+Payment mechanism summary (type, basis, duration, legal hint)
+Revenue stack with confidence and prerequisites
+Financing pathway + eligibility notes
+Enabling actions (prioritized)
+Key risks + mitigations
+Next steps checklist (derived from blockers)
+Add “Copy to Concept Note” generating a formatted text section.
+7) Integration points
+Project Overview: show a “Business Model” card with status + top blockers
+Readiness step: include BM readiness in global readiness score (if supported)
+Ensure autosave matches existing behavior.
+8) Acceptance criteria (must pass)
+BM page loads with meaningful prefill from context without user retyping
+User can select primary archetype + payer + at least one HIGH confidence revenue line + duration + financing pathway and reach status READY
+Assistant proposes changes and applies only with user confirmation
+Diagram generator outputs coherent Miro prompt and updates with user changes
+Playbook preview produces usable concept note content
+Ops consistency warnings trigger appropriately when relevant
+Implementation instructions
+Inspect existing codebase structure first (routes, components, state management, API patterns).
+Add new route, update navigation, add schema changes, ensure persistence.
+Use existing form controls (chips, cards, tables) and validation conventions.
+Keep code changes scoped to BM component; do not refactor unrelated modules.
