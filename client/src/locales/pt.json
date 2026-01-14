@@ -854,6 +854,7 @@
     "bmSignalsPushed": "Sinais de receita enviados para o módulo Modelo de Negócio",
     "generationComplete": "Geração Concluída",
     "narrativeReady": "Sua narrativa de impacto está pronta para revisão",
+    "generationFailed": "Falha ao gerar narrativa. Por favor, tente novamente.",
     "saved": "Modelo de Impacto Salvo",
     "savedDescription": "Seu modelo de impacto foi finalizado e salvo",
     "finalize": "Finalizar Modelo de Impacto"

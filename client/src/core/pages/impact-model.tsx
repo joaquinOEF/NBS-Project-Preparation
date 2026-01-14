@@ -764,125 +764,41 @@ export default function ImpactModelPage() {
   const handleGenerate = async () => {
     setIsGenerating(true);
     
-    setTimeout(() => {
-      const mockBlocks: NarrativeBlock[] = [
-        {
-          id: 'block-1',
-          title: 'Executive Summary',
-          type: 'summary',
-          lens: 'neutral',
-          contentMd: 'This Nature-Based Solutions portfolio addresses critical climate risks through an integrated approach combining flood mitigation, urban cooling, and slope stabilization interventions.',
-          evidenceTier: 'MODELLED',
-          included: true,
-          kpis: [
-            { name: 'Flood Risk Reduction', valueRange: '25-40%', unit: 'reduction', confidence: 'MEDIUM' },
-          ],
-        },
-        {
-          id: 'block-2',
-          title: 'Theory of Change',
-          type: 'theory_of_change',
-          lens: 'neutral',
-          contentMd: 'By increasing permeable surfaces and vegetation cover, the project will reduce surface runoff, lower ambient temperatures, and stabilize vulnerable slopes, creating cascading benefits for public health and urban resilience.',
-          evidenceTier: 'ASSUMPTION',
-          included: true,
-        },
-        {
-          id: 'block-3',
-          title: 'Expected Impacts',
-          type: 'expected_impacts',
-          lens: 'neutral',
-          contentMd: 'Primary impacts include reduced flood damage costs, decreased heat-related mortality, and avoided landslide incidents. Secondary impacts encompass improved air quality, enhanced biodiversity, and increased property values in intervention areas.',
-          evidenceTier: 'MODELLED',
-          included: true,
-          kpis: [
-            { name: 'Heat Mortality Reduction', valueRange: '10-15%', unit: 'reduction', confidence: 'LOW' },
-            { name: 'Property Value Increase', valueRange: '5-12%', unit: 'increase', confidence: 'MEDIUM' },
-          ],
-        },
-      ];
+    try {
+      const zonesForAI = siteExplorerZones.map(zone => ({
+        zoneId: zone.zoneId,
+        hazardType: zone.hazardType,
+        riskScore: 'riskScore' in zone ? zone.riskScore : 0.5,
+        area: 'area' in zone ? zone.area : undefined,
+        interventionType: 'interventionType' in zone ? zone.interventionType : undefined,
+      }));
 
-      const mockCoBenefits: CoBenefitCard[] = [
-        {
-          id: 'cb-1',
-          title: 'Improved Air Quality',
-          category: 'HEALTH',
-          description: 'Urban vegetation filters particulate matter and absorbs pollutants, improving respiratory health outcomes.',
-          whoBenefits: ['Local residents', 'Vulnerable populations'],
-          where: ['Urban cooling corridors', 'Green streets'],
-          confidence: 'HIGH',
-          evidenceTier: 'EVIDENCE',
-          included: true,
-          userNotes: '',
-        },
-        {
-          id: 'cb-2',
-          title: 'Enhanced Biodiversity',
-          category: 'BIODIVERSITY',
-          description: 'Native plantings create habitat corridors supporting pollinators and urban wildlife.',
-          whoBenefits: ['Ecosystem', 'Community'],
-          where: ['All intervention zones'],
-          confidence: 'MEDIUM',
-          evidenceTier: 'MODELLED',
-          included: true,
-          userNotes: '',
-        },
-        {
-          id: 'cb-3',
-          title: 'Reduced Infrastructure Costs',
-          category: 'ECONOMIC_VALUE',
-          description: 'Green infrastructure reduces strain on grey stormwater systems, lowering maintenance and replacement costs.',
-          whoBenefits: ['City government', 'Utility operators'],
-          where: ['Flood storage areas'],
-          confidence: 'HIGH',
-          evidenceTier: 'EVIDENCE',
-          included: true,
-          userNotes: '',
-        },
-      ];
+      const response = await fetch('/api/impact-model/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          selectedZones: zonesForAI,
+          interventionBundles: localData.interventionBundles,
+          funderPathway: funderPathway,
+          prioritizationWeights: localData.prioritizationWeights,
+          projectName: context?.projectName || 'Urban Climate Resilience Initiative',
+          cityName: context?.cityName || 'Porto Alegre',
+        }),
+      });
 
-      const mockSignals: { operations: SignalCard[]; businessModel: SignalCard[]; mrv: SignalCard[]; implementors: SignalCard[] } = {
-        operations: [
-          {
-            id: 'ops-1',
-            title: 'Seasonal Vegetation Management',
-            description: 'Green corridors require regular pruning and irrigation during establishment period.',
-            whyItMatters: 'Without proper maintenance, survival rates drop significantly, undermining impact claims.',
-            triggeredBy: ['Urban Cooling Corridors'],
-            ownerCandidates: ['City Parks Department', 'Contracted landscapers'],
-            timeHorizon: '0-2y',
-            riskIfMissing: 'Tree mortality exceeds 30%, requiring costly replanting.',
-            confidence: 'HIGH',
-            included: true,
-            userNotes: '',
-          },
-        ],
-        businessModel: [
-          {
-            id: 'bm-1',
-            title: 'Stormwater Fee Reduction Potential',
-            description: 'Properties in intervention zones may qualify for reduced stormwater fees.',
-            whyItMatters: 'Creates revenue opportunity through fee-for-service or value capture mechanisms.',
-            triggeredBy: ['Flood Storage Network'],
-            ownerCandidates: ['City Finance', 'Utility'],
-            timeHorizon: '3-7y',
-            riskIfMissing: 'Missed revenue opportunity and reduced project bankability.',
-            confidence: 'MEDIUM',
-            included: true,
-            userNotes: '',
-          },
-        ],
-        mrv: [],
-        implementors: [],
-      };
+      if (!response.ok) {
+        throw new Error('Failed to generate narrative');
+      }
+
+      const result = await response.json();
 
       handleUpdate({
         narrativeCache: {
-          base: mockBlocks,
+          base: result.narrativeBlocks || [],
           lensVariants: { neutral: [], climate: [], social: [], financial: [], institutional: [] },
         },
-        coBenefits: mockCoBenefits,
-        downstreamSignals: mockSignals,
+        coBenefits: result.coBenefits || [],
+        downstreamSignals: result.downstreamSignals || { operations: [], businessModel: [], mrv: [], implementors: [] },
         generationMeta: {
           generatedAt: new Date().toISOString(),
           model: 'GPT-4.1',
@@ -890,9 +806,17 @@ export default function ImpactModelPage() {
         status: 'DRAFT',
       });
 
-      setIsGenerating(false);
       toast({ title: t('impactModel.generationComplete'), description: t('impactModel.narrativeReady') });
-    }, 2500);
+    } catch (error) {
+      console.error('Narrative generation error:', error);
+      toast({ 
+        title: t('common.error'), 
+        description: t('impactModel.generationFailed'),
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handlePushToOperations = () => {

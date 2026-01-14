@@ -854,6 +854,7 @@
     "bmSignalsPushed": "Revenue signals pushed to Business Model module",
     "generationComplete": "Generation Complete",
     "narrativeReady": "Your impact narrative is ready for review",
+    "generationFailed": "Failed to generate narrative. Please try again.",
     "saved": "Impact Model Saved",
     "savedDescription": "Your impact model has been finalized and saved",
     "finalize": "Finalize Impact Model"

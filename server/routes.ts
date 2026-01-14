@@ -38,6 +38,7 @@ import {
   computeCompositeScores,
   calculateCoverageSummary,
 } from './services/gridService';
+import { generateImpactNarrative } from './services/impactModelService';
 import type { LayerType } from '../shared/geospatial-schema';
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -778,6 +779,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Grid generation error:', error);
       res.status(500).json({ message: error.message || 'Failed to generate grid' });
+    }
+  });
+
+  // Impact Model AI narrative generation
+  app.post('/api/impact-model/generate', async (req: any, res) => {
+    try {
+      const { selectedZones, interventionBundles, funderPathway, prioritizationWeights, projectName, cityName } = req.body;
+
+      if (!selectedZones || !interventionBundles) {
+        return res.status(400).json({ message: 'selectedZones and interventionBundles are required' });
+      }
+
+      console.log(`🧠 Generating impact narrative for ${interventionBundles.length} bundles, ${selectedZones.length} zones`);
+
+      const result = await generateImpactNarrative({
+        selectedZones,
+        interventionBundles,
+        funderPathway: funderPathway || { primary: 'BLENDED_FINANCE' },
+        prioritizationWeights: prioritizationWeights || {
+          floodRiskReduction: 0.3,
+          heatReduction: 0.25,
+          landslideRiskReduction: 0.15,
+          socialEquity: 0.1,
+          costCertainty: 0.1,
+          biodiversityWaterQuality: 0.1,
+        },
+        projectName,
+        cityName,
+      });
+
+      console.log(`   Generated ${result.narrativeBlocks.length} blocks, ${result.coBenefits.length} co-benefits`);
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('Impact narrative generation error:', error);
+      res.status(500).json({ message: error.message || 'Failed to generate impact narrative' });
     }
   });
 

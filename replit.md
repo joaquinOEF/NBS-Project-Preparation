@@ -67,16 +67,21 @@ Preferred communication style: Simple, everyday language.
 ## Impact Model Module
 - A 5-step wizard to generate AI-powered impact narratives: **Setup → Generate → Curate → Lenses → Export**
 - Translates Site Explorer zones and interventions into credible, funder-ready impact narratives
+- **AI Integration**: Uses OpenAI gpt-4.1 via Replit AI Integrations (no API key required)
+    - Endpoint: `POST /api/impact-model/generate`
+    - Service: `server/services/impactModelService.ts`
+    - Uses JSON response format for structured narrative output
 - **Key Data Structures**:
     - `NarrativeBlock`: Structured narrative sections with lens variants (neutral, climate, social, financial, institutional)
     - `CoBenefitCard`: Co-benefits with category, confidence, evidence tier, and include/exclude flags
     - `SignalCard`: Downstream signals for O&M, Business Model, MRV, and implementors
-    - `PrioritizationWeights`: Inherited and adjustable weights for flood, heat, landslide, equity, cost, biodiversity
+    - `PrioritizationWeights`: Adjustable weights (floodRiskReduction, heatReduction, landslideRiskReduction, socialEquity, costCertainty, biodiversityWaterQuality)
 - **Data Flow**:
     - Inputs FROM Funder Selection: pathway, funder constraints, narrative tone
-    - Inputs FROM Site Explorer: selectedZones with hazardType, interventionType, riskScore
+    - Inputs FROM Site Explorer: selectedZones with hazardType, interventionType, riskScore (0-1 scale)
     - Outputs TO Operations: downstream signals for maintenance requirements
     - Outputs TO Business Model: revenue-relevant signals and co-benefits
+- **Sample Data Mode**: Uses sampleSiteExplorer and sampleFunderSelection exports for realistic exploration without real data
 - **Lens Caching**: Lens-specific narratives are generated once and cached to preserve edits
 
 # External Dependencies
