@@ -127,6 +127,23 @@
       "notStarted": "Not Started",
       "draft": "Draft",
       "ready": "Ready"
+    },
+    "highlights": {
+      "funderEmpty": "No funding pathway defined yet",
+      "siteEmpty": "No intervention zones selected yet",
+      "opsEmpty": "No operations plan defined yet",
+      "bmEmpty": "No business model defined yet",
+      "pathway": "Pathway",
+      "fundsShortlisted": "funds shortlisted",
+      "fundsSelected": "selected",
+      "zonesSelected": "zones selected",
+      "flood": "Flood",
+      "heat": "Heat",
+      "landslide": "Landslide",
+      "model": "Model",
+      "tasks": "tasks",
+      "archetype": "Archetype",
+      "revenueLines": "revenue lines"
     }
   },
   "funderSelection": {

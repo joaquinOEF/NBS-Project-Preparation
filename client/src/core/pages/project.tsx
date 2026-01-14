@@ -66,6 +66,146 @@ function DataRow({ label, value, mono = false }: { label: string; value: React.R
   );
 }
 
+function FunderHighlight({ data }: { data: ProjectContextData['funderSelection'] | undefined }) {
+  const { t } = useTranslation();
+  
+  if (!data || data.status === 'NOT_STARTED') {
+    return (
+      <div className="text-xs text-muted-foreground italic py-2 border-t mt-3">
+        {t('project.highlights.funderEmpty')}
+      </div>
+    );
+  }
+  
+  return (
+    <div className="border-t mt-3 pt-3 space-y-1.5">
+      <div className="flex items-center justify-between">
+        <StatusBadge status={data.status} />
+        {data.pathway?.readinessLevel && (
+          <Badge variant="outline" className="text-xs">{data.pathway.readinessLevel.replace(/_/g, ' ')}</Badge>
+        )}
+      </div>
+      {data.pathway?.primary && (
+        <div className="text-xs">
+          <span className="text-muted-foreground">{t('project.highlights.pathway')}: </span>
+          <span className="font-medium">{data.pathway.primary.replace(/_/g, ' ')}</span>
+        </div>
+      )}
+      {(data.shortlistedFunds?.length > 0 || data.selectedFunds?.length > 0) && (
+        <div className="text-xs text-muted-foreground">
+          {data.shortlistedFunds?.length || 0} {t('project.highlights.fundsShortlisted')}
+          {data.selectedFunds?.length > 0 && ` • ${data.selectedFunds.length} ${t('project.highlights.fundsSelected')}`}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SiteExplorerHighlight({ data }: { data: ProjectContextData['siteExplorer'] | undefined }) {
+  const { t } = useTranslation();
+  
+  if (!data || !data.selectedZones?.length) {
+    return (
+      <div className="text-xs text-muted-foreground italic py-2 border-t mt-3">
+        {t('project.highlights.siteEmpty')}
+      </div>
+    );
+  }
+  
+  const hazardCounts = { flood: 0, heat: 0, landslide: 0 };
+  if (data.hazardSummary) {
+    hazardCounts.flood = data.hazardSummary.floodCells || 0;
+    hazardCounts.heat = data.hazardSummary.heatCells || 0;
+    hazardCounts.landslide = data.hazardSummary.landslideCells || 0;
+  }
+  
+  return (
+    <div className="border-t mt-3 pt-3 space-y-1.5">
+      <div className="text-xs">
+        <span className="font-medium">{data.selectedZones.length}</span>
+        <span className="text-muted-foreground"> {t('project.highlights.zonesSelected')}</span>
+      </div>
+      {(hazardCounts.flood > 0 || hazardCounts.heat > 0 || hazardCounts.landslide > 0) && (
+        <div className="flex flex-wrap gap-1">
+          {hazardCounts.flood > 0 && <Badge variant="outline" className="text-xs">{t('project.highlights.flood')}: {hazardCounts.flood}</Badge>}
+          {hazardCounts.heat > 0 && <Badge variant="outline" className="text-xs">{t('project.highlights.heat')}: {hazardCounts.heat}</Badge>}
+          {hazardCounts.landslide > 0 && <Badge variant="outline" className="text-xs">{t('project.highlights.landslide')}: {hazardCounts.landslide}</Badge>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OperationsHighlight({ data }: { data: ProjectContextData['operations'] | undefined }) {
+  const { t } = useTranslation();
+  
+  if (!data || data.status === 'NOT_STARTED') {
+    return (
+      <div className="text-xs text-muted-foreground italic py-2 border-t mt-3">
+        {t('project.highlights.opsEmpty')}
+      </div>
+    );
+  }
+  
+  return (
+    <div className="border-t mt-3 pt-3 space-y-1.5">
+      <div className="flex items-center justify-between">
+        <StatusBadge status={data.status} />
+      </div>
+      {data.operatingModel && (
+        <div className="text-xs">
+          <span className="text-muted-foreground">{t('project.highlights.model')}: </span>
+          <span className="font-medium">{data.operatingModel.replace(/_/g, ' ')}</span>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+        {data.taskPlan?.length > 0 && (
+          <span>{data.taskPlan.length} {t('project.highlights.tasks')}</span>
+        )}
+        {data.omCostBand?.low && data.omCostBand?.high && (
+          <span>{data.omCostBand.currency} {(data.omCostBand.low / 1000).toFixed(0)}k-{(data.omCostBand.high / 1000).toFixed(0)}k</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BusinessModelHighlight({ data }: { data: ProjectContextData['businessModel'] | undefined }) {
+  const { t } = useTranslation();
+  
+  if (!data || data.status === 'NOT_STARTED') {
+    return (
+      <div className="text-xs text-muted-foreground italic py-2 border-t mt-3">
+        {t('project.highlights.bmEmpty')}
+      </div>
+    );
+  }
+  
+  const highConfidenceRevenues = data.revenueStack?.filter(r => r.confidence === 'HIGH').length || 0;
+  
+  return (
+    <div className="border-t mt-3 pt-3 space-y-1.5">
+      <div className="flex items-center justify-between">
+        <StatusBadge status={data.status} />
+      </div>
+      {data.primaryArchetype && (
+        <div className="text-xs">
+          <span className="text-muted-foreground">{t('project.highlights.archetype')}: </span>
+          <span className="font-medium">{data.primaryArchetype.replace(/_/g, ' ')}</span>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+        {data.revenueStack?.length > 0 && (
+          <span>{data.revenueStack.length} {t('project.highlights.revenueLines')}{highConfidenceRevenues > 0 && ` (${highConfidenceRevenues} HIGH)`}</span>
+        )}
+        {data.financingPathway?.pathway && (
+          <Badge variant="outline" className="text-xs">{data.financingPathway.pathway.replace(/_/g, ' ')}</Badge>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ContextViewer({ context }: { context: ProjectContextData | null }) {
   const { t } = useTranslation();
   const [showRawJson, setShowRawJson] = useState(false);
@@ -760,10 +900,11 @@ export default function ProjectPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="mb-4">
+                  <CardDescription>
                     {t('project.funderSelectionDescription')}
                   </CardDescription>
-                  <div className="flex items-center text-green-600 text-sm font-medium">
+                  <FunderHighlight data={context?.funderSelection} />
+                  <div className="flex items-center text-green-600 text-sm font-medium mt-3">
                     {t('common.view')}
                     <ArrowRight className="h-4 w-4 ml-1" />
                   </div>
@@ -782,10 +923,11 @@ export default function ProjectPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="mb-4">
+                  <CardDescription>
                     {t('project.siteExplorerDescription')}
                   </CardDescription>
-                  <div className="flex items-center text-primary text-sm font-medium">
+                  <SiteExplorerHighlight data={context?.siteExplorer} />
+                  <div className="flex items-center text-primary text-sm font-medium mt-3">
                     {t('common.view')}
                     <ArrowRight className="h-4 w-4 ml-1" />
                   </div>
@@ -804,10 +946,11 @@ export default function ProjectPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="mb-4">
+                  <CardDescription>
                     {t('project.projectOperationsDescription')}
                   </CardDescription>
-                  <div className="flex items-center text-orange-600 text-sm font-medium">
+                  <OperationsHighlight data={context?.operations} />
+                  <div className="flex items-center text-orange-600 text-sm font-medium mt-3">
                     {t('common.view')}
                     <ArrowRight className="h-4 w-4 ml-1" />
                   </div>
@@ -826,10 +969,11 @@ export default function ProjectPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="mb-4">
+                  <CardDescription>
                     {t('project.businessModelDescription')}
                   </CardDescription>
-                  <div className="flex items-center text-purple-600 text-sm font-medium">
+                  <BusinessModelHighlight data={context?.businessModel} />
+                  <div className="flex items-center text-purple-600 text-sm font-medium mt-3">
                     {t('common.view')}
                     <ArrowRight className="h-4 w-4 ml-1" />
                   </div>

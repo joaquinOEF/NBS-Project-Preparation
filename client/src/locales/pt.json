@@ -127,6 +127,23 @@
       "notStarted": "Não Iniciado",
       "draft": "Rascunho",
       "ready": "Pronto"
+    },
+    "highlights": {
+      "funderEmpty": "Nenhum caminho de financiamento definido ainda",
+      "siteEmpty": "Nenhuma zona de intervenção selecionada ainda",
+      "opsEmpty": "Nenhum plano de operações definido ainda",
+      "bmEmpty": "Nenhum modelo de negócio definido ainda",
+      "pathway": "Caminho",
+      "fundsShortlisted": "fundos pré-selecionados",
+      "fundsSelected": "selecionados",
+      "zonesSelected": "zonas selecionadas",
+      "flood": "Inundação",
+      "heat": "Calor",
+      "landslide": "Deslizamento",
+      "model": "Modelo",
+      "tasks": "tarefas",
+      "archetype": "Arquétipo",
+      "revenueLines": "linhas de receita"
     }
   },
   "funderSelection": {
