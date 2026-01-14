@@ -89,7 +89,64 @@
   "project": {
     "notFound": "Projeto não encontrado",
     "siteExplorer": "Explorador de Terreno",
-    "siteExplorerDescription": "Visualize dados de elevação e limites da cidade em um mapa interativo"
+    "siteExplorerDescription": "Visualize dados de elevação e limites da cidade em um mapa interativo",
+    "funderSelection": "Seleção de Financiador",
+    "funderSelectionDescription": "Encontre o caminho de financiamento climático certo e os fundos correspondentes para seu projeto"
+  },
+  "funderSelection": {
+    "title": "Seleção de Financiador",
+    "subtitle": "Responda algumas perguntas para encontrar o melhor caminho de financiamento para seu projeto",
+    "steps": {
+      "basics": "Básicos do Projeto",
+      "readiness": "Prontidão",
+      "financing": "Financiamento",
+      "institutional": "Institucional"
+    },
+    "projectName": "Nome do Projeto",
+    "projectNamePlaceholder": "Digite o nome do projeto",
+    "projectDescription": "Breve Descrição do Projeto",
+    "projectDescriptionPlaceholder": "Descreva brevemente o que o projeto visa alcançar",
+    "primarySector": "Setor Principal (selecione todos aplicáveis)",
+    "currentStage": "Estágio Atual do Projeto",
+    "existingElements": "Quais elementos já existem?",
+    "budgetPreparation": "A cidade tem orçamento garantido para preparação do projeto?",
+    "budgetImplementation": "A cidade tem orçamento garantido para implementação?",
+    "generatesRevenue": "O projeto deve gerar receita?",
+    "repaymentSource": "Principal fonte de pagamento",
+    "investmentSize": "Tamanho estimado do investimento total (CAPEX)",
+    "fundingReceiver": "Quem receberia ou gerenciaria o financiamento?",
+    "canTakeDebt": "A cidade pode legalmente assumir dívidas?",
+    "nationalApproval": "É necessária aprovação ou garantia federal?",
+    "openToBundling": "A cidade consideraria agrupar este projeto com outros?",
+    "notSure": "Não tenho certeza",
+    "partial": "Parcial",
+    "maybe": "Talvez",
+    "getRecommendations": "Obter Recomendações",
+    "modifyAnswers": "Modificar Respostas",
+    "backToProject": "Voltar ao Projeto",
+    "readiness": {
+      "veryEarly": "Muito Inicial",
+      "emerging": "Emergente",
+      "investable": "Pronto para Investimento",
+      "advanced": "Avançado"
+    },
+    "results": {
+      "recommendedPathway": "Caminho de Financiamento Recomendado",
+      "whatThisMeans": "O que este tipo de financiamento significa",
+      "whyThisFits": "Por que isso se encaixa no seu projeto",
+      "alsoConsider": "Considere também",
+      "readinessSnapshot": "Visão Geral da Prontidão do Projeto",
+      "assessedLevel": "Nível de prontidão avaliado",
+      "limitingFactors": "Principais fatores limitantes",
+      "topFunds": "Principais Fundos para Explorar",
+      "topFundsDescription": "Estes fundos são classificados com base na adequação ao perfil do seu projeto",
+      "noFundsMatch": "Nenhum fundo em nossa base de dados corresponde ao caminho selecionado. Considere expandir sua busca ou ajustar os parâmetros do projeto.",
+      "ticketSize": "Tamanho do ticket",
+      "terms": "Condições",
+      "learnMore": "Saiba mais",
+      "nextSteps": "Próximos Passos",
+      "disclaimer": "A disponibilidade e prioridades dos fundos podem mudar ao longo do tempo. Esta recomendação reflete a adequação estrutural e a prontidão do projeto, não uma garantia de aprovação de financiamento."
+    }
   },
   "siteExplorer": {
     "title": "Explorador de Terreno",
@@ -119,6 +176,7 @@
   "common": {
     "loading": "Carregando...",
     "back": "Voltar",
+    "next": "Próximo",
     "error": "Erro",
     "success": "Sucesso",
     "save": "Salvar",

@@ -89,7 +89,64 @@
   "project": {
     "notFound": "Project not found",
     "siteExplorer": "Site Explorer",
-    "siteExplorerDescription": "View elevation data and city boundaries on an interactive map"
+    "siteExplorerDescription": "View elevation data and city boundaries on an interactive map",
+    "funderSelection": "Funder Selection",
+    "funderSelectionDescription": "Find the right climate funding pathway and matching funds for your project"
+  },
+  "funderSelection": {
+    "title": "Funder Selection",
+    "subtitle": "Answer a few questions to find the best funding pathway for your project",
+    "steps": {
+      "basics": "Project Basics",
+      "readiness": "Readiness",
+      "financing": "Financing",
+      "institutional": "Institutional"
+    },
+    "projectName": "Project Name",
+    "projectNamePlaceholder": "Enter project name",
+    "projectDescription": "Short Project Description",
+    "projectDescriptionPlaceholder": "Briefly describe what the project aims to achieve",
+    "primarySector": "Primary Sector (select all that apply)",
+    "currentStage": "Current Project Stage",
+    "existingElements": "Which elements already exist?",
+    "budgetPreparation": "Does the city have budget secured for project preparation?",
+    "budgetImplementation": "Does the city have budget secured for implementation?",
+    "generatesRevenue": "Is the project expected to generate revenue?",
+    "repaymentSource": "Main repayment source",
+    "investmentSize": "Estimated total investment size (CAPEX)",
+    "fundingReceiver": "Who would receive or manage the funding?",
+    "canTakeDebt": "Can the city legally take on debt?",
+    "nationalApproval": "Is national-level approval or guarantee required?",
+    "openToBundling": "Would the city consider bundling this project with others?",
+    "notSure": "Not sure",
+    "partial": "Partial",
+    "maybe": "Maybe",
+    "getRecommendations": "Get Recommendations",
+    "modifyAnswers": "Modify Answers",
+    "backToProject": "Back to Project",
+    "readiness": {
+      "veryEarly": "Very Early",
+      "emerging": "Emerging",
+      "investable": "Investable",
+      "advanced": "Advanced"
+    },
+    "results": {
+      "recommendedPathway": "Recommended Funding Pathway",
+      "whatThisMeans": "What this type of funding is",
+      "whyThisFits": "Why this fits your project",
+      "alsoConsider": "Also consider",
+      "readinessSnapshot": "Project Readiness Snapshot",
+      "assessedLevel": "Assessed readiness level",
+      "limitingFactors": "Main limiting factors",
+      "topFunds": "Top Funds to Explore",
+      "topFundsDescription": "These funds are ranked based on fit with your project profile",
+      "noFundsMatch": "No funds in our database match the selected pathway. Consider expanding your search or adjusting project parameters.",
+      "ticketSize": "Ticket size",
+      "terms": "Terms",
+      "learnMore": "Learn more",
+      "nextSteps": "Next Steps",
+      "disclaimer": "Fund availability and priorities can change over time. This recommendation reflects structural fit and project readiness, not a guarantee of funding approval."
+    }
   },
   "siteExplorer": {
     "title": "Site Explorer",
@@ -119,6 +176,7 @@
   "common": {
     "loading": "Loading...",
     "back": "Back",
+    "next": "Next",
     "error": "Error",
     "success": "Success",
     "save": "Save",

@@ -13,6 +13,7 @@ import Login from '@/core/pages/login';
 import CitySelection from '@/core/pages/city-selection';
 import ProjectPage from '@/core/pages/project';
 import SiteExplorerPage from '@/core/pages/site-explorer';
+import FunderSelectionPage from '@/core/pages/funder-selection';
 import { OAuthCallback } from '@/core/components/auth/oauth-callback';
 import NotFound from '@/core/pages/not-found';
 
@@ -31,10 +32,14 @@ function Router() {
       {/* Site Explorer routes */}
       <Route path='/site-explorer/:projectId' component={SiteExplorerPage} />
       
+      {/* Funder Selection routes */}
+      <Route path='/funder-selection/:projectId' component={FunderSelectionPage} />
+      
       {/* Sample mode routes - no API calls, uses local data */}
       <Route path='/sample/cities' component={CitySelection} />
       <Route path='/sample/project/:projectId' component={ProjectPage} />
       <Route path='/sample/site-explorer/:projectId' component={SiteExplorerPage} />
+      <Route path='/sample/funder-selection/:projectId' component={FunderSelectionPage} />
 
       {/* Dynamically loaded module routes */}
       <DynamicModuleRoutes />
