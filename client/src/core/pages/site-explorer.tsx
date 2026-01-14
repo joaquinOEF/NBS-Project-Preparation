@@ -1,12 +1,9 @@
 import { useParams, Link } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Map, Mountain, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
-import { DisplayLarge } from '@oef/components';
 import { Badge } from '@/core/components/ui/badge';
-import { Card, CardContent } from '@/core/components/ui/card';
-import { Skeleton } from '@/core/components/ui/skeleton';
 import { useTranslation } from 'react-i18next';
 import { useSampleData, SAMPLE_CITY_BOUNDARY, SAMPLE_ELEVATION_DATA } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
@@ -142,18 +139,19 @@ export default function SiteExplorerPage() {
       zoom: 11,
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19,
     }).addTo(map);
 
     if (boundaryData.boundaryGeoJson) {
       const boundaryLayer = L.geoJSON(boundaryData.boundaryGeoJson, {
         style: {
-          color: '#3b82f6',
-          weight: 3,
-          fillColor: '#3b82f6',
-          fillOpacity: 0.1,
-          dashArray: '5, 5',
+          color: '#c9a87c',
+          weight: 2,
+          fillColor: 'transparent',
+          fillOpacity: 0,
         },
       }).addTo(map);
 
@@ -176,12 +174,12 @@ export default function SiteExplorerPage() {
     if (elevationData.contours && elevationData.contours.features) {
       L.geoJSON(elevationData.contours, {
         style: (feature) => ({
-          color: feature?.properties?.isMajor ? '#8b5cf6' : '#c4b5fd',
-          weight: feature?.properties?.isMajor ? 2 : 1,
-          opacity: 0.8,
+          color: feature?.properties?.isMajor ? '#c9a87c' : '#a08060',
+          weight: feature?.properties?.isMajor ? 1.5 : 0.8,
+          opacity: feature?.properties?.isMajor ? 0.9 : 0.6,
         }),
         onEachFeature: (feature, layer) => {
-          if (feature.properties?.elevation) {
+          if (feature.properties?.elevation && feature.properties?.isMajor) {
             layer.bindTooltip(`${feature.properties.elevation}m`, {
               permanent: false,
               direction: 'center',
@@ -216,133 +214,42 @@ export default function SiteExplorerPage() {
   const isLoading = !isSampleModeActive && (isLoadingProject || isLoadingCity || boundaryMutation.isPending || elevationMutation.isPending);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen flex flex-col bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-8">
-        <Link href={`${routePrefix}/project/${projectId}`}>
-          <Button variant="ghost" className="mb-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            {t('common.back')}
-          </Button>
-        </Link>
-
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <DisplayLarge>{t('siteExplorer.title')}</DisplayLarge>
+      <div className="flex-1 flex flex-col">
+        <div className="px-4 py-3 flex items-center gap-4 border-b">
+          <Link href={`${routePrefix}/project/${projectId}`}>
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              {t('common.back')}
+            </Button>
+          </Link>
+          <div className="flex items-center gap-3">
+            <span className="font-semibold">{t('siteExplorer.title')}</span>
             {isSampleModeActive && (
-              <Badge variant="secondary">{t('cityInfo.sampleDataBadge')}</Badge>
+              <Badge variant="secondary" className="text-xs">{t('cityInfo.sampleDataBadge')}</Badge>
+            )}
+            {(sampleAction || projectData?.project) && (
+              <span className="text-muted-foreground text-sm">
+                {sampleAction?.name || projectData?.project?.actionName}
+              </span>
             )}
           </div>
-          {(sampleAction || projectData?.project) && (
-            <p className="text-muted-foreground">
-              {sampleAction?.name || projectData?.project?.actionName}
-            </p>
-          )}
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
-            <Card className="h-[600px]">
-              <CardContent className="p-0 h-full relative">
-                {isLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
-                    <div className="flex flex-col items-center gap-3">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                      <p className="text-sm text-muted-foreground">
-                        {boundaryMutation.isPending 
-                          ? t('siteExplorer.loadingBoundary')
-                          : t('siteExplorer.loadingElevation')}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                <div ref={mapContainerRef} className="h-full w-full rounded-lg" />
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="space-y-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Map className="h-5 w-5 text-primary" />
-                  <h3 className="font-semibold">{t('siteExplorer.cityInfo')}</h3>
-                </div>
-                {boundaryData ? (
-                  <dl className="space-y-2 text-sm">
-                    <div>
-                      <dt className="text-muted-foreground">{t('siteExplorer.cityName')}</dt>
-                      <dd className="font-medium">{boundaryData.cityName}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">{t('siteExplorer.coordinates')}</dt>
-                      <dd className="font-medium font-mono text-xs">
-                        {boundaryData.centroid[1].toFixed(4)}, {boundaryData.centroid[0].toFixed(4)}
-                      </dd>
-                    </div>
-                  </dl>
-                ) : (
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-4 w-32" />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Mountain className="h-5 w-5 text-primary" />
-                  <h3 className="font-semibold">{t('siteExplorer.elevationInfo')}</h3>
-                </div>
-                {elevationData ? (
-                  <dl className="space-y-2 text-sm">
-                    <div>
-                      <dt className="text-muted-foreground">{t('siteExplorer.elevationRange')}</dt>
-                      <dd className="font-medium">
-                        {elevationData.elevationData.minElevation.toFixed(0)}m - {elevationData.elevationData.maxElevation.toFixed(0)}m
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">{t('siteExplorer.resolution')}</dt>
-                      <dd className="font-medium">{elevationData.elevationData.cellSize}m</dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">{t('siteExplorer.contourLines')}</dt>
-                      <dd className="font-medium">{elevationData.contours?.features?.length || 0}</dd>
-                    </div>
-                  </dl>
-                ) : (
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-4 w-28" />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <h3 className="font-semibold mb-3">{t('siteExplorer.legend')}</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-0.5 bg-blue-500" style={{ borderStyle: 'dashed' }} />
-                    <span>{t('siteExplorer.cityBoundary')}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-0.5 bg-purple-600" />
-                    <span>{t('siteExplorer.majorContour')}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-0.5 bg-purple-300" />
-                    <span>{t('siteExplorer.minorContour')}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        <div className="flex-1 relative">
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">
+                  {boundaryMutation.isPending 
+                    ? t('siteExplorer.loadingBoundary')
+                    : t('siteExplorer.loadingElevation')}
+                </p>
+              </div>
+            </div>
+          )}
+          <div ref={mapContainerRef} className="h-full w-full" />
         </div>
       </div>
     </div>

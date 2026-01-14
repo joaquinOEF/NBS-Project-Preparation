@@ -202,27 +202,113 @@ export const SAMPLE_HIAP_ADAPTATION_DATA = {
 export const SAMPLE_CITY_BOUNDARY = {
   cityLocode: 'BR POA',
   cityName: 'Porto Alegre',
-  centroid: [-51.2177, -30.0346] as [number, number],
-  bbox: [-51.3000, -30.2700, -51.0100, -29.9300] as [number, number, number, number],
+  centroid: [-51.1784, -30.0346] as [number, number],
+  bbox: [-51.29, -30.27, -51.01, -29.93] as [number, number, number, number],
   boundaryGeoJson: {
     type: "Feature",
     properties: { name: "Porto Alegre, Brazil" },
     geometry: {
       type: "Polygon",
       coordinates: [[
-        [-51.3000, -29.9300],
-        [-51.0100, -29.9300],
-        [-51.0100, -30.2700],
-        [-51.3000, -30.2700],
-        [-51.3000, -29.9300],
+        [-51.2650, -29.9380],
+        [-51.2350, -29.9320],
+        [-51.1850, -29.9350],
+        [-51.1400, -29.9400],
+        [-51.0950, -29.9500],
+        [-51.0550, -29.9700],
+        [-51.0250, -29.9950],
+        [-51.0150, -30.0200],
+        [-51.0180, -30.0600],
+        [-51.0250, -30.1000],
+        [-51.0350, -30.1400],
+        [-51.0500, -30.1800],
+        [-51.0700, -30.2100],
+        [-51.0950, -30.2350],
+        [-51.1250, -30.2550],
+        [-51.1600, -30.2650],
+        [-51.2000, -30.2600],
+        [-51.2350, -30.2450],
+        [-51.2600, -30.2200],
+        [-51.2750, -30.1850],
+        [-51.2850, -30.1450],
+        [-51.2900, -30.1000],
+        [-51.2880, -30.0550],
+        [-51.2800, -30.0150],
+        [-51.2650, -29.9380],
       ]],
     },
   },
 };
 
+function generateSampleContours() {
+  const features: any[] = [];
+  let id = 0;
+  
+  const hillCenters = [
+    { lng: -51.18, lat: -30.05, maxElev: 280, radius: 0.06 },
+    { lng: -51.12, lat: -30.10, maxElev: 250, radius: 0.05 },
+    { lng: -51.20, lat: -30.12, maxElev: 220, radius: 0.04 },
+    { lng: -51.08, lat: -30.15, maxElev: 200, radius: 0.045 },
+    { lng: -51.15, lat: -30.18, maxElev: 180, radius: 0.035 },
+    { lng: -51.22, lat: -30.08, maxElev: 240, radius: 0.05 },
+    { lng: -51.10, lat: -30.22, maxElev: 160, radius: 0.04 },
+    { lng: -51.06, lat: -30.08, maxElev: 200, radius: 0.04 },
+    { lng: -51.25, lat: -30.15, maxElev: 180, radius: 0.03 },
+    { lng: -51.14, lat: -30.02, maxElev: 260, radius: 0.05 },
+  ];
+
+  for (const hill of hillCenters) {
+    for (let elev = 20; elev <= hill.maxElev; elev += 10) {
+      const isMajor = elev % 50 === 0;
+      const radiusFactor = 1 - (elev / hill.maxElev);
+      const ringRadius = hill.radius * radiusFactor;
+      
+      if (ringRadius < 0.005) continue;
+      
+      const coords: [number, number][] = [];
+      const numPoints = 24 + Math.floor(Math.random() * 8);
+      
+      for (let i = 0; i <= numPoints; i++) {
+        const angle = (i / numPoints) * 2 * Math.PI;
+        const jitter = (Math.random() - 0.5) * 0.008;
+        const jitter2 = (Math.random() - 0.5) * 0.008;
+        coords.push([
+          hill.lng + Math.cos(angle) * ringRadius + jitter,
+          hill.lat + Math.sin(angle) * ringRadius * 0.8 + jitter2
+        ]);
+      }
+      
+      features.push({
+        type: "Feature",
+        properties: { id: `contour-${id++}`, elevation: elev, isMajor },
+        geometry: { type: "LineString", coordinates: coords },
+      });
+    }
+  }
+
+  for (let elev = 10; elev <= 100; elev += 10) {
+    const isMajor = elev % 50 === 0;
+    const baseY = -30.0 - (elev * 0.002);
+    const coords: [number, number][] = [];
+    
+    for (let x = -51.27; x <= -51.03; x += 0.01) {
+      const wave = Math.sin((x + 51.15) * 30) * 0.01;
+      coords.push([x, baseY + wave + (Math.random() - 0.5) * 0.005]);
+    }
+    
+    features.push({
+      type: "Feature",
+      properties: { id: `contour-${id++}`, elevation: elev, isMajor },
+      geometry: { type: "LineString", coordinates: coords },
+    });
+  }
+
+  return features;
+}
+
 export const SAMPLE_ELEVATION_DATA = {
   cityLocode: 'BR POA',
-  bounds: { minLng: -51.3000, minLat: -30.2700, maxLng: -51.0100, maxLat: -29.9300 },
+  bounds: { minLng: -51.29, minLat: -30.27, maxLng: -51.01, maxLat: -29.93 },
   elevationData: {
     width: 100,
     height: 100,
@@ -232,47 +318,6 @@ export const SAMPLE_ELEVATION_DATA = {
   },
   contours: {
     type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: { id: "contour-sample-1", elevation: 50, isMajor: true },
-        geometry: {
-          type: "LineString",
-          coordinates: [[-51.25, -30.05], [-51.15, -30.08], [-51.10, -30.12]],
-        },
-      },
-      {
-        type: "Feature",
-        properties: { id: "contour-sample-2", elevation: 100, isMajor: false },
-        geometry: {
-          type: "LineString",
-          coordinates: [[-51.22, -30.10], [-51.12, -30.15], [-51.08, -30.20]],
-        },
-      },
-      {
-        type: "Feature",
-        properties: { id: "contour-sample-3", elevation: 150, isMajor: true },
-        geometry: {
-          type: "LineString",
-          coordinates: [[-51.20, -30.12], [-51.10, -30.18], [-51.05, -30.22]],
-        },
-      },
-      {
-        type: "Feature",
-        properties: { id: "contour-sample-4", elevation: 200, isMajor: false },
-        geometry: {
-          type: "LineString",
-          coordinates: [[-51.18, -30.15], [-51.08, -30.20], [-51.04, -30.24]],
-        },
-      },
-      {
-        type: "Feature",
-        properties: { id: "contour-sample-5", elevation: 250, isMajor: true },
-        geometry: {
-          type: "LineString",
-          coordinates: [[-51.15, -30.18], [-51.06, -30.22], [-51.03, -30.25]],
-        },
-      },
-    ],
+    features: generateSampleContours(),
   },
 };
