@@ -38,6 +38,41 @@ The application includes a **Sample Data Mode** that allows users to explore the
 - `client/src/core/contexts/sample-data-context.tsx` - Sample data provider and data
 - Components check `isSampleMode` to switch between real API and sample data
 
+## Geospatial Risk Analysis
+
+The Site Explorer uses a grid-based risk scoring system with real geospatial data:
+
+### Data Sources:
+- **Elevation**: USGS SRTM 30m DEM via OpenTopography
+- **Population Density**: WorldPop 100m raster (people/km²)
+- **Building Footprints**: OSM Overpass API (405,870 buildings for Porto Alegre)
+- **Rivers/Water**: OSM waterways and surface water bodies
+- **Forest/Vegetation**: OSM natural=wood and landuse=forest
+
+### Risk Formulas:
+
+**Heat Risk** (35% buildings + 25% population + 25% vegetation deficit + 15% water deficit):
+- `building_density`: 0-100% from OSM building footprint zonal averaging
+- `pop_density`: 0-100% normalized from WorldPop (max ~24,000/km²)
+- `vegetation_pct`: max(canopy_pct, green_pct) from forest/landcover
+- `water_cooling`: proximity to water bodies (5km falloff)
+
+**Flood Risk** (D8 flow accumulation + terrain + proximity):
+- `flow_accum_pct`: D8 flow direction algorithm (96% coverage)
+- `depression_pct`: topographic depressions detection
+- `river_prox_pct`: distance to nearest river
+- `low_lying_pct`: cells below 10m elevation threshold
+
+**Landslide Risk** (slope + vegetation + terrain):
+- `slope_mean`: average slope in degrees
+- `vegetation_pct`: vegetation cover deficit
+- `low_lying_pct`: terrain position
+
+### Sample Data Files:
+- `client/public/sample-data/porto-alegre-grid.json` - 1036 cells at 1km resolution
+- `client/public/sample-data/porto-alegre-population-worldpop.json` - Population raster
+- `client/public/sample-data/porto-alegre-builtup.json` - Building density raster
+
 # Development Contract
 
 ## ⚠️ Required for ALL New Features
