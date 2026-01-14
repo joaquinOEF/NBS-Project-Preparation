@@ -107,7 +107,8 @@
       "funderSelection": "Funder Selection",
       "operations": "Operations (O&M)",
       "businessModel": "Business Model",
-      "siteExplorer": "Site Explorer"
+      "siteExplorer": "Site Explorer",
+      "impactModel": "Impact Model"
     },
     "contextLabels": {
       "status": "Status",
@@ -133,6 +134,7 @@
       "siteEmpty": "No intervention zones selected yet",
       "opsEmpty": "No operations plan defined yet",
       "bmEmpty": "No business model defined yet",
+      "impactEmpty": "No impact narrative generated yet",
       "pathway": "Pathway",
       "fundsShortlisted": "funds shortlisted",
       "fundsSelected": "selected",
@@ -143,8 +145,13 @@
       "model": "Model",
       "tasks": "tasks",
       "archetype": "Archetype",
-      "revenueLines": "revenue lines"
-    }
+      "revenueLines": "revenue lines",
+      "narrativeBlocks": "narrative blocks",
+      "coBenefits": "co-benefits",
+      "signals": "downstream signals"
+    },
+    "impactModel": "Impact Model",
+    "impactModelDescription": "Generate AI-powered impact narratives, co-benefits, and downstream signals to communicate your project's value"
   },
   "funderSelection": {
     "title": "Funder Selection",
@@ -759,5 +766,89 @@
     "copyToConceptNote": "Copy to Concept Note",
     "copied": "Copied!",
     "playbookCopied": "Playbook text copied to clipboard"
+  },
+  "impactModel": {
+    "title": "Impact Model",
+    "subtitle": "Generate AI-powered impact narratives to communicate your project's value",
+    "steps": {
+      "setup": "Setup",
+      "generate": "Generate",
+      "curate": "Curate",
+      "lenses": "Lenses",
+      "export": "Export"
+    },
+    "prioritizationWeights": "Prioritization Weights",
+    "weightsDescription": "Adjust the relative importance of each factor in the impact analysis",
+    "weights": {
+      "floodRiskReduction": "Flood Risk Reduction",
+      "heatReduction": "Heat Reduction",
+      "landslideRiskReduction": "Landslide Risk Reduction",
+      "socialEquity": "Social Equity",
+      "costCertainty": "Cost Certainty",
+      "biodiversityWaterQuality": "Biodiversity & Water Quality"
+    },
+    "resetToDefault": "Reset to Default",
+    "interventionBundles": "Intervention Bundles",
+    "bundlesDescription": "Select which intervention zones to include in the impact narrative",
+    "noZonesSelected": "No intervention zones available",
+    "selectZonesFirst": "Complete the Site Explorer module to select intervention zones",
+    "generateNarrative": "Generate Impact Narrative",
+    "generateDescription": "Use AI to generate a comprehensive impact narrative based on your project context",
+    "contextSummary": "Context Summary",
+    "selectedBundles": "Selected Bundles",
+    "targetHazards": "Target Hazards",
+    "generating": "Generating...",
+    "generateWithAI": "Generate with AI",
+    "narrativeGenerated": "Narrative Generated Successfully",
+    "blocksGenerated": "blocks",
+    "coBenefitsGenerated": "co-benefits",
+    "narrativeBlocks": "Narrative Blocks",
+    "curateDescription": "Review and edit the generated narrative blocks",
+    "noNarrativeYet": "No narrative generated yet",
+    "goToGenerate": "Go to the Generate step to create your impact narrative",
+    "coBenefitsTitle": "Co-Benefits",
+    "coBenefitsDescription": "Review and select which co-benefits to include",
+    "analyticalLenses": "Analytical Lenses",
+    "lensesDescription": "View your narrative through different analytical perspectives",
+    "lenses": {
+      "neutral": "Neutral",
+      "climate": "Climate",
+      "social": "Social",
+      "financial": "Financial",
+      "institutional": "Institutional"
+    },
+    "lensDescriptions": {
+      "neutral": "Balanced view presenting all impact dimensions equally",
+      "climate": "Emphasizes climate mitigation and adaptation outcomes",
+      "social": "Focuses on equity, health, and community benefits",
+      "financial": "Highlights economic value and return on investment",
+      "institutional": "Addresses governance, capacity, and policy implications"
+    },
+    "useBaseNarrative": "Using base narrative in neutral lens",
+    "lensNotGenerated": "Lens-specific narrative not yet generated",
+    "exportTitle": "Export & Share",
+    "exportDescription": "Export your impact narrative and push signals to downstream modules",
+    "exportMarkdown": "Export Markdown",
+    "exportMarkdownDesc": "Download narrative as formatted text",
+    "exportJSON": "Export JSON",
+    "exportJSONDesc": "Download structured data for integration",
+    "exportSuccess": "Export Complete",
+    "markdownExported": "Markdown file downloaded",
+    "jsonExported": "JSON file downloaded",
+    "downstreamSignals": "Downstream Signals",
+    "signalsDescription": "Push relevant signals to Operations and Business Model modules",
+    "operationsSignals": "Operations & Maintenance Signals",
+    "businessModelSignals": "Business Model Signals",
+    "signalsReady": "signals ready",
+    "pushToOps": "Push to Operations",
+    "pushToBM": "Push to Business Model",
+    "signalsPushed": "Signals Pushed",
+    "opsSignalsPushed": "O&M signals pushed to Operations module",
+    "bmSignalsPushed": "Revenue signals pushed to Business Model module",
+    "generationComplete": "Generation Complete",
+    "narrativeReady": "Your impact narrative is ready for review",
+    "saved": "Impact Model Saved",
+    "savedDescription": "Your impact model has been finalized and saved",
+    "finalize": "Finalize Impact Model"
   }
 }

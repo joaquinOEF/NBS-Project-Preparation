@@ -173,6 +173,108 @@ export interface BusinessModelData {
   };
 }
 
+export type LensType = 'neutral' | 'climate' | 'social' | 'financial' | 'institutional';
+export type ConfidenceLevel = 'HIGH' | 'MEDIUM' | 'LOW';
+export type EvidenceTier = 'EVIDENCE' | 'MODELLED' | 'ASSUMPTION' | 'NEEDS_VALIDATION';
+export type TimeHorizon = '0-2y' | '3-7y' | '8-12y' | 'ongoing';
+export type CoBenefitCategory = 'HEALTH' | 'BIODIVERSITY' | 'WATER_QUALITY' | 'MOBILITY' | 'EQUITY' | 'ECONOMIC_VALUE' | 'PUBLIC_REALM' | 'INSTITUTIONAL_CAPACITY' | 'OTHER';
+
+export interface NarrativeKPI {
+  name: string;
+  valueRange: string;
+  unit: string;
+  confidence: ConfidenceLevel;
+  notes?: string;
+}
+
+export interface NarrativeBlock {
+  id: string;
+  title: string;
+  type: 'summary' | 'context' | 'theory_of_change' | 'portfolio_overview' | 'expected_impacts' | 'co_benefits' | 'synergies' | 'assumptions' | 'risks_and_dependencies' | 'mrvs_stub';
+  lens: LensType;
+  contentMd: string;
+  kpis?: NarrativeKPI[];
+  assumptionsUsed?: string[];
+  evidenceTier: EvidenceTier;
+  dependencies?: string[];
+  included: boolean;
+  order?: number;
+}
+
+export interface CoBenefitCard {
+  id: string;
+  title: string;
+  category: CoBenefitCategory;
+  description: string;
+  whoBenefits: string[];
+  where: string[];
+  kpiOrProxy?: { name: string; valueRange: string; unit: string } | null;
+  confidence: ConfidenceLevel;
+  evidenceTier: EvidenceTier;
+  dependencies?: string[];
+  included: boolean;
+  userNotes: string;
+}
+
+export interface SignalCard {
+  id: string;
+  title: string;
+  description: string;
+  whyItMatters: string;
+  triggeredBy: string[];
+  ownerCandidates: string[];
+  timeHorizon: TimeHorizon;
+  riskIfMissing: string;
+  confidence: ConfidenceLevel;
+  included: boolean;
+  userNotes: string;
+}
+
+export interface PrioritizationWeights {
+  floodRiskReduction: number;
+  heatReduction: number;
+  landslideRiskReduction: number;
+  socialEquity: number;
+  costCertainty: number;
+  biodiversityWaterQuality: number;
+}
+
+export interface InterventionBundle {
+  id: string;
+  name: string;
+  objective: string;
+  targetHazards: string[];
+  interventions: Array<{ type: string; quantity: number; unit: string; notes?: string }>;
+  locations: Array<{ zoneId: string; name: string; geometryType: string }>;
+  capexRange: { low: number; high: number };
+  enabled: boolean;
+}
+
+export interface ImpactModelData {
+  status: 'NOT_STARTED' | 'DRAFT' | 'READY';
+  prioritizationWeights: PrioritizationWeights;
+  inheritedWeights: PrioritizationWeights;
+  interventionBundles: InterventionBundle[];
+  narrativeCache: {
+    base: NarrativeBlock[] | null;
+    lensVariants: Record<LensType, NarrativeBlock[]>;
+  };
+  coBenefits: CoBenefitCard[];
+  downstreamSignals: {
+    operations: SignalCard[];
+    businessModel: SignalCard[];
+    mrv: SignalCard[];
+    implementors: SignalCard[];
+  };
+  selectedLens: LensType;
+  generationMeta: {
+    generatedAt: string;
+    model: string;
+    funderContext?: string;
+    cityContext?: string;
+  } | null;
+}
+
 export interface SelectedZone {
   zoneId: string;
   hazardType: 'FLOOD' | 'HEAT' | 'LANDSLIDE';
@@ -207,11 +309,13 @@ export interface ProjectContextData {
   operations: OperationsData | null;
   businessModel: BusinessModelData | null;
   siteExplorer: SiteExplorerData | null;
+  impactModel: ImpactModelData | null;
   lastUpdated: {
     funderSelection?: string;
     operations?: string;
     businessModel?: string;
     siteExplorer?: string;
+    impactModel?: string;
   };
 }
 
@@ -248,7 +352,7 @@ interface ProjectContextValue {
   context: ProjectContextData | null;
   loadContext: (projectId: string) => ProjectContextData | null;
   saveContext: (data: Partial<ProjectContextData>) => void;
-  updateModule: <K extends keyof Pick<ProjectContextData, 'funderSelection' | 'operations' | 'businessModel' | 'siteExplorer'>>(
+  updateModule: <K extends keyof Pick<ProjectContextData, 'funderSelection' | 'operations' | 'businessModel' | 'siteExplorer' | 'impactModel'>>(
     module: K,
     data: ProjectContextData[K]
   ) => void;
@@ -290,7 +394,7 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(`${PROJECT_CONTEXT_KEY}_${projectId}`, JSON.stringify(updated));
   }, [context]);
 
-  const updateModule = useCallback(<K extends keyof Pick<ProjectContextData, 'funderSelection' | 'operations' | 'businessModel' | 'siteExplorer'>>(
+  const updateModule = useCallback(<K extends keyof Pick<ProjectContextData, 'funderSelection' | 'operations' | 'businessModel' | 'siteExplorer' | 'impactModel'>>(
     module: K,
     data: ProjectContextData[K]
   ) => {
@@ -350,6 +454,13 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
         siteExplorer: context.siteExplorer ? {
           selectedZones: context.siteExplorer.selectedZones.length,
           hazardSummary: context.siteExplorer.hazardSummary,
+        } : null,
+        impactModel: context.impactModel ? {
+          status: context.impactModel.status,
+          coBenefitsCount: context.impactModel.coBenefits.length,
+          signalsCount: Object.values(context.impactModel.downstreamSignals).flat().length,
+          selectedLens: context.impactModel.selectedLens,
+          hasNarrative: !!context.impactModel.narrativeCache.base,
         } : null,
       },
       lastUpdated: context.lastUpdated,
@@ -411,6 +522,7 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
       operations: omData ? JSON.parse(omData) : null,
       businessModel: bmData ? JSON.parse(bmData) : null,
       siteExplorer: null,
+      impactModel: null,
       lastUpdated: {
         operations: omData ? new Date().toISOString() : undefined,
         businessModel: bmData ? new Date().toISOString() : undefined,

@@ -16,6 +16,7 @@ import SiteExplorerPage from '@/core/pages/site-explorer';
 import FunderSelectionPage from '@/core/pages/funder-selection';
 import ProjectOperationsPage from '@/core/pages/project-operations';
 import BusinessModelPage from '@/core/pages/business-model';
+import ImpactModelPage from '@/core/pages/impact-model';
 import { OAuthCallback } from '@/core/components/auth/oauth-callback';
 import NotFound from '@/core/pages/not-found';
 
@@ -43,6 +44,9 @@ function Router() {
       {/* Business Model routes */}
       <Route path='/business-model/:projectId' component={BusinessModelPage} />
       
+      {/* Impact Model routes */}
+      <Route path='/impact-model/:projectId' component={ImpactModelPage} />
+      
       {/* Sample mode routes - no API calls, uses local data */}
       <Route path='/sample/cities' component={CitySelection} />
       <Route path='/sample/project/:projectId' component={ProjectPage} />
@@ -50,6 +54,7 @@ function Router() {
       <Route path='/sample/funder-selection/:projectId' component={FunderSelectionPage} />
       <Route path='/sample/project-operations/:projectId' component={ProjectOperationsPage} />
       <Route path='/sample/business-model/:projectId' component={BusinessModelPage} />
+      <Route path='/sample/impact-model/:projectId' component={ImpactModelPage} />
 
       {/* Dynamically loaded module routes */}
       <DynamicModuleRoutes />

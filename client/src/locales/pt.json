@@ -107,7 +107,8 @@
       "funderSelection": "Seleção de Financiador",
       "operations": "Operações (O&M)",
       "businessModel": "Modelo de Negócio",
-      "siteExplorer": "Explorador de Terreno"
+      "siteExplorer": "Explorador de Terreno",
+      "impactModel": "Modelo de Impacto"
     },
     "contextLabels": {
       "status": "Status",
@@ -133,6 +134,7 @@
       "siteEmpty": "Nenhuma zona de intervenção selecionada ainda",
       "opsEmpty": "Nenhum plano de operações definido ainda",
       "bmEmpty": "Nenhum modelo de negócio definido ainda",
+      "impactEmpty": "Nenhuma narrativa de impacto gerada ainda",
       "pathway": "Caminho",
       "fundsShortlisted": "fundos pré-selecionados",
       "fundsSelected": "selecionados",
@@ -143,8 +145,13 @@
       "model": "Modelo",
       "tasks": "tarefas",
       "archetype": "Arquétipo",
-      "revenueLines": "linhas de receita"
-    }
+      "revenueLines": "linhas de receita",
+      "narrativeBlocks": "blocos narrativos",
+      "coBenefits": "co-benefícios",
+      "signals": "sinais downstream"
+    },
+    "impactModel": "Modelo de Impacto",
+    "impactModelDescription": "Gere narrativas de impacto com IA, co-benefícios e sinais downstream para comunicar o valor do seu projeto"
   },
   "funderSelection": {
     "title": "Seleção de Financiador",
@@ -759,5 +766,89 @@
     "copyToConceptNote": "Copiar para Nota Conceitual",
     "copied": "Copiado!",
     "playbookCopied": "Texto do manual copiado para a área de transferência"
+  },
+  "impactModel": {
+    "title": "Modelo de Impacto",
+    "subtitle": "Gere narrativas de impacto com IA para comunicar o valor do seu projeto",
+    "steps": {
+      "setup": "Configuração",
+      "generate": "Gerar",
+      "curate": "Curar",
+      "lenses": "Lentes",
+      "export": "Exportar"
+    },
+    "prioritizationWeights": "Pesos de Priorização",
+    "weightsDescription": "Ajuste a importância relativa de cada fator na análise de impacto",
+    "weights": {
+      "floodRiskReduction": "Redução de Risco de Inundação",
+      "heatReduction": "Redução de Calor",
+      "landslideRiskReduction": "Redução de Risco de Deslizamento",
+      "socialEquity": "Equidade Social",
+      "costCertainty": "Certeza de Custo",
+      "biodiversityWaterQuality": "Biodiversidade e Qualidade da Água"
+    },
+    "resetToDefault": "Restaurar Padrão",
+    "interventionBundles": "Pacotes de Intervenção",
+    "bundlesDescription": "Selecione quais zonas de intervenção incluir na narrativa de impacto",
+    "noZonesSelected": "Nenhuma zona de intervenção disponível",
+    "selectZonesFirst": "Complete o módulo Explorador de Terreno para selecionar zonas de intervenção",
+    "generateNarrative": "Gerar Narrativa de Impacto",
+    "generateDescription": "Use IA para gerar uma narrativa de impacto abrangente baseada no contexto do seu projeto",
+    "contextSummary": "Resumo do Contexto",
+    "selectedBundles": "Pacotes Selecionados",
+    "targetHazards": "Riscos Alvo",
+    "generating": "Gerando...",
+    "generateWithAI": "Gerar com IA",
+    "narrativeGenerated": "Narrativa Gerada com Sucesso",
+    "blocksGenerated": "blocos",
+    "coBenefitsGenerated": "co-benefícios",
+    "narrativeBlocks": "Blocos Narrativos",
+    "curateDescription": "Revise e edite os blocos narrativos gerados",
+    "noNarrativeYet": "Nenhuma narrativa gerada ainda",
+    "goToGenerate": "Vá para a etapa Gerar para criar sua narrativa de impacto",
+    "coBenefitsTitle": "Co-Benefícios",
+    "coBenefitsDescription": "Revise e selecione quais co-benefícios incluir",
+    "analyticalLenses": "Lentes Analíticas",
+    "lensesDescription": "Visualize sua narrativa através de diferentes perspectivas analíticas",
+    "lenses": {
+      "neutral": "Neutro",
+      "climate": "Clima",
+      "social": "Social",
+      "financial": "Financeiro",
+      "institutional": "Institucional"
+    },
+    "lensDescriptions": {
+      "neutral": "Visão equilibrada apresentando todas as dimensões de impacto igualmente",
+      "climate": "Enfatiza resultados de mitigação e adaptação climática",
+      "social": "Foca em equidade, saúde e benefícios comunitários",
+      "financial": "Destaca valor econômico e retorno sobre investimento",
+      "institutional": "Aborda implicações de governança, capacidade e políticas"
+    },
+    "useBaseNarrative": "Usando narrativa base na lente neutra",
+    "lensNotGenerated": "Narrativa específica da lente ainda não gerada",
+    "exportTitle": "Exportar e Compartilhar",
+    "exportDescription": "Exporte sua narrativa de impacto e envie sinais para módulos downstream",
+    "exportMarkdown": "Exportar Markdown",
+    "exportMarkdownDesc": "Baixar narrativa como texto formatado",
+    "exportJSON": "Exportar JSON",
+    "exportJSONDesc": "Baixar dados estruturados para integração",
+    "exportSuccess": "Exportação Concluída",
+    "markdownExported": "Arquivo Markdown baixado",
+    "jsonExported": "Arquivo JSON baixado",
+    "downstreamSignals": "Sinais Downstream",
+    "signalsDescription": "Envie sinais relevantes para os módulos de Operações e Modelo de Negócio",
+    "operationsSignals": "Sinais de Operações e Manutenção",
+    "businessModelSignals": "Sinais de Modelo de Negócio",
+    "signalsReady": "sinais prontos",
+    "pushToOps": "Enviar para Operações",
+    "pushToBM": "Enviar para Modelo de Negócio",
+    "signalsPushed": "Sinais Enviados",
+    "opsSignalsPushed": "Sinais de O&M enviados para o módulo Operações",
+    "bmSignalsPushed": "Sinais de receita enviados para o módulo Modelo de Negócio",
+    "generationComplete": "Geração Concluída",
+    "narrativeReady": "Sua narrativa de impacto está pronta para revisão",
+    "saved": "Modelo de Impacto Salvo",
+    "savedDescription": "Seu modelo de impacto foi finalizado e salvo",
+    "finalize": "Finalizar Modelo de Impacto"
   }
 }

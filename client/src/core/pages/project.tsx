@@ -1,7 +1,7 @@
 import { useParams, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Map, ArrowRight, DollarSign, Settings, Landmark, Database, ChevronRight, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Map, ArrowRight, DollarSign, Settings, Landmark, Database, ChevronRight, ChevronDown, Lightbulb } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { DisplayLarge } from '@oef/components';
@@ -200,6 +200,45 @@ function BusinessModelHighlight({ data }: { data: ProjectContextData['businessMo
         )}
         {data.financingPathway?.pathway && (
           <Badge variant="outline" className="text-xs">{data.financingPathway.pathway.replace(/_/g, ' ')}</Badge>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ImpactModelHighlight({ data }: { data: ProjectContextData['impactModel'] | undefined }) {
+  const { t } = useTranslation();
+  
+  if (!data || data.status === 'NOT_STARTED') {
+    return (
+      <div className="text-xs text-muted-foreground italic py-2 border-t mt-3">
+        {t('project.highlights.impactEmpty')}
+      </div>
+    );
+  }
+  
+  const totalSignals = Object.values(data.downstreamSignals || {}).flat().length;
+  const includedCoBenefits = data.coBenefits?.filter(cb => cb.included).length || 0;
+  
+  return (
+    <div className="border-t mt-3 pt-3 space-y-1.5">
+      <div className="flex items-center justify-between">
+        <StatusBadge status={data.status} />
+        {data.selectedLens && data.selectedLens !== 'neutral' && (
+          <Badge variant="outline" className="text-xs">{data.selectedLens}</Badge>
+        )}
+      </div>
+      {data.narrativeCache?.base && (
+        <div className="text-xs text-muted-foreground">
+          {data.narrativeCache.base.length} {t('project.highlights.narrativeBlocks')}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+        {includedCoBenefits > 0 && (
+          <span>{includedCoBenefits} {t('project.highlights.coBenefits')}</span>
+        )}
+        {totalSignals > 0 && (
+          <span>{totalSignals} {t('project.highlights.signals')}</span>
         )}
       </div>
     </div>
@@ -935,6 +974,29 @@ export default function ProjectPage() {
               </Card>
             </Link>
 
+            <Link href={`${routePrefix}/impact-model/${projectId}`}>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-500/10 rounded-lg">
+                      <Lightbulb className="h-6 w-6 text-amber-600" />
+                    </div>
+                    <CardTitle className="text-lg">{t('project.impactModel')}</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription>
+                    {t('project.impactModelDescription')}
+                  </CardDescription>
+                  <ImpactModelHighlight data={context?.impactModel} />
+                  <div className="flex items-center text-amber-600 text-sm font-medium mt-3">
+                    {t('common.view')}
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
             <Link href={`${routePrefix}/project-operations/${projectId}`}>
               <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
                 <CardHeader>
@@ -1091,6 +1153,28 @@ export default function ProjectPage() {
                   {t('project.siteExplorerDescription')}
                 </CardDescription>
                 <div className="flex items-center text-primary text-sm font-medium">
+                  {t('common.view')}
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href={`/impact-model/${projectId}`}>
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-500/10 rounded-lg">
+                    <Lightbulb className="h-6 w-6 text-amber-600" />
+                  </div>
+                  <CardTitle className="text-lg">{t('project.impactModel')}</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="mb-4">
+                  {t('project.impactModelDescription')}
+                </CardDescription>
+                <div className="flex items-center text-amber-600 text-sm font-medium">
                   {t('common.view')}
                   <ArrowRight className="h-4 w-4 ml-1" />
                 </div>

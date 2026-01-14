@@ -1,0 +1,89 @@
+The tool operates at a **late pre-feasibility stage**, assuming that core inputs—city context, climate risks, selected funder and project preparation facility (PPF), high-level project design, and alignment with local climate action plans (PLACs)—have already been defined upstream. Its primary objective is to translate these inputs into a **credible, funder-ready narrative** that explains expected impacts, co-benefits, and system-level synergies, while remaining transparent about assumptions, confidence levels, and dependencies.
+
+The application is structured as a **multi-step wizard** that guides users through setup, AI-based generation, curation, analytical lenses, and export. A central design principle is that users do **not invent priorities or impacts at this stage**: prioritization weights and constraints are inherited from PLACs or high-level project plans and can only be adjusted with traceability. Using GPT-based generation, the system produces **structured narrative blocks**, explicit **co-benefits displayed as visual cards**, and a dedicated **"Downstream Signals" section** that surfaces implications for Operations & Maintenance (O&M), business models, Monitoring/Reporting/Verification (MRV), and implementors.
+
+From a product and methodological perspective, the tool emphasizes **geospatial reasoning without requiring full GIS computation**. Impacts and co-benefits are linked to site clusters, corridors, and intervention areas, making spatial logic explicit and explainable. Outputs can be viewed through multiple analytical lenses (neutral, climate, social, financial, institutional), curated at block and card level, and exported in Markdown or JSON. These outputs are intended to feed directly into funding applications, internal planning, and downstream modules focused on delivery, sustainability, and monitoring.
+
+---
+
+## How the Project Was Built (Technical Context)
+
+The prototype was built as a **React + TypeScript** web application with an **Express.js backend**, using **Zustand** for centralized state management and **Tailwind CSS + shadcn/ui** for styling. AI generation is handled via **GPT-4.1**, with strict JSON schemas enforced on responses to ensure reliability, editability, and downstream reuse. All generated content—narrative blocks, co-benefits cards, and downstream signals—is treated as **structured data**, not free text, enabling per-block editing, inclusion/exclusion, lens-specific versions, and deterministic exports.
+
+A key architectural choice is **lens caching**: lens-specific narratives are generated once and stored, rather than re-generated on every toggle. This preserves user edits, improves performance, and avoids unnecessary AI calls. The current implementation runs on mock/demo data (e.g. Porto Alegre, Brazil; an IDB-simulated funder; a three-project NbS portfolio), but the data model and flow are designed to accept real upstream inputs from other systems or modules without structural changes.
+
+---
+
+## Instructions to Integrate into Another Repl
+
+### 1. Preserve the Core Architecture and Data Flow
+
+When integrating this project into another Repl, preserve the same high-level separation of concerns:
+
+- **Frontend**: React + TypeScript handling the wizard UI, curation logic, and visualization of outputs  
+- **Backend**: Dedicated routes/functions responsible for AI calls and JSON schema validation  
+- **State management**: A single centralized store (Zustand or the host Repl's equivalent) holding:
+  - inherited project context and prioritization weights  
+  - generated narrative blocks  
+  - co-benefits cards  
+  - downstream signals (O&M, business model, MRV, implementors)  
+  - lens-specific versions and user edits  
+
+If the host Repl uses a different state-management solution, replicate the **conceptual behavior** (single source of truth, immutable updates, persistence) rather than mixing paradigms.
+
+---
+
+### 2. Adapt Styling Without Changing Behavior
+
+The UI can and should be adapted to the host Repl's design system, but the following behaviors are **critical to replicate**:
+
+- Wizard step order and responsibilities:  
+  **Setup → Generate → Curate → Lenses → Export**
+- A **Context Summary** displayed prominently in the main Setup page (not only in a sidebar)
+- Clear distinction between **inherited** prioritization weights and **user-adjusted** weights, including reset-to-default behavior
+- Block-based narrative generation with per-block editing and regeneration
+- Co-benefits rendered as **visual cards in a grid**, not only embedded in prose
+- A dedicated **Downstream Signals** section grouped by:
+  - Operations & Maintenance  
+  - Business Model / Sustainability  
+  - Monitoring, Reporting & Verification  
+  - Implementors  
+
+Changing visual components is fine; changing these interaction patterns will alter the product logic.
+
+---
+
+### 3. Reuse Prompts and Schemas Before Refactoring
+
+To ensure functional parity, **copy the existing GPT prompt templates and JSON schemas verbatim** into the new Repl before making any adaptations. Verify that:
+
+- Base (neutral) generation outputs match structure and intent
+- Lens transformations preserve IDs, KPIs, confidence tags, and assumptions
+- Co-benefits and downstream signals are returned as structured objects
+
+Only after confirming equivalent outputs should prompts be modified to accommodate new data sources, dependencies, or platform conventions.
+
+---
+
+### 4. Validate Exports and Downstream Compatibility
+
+Before extending or optimizing the integrated version, validate that:
+
+- **Markdown exports** include:
+  - curated narrative blocks
+  - a summarized co-benefits section
+  - downstream signals grouped by category
+- **JSON exports** serialize all structured objects, including:
+  - IDs
+  - confidence levels
+  - assumptions
+  - user notes
+  - include/exclude flags
+
+This guarantees that the integrated module can continue to serve as a reliable input for future O&M design, business modeling, MRV frameworks, or implementor selection workflows.
+
+---
+
+## Notes
+
+This module is intentionally scoped to **impact synthesis and handoff**, not detailed engineering, financial modeling, or monitoring system design. Its value lies in making impacts, co-benefits, spatial logic, and implementation implications explicit and traceable—creating a strong bridge between planning and delivery.

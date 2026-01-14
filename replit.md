@@ -44,7 +44,7 @@ Preferred communication style: Simple, everyday language.
 ## Shared Project Context Architecture
 - A unified `ProjectContextProvider` for data persistence and cross-module data sharing.
 - Modules should `Read Before Ask` to prefill data from the shared context, minimizing redundant user input.
-- Data available for prefill includes information from Funder Selection, Site Explorer, Operations (O&M), Business Model, and Core Project modules.
+- Data available for prefill includes information from Funder Selection, Site Explorer, Impact Model, Operations (O&M), Business Model, and Core Project modules.
 - Data is primarily persisted to `nbs_project_context_${projectId}` in localStorage.
 
 ## Feature Development Requirements
@@ -63,6 +63,21 @@ Preferred communication style: Simple, everyday language.
 - A 6-step wizard to structure project financing.
 - Guides users through selecting payers, beneficiaries, business model archetypes, revenue stacks, and financing pathways.
 - Validates bankability requirements and provides readiness gate checks.
+
+## Impact Model Module
+- A 5-step wizard to generate AI-powered impact narratives: **Setup → Generate → Curate → Lenses → Export**
+- Translates Site Explorer zones and interventions into credible, funder-ready impact narratives
+- **Key Data Structures**:
+    - `NarrativeBlock`: Structured narrative sections with lens variants (neutral, climate, social, financial, institutional)
+    - `CoBenefitCard`: Co-benefits with category, confidence, evidence tier, and include/exclude flags
+    - `SignalCard`: Downstream signals for O&M, Business Model, MRV, and implementors
+    - `PrioritizationWeights`: Inherited and adjustable weights for flood, heat, landslide, equity, cost, biodiversity
+- **Data Flow**:
+    - Inputs FROM Funder Selection: pathway, funder constraints, narrative tone
+    - Inputs FROM Site Explorer: selectedZones with hazardType, interventionType, riskScore
+    - Outputs TO Operations: downstream signals for maintenance requirements
+    - Outputs TO Business Model: revenue-relevant signals and co-benefits
+- **Lens Caching**: Lens-specific narratives are generated once and cached to preserve edits
 
 # External Dependencies
 
