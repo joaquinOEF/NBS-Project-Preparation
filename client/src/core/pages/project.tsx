@@ -75,28 +75,6 @@ export default function ProjectPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Link href={`${routePrefix}/site-explorer/${projectId}`}>
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Map className="h-6 w-6 text-primary" />
-                    </div>
-                    <CardTitle className="text-lg">{t('project.siteExplorer')}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="mb-4">
-                    {t('project.siteExplorerDescription')}
-                  </CardDescription>
-                  <div className="flex items-center text-primary text-sm font-medium">
-                    {t('common.view')}
-                    <ArrowRight className="h-4 w-4 ml-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-
             <Link href={`${routePrefix}/funder-selection/${projectId}`}>
               <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
                 <CardHeader>
@@ -112,6 +90,28 @@ export default function ProjectPage() {
                     {t('project.funderSelectionDescription')}
                   </CardDescription>
                   <div className="flex items-center text-green-600 text-sm font-medium">
+                    {t('common.view')}
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href={`${routePrefix}/site-explorer/${projectId}`}>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Map className="h-6 w-6 text-primary" />
+                    </div>
+                    <CardTitle className="text-lg">{t('project.siteExplorer')}</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="mb-4">
+                    {t('project.siteExplorerDescription')}
+                  </CardDescription>
+                  <div className="flex items-center text-primary text-sm font-medium">
                     {t('common.view')}
                     <ArrowRight className="h-4 w-4 ml-1" />
                   </div>
@@ -175,28 +175,6 @@ export default function ProjectPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Link href={`/site-explorer/${projectId}`}>
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Map className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-lg">{t('project.siteExplorer')}</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="mb-4">
-                  {t('project.siteExplorerDescription')}
-                </CardDescription>
-                <div className="flex items-center text-primary text-sm font-medium">
-                  {t('common.view')}
-                  <ArrowRight className="h-4 w-4 ml-1" />
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-
           <Link href={`/funder-selection/${projectId}`}>
             <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
               <CardHeader>
@@ -212,6 +190,28 @@ export default function ProjectPage() {
                   {t('project.funderSelectionDescription')}
                 </CardDescription>
                 <div className="flex items-center text-green-600 text-sm font-medium">
+                  {t('common.view')}
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href={`/site-explorer/${projectId}`}>
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Map className="h-6 w-6 text-primary" />
+                  </div>
+                  <CardTitle className="text-lg">{t('project.siteExplorer')}</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="mb-4">
+                  {t('project.siteExplorerDescription')}
+                </CardDescription>
+                <div className="flex items-center text-primary text-sm font-medium">
                   {t('common.view')}
                   <ArrowRight className="h-4 w-4 ml-1" />
                 </div>
