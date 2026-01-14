@@ -1,0 +1,96 @@
+Project Operations Prompt
+You are a senior full-stack engineer building on an existing Replit prototype for CityCatalyst’s Project Preparation Module.
+Goal Implement a new “Project Operations / O&M” stage + component that fits the existing UX patterns and data model conventions already used in the prototype. All previous steps (Problem, Site, Budget, Impact, Implementors, MRV, Readiness, Business Model) already exist and are loaded into the project context. 
+Your implementation must: 1) Prefill O&M fields from existing project context (agentic/context-aware prefill). 2) Provide a structured O&M editor (pre-feasibility level; no detailed engineering). 3) Include a conversational assistant on the O&M page that can propose edits, generate task plans, and write playbook text. 4) Include a simple diagram generator (text-based output) for the Operating Model + Roles that can be pasted into Miro AI diagram generator. 5) Produce an “Operations Playbook” preview and “Readiness Gate” status.
+Constraints / UX conventions
+Inherit the existing UI layout, routing, state management, form components, and styling decisions in the prototype.
+Keep the wizard experience lightweight: archetypes, ranges, checklists, and “good enough” defaults.
+Use progressive disclosure: show NBS-specific panels only when action_type == "NBS".
+Avoid duplicating fields the user already entered in other steps; link and import them.
+Deliverables A) New route/page: Project Prep → Delivery → “Operations (O&M)” B) New persistent component data object stored on the Project record: operations_om C) Prefill logic that reads existing project context and populates defaults D) Embedded chat assistant panel with suggested actions E) Diagram generator output (simple designer) F) Operations Playbook preview + exportable snippet for concept note G) Readiness status + blockers integrated into the overall readiness model
+1) Data model (add to Project schema / state) Add a new object: operations_om with this shape (TypeScript interfaces if applicable):
+operations_om: {   status: "NOT_STARTED" | "DRAFT" | "READY",
+// Imported context snapshot (for traceability; editable)   imported_context: {     action_type?: string,              // e.g., "NBS"     hazard_focus?: string[],           // e.g., ["FLOOD", "HEAT"]     solution_archetype?: string,       // from technology/solution step     sites?: Array<{ id: string, name: string, constraints?: string[] }>,     stakeholders?: Array<{ id: string, name: string, type: string }>,     budget_band?: { low?: number, mid?: number, high?: number, currency?: string },     mrv_intent?: { indicators?: string[] }   },
+operating_model: "CITY_RUN" | "UTILITY_RUN" | "CONTRACTOR_RUN" | "COMMUNITY_STEWARDSHIP" | "HYBRID_SPLIT" | null,
+roles: {     asset_owner_entity_id: string | null,     program_owner_entity_id: string | null,     operator_entity_id: string | null,     maintainer_entity_id: string | null,     verifier_entity_id: string | null,     community_role: "BENEFICIARY" | "STEWARD_OPERATOR" | "CO_OWNER_REVENUE_PARTICIPANT" | null,     stewardship_scope?: {       routine_maintenance?: boolean,       inspections?: boolean,       minor_repairs?: boolean,       monitoring_support?: boolean,       extreme_event_response?: boolean     },     support_needs?: {       training?: boolean,       tools_equipment?: boolean,       technical_partner?: boolean,       contract_mgmt_support?: boolean,       mrv_support?: boolean     }   },
+service_levels: Array<{    service_type: "COOLING" | "STORMWATER" | "SLOPE_STABILITY" | "MULTI_BENEFIT",    target_statement: string,    proxy_metric?: string,    inspection_frequency?: "MONTHLY" | "QUARTERLY" | "BIANNUAL" | "ANNUAL"  }>,
+task_plan: Array<{    task_category: "ESTABLISHMENT" | "ROUTINE_MAINTENANCE" | "INSPECTION" | "REPAIR_REPLACEMENT" | "EXTREME_EVENT_RESPONSE",    task_name: string,    frequency: "WEEKLY" | "MONTHLY" | "QUARTERLY" | "BIANNUAL" | "ANNUAL" | "EVENT_TRIGGERED",    responsible_entity_id: string | null,    notes?: string  }>,
+nbs_extensions?: {     establishment_period_months?: 12 | 24 | 36,     maintenance_intensity?: "LOW" | "MEDIUM" | "HIGH",     survival_target_percent?: number,     replacement_policy?: "REPLACE_30D" | "REPLACE_90D" | "ANNUAL_CYCLE",     nbs_asset_types?: Array<"URBAN_TREES_CORRIDORS" | "BIOSWALES_RAIN_GARDENS" | "POCKET_PARKS_GREEN_STREETS" | "SLOPE_VEGETATION_STABILIZATION">   },
+om_cost_band: {     low?: number,     mid?: number,     high?: number,     currency?: string,     basis?: "PER_ASSET" | "PER_HECTARE" | "PER_KM" | "PER_SITE" | "PORTFOLIO",     assumptions?: string   },
+om_funding: {     mechanisms: Array<"CITY_BUDGET_LINE" | "RING_FENCED_FEE_ALLOCATION" | "MULTI_YEAR_SERVICE_CONTRACT" | "DISTRICT_LEVY_BID" | "PHILANTHROPY_ESTABLISHMENT_GRANT" | "DEVELOPER_MAINTENANCE_ESCROW">,     duration_years?: 1 | 3 | 5 | 10   },
+capacity: {     assessment: "ADEQUATE" | "PARTIAL_NEEDS_SUPPORT" | "INADEQUATE" | null,     notes?: string   },
+ops_risks: Array<{    risk_type: "PERFORMANCE_DECLINE" | "EXTREME_EVENTS" | "FUNDING_GAP" | "GOVERNANCE_FAILURE" | "COMMUNITY_CONTINUITY" | "VANDALISM" | "PESTS_DISEASE",    risk_level: "LOW" | "MEDIUM" | "HIGH",    mitigation: string  }>,
+readiness: {     blockers: string[],   // computed     checklist: {       operating_model_selected: boolean,       operator_assigned: boolean,       task_plan_present: boolean,       funding_mechanism_selected: boolean,       verifier_set: boolean     }   } }
+2) Prefill logic (agentic/context-aware) On page load, do NOT require the user to re-enter content already captured in other steps. Implement a function buildOperationsPrefill(project): Partial that:
+Copies a snapshot of imported_context from prior steps
+Sets defaults:
+operating_model: if community org exists + NBS + readiness moderate/high → COMMUNITY_STEWARDSHIP else CITY_RUN
+roles: pre-select asset_owner and program_owner from city entity; operator/maintainer from implementors if present
+service_levels: infer from hazard focus (FLOOD→STORMWATER; HEAT→COOLING; LANDSLIDE→SLOPE_STABILITY)
+nbs_extensions: if action_type==NBS, suggest establishment period 24 months and medium intensity
+task_plan: load from a small internal “task library” based on NBS asset type (if known) or hazard focus
+Add a “We already know…” (or something similar to this concept) panel showing these imported values and allow “Accept Prefill” / “Edit imported fields” (edits should update imported_context only; do not rewrite upstream steps)
+3) UI requirements (wireframe-level) Implement the O&M page with the existing layout conventions, for example:
+Left sidebar: wizard navigation
+Main content: step panels
+Right side: collapsible “Ask CityCatalyst” assistant
+Main content sections (single page with anchored sections OR 5-step subwizard; choose whichever matches existing patterns):
+   A) Overview + Prefill Summary
+Show imported context summary and a button “Re-run Prefill Suggestions” B) Operating Model Selector (cards)
+5 cards with short descriptions and “Recommended” badge when applicable C) Roles & Decision Rights (RACI-lite)
+A simple roles table with entity pickers; show warnings if required roles are empty
+If operating_model == COMMUNITY_STEWARDSHIP or community_role != BENEFICIARY, show “Stewardship Setup” panel D) Task Plan Builder
+Task library dropdown (NBS asset type / hazard-based)
+Editable tasks table: category, task_name, frequency, responsible entity, notes
+NBS-only: “Establishment Period” panel (12/24/36 months, intensity, survival target, replacement policy) E) O&M Funding + Cost Band
+Low/Mid/High inputs, basis selector, assumptions
+Funding mechanisms chips + duration selector
+If Business Model exists on project, show “Consistency check” banner (just a warning; do not block) F) Capacity + Risks + Readiness Gate
+Capacity selector + support needs
+Suggested risks list with quick-add; each risk has level + mitigation text
+Readiness checklist with computed blockers; status updates to READY when required items completed
+4) Conversational assistant (embedded) Add a right panel “Ask CityCatalyst” that supports:
+Suggested prompt buttons:
+“Propose an operating model given our context”
+“Generate a task plan for [selected NBS asset type]”
+“Draft an O&M section for the concept note”
+“Suggest top operational risks and mitigations”
+The assistant must:
+Read project context + current operations_om draft
+Return suggestions as structured deltas (e.g., JSON patch or a list of recommended field updates) + a human-readable explanation
+Require user confirmation before applying changes (“Apply changes” button)
+Implementation note:
+If LLM integration exists in prototype, reuse it.
+If not, stub with a deterministic “rules engine” responder that returns plausible outputs. Keep the interface compatible with later LLM swap.
+5) Diagram generator (AI prompt output or simple manual builder with pre existing typical components) Add a button “Generate  Diagram Prompt” that creates a text blob the user can copy. It should generate a simple directed graph describing:
+Selected operating model
+Roles/entities and relationships (owner → program owner → operator/maintainer → verifier)
+Stewardship scope (if applicable)
+O&M funding mechanism link (payer/source → ring-fenced fund/contract → operator)
+Example output format: Title: … Diagram type: Flowchart (or Value flow diagram) Nodes: … Edges: …
+The diagram output must reflect the user’s current selections.
+6) Playbook preview + concept note snippet Add a “Playbook Preview” accordion section (or separate modal) that renders:
+Operating model summary
+Roles & accountability
+Task plan + establishment period (if NBS)
+O&M funding concept + cost band
+Community stewardship design (if applicable)
+Risks + mitigations
+Next steps checklist (from blockers) 
+Also add “Copy to Concept Note” which returns a formatted text section.
+7) Integration points
+Project Overview: show an “Operations” card with status + top blockers
+Readiness step: include operations readiness in global readiness score (if such a mechanism exists)
+Ensure autosave matches existing behavior.
+8) Acceptance criteria (must pass)
+O&M page loads with meaningful prefill without user typing
+User can complete minimal required fields and reach status READY
+Assistant can propose changes and apply them only on user confirmation
+Diagram generator outputs a coherent Miro prompt and updates when selections change
+Playbook preview produces usable content for concept note
+Implementation instructions
+Inspect existing codebase structure first (routes, components, state management, API patterns).
+Add new route, update navigation, add schema changes, ensure persistence.
+Write minimal unit tests or smoke tests if the repo supports it (optional but preferred).
+Keep code consistent with existing style and naming.
+Deliver only the code changes needed for this step; do not refactor unrelated modules.

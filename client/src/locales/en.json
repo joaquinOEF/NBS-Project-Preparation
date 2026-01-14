@@ -91,7 +91,9 @@
     "siteExplorer": "Site Explorer",
     "siteExplorerDescription": "View elevation data and city boundaries on an interactive map",
     "funderSelection": "Funder Selection",
-    "funderSelectionDescription": "Find the right climate funding pathway and matching funds for your project"
+    "funderSelectionDescription": "Find the right climate funding pathway and matching funds for your project",
+    "projectOperations": "Project Operations (O&M)",
+    "projectOperationsDescription": "Define who owns, operates, and maintains your project for long-term success"
   },
   "funderSelection": {
     "title": "Funder Selection",
@@ -265,6 +267,7 @@
     "loading": "Loading...",
     "back": "Back",
     "next": "Next",
+    "previous": "Previous",
     "error": "Error",
     "success": "Success",
     "save": "Save",
@@ -298,5 +301,198 @@
     "unsavedChanges": "You have unsaved changes. Are you sure you want to leave?",
     "processingRequest": "Processing your request...",
     "downloadComplete": "Download completed successfully"
+  },
+  "om": {
+    "pageTitle": "Project Operations & Maintenance",
+    "readinessProgress": "Readiness Progress",
+    "status": {
+      "NOT_STARTED": "Not Started",
+      "DRAFT": "Draft",
+      "READY": "Ready"
+    },
+    "steps": {
+      "overview": "Overview",
+      "operatingModel": "Operating Model",
+      "roles": "Roles",
+      "taskPlan": "Task Plan",
+      "funding": "Funding",
+      "readiness": "Readiness"
+    },
+    "overviewTitle": "Project Context Overview",
+    "overviewDescription": "Review the imported context from previous steps before configuring O&M",
+    "importedContext": "Imported Context",
+    "actionType": "Action Type",
+    "nbs": "Nature-Based Solution",
+    "traditional": "Traditional Infrastructure",
+    "sites": "Intervention Sites",
+    "hazards": "Hazard Focus",
+    "floodHeatLandslide": "Flood, Heat, Landslide",
+    "stakeholders": "Available Stakeholders",
+    "startConfiguration": "Start O&M Configuration",
+    "hazard": {
+      "FLOOD": "Flood",
+      "HEAT": "Heat",
+      "LANDSLIDE": "Landslide",
+      "MULTI": "Multi-Hazard"
+    },
+    "intervention": {
+      "sponge_network": "Sponge Network",
+      "cooling_network": "Cooling Network",
+      "slope_stabilization": "Slope Stabilization",
+      "multi_benefit": "Multi-Benefit Greenspace"
+    },
+    "operatingModelTitle": "Select Operating Model",
+    "operatingModelDescription": "Choose how the project will be owned, operated, and maintained",
+    "recommended": "Recommended",
+    "models": {
+      "CITY_RUN": "City-Run",
+      "UTILITY_RUN": "Utility-Run",
+      "CONTRACTOR_RUN": "Contractor-Run",
+      "COMMUNITY_STEWARDSHIP": "Community Stewardship",
+      "HYBRID_SPLIT": "Hybrid/Split"
+    },
+    "modelsDesc": {
+      "CITY_RUN": "City department owns and operates all assets directly",
+      "UTILITY_RUN": "Municipal utility manages operations under service agreement",
+      "CONTRACTOR_RUN": "Private contractor handles O&M under multi-year contract",
+      "COMMUNITY_STEWARDSHIP": "Community organizations take ownership of maintenance",
+      "HYBRID_SPLIT": "Split responsibilities between city and community partners"
+    },
+    "rolesTitle": "Roles & Decision Rights",
+    "rolesDescription": "Assign entities to key operational roles",
+    "assetOwner": "Asset Owner",
+    "programOwner": "Program Owner",
+    "operator": "Operator",
+    "maintainer": "Maintainer",
+    "verifier": "Verifier",
+    "selectEntity": "Select entity...",
+    "notAssigned": "Not assigned",
+    "communityRoleTitle": "Community Role Configuration",
+    "communityRole": "Community Role",
+    "communityRoles": {
+      "BENEFICIARY": "Beneficiary Only",
+      "STEWARD_OPERATOR": "Steward/Operator",
+      "CO_OWNER_REVENUE_PARTICIPANT": "Co-Owner/Revenue Participant"
+    },
+    "communityRolesDesc": {
+      "BENEFICIARY": "Community receives benefits but doesn't participate in operations",
+      "STEWARD_OPERATOR": "Community organizations take active role in maintenance and monitoring",
+      "CO_OWNER_REVENUE_PARTICIPANT": "Community shares in ownership and any revenue generated"
+    },
+    "stewardshipScope": "Stewardship Scope",
+    "scope": {
+      "routineMaintenance": "Routine Maintenance",
+      "inspections": "Inspections",
+      "minorRepairs": "Minor Repairs",
+      "monitoringSupport": "Monitoring Support"
+    },
+    "taskPlanTitle": "Task Plan Builder",
+    "taskPlanDescription": "Define maintenance tasks, frequencies, and responsibilities",
+    "nbsEstablishment": "NBS Establishment Period",
+    "establishmentPeriod": "Establishment Period",
+    "months": "months",
+    "maintenanceIntensity": "Maintenance Intensity",
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "survivalTarget": "Survival Target (%)",
+    "taskCategory": "Category",
+    "taskName": "Task Name",
+    "taskFrequency": "Frequency",
+    "responsible": "Responsible",
+    "category": {
+      "ESTABLISHMENT": "Establishment",
+      "ROUTINE_MAINTENANCE": "Routine Maintenance",
+      "INSPECTION": "Inspection",
+      "REPAIR_REPLACEMENT": "Repair/Replacement",
+      "EXTREME_EVENT_RESPONSE": "Extreme Event Response"
+    },
+    "frequency": {
+      "WEEKLY": "Weekly",
+      "MONTHLY": "Monthly",
+      "QUARTERLY": "Quarterly",
+      "BIANNUAL": "Biannual",
+      "ANNUAL": "Annual",
+      "EVENT_TRIGGERED": "Event-Triggered"
+    },
+    "fundingTitle": "O&M Funding & Cost Band",
+    "fundingDescription": "Estimate O&M costs and select funding mechanisms",
+    "costBandTitle": "Annual O&M Cost Estimate",
+    "lowEstimate": "Low Estimate",
+    "midEstimate": "Mid Estimate",
+    "highEstimate": "High Estimate",
+    "basis": "Cost Basis",
+    "costBasis": {
+      "PER_ASSET": "Per Asset",
+      "PER_HECTARE": "Per Hectare",
+      "PER_KM": "Per Kilometer",
+      "PER_SITE": "Per Site",
+      "PORTFOLIO": "Portfolio-Wide"
+    },
+    "assumptions": "Assumptions",
+    "assumptionsPlaceholder": "Describe the basis for your cost estimates...",
+    "fundingMechanismsTitle": "Funding Mechanisms",
+    "fundingMechanisms": {
+      "CITY_BUDGET_LINE": "City Budget Line",
+      "RING_FENCED_FEE_ALLOCATION": "Ring-Fenced Fee Allocation",
+      "MULTI_YEAR_SERVICE_CONTRACT": "Multi-Year Service Contract",
+      "DISTRICT_LEVY_BID": "District Levy/BID",
+      "PHILANTHROPY_ESTABLISHMENT_GRANT": "Philanthropy/Establishment Grant",
+      "DEVELOPER_MAINTENANCE_ESCROW": "Developer Maintenance Escrow"
+    },
+    "fundingDuration": "Funding Duration",
+    "years": "years",
+    "costBand": "Cost Band",
+    "mechanisms": "Mechanisms",
+    "duration": "Duration",
+    "capacityTitle": "Institutional Capacity Assessment",
+    "capacity": {
+      "ADEQUATE": "Adequate",
+      "PARTIAL_NEEDS_SUPPORT": "Partial - Needs Support",
+      "INADEQUATE": "Inadequate"
+    },
+    "capacityDesc": {
+      "ADEQUATE": "Existing staff and systems can handle O&M requirements",
+      "PARTIAL_NEEDS_SUPPORT": "Some capacity gaps exist that need external support",
+      "INADEQUATE": "Significant capacity building required before operations"
+    },
+    "capacityNotesPlaceholder": "Add notes about capacity needs or support requirements...",
+    "risksTitle": "Operational Risks",
+    "riskTypes": {
+      "PERFORMANCE_DECLINE": "Performance Decline",
+      "EXTREME_EVENTS": "Extreme Weather Events",
+      "FUNDING_GAP": "Funding Gap",
+      "GOVERNANCE_FAILURE": "Governance Failure",
+      "COMMUNITY_CONTINUITY": "Community Continuity",
+      "VANDALISM": "Vandalism",
+      "PESTS_DISEASE": "Pests/Disease"
+    },
+    "riskLevel": {
+      "LOW": "Low",
+      "MEDIUM": "Medium",
+      "HIGH": "High"
+    },
+    "mitigationPlaceholder": "Describe mitigation measures...",
+    "noMitigation": "No mitigation defined",
+    "readinessGate": "Readiness Gate",
+    "checklist": {
+      "operatingModelSelected": "Operating model selected",
+      "operatorAssigned": "Operator assigned",
+      "taskPlanPresent": "Task plan defined",
+      "fundingMechanismSelected": "Funding mechanism selected",
+      "verifierSet": "Verifier assigned"
+    },
+    "blockers": "Blockers",
+    "blocker": {
+      "selectOperatingModel": "Select an operating model",
+      "assignOperator": "Assign an operator entity",
+      "defineTaskPlan": "Define at least one maintenance task",
+      "selectFunding": "Select at least one funding mechanism"
+    },
+    "playbookPreview": "Operations Playbook Preview",
+    "operationsPlaybook": "Operations Playbook",
+    "copyToConceptNote": "Copy to Concept Note",
+    "copied": "Copied!",
+    "playbookCopied": "Playbook text copied to clipboard"
   }
 }
