@@ -95,7 +95,39 @@
     "projectOperations": "Operações do Projeto (O&M)",
     "projectOperationsDescription": "Defina quem possui, opera e mantém seu projeto para sucesso a longo prazo",
     "businessModel": "Modelo de Negócio",
-    "businessModelDescription": "Construa uma estrutura de financiamento credível identificando quem paga, como e por quanto tempo"
+    "businessModelDescription": "Construa uma estrutura de financiamento credível identificando quem paga, como e por quanto tempo",
+    "showContext": "Mostrar Contexto do Projeto",
+    "contextModalTitle": "Contexto do Projeto",
+    "contextModalDescription": "Todos os dados coletados nos módulos deste projeto",
+    "contextEmpty": "Nenhum dado de contexto salvo ainda. Complete os módulos para construir o contexto do seu projeto.",
+    "contextSections": {
+      "projectInfo": "Informações do Projeto",
+      "stakeholders": "Partes Interessadas",
+      "sites": "Locais & Zonas",
+      "funderSelection": "Seleção de Financiador",
+      "operations": "Operações (O&M)",
+      "businessModel": "Modelo de Negócio",
+      "siteExplorer": "Explorador de Terreno"
+    },
+    "contextLabels": {
+      "status": "Status",
+      "pathway": "Caminho",
+      "readinessLevel": "Nível de Prontidão",
+      "selectedFunds": "Fundos Selecionados",
+      "operatingModel": "Modelo Operacional",
+      "costBand": "Faixa de Custo",
+      "fundingMechanisms": "Mecanismos de Financiamento",
+      "archetype": "Arquétipo",
+      "primaryPayer": "Pagador Principal",
+      "revenueLines": "Linhas de Receita",
+      "financingPathway": "Caminho de Financiamento",
+      "selectedZones": "Zonas Selecionadas",
+      "hazardSummary": "Resumo de Riscos",
+      "lastUpdated": "Última Atualização",
+      "notStarted": "Não Iniciado",
+      "draft": "Rascunho",
+      "ready": "Pronto"
+    }
   },
   "funderSelection": {
     "title": "Seleção de Financiador",

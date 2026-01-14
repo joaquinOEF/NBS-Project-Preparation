@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/core/components/ui/toaster';
 import { TooltipProvider } from '@/core/components/ui/tooltip';
 import { SampleDataProvider } from '@/core/contexts/sample-data-context';
+import { ProjectContextProvider } from '@/core/contexts/project-context';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -69,10 +70,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SampleDataProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <ProjectContextProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </ProjectContextProvider>
       </SampleDataProvider>
     </QueryClientProvider>
   );

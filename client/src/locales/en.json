@@ -95,7 +95,39 @@
     "projectOperations": "Project Operations (O&M)",
     "projectOperationsDescription": "Define who owns, operates, and maintains your project for long-term success",
     "businessModel": "Business Model",
-    "businessModelDescription": "Build a credible financing structure by identifying who pays, how, and for how long"
+    "businessModelDescription": "Build a credible financing structure by identifying who pays, how, and for how long",
+    "showContext": "Show Project Context",
+    "contextModalTitle": "Project Context",
+    "contextModalDescription": "All data collected across modules for this project",
+    "contextEmpty": "No context data saved yet. Complete modules to build your project context.",
+    "contextSections": {
+      "projectInfo": "Project Information",
+      "stakeholders": "Stakeholders",
+      "sites": "Sites & Zones",
+      "funderSelection": "Funder Selection",
+      "operations": "Operations (O&M)",
+      "businessModel": "Business Model",
+      "siteExplorer": "Site Explorer"
+    },
+    "contextLabels": {
+      "status": "Status",
+      "pathway": "Pathway",
+      "readinessLevel": "Readiness Level",
+      "selectedFunds": "Selected Funds",
+      "operatingModel": "Operating Model",
+      "costBand": "Cost Band",
+      "fundingMechanisms": "Funding Mechanisms",
+      "archetype": "Archetype",
+      "primaryPayer": "Primary Payer",
+      "revenueLines": "Revenue Lines",
+      "financingPathway": "Financing Pathway",
+      "selectedZones": "Selected Zones",
+      "hazardSummary": "Hazard Summary",
+      "lastUpdated": "Last Updated",
+      "notStarted": "Not Started",
+      "draft": "Draft",
+      "ready": "Ready"
+    }
   },
   "funderSelection": {
     "title": "Funder Selection",
