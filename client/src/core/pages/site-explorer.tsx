@@ -1,6 +1,6 @@
 import { useParams, Link } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain } from 'lucide-react';
+import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain, Building2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Badge } from '@/core/components/ui/badge';
@@ -76,12 +76,12 @@ const LAYER_CONFIGS: Omit<LayerState, 'enabled' | 'loaded' | 'data' | 'leafletLa
   { id: 'grid_flood', name: 'Flood Risk', icon: CloudRain, color: '#3b82f6' },
   { id: 'grid_heat', name: 'Heat Risk', icon: Flame, color: '#ef4444' },
   { id: 'grid_landslide', name: 'Landslide Risk', icon: Mountain, color: '#a16207' },
+  { id: 'grid_population', name: 'Population Density', icon: Users, color: '#8b5cf6' },
+  { id: 'grid_buildings', name: 'Building Density', icon: Building2, color: '#f97316' },
   { id: 'elevation', name: 'Elevation', icon: Mountain, color: '#c9a87c' },
-  { id: 'landcover', name: 'Land Cover', icon: MapIcon, color: '#4ade80' },
   { id: 'surface_water', name: 'Water Bodies', icon: Droplets, color: '#3b82f6' },
   { id: 'rivers', name: 'Rivers', icon: Droplets, color: '#06b6d4' },
   { id: 'forest', name: 'Forest', icon: Trees, color: '#22c55e' },
-  { id: 'population', name: 'Population', icon: Users, color: '#f97316' },
 ];
 
 export default function SiteExplorerPage() {
@@ -247,6 +247,8 @@ export default function SiteExplorerPage() {
       case 'grid_flood':
       case 'grid_heat':
       case 'grid_landslide':
+      case 'grid_population':
+      case 'grid_buildings':
         return loadSampleGridData();
       default: return null;
     }
@@ -274,6 +276,24 @@ export default function SiteExplorerPage() {
     if (score >= 0.3) return '#ca8a04';
     if (score >= 0.1) return '#eab308';
     return '#fef3c7';
+  };
+
+  const getPopulationColor = (density: number): string => {
+    if (density >= 0.5) return '#5b21b6';
+    if (density >= 0.3) return '#7c3aed';
+    if (density >= 0.15) return '#8b5cf6';
+    if (density >= 0.05) return '#a78bfa';
+    if (density > 0) return '#c4b5fd';
+    return '#ede9fe';
+  };
+
+  const getBuildingColor = (density: number): string => {
+    if (density >= 0.5) return '#9a3412';
+    if (density >= 0.3) return '#c2410c';
+    if (density >= 0.15) return '#ea580c';
+    if (density >= 0.05) return '#f97316';
+    if (density > 0) return '#fb923c';
+    return '#ffedd5';
   };
 
   const createLayerFromData = useCallback((layerId: string, data: any): L.Layer | null => {
@@ -374,6 +394,63 @@ export default function SiteExplorerPage() {
                 `Canopy: ${((m.canopy_pct || 0) * 100).toFixed(0)}%<br/>` +
                 `Low-lying: ${((m.low_lying_pct || 0) * 100).toFixed(0)}%<br/>` +
                 `<em>Coverage: ${coverageList || 'none'}</em>`,
+                { sticky: true }
+              );
+            },
+          });
+        }
+        return null;
+
+      case 'grid_population':
+        if (data.geoJson?.features) {
+          return L.geoJSON(data.geoJson, {
+            style: (feature) => {
+              const density = feature?.properties?.metrics?.pop_density ?? 0;
+              return {
+                color: getPopulationColor(density),
+                weight: 0.5,
+                fillColor: getPopulationColor(density),
+                fillOpacity: density > 0 ? 0.6 : 0.1,
+                opacity: 0.8,
+              };
+            },
+            onEachFeature: (feature, layer) => {
+              const m = feature.properties?.metrics || {};
+              const popRaw = m.pop_density_raw;
+              const popDisplay = popRaw ? `${popRaw.toFixed(0)} people/km²` : 'No data';
+              const popPct = ((m.pop_density || 0) * 100).toFixed(0);
+              layer.bindTooltip(
+                `<strong>Population: ${popDisplay}</strong><br/>` +
+                `Normalized: ${popPct}% of max<br/>` +
+                `Data: WorldPop 100m raster`,
+                { sticky: true }
+              );
+            },
+          });
+        }
+        return null;
+
+      case 'grid_buildings':
+        if (data.geoJson?.features) {
+          return L.geoJSON(data.geoJson, {
+            style: (feature) => {
+              const density = feature?.properties?.metrics?.building_density ?? 0;
+              return {
+                color: getBuildingColor(density),
+                weight: 0.5,
+                fillColor: getBuildingColor(density),
+                fillOpacity: density > 0 ? 0.6 : 0.1,
+                opacity: 0.8,
+              };
+            },
+            onEachFeature: (feature, layer) => {
+              const m = feature.properties?.metrics || {};
+              const buildingPct = ((m.building_density || 0) * 100).toFixed(0);
+              const impervPct = ((m.imperv_pct || 0) * 100).toFixed(0);
+              layer.bindTooltip(
+                `<strong>Building Density: ${buildingPct}%</strong><br/>` +
+                `Impervious surface: ${impervPct}%<br/>` +
+                `Data: OSM building footprints`,
                 { sticky: true }
               );
             },
