@@ -64,9 +64,10 @@ export default function SiteExplorerPage() {
 
   const isSampleModeActive = isSampleMode || isSampleRoute;
 
-  const action = isSampleModeActive 
+  const sampleAction = isSampleModeActive 
     ? sampleActions.find(a => a.id === projectId)
     : null;
+  const isSampleProjectInitiated = isSampleModeActive && initiatedProjects.includes(projectId || '');
 
   const { data: projectData, isLoading: isLoadingProject } = useQuery<{ project: Project }>({
     queryKey: ['/api/project', projectId],
@@ -192,7 +193,7 @@ export default function SiteExplorerPage() {
   }, [elevationData]);
 
   const isNotFound = isSampleModeActive 
-    ? !action
+    ? (!sampleAction || !isSampleProjectInitiated)
     : (!projectData?.project && !isLoadingProject);
 
   if (isNotFound) {
@@ -232,8 +233,10 @@ export default function SiteExplorerPage() {
               <Badge variant="secondary">{t('cityInfo.sampleDataBadge')}</Badge>
             )}
           </div>
-          {action && (
-            <p className="text-muted-foreground">{action.name}</p>
+          {(sampleAction || projectData?.project) && (
+            <p className="text-muted-foreground">
+              {sampleAction?.name || projectData?.project?.actionName}
+            </p>
           )}
         </div>
 
