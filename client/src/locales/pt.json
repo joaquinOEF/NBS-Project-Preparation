@@ -487,7 +487,8 @@
       "selectOperatingModel": "Selecione um modelo operacional",
       "assignOperator": "Atribua uma entidade operadora",
       "defineTaskPlan": "Defina pelo menos uma tarefa de manutenção",
-      "selectFunding": "Selecione pelo menos um mecanismo de financiamento"
+      "selectFunding": "Selecione pelo menos um mecanismo de financiamento",
+      "assignVerifier": "Atribua uma entidade verificadora"
     },
     "playbookPreview": "Prévia do Manual de Operações",
     "operationsPlaybook": "Manual de Operações",

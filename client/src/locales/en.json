@@ -487,7 +487,8 @@
       "selectOperatingModel": "Select an operating model",
       "assignOperator": "Assign an operator entity",
       "defineTaskPlan": "Define at least one maintenance task",
-      "selectFunding": "Select at least one funding mechanism"
+      "selectFunding": "Select at least one funding mechanism",
+      "assignVerifier": "Assign a verifier entity"
     },
     "playbookPreview": "Operations Playbook Preview",
     "operationsPlaybook": "Operations Playbook",

@@ -331,6 +331,7 @@ export default function ProjectOperationsPage() {
       if (!updatedData.readiness.checklist.operatorAssigned) blockers.push('assignOperator');
       if (!updatedData.readiness.checklist.taskPlanPresent) blockers.push('defineTaskPlan');
       if (!updatedData.readiness.checklist.fundingMechanismSelected) blockers.push('selectFunding');
+      if (!updatedData.readiness.checklist.verifierSet) blockers.push('assignVerifier');
       
       updatedData.readiness.blockers = blockers;
       
@@ -359,6 +360,20 @@ export default function ProjectOperationsPage() {
     { id: 'funding', icon: DollarSign },
     { id: 'readiness', icon: AlertTriangle },
   ];
+
+  const canAccessReadiness = (): boolean => {
+    if (!omData) return false;
+    return omData.readiness.checklist.operatingModelSelected &&
+      omData.readiness.checklist.operatorAssigned &&
+      omData.readiness.checklist.taskPlanPresent &&
+      omData.readiness.checklist.fundingMechanismSelected &&
+      omData.readiness.checklist.verifierSet;
+  };
+
+  const canNavigateToStep = (stepIndex: number): boolean => {
+    if (stepIndex < 5) return true;
+    return canAccessReadiness();
+  };
 
   const getStakeholderName = (id: string | null) => {
     if (!id) return t('om.notAssigned');
@@ -462,7 +477,8 @@ export default function ProjectOperationsPage() {
               key={step.id}
               variant={currentStep === index ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setCurrentStep(index)}
+              onClick={() => canNavigateToStep(index) && setCurrentStep(index)}
+              disabled={!canNavigateToStep(index)}
               className="flex items-center gap-2 whitespace-nowrap"
             >
               <step.icon className="h-4 w-4" />
@@ -1033,7 +1049,18 @@ export default function ProjectOperationsPage() {
             {t('common.previous')}
           </Button>
           <Button
-            onClick={() => setCurrentStep(Math.min(steps.length - 1, currentStep + 1))}
+            onClick={() => {
+              const nextStep = currentStep + 1;
+              if (canNavigateToStep(nextStep)) {
+                setCurrentStep(Math.min(steps.length - 1, nextStep));
+              } else {
+                toast({
+                  title: t('om.blockers'),
+                  description: omData.readiness.blockers.map(b => t(`om.blocker.${b}`)).join(', '),
+                  variant: 'destructive',
+                });
+              }
+            }}
             disabled={currentStep === steps.length - 1}
           >
             {t('common.next')}
