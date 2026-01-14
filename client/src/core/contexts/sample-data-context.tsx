@@ -214,3 +214,43 @@ export async function loadSampleElevationData(): Promise<any> {
   }
   return response.json();
 }
+
+export async function loadSampleLandcoverData(): Promise<any> {
+  const response = await fetch('/sample-data/porto-alegre-landcover.json');
+  if (!response.ok) {
+    throw new Error('Failed to load sample landcover data');
+  }
+  return response.json();
+}
+
+export async function loadSampleSurfaceWaterData(): Promise<any> {
+  const response = await fetch('/sample-data/porto-alegre-surface-water.json');
+  if (!response.ok) {
+    throw new Error('Failed to load sample surface water data');
+  }
+  return response.json();
+}
+
+export async function loadSampleRiversData(): Promise<any> {
+  const response = await fetch('/sample-data/porto-alegre-rivers.json');
+  if (!response.ok) {
+    throw new Error('Failed to load sample rivers data');
+  }
+  return response.json();
+}
+
+export async function loadSampleForestData(): Promise<any> {
+  const response = await fetch('/sample-data/porto-alegre-forest.json');
+  if (!response.ok) {
+    throw new Error('Failed to load sample forest data');
+  }
+  return response.json();
+}
+
+export async function loadSamplePopulationData(): Promise<any> {
+  const response = await fetch('/sample-data/porto-alegre-population.json');
+  if (!response.ok) {
+    throw new Error('Failed to load sample population data');
+  }
+  return response.json();
+}

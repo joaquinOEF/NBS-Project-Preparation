@@ -1,13 +1,24 @@
 import { useParams, Link } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Badge } from '@/core/components/ui/badge';
+import { Switch } from '@/core/components/ui/switch';
+import { Label } from '@/core/components/ui/label';
 import { useTranslation } from 'react-i18next';
-import { useSampleData, loadSampleBoundaryData, loadSampleElevationData } from '@/core/contexts/sample-data-context';
+import { 
+  useSampleData, 
+  loadSampleBoundaryData, 
+  loadSampleElevationData,
+  loadSampleLandcoverData,
+  loadSampleSurfaceWaterData,
+  loadSampleRiversData,
+  loadSampleForestData,
+  loadSamplePopulationData,
+} from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { apiRequest } from '@/core/lib/queryClient';
@@ -49,6 +60,26 @@ interface CityInfo {
   country: string;
 }
 
+interface LayerState {
+  id: string;
+  name: string;
+  icon: any;
+  color: string;
+  enabled: boolean;
+  loaded: boolean;
+  data: any;
+  leafletLayer: L.Layer | null;
+}
+
+const LAYER_CONFIGS: Omit<LayerState, 'enabled' | 'loaded' | 'data' | 'leafletLayer'>[] = [
+  { id: 'elevation', name: 'Elevation', icon: Mountain, color: '#c9a87c' },
+  { id: 'landcover', name: 'Land Cover', icon: MapIcon, color: '#4ade80' },
+  { id: 'surface_water', name: 'Water Bodies', icon: Droplets, color: '#3b82f6' },
+  { id: 'rivers', name: 'Rivers', icon: Droplets, color: '#06b6d4' },
+  { id: 'forest', name: 'Forest', icon: Trees, color: '#22c55e' },
+  { id: 'population', name: 'Population', icon: Users, color: '#f97316' },
+];
+
 export default function SiteExplorerPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { t } = useTranslation();
@@ -58,6 +89,17 @@ export default function SiteExplorerPage() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [boundaryData, setBoundaryData] = useState<BoundaryData | null>(null);
   const [elevationData, setElevationData] = useState<ElevationData | null>(null);
+  const [showLayerPanel, setShowLayerPanel] = useState(true);
+  const [layers, setLayers] = useState<LayerState[]>(() => 
+    LAYER_CONFIGS.map(config => ({
+      ...config,
+      enabled: config.id === 'elevation',
+      loaded: false,
+      data: null,
+      leafletLayer: null,
+    }))
+  );
+  const layerRefs = useRef<Map<string, L.Layer>>(new Map());
 
   const isSampleModeActive = isSampleMode || isSampleRoute;
 
@@ -151,6 +193,7 @@ export default function SiteExplorerPage() {
 
     if (mapRef.current) {
       mapRef.current.remove();
+      layerRefs.current.clear();
     }
 
     const map = L.map(mapContainerRef.current, {
@@ -187,27 +230,160 @@ export default function SiteExplorerPage() {
     };
   }, [boundaryData]);
 
+  const loadLayerData = useCallback(async (layerId: string): Promise<any> => {
+    if (!isSampleModeActive) return null;
+    
+    switch (layerId) {
+      case 'elevation': return loadSampleElevationData();
+      case 'landcover': return loadSampleLandcoverData();
+      case 'surface_water': return loadSampleSurfaceWaterData();
+      case 'rivers': return loadSampleRiversData();
+      case 'forest': return loadSampleForestData();
+      case 'population': return loadSamplePopulationData();
+      default: return null;
+    }
+  }, [isSampleModeActive]);
+
+  const createLayerFromData = useCallback((layerId: string, data: any): L.Layer | null => {
+    if (!data) return null;
+
+    switch (layerId) {
+      case 'elevation':
+        if (data.contours?.features) {
+          return L.geoJSON(data.contours, {
+            style: (feature) => ({
+              color: feature?.properties?.isMajor ? '#c9a87c' : '#a08060',
+              weight: feature?.properties?.isMajor ? 1.5 : 0.8,
+              opacity: feature?.properties?.isMajor ? 0.9 : 0.6,
+            }),
+            onEachFeature: (feature, layer) => {
+              if (feature.properties?.elevation && feature.properties?.isMajor) {
+                layer.bindTooltip(`${feature.properties.elevation}m`, { permanent: false, direction: 'center' });
+              }
+            },
+          });
+        }
+        return null;
+      
+      case 'landcover':
+        if (data.geoJson?.features) {
+          return L.geoJSON(data.geoJson, {
+            style: (feature) => {
+              const landuse = feature?.properties?.landuse || '';
+              const natural = feature?.properties?.natural || '';
+              let color = '#4ade80';
+              if (landuse === 'residential' || landuse === 'commercial' || landuse === 'industrial') color = '#f97316';
+              else if (natural === 'water' || landuse === 'reservoir') color = '#3b82f6';
+              else if (natural === 'wood' || landuse === 'forest') color = '#22c55e';
+              else if (landuse === 'grass' || natural === 'grassland') color = '#84cc16';
+              return { color, weight: 1, fillColor: color, fillOpacity: 0.3, opacity: 0.6 };
+            },
+          });
+        }
+        return null;
+      
+      case 'surface_water':
+        if (data.geoJson?.features) {
+          return L.geoJSON(data.geoJson, {
+            style: { color: '#3b82f6', weight: 2, fillColor: '#3b82f6', fillOpacity: 0.4, opacity: 0.8 },
+          });
+        }
+        return null;
+      
+      case 'rivers':
+        if (data.geoJson?.features) {
+          return L.geoJSON(data.geoJson, {
+            style: (feature) => ({
+              color: feature?.properties?.waterway === 'river' ? '#06b6d4' : '#22d3ee',
+              weight: feature?.properties?.waterway === 'river' ? 2.5 : 1.5,
+              opacity: 0.8,
+            }),
+          });
+        }
+        return null;
+      
+      case 'forest':
+        if (data.geoJson?.features) {
+          return L.geoJSON(data.geoJson, {
+            style: { color: '#22c55e', weight: 1, fillColor: '#22c55e', fillOpacity: 0.4, opacity: 0.7 },
+          });
+        }
+        return null;
+      
+      case 'population':
+        if (data.geoJson?.features) {
+          return L.geoJSON(data.geoJson, {
+            style: { color: '#f97316', weight: 1, fillColor: '#f97316', fillOpacity: 0.3, opacity: 0.6 },
+          });
+        }
+        return null;
+      
+      default:
+        return null;
+    }
+  }, []);
+
+  const toggleLayer = useCallback(async (layerId: string) => {
+    const layer = layers.find(l => l.id === layerId);
+    if (!layer) return;
+
+    if (layer.enabled) {
+      const existingLayer = layerRefs.current.get(layerId);
+      if (existingLayer && mapRef.current) {
+        mapRef.current.removeLayer(existingLayer);
+        layerRefs.current.delete(layerId);
+      }
+      setLayers(prev => prev.map(l => l.id === layerId ? { ...l, enabled: false } : l));
+    } else {
+      setLayers(prev => prev.map(l => l.id === layerId ? { ...l, enabled: true } : l));
+      
+      if (!layer.loaded) {
+        try {
+          const data = await loadLayerData(layerId);
+          
+          setLayers(prev => {
+            const currentLayer = prev.find(l => l.id === layerId);
+            if (!currentLayer?.enabled) {
+              return prev;
+            }
+            
+            if (mapRef.current && data) {
+              const leafletLayer = createLayerFromData(layerId, data);
+              if (leafletLayer) {
+                leafletLayer.addTo(mapRef.current);
+                layerRefs.current.set(layerId, leafletLayer);
+              }
+            }
+            
+            return prev.map(l => l.id === layerId ? { ...l, loaded: true, data } : l);
+          });
+        } catch (error) {
+          console.error(`Failed to load layer ${layerId}:`, error);
+          setLayers(prev => prev.map(l => l.id === layerId ? { ...l, enabled: false } : l));
+        }
+      } else if (layer.data && mapRef.current) {
+        const leafletLayer = createLayerFromData(layerId, layer.data);
+        if (leafletLayer) {
+          leafletLayer.addTo(mapRef.current);
+          layerRefs.current.set(layerId, leafletLayer);
+        }
+      }
+    }
+  }, [layers, loadLayerData, createLayerFromData]);
+
   useEffect(() => {
     if (!mapRef.current || !elevationData) return;
 
-    if (elevationData.contours && elevationData.contours.features) {
-      L.geoJSON(elevationData.contours, {
-        style: (feature) => ({
-          color: feature?.properties?.isMajor ? '#c9a87c' : '#a08060',
-          weight: feature?.properties?.isMajor ? 1.5 : 0.8,
-          opacity: feature?.properties?.isMajor ? 0.9 : 0.6,
-        }),
-        onEachFeature: (feature, layer) => {
-          if (feature.properties?.elevation && feature.properties?.isMajor) {
-            layer.bindTooltip(`${feature.properties.elevation}m`, {
-              permanent: false,
-              direction: 'center',
-            });
-          }
-        },
-      }).addTo(mapRef.current);
+    const elevationLayer = layers.find(l => l.id === 'elevation');
+    if (elevationLayer?.enabled && !layerRefs.current.has('elevation')) {
+      const leafletLayer = createLayerFromData('elevation', elevationData);
+      if (leafletLayer) {
+        leafletLayer.addTo(mapRef.current);
+        layerRefs.current.set('elevation', leafletLayer);
+        setLayers(prev => prev.map(l => l.id === 'elevation' ? { ...l, loaded: true, data: elevationData } : l));
+      }
     }
-  }, [elevationData]);
+  }, [elevationData, layers, createLayerFromData]);
 
   const isNotFound = isSampleModeActive 
     ? (!sampleAction || !isSampleProjectInitiated)
@@ -270,6 +446,57 @@ export default function SiteExplorerPage() {
               </div>
             </div>
           )}
+          
+          <div className="absolute top-4 right-4 z-[1000]">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowLayerPanel(!showLayerPanel)}
+              className="shadow-lg"
+            >
+              <Layers className="h-4 w-4 mr-2" />
+              Layers
+            </Button>
+          </div>
+          
+          {showLayerPanel && (
+            <div className="absolute top-14 right-4 z-[1000] bg-background/95 backdrop-blur-sm rounded-lg shadow-xl border p-4 min-w-[220px]">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b">
+                <span className="font-medium text-sm">Data Layers</span>
+                <span className="text-xs text-muted-foreground">
+                  {layers.filter(l => l.enabled).length}/{layers.length}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {layers.map((layer) => {
+                  const IconComponent = layer.icon;
+                  return (
+                    <div 
+                      key={layer.id}
+                      className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => toggleLayer(layer.id)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-sm"
+                          style={{ backgroundColor: layer.enabled ? layer.color : 'transparent', border: `2px solid ${layer.color}` }}
+                        />
+                        <IconComponent className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{layer.name}</span>
+                      </div>
+                      <Switch
+                        checked={layer.enabled}
+                        onCheckedChange={() => toggleLayer(layer.id)}
+                        className="scale-75"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          
           <div ref={mapContainerRef} className="h-full w-full" />
         </div>
       </div>
