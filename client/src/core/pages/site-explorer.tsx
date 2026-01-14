@@ -104,21 +104,32 @@ export default function SiteExplorerPage() {
   const [isLoadingSampleData, setIsLoadingSampleData] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    
     if (isSampleModeActive) {
+      setBoundaryData(null);
+      setElevationData(null);
       setIsLoadingSampleData(true);
       Promise.all([loadSampleBoundaryData(), loadSampleElevationData()])
         .then(([boundary, elevation]) => {
-          setBoundaryData(boundary);
-          setElevationData(elevation);
+          if (!cancelled) {
+            setBoundaryData(boundary);
+            setElevationData(elevation);
+          }
         })
         .catch(console.error)
-        .finally(() => setIsLoadingSampleData(false));
-      return;
+        .finally(() => {
+          if (!cancelled) setIsLoadingSampleData(false);
+        });
+    } else {
+      setBoundaryData(null);
+      setElevationData(null);
+      if (cityName && cityLocode && !boundaryMutation.isPending) {
+        boundaryMutation.mutate({ cityName, cityLocode });
+      }
     }
-
-    if (cityName && cityLocode && !boundaryData && !boundaryMutation.isPending) {
-      boundaryMutation.mutate({ cityName, cityLocode });
-    }
+    
+    return () => { cancelled = true; };
   }, [cityName, cityLocode, isSampleModeActive]);
 
   useEffect(() => {
