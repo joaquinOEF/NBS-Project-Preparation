@@ -67,10 +67,17 @@ Preferred communication style: Simple, everyday language.
 ## Impact Model Module
 - A 5-step wizard to generate AI-powered impact narratives: **Setup → Generate → Curate → Lenses → Export**
 - Translates Site Explorer zones and interventions into credible, funder-ready impact narratives
-- **AI Integration**: Uses OpenAI gpt-4.1 via Replit AI Integrations (no API key required)
+- **AI Integration**: Uses OpenAI GPT-5.2 via Replit AI Integrations (no API key required)
     - Endpoint: `POST /api/impact-model/generate`
     - Service: `server/services/impactModelService.ts`
     - Uses JSON response format for structured narrative output
+    - Model: `gpt-5.2` - chosen for complex reasoning and long-context understanding
+- **AI Model Selection Strategy**:
+    - Impact Narrative (gpt-5.2): Complex analysis requiring high-quality reasoning
+    - Chat Conversations (gpt-5.2): Best quality for user interactions
+    - Voice/Audio (gpt-audio-mini): Specialized audio model for TTS/STT
+    - Images (gpt-image-1): Specialized image generation model
+    - Transcription (gpt-4o-mini-transcribe): Optimized for accurate speech recognition
 - **Key Data Structures**:
     - `NarrativeBlock`: Structured narrative sections with lens variants (neutral, climate, social, financial, institutional)
     - `CoBenefitCard`: Co-benefits with category, confidence, evidence tier, and include/exclude flags

@@ -232,7 +232,7 @@ Generate at least 3 narrative blocks, 3-5 co-benefits relevant to the selected h
 Make the content specific to the zones, hazards, and interventions provided. Use realistic metrics and ranges based on NBS literature.`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4.1",
+    model: "gpt-5.2",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt }
