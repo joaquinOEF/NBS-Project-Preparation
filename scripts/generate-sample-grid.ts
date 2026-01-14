@@ -56,12 +56,16 @@ function generateGrid(bounds: typeof PORTO_ALEGRE_BOUNDS, cellSizeMeters: number
         dist_river_m: null,
         river_prox_pct: null,
         dist_water_m: null,
+        water_cooling: null,
         floodplain_adj_pct: null,
         imperv_pct: null,
         green_pct: null,
         canopy_pct: null,
+        vegetation_pct: null,
+        building_density: null,
         built_pct: null,
         pop_density: null,
+        pop_density_raw: null,
         flood_score: null,
         heat_score: null,
         landslide_score: null,
@@ -74,6 +78,7 @@ function generateGrid(bounds: typeof PORTO_ALEGRE_BOUNDS, cellSizeMeters: number
         rivers: false,
         forest: false,
         population: false,
+        buildings: false,
       },
     };
   });
@@ -417,16 +422,82 @@ function computePopulationMetrics(grid: any, populationData: any): any {
 
     if (isResidential) {
       cell.properties.metrics.built_pct = 0.7;
-      cell.properties.metrics.pop_density = 0.7;
       cell.properties.coverage.population = true;
-    } else {
-      cell.properties.metrics.built_pct = 0;
-      cell.properties.metrics.pop_density = 0;
     }
 
-    if (i % 200 === 0) process.stdout.write(`\r   Population: ${i}/${grid.features.length} cells`);
+    if (i % 200 === 0) process.stdout.write(`\r   Population OSM: ${i}/${grid.features.length} cells`);
   }
-  console.log(`\r   Population: ${grid.features.length} cells processed`);
+  console.log(`\r   Population OSM: ${grid.features.length} cells processed`);
+
+  return grid;
+}
+
+function computeWorldPopMetrics(grid: any, worldPopData: any): any {
+  if (!worldPopData?.data || !worldPopData?.bounds) return grid;
+
+  const { data, bounds, gridSize, stats } = worldPopData;
+  const maxPop = stats?.max || 10000;
+
+  for (let i = 0; i < grid.features.length; i++) {
+    const cell = grid.features[i];
+    const centroid = cell.properties.centroid;
+    if (!centroid) continue;
+
+    const [lng, lat] = centroid;
+
+    if (lng < bounds.minLng || lng > bounds.maxLng || lat < bounds.minLat || lat > bounds.maxLat) {
+      continue;
+    }
+
+    const col = Math.floor((lng - bounds.minLng) / (bounds.maxLng - bounds.minLng) * gridSize.width);
+    const row = Math.floor((bounds.maxLat - lat) / (bounds.maxLat - bounds.minLat) * gridSize.height);
+
+    if (row >= 0 && row < data.length && col >= 0 && col < (data[row]?.length || 0)) {
+      const popDensityRaw = data[row][col] || 0;
+      cell.properties.metrics.pop_density_raw = popDensityRaw;
+      cell.properties.metrics.pop_density = Math.min(1, popDensityRaw / maxPop);
+      cell.properties.coverage.population = true;
+    }
+
+    if (i % 200 === 0) process.stdout.write(`\r   WorldPop: ${i}/${grid.features.length} cells`);
+  }
+  console.log(`\r   WorldPop: ${grid.features.length} cells processed`);
+
+  return grid;
+}
+
+function computeBuildingDensityMetrics(grid: any, builtUpData: any): any {
+  if (!builtUpData?.data || !builtUpData?.bounds) return grid;
+
+  const { data, bounds, gridSize } = builtUpData;
+
+  for (let i = 0; i < grid.features.length; i++) {
+    const cell = grid.features[i];
+    const centroid = cell.properties.centroid;
+    if (!centroid) continue;
+
+    const [lng, lat] = centroid;
+
+    if (lng < bounds.minLng || lng > bounds.maxLng || lat < bounds.minLat || lat > bounds.maxLat) {
+      continue;
+    }
+
+    const col = Math.floor((lng - bounds.minLng) / (bounds.maxLng - bounds.minLng) * gridSize.width);
+    const row = Math.floor((bounds.maxLat - lat) / (bounds.maxLat - bounds.minLat) * gridSize.height);
+
+    if (row >= 0 && row < data.length && col >= 0 && col < (data[row]?.length || 0)) {
+      const buildingDensity = data[row][col] || 0;
+      cell.properties.metrics.building_density = buildingDensity / 100;
+      cell.properties.metrics.imperv_pct = Math.max(
+        cell.properties.metrics.imperv_pct || 0,
+        buildingDensity / 100
+      );
+      cell.properties.coverage.buildings = true;
+    }
+
+    if (i % 200 === 0) process.stdout.write(`\r   Buildings: ${i}/${grid.features.length} cells`);
+  }
+  console.log(`\r   Buildings: ${grid.features.length} cells processed`);
 
   return grid;
 }
@@ -440,11 +511,20 @@ function computeCompositeScores(grid: any): any {
     const riverProx = m.river_prox_pct ?? 0;
     const waterProx = m.floodplain_adj_pct ?? 0;
     const lowLying = m.low_lying_pct ?? 0;
-    const imperv = m.imperv_pct ?? m.built_pct ?? 0;
+    const imperv = m.imperv_pct ?? m.building_density ?? m.built_pct ?? 0;
     const slope = m.slope_mean ?? 0;
     const flatness = slope > 0 ? Math.max(0, 1 - slope / 50) : 0.5;
+    
     const canopy = m.canopy_pct ?? 0;
+    const green = m.green_pct ?? 0;
+    const vegetation = Math.max(canopy, green);
+    m.vegetation_pct = vegetation;
+    
     const popDensity = m.pop_density ?? 0;
+    const buildingDensity = m.building_density ?? imperv;
+    
+    const waterCooling = Math.max(0, 1 - (m.dist_water_m ?? 5000) / 5000);
+    m.water_cooling = waterCooling;
 
     m.flood_score = Math.round((
       0.25 * flowAccumPct +
@@ -457,13 +537,14 @@ function computeCompositeScores(grid: any): any {
     ) * 100) / 100;
 
     m.heat_score = Math.round((
-      0.40 * imperv +
-      0.30 * popDensity +
-      0.30 * (1 - canopy)
+      0.35 * buildingDensity +
+      0.25 * popDensity +
+      0.25 * (1 - vegetation) +
+      0.15 * (1 - waterCooling)
     ) * 100) / 100;
 
     const slopeRisk = Math.min(1, slope / 30);
-    const lackOfVeg = 1 - canopy;
+    const lackOfVeg = 1 - vegetation;
     m.landslide_score = Math.round((
       0.50 * slopeRisk +
       0.30 * lackOfVeg +
@@ -476,9 +557,9 @@ function computeCompositeScores(grid: any): any {
 
 function calculateCoverageSummary(grid: any): { [key: string]: number } {
   const totalCells = grid.features.length;
-  if (totalCells === 0) return { elevation: 0, flow: 0, landcover: 0, surface_water: 0, rivers: 0, forest: 0, population: 0 };
+  if (totalCells === 0) return { elevation: 0, flow: 0, landcover: 0, surface_water: 0, rivers: 0, forest: 0, population: 0, buildings: 0 };
 
-  const counts = { elevation: 0, flow: 0, landcover: 0, surface_water: 0, rivers: 0, forest: 0, population: 0 };
+  const counts = { elevation: 0, flow: 0, landcover: 0, surface_water: 0, rivers: 0, forest: 0, population: 0, buildings: 0 };
 
   for (const cell of grid.features) {
     const cov = cell.properties.coverage;
@@ -489,6 +570,7 @@ function calculateCoverageSummary(grid: any): { [key: string]: number } {
     if (cov.rivers) counts.rivers++;
     if (cov.forest) counts.forest++;
     if (cov.population) counts.population++;
+    if (cov.buildings) counts.buildings++;
   }
 
   return {
@@ -499,6 +581,7 @@ function calculateCoverageSummary(grid: any): { [key: string]: number } {
     rivers: Math.round((counts.rivers / totalCells) * 100),
     forest: Math.round((counts.forest / totalCells) * 100),
     population: Math.round((counts.population / totalCells) * 100),
+    buildings: Math.round((counts.buildings / totalCells) * 100),
   };
 }
 
@@ -517,6 +600,8 @@ async function main() {
   const riversData = await loadSampleData('porto-alegre-rivers.json');
   const forestData = await loadSampleData('porto-alegre-forest.json');
   const populationData = await loadSampleData('porto-alegre-population.json');
+  const worldPopData = await loadSampleData('porto-alegre-population-worldpop.json');
+  const builtUpData = await loadSampleData('porto-alegre-builtup.json');
 
   console.log('\n🧮 Computing metrics...');
   if (elevationData) grid = computeElevationMetrics(grid, elevationData);
@@ -525,6 +610,8 @@ async function main() {
   if (riversData) grid = computeRiverMetrics(grid, riversData);
   if (forestData) grid = computeForestMetrics(grid, forestData);
   if (populationData) grid = computePopulationMetrics(grid, populationData);
+  if (worldPopData) grid = computeWorldPopMetrics(grid, worldPopData);
+  if (builtUpData) grid = computeBuildingDensityMetrics(grid, builtUpData);
 
   console.log('\n📈 Computing composite scores...');
   grid = computeCompositeScores(grid);
@@ -537,7 +624,8 @@ async function main() {
   console.log(`   Surface Water: ${coverage.surface_water}%`);
   console.log(`   Rivers: ${coverage.rivers}%`);
   console.log(`   Forest: ${coverage.forest}%`);
-  console.log(`   Population: ${coverage.population}%`);
+  console.log(`   Population (WorldPop): ${coverage.population}%`);
+  console.log(`   Buildings (OSM): ${coverage.buildings}%`);
 
   const result = {
     cityLocode: 'BR POA',

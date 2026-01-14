@@ -336,9 +336,10 @@ export default function SiteExplorerPage() {
                 .join(', ');
               layer.bindTooltip(
                 `<strong>Heat Risk: ${((m.heat_score || 0) * 100).toFixed(0)}%</strong><br/>` +
-                `Impervious: ${((m.imperv_pct || m.built_pct || 0) * 100).toFixed(0)}%<br/>` +
-                `Population: ${((m.pop_density || 0) * 100).toFixed(0)}%<br/>` +
-                `Canopy: ${((m.canopy_pct || 0) * 100).toFixed(0)}%<br/>` +
+                `Building density: ${((m.building_density || 0) * 100).toFixed(0)}%<br/>` +
+                `Population: ${m.pop_density_raw ? m.pop_density_raw.toFixed(0) + '/km²' : ((m.pop_density || 0) * 100).toFixed(0) + '%'}<br/>` +
+                `Vegetation: ${((m.vegetation_pct || 0) * 100).toFixed(0)}%<br/>` +
+                `Water cooling: ${((m.water_cooling || 0) * 100).toFixed(0)}%<br/>` +
                 `<em>Coverage: ${coverageList || 'none'}</em>`,
                 { sticky: true }
               );
