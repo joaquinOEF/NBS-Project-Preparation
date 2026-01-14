@@ -437,23 +437,33 @@ function computeWorldPopMetrics(grid: any, worldPopData: any): any {
 
   const { data, bounds, gridSize, stats } = worldPopData;
   const maxPop = stats?.max || 10000;
+  const cellWidthDeg = (bounds.maxLng - bounds.minLng) / gridSize.width;
+  const cellHeightDeg = (bounds.maxLat - bounds.minLat) / gridSize.height;
 
   for (let i = 0; i < grid.features.length; i++) {
     const cell = grid.features[i];
-    const centroid = cell.properties.centroid;
-    if (!centroid) continue;
+    const bbox = turf.bbox(cell);
+    const [minLng, minLat, maxLng, maxLat] = bbox;
 
-    const [lng, lat] = centroid;
+    const colStart = Math.max(0, Math.floor((minLng - bounds.minLng) / cellWidthDeg));
+    const colEnd = Math.min(gridSize.width - 1, Math.floor((maxLng - bounds.minLng) / cellWidthDeg));
+    const rowStart = Math.max(0, Math.floor((bounds.maxLat - maxLat) / cellHeightDeg));
+    const rowEnd = Math.min(gridSize.height - 1, Math.floor((bounds.maxLat - minLat) / cellHeightDeg));
 
-    if (lng < bounds.minLng || lng > bounds.maxLng || lat < bounds.minLat || lat > bounds.maxLat) {
-      continue;
+    let sum = 0;
+    let count = 0;
+
+    for (let row = rowStart; row <= rowEnd; row++) {
+      for (let col = colStart; col <= colEnd; col++) {
+        if (data[row] && data[row][col] !== undefined && data[row][col] > 0) {
+          sum += data[row][col];
+          count++;
+        }
+      }
     }
 
-    const col = Math.floor((lng - bounds.minLng) / (bounds.maxLng - bounds.minLng) * gridSize.width);
-    const row = Math.floor((bounds.maxLat - lat) / (bounds.maxLat - bounds.minLat) * gridSize.height);
-
-    if (row >= 0 && row < data.length && col >= 0 && col < (data[row]?.length || 0)) {
-      const popDensityRaw = data[row][col] || 0;
+    if (count > 0) {
+      const popDensityRaw = sum / count;
       cell.properties.metrics.pop_density_raw = popDensityRaw;
       cell.properties.metrics.pop_density = Math.min(1, popDensityRaw / maxPop);
       cell.properties.coverage.population = true;
@@ -470,23 +480,33 @@ function computeBuildingDensityMetrics(grid: any, builtUpData: any): any {
   if (!builtUpData?.data || !builtUpData?.bounds) return grid;
 
   const { data, bounds, gridSize } = builtUpData;
+  const cellWidthDeg = (bounds.maxLng - bounds.minLng) / gridSize.width;
+  const cellHeightDeg = (bounds.maxLat - bounds.minLat) / gridSize.height;
 
   for (let i = 0; i < grid.features.length; i++) {
     const cell = grid.features[i];
-    const centroid = cell.properties.centroid;
-    if (!centroid) continue;
+    const bbox = turf.bbox(cell);
+    const [minLng, minLat, maxLng, maxLat] = bbox;
 
-    const [lng, lat] = centroid;
+    const colStart = Math.max(0, Math.floor((minLng - bounds.minLng) / cellWidthDeg));
+    const colEnd = Math.min(gridSize.width - 1, Math.floor((maxLng - bounds.minLng) / cellWidthDeg));
+    const rowStart = Math.max(0, Math.floor((bounds.maxLat - maxLat) / cellHeightDeg));
+    const rowEnd = Math.min(gridSize.height - 1, Math.floor((bounds.maxLat - minLat) / cellHeightDeg));
 
-    if (lng < bounds.minLng || lng > bounds.maxLng || lat < bounds.minLat || lat > bounds.maxLat) {
-      continue;
+    let sum = 0;
+    let count = 0;
+
+    for (let row = rowStart; row <= rowEnd; row++) {
+      for (let col = colStart; col <= colEnd; col++) {
+        if (data[row] && data[row][col] !== undefined) {
+          sum += data[row][col];
+          count++;
+        }
+      }
     }
 
-    const col = Math.floor((lng - bounds.minLng) / (bounds.maxLng - bounds.minLng) * gridSize.width);
-    const row = Math.floor((bounds.maxLat - lat) / (bounds.maxLat - bounds.minLat) * gridSize.height);
-
-    if (row >= 0 && row < data.length && col >= 0 && col < (data[row]?.length || 0)) {
-      const buildingDensity = data[row][col] || 0;
+    if (count > 0) {
+      const buildingDensity = sum / count;
       cell.properties.metrics.building_density = buildingDensity / 100;
       cell.properties.metrics.imperv_pct = Math.max(
         cell.properties.metrics.imperv_pct || 0,
@@ -523,7 +543,12 @@ function computeCompositeScores(grid: any): any {
     const popDensity = m.pop_density ?? 0;
     const buildingDensity = m.building_density ?? imperv;
     
-    const waterCooling = Math.max(0, 1 - (m.dist_water_m ?? 5000) / 5000);
+    let waterCooling = 0;
+    if (m.dist_water_m !== null && m.dist_water_m !== undefined) {
+      waterCooling = Math.max(0, 1 - m.dist_water_m / 5000);
+    } else if (m.floodplain_adj_pct > 0 || m.river_prox_pct > 0) {
+      waterCooling = Math.max(m.floodplain_adj_pct || 0, m.river_prox_pct || 0);
+    }
     m.water_cooling = waterCooling;
 
     m.flood_score = Math.round((
