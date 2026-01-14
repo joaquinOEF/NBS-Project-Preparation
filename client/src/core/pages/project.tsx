@@ -1,6 +1,6 @@
 import { useParams, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Map, ArrowRight, DollarSign, Settings } from 'lucide-react';
+import { ArrowLeft, Map, ArrowRight, DollarSign, Settings, Landmark } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { DisplayLarge } from '@oef/components';
@@ -140,6 +140,28 @@ export default function ProjectPage() {
                 </CardContent>
               </Card>
             </Link>
+
+            <Link href={`${routePrefix}/business-model/${projectId}`}>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-500/10 rounded-lg">
+                      <Landmark className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <CardTitle className="text-lg">{t('project.businessModel')}</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="mb-4">
+                    {t('project.businessModelDescription')}
+                  </CardDescription>
+                  <div className="flex items-center text-purple-600 text-sm font-medium">
+                    {t('common.view')}
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           </div>
         </div>
       </div>
@@ -256,6 +278,28 @@ export default function ProjectPage() {
                   {t('project.projectOperationsDescription')}
                 </CardDescription>
                 <div className="flex items-center text-orange-600 text-sm font-medium">
+                  {t('common.view')}
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href={`/business-model/${projectId}`}>
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-500/10 rounded-lg">
+                    <Landmark className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <CardTitle className="text-lg">{t('project.businessModel')}</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="mb-4">
+                  {t('project.businessModelDescription')}
+                </CardDescription>
+                <div className="flex items-center text-purple-600 text-sm font-medium">
                   {t('common.view')}
                   <ArrowRight className="h-4 w-4 ml-1" />
                 </div>
