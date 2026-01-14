@@ -478,22 +478,37 @@ export default function SiteExplorerPage() {
       
       case 'landcover':
         if (data.geoJson?.features) {
+          const landcoverColors: { [key: string]: string } = {
+            tree_cover: '#006400',
+            shrubland: '#ffbb22',
+            grassland: '#84cc16',
+            cropland: '#f096ff',
+            built_up: '#fa0000',
+            bare_sparse: '#b4b4b4',
+            water: '#0064c8',
+            wetland: '#0096a0',
+          };
           return L.geoJSON(data.geoJson, {
             style: (feature) => {
-              const landuse = feature?.properties?.landuse || '';
-              const natural = feature?.properties?.natural || '';
-              let color = '#4ade80';
-              if (landuse === 'residential' || landuse === 'commercial' || landuse === 'industrial') color = '#f97316';
-              else if (natural === 'water' || landuse === 'reservoir') color = '#3b82f6';
-              else if (natural === 'wood' || landuse === 'forest') color = '#22c55e';
-              else if (landuse === 'grass' || natural === 'grassland') color = '#84cc16';
-              return { color, weight: 1, fillColor: color, fillOpacity: 0.3, opacity: 0.6 };
+              const props = feature?.properties || {};
+              const lc = props.landcover_class || '';
+              const landuse = props.landuse || '';
+              const natural = props.natural || '';
+              let color = landcoverColors[lc] || '#4ade80';
+              if (!lc) {
+                if (landuse === 'residential' || landuse === 'commercial' || landuse === 'industrial') color = '#fa0000';
+                else if (natural === 'water' || landuse === 'reservoir') color = '#0064c8';
+                else if (natural === 'wood' || landuse === 'forest') color = '#006400';
+                else if (landuse === 'grass' || natural === 'grassland') color = '#84cc16';
+              }
+              return { color, weight: 1, fillColor: color, fillOpacity: 0.4, opacity: 0.7 };
             },
             onEachFeature: (feature, layer) => {
               const props = feature.properties || {};
-              const type = props.landuse || props.natural || 'Unknown';
+              const lc = props.landcover_class || props.landuse || props.natural || 'Unknown';
+              const lcDisplay = lc.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
               const name = props.name ? `<strong>${props.name}</strong><br/>` : '';
-              layer.bindTooltip(`${name}Type: ${type}`, { sticky: true });
+              layer.bindTooltip(`${name}Land cover: ${lcDisplay}`, { sticky: true });
             },
           });
         }

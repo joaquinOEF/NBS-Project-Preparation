@@ -229,9 +229,10 @@ function computeLandcoverMetrics(grid: any, landcoverData: any): any {
   const builtFeatures = landcoverData.geoJson.features.filter(
     (f: any) => {
       const props = f.properties || {};
+      const lc = props.landcover_class || '';
       return (props.landuse === 'residential' || props.landuse === 'commercial' || 
               props.landuse === 'industrial' || props.landuse === 'retail' ||
-              props.building || props.highway) &&
+              props.building || props.highway || lc === 'built_up') &&
              (f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon');
     }
   );
@@ -239,12 +240,35 @@ function computeLandcoverMetrics(grid: any, landcoverData: any): any {
   const greenFeatures = landcoverData.geoJson.features.filter(
     (f: any) => {
       const props = f.properties || {};
+      const lc = props.landcover_class || '';
       return (props.natural === 'wood' || props.natural === 'scrub' || 
               props.natural === 'grassland' || props.landuse === 'forest' ||
-              props.landuse === 'grass' || props.leisure === 'park') &&
+              props.landuse === 'grass' || props.leisure === 'park' ||
+              lc === 'tree_cover' || lc === 'shrubland' || lc === 'grassland') &&
              (f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon');
     }
   );
+
+  const croplandFeatures = landcoverData.geoJson.features.filter(
+    (f: any) => {
+      const props = f.properties || {};
+      const lc = props.landcover_class || '';
+      return (lc === 'cropland' || props.landuse === 'farmland' || 
+              props.landuse === 'orchard' || props.landuse === 'vineyard') &&
+             (f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon');
+    }
+  );
+
+  const wetlandFeatures = landcoverData.geoJson.features.filter(
+    (f: any) => {
+      const props = f.properties || {};
+      const lc = props.landcover_class || '';
+      return (lc === 'wetland' || props.natural === 'wetland' || props.natural === 'marsh') &&
+             (f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon');
+    }
+  );
+
+  console.log(`   Landcover features: built=${builtFeatures.length}, green=${greenFeatures.length}, crop=${croplandFeatures.length}, wetland=${wetlandFeatures.length}`);
 
   for (let i = 0; i < grid.features.length; i++) {
     const cell = grid.features[i];
@@ -253,6 +277,8 @@ function computeLandcoverMetrics(grid: any, landcoverData: any): any {
 
     let isBuilt = false;
     let isGreen = false;
+    let isCropland = false;
+    let isWetland = false;
 
     for (const feature of builtFeatures) {
       try {
@@ -274,12 +300,39 @@ function computeLandcoverMetrics(grid: any, landcoverData: any): any {
       } catch (e) { continue; }
     }
 
+    for (const feature of croplandFeatures) {
+      try {
+        const pt = turf.point(centroid);
+        if (turf.booleanPointInPolygon(pt, feature)) {
+          isCropland = true;
+          break;
+        }
+      } catch (e) { continue; }
+    }
+
+    for (const feature of wetlandFeatures) {
+      try {
+        const pt = turf.point(centroid);
+        if (turf.booleanPointInPolygon(pt, feature)) {
+          isWetland = true;
+          break;
+        }
+      } catch (e) { continue; }
+    }
+
     if (isBuilt) {
-      cell.properties.metrics.imperv_pct = 0.8;
+      cell.properties.metrics.imperv_pct = Math.max(cell.properties.metrics.imperv_pct || 0, 0.8);
       cell.properties.coverage.landcover = true;
     }
     if (isGreen) {
-      cell.properties.metrics.green_pct = 0.7;
+      cell.properties.metrics.green_pct = Math.max(cell.properties.metrics.green_pct || 0, 0.7);
+      cell.properties.coverage.landcover = true;
+    }
+    if (isCropland) {
+      cell.properties.metrics.green_pct = Math.max(cell.properties.metrics.green_pct || 0, 0.3);
+      cell.properties.coverage.landcover = true;
+    }
+    if (isWetland) {
       cell.properties.coverage.landcover = true;
     }
 
