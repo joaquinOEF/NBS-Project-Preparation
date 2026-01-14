@@ -1,124 +1,15 @@
 # Overview
 
-This is the **NBS Project Builder** - a Nature Based Solutions planning tool that connects with CityCatalyst's climate data platform. The application helps cities explore climate action recommendations including mitigation and adaptation strategies.
+This is the **NBS Project Builder** - a Nature Based Solutions planning tool that connects with CityCatalyst's climate data platform. The application helps cities explore climate action recommendations including mitigation and adaptation strategies, leveraging CityCatalyst's HIAP (Health Impact Assessment Policy) data for evidence-based action recommendations.
 
-**Purpose**: This application demonstrates climate action planning with a focus on nature-based solutions, leveraging CityCatalyst's HIAP (Health Impact Assessment Policy) data for evidence-based action recommendations.
-
-**What it provides:**
+**Key Capabilities**:
 - CityCatalyst OAuth 2.0 PKCE authentication flow
-- Sample data mode for exploring without authentication
-- Climate Actions display (Mitigation and Adaptation)
+- Sample data mode for exploration without authentication
+- Display of Climate Actions (Mitigation and Adaptation)
 - Internationalization support (English and Portuguese)
 - PostHog analytics integration
-
-# Sample Data Mode
-
-The application includes a **Sample Data Mode** that allows users to explore the platform without requiring CityCatalyst authentication.
-
-## How Sample Data Mode Works:
-1. On the login page, click "Use Sample Data" button
-2. The app loads sample data for **Porto Alegre, Brazil**
-3. Navigate through the app with simulated API responses
-4. Sample data persists in localStorage as `nbs_sample_mode`
-5. Logout clears the sample mode and returns to login
-
-## Sample Data Configuration:
-- **Sample City**: Porto Alegre, Brazil (LOCODE: BR POA)
-- **Sample Inventories**: 2023, 2022
-- **Sample Actions**: 6 climate actions (3 mitigation, 3 adaptation)
-  - Urban Reforestation Program (Mitigation)
-  - Green Building Standards (Mitigation)
-  - Sustainable Urban Mobility (Mitigation)
-  - Nature Based Solutions for Climate Resilience (Adaptation)
-  - Heat Wave Early Warning System (Adaptation)
-  - Coastal Flood Protection (Adaptation)
-- **Initiated Projects**: Stored in localStorage as `nbs_sample_projects`
-
-## Files Involved:
-- `client/src/core/contexts/sample-data-context.tsx` - Sample data provider and data
-- Components check `isSampleMode` to switch between real API and sample data
-
-## Geospatial Risk Analysis
-
-The Site Explorer uses a grid-based risk scoring system with real geospatial data:
-
-### Data Sources:
-- **Elevation**: USGS SRTM 30m DEM via OpenTopography
-- **Population Density**: WorldPop 100m raster (people/km²)
-- **Building Footprints**: OSM Overpass API (405,870 buildings for Porto Alegre)
-- **Rivers/Water**: OSM waterways and surface water bodies
-- **Forest/Vegetation**: OSM natural=wood and landuse=forest
-
-### Risk Formulas:
-
-**Heat Risk** (35% buildings + 25% population + 25% vegetation deficit + 15% water deficit):
-- `building_density`: 0-100% from OSM building footprint zonal averaging
-- `pop_density`: 0-100% normalized from WorldPop (max ~24,000/km²)
-- `vegetation_pct`: max(canopy_pct, green_pct) from forest/landcover
-- `water_cooling`: proximity to water bodies (5km falloff)
-
-**Flood Risk** (D8 flow accumulation + terrain + proximity):
-- `flow_accum_pct`: D8 flow direction algorithm (96% coverage)
-- `depression_pct`: topographic depressions detection
-- `river_prox_pct`: distance to nearest river
-- `low_lying_pct`: cells below 10m elevation threshold
-
-**Landslide Risk** (slope + vegetation + terrain):
-- `slope_mean`: average slope in degrees
-- `vegetation_pct`: vegetation cover deficit
-- `low_lying_pct`: terrain position
-
-### Sample Data Files:
-- `client/public/sample-data/porto-alegre-grid.json` - 1036 cells at 1km resolution
-- `client/public/sample-data/porto-alegre-population-worldpop.json` - Population raster
-- `client/public/sample-data/porto-alegre-builtup.json` - Building density raster
-
-## Business Model Module
-
-The Business Model wizard helps structure project financing by identifying payers, payment mechanisms, revenue stacks, and financing pathways to improve project bankability.
-
-### 6-Step Wizard:
-1. **Overview**: Imports context from O&M module (capex/opex bands, operating model, funding mechanisms)
-2. **Payers & Beneficiaries**: Maps stakeholders to beneficiary and payer roles with primary payer selection
-3. **Archetype Selector**: Choose from 7 business model archetypes with recommendations based on project type
-4. **Revenue Stack**: Build revenue sources with confidence tags (High/Medium/Low) and roles (Primary/Secondary/Upside)
-5. **Financing Pathway**: Select financing approach (Public CAPEX, DFI Loan, Municipal Bond, Blended Vehicle, PPP Light, Philanthropy)
-6. **Readiness Gate**: Validates bankability requirements and provides playbook export
-
-### Business Model Archetypes:
-- **Public Program**: City-funded with annual budget allocations
-- **Utility Service**: Utility-operated with fee/tariff-based revenue
-- **Service Contract**: Availability-style payments for service delivery
-- **Land Value Capture**: Funded through developer fees and district levies
-- **Blended Finance**: Mixed public, philanthropic, and private funding
-- **Credit Add-on**: Supplementary revenue from carbon/ecosystem credits
-- **Insurance-Linked**: Risk-transfer and insurance mechanisms
-
-### Readiness Requirements:
-- Primary archetype selected
-- Primary payer identified
-- At least one HIGH confidence revenue line
-- Payment duration set
-- Financing pathway selected
-- O&M module completed (consistency check)
-
-### Storage:
-- Data persisted to localStorage as `nbs_business_model_${projectId}`
-- Prefills from O&M data at `nbs_operations_om_${projectId}`
-
-### Files:
-- `client/src/core/pages/business-model.tsx` - Main wizard page
-- i18n keys in `bm` namespace (~150 keys in EN/PT)
-
-# Development Contract
-
-## ⚠️ Required for ALL New Features
-Every new feature must include:
-1. **Internationalization**: Add keys to both `en.json` and `pt.json`, use `useTranslation()` hook
-2. **Analytics**: Track with PostHog using "Feature — Action — Result" naming convention
-
-📚 **Documentation**: [docs/i18n.md](./docs/i18n.md) | [docs/analytics.md](./docs/analytics.md)  
-📋 **Full Guidelines**: [CONTRIBUTING.md](./CONTRIBUTING.md)
+- Geospatial risk analysis for heat, flood, and landslide
+- Business Model wizard for structuring project financing
 
 # User Preferences
 
@@ -127,108 +18,76 @@ Preferred communication style: Simple, everyday language.
 # System Architecture
 
 ## Frontend Architecture
-- **React 18+ with TypeScript**: Modern component-based frontend using functional components and hooks
-- **Vite Build System**: Fast development server and optimized production builds
-- **Wouter Routing**: Lightweight client-side routing for single-page application navigation
-- **Tailwind CSS + shadcn/ui**: Utility-first CSS framework with pre-built accessible components
-- **React Query/TanStack Query**: Declarative data fetching, caching, and synchronization
-- **Sample Data Context**: React context for managing sample data mode state
+- **Framework**: React 18+ with TypeScript
+- **Build System**: Vite
+- **Routing**: Wouter
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Data Fetching**: React Query/TanStack Query
+- **State Management**: Sample Data Context (for sample mode), React Query Cache (server state), Local Component State (UI state), React Hook Form (forms)
 
 ## Backend Architecture
-- **Express.js with TypeScript**: RESTful API server with type safety
-- **Session-based Authentication**: OAuth 2.0 PKCE flow with CityCatalyst integration
-- **In-Memory Storage**: Development-ready storage layer with interface for database migration
-- **Middleware Chain**: Request logging, error handling, and security headers
+- **Framework**: Express.js with TypeScript
+- **Authentication**: Session-based with OAuth 2.0 PKCE
+- **Storage**: In-memory (development), PostgreSQL (production)
+- **API Design**: RESTful endpoints, centralized error handling, Zod schema validation, rate limiting
 
 ## Data Storage Design
-- **PostgreSQL Schema**: Drizzle ORM with strongly-typed database operations
-- **Entities**: Users, Cities, Sessions, and Projects with proper relationships
-- **Storage Interface**: Abstract storage layer allowing seamless transition between in-memory and database implementations
+- **ORM**: Drizzle ORM
+- **Entities**: Users, Cities, Sessions, Projects
+- **Abstracted Storage Layer**: Allows switching between in-memory and database implementations.
 
 ## Authentication & Authorization
-- **OAuth 2.0 PKCE Flow**: Secure authentication with CityCatalyst using Proof Key for Code Exchange
-- **Sample Data Mode**: Alternative authentication bypass for exploration
-- **Session Management**: Server-side session storage with secure token handling
-- **Project-based Access Control**: User access to cities based on project membership
+- **Mechanism**: OAuth 2.0 PKCE with CityCatalyst, Sample Data Mode bypass
+- **Session Management**: Server-side with secure token handling
+- **Access Control**: Project-based user access to cities
 
-## API Design Patterns
-- **RESTful Endpoints**: Standard HTTP methods for resource operations
-- **Error Handling**: Centralized error middleware with proper status codes
-- **Request Validation**: Type-safe request/response validation using Zod schemas
-- **Rate Limiting**: Protection against abuse (configured for production deployment)
+## Shared Project Context Architecture
+- A unified `ProjectContextProvider` for data persistence and cross-module data sharing.
+- Modules should `Read Before Ask` to prefill data from the shared context, minimizing redundant user input.
+- Data available for prefill includes information from Funder Selection, Site Explorer, Operations (O&M), Business Model, and Core Project modules.
+- Data is primarily persisted to `nbs_project_context_${projectId}` in localStorage.
 
-## Frontend State Management
-- **React Query Cache**: Server state management with automatic background updates
-- **Sample Data Context**: Context provider for sample mode state management
-- **Local Component State**: UI state managed with React hooks
-- **Form Handling**: React Hook Form with validation for user inputs
-- **Toast Notifications**: User feedback for actions and errors
+## Feature Development Requirements
+- All new features must include Internationalization (en.json, pt.json).
+- Analytics tracking with PostHog ("Feature — Action — Result" convention).
+- Integration with the Shared Project Context for data storage and retrieval.
 
-## Build & Development Setup
-- **Hot Module Replacement**: Fast development iteration with Vite
-- **TypeScript Compilation**: Compile-time type checking across frontend and backend
-- **Path Aliases**: Clean import statements using configured path mapping
-- **Environment Configuration**: Separate development and production configurations
+## Geospatial Risk Analysis
+- **Site Explorer**: Uses a grid-based risk scoring system.
+- **Risk Formulas**:
+    - **Heat Risk**: Based on building density, population density, vegetation deficit, water deficit.
+    - **Flood Risk**: Based on D8 flow accumulation, topographic depressions, river proximity, low-lying areas.
+    - **Landslide Risk**: Based on slope, vegetation cover deficit, terrain position.
+
+## Business Model Module
+- A 6-step wizard to structure project financing.
+- Guides users through selecting payers, beneficiaries, business model archetypes, revenue stacks, and financing pathways.
+- Validates bankability requirements and provides readiness gate checks.
 
 # External Dependencies
 
 ## Authentication Service
-- **CityCatalyst OAuth**: OAuth 2.0 provider for user authentication and project access
-- **JWT Token Handling**: Access and refresh token management for API calls
+- **CityCatalyst OAuth**: OAuth 2.0 provider for authentication.
 
 ## Database
-- **PostgreSQL**: Production database with spatial extensions support
-- **Neon Database**: Cloud PostgreSQL service (based on connection string pattern)
+- **PostgreSQL**: Production database, supports spatial extensions.
+- **Neon Database**: Cloud PostgreSQL service.
 
 ## Build & Deployment
-- **Replit Platform**: Development and hosting environment with integrated tooling
-- **Node.js Runtime**: Server execution environment with ES modules support
+- **Replit Platform**: Development and hosting.
+- **Node.js Runtime**: Server execution environment.
 
 ## UI Component Libraries
-- **Radix UI**: Accessible, unstyled component primitives
-- **Lucide Icons**: Modern icon library for UI elements
+- **Radix UI**: Accessible, unstyled component primitives.
+- **Lucide Icons**: Modern icon library.
 
 ## Development Tools
-- **Drizzle Kit**: Database migration and introspection tools
-- **TypeScript**: Static type checking for both frontend and backend
-- **ESBuild**: Fast JavaScript/TypeScript bundler for production builds
+- **Drizzle Kit**: Database migration and introspection.
+- **TypeScript**: Static type checking.
+- **ESBuild**: Fast JavaScript/TypeScript bundler.
 
-# API Documentation
-
-## CityCatalyst API Integration
-Comprehensive API documentation is maintained in the service files for easy developer reference:
-
-### Core Service Documentation
-- **Primary API Reference**: `server/services/cityService.ts` 
-  - Complete endpoint documentation with usage examples
-  - Request/response type definitions
-  - Error handling patterns
-  - Authentication requirements
-
-### Available API Endpoints
-
-**Health Impact Assessment & Policy (HIAP):**
-- `getHIAPData(inventoryId, actionType, language)` - Get ranked climate action recommendations
-  - Returns ranked lists of mitigation and adaptation actions
-  - Includes co-benefits analysis, GHG reduction potential, and implementation guidance
-  - Supports multiple languages (en, pt, es, de, fr)
-  - Provides detailed action metadata: costs, timelines, KPIs, and dependencies
-
-**City Information:**
-- `getCityDetail(cityId)` - Get detailed city information using UUID
-- `getCityBoundary(locode)` - Retrieve city boundary as GeoJSON
-
-### Frontend Integration Patterns
-- **React Query Hooks**: Located in `client/src/modules/city-information/hooks/`
-- **Type Definitions**: Located in `client/src/modules/city-information/types/city-info.ts`
-- **Service Functions**: Located in `client/src/modules/city-information/services/`
-- **Sample Data Context**: Located in `client/src/core/contexts/sample-data-context.tsx`
-
-### Development Guidelines
-- All API functions include comprehensive JSDoc documentation
-- TypeScript interfaces ensure type safety across frontend/backend
-- Error handling follows consistent patterns with proper HTTP status codes
-- Authentication is handled automatically via OAuth 2.0 PKCE flow
-- Sample data mode bypasses API calls with local mock data
-
-**💡 When in doubt**: Always refer to the official [CityCatalyst Documentation](https://citycatalyst.openearth.dev/docs/) for the latest API specifications, authentication requirements, and best practices.
+## API Integrations
+- **CityCatalyst API**: For HIAP data, city details, and city boundaries.
+    - `getHIAPData(inventoryId, actionType, language)`: Provides ranked climate action recommendations with co-benefits, GHG reduction, and implementation guidance.
+    - `getCityDetail(cityId)`: Retrieves detailed city information.
+    - `getCityBoundary(locode)`: Retrieves city boundary as GeoJSON.
