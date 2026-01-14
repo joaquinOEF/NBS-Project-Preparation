@@ -1,0 +1,2334 @@
+{
+  "cityLocode": "BR POA",
+  "generatedAt": "2026-01-14T17:09:29.938Z",
+  "parameters": {
+    "T_ACTIVE": 0.4,
+    "T_COMBO": 0.12,
+    "MIN_CELLS": 8,
+    "TARGET_ZONES": 15
+  },
+  "totalZones": 14,
+  "interventionSummary": {
+    "sponge_network": 1,
+    "cooling_network": 3,
+    "slope_stabilization": 7,
+    "multi_benefit": 3
+  },
+  "geoJson": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -51.247918443646945,
+                -30.19442863819107
+              ],
+              [
+                -51.202952425460715,
+                -30.19442863819107
+              ],
+              [
+                -51.202952425460715,
+                -30.176442230916578
+              ],
+              [
+                -51.247918443646945,
+                -30.176442230916578
+              ],
+              [
+                -51.247918443646945,
+                -30.19442863819107
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "zoneId": "zone_10",
+          "typologyLabel": "LANDSLIDE",
+          "primaryHazard": "LANDSLIDE",
+          "secondaryHazard": null,
+          "interventionType": "slope_stabilization",
+          "meanFlood": 0.215,
+          "meanHeat": 0.24375000000000002,
+          "meanLandslide": 0.7700000000000001,
+          "maxFlood": 0.29,
+          "maxHeat": 0.32,
+          "maxLandslide": 0.93,
+          "populationSum": 1316.5991666666666,
+          "areaKm2": 8,
+          "cellCount": 8
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -51.26590485092144,
+                -30.266374267289038
+              ],
+              [
+                -51.01409514907855,
+                -30.266374267289038
+              ],
+              [
+                -51.01409514907855,
+                -29.978591750897166
+              ],
+              [
+                -51.26590485092144,
+                -29.978591750897166
+              ],
+              [
+                -51.26590485092144,
+                -30.266374267289038
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "zoneId": "zone_1",
+          "typologyLabel": "LANDSLIDE",
+          "primaryHazard": "LANDSLIDE",
+          "secondaryHazard": "HEAT",
+          "interventionType": "slope_stabilization",
+          "meanFlood": 0.2893750000000002,
+          "meanHeat": 0.359053030303031,
+          "meanLandslide": 0.7555681818181816,
+          "maxFlood": 0.65,
+          "maxHeat": 0.77,
+          "maxLandslide": 0.95,
+          "populationSum": 1443693.2130555562,
+          "areaKm2": 528,
+          "cellCount": 528
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -51.22993203637245,
+                -30.05953058363238
+              ],
+              [
+                -51.18496601818622,
+                -30.05953058363238
+              ],
+              [
+                -51.18496601818622,
+                -30.032550972720642
+              ],
+              [
+                -51.22993203637245,
+                -30.032550972720642
+              ],
+              [
+                -51.22993203637245,
+                -30.05953058363238
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "zoneId": "zone_9",
+          "typologyLabel": "HEAT",
+          "primaryHazard": "HEAT",
+          "secondaryHazard": "LANDSLIDE",
+          "interventionType": "cooling_network",
+          "meanFlood": 0.39444444444444443,
+          "meanHeat": 0.6777777777777777,
+          "meanLandslide": 0.41111111111111115,
+          "maxFlood": 0.56,
+          "maxHeat": 0.73,
+          "maxLandslide": 0.5,
+          "populationSum": 108324.54999999999,
+          "areaKm2": 9,
+          "cellCount": 9
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -51.13999999999999,
+                -30.005571361808904
+              ],
+              [
+                -51.08604077817652,
+                -30.005571361808904
+              ],
+              [
+                -51.08604077817652,
+                -29.978591750897166
+              ],
+              [
+                -51.13999999999999,
+                -29.978591750897166
+              ],
+              [
+                -51.13999999999999,
+                -30.005571361808904
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "zoneId": "zone_7",
+          "typologyLabel": "HEAT",
+          "primaryHazard": "HEAT",
+          "secondaryHazard": "LANDSLIDE",
+          "interventionType": "cooling_network",
+          "meanFlood": 0.3175,
+          "meanHeat": 0.6141666666666666,
+          "meanLandslide": 0.3333333333333333,
+          "maxFlood": 0.45,
+          "maxHeat": 0.7,
+          "maxLandslide": 0.5,
+          "populationSum": 82844.95999999999,
+          "areaKm2": 12,
+          "cellCount": 12
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -51.2389252400097,
+                -30.04154417635789
+              ],
+              [
+                -51.14899320363724,
+                -30.04154417635789
+              ],
+              [
+                -51.14899320363724,
+                -29.96959854725992
+              ],
+              [
+                -51.2389252400097,
+                -29.96959854725992
+              ],
+              [
+                -51.2389252400097,
+                -30.04154417635789
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "zoneId": "zone_6",
+          "typologyLabel": "HEAT",
+          "primaryHazard": "HEAT",
+          "secondaryHazard": "LANDSLIDE",
+          "interventionType": "cooling_network",
+          "meanFlood": 0.28764705882352937,
+          "meanHeat": 0.5599999999999999,
+          "meanLandslide": 0.39411764705882346,
+          "maxFlood": 0.4,
+          "maxHeat": 0.69,
+          "maxLandslide": 0.5,
+          "populationSum": 111643.34666666666,
+          "areaKm2": 17,
+          "cellCount": 17
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -51.068054370902026,
+                -29.960605343622674
+              ],
+              [
+                -51.01409514907855,
+                -29.960605343622674
+              ],
+              [
+                -51.01409514907855,
+                -29.933625732710937
+              ],
+              [
+                -51.068054370902026,
+                -29.933625732710937
+              ],
+              [
+                -51.068054370902026,
+                -29.960605343622674
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "zoneId": "zone_8",
+          "typologyLabel": "LANDSLIDE",
+          "primaryHazard": "LANDSLIDE",
+          "secondaryHazard": "HEAT",
+          "interventionType": "slope_stabilization",
+          "meanFlood": 0.27,
+          "meanHeat": 0.31545454545454543,
+          "meanLandslide": 0.5272727272727272,
+          "maxFlood": 0.36,
+          "maxHeat": 0.36,
+          "maxLandslide": 0.87,
+          "populationSum": 35199.65,
+          "areaKm2": 11,
+          "cellCount": 11
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -51.16697961091173,
+                -30.032550972720642
+              ],
+              [
+                -51.03208155635304,
+                -30.032550972720642
+              ],
+              [
+                -51.03208155635304,
+                -29.987584954534412
+              ],
+              [
+                -51.16697961091173,
+                -29.987584954534412
+              ],
+              [
+                -51.16697961091173,
+                -30.032550972720642
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "zoneId": "zone_5",
+          "typologyLabel": "HEAT_LANDSLIDE",
+          "primaryHazard": "HEAT",
+          "secondaryHazard": "LANDSLIDE",
+          "interventionType": "slope_stabilization",
+          "meanFlood": 0.3696153846153847,
+          "meanHeat": 0.5223076923076924,
+          "meanLandslide": 0.5073076923076922,
+          "maxFlood": 0.61,
+          "maxHeat": 0.71,
+          "maxLandslide": 0.87,
+          "populationSum": 198574.89416666667,
+          "areaKm2": 26,
+          "cellCount": 26
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -51.157986407274485,
+                -29.960605343622674
+              ],
+              [
+                -51.050067963627534,
+                -29.960605343622674
+              ],
+              [
+                -51.050067963627534,
+                -29.933625732710937
+              ],
+              [
+                -51.157986407274485,
+                -29.933625732710937
+              ],
+              [
+                -51.157986407274485,
+                -29.960605343622674
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "zoneId": "zone_14",
+          "typologyLabel": "LANDSLIDE",
+          "primaryHazard": "LANDSLIDE",
+          "secondaryHazard": "FLOOD",
+          "interventionType": "slope_stabilization",
+          "meanFlood": 0.32999999999999996,
+          "meanHeat": 0.3243750000000001,
+          "meanLandslide": 0.5,
+          "maxFlood": 0.45,
+          "maxHeat": 0.41,
+          "maxLandslide": 0.5,
+          "populationSum": 56103.87166666667,
+          "areaKm2": 16,
+          "cellCount": 16
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -51.13999999999999,
+                -30.230401452740054
+              ],
+              [
+                -51.09503398181376,
+                -30.230401452740054
+              ],
+              [
+                -51.09503398181376,
+                -30.19442863819107
+              ],
+              [
+                -51.13999999999999,
+                -30.19442863819107
+              ],
+              [
+                -51.13999999999999,
+                -30.230401452740054
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "zoneId": "zone_11",
+          "typologyLabel": "FLOOD_LANDSLIDE",
+          "primaryHazard": "LANDSLIDE",
+          "secondaryHazard": "FLOOD",
+          "interventionType": "sponge_network",
+          "meanFlood": 0.43200000000000005,
+          "meanHeat": 0.29500000000000004,
+          "meanLandslide": 0.45,
+          "maxFlood": 0.47,
+          "maxHeat": 0.41,
+          "maxLandslide": 0.5,
+          "populationSum": 3207.3675,
+          "areaKm2": 10,
+          "cellCount": 10
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -51.19395922182347,
+                -30.176442230916578
+              ],
+              [
+                -51.1220135927255,
+                -30.176442230916578
+              ],
+              [
+                -51.1220135927255,
+                -30.113489805455856
+              ],
+              [
+                -51.19395922182347,
+                -30.113489805455856
+              ],
+              [
+                -51.19395922182347,
+                -30.176442230916578
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "zoneId": "zone_13",
+          "typologyLabel": "HEAT_LANDSLIDE",
+          "primaryHazard": "LANDSLIDE",
+          "secondaryHazard": "HEAT",
+          "interventionType": "slope_stabilization",
+          "meanFlood": 0.39437500000000003,
+          "meanHeat": 0.413125,
+          "meanLandslide": 0.41999999999999993,
+          "maxFlood": 0.48,
+          "maxHeat": 0.68,
+          "maxLandslide": 0.5,
+          "populationSum": 43725.953333333346,
+          "areaKm2": 16,
+          "cellCount": 16
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -51.26590485092144,
+                -30.266374267289038
+              ],
+              [
+                -51.19395922182347,
+                -30.266374267289038
+              ],
+              [
+                -51.19395922182347,
+                -30.212415045465562
+              ],
+              [
+                -51.26590485092144,
+                -30.212415045465562
+              ],
+              [
+                -51.26590485092144,
+                -30.266374267289038
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "zoneId": "zone_4",
+          "typologyLabel": "HEAT_LANDSLIDE",
+          "primaryHazard": "HEAT",
+          "secondaryHazard": "LANDSLIDE",
+          "interventionType": "slope_stabilization",
+          "meanFlood": 0.030333333333333354,
+          "meanHeat": 0.4000000000000002,
+          "meanLandslide": 0.3,
+          "maxFlood": 0.04,
+          "maxHeat": 0.4,
+          "maxLandslide": 0.3,
+          "populationSum": 0,
+          "areaKm2": 30,
+          "cellCount": 30
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -51.17597281454898,
+                -30.19442863819107
+              ],
+              [
+                -51.13999999999999,
+                -30.19442863819107
+              ],
+              [
+                -51.13999999999999,
+                -30.158455823642086
+              ],
+              [
+                -51.17597281454898,
+                -30.158455823642086
+              ],
+              [
+                -51.17597281454898,
+                -30.19442863819107
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "zoneId": "zone_12",
+          "typologyLabel": "LOW",
+          "primaryHazard": null,
+          "secondaryHazard": null,
+          "interventionType": "multi_benefit",
+          "meanFlood": 0.38700000000000007,
+          "meanHeat": 0.24499999999999997,
+          "meanLandslide": 0.379,
+          "maxFlood": 0.46,
+          "maxHeat": 0.38,
+          "maxLandslide": 0.5,
+          "populationSum": 4443.3125,
+          "areaKm2": 10,
+          "cellCount": 10
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -51.26590485092144,
+                -30.266374267289038
+              ],
+              [
+                -51.04107475999029,
+                -30.266374267289038
+              ],
+              [
+                -51.04107475999029,
+                -30.122483009093102
+              ],
+              [
+                -51.26590485092144,
+                -30.122483009093102
+              ],
+              [
+                -51.26590485092144,
+                -30.266374267289038
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "zoneId": "zone_3",
+          "typologyLabel": "LOW",
+          "primaryHazard": null,
+          "secondaryHazard": null,
+          "interventionType": "multi_benefit",
+          "meanFlood": 0.15435064935064938,
+          "meanHeat": 0.30876623376623386,
+          "meanLandslide": 0.316298701298701,
+          "maxFlood": 0.45,
+          "maxHeat": 0.63,
+          "maxLandslide": 0.87,
+          "populationSum": 47207.6803888889,
+          "areaKm2": 154,
+          "cellCount": 154
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -51.26590485092144,
+                -30.095503398181364
+              ],
+              [
+                -51.01409514907855,
+                -30.095503398181364
+              ],
+              [
+                -51.01409514907855,
+                -29.933625732710937
+              ],
+              [
+                -51.26590485092144,
+                -29.933625732710937
+              ],
+              [
+                -51.26590485092144,
+                -30.095503398181364
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "zoneId": "zone_2",
+          "typologyLabel": "LOW",
+          "primaryHazard": null,
+          "secondaryHazard": null,
+          "interventionType": "multi_benefit",
+          "meanFlood": 0.18513227513227523,
+          "meanHeat": 0.3128042328042327,
+          "meanLandslide": 0.28185185185185135,
+          "maxFlood": 0.43,
+          "maxHeat": 0.48,
+          "maxLandslide": 0.5,
+          "populationSum": 253678.04944444436,
+          "areaKm2": 189,
+          "cellCount": 189
+        }
+      }
+    ]
+  },
+  "zones": [
+    {
+      "zoneId": "zone_10",
+      "typologyLabel": "LANDSLIDE",
+      "primaryHazard": "LANDSLIDE",
+      "secondaryHazard": null,
+      "interventionType": "slope_stabilization",
+      "meanFlood": 0.215,
+      "meanHeat": 0.24375000000000002,
+      "meanLandslide": 0.7700000000000001,
+      "maxFlood": 0.29,
+      "maxHeat": 0.32,
+      "maxLandslide": 0.93,
+      "populationSum": 1316.5991666666666,
+      "areaKm2": 8,
+      "cellCount": 8,
+      "cells": [
+        "cell_82",
+        "cell_83",
+        "cell_119",
+        "cell_120",
+        "cell_156",
+        "cell_157",
+        "cell_193",
+        "cell_230"
+      ],
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.247918443646945,
+              -30.19442863819107
+            ],
+            [
+              -51.202952425460715,
+              -30.19442863819107
+            ],
+            [
+              -51.202952425460715,
+              -30.176442230916578
+            ],
+            [
+              -51.247918443646945,
+              -30.176442230916578
+            ],
+            [
+              -51.247918443646945,
+              -30.19442863819107
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "zoneId": "zone_1",
+      "typologyLabel": "LANDSLIDE",
+      "primaryHazard": "LANDSLIDE",
+      "secondaryHazard": "HEAT",
+      "interventionType": "slope_stabilization",
+      "meanFlood": 0.2893750000000002,
+      "meanHeat": 0.359053030303031,
+      "meanLandslide": 0.7555681818181816,
+      "maxFlood": 0.65,
+      "maxHeat": 0.77,
+      "maxLandslide": 0.95,
+      "populationSum": 1443693.2130555562,
+      "areaKm2": 528,
+      "cellCount": 528,
+      "cells": [
+        "cell_16",
+        "cell_53",
+        "cell_52",
+        "cell_90",
+        "cell_89",
+        "cell_127",
+        "cell_126",
+        "cell_128",
+        "cell_164",
+        "cell_163",
+        "cell_165",
+        "cell_92",
+        "cell_166",
+        "cell_200",
+        "cell_202",
+        "cell_199",
+        "cell_203",
+        "cell_55",
+        "cell_167",
+        "cell_204",
+        "cell_237",
+        "cell_236",
+        "cell_239",
+        "cell_240",
+        "cell_198",
+        "cell_161",
+        "cell_235",
+        "cell_241",
+        "cell_18",
+        "cell_168",
+        "cell_131",
+        "cell_205",
+        "cell_242",
+        "cell_274",
+        "cell_273",
+        "cell_275",
+        "cell_272",
+        "cell_276",
+        "cell_277",
+        "cell_278",
+        "cell_197",
+        "cell_160",
+        "cell_234",
+        "cell_271",
+        "cell_279",
+        "cell_132",
+        "cell_206",
+        "cell_94",
+        "cell_95",
+        "cell_243",
+        "cell_280",
+        "cell_311",
+        "cell_310",
+        "cell_312",
+        "cell_309",
+        "cell_313",
+        "cell_308",
+        "cell_314",
+        "cell_315",
+        "cell_316",
+        "cell_196",
+        "cell_233",
+        "cell_270",
+        "cell_317",
+        "cell_133",
+        "cell_170",
+        "cell_207",
+        "cell_244",
+        "cell_318",
+        "cell_348",
+        "cell_347",
+        "cell_349",
+        "cell_346",
+        "cell_350",
+        "cell_351",
+        "cell_352",
+        "cell_353",
+        "cell_232",
+        "cell_355",
+        "cell_245",
+        "cell_282",
+        "cell_356",
+        "cell_385",
+        "cell_384",
+        "cell_386",
+        "cell_383",
+        "cell_387",
+        "cell_388",
+        "cell_389",
+        "cell_390",
+        "cell_392",
+        "cell_393",
+        "cell_357",
+        "cell_394",
+        "cell_422",
+        "cell_421",
+        "cell_420",
+        "cell_424",
+        "cell_425",
+        "cell_426",
+        "cell_427",
+        "cell_428",
+        "cell_429",
+        "cell_430",
+        "cell_431",
+        "cell_358",
+        "cell_321",
+        "cell_395",
+        "cell_432",
+        "cell_459",
+        "cell_458",
+        "cell_460",
+        "cell_461",
+        "cell_462",
+        "cell_463",
+        "cell_464",
+        "cell_465",
+        "cell_466",
+        "cell_467",
+        "cell_469",
+        "cell_359",
+        "cell_322",
+        "cell_396",
+        "cell_284",
+        "cell_285",
+        "cell_433",
+        "cell_470",
+        "cell_496",
+        "cell_495",
+        "cell_497",
+        "cell_498",
+        "cell_499",
+        "cell_500",
+        "cell_501",
+        "cell_502",
+        "cell_503",
+        "cell_504",
+        "cell_505",
+        "cell_506",
+        "cell_507",
+        "cell_360",
+        "cell_323",
+        "cell_397",
+        "cell_286",
+        "cell_434",
+        "cell_248",
+        "cell_249",
+        "cell_471",
+        "cell_508",
+        "cell_533",
+        "cell_534",
+        "cell_531",
+        "cell_535",
+        "cell_536",
+        "cell_537",
+        "cell_538",
+        "cell_539",
+        "cell_540",
+        "cell_541",
+        "cell_542",
+        "cell_543",
+        "cell_544",
+        "cell_545",
+        "cell_324",
+        "cell_211",
+        "cell_572",
+        "cell_530",
+        "cell_568",
+        "cell_567",
+        "cell_573",
+        "cell_574",
+        "cell_575",
+        "cell_576",
+        "cell_577",
+        "cell_578",
+        "cell_579",
+        "cell_580",
+        "cell_582",
+        "cell_609",
+        "cell_608",
+        "cell_610",
+        "cell_566",
+        "cell_605",
+        "cell_604",
+        "cell_606",
+        "cell_603",
+        "cell_612",
+        "cell_613",
+        "cell_614",
+        "cell_615",
+        "cell_616",
+        "cell_617",
+        "cell_618",
+        "cell_619",
+        "cell_620",
+        "cell_646",
+        "cell_645",
+        "cell_647",
+        "cell_607",
+        "cell_644",
+        "cell_565",
+        "cell_528",
+        "cell_602",
+        "cell_642",
+        "cell_641",
+        "cell_643",
+        "cell_640",
+        "cell_639",
+        "cell_649",
+        "cell_650",
+        "cell_651",
+        "cell_652",
+        "cell_653",
+        "cell_654",
+        "cell_683",
+        "cell_682",
+        "cell_684",
+        "cell_681",
+        "cell_685",
+        "cell_680",
+        "cell_564",
+        "cell_527",
+        "cell_601",
+        "cell_490",
+        "cell_638",
+        "cell_679",
+        "cell_678",
+        "cell_677",
+        "cell_676",
+        "cell_675",
+        "cell_686",
+        "cell_688",
+        "cell_689",
+        "cell_690",
+        "cell_691",
+        "cell_720",
+        "cell_719",
+        "cell_721",
+        "cell_722",
+        "cell_717",
+        "cell_723",
+        "cell_716",
+        "cell_563",
+        "cell_526",
+        "cell_600",
+        "cell_637",
+        "cell_674",
+        "cell_715",
+        "cell_714",
+        "cell_713",
+        "cell_712",
+        "cell_711",
+        "cell_724",
+        "cell_725",
+        "cell_726",
+        "cell_728",
+        "cell_729",
+        "cell_757",
+        "cell_756",
+        "cell_758",
+        "cell_755",
+        "cell_759",
+        "cell_760",
+        "cell_754",
+        "cell_753",
+        "cell_752",
+        "cell_562",
+        "cell_599",
+        "cell_488",
+        "cell_636",
+        "cell_710",
+        "cell_751",
+        "cell_750",
+        "cell_748",
+        "cell_747",
+        "cell_762",
+        "cell_766",
+        "cell_767",
+        "cell_794",
+        "cell_793",
+        "cell_795",
+        "cell_792",
+        "cell_796",
+        "cell_791",
+        "cell_797",
+        "cell_790",
+        "cell_789",
+        "cell_788",
+        "cell_635",
+        "cell_487",
+        "cell_451",
+        "cell_450",
+        "cell_709",
+        "cell_746",
+        "cell_786",
+        "cell_785",
+        "cell_784",
+        "cell_783",
+        "cell_799",
+        "cell_800",
+        "cell_803",
+        "cell_804",
+        "cell_768",
+        "cell_805",
+        "cell_831",
+        "cell_830",
+        "cell_832",
+        "cell_829",
+        "cell_833",
+        "cell_828",
+        "cell_834",
+        "cell_827",
+        "cell_835",
+        "cell_826",
+        "cell_825",
+        "cell_824",
+        "cell_523",
+        "cell_414",
+        "cell_413",
+        "cell_745",
+        "cell_823",
+        "cell_822",
+        "cell_821",
+        "cell_820",
+        "cell_819",
+        "cell_836",
+        "cell_837",
+        "cell_801",
+        "cell_838",
+        "cell_840",
+        "cell_839",
+        "cell_841",
+        "cell_842",
+        "cell_868",
+        "cell_867",
+        "cell_869",
+        "cell_866",
+        "cell_870",
+        "cell_865",
+        "cell_871",
+        "cell_864",
+        "cell_872",
+        "cell_863",
+        "cell_873",
+        "cell_862",
+        "cell_861",
+        "cell_860",
+        "cell_560",
+        "cell_559",
+        "cell_377",
+        "cell_376",
+        "cell_859",
+        "cell_858",
+        "cell_857",
+        "cell_855",
+        "cell_874",
+        "cell_875",
+        "cell_876",
+        "cell_877",
+        "cell_878",
+        "cell_879",
+        "cell_905",
+        "cell_904",
+        "cell_906",
+        "cell_903",
+        "cell_907",
+        "cell_902",
+        "cell_908",
+        "cell_901",
+        "cell_909",
+        "cell_900",
+        "cell_910",
+        "cell_899",
+        "cell_911",
+        "cell_898",
+        "cell_897",
+        "cell_896",
+        "cell_596",
+        "cell_558",
+        "cell_895",
+        "cell_894",
+        "cell_891",
+        "cell_912",
+        "cell_913",
+        "cell_915",
+        "cell_916",
+        "cell_942",
+        "cell_941",
+        "cell_943",
+        "cell_940",
+        "cell_944",
+        "cell_939",
+        "cell_945",
+        "cell_938",
+        "cell_946",
+        "cell_937",
+        "cell_947",
+        "cell_936",
+        "cell_948",
+        "cell_935",
+        "cell_934",
+        "cell_933",
+        "cell_932",
+        "cell_633",
+        "cell_931",
+        "cell_890",
+        "cell_928",
+        "cell_927",
+        "cell_929",
+        "cell_950",
+        "cell_951",
+        "cell_952",
+        "cell_954",
+        "cell_979",
+        "cell_980",
+        "cell_977",
+        "cell_981",
+        "cell_976",
+        "cell_975",
+        "cell_983",
+        "cell_974",
+        "cell_984",
+        "cell_973",
+        "cell_985",
+        "cell_972",
+        "cell_986",
+        "cell_971",
+        "cell_970",
+        "cell_969",
+        "cell_968",
+        "cell_967",
+        "cell_889",
+        "cell_926",
+        "cell_965",
+        "cell_964",
+        "cell_966",
+        "cell_963",
+        "cell_987",
+        "cell_988",
+        "cell_989",
+        "cell_990",
+        "cell_955",
+        "cell_991",
+        "cell_918",
+        "cell_992",
+        "cell_1016",
+        "cell_1018",
+        "cell_1014",
+        "cell_1019",
+        "cell_1012",
+        "cell_1020",
+        "cell_1021",
+        "cell_1010",
+        "cell_1022",
+        "cell_1009",
+        "cell_1023",
+        "cell_1008",
+        "cell_1024",
+        "cell_1007",
+        "cell_1006",
+        "cell_1005",
+        "cell_1004",
+        "cell_888",
+        "cell_851",
+        "cell_925",
+        "cell_962",
+        "cell_1002",
+        "cell_1001",
+        "cell_1000",
+        "cell_1026",
+        "cell_1027",
+        "cell_1028",
+        "cell_956",
+        "cell_993",
+        "cell_1030",
+        "cell_856",
+        "cell_893",
+        "cell_930",
+        "cell_17",
+        "cell_54",
+        "cell_354",
+        "cell_391",
+        "cell_749",
+        "cell_787",
+        "cell_93",
+        "cell_129",
+        "cell_130",
+        "cell_91",
+        "cell_169",
+        "cell_195",
+        "cell_122",
+        "cell_159",
+        "cell_238",
+        "cell_201",
+        "cell_281",
+        "cell_320",
+        "cell_339",
+        "cell_264",
+        "cell_265",
+        "cell_301",
+        "cell_302",
+        "cell_423",
+        "cell_449",
+        "cell_468",
+        "cell_581",
+        "cell_611",
+        "cell_648",
+        "cell_687",
+        "cell_718",
+        "cell_798",
+        "cell_761",
+        "cell_802",
+        "cell_763",
+        "cell_727",
+        "cell_764",
+        "cell_765",
+        "cell_914",
+        "cell_949",
+        "cell_982",
+        "cell_999",
+        "cell_1003",
+        "cell_1011",
+        "cell_1013",
+        "cell_1015",
+        "cell_978",
+        "cell_1017",
+        "cell_1025",
+        "cell_1029"
+      ],
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.26590485092144,
+              -30.266374267289038
+            ],
+            [
+              -51.01409514907855,
+              -30.266374267289038
+            ],
+            [
+              -51.01409514907855,
+              -29.978591750897166
+            ],
+            [
+              -51.26590485092144,
+              -29.978591750897166
+            ],
+            [
+              -51.26590485092144,
+              -30.266374267289038
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "zoneId": "zone_9",
+      "typologyLabel": "HEAT",
+      "primaryHazard": "HEAT",
+      "secondaryHazard": "LANDSLIDE",
+      "interventionType": "cooling_network",
+      "meanFlood": 0.39444444444444443,
+      "meanHeat": 0.6777777777777777,
+      "meanLandslide": 0.41111111111111115,
+      "maxFlood": 0.56,
+      "maxHeat": 0.73,
+      "maxLandslide": 0.5,
+      "populationSum": 108324.54999999999,
+      "areaKm2": 9,
+      "cellCount": 9,
+      "cells": [
+        "cell_171",
+        "cell_172",
+        "cell_208",
+        "cell_209",
+        "cell_173",
+        "cell_246",
+        "cell_247",
+        "cell_283",
+        "cell_319"
+      ],
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.22993203637245,
+              -30.05953058363238
+            ],
+            [
+              -51.18496601818622,
+              -30.05953058363238
+            ],
+            [
+              -51.18496601818622,
+              -30.032550972720642
+            ],
+            [
+              -51.22993203637245,
+              -30.032550972720642
+            ],
+            [
+              -51.22993203637245,
+              -30.05953058363238
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "zoneId": "zone_7",
+      "typologyLabel": "HEAT",
+      "primaryHazard": "HEAT",
+      "secondaryHazard": "LANDSLIDE",
+      "interventionType": "cooling_network",
+      "meanFlood": 0.3175,
+      "meanHeat": 0.6141666666666666,
+      "meanLandslide": 0.3333333333333333,
+      "maxFlood": 0.45,
+      "maxHeat": 0.7,
+      "maxLandslide": 0.5,
+      "populationSum": 82844.95999999999,
+      "areaKm2": 12,
+      "cellCount": 12,
+      "cells": [
+        "cell_548",
+        "cell_549",
+        "cell_585",
+        "cell_586",
+        "cell_622",
+        "cell_623",
+        "cell_659",
+        "cell_696",
+        "cell_695",
+        "cell_733",
+        "cell_732",
+        "cell_660"
+      ],
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.13999999999999,
+              -30.005571361808904
+            ],
+            [
+              -51.08604077817652,
+              -30.005571361808904
+            ],
+            [
+              -51.08604077817652,
+              -29.978591750897166
+            ],
+            [
+              -51.13999999999999,
+              -29.978591750897166
+            ],
+            [
+              -51.13999999999999,
+              -30.005571361808904
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "zoneId": "zone_6",
+      "typologyLabel": "HEAT",
+      "primaryHazard": "HEAT",
+      "secondaryHazard": "LANDSLIDE",
+      "interventionType": "cooling_network",
+      "meanFlood": 0.28764705882352937,
+      "meanHeat": 0.5599999999999999,
+      "meanLandslide": 0.39411764705882346,
+      "maxFlood": 0.4,
+      "maxHeat": 0.69,
+      "maxLandslide": 0.5,
+      "populationSum": 111643.34666666666,
+      "areaKm2": 17,
+      "cellCount": 17,
+      "cells": [
+        "cell_250",
+        "cell_287",
+        "cell_288",
+        "cell_325",
+        "cell_289",
+        "cell_361",
+        "cell_290",
+        "cell_327",
+        "cell_398",
+        "cell_291",
+        "cell_435",
+        "cell_472",
+        "cell_136",
+        "cell_137",
+        "cell_174",
+        "cell_210",
+        "cell_212"
+      ],
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.2389252400097,
+              -30.04154417635789
+            ],
+            [
+              -51.14899320363724,
+              -30.04154417635789
+            ],
+            [
+              -51.14899320363724,
+              -29.96959854725992
+            ],
+            [
+              -51.2389252400097,
+              -29.96959854725992
+            ],
+            [
+              -51.2389252400097,
+              -30.04154417635789
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "zoneId": "zone_8",
+      "typologyLabel": "LANDSLIDE",
+      "primaryHazard": "LANDSLIDE",
+      "secondaryHazard": "HEAT",
+      "interventionType": "slope_stabilization",
+      "meanFlood": 0.27,
+      "meanHeat": 0.31545454545454543,
+      "meanLandslide": 0.5272727272727272,
+      "maxFlood": 0.36,
+      "maxHeat": 0.36,
+      "maxLandslide": 0.87,
+      "populationSum": 35199.65,
+      "areaKm2": 11,
+      "cellCount": 11,
+      "cells": [
+        "cell_848",
+        "cell_886",
+        "cell_923",
+        "cell_924",
+        "cell_960",
+        "cell_959",
+        "cell_961",
+        "cell_997",
+        "cell_996",
+        "cell_998",
+        "cell_1035"
+      ],
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.068054370902026,
+              -29.960605343622674
+            ],
+            [
+              -51.01409514907855,
+              -29.960605343622674
+            ],
+            [
+              -51.01409514907855,
+              -29.933625732710937
+            ],
+            [
+              -51.068054370902026,
+              -29.933625732710937
+            ],
+            [
+              -51.068054370902026,
+              -29.960605343622674
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "zoneId": "zone_5",
+      "typologyLabel": "HEAT_LANDSLIDE",
+      "primaryHazard": "HEAT",
+      "secondaryHazard": "LANDSLIDE",
+      "interventionType": "slope_stabilization",
+      "meanFlood": 0.3696153846153847,
+      "meanHeat": 0.5223076923076924,
+      "meanLandslide": 0.5073076923076922,
+      "maxFlood": 0.61,
+      "maxHeat": 0.71,
+      "maxLandslide": 0.87,
+      "populationSum": 198574.89416666667,
+      "areaKm2": 26,
+      "cellCount": 26,
+      "cells": [
+        "cell_510",
+        "cell_547",
+        "cell_584",
+        "cell_583",
+        "cell_621",
+        "cell_658",
+        "cell_657",
+        "cell_694",
+        "cell_693",
+        "cell_731",
+        "cell_655",
+        "cell_769",
+        "cell_770",
+        "cell_806",
+        "cell_843",
+        "cell_880",
+        "cell_881",
+        "cell_436",
+        "cell_473",
+        "cell_656",
+        "cell_692",
+        "cell_546",
+        "cell_509",
+        "cell_730",
+        "cell_953",
+        "cell_917"
+      ],
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.16697961091173,
+              -30.032550972720642
+            ],
+            [
+              -51.03208155635304,
+              -30.032550972720642
+            ],
+            [
+              -51.03208155635304,
+              -29.987584954534412
+            ],
+            [
+              -51.16697961091173,
+              -29.987584954534412
+            ],
+            [
+              -51.16697961091173,
+              -30.032550972720642
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "zoneId": "zone_14",
+      "typologyLabel": "LANDSLIDE",
+      "primaryHazard": "LANDSLIDE",
+      "secondaryHazard": "FLOOD",
+      "interventionType": "slope_stabilization",
+      "meanFlood": 0.32999999999999996,
+      "meanHeat": 0.3243750000000001,
+      "meanLandslide": 0.5,
+      "maxFlood": 0.45,
+      "maxHeat": 0.41,
+      "maxLandslide": 0.5,
+      "populationSum": 56103.87166666667,
+      "areaKm2": 16,
+      "cellCount": 16,
+      "cells": [
+        "cell_591",
+        "cell_628",
+        "cell_665",
+        "cell_664",
+        "cell_702",
+        "cell_700",
+        "cell_480",
+        "cell_517",
+        "cell_554",
+        "cell_701",
+        "cell_850",
+        "cell_775",
+        "cell_776",
+        "cell_813",
+        "cell_739",
+        "cell_887"
+      ],
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.157986407274485,
+              -29.960605343622674
+            ],
+            [
+              -51.050067963627534,
+              -29.960605343622674
+            ],
+            [
+              -51.050067963627534,
+              -29.933625732710937
+            ],
+            [
+              -51.157986407274485,
+              -29.933625732710937
+            ],
+            [
+              -51.157986407274485,
+              -29.960605343622674
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "zoneId": "zone_11",
+      "typologyLabel": "FLOOD_LANDSLIDE",
+      "primaryHazard": "LANDSLIDE",
+      "secondaryHazard": "FLOOD",
+      "interventionType": "sponge_network",
+      "meanFlood": 0.43200000000000005,
+      "meanHeat": 0.29500000000000004,
+      "meanLandslide": 0.45,
+      "maxFlood": 0.47,
+      "maxHeat": 0.41,
+      "maxLandslide": 0.5,
+      "populationSum": 3207.3675,
+      "areaKm2": 10,
+      "cellCount": 10,
+      "cells": [
+        "cell_524",
+        "cell_525",
+        "cell_561",
+        "cell_597",
+        "cell_634",
+        "cell_670",
+        "cell_672",
+        "cell_673",
+        "cell_598",
+        "cell_671"
+      ],
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.13999999999999,
+              -30.230401452740054
+            ],
+            [
+              -51.09503398181376,
+              -30.230401452740054
+            ],
+            [
+              -51.09503398181376,
+              -30.19442863819107
+            ],
+            [
+              -51.13999999999999,
+              -30.19442863819107
+            ],
+            [
+              -51.13999999999999,
+              -30.230401452740054
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "zoneId": "zone_13",
+      "typologyLabel": "HEAT_LANDSLIDE",
+      "primaryHazard": "LANDSLIDE",
+      "secondaryHazard": "HEAT",
+      "interventionType": "slope_stabilization",
+      "meanFlood": 0.39437500000000003,
+      "meanHeat": 0.413125,
+      "meanLandslide": 0.41999999999999993,
+      "maxFlood": 0.48,
+      "maxHeat": 0.68,
+      "maxLandslide": 0.5,
+      "populationSum": 43725.953333333346,
+      "areaKm2": 16,
+      "cellCount": 16,
+      "cells": [
+        "cell_494",
+        "cell_532",
+        "cell_570",
+        "cell_457",
+        "cell_307",
+        "cell_345",
+        "cell_382",
+        "cell_419",
+        "cell_343",
+        "cell_529",
+        "cell_456",
+        "cell_493",
+        "cell_492",
+        "cell_455",
+        "cell_569",
+        "cell_571"
+      ],
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.19395922182347,
+              -30.176442230916578
+            ],
+            [
+              -51.1220135927255,
+              -30.176442230916578
+            ],
+            [
+              -51.1220135927255,
+              -30.113489805455856
+            ],
+            [
+              -51.19395922182347,
+              -30.113489805455856
+            ],
+            [
+              -51.19395922182347,
+              -30.176442230916578
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "zoneId": "zone_4",
+      "typologyLabel": "HEAT_LANDSLIDE",
+      "primaryHazard": "HEAT",
+      "secondaryHazard": "LANDSLIDE",
+      "interventionType": "slope_stabilization",
+      "meanFlood": 0.030333333333333354,
+      "meanHeat": 0.4000000000000002,
+      "meanLandslide": 0.3,
+      "maxFlood": 0.04,
+      "maxHeat": 0.4,
+      "maxLandslide": 0.3,
+      "populationSum": 0,
+      "areaKm2": 30,
+      "cellCount": 30,
+      "cells": [
+        "cell_0",
+        "cell_1",
+        "cell_37",
+        "cell_38",
+        "cell_2",
+        "cell_39",
+        "cell_74",
+        "cell_75",
+        "cell_76",
+        "cell_3",
+        "cell_40",
+        "cell_77",
+        "cell_111",
+        "cell_112",
+        "cell_113",
+        "cell_114",
+        "cell_4",
+        "cell_41",
+        "cell_78",
+        "cell_115",
+        "cell_148",
+        "cell_149",
+        "cell_150",
+        "cell_5",
+        "cell_42",
+        "cell_185",
+        "cell_186",
+        "cell_222",
+        "cell_223",
+        "cell_259"
+      ],
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.26590485092144,
+              -30.266374267289038
+            ],
+            [
+              -51.19395922182347,
+              -30.266374267289038
+            ],
+            [
+              -51.19395922182347,
+              -30.212415045465562
+            ],
+            [
+              -51.26590485092144,
+              -30.212415045465562
+            ],
+            [
+              -51.26590485092144,
+              -30.266374267289038
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "zoneId": "zone_12",
+      "typologyLabel": "LOW",
+      "primaryHazard": null,
+      "secondaryHazard": null,
+      "interventionType": "multi_benefit",
+      "meanFlood": 0.38700000000000007,
+      "meanHeat": 0.24499999999999997,
+      "meanLandslide": 0.379,
+      "maxFlood": 0.46,
+      "maxHeat": 0.38,
+      "maxLandslide": 0.5,
+      "populationSum": 4443.3125,
+      "areaKm2": 10,
+      "cellCount": 10,
+      "cells": [
+        "cell_380",
+        "cell_418",
+        "cell_415",
+        "cell_416",
+        "cell_452",
+        "cell_417",
+        "cell_454",
+        "cell_491",
+        "cell_453",
+        "cell_489"
+      ],
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.17597281454898,
+              -30.19442863819107
+            ],
+            [
+              -51.13999999999999,
+              -30.19442863819107
+            ],
+            [
+              -51.13999999999999,
+              -30.158455823642086
+            ],
+            [
+              -51.17597281454898,
+              -30.158455823642086
+            ],
+            [
+              -51.17597281454898,
+              -30.19442863819107
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "zoneId": "zone_3",
+      "typologyLabel": "LOW",
+      "primaryHazard": null,
+      "secondaryHazard": null,
+      "interventionType": "multi_benefit",
+      "meanFlood": 0.15435064935064938,
+      "meanHeat": 0.30876623376623386,
+      "meanLandslide": 0.316298701298701,
+      "maxFlood": 0.45,
+      "maxHeat": 0.63,
+      "maxLandslide": 0.87,
+      "populationSum": 47207.6803888889,
+      "areaKm2": 154,
+      "cellCount": 154,
+      "cells": [
+        "cell_6",
+        "cell_7",
+        "cell_43",
+        "cell_44",
+        "cell_8",
+        "cell_45",
+        "cell_80",
+        "cell_79",
+        "cell_81",
+        "cell_9",
+        "cell_46",
+        "cell_117",
+        "cell_116",
+        "cell_118",
+        "cell_10",
+        "cell_47",
+        "cell_84",
+        "cell_154",
+        "cell_153",
+        "cell_155",
+        "cell_152",
+        "cell_11",
+        "cell_48",
+        "cell_85",
+        "cell_121",
+        "cell_191",
+        "cell_190",
+        "cell_192",
+        "cell_189",
+        "cell_151",
+        "cell_188",
+        "cell_12",
+        "cell_49",
+        "cell_86",
+        "cell_123",
+        "cell_158",
+        "cell_228",
+        "cell_227",
+        "cell_229",
+        "cell_226",
+        "cell_225",
+        "cell_187",
+        "cell_224",
+        "cell_13",
+        "cell_50",
+        "cell_87",
+        "cell_124",
+        "cell_194",
+        "cell_266",
+        "cell_263",
+        "cell_267",
+        "cell_262",
+        "cell_261",
+        "cell_260",
+        "cell_14",
+        "cell_51",
+        "cell_88",
+        "cell_231",
+        "cell_303",
+        "cell_304",
+        "cell_300",
+        "cell_299",
+        "cell_268",
+        "cell_298",
+        "cell_297",
+        "cell_296",
+        "cell_15",
+        "cell_269",
+        "cell_340",
+        "cell_341",
+        "cell_337",
+        "cell_338",
+        "cell_335",
+        "cell_306",
+        "cell_334",
+        "cell_333",
+        "cell_378",
+        "cell_374",
+        "cell_375",
+        "cell_372",
+        "cell_371",
+        "cell_411",
+        "cell_410",
+        "cell_412",
+        "cell_409",
+        "cell_408",
+        "cell_448",
+        "cell_447",
+        "cell_446",
+        "cell_444",
+        "cell_485",
+        "cell_484",
+        "cell_486",
+        "cell_483",
+        "cell_481",
+        "cell_522",
+        "cell_521",
+        "cell_520",
+        "cell_519",
+        "cell_518",
+        "cell_557",
+        "cell_556",
+        "cell_555",
+        "cell_594",
+        "cell_593",
+        "cell_592",
+        "cell_631",
+        "cell_630",
+        "cell_632",
+        "cell_668",
+        "cell_669",
+        "cell_705",
+        "cell_704",
+        "cell_706",
+        "cell_707",
+        "cell_742",
+        "cell_741",
+        "cell_743",
+        "cell_703",
+        "cell_740",
+        "cell_708",
+        "cell_779",
+        "cell_778",
+        "cell_777",
+        "cell_781",
+        "cell_816",
+        "cell_815",
+        "cell_817",
+        "cell_814",
+        "cell_818",
+        "cell_853",
+        "cell_852",
+        "cell_854",
+        "cell_892",
+        "cell_370",
+        "cell_407",
+        "cell_445",
+        "cell_482",
+        "cell_629",
+        "cell_666",
+        "cell_667",
+        "cell_125",
+        "cell_162",
+        "cell_336",
+        "cell_373",
+        "cell_379",
+        "cell_305",
+        "cell_342",
+        "cell_381",
+        "cell_344",
+        "cell_595",
+        "cell_780",
+        "cell_744",
+        "cell_782"
+      ],
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.26590485092144,
+              -30.266374267289038
+            ],
+            [
+              -51.04107475999029,
+              -30.266374267289038
+            ],
+            [
+              -51.04107475999029,
+              -30.122483009093102
+            ],
+            [
+              -51.26590485092144,
+              -30.122483009093102
+            ],
+            [
+              -51.26590485092144,
+              -30.266374267289038
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "zoneId": "zone_2",
+      "typologyLabel": "LOW",
+      "primaryHazard": null,
+      "secondaryHazard": null,
+      "interventionType": "multi_benefit",
+      "meanFlood": 0.18513227513227523,
+      "meanHeat": 0.3128042328042327,
+      "meanLandslide": 0.28185185185185135,
+      "maxFlood": 0.43,
+      "maxHeat": 0.48,
+      "maxLandslide": 0.5,
+      "populationSum": 253678.04944444436,
+      "areaKm2": 189,
+      "cellCount": 189,
+      "cells": [
+        "cell_19",
+        "cell_20",
+        "cell_56",
+        "cell_57",
+        "cell_21",
+        "cell_58",
+        "cell_22",
+        "cell_59",
+        "cell_96",
+        "cell_23",
+        "cell_60",
+        "cell_97",
+        "cell_134",
+        "cell_24",
+        "cell_61",
+        "cell_98",
+        "cell_135",
+        "cell_25",
+        "cell_62",
+        "cell_99",
+        "cell_26",
+        "cell_63",
+        "cell_100",
+        "cell_64",
+        "cell_101",
+        "cell_138",
+        "cell_65",
+        "cell_28",
+        "cell_102",
+        "cell_139",
+        "cell_175",
+        "cell_176",
+        "cell_66",
+        "cell_29",
+        "cell_103",
+        "cell_140",
+        "cell_177",
+        "cell_213",
+        "cell_214",
+        "cell_67",
+        "cell_30",
+        "cell_104",
+        "cell_141",
+        "cell_215",
+        "cell_252",
+        "cell_68",
+        "cell_31",
+        "cell_142",
+        "cell_216",
+        "cell_253",
+        "cell_69",
+        "cell_32",
+        "cell_106",
+        "cell_143",
+        "cell_217",
+        "cell_254",
+        "cell_70",
+        "cell_33",
+        "cell_107",
+        "cell_181",
+        "cell_218",
+        "cell_255",
+        "cell_71",
+        "cell_34",
+        "cell_108",
+        "cell_145",
+        "cell_182",
+        "cell_219",
+        "cell_256",
+        "cell_293",
+        "cell_109",
+        "cell_146",
+        "cell_183",
+        "cell_220",
+        "cell_257",
+        "cell_294",
+        "cell_331",
+        "cell_110",
+        "cell_73",
+        "cell_147",
+        "cell_184",
+        "cell_221",
+        "cell_258",
+        "cell_295",
+        "cell_332",
+        "cell_367",
+        "cell_366",
+        "cell_404",
+        "cell_403",
+        "cell_328",
+        "cell_402",
+        "cell_441",
+        "cell_440",
+        "cell_442",
+        "cell_439",
+        "cell_364",
+        "cell_401",
+        "cell_438",
+        "cell_478",
+        "cell_477",
+        "cell_479",
+        "cell_476",
+        "cell_443",
+        "cell_406",
+        "cell_475",
+        "cell_363",
+        "cell_326",
+        "cell_400",
+        "cell_437",
+        "cell_474",
+        "cell_515",
+        "cell_514",
+        "cell_516",
+        "cell_513",
+        "cell_512",
+        "cell_511",
+        "cell_362",
+        "cell_552",
+        "cell_551",
+        "cell_553",
+        "cell_550",
+        "cell_589",
+        "cell_588",
+        "cell_590",
+        "cell_587",
+        "cell_626",
+        "cell_625",
+        "cell_627",
+        "cell_624",
+        "cell_663",
+        "cell_662",
+        "cell_661",
+        "cell_699",
+        "cell_698",
+        "cell_697",
+        "cell_736",
+        "cell_735",
+        "cell_737",
+        "cell_734",
+        "cell_772",
+        "cell_774",
+        "cell_771",
+        "cell_738",
+        "cell_809",
+        "cell_808",
+        "cell_810",
+        "cell_811",
+        "cell_812",
+        "cell_846",
+        "cell_845",
+        "cell_847",
+        "cell_849",
+        "cell_883",
+        "cell_882",
+        "cell_884",
+        "cell_885",
+        "cell_920",
+        "cell_919",
+        "cell_921",
+        "cell_922",
+        "cell_957",
+        "cell_958",
+        "cell_994",
+        "cell_995",
+        "cell_1031",
+        "cell_1032",
+        "cell_35",
+        "cell_36",
+        "cell_72",
+        "cell_144",
+        "cell_180",
+        "cell_179",
+        "cell_807",
+        "cell_844",
+        "cell_27",
+        "cell_105",
+        "cell_178",
+        "cell_251",
+        "cell_365",
+        "cell_369",
+        "cell_368",
+        "cell_405",
+        "cell_292",
+        "cell_329",
+        "cell_330",
+        "cell_399",
+        "cell_773",
+        "cell_1034",
+        "cell_1033"
+      ],
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.26590485092144,
+              -30.095503398181364
+            ],
+            [
+              -51.01409514907855,
+              -30.095503398181364
+            ],
+            [
+              -51.01409514907855,
+              -29.933625732710937
+            ],
+            [
+              -51.26590485092144,
+              -29.933625732710937
+            ],
+            [
+              -51.26590485092144,
+              -30.095503398181364
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

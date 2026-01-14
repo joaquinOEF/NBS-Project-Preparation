@@ -219,6 +219,40 @@
     "majorContour": "Contorno Principal",
     "minorContour": "Contorno Secundário"
   },
+  "interventionZones": {
+    "title": "Zonas de Intervenção",
+    "description": "Cidade dividida em zonas baseadas nos riscos dominantes e intervenções recomendadas",
+    "layerName": "Zonas de Intervenção",
+    "typologies": {
+      "FLOOD": "Risco de Inundação",
+      "HEAT": "Risco de Calor",
+      "LANDSLIDE": "Risco de Deslizamento",
+      "FLOOD_HEAT": "Inundação + Calor",
+      "FLOOD_LANDSLIDE": "Inundação + Deslizamento",
+      "HEAT_LANDSLIDE": "Calor + Deslizamento",
+      "LOW": "Baixo Risco"
+    },
+    "interventions": {
+      "sponge_network": "Rede Esponja",
+      "sponge_network_desc": "Parques alagáveis, bacias de detenção, biovaletas, alagados",
+      "cooling_network": "Rede de Resfriamento",
+      "cooling_network_desc": "Corredores de árvores, telhados verdes, praças de bolso, ruas frescas",
+      "slope_stabilization": "Estabilização de Encostas",
+      "slope_stabilization_desc": "Reflorestamento, terraços vegetados, matas ciliares",
+      "multi_benefit": "Espaço Verde Multibenefício",
+      "multi_benefit_desc": "Corredores de conectividade, pequenas adaptações, resiliência incremental"
+    },
+    "metrics": {
+      "primaryHazard": "Risco Primário",
+      "secondaryHazard": "Risco Secundário",
+      "meanFlood": "Risco Médio de Inundação",
+      "meanHeat": "Risco Médio de Calor",
+      "meanLandslide": "Risco Médio de Deslizamento",
+      "area": "Área",
+      "cells": "Células da Grade",
+      "intervention": "Intervenção Recomendada"
+    }
+  },
   "user": {
     "userData": "Dados do Usuário",
     "name": "Nome",

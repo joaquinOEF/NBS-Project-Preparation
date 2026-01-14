@@ -262,3 +262,11 @@ export async function loadSampleGridData(): Promise<any> {
   }
   return response.json();
 }
+
+export async function loadSampleZonesData(): Promise<any> {
+  const response = await fetch('/sample-data/porto-alegre-zones.json');
+  if (!response.ok) {
+    throw new Error('Failed to load sample zones data');
+  }
+  return response.json();
+}

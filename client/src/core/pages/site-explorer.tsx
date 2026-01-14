@@ -1,6 +1,6 @@
 import { useParams, Link } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain, Building2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain, Building2, MapPinned } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Badge } from '@/core/components/ui/badge';
@@ -17,6 +17,7 @@ import {
   loadSampleForestData,
   loadSamplePopulationData,
   loadSampleGridData,
+  loadSampleZonesData,
 } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -73,6 +74,7 @@ interface LayerState {
 }
 
 const LAYER_CONFIGS: Omit<LayerState, 'enabled' | 'loaded' | 'data' | 'leafletLayer'>[] = [
+  { id: 'intervention_zones', name: 'Intervention Zones', icon: MapPinned, color: '#10b981' },
   { id: 'grid_flood', name: 'Flood Risk', icon: CloudRain, color: '#3b82f6' },
   { id: 'grid_heat', name: 'Heat Risk', icon: Flame, color: '#ef4444' },
   { id: 'grid_landslide', name: 'Landslide Risk', icon: Mountain, color: '#a16207' },
@@ -84,6 +86,23 @@ const LAYER_CONFIGS: Omit<LayerState, 'enabled' | 'loaded' | 'data' | 'leafletLa
   { id: 'rivers', name: 'Rivers', icon: Droplets, color: '#06b6d4' },
   { id: 'forest', name: 'Forest', icon: Trees, color: '#22c55e' },
 ];
+
+const INTERVENTION_COLORS: Record<string, string> = {
+  sponge_network: '#3b82f6',
+  cooling_network: '#ef4444',
+  slope_stabilization: '#a16207',
+  multi_benefit: '#10b981',
+};
+
+const TYPOLOGY_COLORS: Record<string, string> = {
+  FLOOD: '#3b82f6',
+  HEAT: '#ef4444',
+  LANDSLIDE: '#a16207',
+  FLOOD_HEAT: '#8b5cf6',
+  FLOOD_LANDSLIDE: '#0891b2',
+  HEAT_LANDSLIDE: '#db2777',
+  LOW: '#10b981',
+};
 
 export default function SiteExplorerPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -245,6 +264,7 @@ export default function SiteExplorerPage() {
       case 'rivers': return loadSampleRiversData();
       case 'forest': return loadSampleForestData();
       case 'population': return loadSamplePopulationData();
+      case 'intervention_zones': return loadSampleZonesData();
       case 'grid_flood':
       case 'grid_heat':
       case 'grid_landslide':
@@ -301,6 +321,46 @@ export default function SiteExplorerPage() {
     if (!data) return null;
 
     switch (layerId) {
+      case 'intervention_zones':
+        if (data.geoJson?.features) {
+          return L.geoJSON(data.geoJson, {
+            style: (feature) => {
+              const typology = feature?.properties?.typologyLabel || 'LOW';
+              const color = TYPOLOGY_COLORS[typology] || '#10b981';
+              return {
+                color: color,
+                weight: 2,
+                fillColor: color,
+                fillOpacity: 0.4,
+                opacity: 0.9,
+              };
+            },
+            onEachFeature: (feature, layer) => {
+              const p = feature.properties || {};
+              const typologyLabel = t(`interventionZones.typologies.${p.typologyLabel}`) || p.typologyLabel;
+              const interventionLabel = t(`interventionZones.interventions.${p.interventionType}`) || p.interventionType;
+              const interventionDesc = t(`interventionZones.interventions.${p.interventionType}_desc`) || '';
+              
+              let tooltip = `<div style="min-width: 200px;">` +
+                `<strong style="font-size: 14px;">${p.zoneId}: ${typologyLabel}</strong><br/>` +
+                `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
+                `<strong>${t('interventionZones.metrics.intervention')}:</strong> ${interventionLabel}<br/>` +
+                `<em style="font-size: 11px;">${interventionDesc}</em><br/>` +
+                `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
+                `${t('interventionZones.metrics.meanFlood')}: ${((p.meanFlood || 0) * 100).toFixed(0)}%<br/>` +
+                `${t('interventionZones.metrics.meanHeat')}: ${((p.meanHeat || 0) * 100).toFixed(0)}%<br/>` +
+                `${t('interventionZones.metrics.meanLandslide')}: ${((p.meanLandslide || 0) * 100).toFixed(0)}%<br/>` +
+                `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
+                `${t('interventionZones.metrics.area')}: ${(p.areaKm2 || 0).toFixed(1)} km²<br/>` +
+                `${t('interventionZones.metrics.cells')}: ${p.cellCount || 0}` +
+                `</div>`;
+              
+              layer.bindTooltip(tooltip, { sticky: true });
+            },
+          });
+        }
+        return null;
+
       case 'grid_flood':
         if (data.geoJson?.features) {
           return L.geoJSON(data.geoJson, {

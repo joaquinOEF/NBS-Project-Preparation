@@ -219,6 +219,40 @@
     "majorContour": "Major Contour",
     "minorContour": "Minor Contour"
   },
+  "interventionZones": {
+    "title": "Intervention Zones",
+    "description": "City divided into zones based on dominant hazards and recommended interventions",
+    "layerName": "Intervention Zones",
+    "typologies": {
+      "FLOOD": "Flood Risk",
+      "HEAT": "Heat Risk",
+      "LANDSLIDE": "Landslide Risk",
+      "FLOOD_HEAT": "Flood + Heat",
+      "FLOOD_LANDSLIDE": "Flood + Landslide",
+      "HEAT_LANDSLIDE": "Heat + Landslide",
+      "LOW": "Low Risk"
+    },
+    "interventions": {
+      "sponge_network": "Sponge Network",
+      "sponge_network_desc": "Floodable parks, detention basins, bioswales, wetlands",
+      "cooling_network": "Cooling Network",
+      "cooling_network_desc": "Tree canopy corridors, green roofs, pocket parks, cool streets",
+      "slope_stabilization": "Slope Stabilization",
+      "slope_stabilization_desc": "Reforestation, vegetated terraces, riparian buffers",
+      "multi_benefit": "Multi-Benefit Greenspace",
+      "multi_benefit_desc": "Connectivity corridors, small retrofits, incremental resilience"
+    },
+    "metrics": {
+      "primaryHazard": "Primary Hazard",
+      "secondaryHazard": "Secondary Hazard",
+      "meanFlood": "Mean Flood Risk",
+      "meanHeat": "Mean Heat Risk",
+      "meanLandslide": "Mean Landslide Risk",
+      "area": "Area",
+      "cells": "Grid Cells",
+      "intervention": "Recommended Intervention"
+    }
+  },
   "user": {
     "userData": "User Data",
     "name": "Name",

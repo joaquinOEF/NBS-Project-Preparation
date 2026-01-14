@@ -1,0 +1,220 @@
+Below is a **deterministic, implementable classification and city-division method** given you already have a grid where each cell has:
+
+* `flood_score` (0–1)
+* `heat_score` (0–1)
+* `landslide_score` (0–1)
+* (optionally) `population` and/or `exposure` metrics
+
+The output is:
+
+1. a **main typology per cell** (including combined hazards)
+2. a **single MECE polygon partition** of the city into **manageable intervention zones**
+3. a **typology-to-intervention mapping** you can use in the app
+
+---
+
+## 1) Classify each grid cell: primary + combined typology
+
+### Step 1.1 — Determine dominant hazard
+
+For each cell `i`:
+
+* `H1 = argmax(flood, heat, landslide)`
+* `V1 = max(flood, heat, landslide)`
+* `V2 = second_highest(flood, heat, landslide)`
+* `H2 = hazard_of_second_highest`
+
+### Step 1.2 — Apply an “active risk” minimum
+
+If `V1 < T_active` then label as **LOW** (no dominant hazard).
+
+* Recommended: `T_active = 0.50` for MVP (tuneable)
+
+### Step 1.3 — Determine combined hazard labels
+
+If `V1 >= T_active` AND `(V1 - V2) <= T_combo` then label **COMBINED(H1+H2)**
+
+* Recommended: `T_combo = 0.10`
+
+So you end up with labels like:
+
+* `FLOOD`
+* `HEAT`
+* `LANDSLIDE`
+* `FLOOD+HEAT`
+* `FLOOD+LANDSLIDE`
+* `HEAT+LANDSLIDE`
+* `LOW`
+
+### Step 1.4 — Optional: mark “MIXED” zones
+
+If all three are moderate (e.g., all ≥ 0.50) but none dominates, you can label `MIXED`. This is less common but can happen in peri-urban transition zones.
+
+---
+
+## 2) Convert cell typologies into a MECE city partition (single level)
+
+You want one clean layer of polygons that:
+
+* covers the city exactly once (MECE)
+* is not overly fragmented
+* is stable (doesn’t produce hundreds of tiny polygons)
+
+### Step 2.1 — Build contiguous regions by label
+
+* Treat each grid cell as a polygon.
+* Group cells by:
+
+  * same `typology_label`
+  * spatial contiguity (4- or 8-neighborhood)
+
+This yields “raw regions.”
+
+### Step 2.2 — Enforce minimum size (merge small regions)
+
+Many regions will be too small to manage. Enforce:
+
+* `min_area_km2` (e.g., 0.5–2 km² depending on city size), **or**
+* `min_cells` (e.g., ≥ 10 cells)
+
+For each region below the threshold:
+
+1. Find neighboring regions (sharing a boundary)
+2. Compute similarity score to each neighbor:
+
+   * simplest: pick neighbor with the **same primary hazard** (if any)
+   * better: pick neighbor whose **mean hazard vector** is closest
+
+Hazard-vector distance:
+[
+d = (F_mean - F_n)^2 + (H_mean - H_n)^2 + (L_mean - L_n)^2
+]
+
+3. Merge into the neighbor with the smallest `d`
+
+Repeat until no region violates minimum size.
+
+### Step 2.3 — Optional: cap number of zones
+
+If you still have too many zones:
+
+* continue merging smallest zone into closest neighbor by hazard-vector similarity
+* stop at a target count, e.g., **10–25 zones** for a whole city
+
+This produces a city partition that is:
+
+* hazard-informed
+* manageable
+* single-layer (no overlaps)
+
+---
+
+## 3) Assign an intervention typology to each zone
+
+Now each zone is a polygon with:
+
+* `mean_flood`, `mean_heat`, `mean_landslide`
+* `primary_typology_label`
+* composition statistics (e.g., % cells flood-dominant, etc.)
+
+Map those labels to **intervention typologies** (what your app will recommend / simulate).
+
+### Intervention typologies (simple, operational)
+
+**A. Flood Storage & Delay (Sponge Network)**
+
+* Applies to: `FLOOD`, `FLOOD+HEAT`
+* Typical assets: floodable parks, sponge squares, detention basins, wetlands, bioswales
+* Goal: reduce peak accumulation + pooling
+
+**B. Urban Cooling & Shade Network**
+
+* Applies to: `HEAT`, `FLOOD+HEAT` (especially dense cores)
+* Typical assets: tree canopy corridors, green roofs, pocket parks, cool streets
+* Goal: reduce exposure to heat (especially population-weighted)
+
+**C. Slope Stabilization & Runoff Control**
+
+* Applies to: `LANDSLIDE`, `FLOOD+LANDSLIDE`, `HEAT+LANDSLIDE`
+* Typical assets: reforestation, vegetated terraces, riparian buffers, controlled drainage
+* Goal: reduce slope failure triggers (water + erosion)
+
+**D. Low / Mixed (Opportunity / Co-benefits)**
+
+* Applies to: `LOW` or `MIXED`
+* Typical assets: multi-benefit greenspace, connectivity, small retrofits
+* Goal: incremental resilience + livability
+
+---
+
+## 4) Add “dominance” and “secondary objective” per zone (important)
+
+Even if you assign one primary typology, zones should keep secondary objectives so the plan is multi-hazard.
+
+For each zone:
+
+* `primary_hazard = argmax(mean_flood, mean_heat, mean_landslide)`
+* `secondary_hazard = second_max(...)` if within 0.15
+* store:
+
+  * `dominance_gap = primary - secondary`
+
+This gives you planning nuance without overlapping boundaries.
+
+Example:
+
+* Zone is `FLOOD` primary, but secondary `HEAT` close → show as “Flood-first, but include shade interventions.”
+
+---
+
+## 5) A concrete toy example (so it’s unambiguous)
+
+For one grid cell:
+
+* Flood = 0.72
+* Heat = 0.66
+* Landslide = 0.15
+
+`V1=0.72`, `V2=0.66`, difference = 0.06 ≤ 0.10 → label `FLOOD+HEAT`
+
+Then you dissolve contiguous `FLOOD+HEAT` cells into a region. If it’s too small, merge into the neighboring region whose mean hazard vector is closest.
+
+---
+
+## 6) Output schema (what to store for each zone)
+
+Each zone polygon should store:
+
+* `zone_id`
+* `typology_label` (e.g., FLOOD+HEAT)
+* `primary_hazard`
+* `secondary_hazard` (optional)
+* `mean_flood`, `mean_heat`, `mean_landslide`
+* `p90_flood`, `p90_heat`, `p90_landslide` (optional)
+* `population_sum`
+* `area_km2`
+* `recommended_intervention_typology` (A/B/C/D)
+* `notes` (generated explanation)
+
+This is exactly what you need for:
+
+* prioritization
+* budgeting
+* gamified interventions
+* reporting
+
+---
+
+## 7) Why this works well in an app
+
+* It is transparent (“dominant hazard wins; combined if close”)
+* It avoids overlaps (single MECE partition)
+* It supports network design (zones are coherent)
+* It’s stable across cities (percentile-based inputs)
+
+---
+
+If you want, I can provide:
+
+* concrete default values for `T_active`, `T_combo`, min region size, target zone count by city size
+* a pseudocode function `make_typology_zones(grid_cells_geojson) -> zones_geojson` compatible with geopandas/shapely
