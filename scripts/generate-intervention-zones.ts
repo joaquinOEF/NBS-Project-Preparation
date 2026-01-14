@@ -77,8 +77,8 @@ interface Zone {
   geometry: any;
 }
 
-const T_ACTIVE = 0.40;
-const T_COMBO = 0.12;
+const T_ACTIVE = 0.30;
+const T_COMBO = 0.10;
 const MIN_CELLS = 8;
 const TARGET_ZONES = 15;
 

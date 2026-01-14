@@ -126,7 +126,8 @@ function computeElevationMetrics(grid: any, elevationData: any): any {
       cell.properties.metrics.elevation_min = Math.min(...elevations);
       cell.properties.metrics.elevation_max = Math.max(...elevations);
       const elevRange = cell.properties.metrics.elevation_max - cell.properties.metrics.elevation_min;
-      cell.properties.metrics.slope_mean = elevRange / (CELL_SIZE_METERS / 1000);
+      const slopeRadians = Math.atan(elevRange / CELL_SIZE_METERS);
+      cell.properties.metrics.slope_mean = slopeRadians * (180 / Math.PI);
       cell.properties.coverage.elevation = true;
     }
 
@@ -621,12 +622,13 @@ function computeCompositeScores(grid: any): any {
       0.15 * (1 - waterCooling)
     ) * 100) / 100;
 
-    const slopeRisk = Math.min(1, slope / 30);
+    const slopeRisk = Math.min(1, slope / 20);
     const lackOfVeg = 1 - vegetation;
+    const elevated = 1 - lowLying;
     m.landslide_score = Math.round((
-      0.50 * slopeRisk +
-      0.30 * lackOfVeg +
-      0.20 * lowLying
+      0.55 * slopeRisk +
+      0.25 * lackOfVeg +
+      0.20 * elevated
     ) * 100) / 100;
   }
 
