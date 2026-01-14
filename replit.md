@@ -73,6 +73,43 @@ The Site Explorer uses a grid-based risk scoring system with real geospatial dat
 - `client/public/sample-data/porto-alegre-population-worldpop.json` - Population raster
 - `client/public/sample-data/porto-alegre-builtup.json` - Building density raster
 
+## Business Model Module
+
+The Business Model wizard helps structure project financing by identifying payers, payment mechanisms, revenue stacks, and financing pathways to improve project bankability.
+
+### 6-Step Wizard:
+1. **Overview**: Imports context from O&M module (capex/opex bands, operating model, funding mechanisms)
+2. **Payers & Beneficiaries**: Maps stakeholders to beneficiary and payer roles with primary payer selection
+3. **Archetype Selector**: Choose from 7 business model archetypes with recommendations based on project type
+4. **Revenue Stack**: Build revenue sources with confidence tags (High/Medium/Low) and roles (Primary/Secondary/Upside)
+5. **Financing Pathway**: Select financing approach (Public CAPEX, DFI Loan, Municipal Bond, Blended Vehicle, PPP Light, Philanthropy)
+6. **Readiness Gate**: Validates bankability requirements and provides playbook export
+
+### Business Model Archetypes:
+- **Public Program**: City-funded with annual budget allocations
+- **Utility Service**: Utility-operated with fee/tariff-based revenue
+- **Service Contract**: Availability-style payments for service delivery
+- **Land Value Capture**: Funded through developer fees and district levies
+- **Blended Finance**: Mixed public, philanthropic, and private funding
+- **Credit Add-on**: Supplementary revenue from carbon/ecosystem credits
+- **Insurance-Linked**: Risk-transfer and insurance mechanisms
+
+### Readiness Requirements:
+- Primary archetype selected
+- Primary payer identified
+- At least one HIGH confidence revenue line
+- Payment duration set
+- Financing pathway selected
+- O&M module completed (consistency check)
+
+### Storage:
+- Data persisted to localStorage as `nbs_business_model_${projectId}`
+- Prefills from O&M data at `nbs_operations_om_${projectId}`
+
+### Files:
+- `client/src/core/pages/business-model.tsx` - Main wizard page
+- i18n keys in `bm` namespace (~150 keys in EN/PT)
+
 # Development Contract
 
 ## ⚠️ Required for ALL New Features
