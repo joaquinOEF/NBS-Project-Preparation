@@ -87,3 +87,52 @@ export type InsertSession = z.infer<typeof insertSessionSchema>;
 
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
+
+export const cityBoundaryCache = pgTable('city_boundary_cache', {
+  id: varchar('id')
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  cityLocode: text('city_locode').notNull().unique(),
+  cityName: text('city_name').notNull(),
+  centroid: jsonb('centroid').$type<[number, number]>().notNull(),
+  bbox: jsonb('bbox').$type<[number, number, number, number]>().notNull(),
+  boundaryGeoJson: jsonb('boundary_geojson').$type<any>().notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const elevationCache = pgTable('elevation_cache', {
+  id: varchar('id')
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  cityLocode: text('city_locode').notNull().unique(),
+  bounds: jsonb('bounds').$type<{ minLng: number; minLat: number; maxLng: number; maxLat: number }>().notNull(),
+  elevationData: jsonb('elevation_data').$type<{
+    width: number;
+    height: number;
+    cellSize: number;
+    minElevation: number;
+    maxElevation: number;
+  }>().notNull(),
+  contours: jsonb('contours').$type<any>().notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const insertCityBoundaryCacheSchema = createInsertSchema(cityBoundaryCache).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertElevationCacheSchema = createInsertSchema(elevationCache).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CityBoundaryCache = typeof cityBoundaryCache.$inferSelect;
+export type InsertCityBoundaryCache = z.infer<typeof insertCityBoundaryCacheSchema>;
+
+export type ElevationCache = typeof elevationCache.$inferSelect;
+export type InsertElevationCache = z.infer<typeof insertElevationCacheSchema>;

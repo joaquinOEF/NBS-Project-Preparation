@@ -7,10 +7,16 @@ import {
   type InsertSession,
   type Project,
   type InsertProject,
+  type CityBoundaryCache,
+  type InsertCityBoundaryCache,
+  type ElevationCache,
+  type InsertElevationCache,
   users,
   cities,
   sessions,
   projects,
+  cityBoundaryCache,
+  elevationCache,
 } from '@shared/schema';
 import { db } from './db';
 import { eq, inArray } from 'drizzle-orm';
@@ -39,6 +45,12 @@ export interface IStorage {
   getProjectsByCityId(cityId: string): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
   createProject(project: InsertProject): Promise<Project>;
+
+  getCityBoundaryCache(cityLocode: string): Promise<CityBoundaryCache | undefined>;
+  setCityBoundaryCache(data: InsertCityBoundaryCache): Promise<CityBoundaryCache>;
+
+  getElevationCache(cityLocode: string): Promise<ElevationCache | undefined>;
+  setElevationCache(data: InsertElevationCache): Promise<ElevationCache>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -136,6 +148,42 @@ export class DatabaseStorage implements IStorage {
   async createProject(insertProject: InsertProject): Promise<Project> {
     const [project] = await db.insert(projects).values(insertProject).returning();
     return project;
+  }
+
+  async getCityBoundaryCache(cityLocode: string): Promise<CityBoundaryCache | undefined> {
+    const [cache] = await db.select().from(cityBoundaryCache).where(eq(cityBoundaryCache.cityLocode, cityLocode));
+    return cache || undefined;
+  }
+
+  async setCityBoundaryCache(data: InsertCityBoundaryCache): Promise<CityBoundaryCache> {
+    const existing = await this.getCityBoundaryCache(data.cityLocode);
+    if (existing) {
+      const [updated] = await db.update(cityBoundaryCache)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(cityBoundaryCache.cityLocode, data.cityLocode))
+        .returning();
+      return updated;
+    }
+    const [cache] = await db.insert(cityBoundaryCache).values(data).returning();
+    return cache;
+  }
+
+  async getElevationCache(cityLocode: string): Promise<ElevationCache | undefined> {
+    const [cache] = await db.select().from(elevationCache).where(eq(elevationCache.cityLocode, cityLocode));
+    return cache || undefined;
+  }
+
+  async setElevationCache(data: InsertElevationCache): Promise<ElevationCache> {
+    const existing = await this.getElevationCache(data.cityLocode);
+    if (existing) {
+      const [updated] = await db.update(elevationCache)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(elevationCache.cityLocode, data.cityLocode))
+        .returning();
+      return updated;
+    }
+    const [cache] = await db.insert(elevationCache).values(data).returning();
+    return cache;
   }
 }
 
