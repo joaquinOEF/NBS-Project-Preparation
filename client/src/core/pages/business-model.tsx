@@ -190,10 +190,27 @@ function saveBMData(projectId: string, data: BusinessModelData) {
   }
 }
 
-function getStoredOMData(projectId: string): any | null {
+interface OMStoredData {
+  status?: string;
+  operatingModel?: string;
+  omCostBand?: { low?: number; mid?: number; high?: number; currency?: string };
+  omFunding?: { mechanisms?: string[]; durationYears?: number };
+  roles?: {
+    assetOwnerEntityId?: string | null;
+    operatorEntityId?: string | null;
+  };
+}
+
+function getStoredOMData(projectId: string): OMStoredData | null {
   if (typeof window === 'undefined') return null;
   const stored = localStorage.getItem(`${OM_STORAGE_KEY}_${projectId}`);
   return stored ? JSON.parse(stored) : null;
+}
+
+function hasValidOMData(omData: OMStoredData | null): boolean {
+  if (!omData) return false;
+  return omData.status === 'READY' || 
+    (omData.operatingModel !== null && omData.operatingModel !== undefined);
 }
 
 function inferRecommendedArchetype(context: ImportedContext): BMArchetype {
@@ -242,7 +259,7 @@ function inferBeneficiaries(context: ImportedContext, stakeholders: Stakeholder[
   return beneficiaries;
 }
 
-function buildInitialBMData(actionType: string, hazards: string[], stakeholders: Stakeholder[], omData: any | null): BusinessModelData {
+function buildInitialBMData(actionType: string, hazards: string[], stakeholders: Stakeholder[], omData: OMStoredData | null): BusinessModelData {
   const isNBS = actionType === 'adaptation';
   
   const importedContext: ImportedContext = {
@@ -382,6 +399,8 @@ export default function BusinessModelPage() {
     if (projectId && bmData) {
       const updatedData = { ...bmData };
       const hasHighConfidence = bmData.revenueStack.some(r => r.confidence === 'HIGH');
+      const omData = getStoredOMData(projectId);
+      const omIsValid = hasValidOMData(omData);
       
       updatedData.readiness.checklist = {
         primaryArchetypeSelected: bmData.primaryArchetype !== null,
@@ -389,7 +408,7 @@ export default function BusinessModelPage() {
         oneHighConfidenceRevenueLine: hasHighConfidence,
         durationSet: bmData.paymentMechanism.durationYears !== null,
         financingPathwaySelected: bmData.financingPathway.pathway !== null,
-        consistencyCheckedWithOps: true,
+        consistencyCheckedWithOps: omIsValid,
       };
       
       const blockers: string[] = [];
@@ -398,6 +417,7 @@ export default function BusinessModelPage() {
       if (!updatedData.readiness.checklist.oneHighConfidenceRevenueLine) blockers.push('addHighConfidenceRevenue');
       if (!updatedData.readiness.checklist.durationSet) blockers.push('setDuration');
       if (!updatedData.readiness.checklist.financingPathwaySelected) blockers.push('selectFinancingPathway');
+      if (!updatedData.readiness.checklist.consistencyCheckedWithOps) blockers.push('completeOMFirst');
       
       updatedData.readiness.blockers = blockers;
       
@@ -405,7 +425,8 @@ export default function BusinessModelPage() {
         updatedData.readiness.checklist.primaryPayerSelected &&
         updatedData.readiness.checklist.oneHighConfidenceRevenueLine &&
         updatedData.readiness.checklist.durationSet &&
-        updatedData.readiness.checklist.financingPathwaySelected;
+        updatedData.readiness.checklist.financingPathwaySelected &&
+        updatedData.readiness.checklist.consistencyCheckedWithOps;
       
       updatedData.status = allRequired ? 'READY' : (bmData.primaryArchetype ? 'DRAFT' : 'NOT_STARTED');
       
@@ -434,7 +455,8 @@ export default function BusinessModelPage() {
       bmData.readiness.checklist.primaryPayerSelected &&
       bmData.readiness.checklist.oneHighConfidenceRevenueLine &&
       bmData.readiness.checklist.durationSet &&
-      bmData.readiness.checklist.financingPathwaySelected;
+      bmData.readiness.checklist.financingPathwaySelected &&
+      bmData.readiness.checklist.consistencyCheckedWithOps;
   };
 
   const canNavigateToStep = (stepIndex: number): boolean => {

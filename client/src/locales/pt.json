@@ -668,7 +668,8 @@
       "selectPrimaryPayer": "Selecione um pagador principal",
       "addHighConfidenceRevenue": "Adicione pelo menos uma linha de receita com confiança ALTA",
       "setDuration": "Defina a duração do mecanismo de pagamento",
-      "selectFinancingPathway": "Selecione uma via de financiamento"
+      "selectFinancingPathway": "Selecione uma via de financiamento",
+      "completeOMFirst": "Complete as Operações do Projeto (O&M) primeiro"
     },
     "enablingActionsTitle": "Ações Habilitadoras",
     "categories": {

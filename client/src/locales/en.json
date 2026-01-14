@@ -668,7 +668,8 @@
       "selectPrimaryPayer": "Select a primary payer",
       "addHighConfidenceRevenue": "Add at least one HIGH confidence revenue line",
       "setDuration": "Set payment mechanism duration",
-      "selectFinancingPathway": "Select a financing pathway"
+      "selectFinancingPathway": "Select a financing pathway",
+      "completeOMFirst": "Complete Project Operations (O&M) first"
     },
     "enablingActionsTitle": "Enabling Actions",
     "categories": {
