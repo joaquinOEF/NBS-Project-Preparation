@@ -254,3 +254,11 @@ export async function loadSamplePopulationData(): Promise<any> {
   }
   return response.json();
 }
+
+export async function loadSampleGridData(): Promise<any> {
+  const response = await fetch('/sample-data/porto-alegre-grid.json');
+  if (!response.ok) {
+    throw new Error('Failed to load sample grid data');
+  }
+  return response.json();
+}

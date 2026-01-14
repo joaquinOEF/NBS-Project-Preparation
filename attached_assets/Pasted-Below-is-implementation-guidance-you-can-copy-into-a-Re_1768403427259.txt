@@ -1,0 +1,431 @@
+Below is implementation guidance you can copy into a Replit Agent prompt. It covers:
+
+1. **How to ingest each open dataset** (format, tiling, “how to fetch just what you need”)
+2. **How to derive each metric** (minimal computation; only do terrain physics where unavoidable)
+3. **A practical pipeline** that works in a Next.js app with a small backend service (recommended for geoprocessing)
+
+I am assuming your MVP goal is: **“on request, for any city polygon/bbox, fetch/clip datasets, compute metrics on a working grid, return GeoJSON/tiles + summary scores.”**
+
+---
+
+## A. Data integration strategy (recommended for accuracy + feasibility)
+
+### Architecture
+
+* **Frontend:** Next.js map UI (MapLibre/Leaflet), displays layers returned by backend.
+* **Backend (recommended):** a small geoprocessing API (FastAPI) that:
+
+  * downloads/clips rasters (COGs) by bbox
+  * computes slope / flow direction / accumulation
+  * computes zonal summaries into your grid
+  * returns results as GeoJSON (polygons) and/or vector tiles
+
+This avoids trying to do raster hydrology inside the browser and keeps compute deterministic.
+
+Replit supports both Next.js and FastAPI well via official quickstarts. ([Replit Docs][1])
+
+---
+
+## B. Dataset-by-dataset: how to integrate
+
+### 1) Copernicus DEM GLO-30 (Elevation)
+
+**Best for:** Elevation, slope, flow direction, flow accumulation
+**Format / access:** global dataset; commonly available as Cloud Optimized GeoTIFFs (COGs). Copernicus and open registries provide access. ([Copernicus Data Space Ecosystem][2])
+
+**Integration approach:**
+
+* Prefer **COG window reads** (read only the bbox window, not full tiles).
+* If you want a “no-accounts” path, use an **open registry** distribution of Copernicus DEM (COGs). ([Registry of Open Data][3])
+* If you want an API route, Sentinel Hub provides DEM access via a process API, but that introduces auth and is not “no keys.” ([Copernicus Data Space][4])
+
+**Backend implementation detail:**
+
+* Use `rio-tiler` + `rasterio` to read a bbox window from a COG and reproject it to a metric CRS (e.g., UTM zone).
+* Resample to a working resolution (e.g., 100–300m).
+
+---
+
+### 2) ESA WorldCover 10m (Impervious %, Vegetation %)
+
+**Best for:** land cover classes (built-up, trees, grass, etc.)
+**Format:** delivered as 3x3 degree **COGs in EPSG:4326**. ([WorldCover 2020][5])
+
+**Integration approach:**
+
+* Download only the tiles intersecting the bbox (tile index), then clip.
+* For MVP, you can also fetch a COG window directly by HTTP range reads if you already have the tile URL.
+
+**Derivation:**
+
+* Built-up class → **impervious proxy**
+* Tree/grass/shrub classes → **green cover proxy**
+* Compute **zonal %** per grid cell (count pixels of class / total pixels in cell).
+
+(Keep it as “impervious proxy from built-up”; don’t oversell it.)
+
+---
+
+### 3) JRC Global Surface Water (Floodplain adjacency proxy)
+
+**Best for:** water occurrence/seasonality history; proxies for floodplain adjacency
+**Access:** downloadable datasets and a clear “what bands mean” guide exist. ([Data Europa][6])
+
+**Integration approach:**
+
+* Use a water layer like **occurrence** or **seasonality**.
+* For “floodplain adjacency proxy,” you do not need hydrodynamic modeling:
+
+  * Create a binary mask: permanent/seasonal water above threshold
+  * Buffer it (e.g., 250m–1km depending on city scale)
+  * Use distance-to-water or inside-buffer as the metric
+
+---
+
+### 4) HydroSHEDS / HydroRIVERS (Distance to rivers)
+
+**Best for:** consistent global river network
+**Docs:** HydroRIVERS is derived from HydroSHEDS and provides a global river line network. ([HydroSHEDS][7])
+
+**Integration approach:**
+
+* Download HydroRIVERS for the relevant region, clip to bbox.
+* Compute:
+
+  * `distance_to_river` = min distance from each grid cell centroid to any river line
+* Optional: use OSM waterways in addition for detailed urban channels.
+
+---
+
+### 5) OSM waterways (optional for urban detail)
+
+**Best for:** local canals, drainage channels not in HydroSHEDS
+**Integration approach:**
+
+* Query Overpass for `waterway=*` features in bbox
+* Cache results per bbox/city to avoid rate issues
+
+(You already do Overpass—this is a stable extension.)
+
+---
+
+### 6) Hansen Global Forest Change (Tree canopy %)
+
+**Best for:** global tree cover % baseline
+**Access:** tiled 10x10 degree downloads are provided. ([Google Cloud Storage][8])
+
+**Integration approach:**
+
+* Use `treecover2000` (tree cover %) as canopy density proxy
+* Zonal mean canopy % per grid cell
+
+---
+
+### 7) GHSL Built-Up Grid (Built density / urban intensity)
+
+**Best for:** built intensity proxies (urban form)
+**Access:** GHSL provides downloads via its portal. ([Global Human Settlement][9])
+
+**Integration approach:**
+
+* Choose one epoch (e.g., 2020) and product variant you can reliably fetch.
+* Clip to bbox, compute zonal mean within each grid cell.
+
+---
+
+### 8) WorldPop (Population density)
+
+**Best for:** exposure layers at ~100m scale
+**Access:** WorldPop provides gridded population products and download hubs (also via HDX). ([WorldPop][10])
+
+**Integration approach:**
+
+* Select a “population counts” raster for the target year/country
+* Zonal sum per grid cell → population in that cell
+* Normalize within city to percentiles for exposure
+
+---
+
+### 9) LST (optional validation layer)
+
+**MODIS LST** (1km, easy global) is simplest for MVP. ([LAADS DAAC][11])
+**Landsat Surface Temperature** is higher resolution but more complex (scene handling). ([USGS][12])
+
+**Integration approach (MVP):**
+
+* Use MODIS LST to compute a city-average and hotspot anomalies.
+* Treat it as **validation/calibration** for heat proxies, not the only heat metric.
+
+---
+
+### 10) Observed flood extent (validation)
+
+* **Copernicus EMS Rapid Mapping** provides event flood extent shapefiles when activations exist. ([Copernicus Data Space][13])
+* Sentinel-1 SAR flood mapping is feasible but usually requires a dedicated pipeline; treat it as “phase 2.” ([Global Flood Awareness System][14])
+
+---
+
+## C. Metric-by-metric: exactly how to calculate (minimal computation)
+
+Assume you standardize everything onto a working grid (e.g., 250m hex or square grid).
+
+### 1) Elevation
+
+* Clip DEM to bbox; reproject to metric CRS; resample to working resolution.
+* Metric value per grid cell: `elev_mean` (mean elevation)
+
+### 2) Slope (°)
+
+* From DEM: slope = gradient magnitude (standard GIS slope tool)
+* Store per cell: `slope_mean` and optionally `slope_p90`
+
+### 3) Flow direction (D8)
+
+* From DEM: compute D8 direction (8-neighbor steepest descent)
+* Store raster direction codes (mostly internal; you may not expose directly)
+
+### 4) Flow accumulation
+
+* From D8 directions: accumulate upstream contributing cells
+* Store per cell: `acc_mean` or `acc_max` and **acc_percentile**
+
+### 5) Relative elevation / low-lying areas
+
+* Compute within-city percentile of elevation:
+
+  * `elev_pct = percentile_rank(elev_mean)`
+  * `low_lying = 1 - elev_pct`
+
+### 6) Distance to rivers / water bodies
+
+* From HydroRIVERS + (optional) OSM waterways:
+
+  * `dist_river = min_distance(cell_centroid, river_lines)`
+* Convert to percentile: `river_prox = 1 - percentile_rank(dist_river)`
+
+### 7) Floodplain adjacency proxy
+
+* From JRC GSW:
+
+  * `water_mask = occurrence > threshold` (e.g., >10–20%) OR seasonality > threshold
+  * `dist_water = distance_to(water_mask)`
+  * `floodplain_adj = 1 - percentile_rank(dist_water)` OR binary within-buffer
+
+### 8) Impervious surface %
+
+* From WorldCover (built-up class) or MapBiomas where applicable:
+
+  * `imperv_pct = builtup_pixels / total_pixels` within grid cell
+
+### 9) Vegetation / green cover %
+
+* From WorldCover classes:
+
+  * `green_pct = (trees + shrub + grass + wetland classes) / total`
+
+### 10) Tree canopy cover %
+
+* From Hansen treecover:
+
+  * `canopy_mean = mean(treecover2000)` within grid cell
+  * Optional: treat >30% as “canopy present” for thresholds
+
+### 11) Built density / urban intensity
+
+* From GHSL built-up:
+
+  * `built_mean = mean(GHSL_value)` within grid cell (or fraction built)
+
+### 12) Population density & exposure
+
+* From WorldPop:
+
+  * `pop_sum = sum(pop_pixels)` within grid cell
+* Exposure-weighted risk later:
+
+  * `flood_exposure = flood_score * pop_sum` etc.
+
+### 13) Upslope contributing area (landslide trigger proxy)
+
+* Compute `U` as:
+
+  * mask where `slope_mean > slope_threshold` (e.g., slope percentile > 0.7)
+  * within those cells, use flow accumulation percentile as `upslope_flow_pressure`
+
+### 14) Curvature (optional)
+
+* From DEM: curvature raster
+* Use to refine landslide hotspots (convex/concave acceleration zones)
+
+### 15–17) Validation layers
+
+* Overlay only; compute hit-rate statistics:
+
+  * % of observed flood extent captured by top-decile flood_score areas
+  * correlation between LST hotspots and heat_score
+  * overlap between landslide inventory and landslide_score
+
+---
+
+## D. Composite scores (implementable formulas)
+
+Compute all base indicators as **within-city percentiles 0–1**:
+
+* `A` accumulation percentile
+* `E` low-lying percentile (1 - elevation percentile)
+* `I` impervious percentile
+* `R` river proximity percentile
+* `C` canopy/green percentile
+* `P` population percentile
+* `S` slope percentile
+* `U` upslope flow pressure percentile
+
+Then:
+
+**Flood score**
+`Flood = 0.45*A + 0.20*E + 0.20*I + 0.15*R`
+
+**Heat score**
+`Heat = 0.45*I + 0.35*P + 0.20*(1 - C)`
+
+**Landslide score**
+`Landslide = 0.55*S + 0.30*U + 0.15*(1 - C)`
+
+These are transparent, stable, and easy to tune.
+
+---
+
+## E. Replit Agent prompt (copy/paste)
+
+```text
+You are a Replit Agent. Extend my existing prototype to ingest open geospatial datasets and compute multi-hazard typology metrics (flood, heat, landslide) for any city on request.
+
+Goal
+- User enters a city name or draws a polygon/bbox.
+- System fetches/clips open datasets, computes metrics on a working grid (default 250m square grid), derives composite scores (Flood/Heat/Landslide), and returns:
+  1) a MECE polygon partition of the city by dominant typology (Flood / Heat / Landslide / Combined / Mixed)
+  2) per-grid-cell metrics + scores as GeoJSON
+  3) summary stats per MECE zone
+
+Tech stack (recommended)
+- Frontend: Next.js map page (MapLibre GL or Leaflet)
+- Backend: FastAPI (Python) for raster processing
+- Storage/cache: local filesystem cache + simple metadata index (JSON) to avoid re-downloading the same tiles repeatedly
+
+Replit references (use current docs)
+- Next.js quickstart: https://docs.replit.com/getting-started/quickstarts/next-js-app
+- FastAPI quickstart: https://docs.replit.com/getting-started/quickstarts/fastapi-service
+
+Datasets to support (all open)
+- Copernicus DEM GLO-30 (elevation; used for slope, flow direction, flow accumulation) (COGs / open registry distribution acceptable)
+- ESA WorldCover 10m (built-up and vegetation proxy; 3x3 degree COG tiles EPSG:4326)
+- JRC Global Surface Water (occurrence or seasonality; floodplain adjacency proxy)
+- HydroRIVERS/HydroSHEDS (river lines; distance to rivers)
+- OSM Overpass waterways (optional urban channels)
+- Hansen Global Forest Change (treecover2000 canopy %; 10x10 degree tiles)
+- GHSL built-up grid (built density proxy; choose a stable epoch/product)
+- WorldPop population counts (100m; choose a stable year)
+Optional validation layers:
+- Copernicus EMS flood extent shapefiles (overlay if available)
+- MODIS LST for heat validation
+
+Backend implementation details
+1) AOI + grid
+- Input AOI polygon/bbox in WGS84
+- Create a 250m square grid in a metric CRS (pick UTM zone based on AOI centroid)
+- Store each cell geometry and centroid
+
+2) Raster ingestion pattern (critical)
+- Prefer Cloud Optimized GeoTIFF window reads (bbox reads), not full-file downloads.
+- Cache downloaded tiles or COG windows keyed by dataset + tile id + year.
+- Reproject rasters to the same metric CRS as the grid before zonal stats.
+
+Python libs (add to requirements)
+- rasterio, rioxarray, rio-tiler, numpy, scipy, shapely, pyproj, geopandas
+- a hydrology lib/tool: whitebox-tools OR richdem (for D8 + accumulation)
+- rasterstats (optional) or implement zonal with rasterio mask + numpy
+
+3) Derived metrics per grid cell
+- elev_mean: mean DEM
+- slope_mean: from DEM
+- flow_direction: D8 from DEM (raster internal)
+- flow_accum: accumulation from D8
+- low_lying: 1 - percentile_rank(elev_mean) within city
+- dist_river: min distance to HydroRIVERS + optional OSM waterways
+- river_prox: 1 - percentile_rank(dist_river)
+- floodplain_adj: from JRC water mask distance (or buffer)
+- imperv_pct: % built-up pixels from WorldCover
+- green_pct: % vegetation pixels from WorldCover
+- canopy_mean: mean Hansen treecover2000
+- built_mean: mean GHSL built-up
+- pop_sum: sum WorldPop within cell
+- upslope_flow_pressure: percentile of accumulation among cells with slope above threshold (e.g., slope percentile > 0.7)
+
+4) Normalize base indicators to percentiles (0–1)
+Compute percentiles within the AOI for: accumulation, low_lying, impervious, river proximity, canopy/green, population, slope, upslope pressure.
+
+5) Composite scores
+Flood = 0.45*A + 0.20*E + 0.20*I + 0.15*R
+Heat = 0.45*I + 0.35*P + 0.20*(1 - C)
+Landslide = 0.55*S + 0.30*U + 0.15*(1 - C)
+
+6) MECE typology polygons (single partition)
+- For each grid cell assign primary label = argmax(Flood, Heat, Landslide)
+- Mark “combined” if second-highest within 0.10 of highest and highest >= 0.60 (labels: FH, FL, HL)
+- Convert grid cells to polygons and dissolve by label + contiguity
+- Merge small polygons into best adjacent polygon by similarity of (Flood,Heat,Landslide) vectors until manageable count (~10–20 zones)
+
+API endpoints
+- POST /analyze { city_name OR aoi_geojson, grid_size_m=250 }
+  returns:
+  - grid_cells.geojson (with all metrics + scores + labels)
+  - zones.geojson (MECE partition with aggregated stats)
+  - metadata (dataset versions, processing CRS, timing)
+
+Frontend
+- Map UI with toggles:
+  - zones (filled)
+  - flood score heatmap
+  - heat score heatmap
+  - landslide score heatmap
+  - key input layers (impervious, canopy, slope)
+- Tooltip/side panel: show per-cell metrics and per-zone summary
+
+Quality requirements
+- Deterministic outputs (same AOI yields same result)
+- Cache to avoid repeated downloads
+- Clear attribution per layer in the UI
+
+Deliverables
+- Working end-to-end run on one test city (e.g., Porto Alegre)
+- Then confirm it runs on a second city (e.g., Los Angeles) without code changes
+```
+
+---
+
+## F. Two practical notes (to save you pain)
+
+1. **Do not attempt full-resolution (10m) everywhere.**
+   Even WorldCover at 10m is too heavy for “any city on demand” unless you aggressively window/crop + cache. Use a coarser working grid (250–500m) and zonal stats.
+
+2. **Hydrology computation is the only truly “heavy” step.**
+   Slope + D8 + accumulation should run on a **resampled DEM** (e.g., 30–90m or 100m) for MVP. That keeps it fast and still accurate enough for city-scale typologies.
+
+---
+
+If you paste the Agent prompt above into your Replit workflow, your next bottleneck will be *dataset fetching ergonomics* (tile indices + caching). If you tell me what your current repo structure is (Next.js only, or Next.js + API already), I can tailor the prompt to match your actual file tree without changing the methodology.
+
+[1]: https://docs.replit.com/getting-started/quickstarts/next-js-app?utm_source=chatgpt.com "Create a Next.js app"
+[2]: https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM?utm_source=chatgpt.com "Global and European Digital Elevation Model"
+[3]: https://registry.opendata.aws/copernicus-dem/?utm_source=chatgpt.com "Copernicus Digital Elevation Model (DEM)"
+[4]: https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Data/DEM.html?utm_source=chatgpt.com "Digital Elevation Model (DEM) Data - Documentation"
+[5]: https://worldcover2020.esa.int/data/docs/WorldCover_PUM_V1.1.pdf?utm_source=chatgpt.com "Product User Manual - ESA WorldCover 2020"
+[6]: https://data.europa.eu/89h/jrc-gswe-global-surface-water-explorer-v1?utm_source=chatgpt.com "Global Surface Water Explorer dataset - JRC Data Catalogue"
+[7]: https://data.hydrosheds.org/file/technical-documentation/HydroRIVERS_TechDoc_v10.pdf?utm_source=chatgpt.com "HydroRIVERS"
+[8]: https://storage.googleapis.com/earthenginepartners-hansen/GFC-2024-v1.12/download.html?utm_source=chatgpt.com "Global Forest Change 2000-2024 Data Download"
+[9]: https://human-settlement.emergency.copernicus.eu/download.php?utm_source=chatgpt.com "Direct download - Global Human Settlement Layer - Copernicus"
+[10]: https://www.worldpop.org/methods/populations/?utm_source=chatgpt.com "Gridded population estimate datasets and tools."
+[11]: https://ladsweb.modaps.eosdis.nasa.gov/missions-and-measurements/products/MOD11A2?utm_source=chatgpt.com "MOD11A2 - MODIS/Terra Land Surface Temperature/3-Band ..."
+[12]: https://www.usgs.gov/landsat-missions/landsat-collection-2-surface-temperature?utm_source=chatgpt.com "Landsat Collection 2 Surface Temperature"
+[13]: https://documentation.dataspace.copernicus.eu/Data/CopernicusServices/CEMS.html?utm_source=chatgpt.com "Copernicus Emergency Management Service (CEMS)"
+[14]: https://global-flood.emergency.copernicus.eu/technical-information/glofas-gfm/?utm_source=chatgpt.com "GloFAS Global Flood Monitoring (GFM) - Copernicus"

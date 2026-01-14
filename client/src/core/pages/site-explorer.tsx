@@ -1,6 +1,6 @@
 import { useParams, Link } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon } from 'lucide-react';
+import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Badge } from '@/core/components/ui/badge';
@@ -16,6 +16,7 @@ import {
   loadSampleRiversData,
   loadSampleForestData,
   loadSamplePopulationData,
+  loadSampleGridData,
 } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -72,6 +73,8 @@ interface LayerState {
 }
 
 const LAYER_CONFIGS: Omit<LayerState, 'enabled' | 'loaded' | 'data' | 'leafletLayer'>[] = [
+  { id: 'grid_flood', name: 'Flood Risk', icon: CloudRain, color: '#3b82f6' },
+  { id: 'grid_heat', name: 'Heat Risk', icon: Flame, color: '#ef4444' },
   { id: 'elevation', name: 'Elevation', icon: Mountain, color: '#c9a87c' },
   { id: 'landcover', name: 'Land Cover', icon: MapIcon, color: '#4ade80' },
   { id: 'surface_water', name: 'Water Bodies', icon: Droplets, color: '#3b82f6' },
@@ -240,14 +243,99 @@ export default function SiteExplorerPage() {
       case 'rivers': return loadSampleRiversData();
       case 'forest': return loadSampleForestData();
       case 'population': return loadSamplePopulationData();
+      case 'grid_flood':
+      case 'grid_heat':
+        return loadSampleGridData();
       default: return null;
     }
   }, [isSampleModeActive]);
+
+  const getFloodColor = (score: number): string => {
+    if (score >= 0.7) return '#1e40af';
+    if (score >= 0.5) return '#3b82f6';
+    if (score >= 0.3) return '#60a5fa';
+    if (score >= 0.1) return '#93c5fd';
+    return '#dbeafe';
+  };
+
+  const getHeatColor = (score: number): string => {
+    if (score >= 0.7) return '#991b1b';
+    if (score >= 0.5) return '#dc2626';
+    if (score >= 0.3) return '#f87171';
+    if (score >= 0.1) return '#fca5a5';
+    return '#fee2e2';
+  };
 
   const createLayerFromData = useCallback((layerId: string, data: any): L.Layer | null => {
     if (!data) return null;
 
     switch (layerId) {
+      case 'grid_flood':
+        if (data.geoJson?.features) {
+          return L.geoJSON(data.geoJson, {
+            style: (feature) => {
+              const score = feature?.properties?.metrics?.flood_score ?? 0;
+              return {
+                color: getFloodColor(score),
+                weight: 0.5,
+                fillColor: getFloodColor(score),
+                fillOpacity: score > 0 ? 0.6 : 0.1,
+                opacity: 0.8,
+              };
+            },
+            onEachFeature: (feature, layer) => {
+              const m = feature.properties?.metrics || {};
+              const cov = feature.properties?.coverage || {};
+              const coverageList = Object.entries(cov)
+                .filter(([_, v]) => v)
+                .map(([k]) => k)
+                .join(', ');
+              layer.bindTooltip(
+                `<strong>Flood Risk: ${((m.flood_score || 0) * 100).toFixed(0)}%</strong><br/>` +
+                `River proximity: ${((m.river_prox_pct || 0) * 100).toFixed(0)}%<br/>` +
+                `Low-lying: ${((m.low_lying_pct || 0) * 100).toFixed(0)}%<br/>` +
+                `Built-up: ${((m.built_pct || 0) * 100).toFixed(0)}%<br/>` +
+                `<em>Coverage: ${coverageList || 'none'}</em>`,
+                { sticky: true }
+              );
+            },
+          });
+        }
+        return null;
+
+      case 'grid_heat':
+        if (data.geoJson?.features) {
+          return L.geoJSON(data.geoJson, {
+            style: (feature) => {
+              const score = feature?.properties?.metrics?.heat_score ?? 0;
+              return {
+                color: getHeatColor(score),
+                weight: 0.5,
+                fillColor: getHeatColor(score),
+                fillOpacity: score > 0 ? 0.6 : 0.1,
+                opacity: 0.8,
+              };
+            },
+            onEachFeature: (feature, layer) => {
+              const m = feature.properties?.metrics || {};
+              const cov = feature.properties?.coverage || {};
+              const coverageList = Object.entries(cov)
+                .filter(([_, v]) => v)
+                .map(([k]) => k)
+                .join(', ');
+              layer.bindTooltip(
+                `<strong>Heat Risk: ${((m.heat_score || 0) * 100).toFixed(0)}%</strong><br/>` +
+                `Built-up: ${((m.built_pct || 0) * 100).toFixed(0)}%<br/>` +
+                `Population: ${((m.pop_density || 0) * 100).toFixed(0)}%<br/>` +
+                `Canopy: ${((m.canopy_pct || 0) * 100).toFixed(0)}%<br/>` +
+                `<em>Coverage: ${coverageList || 'none'}</em>`,
+                { sticky: true }
+              );
+            },
+          });
+        }
+        return null;
+
       case 'elevation':
         if (data.contours?.features) {
           return L.geoJSON(data.contours, {

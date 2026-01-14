@@ -27,6 +27,17 @@ import { getSurfaceWaterData } from './services/surfaceWaterService';
 import { getRiversData } from './services/riversService';
 import { getForestCanopyData } from './services/forestService';
 import { getPopulationData } from './services/populationService';
+import {
+  generateGrid,
+  computeElevationMetrics,
+  computeLandcoverMetrics,
+  computeRiverMetrics,
+  computeWaterMetrics,
+  computeForestMetrics,
+  computePopulationMetrics,
+  computeCompositeScores,
+  calculateCoverageSummary,
+} from './services/gridService';
 import type { LayerType } from '../shared/geospatial-schema';
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -713,6 +724,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error(`Get ${req.params.layerType} layer error:`, error);
       res.status(500).json({ message: error.message || 'Failed to fetch layer data' });
+    }
+  });
+
+  app.post('/api/geospatial/grid', async (req: any, res) => {
+    try {
+      const { cityLocode, bounds, cellSizeMeters = 250 } = req.body;
+      
+      if (!cityLocode || !bounds) {
+        return res.status(400).json({ message: 'cityLocode and bounds are required' });
+      }
+
+      console.log(`🔲 Generating grid for ${cityLocode} with ${cellSizeMeters}m cells`);
+
+      let grid = generateGrid(bounds, cellSizeMeters);
+      console.log(`   Generated ${grid.features.length} cells`);
+
+      const [elevationData, landcoverData, riversData, waterData, forestData, populationData] = await Promise.all([
+        getElevationData(cityLocode, bounds).catch(() => null),
+        getLandcoverData(cityLocode, bounds).catch(() => null),
+        getRiversData(cityLocode, bounds).catch(() => null),
+        getSurfaceWaterData(cityLocode, bounds).catch(() => null),
+        getForestCanopyData(cityLocode, bounds).catch(() => null),
+        getPopulationData(cityLocode, bounds).catch(() => null),
+      ]);
+
+      if (elevationData) grid = computeElevationMetrics(grid, elevationData);
+      if (landcoverData) grid = computeLandcoverMetrics(grid, landcoverData);
+      if (riversData) grid = computeRiverMetrics(grid, riversData);
+      if (waterData) grid = computeWaterMetrics(grid, waterData);
+      if (forestData) grid = computeForestMetrics(grid, forestData);
+      if (populationData) grid = computePopulationMetrics(grid, populationData);
+
+      grid = computeCompositeScores(grid);
+      const coverage = calculateCoverageSummary(grid);
+
+      console.log(`   Coverage: elevation=${coverage.elevation}%, rivers=${coverage.rivers}%, forest=${coverage.forest}%`);
+
+      res.json({
+        data: {
+          cityLocode,
+          bounds,
+          cellSizeMeters,
+          totalCells: grid.features.length,
+          coverage,
+          geoJson: grid,
+          metadata: {
+            generatedAt: new Date().toISOString(),
+            version: '1.0',
+          },
+        },
+      });
+    } catch (error: any) {
+      console.error('Grid generation error:', error);
+      res.status(500).json({ message: error.message || 'Failed to generate grid' });
     }
   });
 
