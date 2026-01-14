@@ -198,3 +198,81 @@ export const SAMPLE_HIAP_ADAPTATION_DATA = {
     actions: SAMPLE_ACTIONS.filter(a => a.type === 'adaptation'),
   },
 };
+
+export const SAMPLE_CITY_BOUNDARY = {
+  cityLocode: 'BR POA',
+  cityName: 'Porto Alegre',
+  centroid: [-51.2177, -30.0346] as [number, number],
+  bbox: [-51.3000, -30.2700, -51.0100, -29.9300] as [number, number, number, number],
+  boundaryGeoJson: {
+    type: "Feature",
+    properties: { name: "Porto Alegre, Brazil" },
+    geometry: {
+      type: "Polygon",
+      coordinates: [[
+        [-51.3000, -29.9300],
+        [-51.0100, -29.9300],
+        [-51.0100, -30.2700],
+        [-51.3000, -30.2700],
+        [-51.3000, -29.9300],
+      ]],
+    },
+  },
+};
+
+export const SAMPLE_ELEVATION_DATA = {
+  cityLocode: 'BR POA',
+  bounds: { minLng: -51.3000, minLat: -30.2700, maxLng: -51.0100, maxLat: -29.9300 },
+  elevationData: {
+    width: 100,
+    height: 100,
+    cellSize: 90,
+    minElevation: 0,
+    maxElevation: 311,
+  },
+  contours: {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: { id: "contour-sample-1", elevation: 50, isMajor: true },
+        geometry: {
+          type: "LineString",
+          coordinates: [[-51.25, -30.05], [-51.15, -30.08], [-51.10, -30.12]],
+        },
+      },
+      {
+        type: "Feature",
+        properties: { id: "contour-sample-2", elevation: 100, isMajor: false },
+        geometry: {
+          type: "LineString",
+          coordinates: [[-51.22, -30.10], [-51.12, -30.15], [-51.08, -30.20]],
+        },
+      },
+      {
+        type: "Feature",
+        properties: { id: "contour-sample-3", elevation: 150, isMajor: true },
+        geometry: {
+          type: "LineString",
+          coordinates: [[-51.20, -30.12], [-51.10, -30.18], [-51.05, -30.22]],
+        },
+      },
+      {
+        type: "Feature",
+        properties: { id: "contour-sample-4", elevation: 200, isMajor: false },
+        geometry: {
+          type: "LineString",
+          coordinates: [[-51.18, -30.15], [-51.08, -30.20], [-51.04, -30.24]],
+        },
+      },
+      {
+        type: "Feature",
+        properties: { id: "contour-sample-5", elevation: 250, isMajor: true },
+        geometry: {
+          type: "LineString",
+          coordinates: [[-51.15, -30.18], [-51.06, -30.22], [-51.03, -30.25]],
+        },
+      },
+    ],
+  },
+};

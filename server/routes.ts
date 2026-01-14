@@ -20,6 +20,8 @@ import {
   getCCRADashboard,
   getHIAPData,
 } from './services/cityService';
+import { getCityBoundary as getOSMCityBoundary } from './services/osmService';
+import { getElevationData } from './services/copernicusService';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -631,6 +633,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Create project error:', error);
       res.status(500).json({ message: 'Failed to create project' });
+    }
+  });
+
+  // Geospatial API routes (for Site Explorer)
+  app.post('/api/geospatial/boundary', async (req: any, res) => {
+    try {
+      const { cityName, cityLocode } = req.body;
+      
+      if (!cityName || !cityLocode) {
+        return res.status(400).json({ message: 'cityName and cityLocode are required' });
+      }
+
+      console.log(`📍 Getting boundary for ${cityName} (${cityLocode})`);
+      const boundary = await getOSMCityBoundary(cityName, cityLocode);
+      res.json({ data: boundary });
+    } catch (error: any) {
+      console.error('Get city boundary error:', error);
+      res.status(500).json({ message: error.message || 'Failed to fetch city boundary' });
+    }
+  });
+
+  app.post('/api/geospatial/elevation', async (req: any, res) => {
+    try {
+      const { cityLocode, bounds, resolution } = req.body;
+      
+      if (!cityLocode || !bounds) {
+        return res.status(400).json({ message: 'cityLocode and bounds are required' });
+      }
+
+      console.log(`🏔️ Getting elevation for ${cityLocode}`);
+      const elevationData = await getElevationData(cityLocode, bounds, resolution || 90);
+      res.json({ data: elevationData });
+    } catch (error: any) {
+      console.error('Get elevation data error:', error);
+      res.status(500).json({ message: error.message || 'Failed to fetch elevation data' });
     }
   });
 

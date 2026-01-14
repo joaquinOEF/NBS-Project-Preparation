@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import Login from '@/core/pages/login';
 import CitySelection from '@/core/pages/city-selection';
 import ProjectPage from '@/core/pages/project';
+import SiteExplorerPage from '@/core/pages/site-explorer';
 import { OAuthCallback } from '@/core/components/auth/oauth-callback';
 import NotFound from '@/core/pages/not-found';
 
@@ -27,9 +28,13 @@ function Router() {
       <Route path='/cities' component={CitySelection} />
       <Route path='/project/:projectId' component={ProjectPage} />
       
+      {/* Site Explorer routes */}
+      <Route path='/site-explorer/:projectId' component={SiteExplorerPage} />
+      
       {/* Sample mode routes - no API calls, uses local data */}
       <Route path='/sample/cities' component={CitySelection} />
       <Route path='/sample/project/:projectId' component={ProjectPage} />
+      <Route path='/sample/site-explorer/:projectId' component={SiteExplorerPage} />
 
       {/* Dynamically loaded module routes */}
       <DynamicModuleRoutes />

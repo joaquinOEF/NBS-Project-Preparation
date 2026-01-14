@@ -87,7 +87,25 @@
     "adaptation": "Adaptation"
   },
   "project": {
-    "notFound": "Project not found"
+    "notFound": "Project not found",
+    "siteExplorer": "Site Explorer",
+    "siteExplorerDescription": "View elevation data and city boundaries on an interactive map"
+  },
+  "siteExplorer": {
+    "title": "Site Explorer",
+    "loadingBoundary": "Loading city boundary...",
+    "loadingElevation": "Loading elevation data...",
+    "cityInfo": "City Information",
+    "cityName": "City",
+    "coordinates": "Coordinates",
+    "elevationInfo": "Elevation Data",
+    "elevationRange": "Elevation Range",
+    "resolution": "Resolution",
+    "contourLines": "Contour Lines",
+    "legend": "Map Legend",
+    "cityBoundary": "City Boundary",
+    "majorContour": "Major Contour",
+    "minorContour": "Minor Contour"
   },
   "user": {
     "userData": "User Data",

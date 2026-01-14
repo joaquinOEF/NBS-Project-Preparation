@@ -87,7 +87,25 @@
     "adaptation": "Adaptação"
   },
   "project": {
-    "notFound": "Projeto não encontrado"
+    "notFound": "Projeto não encontrado",
+    "siteExplorer": "Explorador de Terreno",
+    "siteExplorerDescription": "Visualize dados de elevação e limites da cidade em um mapa interativo"
+  },
+  "siteExplorer": {
+    "title": "Explorador de Terreno",
+    "loadingBoundary": "Carregando limites da cidade...",
+    "loadingElevation": "Carregando dados de elevação...",
+    "cityInfo": "Informações da Cidade",
+    "cityName": "Cidade",
+    "coordinates": "Coordenadas",
+    "elevationInfo": "Dados de Elevação",
+    "elevationRange": "Faixa de Elevação",
+    "resolution": "Resolução",
+    "contourLines": "Linhas de Contorno",
+    "legend": "Legenda do Mapa",
+    "cityBoundary": "Limite da Cidade",
+    "majorContour": "Contorno Principal",
+    "minorContour": "Contorno Secundário"
   },
   "user": {
     "userData": "Dados do Usuário",

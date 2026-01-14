@@ -1,11 +1,12 @@
 import { useParams, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Map, ArrowRight } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { DisplayLarge } from '@oef/components';
 import { Badge } from '@/core/components/ui/badge';
 import { Skeleton } from '@/core/components/ui/skeleton';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { useTranslation } from 'react-i18next';
 import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
@@ -72,6 +73,30 @@ export default function ProjectPage() {
               {action.type === 'mitigation' ? t('cityInfo.mitigation') : t('cityInfo.adaptation')}
             </Badge>
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Link href={`${routePrefix}/site-explorer/${projectId}`}>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Map className="h-6 w-6 text-primary" />
+                    </div>
+                    <CardTitle className="text-lg">{t('project.siteExplorer')}</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="mb-4">
+                    {t('project.siteExplorerDescription')}
+                  </CardDescription>
+                  <div className="flex items-center text-primary text-sm font-medium">
+                    {t('common.view')}
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -125,6 +150,30 @@ export default function ProjectPage() {
           <Badge variant={project.actionType === 'mitigation' ? 'default' : 'secondary'} className="mt-2">
             {project.actionType === 'mitigation' ? t('cityInfo.mitigation') : t('cityInfo.adaptation')}
           </Badge>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Link href={`/site-explorer/${projectId}`}>
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Map className="h-6 w-6 text-primary" />
+                  </div>
+                  <CardTitle className="text-lg">{t('project.siteExplorer')}</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="mb-4">
+                  {t('project.siteExplorerDescription')}
+                </CardDescription>
+                <div className="flex items-center text-primary text-sm font-medium">
+                  {t('common.view')}
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </div>
     </div>
