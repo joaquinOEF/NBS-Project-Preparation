@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as turf from '@turf/turf';
 
 interface GridCell {
   type: 'Feature';
@@ -216,32 +217,46 @@ function mergePolygons(cells: GridCell[]): any {
   if (cells.length === 0) return null;
   if (cells.length === 1) return cells[0].geometry;
   
-  const allCoords: number[][][] = [];
-  for (const cell of cells) {
-    allCoords.push(...cell.geometry.coordinates);
-  }
-  
-  let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
-  for (const cell of cells) {
-    const coords = cell.geometry.coordinates[0];
-    for (const [lng, lat] of coords) {
-      minLng = Math.min(minLng, lng);
-      maxLng = Math.max(maxLng, lng);
-      minLat = Math.min(minLat, lat);
-      maxLat = Math.max(maxLat, lat);
+  try {
+    const features = cells.map(cell => turf.polygon(cell.geometry.coordinates));
+    
+    let merged: any = features[0];
+    for (let i = 1; i < features.length; i++) {
+      try {
+        const unionResult = turf.union(turf.featureCollection([merged, features[i]]));
+        if (unionResult) {
+          merged = unionResult;
+        }
+      } catch (e) {
+        continue;
+      }
     }
+    
+    return merged.geometry;
+  } catch (e) {
+    console.warn('Failed to merge polygons, using bounding box fallback');
+    let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+    for (const cell of cells) {
+      const coords = cell.geometry.coordinates[0];
+      for (const [lng, lat] of coords) {
+        minLng = Math.min(minLng, lng);
+        maxLng = Math.max(maxLng, lng);
+        minLat = Math.min(minLat, lat);
+        maxLat = Math.max(maxLat, lat);
+      }
+    }
+    
+    return {
+      type: 'Polygon',
+      coordinates: [[
+        [minLng, minLat],
+        [maxLng, minLat],
+        [maxLng, maxLat],
+        [minLng, maxLat],
+        [minLng, minLat],
+      ]],
+    };
   }
-  
-  return {
-    type: 'Polygon',
-    coordinates: [[
-      [minLng, minLat],
-      [maxLng, minLat],
-      [maxLng, maxLat],
-      [minLng, maxLat],
-      [minLng, minLat],
-    ]],
-  };
 }
 
 function generateZones(gridData: GridData): Zone[] {
