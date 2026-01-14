@@ -124,6 +124,60 @@
     "getRecommendations": "Obter Recomendações",
     "modifyAnswers": "Modificar Respostas",
     "backToProject": "Voltar ao Projeto",
+    "sectors": {
+      "nature_based": "Soluções baseadas na natureza / adaptação",
+      "transport": "Transporte",
+      "energy": "Energia",
+      "water": "Água / saneamento",
+      "waste": "Resíduos",
+      "urban_resilience": "Resiliência urbana / controle de inundações",
+      "other": "Outro"
+    },
+    "stages": {
+      "idea": "Problema identificado / apenas ideia",
+      "concept": "Nota conceitual existe",
+      "prefeasibility": "Pré-viabilidade concluída",
+      "feasibility": "Viabilidade completa concluída",
+      "procurement": "Pronto para licitação"
+    },
+    "elements": {
+      "capex": "Estimativas de custo (CAPEX)",
+      "timeline": "Cronograma de implementação",
+      "location": "Local(is) do projeto definido(s)",
+      "assessments": "Avaliações ambientais ou sociais",
+      "agency": "Agência implementadora identificada",
+      "none": "Nenhuma das opções acima"
+    },
+    "sizes": {
+      "under_1m": "< USD 1M",
+      "1_5m": "USD 1–5M",
+      "5_20m": "USD 5–20M",
+      "20_50m": "USD 20–50M",
+      "over_50m": "> USD 50M",
+      "unknown": "Desconhecido"
+    },
+    "receivers": {
+      "municipality": "Município",
+      "state": "Governo estadual",
+      "utility": "Empresa pública",
+      "private": "Parceiro privado / SPV",
+      "consortium": "Consórcio"
+    },
+    "repaymentSources": {
+      "user_fees": "Taxas de usuário / tarifas",
+      "budget_savings": "Economia do orçamento municipal",
+      "transfers": "Transferências / impostos dedicados",
+      "private_offtaker": "Comprador privado (PPA, arrendamento)",
+      "not_defined": "Não definido"
+    },
+    "limitingFactors": {
+      "earlyStage": "Projeto em estágio inicial - necessita estudos de viabilidade",
+      "missingCapex": "Falta estimativas de custo (CAPEX)",
+      "missingAssessments": "Falta avaliações ambientais/sociais",
+      "noBudgetPrep": "Sem orçamento garantido para preparação do projeto",
+      "noRevenue": "Sem fonte clara de receita para pagamento de empréstimo",
+      "cannotBorrow": "Cidade não pode assumir dívidas legalmente"
+    },
     "readiness": {
       "veryEarly": "Muito Inicial",
       "emerging": "Emergente",

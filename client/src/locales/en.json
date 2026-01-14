@@ -124,6 +124,60 @@
     "getRecommendations": "Get Recommendations",
     "modifyAnswers": "Modify Answers",
     "backToProject": "Back to Project",
+    "sectors": {
+      "nature_based": "Nature-based solutions / adaptation",
+      "transport": "Transport",
+      "energy": "Energy",
+      "water": "Water / sanitation",
+      "waste": "Waste",
+      "urban_resilience": "Urban resilience / flood control",
+      "other": "Other"
+    },
+    "stages": {
+      "idea": "Problem identified / idea only",
+      "concept": "Concept note exists",
+      "prefeasibility": "Pre-feasibility completed",
+      "feasibility": "Full feasibility completed",
+      "procurement": "Ready for procurement"
+    },
+    "elements": {
+      "capex": "Cost estimates (CAPEX)",
+      "timeline": "Implementation timeline",
+      "location": "Defined project location(s)",
+      "assessments": "Environmental or social assessments",
+      "agency": "Implementing agency identified",
+      "none": "None of the above"
+    },
+    "sizes": {
+      "under_1m": "< USD 1M",
+      "1_5m": "USD 1–5M",
+      "5_20m": "USD 5–20M",
+      "20_50m": "USD 20–50M",
+      "over_50m": "> USD 50M",
+      "unknown": "Unknown"
+    },
+    "receivers": {
+      "municipality": "Municipality",
+      "state": "State government",
+      "utility": "Public utility",
+      "private": "Private partner / SPV",
+      "consortium": "Consortium"
+    },
+    "repaymentSources": {
+      "user_fees": "User fees / tariffs",
+      "budget_savings": "Municipal budget savings",
+      "transfers": "Dedicated transfers / taxes",
+      "private_offtaker": "Private offtaker (PPA, lease)",
+      "not_defined": "Not defined"
+    },
+    "limitingFactors": {
+      "earlyStage": "Project at early stage - needs feasibility studies",
+      "missingCapex": "Missing cost estimates (CAPEX)",
+      "missingAssessments": "Missing environmental/social assessments",
+      "noBudgetPrep": "No budget secured for project preparation",
+      "noRevenue": "No clear revenue source for loan repayment",
+      "cannotBorrow": "City cannot legally take on debt"
+    },
     "readiness": {
       "veryEarly": "Very Early",
       "emerging": "Emerging",

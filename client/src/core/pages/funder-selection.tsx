@@ -71,60 +71,25 @@ interface QuestionnaireAnswers {
   openToBundling: string;
 }
 
-const SECTORS = [
-  { id: 'nature_based', label: 'Nature-based solutions / adaptation' },
-  { id: 'transport', label: 'Transport' },
-  { id: 'energy', label: 'Energy' },
-  { id: 'water', label: 'Water / sanitation' },
-  { id: 'waste', label: 'Waste' },
-  { id: 'urban_resilience', label: 'Urban resilience / flood control' },
-  { id: 'other', label: 'Other' },
-];
+const SECTOR_IDS = ['nature_based', 'transport', 'energy', 'water', 'waste', 'urban_resilience', 'other'];
+const STAGE_IDS = ['idea', 'concept', 'prefeasibility', 'feasibility', 'procurement'];
+const ELEMENT_IDS = ['capex', 'timeline', 'location', 'assessments', 'agency', 'none'];
+const SIZE_IDS = ['under_1m', '1_5m', '5_20m', '20_50m', 'over_50m', 'unknown'];
+const RECEIVER_IDS = ['municipality', 'state', 'utility', 'private', 'consortium'];
+const REPAYMENT_IDS = ['user_fees', 'budget_savings', 'transfers', 'private_offtaker', 'not_defined'];
 
-const PROJECT_STAGES = [
-  { id: 'idea', label: 'Problem identified / idea only' },
-  { id: 'concept', label: 'Concept note exists' },
-  { id: 'prefeasibility', label: 'Pre-feasibility completed' },
-  { id: 'feasibility', label: 'Full feasibility completed' },
-  { id: 'procurement', label: 'Ready for procurement' },
-];
+const SECTOR_TO_FUND_SECTORS: Record<string, string[]> = {
+  nature_based: ['nature_based_solutions', 'climate_adaptation', 'biodiversity', 'adaptation_pilots', 'green_spaces', 'bioeconomy', 'all_climate_sectors'],
+  transport: ['transport', 'urban_mobility', 'low_carbon_infrastructure', 'all_climate_sectors'],
+  energy: ['energy', 'industrial_efficiency', 'low_carbon_industry', 'biofuels', 'small_hydro', 'all_climate_sectors'],
+  water: ['water', 'water_sanitation', 'flood_control', 'all_climate_sectors'],
+  waste: ['waste', 'all_climate_sectors'],
+  urban_resilience: ['urban_resilience', 'flood_control', 'disaster_risk_reduction', 'climate_adaptation', 'urban_revitalization', 'smart_cities', 'public_spaces', 'social_housing', 'all_climate_sectors'],
+  other: ['capacity_building', 'climate_planning', 'project_preparation', 'climate_studies', 'risk_information', 'health', 'urban_governance', 'all_climate_sectors'],
+};
 
-const EXISTING_ELEMENTS = [
-  { id: 'capex', label: 'Cost estimates (CAPEX)' },
-  { id: 'timeline', label: 'Implementation timeline' },
-  { id: 'location', label: 'Defined project location(s)' },
-  { id: 'assessments', label: 'Environmental or social assessments' },
-  { id: 'agency', label: 'Implementing agency identified' },
-  { id: 'none', label: 'None of the above' },
-];
-
-const INVESTMENT_SIZES = [
-  { id: 'under_1m', label: '< USD 1M' },
-  { id: '1_5m', label: 'USD 1–5M' },
-  { id: '5_20m', label: 'USD 5–20M' },
-  { id: '20_50m', label: 'USD 20–50M' },
-  { id: 'over_50m', label: '> USD 50M' },
-  { id: 'unknown', label: 'Unknown' },
-];
-
-const FUNDING_RECEIVERS = [
-  { id: 'municipality', label: 'Municipality' },
-  { id: 'state', label: 'State government' },
-  { id: 'utility', label: 'Public utility' },
-  { id: 'private', label: 'Private partner / SPV' },
-  { id: 'consortium', label: 'Consortium' },
-];
-
-const REPAYMENT_SOURCES = [
-  { id: 'user_fees', label: 'User fees / tariffs' },
-  { id: 'budget_savings', label: 'Municipal budget savings' },
-  { id: 'transfers', label: 'Dedicated transfers / taxes' },
-  { id: 'private_offtaker', label: 'Private offtaker (PPA, lease)' },
-  { id: 'not_defined', label: 'Not defined' },
-];
-
-function determinePathway(answers: QuestionnaireAnswers): { primary: string; secondary?: string; readinessLevel: string; limitingFactors: string[] } {
-  const limitingFactors: string[] = [];
+function determinePathway(answers: QuestionnaireAnswers): { primary: string; secondary?: string; readinessLevel: string; limitingFactorKeys: string[] } {
+  const limitingFactorKeys: string[] = [];
   let readinessLevel = 'very_early';
   
   const isEarlyStage = ['idea', 'concept', 'prefeasibility'].includes(answers.projectStage);
@@ -140,12 +105,12 @@ function determinePathway(answers: QuestionnaireAnswers): { primary: string; sec
   const investmentSizeSmall = ['under_1m', '1_5m'].includes(answers.investmentSize);
   const investmentSizeLarge = ['20_50m', 'over_50m'].includes(answers.investmentSize);
 
-  if (isEarlyStage) limitingFactors.push('Project at early stage - needs feasibility studies');
-  if (missingCapex) limitingFactors.push('Missing cost estimates (CAPEX)');
-  if (missingAssessments) limitingFactors.push('Missing environmental/social assessments');
-  if (noBudgetForPrep) limitingFactors.push('No budget secured for project preparation');
-  if (noRevenue && !isAdaptation) limitingFactors.push('No clear revenue source for loan repayment');
-  if (!canBorrow && answers.canTakeDebt !== 'not_sure') limitingFactors.push('City cannot legally take on debt');
+  if (isEarlyStage) limitingFactorKeys.push('earlyStage');
+  if (missingCapex) limitingFactorKeys.push('missingCapex');
+  if (missingAssessments) limitingFactorKeys.push('missingAssessments');
+  if (noBudgetForPrep) limitingFactorKeys.push('noBudgetPrep');
+  if (noRevenue && !isAdaptation) limitingFactorKeys.push('noRevenue');
+  if (!canBorrow && answers.canTakeDebt !== 'not_sure') limitingFactorKeys.push('cannotBorrow');
 
   if (hasFeasibility && !missingCapex && !missingAssessments) {
     readinessLevel = answers.projectStage === 'procurement' ? 'advanced' : 'investable';
@@ -155,53 +120,59 @@ function determinePathway(answers: QuestionnaireAnswers): { primary: string; sec
 
   if (isEarlyStage || missingCapex || missingAssessments || noBudgetForPrep) {
     if (noRevenue || isAdaptation) {
-      return { primary: 'preparation_facility', secondary: 'grant', readinessLevel, limitingFactors };
+      return { primary: 'preparation_facility', secondary: 'grant', readinessLevel, limitingFactorKeys };
     }
-    return { primary: 'preparation_facility', readinessLevel, limitingFactors };
+    return { primary: 'preparation_facility', readinessLevel, limitingFactorKeys };
   }
 
   if (noRevenue || (isAdaptation && answers.generatesRevenue !== 'yes')) {
-    return { primary: 'grant', readinessLevel, limitingFactors };
+    return { primary: 'grant', readinessLevel, limitingFactorKeys };
   }
 
   if (investmentSizeSmall && openToBundling) {
-    return { primary: 'aggregation', secondary: 'domestic_bank', readinessLevel, limitingFactors };
+    return { primary: 'aggregation', secondary: 'domestic_bank', readinessLevel, limitingFactorKeys };
   }
 
   if (hasFeasibility && canBorrow && !investmentSizeLarge) {
-    return { primary: 'domestic_bank', readinessLevel, limitingFactors };
+    return { primary: 'domestic_bank', readinessLevel, limitingFactorKeys };
   }
 
   if (hasFeasibility && investmentSizeLarge && answers.nationalApproval !== 'no') {
-    return { primary: 'multilateral', readinessLevel, limitingFactors };
+    return { primary: 'multilateral', readinessLevel, limitingFactorKeys };
   }
 
-  return { primary: 'domestic_bank', readinessLevel, limitingFactors };
+  return { primary: 'domestic_bank', readinessLevel, limitingFactorKeys };
 }
 
 function rankFunds(funds: Fund[], answers: QuestionnaireAnswers, pathway: string): Fund[] {
+  const userFundSectors = answers.sectors.flatMap(s => SECTOR_TO_FUND_SECTORS[s] || []);
+  
   return funds
     .filter(fund => {
       if (pathway === 'preparation_facility') return fund.supportsPreparation;
       if (pathway === 'grant') return fund.instrumentType === 'grant' || fund.instrumentType === 'technical_assistance';
       if (pathway === 'domestic_bank') return fund.category === 'domestic_bank';
       if (pathway === 'multilateral') return fund.category === 'multilateral';
+      if (pathway === 'aggregation') return fund.category === 'domestic_bank' || fund.supportsPreparation;
       return true;
     })
     .map(fund => {
       let score = 0;
       
-      if (answers.sectors.some(s => fund.prioritySectorsLabel.toLowerCase().includes(s.replace('_', ' ')))) score += 20;
-      if (fund.eligibleBorrowers.includes(answers.fundingReceiver)) score += 15;
+      const sectorMatch = fund.prioritySectors.some(ps => userFundSectors.includes(ps));
+      if (sectorMatch) score += 25;
       
-      const investmentUSD = {
+      if (fund.eligibleBorrowers.includes(answers.fundingReceiver)) score += 20;
+      
+      const investmentUSD: Record<string, number> = {
         'under_1m': 500000,
         '1_5m': 3000000,
         '5_20m': 12000000,
         '20_50m': 35000000,
         'over_50m': 100000000,
         'unknown': 10000000,
-      }[answers.investmentSize] || 10000000;
+      };
+      const userInvestment = investmentUSD[answers.investmentSize] || 10000000;
       
       const minTicket = fund.ticketWindow.currency === 'BRL' 
         ? fund.ticketWindow.min / 5 
@@ -210,8 +181,8 @@ function rankFunds(funds: Fund[], answers: QuestionnaireAnswers, pathway: string
         ? (fund.ticketWindow.currency === 'BRL' ? fund.ticketWindow.max / 5 : fund.ticketWindow.max)
         : Infinity;
       
-      if (investmentUSD >= minTicket && investmentUSD <= maxTicket) score += 25;
-      else if (investmentUSD >= minTicket * 0.5 && investmentUSD <= maxTicket * 1.5) score += 10;
+      if (userInvestment >= minTicket && userInvestment <= maxTicket) score += 25;
+      else if (userInvestment >= minTicket * 0.5 && userInvestment <= maxTicket * 1.5) score += 10;
       
       if (fund.instrumentType === 'grant' && answers.generatesRevenue === 'no') score += 15;
       if (fund.instrumentType === 'loan' && answers.generatesRevenue === 'yes') score += 15;
@@ -354,15 +325,15 @@ export default function FunderSelectionPage() {
             <div>
               <Label>{t('funderSelection.primarySector')}</Label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                {SECTORS.map(sector => (
-                  <div key={sector.id} className="flex items-center space-x-2">
+                {SECTOR_IDS.map(id => (
+                  <div key={id} className="flex items-center space-x-2">
                     <Checkbox
-                      id={sector.id}
-                      checked={answers.sectors.includes(sector.id)}
-                      onCheckedChange={() => toggleArrayAnswer('sectors', sector.id)}
+                      id={id}
+                      checked={answers.sectors.includes(id)}
+                      onCheckedChange={() => toggleArrayAnswer('sectors', id)}
                     />
-                    <Label htmlFor={sector.id} className="text-sm font-normal cursor-pointer">
-                      {sector.label}
+                    <Label htmlFor={id} className="text-sm font-normal cursor-pointer">
+                      {t(`funderSelection.sectors.${id}`)}
                     </Label>
                   </div>
                 ))}
@@ -381,11 +352,11 @@ export default function FunderSelectionPage() {
                 onValueChange={(v) => updateAnswer('projectStage', v)}
                 className="mt-2 space-y-2"
               >
-                {PROJECT_STAGES.map(stage => (
-                  <div key={stage.id} className="flex items-center space-x-2">
-                    <RadioGroupItem value={stage.id} id={stage.id} />
-                    <Label htmlFor={stage.id} className="text-sm font-normal cursor-pointer">
-                      {stage.label}
+                {STAGE_IDS.map(id => (
+                  <div key={id} className="flex items-center space-x-2">
+                    <RadioGroupItem value={id} id={`stage-${id}`} />
+                    <Label htmlFor={`stage-${id}`} className="text-sm font-normal cursor-pointer">
+                      {t(`funderSelection.stages.${id}`)}
                     </Label>
                   </div>
                 ))}
@@ -394,15 +365,15 @@ export default function FunderSelectionPage() {
             <div>
               <Label>{t('funderSelection.existingElements')}</Label>
               <div className="space-y-2 mt-2">
-                {EXISTING_ELEMENTS.map(element => (
-                  <div key={element.id} className="flex items-center space-x-2">
+                {ELEMENT_IDS.map(id => (
+                  <div key={id} className="flex items-center space-x-2">
                     <Checkbox
-                      id={element.id}
-                      checked={answers.existingElements.includes(element.id)}
-                      onCheckedChange={() => toggleArrayAnswer('existingElements', element.id)}
+                      id={`element-${id}`}
+                      checked={answers.existingElements.includes(id)}
+                      onCheckedChange={() => toggleArrayAnswer('existingElements', id)}
                     />
-                    <Label htmlFor={element.id} className="text-sm font-normal cursor-pointer">
-                      {element.label}
+                    <Label htmlFor={`element-${id}`} className="text-sm font-normal cursor-pointer">
+                      {t(`funderSelection.elements.${id}`)}
                     </Label>
                   </div>
                 ))}
@@ -483,11 +454,11 @@ export default function FunderSelectionPage() {
                   onValueChange={(v) => updateAnswer('repaymentSource', v)}
                   className="mt-2 space-y-2"
                 >
-                  {REPAYMENT_SOURCES.map(source => (
-                    <div key={source.id} className="flex items-center space-x-2">
-                      <RadioGroupItem value={source.id} id={source.id} />
-                      <Label htmlFor={source.id} className="text-sm font-normal cursor-pointer">
-                        {source.label}
+                  {REPAYMENT_IDS.map(id => (
+                    <div key={id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={id} id={`repay-${id}`} />
+                      <Label htmlFor={`repay-${id}`} className="text-sm font-normal cursor-pointer">
+                        {t(`funderSelection.repaymentSources.${id}`)}
                       </Label>
                     </div>
                   ))}
@@ -501,11 +472,11 @@ export default function FunderSelectionPage() {
                 onValueChange={(v) => updateAnswer('investmentSize', v)}
                 className="mt-2 space-y-2"
               >
-                {INVESTMENT_SIZES.map(size => (
-                  <div key={size.id} className="flex items-center space-x-2">
-                    <RadioGroupItem value={size.id} id={size.id} />
-                    <Label htmlFor={size.id} className="text-sm font-normal cursor-pointer">
-                      {size.label}
+                {SIZE_IDS.map(id => (
+                  <div key={id} className="flex items-center space-x-2">
+                    <RadioGroupItem value={id} id={`size-${id}`} />
+                    <Label htmlFor={`size-${id}`} className="text-sm font-normal cursor-pointer">
+                      {t(`funderSelection.sizes.${id}`)}
                     </Label>
                   </div>
                 ))}
@@ -524,11 +495,11 @@ export default function FunderSelectionPage() {
                 onValueChange={(v) => updateAnswer('fundingReceiver', v)}
                 className="mt-2 space-y-2"
               >
-                {FUNDING_RECEIVERS.map(receiver => (
-                  <div key={receiver.id} className="flex items-center space-x-2">
-                    <RadioGroupItem value={receiver.id} id={receiver.id} />
-                    <Label htmlFor={receiver.id} className="text-sm font-normal cursor-pointer">
-                      {receiver.label}
+                {RECEIVER_IDS.map(id => (
+                  <div key={id} className="flex items-center space-x-2">
+                    <RadioGroupItem value={id} id={`receiver-${id}`} />
+                    <Label htmlFor={`receiver-${id}`} className="text-sm font-normal cursor-pointer">
+                      {t(`funderSelection.receivers.${id}`)}
                     </Label>
                   </div>
                 ))}
@@ -610,7 +581,7 @@ export default function FunderSelectionPage() {
   const renderResults = () => {
     if (!fundsData) return null;
 
-    const { primary, secondary, readinessLevel, limitingFactors } = determinePathway(answers);
+    const { primary, secondary, readinessLevel, limitingFactorKeys } = determinePathway(answers);
     const pathway = fundsData.pathways[primary];
     const secondaryPathway = secondary ? fundsData.pathways[secondary] : null;
     const recommendedFunds = rankFunds(fundsData.funds, answers, primary);
@@ -671,14 +642,14 @@ export default function FunderSelectionPage() {
                 {readinessLabels[readinessLevel].label}
               </Badge>
             </div>
-            {limitingFactors.length > 0 && (
+            {limitingFactorKeys.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium mb-2">{t('funderSelection.results.limitingFactors')}:</h4>
                 <ul className="space-y-1">
-                  {limitingFactors.map((factor, i) => (
+                  {limitingFactorKeys.map((key, i) => (
                     <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
                       <ChevronRight className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      {factor}
+                      {t(`funderSelection.limitingFactors.${key}`)}
                     </li>
                   ))}
                 </ul>
