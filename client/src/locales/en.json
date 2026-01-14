@@ -93,6 +93,7 @@
   },
   "siteExplorer": {
     "title": "Site Explorer",
+    "loadingData": "Loading geospatial data...",
     "loadingBoundary": "Loading city boundary...",
     "loadingElevation": "Loading elevation data...",
     "cityInfo": "City Information",

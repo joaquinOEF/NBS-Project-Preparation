@@ -93,6 +93,7 @@
   },
   "siteExplorer": {
     "title": "Explorador de Terreno",
+    "loadingData": "Carregando dados geoespaciais...",
     "loadingBoundary": "Carregando limites da cidade...",
     "loadingElevation": "Carregando dados de elevação...",
     "cityInfo": "Informações da Cidade",

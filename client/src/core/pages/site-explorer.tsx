@@ -5,7 +5,7 @@ import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Badge } from '@/core/components/ui/badge';
 import { useTranslation } from 'react-i18next';
-import { useSampleData, SAMPLE_CITY_BOUNDARY, SAMPLE_ELEVATION_DATA } from '@/core/contexts/sample-data-context';
+import { useSampleData, loadSampleBoundaryData, loadSampleElevationData } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
@@ -101,10 +101,18 @@ export default function SiteExplorerPage() {
     },
   });
 
+  const [isLoadingSampleData, setIsLoadingSampleData] = useState(false);
+
   useEffect(() => {
     if (isSampleModeActive) {
-      setBoundaryData(SAMPLE_CITY_BOUNDARY);
-      setElevationData(SAMPLE_ELEVATION_DATA);
+      setIsLoadingSampleData(true);
+      Promise.all([loadSampleBoundaryData(), loadSampleElevationData()])
+        .then(([boundary, elevation]) => {
+          setBoundaryData(boundary);
+          setElevationData(elevation);
+        })
+        .catch(console.error)
+        .finally(() => setIsLoadingSampleData(false));
       return;
     }
 
@@ -211,7 +219,7 @@ export default function SiteExplorerPage() {
     );
   }
 
-  const isLoading = !isSampleModeActive && (isLoadingProject || isLoadingCity || boundaryMutation.isPending || elevationMutation.isPending);
+  const isLoading = isLoadingSampleData || (!isSampleModeActive && (isLoadingProject || isLoadingCity || boundaryMutation.isPending || elevationMutation.isPending));
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -242,9 +250,11 @@ export default function SiteExplorerPage() {
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">
-                  {boundaryMutation.isPending 
-                    ? t('siteExplorer.loadingBoundary')
-                    : t('siteExplorer.loadingElevation')}
+                  {isLoadingSampleData 
+                    ? t('siteExplorer.loadingData')
+                    : boundaryMutation.isPending 
+                      ? t('siteExplorer.loadingBoundary')
+                      : t('siteExplorer.loadingElevation')}
                 </p>
               </div>
             </div>
