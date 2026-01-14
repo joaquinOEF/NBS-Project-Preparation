@@ -49,6 +49,10 @@ function generateGrid(bounds: typeof PORTO_ALEGRE_BOUNDS, cellSizeMeters: number
         elevation_max: null,
         slope_mean: null,
         low_lying_pct: null,
+        flow_accum: null,
+        flow_accum_pct: null,
+        is_depression: null,
+        depression_pct: null,
         dist_river_m: null,
         river_prox_pct: null,
         dist_water_m: null,
@@ -64,6 +68,7 @@ function generateGrid(bounds: typeof PORTO_ALEGRE_BOUNDS, cellSizeMeters: number
       },
       coverage: {
         elevation: false,
+        flow: false,
         landcover: false,
         surface_water: false,
         rivers: false,
@@ -80,10 +85,24 @@ function computeElevationMetrics(grid: any, elevationData: any): any {
   if (!elevationData?.contours?.features) return grid;
 
   const contourLines = elevationData.contours.features;
-  const cellElevations: Map<number, number[]> = new Map();
+  const demGrid = elevationData.demGrid;
+  const flowAccum = elevationData.flowAccumulation;
+  const depressions = elevationData.depressions;
+  const demMeta = elevationData.elevationData;
+  const bounds = elevationData.bounds;
+
+  let maxFlowAccum = 1;
+  if (flowAccum) {
+    for (const row of flowAccum) {
+      for (const val of row) {
+        if (val > maxFlowAccum) maxFlowAccum = val;
+      }
+    }
+  }
 
   for (let i = 0; i < grid.features.length; i++) {
     const cell = grid.features[i];
+    const centroid = cell.properties.centroid;
     const elevations: number[] = [];
 
     for (const contour of contourLines) {
@@ -104,6 +123,25 @@ function computeElevationMetrics(grid: any, elevationData: any): any {
       const elevRange = cell.properties.metrics.elevation_max - cell.properties.metrics.elevation_min;
       cell.properties.metrics.slope_mean = elevRange / (CELL_SIZE_METERS / 1000);
       cell.properties.coverage.elevation = true;
+    }
+
+    if (demGrid && flowAccum && depressions && centroid && bounds) {
+      const lngPct = (centroid[0] - bounds.minLng) / (bounds.maxLng - bounds.minLng);
+      const latPct = (bounds.maxLat - centroid[1]) / (bounds.maxLat - bounds.minLat);
+      const col = Math.floor(lngPct * demMeta.width);
+      const row = Math.floor(latPct * demMeta.height);
+
+      if (row >= 0 && row < demMeta.height && col >= 0 && col < demMeta.width) {
+        const accumVal = flowAccum[row]?.[col] ?? 1;
+        cell.properties.metrics.flow_accum = accumVal;
+        cell.properties.metrics.flow_accum_pct = accumVal / maxFlowAccum;
+
+        const isDepression = depressions[row]?.[col] ?? false;
+        cell.properties.metrics.is_depression = isDepression;
+        cell.properties.metrics.depression_pct = isDepression ? 1 : 0;
+
+        cell.properties.coverage.flow = true;
+      }
     }
     
     if (i % 500 === 0) process.stdout.write(`\r   Elevation: ${i}/${grid.features.length} cells`);
@@ -397,6 +435,8 @@ function computeCompositeScores(grid: any): any {
   for (const cell of grid.features) {
     const m = cell.properties.metrics;
 
+    const flowAccumPct = m.flow_accum_pct ?? 0;
+    const depressionPct = m.depression_pct ?? 0;
     const riverProx = m.river_prox_pct ?? 0;
     const waterProx = m.floodplain_adj_pct ?? 0;
     const lowLying = m.low_lying_pct ?? 0;
@@ -407,12 +447,13 @@ function computeCompositeScores(grid: any): any {
     const popDensity = m.pop_density ?? 0;
 
     m.flood_score = Math.round((
-      0.30 * riverProx +
-      0.20 * waterProx +
-      0.20 * lowLying +
-      0.15 * imperv +
-      0.10 * flatness +
-      0.05 * (1 - canopy)
+      0.25 * flowAccumPct +
+      0.15 * depressionPct +
+      0.20 * riverProx +
+      0.10 * waterProx +
+      0.15 * lowLying +
+      0.10 * imperv +
+      0.05 * flatness
     ) * 100) / 100;
 
     m.heat_score = Math.round((
@@ -421,7 +462,13 @@ function computeCompositeScores(grid: any): any {
       0.30 * (1 - canopy)
     ) * 100) / 100;
 
-    m.landslide_score = 0;
+    const slopeRisk = Math.min(1, slope / 30);
+    const lackOfVeg = 1 - canopy;
+    m.landslide_score = Math.round((
+      0.50 * slopeRisk +
+      0.30 * lackOfVeg +
+      0.20 * lowLying
+    ) * 100) / 100;
   }
 
   return grid;
@@ -429,13 +476,14 @@ function computeCompositeScores(grid: any): any {
 
 function calculateCoverageSummary(grid: any): { [key: string]: number } {
   const totalCells = grid.features.length;
-  if (totalCells === 0) return { elevation: 0, landcover: 0, surface_water: 0, rivers: 0, forest: 0, population: 0 };
+  if (totalCells === 0) return { elevation: 0, flow: 0, landcover: 0, surface_water: 0, rivers: 0, forest: 0, population: 0 };
 
-  const counts = { elevation: 0, landcover: 0, surface_water: 0, rivers: 0, forest: 0, population: 0 };
+  const counts = { elevation: 0, flow: 0, landcover: 0, surface_water: 0, rivers: 0, forest: 0, population: 0 };
 
   for (const cell of grid.features) {
     const cov = cell.properties.coverage;
     if (cov.elevation) counts.elevation++;
+    if (cov.flow) counts.flow++;
     if (cov.landcover) counts.landcover++;
     if (cov.surface_water) counts.surface_water++;
     if (cov.rivers) counts.rivers++;
@@ -445,6 +493,7 @@ function calculateCoverageSummary(grid: any): { [key: string]: number } {
 
   return {
     elevation: Math.round((counts.elevation / totalCells) * 100),
+    flow: Math.round((counts.flow / totalCells) * 100),
     landcover: Math.round((counts.landcover / totalCells) * 100),
     surface_water: Math.round((counts.surface_water / totalCells) * 100),
     rivers: Math.round((counts.rivers / totalCells) * 100),
@@ -483,6 +532,7 @@ async function main() {
   const coverage = calculateCoverageSummary(grid);
   console.log(`\n📊 Coverage summary:`);
   console.log(`   Elevation: ${coverage.elevation}%`);
+  console.log(`   Flow (D8): ${coverage.flow}%`);
   console.log(`   Landcover: ${coverage.landcover}%`);
   console.log(`   Surface Water: ${coverage.surface_water}%`);
   console.log(`   Rivers: ${coverage.rivers}%`);

@@ -357,6 +357,131 @@ function mergeContourSegments(segments: [number, number][][]): [number, number][
   return lines;
 }
 
+const D8_DIRECTIONS = [
+  [-1, -1], [-1, 0], [-1, 1],
+  [0, -1],          [0, 1],
+  [1, -1],  [1, 0],  [1, 1],
+];
+
+function computeD8FlowDirection(dem: number[][], width: number, height: number): number[][] {
+  const flowDir: number[][] = Array.from({ length: height }, () => Array(width).fill(-1));
+  
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      const elev = dem[row][col];
+      if (elev <= 0) continue;
+      
+      let maxDrop = 0;
+      let bestDir = -1;
+      
+      for (let d = 0; d < 8; d++) {
+        const [dr, dc] = D8_DIRECTIONS[d];
+        const nr = row + dr;
+        const nc = col + dc;
+        
+        if (nr < 0 || nr >= height || nc < 0 || nc >= width) continue;
+        
+        const neighborElev = dem[nr][nc];
+        if (neighborElev <= 0) continue;
+        
+        const dist = (dr !== 0 && dc !== 0) ? Math.SQRT2 : 1;
+        const drop = (elev - neighborElev) / dist;
+        
+        if (drop > maxDrop) {
+          maxDrop = drop;
+          bestDir = d;
+        }
+      }
+      
+      flowDir[row][col] = bestDir;
+    }
+  }
+  
+  return flowDir;
+}
+
+function computeFlowAccumulation(flowDir: number[][], width: number, height: number): number[][] {
+  const accum: number[][] = Array.from({ length: height }, () => Array(width).fill(1));
+  const inDegree: number[][] = Array.from({ length: height }, () => Array(width).fill(0));
+  
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      const dir = flowDir[row][col];
+      if (dir >= 0 && dir < 8) {
+        const [dr, dc] = D8_DIRECTIONS[dir];
+        const nr = row + dr;
+        const nc = col + dc;
+        if (nr >= 0 && nr < height && nc >= 0 && nc < width) {
+          inDegree[nr][nc]++;
+        }
+      }
+    }
+  }
+  
+  const queueData: number[] = [];
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      if (inDegree[row][col] === 0 && flowDir[row][col] >= 0) {
+        queueData.push(row * width + col);
+      }
+    }
+  }
+  
+  let queueStart = 0;
+  while (queueStart < queueData.length) {
+    const idx = queueData[queueStart++];
+    const row = Math.floor(idx / width);
+    const col = idx % width;
+    const dir = flowDir[row][col];
+    
+    if (dir >= 0 && dir < 8) {
+      const [dr, dc] = D8_DIRECTIONS[dir];
+      const nr = row + dr;
+      const nc = col + dc;
+      
+      if (nr >= 0 && nr < height && nc >= 0 && nc < width) {
+        accum[nr][nc] += accum[row][col];
+        inDegree[nr][nc]--;
+        
+        if (inDegree[nr][nc] === 0) {
+          queueData.push(nr * width + nc);
+        }
+      }
+    }
+  }
+  
+  return accum;
+}
+
+function identifyDepressions(dem: number[][], flowDir: number[][], width: number, height: number): boolean[][] {
+  const depressions: boolean[][] = Array.from({ length: height }, () => Array(width).fill(false));
+  
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      if (dem[row][col] <= 0) continue;
+      
+      if (flowDir[row][col] === -1) {
+        let isLowest = true;
+        for (const [dr, dc] of D8_DIRECTIONS) {
+          const nr = row + dr;
+          const nc = col + dc;
+          if (nr >= 0 && nr < height && nc >= 0 && nc < width && dem[nr][nc] > 0) {
+            if (dem[nr][nc] < dem[row][col]) {
+              isLowest = false;
+              break;
+            }
+          }
+        }
+        if (isLowest) {
+          depressions[row][col] = true;
+        }
+      }
+    }
+  }
+  
+  return depressions;
+}
+
 async function main() {
   try {
     const boundaryPath = path.join(process.cwd(), 'scripts', 'porto-alegre-boundary.json');
@@ -379,6 +504,25 @@ async function main() {
     console.log("\n=== Generating Contours ===");
     const contours = generateContours(grid);
     
+    console.log("\n=== Computing D8 Flow Direction ===");
+    const flowDirection = computeD8FlowDirection(grid.data, grid.width, grid.height);
+    console.log("Flow direction computed");
+    
+    console.log("\n=== Computing Flow Accumulation ===");
+    const flowAccum = computeFlowAccumulation(flowDirection, grid.width, grid.height);
+    let maxAccum = 0;
+    for (const row of flowAccum) {
+      for (const val of row) {
+        if (val > maxAccum) maxAccum = val;
+      }
+    }
+    console.log(`Max flow accumulation: ${maxAccum} cells`);
+    
+    console.log("\n=== Identifying Depressions ===");
+    const depressions = identifyDepressions(grid.data, flowDirection, grid.width, grid.height);
+    const depCount = depressions.flat().filter(d => d).length;
+    console.log(`Found ${depCount} depression cells`);
+    
     const elevationData = {
       cityLocode: 'BR POA',
       bounds,
@@ -389,12 +533,17 @@ async function main() {
         minElevation: grid.minElevation,
         maxElevation: grid.maxElevation,
       },
+      demGrid: grid.data,
+      flowDirection,
+      flowAccumulation: flowAccum,
+      depressions,
       contours,
     };
     
-    const outputPath = path.join(process.cwd(), 'scripts', 'porto-alegre-elevation.json');
-    fs.writeFileSync(outputPath, JSON.stringify(elevationData, null, 2));
-    console.log(`\nElevation data saved to: ${outputPath}`);
+    const outputPath = path.join(process.cwd(), 'client/public/sample-data', 'porto-alegre-elevation.json');
+    fs.writeFileSync(outputPath, JSON.stringify(elevationData));
+    const sizeMB = (fs.statSync(outputPath).size / 1024 / 1024).toFixed(2);
+    console.log(`\nElevation data saved to: ${outputPath} (${sizeMB} MB)`);
     
   } catch (error) {
     console.error("Error:", error);
