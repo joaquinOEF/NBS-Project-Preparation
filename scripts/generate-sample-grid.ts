@@ -101,6 +101,8 @@ function computeElevationMetrics(grid: any, elevationData: any): any {
       cell.properties.metrics.elevation_mean = elevations.reduce((a: number, b: number) => a + b, 0) / elevations.length;
       cell.properties.metrics.elevation_min = Math.min(...elevations);
       cell.properties.metrics.elevation_max = Math.max(...elevations);
+      const elevRange = cell.properties.metrics.elevation_max - cell.properties.metrics.elevation_min;
+      cell.properties.metrics.slope_mean = elevRange / (CELL_SIZE_METERS / 1000);
       cell.properties.coverage.elevation = true;
     }
     
@@ -171,6 +173,137 @@ function computeRiverMetrics(grid: any, riversData: any): any {
       if (cell.properties.metrics.dist_river_m !== null) {
         const rank = sortedDistances.findIndex((d: number) => d >= cell.properties.metrics.dist_river_m);
         cell.properties.metrics.river_prox_pct = 1 - (rank / sortedDistances.length);
+      }
+    }
+  }
+
+  return grid;
+}
+
+function computeLandcoverMetrics(grid: any, landcoverData: any): any {
+  if (!landcoverData?.geoJson?.features) return grid;
+
+  const builtFeatures = landcoverData.geoJson.features.filter(
+    (f: any) => {
+      const props = f.properties || {};
+      return (props.landuse === 'residential' || props.landuse === 'commercial' || 
+              props.landuse === 'industrial' || props.landuse === 'retail' ||
+              props.building || props.highway) &&
+             (f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon');
+    }
+  );
+
+  const greenFeatures = landcoverData.geoJson.features.filter(
+    (f: any) => {
+      const props = f.properties || {};
+      return (props.natural === 'wood' || props.natural === 'scrub' || 
+              props.natural === 'grassland' || props.landuse === 'forest' ||
+              props.landuse === 'grass' || props.leisure === 'park') &&
+             (f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon');
+    }
+  );
+
+  for (let i = 0; i < grid.features.length; i++) {
+    const cell = grid.features[i];
+    const centroid = cell.properties.centroid;
+    if (!centroid) continue;
+
+    let isBuilt = false;
+    let isGreen = false;
+
+    for (const feature of builtFeatures) {
+      try {
+        const pt = turf.point(centroid);
+        if (turf.booleanPointInPolygon(pt, feature)) {
+          isBuilt = true;
+          break;
+        }
+      } catch (e) { continue; }
+    }
+
+    for (const feature of greenFeatures) {
+      try {
+        const pt = turf.point(centroid);
+        if (turf.booleanPointInPolygon(pt, feature)) {
+          isGreen = true;
+          break;
+        }
+      } catch (e) { continue; }
+    }
+
+    if (isBuilt) {
+      cell.properties.metrics.imperv_pct = 0.8;
+      cell.properties.coverage.landcover = true;
+    }
+    if (isGreen) {
+      cell.properties.metrics.green_pct = 0.7;
+      cell.properties.coverage.landcover = true;
+    }
+
+    if (i % 200 === 0) process.stdout.write(`\r   Landcover: ${i}/${grid.features.length} cells`);
+  }
+  console.log(`\r   Landcover: ${grid.features.length} cells processed`);
+
+  return grid;
+}
+
+function computeSurfaceWaterMetrics(grid: any, surfaceWaterData: any): any {
+  if (!surfaceWaterData?.geoJson?.features) return grid;
+
+  const waterFeatures = surfaceWaterData.geoJson.features.filter(
+    (f: any) => f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon'
+  );
+
+  if (waterFeatures.length === 0) return grid;
+
+  const allDistances: number[] = [];
+
+  for (let i = 0; i < grid.features.length; i++) {
+    const cell = grid.features[i];
+    const centroid = cell.properties.centroid;
+    if (!centroid) continue;
+
+    let minDist = Infinity;
+    let insideWater = false;
+
+    for (const water of waterFeatures) {
+      try {
+        const pt = turf.point(centroid);
+        if (turf.booleanPointInPolygon(pt, water)) {
+          insideWater = true;
+          minDist = 0;
+          break;
+        }
+        const boundary = turf.polygonToLine(water) as any;
+        if (boundary.geometry?.type === 'LineString') {
+          const dist = turf.pointToLineDistance(pt, boundary as any, { units: 'meters' });
+          if (dist < minDist) minDist = dist;
+        } else if (boundary.geometry?.type === 'MultiLineString') {
+          for (const coords of boundary.geometry.coordinates) {
+            const line = turf.lineString(coords);
+            const dist = turf.pointToLineDistance(pt, line, { units: 'meters' });
+            if (dist < minDist) minDist = dist;
+          }
+        }
+      } catch (e) { continue; }
+    }
+
+    if (minDist !== Infinity && minDist < 50000) {
+      cell.properties.metrics.dist_water_m = Math.round(minDist);
+      cell.properties.coverage.surface_water = true;
+      allDistances.push(minDist);
+    }
+
+    if (i % 200 === 0) process.stdout.write(`\r   Surface Water: ${i}/${grid.features.length} cells`);
+  }
+  console.log(`\r   Surface Water: ${grid.features.length} cells processed`);
+
+  if (allDistances.length > 0) {
+    const sortedDistances = [...allDistances].sort((a: number, b: number) => a - b);
+    for (const cell of grid.features) {
+      if (cell.properties.metrics.dist_water_m !== null) {
+        const rank = sortedDistances.findIndex((d: number) => d >= cell.properties.metrics.dist_water_m);
+        cell.properties.metrics.floodplain_adj_pct = 1 - (rank / sortedDistances.length);
       }
     }
   }
@@ -264,15 +397,30 @@ function computeCompositeScores(grid: any): any {
   for (const cell of grid.features) {
     const m = cell.properties.metrics;
 
-    const A = m.river_prox_pct ?? 0;
-    const E = m.low_lying_pct ?? 0;
-    const I = m.built_pct ?? 0;
-    const R = m.river_prox_pct ?? 0;
-    const C = m.canopy_pct ?? 0;
-    const P = m.pop_density ?? 0;
+    const riverProx = m.river_prox_pct ?? 0;
+    const waterProx = m.floodplain_adj_pct ?? 0;
+    const lowLying = m.low_lying_pct ?? 0;
+    const imperv = m.imperv_pct ?? m.built_pct ?? 0;
+    const slope = m.slope_mean ?? 0;
+    const flatness = slope > 0 ? Math.max(0, 1 - slope / 50) : 0.5;
+    const canopy = m.canopy_pct ?? 0;
+    const popDensity = m.pop_density ?? 0;
 
-    m.flood_score = Math.round((0.45 * A + 0.20 * E + 0.20 * I + 0.15 * R) * 100) / 100;
-    m.heat_score = Math.round((0.45 * I + 0.35 * P + 0.20 * (1 - C)) * 100) / 100;
+    m.flood_score = Math.round((
+      0.30 * riverProx +
+      0.20 * waterProx +
+      0.20 * lowLying +
+      0.15 * imperv +
+      0.10 * flatness +
+      0.05 * (1 - canopy)
+    ) * 100) / 100;
+
+    m.heat_score = Math.round((
+      0.40 * imperv +
+      0.30 * popDensity +
+      0.30 * (1 - canopy)
+    ) * 100) / 100;
+
     m.landslide_score = 0;
   }
 
@@ -281,13 +429,15 @@ function computeCompositeScores(grid: any): any {
 
 function calculateCoverageSummary(grid: any): { [key: string]: number } {
   const totalCells = grid.features.length;
-  if (totalCells === 0) return { elevation: 0, rivers: 0, forest: 0, population: 0 };
+  if (totalCells === 0) return { elevation: 0, landcover: 0, surface_water: 0, rivers: 0, forest: 0, population: 0 };
 
-  const counts = { elevation: 0, rivers: 0, forest: 0, population: 0 };
+  const counts = { elevation: 0, landcover: 0, surface_water: 0, rivers: 0, forest: 0, population: 0 };
 
   for (const cell of grid.features) {
     const cov = cell.properties.coverage;
     if (cov.elevation) counts.elevation++;
+    if (cov.landcover) counts.landcover++;
+    if (cov.surface_water) counts.surface_water++;
     if (cov.rivers) counts.rivers++;
     if (cov.forest) counts.forest++;
     if (cov.population) counts.population++;
@@ -295,6 +445,8 @@ function calculateCoverageSummary(grid: any): { [key: string]: number } {
 
   return {
     elevation: Math.round((counts.elevation / totalCells) * 100),
+    landcover: Math.round((counts.landcover / totalCells) * 100),
+    surface_water: Math.round((counts.surface_water / totalCells) * 100),
     rivers: Math.round((counts.rivers / totalCells) * 100),
     forest: Math.round((counts.forest / totalCells) * 100),
     population: Math.round((counts.population / totalCells) * 100),
@@ -311,12 +463,16 @@ async function main() {
 
   console.log('\n📊 Loading sample data...');
   const elevationData = await loadSampleData('porto-alegre-elevation.json');
+  const landcoverData = await loadSampleData('porto-alegre-landcover.json');
+  const surfaceWaterData = await loadSampleData('porto-alegre-surface-water.json');
   const riversData = await loadSampleData('porto-alegre-rivers.json');
   const forestData = await loadSampleData('porto-alegre-forest.json');
   const populationData = await loadSampleData('porto-alegre-population.json');
 
   console.log('\n🧮 Computing metrics...');
   if (elevationData) grid = computeElevationMetrics(grid, elevationData);
+  if (landcoverData) grid = computeLandcoverMetrics(grid, landcoverData);
+  if (surfaceWaterData) grid = computeSurfaceWaterMetrics(grid, surfaceWaterData);
   if (riversData) grid = computeRiverMetrics(grid, riversData);
   if (forestData) grid = computeForestMetrics(grid, forestData);
   if (populationData) grid = computePopulationMetrics(grid, populationData);
@@ -327,6 +483,8 @@ async function main() {
   const coverage = calculateCoverageSummary(grid);
   console.log(`\n📊 Coverage summary:`);
   console.log(`   Elevation: ${coverage.elevation}%`);
+  console.log(`   Landcover: ${coverage.landcover}%`);
+  console.log(`   Surface Water: ${coverage.surface_water}%`);
   console.log(`   Rivers: ${coverage.rivers}%`);
   console.log(`   Forest: ${coverage.forest}%`);
   console.log(`   Population: ${coverage.population}%`);
