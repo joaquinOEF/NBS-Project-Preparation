@@ -79,6 +79,7 @@ const LAYER_CONFIGS: Omit<LayerState, 'enabled' | 'loaded' | 'data' | 'leafletLa
   { id: 'grid_population', name: 'Population Density', icon: Users, color: '#8b5cf6' },
   { id: 'grid_buildings', name: 'Building Density', icon: Building2, color: '#f97316' },
   { id: 'elevation', name: 'Elevation', icon: Mountain, color: '#c9a87c' },
+  { id: 'landcover', name: 'Land Cover', icon: MapIcon, color: '#4ade80' },
   { id: 'surface_water', name: 'Water Bodies', icon: Droplets, color: '#3b82f6' },
   { id: 'rivers', name: 'Rivers', icon: Droplets, color: '#06b6d4' },
   { id: 'forest', name: 'Forest', icon: Trees, color: '#22c55e' },

@@ -147,56 +147,70 @@ async function fetchGHSLData() {
 async function generateBuiltUpFromOSM() {
   console.log('\n=== Generating Built-up Data from OSM Buildings ===');
   
-  const coreBounds = {
-    minLng: -51.27,
-    minLat: -30.15,
-    maxLng: -51.10,
-    maxLat: -29.98,
-  };
+  const tiles = [
+    { minLng: -51.32, minLat: -30.10, maxLng: -51.15, maxLat: -29.90, name: 'NW' },
+    { minLng: -51.15, minLat: -30.10, maxLng: -50.98, maxLat: -29.90, name: 'NE' },
+    { minLng: -51.32, minLat: -30.28, maxLng: -51.15, maxLat: -30.10, name: 'SW' },
+    { minLng: -51.15, minLat: -30.28, maxLng: -50.98, maxLat: -30.10, name: 'SE' },
+  ];
   
-  const bbox = `${coreBounds.minLat},${coreBounds.minLng},${coreBounds.maxLat},${coreBounds.maxLng}`;
-  
-  const query = `
-    [out:json][timeout:300];
-    (
-      way["building"](${bbox});
-    );
-    out center;
-  `;
-  
-  console.log('Fetching buildings from OSM Overpass API (core city area)...');
-  console.log(`Query area: ${bbox}`);
-  
-  let data: any = null;
   const endpoints = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
   ];
   
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`Trying ${endpoint}...`);
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        body: `data=${encodeURIComponent(query)}`,
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        signal: AbortSignal.timeout(300000),
-      });
-      
-      if (response.ok) {
-        data = await response.json();
-        console.log(`Success! Fetched ${data.elements?.length || 0} building elements`);
-        break;
+  let allBuildings: any[] = [];
+  
+  for (const tile of tiles) {
+    const bbox = `${tile.minLat},${tile.minLng},${tile.maxLat},${tile.maxLng}`;
+    const query = `
+      [out:json][timeout:300];
+      (
+        way["building"](${bbox});
+      );
+      out center;
+    `;
+    
+    console.log(`\nFetching buildings for tile ${tile.name}...`);
+    console.log(`  Query area: ${bbox}`);
+    
+    let tileData: any = null;
+    
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`  Trying ${endpoint}...`);
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          body: `data=${encodeURIComponent(query)}`,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          signal: AbortSignal.timeout(300000),
+        });
+        
+        if (response.ok) {
+          tileData = await response.json();
+          console.log(`  Success! Fetched ${tileData.elements?.length || 0} buildings`);
+          break;
+        }
+      } catch (e: any) {
+        console.log(`  Failed: ${e.message}`);
       }
-    } catch (e: any) {
-      console.log(`Failed: ${e.message}`);
     }
+    
+    if (tileData?.elements) {
+      allBuildings = allBuildings.concat(tileData.elements);
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
   
-  if (!data || !data.elements) {
-    console.log('All endpoints failed, generating synthetic data based on landcover...');
+  console.log(`\nTotal buildings fetched: ${allBuildings.length}`);
+  
+  if (allBuildings.length === 0) {
+    console.log('All tiles failed, generating synthetic data based on landcover...');
     return generateSyntheticBuiltUp();
   }
+  
+  const data = { elements: allBuildings };
   
   const gridResolution = 0.001;
   const width = Math.ceil((PORTO_ALEGRE_BOUNDS.maxLng - PORTO_ALEGRE_BOUNDS.minLng) / gridResolution);
