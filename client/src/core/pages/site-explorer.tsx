@@ -278,6 +278,12 @@ export default function SiteExplorerPage() {
               else if (landuse === 'grass' || natural === 'grassland') color = '#84cc16';
               return { color, weight: 1, fillColor: color, fillOpacity: 0.3, opacity: 0.6 };
             },
+            onEachFeature: (feature, layer) => {
+              const props = feature.properties || {};
+              const type = props.landuse || props.natural || 'Unknown';
+              const name = props.name ? `<strong>${props.name}</strong><br/>` : '';
+              layer.bindTooltip(`${name}Type: ${type}`, { sticky: true });
+            },
           });
         }
         return null;
@@ -286,6 +292,13 @@ export default function SiteExplorerPage() {
         if (data.geoJson?.features) {
           return L.geoJSON(data.geoJson, {
             style: { color: '#3b82f6', weight: 2, fillColor: '#3b82f6', fillOpacity: 0.4, opacity: 0.8 },
+            onEachFeature: (feature, layer) => {
+              const props = feature.properties || {};
+              const name = props.name ? `<strong>${props.name}</strong><br/>` : '';
+              const waterType = props.water || props.natural || 'Water body';
+              const intermittent = props.intermittent === 'yes' ? ' (seasonal)' : '';
+              layer.bindTooltip(`${name}${waterType}${intermittent}`, { sticky: true });
+            },
           });
         }
         return null;
@@ -298,6 +311,12 @@ export default function SiteExplorerPage() {
               weight: feature?.properties?.waterway === 'river' ? 2.5 : 1.5,
               opacity: 0.8,
             }),
+            onEachFeature: (feature, layer) => {
+              const props = feature.properties || {};
+              const name = props.name ? `<strong>${props.name}</strong><br/>` : '';
+              const type = props.waterway || 'Waterway';
+              layer.bindTooltip(`${name}${type.charAt(0).toUpperCase() + type.slice(1)}`, { sticky: true });
+            },
           });
         }
         return null;
@@ -306,6 +325,12 @@ export default function SiteExplorerPage() {
         if (data.geoJson?.features) {
           return L.geoJSON(data.geoJson, {
             style: { color: '#22c55e', weight: 1, fillColor: '#22c55e', fillOpacity: 0.4, opacity: 0.7 },
+            onEachFeature: (feature, layer) => {
+              const props = feature.properties || {};
+              const name = props.name ? `<strong>${props.name}</strong><br/>` : '';
+              const type = props.natural === 'wood' ? 'Natural woodland' : 'Forest';
+              layer.bindTooltip(`${name}${type}`, { sticky: true });
+            },
           });
         }
         return null;
@@ -314,6 +339,11 @@ export default function SiteExplorerPage() {
         if (data.geoJson?.features) {
           return L.geoJSON(data.geoJson, {
             style: { color: '#f97316', weight: 1, fillColor: '#f97316', fillOpacity: 0.3, opacity: 0.6 },
+            onEachFeature: (feature, layer) => {
+              const props = feature.properties || {};
+              const name = props.name ? `<strong>${props.name}</strong><br/>` : '';
+              layer.bindTooltip(`${name}Residential area`, { sticky: true });
+            },
           });
         }
         return null;
@@ -460,29 +490,29 @@ export default function SiteExplorerPage() {
           </div>
           
           {showLayerPanel && (
-            <div className="absolute top-14 right-4 z-[1000] bg-background/95 backdrop-blur-sm rounded-lg shadow-xl border p-4 min-w-[220px]">
-              <div className="flex items-center justify-between mb-3 pb-2 border-b">
-                <span className="font-medium text-sm">Data Layers</span>
-                <span className="text-xs text-muted-foreground">
+            <div className="absolute top-14 right-4 z-[1000] bg-zinc-900/95 backdrop-blur-sm rounded-lg shadow-xl border border-zinc-700 p-4 min-w-[240px]">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-700">
+                <span className="font-medium text-sm text-white">Data Layers</span>
+                <span className="text-xs text-zinc-400">
                   {layers.filter(l => l.enabled).length}/{layers.length}
                 </span>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {layers.map((layer) => {
                   const IconComponent = layer.icon;
                   return (
                     <div 
                       key={layer.id}
-                      className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 transition-colors cursor-pointer"
+                      className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-800/70 transition-colors cursor-pointer"
                       onClick={() => toggleLayer(layer.id)}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <div 
-                          className="w-3 h-3 rounded-sm"
+                          className="w-4 h-4 rounded"
                           style={{ backgroundColor: layer.enabled ? layer.color : 'transparent', border: `2px solid ${layer.color}` }}
                         />
-                        <IconComponent className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{layer.name}</span>
+                        <IconComponent className="h-4 w-4" style={{ color: layer.color }} />
+                        <span className="text-sm text-white font-medium">{layer.name}</span>
                       </div>
                       <Switch
                         checked={layer.enabled}
