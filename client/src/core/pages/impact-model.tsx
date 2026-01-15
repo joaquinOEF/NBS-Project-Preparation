@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, Lightbulb, Settings, Sparkles, Edit3, Eye, Download, Check, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Copy, FileText, Clock, AlertCircle, Scale, Thermometer, Users, TrendingUp, Building2, Info } from 'lucide-react';
+import { ArrowLeft, Lightbulb, Settings, Sparkles, Edit3, Eye, Download, Check, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Copy, FileText, Clock, AlertCircle, Scale, Thermometer, Users, TrendingUp, Building2, Info, Droplets, Mountain, Loader2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -18,9 +18,17 @@ import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useProjectContext, ImpactModelData, PrioritizationWeights, LensType, InterventionBundle, NarrativeBlock, CoBenefitCard, SignalCard, sampleSiteExplorer, sampleFunderSelection } from '@/core/contexts/project-context';
 import { useToast } from '@/core/hooks/use-toast';
 
-type WizardStep = 'setup' | 'generate' | 'curate' | 'lenses' | 'export';
+type WizardStep = 'setup' | 'curate' | 'lenses' | 'export';
 
-const WIZARD_STEPS: WizardStep[] = ['setup', 'generate', 'curate', 'lenses', 'export'];
+const WIZARD_STEPS: WizardStep[] = ['setup', 'curate', 'lenses', 'export'];
+
+const GENERATION_PHRASES = [
+  'Estimating project impact',
+  'Connecting co-benefits with expected impact',
+  'Generating your impact narrative',
+  'Analyzing intervention synergies',
+  'Building funding-aligned recommendations'
+];
 
 const DEFAULT_WEIGHTS: PrioritizationWeights = {
   floodRiskReduction: 4,
@@ -135,27 +143,20 @@ function SetupStep({
   data, 
   onUpdate,
   siteExplorerZones,
-  usingSampleData
+  usingSampleData,
+  cityName,
+  projectName,
+  funderName
 }: { 
   data: ImpactModelData; 
   onUpdate: (d: Partial<ImpactModelData>) => void;
   siteExplorerZones: any[];
   usingSampleData: boolean;
+  cityName: string;
+  projectName: string;
+  funderName: string;
 }) {
   const { t } = useTranslation();
-  const [expandedZones, setExpandedZones] = useState<Set<string>>(new Set());
-  
-  const toggleZoneExpansion = (zoneId: string) => {
-    setExpandedZones(prev => {
-      const next = new Set(prev);
-      if (next.has(zoneId)) {
-        next.delete(zoneId);
-      } else {
-        next.add(zoneId);
-      }
-      return next;
-    });
-  };
 
   const formatCost = (cost: { min: number; max: number; unit: string }) => {
     const formatNum = (n: number) => {
@@ -166,11 +167,85 @@ function SetupStep({
     return `${cost.unit} ${formatNum(cost.min)} - ${formatNum(cost.max)}`;
   };
 
+  const formatZoneName = (zone: any, index: number) => {
+    if (zone.zoneName) return zone.zoneName;
+    if (zone.name) return zone.name;
+    if (zone.zoneId) {
+      const match = zone.zoneId.match(/zone_(\d+)/i);
+      if (match) {
+        return `Zone ${match[1]}`;
+      }
+      return zone.zoneId.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+    }
+    return `Zone ${index + 1}`;
+  };
+
+  const formatInterventionType = (type: string) => {
+    return type
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (l: string) => l.toUpperCase());
+  };
+
+  const getHazardIcon = (hazard: string) => {
+    const h = hazard?.toLowerCase();
+    if (h?.includes('flood')) return <Droplets className="h-4 w-4 text-blue-500" />;
+    if (h?.includes('heat')) return <Thermometer className="h-4 w-4 text-orange-500" />;
+    if (h?.includes('landslide')) return <Mountain className="h-4 w-4 text-amber-700" />;
+    return <AlertCircle className="h-4 w-4 text-gray-500" />;
+  };
+
+  const getImpactLevel = (level: string) => {
+    if (level === 'high') return { label: 'High Impact', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' };
+    if (level === 'medium') return { label: 'Medium Impact', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' };
+    return { label: 'Low Impact', color: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' };
+  };
+
+  const totalInterventions = siteExplorerZones.reduce((sum, zone) => sum + (zone.interventionPortfolio?.length || 0), 0);
+  const totalCost = siteExplorerZones.reduce((sum, zone) => {
+    const portfolio = zone.interventionPortfolio || [];
+    return sum + portfolio.reduce((s: number, i: any) => s + ((i.estimatedCost?.min || 0) + (i.estimatedCost?.max || 0)) / 2, 0);
+  }, 0);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Project & City Context Summary */}
+      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+        <CardContent className="py-6">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-primary/10 rounded-xl">
+              <Building2 className="h-6 w-6 text-primary" />
+            </div>
+            <div className="flex-1 space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold">{projectName}</h3>
+                <p className="text-muted-foreground">{cityName}</p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{t('impactModel.zones')}</p>
+                  <p className="text-xl font-semibold">{siteExplorerZones.length}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{t('impactModel.interventions')}</p>
+                  <p className="text-xl font-semibold">{totalInterventions}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{t('impactModel.estimatedInvestment')}</p>
+                  <p className="text-xl font-semibold">${(totalCost / 1000000).toFixed(1)}M</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{t('impactModel.funder')}</p>
+                  <p className="text-sm font-medium">{funderName}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {usingSampleData && (
         <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-900/10 dark:border-amber-800">
-          <CardContent className="py-4">
+          <CardContent className="py-4 px-6">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
                 <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
@@ -184,50 +259,64 @@ function SetupStep({
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            {t('impactModel.interventionBundles')}
-          </CardTitle>
-          <CardDescription>{t('impactModel.bundlesDescriptionExpanded')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {siteExplorerZones.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+      {/* Intervention Bundles - Open Format */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-3 px-1">
+          <Settings className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <h2 className="text-lg font-semibold">{t('impactModel.interventionBundles')}</h2>
+            <p className="text-sm text-muted-foreground">{t('impactModel.bundlesDescriptionExpanded')}</p>
+          </div>
+        </div>
+
+        {siteExplorerZones.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
               <p>{t('impactModel.noZonesSelected')}</p>
               <p className="text-sm mt-2">{t('impactModel.selectZonesFirst')}</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {siteExplorerZones.map((zone, index) => {
-                const zoneId = zone.zoneId || `zone-${index}`;
-                const zoneName = zone.zoneName || zone.name || `Zone ${index + 1}`;
-                const isSelected = data.interventionBundles.some(b => b.id === zoneId);
-                const isExpanded = expandedZones.has(zoneId);
-                const interventions = zone.interventionPortfolio || [];
-                
-                return (
-                  <div key={zoneId} className={`border rounded-lg overflow-hidden transition-colors ${isSelected ? 'border-primary bg-primary/5' : ''}`}>
-                    <div 
-                      className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50"
-                      onClick={() => toggleZoneExpansion(zoneId)}
-                    >
-                      <div className="flex items-center gap-3">
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            {siteExplorerZones.map((zone, index) => {
+              const zoneId = zone.zoneId || `zone-${index}`;
+              const zoneName = formatZoneName(zone, index);
+              const isSelected = data.interventionBundles.some(b => b.id === zoneId);
+              const interventions = zone.interventionPortfolio || [];
+              const zonePopulation = zone.populationSum ? zone.populationSum.toLocaleString() : null;
+              const zoneArea = zone.areaKm2 || zone.area;
+              
+              return (
+                <Card 
+                  key={zoneId} 
+                  className={`overflow-hidden transition-all ${isSelected ? 'ring-2 ring-primary/50 border-primary' : 'hover:border-primary/30'}`}
+                >
+                  {/* Zone Header */}
+                  <CardHeader className="pb-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4">
                         <Checkbox 
                           checked={isSelected}
-                          onClick={(e) => e.stopPropagation()}
                           onCheckedChange={(checked) => {
-                            if (checked) {
+                            if (checked === true) {
+                              const bundleInterventions = interventions.map((i: any) => {
+                                const name = i.interventionName || i.name || 'Intervention';
+                                const area = i.estimatedArea ? `${i.estimatedArea} ${i.areaUnit || 'ha'}` : '';
+                                const category = i.category ? i.category.replace(/_/g, ' ') : '';
+                                const impacts = i.impacts ? 
+                                  `(Flood: ${i.impacts.flood || 'n/a'}, Heat: ${i.impacts.heat || 'n/a'})` : '';
+                                return `${name}${area ? ` - ${area}` : ''}${category ? ` [${category}]` : ''} ${impacts}`.trim();
+                              });
+                              
                               onUpdate({
                                 interventionBundles: [
                                   ...data.interventionBundles,
                                   {
                                     id: zoneId,
                                     name: zoneName,
-                                    objective: '',
+                                    objective: zone.interventionType ? formatInterventionType(zone.interventionType) : '',
                                     targetHazards: [zone.hazardType || zone.primaryHazard || 'FLOOD'],
-                                    interventions: interventions.map((i: any) => i.interventionId || i.id),
+                                    interventions: bundleInterventions,
                                     locations: [{ zoneId, name: zoneName, geometryType: 'polygon' }],
                                     capexRange: { 
                                       low: interventions.reduce((sum: number, i: any) => sum + (i.estimatedCost?.min || 0), 0),
@@ -237,221 +326,245 @@ function SetupStep({
                                   },
                                 ],
                               });
-                            } else {
+                            } else if (checked === false) {
                               onUpdate({
                                 interventionBundles: data.interventionBundles.filter(b => b.id !== zoneId),
                               });
                             }
                           }}
+                          className="mt-1"
                         />
-                        <div>
-                          <p className="font-medium">{zoneName}</p>
-                          <div className="flex gap-2 mt-1 flex-wrap">
+                        <div className="space-y-2">
+                          <div>
+                            <h3 className="text-lg font-semibold">{zoneName}</h3>
+                            <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                              {zoneArea && <span>{zoneArea.toLocaleString()} km²</span>}
+                              {zonePopulation && (
+                                <>
+                                  <span>•</span>
+                                  <span className="flex items-center gap-1">
+                                    <Users className="h-3.5 w-3.5" />
+                                    {zonePopulation} residents
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
                             {(zone.hazardType || zone.primaryHazard) && (
-                              <Badge variant="outline" className="text-xs">{zone.hazardType || zone.primaryHazard}</Badge>
+                              <Badge variant="outline" className="flex items-center gap-1.5 py-1 px-2.5">
+                                {getHazardIcon(zone.hazardType || zone.primaryHazard)}
+                                <span>{(zone.hazardType || zone.primaryHazard).replace(/_/g, ' ')}</span>
+                              </Badge>
+                            )}
+                            {zone.secondaryHazard && (
+                              <Badge variant="outline" className="flex items-center gap-1.5 py-1 px-2.5 opacity-70">
+                                {getHazardIcon(zone.secondaryHazard)}
+                                <span>{zone.secondaryHazard.replace(/_/g, ' ')}</span>
+                              </Badge>
                             )}
                             {zone.interventionType && (
-                              <Badge variant="secondary" className="text-xs">{zone.interventionType.replace(/_/g, ' ')}</Badge>
-                            )}
-                            {interventions.length > 0 && (
-                              <Badge className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                                {interventions.length} {t('impactModel.interventions')}
+                              <Badge variant="secondary" className="py-1 px-2.5">
+                                {formatInterventionType(zone.interventionType)}
                               </Badge>
                             )}
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="text-right">
                         {zone.riskScore && (
-                          <span className="text-sm text-muted-foreground">Risk: {(zone.riskScore * 100).toFixed(0)}%</span>
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide">Risk Level</p>
+                            <p className={`text-lg font-semibold ${zone.riskScore > 0.7 ? 'text-red-600' : zone.riskScore > 0.4 ? 'text-amber-600' : 'text-green-600'}`}>
+                              {(zone.riskScore * 100).toFixed(0)}%
+                            </p>
+                          </div>
                         )}
-                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </div>
                     </div>
-                    
-                    {isExpanded && interventions.length > 0 && (
-                      <div className="border-t bg-muted/30 p-4">
-                        <p className="text-sm font-medium mb-3 text-muted-foreground">{t('impactModel.zoneInterventions')}</p>
-                        <div className="space-y-2">
-                          {interventions.map((intervention: any) => (
-                            <div key={intervention.interventionId || intervention.id} className="p-3 bg-background rounded-lg border">
-                              <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  <p className="font-medium text-sm">{intervention.interventionName || intervention.name}</p>
-                                  <div className="flex gap-2 mt-1 flex-wrap">
-                                    {intervention.category && (
-                                      <Badge variant="outline" className="text-xs">{intervention.category.replace(/_/g, ' ')}</Badge>
+                  </CardHeader>
+
+                  {/* Interventions - Always Visible */}
+                  <CardContent className="pt-0 pb-6">
+                    {interventions.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-muted-foreground">
+                            {interventions.length} {interventions.length === 1 ? 'Intervention' : 'Interventions'} Planned
+                          </p>
+                        </div>
+                        <div className="space-y-4">
+                          {interventions.map((intervention: any) => {
+                            const impacts = intervention.impacts || {};
+                            const hasHighImpact = Object.values(impacts).some(v => v === 'high');
+                            
+                            return (
+                              <div 
+                                key={intervention.interventionId || intervention.id} 
+                                className="p-5 bg-muted/30 rounded-xl border border-border/50"
+                              >
+                                <div className="space-y-4">
+                                  {/* Intervention Header */}
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div className="space-y-1">
+                                      <h4 className="font-semibold text-base">{intervention.interventionName || intervention.name}</h4>
+                                      {intervention.category && (
+                                        <p className="text-sm text-muted-foreground">
+                                          {intervention.category.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                                        </p>
+                                      )}
+                                    </div>
+                                    {hasHighImpact && (
+                                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 shrink-0">
+                                        <TrendingUp className="h-3 w-3 mr-1" />
+                                        High Impact
+                                      </Badge>
                                     )}
+                                  </div>
+
+                                  {/* Intervention Details Grid */}
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {intervention.estimatedCost && (
-                                      <Badge variant="secondary" className="text-xs">
-                                        {formatCost(intervention.estimatedCost)}
-                                      </Badge>
+                                      <div className="space-y-1">
+                                        <p className="text-xs text-muted-foreground">Estimated Cost</p>
+                                        <p className="font-medium">{formatCost(intervention.estimatedCost)}</p>
+                                      </div>
+                                    )}
+                                    {intervention.estimatedArea && (
+                                      <div className="space-y-1">
+                                        <p className="text-xs text-muted-foreground">Coverage Area</p>
+                                        <p className="font-medium">{intervention.estimatedArea} {intervention.areaUnit || 'ha'}</p>
+                                      </div>
+                                    )}
+                                    {intervention.assetName && (
+                                      <div className="space-y-1">
+                                        <p className="text-xs text-muted-foreground">Target Asset</p>
+                                        <p className="font-medium">{intervention.assetName}</p>
+                                      </div>
                                     )}
                                   </div>
+
+                                  {/* Impact Indicators */}
+                                  {intervention.impacts && (
+                                    <div className="flex flex-wrap gap-2 pt-2 border-t border-border/30">
+                                      {intervention.impacts.flood && (
+                                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${getImpactLevel(intervention.impacts.flood).color}`}>
+                                          <Droplets className="h-3.5 w-3.5" />
+                                          Flood: {intervention.impacts.flood}
+                                        </div>
+                                      )}
+                                      {intervention.impacts.heat && (
+                                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${getImpactLevel(intervention.impacts.heat).color}`}>
+                                          <Thermometer className="h-3.5 w-3.5" />
+                                          Heat: {intervention.impacts.heat}
+                                        </div>
+                                      )}
+                                      {intervention.impacts.landslide && intervention.impacts.landslide !== 'low' && (
+                                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${getImpactLevel(intervention.impacts.landslide).color}`}>
+                                          <Mountain className="h-3.5 w-3.5" />
+                                          Landslide: {intervention.impacts.landslide}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Notes if available */}
+                                  {intervention.notes && (
+                                    <div className="pt-2 border-t border-border/30">
+                                      <p className="text-sm text-muted-foreground italic">{intervention.notes}</p>
+                                    </div>
+                                  )}
                                 </div>
-                                {intervention.impacts && (
-                                  <div className="flex gap-1">
-                                    {intervention.impacts.flood && (
-                                      <Badge className={`text-xs ${intervention.impacts.flood === 'high' ? 'bg-blue-100 text-blue-800' : intervention.impacts.flood === 'medium' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600'}`}>
-                                        Flood
-                                      </Badge>
-                                    )}
-                                    {intervention.impacts.heat && (
-                                      <Badge className={`text-xs ${intervention.impacts.heat === 'high' ? 'bg-orange-100 text-orange-800' : intervention.impacts.heat === 'medium' ? 'bg-orange-50 text-orange-600' : 'bg-gray-100 text-gray-600'}`}>
-                                        Heat
-                                      </Badge>
-                                    )}
-                                  </div>
-                                )}
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
-                    )}
-                    
-                    {isExpanded && interventions.length === 0 && (
-                      <div className="border-t bg-muted/30 p-4">
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          {t('impactModel.noInterventionsInZone')}
-                        </p>
+                    ) : (
+                      <div className="py-6 text-center text-muted-foreground bg-muted/20 rounded-lg">
+                        <p className="text-sm">{t('impactModel.noInterventionsInZone')}</p>
+                        <p className="text-xs mt-1 opacity-70">Add interventions in the Site Explorer</p>
                       </div>
                     )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function GenerateStep({ 
-  data, 
-  onUpdate,
-  onGenerate,
-  isGenerating,
-  cityName,
-  funderName,
-  onContinueToCuration
+function GenerationModal({ 
+  isOpen, 
+  estimatedTime 
 }: { 
-  data: ImpactModelData; 
-  onUpdate: (d: Partial<ImpactModelData>) => void;
-  onGenerate: () => void;
-  isGenerating: boolean;
-  cityName: string;
-  funderName: string;
-  onContinueToCuration: () => void;
+  isOpen: boolean;
+  estimatedTime: string;
 }) {
   const { t } = useTranslation();
-  const hasPreviousGeneration = data.narrativeCache.base && data.narrativeCache.base.length > 0;
-  const enabledBundles = data.interventionBundles.filter(b => b.enabled);
-  
+  const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const interval = setInterval(() => {
+      setCurrentPhraseIndex((prev) => (prev + 1) % GENERATION_PHRASES.length);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-amber-500" />
-            {t('impactModel.generateNarrative')}
-          </CardTitle>
-          <CardDescription>{t('impactModel.generateDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="p-4 bg-muted/50 rounded-lg space-y-4">
-            <h4 className="font-medium">{t('impactModel.generationSummary')}</h4>
-            
-            <div className="grid md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-muted-foreground">{t('impactModel.city')}:</span>
-                <p className="font-medium">{cityName}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+      <div className="w-full max-w-md mx-4">
+        <Card className="border-primary/20 shadow-xl">
+          <CardContent className="py-12 px-8">
+            <div className="flex flex-col items-center text-center space-y-8">
+              {/* Animated Loader */}
+              <div className="relative">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-500 to-primary/80 animate-pulse" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Sparkles className="h-8 w-8 text-white animate-pulse" />
+                </div>
+                <div className="absolute -inset-2 rounded-full border-2 border-primary/30 animate-ping opacity-30" />
               </div>
-              <div>
-                <span className="text-muted-foreground">{t('impactModel.funder')}:</span>
-                <p className="font-medium">{funderName}</p>
+
+              {/* Rotating Phrases */}
+              <div className="space-y-3 min-h-[60px]">
+                <p 
+                  key={currentPhraseIndex}
+                  className="text-lg font-medium text-foreground animate-fade-in"
+                >
+                  {GENERATION_PHRASES[currentPhraseIndex]}...
+                </p>
+                <div className="flex justify-center gap-1.5">
+                  {GENERATION_PHRASES.map((_, index) => (
+                    <div 
+                      key={index}
+                      className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                        index === currentPhraseIndex 
+                          ? 'bg-primary scale-110' 
+                          : 'bg-muted-foreground/30'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Time Estimate */}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                <span>{t('impactModel.estimatedTime')}: {estimatedTime}</span>
               </div>
             </div>
-
-            <div>
-              <span className="text-muted-foreground text-sm">{t('impactModel.selectedProjects')} ({enabledBundles.length}):</span>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {enabledBundles.map((bundle) => (
-                  <Badge key={bundle.id} variant="secondary" className="text-xs">
-                    {bundle.name}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 text-sm pt-2 border-t">
-              <div className="text-center">
-                <span className="text-muted-foreground">{t('impactModel.weights.floodRiskReduction').split(' ')[0]}:</span>
-                <p className="font-medium">{data.prioritizationWeights.floodRiskReduction}/5</p>
-              </div>
-              <div className="text-center">
-                <span className="text-muted-foreground">{t('impactModel.weights.heatReduction').split(' ')[0]}:</span>
-                <p className="font-medium">{data.prioritizationWeights.heatReduction}/5</p>
-              </div>
-              <div className="text-center">
-                <span className="text-muted-foreground">{t('impactModel.weights.socialEquity').split(' ')[0]}:</span>
-                <p className="font-medium">{data.prioritizationWeights.socialEquity}/5</p>
-              </div>
-            </div>
-          </div>
-
-          {hasPreviousGeneration && (
-            <div className="p-4 border rounded-lg bg-amber-50 dark:bg-amber-900/20">
-              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-2">
-                <Clock className="h-5 w-5" />
-                <span className="font-medium">{t('impactModel.previousGeneration')}</span>
-              </div>
-              <p className="text-sm text-muted-foreground mb-3">
-                {t('impactModel.generatedOn')} {data.generationMeta?.generatedAt ? new Date(data.generationMeta.generatedAt).toLocaleString() : 'Unknown'} 
-                {' • '}{data.narrativeCache.base?.length} {t('impactModel.blocks')}
-              </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={onContinueToCuration}>
-                  {t('impactModel.continueToCuration')}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={onGenerate} disabled={isGenerating}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  {t('impactModel.regenerate')}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {!hasPreviousGeneration && (
-            <Button 
-              onClick={onGenerate} 
-              disabled={isGenerating || enabledBundles.length === 0}
-              className="w-full"
-              size="lg"
-            >
-              {isGenerating ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  {t('impactModel.generating')}
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  {t('impactModel.generateWithAI')}
-                </>
-              )}
-            </Button>
-          )}
-
-          {enabledBundles.length === 0 && (
-            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm">
-              <AlertCircle className="h-4 w-4" />
-              <span>{t('impactModel.selectProjectsFirst')}</span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -500,7 +613,7 @@ function CurateStep({
         <CardContent className="py-12 text-center text-muted-foreground">
           <Edit3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p>{t('impactModel.noNarrativeYet')}</p>
-          <p className="text-sm mt-2">{t('impactModel.goToGenerate')}</p>
+          <p className="text-sm mt-2">{t('impactModel.returnToSetup')}</p>
         </CardContent>
       </Card>
     );
@@ -1358,12 +1471,12 @@ export default function ImpactModelPage() {
 
   const funderPathway = context?.funderSelection?.pathway ?? sampleFunderSelection.pathway;
 
+  const projectName = context?.projectName || 'Urban Climate Resilience Initiative';
+
   const canProceed = () => {
     switch (currentStep) {
       case 'setup':
         return localData.interventionBundles.length > 0;
-      case 'generate':
-        return localData.narrativeCache.base && localData.narrativeCache.base.length > 0;
       case 'curate':
       case 'lenses':
         return true;
@@ -1372,6 +1485,12 @@ export default function ImpactModelPage() {
       default:
         return true;
     }
+  };
+
+  const handleGenerateAndProceed = async () => {
+    setIsGenerating(true);
+    await handleGenerate();
+    setCurrentStep('curate');
   };
 
   const currentStepIndex = WIZARD_STEPS.indexOf(currentStep);
@@ -1403,19 +1522,22 @@ export default function ImpactModelPage() {
 
         <StepIndicator currentStep={currentStep} steps={WIZARD_STEPS} />
 
+        {/* Generation Modal */}
+        <GenerationModal 
+          isOpen={isGenerating} 
+          estimatedTime="30-60 seconds"
+        />
+
         <div className="mb-6">
           {currentStep === 'setup' && (
-            <SetupStep data={localData} onUpdate={handleUpdate} siteExplorerZones={siteExplorerZones} usingSampleData={usingSampleData} />
-          )}
-          {currentStep === 'generate' && (
-            <GenerateStep 
+            <SetupStep 
               data={localData} 
               onUpdate={handleUpdate} 
-              onGenerate={handleGenerate} 
-              isGenerating={isGenerating}
+              siteExplorerZones={siteExplorerZones} 
+              usingSampleData={usingSampleData}
               cityName={cityName}
+              projectName={projectName}
               funderName={funderName}
-              onContinueToCuration={() => setCurrentStep('curate')}
             />
           )}
           {currentStep === 'curate' && (
@@ -1450,11 +1572,28 @@ export default function ImpactModelPage() {
           <Button
             variant="outline"
             onClick={() => setCurrentStep(WIZARD_STEPS[currentStepIndex - 1])}
-            disabled={currentStepIndex === 0}
+            disabled={currentStepIndex === 0 || isGenerating}
           >
             {t('common.previous')}
           </Button>
-          {currentStepIndex < WIZARD_STEPS.length - 1 ? (
+          {currentStep === 'setup' ? (
+            <Button
+              onClick={handleGenerateAndProceed}
+              disabled={!canProceed() || isGenerating}
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t('impactModel.generating')}
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  {t('impactModel.generateNarrative')}
+                </>
+              )}
+            </Button>
+          ) : currentStepIndex < WIZARD_STEPS.length - 1 ? (
             <Button
               onClick={() => setCurrentStep(WIZARD_STEPS[currentStepIndex + 1])}
               disabled={!canProceed()}

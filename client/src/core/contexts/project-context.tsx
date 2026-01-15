@@ -323,7 +323,7 @@ export interface InterventionBundle {
   name: string;
   objective: string;
   targetHazards: string[];
-  interventions: Array<{ type: string; quantity: number; unit: string; notes?: string }>;
+  interventions: string[];
   locations: Array<{ zoneId: string; name: string; geometryType: string }>;
   capexRange: { low: number; high: number };
   enabled: boolean;
