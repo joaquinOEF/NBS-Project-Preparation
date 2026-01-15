@@ -79,7 +79,6 @@ interface OperationalRisk {
   trigger?: string;
   mitigationActions?: string[];
   linkedSignals?: string[];
-  hidden?: boolean;
 }
 
 interface FundingSource {
@@ -511,7 +510,7 @@ export default function ProjectOperationsPage() {
     { id: 'roles', icon: Users },
     { id: 'taskPlan', icon: ClipboardList },
     { id: 'funding', icon: DollarSign },
-    { id: 'readiness', icon: AlertTriangle },
+    { id: 'capacityAndRisk', icon: AlertTriangle },
     { id: 'playbookReview', icon: FileText },
   ];
 
@@ -1493,7 +1492,7 @@ export default function ProjectOperationsPage() {
                                 onValueChange={(value) => updateOMData({
                                   omFunding: {
                                     ...omData.omFunding,
-                                    commitmentLevels: { ...(omData.omFunding.commitmentLevels || {}), [mechanism]: value }
+                                    commitmentLevels: { ...(omData.omFunding.commitmentLevels || {}), [mechanism]: value as CommitmentLevel }
                                   }
                                 })}
                               >
@@ -1542,8 +1541,8 @@ export default function ProjectOperationsPage() {
           <div className="space-y-6">
             {(() => {
               const blockers: string[] = [];
-              if (!omData.governance.operatingModel) blockers.push('selectOperatingModel');
-              if (!omData.governance.operatorEntityId) blockers.push('assignOperator');
+              if (!omData.operatingModel) blockers.push('selectOperatingModel');
+              if (!omData.roles.operatorEntityId) blockers.push('assignOperator');
               if (omData.taskPlan.length === 0) blockers.push('defineTaskPlan');
               if (omData.omFunding.mechanisms.length === 0) blockers.push('selectFunding');
               if (!omData.omFunding.primaryMechanism) blockers.push('selectPrimaryFunding');
@@ -1678,7 +1677,7 @@ export default function ProjectOperationsPage() {
                               <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => {
                                 const suggestions = SUGGESTED_MITIGATION_ACTIONS[risk.riskType] || [];
                                 const newRisks = omData.opsRisks.map(r => 
-                                  r.id === risk.id ? { ...r, mitigationActions: [...new Set([...(r.mitigationActions || []), ...suggestions])] } : r
+                                  r.id === risk.id ? { ...r, mitigationActions: Array.from(new Set([...(r.mitigationActions || []), ...suggestions])) } : r
                                 );
                                 updateOMData({ opsRisks: newRisks });
                               }}>
@@ -1799,20 +1798,20 @@ export default function ProjectOperationsPage() {
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">{t('om.operatingModelLabel')}:</span>
-                          <span className="font-medium">{omData.governance.operatingModel ? t(`om.model.${omData.governance.operatingModel}`) : '-'}</span>
+                          <span className="font-medium">{omData.operatingModel ? t(`om.model.${omData.operatingModel}`) : '-'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">{t('om.operatorLabel')}:</span>
-                          <span className="font-medium">{allStakeholders.find(s => s.id === omData.governance.operatorEntityId)?.name || '-'}</span>
+                          <span className="font-medium">{allStakeholders.find(s => s.id === omData.roles.operatorEntityId)?.name || '-'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">{t('om.verifierLabel')}:</span>
-                          <span className="font-medium">{allStakeholders.find(s => s.id === omData.governance.verifierEntityId)?.name || '-'}</span>
+                          <span className="font-medium">{allStakeholders.find(s => s.id === omData.roles.verifierEntityId)?.name || '-'}</span>
                         </div>
-                        {omData.governance.communityRole && (
+                        {omData.roles.communityRole && (
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">{t('om.communityRoleLabel')}:</span>
-                            <span className="font-medium">{t(`om.communityRole.${omData.governance.communityRole}`)}</span>
+                            <span className="font-medium">{t(`om.communityRole.${omData.roles.communityRole}`)}</span>
                           </div>
                         )}
                       </div>
@@ -1961,8 +1960,8 @@ export default function ProjectOperationsPage() {
                   </Button>
                   <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2" onClick={() => {
                     const miroPrompt = `Create a Miro diagram for O&M operations:
-Operating Model: ${omData.governance.operatingModel}
-Operator: ${allStakeholders.find(s => s.id === omData.governance.operatorEntityId)?.name || 'TBD'}
+Operating Model: ${omData.operatingModel}
+Operator: ${allStakeholders.find(s => s.id === omData.roles.operatorEntityId)?.name || 'TBD'}
 Tasks: ${omData.taskPlan.length} maintenance tasks
 Key Risks: ${omData.opsRisks.filter(r => r.riskLevel === 'HIGH').map(r => r.riskType).join(', ') || 'None'}
 Funding: ${omData.omFunding.mechanisms.map(m => m).join(', ')}`;
