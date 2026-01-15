@@ -1303,7 +1303,7 @@
     "returnToSetup": "Return to Setup and click 'Generate Narrative' to create your impact story",
     "coBenefitsTitle": "Co-Benefits",
     "coBenefitsDescription": "Review and select which co-benefits to include",
-    "analyticalLenses": "Analytical Lenses",
+    "analyticalLenses": "Lenses",
     "lensesDescription": "View your narrative through different analytical perspectives",
     "lenses": {
       "neutral": "Neutral",
@@ -1403,6 +1403,7 @@
     "reorderBlocks": "Drag to reorder",
     "moveUp": "Move Up",
     "moveDown": "Move Down",
+    "narrativeHeadline": "Narrative Headline",
     "lensHeadlines": {
       "neutral": "Balanced perspective on project impacts",
       "climate": "Climate-focused narrative emphasizing emissions and adaptation",

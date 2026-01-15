@@ -952,134 +952,229 @@ function LensesStep({
 
   const hasBaseNarrative = data.narrativeCache.base && data.narrativeCache.base.length > 0;
 
-  return (
-    <div className="space-y-6">
+  const getBlocksForLens = (lens: LensType): NarrativeBlock[] => {
+    if (lens === 'neutral') return data.narrativeCache.base || [];
+    return data.narrativeCache.lensVariants[lens] || [];
+  };
+
+  const generateHeadlineSummary = (blocks: NarrativeBlock[]): string => {
+    if (blocks.length === 0) return '';
+    const execSummary = blocks.find(b => b.type === 'executive_summary');
+    if (execSummary) {
+      const firstParagraph = execSummary.contentMd.split('\n\n')[0];
+      return firstParagraph.substring(0, 200) + (firstParagraph.length > 200 ? '...' : '');
+    }
+    return blocks[0]?.contentMd.substring(0, 150) + '...' || '';
+  };
+
+  if (!hasBaseNarrative) {
+    return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Eye className="h-5 w-5" />
-            {t('impactModel.analyticalLenses')}
-          </CardTitle>
-          <CardDescription>{t('impactModel.lensesDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!hasBaseNarrative ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Eye className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>{t('impactModel.generateFirst')}</p>
-            </div>
-          ) : (
-            <Tabs value={data.selectedLens} onValueChange={(v) => onUpdate({ selectedLens: v as LensType })}>
-              <TabsList className="grid w-full grid-cols-5">
-                {lenses.map((lens) => {
-                  const hasVariant = lens === 'neutral' || (data.narrativeCache.lensVariants[lens]?.length > 0);
-                  return (
-                    <TabsTrigger key={lens} value={lens} className="text-xs relative flex items-center gap-1.5">
-                      {LENS_ICONS[lens]}
-                      <span className="hidden sm:inline">{t(`impactModel.lenses.${lens}`)}</span>
-                      {hasVariant && lens !== 'neutral' && (
-                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
-                      )}
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
-              {lenses.map((lens) => (
-                <TabsContent key={lens} value={lens} className="mt-4">
-                  <div className="p-4 bg-muted/30 rounded-lg space-y-4">
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        {LENS_ICONS[lens]}
-                      </div>
-                      <div>
-                        <h4 className="font-medium">{t(`impactModel.lenses.${lens}`)}</h4>
-                        <p className="text-sm text-muted-foreground mt-1">{t(`impactModel.lensHeadlines.${lens}`)}</p>
-                      </div>
-                    </div>
-                    
-                    {lens === 'neutral' ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                          <Check className="h-4 w-4" />
-                          <span className="text-sm font-medium">{t('impactModel.baseNarrativeAvailable')}</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{t('impactModel.neutralIsBase')}</p>
-                        <ScrollArea className="h-[300px] mt-4">
-                          <div className="space-y-2 pr-4">
-                            {data.narrativeCache.base?.map((block) => (
-                              <div key={block.id} className="p-3 bg-background border rounded">
-                                <p className="font-medium text-sm">{block.title}</p>
-                                <p className="text-xs text-muted-foreground mt-1 line-clamp-3">{block.contentMd}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </ScrollArea>
-                      </div>
-                    ) : data.narrativeCache.lensVariants[lens]?.length > 0 ? (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                            <Check className="h-4 w-4" />
-                            <span className="text-sm font-medium">{t('impactModel.lensGenerated')}</span>
-                          </div>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            disabled={isGeneratingLens === lens}
-                            onClick={() => onGenerateLens(lens, customInstructions[lens])}
-                          >
-                            <RefreshCw className={`h-3 w-3 mr-2 ${isGeneratingLens === lens ? 'animate-spin' : ''}`} />
-                            {t('impactModel.regenerateLens')}
-                          </Button>
-                        </div>
-                        <ScrollArea className="h-[300px]">
-                          <div className="space-y-2 pr-4">
-                            {data.narrativeCache.lensVariants[lens].map((block) => (
-                              <div key={block.id} className="p-3 bg-background border rounded">
-                                <p className="font-medium text-sm">{block.title}</p>
-                                <p className="text-xs text-muted-foreground mt-1 line-clamp-3">{block.contentMd}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </ScrollArea>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground italic">{t('impactModel.lensNotGenerated')}</p>
-                        <div>
-                          <Label className="text-xs text-muted-foreground">{t('impactModel.customInstructions')}</Label>
-                          <Textarea
-                            placeholder={t('impactModel.customInstructionsPlaceholder')}
-                            value={customInstructions[lens] || ''}
-                            onChange={(e) => setCustomInstructions(prev => ({ ...prev, [lens]: e.target.value }))}
-                            className="min-h-[60px] mt-1 text-sm"
-                          />
-                        </div>
-                        <Button 
-                          onClick={() => onGenerateLens(lens, customInstructions[lens])}
-                          disabled={isGeneratingLens === lens}
-                        >
-                          {isGeneratingLens === lens ? (
-                            <>
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                              {t('impactModel.generatingLens')}
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="h-4 w-4 mr-2" />
-                              {t('impactModel.generateLensVersion')}
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-              ))}
-            </Tabs>
-          )}
+        <CardContent className="py-12 text-center text-muted-foreground">
+          <Eye className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p>{t('impactModel.generateFirst')}</p>
         </CardContent>
       </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Eye className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-semibold">{t('impactModel.analyticalLenses')}</h2>
+        </div>
+        <p className="text-muted-foreground">{t('impactModel.lensesDescription')}</p>
+      </div>
+
+      {/* Lens Tabs */}
+      <Tabs value={data.selectedLens} onValueChange={(v) => onUpdate({ selectedLens: v as LensType })} className="max-w-3xl">
+        <TabsList className="grid w-full grid-cols-5 mb-6">
+          {lenses.map((lens) => {
+            const hasVariant = lens === 'neutral' || (data.narrativeCache.lensVariants[lens]?.length > 0);
+            return (
+              <TabsTrigger key={lens} value={lens} className="text-xs relative flex items-center gap-1.5">
+                {LENS_ICONS[lens]}
+                <span className="hidden sm:inline">{t(`impactModel.lenses.${lens}`)}</span>
+                {hasVariant && lens !== 'neutral' && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
+                )}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+
+        {lenses.map((lens) => {
+          const lensBlocks = getBlocksForLens(lens);
+          const hasLensContent = lensBlocks.length > 0;
+          const headlineSummary = generateHeadlineSummary(lensBlocks);
+
+          return (
+            <TabsContent key={lens} value={lens} className="mt-0">
+              <div className="space-y-6 max-w-3xl">
+                {/* Lens Header Card */}
+                <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+                  <CardContent className="p-5">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-primary/10 rounded-xl">
+                        <div className="scale-125">{LENS_ICONS[lens]}</div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold">{t(`impactModel.lenses.${lens}`)} Lens</h3>
+                        <p className="text-sm text-muted-foreground mt-1">{t(`impactModel.lensHeadlines.${lens}`)}</p>
+                        
+                        {hasLensContent && headlineSummary && (
+                          <div className="mt-4 p-4 bg-white/50 dark:bg-gray-900/50 rounded-lg border">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">{t('impactModel.narrativeHeadline')}</p>
+                            <p className="text-sm leading-relaxed italic">"{headlineSummary}"</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Lens Content */}
+                {lens === 'neutral' ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                      <Check className="h-4 w-4" />
+                      <span className="text-sm font-medium">{t('impactModel.baseNarrativeAvailable')}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{t('impactModel.neutralIsBase')}</p>
+                    
+                    <div className="space-y-4 mt-6">
+                      {data.narrativeCache.base?.map((block) => (
+                        <Card key={block.id} className="overflow-hidden">
+                          <CardHeader className="pb-3 bg-muted/30">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-base">{block.title}</CardTitle>
+                              <div className="flex gap-2">
+                                <Badge variant="outline" className="text-xs capitalize">{block.type.replace(/_/g, ' ')}</Badge>
+                                <Badge variant="secondary" className="text-xs">{block.evidenceTier}</Badge>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="pt-4">
+                            {block.kpis && block.kpis.length > 0 && (
+                              <div className="mb-4 pb-4 border-b">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                  {block.kpis.map((kpi, i) => (
+                                    <div key={i} className="bg-primary/5 rounded-lg p-3">
+                                      <p className="text-xs text-muted-foreground">{kpi.name}</p>
+                                      <p className="text-lg font-bold text-primary">
+                                        {kpi.valueRange}
+                                        <span className="text-sm font-normal text-muted-foreground ml-1">{kpi.unit}</span>
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <div 
+                              className="prose prose-sm max-w-none dark:prose-invert leading-relaxed"
+                              dangerouslySetInnerHTML={{ __html: renderMarkdown(block.contentMd) }}
+                            />
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                ) : hasLensContent ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                        <Check className="h-4 w-4" />
+                        <span className="text-sm font-medium">{t('impactModel.lensGenerated')}</span>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        disabled={isGeneratingLens === lens}
+                        onClick={() => onGenerateLens(lens, customInstructions[lens])}
+                      >
+                        <RefreshCw className={`h-3 w-3 mr-2 ${isGeneratingLens === lens ? 'animate-spin' : ''}`} />
+                        {t('impactModel.regenerateLens')}
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-4 mt-6">
+                      {lensBlocks.map((block) => (
+                        <Card key={block.id} className="overflow-hidden">
+                          <CardHeader className="pb-3 bg-muted/30">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-base">{block.title}</CardTitle>
+                              <div className="flex gap-2">
+                                <Badge variant="outline" className="text-xs capitalize">{block.type.replace(/_/g, ' ')}</Badge>
+                                <Badge variant="secondary" className="text-xs">{block.evidenceTier}</Badge>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="pt-4">
+                            {block.kpis && block.kpis.length > 0 && (
+                              <div className="mb-4 pb-4 border-b">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                  {block.kpis.map((kpi, i) => (
+                                    <div key={i} className="bg-primary/5 rounded-lg p-3">
+                                      <p className="text-xs text-muted-foreground">{kpi.name}</p>
+                                      <p className="text-lg font-bold text-primary">
+                                        {kpi.valueRange}
+                                        <span className="text-sm font-normal text-muted-foreground ml-1">{kpi.unit}</span>
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <div 
+                              className="prose prose-sm max-w-none dark:prose-invert leading-relaxed"
+                              dangerouslySetInnerHTML={{ __html: renderMarkdown(block.contentMd) }}
+                            />
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <Card>
+                    <CardContent className="p-6 space-y-4">
+                      <p className="text-sm text-muted-foreground italic">{t('impactModel.lensNotGenerated')}</p>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">{t('impactModel.customInstructions')}</Label>
+                        <Textarea
+                          placeholder={t('impactModel.customInstructionsPlaceholder')}
+                          value={customInstructions[lens] || ''}
+                          onChange={(e) => setCustomInstructions(prev => ({ ...prev, [lens]: e.target.value }))}
+                          className="min-h-[80px] mt-2 text-sm"
+                        />
+                      </div>
+                      <Button 
+                        onClick={() => onGenerateLens(lens, customInstructions[lens])}
+                        disabled={isGeneratingLens === lens}
+                        className="w-full sm:w-auto"
+                      >
+                        {isGeneratingLens === lens ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            {t('impactModel.generatingLens')}
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            {t('impactModel.generateLensVersion')}
+                          </>
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </TabsContent>
+          );
+        })}
+      </Tabs>
     </div>
   );
 }

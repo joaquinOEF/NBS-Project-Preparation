@@ -1303,7 +1303,7 @@
     "returnToSetup": "Retorne para Configuração e clique em 'Gerar Narrativa' para criar sua história de impacto",
     "coBenefitsTitle": "Co-Benefícios",
     "coBenefitsDescription": "Revise e selecione quais co-benefícios incluir",
-    "analyticalLenses": "Lentes Analíticas",
+    "analyticalLenses": "Lentes",
     "lensesDescription": "Visualize sua narrativa através de diferentes perspectivas analíticas",
     "lenses": {
       "neutral": "Neutro",
@@ -1403,6 +1403,7 @@
     "reorderBlocks": "Arraste para reordenar",
     "moveUp": "Mover para Cima",
     "moveDown": "Mover para Baixo",
+    "narrativeHeadline": "Título da Narrativa",
     "lensHeadlines": {
       "neutral": "Perspectiva equilibrada sobre impactos do projeto",
       "climate": "Narrativa focada no clima enfatizando emissões e adaptação",
