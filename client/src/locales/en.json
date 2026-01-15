@@ -145,6 +145,7 @@
       "pathway": "Pathway",
       "fundsShortlisted": "funds shortlisted",
       "fundsSelected": "selected",
+      "selectedFunds": "Selected Funds",
       "zonesSelected": "zones selected",
       "flood": "Flood",
       "heat": "Heat",
@@ -324,7 +325,7 @@
         "high": "High"
       },
       "limitingFactors": "Main limiting factors",
-      "topFunds": "Top Funds to Explore",
+      "topFunds": "Top Preparation Funds to Explore",
       "topFundsDescription": "These funds are ranked based on fit with your project profile",
       "noFundsMatch": "No funds in our database match the selected pathway. Consider expanding your search or adjusting project parameters.",
       "ticketSize": "Ticket size",

@@ -145,6 +145,7 @@
       "pathway": "Caminho",
       "fundsShortlisted": "fundos pré-selecionados",
       "fundsSelected": "selecionados",
+      "selectedFunds": "Fundos Selecionados",
       "zonesSelected": "zonas selecionadas",
       "flood": "Inundação",
       "heat": "Calor",
@@ -324,7 +325,7 @@
         "high": "Alto"
       },
       "limitingFactors": "Principais fatores limitantes",
-      "topFunds": "Principais Fundos para Explorar",
+      "topFunds": "Principais Fundos de Preparação para Explorar",
       "topFundsDescription": "Estes fundos são classificados com base na adequação ao perfil do seu projeto",
       "noFundsMatch": "Nenhum fundo em nossa base de dados corresponde ao caminho selecionado. Considere expandir sua busca ou ajustar os parâmetros do projeto.",
       "ticketSize": "Tamanho do ticket",

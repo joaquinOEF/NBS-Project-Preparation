@@ -91,10 +91,19 @@ function FunderHighlight({ data }: { data: ProjectContextData['funderSelection']
           <span className="font-medium">{data.pathway.primary.replace(/_/g, ' ')}</span>
         </div>
       )}
-      {(data.shortlistedFunds?.length > 0 || data.selectedFunds?.length > 0) && (
+      {data.selectedFunds?.length > 0 ? (
+        <div className="text-xs">
+          <span className="text-muted-foreground">{t('project.highlights.selectedFunds')}: </span>
+          <span className="font-medium">
+            {data.selectedFunds.map(fundId => {
+              const targetFund = data.targetFunders?.find(f => f.fundId === fundId);
+              return targetFund?.fundName || fundId;
+            }).join(', ')}
+          </span>
+        </div>
+      ) : data.shortlistedFunds?.length > 0 && (
         <div className="text-xs text-muted-foreground">
-          {data.shortlistedFunds?.length || 0} {t('project.highlights.fundsShortlisted')}
-          {data.selectedFunds?.length > 0 && ` • ${data.selectedFunds.length} ${t('project.highlights.fundsSelected')}`}
+          {data.shortlistedFunds.length} {t('project.highlights.fundsShortlisted')}
         </div>
       )}
     </div>
