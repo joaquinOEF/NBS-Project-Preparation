@@ -1139,42 +1139,61 @@ export default function FunderSelectionPage() {
                 {t('funderSelection.results.noFundsMatch')}
               </p>
             ) : (
-              recommendedFunds.map((fund, index) => (
-                <div key={fund.id} className="border rounded-lg p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">#{index + 1}</Badge>
-                        <h4 className="font-medium">{fund.name}</h4>
+              recommendedFunds.map((fund, index) => {
+                const isSelected = selectedNowFundId === fund.id;
+                return (
+                  <div 
+                    key={fund.id} 
+                    className={`border rounded-lg p-4 space-y-3 cursor-pointer transition-all ${
+                      isSelected 
+                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
+                        : 'hover:border-primary/50'
+                    }`}
+                    onClick={() => setSelectedNowFundId(fund.id)}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0 ${
+                          isSelected ? 'border-primary bg-primary' : 'border-gray-300'
+                        }`}>
+                          {isSelected && <Check className="h-3 w-3 text-white" />}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">#{index + 1}</Badge>
+                            <h4 className="font-medium">{fund.name}</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">{fund.institution}</p>
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">{fund.institution}</p>
+                      <Badge>{fund.instrumentLabel}</Badge>
                     </div>
-                    <Badge>{fund.instrumentLabel}</Badge>
+                    <p className="text-sm text-muted-foreground">{fund.description}</p>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">{t('funderSelection.results.ticketSize')}:</span>
+                        <p className="text-muted-foreground">{fund.ticketWindowLabel}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium">{t('funderSelection.results.terms')}:</span>
+                        <p className="text-muted-foreground">{fund.tenorGrace}</p>
+                      </div>
+                    </div>
+                    {fund.officialLink && (
+                      <a
+                        href={fund.officialLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {t('funderSelection.results.learnMore')}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
                   </div>
-                  <p className="text-sm text-muted-foreground">{fund.description}</p>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium">{t('funderSelection.results.ticketSize')}:</span>
-                      <p className="text-muted-foreground">{fund.ticketWindowLabel}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium">{t('funderSelection.results.terms')}:</span>
-                      <p className="text-muted-foreground">{fund.tenorGrace}</p>
-                    </div>
-                  </div>
-                  {fund.officialLink && (
-                    <a
-                      href={fund.officialLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                    >
-                      {t('funderSelection.results.learnMore')}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </CardContent>
         </Card>
@@ -1337,31 +1356,54 @@ export default function FunderSelectionPage() {
               <div className="space-y-6">
                 <div>
                   <h4 className="font-medium mb-3">{t('funderSelection.decision.selectNow')}</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {t('funderSelection.decision.selectFromAbove')}
+                  </p>
                   <div className="space-y-2">
-                    {recommendedFunds.slice(0, 3).map((fund, index) => (
-                      <div
-                        key={fund.id}
-                        onClick={() => setSelectedNowFundId(fund.id)}
-                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                          selectedNowFundId === fund.id 
-                            ? 'border-primary bg-primary/10' 
-                            : 'hover:border-primary/50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            selectedNowFundId === fund.id ? 'border-primary bg-primary' : 'border-gray-300'
-                          }`}>
-                            {selectedNowFundId === fund.id && <Check className="h-3 w-3 text-white" />}
+                    {(() => {
+                      const top3Funds = recommendedFunds.slice(0, 3);
+                      const selectedFundInTop3 = top3Funds.some(f => f.id === selectedNowFundId);
+                      const selectedFundDetails = selectedNowFundId && !selectedFundInTop3 
+                        ? fundsData?.funds.find(f => f.id === selectedNowFundId) 
+                        : null;
+                      
+                      const fundsToShow = selectedFundDetails 
+                        ? [...top3Funds, selectedFundDetails]
+                        : top3Funds;
+                      
+                      return fundsToShow.map((fund, index) => {
+                        const isCustomSelection = index === 3;
+                        const displayIndex = isCustomSelection ? null : index + 1;
+                        return (
+                          <div
+                            key={fund.id}
+                            onClick={() => setSelectedNowFundId(fund.id)}
+                            className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                              selectedNowFundId === fund.id 
+                                ? 'border-primary bg-primary/10' 
+                                : 'hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                selectedNowFundId === fund.id ? 'border-primary bg-primary' : 'border-gray-300'
+                              }`}>
+                                {selectedNowFundId === fund.id && <Check className="h-3 w-3 text-white" />}
+                              </div>
+                              <div>
+                                <p className="font-medium">{fund.name}</p>
+                                <p className="text-sm text-muted-foreground">{fund.institution}</p>
+                              </div>
+                              {displayIndex ? (
+                                <Badge variant="outline" className="ml-auto">#{displayIndex}</Badge>
+                              ) : (
+                                <Badge variant="secondary" className="ml-auto">{t('funderSelection.decision.yourChoice')}</Badge>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium">{fund.name}</p>
-                            <p className="text-sm text-muted-foreground">{fund.institution}</p>
-                          </div>
-                          <Badge variant="outline" className="ml-auto">#{index + 1}</Badge>
-                        </div>
-                      </div>
-                    ))}
+                        );
+                      });
+                    })()}
                     <Button
                       variant="ghost"
                       className="w-full text-muted-foreground"
