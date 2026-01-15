@@ -1,0 +1,51 @@
+O&M Component UX & Data Enhancement
+Revision prompt A
+You are a senior full-stack engineer improving an existing Replit prototype for CityCatalyst’s Project Preparation Module.  Context The Project Operations & Maintenance (O&M) component already exists and is functional, but it needs UX and data-model refinement to support pre-feasibility project prep for multi-site projects (including NBS). Prior stages already exist (Problem, Site, Technology/Technical, Budget, Stakeholders/Implementors, MRV, Business Model). This O&M component should inherit context from those steps and minimize duplicate data entry.  Objective Refactor and enhance the existing O&M component while keeping it pre-feasibility and lightweight (archetypes, ranges, checklists). Maintain existing design system, routing, styling, and state patterns. Implement the backlog items below, ensuring the module remains easy to complete quickly but more credible for finance and delivery planning.  Key Requirements (Implement in this prompt)  1) Overview improvements - Imported context section must not be fixed-only. Provide:   - “Accept prefill” (keep suggested values)   - “Edit imported context” (edit snapshot fields in a modal/drawer; do NOT overwrite upstream steps)   - “Start from scratch” (clears O&M fields, but preserves upstream project context) - Add a short informational blurb explaining why O&M matters (especially for NBS durability and bankability). - Remove or fix the “Previous” arrow on Overview if there are no previous sections in this component flow.  2) Operating Model: program default + site overrides - Extend Operating Model from a program-wide single config into a “default + overrides” pattern:   - Add Scope control:     - “Apply to all sites” (default)     - “Vary by site/project (add overrides)”   - When “Vary by site” is enabled, show an overrides table listing all sites (from Site step):     - Each row: Site name | Inherit default toggle | Operating Model override (optional) | Operator override (optional) | Maintainer override (optional) | Verifier override (optional) | Notes     - Keep overrides minimal; do NOT duplicate full O&M forms per site. - Hybrid operating model should continue to exist as a program-wide pattern; do NOT treat “Hybrid” as equivalent to “vary by site.” Vary-by-site is separate from hybrid.  3) Roles & Decision Rights improvements - Add a one-sentence description under each role selector:   - Asset Owner, Program Owner, Operator, Maintainer, Verifier/Inspector - Role defaults should derive from the program default operating model (and from site override configs when overrides are enabled) without asking the user extra questions. - Add lightweight stakeholder management in-place:   - “Add stakeholder” and “Edit stakeholders” actions in this section   - Open a modal/drawer to create/edit stakeholder records (name, type, notes)   - Newly added stakeholders must be immediately selectable for roles - Clarify community configuration:   - Create a clearly labeled “Community Role Configuration” sub-section   - Includes:     - Community role selection (beneficiary / steward-operator / co-owner)     - Free text input to describe community role in plain language     - Stewardship Scope nested INSIDE this section, with copy that explicitly states it applies to the community stewardship entity  4) Task Plan improvements (NBS Establishment Period linkage + add tasks) - Clarify NBS Establishment Period with inline definitions:   - Establishment Period = initial 12–36 month ramp-up phase where NBS needs higher-frequency care   - Rename “Survival Target” to “Vegetation Survival Target (%)” with help text - Link Establishment Period settings to task plan behavior:   - Selecting establishment duration + intensity should auto-add/activate establishment tasks (and scale frequency)   - Tasks should visually indicate if they apply only during establishment (e.g., “Applies during months 0–24”) - Task table must support adding new task line items:   - Add “+ Add Task” button   - New row allows selecting Category (from existing fixed categories), task name, frequency, responsible, notes   - Keep category list fixed (do not add new categories in MVP) - Inheritance from Technology/Technical step:   - If Technical step provides “technology/NBS type” or recommended maintenance requirements, use them to prefill task libraries and default establishment tasks.  5) Funding: O&M Funding & Cost Band refinements
+- Clarify what cost estimates mean:
+  - Label explicitly as “Annual O&M cost estimate (per year)”
+  - Add Currency selector (default from project settings)
+  - Keep Cost Basis selector; add helper text explaining how roll-up works across sites using site/technical quantities when available
+- Rename assumptions field to “Assumptions behind this estimate” + add “Insert suggested assumptions” template button
+- For NBS projects, introduce 2-phase costs:
+  - Establishment Period (Years 1–2/3)
+  - Ongoing steady-state (Year 3+)
+  - Each phase includes low/mid/high fields, cost basis, and assumptions
+- Improve funding mechanisms:
+  - Rename to “O&M Funding Sources (Who pays)”
+  - Group options into Public/Utility, Contracted/Structured, Catalytic/Transitional
+  - Require selecting a Primary funding source (while allowing secondary)
+  - Add optional commitment level per source (Confirmed / Planned / Idea)
+- Replace duration with coverage logic:
+  - For NBS: establishment coverage + ongoing coverage
+  - For non-NBS: single duration
+  - Add recurring vs one-time indicator
+- Add a lightweight “task-to-cost grounding” panel (non-financial) that surfaces top cost drivers from task plan (watering, inspections, replacements, debris removal), without requiring per-task costing.
+
+6) Rename + improve Readiness section
+- Rename “Readiness” to “Capacity & Risk”
+- Keep capacity assessment (Adequate / Partial / Inadequate)
+- Make risks configurable:
+  - Prepopulate suggested risks based on operating model + hazard focus
+  - Allow add/remove/hide risks
+- Add risk structure:
+  - Owner (stakeholder/role)
+  - Optional trigger/early warning
+  - Mitigation as checkboxes from suggested actions + optional free text
+  - Provide tooltip definitions for Low/Medium/High
+  - Show “linked signals” that reference missing upstream O&M items (missing operator, unconfirmed funding, missing verifier, partial community capacity)
+- Add “Top Operational Blockers” summary at top with quick links to address gaps.
+
+Implementation Notes
+- Preserve existing layout patterns and persistence behavior.
+- Do not refactor unrelated modules.
+- Ensure new site overrides data structure uses a partial override approach:
+  effective_site_config = merge(default_config, site_override)
+- Keep validation lightweight but enforce required minimums for “READY” status.
+
+Acceptance Criteria
+- Users can complete O&M quickly with prefilled defaults and minimal extra typing.
+- O&M can apply to all sites or selectively override per site without duplicating full forms.
+- Users can add/edit stakeholders in-place.
+- Establishment Period clearly changes task plan and is understandable.
+- Funding section is concept-note ready (currency/period clear, NBS phased costs, primary source captured).
+- Capacity & Risk supports project-specific risk selection and produces actionable blockers.
