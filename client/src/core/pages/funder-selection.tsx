@@ -1176,61 +1176,154 @@ export default function FunderSelectionPage() {
                 {t('funderSelection.results.noFundsMatch')}
               </p>
             ) : (
-              recommendedFunds.map((fund, index) => {
-                const isSelected = selectedNowFundId === fund.id;
-                return (
-                  <div 
-                    key={fund.id} 
-                    className={`border rounded-lg p-4 space-y-3 cursor-pointer transition-all ${
-                      isSelected 
-                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
-                        : 'hover:border-primary/50'
-                    }`}
-                    onClick={() => setSelectedNowFundId(fund.id)}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0 ${
-                          isSelected ? 'border-primary bg-primary' : 'border-gray-300'
-                        }`}>
-                          {isSelected && <Check className="h-3 w-3 text-white" />}
-                        </div>
+              <>
+                {recommendedFunds.map((fund, index) => {
+                  const isSelected = selectedNowFundId === fund.id;
+                  return (
+                    <div 
+                      key={fund.id} 
+                      className={`border rounded-lg p-4 space-y-3 transition-all ${
+                        isSelected 
+                          ? 'border-green-500 bg-green-50 ring-2 ring-green-200' 
+                          : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-2">
                             <Badge variant="outline">#{index + 1}</Badge>
                             <h4 className="font-medium">{fund.name}</h4>
+                            {isSelected && (
+                              <Badge className="bg-green-600">
+                                <Check className="h-3 w-3 mr-1" />
+                                {t('funderSelection.decision.selected')}
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-sm text-muted-foreground mt-1">{fund.institution}</p>
                         </div>
+                        <Badge>{fund.instrumentLabel}</Badge>
                       </div>
-                      <Badge>{fund.instrumentLabel}</Badge>
+                      <p className="text-sm text-muted-foreground">{fund.description}</p>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium">{t('funderSelection.results.ticketSize')}:</span>
+                          <p className="text-muted-foreground">{fund.ticketWindowLabel}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium">{t('funderSelection.results.terms')}:</span>
+                          <p className="text-muted-foreground">{fund.tenorGrace}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t">
+                        {fund.officialLink && (
+                          <a
+                            href={fund.officialLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                          >
+                            {t('funderSelection.results.learnMore')}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                        {!fund.officialLink && <div />}
+                        {isSelected ? (
+                          <Button 
+                            type="button"
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setSelectedNowFundId(null)}
+                          >
+                            {t('funderSelection.decision.deselect')}
+                          </Button>
+                        ) : (
+                          <Button 
+                            type="button"
+                            size="sm"
+                            onClick={() => setSelectedNowFundId(fund.id)}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            {t('funderSelection.decision.selectThisFund')}
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground">{fund.description}</p>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium">{t('funderSelection.results.ticketSize')}:</span>
-                        <p className="text-muted-foreground">{fund.ticketWindowLabel}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium">{t('funderSelection.results.terms')}:</span>
-                        <p className="text-muted-foreground">{fund.tenorGrace}</p>
-                      </div>
-                    </div>
-                    {fund.officialLink && (
-                      <a
-                        href={fund.officialLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                        onClick={(e) => e.stopPropagation()}
+                  );
+                })}
+                
+                {/* Show selected fund if not in top 3 */}
+                {selectedNowFundId && !recommendedFunds.some(f => f.id === selectedNowFundId) && fundsData && (
+                  (() => {
+                    const selectedFund = fundsData.funds.find(f => f.id === selectedNowFundId);
+                    if (!selectedFund) return null;
+                    return (
+                      <div 
+                        className="border-2 border-green-500 bg-green-50 ring-2 ring-green-200 rounded-lg p-4 space-y-3"
                       >
-                        {t('funderSelection.results.learnMore')}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                  </div>
-                );
-              })
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="border-green-500 text-green-700">{t('funderSelection.decision.yourSelection')}</Badge>
+                              <h4 className="font-medium">{selectedFund.name}</h4>
+                              <Badge className="bg-green-600">
+                                <Check className="h-3 w-3 mr-1" />
+                                {t('funderSelection.decision.selected')}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">{selectedFund.institution}</p>
+                          </div>
+                          <Badge>{selectedFund.instrumentLabel}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{selectedFund.description}</p>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="font-medium">{t('funderSelection.results.ticketSize')}:</span>
+                            <p className="text-muted-foreground">{selectedFund.ticketWindowLabel}</p>
+                          </div>
+                          <div>
+                            <span className="font-medium">{t('funderSelection.results.terms')}:</span>
+                            <p className="text-muted-foreground">{selectedFund.tenorGrace}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t">
+                          {selectedFund.officialLink && (
+                            <a
+                              href={selectedFund.officialLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                            >
+                              {t('funderSelection.results.learnMore')}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                          {!selectedFund.officialLink && <div />}
+                          <Button 
+                            type="button"
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setSelectedNowFundId(null)}
+                          >
+                            {t('funderSelection.decision.deselect')}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
+                
+                {/* See more options button */}
+                <Button 
+                  type="button"
+                  variant="ghost" 
+                  className="w-full text-muted-foreground"
+                  onClick={() => setShowAllFundsModal('now')}
+                >
+                  <Search className="h-4 w-4 mr-2" />
+                  {t('funderSelection.decision.seeMoreOptions')}
+                </Button>
+              </>
             )}
           </CardContent>
         </Card>
@@ -1239,7 +1332,7 @@ export default function FunderSelectionPage() {
           <Card className="border-blue-200 bg-blue-50/50">
             <CardHeader>
               <Badge variant="secondary" className="mb-2 w-fit bg-blue-100 text-blue-700">{t('funderSelection.results.nextLabel')}</Badge>
-            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <Target className="h-5 w-5 text-blue-600" />
                 </div>
@@ -1255,90 +1348,123 @@ export default function FunderSelectionPage() {
               {targetFunders.map((target, index) => {
                 const isSelectedNext = selectedNextFundId === target.fund.id;
                 return (
-                <div 
-                  key={target.fund.id} 
-                  className={`border rounded-lg p-4 bg-white space-y-4 cursor-pointer transition-all ${
-                    isSelectedNext 
-                      ? 'border-blue-500 ring-2 ring-blue-200' 
-                      : 'border-blue-200 hover:border-blue-400'
-                  }`}
-                  onClick={() => setSelectedNextFundId(isSelectedNext ? null : target.fund.id)}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0 ${
-                        isSelectedNext ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                      }`}>
-                        {isSelectedNext && <Check className="h-3 w-3 text-white" />}
-                      </div>
+                  <div 
+                    key={target.fund.id} 
+                    className={`border rounded-lg p-4 bg-white space-y-4 transition-all ${
+                      isSelectedNext 
+                        ? 'border-blue-500 ring-2 ring-blue-200' 
+                        : 'border-blue-200'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <Badge variant="outline" className="border-blue-300 text-blue-700">
                             {t('funderSelection.results.target')} {index + 1}
                           </Badge>
                           <h4 className="font-medium">{target.fund.name}</h4>
+                          {isSelectedNext && (
+                            <Badge className="bg-blue-600">
+                              <Check className="h-3 w-3 mr-1" />
+                              {t('funderSelection.decision.selected')}
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">{target.fund.institution}</p>
                       </div>
+                      <Badge className={`${confidenceLabels[target.confidence].color} whitespace-nowrap`}>
+                        {confidenceLabels[target.confidence].label}
+                      </Badge>
                     </div>
-                    <Badge className={`${confidenceLabels[target.confidence].color} whitespace-nowrap`}>
-                      {confidenceLabels[target.confidence].label}
-                    </Badge>
-                  </div>
-                  
-                  <div>
-                    <h5 className="text-sm font-medium mb-2 flex items-center gap-1">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      {t('funderSelection.results.whyFit')}
-                    </h5>
-                    <ul className="space-y-1">
-                      {target.whyFitReasons.map((reason, i) => (
-                        <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                          <ChevronRight className="h-4 w-4 mt-0.5 flex-shrink-0 text-green-600" />
-                          {reason}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {target.gapChecklist.length > 0 && (
+                    
                     <div>
                       <h5 className="text-sm font-medium mb-2 flex items-center gap-1">
-                        <ArrowUpRight className="h-4 w-4 text-amber-600" />
-                        {t('funderSelection.results.whatToPrepare')}
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        {t('funderSelection.results.whyFit')}
                       </h5>
                       <ul className="space-y-1">
-                        {target.gapChecklist.map((item) => (
-                          <li key={item.id} className="text-sm text-muted-foreground flex items-start gap-2">
-                            <Badge variant="outline" className={`text-xs px-1 py-0 ${
-                              item.priority === 'high' ? 'border-red-300 text-red-700' : 
-                              item.priority === 'medium' ? 'border-amber-300 text-amber-700' : 
-                              'border-gray-300 text-gray-600'
-                            }`}>
-                              {item.priority === 'high' ? '!' : item.priority === 'medium' ? '~' : '○'}
-                            </Badge>
-                            {item.text}
+                        {target.whyFitReasons.map((reason, i) => (
+                          <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                            <ChevronRight className="h-4 w-4 mt-0.5 flex-shrink-0 text-green-600" />
+                            {reason}
                           </li>
                         ))}
                       </ul>
                     </div>
-                  )}
 
-                  {target.fund.officialLink && (
-                    <a
-                      href={target.fund.officialLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {t('funderSelection.results.learnMore')}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
-                </div>
+                    {target.gapChecklist.length > 0 && (
+                      <div>
+                        <h5 className="text-sm font-medium mb-2 flex items-center gap-1">
+                          <ArrowUpRight className="h-4 w-4 text-amber-600" />
+                          {t('funderSelection.results.whatToPrepare')}
+                        </h5>
+                        <ul className="space-y-1">
+                          {target.gapChecklist.map((item) => (
+                            <li key={item.id} className="text-sm text-muted-foreground flex items-start gap-2">
+                              <Badge variant="outline" className={`text-xs px-1 py-0 ${
+                                item.priority === 'high' ? 'border-red-300 text-red-700' : 
+                                item.priority === 'medium' ? 'border-amber-300 text-amber-700' : 
+                                'border-gray-300 text-gray-600'
+                              }`}>
+                                {item.priority === 'high' ? '!' : item.priority === 'medium' ? '~' : '○'}
+                              </Badge>
+                              {item.text}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      {target.fund.officialLink ? (
+                        <a
+                          href={target.fund.officialLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                        >
+                          {t('funderSelection.results.learnMore')}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : (
+                        <div />
+                      )}
+                      {isSelectedNext ? (
+                        <Button 
+                          type="button"
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedNextFundId(null)}
+                        >
+                          {t('funderSelection.decision.deselect')}
+                        </Button>
+                      ) : (
+                        <Button 
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                          onClick={() => setSelectedNextFundId(target.fund.id)}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          {t('funderSelection.decision.selectAsTarget')}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 );
               })}
+              
+              {/* See more target options button */}
+              <Button 
+                type="button"
+                variant="ghost" 
+                className="w-full text-muted-foreground"
+                onClick={() => setShowAllFundsModal('next')}
+              >
+                <Search className="h-4 w-4 mr-2" />
+                {t('funderSelection.decision.seeMoreTargets')}
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -1374,37 +1500,37 @@ export default function FunderSelectionPage() {
           </CardContent>
         </Card>
 
-        {/* Confirm Selection Section */}
-        <Card className="border-primary/30 bg-primary/5 mt-6">
-          <CardContent className="pt-6">
-            {fundingPlanConfirmed ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 p-3 bg-green-100 rounded-lg">
-                  <Lock className="h-5 w-5 text-green-700" />
-                  <span className="font-medium text-green-800">{t('funderSelection.decision.confirmed')}</span>
+        {/* Confirm Funding Plan - Floating Summary */}
+        {(selectedNowFundId || fundingPlanConfirmed) && (
+          <Card className={`mt-6 ${fundingPlanConfirmed ? 'border-green-500 bg-green-50' : 'border-primary/30 bg-primary/5'}`}>
+            <CardContent className="pt-6">
+              {fundingPlanConfirmed ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 p-3 bg-green-100 rounded-lg">
+                    <Lock className="h-5 w-5 text-green-700" />
+                    <span className="font-medium text-green-800">{t('funderSelection.decision.confirmed')}</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedNowFundId && (
+                      <div className="p-4 border border-green-200 rounded-lg bg-white">
+                        <p className="text-sm text-muted-foreground">{t('funderSelection.decision.anchorFunder')}:</p>
+                        <p className="font-medium">{fundsData?.funds.find(f => f.id === selectedNowFundId)?.name}</p>
+                      </div>
+                    )}
+                    {selectedNextFundId && (
+                      <div className="p-4 border border-blue-200 rounded-lg bg-white">
+                        <p className="text-sm text-muted-foreground">{t('funderSelection.decision.targetFunder')}:</p>
+                        <p className="font-medium">{fundsData?.funds.find(f => f.id === selectedNextFundId)?.name}</p>
+                      </div>
+                    )}
+                  </div>
+                  <Button type="button" variant="outline" onClick={editFundingPlan} className="w-full">
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    {t('funderSelection.decision.edit')}
+                  </Button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {selectedNowFundId && (
-                    <div className="p-4 border rounded-lg bg-white">
-                      <p className="text-sm text-muted-foreground">{t('funderSelection.decision.anchorFunder')}:</p>
-                      <p className="font-medium">{fundsData?.funds.find(f => f.id === selectedNowFundId)?.name}</p>
-                    </div>
-                  )}
-                  {selectedNextFundId && (
-                    <div className="p-4 border rounded-lg bg-white">
-                      <p className="text-sm text-muted-foreground">{t('funderSelection.decision.targetFunder')}:</p>
-                      <p className="font-medium">{fundsData?.funds.find(f => f.id === selectedNextFundId)?.name}</p>
-                    </div>
-                  )}
-                </div>
-                <Button variant="outline" onClick={editFundingPlan} className="w-full">
-                  <Edit2 className="h-4 w-4 mr-2" />
-                  {t('funderSelection.decision.edit')}
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {selectedNowFundId ? (
+              ) : (
+                <div className="space-y-4">
                   <div className="flex items-center gap-3 p-3 border rounded-lg bg-white">
                     <CheckCircle2 className="h-5 w-5 text-green-600" />
                     <div className="flex-1">
@@ -1418,33 +1544,19 @@ export default function FunderSelectionPage() {
                       </div>
                     )}
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-2">
-                    {t('funderSelection.decision.selectFromAbove')}
-                  </p>
-                )}
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    className="flex-1 text-muted-foreground"
-                    onClick={() => setShowAllFundsModal('now')}
-                  >
-                    <Search className="h-4 w-4 mr-2" />
-                    {t('funderSelection.decision.chooseDifferent')}
-                  </Button>
                   <Button 
+                    type="button"
                     onClick={confirmFundingPlan} 
-                    className="flex-1"
-                    disabled={!selectedNowFundId}
+                    className="w-full"
                   >
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                     {t('funderSelection.decision.confirm')}
                   </Button>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     );
   };
@@ -1458,8 +1570,17 @@ export default function FunderSelectionPage() {
     );
     
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <Card className="w-full max-w-2xl max-h-[80vh] flex flex-col">
+      <div 
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        onClick={() => {
+          setShowAllFundsModal(null);
+          setFundSearchQuery('');
+        }}
+      >
+        <Card 
+          className="w-full max-w-2xl max-h-[80vh] flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>{t('funderSelection.decision.allFunds')}</CardTitle>

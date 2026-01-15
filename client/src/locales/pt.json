@@ -299,7 +299,14 @@
       "anchorFunder": "Financiador Âncora",
       "targetFunder": "Financiador Alvo",
       "allFunds": "Todos os Fundos Disponíveis",
-      "searchFunds": "Pesquisar fundos por nome ou instituição..."
+      "searchFunds": "Pesquisar fundos por nome ou instituição...",
+      "selected": "Selecionado",
+      "deselect": "Desmarcar",
+      "selectThisFund": "Selecionar Este Fundo",
+      "yourSelection": "Sua Seleção",
+      "seeMoreOptions": "Ver mais opções",
+      "selectAsTarget": "Selecionar como Alvo",
+      "seeMoreTargets": "Ver mais opções de alvo"
     },
     "fit": {
       "high": "Alta Adequação",

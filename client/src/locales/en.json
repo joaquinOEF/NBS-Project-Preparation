@@ -299,7 +299,14 @@
       "anchorFunder": "Anchor Funder",
       "targetFunder": "Target Funder",
       "allFunds": "All Available Funds",
-      "searchFunds": "Search funds by name or institution..."
+      "searchFunds": "Search funds by name or institution...",
+      "selected": "Selected",
+      "deselect": "Deselect",
+      "selectThisFund": "Select This Fund",
+      "yourSelection": "Your Selection",
+      "seeMoreOptions": "See more options",
+      "selectAsTarget": "Select as Target",
+      "seeMoreTargets": "See more target options"
     },
     "fit": {
       "high": "High Fit",
