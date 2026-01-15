@@ -477,11 +477,22 @@ export default function FunderSelectionPage() {
   }, []);
 
   // Hydrate questionnaire from saved context or action defaults
+  // Also auto-show results if questionnaire was already completed
   useEffect(() => {
     if (projectId) {
       const existingContext = loadContext(projectId);
-      if (existingContext?.funderSelection?.questionnaire?.projectName) {
-        setAnswers(existingContext.funderSelection.questionnaire as QuestionnaireAnswers);
+      const savedQuestionnaire = existingContext?.funderSelection?.questionnaire as QuestionnaireAnswers | undefined;
+      
+      // Check if questionnaire was already completed (has key answers filled)
+      const isQuestionnaireComplete = savedQuestionnaire?.projectName && 
+        savedQuestionnaire?.sectors?.length > 0 &&
+        savedQuestionnaire?.projectStage &&
+        savedQuestionnaire?.generatesRevenue;
+      
+      if (isQuestionnaireComplete) {
+        setAnswers(savedQuestionnaire);
+        // Auto-show results if questionnaire was already completed
+        setShowResults(true);
       } else if (action && !answers.projectName) {
         setAnswers(prev => ({
           ...prev,
@@ -708,6 +719,32 @@ export default function FunderSelectionPage() {
 
   const editFundingPlan = () => {
     setFundingPlanConfirmed(false);
+  };
+
+  const retakeQuestionnaire = () => {
+    setShowResults(false);
+    setCurrentStep(0);
+    setFundingPlanConfirmed(false);
+    setSelectedNowFundId(null);
+    setSelectedNextFundId(null);
+    setHasSavedToContext(false);
+    // Reset answers to defaults
+    setAnswers({
+      projectName: '',
+      projectDescription: '',
+      sectors: [],
+      projectStage: '',
+      existingElements: [],
+      budgetPreparation: '',
+      budgetImplementation: '',
+      generatesRevenue: '',
+      repaymentSource: '',
+      investmentSize: '',
+      fundingReceiver: '',
+      canTakeDebt: '',
+      nationalApproval: '',
+      openToBundling: '',
+    });
   };
 
   const canProceed = () => {
@@ -1215,17 +1252,34 @@ export default function FunderSelectionPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {targetFunders.map((target, index) => (
-                <div key={target.fund.id} className="border border-blue-200 rounded-lg p-4 bg-white space-y-4">
+              {targetFunders.map((target, index) => {
+                const isSelectedNext = selectedNextFundId === target.fund.id;
+                return (
+                <div 
+                  key={target.fund.id} 
+                  className={`border rounded-lg p-4 bg-white space-y-4 cursor-pointer transition-all ${
+                    isSelectedNext 
+                      ? 'border-blue-500 ring-2 ring-blue-200' 
+                      : 'border-blue-200 hover:border-blue-400'
+                  }`}
+                  onClick={() => setSelectedNextFundId(isSelectedNext ? null : target.fund.id)}
+                >
                   <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="border-blue-300 text-blue-700">
-                          {t('funderSelection.results.target')} {index + 1}
-                        </Badge>
-                        <h4 className="font-medium">{target.fund.name}</h4>
+                    <div className="flex items-start gap-3">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0 ${
+                        isSelectedNext ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                      }`}>
+                        {isSelectedNext && <Check className="h-3 w-3 text-white" />}
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">{target.fund.institution}</p>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="border-blue-300 text-blue-700">
+                            {t('funderSelection.results.target')} {index + 1}
+                          </Badge>
+                          <h4 className="font-medium">{target.fund.name}</h4>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">{target.fund.institution}</p>
+                      </div>
                     </div>
                     <Badge className={`${confidenceLabels[target.confidence].color} whitespace-nowrap`}>
                       {confidenceLabels[target.confidence].label}
@@ -1276,13 +1330,15 @@ export default function FunderSelectionPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       {t('funderSelection.results.learnMore')}
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
         )}
@@ -1318,181 +1374,73 @@ export default function FunderSelectionPage() {
           </CardContent>
         </Card>
 
+        {/* Confirm Selection Section */}
         <Card className="border-primary/30 bg-primary/5 mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
-              {t('funderSelection.decision.title')}
-            </CardTitle>
-            <CardDescription>
-              {t('funderSelection.decision.subtitle')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="pt-6">
             {fundingPlanConfirmed ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 p-3 bg-green-100 rounded-lg">
                   <Lock className="h-5 w-5 text-green-700" />
                   <span className="font-medium text-green-800">{t('funderSelection.decision.confirmed')}</span>
                 </div>
-                {selectedNowFundId && (
-                  <div className="p-4 border rounded-lg">
-                    <p className="text-sm text-muted-foreground">{t('funderSelection.decision.anchorFunder')}:</p>
-                    <p className="font-medium">{fundsData?.funds.find(f => f.id === selectedNowFundId)?.name}</p>
-                  </div>
-                )}
-                {selectedNextFundId && (
-                  <div className="p-4 border rounded-lg">
-                    <p className="text-sm text-muted-foreground">{t('funderSelection.decision.targetFunder')}:</p>
-                    <p className="font-medium">{fundsData?.funds.find(f => f.id === selectedNextFundId)?.name}</p>
-                  </div>
-                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedNowFundId && (
+                    <div className="p-4 border rounded-lg bg-white">
+                      <p className="text-sm text-muted-foreground">{t('funderSelection.decision.anchorFunder')}:</p>
+                      <p className="font-medium">{fundsData?.funds.find(f => f.id === selectedNowFundId)?.name}</p>
+                    </div>
+                  )}
+                  {selectedNextFundId && (
+                    <div className="p-4 border rounded-lg bg-white">
+                      <p className="text-sm text-muted-foreground">{t('funderSelection.decision.targetFunder')}:</p>
+                      <p className="font-medium">{fundsData?.funds.find(f => f.id === selectedNextFundId)?.name}</p>
+                    </div>
+                  )}
+                </div>
                 <Button variant="outline" onClick={editFundingPlan} className="w-full">
                   <Edit2 className="h-4 w-4 mr-2" />
                   {t('funderSelection.decision.edit')}
                 </Button>
               </div>
             ) : (
-              <div className="space-y-6">
-                <div>
-                  <h4 className="font-medium mb-3">{t('funderSelection.decision.selectNow')}</h4>
-                  <p className="text-sm text-muted-foreground mb-3">
+              <div className="space-y-4">
+                {selectedNowFundId ? (
+                  <div className="flex items-center gap-3 p-3 border rounded-lg bg-white">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground">{t('funderSelection.decision.anchorFunder')}:</p>
+                      <p className="font-medium">{fundsData?.funds.find(f => f.id === selectedNowFundId)?.name}</p>
+                    </div>
+                    {selectedNextFundId && (
+                      <div className="border-l pl-3">
+                        <p className="text-sm text-muted-foreground">{t('funderSelection.decision.targetFunder')}:</p>
+                        <p className="font-medium text-sm">{fundsData?.funds.find(f => f.id === selectedNextFundId)?.name}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-2">
                     {t('funderSelection.decision.selectFromAbove')}
                   </p>
-                  <div className="space-y-2">
-                    {(() => {
-                      const top3Funds = recommendedFunds.slice(0, 3);
-                      const selectedFundInTop3 = top3Funds.some(f => f.id === selectedNowFundId);
-                      const selectedFundDetails = selectedNowFundId && !selectedFundInTop3 
-                        ? fundsData?.funds.find(f => f.id === selectedNowFundId) 
-                        : null;
-                      
-                      const fundsToShow = selectedFundDetails 
-                        ? [...top3Funds, selectedFundDetails]
-                        : top3Funds;
-                      
-                      return fundsToShow.map((fund, index) => {
-                        const isCustomSelection = index === 3;
-                        const displayIndex = isCustomSelection ? null : index + 1;
-                        return (
-                          <div
-                            key={fund.id}
-                            onClick={() => setSelectedNowFundId(fund.id)}
-                            className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                              selectedNowFundId === fund.id 
-                                ? 'border-primary bg-primary/10' 
-                                : 'hover:border-primary/50'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                                selectedNowFundId === fund.id ? 'border-primary bg-primary' : 'border-gray-300'
-                              }`}>
-                                {selectedNowFundId === fund.id && <Check className="h-3 w-3 text-white" />}
-                              </div>
-                              <div>
-                                <p className="font-medium">{fund.name}</p>
-                                <p className="text-sm text-muted-foreground">{fund.institution}</p>
-                              </div>
-                              {displayIndex ? (
-                                <Badge variant="outline" className="ml-auto">#{displayIndex}</Badge>
-                              ) : (
-                                <Badge variant="secondary" className="ml-auto">{t('funderSelection.decision.yourChoice')}</Badge>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      });
-                    })()}
-                    <Button
-                      variant="ghost"
-                      className="w-full text-muted-foreground"
-                      onClick={() => setShowAllFundsModal('now')}
-                    >
-                      <Search className="h-4 w-4 mr-2" />
-                      {t('funderSelection.decision.chooseDifferent')}
-                    </Button>
-                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    className="flex-1 text-muted-foreground"
+                    onClick={() => setShowAllFundsModal('now')}
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    {t('funderSelection.decision.chooseDifferent')}
+                  </Button>
+                  <Button 
+                    onClick={confirmFundingPlan} 
+                    className="flex-1"
+                    disabled={!selectedNowFundId}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    {t('funderSelection.decision.confirm')}
+                  </Button>
                 </div>
-
-                {targetFunders.length > 0 && (
-                  <div>
-                    <h4 className="font-medium mb-3">{t('funderSelection.decision.selectNext')}</h4>
-                    <div className="space-y-2">
-                      {targetFunders.map((target) => (
-                        <div
-                          key={target.fund.id}
-                          onClick={() => setSelectedNextFundId(target.fund.id)}
-                          className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                            selectedNextFundId === target.fund.id 
-                              ? 'border-blue-500 bg-blue-50' 
-                              : 'hover:border-blue-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                              selectedNextFundId === target.fund.id ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                            }`}>
-                              {selectedNextFundId === target.fund.id && <Check className="h-3 w-3 text-white" />}
-                            </div>
-                            <div>
-                              <p className="font-medium">{target.fund.name}</p>
-                              <p className="text-sm text-muted-foreground">{target.fund.institution}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      <div
-                        onClick={() => setSelectedNextFundId(null)}
-                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                          selectedNextFundId === null 
-                            ? 'border-gray-400 bg-gray-50' 
-                            : 'hover:border-gray-300'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            selectedNextFundId === null ? 'border-gray-500 bg-gray-500' : 'border-gray-300'
-                          }`}>
-                            {selectedNextFundId === null && <Check className="h-3 w-3 text-white" />}
-                          </div>
-                          <p className="text-muted-foreground">{t('funderSelection.decision.noTargetYet')}</p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        className="w-full text-muted-foreground"
-                        onClick={() => setShowAllFundsModal('next')}
-                      >
-                        <Search className="h-4 w-4 mr-2" />
-                        {t('funderSelection.decision.chooseDifferent')}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {selectedNowFundId && !computedResults.recommendedFunds.slice(0, 3).some(f => f.id === selectedNowFundId) && (
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-amber-800">{t('funderSelection.decision.overrideWarning')}</p>
-                        <p className="text-sm text-amber-700 mt-1">
-                          {t('funderSelection.decision.overrideExplanation')}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <Button 
-                  onClick={confirmFundingPlan} 
-                  className="w-full"
-                  disabled={!selectedNowFundId}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  {t('funderSelection.decision.confirm')}
-                </Button>
               </div>
             )}
           </CardContent>
@@ -1650,9 +1598,9 @@ export default function FunderSelectionPage() {
           <>
             {renderResults()}
             <div className="flex justify-between mt-6">
-              <Button variant="outline" onClick={handleBack}>
+              <Button variant="ghost" onClick={retakeQuestionnaire}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                {t('funderSelection.modifyAnswers')}
+                {t('funderSelection.retakeQuestionnaire')}
               </Button>
               <Link href={`${routePrefix}/project/${projectId}`}>
                 <Button disabled={!fundingPlanConfirmed}>

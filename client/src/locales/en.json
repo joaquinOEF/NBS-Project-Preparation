@@ -190,6 +190,7 @@
     "maybe": "Maybe",
     "getRecommendations": "Get Recommendations",
     "modifyAnswers": "Modify Answers",
+    "retakeQuestionnaire": "Retake Questionnaire",
     "backToProject": "Back to Project",
     "sectors": {
       "nature_based": "Nature-based solutions / adaptation",
