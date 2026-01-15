@@ -1348,6 +1348,11 @@ export default function SiteExplorerPage() {
             <div 
               className="site-explorer-panel absolute top-4 left-4 z-[1001] w-[420px] max-h-[calc(100vh-160px)] bg-background rounded-lg shadow-xl border overflow-hidden flex flex-col"
               style={{ pointerEvents: 'auto' }}
+              onWheel={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onMouseEnter={() => mapRef.current?.scrollWheelZoom.disable()}
+              onMouseLeave={() => mapRef.current?.scrollWheelZoom.enable()}
             >
               <div className="p-4 border-b bg-muted/50 flex-shrink-0">
                 <div className="flex items-center justify-between">
@@ -1397,7 +1402,11 @@ export default function SiteExplorerPage() {
                 </div>
               </div>
 
-              <ScrollArea className="flex-1 min-h-0" style={{ pointerEvents: 'auto' }}>
+              <ScrollArea 
+                className="flex-1 min-h-0 overflow-hidden" 
+                style={{ pointerEvents: 'auto', maxHeight: 'calc(100vh - 350px)' }}
+                onWheel={(e) => e.stopPropagation()}
+              >
                 <div className="p-4 space-y-4">
                   {!selectedCategory ? (
                     <>

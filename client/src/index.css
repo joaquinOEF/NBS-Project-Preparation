@@ -169,15 +169,19 @@
 .site-explorer-panel {
   pointer-events: auto !important;
   isolation: isolate;
+  contain: layout style;
 }
 
 .site-explorer-panel * {
   pointer-events: auto;
 }
 
+/* Force ScrollArea viewport to be scrollable */
 .site-explorer-panel [data-radix-scroll-area-viewport] {
   overscroll-behavior: contain;
   pointer-events: auto !important;
+  overflow-y: auto !important;
+  max-height: 100%;
 }
 
 .site-explorer-panel button,
@@ -185,6 +189,13 @@
   pointer-events: auto !important;
   position: relative;
   z-index: 1;
+  cursor: pointer;
+}
+
+/* Prevent Leaflet from capturing scroll events on our panel */
+.site-explorer-panel:hover ~ .leaflet-container,
+.site-explorer-panel:focus-within ~ .leaflet-container {
+  pointer-events: none;
 }
 
 .mini-map {
