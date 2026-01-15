@@ -240,7 +240,8 @@ Make the content specific to the zones, hazards, and interventions provided. Use
     response_format: { type: "json_object" },
     temperature: 0.7,
     max_completion_tokens: 4000,
-  });
+    reasoning_effort: "none", // Disable extended thinking for faster responses
+  } as any);
 
   const content = response.choices[0]?.message?.content || "{}";
   

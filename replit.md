@@ -73,8 +73,8 @@ Preferred communication style: Simple, everyday language.
     - Uses JSON response format for structured narrative output
     - Model: `gpt-5.2` - chosen for complex reasoning and long-context understanding
 - **AI Model Selection Strategy**:
-    - Impact Narrative (gpt-5.2): Complex analysis requiring high-quality reasoning
-    - Chat Conversations (gpt-5.2): Best quality for user interactions
+    - Impact Narrative (gpt-5.2, reasoning_effort: "none"): Fast structured JSON generation
+    - Chat Conversations (gpt-5.2, reasoning_effort: "low"): Balanced speed and quality
     - Voice/Audio (gpt-audio-mini): Specialized audio model for TTS/STT
     - Images (gpt-image-1): Specialized image generation model
     - Transcription (gpt-4o-mini-transcribe): Optimized for accurate speech recognition
