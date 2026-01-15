@@ -280,7 +280,30 @@
       "high": "High Confidence",
       "medium": "Medium Confidence",
       "low": "Lower Confidence"
-    }
+    },
+    "decision": {
+      "title": "Confirm Your Funding Plan",
+      "subtitle": "Select your primary funder now and optionally a target for later",
+      "selectNow": "Select Anchor Funder (NOW)",
+      "selectNext": "Select Target Funder (NEXT)",
+      "chooseDifferent": "Choose a different funder",
+      "noTargetYet": "No target funder for now",
+      "overrideWarning": "Non-recommended selection",
+      "overrideExplanation": "This funder wasn't in the top recommendations. You may proceed, but review the fit assessment carefully.",
+      "confirm": "Confirm Funding Plan",
+      "confirmed": "Funding Plan Confirmed",
+      "edit": "Edit Funding Plan",
+      "anchorFunder": "Anchor Funder",
+      "targetFunder": "Target Funder",
+      "allFunds": "All Available Funds",
+      "searchFunds": "Search funds by name or institution..."
+    },
+    "fit": {
+      "high": "High Fit",
+      "medium": "Medium Fit",
+      "low": "Low Fit"
+    },
+    "confirmFirst": "Confirm funding plan first"
   },
   "siteExplorer": {
     "title": "Site Explorer",

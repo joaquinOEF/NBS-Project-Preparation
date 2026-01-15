@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, ArrowRight, Check, DollarSign, Building2, FileText, Users, ExternalLink, ChevronRight, AlertCircle, Lightbulb, Target, ArrowUpRight, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, DollarSign, Building2, FileText, Users, ExternalLink, ChevronRight, AlertCircle, Lightbulb, Target, ArrowUpRight, CheckCircle2, Lock, Edit2, Search, AlertTriangle } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -458,6 +458,13 @@ export default function FunderSelectionPage() {
     openToBundling: '',
   });
 
+  const [showDecisionStep, setShowDecisionStep] = useState(false);
+  const [selectedNowFundId, setSelectedNowFundId] = useState<string | null>(null);
+  const [selectedNextFundId, setSelectedNextFundId] = useState<string | null>(null);
+  const [fundingPlanConfirmed, setFundingPlanConfirmed] = useState(false);
+  const [showAllFundsModal, setShowAllFundsModal] = useState<'now' | 'next' | null>(null);
+  const [fundSearchQuery, setFundSearchQuery] = useState('');
+
   const action = (isSampleMode || isSampleRoute) 
     ? sampleActions.find(a => a.id === projectId)
     : null;
@@ -469,6 +476,7 @@ export default function FunderSelectionPage() {
       .catch(console.error);
   }, []);
 
+  // Hydrate questionnaire from saved context or action defaults
   useEffect(() => {
     if (projectId) {
       const existingContext = loadContext(projectId);
@@ -484,6 +492,33 @@ export default function FunderSelectionPage() {
       }
     }
   }, [action, projectId]);
+  
+  // Hydrate funding plan selection state independently - runs when context or funds are loaded
+  useEffect(() => {
+    if (projectId && fundsData) {
+      const existingContext = loadContext(projectId);
+      const savedPlan = existingContext?.funderSelection?.fundingPlan;
+      
+      // Only hydrate if we have a confirmed plan and haven't already hydrated
+      if (savedPlan && savedPlan.status === 'confirmed' && !fundingPlanConfirmed) {
+        // Validate the saved fund IDs still exist in funds data
+        const nowFundExists = savedPlan.selectedFunderNow && fundsData.funds.some(f => f.id === savedPlan.selectedFunderNow);
+        const nextFundExists = !savedPlan.selectedFunderNext || fundsData.funds.some(f => f.id === savedPlan.selectedFunderNext);
+        
+        if (nowFundExists && nextFundExists) {
+          setSelectedNowFundId(savedPlan.selectedFunderNow);
+          setSelectedNextFundId(savedPlan.selectedFunderNext);
+          setFundingPlanConfirmed(true);
+          setShowResults(true);
+          
+          // Also restore the questionnaire to trigger computed results
+          if (existingContext?.funderSelection?.questionnaire) {
+            setAnswers(existingContext.funderSelection.questionnaire as QuestionnaireAnswers);
+          }
+        }
+      }
+    }
+  }, [projectId, fundsData]);
 
   const computedResults = useMemo(() => {
     if (!fundsData || !showResults) return null;
@@ -505,8 +540,18 @@ export default function FunderSelectionPage() {
     };
   }, [fundsData, showResults, answers]);
 
+  // Reset hasSavedToContext when answers change so autosave can run again
+  const [lastSavedAnswers, setLastSavedAnswers] = useState<string>('');
+  
   useEffect(() => {
-    if (computedResults && projectId && !hasSavedToContext) {
+    const answersKey = JSON.stringify(answers);
+    if (lastSavedAnswers && answersKey !== lastSavedAnswers) {
+      setHasSavedToContext(false);
+    }
+  }, [answers, lastSavedAnswers]);
+
+  useEffect(() => {
+    if (computedResults && projectId && !hasSavedToContext && !fundingPlanConfirmed) {
       const { pathwayResult, recommendedFunds, targetFunders, bridgeParagraph } = computedResults;
       
       updateModule('funderSelection', {
@@ -532,8 +577,9 @@ export default function FunderSelectionPage() {
         bridgeParagraph: bridgeParagraph || undefined,
       });
       setHasSavedToContext(true);
+      setLastSavedAnswers(JSON.stringify(answers));
     }
-  }, [computedResults, projectId, hasSavedToContext, answers, updateModule]);
+  }, [computedResults, projectId, hasSavedToContext, fundingPlanConfirmed, answers, updateModule]);
 
   const steps = [
     { id: 'basics', title: t('funderSelection.steps.basics'), icon: FileText },
@@ -541,6 +587,128 @@ export default function FunderSelectionPage() {
     { id: 'financing', title: t('funderSelection.steps.financing'), icon: DollarSign },
     { id: 'institutional', title: t('funderSelection.steps.institutional'), icon: Building2 },
   ];
+
+  const assessFundFit = (fund: Fund): { fit: 'high' | 'medium' | 'low'; warnings: string[] } => {
+    const warnings: string[] = [];
+    let score = 100;
+    
+    const userFundSectors = answers.sectors.flatMap(s => SECTOR_TO_FUND_SECTORS[s] || []);
+    const sectorMatch = fund.prioritySectors.some(ps => userFundSectors.includes(ps));
+    if (!sectorMatch) {
+      warnings.push(t('funderSelection.warnings.sectorMismatch'));
+      score -= 30;
+    }
+    
+    const canBorrow = answers.canTakeDebt === 'yes';
+    if (fund.instrumentType === 'loan' && !canBorrow) {
+      warnings.push(t('funderSelection.warnings.borrowingRequired'));
+      score -= 40;
+    }
+    
+    const isEarlyStage = ['idea', 'concept', 'prefeasibility'].includes(answers.projectStage);
+    if (fund.requiresFeasibility && isEarlyStage) {
+      warnings.push(t('funderSelection.warnings.feasibilityRequired'));
+      score -= 25;
+    }
+    
+    if (fund.requiresSovereignGuarantee && answers.nationalApproval === 'no') {
+      warnings.push(t('funderSelection.warnings.sovereignRequired'));
+      score -= 20;
+    }
+    
+    return {
+      fit: score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low',
+      warnings,
+    };
+  };
+
+  const confirmFundingPlan = () => {
+    if (!computedResults || !projectId) return;
+    
+    const selectedNowFund = fundsData?.funds.find(f => f.id === selectedNowFundId);
+    const selectedNextFund = fundsData?.funds.find(f => f.id === selectedNextFundId);
+    const isNowOverride = selectedNowFundId && !computedResults.recommendedFunds.slice(0, 3).some(f => f.id === selectedNowFundId);
+    const isNextOverride = selectedNextFundId && !computedResults.targetFunders.some(tf => tf.fund.id === selectedNextFundId);
+    
+    const nowFitAssessment = selectedNowFund ? assessFundFit(selectedNowFund) : { fit: 'high' as const, warnings: [] };
+    const nextFitAssessment = selectedNextFund ? assessFundFit(selectedNextFund) : { fit: 'n/a' as const, warnings: [] };
+    
+    const fundingPlan = {
+      planId: `plan_${Date.now()}`,
+      status: 'confirmed' as const,
+      createdAt: new Date().toISOString(),
+      lastUpdatedAt: new Date().toISOString(),
+      version: 1,
+      selectedPathwayCategoryNow: computedResults.pathwayResult.primary,
+      selectedFunderNow: selectedNowFundId,
+      selectedFunderNowName: selectedNowFund?.name || null,
+      selectedPathwayCategoryNext: computedResults.pathwayResult.secondary || null,
+      selectedFunderNext: selectedNextFundId,
+      selectedFunderNextName: selectedNextFund?.name || null,
+      selectionRationale: `Selected ${selectedNowFund?.name || 'no immediate funder'} as anchor funder based on ${isNowOverride ? 'user preference' : 'system recommendation'}.`,
+      selectionSourceNow: (isNowOverride ? 'user_override' : 'recommended') as 'recommended' | 'user_override',
+      selectionSourceNext: (selectedNextFundId ? (isNextOverride ? 'user_override' : 'recommended') : 'none') as 'recommended' | 'user_override' | 'none',
+      systemFitAssessmentNow: nowFitAssessment.fit,
+      systemFitAssessmentNext: selectedNextFundId ? nextFitAssessment.fit : 'n/a' as const,
+      systemWarnings: [...nowFitAssessment.warnings, ...nextFitAssessment.warnings],
+      recommendedNowTop3: computedResults.recommendedFunds.slice(0, 3).map(f => f.id),
+      recommendedNextTargets: computedResults.targetFunders.map(tf => tf.fund.id),
+      profileVersionUsed: 1,
+      profileSnapshot: {
+        projectStage: answers.projectStage,
+        sectors: answers.sectors,
+        investmentSize: answers.investmentSize,
+        canTakeDebt: answers.canTakeDebt,
+        generatesRevenue: answers.generatesRevenue,
+      },
+    };
+    
+    const fundingProfile = {
+      profileId: `profile_${Date.now()}`,
+      status: 'completed' as const,
+      createdAt: new Date().toISOString(),
+      lastUpdatedAt: new Date().toISOString(),
+      version: 1,
+      questionnaire: answers,
+      derived: {
+        financialReadinessLevel: answers.canTakeDebt === 'yes' ? 'loan_possible_domestic' as const : 'grant_only' as const,
+        capitalReadiness: answers.existingElements.includes('capex') ? 'high' as const : 'low' as const,
+        safeguardsReadiness: answers.existingElements.includes('assessments') ? 'high' as const : 'low' as const,
+      },
+    };
+    
+    updateModule('funderSelection', {
+      status: 'READY',
+      funderName: selectedNowFund?.name,
+      questionnaire: answers,
+      pathway: {
+        primary: computedResults.pathwayResult.primary,
+        secondary: computedResults.pathwayResult.secondary,
+        readinessLevel: computedResults.pathwayResult.readinessLevel,
+        limitingFactors: computedResults.pathwayResult.limitingFactorKeys,
+      },
+      selectedFunds: selectedNowFundId ? [selectedNowFundId] : [],
+      shortlistedFunds: computedResults.recommendedFunds.slice(0, 3).map(f => f.id),
+      targetFunders: computedResults.targetFunders.map(tf => ({
+        fundId: tf.fund.id,
+        fundName: tf.fund.name,
+        institution: tf.fund.institution,
+        instrumentType: tf.fund.instrumentType,
+        whyFitReasons: tf.whyFitReasons,
+        gapChecklist: tf.gapChecklist,
+        confidence: tf.confidence,
+      })),
+      bridgeParagraph: computedResults.bridgeParagraph || undefined,
+      fundingPlan,
+      fundingProfile,
+    });
+    
+    setFundingPlanConfirmed(true);
+  };
+
+  const editFundingPlan = () => {
+    setFundingPlanConfirmed(false);
+  };
 
   const canProceed = () => {
     switch (currentStep) {
@@ -1130,6 +1298,248 @@ export default function FunderSelectionPage() {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="border-primary/30 bg-primary/5 mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              {t('funderSelection.decision.title')}
+            </CardTitle>
+            <CardDescription>
+              {t('funderSelection.decision.subtitle')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {fundingPlanConfirmed ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 p-3 bg-green-100 rounded-lg">
+                  <Lock className="h-5 w-5 text-green-700" />
+                  <span className="font-medium text-green-800">{t('funderSelection.decision.confirmed')}</span>
+                </div>
+                {selectedNowFundId && (
+                  <div className="p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">{t('funderSelection.decision.anchorFunder')}:</p>
+                    <p className="font-medium">{fundsData?.funds.find(f => f.id === selectedNowFundId)?.name}</p>
+                  </div>
+                )}
+                {selectedNextFundId && (
+                  <div className="p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">{t('funderSelection.decision.targetFunder')}:</p>
+                    <p className="font-medium">{fundsData?.funds.find(f => f.id === selectedNextFundId)?.name}</p>
+                  </div>
+                )}
+                <Button variant="outline" onClick={editFundingPlan} className="w-full">
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  {t('funderSelection.decision.edit')}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div>
+                  <h4 className="font-medium mb-3">{t('funderSelection.decision.selectNow')}</h4>
+                  <div className="space-y-2">
+                    {recommendedFunds.slice(0, 3).map((fund, index) => (
+                      <div
+                        key={fund.id}
+                        onClick={() => setSelectedNowFundId(fund.id)}
+                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                          selectedNowFundId === fund.id 
+                            ? 'border-primary bg-primary/10' 
+                            : 'hover:border-primary/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                            selectedNowFundId === fund.id ? 'border-primary bg-primary' : 'border-gray-300'
+                          }`}>
+                            {selectedNowFundId === fund.id && <Check className="h-3 w-3 text-white" />}
+                          </div>
+                          <div>
+                            <p className="font-medium">{fund.name}</p>
+                            <p className="text-sm text-muted-foreground">{fund.institution}</p>
+                          </div>
+                          <Badge variant="outline" className="ml-auto">#{index + 1}</Badge>
+                        </div>
+                      </div>
+                    ))}
+                    <Button
+                      variant="ghost"
+                      className="w-full text-muted-foreground"
+                      onClick={() => setShowAllFundsModal('now')}
+                    >
+                      <Search className="h-4 w-4 mr-2" />
+                      {t('funderSelection.decision.chooseDifferent')}
+                    </Button>
+                  </div>
+                </div>
+
+                {targetFunders.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-3">{t('funderSelection.decision.selectNext')}</h4>
+                    <div className="space-y-2">
+                      {targetFunders.map((target) => (
+                        <div
+                          key={target.fund.id}
+                          onClick={() => setSelectedNextFundId(target.fund.id)}
+                          className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                            selectedNextFundId === target.fund.id 
+                              ? 'border-blue-500 bg-blue-50' 
+                              : 'hover:border-blue-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                              selectedNextFundId === target.fund.id ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                            }`}>
+                              {selectedNextFundId === target.fund.id && <Check className="h-3 w-3 text-white" />}
+                            </div>
+                            <div>
+                              <p className="font-medium">{target.fund.name}</p>
+                              <p className="text-sm text-muted-foreground">{target.fund.institution}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      <div
+                        onClick={() => setSelectedNextFundId(null)}
+                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                          selectedNextFundId === null 
+                            ? 'border-gray-400 bg-gray-50' 
+                            : 'hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                            selectedNextFundId === null ? 'border-gray-500 bg-gray-500' : 'border-gray-300'
+                          }`}>
+                            {selectedNextFundId === null && <Check className="h-3 w-3 text-white" />}
+                          </div>
+                          <p className="text-muted-foreground">{t('funderSelection.decision.noTargetYet')}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        className="w-full text-muted-foreground"
+                        onClick={() => setShowAllFundsModal('next')}
+                      >
+                        <Search className="h-4 w-4 mr-2" />
+                        {t('funderSelection.decision.chooseDifferent')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {selectedNowFundId && !computedResults.recommendedFunds.slice(0, 3).some(f => f.id === selectedNowFundId) && (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-amber-800">{t('funderSelection.decision.overrideWarning')}</p>
+                        <p className="text-sm text-amber-700 mt-1">
+                          {t('funderSelection.decision.overrideExplanation')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <Button 
+                  onClick={confirmFundingPlan} 
+                  className="w-full"
+                  disabled={!selectedNowFundId}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  {t('funderSelection.decision.confirm')}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  const renderAllFundsModal = () => {
+    if (!showAllFundsModal || !fundsData) return null;
+    
+    const filteredFunds = fundsData.funds.filter(f => 
+      f.name.toLowerCase().includes(fundSearchQuery.toLowerCase()) ||
+      f.institution.toLowerCase().includes(fundSearchQuery.toLowerCase())
+    );
+    
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <Card className="w-full max-w-2xl max-h-[80vh] flex flex-col">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>{t('funderSelection.decision.allFunds')}</CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setShowAllFundsModal(null)}>
+                ×
+              </Button>
+            </div>
+            <div className="relative mt-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={t('funderSelection.decision.searchFunds')}
+                value={fundSearchQuery}
+                onChange={(e) => setFundSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-auto">
+            <div className="space-y-2">
+              {filteredFunds.map(fund => {
+                const fitAssessment = assessFundFit(fund);
+                const fitColors = {
+                  high: 'bg-green-100 text-green-800',
+                  medium: 'bg-yellow-100 text-yellow-800',
+                  low: 'bg-red-100 text-red-800',
+                };
+                
+                return (
+                  <div
+                    key={fund.id}
+                    onClick={() => {
+                      if (showAllFundsModal === 'now') {
+                        setSelectedNowFundId(fund.id);
+                      } else {
+                        setSelectedNextFundId(fund.id);
+                      }
+                      setShowAllFundsModal(null);
+                      setFundSearchQuery('');
+                    }}
+                    className="p-3 border rounded-lg cursor-pointer hover:border-primary/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-medium">{fund.name}</p>
+                        <p className="text-sm text-muted-foreground">{fund.institution}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{fund.ticketWindowLabel}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge>{fund.instrumentLabel}</Badge>
+                        <Badge className={fitColors[fitAssessment.fit]}>{t(`funderSelection.fit.${fitAssessment.fit}`)}</Badge>
+                      </div>
+                    </div>
+                    {fitAssessment.warnings.length > 0 && (
+                      <div className="mt-2 pt-2 border-t">
+                        <ul className="text-xs text-amber-700 space-y-1">
+                          {fitAssessment.warnings.slice(0, 2).map((w, i) => (
+                            <li key={i} className="flex items-start gap-1">
+                              <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                              {w}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   };
@@ -1203,14 +1613,15 @@ export default function FunderSelectionPage() {
                 {t('funderSelection.modifyAnswers')}
               </Button>
               <Link href={`${routePrefix}/project/${projectId}`}>
-                <Button>
-                  {t('funderSelection.backToProject')}
+                <Button disabled={!fundingPlanConfirmed}>
+                  {fundingPlanConfirmed ? t('funderSelection.backToProject') : t('funderSelection.confirmFirst')}
                 </Button>
               </Link>
             </div>
           </>
         )}
       </div>
+      {renderAllFundsModal()}
     </div>
   );
 }

@@ -28,6 +28,65 @@ export interface TargetFunderData {
   confidence: 'high' | 'medium' | 'low';
 }
 
+export interface FundingProfile {
+  profileId: string;
+  status: 'draft' | 'completed';
+  createdAt: string;
+  lastUpdatedAt: string;
+  version: number;
+  questionnaire: {
+    projectName: string;
+    projectDescription: string;
+    sectors: string[];
+    projectStage: string;
+    existingElements: string[];
+    budgetPreparation: string;
+    budgetImplementation: string;
+    generatesRevenue: string;
+    repaymentSource: string;
+    investmentSize: string;
+    fundingReceiver: string;
+    canTakeDebt: string;
+    nationalApproval: string;
+    openToBundling: string;
+  };
+  derived: {
+    financialReadinessLevel: 'grant_only' | 'preparation_needed' | 'loan_possible_domestic' | 'loan_possible_international';
+    capitalReadiness: 'low' | 'medium' | 'high';
+    safeguardsReadiness: 'low' | 'medium' | 'high';
+  };
+}
+
+export interface FundingPlan {
+  planId: string;
+  status: 'draft' | 'confirmed';
+  createdAt: string;
+  lastUpdatedAt: string;
+  version: number;
+  selectedPathwayCategoryNow: string;
+  selectedFunderNow: string | null;
+  selectedFunderNowName: string | null;
+  selectedPathwayCategoryNext: string | null;
+  selectedFunderNext: string | null;
+  selectedFunderNextName: string | null;
+  selectionRationale: string;
+  selectionSourceNow: 'recommended' | 'user_override';
+  selectionSourceNext: 'recommended' | 'user_override' | 'none';
+  systemFitAssessmentNow: 'high' | 'medium' | 'low';
+  systemFitAssessmentNext: 'high' | 'medium' | 'low' | 'n/a';
+  systemWarnings: string[];
+  recommendedNowTop3: string[];
+  recommendedNextTargets: string[];
+  profileVersionUsed: number;
+  profileSnapshot: {
+    projectStage: string;
+    sectors: string[];
+    investmentSize: string;
+    canTakeDebt: string;
+    generatesRevenue: string;
+  };
+}
+
 export interface FunderSelectionData {
   status: 'NOT_STARTED' | 'DRAFT' | 'READY';
   funderName?: string;
@@ -57,6 +116,8 @@ export interface FunderSelectionData {
   shortlistedFunds: string[];
   targetFunders: TargetFunderData[];
   bridgeParagraph?: string;
+  fundingProfile?: FundingProfile;
+  fundingPlan?: FundingPlan;
 }
 
 export interface OperationsData {

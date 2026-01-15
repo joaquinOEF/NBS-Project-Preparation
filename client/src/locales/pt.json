@@ -280,7 +280,30 @@
       "high": "Alta Confiança",
       "medium": "Média Confiança",
       "low": "Baixa Confiança"
-    }
+    },
+    "decision": {
+      "title": "Confirme Seu Plano de Financiamento",
+      "subtitle": "Selecione seu financiador principal agora e opcionalmente um alvo para depois",
+      "selectNow": "Selecionar Financiador Âncora (AGORA)",
+      "selectNext": "Selecionar Financiador Alvo (PRÓXIMO)",
+      "chooseDifferent": "Escolher um financiador diferente",
+      "noTargetYet": "Sem financiador alvo por enquanto",
+      "overrideWarning": "Seleção não recomendada",
+      "overrideExplanation": "Este financiador não estava nas principais recomendações. Você pode prosseguir, mas revise a avaliação de adequação cuidadosamente.",
+      "confirm": "Confirmar Plano de Financiamento",
+      "confirmed": "Plano de Financiamento Confirmado",
+      "edit": "Editar Plano de Financiamento",
+      "anchorFunder": "Financiador Âncora",
+      "targetFunder": "Financiador Alvo",
+      "allFunds": "Todos os Fundos Disponíveis",
+      "searchFunds": "Pesquisar fundos por nome ou instituição..."
+    },
+    "fit": {
+      "high": "Alta Adequação",
+      "medium": "Média Adequação",
+      "low": "Baixa Adequação"
+    },
+    "confirmFirst": "Confirme o plano de financiamento primeiro"
   },
   "siteExplorer": {
     "title": "Explorador de Terreno",
