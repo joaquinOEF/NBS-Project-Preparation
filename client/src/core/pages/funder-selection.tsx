@@ -1531,16 +1531,21 @@ export default function FunderSelectionPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-3 border rounded-lg bg-white">
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">{t('funderSelection.decision.anchorFunder')}:</p>
-                      <p className="font-medium">{fundsData?.funds.find(f => f.id === selectedNowFundId)?.name}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 border rounded-lg bg-white">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">{t('funderSelection.decision.anchorFunder')}:</p>
+                        <p className="font-medium">{fundsData?.funds.find(f => f.id === selectedNowFundId)?.name}</p>
+                      </div>
                     </div>
                     {selectedNextFundId && (
-                      <div className="border-l pl-3">
-                        <p className="text-sm text-muted-foreground">{t('funderSelection.decision.targetFunder')}:</p>
-                        <p className="font-medium text-sm">{fundsData?.funds.find(f => f.id === selectedNextFundId)?.name}</p>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">{t('funderSelection.decision.targetFunder')}:</p>
+                          <p className="font-medium">{fundsData?.funds.find(f => f.id === selectedNextFundId)?.name}</p>
+                        </div>
                       </div>
                     )}
                   </div>

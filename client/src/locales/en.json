@@ -285,7 +285,7 @@
     "decision": {
       "title": "Confirm Your Funding Plan",
       "subtitle": "Select your primary funder now and optionally a target for later",
-      "selectNow": "Select Anchor Funder (NOW)",
+      "selectNow": "Select Preparation Facility Funder (NOW)",
       "selectFromAbove": "Click a fund above to select it, or choose from the options below",
       "selectNext": "Select Target Funder (NEXT)",
       "chooseDifferent": "Choose a different funder",
@@ -296,7 +296,7 @@
       "confirm": "Confirm Funding Plan",
       "confirmed": "Funding Plan Confirmed",
       "edit": "Edit Funding Plan",
-      "anchorFunder": "Anchor Funder",
+      "anchorFunder": "Preparation Facility Funder",
       "targetFunder": "Target Funder",
       "allFunds": "All Available Funds",
       "searchFunds": "Search funds by name or institution...",
