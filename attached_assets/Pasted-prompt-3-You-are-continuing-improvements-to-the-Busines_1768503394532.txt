@@ -1,0 +1,40 @@
+prompt 3
+You are continuing improvements to the Business Model component in CityCatalyst’s Project Preparation Module.
+Goal of this prompt: replace “Readiness” gating with a concept-note friendly Bankability Assessment, and add a separate Business Model Playbook tab for review/export. Do not refactor unrelated modules.
+Implement:
+1) Rename
+Rename the “Readiness” tab and header to: “Bankability Assessment” Subtitle: “Assess confidence, gaps, and next steps to make the business model finance-ready.”
+2) Bankability Assessment behavior (concept note mode)
+Remove greyed-out gating that requires a High-confidence revenue line.
+Always show the section and compute a Bankability Maturity tier:
+Concept Note / Emerging / Bankable Draft
+Show a banner when not bankable with top blockers (3–5), derived from:
+payer confidence, payment mechanism completeness
+revenue durability and confidence
+OPEX coverage beyond establishment
+verifier/MRV presence for outcome-linked models
+3) Enabling Actions improvements
+Generate enabling actions dynamically based on BM configuration.
+Allow user to add/remove/edit actions, change priority, assign owner stakeholder, and optional timeframe.
+4) Business Model Risks improvements
+Replace static list with editable risk library:
+prepopulate common risks
+allow add/remove/hide
+risk owner + severity + mitigation checkboxes + optional free text
+tooltip definitions for Low/Medium/High
+5) Add separate final tab: “Business Model Playbook”
+Subtitle: “Review, refine, and export a concept-note-ready summary of your business model.”
+This tab should compile:
+who benefits/who pays summary
+primary archetype + payment mechanism
+revenue stack summary (with payer attribution and amounts if provided)
+financing pathway + ROM ranges
+enabling actions + key risks
+Add export utilities:
+“Copy to Concept Note”
+“Export playbook text”
+“Generate Miro value-flow prompt”
+Acceptance criteria
+Assessment works even when revenue confidence is medium/low.
+Playbook provides a clean, exportable summary without new required inputs.
+No regressions to earlier BM steps.
