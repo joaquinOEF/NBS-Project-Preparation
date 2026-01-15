@@ -1061,12 +1061,12 @@ export default function FunderSelectionPage() {
       <div className="space-y-6">
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader>
+            <Badge variant="secondary" className="mb-2 w-fit">{t('funderSelection.results.nowLabel')}</Badge>
             <div className="flex items-center gap-2">
               <div className="p-2 bg-primary/10 rounded-lg">
                 <DollarSign className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <Badge variant="secondary" className="mb-1">{t('funderSelection.results.nowLabel')}</Badge>
                 <CardTitle>{t('funderSelection.results.recommendedPathway')}</CardTitle>
                 <CardDescription className="text-base font-medium text-foreground mt-1">
                   {pathway.name}
@@ -1182,12 +1182,12 @@ export default function FunderSelectionPage() {
         {targetFunders.length > 0 && (
           <Card className="border-blue-200 bg-blue-50/50">
             <CardHeader>
-              <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="mb-2 w-fit bg-blue-100 text-blue-700">{t('funderSelection.results.nextLabel')}</Badge>
+            <div className="flex items-center gap-2">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <Target className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <Badge variant="secondary" className="mb-1 bg-blue-100 text-blue-700">{t('funderSelection.results.nextLabel')}</Badge>
                   <CardTitle>{t('funderSelection.results.strategicTargets')}</CardTitle>
                   <CardDescription>
                     {t('funderSelection.results.strategicTargetsDescription')}
