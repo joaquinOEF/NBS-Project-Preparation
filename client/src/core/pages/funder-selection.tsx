@@ -1208,7 +1208,7 @@ export default function FunderSelectionPage() {
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">{target.fund.institution}</p>
                     </div>
-                    <Badge className={confidenceLabels[target.confidence].color}>
+                    <Badge className={`${confidenceLabels[target.confidence].color} whitespace-nowrap`}>
                       {confidenceLabels[target.confidence].label}
                     </Badge>
                   </div>
