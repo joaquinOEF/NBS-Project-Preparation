@@ -1,0 +1,399 @@
+{
+  "version": "1.0",
+  "categories": {
+    "flood_storage": {
+      "id": "flood_storage",
+      "name": "Flood Storage & Delay",
+      "description": "Store, slow, and redirect water to reduce flood peaks",
+      "icon": "droplets",
+      "color": "#3b82f6",
+      "applicableTypologies": ["FLOOD", "FLOOD_HEAT", "FLOOD_LANDSLIDE"]
+    },
+    "urban_cooling": {
+      "id": "urban_cooling",
+      "name": "Urban Cooling & Shade",
+      "description": "Reduce surface and air temperature where people are exposed",
+      "icon": "trees",
+      "color": "#22c55e",
+      "applicableTypologies": ["HEAT", "FLOOD_HEAT", "HEAT_LANDSLIDE"]
+    },
+    "slope_stability": {
+      "id": "slope_stability",
+      "name": "Slope Stabilization",
+      "description": "Stabilize slopes and control runoff to prevent landslides",
+      "icon": "mountain",
+      "color": "#a16207",
+      "applicableTypologies": ["LANDSLIDE", "FLOOD_LANDSLIDE", "HEAT_LANDSLIDE"]
+    },
+    "multi_benefit": {
+      "id": "multi_benefit",
+      "name": "Multi-Benefit Solutions",
+      "description": "Hybrid interventions addressing multiple hazards simultaneously",
+      "icon": "layers",
+      "color": "#10b981",
+      "applicableTypologies": ["FLOOD_HEAT", "FLOOD_LANDSLIDE", "HEAT_LANDSLIDE", "LOW"]
+    }
+  },
+  "interventions": [
+    {
+      "id": "floodable_park",
+      "category": "flood_storage",
+      "name": "Floodable Park / Detention Basin",
+      "description": "Regrade terrain, add controlled inlets/outlets, allow temporary inundation during storm events",
+      "osmAssetTypes": ["leisure=park", "leisure=playground", "landuse=grass", "landuse=recreation_ground"],
+      "typicalScale": { "min": 0.5, "max": 10, "unit": "ha" },
+      "costRange": { "min": 50000, "max": 300000, "unit": "USD/ha" },
+      "impacts": {
+        "flood": "high",
+        "heat": "medium",
+        "landslide": "low"
+      },
+      "implementationNotes": "Needs hydraulic connection to drainage system; design for periodic flooding with 2-10 year return period",
+      "maintenanceRequirements": "Quarterly debris removal, annual inlet/outlet inspection, vegetation management",
+      "timeToImplement": { "min": 12, "max": 24, "unit": "months" },
+      "cobenefits": ["Recreation", "Biodiversity", "Air quality", "Property values"]
+    },
+    {
+      "id": "sponge_square",
+      "category": "flood_storage",
+      "name": "Sponge Square / Plaza",
+      "description": "Replace impervious paving with permeable surfaces and add subsurface storage",
+      "osmAssetTypes": ["amenity=square", "highway=pedestrian", "leisure=common"],
+      "typicalScale": { "min": 1000, "max": 10000, "unit": "m²" },
+      "costRange": { "min": 80, "max": 250, "unit": "USD/m²" },
+      "impacts": {
+        "flood": "medium",
+        "heat": "medium",
+        "landslide": "low"
+      },
+      "implementationNotes": "Underground utilities are main constraint; requires geotechnical assessment",
+      "maintenanceRequirements": "Semi-annual surface cleaning, annual subsurface inspection",
+      "timeToImplement": { "min": 6, "max": 18, "unit": "months" },
+      "cobenefits": ["Public space quality", "Urban aesthetics", "Groundwater recharge"]
+    },
+    {
+      "id": "retention_yard",
+      "category": "flood_storage",
+      "name": "Multi-use Retention Yard",
+      "description": "Depressed playfield with permeable courts and bioswales for water retention",
+      "osmAssetTypes": ["amenity=school", "amenity=university", "leisure=sports_pitch"],
+      "typicalScale": { "min": 2000, "max": 20000, "unit": "m²" },
+      "costRange": { "min": 40, "max": 150, "unit": "USD/m²" },
+      "impacts": {
+        "flood": "medium-high",
+        "heat": "medium",
+        "landslide": "low"
+      },
+      "implementationNotes": "Requires safety considerations and school calendar coordination",
+      "maintenanceRequirements": "Regular surface maintenance, drainage system checks",
+      "timeToImplement": { "min": 6, "max": 12, "unit": "months" },
+      "cobenefits": ["Education", "Recreation", "Community health"]
+    },
+    {
+      "id": "detention_field",
+      "category": "flood_storage",
+      "name": "Detention & Infiltration Field",
+      "description": "Sports field with engineered soil profile and underdrain for water detention",
+      "osmAssetTypes": ["leisure=sports_pitch", "leisure=stadium", "leisure=sports_centre"],
+      "typicalScale": { "min": 0.5, "max": 2, "unit": "ha" },
+      "costRange": { "min": 60000, "max": 200000, "unit": "USD/ha" },
+      "impacts": {
+        "flood": "medium",
+        "heat": "low-medium",
+        "landslide": "low"
+      },
+      "implementationNotes": "Turf selection critical for drainage and playability",
+      "maintenanceRequirements": "Regular turf maintenance, underdrain flushing",
+      "timeToImplement": { "min": 8, "max": 18, "unit": "months" },
+      "cobenefits": ["Sports", "Recreation", "Community gathering"]
+    },
+    {
+      "id": "constructed_wetland",
+      "category": "flood_storage",
+      "name": "Constructed Wetland",
+      "description": "Expand or create wetland area to slow flows and provide natural water treatment",
+      "osmAssetTypes": ["natural=wetland", "natural=water", "landuse=meadow"],
+      "typicalScale": { "min": 1, "max": 20, "unit": "ha" },
+      "costRange": { "min": 30000, "max": 120000, "unit": "USD/ha" },
+      "impacts": {
+        "flood": "high",
+        "heat": "medium",
+        "landslide": "low"
+      },
+      "implementationNotes": "Strong biodiversity co-benefits; requires hydrological study",
+      "maintenanceRequirements": "Annual vegetation management, water quality monitoring",
+      "timeToImplement": { "min": 18, "max": 36, "unit": "months" },
+      "cobenefits": ["Biodiversity", "Water quality", "Carbon sequestration", "Education"]
+    },
+    {
+      "id": "permeable_street",
+      "category": "flood_storage",
+      "name": "Permeable Street Retrofit",
+      "description": "Replace conventional paving with permeable asphalt/concrete and infiltration trenches",
+      "osmAssetTypes": ["highway=primary", "highway=secondary", "highway=tertiary", "highway=service"],
+      "typicalScale": { "min": 100, "max": 1000, "unit": "m" },
+      "costRange": { "min": 500, "max": 1500, "unit": "USD/m" },
+      "impacts": {
+        "flood": "low-medium",
+        "heat": "low",
+        "landslide": "low"
+      },
+      "implementationNotes": "Best as part of larger drainage network; requires traffic management during construction",
+      "maintenanceRequirements": "Regular surface cleaning to maintain permeability",
+      "timeToImplement": { "min": 3, "max": 12, "unit": "months" },
+      "cobenefits": ["Road quality", "Reduced ponding", "Groundwater recharge"]
+    },
+    {
+      "id": "tree_corridor",
+      "category": "urban_cooling",
+      "name": "Tree Canopy Corridor",
+      "description": "Continuous street trees with structural soil cells for healthy root growth",
+      "osmAssetTypes": ["highway=primary", "highway=secondary", "highway=tertiary", "highway=residential"],
+      "typicalScale": { "min": 200, "max": 2000, "unit": "m" },
+      "costRange": { "min": 1000, "max": 3000, "unit": "USD/tree" },
+      "impacts": {
+        "flood": "low-medium",
+        "heat": "high",
+        "landslide": "low"
+      },
+      "implementationNotes": "Requires adequate root space and long-term maintenance commitment",
+      "maintenanceRequirements": "Regular watering during establishment (2-3 years), annual pruning",
+      "timeToImplement": { "min": 6, "max": 18, "unit": "months" },
+      "cobenefits": ["Air quality", "Noise reduction", "Walkability", "Property values"]
+    },
+    {
+      "id": "shade_plaza",
+      "category": "urban_cooling",
+      "name": "Shade & Cooling Retrofit",
+      "description": "Add trees, pergolas, and light-colored surfaces to existing public spaces",
+      "osmAssetTypes": ["amenity=square", "leisure=park", "highway=pedestrian"],
+      "typicalScale": { "min": 1000, "max": 10000, "unit": "m²" },
+      "costRange": { "min": 50, "max": 200, "unit": "USD/m²" },
+      "impacts": {
+        "flood": "low",
+        "heat": "medium-high",
+        "landslide": "low"
+      },
+      "implementationNotes": "Focus on peak-use hours and high-traffic areas",
+      "maintenanceRequirements": "Regular cleaning, vegetation care, structure maintenance",
+      "timeToImplement": { "min": 4, "max": 12, "unit": "months" },
+      "cobenefits": ["Public space quality", "Social interaction", "Commercial activity"]
+    },
+    {
+      "id": "cooling_campus",
+      "category": "urban_cooling",
+      "name": "Cooling Campus",
+      "description": "Dense canopy coverage and shade structures for schools and hospitals",
+      "osmAssetTypes": ["amenity=school", "amenity=hospital", "amenity=university"],
+      "typicalScale": { "min": 1, "max": 5, "unit": "ha" },
+      "costRange": { "min": 30000, "max": 150000, "unit": "USD/ha" },
+      "impacts": {
+        "flood": "low-medium",
+        "heat": "high",
+        "landslide": "low"
+      },
+      "implementationNotes": "High social value; coordinate with institutional operations",
+      "maintenanceRequirements": "Regular vegetation care, annual structure inspection",
+      "timeToImplement": { "min": 6, "max": 24, "unit": "months" },
+      "cobenefits": ["Health", "Learning outcomes", "Energy savings", "Community resilience"]
+    },
+    {
+      "id": "pocket_park",
+      "category": "urban_cooling",
+      "name": "Pocket Park",
+      "description": "Convert vacant lots or underused spaces to shaded green areas",
+      "osmAssetTypes": ["landuse=brownfield", "landuse=vacant", "leisure=common"],
+      "typicalScale": { "min": 300, "max": 2000, "unit": "m²" },
+      "costRange": { "min": 20, "max": 100, "unit": "USD/m²" },
+      "impacts": {
+        "flood": "medium",
+        "heat": "medium",
+        "landslide": "low"
+      },
+      "implementationNotes": "Fast wins in dense urban areas; community engagement important",
+      "maintenanceRequirements": "Regular upkeep, community stewardship programs",
+      "timeToImplement": { "min": 3, "max": 9, "unit": "months" },
+      "cobenefits": ["Community space", "Mental health", "Biodiversity", "Air quality"]
+    },
+    {
+      "id": "green_roof",
+      "category": "urban_cooling",
+      "name": "Green / Cool Roofs",
+      "description": "Vegetated or reflective roof surfaces to reduce building and ambient temperatures",
+      "osmAssetTypes": ["building=commercial", "building=public", "building=residential"],
+      "typicalScale": { "min": 500, "max": 5000, "unit": "m²" },
+      "costRange": { "min": 60, "max": 200, "unit": "USD/m²" },
+      "impacts": {
+        "flood": "low",
+        "heat": "medium",
+        "landslide": "low"
+      },
+      "implementationNotes": "Requires structural assessment for load capacity",
+      "maintenanceRequirements": "Semi-annual inspection, irrigation system maintenance",
+      "timeToImplement": { "min": 3, "max": 12, "unit": "months" },
+      "cobenefits": ["Building energy efficiency", "Roof lifespan", "Urban aesthetics"]
+    },
+    {
+      "id": "reforestation",
+      "category": "slope_stability",
+      "name": "Hillside Reforestation",
+      "description": "Deep-root species planting on slopes to stabilize soil and control runoff",
+      "osmAssetTypes": ["natural=scrub", "landuse=grass", "landuse=farmland", "natural=grassland"],
+      "typicalScale": { "min": 1, "max": 50, "unit": "ha" },
+      "costRange": { "min": 5000, "max": 30000, "unit": "USD/ha" },
+      "impacts": {
+        "flood": "medium",
+        "heat": "low-medium",
+        "landslide": "high"
+      },
+      "implementationNotes": "Time lag of 5-10 years before full stabilization effect",
+      "maintenanceRequirements": "Fire management, invasive species control, replanting gaps",
+      "timeToImplement": { "min": 6, "max": 24, "unit": "months" },
+      "cobenefits": ["Carbon sequestration", "Biodiversity", "Water quality", "Recreation"]
+    },
+    {
+      "id": "vegetated_terrace",
+      "category": "slope_stability",
+      "name": "Vegetated Terraces",
+      "description": "Terracing with vegetation to reduce slope angle and improve stability",
+      "osmAssetTypes": ["natural=scrub", "landuse=farmland", "landuse=grass"],
+      "typicalScale": { "min": 0.5, "max": 10, "unit": "ha" },
+      "costRange": { "min": 20000, "max": 100000, "unit": "USD/ha" },
+      "impacts": {
+        "flood": "medium",
+        "heat": "low",
+        "landslide": "high"
+      },
+      "implementationNotes": "Requires slope engineering expertise and proper drainage design",
+      "maintenanceRequirements": "Regular inspection, vegetation management, drainage clearing",
+      "timeToImplement": { "min": 12, "max": 36, "unit": "months" },
+      "cobenefits": ["Agricultural potential", "Aesthetics", "Habitat creation"]
+    },
+    {
+      "id": "riparian_buffer",
+      "category": "slope_stability",
+      "name": "Riparian Buffer Stabilization",
+      "description": "Reinforce stream banks with deep-root vegetation to prevent erosion",
+      "osmAssetTypes": ["waterway=stream", "waterway=river", "natural=water"],
+      "typicalScale": { "min": 100, "max": 2000, "unit": "m" },
+      "costRange": { "min": 200, "max": 800, "unit": "USD/m" },
+      "impacts": {
+        "flood": "high",
+        "heat": "low-medium",
+        "landslide": "medium-high"
+      },
+      "implementationNotes": "Prevents erosion and reduces downstream flooding",
+      "maintenanceRequirements": "Annual inspection, debris removal, replanting as needed",
+      "timeToImplement": { "min": 6, "max": 18, "unit": "months" },
+      "cobenefits": ["Water quality", "Habitat connectivity", "Flood reduction", "Recreation"]
+    },
+    {
+      "id": "controlled_drainage",
+      "category": "slope_stability",
+      "name": "Controlled Drainage System",
+      "description": "Small check dams and lined channels to manage slope runoff",
+      "osmAssetTypes": ["waterway=ditch", "waterway=drain", "man_made=drainage"],
+      "typicalScale": { "min": 50, "max": 500, "unit": "m" },
+      "costRange": { "min": 300, "max": 1000, "unit": "USD/m" },
+      "impacts": {
+        "flood": "medium",
+        "heat": "low",
+        "landslide": "medium"
+      },
+      "implementationNotes": "Avoid concentrating flows; integrate with larger drainage network",
+      "maintenanceRequirements": "Regular debris clearing, structural inspection",
+      "timeToImplement": { "min": 3, "max": 12, "unit": "months" },
+      "cobenefits": ["Infrastructure protection", "Agricultural benefits"]
+    },
+    {
+      "id": "interceptor_drain",
+      "category": "slope_stability",
+      "name": "Surface Runoff Diversion",
+      "description": "Interceptor drains upslope of vulnerable areas to redirect water",
+      "osmAssetTypes": ["landuse=residential", "highway=footway", "highway=path"],
+      "typicalScale": { "min": 50, "max": 300, "unit": "m" },
+      "costRange": { "min": 150, "max": 600, "unit": "USD/m" },
+      "impacts": {
+        "flood": "medium",
+        "heat": "low",
+        "landslide": "medium"
+      },
+      "implementationNotes": "Critical for protecting informal settlements on slopes",
+      "maintenanceRequirements": "Regular clearing, especially before rainy season",
+      "timeToImplement": { "min": 2, "max": 6, "unit": "months" },
+      "cobenefits": ["Community safety", "Path improvement", "Erosion control"]
+    },
+    {
+      "id": "floodable_shaded_park",
+      "category": "multi_benefit",
+      "name": "Floodable Shaded Park",
+      "description": "Detention basin with dense tree canopy for combined flood and heat reduction",
+      "osmAssetTypes": ["leisure=park", "landuse=grass", "landuse=recreation_ground"],
+      "typicalScale": { "min": 1, "max": 15, "unit": "ha" },
+      "costRange": { "min": 80000, "max": 400000, "unit": "USD/ha" },
+      "impacts": {
+        "flood": "high",
+        "heat": "high",
+        "landslide": "low"
+      },
+      "implementationNotes": "Requires flood-tolerant tree species and proper grading",
+      "maintenanceRequirements": "Combined vegetation and drainage maintenance",
+      "timeToImplement": { "min": 18, "max": 36, "unit": "months" },
+      "cobenefits": ["Recreation", "Biodiversity", "Carbon sequestration", "Property values"]
+    },
+    {
+      "id": "sponge_cooling_campus",
+      "category": "multi_benefit",
+      "name": "Sponge & Cooling Campus",
+      "description": "Schools/hospitals with integrated water retention and cooling features",
+      "osmAssetTypes": ["amenity=school", "amenity=hospital", "amenity=university"],
+      "typicalScale": { "min": 0.5, "max": 5, "unit": "ha" },
+      "costRange": { "min": 60000, "max": 250000, "unit": "USD/ha" },
+      "impacts": {
+        "flood": "medium-high",
+        "heat": "high",
+        "landslide": "low"
+      },
+      "implementationNotes": "Protects vulnerable populations; coordinate with institutional schedules",
+      "maintenanceRequirements": "Regular maintenance of vegetation, drainage, and shade structures",
+      "timeToImplement": { "min": 12, "max": 30, "unit": "months" },
+      "cobenefits": ["Health outcomes", "Learning environment", "Community resilience"]
+    },
+    {
+      "id": "terraced_retention",
+      "category": "multi_benefit",
+      "name": "Terraced Retention System",
+      "description": "Hillside terracing with water retention to reduce runoff and stabilize slopes",
+      "osmAssetTypes": ["natural=scrub", "landuse=farmland", "landuse=grass"],
+      "typicalScale": { "min": 1, "max": 20, "unit": "ha" },
+      "costRange": { "min": 40000, "max": 180000, "unit": "USD/ha" },
+      "impacts": {
+        "flood": "medium-high",
+        "heat": "low",
+        "landslide": "high"
+      },
+      "implementationNotes": "Prevents cascading slope-to-flood failures",
+      "maintenanceRequirements": "Regular terrace inspection, vegetation management, drainage clearing",
+      "timeToImplement": { "min": 18, "max": 48, "unit": "months" },
+      "cobenefits": ["Agricultural potential", "Carbon sequestration", "Erosion control"]
+    },
+    {
+      "id": "green_blue_corridor",
+      "category": "multi_benefit",
+      "name": "Green-Blue Corridor",
+      "description": "Integrated linear park along waterways combining flood storage, cooling, and stability",
+      "osmAssetTypes": ["waterway=stream", "waterway=river", "leisure=park"],
+      "typicalScale": { "min": 0.5, "max": 5, "unit": "km" },
+      "costRange": { "min": 500000, "max": 2000000, "unit": "USD/km" },
+      "impacts": {
+        "flood": "high",
+        "heat": "medium-high",
+        "landslide": "medium"
+      },
+      "implementationNotes": "System-level resilience; requires cross-jurisdictional coordination",
+      "maintenanceRequirements": "Complex multi-asset maintenance program",
+      "timeToImplement": { "min": 24, "max": 60, "unit": "months" },
+      "cobenefits": ["Connectivity", "Recreation", "Biodiversity", "Property values", "Tourism"]
+    }
+  ]
+}

@@ -293,12 +293,33 @@ export interface ImpactModelData {
   } | null;
 }
 
+export interface SelectedIntervention {
+  interventionId: string;
+  interventionName: string;
+  category: string;
+  estimatedCost: { min: number; max: number; unit: string };
+  estimatedArea: number;
+  areaUnit: string;
+  impacts: { flood: string; heat: string; landslide: string };
+  notes?: string;
+  addedAt: string;
+}
+
 export interface SelectedZone {
   zoneId: string;
-  hazardType: 'FLOOD' | 'HEAT' | 'LANDSLIDE';
+  zoneName?: string;
+  hazardType: 'FLOOD' | 'HEAT' | 'LANDSLIDE' | 'FLOOD_HEAT' | 'FLOOD_LANDSLIDE' | 'HEAT_LANDSLIDE' | 'LOW';
+  primaryHazard?: string;
+  secondaryHazard?: string;
   riskScore?: number;
+  meanFlood?: number;
+  meanHeat?: number;
+  meanLandslide?: number;
   area?: number;
+  areaKm2?: number;
+  populationSum?: number;
   interventionType?: string;
+  interventionPortfolio: SelectedIntervention[];
 }
 
 export interface SiteExplorerData {
@@ -418,25 +439,63 @@ export const sampleFunderSelection: FunderSelectionData = {
 export const sampleSiteExplorer: SiteExplorerData = {
   selectedZones: [
     {
-      zoneId: 'zone-1',
+      zoneId: 'zone_14',
+      zoneName: 'Centro Histórico',
       hazardType: 'FLOOD',
+      primaryHazard: 'FLOOD',
+      secondaryHazard: 'HEAT',
       riskScore: 0.78,
+      meanFlood: 0.72,
+      meanHeat: 0.45,
+      meanLandslide: 0.08,
       area: 45000,
+      areaKm2: 45,
+      populationSum: 156000,
       interventionType: 'sponge_network',
+      interventionPortfolio: [
+        {
+          interventionId: 'floodable_park',
+          interventionName: 'Floodable Park / Detention Basin',
+          category: 'flood_storage',
+          estimatedCost: { min: 2250000, max: 13500000, unit: 'USD' },
+          estimatedArea: 45,
+          areaUnit: 'ha',
+          impacts: { flood: 'high', heat: 'medium', landslide: 'low' },
+          addedAt: '2026-01-14T10:00:00.000Z',
+        },
+      ],
     },
     {
-      zoneId: 'zone-2',
+      zoneId: 'zone_12',
+      zoneName: 'Zona Sul Residencial',
       hazardType: 'HEAT',
+      primaryHazard: 'HEAT',
+      secondaryHazard: 'FLOOD',
       riskScore: 0.85,
+      meanFlood: 0.42,
+      meanHeat: 0.62,
+      meanLandslide: 0.03,
       area: 32000,
+      areaKm2: 103,
+      populationSum: 830967,
       interventionType: 'cooling_network',
+      interventionPortfolio: [],
     },
     {
-      zoneId: 'zone-3',
+      zoneId: 'zone_5',
+      zoneName: 'Morro da Cruz',
       hazardType: 'LANDSLIDE',
+      primaryHazard: 'LANDSLIDE',
+      secondaryHazard: 'FLOOD',
       riskScore: 0.65,
+      meanFlood: 0.35,
+      meanHeat: 0.28,
+      meanLandslide: 0.58,
       area: 28000,
+      areaKm2: 28,
+      populationSum: 45000,
       interventionType: 'slope_stabilization',
+      interventionPortfolio: [],
     },
   ],
   layerPreferences: {

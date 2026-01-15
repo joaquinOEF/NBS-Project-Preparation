@@ -1,12 +1,16 @@
 import { useParams, Link } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain, Building2, MapPinned } from 'lucide-react';
+import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain, Building2, MapPinned, X, Plus, Check, DollarSign, Clock, Wrench, ChevronRight, ChevronDown, AlertTriangle, Leaf, Trash2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Badge } from '@/core/components/ui/badge';
 import { Switch } from '@/core/components/ui/switch';
 import { Label } from '@/core/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { ScrollArea } from '@/core/components/ui/scroll-area';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/core/components/ui/accordion';
 import { useTranslation } from 'react-i18next';
+import { useProjectContext, SelectedZone, SelectedIntervention } from '@/core/contexts/project-context';
 import { 
   useSampleData, 
   loadSampleBoundaryData, 
@@ -104,6 +108,50 @@ const TYPOLOGY_COLORS: Record<string, string> = {
   LOW: '#10b981',
 };
 
+interface InterventionCategory {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  applicableTypologies: string[];
+}
+
+interface InterventionType {
+  id: string;
+  category: string;
+  name: string;
+  description: string;
+  osmAssetTypes: string[];
+  typicalScale: { min: number; max: number; unit: string };
+  costRange: { min: number; max: number; unit: string };
+  impacts: { flood: string; heat: string; landslide: string };
+  implementationNotes: string;
+  maintenanceRequirements: string;
+  timeToImplement: { min: number; max: number; unit: string };
+  cobenefits: string[];
+}
+
+interface InterventionsData {
+  version: string;
+  categories: Record<string, InterventionCategory>;
+  interventions: InterventionType[];
+}
+
+interface ZoneProperties {
+  zoneId: string;
+  typologyLabel: string;
+  primaryHazard: string;
+  secondaryHazard?: string;
+  interventionType: string;
+  meanFlood: number;
+  meanHeat: number;
+  meanLandslide: number;
+  areaKm2: number;
+  cellCount: number;
+  populationSum?: number;
+}
+
 export default function SiteExplorerPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { t } = useTranslation();
@@ -168,6 +216,30 @@ export default function SiteExplorerPage() {
   });
 
   const [isLoadingSampleData, setIsLoadingSampleData] = useState(false);
+  const [selectedZone, setSelectedZone] = useState<ZoneProperties | null>(null);
+  const [interventionsData, setInterventionsData] = useState<InterventionsData | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [zonePortfolios, setZonePortfolios] = useState<Record<string, SelectedIntervention[]>>({});
+  const { updateModule, context } = useProjectContext();
+
+  useEffect(() => {
+    fetch('/sample-data/interventions.json')
+      .then(res => res.json())
+      .then(data => setInterventionsData(data))
+      .catch(err => console.error('Failed to load interventions data:', err));
+  }, []);
+
+  useEffect(() => {
+    if (context?.siteExplorer?.selectedZones) {
+      const portfolios: Record<string, SelectedIntervention[]> = {};
+      context.siteExplorer.selectedZones.forEach(zone => {
+        if (typeof zone === 'object' && zone.interventionPortfolio) {
+          portfolios[zone.zoneId] = zone.interventionPortfolio;
+        }
+      });
+      setZonePortfolios(portfolios);
+    }
+  }, [context?.siteExplorer?.selectedZones]);
 
   useEffect(() => {
     let cancelled = false;
