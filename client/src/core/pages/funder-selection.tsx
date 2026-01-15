@@ -103,6 +103,14 @@ const SECTOR_TO_FUND_SECTORS: Record<string, string[]> = {
   other: ['capacity_building', 'climate_planning', 'project_preparation', 'climate_studies', 'risk_information', 'health', 'urban_governance', 'all_climate_sectors'],
 };
 
+const RECEIVER_TO_BORROWER: Record<string, string[]> = {
+  municipality: ['municipality'],
+  state: ['state_government'],
+  utility: ['utility', 'public_utility'],
+  private: ['ppp_spv', 'private'],
+  consortium: ['consortium', 'municipality', 'state_government'],
+};
+
 function determinePathway(answers: QuestionnaireAnswers): { primary: string; secondary?: string; readinessLevel: string; limitingFactorKeys: string[] } {
   const limitingFactorKeys: string[] = [];
   let readinessLevel = 'very_early';
@@ -177,7 +185,8 @@ function rankFunds(funds: Fund[], answers: QuestionnaireAnswers, pathway: string
       const sectorMatch = fund.prioritySectors.some(ps => userFundSectors.includes(ps));
       if (sectorMatch) score += 25;
       
-      if (fund.eligibleBorrowers.includes(answers.fundingReceiver)) score += 20;
+      const userBorrowerTypes = RECEIVER_TO_BORROWER[answers.fundingReceiver] || [answers.fundingReceiver];
+      if (fund.eligibleBorrowers.some(b => userBorrowerTypes.includes(b))) score += 20;
       
       const investmentUSD: Record<string, number> = {
         'under_1m': 500000,
@@ -318,7 +327,8 @@ function computeTargetFundersNext(funds: Fund[], answers: QuestionnaireAnswers, 
         reasons.push(`Sector alignment with ${fund.prioritySectorsLabel.split(',')[0]}`);
       }
       
-      if (fund.eligibleBorrowers.includes(answers.fundingReceiver)) {
+      const userBorrowerTypes = RECEIVER_TO_BORROWER[answers.fundingReceiver] || [answers.fundingReceiver];
+      if (fund.eligibleBorrowers.some(b => userBorrowerTypes.includes(b))) {
         score += 25;
         reasons.push(`Eligible borrower type: ${answers.fundingReceiver.replace('_', ' ')}`);
       }
@@ -367,9 +377,9 @@ function computeTargetFundersNext(funds: Fund[], answers: QuestionnaireAnswers, 
       
       return { fund, score, reasons };
     })
-    .filter(item => item.score >= 30)
+    .filter(item => item.score >= 20 && item.reasons.length >= 1)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 2);
+    .slice(0, 3);
   
   return scoredFunds.map(({ fund, score, reasons }) => {
     const gapChecklist = generateGapChecklist(answers, fund);
