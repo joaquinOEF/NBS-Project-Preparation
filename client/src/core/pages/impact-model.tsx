@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, Lightbulb, Settings, Sparkles, Edit3, Eye, Download, Check, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Copy, FileText, Clock, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Lightbulb, Settings, Sparkles, Edit3, Eye, Download, Check, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Copy, FileText, Clock, AlertCircle, Scale, Thermometer, Users, TrendingUp, Building2, Info } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -134,98 +134,63 @@ function WeightSlider({
 function SetupStep({ 
   data, 
   onUpdate,
-  siteExplorerZones 
+  siteExplorerZones,
+  usingSampleData
 }: { 
   data: ImpactModelData; 
   onUpdate: (d: Partial<ImpactModelData>) => void;
   siteExplorerZones: any[];
+  usingSampleData: boolean;
 }) {
   const { t } = useTranslation();
+  const [expandedZones, setExpandedZones] = useState<Set<string>>(new Set());
   
-  const handleWeightChange = (key: keyof PrioritizationWeights, value: number) => {
-    onUpdate({
-      prioritizationWeights: {
-        ...data.prioritizationWeights,
-        [key]: value,
-      },
+  const toggleZoneExpansion = (zoneId: string) => {
+    setExpandedZones(prev => {
+      const next = new Set(prev);
+      if (next.has(zoneId)) {
+        next.delete(zoneId);
+      } else {
+        next.add(zoneId);
+      }
+      return next;
     });
   };
 
-  const handleResetWeights = () => {
-    onUpdate({
-      prioritizationWeights: { ...data.inheritedWeights },
-    });
+  const formatCost = (cost: { min: number; max: number; unit: string }) => {
+    const formatNum = (n: number) => {
+      if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+      if (n >= 1000) return `${(n / 1000).toFixed(0)}K`;
+      return n.toString();
+    };
+    return `${cost.unit} ${formatNum(cost.min)} - ${formatNum(cost.max)}`;
   };
-
-  const hasModifiedWeights = Object.keys(data.prioritizationWeights).some(
-    key => data.prioritizationWeights[key as keyof PrioritizationWeights] !== 
-           data.inheritedWeights[key as keyof PrioritizationWeights]
-  );
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                {t('impactModel.prioritizationWeights')}
-              </CardTitle>
-              <CardDescription>{t('impactModel.weightsDescription')}</CardDescription>
+      {usingSampleData && (
+        <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-900/10 dark:border-amber-800">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <p className="font-medium text-amber-800 dark:text-amber-300">{t('impactModel.usingSampleData')}</p>
+                <p className="text-sm text-amber-700 dark:text-amber-400">{t('impactModel.usingSampleDataHint')}</p>
+              </div>
             </div>
-            {hasModifiedWeights && (
-              <Button variant="outline" size="sm" onClick={handleResetWeights}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                {t('impactModel.resetToDefault')}
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="grid gap-6 md:grid-cols-2">
-          <WeightSlider
-            label={t('impactModel.weights.floodRiskReduction')}
-            value={data.prioritizationWeights.floodRiskReduction}
-            onChange={(v) => handleWeightChange('floodRiskReduction', v)}
-            inherited={data.inheritedWeights.floodRiskReduction}
-          />
-          <WeightSlider
-            label={t('impactModel.weights.heatReduction')}
-            value={data.prioritizationWeights.heatReduction}
-            onChange={(v) => handleWeightChange('heatReduction', v)}
-            inherited={data.inheritedWeights.heatReduction}
-          />
-          <WeightSlider
-            label={t('impactModel.weights.landslideRiskReduction')}
-            value={data.prioritizationWeights.landslideRiskReduction}
-            onChange={(v) => handleWeightChange('landslideRiskReduction', v)}
-            inherited={data.inheritedWeights.landslideRiskReduction}
-          />
-          <WeightSlider
-            label={t('impactModel.weights.socialEquity')}
-            value={data.prioritizationWeights.socialEquity}
-            onChange={(v) => handleWeightChange('socialEquity', v)}
-            inherited={data.inheritedWeights.socialEquity}
-          />
-          <WeightSlider
-            label={t('impactModel.weights.costCertainty')}
-            value={data.prioritizationWeights.costCertainty}
-            onChange={(v) => handleWeightChange('costCertainty', v)}
-            inherited={data.inheritedWeights.costCertainty}
-          />
-          <WeightSlider
-            label={t('impactModel.weights.biodiversityWaterQuality')}
-            value={data.prioritizationWeights.biodiversityWaterQuality}
-            onChange={(v) => handleWeightChange('biodiversityWaterQuality', v)}
-            inherited={data.inheritedWeights.biodiversityWaterQuality}
-          />
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('impactModel.interventionBundles')}</CardTitle>
-          <CardDescription>{t('impactModel.bundlesDescription')}</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            {t('impactModel.interventionBundles')}
+          </CardTitle>
+          <CardDescription>{t('impactModel.bundlesDescriptionExpanded')}</CardDescription>
         </CardHeader>
         <CardContent>
           {siteExplorerZones.length === 0 ? (
@@ -234,54 +199,127 @@ function SetupStep({
               <p className="text-sm mt-2">{t('impactModel.selectZonesFirst')}</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {siteExplorerZones.map((zone, index) => (
-                <div key={zone.zoneId || index} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Checkbox 
-                      checked={data.interventionBundles.some(b => b.id === (zone.zoneId || `zone-${index}`))}
-                      onCheckedChange={(checked) => {
-                        const zoneId = zone.zoneId || `zone-${index}`;
-                        if (checked) {
-                          onUpdate({
-                            interventionBundles: [
-                              ...data.interventionBundles,
-                              {
-                                id: zoneId,
-                                name: zone.name || `Zone ${index + 1}`,
-                                objective: '',
-                                targetHazards: [zone.hazardType || 'FLOOD'],
-                                interventions: [],
-                                locations: [{ zoneId, name: zone.name || '', geometryType: 'polygon' }],
-                                capexRange: { low: 0, high: 0 },
-                                enabled: true,
-                              },
-                            ],
-                          });
-                        } else {
-                          onUpdate({
-                            interventionBundles: data.interventionBundles.filter(b => b.id !== zoneId),
-                          });
-                        }
-                      }}
-                    />
-                    <div>
-                      <p className="font-medium text-sm">{zone.name || `Zone ${index + 1}`}</p>
-                      <div className="flex gap-2 mt-1">
-                        {zone.hazardType && (
-                          <Badge variant="outline" className="text-xs">{zone.hazardType}</Badge>
+            <div className="space-y-4">
+              {siteExplorerZones.map((zone, index) => {
+                const zoneId = zone.zoneId || `zone-${index}`;
+                const zoneName = zone.zoneName || zone.name || `Zone ${index + 1}`;
+                const isSelected = data.interventionBundles.some(b => b.id === zoneId);
+                const isExpanded = expandedZones.has(zoneId);
+                const interventions = zone.interventionPortfolio || [];
+                
+                return (
+                  <div key={zoneId} className={`border rounded-lg overflow-hidden transition-colors ${isSelected ? 'border-primary bg-primary/5' : ''}`}>
+                    <div 
+                      className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50"
+                      onClick={() => toggleZoneExpansion(zoneId)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Checkbox 
+                          checked={isSelected}
+                          onClick={(e) => e.stopPropagation()}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              onUpdate({
+                                interventionBundles: [
+                                  ...data.interventionBundles,
+                                  {
+                                    id: zoneId,
+                                    name: zoneName,
+                                    objective: '',
+                                    targetHazards: [zone.hazardType || zone.primaryHazard || 'FLOOD'],
+                                    interventions: interventions.map((i: any) => i.interventionId || i.id),
+                                    locations: [{ zoneId, name: zoneName, geometryType: 'polygon' }],
+                                    capexRange: { 
+                                      low: interventions.reduce((sum: number, i: any) => sum + (i.estimatedCost?.min || 0), 0),
+                                      high: interventions.reduce((sum: number, i: any) => sum + (i.estimatedCost?.max || 0), 0),
+                                    },
+                                    enabled: true,
+                                  },
+                                ],
+                              });
+                            } else {
+                              onUpdate({
+                                interventionBundles: data.interventionBundles.filter(b => b.id !== zoneId),
+                              });
+                            }
+                          }}
+                        />
+                        <div>
+                          <p className="font-medium">{zoneName}</p>
+                          <div className="flex gap-2 mt-1 flex-wrap">
+                            {(zone.hazardType || zone.primaryHazard) && (
+                              <Badge variant="outline" className="text-xs">{zone.hazardType || zone.primaryHazard}</Badge>
+                            )}
+                            {zone.interventionType && (
+                              <Badge variant="secondary" className="text-xs">{zone.interventionType.replace(/_/g, ' ')}</Badge>
+                            )}
+                            {interventions.length > 0 && (
+                              <Badge className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                                {interventions.length} {t('impactModel.interventions')}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {zone.riskScore && (
+                          <span className="text-sm text-muted-foreground">Risk: {(zone.riskScore * 100).toFixed(0)}%</span>
                         )}
-                        {zone.interventionType && (
-                          <Badge variant="secondary" className="text-xs">{zone.interventionType}</Badge>
-                        )}
+                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </div>
                     </div>
+                    
+                    {isExpanded && interventions.length > 0 && (
+                      <div className="border-t bg-muted/30 p-4">
+                        <p className="text-sm font-medium mb-3 text-muted-foreground">{t('impactModel.zoneInterventions')}</p>
+                        <div className="space-y-2">
+                          {interventions.map((intervention: any) => (
+                            <div key={intervention.interventionId || intervention.id} className="p-3 bg-background rounded-lg border">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <p className="font-medium text-sm">{intervention.interventionName || intervention.name}</p>
+                                  <div className="flex gap-2 mt-1 flex-wrap">
+                                    {intervention.category && (
+                                      <Badge variant="outline" className="text-xs">{intervention.category.replace(/_/g, ' ')}</Badge>
+                                    )}
+                                    {intervention.estimatedCost && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        {formatCost(intervention.estimatedCost)}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                {intervention.impacts && (
+                                  <div className="flex gap-1">
+                                    {intervention.impacts.flood && (
+                                      <Badge className={`text-xs ${intervention.impacts.flood === 'high' ? 'bg-blue-100 text-blue-800' : intervention.impacts.flood === 'medium' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600'}`}>
+                                        Flood
+                                      </Badge>
+                                    )}
+                                    {intervention.impacts.heat && (
+                                      <Badge className={`text-xs ${intervention.impacts.heat === 'high' ? 'bg-orange-100 text-orange-800' : intervention.impacts.heat === 'medium' ? 'bg-orange-50 text-orange-600' : 'bg-gray-100 text-gray-600'}`}>
+                                        Heat
+                                      </Badge>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {isExpanded && interventions.length === 0 && (
+                      <div className="border-t bg-muted/30 p-4">
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          {t('impactModel.noInterventionsInZone')}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  {zone.riskScore && (
-                    <span className="text-sm text-muted-foreground">Risk: {(zone.riskScore * 100).toFixed(0)}%</span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -430,24 +468,31 @@ function CurateStep({
   isRegenerating: string | null;
 }) {
   const { t } = useTranslation();
-  const { toast } = useToast();
-  const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
-  const [regeneratePrompts, setRegeneratePrompts] = useState<Record<string, string>>({});
-
-  const toggleBlock = (id: string) => {
-    setExpandedBlocks(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
+  const [regenerateModalBlock, setRegenerateModalBlock] = useState<NarrativeBlock | null>(null);
+  const [regeneratePrompt, setRegeneratePrompt] = useState('');
 
   const blocks = data.narrativeCache.base || [];
   const coBenefits = data.coBenefits || [];
+
+  const moveBlock = (index: number, direction: 'up' | 'down') => {
+    const newBlocks = [...blocks];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newBlocks.length) return;
+    [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
+    onUpdate({
+      narrativeCache: {
+        ...data.narrativeCache,
+        base: newBlocks,
+      },
+    });
+  };
+
+  const handleRegenerateSubmit = async () => {
+    if (!regenerateModalBlock) return;
+    await onRegenerateBlock(regenerateModalBlock, regeneratePrompt);
+    setRegenerateModalBlock(null);
+    setRegeneratePrompt('');
+  };
 
   if (blocks.length === 0) {
     return (
@@ -471,42 +516,81 @@ function CurateStep({
           </CardTitle>
           <CardDescription>{t('impactModel.curateDescription')}</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {blocks.map((block) => (
-            <Collapsible 
+        <CardContent className="space-y-4">
+          {blocks.map((block, index) => (
+            <div 
               key={block.id} 
-              open={expandedBlocks.has(block.id)}
-              onOpenChange={() => toggleBlock(block.id)}
+              className={`border rounded-lg overflow-hidden transition-all ${block.included ? 'border-primary/30' : 'opacity-60 border-dashed'}`}
             >
-              <div className="border rounded-lg">
-                <CollapsibleTrigger className="flex items-center justify-between w-full p-3 hover:bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    <Checkbox 
-                      checked={block.included}
-                      onClick={(e) => e.stopPropagation()}
-                      onCheckedChange={(checked) => {
-                        const updatedBlocks = blocks.map(b => 
-                          b.id === block.id ? { ...b, included: !!checked } : b
-                        );
-                        onUpdate({
-                          narrativeCache: {
-                            ...data.narrativeCache,
-                            base: updatedBlocks,
-                          },
-                        });
-                      }}
-                    />
-                    <div className="text-left">
-                      <p className="font-medium text-sm">{block.title}</p>
-                      <div className="flex gap-1 mt-1">
+              <div className="flex items-start gap-3 p-4 bg-muted/30">
+                <Checkbox 
+                  checked={block.included}
+                  onCheckedChange={(checked) => {
+                    const updatedBlocks = blocks.map(b => 
+                      b.id === block.id ? { ...b, included: !!checked } : b
+                    );
+                    onUpdate({
+                      narrativeCache: {
+                        ...data.narrativeCache,
+                        base: updatedBlocks,
+                      },
+                    });
+                  }}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-semibold text-base">{block.title}</h4>
+                      <div className="flex gap-2 mt-1 flex-wrap">
                         <Badge variant="outline" className="text-xs">{block.type.replace(/_/g, ' ')}</Badge>
                         <Badge variant="secondary" className="text-xs">{block.evidenceTier}</Badge>
                       </div>
                     </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => moveBlock(index, 'up')}
+                        disabled={index === 0}
+                        className="h-8 w-8 p-0"
+                        title={t('impactModel.moveUp')}
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => moveBlock(index, 'down')}
+                        disabled={index === blocks.length - 1}
+                        className="h-8 w-8 p-0"
+                        title={t('impactModel.moveDown')}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setRegenerateModalBlock(block);
+                          setRegeneratePrompt('');
+                        }}
+                        disabled={isRegenerating === block.id}
+                        className="h-8 w-8 p-0"
+                        title={t('impactModel.regenerateBlock')}
+                      >
+                        {isRegenerating === block.id ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                  {expandedBlocks.has(block.id) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </CollapsibleTrigger>
-                <CollapsibleContent className="p-3 pt-0 border-t">
+                </div>
+              </div>
+              <div className="p-4 border-t">
+                <div className="prose prose-sm max-w-none dark:prose-invert">
                   <Textarea
                     value={block.contentMd}
                     onChange={(e) => {
@@ -520,50 +604,21 @@ function CurateStep({
                         },
                       });
                     }}
-                    className="min-h-[150px] mt-2"
+                    className="min-h-[120px] text-sm border-0 focus-visible:ring-0 p-0 resize-none"
+                    placeholder="Enter narrative content..."
                   />
-                  
-                  {block.kpis && block.kpis.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {block.kpis.map((kpi, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          {kpi.name}: {kpi.valueRange} {kpi.unit}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="mt-3 p-3 bg-muted/30 rounded-lg">
-                    <Label className="text-xs text-muted-foreground">{t('impactModel.regeneratePrompt')}</Label>
-                    <Textarea
-                      placeholder={t('impactModel.regeneratePromptPlaceholder')}
-                      value={regeneratePrompts[block.id] || ''}
-                      onChange={(e) => setRegeneratePrompts(prev => ({ ...prev, [block.id]: e.target.value }))}
-                      className="min-h-[60px] mt-1 text-sm"
-                    />
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="mt-2"
-                      disabled={!regeneratePrompts[block.id] || isRegenerating === block.id}
-                      onClick={() => onRegenerateBlock(block, regeneratePrompts[block.id])}
-                    >
-                      {isRegenerating === block.id ? (
-                        <>
-                          <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
-                          {t('impactModel.regenerating')}
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="h-3 w-3 mr-2" />
-                          {t('impactModel.regenerateBlock')}
-                        </>
-                      )}
-                    </Button>
+                </div>
+                {block.kpis && block.kpis.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t">
+                    {block.kpis.map((kpi, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">
+                        {kpi.name}: {kpi.valueRange} {kpi.unit}
+                      </Badge>
+                    ))}
                   </div>
-                </CollapsibleContent>
+                )}
               </div>
-            </Collapsible>
+            </div>
           ))}
         </CardContent>
       </Card>
@@ -576,7 +631,7 @@ function CurateStep({
         <CardContent>
           <div className="grid gap-3 md:grid-cols-2">
             {coBenefits.map((cb) => (
-              <div key={cb.id} className={`p-3 border rounded-lg ${cb.included ? '' : 'opacity-50'}`}>
+              <div key={cb.id} className={`p-3 border rounded-lg transition-opacity ${cb.included ? '' : 'opacity-50'}`}>
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-2">
                     <Checkbox 
@@ -603,9 +658,65 @@ function CurateStep({
           </div>
         </CardContent>
       </Card>
+
+      {regenerateModalBlock && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                {t('impactModel.regenerateBlock')}
+              </CardTitle>
+              <CardDescription>
+                {regenerateModalBlock.title}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label className="text-sm">{t('impactModel.regenerateInstructions')}</Label>
+                <Textarea
+                  placeholder={t('impactModel.regenerateInstructionsPlaceholder')}
+                  value={regeneratePrompt}
+                  onChange={(e) => setRegeneratePrompt(e.target.value)}
+                  className="min-h-[100px] mt-2"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setRegenerateModalBlock(null)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button 
+                  onClick={handleRegenerateSubmit}
+                  disabled={!regeneratePrompt || isRegenerating === regenerateModalBlock.id}
+                >
+                  {isRegenerating === regenerateModalBlock.id ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      {t('impactModel.regenerating')}
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      {t('impactModel.regenerateBlock')}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
+
+const LENS_ICONS: Record<LensType, ReactNode> = {
+  neutral: <Scale className="h-4 w-4" />,
+  climate: <Thermometer className="h-4 w-4" />,
+  social: <Users className="h-4 w-4" />,
+  financial: <TrendingUp className="h-4 w-4" />,
+  institutional: <Building2 className="h-4 w-4" />,
+};
 
 function LensesStep({ 
   data, 
@@ -646,8 +757,9 @@ function LensesStep({
                 {lenses.map((lens) => {
                   const hasVariant = lens === 'neutral' || (data.narrativeCache.lensVariants[lens]?.length > 0);
                   return (
-                    <TabsTrigger key={lens} value={lens} className="text-xs relative">
-                      {t(`impactModel.lenses.${lens}`)}
+                    <TabsTrigger key={lens} value={lens} className="text-xs relative flex items-center gap-1.5">
+                      {LENS_ICONS[lens]}
+                      <span className="hidden sm:inline">{t(`impactModel.lenses.${lens}`)}</span>
                       {hasVariant && lens !== 'neutral' && (
                         <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
                       )}
@@ -658,9 +770,14 @@ function LensesStep({
               {lenses.map((lens) => (
                 <TabsContent key={lens} value={lens} className="mt-4">
                   <div className="p-4 bg-muted/30 rounded-lg space-y-4">
-                    <div>
-                      <h4 className="font-medium mb-2">{t(`impactModel.lenses.${lens}`)}</h4>
-                      <p className="text-sm text-muted-foreground">{t(`impactModel.lensDescriptions.${lens}`)}</p>
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        {LENS_ICONS[lens]}
+                      </div>
+                      <div>
+                        <h4 className="font-medium">{t(`impactModel.lenses.${lens}`)}</h4>
+                        <p className="text-sm text-muted-foreground mt-1">{t(`impactModel.lensHeadlines.${lens}`)}</p>
+                      </div>
                     </div>
                     
                     {lens === 'neutral' ? (
@@ -752,12 +869,14 @@ function LensesStep({
 
 function ExportStep({ 
   data,
+  onUpdate,
   onPushToOperations,
   onPushToBusinessModel,
   cityName,
   funderName
 }: { 
   data: ImpactModelData;
+  onUpdate: (d: Partial<ImpactModelData>) => void;
   onPushToOperations: () => void;
   onPushToBusinessModel: () => void;
   cityName: string;
@@ -766,8 +885,19 @@ function ExportStep({
   const { t } = useTranslation();
   const { toast } = useToast();
   const [previewMode, setPreviewMode] = useState<'markdown' | 'json'>('markdown');
+  const lenses: LensType[] = ['neutral', 'climate', 'social', 'financial', 'institutional'];
 
-  const includedBlocks = data.narrativeCache.base?.filter(b => b.included) || [];
+  const availableLenses = lenses.filter(lens => {
+    if (lens === 'neutral') return data.narrativeCache.base && data.narrativeCache.base.length > 0;
+    return data.narrativeCache.lensVariants[lens]?.length > 0;
+  });
+
+  const getBlocksForLens = (lens: LensType): NarrativeBlock[] => {
+    if (lens === 'neutral') return data.narrativeCache.base?.filter(b => b.included) || [];
+    return data.narrativeCache.lensVariants[lens]?.filter(b => b.included) || [];
+  };
+
+  const includedBlocks = getBlocksForLens(data.selectedLens);
   const includedCoBenefits = data.coBenefits.filter(cb => cb.included);
 
   const generateMarkdown = () => {
@@ -879,8 +1009,26 @@ function ExportStep({
                 <p className="font-medium">{funderName}</p>
               </div>
               <div>
-                <span className="text-muted-foreground">{t('impactModel.lens')}:</span>
-                <p className="font-medium capitalize">{data.selectedLens}</p>
+                <span className="text-muted-foreground">{t('impactModel.lensToExport')}:</span>
+                <div className="flex gap-1 mt-1">
+                  {availableLenses.map(lens => (
+                    <Button
+                      key={lens}
+                      variant={data.selectedLens === lens ? "default" : "outline"}
+                      size="sm"
+                      className="text-xs h-7 px-2 flex items-center gap-1"
+                      onClick={() => onUpdate({ selectedLens: lens })}
+                    >
+                      {LENS_ICONS[lens]}
+                      <span className="capitalize">{lens}</span>
+                    </Button>
+                  ))}
+                </div>
+                {availableLenses.length > 1 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t('impactModel.selectLensToExport')}
+                  </p>
+                )}
               </div>
               <div>
                 <span className="text-muted-foreground">{t('impactModel.version')}:</span>
@@ -1196,7 +1344,11 @@ export default function ImpactModelPage() {
   const cityName = context?.cityName || 'Porto Alegre';
   const funderName = context?.funderSelection?.funderName || sampleFunderSelection.funderName || 'Green Climate Fund';
 
-  const rawZones = context?.siteExplorer?.selectedZones ?? sampleSiteExplorer.selectedZones;
+  // Detect if using real data or sample data
+  const hasRealSiteData = context?.siteExplorer?.selectedZones && context.siteExplorer.selectedZones.length > 0;
+  const usingSampleData = !hasRealSiteData;
+  
+  const rawZones = hasRealSiteData ? context.siteExplorer!.selectedZones : sampleSiteExplorer.selectedZones;
   const siteExplorerZones = rawZones.map(zone => {
     if (typeof zone === 'string') {
       return { zoneId: zone, name: zone, hazardType: 'FLOOD' as const };
@@ -1253,7 +1405,7 @@ export default function ImpactModelPage() {
 
         <div className="mb-6">
           {currentStep === 'setup' && (
-            <SetupStep data={localData} onUpdate={handleUpdate} siteExplorerZones={siteExplorerZones} />
+            <SetupStep data={localData} onUpdate={handleUpdate} siteExplorerZones={siteExplorerZones} usingSampleData={usingSampleData} />
           )}
           {currentStep === 'generate' && (
             <GenerateStep 
@@ -1285,6 +1437,7 @@ export default function ImpactModelPage() {
           {currentStep === 'export' && (
             <ExportStep 
               data={localData} 
+              onUpdate={handleUpdate}
               onPushToOperations={handlePushToOperations}
               onPushToBusinessModel={handlePushToBusinessModel}
               cityName={cityName}

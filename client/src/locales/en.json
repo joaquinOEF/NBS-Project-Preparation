@@ -948,6 +948,33 @@
     "previewDescription": "Preview your export before downloading",
     "copied": "Copied",
     "copiedToClipboard": "Content copied to clipboard",
-    "copyFailed": "Failed to copy to clipboard"
+    "copyFailed": "Failed to copy to clipboard",
+    "usingSampleData": "Using Sample Data",
+    "usingSampleDataHint": "No site interventions saved yet. These are sample zones for exploration. Complete the Site Explorer module to use your own data.",
+    "bundlesDescriptionExpanded": "Select intervention zones and review the specific interventions for each",
+    "interventions": "interventions",
+    "zoneInterventions": "Interventions in this zone:",
+    "noInterventionsInZone": "No interventions added to this zone yet",
+    "regenerateInstructions": "Custom instructions for regeneration",
+    "regenerateInstructionsPlaceholder": "E.g., Focus more on community benefits, add specific metrics...",
+    "reorderBlocks": "Drag to reorder",
+    "moveUp": "Move Up",
+    "moveDown": "Move Down",
+    "lensHeadlines": {
+      "neutral": "Balanced perspective on project impacts",
+      "climate": "Climate-focused narrative emphasizing emissions and adaptation",
+      "social": "Community-centered view highlighting equity and wellbeing",
+      "financial": "Investment-oriented analysis of returns and value",
+      "institutional": "Governance lens on capacity and policy alignment"
+    },
+    "lensIcons": {
+      "neutral": "Scale",
+      "climate": "Thermometer",
+      "social": "Users",
+      "financial": "TrendingUp",
+      "institutional": "Building"
+    },
+    "selectLensToExport": "Select which lens version to export",
+    "lensToExport": "Lens to Export"
   }
 }

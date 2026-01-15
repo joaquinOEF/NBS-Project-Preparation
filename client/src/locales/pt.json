@@ -948,6 +948,33 @@
     "previewDescription": "Visualize sua exportação antes de baixar",
     "copied": "Copiado",
     "copiedToClipboard": "Conteúdo copiado para a área de transferência",
-    "copyFailed": "Falha ao copiar para a área de transferência"
+    "copyFailed": "Falha ao copiar para a área de transferência",
+    "usingSampleData": "Usando Dados de Exemplo",
+    "usingSampleDataHint": "Nenhuma intervenção de site salva ainda. Estas são zonas de exemplo para exploração. Complete o módulo Site Explorer para usar seus próprios dados.",
+    "bundlesDescriptionExpanded": "Selecione zonas de intervenção e revise as intervenções específicas para cada uma",
+    "interventions": "intervenções",
+    "zoneInterventions": "Intervenções nesta zona:",
+    "noInterventionsInZone": "Nenhuma intervenção adicionada a esta zona ainda",
+    "regenerateInstructions": "Instruções personalizadas para regeneração",
+    "regenerateInstructionsPlaceholder": "Ex: Foque mais em benefícios comunitários, adicione métricas específicas...",
+    "reorderBlocks": "Arraste para reordenar",
+    "moveUp": "Mover para Cima",
+    "moveDown": "Mover para Baixo",
+    "lensHeadlines": {
+      "neutral": "Perspectiva equilibrada sobre impactos do projeto",
+      "climate": "Narrativa focada no clima enfatizando emissões e adaptação",
+      "social": "Visão centrada na comunidade destacando equidade e bem-estar",
+      "financial": "Análise orientada a investimentos de retornos e valor",
+      "institutional": "Lente de governança sobre capacidade e alinhamento de políticas"
+    },
+    "lensIcons": {
+      "neutral": "Scale",
+      "climate": "Thermometer",
+      "social": "Users",
+      "financial": "TrendingUp",
+      "institutional": "Building"
+    },
+    "selectLensToExport": "Selecione qual versão da lente exportar",
+    "lensToExport": "Lente para Exportar"
   }
 }
