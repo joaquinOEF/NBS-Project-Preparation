@@ -342,11 +342,18 @@ export default function SiteExplorerPage() {
     }
   }, [selectedZoneFeature, selectedZone]);
 
+  const [osmResultsTruncated, setOsmResultsTruncated] = useState(false);
+  const [osmShowAll, setOsmShowAll] = useState(false);
+  const OSM_RESULT_LIMIT = 50;
+  const OSM_EXTENDED_LIMIT = 200;
+
   const fetchOsmAssets = useCallback(async (zoneFeature: any, category: string) => {
     if (!zoneFeature?.geometry || !interventionsData) return;
     
     setIsLoadingOsmAssets(true);
     setOsmAssets([]);
+    setOsmResultsTruncated(false);
+    setOsmShowAll(false);
     
     try {
       const categoryData = interventionsData.categories[category];
@@ -366,7 +373,7 @@ export default function SiteExplorerPage() {
         return `node["${key}"="${value}"](${bbox.join(',')});way["${key}"="${value}"](${bbox.join(',')});relation["${key}"="${value}"](${bbox.join(',')});`;
       }).join('');
       
-      const query = `[out:json][timeout:25];(${osmFilters});out body geom;`;
+      const query = `[out:json][timeout:25][maxsize:10485760];(${osmFilters});out body geom;`;
       
       const response = await fetch('https://overpass-api.de/api/interpreter', {
         method: 'POST',
@@ -449,12 +456,32 @@ export default function SiteExplorerPage() {
         };
       }).filter((a: any) => a.geometry && a.compatibleInterventions.length > 0);
       
-      setOsmAssets(assets);
+      assets.sort((a: any, b: any) => {
+        const aHasName = a.tags?.name ? 1 : 0;
+        const bHasName = b.tags?.name ? 1 : 0;
+        if (aHasName !== bHasName) return bHasName - aHasName;
+        const aSize = a.area || a.length || 0;
+        const bSize = b.area || b.length || 0;
+        return bSize - aSize;
+      });
       
-      if (mapRef.current && assets.length > 0) {
+      const totalFound = assets.length;
+      if (assets.length > OSM_EXTENDED_LIMIT) {
+        setOsmResultsTruncated(true);
+        setOsmAssets(assets.slice(0, OSM_EXTENDED_LIMIT));
+      } else if (assets.length > OSM_RESULT_LIMIT) {
+        setOsmResultsTruncated(true);
+        setOsmAssets(assets);
+      } else {
+        setOsmAssets(assets);
+      }
+      
+      const displayAssets = assets.slice(0, OSM_EXTENDED_LIMIT);
+      
+      if (mapRef.current && displayAssets.length > 0) {
         const geoJsonFeatures = {
           type: 'FeatureCollection',
-          features: assets.map((a: any) => ({
+          features: displayAssets.map((a: any) => ({
             type: 'Feature',
             geometry: a.geometry,
             properties: { ...a, geometry: undefined },
@@ -1267,7 +1294,7 @@ export default function SiteExplorerPage() {
             </div>
           )}
           
-          <div className="absolute top-4 right-4 z-[1000]">
+          <div className="absolute top-4 right-4 z-[1001]" style={{ pointerEvents: 'auto' }}>
             <Button
               variant="secondary"
               size="sm"
@@ -1280,7 +1307,7 @@ export default function SiteExplorerPage() {
           </div>
           
           {showLayerPanel && (
-            <div className="absolute top-14 right-4 z-[1000] bg-zinc-900/95 backdrop-blur-sm rounded-lg shadow-xl border border-zinc-700 p-4 min-w-[240px]">
+            <div className="absolute top-14 right-4 z-[1001] bg-zinc-900/95 backdrop-blur-sm rounded-lg shadow-xl border border-zinc-700 p-4 min-w-[240px]" style={{ pointerEvents: 'auto' }}>
               <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-700">
                 <span className="font-medium text-sm text-white">Data Layers</span>
                 <span className="text-xs text-zinc-400">
@@ -1318,7 +1345,9 @@ export default function SiteExplorerPage() {
           )}
 
           {selectedZone && (
-            <div className="absolute top-4 left-4 z-[1000] w-[420px] max-h-[calc(100vh-160px)] bg-background rounded-lg shadow-xl border overflow-hidden flex flex-col">
+            <div 
+              className="site-explorer-panel absolute top-4 left-4 z-[1001] w-[420px] max-h-[calc(100vh-160px)] bg-background rounded-lg shadow-xl border overflow-hidden flex flex-col"
+            >
               <div className="p-4 border-b bg-muted/50 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -1459,10 +1488,29 @@ export default function SiteExplorerPage() {
                       ) : (
                         <>
                           <p className="text-sm text-muted-foreground mb-2">
-                            Found {osmAssets.length} compatible assets. Click on an asset to assign an intervention.
+                            {osmResultsTruncated && !osmShowAll
+                              ? `Showing top ${Math.min(OSM_RESULT_LIMIT, osmAssets.length)} assets (${osmAssets.length} available). Named and larger assets first.`
+                              : `Found ${osmAssets.length} compatible assets. Click on an asset to assign an intervention.`
+                            }
                           </p>
+                          {osmResultsTruncated && !osmShowAll && osmAssets.length > OSM_RESULT_LIMIT && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full mb-2"
+                              onClick={() => setOsmShowAll(true)}
+                            >
+                              Show all {osmAssets.length} assets
+                            </Button>
+                          )}
+                          {osmAssets.length >= OSM_EXTENDED_LIMIT && (
+                            <div className="flex items-center gap-2 p-2 mb-2 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400 rounded-lg text-xs">
+                              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                              <span>Many assets in this zone. Select a smaller zone or zoom in for more targeted selection.</span>
+                            </div>
+                          )}
                           <div className="space-y-2">
-                            {osmAssets.map(asset => {
+                            {(osmShowAll ? osmAssets : osmAssets.slice(0, OSM_RESULT_LIMIT)).map(asset => {
                               const hasIntervention = zonePortfolios[selectedZone.zoneId]?.some(
                                 i => i.assetId === asset.id
                               );

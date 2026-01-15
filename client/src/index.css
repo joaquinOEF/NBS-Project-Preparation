@@ -156,6 +156,22 @@
   height: 100%;
   width: 100%;
   border-radius: var(--radius);
+  z-index: 0;
+}
+
+/* Ensure UI overlays are above map controls */
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 999 !important;
+}
+
+/* Site explorer panel scrolling fix */
+.site-explorer-panel {
+  pointer-events: auto;
+}
+
+.site-explorer-panel [data-radix-scroll-area-viewport] {
+  overscroll-behavior: contain;
 }
 
 .mini-map {
