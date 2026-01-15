@@ -49,6 +49,20 @@ interface Pathway {
   nextSteps: string;
 }
 
+interface ChecklistItem {
+  id: string;
+  category: 'feasibility' | 'safeguards' | 'repayment' | 'sovereign' | 'aggregation';
+  text: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+interface TargetFunder {
+  fund: Fund;
+  whyFitReasons: string[];
+  gapChecklist: ChecklistItem[];
+  confidence: 'high' | 'medium' | 'low';
+}
+
 interface FundsData {
   funds: Fund[];
   pathways: Record<string, Pathway>;
@@ -193,6 +207,216 @@ function rankFunds(funds: Fund[], answers: QuestionnaireAnswers, pathway: string
     })
     .sort((a, b) => (b as any).score - (a as any).score)
     .slice(0, 3);
+}
+
+function generateGapChecklist(answers: QuestionnaireAnswers, fund: Fund): ChecklistItem[] {
+  const checklist: ChecklistItem[] = [];
+  const isEarlyStage = ['idea', 'concept', 'prefeasibility'].includes(answers.projectStage);
+  const missingCapex = !answers.existingElements.includes('capex');
+  const missingAssessments = !answers.existingElements.includes('assessments');
+  const repaymentUnclear = answers.repaymentSource === 'not_defined' || answers.generatesRevenue === 'no';
+  const sovereignRequired = fund.requiresSovereignGuarantee && answers.nationalApproval !== 'yes';
+  const investmentSizeSmall = ['under_1m', '1_5m'].includes(answers.investmentSize);
+  const fundMinTicket = fund.ticketWindow.currency === 'BRL' 
+    ? fund.ticketWindow.min / 5 
+    : fund.ticketWindow.min;
+
+  if (isEarlyStage || !answers.existingElements.includes('assessments')) {
+    checklist.push({
+      id: 'feasibility-study',
+      category: 'feasibility',
+      text: 'Complete pre-feasibility and feasibility study',
+      priority: 'high',
+    });
+  }
+
+  if (missingCapex) {
+    checklist.push({
+      id: 'capex-opex',
+      category: 'feasibility',
+      text: 'Develop CAPEX and OPEX estimates with implementation timeline',
+      priority: 'high',
+    });
+  }
+
+  if (isEarlyStage) {
+    checklist.push({
+      id: 'implementation-plan',
+      category: 'feasibility',
+      text: 'Define implementation plan and procurement approach',
+      priority: 'medium',
+    });
+  }
+
+  if (missingAssessments || fund.safeguards) {
+    checklist.push({
+      id: 'esia-esmp',
+      category: 'safeguards',
+      text: 'Prepare ESIA/ESMP and stakeholder engagement plan',
+      priority: 'high',
+    });
+  }
+
+  if (repaymentUnclear && fund.instrumentType === 'loan') {
+    checklist.push({
+      id: 'repayment-pathway',
+      category: 'repayment',
+      text: 'Define repayment pathway (budget/tariff/savings) and secure treasury sign-off',
+      priority: 'high',
+    });
+  }
+
+  if (sovereignRequired) {
+    checklist.push({
+      id: 'sovereign-approval',
+      category: 'sovereign',
+      text: 'Confirm sovereign/national approval pathway and guarantee feasibility',
+      priority: 'high',
+    });
+  }
+
+  const investmentUSD: Record<string, number> = {
+    'under_1m': 500000,
+    '1_5m': 3000000,
+    '5_20m': 12000000,
+    '20_50m': 35000000,
+    'over_50m': 100000000,
+    'unknown': 10000000,
+  };
+  const userInvestment = investmentUSD[answers.investmentSize] || 10000000;
+  
+  if (userInvestment < fundMinTicket * 0.5) {
+    checklist.push({
+      id: 'aggregation',
+      category: 'aggregation',
+      text: 'Aggregate with similar projects or package as program to reach minimum ticket size',
+      priority: 'medium',
+    });
+  }
+
+  return checklist.slice(0, 6);
+}
+
+function computeTargetFundersNext(funds: Fund[], answers: QuestionnaireAnswers, nowPathway: string): TargetFunder[] {
+  const userFundSectors = answers.sectors.flatMap(s => SECTOR_TO_FUND_SECTORS[s] || []);
+  const isAdaptation = answers.sectors.includes('nature_based') || answers.sectors.includes('urban_resilience');
+  
+  const scoredFunds = funds
+    .filter(fund => {
+      if (fund.supportsPreparation) return false;
+      if (nowPathway === 'multilateral' && fund.category === 'multilateral') return false;
+      return fund.category === 'multilateral' || fund.category === 'domestic_bank';
+    })
+    .map(fund => {
+      let score = 0;
+      const reasons: string[] = [];
+      
+      const sectorMatch = fund.prioritySectors.some(ps => userFundSectors.includes(ps));
+      if (sectorMatch) {
+        score += 30;
+        reasons.push(`Sector alignment with ${fund.prioritySectorsLabel.split(',')[0]}`);
+      }
+      
+      if (fund.eligibleBorrowers.includes(answers.fundingReceiver)) {
+        score += 25;
+        reasons.push(`Eligible borrower type: ${answers.fundingReceiver.replace('_', ' ')}`);
+      }
+      
+      const investmentUSD: Record<string, number> = {
+        'under_1m': 500000,
+        '1_5m': 3000000,
+        '5_20m': 12000000,
+        '20_50m': 35000000,
+        'over_50m': 100000000,
+        'unknown': 10000000,
+      };
+      const userInvestment = investmentUSD[answers.investmentSize] || 10000000;
+      const minTicket = fund.ticketWindow.currency === 'BRL' 
+        ? fund.ticketWindow.min / 5 
+        : fund.ticketWindow.min;
+      const maxTicket = fund.ticketWindow.max 
+        ? (fund.ticketWindow.currency === 'BRL' ? fund.ticketWindow.max / 5 : fund.ticketWindow.max)
+        : Infinity;
+      
+      if (userInvestment >= minTicket * 0.3 && userInvestment <= maxTicket * 2) {
+        score += 20;
+        if (userInvestment >= minTicket) {
+          reasons.push(`Investment size fits ticket window (${fund.ticketWindowLabel})`);
+        }
+      }
+      
+      if (fund.instrumentType === 'loan' && answers.generatesRevenue !== 'no') {
+        score += 15;
+        reasons.push('Revenue potential supports loan repayment');
+      }
+      if (fund.instrumentType === 'grant' && (answers.generatesRevenue === 'no' || isAdaptation)) {
+        score += 15;
+        reasons.push('Grant structure fits public-good project nature');
+      }
+      
+      if (fund.category === 'multilateral') {
+        score += 10;
+        reasons.push('MDB anchor provides concessional terms and technical support');
+      }
+      
+      if (fund.id.includes('idb') || fund.id.includes('caf') || fund.id.includes('fonplata')) {
+        score += 5;
+        reasons.push('Regional focus on Latin America');
+      }
+      
+      return { fund, score, reasons };
+    })
+    .filter(item => item.score >= 30)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 2);
+  
+  return scoredFunds.map(({ fund, score, reasons }) => {
+    const gapChecklist = generateGapChecklist(answers, fund);
+    
+    let confidence: 'high' | 'medium' | 'low' = 'medium';
+    if (score >= 60 && gapChecklist.length <= 2) confidence = 'high';
+    else if (score < 40 || gapChecklist.length >= 5) confidence = 'low';
+    
+    return {
+      fund,
+      whyFitReasons: reasons.slice(0, 4),
+      gapChecklist,
+      confidence,
+    };
+  });
+}
+
+function generateBridgeParagraph(nowPathway: string, targetFunders: TargetFunder[]): string | null {
+  if (targetFunders.length === 0) return null;
+  
+  const targetNames = targetFunders.map(t => t.fund.institution).join(' or ');
+  const hasFeasibilityGap = targetFunders.some(t => 
+    t.gapChecklist.some(c => c.category === 'feasibility')
+  );
+  const hasSafeguardsGap = targetFunders.some(t => 
+    t.gapChecklist.some(c => c.category === 'safeguards')
+  );
+  
+  if (nowPathway === 'preparation_facility') {
+    if (hasFeasibilityGap && hasSafeguardsGap) {
+      return `Use the recommended project preparation support to develop the feasibility studies and safeguard documents required by ${targetNames}. This creates a clear pathway from early-stage to investment-ready.`;
+    } else if (hasFeasibilityGap) {
+      return `The recommended preparation facilities can help you complete the feasibility work needed to approach ${targetNames} for implementation financing.`;
+    } else if (hasSafeguardsGap) {
+      return `Use PPF support to develop environmental and social safeguards aligned with ${targetNames} requirements.`;
+    }
+    return `The recommended preparation support will help position your project for future engagement with ${targetNames}.`;
+  }
+  
+  if (nowPathway === 'grant') {
+    return `The grant funding can help establish proof of concept and evidence base that strengthens future applications to ${targetNames}.`;
+  }
+  
+  if (nowPathway === 'domestic_bank') {
+    return `Successful implementation with domestic financing can create the track record and institutional capacity needed for larger ${targetNames} engagement.`;
+  }
+  
+  return null;
 }
 
 export default function FunderSelectionPage() {

@@ -1,0 +1,104 @@
+Context
+We already have a working app that:
+asks a multi-section questionnaire,
+selects a high-level funding pathway category,
+returns a ranked top 3 funds from the uploaded spreadsheet (currently it often recommends PPFs).
+This behavior is correct for “NOW” recommendations, but we need to add a second layer that is forward-looking.
+Goal of this change
+We were only recommending what the city is READY FOR APPLYING, but I want a tool that can recommend a FINANCE PATHWAY, a bit more forthward looking so the city can not only know where they can go now, but what are some potential funding opportunities to start preparing themselves.
+We will change a bit the logic in the backend to allow this change, and we will change how the output is provided.
+Add a two-layer recommendation output:
+Output A — “NOW” (Immediate pathway)
+Keep existing strict logic:
+If project stage is early / missing studies → recommend Category A (PPF) and show top 3 PPF-like funds eligible now.
+Output B — “NEXT” (Strategic target funders)
+Add new logic that:
+identifies 1–2 target funders that the project should be prepared for (often MDBs like IDB/World Bank/CAF), even if the project is not eligible today.
+explains why those funders are a good structural fit
+outputs a “gap-closing checklist” telling the city what they must prepare to become eligible (feasibility, repayment, sovereign path, etc.)
+links the NEXT target back to the NOW recommendation (e.g., “Use PPF X to prepare feasibility for target funder Y”).
+Important: Do NOT mix NOW and NEXT into a single ranked list. They must be separate sections.
+Implementation instructions
+1) Keep current NOW pathway logic unchanged
+Do not change:
+questionnaire
+eligibility hard gates for NOW
+scoring/ranking used for NOW top 3
+If current logic yields PPF for early-stage cities, that should remain.
+2) Add a new computation: targetFundersNext[]
+After the user submits the questionnaire and NOW recommendations are computed, add a second computation step:
+computeTargetFundersNext(projectProfile, funds)
+This should output up to 2 target funders, with:
+fund name + institution + link
+“why fit” reasons (2–4 bullets)
+“what to prepare” checklist (3–6 items)
+confidence (high/medium/low)
+The key difference from NOW
+NOW requires strict readiness (stage, studies, budget).
+NEXT uses structural fit, not readiness.
+Do not exclude funds in NEXT just because stage is early.
+ Instead, treat them as “targets” and list the missing requirements.
+3) Target selection rules (NEXT)
+Build a targetFitScore for each fund with stage penalty removed.
+For NEXT, score and filter using these dimensions only:
+Sector fit (priority sectors overlap with project sector)
+Borrower compatibility (eligible borrowers match municipality/utility/state/national)
+Instrument relevance (loans for projects that can/want to borrow; grants for public goods)
+Ticket plausibility (capex band not wildly outside ticket window, but allow unknown)
+Country relevance (if the fund is clearly Brazil/LATAM oriented, boost)
+Stage handling for NEXT:
+If fund is a capital lender (MDB/dev bank) and project stage is early, still include as target but add checklist items (feasibility, safeguards, etc.)
+Pick the top 1–2 funds as NEXT targets, prioritizing MDB/dev bank style anchors when structural fit is strong.
+4) Gap-closing checklist generator (NEXT)
+For each target funder, generate a checklist of what is missing based on projectProfile.
+Checklist items should be generated from these rules:
+If stage < feasibility:
+“Complete pre-feasibility and feasibility study”
+“Develop CAPEX and OPEX estimates”
+“Define implementation plan and procurement approach”
+If safeguards docs missing:
+“Prepare ESIA/ESMP and stakeholder engagement plan (as applicable)”
+If repayment unclear:
+“Define repayment pathway (budget/tariff/savings) and secure treasury sign-off”
+If sovereign guarantee required/unknown:
+“Confirm sovereign/national approval pathway and guarantee feasibility”
+If project too small and aggregation not considered:
+“Aggregate with similar projects or package as program to reach minimum ticket size”
+5) Link NOW → NEXT (bridge logic)
+Add a short bridge paragraph:
+• If NOW = Category A (PPF) and NEXT includes an MDB:
+ “Use the recommended PPF support to prepare feasibility/safeguards aligned with the target MDB.”
+Optionally, highlight which of the NOW top 3 best supports the checklist items (simple heuristic):
+PPF / TA funds match feasibility/safeguards
+Domestic programs match early pilots or sectoral readiness
+Aggregation platforms match ticket size issues
+6) UI changes
+In the results page, add a new section after NOW:
+1. Recommended Pathway (NOW) — keep existing
+2. Top 3 Funds for NOW — keep existing
+3. Strategic Target Funders (NEXT) — NEW
+show 1–2 targets
+show why fit
+show checklist
+show confidence
+4. What unlocks more options — brief summary
+Do not remove any existing content; only add sections.
+7) Ensure recommendations still use the spreadsheet
+All funds shown in NOW or NEXT must be drawn from the uploaded spreadsheet. No external names.
+If the spreadsheet lacks MDB entries, NEXT should still work by selecting the best “capital loan” type entries available and labeling them as targets.
+Acceptance criteria (tests)
+The modified app should behave like this:
+Example A: Early-stage city (idea/concept)
+NOW = Category A (PPF) with top 3 PPF/TA funds
+NEXT = 1–2 target capital funders (MDB/dev bank) with checklist: feasibility, safeguards, repayment, sovereign path
+Example B: Feasibility-ready project with repayment
+NOW = Category B/E (capital) with top 3 capital funds
+NEXT = optional second-best capital targets or blended options, checklist minimal
+Example C: Public-good NbS with no repayment
+NOW = Category D (grant) or A (prep) depending on readiness
+NEXT = grant fund targets (and possibly domestic programs), checklist focuses on evidence, vulnerability logic, site ownership
+Output copy rules
+Use clear language: “Now” vs “Next”
+Never promise funding approval
+Explain uncertainty explicitly
+Encourage cities to prepare and validate documents
