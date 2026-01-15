@@ -1,5 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { useParams, Link } from 'wouter';
+import DOMPurify from 'dompurify';
 import { ArrowLeft, Lightbulb, Settings, Sparkles, Edit3, Eye, Download, Check, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Copy, FileText, Clock, AlertCircle, Scale, Thermometer, Users, TrendingUp, Building2, Info, Droplets, Mountain, Loader2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
@@ -569,6 +570,22 @@ function GenerationModal({
   );
 }
 
+function renderMarkdown(text: string): string {
+  if (!text) return '';
+  const escaped = DOMPurify.sanitize(text, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+  let html = escaped
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^### (.+)$/gm, '<h4 class="text-base font-semibold mt-4 mb-2">$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3 class="text-lg font-semibold mt-5 mb-2">$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2 class="text-xl font-bold mt-6 mb-3">$1</h2>')
+    .replace(/^- (.+)$/gm, '<li class="ml-4">$1</li>')
+    .replace(/(<li.*<\/li>\n?)+/g, '<ul class="list-disc space-y-1 my-2">$&</ul>')
+    .replace(/\n\n/g, '</p><p class="my-3">')
+    .replace(/\n/g, '<br/>');
+  return DOMPurify.sanitize(`<p class="my-3">${html}</p>`);
+}
+
 function CurateStep({ 
   data, 
   onUpdate,
@@ -583,6 +600,7 @@ function CurateStep({
   const { t } = useTranslation();
   const [regenerateModalBlock, setRegenerateModalBlock] = useState<NarrativeBlock | null>(null);
   const [regeneratePrompt, setRegeneratePrompt] = useState('');
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
 
   const blocks = data.narrativeCache.base || [];
   const coBenefits = data.coBenefits || [];
@@ -607,6 +625,26 @@ function CurateStep({
     setRegeneratePrompt('');
   };
 
+  const getConfidenceColor = (confidence: string) => {
+    switch (confidence) {
+      case 'HIGH': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+      case 'MEDIUM': return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400';
+    }
+  };
+
+  const getCategoryIcon = (category: string) => {
+    const cat = category.toLowerCase();
+    if (cat.includes('health')) return '🏥';
+    if (cat.includes('economic') || cat.includes('financial')) return '💰';
+    if (cat.includes('social') || cat.includes('community')) return '👥';
+    if (cat.includes('environment') || cat.includes('ecological')) return '🌿';
+    if (cat.includes('climate')) return '🌡️';
+    if (cat.includes('biodiversity')) return '🦋';
+    if (cat.includes('water')) return '💧';
+    return '✨';
+  };
+
   if (blocks.length === 0) {
     return (
       <Card>
@@ -620,22 +658,23 @@ function CurateStep({
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Edit3 className="h-5 w-5" />
-            {t('impactModel.narrativeBlocks')}
-          </CardTitle>
-          <CardDescription>{t('impactModel.curateDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <div className="space-y-8">
+      {/* Narrative Blocks Section */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Edit3 className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-semibold">{t('impactModel.narrativeBlocks')}</h2>
+        </div>
+        <p className="text-muted-foreground mb-6">{t('impactModel.curateDescription')}</p>
+        
+        <div className="space-y-6 max-w-3xl">
           {blocks.map((block, index) => (
-            <div 
+            <Card 
               key={block.id} 
-              className={`border rounded-lg overflow-hidden transition-all ${block.included ? 'border-primary/30' : 'opacity-60 border-dashed'}`}
+              className={`overflow-hidden transition-all ${block.included ? 'border-primary/20 shadow-sm' : 'opacity-60 border-dashed'}`}
             >
-              <div className="flex items-start gap-3 p-4 bg-muted/30">
+              {/* Block Header */}
+              <div className="flex items-start gap-4 p-5 bg-gradient-to-r from-muted/50 to-transparent border-b">
                 <Checkbox 
                   checked={block.included}
                   onCheckedChange={(checked) => {
@@ -651,59 +690,93 @@ function CurateStep({
                   }}
                   className="mt-1"
                 />
-                <div className="flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h4 className="font-semibold text-base">{block.title}</h4>
-                      <div className="flex gap-2 mt-1 flex-wrap">
-                        <Badge variant="outline" className="text-xs">{block.type.replace(/_/g, ' ')}</Badge>
-                        <Badge variant="secondary" className="text-xs">{block.evidenceTier}</Badge>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => moveBlock(index, 'up')}
-                        disabled={index === 0}
-                        className="h-8 w-8 p-0"
-                        title={t('impactModel.moveUp')}
-                      >
-                        <ChevronUp className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => moveBlock(index, 'down')}
-                        disabled={index === blocks.length - 1}
-                        className="h-8 w-8 p-0"
-                        title={t('impactModel.moveDown')}
-                      >
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setRegenerateModalBlock(block);
-                          setRegeneratePrompt('');
-                        }}
-                        disabled={isRegenerating === block.id}
-                        className="h-8 w-8 p-0"
-                        title={t('impactModel.regenerateBlock')}
-                      >
-                        {isRegenerating === block.id ? (
-                          <RefreshCw className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-semibold leading-tight">{block.title}</h3>
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    <Badge variant="outline" className="text-xs capitalize">
+                      {block.type.replace(/_/g, ' ')}
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      {block.evidenceTier}
+                    </Badge>
                   </div>
                 </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => moveBlock(index, 'up')}
+                    disabled={index === 0}
+                    className="h-8 w-8 p-0"
+                    title={t('impactModel.moveUp')}
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => moveBlock(index, 'down')}
+                    disabled={index === blocks.length - 1}
+                    className="h-8 w-8 p-0"
+                    title={t('impactModel.moveDown')}
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingBlockId(editingBlockId === block.id ? null : block.id)}
+                    className="h-8 w-8 p-0"
+                    title="Edit"
+                  >
+                    <Edit3 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setRegenerateModalBlock(block);
+                      setRegeneratePrompt('');
+                    }}
+                    disabled={isRegenerating === block.id}
+                    className="h-8 w-8 p-0"
+                    title={t('impactModel.regenerateBlock')}
+                  >
+                    {isRegenerating === block.id ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
-              <div className="p-4 border-t">
-                <div className="prose prose-sm max-w-none dark:prose-invert">
+
+              {/* KPIs/Metrics - Prominent Display */}
+              {block.kpis && block.kpis.length > 0 && (
+                <div className="px-5 py-4 bg-primary/5 border-b">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                    Key Metrics
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {block.kpis.map((kpi, i) => (
+                      <div key={i} className="bg-white dark:bg-gray-900 rounded-lg p-3 shadow-sm border">
+                        <p className="text-xs text-muted-foreground mb-1">{kpi.name}</p>
+                        <p className="text-lg font-bold text-primary">
+                          {kpi.valueRange}
+                          <span className="text-sm font-normal text-muted-foreground ml-1">{kpi.unit}</span>
+                        </p>
+                        {kpi.confidence && (
+                          <Badge variant="outline" className="text-[10px] mt-1">{kpi.confidence}</Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Block Content */}
+              <div className="p-5">
+                {editingBlockId === block.id ? (
                   <Textarea
                     value={block.contentMd}
                     onChange={(e) => {
@@ -717,61 +790,92 @@ function CurateStep({
                         },
                       });
                     }}
-                    className="min-h-[120px] text-sm border-0 focus-visible:ring-0 p-0 resize-none"
+                    className="min-h-[200px] text-sm font-mono"
                     placeholder="Enter narrative content..."
                   />
-                </div>
-                {block.kpis && block.kpis.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t">
-                    {block.kpis.map((kpi, i) => (
-                      <Badge key={i} variant="outline" className="text-xs">
-                        {kpi.name}: {kpi.valueRange} {kpi.unit}
-                      </Badge>
-                    ))}
-                  </div>
+                ) : (
+                  <div 
+                    className="prose prose-sm max-w-none dark:prose-invert leading-relaxed text-[15px]"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(block.contentMd) }}
+                  />
                 )}
               </div>
-            </div>
+            </Card>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('impactModel.coBenefitsTitle')}</CardTitle>
-          <CardDescription>{t('impactModel.coBenefitsDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 md:grid-cols-2">
-            {coBenefits.map((cb) => (
-              <div key={cb.id} className={`p-3 border rounded-lg transition-opacity ${cb.included ? '' : 'opacity-50'}`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-2">
-                    <Checkbox 
-                      checked={cb.included}
-                      onCheckedChange={(checked) => {
-                        const updated = coBenefits.map(c => 
-                          c.id === cb.id ? { ...c, included: !!checked } : c
-                        );
-                        onUpdate({ coBenefits: updated });
-                      }}
-                    />
-                    <div>
-                      <p className="font-medium text-sm">{cb.title}</p>
-                      <Badge variant="outline" className="text-xs mt-1">{cb.category}</Badge>
+      {/* Co-Benefits Section */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-semibold">{t('impactModel.coBenefitsTitle')}</h2>
+        </div>
+        <p className="text-muted-foreground mb-6">{t('impactModel.coBenefitsDescription')}</p>
+        
+        <div className="space-y-4 max-w-3xl">
+          {coBenefits.map((cb) => (
+            <Card 
+              key={cb.id} 
+              className={`overflow-hidden transition-all ${cb.included ? 'shadow-sm' : 'opacity-50 border-dashed'}`}
+            >
+              <div className="p-5">
+                <div className="flex items-start gap-4">
+                  <Checkbox 
+                    checked={cb.included}
+                    onCheckedChange={(checked) => {
+                      const updated = coBenefits.map(c => 
+                        c.id === cb.id ? { ...c, included: !!checked } : c
+                      );
+                      onUpdate({ coBenefits: updated });
+                    }}
+                    className="mt-1"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{getCategoryIcon(cb.category)}</span>
+                        <div>
+                          <h4 className="font-semibold text-base">{cb.title}</h4>
+                          <Badge variant="outline" className="text-xs mt-1 capitalize">
+                            {cb.category.replace(/_/g, ' ')}
+                          </Badge>
+                        </div>
+                      </div>
+                      <Badge className={`shrink-0 ${getConfidenceColor(cb.confidence)}`}>
+                        {cb.confidence}
+                      </Badge>
                     </div>
+                    
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                      {cb.description}
+                    </p>
+                    
+                    {(cb.whoBenefits?.length > 0 || cb.where?.length > 0) && (
+                      <div className="flex flex-wrap gap-4 text-sm pt-3 border-t">
+                        {cb.whoBenefits?.length > 0 && (
+                          <div>
+                            <span className="text-muted-foreground">Who benefits: </span>
+                            <span className="font-medium">{cb.whoBenefits.join(', ')}</span>
+                          </div>
+                        )}
+                        {cb.where?.length > 0 && (
+                          <div>
+                            <span className="text-muted-foreground">Where: </span>
+                            <span className="font-medium">{cb.where.join(', ')}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <Badge variant={cb.confidence === 'HIGH' ? 'default' : cb.confidence === 'MEDIUM' ? 'secondary' : 'outline'}>
-                    {cb.confidence}
-                  </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">{cb.description}</p>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </Card>
+          ))}
+        </div>
+      </div>
 
+      {/* Regenerate Modal */}
       {regenerateModalBlock && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-lg">
