@@ -166,7 +166,7 @@
       "category": "urban_cooling",
       "name": "Shade & Cooling Retrofit",
       "description": "Add trees, pergolas, and light-colored surfaces to existing public spaces",
-      "osmAssetTypes": ["amenity=square", "leisure=park", "highway=pedestrian"],
+      "osmAssetTypes": ["leisure=park", "leisure=garden", "leisure=playground", "place=square"],
       "typicalScale": { "min": 1000, "max": 10000, "unit": "m²" },
       "costRange": { "min": 50, "max": 200, "unit": "USD/m²" },
       "impacts": {
@@ -202,7 +202,7 @@
       "category": "urban_cooling",
       "name": "Pocket Park",
       "description": "Convert vacant lots or underused spaces to shaded green areas",
-      "osmAssetTypes": ["landuse=brownfield", "landuse=vacant", "leisure=common"],
+      "osmAssetTypes": ["leisure=park", "leisure=garden", "landuse=grass", "leisure=common"],
       "typicalScale": { "min": 300, "max": 2000, "unit": "m²" },
       "costRange": { "min": 20, "max": 100, "unit": "USD/m²" },
       "impacts": {
@@ -310,7 +310,7 @@
       "category": "slope_stability",
       "name": "Surface Runoff Diversion",
       "description": "Interceptor drains upslope of vulnerable areas to redirect water",
-      "osmAssetTypes": ["landuse=residential", "highway=footway", "highway=path"],
+      "osmAssetTypes": ["natural=cliff", "natural=scree", "natural=bare_rock", "geological=landslide_scar"],
       "typicalScale": { "min": 50, "max": 300, "unit": "m" },
       "costRange": { "min": 150, "max": 600, "unit": "USD/m" },
       "impacts": {

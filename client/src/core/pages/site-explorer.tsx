@@ -418,7 +418,7 @@ export default function SiteExplorerPage() {
             i.osmAssetTypes.some(t => Object.entries(el.tags || {}).some(([k, v]) => `${k}=${v}` === t))
           ),
         };
-      }).filter((a: any) => a.geometry && a.compatibleInterventions.length > 0);
+      }).filter((a: any) => a.geometry && a.geometry.type !== 'LineString' && a.compatibleInterventions.length > 0);
       
       setOsmAssets(assets);
       
