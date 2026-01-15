@@ -33,6 +33,12 @@ type ImportedContextMode = 'ACCEPT' | 'EDIT' | 'SCRATCH';
 type BenefitType = 'RISK_REDUCTION' | 'ASSET_VALUE' | 'HEALTH' | 'LIVELIHOOD' | 'AMENITY';
 type PayerRole = 'ANCHOR' | 'CO_FUNDER' | 'CREDIT_ENHANCER' | 'OFFTAKER' | 'GUARANTOR';
 type PrimaryPayerConfidence = 'CONFIRMED' | 'PLANNED' | 'IDEA';
+type AddOnRevenue = 'CREDIT_ADDON' | 'CORPORATE_SPONSORSHIP' | 'PHILANTHROPY_ESTABLISHMENT';
+type PaymentCommitment = 'CONFIRMED' | 'PLANNED' | 'IDEA';
+type PaymentDurability = 'ONE_TIME' | 'RECURRING' | 'CONTRACTED';
+type CostCoverage = 'CAPEX' | 'OPEX_OM' | 'ESTABLISHMENT_ONLY' | 'MRV';
+type AmountPeriod = 'ANNUAL' | 'ONE_TIME';
+type AmountBasis = 'PER_SITE' | 'PROGRAM_WIDE';
 
 interface Stakeholder {
   id: string;
@@ -70,7 +76,15 @@ interface RevenueLine {
   prerequisites?: string[];
   notes?: string;
   payerStakeholderId?: string;
-  amountRange?: { low?: number; high?: number; currency?: string };
+  amountRange?: { 
+    low?: number; 
+    mid?: number;
+    high?: number; 
+    currency?: string;
+    period?: AmountPeriod;
+    basis?: AmountBasis;
+  };
+  costCoverage?: CostCoverage[];
 }
 
 interface EnablingAction {
@@ -94,6 +108,7 @@ interface BusinessModelData {
   originalContext?: ImportedContext;
   importedContextMode: ImportedContextMode;
   primaryArchetype: BMArchetype;
+  addOnRevenues: AddOnRevenue[];
   payerBeneficiaryMap: {
     beneficiaries: PayerBeneficiary[];
     candidatePayers: PayerBeneficiary[];
@@ -106,6 +121,8 @@ interface BusinessModelData {
     basis: PaymentBasis;
     durationYears: number | null;
     legalInstrumentHint?: string;
+    commitment?: PaymentCommitment;
+    durability?: PaymentDurability;
   };
   revenueStack: RevenueLine[];
   sourcesAndUsesRom: {
@@ -117,7 +134,15 @@ interface BusinessModelData {
   financingPathway: {
     pathway: FinancingPathway;
     rationale?: string;
+    autoRationale?: string;
+    fitReasons?: string[];
     eligibilityNotes?: string[];
+  };
+  consistencyChecks?: {
+    recurringRevenueNeeded: boolean;
+    opexCovered: boolean;
+    mrvCovered: boolean;
+    enablingActions: string[];
   };
   enablingActions: EnablingAction[];
   bmRisks: BMRisk[];
@@ -149,14 +174,42 @@ const SAMPLE_STAKEHOLDERS: Stakeholder[] = [
 ];
 
 const BM_ARCHETYPES = [
-  { id: 'PUBLIC_PROGRAM', icon: Building2, color: 'blue' },
-  { id: 'UTILITY_SERVICE', icon: Building2, color: 'cyan' },
-  { id: 'SERVICE_CONTRACT', icon: FileText, color: 'green' },
-  { id: 'LAND_VALUE_CAPTURE', icon: Landmark, color: 'amber' },
-  { id: 'BLENDED_FINANCE', icon: DollarSign, color: 'purple' },
-  { id: 'CREDIT_ADDON', icon: DollarSign, color: 'emerald' },
-  { id: 'INSURANCE_LINKED', icon: AlertTriangle, color: 'orange' },
+  { id: 'PUBLIC_PROGRAM', icon: Building2, color: 'blue', bankability: 'HIGH' as const, typicalPayers: ['government'], bestWhenKey: 'publicProgramBestWhen' },
+  { id: 'UTILITY_SERVICE', icon: Building2, color: 'cyan', bankability: 'HIGH' as const, typicalPayers: ['utility'], bestWhenKey: 'utilityServiceBestWhen' },
+  { id: 'SERVICE_CONTRACT', icon: FileText, color: 'green', bankability: 'MEDIUM' as const, typicalPayers: ['government', 'private'], bestWhenKey: 'serviceContractBestWhen' },
+  { id: 'LAND_VALUE_CAPTURE', icon: Landmark, color: 'amber', bankability: 'MEDIUM' as const, typicalPayers: ['private', 'government'], bestWhenKey: 'landValueCaptureBestWhen' },
+  { id: 'BLENDED_FINANCE', icon: DollarSign, color: 'purple', bankability: 'MEDIUM' as const, typicalPayers: ['dfi', 'philanthropy', 'government'], bestWhenKey: 'blendedFinanceBestWhen' },
+  { id: 'CREDIT_ADDON', icon: DollarSign, color: 'emerald', bankability: 'LOW' as const, typicalPayers: ['private'], bestWhenKey: 'creditAddonBestWhen' },
+  { id: 'INSURANCE_LINKED', icon: AlertTriangle, color: 'orange', bankability: 'LOW' as const, typicalPayers: ['private'], bestWhenKey: 'insuranceLinkedBestWhen' },
 ];
+
+const ADD_ON_REVENUES: AddOnRevenue[] = ['CREDIT_ADDON', 'CORPORATE_SPONSORSHIP', 'PHILANTHROPY_ESTABLISHMENT'];
+
+const REVENUE_PREREQUISITES = [
+  'COUNCIL_APPROVAL', 'BUDGET_LINE_ITEM', 'TARIFF_APPROVAL', 'CONTRACT_SIGNED',
+  'GRANT_AGREEMENT', 'MOU_SIGNED', 'CREDIT_METHODOLOGY', 'SPONSOR_LOI'
+];
+
+const COST_COVERAGES: CostCoverage[] = ['CAPEX', 'OPEX_OM', 'ESTABLISHMENT_ONLY', 'MRV'];
+
+const ARCHETYPE_PAYMENT_DEFAULTS: Record<string, { type: PaymentMechanismType; basis: PaymentBasis; durability: PaymentDurability }> = {
+  PUBLIC_PROGRAM: { type: 'CITY_BUDGET', basis: 'ANNUAL_APPROPRIATION', durability: 'RECURRING' },
+  UTILITY_SERVICE: { type: 'FEE_TARIFF', basis: 'SERVICE_DELIVERY', durability: 'RECURRING' },
+  SERVICE_CONTRACT: { type: 'AVAILABILITY_PAYMENT', basis: 'SERVICE_DELIVERY', durability: 'CONTRACTED' },
+  LAND_VALUE_CAPTURE: { type: 'DEVELOPER_CONTRIBUTION', basis: 'PERMITS_FEES', durability: 'ONE_TIME' },
+  BLENDED_FINANCE: { type: 'OUTCOME_PAYMENT', basis: 'OUTCOME_VERIFIED', durability: 'CONTRACTED' },
+  CREDIT_ADDON: { type: 'CREDIT_REVENUE', basis: 'CREDITS_SOLD', durability: 'RECURRING' },
+  INSURANCE_LINKED: { type: 'OUTCOME_PAYMENT', basis: 'OUTCOME_VERIFIED', durability: 'CONTRACTED' },
+};
+
+const FINANCING_PATHWAY_METADATA: Record<string, { bestWhenKey: string; prerequisites: string[]; fitReasons: string[] }> = {
+  PUBLIC_CAPEX: { bestWhenKey: 'publicCapexBestWhen', prerequisites: ['BUDGET_APPROVAL', 'COUNCIL_VOTE'], fitReasons: ['stableFunding', 'lowComplexity', 'quickStart'] },
+  DFI_LOAN: { bestWhenKey: 'dfiLoanBestWhen', prerequisites: ['DFI_ELIGIBILITY', 'PROJECT_APPRAISAL'], fitReasons: ['lowInterest', 'technicalAssistance', 'catalyticEffect'] },
+  MUNICIPAL_BOND: { bestWhenKey: 'municipalBondBestWhen', prerequisites: ['CREDIT_RATING', 'BOND_APPROVAL'], fitReasons: ['largescaleCapex', 'longTermFinancing'] },
+  BLENDED_VEHICLE: { bestWhenKey: 'blendedVehicleBestWhen', prerequisites: ['VEHICLE_STRUCTURE', 'ANCHOR_INVESTOR'], fitReasons: ['riskSharing', 'catalyticCapital', 'nbsFriendly'] },
+  PPP_LIGHT: { bestWhenKey: 'pppLightBestWhen', prerequisites: ['PPP_FRAMEWORK', 'PRIVATE_PARTNER'], fitReasons: ['efficiencyGains', 'riskTransfer'] },
+  PHILANTHROPY_ONLY: { bestWhenKey: 'philanthropyOnlyBestWhen', prerequisites: ['GRANT_SECURED'], fitReasons: ['noRepayment', 'pilotPhase', 'capacityBuilding'] },
+};
 
 const REVENUE_TYPES: RevenueType[] = [
   'BUDGET_ALLOCATION',
@@ -281,10 +334,10 @@ function inferBeneficiaries(context: ImportedContext, stakeholders: Stakeholder[
   const beneficiaries: PayerBeneficiary[] = [];
   
   const community = stakeholders.find(s => s.type === 'community');
-  if (community) beneficiaries.push({ stakeholderId: community.id, benefitType: 'CLIMATE_RESILIENCE' });
+  if (community) beneficiaries.push({ stakeholderId: community.id, benefitType: 'RISK_REDUCTION' });
   
   const propOwners = stakeholders.find(s => s.id === 'property-owners');
-  if (propOwners) beneficiaries.push({ stakeholderId: propOwners.id, benefitType: 'FLOOD_RISK_REDUCTION' });
+  if (propOwners) beneficiaries.push({ stakeholderId: propOwners.id, benefitType: 'ASSET_VALUE' });
   
   return beneficiaries;
 }
@@ -359,6 +412,7 @@ function buildInitialBMData(actionType: string, hazards: string[], stakeholders:
     originalContext: { ...importedContext },
     importedContextMode: 'ACCEPT' as ImportedContextMode,
     primaryArchetype: recommendedArchetype,
+    addOnRevenues: isNBS ? ['PHILANTHROPY_ESTABLISHMENT'] : [],
     payerBeneficiaryMap: {
       beneficiaries,
       candidatePayers,
@@ -1116,14 +1170,27 @@ export default function BusinessModelPage() {
                 <CardTitle>{t('bm.archetypeTitle')}</CardTitle>
                 <CardDescription>{t('bm.archetypeDescription')}</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                <Label className="text-base font-medium">{t('bm.primaryArchetypeLabel')} *</Label>
                 <RadioGroup
                   value={bmData.primaryArchetype || ''}
-                  onValueChange={(value) => updateBMData({ primaryArchetype: value as BMArchetype })}
+                  onValueChange={(value) => {
+                    const defaults = ARCHETYPE_PAYMENT_DEFAULTS[value];
+                    updateBMData({ 
+                      primaryArchetype: value as BMArchetype,
+                      paymentMechanism: defaults ? {
+                        ...bmData.paymentMechanism,
+                        type: defaults.type,
+                        basis: defaults.basis,
+                        durability: defaults.durability,
+                      } : bmData.paymentMechanism,
+                    });
+                  }}
                   className="grid grid-cols-1 md:grid-cols-2 gap-4"
                 >
                   {BM_ARCHETYPES.map(archetype => {
                     const isRecommended = archetype.id === inferRecommendedArchetype(bmData.importedContext);
+                    const bankabilityColor = archetype.bankability === 'HIGH' ? 'bg-green-500' : archetype.bankability === 'MEDIUM' ? 'bg-yellow-500' : 'bg-red-500';
                     return (
                       <div key={archetype.id} className="relative">
                         <RadioGroupItem
@@ -1140,13 +1207,26 @@ export default function BusinessModelPage() {
                               <archetype.icon className="h-5 w-5" />
                               <span className="font-medium">{t(`bm.archetypes.${archetype.id}`)}</span>
                             </div>
-                            {isRecommended && (
-                              <Badge variant="default" className="text-xs">{t('bm.recommended')}</Badge>
-                            )}
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${bankabilityColor}`} title={t(`bm.bankability.${archetype.bankability}`)} />
+                              {isRecommended && (
+                                <Badge variant="default" className="text-xs">{t('bm.recommended')}</Badge>
+                              )}
+                            </div>
                           </div>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-sm text-muted-foreground mb-2">
                             {t(`bm.archetypesDesc.${archetype.id}`)}
                           </span>
+                          <span className="text-xs text-primary italic">
+                            {t(`bm.bestWhen.${archetype.bestWhenKey}`)}
+                          </span>
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {archetype.typicalPayers.map(payerType => (
+                              <Badge key={payerType} variant="outline" className="text-xs">
+                                {t(`bm.payerTypes.${payerType}`)}
+                              </Badge>
+                            ))}
+                          </div>
                         </Label>
                       </div>
                     );
@@ -1157,7 +1237,46 @@ export default function BusinessModelPage() {
 
             <Card>
               <CardHeader>
+                <CardTitle>{t('bm.addOnRevenuesTitle')}</CardTitle>
+                <CardDescription>{t('bm.addOnRevenuesDescription')}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {ADD_ON_REVENUES.map(addon => {
+                    const isSelected = bmData.addOnRevenues.includes(addon);
+                    return (
+                      <div 
+                        key={addon} 
+                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${isSelected ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
+                        onClick={() => {
+                          if (isSelected) {
+                            updateBMData({ addOnRevenues: bmData.addOnRevenues.filter(a => a !== addon) });
+                          } else {
+                            updateBMData({ addOnRevenues: [...bmData.addOnRevenues, addon] });
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Checkbox checked={isSelected} />
+                          <span className="text-sm font-medium">{t(`bm.addOns.${addon}`)}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">{t(`bm.addOnsDesc.${addon}`)}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle>{t('bm.paymentMechanismTitle')}</CardTitle>
+                {bmData.primaryArchetype && (
+                  <CardDescription className="flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    {t('bm.prefillFromArchetype', { archetype: t(`bm.archetypes.${bmData.primaryArchetype}`) })}
+                  </CardDescription>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1200,6 +1319,44 @@ export default function BusinessModelPage() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
+                    <Label>{t('bm.paymentCommitment')}</Label>
+                    <Select
+                      value={bmData.paymentMechanism.commitment || ''}
+                      onValueChange={(value) => updateBMData({
+                        paymentMechanism: { ...bmData.paymentMechanism, commitment: value as PaymentCommitment },
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('bm.selectCommitment')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {['CONFIRMED', 'PLANNED', 'IDEA'].map(level => (
+                          <SelectItem key={level} value={level}>{t(`bm.confidence.${level}`)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>{t('bm.paymentDurability')}</Label>
+                    <Select
+                      value={bmData.paymentMechanism.durability || ''}
+                      onValueChange={(value) => updateBMData({
+                        paymentMechanism: { ...bmData.paymentMechanism, durability: value as PaymentDurability },
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('bm.selectDurability')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {['ONE_TIME', 'RECURRING', 'CONTRACTED'].map(dur => (
+                          <SelectItem key={dur} value={dur}>{t(`bm.durability.${dur}`)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
                     <Label>{t('bm.durationYears')}</Label>
                     <Select
                       value={bmData.paymentMechanism.durationYears?.toString() || ''}
@@ -1211,7 +1368,7 @@ export default function BusinessModelPage() {
                         <SelectValue placeholder={t('bm.selectDuration')} />
                       </SelectTrigger>
                       <SelectContent>
-                        {[1, 3, 5, 10].map(years => (
+                        {[1, 3, 5, 10, 15, 20].map(years => (
                           <SelectItem key={years} value={years.toString()}>{years} {t('bm.years')}</SelectItem>
                         ))}
                       </SelectContent>
@@ -1272,7 +1429,33 @@ export default function BusinessModelPage() {
                         </Button>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                          <Label>{t('bm.revenuePayerSource')} *</Label>
+                          <Select
+                            value={line.payerStakeholderId || ''}
+                            onValueChange={(value) => updateRevenueLine(line.id, { payerStakeholderId: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={t('bm.selectPayer')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {bmData.payerBeneficiaryMap.primaryPayerId && (
+                                <SelectItem value={bmData.payerBeneficiaryMap.primaryPayerId}>
+                                  {getStakeholderName(bmData.payerBeneficiaryMap.primaryPayerId)} ({t('bm.primaryPayer')})
+                                </SelectItem>
+                              )}
+                              {bmData.payerBeneficiaryMap.candidatePayers
+                                .filter(p => p.stakeholderId !== bmData.payerBeneficiaryMap.primaryPayerId)
+                                .map(payer => (
+                                  <SelectItem key={payer.stakeholderId} value={payer.stakeholderId}>
+                                    {getStakeholderName(payer.stakeholderId)}
+                                  </SelectItem>
+                                ))}
+                              <SelectItem value="OTHER">{t('bm.otherSource')}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div>
                           <Label>{t('bm.revenueTypeLabel')}</Label>
                           <Select
@@ -1286,22 +1469,6 @@ export default function BusinessModelPage() {
                               {REVENUE_TYPES.map(type => (
                                 <SelectItem key={type} value={type}>{t(`bm.revenueTypes.${type}`)}</SelectItem>
                               ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>{t('bm.role')}</Label>
-                          <Select
-                            value={line.role}
-                            onValueChange={(value) => updateRevenueLine(line.id, { role: value as RevenueRole })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="PRIMARY_DURABLE">{t('bm.roles.PRIMARY_DURABLE')}</SelectItem>
-                              <SelectItem value="SECONDARY_SUPPORT">{t('bm.roles.SECONDARY_SUPPORT')}</SelectItem>
-                              <SelectItem value="UPSIDE_OPTIONAL">{t('bm.roles.UPSIDE_OPTIONAL')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -1337,6 +1504,25 @@ export default function BusinessModelPage() {
                           </Select>
                         </div>
                         <div>
+                          <Label>{t('bm.role')}</Label>
+                          <Select
+                            value={line.role}
+                            onValueChange={(value) => updateRevenueLine(line.id, { role: value as RevenueRole })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="PRIMARY_DURABLE">{t('bm.roles.PRIMARY_DURABLE')}</SelectItem>
+                              <SelectItem value="SECONDARY_SUPPORT">{t('bm.roles.SECONDARY_SUPPORT')}</SelectItem>
+                              <SelectItem value="UPSIDE_OPTIONAL">{t('bm.roles.UPSIDE_OPTIONAL')}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
                           <Label>{t('bm.durationYears')}</Label>
                           <Select
                             value={line.durationYears?.toString() || ''}
@@ -1346,11 +1532,108 @@ export default function BusinessModelPage() {
                               <SelectValue placeholder={t('bm.selectDuration')} />
                             </SelectTrigger>
                             <SelectContent>
-                              {[1, 3, 5, 10].map(years => (
+                              {[1, 3, 5, 10, 15, 20].map(years => (
                                 <SelectItem key={years} value={years.toString()}>{years} {t('bm.years')}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
+                        </div>
+                        <div>
+                          <Label>{t('bm.costCoverage')}</Label>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {COST_COVERAGES.map(coverage => {
+                              const isSelected = line.costCoverage?.includes(coverage);
+                              return (
+                                <Badge
+                                  key={coverage}
+                                  variant={isSelected ? 'default' : 'outline'}
+                                  className="cursor-pointer"
+                                  onClick={() => {
+                                    const current = line.costCoverage || [];
+                                    if (isSelected) {
+                                      updateRevenueLine(line.id, { costCoverage: current.filter(c => c !== coverage) });
+                                    } else {
+                                      updateRevenueLine(line.id, { costCoverage: [...current, coverage] });
+                                    }
+                                  }}
+                                >
+                                  {t(`bm.costCoverages.${coverage}`)}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <Label>{t('bm.amountEstimate')}</Label>
+                          <div className="grid grid-cols-4 gap-2 mt-1">
+                            <Input
+                              type="number"
+                              placeholder={t('bm.low')}
+                              value={line.amountRange?.low || ''}
+                              onChange={(e) => updateRevenueLine(line.id, {
+                                amountRange: { ...line.amountRange, low: Number(e.target.value) }
+                              })}
+                              className="h-8"
+                            />
+                            <Input
+                              type="number"
+                              placeholder={t('bm.mid')}
+                              value={line.amountRange?.mid || ''}
+                              onChange={(e) => updateRevenueLine(line.id, {
+                                amountRange: { ...line.amountRange, mid: Number(e.target.value) }
+                              })}
+                              className="h-8"
+                            />
+                            <Input
+                              type="number"
+                              placeholder={t('bm.high')}
+                              value={line.amountRange?.high || ''}
+                              onChange={(e) => updateRevenueLine(line.id, {
+                                amountRange: { ...line.amountRange, high: Number(e.target.value) }
+                              })}
+                              className="h-8"
+                            />
+                            <Select
+                              value={line.amountRange?.period || 'ANNUAL'}
+                              onValueChange={(value) => updateRevenueLine(line.id, {
+                                amountRange: { ...line.amountRange, period: value as AmountPeriod }
+                              })}
+                            >
+                              <SelectTrigger className="h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ANNUAL">{t('bm.annual')}</SelectItem>
+                                <SelectItem value="ONE_TIME">{t('bm.oneTime')}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <Label>{t('bm.prerequisites')}</Label>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {REVENUE_PREREQUISITES.map(prereq => {
+                            const isSelected = line.prerequisites?.includes(prereq);
+                            return (
+                              <Badge
+                                key={prereq}
+                                variant={isSelected ? 'secondary' : 'outline'}
+                                className="cursor-pointer text-xs"
+                                onClick={() => {
+                                  const current = line.prerequisites || [];
+                                  if (isSelected) {
+                                    updateRevenueLine(line.id, { prerequisites: current.filter(p => p !== prereq) });
+                                  } else {
+                                    updateRevenueLine(line.id, { prerequisites: [...current, prereq] });
+                                  }
+                                }}
+                              >
+                                {t(`bm.prereqs.${prereq}`)}
+                              </Badge>
+                            );
+                          })}
                         </div>
                       </div>
                       
@@ -1389,13 +1672,22 @@ export default function BusinessModelPage() {
               <CardContent className="space-y-4">
                 <RadioGroup
                   value={bmData.financingPathway.pathway || ''}
-                  onValueChange={(value) => updateBMData({
-                    financingPathway: { ...bmData.financingPathway, pathway: value as FinancingPathway },
-                  })}
+                  onValueChange={(value) => {
+                    const metadata = FINANCING_PATHWAY_METADATA[value];
+                    updateBMData({
+                      financingPathway: {
+                        ...bmData.financingPathway,
+                        pathway: value as FinancingPathway,
+                        autoRationale: metadata ? t(`bm.financingAutoRationale.${value}`) : undefined,
+                        fitReasons: metadata?.fitReasons || [],
+                      },
+                    });
+                  }}
                   className="grid grid-cols-1 md:grid-cols-2 gap-4"
                 >
                   {FINANCING_PATHWAYS.map(pathway => {
                     const isRecommended = (isNBS && pathway === 'BLENDED_VEHICLE') || (!isNBS && pathway === 'PUBLIC_CAPEX');
+                    const metadata = FINANCING_PATHWAY_METADATA[pathway];
                     return (
                       <div key={pathway} className="relative">
                         <RadioGroupItem
@@ -1416,11 +1708,32 @@ export default function BusinessModelPage() {
                           <span className="text-sm text-muted-foreground mt-1">
                             {t(`bm.pathwaysDesc.${pathway}`)}
                           </span>
+                          {metadata && (
+                            <>
+                              <span className="text-xs text-primary italic mt-2">
+                                {t(`bm.bestWhen.${metadata.bestWhenKey}`)}
+                              </span>
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {metadata.fitReasons.map(reason => (
+                                  <Badge key={reason} variant="outline" className="text-xs">
+                                    {t(`bm.fitReasons.${reason}`)}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </>
+                          )}
                         </Label>
                       </div>
                     );
                   })}
                 </RadioGroup>
+
+                {bmData.financingPathway.autoRationale && (
+                  <div className="p-3 bg-muted/50 rounded-lg flex items-start gap-2">
+                    <Info className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" />
+                    <p className="text-sm text-muted-foreground">{bmData.financingPathway.autoRationale}</p>
+                  </div>
+                )}
 
                 <div>
                   <Label>{t('bm.rationale')}</Label>
@@ -1432,41 +1745,171 @@ export default function BusinessModelPage() {
                     placeholder={t('bm.rationalePlaceholder')}
                   />
                 </div>
+
+                {bmData.financingPathway.fitReasons && bmData.financingPathway.fitReasons.length > 0 && (
+                  <div>
+                    <Label className="text-sm">{t('bm.whyGoodFit')}</Label>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {bmData.financingPathway.fitReasons.map(reason => (
+                        <Badge key={reason} variant="secondary">
+                          {t(`bm.fitReasons.${reason}`)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>{t('bm.sourcesAndUsesTitle')}</CardTitle>
+                <CardTitle>{t('bm.romBudgetTitle')}</CardTitle>
+                <CardDescription>{t('bm.romBudgetDescription')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-4 border rounded-lg">
+                  <div className="p-4 border rounded-lg space-y-2">
                     <Label className="text-muted-foreground">{t('bm.capex')}</Label>
-                    <p className="text-lg font-medium">
-                      {bmData.sourcesAndUsesRom.capexBand?.mid?.toLocaleString()} {bmData.sourcesAndUsesRom.capexBand?.currency}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {bmData.sourcesAndUsesRom.capexBand?.low?.toLocaleString()} - {bmData.sourcesAndUsesRom.capexBand?.high?.toLocaleString()}
-                    </p>
+                    <div className="grid grid-cols-3 gap-1">
+                      <Input
+                        type="number"
+                        placeholder={t('bm.low')}
+                        value={bmData.sourcesAndUsesRom.capexBand?.low || ''}
+                        onChange={(e) => updateBMData({
+                          sourcesAndUsesRom: {
+                            ...bmData.sourcesAndUsesRom,
+                            capexBand: { ...bmData.sourcesAndUsesRom.capexBand, low: Number(e.target.value) }
+                          }
+                        })}
+                        className="h-8 text-sm"
+                      />
+                      <Input
+                        type="number"
+                        placeholder={t('bm.mid')}
+                        value={bmData.sourcesAndUsesRom.capexBand?.mid || ''}
+                        onChange={(e) => updateBMData({
+                          sourcesAndUsesRom: {
+                            ...bmData.sourcesAndUsesRom,
+                            capexBand: { ...bmData.sourcesAndUsesRom.capexBand, mid: Number(e.target.value) }
+                          }
+                        })}
+                        className="h-8 text-sm"
+                      />
+                      <Input
+                        type="number"
+                        placeholder={t('bm.high')}
+                        value={bmData.sourcesAndUsesRom.capexBand?.high || ''}
+                        onChange={(e) => updateBMData({
+                          sourcesAndUsesRom: {
+                            ...bmData.sourcesAndUsesRom,
+                            capexBand: { ...bmData.sourcesAndUsesRom.capexBand, high: Number(e.target.value) }
+                          }
+                        })}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <Select
+                      value={bmData.sourcesAndUsesRom.capexBand?.currency || 'BRL'}
+                      onValueChange={(value) => updateBMData({
+                        sourcesAndUsesRom: {
+                          ...bmData.sourcesAndUsesRom,
+                          capexBand: { ...bmData.sourcesAndUsesRom.capexBand, currency: value }
+                        }
+                      })}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BRL">BRL</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="p-4 border rounded-lg">
+                  <div className="p-4 border rounded-lg space-y-2">
                     <Label className="text-muted-foreground">{t('bm.opex')}</Label>
-                    <p className="text-lg font-medium">
-                      {bmData.sourcesAndUsesRom.opexBand?.mid?.toLocaleString()} {bmData.sourcesAndUsesRom.opexBand?.currency}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {bmData.sourcesAndUsesRom.opexBand?.low?.toLocaleString()} - {bmData.sourcesAndUsesRom.opexBand?.high?.toLocaleString()}
-                    </p>
+                    <div className="grid grid-cols-3 gap-1">
+                      <Input
+                        type="number"
+                        placeholder={t('bm.low')}
+                        value={bmData.sourcesAndUsesRom.opexBand?.low || ''}
+                        onChange={(e) => updateBMData({
+                          sourcesAndUsesRom: {
+                            ...bmData.sourcesAndUsesRom,
+                            opexBand: { ...bmData.sourcesAndUsesRom.opexBand, low: Number(e.target.value) }
+                          }
+                        })}
+                        className="h-8 text-sm"
+                      />
+                      <Input
+                        type="number"
+                        placeholder={t('bm.mid')}
+                        value={bmData.sourcesAndUsesRom.opexBand?.mid || ''}
+                        onChange={(e) => updateBMData({
+                          sourcesAndUsesRom: {
+                            ...bmData.sourcesAndUsesRom,
+                            opexBand: { ...bmData.sourcesAndUsesRom.opexBand, mid: Number(e.target.value) }
+                          }
+                        })}
+                        className="h-8 text-sm"
+                      />
+                      <Input
+                        type="number"
+                        placeholder={t('bm.high')}
+                        value={bmData.sourcesAndUsesRom.opexBand?.high || ''}
+                        onChange={(e) => updateBMData({
+                          sourcesAndUsesRom: {
+                            ...bmData.sourcesAndUsesRom,
+                            opexBand: { ...bmData.sourcesAndUsesRom.opexBand, high: Number(e.target.value) }
+                          }
+                        })}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{t('bm.perYear')}</p>
                   </div>
-                  <div className="p-4 border rounded-lg">
+                  <div className="p-4 border rounded-lg space-y-2">
                     <Label className="text-muted-foreground">{t('bm.mrvBudget')}</Label>
-                    <p className="text-lg font-medium">
-                      {bmData.sourcesAndUsesRom.mrvBudgetBand?.mid?.toLocaleString()} {bmData.sourcesAndUsesRom.mrvBudgetBand?.currency}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {bmData.sourcesAndUsesRom.mrvBudgetBand?.low?.toLocaleString()} - {bmData.sourcesAndUsesRom.mrvBudgetBand?.high?.toLocaleString()}
-                    </p>
+                    <div className="grid grid-cols-3 gap-1">
+                      <Input
+                        type="number"
+                        placeholder={t('bm.low')}
+                        value={bmData.sourcesAndUsesRom.mrvBudgetBand?.low || ''}
+                        onChange={(e) => updateBMData({
+                          sourcesAndUsesRom: {
+                            ...bmData.sourcesAndUsesRom,
+                            mrvBudgetBand: { ...bmData.sourcesAndUsesRom.mrvBudgetBand, low: Number(e.target.value) }
+                          }
+                        })}
+                        className="h-8 text-sm"
+                      />
+                      <Input
+                        type="number"
+                        placeholder={t('bm.mid')}
+                        value={bmData.sourcesAndUsesRom.mrvBudgetBand?.mid || ''}
+                        onChange={(e) => updateBMData({
+                          sourcesAndUsesRom: {
+                            ...bmData.sourcesAndUsesRom,
+                            mrvBudgetBand: { ...bmData.sourcesAndUsesRom.mrvBudgetBand, mid: Number(e.target.value) }
+                          }
+                        })}
+                        className="h-8 text-sm"
+                      />
+                      <Input
+                        type="number"
+                        placeholder={t('bm.high')}
+                        value={bmData.sourcesAndUsesRom.mrvBudgetBand?.high || ''}
+                        onChange={(e) => updateBMData({
+                          sourcesAndUsesRom: {
+                            ...bmData.sourcesAndUsesRom,
+                            mrvBudgetBand: { ...bmData.sourcesAndUsesRom.mrvBudgetBand, high: Number(e.target.value) }
+                          }
+                        })}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{t('bm.perYear')}</p>
                   </div>
                 </div>
                 <div>
@@ -1478,6 +1921,40 @@ export default function BusinessModelPage() {
                     })}
                     placeholder={t('bm.assumptionsPlaceholder')}
                   />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('bm.consistencyCheck')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${bmData.revenueStack.some(r => r.role === 'PRIMARY_DURABLE' && r.durationYears && r.durationYears >= 3) ? 'bg-green-500 text-white' : 'bg-muted'}`}>
+                      {bmData.revenueStack.some(r => r.role === 'PRIMARY_DURABLE' && r.durationYears && r.durationYears >= 3) && <Check className="h-4 w-4" />}
+                    </div>
+                    <span className={bmData.revenueStack.some(r => r.role === 'PRIMARY_DURABLE' && r.durationYears && r.durationYears >= 3) ? 'text-foreground' : 'text-muted-foreground'}>
+                      {t('bm.consistencyRecurringRevenue')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${bmData.revenueStack.some(r => r.costCoverage?.includes('OPEX_OM')) ? 'bg-green-500 text-white' : 'bg-muted'}`}>
+                      {bmData.revenueStack.some(r => r.costCoverage?.includes('OPEX_OM')) && <Check className="h-4 w-4" />}
+                    </div>
+                    <span className={bmData.revenueStack.some(r => r.costCoverage?.includes('OPEX_OM')) ? 'text-foreground' : 'text-muted-foreground'}>
+                      {t('bm.consistencyOpexCovered')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${bmData.revenueStack.some(r => r.costCoverage?.includes('MRV')) ? 'bg-green-500 text-white' : 'bg-muted'}`}>
+                      {bmData.revenueStack.some(r => r.costCoverage?.includes('MRV')) && <Check className="h-4 w-4" />}
+                    </div>
+                    <span className={bmData.revenueStack.some(r => r.costCoverage?.includes('MRV')) ? 'text-foreground' : 'text-muted-foreground'}>
+                      {t('bm.consistencyMrvCovered')}
+                    </span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
