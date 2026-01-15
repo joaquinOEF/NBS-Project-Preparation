@@ -1098,10 +1098,12 @@ export default function FunderSelectionPage() {
       <div className="space-y-6">
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader>
-            <Badge variant="secondary" className="mb-2 w-fit">{t('funderSelection.results.nowLabel')}</Badge>
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <DollarSign className="h-5 w-5 text-primary" />
+            <div className="flex items-start gap-3">
+              <div className="flex flex-col items-center gap-2">
+                <Badge variant="secondary" className="w-fit">{t('funderSelection.results.nowLabel')}</Badge>
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <DollarSign className="h-5 w-5 text-primary" />
+                </div>
               </div>
               <div>
                 <CardTitle>{t('funderSelection.results.recommendedPathway')}</CardTitle>
@@ -1331,10 +1333,12 @@ export default function FunderSelectionPage() {
         {targetFunders.length > 0 && (
           <Card className="border-blue-200 bg-blue-50/50">
             <CardHeader>
-              <Badge variant="secondary" className="mb-2 w-fit bg-blue-100 text-blue-700">{t('funderSelection.results.nextLabel')}</Badge>
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Target className="h-5 w-5 text-blue-600" />
+              <div className="flex items-start gap-3">
+                <div className="flex flex-col items-center gap-2">
+                  <Badge variant="secondary" className="w-fit bg-blue-100 text-blue-700">{t('funderSelection.results.nextLabel')}</Badge>
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Target className="h-5 w-5 text-blue-600" />
+                  </div>
                 </div>
                 <div>
                   <CardTitle>{t('funderSelection.results.strategicTargets')}</CardTitle>
