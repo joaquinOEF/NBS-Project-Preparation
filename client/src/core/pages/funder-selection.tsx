@@ -1376,7 +1376,7 @@ export default function FunderSelectionPage() {
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">{target.fund.institution}</p>
                       </div>
-                      <Badge className={`${confidenceLabels[target.confidence].color} whitespace-nowrap`}>
+                      <Badge className={`${confidenceLabels[target.confidence].color} whitespace-nowrap flex-shrink-0`}>
                         {confidenceLabels[target.confidence].label}
                       </Badge>
                     </div>
@@ -1608,7 +1608,7 @@ export default function FunderSelectionPage() {
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <Badge>{fund.instrumentLabel}</Badge>
-                        <Badge className={fitColors[fitAssessment.fit]}>{t(`funderSelection.fit.${fitAssessment.fit}`)}</Badge>
+                        <Badge className={`${fitColors[fitAssessment.fit]} whitespace-nowrap`}>{t(`funderSelection.fit.${fitAssessment.fit}`)}</Badge>
                       </div>
                     </div>
                     {fitAssessment.warnings.length > 0 && (
