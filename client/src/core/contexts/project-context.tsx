@@ -15,6 +15,7 @@ export interface Site {
 
 export interface FunderSelectionData {
   status: 'NOT_STARTED' | 'DRAFT' | 'READY';
+  funderName?: string;
   questionnaire: {
     projectName: string;
     projectDescription: string;
@@ -350,6 +351,7 @@ const defaultFunderSelection: FunderSelectionData = {
 
 export const sampleFunderSelection: FunderSelectionData = {
   status: 'DRAFT',
+  funderName: 'Green Climate Fund',
   questionnaire: {
     projectName: 'Nature Based Solutions for Climate Resilience',
     projectDescription: 'Implement green infrastructure including wetlands, bioswales, and urban forests for flood management and cooling.',

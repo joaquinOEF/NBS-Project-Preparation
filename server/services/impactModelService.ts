@@ -289,8 +289,9 @@ You MUST generate exactly 10 narrative blocks covering all these topics:
   }
 }
 
-Generate at least 3 narrative blocks, 3-5 co-benefits relevant to the selected hazards and interventions, and 2-3 downstream signals (at least 1 for operations and 1 for business model).
-Make the content specific to the zones, hazards, and interventions provided. Use realistic metrics and ranges based on NBS literature.`;
+Generate exactly 10 narrative blocks as specified above, 4-6 co-benefits relevant to the selected hazards and interventions, and 3-4 downstream signals (at least 2 for operations and 2 for business model).
+Make the content specific to the zones, hazards, and interventions provided. Use realistic metrics and ranges based on NBS literature.
+Each block should have 2-4 paragraphs of substantive content. Be specific about the city, interventions, and expected outcomes.`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-5.2",
@@ -300,8 +301,8 @@ Make the content specific to the zones, hazards, and interventions provided. Use
     ],
     response_format: { type: "json_object" },
     temperature: 0.7,
-    max_completion_tokens: 4000,
-    reasoning_effort: "none", // Disable extended thinking for faster responses
+    max_completion_tokens: 8000,
+    reasoning_effort: "none",
   } as any);
 
   const content = response.choices[0]?.message?.content || "{}";
@@ -316,5 +317,151 @@ Make the content specific to the zones, hazards, and interventions provided. Use
   } catch (error) {
     console.error("Failed to parse AI response:", error);
     throw new Error("Failed to generate narrative - invalid response format");
+  }
+}
+
+interface GenerateLensRequest {
+  lens: 'climate' | 'social' | 'financial' | 'institutional';
+  baseNarrativeBlocks: NarrativeBlock[];
+  funderPathway: FunderPathway;
+  customInstructions?: string;
+}
+
+const LENS_DESCRIPTIONS: Record<string, string> = {
+  climate: 'Emphasize climate mitigation and adaptation outcomes, GHG reductions, climate resilience metrics, and alignment with climate targets (NDCs, net-zero goals).',
+  social: 'Emphasize social equity, community benefits, vulnerable population impacts, job creation, health outcomes, and inclusive development.',
+  financial: 'Emphasize financial returns, cost-benefit analysis, revenue potential, bankability, and investor-relevant metrics.',
+  institutional: 'Emphasize governance structures, institutional capacity, policy alignment, regulatory frameworks, and stakeholder coordination.',
+};
+
+export async function generateLensVariant(
+  request: GenerateLensRequest
+): Promise<NarrativeBlock[]> {
+  const { lens, baseNarrativeBlocks, funderPathway, customInstructions } = request;
+
+  const systemPrompt = `You are an expert in Nature-Based Solutions narratives for climate funding.
+Your task is to adapt an existing narrative to emphasize a specific analytical lens.
+${LENS_DESCRIPTIONS[lens]}
+Preserve the core facts and structure, but adjust emphasis, language, and highlighted metrics to match the lens.
+${customInstructions ? `Additional instructions: ${customInstructions}` : ''}`;
+
+  const userPrompt = `Adapt the following narrative blocks to the "${lens}" lens.
+Funding pathway: ${funderPathway.primary || 'General'}
+
+BASE NARRATIVE BLOCKS:
+${baseNarrativeBlocks.map(b => `
+### ${b.title} (${b.type})
+${b.contentMd}
+`).join('\n')}
+
+Return a JSON object with the adapted narrative blocks:
+{
+  "narrativeBlocks": [
+    {
+      "id": "block-X",
+      "title": "Block Title",
+      "type": "block_type",
+      "lens": "${lens}",
+      "contentMd": "Adapted content emphasizing ${lens} perspective...",
+      "evidenceTier": "EVIDENCE|MODELLED|ASSUMPTION",
+      "included": true,
+      "kpis": [{ "name": "metric", "valueRange": "X-Y", "unit": "unit", "confidence": "HIGH|MEDIUM|LOW" }]
+    }
+  ]
+}
+
+Adapt ALL ${baseNarrativeBlocks.length} blocks to the ${lens} lens.`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+    max_completion_tokens: 8000,
+    reasoning_effort: "none",
+  } as any);
+
+  const content = response.choices[0]?.message?.content || "{}";
+  
+  try {
+    const parsed = JSON.parse(content);
+    return parsed.narrativeBlocks || [];
+  } catch (error) {
+    console.error("Failed to parse lens response:", error);
+    throw new Error("Failed to generate lens variant");
+  }
+}
+
+interface RegenerateBlockRequest {
+  block: NarrativeBlock;
+  customPrompt: string;
+  projectContext: {
+    cityName?: string;
+    hazards?: string[];
+    interventions?: string[];
+  };
+}
+
+export async function regenerateBlock(
+  request: RegenerateBlockRequest
+): Promise<NarrativeBlock> {
+  const { block, customPrompt, projectContext } = request;
+
+  const systemPrompt = `You are an expert in Nature-Based Solutions narratives.
+Regenerate the specified narrative block based on user instructions while maintaining consistency with the project context.`;
+
+  const userPrompt = `Regenerate this narrative block with the following instructions:
+
+CURRENT BLOCK:
+Title: ${block.title}
+Type: ${block.type}
+Current Content:
+${block.contentMd}
+
+PROJECT CONTEXT:
+- City: ${projectContext.cityName || 'Urban area'}
+- Hazards: ${projectContext.hazards?.join(', ') || 'Flood, Heat, Landslide'}
+- Interventions: ${projectContext.interventions?.join(', ') || 'NBS portfolio'}
+
+USER INSTRUCTIONS:
+${customPrompt}
+
+Return a JSON object with the regenerated block:
+{
+  "block": {
+    "id": "${block.id}",
+    "title": "${block.title}",
+    "type": "${block.type}",
+    "lens": "${block.lens}",
+    "contentMd": "Regenerated content based on instructions...",
+    "evidenceTier": "${block.evidenceTier}",
+    "included": true,
+    "kpis": []
+  }
+}`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+    max_completion_tokens: 2000,
+    reasoning_effort: "none",
+  } as any);
+
+  const content = response.choices[0]?.message?.content || "{}";
+  
+  try {
+    const parsed = JSON.parse(content);
+    return parsed.block || block;
+  } catch (error) {
+    console.error("Failed to parse block regeneration response:", error);
+    throw new Error("Failed to regenerate block");
   }
 }

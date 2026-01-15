@@ -38,7 +38,7 @@ import {
   computeCompositeScores,
   calculateCoverageSummary,
 } from './services/gridService';
-import { generateImpactNarrative } from './services/impactModelService';
+import { generateImpactNarrative, generateLensVariant, regenerateBlock } from './services/impactModelService';
 import type { LayerType } from '../shared/geospatial-schema';
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -815,6 +815,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Impact narrative generation error:', error);
       res.status(500).json({ message: error.message || 'Failed to generate impact narrative' });
+    }
+  });
+
+  // Generate lens variant for impact narrative
+  app.post('/api/impact-model/generate-lens', async (req: any, res) => {
+    try {
+      const { lens, baseNarrativeBlocks, funderPathway, customInstructions } = req.body;
+
+      if (!lens || !baseNarrativeBlocks) {
+        return res.status(400).json({ message: 'lens and baseNarrativeBlocks are required' });
+      }
+
+      console.log(`🔍 Generating ${lens} lens variant for ${baseNarrativeBlocks.length} blocks`);
+
+      const result = await generateLensVariant({
+        lens,
+        baseNarrativeBlocks,
+        funderPathway: funderPathway || { primary: 'BLENDED_FINANCE' },
+        customInstructions,
+      });
+
+      console.log(`   Generated ${result.length} blocks for ${lens} lens`);
+
+      res.json({ narrativeBlocks: result });
+    } catch (error: any) {
+      console.error('Lens generation error:', error);
+      res.status(500).json({ message: error.message || 'Failed to generate lens variant' });
+    }
+  });
+
+  // Regenerate a single narrative block
+  app.post('/api/impact-model/regenerate-block', async (req: any, res) => {
+    try {
+      const { block, customPrompt, projectContext } = req.body;
+
+      if (!block || !customPrompt) {
+        return res.status(400).json({ message: 'block and customPrompt are required' });
+      }
+
+      console.log(`🔄 Regenerating block: ${block.title}`);
+
+      const result = await regenerateBlock({
+        block,
+        customPrompt,
+        projectContext: projectContext || {},
+      });
+
+      console.log(`   Block regenerated successfully`);
+
+      res.json({ block: result });
+    } catch (error: any) {
+      console.error('Block regeneration error:', error);
+      res.status(500).json({ message: error.message || 'Failed to regenerate block' });
     }
   });
 

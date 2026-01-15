@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, Lightbulb, Settings, Sparkles, Edit3, Eye, Download, Check, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Lightbulb, Settings, Sparkles, Edit3, Eye, Download, Check, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Copy, FileText, Clock, AlertCircle } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -294,14 +294,22 @@ function GenerateStep({
   data, 
   onUpdate,
   onGenerate,
-  isGenerating 
+  isGenerating,
+  cityName,
+  funderName,
+  onContinueToCuration
 }: { 
   data: ImpactModelData; 
   onUpdate: (d: Partial<ImpactModelData>) => void;
   onGenerate: () => void;
   isGenerating: boolean;
+  cityName: string;
+  funderName: string;
+  onContinueToCuration: () => void;
 }) {
   const { t } = useTranslation();
+  const hasPreviousGeneration = data.narrativeCache.base && data.narrativeCache.base.length > 0;
+  const enabledBundles = data.interventionBundles.filter(b => b.enabled);
   
   return (
     <div className="space-y-6">
@@ -314,49 +322,94 @@ function GenerateStep({
           <CardDescription>{t('impactModel.generateDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="p-4 bg-muted/50 rounded-lg">
-            <h4 className="font-medium mb-2">{t('impactModel.contextSummary')}</h4>
-            <div className="grid gap-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t('impactModel.selectedBundles')}:</span>
-                <span>{data.interventionBundles.filter(b => b.enabled).length}</span>
+          <div className="p-4 bg-muted/50 rounded-lg space-y-4">
+            <h4 className="font-medium">{t('impactModel.generationSummary')}</h4>
+            
+            <div className="grid md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">{t('impactModel.city')}:</span>
+                <p className="font-medium">{cityName}</p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t('impactModel.targetHazards')}:</span>
-                <span>{Array.from(new Set(data.interventionBundles.flatMap(b => b.targetHazards))).join(', ') || '-'}</span>
+              <div>
+                <span className="text-muted-foreground">{t('impactModel.funder')}:</span>
+                <p className="font-medium">{funderName}</p>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-muted-foreground text-sm">{t('impactModel.selectedProjects')} ({enabledBundles.length}):</span>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {enabledBundles.map((bundle) => (
+                  <Badge key={bundle.id} variant="secondary" className="text-xs">
+                    {bundle.name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-sm pt-2 border-t">
+              <div className="text-center">
+                <span className="text-muted-foreground">{t('impactModel.weights.floodRiskReduction').split(' ')[0]}:</span>
+                <p className="font-medium">{data.prioritizationWeights.floodRiskReduction}/5</p>
+              </div>
+              <div className="text-center">
+                <span className="text-muted-foreground">{t('impactModel.weights.heatReduction').split(' ')[0]}:</span>
+                <p className="font-medium">{data.prioritizationWeights.heatReduction}/5</p>
+              </div>
+              <div className="text-center">
+                <span className="text-muted-foreground">{t('impactModel.weights.socialEquity').split(' ')[0]}:</span>
+                <p className="font-medium">{data.prioritizationWeights.socialEquity}/5</p>
               </div>
             </div>
           </div>
 
-          <Button 
-            onClick={onGenerate} 
-            disabled={isGenerating || data.interventionBundles.length === 0}
-            className="w-full"
-            size="lg"
-          >
-            {isGenerating ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                {t('impactModel.generating')}
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                {t('impactModel.generateWithAI')}
-              </>
-            )}
-          </Button>
-
-          {data.narrativeCache.base && data.narrativeCache.base.length > 0 && (
-            <div className="mt-6 p-4 border rounded-lg bg-green-50 dark:bg-green-900/20">
-              <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                <Check className="h-5 w-5" />
-                <span className="font-medium">{t('impactModel.narrativeGenerated')}</span>
+          {hasPreviousGeneration && (
+            <div className="p-4 border rounded-lg bg-amber-50 dark:bg-amber-900/20">
+              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-2">
+                <Clock className="h-5 w-5" />
+                <span className="font-medium">{t('impactModel.previousGeneration')}</span>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                {data.narrativeCache.base.length} {t('impactModel.blocksGenerated')}, {' '}
-                {data.coBenefits.length} {t('impactModel.coBenefitsGenerated')}
+              <p className="text-sm text-muted-foreground mb-3">
+                {t('impactModel.generatedOn')} {data.generationMeta?.generatedAt ? new Date(data.generationMeta.generatedAt).toLocaleString() : 'Unknown'} 
+                {' • '}{data.narrativeCache.base?.length} {t('impactModel.blocks')}
               </p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={onContinueToCuration}>
+                  {t('impactModel.continueToCuration')}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={onGenerate} disabled={isGenerating}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  {t('impactModel.regenerate')}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!hasPreviousGeneration && (
+            <Button 
+              onClick={onGenerate} 
+              disabled={isGenerating || enabledBundles.length === 0}
+              className="w-full"
+              size="lg"
+            >
+              {isGenerating ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  {t('impactModel.generating')}
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  {t('impactModel.generateWithAI')}
+                </>
+              )}
+            </Button>
+          )}
+
+          {enabledBundles.length === 0 && (
+            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm">
+              <AlertCircle className="h-4 w-4" />
+              <span>{t('impactModel.selectProjectsFirst')}</span>
             </div>
           )}
         </CardContent>
@@ -367,13 +420,19 @@ function GenerateStep({
 
 function CurateStep({ 
   data, 
-  onUpdate 
+  onUpdate,
+  onRegenerateBlock,
+  isRegenerating
 }: { 
   data: ImpactModelData; 
   onUpdate: (d: Partial<ImpactModelData>) => void;
+  onRegenerateBlock: (block: NarrativeBlock, prompt: string) => Promise<void>;
+  isRegenerating: string | null;
 }) {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
+  const [regeneratePrompts, setRegeneratePrompts] = useState<Record<string, string>>({});
 
   const toggleBlock = (id: string) => {
     setExpandedBlocks(prev => {
@@ -439,7 +498,10 @@ function CurateStep({
                     />
                     <div className="text-left">
                       <p className="font-medium text-sm">{block.title}</p>
-                      <Badge variant="outline" className="text-xs mt-1">{block.type.replace(/_/g, ' ')}</Badge>
+                      <div className="flex gap-1 mt-1">
+                        <Badge variant="outline" className="text-xs">{block.type.replace(/_/g, ' ')}</Badge>
+                        <Badge variant="secondary" className="text-xs">{block.evidenceTier}</Badge>
+                      </div>
                     </div>
                   </div>
                   {expandedBlocks.has(block.id) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -460,11 +522,44 @@ function CurateStep({
                     }}
                     className="min-h-[150px] mt-2"
                   />
-                  <div className="flex gap-2 mt-2">
-                    <Badge variant="secondary">{block.evidenceTier}</Badge>
-                    {block.kpis?.map((kpi, i) => (
-                      <Badge key={i} variant="outline">{kpi.name}: {kpi.valueRange}</Badge>
-                    ))}
+                  
+                  {block.kpis && block.kpis.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {block.kpis.map((kpi, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {kpi.name}: {kpi.valueRange} {kpi.unit}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-3 p-3 bg-muted/30 rounded-lg">
+                    <Label className="text-xs text-muted-foreground">{t('impactModel.regeneratePrompt')}</Label>
+                    <Textarea
+                      placeholder={t('impactModel.regeneratePromptPlaceholder')}
+                      value={regeneratePrompts[block.id] || ''}
+                      onChange={(e) => setRegeneratePrompts(prev => ({ ...prev, [block.id]: e.target.value }))}
+                      className="min-h-[60px] mt-1 text-sm"
+                    />
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="mt-2"
+                      disabled={!regeneratePrompts[block.id] || isRegenerating === block.id}
+                      onClick={() => onRegenerateBlock(block, regeneratePrompts[block.id])}
+                    >
+                      {isRegenerating === block.id ? (
+                        <>
+                          <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
+                          {t('impactModel.regenerating')}
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-3 w-3 mr-2" />
+                          {t('impactModel.regenerateBlock')}
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </CollapsibleContent>
               </div>
@@ -514,13 +609,20 @@ function CurateStep({
 
 function LensesStep({ 
   data, 
-  onUpdate 
+  onUpdate,
+  onGenerateLens,
+  isGeneratingLens
 }: { 
   data: ImpactModelData; 
   onUpdate: (d: Partial<ImpactModelData>) => void;
+  onGenerateLens: (lens: LensType, customInstructions?: string) => Promise<void>;
+  isGeneratingLens: LensType | null;
 }) {
   const { t } = useTranslation();
+  const [customInstructions, setCustomInstructions] = useState<Record<string, string>>({});
   const lenses: LensType[] = ['neutral', 'climate', 'social', 'financial', 'institutional'];
+
+  const hasBaseNarrative = data.narrativeCache.base && data.narrativeCache.base.length > 0;
 
   return (
     <div className="space-y-6">
@@ -533,38 +635,115 @@ function LensesStep({
           <CardDescription>{t('impactModel.lensesDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={data.selectedLens} onValueChange={(v) => onUpdate({ selectedLens: v as LensType })}>
-            <TabsList className="grid w-full grid-cols-5">
+          {!hasBaseNarrative ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Eye className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>{t('impactModel.generateFirst')}</p>
+            </div>
+          ) : (
+            <Tabs value={data.selectedLens} onValueChange={(v) => onUpdate({ selectedLens: v as LensType })}>
+              <TabsList className="grid w-full grid-cols-5">
+                {lenses.map((lens) => {
+                  const hasVariant = lens === 'neutral' || (data.narrativeCache.lensVariants[lens]?.length > 0);
+                  return (
+                    <TabsTrigger key={lens} value={lens} className="text-xs relative">
+                      {t(`impactModel.lenses.${lens}`)}
+                      {hasVariant && lens !== 'neutral' && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
+                      )}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
               {lenses.map((lens) => (
-                <TabsTrigger key={lens} value={lens} className="text-xs">
-                  {t(`impactModel.lenses.${lens}`)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            {lenses.map((lens) => (
-              <TabsContent key={lens} value={lens} className="mt-4">
-                <div className="p-4 bg-muted/30 rounded-lg">
-                  <h4 className="font-medium mb-2">{t(`impactModel.lenses.${lens}`)}</h4>
-                  <p className="text-sm text-muted-foreground">{t(`impactModel.lensDescriptions.${lens}`)}</p>
-                  
-                  {data.narrativeCache.lensVariants[lens]?.length > 0 ? (
-                    <div className="mt-4 space-y-2">
-                      {data.narrativeCache.lensVariants[lens].map((block) => (
-                        <div key={block.id} className="p-3 bg-background border rounded">
-                          <p className="font-medium text-sm">{block.title}</p>
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{block.contentMd}</p>
-                        </div>
-                      ))}
+                <TabsContent key={lens} value={lens} className="mt-4">
+                  <div className="p-4 bg-muted/30 rounded-lg space-y-4">
+                    <div>
+                      <h4 className="font-medium mb-2">{t(`impactModel.lenses.${lens}`)}</h4>
+                      <p className="text-sm text-muted-foreground">{t(`impactModel.lensDescriptions.${lens}`)}</p>
                     </div>
-                  ) : (
-                    <p className="mt-4 text-sm text-muted-foreground italic">
-                      {lens === 'neutral' ? t('impactModel.useBaseNarrative') : t('impactModel.lensNotGenerated')}
-                    </p>
-                  )}
-                </div>
-              </TabsContent>
-            ))}
-          </Tabs>
+                    
+                    {lens === 'neutral' ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                          <Check className="h-4 w-4" />
+                          <span className="text-sm font-medium">{t('impactModel.baseNarrativeAvailable')}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{t('impactModel.neutralIsBase')}</p>
+                        <ScrollArea className="h-[300px] mt-4">
+                          <div className="space-y-2 pr-4">
+                            {data.narrativeCache.base?.map((block) => (
+                              <div key={block.id} className="p-3 bg-background border rounded">
+                                <p className="font-medium text-sm">{block.title}</p>
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-3">{block.contentMd}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    ) : data.narrativeCache.lensVariants[lens]?.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                            <Check className="h-4 w-4" />
+                            <span className="text-sm font-medium">{t('impactModel.lensGenerated')}</span>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            disabled={isGeneratingLens === lens}
+                            onClick={() => onGenerateLens(lens, customInstructions[lens])}
+                          >
+                            <RefreshCw className={`h-3 w-3 mr-2 ${isGeneratingLens === lens ? 'animate-spin' : ''}`} />
+                            {t('impactModel.regenerateLens')}
+                          </Button>
+                        </div>
+                        <ScrollArea className="h-[300px]">
+                          <div className="space-y-2 pr-4">
+                            {data.narrativeCache.lensVariants[lens].map((block) => (
+                              <div key={block.id} className="p-3 bg-background border rounded">
+                                <p className="font-medium text-sm">{block.title}</p>
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-3">{block.contentMd}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <p className="text-sm text-muted-foreground italic">{t('impactModel.lensNotGenerated')}</p>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">{t('impactModel.customInstructions')}</Label>
+                          <Textarea
+                            placeholder={t('impactModel.customInstructionsPlaceholder')}
+                            value={customInstructions[lens] || ''}
+                            onChange={(e) => setCustomInstructions(prev => ({ ...prev, [lens]: e.target.value }))}
+                            className="min-h-[60px] mt-1 text-sm"
+                          />
+                        </div>
+                        <Button 
+                          onClick={() => onGenerateLens(lens, customInstructions[lens])}
+                          disabled={isGeneratingLens === lens}
+                        >
+                          {isGeneratingLens === lens ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              {t('impactModel.generatingLens')}
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-4 w-4 mr-2" />
+                              {t('impactModel.generateLensVersion')}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -574,44 +753,70 @@ function LensesStep({
 function ExportStep({ 
   data,
   onPushToOperations,
-  onPushToBusinessModel 
+  onPushToBusinessModel,
+  cityName,
+  funderName
 }: { 
   data: ImpactModelData;
   onPushToOperations: () => void;
   onPushToBusinessModel: () => void;
+  cityName: string;
+  funderName: string;
 }) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const [previewMode, setPreviewMode] = useState<'markdown' | 'json'>('markdown');
+
+  const includedBlocks = data.narrativeCache.base?.filter(b => b.included) || [];
+  const includedCoBenefits = data.coBenefits.filter(cb => cb.included);
 
   const generateMarkdown = () => {
-    const blocks = data.narrativeCache.base?.filter(b => b.included) || [];
-    const coBenefits = data.coBenefits.filter(cb => cb.included);
+    let md = `# ${cityName} - Impact & Co-Benefits Narrative\n\n`;
+    md += `**Funder:** ${funderName}\n`;
+    md += `**Lens:** ${data.selectedLens}\n`;
+    md += `**Generated:** ${data.generationMeta?.generatedAt ? new Date(data.generationMeta.generatedAt).toLocaleString() : 'Unknown'}\n`;
+    md += `**Version:** v1\n\n`;
+    md += `---\n\n`;
     
-    let md = `# Impact Narrative\n\n`;
-    md += `*Generated: ${data.generationMeta?.generatedAt || 'Unknown'}*\n\n`;
-    
-    blocks.forEach(block => {
+    includedBlocks.forEach(block => {
       md += `## ${block.title}\n\n`;
+      md += `*Evidence Tier: ${block.evidenceTier}*\n\n`;
       md += `${block.contentMd}\n\n`;
       if (block.kpis?.length) {
-        md += `**KPIs:**\n`;
+        md += `**Key Metrics:**\n`;
         block.kpis.forEach(kpi => {
-          md += `- ${kpi.name}: ${kpi.valueRange} ${kpi.unit}\n`;
+          md += `- ${kpi.name}: ${kpi.valueRange} ${kpi.unit} (${kpi.confidence})\n`;
         });
         md += `\n`;
       }
     });
 
-    if (coBenefits.length > 0) {
+    if (includedCoBenefits.length > 0) {
       md += `## Co-Benefits\n\n`;
-      coBenefits.forEach(cb => {
+      includedCoBenefits.forEach(cb => {
         md += `### ${cb.title}\n`;
-        md += `*${cb.category} | ${cb.confidence} Confidence*\n\n`;
+        md += `*${cb.category} | ${cb.confidence} Confidence | ${cb.evidenceTier}*\n\n`;
         md += `${cb.description}\n\n`;
       });
     }
 
     return md;
+  };
+
+  const generateExportJSON = () => {
+    return {
+      meta: {
+        city: cityName,
+        funder: funderName,
+        lens: data.selectedLens,
+        generatedAt: data.generationMeta?.generatedAt,
+        version: 'v1',
+      },
+      narrativeBlocks: includedBlocks,
+      coBenefits: includedCoBenefits,
+      downstreamSignals: data.downstreamSignals,
+      weights: data.prioritizationWeights,
+    };
   };
 
   const handleExportMarkdown = () => {
@@ -620,28 +825,32 @@ function ExportStep({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'impact-narrative.md';
+    a.download = `${cityName.replace(/\s+/g, '-').toLowerCase()}-impact-narrative.md`;
     a.click();
     URL.revokeObjectURL(url);
     toast({ title: t('impactModel.exportSuccess'), description: t('impactModel.markdownExported') });
   };
 
   const handleExportJSON = () => {
-    const exportData = {
-      generatedAt: data.generationMeta?.generatedAt,
-      narrativeBlocks: data.narrativeCache.base?.filter(b => b.included),
-      coBenefits: data.coBenefits.filter(cb => cb.included),
-      downstreamSignals: data.downstreamSignals,
-      weights: data.prioritizationWeights,
-    };
+    const exportData = generateExportJSON();
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'impact-model-export.json';
+    a.download = `${cityName.replace(/\s+/g, '-').toLowerCase()}-impact-model.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast({ title: t('impactModel.exportSuccess'), description: t('impactModel.jsonExported') });
+  };
+
+  const handleCopyToClipboard = async () => {
+    try {
+      const content = previewMode === 'markdown' ? generateMarkdown() : JSON.stringify(generateExportJSON(), null, 2);
+      await navigator.clipboard.writeText(content);
+      toast({ title: t('impactModel.copied'), description: t('impactModel.copiedToClipboard') });
+    } catch (err) {
+      toast({ title: t('common.error'), description: t('impactModel.copyFailed'), variant: 'destructive' });
+    }
   };
 
   const opsSignals = data.downstreamSignals.operations || [];
@@ -658,20 +867,81 @@ function ExportStep({
           <CardDescription>{t('impactModel.exportDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2">
-            <Button variant="outline" onClick={handleExportMarkdown} className="h-auto py-4">
-              <div className="text-left">
-                <p className="font-medium">{t('impactModel.exportMarkdown')}</p>
-                <p className="text-xs text-muted-foreground">{t('impactModel.exportMarkdownDesc')}</p>
+          <div className="p-4 bg-muted/50 rounded-lg">
+            <h4 className="font-medium mb-3">{t('impactModel.exportSummary')}</h4>
+            <div className="grid md:grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-muted-foreground">{t('impactModel.city')}:</span>
+                <p className="font-medium">{cityName}</p>
               </div>
+              <div>
+                <span className="text-muted-foreground">{t('impactModel.funder')}:</span>
+                <p className="font-medium">{funderName}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t('impactModel.lens')}:</span>
+                <p className="font-medium capitalize">{data.selectedLens}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t('impactModel.version')}:</span>
+                <p className="font-medium">v1</p>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t">
+              <span className="text-muted-foreground text-sm">{t('impactModel.includedBlocks')}:</span>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {includedBlocks.map((block) => (
+                  <Badge key={block.id} variant="secondary" className="text-xs">{block.title}</Badge>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {includedBlocks.length} {t('impactModel.blocks')}, {includedCoBenefits.length} {t('impactModel.coBenefitsLabel')}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <Button variant="outline" onClick={handleExportMarkdown} className="h-auto py-4 flex-col items-center">
+              <FileText className="h-6 w-6 mb-2" />
+              <p className="font-medium">{t('impactModel.exportMarkdown')}</p>
+              <p className="text-xs text-muted-foreground">{t('impactModel.downloadAsMd')}</p>
             </Button>
-            <Button variant="outline" onClick={handleExportJSON} className="h-auto py-4">
-              <div className="text-left">
-                <p className="font-medium">{t('impactModel.exportJSON')}</p>
-                <p className="text-xs text-muted-foreground">{t('impactModel.exportJSONDesc')}</p>
-              </div>
+            <Button variant="outline" onClick={handleExportJSON} className="h-auto py-4 flex-col items-center">
+              <Download className="h-6 w-6 mb-2" />
+              <p className="font-medium">{t('impactModel.exportJSON')}</p>
+              <p className="text-xs text-muted-foreground">{t('impactModel.downloadWithMeta')}</p>
+            </Button>
+            <Button variant="outline" onClick={handleCopyToClipboard} className="h-auto py-4 flex-col items-center">
+              <Copy className="h-6 w-6 mb-2" />
+              <p className="font-medium">{t('impactModel.copyClipboard')}</p>
+              <p className="text-xs text-muted-foreground">{t('impactModel.pasteAnywhere')}</p>
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('impactModel.preview')}</CardTitle>
+          <CardDescription>{t('impactModel.previewDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={previewMode} onValueChange={(v) => setPreviewMode(v as 'markdown' | 'json')}>
+            <TabsList>
+              <TabsTrigger value="markdown">Markdown</TabsTrigger>
+              <TabsTrigger value="json">JSON</TabsTrigger>
+            </TabsList>
+            <TabsContent value="markdown" className="mt-4">
+              <ScrollArea className="h-[400px] border rounded-lg p-4 bg-muted/20">
+                <pre className="text-xs font-mono whitespace-pre-wrap">{generateMarkdown()}</pre>
+              </ScrollArea>
+            </TabsContent>
+            <TabsContent value="json" className="mt-4">
+              <ScrollArea className="h-[400px] border rounded-lg p-4 bg-muted/20">
+                <pre className="text-xs font-mono whitespace-pre-wrap">{JSON.stringify(generateExportJSON(), null, 2)}</pre>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -741,6 +1011,8 @@ export default function ImpactModelPage() {
   
   const [currentStep, setCurrentStep] = useState<WizardStep>('setup');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState<string | null>(null);
+  const [isGeneratingLens, setIsGeneratingLens] = useState<LensType | null>(null);
   const [localData, setLocalData] = useState<ImpactModelData>(getDefaultImpactModelData());
 
   useEffect(() => {
@@ -801,7 +1073,7 @@ export default function ImpactModelPage() {
         downstreamSignals: result.downstreamSignals || { operations: [], businessModel: [], mrv: [], implementors: [] },
         generationMeta: {
           generatedAt: new Date().toISOString(),
-          model: 'GPT-4.1',
+          model: 'GPT-5.2',
         },
         status: 'DRAFT',
       });
@@ -819,6 +1091,100 @@ export default function ImpactModelPage() {
     }
   };
 
+  const handleRegenerateBlock = async (block: NarrativeBlock, customPrompt: string) => {
+    setIsRegenerating(block.id);
+    
+    try {
+      const response = await fetch('/api/impact-model/regenerate-block', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          block,
+          customPrompt,
+          projectContext: {
+            cityName: context?.cityName || 'Porto Alegre',
+            projectName: context?.projectName || 'Urban Climate Resilience Initiative',
+            weights: localData.prioritizationWeights,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to regenerate block');
+      }
+
+      const result = await response.json();
+      
+      const updatedBlocks = (localData.narrativeCache.base || []).map(b => 
+        b.id === block.id ? { ...result.block, id: block.id } : b
+      );
+      
+      handleUpdate({
+        narrativeCache: {
+          ...localData.narrativeCache,
+          base: updatedBlocks,
+        },
+      });
+
+      toast({ title: t('impactModel.blockRegenerated'), description: t('impactModel.blockRegeneratedDesc') });
+    } catch (error) {
+      console.error('Block regeneration error:', error);
+      toast({ 
+        title: t('common.error'), 
+        description: t('impactModel.regenerationFailed'),
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsRegenerating(null);
+    }
+  };
+
+  const handleGenerateLens = async (lens: LensType, customInstructions?: string) => {
+    if (lens === 'neutral' || !localData.narrativeCache.base) return;
+    
+    setIsGeneratingLens(lens);
+    
+    try {
+      const response = await fetch('/api/impact-model/generate-lens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lens,
+          baseNarrativeBlocks: localData.narrativeCache.base,
+          funderPathway: funderPathway,
+          customInstructions,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate lens variant');
+      }
+
+      const result = await response.json();
+      
+      handleUpdate({
+        narrativeCache: {
+          ...localData.narrativeCache,
+          lensVariants: {
+            ...localData.narrativeCache.lensVariants,
+            [lens]: result.narrativeBlocks || [],
+          },
+        },
+      });
+
+      toast({ title: t('impactModel.lensGeneratedSuccess'), description: t('impactModel.lensGeneratedDesc') });
+    } catch (error) {
+      console.error('Lens generation error:', error);
+      toast({ 
+        title: t('common.error'), 
+        description: t('impactModel.lensGenerationFailed'),
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsGeneratingLens(null);
+    }
+  };
+
   const handlePushToOperations = () => {
     toast({ title: t('impactModel.signalsPushed'), description: t('impactModel.opsSignalsPushed') });
   };
@@ -826,6 +1192,9 @@ export default function ImpactModelPage() {
   const handlePushToBusinessModel = () => {
     toast({ title: t('impactModel.signalsPushed'), description: t('impactModel.bmSignalsPushed') });
   };
+
+  const cityName = context?.cityName || 'Porto Alegre';
+  const funderName = context?.funderSelection?.funderName || sampleFunderSelection.funderName || 'Green Climate Fund';
 
   const rawZones = context?.siteExplorer?.selectedZones ?? sampleSiteExplorer.selectedZones;
   const siteExplorerZones = rawZones.map(zone => {
@@ -887,19 +1256,39 @@ export default function ImpactModelPage() {
             <SetupStep data={localData} onUpdate={handleUpdate} siteExplorerZones={siteExplorerZones} />
           )}
           {currentStep === 'generate' && (
-            <GenerateStep data={localData} onUpdate={handleUpdate} onGenerate={handleGenerate} isGenerating={isGenerating} />
+            <GenerateStep 
+              data={localData} 
+              onUpdate={handleUpdate} 
+              onGenerate={handleGenerate} 
+              isGenerating={isGenerating}
+              cityName={cityName}
+              funderName={funderName}
+              onContinueToCuration={() => setCurrentStep('curate')}
+            />
           )}
           {currentStep === 'curate' && (
-            <CurateStep data={localData} onUpdate={handleUpdate} />
+            <CurateStep 
+              data={localData} 
+              onUpdate={handleUpdate}
+              onRegenerateBlock={handleRegenerateBlock}
+              isRegenerating={isRegenerating}
+            />
           )}
           {currentStep === 'lenses' && (
-            <LensesStep data={localData} onUpdate={handleUpdate} />
+            <LensesStep 
+              data={localData} 
+              onUpdate={handleUpdate}
+              onGenerateLens={handleGenerateLens}
+              isGeneratingLens={isGeneratingLens}
+            />
           )}
           {currentStep === 'export' && (
             <ExportStep 
               data={localData} 
               onPushToOperations={handlePushToOperations}
               onPushToBusinessModel={handlePushToBusinessModel}
+              cityName={cityName}
+              funderName={funderName}
             />
           )}
         </div>
