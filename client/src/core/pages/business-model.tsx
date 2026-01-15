@@ -28,6 +28,10 @@ type Confidence = 'HIGH' | 'MEDIUM' | 'LOW';
 type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 type FinancingPathway = 'PUBLIC_CAPEX' | 'DFI_LOAN' | 'MUNICIPAL_BOND' | 'BLENDED_VEHICLE' | 'PPP_LIGHT' | 'PHILANTHROPY_ONLY' | null;
 type BMStatus = 'NOT_STARTED' | 'DRAFT' | 'READY';
+type ImportedContextMode = 'ACCEPT' | 'EDIT' | 'SCRATCH';
+type BenefitType = 'CLIMATE_RESILIENCE' | 'FLOOD_RISK_REDUCTION' | 'HEAT_REDUCTION' | 'AIR_QUALITY' | 'PROPERTY_VALUE' | 'HEALTH' | 'LIVABILITY' | 'OTHER';
+type PayerRole = 'ANCHOR_PAYER' | 'CO_PAYER' | 'CONTINGENT_PAYER' | 'GRANT_PROVIDER' | 'GUARANTOR';
+type PrimaryPayerConfidence = 'CONFIRMED' | 'PLANNED' | 'IDEA';
 
 interface Stakeholder {
   id: string;
@@ -51,7 +55,8 @@ interface ImportedContext {
 
 interface PayerBeneficiary {
   stakeholderId: string;
-  benefitType?: string;
+  benefitType?: BenefitType;
+  payerRole?: PayerRole;
   mechanismHint?: string;
 }
 
@@ -63,6 +68,8 @@ interface RevenueLine {
   durationYears?: number;
   prerequisites?: string[];
   notes?: string;
+  payerStakeholderId?: string;
+  amountRange?: { low?: number; high?: number; currency?: string };
 }
 
 interface EnablingAction {
@@ -83,11 +90,15 @@ interface BMRisk {
 interface BusinessModelData {
   status: BMStatus;
   importedContext: ImportedContext;
+  originalContext?: ImportedContext;
+  importedContextMode: ImportedContextMode;
   primaryArchetype: BMArchetype;
   payerBeneficiaryMap: {
     beneficiaries: PayerBeneficiary[];
     candidatePayers: PayerBeneficiary[];
     primaryPayerId: string | null;
+    primaryPayerConfidence?: PrimaryPayerConfidence;
+    primaryPayerMechanismHint?: string;
   };
   paymentMechanism: {
     type: PaymentMechanismType;
@@ -251,10 +262,10 @@ function inferBeneficiaries(context: ImportedContext, stakeholders: Stakeholder[
   const beneficiaries: PayerBeneficiary[] = [];
   
   const community = stakeholders.find(s => s.type === 'community');
-  if (community) beneficiaries.push({ stakeholderId: community.id, benefitType: 'Climate resilience' });
+  if (community) beneficiaries.push({ stakeholderId: community.id, benefitType: 'CLIMATE_RESILIENCE' });
   
   const propOwners = stakeholders.find(s => s.id === 'property-owners');
-  if (propOwners) beneficiaries.push({ stakeholderId: propOwners.id, benefitType: 'Reduced flood damage' });
+  if (propOwners) beneficiaries.push({ stakeholderId: propOwners.id, benefitType: 'FLOOD_RISK_REDUCTION' });
   
   return beneficiaries;
 }
@@ -326,11 +337,14 @@ function buildInitialBMData(actionType: string, hazards: string[], stakeholders:
   return {
     status: 'NOT_STARTED',
     importedContext,
+    originalContext: { ...importedContext },
+    importedContextMode: 'ACCEPT' as ImportedContextMode,
     primaryArchetype: recommendedArchetype,
     payerBeneficiaryMap: {
       beneficiaries,
       candidatePayers,
       primaryPayerId: candidatePayers[0]?.stakeholderId || null,
+      primaryPayerConfidence: 'IDEA' as PrimaryPayerConfidence,
     },
     paymentMechanism: {
       type: 'CITY_BUDGET',
