@@ -530,8 +530,36 @@ function ContextViewer({ context }: { context: ProjectContextData | null }) {
                 {(context.funderSelection.selectedFunds?.length > 0 || context.funderSelection.shortlistedFunds?.length > 0) && (
                   <div className="border-t pt-2 mt-2">
                     <p className="text-xs font-medium mb-2">Funds:</p>
-                    <DataRow label="Selected" value={context.funderSelection.selectedFunds?.length || 0} />
-                    <DataRow label="Shortlisted" value={context.funderSelection.shortlistedFunds?.length || 0} />
+                    {context.funderSelection.selectedFunds?.length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-xs text-muted-foreground mb-1">Selected ({context.funderSelection?.selectedFunds?.length || 0}):</p>
+                        <div className="flex flex-wrap gap-1">
+                          {context.funderSelection?.selectedFunds?.map((fundId) => {
+                            const fundInfo = context.funderSelection?.targetFunders?.find(t => t.fundId === fundId);
+                            return (
+                              <Badge key={fundId} variant="default" className="text-xs">
+                                {fundInfo?.fundName || fundId}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {context.funderSelection.shortlistedFunds?.length > 0 && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Shortlisted ({context.funderSelection?.shortlistedFunds?.length || 0}):</p>
+                        <div className="flex flex-wrap gap-1">
+                          {context.funderSelection?.shortlistedFunds?.map((fundId) => {
+                            const fundInfo = context.funderSelection?.targetFunders?.find(t => t.fundId === fundId);
+                            return (
+                              <Badge key={fundId} variant="outline" className="text-xs">
+                                {fundInfo?.fundName || fundId}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
