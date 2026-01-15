@@ -27,6 +27,7 @@ import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
 
 interface BoundaryData {
@@ -375,10 +376,23 @@ export default function SiteExplorerPage() {
       
       const data = await response.json();
       
+      const calculateLineLength = (coords: number[][]): number => {
+        let length = 0;
+        for (let i = 0; i < coords.length - 1; i++) {
+          const [lng1, lat1] = coords[i];
+          const [lng2, lat2] = coords[i + 1];
+          const dLat = (lat2 - lat1) * 111319;
+          const dLng = (lng2 - lng1) * 111319 * Math.cos((lat1 + lat2) / 2 * Math.PI / 180);
+          length += Math.sqrt(dLat * dLat + dLng * dLng);
+        }
+        return length;
+      };
+      
       const assets = data.elements.map((el: any) => {
         let geometry = null;
         let centroid = null;
         let area = 0;
+        let length = 0;
         
         if (el.type === 'node') {
           geometry = { type: 'Point', coordinates: [el.lon, el.lat] };
@@ -396,7 +410,8 @@ export default function SiteExplorerPage() {
             }, 0) / 2) * 111319 * 111319;
           } else {
             geometry = { type: 'LineString', coordinates: coords };
-            centroid = coords[Math.floor(coords.length / 2)].reverse();
+            centroid = coords[Math.floor(coords.length / 2)].slice().reverse();
+            length = calculateLineLength(coords);
           }
         }
         
@@ -413,19 +428,21 @@ export default function SiteExplorerPage() {
           geometry,
           centroid,
           area,
+          length,
           assetType: osmType ? `${osmType[0]}=${osmType[1]}` : 'unknown',
           compatibleInterventions: interventionsInCategory.filter(i => 
             i.osmAssetTypes.some(t => Object.entries(el.tags || {}).some(([k, v]) => `${k}=${v}` === t))
           ),
         };
-      }).filter((a: any) => a.geometry && a.geometry.type !== 'LineString' && a.compatibleInterventions.length > 0);
+      }).filter((a: any) => a.geometry && a.compatibleInterventions.length > 0);
       
       setOsmAssets(assets);
       
       if (mapRef.current && assets.length > 0) {
+        const renderableAssets = assets.filter((a: any) => a.geometry.type !== 'LineString');
         const geoJsonFeatures = {
           type: 'FeatureCollection',
-          features: assets.map((a: any) => ({
+          features: renderableAssets.map((a: any) => ({
             type: 'Feature',
             geometry: a.geometry,
             properties: { ...a, geometry: undefined },
@@ -449,7 +466,8 @@ export default function SiteExplorerPage() {
           },
           onEachFeature: (feature, layer) => {
             const props = feature.properties;
-            layer.bindTooltip(`<strong>${props.name}</strong><br/>${props.assetType}<br/>Area: ${(props.area / 10000).toFixed(2)} ha`, { sticky: true });
+            const sizeLabel = props.length > 0 ? `Length: ${props.length.toFixed(0)} m` : `Area: ${(props.area / 10000).toFixed(2)} ha`;
+            layer.bindTooltip(`<strong>${props.name}</strong><br/>${props.assetType}<br/>${sizeLabel}`, { sticky: true });
             layer.on('click', () => {
               setSelectedAsset(props);
             });
@@ -642,18 +660,28 @@ export default function SiteExplorerPage() {
   const addAssetInterventionToPortfolio = useCallback((zoneId: string, asset: any, intervention: InterventionType) => {
     const areaM2 = asset.area || 10000;
     const areaHa = areaM2 / 10000;
+    const lengthM = asset.length || 0;
     const costUnit = intervention.costRange.unit;
     let costMultiplier = 1;
+    let estimatedMeasure = areaHa;
+    let measureUnit = 'ha';
     
     if (costUnit === 'USD/ha') {
       costMultiplier = areaHa;
+      estimatedMeasure = areaHa;
+      measureUnit = 'ha';
     } else if (costUnit === 'USD/m²') {
       costMultiplier = areaM2;
+      estimatedMeasure = areaM2;
+      measureUnit = 'm²';
     } else if (costUnit === 'USD/m') {
-      const approxPerimeterM = Math.sqrt(areaM2) * 4;
-      costMultiplier = approxPerimeterM;
+      costMultiplier = lengthM > 0 ? lengthM : Math.sqrt(areaM2) * 4;
+      estimatedMeasure = lengthM > 0 ? lengthM : Math.sqrt(areaM2) * 4;
+      measureUnit = 'm';
     } else {
       costMultiplier = areaHa;
+      estimatedMeasure = areaHa;
+      measureUnit = 'ha';
     }
 
     const newIntervention: SelectedIntervention = {
@@ -665,8 +693,8 @@ export default function SiteExplorerPage() {
         max: Math.round(intervention.costRange.max * costMultiplier),
         unit: 'USD',
       },
-      estimatedArea: areaHa,
-      areaUnit: 'ha',
+      estimatedArea: estimatedMeasure,
+      areaUnit: measureUnit,
       impacts: intervention.impacts,
       addedAt: new Date().toISOString(),
       assetId: asset.id,
@@ -1305,7 +1333,7 @@ export default function SiteExplorerPage() {
                 </div>
               </div>
 
-              <ScrollArea className="flex-1">
+              <ScrollArea className="flex-1 min-h-0">
                 <div className="p-4 space-y-4">
                   {!selectedCategory ? (
                     <>
@@ -1426,7 +1454,7 @@ export default function SiteExplorerPage() {
                                   <div className="flex-1 min-w-0">
                                     <div className="font-medium truncate">{asset.name}</div>
                                     <div className="text-sm text-muted-foreground">
-                                      {asset.assetType.split('=')[1]} • {(asset.area / 10000).toFixed(2)} ha
+                                      {asset.assetType.split('=')[1]} • {asset.length > 0 ? `${asset.length.toFixed(0)} m` : `${(asset.area / 10000).toFixed(2)} ha`}
                                     </div>
                                   </div>
                                   {hasIntervention ? (
@@ -1456,7 +1484,7 @@ export default function SiteExplorerPage() {
                       <div className="p-3 rounded-lg border bg-muted/30">
                         <div className="font-medium">{selectedAsset.name}</div>
                         <div className="text-sm text-muted-foreground mt-1">
-                          {selectedAsset.assetType.split('=')[1]} • {(selectedAsset.area / 10000).toFixed(2)} ha
+                          {selectedAsset.assetType.split('=')[1]} • {selectedAsset.length > 0 ? `${selectedAsset.length.toFixed(0)} m` : `${(selectedAsset.area / 10000).toFixed(2)} ha`}
                         </div>
                       </div>
 

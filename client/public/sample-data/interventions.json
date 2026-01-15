@@ -58,7 +58,7 @@
       "category": "flood_storage",
       "name": "Sponge Square / Plaza",
       "description": "Replace impervious paving with permeable surfaces and add subsurface storage",
-      "osmAssetTypes": ["amenity=square", "highway=pedestrian", "leisure=common"],
+      "osmAssetTypes": ["place=square", "highway=pedestrian", "leisure=common", "amenity=marketplace"],
       "typicalScale": { "min": 1000, "max": 10000, "unit": "m²" },
       "costRange": { "min": 80, "max": 250, "unit": "USD/m²" },
       "impacts": {
