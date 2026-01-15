@@ -303,6 +303,11 @@ export interface SelectedIntervention {
   impacts: { flood: string; heat: string; landslide: string };
   notes?: string;
   addedAt: string;
+  assetId?: string;
+  assetName?: string;
+  assetType?: string;
+  osmId?: number;
+  centroid?: [number, number];
 }
 
 export interface SelectedZone {

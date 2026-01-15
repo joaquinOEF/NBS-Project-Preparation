@@ -217,9 +217,15 @@ export default function SiteExplorerPage() {
 
   const [isLoadingSampleData, setIsLoadingSampleData] = useState(false);
   const [selectedZone, setSelectedZone] = useState<ZoneProperties | null>(null);
+  const [selectedZoneFeature, setSelectedZoneFeature] = useState<any | null>(null);
   const [interventionsData, setInterventionsData] = useState<InterventionsData | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [zonePortfolios, setZonePortfolios] = useState<Record<string, SelectedIntervention[]>>({});
+  const [osmAssets, setOsmAssets] = useState<any[]>([]);
+  const [isLoadingOsmAssets, setIsLoadingOsmAssets] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
+  const highlightLayerRef = useRef<L.Layer | null>(null);
+  const osmLayerRef = useRef<L.Layer | null>(null);
   const { updateModule, context } = useProjectContext();
 
   useEffect(() => {
@@ -283,6 +289,169 @@ export default function SiteExplorerPage() {
       elevationMutation.mutate({ cityLocode: boundaryData.cityLocode, bounds, resolution: 90 });
     }
   }, [boundaryData, isSampleModeActive]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    
+    if (highlightLayerRef.current) {
+      mapRef.current.removeLayer(highlightLayerRef.current);
+      highlightLayerRef.current = null;
+    }
+    
+    if (osmLayerRef.current) {
+      mapRef.current.removeLayer(osmLayerRef.current);
+      osmLayerRef.current = null;
+    }
+    
+    if (selectedZoneFeature && selectedZone) {
+      const highlightLayer = L.geoJSON(selectedZoneFeature, {
+        style: {
+          color: '#ffffff',
+          weight: 4,
+          fillColor: TYPOLOGY_COLORS[selectedZone.typologyLabel] || '#10b981',
+          fillOpacity: 0.2,
+          opacity: 1,
+          dashArray: '8, 4',
+        },
+      });
+      highlightLayer.addTo(mapRef.current);
+      highlightLayerRef.current = highlightLayer;
+      
+      const bounds = highlightLayer.getBounds();
+      mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+    }
+  }, [selectedZoneFeature, selectedZone]);
+
+  const fetchOsmAssets = useCallback(async (zoneFeature: any, category: string) => {
+    if (!zoneFeature?.geometry || !interventionsData) return;
+    
+    setIsLoadingOsmAssets(true);
+    setOsmAssets([]);
+    
+    try {
+      const categoryData = interventionsData.categories[category];
+      const interventionsInCategory = interventionsData.interventions.filter(i => i.category === category);
+      const osmTypes = Array.from(new Set(interventionsInCategory.flatMap(i => i.osmAssetTypes)));
+      
+      const coords = zoneFeature.geometry.type === 'Polygon' 
+        ? zoneFeature.geometry.coordinates[0]
+        : zoneFeature.geometry.coordinates[0][0];
+      
+      const lats = coords.map((c: number[]) => c[1]);
+      const lngs = coords.map((c: number[]) => c[0]);
+      const bbox = [Math.min(...lats), Math.min(...lngs), Math.max(...lats), Math.max(...lngs)];
+      
+      const osmFilters = osmTypes.map(type => {
+        const [key, value] = type.split('=');
+        return `node["${key}"="${value}"](${bbox.join(',')});way["${key}"="${value}"](${bbox.join(',')});relation["${key}"="${value}"](${bbox.join(',')});`;
+      }).join('');
+      
+      const query = `[out:json][timeout:25];(${osmFilters});out body geom;`;
+      
+      const response = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        body: query,
+      });
+      
+      if (!response.ok) throw new Error('OSM query failed');
+      
+      const data = await response.json();
+      
+      const assets = data.elements.map((el: any) => {
+        let geometry = null;
+        let centroid = null;
+        let area = 0;
+        
+        if (el.type === 'node') {
+          geometry = { type: 'Point', coordinates: [el.lon, el.lat] };
+          centroid = [el.lat, el.lon];
+        } else if (el.type === 'way' && el.geometry) {
+          const coords = el.geometry.map((p: any) => [p.lon, p.lat]);
+          if (coords[0][0] === coords[coords.length-1][0] && coords[0][1] === coords[coords.length-1][1]) {
+            geometry = { type: 'Polygon', coordinates: [coords] };
+            const latSum = coords.reduce((s: number, c: number[]) => s + c[1], 0);
+            const lngSum = coords.reduce((s: number, c: number[]) => s + c[0], 0);
+            centroid = [latSum / coords.length, lngSum / coords.length];
+            area = Math.abs(coords.reduce((a: number, c: number[], i: number) => {
+              const next = coords[(i + 1) % coords.length];
+              return a + (c[0] * next[1] - next[0] * c[1]);
+            }, 0) / 2) * 111319 * 111319;
+          } else {
+            geometry = { type: 'LineString', coordinates: coords };
+            centroid = coords[Math.floor(coords.length / 2)].reverse();
+          }
+        }
+        
+        const osmType = Object.entries(el.tags || {}).find(([k, v]) => 
+          osmTypes.includes(`${k}=${v}`)
+        );
+        
+        return {
+          id: `${el.type}/${el.id}`,
+          osmId: el.id,
+          osmType: el.type,
+          name: el.tags?.name || el.tags?.['name:en'] || `${osmType ? osmType[1] : 'Asset'} #${el.id}`,
+          tags: el.tags || {},
+          geometry,
+          centroid,
+          area,
+          assetType: osmType ? `${osmType[0]}=${osmType[1]}` : 'unknown',
+          compatibleInterventions: interventionsInCategory.filter(i => 
+            i.osmAssetTypes.some(t => Object.entries(el.tags || {}).some(([k, v]) => `${k}=${v}` === t))
+          ),
+        };
+      }).filter((a: any) => a.geometry && a.compatibleInterventions.length > 0);
+      
+      setOsmAssets(assets);
+      
+      if (mapRef.current && assets.length > 0) {
+        const geoJsonFeatures = {
+          type: 'FeatureCollection',
+          features: assets.map((a: any) => ({
+            type: 'Feature',
+            geometry: a.geometry,
+            properties: { ...a, geometry: undefined },
+          })),
+        };
+        
+        const osmLayer = L.geoJSON(geoJsonFeatures as any, {
+          style: {
+            color: categoryData?.color || '#3b82f6',
+            weight: 3,
+            fillColor: categoryData?.color || '#3b82f6',
+            fillOpacity: 0.3,
+          },
+          pointToLayer: (feature, latlng) => {
+            return L.circleMarker(latlng, {
+              radius: 8,
+              color: categoryData?.color || '#3b82f6',
+              fillColor: categoryData?.color || '#3b82f6',
+              fillOpacity: 0.6,
+            });
+          },
+          onEachFeature: (feature, layer) => {
+            const props = feature.properties;
+            layer.bindTooltip(`<strong>${props.name}</strong><br/>${props.assetType}<br/>Area: ${(props.area / 10000).toFixed(2)} ha`, { sticky: true });
+            layer.on('click', () => {
+              setSelectedAsset(props);
+            });
+          },
+        });
+        osmLayer.addTo(mapRef.current);
+        osmLayerRef.current = osmLayer;
+      }
+    } catch (error) {
+      console.error('Failed to fetch OSM assets:', error);
+    } finally {
+      setIsLoadingOsmAssets(false);
+    }
+  }, [interventionsData]);
+
+  useEffect(() => {
+    if (selectedCategory && selectedZoneFeature) {
+      fetchOsmAssets(selectedZoneFeature, selectedCategory);
+    }
+  }, [selectedCategory, selectedZoneFeature, fetchOsmAssets]);
 
   useEffect(() => {
     if (!mapContainerRef.current || !boundaryData) return;
@@ -443,7 +612,56 @@ export default function SiteExplorerPage() {
   const removeInterventionFromPortfolio = useCallback((zoneId: string, interventionId: string) => {
     setZonePortfolios(prev => {
       const existing = prev[zoneId] || [];
-      return { ...prev, [zoneId]: existing.filter(i => i.interventionId !== interventionId) };
+      return { ...prev, [zoneId]: existing.filter(i => {
+        if (i.assetId) {
+          return `${i.assetId}_${i.interventionId}` !== interventionId;
+        }
+        return i.interventionId !== interventionId;
+      })};
+    });
+  }, []);
+
+  const addAssetInterventionToPortfolio = useCallback((zoneId: string, asset: any, intervention: InterventionType) => {
+    const areaM2 = asset.area || 10000;
+    const areaHa = areaM2 / 10000;
+    const costUnit = intervention.costRange.unit;
+    let costMultiplier = 1;
+    
+    if (costUnit === 'USD/ha') {
+      costMultiplier = areaHa;
+    } else if (costUnit === 'USD/m²') {
+      costMultiplier = areaM2;
+    } else if (costUnit === 'USD/m') {
+      const approxPerimeterM = Math.sqrt(areaM2) * 4;
+      costMultiplier = approxPerimeterM;
+    } else {
+      costMultiplier = areaHa;
+    }
+
+    const newIntervention: SelectedIntervention = {
+      interventionId: intervention.id,
+      interventionName: intervention.name,
+      category: intervention.category,
+      estimatedCost: {
+        min: Math.round(intervention.costRange.min * costMultiplier),
+        max: Math.round(intervention.costRange.max * costMultiplier),
+        unit: 'USD',
+      },
+      estimatedArea: areaHa,
+      areaUnit: 'ha',
+      impacts: intervention.impacts,
+      addedAt: new Date().toISOString(),
+      assetId: asset.id,
+      assetName: asset.name,
+      assetType: asset.assetType,
+      osmId: asset.osmId,
+      centroid: asset.centroid,
+    };
+
+    setZonePortfolios(prev => {
+      const existing = prev[zoneId] || [];
+      const filtered = existing.filter(i => i.assetId !== asset.id);
+      return { ...prev, [zoneId]: [...filtered, newIntervention] };
     });
   }, []);
 
@@ -557,7 +775,10 @@ export default function SiteExplorerPage() {
               
               layer.on('click', () => {
                 setSelectedZone(p as ZoneProperties);
+                setSelectedZoneFeature(feature);
                 setSelectedCategory(null);
+                setSelectedAsset(null);
+                setOsmAssets([]);
               });
             },
           });
@@ -1032,7 +1253,13 @@ export default function SiteExplorerPage() {
                       </p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => setSelectedZone(null)}>
+                  <Button variant="ghost" size="icon" onClick={() => {
+                    setSelectedZone(null);
+                    setSelectedZoneFeature(null);
+                    setSelectedCategory(null);
+                    setSelectedAsset(null);
+                    setOsmAssets([]);
+                  }}>
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
@@ -1090,35 +1317,46 @@ export default function SiteExplorerPage() {
                       {(zonePortfolios[selectedZone.zoneId]?.length || 0) > 0 && (
                         <div className="mt-6">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium text-sm">Selected Interventions</h4>
-                            <Badge variant="secondary">{zonePortfolios[selectedZone.zoneId]?.length || 0}</Badge>
+                            <h4 className="font-medium text-sm">Intervention Portfolio</h4>
+                            <Badge variant="secondary">{zonePortfolios[selectedZone.zoneId]?.length || 0} sites</Badge>
                           </div>
                           <div className="space-y-2">
                             {zonePortfolios[selectedZone.zoneId]?.map(intervention => (
-                              <div key={intervention.interventionId} className="p-3 rounded-lg border bg-muted/30 flex items-center justify-between">
-                                <div>
-                                  <div className="font-medium text-sm">{intervention.interventionName}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {formatCost(intervention.estimatedCost.min, intervention.estimatedCost.max)}
+                              <div key={intervention.assetId || intervention.interventionId} className="p-3 rounded-lg border bg-muted/30">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1 min-w-0">
+                                    {intervention.assetName && (
+                                      <div className="font-medium text-sm truncate">{intervention.assetName}</div>
+                                    )}
+                                    <div className={`text-sm ${intervention.assetName ? 'text-muted-foreground' : 'font-medium'}`}>
+                                      {intervention.interventionName}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      {intervention.estimatedArea.toFixed(2)} {intervention.areaUnit} • {formatCost(intervention.estimatedCost.min, intervention.estimatedCost.max)}
+                                    </div>
                                   </div>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    className="flex-shrink-0"
+                                    onClick={() => removeInterventionFromPortfolio(
+                                      selectedZone.zoneId, 
+                                      intervention.assetId ? `${intervention.assetId}_${intervention.interventionId}` : intervention.interventionId
+                                    )}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
                                 </div>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  onClick={() => removeInterventionFromPortfolio(selectedZone.zoneId, intervention.interventionId)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
                               </div>
                             ))}
                           </div>
                         </div>
                       )}
                     </>
-                  ) : (
+                  ) : !selectedAsset ? (
                     <>
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedCategory(null)}>
+                        <Button variant="ghost" size="sm" onClick={() => { setSelectedCategory(null); setOsmAssets([]); }}>
                           <ArrowLeft className="h-4 w-4 mr-1" />
                           Back
                         </Button>
@@ -1127,11 +1365,90 @@ export default function SiteExplorerPage() {
                         </span>
                       </div>
 
+                      {isLoadingOsmAssets ? (
+                        <div className="flex flex-col items-center justify-center py-8 gap-3">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                          <p className="text-sm text-muted-foreground">Searching for compatible assets...</p>
+                        </div>
+                      ) : osmAssets.length === 0 ? (
+                        <div className="text-center py-8">
+                          <MapPinned className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+                          <p className="text-muted-foreground">No compatible assets found in this zone.</p>
+                          <p className="text-sm text-muted-foreground mt-1">Try selecting a different category or zone.</p>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Found {osmAssets.length} compatible assets. Click on an asset to assign an intervention.
+                          </p>
+                          <div className="space-y-2">
+                            {osmAssets.map(asset => {
+                              const hasIntervention = zonePortfolios[selectedZone.zoneId]?.some(
+                                i => i.assetId === asset.id
+                              );
+                              return (
+                                <button
+                                  key={asset.id}
+                                  className={`w-full p-3 rounded-lg border transition-colors text-left flex items-center gap-3 ${
+                                    hasIntervention 
+                                      ? 'border-green-500 bg-green-50 dark:bg-green-950' 
+                                      : 'hover:border-primary hover:bg-primary/5'
+                                  }`}
+                                  onClick={() => setSelectedAsset(asset)}
+                                >
+                                  <div 
+                                    className="p-2 rounded-lg"
+                                    style={{ 
+                                      backgroundColor: `${interventionsData?.categories[selectedCategory]?.color}20`, 
+                                      color: interventionsData?.categories[selectedCategory]?.color 
+                                    }}
+                                  >
+                                    <MapPinned className="h-5 w-5" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium truncate">{asset.name}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {asset.assetType.split('=')[1]} • {(asset.area / 10000).toFixed(2)} ha
+                                    </div>
+                                  </div>
+                                  {hasIntervention ? (
+                                    <Badge className="bg-green-100 text-green-800 flex-shrink-0">
+                                      <Check className="h-3 w-3 mr-1" />
+                                      Assigned
+                                    </Badge>
+                                  ) : (
+                                    <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedAsset(null)}>
+                          <ArrowLeft className="h-4 w-4 mr-1" />
+                          Back to assets
+                        </Button>
+                      </div>
+
+                      <div className="p-3 rounded-lg border bg-muted/30">
+                        <div className="font-medium">{selectedAsset.name}</div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          {selectedAsset.assetType.split('=')[1]} • {(selectedAsset.area / 10000).toFixed(2)} ha
+                        </div>
+                      </div>
+
+                      <h4 className="font-medium text-sm mt-4">Select Intervention for this Asset</h4>
                       <div className="space-y-3">
-                        {getInterventionsByCategory(selectedCategory).map(intervention => {
-                          const isSelected = zonePortfolios[selectedZone.zoneId]?.some(
-                            i => i.interventionId === intervention.id
+                        {selectedAsset.compatibleInterventions.map((intervention: InterventionType) => {
+                          const existingIntervention = zonePortfolios[selectedZone.zoneId]?.find(
+                            i => i.assetId === selectedAsset.id
                           );
+                          const isSelected = existingIntervention?.interventionId === intervention.id;
                           
                           return (
                             <Card key={intervention.id} className={isSelected ? 'border-primary bg-primary/5' : ''}>
@@ -1146,21 +1463,21 @@ export default function SiteExplorerPage() {
                                     size="sm"
                                     onClick={() => {
                                       if (isSelected) {
-                                        removeInterventionFromPortfolio(selectedZone.zoneId, intervention.id);
+                                        removeInterventionFromPortfolio(selectedZone.zoneId, `${selectedAsset.id}_${intervention.id}`);
                                       } else {
-                                        addInterventionToPortfolio(selectedZone.zoneId, intervention, selectedZone.areaKm2 || 1);
+                                        addAssetInterventionToPortfolio(selectedZone.zoneId, selectedAsset, intervention);
                                       }
                                     }}
                                   >
                                     {isSelected ? (
                                       <>
                                         <Check className="h-4 w-4 mr-1" />
-                                        Added
+                                        Selected
                                       </>
                                     ) : (
                                       <>
                                         <Plus className="h-4 w-4 mr-1" />
-                                        Add
+                                        Select
                                       </>
                                     )}
                                   </Button>
