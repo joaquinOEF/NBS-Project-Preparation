@@ -303,15 +303,33 @@ export default function SiteExplorerPage() {
       osmLayerRef.current = null;
     }
     
+    const zonesLayer = layerRefs.current.get('intervention_zones') as L.GeoJSON | undefined;
+    if (zonesLayer) {
+      zonesLayer.eachLayer((layer: any) => {
+        const feature = layer.feature;
+        const typology = feature?.properties?.typologyLabel || 'LOW';
+        const color = TYPOLOGY_COLORS[typology] || '#10b981';
+        const isSelected = selectedZone?.zoneId === feature?.properties?.zoneId;
+        
+        layer.setStyle({
+          color: isSelected ? 'transparent' : color,
+          weight: isSelected ? 0 : 2,
+          fillColor: color,
+          fillOpacity: isSelected ? 0.15 : 0.4,
+          opacity: isSelected ? 0 : 0.9,
+        });
+      });
+    }
+    
     if (selectedZoneFeature && selectedZone) {
       const highlightLayer = L.geoJSON(selectedZoneFeature, {
         style: {
           color: '#ffffff',
-          weight: 4,
+          weight: 3,
           fillColor: TYPOLOGY_COLORS[selectedZone.typologyLabel] || '#10b981',
-          fillOpacity: 0.2,
+          fillOpacity: 0.25,
           opacity: 1,
-          dashArray: '8, 4',
+          dashArray: '6, 4',
         },
       });
       highlightLayer.addTo(mapRef.current);
