@@ -13,6 +13,21 @@ export interface Site {
   interventionType: string;
 }
 
+export interface TargetFunderData {
+  fundId: string;
+  fundName: string;
+  institution: string;
+  instrumentType: string;
+  whyFitReasons: string[];
+  gapChecklist: Array<{
+    id: string;
+    category: 'feasibility' | 'safeguards' | 'repayment' | 'sovereign' | 'aggregation';
+    text: string;
+    priority: 'high' | 'medium' | 'low';
+  }>;
+  confidence: 'high' | 'medium' | 'low';
+}
+
 export interface FunderSelectionData {
   status: 'NOT_STARTED' | 'DRAFT' | 'READY';
   funderName?: string;
@@ -40,6 +55,8 @@ export interface FunderSelectionData {
   };
   selectedFunds: string[];
   shortlistedFunds: string[];
+  targetFunders: TargetFunderData[];
+  bridgeParagraph?: string;
 }
 
 export interface OperationsData {
@@ -347,6 +364,7 @@ const defaultFunderSelection: FunderSelectionData = {
   },
   selectedFunds: [],
   shortlistedFunds: [],
+  targetFunders: [],
 };
 
 export const sampleFunderSelection: FunderSelectionData = {
@@ -376,6 +394,25 @@ export const sampleFunderSelection: FunderSelectionData = {
   },
   selectedFunds: ['GCF', 'AF'],
   shortlistedFunds: ['GCF', 'AF', 'CIF', 'GEF'],
+  targetFunders: [
+    {
+      fundId: 'idb-esp',
+      fundName: 'IDB Specific Investment Loan (ESP)',
+      institution: 'IDB (Inter-American Development Bank)',
+      instrumentType: 'loan',
+      whyFitReasons: [
+        'Sector alignment with resilient transport and water infrastructure',
+        'Eligible borrower type: municipal government',
+        'MDB anchor provides concessional terms and technical support',
+      ],
+      gapChecklist: [
+        { id: 'feasibility-study', category: 'feasibility', text: 'Complete pre-feasibility and feasibility study', priority: 'high' },
+        { id: 'sovereign-approval', category: 'sovereign', text: 'Confirm sovereign/national approval pathway and guarantee feasibility', priority: 'high' },
+      ],
+      confidence: 'medium',
+    },
+  ],
+  bridgeParagraph: 'Use the recommended project preparation support to develop the feasibility studies and safeguard documents required by IDB. This creates a clear pathway from early-stage to investment-ready.',
 };
 
 export const sampleSiteExplorer: SiteExplorerData = {

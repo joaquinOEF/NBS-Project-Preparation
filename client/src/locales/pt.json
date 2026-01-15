@@ -266,7 +266,20 @@
       "terms": "Condições",
       "learnMore": "Saiba mais",
       "nextSteps": "Próximos Passos",
-      "disclaimer": "A disponibilidade e prioridades dos fundos podem mudar ao longo do tempo. Esta recomendação reflete a adequação estrutural e a prontidão do projeto, não uma garantia de aprovação de financiamento."
+      "disclaimer": "A disponibilidade e prioridades dos fundos podem mudar ao longo do tempo. Esta recomendação reflete a adequação estrutural e a prontidão do projeto, não uma garantia de aprovação de financiamento.",
+      "nowLabel": "AGORA",
+      "nextLabel": "PRÓXIMO",
+      "strategicTargets": "Financiadores Alvo Estratégicos",
+      "strategicTargetsDescription": "Estes financiadores são estruturalmente adequados para o seu projeto. Prepare-se agora para estar pronto quando a oportunidade surgir.",
+      "target": "Alvo",
+      "whyFit": "Por que é uma boa opção",
+      "whatToPrepare": "O que preparar",
+      "whatUnlocks": "O que Desbloqueia Mais Opções"
+    },
+    "confidence": {
+      "high": "Alta Confiança",
+      "medium": "Média Confiança",
+      "low": "Baixa Confiança"
     }
   },
   "siteExplorer": {

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, ArrowRight, Check, DollarSign, Building2, FileText, Users, ExternalLink, ChevronRight, AlertCircle, Lightbulb } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, DollarSign, Building2, FileText, Users, ExternalLink, ChevronRight, AlertCircle, Lightbulb, Target, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -14,6 +14,7 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { useTranslation } from 'react-i18next';
 import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
+import { useProjectContext } from '@/core/contexts/project-context';
 
 interface Fund {
   id: string;
@@ -424,10 +425,12 @@ export default function FunderSelectionPage() {
   const { t } = useTranslation();
   const { isSampleMode, sampleActions } = useSampleData();
   const { isSampleRoute, routePrefix } = useSampleRoute();
+  const { updateModule, loadContext } = useProjectContext();
   
   const [currentStep, setCurrentStep] = useState(0);
   const [fundsData, setFundsData] = useState<FundsData | null>(null);
   const [showResults, setShowResults] = useState(false);
+  const [hasSavedToContext, setHasSavedToContext] = useState(false);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({
     projectName: '',
     projectDescription: '',
@@ -457,15 +460,70 @@ export default function FunderSelectionPage() {
   }, []);
 
   useEffect(() => {
-    if (action && !answers.projectName) {
-      setAnswers(prev => ({
-        ...prev,
-        projectName: action.name,
-        projectDescription: action.description || '',
-        sectors: action.type === 'adaptation' ? ['nature_based', 'urban_resilience'] : ['energy', 'transport'],
-      }));
+    if (projectId) {
+      const existingContext = loadContext(projectId);
+      if (existingContext?.funderSelection?.questionnaire?.projectName) {
+        setAnswers(existingContext.funderSelection.questionnaire as QuestionnaireAnswers);
+      } else if (action && !answers.projectName) {
+        setAnswers(prev => ({
+          ...prev,
+          projectName: action.name,
+          projectDescription: action.description || '',
+          sectors: action.type === 'adaptation' ? ['nature_based', 'urban_resilience'] : ['energy', 'transport'],
+        }));
+      }
     }
-  }, [action]);
+  }, [action, projectId]);
+
+  const computedResults = useMemo(() => {
+    if (!fundsData || !showResults) return null;
+    
+    const pathwayResult = determinePathway(answers);
+    const pathway = fundsData.pathways[pathwayResult.primary];
+    const secondaryPathway = pathwayResult.secondary ? fundsData.pathways[pathwayResult.secondary] : null;
+    const recommendedFunds = rankFunds(fundsData.funds, answers, pathwayResult.primary);
+    const targetFunders = computeTargetFundersNext(fundsData.funds, answers, pathwayResult.primary);
+    const bridgeParagraph = generateBridgeParagraph(pathwayResult.primary, targetFunders);
+    
+    return {
+      pathwayResult,
+      pathway,
+      secondaryPathway,
+      recommendedFunds,
+      targetFunders,
+      bridgeParagraph,
+    };
+  }, [fundsData, showResults, answers]);
+
+  useEffect(() => {
+    if (computedResults && projectId && !hasSavedToContext) {
+      const { pathwayResult, recommendedFunds, targetFunders, bridgeParagraph } = computedResults;
+      
+      updateModule('funderSelection', {
+        status: 'READY',
+        questionnaire: answers,
+        pathway: {
+          primary: pathwayResult.primary,
+          secondary: pathwayResult.secondary,
+          readinessLevel: pathwayResult.readinessLevel,
+          limitingFactors: pathwayResult.limitingFactorKeys,
+        },
+        selectedFunds: recommendedFunds.map(f => f.id),
+        shortlistedFunds: recommendedFunds.map(f => f.id),
+        targetFunders: targetFunders.map(tf => ({
+          fundId: tf.fund.id,
+          fundName: tf.fund.name,
+          institution: tf.fund.institution,
+          instrumentType: tf.fund.instrumentType,
+          whyFitReasons: tf.whyFitReasons,
+          gapChecklist: tf.gapChecklist,
+          confidence: tf.confidence,
+        })),
+        bridgeParagraph: bridgeParagraph || undefined,
+      });
+      setHasSavedToContext(true);
+    }
+  }, [computedResults, projectId, hasSavedToContext, answers, updateModule]);
 
   const steps = [
     { id: 'basics', title: t('funderSelection.steps.basics'), icon: FileText },
@@ -803,18 +861,22 @@ export default function FunderSelectionPage() {
   };
 
   const renderResults = () => {
-    if (!fundsData) return null;
+    if (!computedResults) return null;
 
-    const { primary, secondary, readinessLevel, limitingFactorKeys } = determinePathway(answers);
-    const pathway = fundsData.pathways[primary];
-    const secondaryPathway = secondary ? fundsData.pathways[secondary] : null;
-    const recommendedFunds = rankFunds(fundsData.funds, answers, primary);
+    const { pathwayResult, pathway, secondaryPathway, recommendedFunds, targetFunders, bridgeParagraph } = computedResults;
+    const { readinessLevel, limitingFactorKeys } = pathwayResult;
 
     const readinessLabels: Record<string, { label: string; color: string }> = {
       very_early: { label: t('funderSelection.readiness.veryEarly'), color: 'bg-red-100 text-red-800' },
       emerging: { label: t('funderSelection.readiness.emerging'), color: 'bg-yellow-100 text-yellow-800' },
       investable: { label: t('funderSelection.readiness.investable'), color: 'bg-green-100 text-green-800' },
       advanced: { label: t('funderSelection.readiness.advanced'), color: 'bg-blue-100 text-blue-800' },
+    };
+
+    const confidenceLabels: Record<string, { label: string; color: string }> = {
+      high: { label: t('funderSelection.confidence.high'), color: 'bg-green-100 text-green-800' },
+      medium: { label: t('funderSelection.confidence.medium'), color: 'bg-yellow-100 text-yellow-800' },
+      low: { label: t('funderSelection.confidence.low'), color: 'bg-orange-100 text-orange-800' },
     };
 
     return (
@@ -826,6 +888,7 @@ export default function FunderSelectionPage() {
                 <DollarSign className="h-5 w-5 text-primary" />
               </div>
               <div>
+                <Badge variant="secondary" className="mb-1">{t('funderSelection.results.nowLabel')}</Badge>
                 <CardTitle>{t('funderSelection.results.recommendedPathway')}</CardTitle>
                 <CardDescription className="text-base font-medium text-foreground mt-1">
                   {pathway.name}
@@ -862,8 +925,8 @@ export default function FunderSelectionPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium">{t('funderSelection.results.assessedLevel')}:</span>
-              <Badge className={readinessLabels[readinessLevel].color}>
-                {readinessLabels[readinessLevel].label}
+              <Badge className={readinessLabels[readinessLevel]?.color || 'bg-gray-100 text-gray-800'}>
+                {readinessLabels[readinessLevel]?.label || readinessLevel}
               </Badge>
             </div>
             {limitingFactorKeys.length > 0 && (
@@ -937,6 +1000,109 @@ export default function FunderSelectionPage() {
             )}
           </CardContent>
         </Card>
+
+        {targetFunders.length > 0 && (
+          <Card className="border-blue-200 bg-blue-50/50">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Target className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <Badge variant="secondary" className="mb-1 bg-blue-100 text-blue-700">{t('funderSelection.results.nextLabel')}</Badge>
+                  <CardTitle>{t('funderSelection.results.strategicTargets')}</CardTitle>
+                  <CardDescription>
+                    {t('funderSelection.results.strategicTargetsDescription')}
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {targetFunders.map((target, index) => (
+                <div key={target.fund.id} className="border border-blue-200 rounded-lg p-4 bg-white space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="border-blue-300 text-blue-700">
+                          {t('funderSelection.results.target')} {index + 1}
+                        </Badge>
+                        <h4 className="font-medium">{target.fund.name}</h4>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">{target.fund.institution}</p>
+                    </div>
+                    <Badge className={confidenceLabels[target.confidence].color}>
+                      {confidenceLabels[target.confidence].label}
+                    </Badge>
+                  </div>
+                  
+                  <div>
+                    <h5 className="text-sm font-medium mb-2 flex items-center gap-1">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      {t('funderSelection.results.whyFit')}
+                    </h5>
+                    <ul className="space-y-1">
+                      {target.whyFitReasons.map((reason, i) => (
+                        <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <ChevronRight className="h-4 w-4 mt-0.5 flex-shrink-0 text-green-600" />
+                          {reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {target.gapChecklist.length > 0 && (
+                    <div>
+                      <h5 className="text-sm font-medium mb-2 flex items-center gap-1">
+                        <ArrowUpRight className="h-4 w-4 text-amber-600" />
+                        {t('funderSelection.results.whatToPrepare')}
+                      </h5>
+                      <ul className="space-y-1">
+                        {target.gapChecklist.map((item) => (
+                          <li key={item.id} className="text-sm text-muted-foreground flex items-start gap-2">
+                            <Badge variant="outline" className={`text-xs px-1 py-0 ${
+                              item.priority === 'high' ? 'border-red-300 text-red-700' : 
+                              item.priority === 'medium' ? 'border-amber-300 text-amber-700' : 
+                              'border-gray-300 text-gray-600'
+                            }`}>
+                              {item.priority === 'high' ? '!' : item.priority === 'medium' ? '~' : '○'}
+                            </Badge>
+                            {item.text}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {target.fund.officialLink && (
+                    <a
+                      href={target.fund.officialLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                    >
+                      {t('funderSelection.results.learnMore')}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {bridgeParagraph && (
+          <Card className="border-green-200 bg-green-50/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ArrowUpRight className="h-5 w-5 text-green-600" />
+                {t('funderSelection.results.whatUnlocks')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">{bridgeParagraph}</p>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

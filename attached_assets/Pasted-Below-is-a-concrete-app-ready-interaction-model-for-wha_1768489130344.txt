@@ -1,0 +1,290 @@
+Below is a **concrete, app-ready interaction model** for what happens when a user **double-clicks a zone**, and how you systematically translate a **zone typology → intervention logic → candidate locations from OpenStreetMap (OSM)**.
+
+This is written so you can hand it directly to a product + engineering team.
+
+---
+
+## 1. What a double-click means conceptually
+
+A double-click on a zone should answer **one core question**:
+
+> *“Given the dominant risks here, where exactly can we intervene, and what kind of interventions make sense?”*
+
+So the double-click does **not** just show data — it **activates an intervention planning mode** scoped to that zone.
+
+---
+
+## 2. Double-click UX flow (step by step)
+
+### Step 1 — Zone context panel opens
+
+When the user double-clicks a zone polygon:
+
+Show a **Zone Context Panel** with:
+
+* Zone name / ID
+* Typology label (e.g. `FLOOD+HEAT`)
+* Small bar chart or stacked indicator:
+
+  * Flood score (mean / p90)
+  * Heat score
+  * Landslide score
+* Population exposed
+* Plain-language explanation:
+
+  > “This area is primarily affected by surface water flooding, with significant heat exposure due to high impervious cover and low canopy.”
+
+This establishes *why* interventions are needed.
+
+---
+
+### Step 2 — Intervention categories appear (pre-filtered)
+
+Based on the typology, show **2–3 intervention categories**, not everything.
+
+Example for `FLOOD+HEAT`:
+
+* 🌊 Flood storage & delay
+* 🌳 Urban cooling & shade
+* 🔗 Hybrid multi-benefit solutions
+
+Each category is clickable.
+
+---
+
+### Step 3 — Selecting a category activates “candidate discovery”
+
+When a category is selected:
+
+* The map dims everything **outside the zone**
+* The system **queries OSM for eligible assets inside the zone**
+* Candidate locations appear as points or polygons
+* Each candidate has:
+
+  * a score
+  * a short label (“Park”, “School”, “Wide street”, etc.)
+
+This is where OSM comes in.
+
+---
+
+## 3. Typology → intervention logic (the rules)
+
+Below is a **deterministic mapping** from your typologies to intervention types.
+
+### A. FLOOD
+
+**Primary goal:** store, slow, redirect water
+
+**Intervention types**
+
+* Floodable parks / detention areas
+* Sponge squares / plazas
+* Wetlands / retention basins
+* Permeable open spaces
+
+### B. HEAT
+
+**Primary goal:** reduce surface and air temperature where people are
+
+**Intervention types**
+
+* Tree canopy corridors
+* Pocket parks
+* Cool streets / shaded public realm
+* Green roofs (secondary)
+
+### C. LANDSLIDE
+
+**Primary goal:** stabilize slopes and control runoff
+
+**Intervention types**
+
+* Reforestation
+* Vegetated terraces
+* Riparian buffers
+* Controlled drainage
+
+### D. Combined typologies (key)
+
+Combined zones **do not get new categories** — they get **hybrids**.
+
+Example:
+
+* `FLOOD+HEAT` → floodable parks **with canopy**
+* `FLOOD+LANDSLIDE` → terraced retention + slope drainage
+* `HEAT+LANDSLIDE` → reforestation + shade near settlements
+
+---
+
+## 4. OSM asset types to query (this is critical)
+
+You should **never show all OSM features**. You pre-define **eligible asset types per intervention category**.
+
+Below is a **clean, reusable mapping**.
+
+---
+
+### FLOOD interventions → OSM assets
+
+Query only assets that can **hold or convey water**.
+
+**OSM tags to query**
+
+* `leisure=park`
+* `leisure=playground`
+* `leisure=sports_pitch`
+* `landuse=grass`
+* `landuse=recreation_ground`
+* `natural=wetland`
+* `amenity=square` (plazas)
+* `amenity=school` (yards)
+* `amenity=university`
+* `highway=service` (for permeable retrofits, optional)
+
+**Geometry**
+
+* Prefer **polygons**
+* Convert points (schools) to buffered areas if needed
+
+**Why these work**
+
+* Publicly accessible
+* Typically flat
+* Politically feasible
+* Often already city-owned
+
+---
+
+### HEAT interventions → OSM assets
+
+Query assets where **people are exposed** or where shade can be added.
+
+**OSM tags**
+
+* `highway=primary|secondary|tertiary`
+* `amenity=square`
+* `leisure=park`
+* `amenity=school`
+* `amenity=hospital`
+* `amenity=bus_station`
+* `public_transport=platform`
+* `landuse=residential`
+
+**Geometry**
+
+* Lines (streets) → candidate corridors
+* Polygons (schools, squares) → pocket shade nodes
+
+---
+
+### LANDSLIDE interventions → OSM assets
+
+Query assets **on or near slopes** (filter by slope later).
+
+**OSM tags**
+
+* `natural=wood`
+* `landuse=forest`
+* `natural=scrub`
+* `natural=grassland`
+* `landuse=farmland`
+* `waterway=stream`
+* `waterway=ditch`
+
+**Important**
+
+* You must intersect these with **high-slope cells**
+* Ignore flat parks here
+
+---
+
+## 5. Candidate scoring inside a zone (simple + explainable)
+
+Once OSM assets are fetched inside the zone, score them.
+
+### Generic candidate score formula
+
+(You can reuse this everywhere with different weights.)
+
+```
+CandidateScore =
+  0.4 * ZoneSuitability
++ 0.25 * ProximityToProblem
++ 0.15 * AreaPotential
++ 0.10 * OwnershipProxy
++ 0.10 * MultiBenefitBonus
+```
+
+### How to compute each term
+
+* **ZoneSuitability**
+
+  * Mean hazard score of the zone (flood/heat/landslide)
+
+* **ProximityToProblem**
+
+  * Flood zones: distance to flow accumulation lines / pooling cells
+  * Heat zones: distance to high population / impervious cells
+  * Landslide zones: distance to steep slopes
+
+* **AreaPotential**
+
+  * Based on polygon area (log-scaled)
+
+* **OwnershipProxy**
+
+  * * points for public assets (parks, schools, streets)
+
+* **MultiBenefitBonus**
+
+  * * points if asset also intersects secondary hazard
+
+This makes the ranking feel “smart” without hidden complexity.
+
+---
+
+## 6. What the user sees after double-click (example)
+
+**Zone:** FLOOD+HEAT
+
+User selects **“Floodable parks & cooling”**
+
+Map shows:
+
+* 12 candidate polygons
+* Ranked list:
+
+  1. Central Park (Score 82) – near pooling zone + large area
+  2. School Yard A (Score 74) – upstream of flood path
+  3. Plaza B (Score 61) – small but dense area
+
+User clicks one → sees:
+
+* Suggested intervention type
+* Estimated footprint
+* Expected impact:
+
+  * ↓ flood peak (relative)
+  * ↓ heat exposure (relative)
+* Option to “add to scenario”
+
+---
+
+## 7. Why this model works
+
+* The **typology drives the logic**, not user guessing
+* OSM is used **surgically**, not as noise
+* Interventions feel **place-specific**, not generic
+* Combined hazards naturally lead to **multi-benefit solutions**
+* Everything is explainable and defensible
+
+---
+
+## 8. If you want next
+
+I can:
+
+* Give you **exact Overpass queries** per asset type
+* Help design the **impact deltas** (how one intervention modifies flood/heat scores)
+* Define a **data schema** for “intervention objects” so they plug into scenarios and cost estimation

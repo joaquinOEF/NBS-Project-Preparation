@@ -1,0 +1,110 @@
+Below is a **single, structured table** you can use as the **decision backbone** when a user selects an asset inside a zone. It ties together:
+
+* **Intervention category**
+* **OSM asset type**
+* **Concrete intervention actions**
+* **Typical scale**
+* **Order-of-magnitude costs**
+* **Expected impacts (by hazard)**
+* **Key implementation considerations**
+
+This is intentionally **practical, not academic**. Values are indicative ranges suitable for comparison and scenario-building, not procurement.
+
+---
+
+## Master Table — Intervention Types by Asset & Category
+
+### 1. FLOOD interventions (storage, delay, conveyance)
+
+| Asset (OSM)              | Intervention type                | Specific action                                                            | Typical scale   | Cost range (USD) | Flood impact              | Heat co-benefit             | Key implementation notes                                 |
+| ------------------------ | -------------------------------- | -------------------------------------------------------------------------- | --------------- | ---------------- | ------------------------- | --------------------------- | -------------------------------------------------------- |
+| Park / Green area        | Floodable park / detention basin | Regrade terrain, add controlled inlets/outlets, allow temporary inundation | 0.5–10 ha       | $50k–300k / ha   | **High** (peak reduction) | Medium (evapotranspiration) | Needs hydraulic connection; design for periodic flooding |
+| Plaza / Square           | Sponge square                    | Replace paving with permeable surfaces, subsurface storage                 | 1,000–10,000 m² | $80–250 / m²     | Medium                    | Medium                      | Underground utilities are main constraint                |
+| School / University yard | Multi-use retention yard         | Depressed playfield, permeable courts, bioswales                           | 2,000–20,000 m² | $40–150 / m²     | Medium–High               | Medium                      | Requires safety + school calendar coordination           |
+| Sports pitch             | Detention + infiltration field   | Engineered soil profile + underdrain                                       | 0.5–2 ha        | $60k–200k / ha   | Medium                    | Low–Medium                  | Turf selection critical                                  |
+| Wetland / natural area   | Constructed wetland              | Expand wetland area, slow flows                                            | 1–20 ha         | $30k–120k / ha   | **High**                  | Medium                      | Strong biodiversity co-benefits                          |
+| Wide streets             | Permeable street retrofit        | Permeable asphalt/concrete, infiltration trenches                          | 100–1,000 m     | $500–1,500 / m   | Low–Medium                | Low                         | Best as part of larger network                           |
+
+---
+
+### 2. HEAT interventions (cooling, shade, exposure reduction)
+
+| Asset (OSM)             | Intervention type        | Specific action                      | Typical scale   | Cost range (USD)    | Heat impact         | Flood co-benefit | Key implementation notes          |
+| ----------------------- | ------------------------ | ------------------------------------ | --------------- | ------------------- | ------------------- | ---------------- | --------------------------------- |
+| Street corridor         | Tree canopy corridor     | Continuous street trees + soil cells | 200–2,000 m     | $1,000–3,000 / tree | **High** (exposure) | Low–Medium       | Requires root space + maintenance |
+| Plaza / Square          | Shade + cooling retrofit | Trees, pergolas, light surfaces      | 1,000–10,000 m² | $50–200 / m²        | Medium–High         | Low              | Focus on peak-use hours           |
+| School / Hospital       | Cooling campus           | Dense canopy + shade structures      | 1–5 ha          | $30k–150k / ha      | **High**            | Low–Medium       | High social value                 |
+| Pocket open space       | Pocket park              | Convert vacant lots to shaded green  | 300–2,000 m²    | $20–100 / m²        | Medium              | Medium           | Fast wins in dense areas          |
+| Roofs (where available) | Green / cool roofs       | Vegetated or reflective roofs        | 500–5,000 m²    | $60–200 / m²        | Medium              | Low              | Structural checks required        |
+
+---
+
+### 3. LANDSLIDE interventions (stability, runoff control)
+
+| Asset (OSM)          | Intervention type        | Specific action                        | Typical scale | Cost range (USD) | Landslide impact | Flood co-benefit | Key implementation notes    |
+| -------------------- | ------------------------ | -------------------------------------- | ------------- | ---------------- | ---------------- | ---------------- | --------------------------- |
+| Forest / hillside    | Reforestation            | Deep-root species planting             | 1–50 ha       | $5k–30k / ha     | **High**         | Medium           | Time lag before full effect |
+| Steep open land      | Vegetated terraces       | Terracing + planting                   | 0.5–10 ha     | $20k–100k / ha   | **High**         | Medium           | Needs slope engineering     |
+| Riparian corridor    | Buffer stabilization     | Reinforce stream banks with vegetation | 100–2,000 m   | $200–800 / m     | Medium–High      | High             | Prevents erosion + flooding |
+| Drainage lines       | Controlled drainage      | Small check dams, lined channels       | 50–500 m      | $300–1,000 / m   | Medium           | Medium           | Avoid concentrating flows   |
+| Informal slope areas | Surface runoff diversion | Interceptor drains upslope             | 50–300 m      | $150–600 / m     | Medium           | Medium           | Critical for risk reduction |
+
+---
+
+### 4. COMBINED typologies (multi-benefit designs)
+
+| Typology        | Asset                | Hybrid intervention     | What makes it hybrid                | Relative cost | Why it’s valuable                       |
+| --------------- | -------------------- | ----------------------- | ----------------------------------- | ------------- | --------------------------------------- |
+| FLOOD+HEAT      | Park / Square        | Floodable shaded park   | Stores water + dense canopy         | Medium        | Reduces flood peaks *and* heat exposure |
+| FLOOD+HEAT      | School               | Sponge + cooling campus | Retention + shade                   | Medium        | Protects vulnerable populations         |
+| FLOOD+LANDSLIDE | Hillside open land   | Terraced retention      | Reduces runoff + stabilizes slope   | Medium–High   | Prevents cascading failures             |
+| HEAT+LANDSLIDE  | Hillside settlements | Reforestation + shade   | Canopy + root stability             | Medium        | Social + risk benefits                  |
+| All three       | Riparian corridor    | Green-blue corridor     | Flood storage + cooling + stability | High          | System-level resilience                 |
+
+---
+
+## How this table is used in the app (important)
+
+When a user double-clicks a zone:
+
+1. **Zone typology filters** which rows are relevant
+2. **OSM asset type filters** which interventions are possible
+3. The table provides:
+
+   * a *menu* of interventions
+   * a *default assumption* for cost and impact
+   * contextual notes for decision-making
+
+You are **not forcing a single solution** — you are constraining choices to those that make sense.
+
+---
+
+## How to frame “impact” in the MVP (don’t overpromise)
+
+Use **relative impacts**, not absolute predictions:
+
+* Flood: ↓ peak accumulation / ↓ pooling likelihood (low / medium / high)
+* Heat: ↓ exposure to extreme heat (especially population-weighted)
+* Landslide: ↓ triggering probability
+
+Later, these can be turned into:
+
+* % score reduction per unit area
+* scenario deltas (“with / without intervention”)
+
+---
+
+## Why this works well for decision support
+
+* Keeps decisions grounded in **real places**
+* Makes trade-offs visible (cost vs benefit)
+* Supports **multi-hazard reasoning**
+* Scales across cities without custom tuning
+
+---
+
+If you want next, I can:
+
+* Translate this into a **JSON schema** for interventions
+* Define **default impact coefficients** to plug into your simulation
+* Help you map these interventions to **funding instruments** (CAPAG / MDB / grants)

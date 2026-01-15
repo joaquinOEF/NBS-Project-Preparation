@@ -266,7 +266,20 @@
       "terms": "Terms",
       "learnMore": "Learn more",
       "nextSteps": "Next Steps",
-      "disclaimer": "Fund availability and priorities can change over time. This recommendation reflects structural fit and project readiness, not a guarantee of funding approval."
+      "disclaimer": "Fund availability and priorities can change over time. This recommendation reflects structural fit and project readiness, not a guarantee of funding approval.",
+      "nowLabel": "NOW",
+      "nextLabel": "NEXT",
+      "strategicTargets": "Strategic Target Funders",
+      "strategicTargetsDescription": "These funders are a good structural fit for your project. Prepare now to be ready when the opportunity arises.",
+      "target": "Target",
+      "whyFit": "Why this is a good fit",
+      "whatToPrepare": "What to prepare",
+      "whatUnlocks": "What Unlocks More Options"
+    },
+    "confidence": {
+      "high": "High Confidence",
+      "medium": "Medium Confidence",
+      "low": "Lower Confidence"
     }
   },
   "siteExplorer": {
