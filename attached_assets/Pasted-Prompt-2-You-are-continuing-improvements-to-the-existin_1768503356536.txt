@@ -1,0 +1,43 @@
+Prompt 2
+You are continuing improvements to the existing Business Model component in CityCatalyst’s Project Preparation Module. Prior prompt already implemented the BM data model enhancements.
+Goal of this prompt: implement MVP UX improvements for Archetype, Revenue, and Financing steps using the existing design system and patterns. Avoid refactoring unrelated modules.
+Implement:
+A) Archetype step improvements
+Archetype cards should include compact decision support:
+“Best when…” (1 line)
+Typical payer tags (derived from Payers step)
+Simple bankability signal (High/Med/Low)
+Allow user to select one required Primary Archetype, plus optional Add-on Revenue Models:
+Credit Add-on
+Corporate sponsorship
+Philanthropy for establishment period
+Payment Mechanism panel:
+auto-prefill fields using Primary payer + Payment Mechanism Hint from Payers step + selected archetype
+make options archetype-aware and add short helper text
+add Payment Commitment Level (Confirmed/Planned/Idea)
+add Payment Durability (one-time/recurring/contracted)
+B) Revenue step improvements
+Each revenue line must include:
+Revenue Payer/Source (required; selectable from primary/candidate payers + “Other”)
+Rough Amount Estimate (optional but recommended): Low/Mid/High range with currency + period (annual vs one-time) + basis (per site vs program-wide)
+Prerequisites tags (checkboxes)
+Cost Coverage selector (CAPEX / OPEX-O&M / Establishment only / MRV)
+Auto-generate 1–3 suggested revenue lines based on archetype + payment mechanism, but keep fully editable.
+C) Financing step MVP improvements
+Financing pathway cards: add “Best when…” + key prerequisites + recommended-because logic derived from earlier steps.
+Replace freeform rationale with:
+auto-generated rationale (editable)
+2–3 fit reason tags (selectable)
+Sources & Uses (ROM):
+rename to “Rough Order-of-Magnitude (ROM) Budget”
+make CAPEX, annual OPEX, MRV editable low/mid/high ranges
+prefill from earlier Budget + O&M sections but allow override
+currency/period clarity + assumptions template insert
+Add Financing Consistency Check panel:
+flags mismatches (recurring revenue needed but low confidence, OPEX uncovered, MRV missing when needed)
+outputs next enabling actions list (lightweight)
+Acceptance criteria
+Archetype defaults match payer + mechanism context.
+Revenue lines explicitly show who pays and (optionally) how much (ranges).
+ROM values are editable and clearly labeled.
+Consistency checks appear and are useful but not blocking.
