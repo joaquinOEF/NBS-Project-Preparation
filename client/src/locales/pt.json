@@ -297,7 +297,19 @@
     "legend": "Legenda do Mapa",
     "cityBoundary": "Limite da Cidade",
     "majorContour": "Contorno Principal",
-    "minorContour": "Contorno Secundário"
+    "minorContour": "Contorno Secundário",
+    "selectCategory": "Selecionar Categoria de Intervenção",
+    "selectedInterventions": "Intervenções Selecionadas",
+    "saveInterventions": "Salvar Intervenções",
+    "clickToSelect": "Clique para selecionar intervenções",
+    "moreDetails": "Mais detalhes",
+    "scale": "Escala",
+    "implementation": "Implementação",
+    "maintenance": "Manutenção",
+    "cobenefits": "Co-benefícios",
+    "addToPortfolio": "Adicionar",
+    "added": "Adicionado",
+    "population": "População"
   },
   "interventionZones": {
     "title": "Zonas de Intervenção",
