@@ -30,8 +30,8 @@ type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 type FinancingPathway = 'PUBLIC_CAPEX' | 'DFI_LOAN' | 'MUNICIPAL_BOND' | 'BLENDED_VEHICLE' | 'PPP_LIGHT' | 'PHILANTHROPY_ONLY' | null;
 type BMStatus = 'NOT_STARTED' | 'DRAFT' | 'READY';
 type ImportedContextMode = 'ACCEPT' | 'EDIT' | 'SCRATCH';
-type BenefitType = 'CLIMATE_RESILIENCE' | 'FLOOD_RISK_REDUCTION' | 'HEAT_REDUCTION' | 'AIR_QUALITY' | 'PROPERTY_VALUE' | 'HEALTH' | 'LIVABILITY' | 'OTHER';
-type PayerRole = 'ANCHOR_PAYER' | 'CO_PAYER' | 'CONTINGENT_PAYER' | 'GRANT_PROVIDER' | 'GUARANTOR';
+type BenefitType = 'RISK_REDUCTION' | 'ASSET_VALUE' | 'HEALTH' | 'LIVELIHOOD' | 'AMENITY';
+type PayerRole = 'ANCHOR' | 'CO_FUNDER' | 'CREDIT_ENHANCER' | 'OFFTAKER' | 'GUARANTOR';
 type PrimaryPayerConfidence = 'CONFIRMED' | 'PLANNED' | 'IDEA';
 
 interface Stakeholder {
@@ -181,21 +181,18 @@ const FINANCING_PATHWAYS: NonNullable<FinancingPathway>[] = [
 ];
 
 const BENEFIT_TYPES: BenefitType[] = [
-  'CLIMATE_RESILIENCE',
-  'FLOOD_RISK_REDUCTION',
-  'HEAT_REDUCTION',
-  'AIR_QUALITY',
-  'PROPERTY_VALUE',
+  'RISK_REDUCTION',
+  'ASSET_VALUE',
   'HEALTH',
-  'LIVABILITY',
-  'OTHER',
+  'LIVELIHOOD',
+  'AMENITY',
 ];
 
 const PAYER_ROLES: PayerRole[] = [
-  'ANCHOR_PAYER',
-  'CO_PAYER',
-  'CONTINGENT_PAYER',
-  'GRANT_PROVIDER',
+  'ANCHOR',
+  'CO_FUNDER',
+  'CREDIT_ENHANCER',
+  'OFFTAKER',
   'GUARANTOR',
 ];
 

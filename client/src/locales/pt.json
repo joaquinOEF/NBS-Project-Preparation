@@ -943,7 +943,10 @@
     "confidence": {
       "HIGH": "Alta",
       "MEDIUM": "Média",
-      "LOW": "Baixa"
+      "LOW": "Baixa",
+      "CONFIRMED": "Confirmado",
+      "PLANNED": "Planejado",
+      "IDEA": "Ideia"
     },
     "notes": "Notas",
     "revenueNotesPlaceholder": "Adicione notas sobre esta fonte de receita...",
@@ -1030,7 +1033,54 @@
     "keyRisks": "Riscos Principais",
     "copyToConceptNote": "Copiar para Nota Conceitual",
     "copied": "Copiado!",
-    "playbookCopied": "Texto do manual copiado para a área de transferência"
+    "playbookCopied": "Texto do manual copiado para a área de transferência",
+    "contextMode": {
+      "ACCEPT": "Aceito",
+      "EDIT": "Editado",
+      "SCRATCH": "Do Zero"
+    },
+    "currentContextMode": "Modo atual",
+    "contextActions": "Como você gostaria de prosseguir?",
+    "acceptPrefill": "Aceitar e Continuar",
+    "editContext": "Editar Contexto",
+    "startFromScratch": "Começar do Zero",
+    "contextAccepted": "Contexto Aceito",
+    "contextAcceptedDesc": "Os dados pré-preenchidos foram aceitos. Você pode prosseguir para a próxima etapa.",
+    "contextEdited": "Contexto Editado",
+    "contextEditedDesc": "Suas alterações foram salvas.",
+    "startedFromScratch": "Iniciado do Zero",
+    "startedFromScratchDesc": "Os campos do modelo de negócio foram limpos. Agora você pode configurar do zero.",
+    "editImportedContext": "Editar Contexto Importado",
+    "editContextDescription": "Modifique os valores importados antes de prosseguir",
+    "problemSummary": "Resumo do Problema",
+    "capexLow": "CAPEX Mínimo",
+    "capexHigh": "CAPEX Máximo",
+    "opexLow": "OPEX Mínimo",
+    "opexHigh": "OPEX Máximo",
+    "benefitType": "Tipo de Benefício",
+    "selectBenefitType": "Selecionar tipo de benefício...",
+    "benefitTypes": {
+      "RISK_REDUCTION": "Redução de Risco",
+      "ASSET_VALUE": "Valor do Ativo",
+      "HEALTH": "Saúde",
+      "LIVELIHOOD": "Sustento",
+      "AMENITY": "Amenidade"
+    },
+    "payerRole": "Papel do Pagador",
+    "selectPayerRole": "Selecionar papel do pagador...",
+    "payerRoles": {
+      "ANCHOR": "Âncora",
+      "CO_FUNDER": "Co-Financiador",
+      "CREDIT_ENHANCER": "Reforço de Crédito",
+      "OFFTAKER": "Comprador",
+      "GUARANTOR": "Garantidor"
+    },
+    "mechanismHint": "Dica de Mecanismo",
+    "mechanismHintPlaceholder": "ex., orçamento anual, tarifa...",
+    "paymentMechanismHint": "Dica de Mecanismo de Pagamento",
+    "paymentMechanismHintPlaceholder": "Como o pagamento fluirá? (ex., alocação direta de orçamento)",
+    "primaryPayerConfidence": "Nível de Confiança",
+    "selectConfidence": "Selecionar confiança..."
   },
   "impactModel": {
     "title": "Modelo de Impacto",

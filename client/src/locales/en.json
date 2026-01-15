@@ -943,7 +943,10 @@
     "confidence": {
       "HIGH": "High",
       "MEDIUM": "Medium",
-      "LOW": "Low"
+      "LOW": "Low",
+      "CONFIRMED": "Confirmed",
+      "PLANNED": "Planned",
+      "IDEA": "Idea"
     },
     "notes": "Notes",
     "revenueNotesPlaceholder": "Add notes about this revenue source...",
@@ -1030,7 +1033,54 @@
     "keyRisks": "Key Risks",
     "copyToConceptNote": "Copy to Concept Note",
     "copied": "Copied!",
-    "playbookCopied": "Playbook text copied to clipboard"
+    "playbookCopied": "Playbook text copied to clipboard",
+    "contextMode": {
+      "ACCEPT": "Accepted",
+      "EDIT": "Edited",
+      "SCRATCH": "From Scratch"
+    },
+    "currentContextMode": "Current mode",
+    "contextActions": "How would you like to proceed?",
+    "acceptPrefill": "Accept & Continue",
+    "editContext": "Edit Context",
+    "startFromScratch": "Start Fresh",
+    "contextAccepted": "Context Accepted",
+    "contextAcceptedDesc": "Prefilled data has been accepted. You can proceed to the next step.",
+    "contextEdited": "Context Edited",
+    "contextEditedDesc": "Your changes have been saved.",
+    "startedFromScratch": "Started From Scratch",
+    "startedFromScratchDesc": "Business model fields have been cleared. You can now configure from scratch.",
+    "editImportedContext": "Edit Imported Context",
+    "editContextDescription": "Modify the imported values before proceeding",
+    "problemSummary": "Problem Summary",
+    "capexLow": "CAPEX Low",
+    "capexHigh": "CAPEX High",
+    "opexLow": "OPEX Low",
+    "opexHigh": "OPEX High",
+    "benefitType": "Benefit Type",
+    "selectBenefitType": "Select benefit type...",
+    "benefitTypes": {
+      "RISK_REDUCTION": "Risk Reduction",
+      "ASSET_VALUE": "Asset Value",
+      "HEALTH": "Health",
+      "LIVELIHOOD": "Livelihood",
+      "AMENITY": "Amenity"
+    },
+    "payerRole": "Payer Role",
+    "selectPayerRole": "Select payer role...",
+    "payerRoles": {
+      "ANCHOR": "Anchor",
+      "CO_FUNDER": "Co-Funder",
+      "CREDIT_ENHANCER": "Credit Enhancer",
+      "OFFTAKER": "Offtaker",
+      "GUARANTOR": "Guarantor"
+    },
+    "mechanismHint": "Mechanism Hint",
+    "mechanismHintPlaceholder": "e.g., annual budget, tariff...",
+    "paymentMechanismHint": "Payment Mechanism Hint",
+    "paymentMechanismHintPlaceholder": "How will payment flow? (e.g., direct budget allocation)",
+    "primaryPayerConfidence": "Confidence Level",
+    "selectConfidence": "Select confidence..."
   },
   "impactModel": {
     "title": "Impact Model",
