@@ -7,7 +7,6 @@ import { Badge } from '@/core/components/ui/badge';
 import { Switch } from '@/core/components/ui/switch';
 import { Label } from '@/core/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
-import { ScrollArea } from '@/core/components/ui/scroll-area';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/core/components/ui/accordion';
 import { useTranslation } from 'react-i18next';
 import { useProjectContext, SelectedZone, SelectedIntervention } from '@/core/contexts/project-context';
@@ -1405,8 +1404,8 @@ export default function SiteExplorerPage() {
                 </div>
               </div>
 
-              <ScrollArea 
-                className="flex-1 min-h-0 overflow-hidden" 
+              <div 
+                className="flex-1 min-h-0 overflow-y-auto"
                 style={{ pointerEvents: 'auto', maxHeight: 'calc(100vh - 350px)' }}
                 onWheel={(e) => e.stopPropagation()}
               >
@@ -1677,7 +1676,7 @@ export default function SiteExplorerPage() {
                     </>
                   )}
                 </div>
-              </ScrollArea>
+              </div>
 
               {(zonePortfolios[selectedZone.zoneId]?.length || 0) > 0 && (
                 <div className="p-4 border-t bg-muted/30 flex-shrink-0" style={{ pointerEvents: 'auto' }}>
