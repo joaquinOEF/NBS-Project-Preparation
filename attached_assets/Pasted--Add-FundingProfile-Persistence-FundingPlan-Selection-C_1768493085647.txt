@@ -1,0 +1,351 @@
+# Add FundingProfile Persistence + FundingPlan Selection + “Choose Different Fund” Override
+
+## Context
+
+The funding recommender is part of a broader system that supports full project definition. Funding output must not remain a passive recommendation; it must become a user-confirmed decision that informs other modules. Also, all questionnaire answers must be saved for reuse across the platform. 
+
+Replit already implemented the recommender (questionnaire → recommended category → top 3 funds). This request modifies the existing project to:
+
+- persist all questionnaire answers (FundingProfile),
+- enable selecting a different fund beyond the top 3 (manual override with warnings),
+- expose these objects to other modules (the data will be saved in the general context of the user and can be used as inputs for other sections).
+
+## Goal
+
+After recommendations are generated (NOW and NEXT), add a required user step where they:
+
+- select a final intended funding pathway (anchor/target),
+- optionally select a preparation pathway (if needed),
+- confirm the selection,
+- can later edit the decision without redoing the questionnaire.
+
+Additionally:
+
+- save all questionnaire answers as a persistent FundingProfile object (raw + normalized + version).
+- allow user to choose a fund that is not in top 3 via “Choose a different fund” and handle it robustly.
+
+This selected FundingPlan must become a persistent object stored in app state (and optionally database) so other sections can reuse it. 
+
+## 1) Create persistent FundingProfile object (store all answers in the Shared Project Context)
+
+### Requirements
+
+When the user completes the questionnaire (or saves progress), persist a `FundingProfile` object. 
+
+### Behavior
+
+- On questionnaire submit: set `status=completed`, increment version if previously existed.
+- Allow later editing of questionnaire answers (FundingProfile) in a dedicated “Edit project answers” screen.
+- If FundingProfile is edited, do NOT silently change FundingPlan; mark FundingPlan as “out of sync” and prompt user:
+    - “Keep existing funding plan”
+    - “Re-run recommendations and update funding plan”
+    - “Review changes”
+
+---
+
+## 2) Create persistent FundingPlan object (user-confirmed decision)
+
+### FundingPlan schema (minimum fields)
+
+- `funding_id`
+- `selected_pathway_category_now` (A/B/C/D/E or Mixed)
+- `selected_funder_now` (fund_id or fund_key, nullable)
+- `selected_pathway_category_next` (optional, usually B for MDB loan targets)
+- `selected_target_funder_next` (fund_id or fund_key, nullable)
+- `selection_rationale` (auto-generated text + user editable)
+- `selection_source_now` enum: `recommended` | `user_override`
+- `selection_source_next` enum: `recommended` | `user_override` | `none`
+- `system_fit_assessment_now` enum: `high` | `medium` | `low` (stored at time of selection)
+- `system_fit_assessment_next` enum: `high` | `medium` | `low` | `n/a`
+- `system_warnings` (array of strings)
+- `recommended_now_top3` (list of fund ids/keys)
+- `recommended_next_targets` (list of fund ids/keys)
+- `project_profile_snapshot` (the key normalized fields used at recommendation time)
+- `project_profile_version_used` (integer)
+- `status` enum: `draft` | `confirmed`
+- `created_at` timestamp
+- `last_updated_at` timestamp
+- `version` integer (increment on edit)
+
+### Core identity & lifecycle
+
+```json
+FundingProfile{
+  funding_id: string,
+  status:"draft" |"completed",
+  created_at: timestamp,
+  last_updated_at: timestamp,
+  version: integer
+}
+
+```
+
+### Project stage & readiness
+
+```json
+ProjectReadiness{
+  project_stage:"idea" |"concept" |"pre_feasibility" |"feasibility" |"procurement_ready",
+
+  has_capex_estimate: boolean,
+  has_opex_estimate: boolean,
+  has_defined_sites: boolean,
+  has_implementation_plan: boolean,
+  has_safeguards_screening: boolean,// ESIA / ESMP started or scoped
+  has_stakeholder_engagement: boolean,
+
+  has_budget_for_preparation: boolean,
+  has_budget_for_implementation: boolean
+}
+
+```
+
+### Financing & revenue logic
+
+```json
+FinancingProfile{
+  expects_revenue:"yes" |"no" |"unknown",
+
+  repayment_source:"tariffs_fees"
+                    |"municipal_budget"
+                    |"budget_savings"
+                    |"transfers_taxes"
+                    |"private_offtaker"
+                    |"not_defined",
+
+  capex_band:"<1M" |"1-5M" |"5-20M" |"20-50M" |">50M" |"unknown",
+  currency:"USD" |"BRL" |"unknown",
+
+  open_to_aggregation:"yes" |"no" |"maybe"
+}
+
+```
+
+---
+
+### Institutional & borrowing context
+
+```json
+InstitutionalContext{
+  borrower_type:"municipality"
+                 |"state"
+                 |"public_utility"
+                 |"private_spv"
+                 |"consortium"
+                 |"unknown",
+
+  can_legally_borrow:"yes" |"no" |"unknown",
+  requires_sovereign_guarantee:"yes" |"no" |"unknown",
+
+  treasury_involved:"yes" |"no" |"unknown",
+  political_support_level:"none" |"partial" |"strong"
+}
+
+```
+
+---
+
+### Optional context & notes (non-blocking)
+
+```json
+AdditionalContext{
+  internal_constraints_notes: string |null,
+  known_risks_notes: string |null,
+  partnerships_notes: string |null
+}
+
+```
+
+---
+
+## Derived / normalized fields (computed, not user-entered)
+
+En lugar de guardar `normalized` como un blob, recomiendo **campos derivados explícitos** (o una vista lógica):
+
+```json
+DerivedReadiness{
+  financial_readiness_level:"grant_only"
+                              |"preparation_needed"
+                              |"loan_possible_domestic"
+                              |"loan_possible_international",
+
+  capital_readiness:"low" |"medium" |"high",
+  safeguards_readiness:"low" |"medium" |"high"
+}
+
+```
+
+Estos se recalculan cuando cambia FundingProfile.version. 
+
+---
+
+## 3) Add “Decision Step” UI after recommendations
+
+After showing:
+
+- NOW recommendation category + top 3 funds,
+- NEXT target funder(s) + checklist,
+
+Add a required section:
+
+### ✅ Choose your funding pathway for this project (required)
+
+### Step A — Choose immediate path (NOW)
+
+- Default = recommended NOW category and #1 fund from top 3 (if any).
+- Options:
+    - Radio: “Use recommended pathway”
+    - Radio: “Choose a different pathway”
+        - If different pathway selected (dropdown A/B/C/D/E), refresh the displayed “top 3 for that chosen pathway” (reuse existing filter+ranking logic).
+- Allow the user to choose:
+    - one NOW fund (optional if category implies no specific fund yet).
+
+### Step B — Choose target funder (NEXT)
+
+- Default = recommended NEXT target (if present).
+- Options:
+    - Choose among suggested NEXT targets
+    - “No target funder yet”
+
+### Step C — Confirm
+
+- Button: “Confirm funding pathway”
+- Once confirmed:
+    - lock decisions read-only
+    - show “Edit funding plan” button that reopens selection and increments FundingPlan version.
+
+Add a small UI explanation:
+
+> “Your selected funding pathway will guide what information and documents are required in the rest of the project definition (feasibility, safeguards, procurement, financing plan).”
+> 
+
+---
+
+## 4) Allow selecting a fund not in the top 3 (manual override)
+
+### UI requirement: “Choose a different fund”
+
+Under the NOW top 3 and under the NEXT targets, add:
+
+- Button: **“Choose a different fund”**
+- On click:
+    - open a searchable dropdown/modal containing **all funds from the spreadsheet**
+    - user can select any fund as:
+        - NOW fund (if they insist), and/or
+        - NEXT target funder (often more realistic)
+
+### Validation + warnings (must implement)
+
+When a user selects a fund outside top 3:
+
+1. accept the selection
+2. run the same eligibility checks used in the recommender
+3. compute a fit assessment (high/medium/low)
+4. display warnings if needed and store them
+
+### What to display after override selection (required)
+
+Show a summary panel:
+
+- “You selected: **Fund X** (override)”
+- “System fit assessment: **High / Medium / Low**”
+- “Why this may be difficult / what you’d need to change” (2–4 bullets)
+- “Recommended next steps to make this viable” (2–4 bullets)
+
+### Logic rules for override handling
+
+- If the selected fund is INELIGIBLE for NOW (e.g., loan fund but no borrowing or stage too early):
+    - allow the user to still choose it as a **NEXT target**
+    - but show: “Not eligible now; suitable only as a target once prerequisites are met.”
+- If the selected fund is eligible but low-fit:
+    - allow selection, show the key mismatch reasons (ticket size, borrower type, channel, etc.)
+- Store selection metadata in FundingPlan:
+    - `selection_source_now` or `selection_source_next` = `user_override`
+    - `system_fit_assessment_*`
+    - `system_warnings[]`
+
+---
+
+## 5) Editing behavior (without redoing questionnaire)
+
+User should be able to:
+
+- edit FundingPlan only (fast), without re-answering questionnaire
+- optionally “Re-run recommendations” to refresh NOW/NEXT suggestions using current ProjectProfile
+
+When editing FundingPlan:
+
+- show the current selection
+- allow changing NOW category, NOW fund, NEXT target funder
+- if user overrides again, re-run validation and warnings
+- increment FundingPlan version
+
+When editing FundingProfile:
+
+- increment FundingProfile version
+- mark FundingPlan as “out of sync” if `project_profile_version_used` differs from current ProjectProfile version
+- show sync badge:
+    - “In sync” or “Updated answers — funding plan may need review”
+
+---
+
+## 6) Downstream requirements mapping (expose to other modules)
+
+Create a `requirements` object derived from FundingPlan selection, available as `FundingPlan.requirements`:
+
+If selected_target_funder_next is a loan/MDB/dev bank:
+
+- require: feasibility, safeguards, procurement plan, repayment logic, sovereign pathway confirmation
+
+If selected pathway is grant-only/public-good:
+
+- require: vulnerability logic, public-good justification, stakeholder engagement evidence, land/maintenance clarity for NbS
+
+If selected pathway is aggregation:
+
+- require: bundling plan, program structure, pipeline list (multiple subprojects), governance model
+
+If selected is PPF/prep:
+
+- require: ToRs, preparation plan, institutional endorsement, data/evidence bundle
+
+Expose hooks:
+
+- `getFundingPlan(project_id)`
+- `setFundingPlan(project_id, updates)`
+- `isFundingPlanConfirmed(project_id)`
+- `getFundingRequirements(project_id)`
+
+---
+
+## 7) Keep recommendations separate from selection
+
+Do not change the recommender’s output behavior. Recommendations remain “suggested”.
+
+FundingPlan is the user’s “chosen” decision layer.
+
+UI must clearly label:
+
+- Recommended
+- Selected / Confirmed
+- Override (if applicable)
+
+---
+
+## Acceptance Criteria (must pass)
+
+- All questionnaire answers are persisted as Funding Profile with raw + normalized + version + timestamps.
+- Results page shows NOW + NEXT recommendations.
+- User must confirm a FundingPlan decision; FundingPlan persists and can be edited.
+- “Choose a different fund” allows selection from all spreadsheet funds.
+- Override triggers eligibility check + fit assessment + warnings + next steps; stored in FundingPlan as override.
+- FundingPlan and FundingProfile are available to other modules through shared access functions.
+- FundingPlan shows “out of sync” if FundingProfile changes afterward.
+
+---
+
+## Implementation Notes
+
+- Use stable fund keys: prefer `Official Link` if present; otherwise `Institution + Fund Name`.
+- Store `project_profile_snapshot` and `project_profile_version_used` in FundingPlan for traceability.
+- For warnings and next steps, reuse existing mismatch reasons from eligibility/scoring (ticket mismatch, borrower mismatch, stage mismatch, repayment mismatch, access complexity).
+- Maintain versioning to prevent silent contradictions across modules.

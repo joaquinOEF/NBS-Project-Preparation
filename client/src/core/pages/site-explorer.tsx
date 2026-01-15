@@ -227,6 +227,7 @@ export default function SiteExplorerPage() {
   const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
   const highlightLayerRef = useRef<L.Layer | null>(null);
   const osmLayerRef = useRef<L.Layer | null>(null);
+  const selectedAssetMarkerRef = useRef<L.Marker | null>(null);
   const { updateModule, context } = useProjectContext();
 
   useEffect(() => {
@@ -499,6 +500,28 @@ export default function SiteExplorerPage() {
       fetchOsmAssets(selectedZoneFeature, selectedCategory);
     }
   }, [selectedCategory, selectedZoneFeature, fetchOsmAssets]);
+
+  useEffect(() => {
+    if (selectedAssetMarkerRef.current) {
+      selectedAssetMarkerRef.current.remove();
+      selectedAssetMarkerRef.current = null;
+    }
+    
+    if (selectedAsset && selectedAsset.centroid && mapRef.current) {
+      const [lat, lng] = selectedAsset.centroid;
+      const marker = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: 'selected-asset-marker',
+          html: `<div style="width: 24px; height: 24px; background: #ef4444; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.4);"></div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        }),
+      });
+      marker.addTo(mapRef.current);
+      selectedAssetMarkerRef.current = marker;
+      mapRef.current.flyTo([lat, lng], 17, { duration: 0.5 });
+    }
+  }, [selectedAsset]);
 
   useEffect(() => {
     if (!mapContainerRef.current || !boundaryData) return;
