@@ -87,19 +87,27 @@ interface RevenueLine {
   costCoverage?: CostCoverage[];
 }
 
+type BankabilityMaturity = 'CONCEPT_NOTE' | 'EMERGING' | 'BANKABLE_DRAFT';
+
 interface EnablingAction {
   id: string;
   action: string;
   category: 'POLICY' | 'CONTRACTING' | 'DATA_MRV' | 'GOVERNANCE' | 'PROCUREMENT' | 'CAPACITY';
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
   ownerStakeholderId?: string;
+  timeframe?: string;
+  isEditable?: boolean;
 }
 
 interface BMRisk {
   id: string;
-  riskType: 'COUNTERPARTY_CREDIT' | 'POLICY_CHANGE' | 'REVENUE_VOLATILITY' | 'MRV_ATTRIBUTION' | 'MARKET_DEMAND' | 'IMPLEMENTATION_CAPACITY';
+  riskType: 'COUNTERPARTY_CREDIT' | 'POLICY_CHANGE' | 'REVENUE_VOLATILITY' | 'MRV_ATTRIBUTION' | 'MARKET_DEMAND' | 'IMPLEMENTATION_CAPACITY' | 'CUSTOM';
+  customLabel?: string;
   riskLevel: RiskLevel;
   mitigation: string;
+  ownerStakeholderId?: string;
+  mitigationChecked?: boolean;
+  hidden?: boolean;
 }
 
 interface BusinessModelData {
@@ -535,22 +543,60 @@ export default function BusinessModelPage() {
     { id: 'archetype', icon: Landmark },
     { id: 'revenue', icon: DollarSign },
     { id: 'financing', icon: Building2 },
-    { id: 'readiness', icon: AlertTriangle },
+    { id: 'bankability', icon: AlertTriangle },
+    { id: 'playbook', icon: Copy },
   ];
 
-  const canAccessReadiness = (): boolean => {
-    if (!bmData) return false;
-    return bmData.readiness.checklist.primaryArchetypeSelected &&
-      bmData.readiness.checklist.primaryPayerSelected &&
-      bmData.readiness.checklist.oneHighConfidenceRevenueLine &&
-      bmData.readiness.checklist.durationSet &&
-      bmData.readiness.checklist.financingPathwaySelected &&
-      bmData.readiness.checklist.consistencyCheckedWithOps;
+  const computeBankabilityMaturity = (): BankabilityMaturity => {
+    if (!bmData) return 'CONCEPT_NOTE';
+    
+    const hasArchetype = bmData.primaryArchetype !== null;
+    const hasPayer = bmData.payerBeneficiaryMap.primaryPayerId !== null;
+    const hasHighConfidenceRevenue = bmData.revenueStack.some(r => r.confidence === 'HIGH');
+    const hasMediumConfidenceRevenue = bmData.revenueStack.some(r => r.confidence === 'MEDIUM' || r.confidence === 'HIGH');
+    const hasPaymentMechanism = bmData.paymentMechanism.type !== null && bmData.paymentMechanism.durationYears !== null;
+    const hasFinancingPathway = bmData.financingPathway.pathway !== null;
+    const hasOpexCoverage = bmData.revenueStack.some(r => r.costCoverage?.includes('OPEX_OM'));
+    const payerConfirmed = bmData.payerBeneficiaryMap.primaryPayerConfidence === 'CONFIRMED';
+    
+    if (hasArchetype && hasPayer && payerConfirmed && hasHighConfidenceRevenue && hasPaymentMechanism && hasFinancingPathway && hasOpexCoverage) {
+      return 'BANKABLE_DRAFT';
+    }
+    if (hasArchetype && hasPayer && hasMediumConfidenceRevenue && hasPaymentMechanism) {
+      return 'EMERGING';
+    }
+    return 'CONCEPT_NOTE';
   };
 
-  const canNavigateToStep = (stepIndex: number): boolean => {
-    if (stepIndex < 5) return true;
-    return canAccessReadiness();
+  const getBankabilityBlockers = (): string[] => {
+    if (!bmData) return [];
+    const blockers: string[] = [];
+    
+    if (bmData.payerBeneficiaryMap.primaryPayerConfidence !== 'CONFIRMED') {
+      blockers.push('payerNotConfirmed');
+    }
+    if (!bmData.paymentMechanism.type || !bmData.paymentMechanism.basis) {
+      blockers.push('paymentMechanismIncomplete');
+    }
+    if (!bmData.revenueStack.some(r => r.confidence === 'HIGH' || r.confidence === 'MEDIUM')) {
+      blockers.push('noConfidentRevenue');
+    }
+    if (!bmData.revenueStack.some(r => r.costCoverage?.includes('OPEX_OM'))) {
+      blockers.push('opexNotCoveredBeyondEstablishment');
+    }
+    if ((bmData.primaryArchetype === 'CREDIT_ADDON' || bmData.paymentMechanism.basis === 'OUTCOME_VERIFIED') && 
+        !bmData.revenueStack.some(r => r.costCoverage?.includes('MRV'))) {
+      blockers.push('mrvRequiredForOutcomeModel');
+    }
+    if (!bmData.financingPathway.pathway) {
+      blockers.push('noFinancingPathway');
+    }
+    
+    return blockers.slice(0, 5);
+  };
+
+  const canNavigateToStep = (_stepIndex: number): boolean => {
+    return true;
   };
 
   const getStakeholderName = (id: string | null) => {
@@ -694,6 +740,126 @@ export default function BusinessModelPage() {
     freshData.financingPathway = { pathway: null };
     setBMData(freshData);
     toast({ title: t('bm.startedFromScratch'), description: t('bm.startedFromScratchDesc') });
+  };
+
+  const addEnablingAction = () => {
+    if (!bmData) return;
+    const newAction: EnablingAction = {
+      id: `ea-${Date.now()}`,
+      action: '',
+      category: 'GOVERNANCE',
+      priority: 'MEDIUM',
+      isEditable: true,
+    };
+    updateBMData({
+      enablingActions: [...bmData.enablingActions, newAction],
+    });
+  };
+
+  const removeEnablingAction = (id: string) => {
+    if (!bmData) return;
+    updateBMData({
+      enablingActions: bmData.enablingActions.filter(a => a.id !== id),
+    });
+  };
+
+  const updateEnablingAction = (id: string, updates: Partial<EnablingAction>) => {
+    if (!bmData) return;
+    updateBMData({
+      enablingActions: bmData.enablingActions.map(a => a.id === id ? { ...a, ...updates } : a),
+    });
+  };
+
+  const addBMRisk = () => {
+    if (!bmData) return;
+    const newRisk: BMRisk = {
+      id: `risk-${Date.now()}`,
+      riskType: 'CUSTOM',
+      customLabel: '',
+      riskLevel: 'MEDIUM',
+      mitigation: '',
+    };
+    updateBMData({
+      bmRisks: [...bmData.bmRisks, newRisk],
+    });
+  };
+
+  const removeBMRisk = (id: string) => {
+    if (!bmData) return;
+    updateBMData({
+      bmRisks: bmData.bmRisks.filter(r => r.id !== id),
+    });
+  };
+
+  const updateBMRisk = (id: string, updates: Partial<BMRisk>) => {
+    if (!bmData) return;
+    updateBMData({
+      bmRisks: bmData.bmRisks.map(r => r.id === id ? { ...r, ...updates } : r),
+    });
+  };
+
+  const toggleRiskHidden = (id: string) => {
+    if (!bmData) return;
+    updateBMData({
+      bmRisks: bmData.bmRisks.map(r => r.id === id ? { ...r, hidden: !r.hidden } : r),
+    });
+  };
+
+  const generateMiroPrompt = () => {
+    if (!bmData) return '';
+    
+    let prompt = `Value Flow Diagram for NBS Business Model\n\n`;
+    prompt += `PRIMARY PAYER: ${getStakeholderName(bmData.payerBeneficiaryMap.primaryPayerId)}\n`;
+    prompt += `↓ ${t(`bm.paymentTypes.${bmData.paymentMechanism.type}`)} ↓\n`;
+    prompt += `PROJECT/ASSET\n`;
+    prompt += `↓ benefits ↓\n`;
+    prompt += `BENEFICIARIES:\n`;
+    bmData.payerBeneficiaryMap.beneficiaries.forEach(b => {
+      prompt += `  - ${getStakeholderName(b.stakeholderId)} (${b.benefitType})\n`;
+    });
+    prompt += `\nREVENUE STREAMS:\n`;
+    bmData.revenueStack.forEach(r => {
+      const payer = r.payerStakeholderId ? getStakeholderName(r.payerStakeholderId) : 'TBD';
+      prompt += `  ${payer} → ${t(`bm.revenueTypes.${r.revenueType}`)} → Project\n`;
+    });
+    prompt += `\nFINANCING: ${t(`bm.pathways.${bmData.financingPathway.pathway}`)}\n`;
+    
+    return prompt;
+  };
+
+  const copyMiroPrompt = () => {
+    const prompt = generateMiroPrompt();
+    navigator.clipboard.writeText(prompt);
+    toast({
+      title: t('bm.copied'),
+      description: t('bm.miroPromptCopied'),
+    });
+  };
+
+  const exportPlaybookJSON = () => {
+    if (!bmData) return;
+    const data = {
+      archetype: bmData.primaryArchetype,
+      payerBeneficiaryMap: bmData.payerBeneficiaryMap,
+      paymentMechanism: bmData.paymentMechanism,
+      revenueStack: bmData.revenueStack,
+      financingPathway: bmData.financingPathway,
+      sourcesAndUsesRom: bmData.sourcesAndUsesRom,
+      enablingActions: bmData.enablingActions,
+      risks: bmData.bmRisks.filter(r => !r.hidden),
+      bankabilityMaturity: computeBankabilityMaturity(),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'business-model-playbook.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({
+      title: t('bm.exported'),
+      description: t('bm.playbookExported'),
+    });
   };
 
   const updateBeneficiary = (stakeholderId: string, updates: Partial<PayerBeneficiary>) => {
@@ -1965,28 +2131,35 @@ export default function BusinessModelPage() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>{t('bm.readinessGate')}</CardTitle>
+                <CardTitle>{t('bm.bankabilityAssessment')}</CardTitle>
+                <CardDescription>{t('bm.bankabilityAssessmentSubtitle')}</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {Object.entries(bmData.readiness.checklist).map(([key, value]) => (
-                    <div key={key} className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center ${value ? 'bg-green-500 text-white' : 'bg-muted'}`}>
-                        {value && <Check className="h-4 w-4" />}
-                      </div>
-                      <span className={value ? 'text-foreground' : 'text-muted-foreground'}>
-                        {t(`bm.checklist.${key}`)}
-                      </span>
-                    </div>
-                  ))}
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                    computeBankabilityMaturity() === 'BANKABLE_DRAFT' ? 'bg-green-500 text-white' :
+                    computeBankabilityMaturity() === 'EMERGING' ? 'bg-yellow-500 text-white' :
+                    'bg-blue-500 text-white'
+                  }`}>
+                    {computeBankabilityMaturity() === 'BANKABLE_DRAFT' ? <CheckCircle className="h-6 w-6" /> :
+                     computeBankabilityMaturity() === 'EMERGING' ? <AlertTriangle className="h-6 w-6" /> :
+                     <FileText className="h-6 w-6" />}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">{t(`bm.maturity.${computeBankabilityMaturity()}`)}</h3>
+                    <p className="text-sm text-muted-foreground">{t(`bm.maturityDesc.${computeBankabilityMaturity()}`)}</p>
+                  </div>
                 </div>
 
-                {bmData.readiness.blockers.length > 0 && (
-                  <div className="mt-4 p-4 bg-destructive/10 rounded-lg">
-                    <h4 className="font-medium text-destructive mb-2">{t('bm.blockers')}</h4>
-                    <ul className="list-disc list-inside text-sm text-destructive">
-                      {bmData.readiness.blockers.map(blocker => (
-                        <li key={blocker}>{t(`bm.blocker.${blocker}`)}</li>
+                {computeBankabilityMaturity() !== 'BANKABLE_DRAFT' && getBankabilityBlockers().length > 0 && (
+                  <div className="p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <h4 className="font-medium text-amber-800 dark:text-amber-200 mb-2 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      {t('bm.topBlockers')}
+                    </h4>
+                    <ul className="list-disc list-inside text-sm text-amber-700 dark:text-amber-300 space-y-1">
+                      {getBankabilityBlockers().map(blocker => (
+                        <li key={blocker}>{t(`bm.bankabilityBlocker.${blocker}`)}</li>
                       ))}
                     </ul>
                   </div>
@@ -1996,19 +2169,70 @@ export default function BusinessModelPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>{t('bm.enablingActionsTitle')}</CardTitle>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>{t('bm.enablingActionsTitle')}</CardTitle>
+                    <CardDescription>{t('bm.enablingActionsDesc')}</CardDescription>
+                  </div>
+                  <Button onClick={addEnablingAction} size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t('bm.addAction')}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {bmData.enablingActions.map(action => (
-                    <div key={action.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Badge variant={action.priority === 'HIGH' ? 'destructive' : action.priority === 'MEDIUM' ? 'default' : 'secondary'}>
-                          {action.priority}
-                        </Badge>
-                        <span>{action.action}</span>
+                    <div key={action.id} className="border rounded-lg p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Input
+                          value={action.action}
+                          onChange={(e) => updateEnablingAction(action.id, { action: e.target.value })}
+                          placeholder={t('bm.actionPlaceholder')}
+                          className="flex-1 mr-2"
+                        />
+                        <Button variant="ghost" size="sm" onClick={() => removeEnablingAction(action.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
-                      <Badge variant="outline">{t(`bm.categories.${action.category}`)}</Badge>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <Select value={action.priority} onValueChange={(v) => updateEnablingAction(action.id, { priority: v as 'HIGH' | 'MEDIUM' | 'LOW' })}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="HIGH">{t('bm.priorityHigh')}</SelectItem>
+                            <SelectItem value="MEDIUM">{t('bm.priorityMedium')}</SelectItem>
+                            <SelectItem value="LOW">{t('bm.priorityLow')}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select value={action.category} onValueChange={(v) => updateEnablingAction(action.id, { category: v as EnablingAction['category'] })}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {['POLICY', 'CONTRACTING', 'DATA_MRV', 'GOVERNANCE', 'PROCUREMENT', 'CAPACITY'].map(cat => (
+                              <SelectItem key={cat} value={cat}>{t(`bm.categories.${cat}`)}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={action.ownerStakeholderId || ''} onValueChange={(v) => updateEnablingAction(action.id, { ownerStakeholderId: v || undefined })}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder={t('bm.selectOwner')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {stakeholders.map(s => (
+                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          value={action.timeframe || ''}
+                          onChange={(e) => updateEnablingAction(action.id, { timeframe: e.target.value })}
+                          placeholder={t('bm.timeframePlaceholder')}
+                          className="h-8"
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2017,30 +2241,260 @@ export default function BusinessModelPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>{t('bm.risksTitle')}</CardTitle>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>{t('bm.risksTitle')}</CardTitle>
+                    <CardDescription>{t('bm.risksDesc')}</CardDescription>
+                  </div>
+                  <Button onClick={addBMRisk} size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t('bm.addRisk')}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {bmData.bmRisks.map(risk => (
-                    <div key={risk.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Badge variant={risk.riskLevel === 'HIGH' ? 'destructive' : risk.riskLevel === 'MEDIUM' ? 'default' : 'secondary'}>
-                          {t(`bm.riskLevel.${risk.riskLevel}`)}
-                        </Badge>
-                        <span>{t(`bm.riskTypes.${risk.riskType}`)}</span>
+                  {bmData.bmRisks.filter(r => !r.hidden).map(risk => (
+                    <div key={risk.id} className="border rounded-lg p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 flex-1">
+                          {risk.riskType === 'CUSTOM' ? (
+                            <Input
+                              value={risk.customLabel || ''}
+                              onChange={(e) => updateBMRisk(risk.id, { customLabel: e.target.value })}
+                              placeholder={t('bm.customRiskLabel')}
+                              className="w-48"
+                            />
+                          ) : (
+                            <span className="font-medium">{t(`bm.riskTypes.${risk.riskType}`)}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => toggleRiskHidden(risk.id)}>
+                            <span className="text-xs text-muted-foreground">{t('bm.hide')}</span>
+                          </Button>
+                          {risk.riskType === 'CUSTOM' && (
+                            <Button variant="ghost" size="sm" onClick={() => removeBMRisk(risk.id)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <Input
-                        className="w-64"
-                        value={risk.mitigation}
-                        onChange={(e) => {
-                          updateBMData({
-                            bmRisks: bmData.bmRisks.map(r => r.id === risk.id ? { ...r, mitigation: e.target.value } : r),
-                          });
-                        }}
-                        placeholder={t('bm.mitigationPlaceholder')}
-                      />
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <Select value={risk.riskLevel} onValueChange={(v) => updateBMRisk(risk.id, { riskLevel: v as RiskLevel })}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="LOW">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                                    {t('bm.riskLevel.LOW')}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{t('bm.riskLevelTooltip.LOW')}</TooltipContent>
+                              </Tooltip>
+                            </SelectItem>
+                            <SelectItem value="MEDIUM">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                                    {t('bm.riskLevel.MEDIUM')}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{t('bm.riskLevelTooltip.MEDIUM')}</TooltipContent>
+                              </Tooltip>
+                            </SelectItem>
+                            <SelectItem value="HIGH">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                                    {t('bm.riskLevel.HIGH')}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{t('bm.riskLevelTooltip.HIGH')}</TooltipContent>
+                              </Tooltip>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select value={risk.ownerStakeholderId || ''} onValueChange={(v) => updateBMRisk(risk.id, { ownerStakeholderId: v || undefined })}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder={t('bm.riskOwner')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {stakeholders.map(s => (
+                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="col-span-2 flex items-center gap-2">
+                          <Checkbox
+                            checked={risk.mitigationChecked || false}
+                            onCheckedChange={(checked) => updateBMRisk(risk.id, { mitigationChecked: !!checked })}
+                          />
+                          <Input
+                            value={risk.mitigation}
+                            onChange={(e) => updateBMRisk(risk.id, { mitigation: e.target.value })}
+                            placeholder={t('bm.mitigationPlaceholder')}
+                            className="h-8 flex-1"
+                          />
+                        </div>
+                      </div>
                     </div>
                   ))}
+                  {bmData.bmRisks.some(r => r.hidden) && (
+                    <p className="text-xs text-muted-foreground">
+                      {bmData.bmRisks.filter(r => r.hidden).length} {t('bm.hiddenRisks')}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {currentStep === 6 && (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('bm.playbookTitle')}</CardTitle>
+                <CardDescription>{t('bm.playbookSubtitle')}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium mb-2">{t('bm.whoBenefitsWhoPays')}</h4>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">{t('bm.primaryPayer')}:</span>
+                        <span className="ml-2 font-medium">{getStakeholderName(bmData.payerBeneficiaryMap.primaryPayerId)}</span>
+                        {bmData.payerBeneficiaryMap.primaryPayerConfidence && (
+                          <Badge variant="outline" className="ml-2">{t(`bm.confidence.${bmData.payerBeneficiaryMap.primaryPayerConfidence}`)}</Badge>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">{t('bm.beneficiaries')}:</span>
+                        <div className="ml-2">
+                          {bmData.payerBeneficiaryMap.beneficiaries.map(b => (
+                            <span key={b.stakeholderId} className="block">{getStakeholderName(b.stakeholderId)} ({b.benefitType})</span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium mb-2">{t('bm.archetypeAndMechanism')}</h4>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">{t('bm.primaryArchetype')}:</span>
+                        <span className="ml-2 font-medium">{bmData.primaryArchetype ? t(`bm.archetypes.${bmData.primaryArchetype}`) : '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">{t('bm.paymentType')}:</span>
+                        <span className="ml-2">{bmData.paymentMechanism.type ? t(`bm.paymentTypes.${bmData.paymentMechanism.type}`) : '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">{t('bm.duration')}:</span>
+                        <span className="ml-2">{bmData.paymentMechanism.durationYears} {t('bm.years')}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium mb-2">{t('bm.revenueStackSummary')}</h4>
+                  <div className="space-y-2">
+                    {bmData.revenueStack.map(rev => (
+                      <div key={rev.id} className="flex items-center justify-between text-sm p-2 bg-muted/30 rounded">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={rev.confidence === 'HIGH' ? 'default' : rev.confidence === 'MEDIUM' ? 'secondary' : 'outline'} className="text-xs">
+                            {t(`bm.confidence.${rev.confidence}`)}
+                          </Badge>
+                          <span>{t(`bm.revenueTypes.${rev.revenueType}`)}</span>
+                          {rev.payerStakeholderId && (
+                            <span className="text-muted-foreground">({getStakeholderName(rev.payerStakeholderId)})</span>
+                          )}
+                        </div>
+                        {rev.amountRange?.mid && (
+                          <span className="font-mono text-xs">{rev.amountRange.mid.toLocaleString()} {rev.amountRange.currency || 'BRL'}/{rev.amountRange.period === 'ANNUAL' ? t('bm.annual') : t('bm.oneTime')}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium mb-2">{t('bm.financingPathway')}</h4>
+                    <p className="text-sm">{bmData.financingPathway.pathway ? t(`bm.pathways.${bmData.financingPathway.pathway}`) : '-'}</p>
+                    {bmData.financingPathway.rationale && (
+                      <p className="text-xs text-muted-foreground mt-1">{bmData.financingPathway.rationale}</p>
+                    )}
+                  </div>
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium mb-2">{t('bm.romBudgetTitle')}</h4>
+                    <div className="text-sm space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">{t('bm.capex')}:</span>
+                        <span className="font-mono">{bmData.sourcesAndUsesRom.capexBand?.mid?.toLocaleString()} {bmData.sourcesAndUsesRom.capexBand?.currency}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">{t('bm.opex')}:</span>
+                        <span className="font-mono">{bmData.sourcesAndUsesRom.opexBand?.mid?.toLocaleString()} {bmData.sourcesAndUsesRom.opexBand?.currency}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium mb-2">{t('bm.keyActionsAndRisks')}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground block mb-1">{t('bm.topEnablingActions')}:</span>
+                      <ul className="list-disc list-inside space-y-1">
+                        {bmData.enablingActions.filter(a => a.priority === 'HIGH').slice(0, 3).map(a => (
+                          <li key={a.id}>{a.action}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block mb-1">{t('bm.keyRisks')}:</span>
+                      <ul className="list-disc list-inside space-y-1">
+                        {bmData.bmRisks.filter(r => !r.hidden && r.riskLevel === 'HIGH').slice(0, 3).map(r => (
+                          <li key={r.id}>{r.riskType === 'CUSTOM' ? r.customLabel : t(`bm.riskTypes.${r.riskType}`)}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('bm.exportOptions')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Button onClick={copyPlaybook} variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
+                    <Copy className="h-5 w-5" />
+                    <span>{t('bm.copyToConceptNote')}</span>
+                    <span className="text-xs text-muted-foreground">{t('bm.copyToConceptNoteDesc')}</span>
+                  </Button>
+                  <Button onClick={exportPlaybookJSON} variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    <span>{t('bm.exportPlaybookText')}</span>
+                    <span className="text-xs text-muted-foreground">{t('bm.exportPlaybookTextDesc')}</span>
+                  </Button>
+                  <Button onClick={copyMiroPrompt} variant="outline" className="h-auto py-4 flex flex-col items-center gap-2">
+                    <Landmark className="h-5 w-5" />
+                    <span>{t('bm.generateMiroPrompt')}</span>
+                    <span className="text-xs text-muted-foreground">{t('bm.generateMiroPromptDesc')}</span>
+                  </Button>
                 </div>
               </CardContent>
             </Card>

@@ -833,7 +833,8 @@
       "archetype": "Archetype",
       "revenue": "Revenue",
       "financing": "Financing",
-      "readiness": "Readiness"
+      "bankability": "Bankability",
+      "playbook": "Playbook"
     },
     "overviewTitle": "Project Context Overview",
     "overviewDescription": "Review the imported context from previous steps before configuring the business model",
@@ -1202,7 +1203,63 @@
     "consistencyCheck": "Consistency Check",
     "consistencyRecurringRevenue": "Primary durable revenue source with 3+ year duration",
     "consistencyOpexCovered": "OPEX/O&M costs covered by at least one revenue line",
-    "consistencyMrvCovered": "MRV costs covered by at least one revenue line"
+    "consistencyMrvCovered": "MRV costs covered by at least one revenue line",
+    "bankabilityAssessment": "Bankability Assessment",
+    "bankabilityAssessmentSubtitle": "Assess confidence, gaps, and next steps to make the business model finance-ready.",
+    "maturity": {
+      "CONCEPT_NOTE": "Concept Note",
+      "EMERGING": "Emerging",
+      "BANKABLE_DRAFT": "Bankable Draft"
+    },
+    "maturityDesc": {
+      "CONCEPT_NOTE": "Basic structure defined but key elements missing for financing readiness",
+      "EMERGING": "Core elements in place but needs strengthening for bankability",
+      "BANKABLE_DRAFT": "Ready for financing discussions with strong payer commitment and revenue confidence"
+    },
+    "topBlockers": "Top Blockers to Address",
+    "bankabilityBlocker": {
+      "payerNotConfirmed": "Primary payer not yet confirmed - strengthen commitment level",
+      "paymentMechanismIncomplete": "Payment mechanism type or basis not fully defined",
+      "noConfidentRevenue": "No medium or high confidence revenue lines identified",
+      "opexNotCoveredBeyondEstablishment": "OPEX coverage not secured beyond establishment phase",
+      "mrvRequiredForOutcomeModel": "MRV/verification budget required for outcome-linked payment model",
+      "noFinancingPathway": "Financing pathway not selected"
+    },
+    "enablingActionsDesc": "Required actions to enable the business model",
+    "addAction": "Add Action",
+    "actionPlaceholder": "Describe the enabling action...",
+    "selectOwner": "Select owner...",
+    "timeframePlaceholder": "e.g., Q1 2026",
+    "priorityHigh": "High Priority",
+    "priorityMedium": "Medium Priority",
+    "priorityLow": "Low Priority",
+    "risksDesc": "Identify and manage business model risks",
+    "addRisk": "Add Risk",
+    "customRiskLabel": "Custom risk description...",
+    "hide": "Hide",
+    "hiddenRisks": "hidden risks",
+    "riskOwner": "Risk owner...",
+    "riskLevelTooltip": {
+      "LOW": "Low probability or impact - monitor but no immediate action needed",
+      "MEDIUM": "Moderate probability or impact - mitigation plan recommended",
+      "HIGH": "High probability and/or impact - requires active mitigation"
+    },
+    "playbookTitle": "Business Model Playbook",
+    "playbookSubtitle": "Review, refine, and export a concept-note-ready summary of your business model.",
+    "whoBenefitsWhoPays": "Who Benefits / Who Pays",
+    "archetypeAndMechanism": "Archetype & Mechanism",
+    "revenueStackSummary": "Revenue Stack Summary",
+    "keyActionsAndRisks": "Key Actions & Risks",
+    "topEnablingActions": "Top Enabling Actions",
+    "exportOptions": "Export Options",
+    "copyToConceptNoteDesc": "Copy formatted text to clipboard",
+    "exportPlaybookText": "Export JSON Data",
+    "exportPlaybookTextDesc": "Download structured playbook data",
+    "generateMiroPrompt": "Generate Miro Prompt",
+    "generateMiroPromptDesc": "Copy value-flow diagram prompt",
+    "exported": "Exported",
+    "playbookExported": "Playbook data exported successfully",
+    "miroPromptCopied": "Miro prompt copied to clipboard"
   },
   "impactModel": {
     "title": "Impact Model",

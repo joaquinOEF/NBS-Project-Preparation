@@ -833,7 +833,8 @@
       "archetype": "Arquétipo",
       "revenue": "Receita",
       "financing": "Financiamento",
-      "readiness": "Prontidão"
+      "bankability": "Bancabilidade",
+      "playbook": "Manual"
     },
     "overviewTitle": "Visão Geral do Contexto do Projeto",
     "overviewDescription": "Revise o contexto importado das etapas anteriores antes de configurar o modelo de negócio",
@@ -1202,7 +1203,63 @@
     "consistencyCheck": "Verificação de Consistência",
     "consistencyRecurringRevenue": "Fonte de receita primária durável com duração de 3+ anos",
     "consistencyOpexCovered": "Custos de OPEX/O&M cobertos por pelo menos uma linha de receita",
-    "consistencyMrvCovered": "Custos de MRV cobertos por pelo menos uma linha de receita"
+    "consistencyMrvCovered": "Custos de MRV cobertos por pelo menos uma linha de receita",
+    "bankabilityAssessment": "Avaliação de Bancabilidade",
+    "bankabilityAssessmentSubtitle": "Avalie confiança, lacunas e próximos passos para tornar o modelo de negócio pronto para financiamento.",
+    "maturity": {
+      "CONCEPT_NOTE": "Nota Conceitual",
+      "EMERGING": "Emergente",
+      "BANKABLE_DRAFT": "Rascunho Bancável"
+    },
+    "maturityDesc": {
+      "CONCEPT_NOTE": "Estrutura básica definida mas elementos-chave ausentes para prontidão de financiamento",
+      "EMERGING": "Elementos principais presentes mas precisam de fortalecimento para bancabilidade",
+      "BANKABLE_DRAFT": "Pronto para discussões de financiamento com forte compromisso do pagador e confiança na receita"
+    },
+    "topBlockers": "Principais Bloqueadores a Resolver",
+    "bankabilityBlocker": {
+      "payerNotConfirmed": "Pagador primário ainda não confirmado - fortalecer nível de compromisso",
+      "paymentMechanismIncomplete": "Tipo ou base do mecanismo de pagamento não totalmente definido",
+      "noConfidentRevenue": "Nenhuma linha de receita com confiança média ou alta identificada",
+      "opexNotCoveredBeyondEstablishment": "Cobertura de OPEX não garantida além da fase de estabelecimento",
+      "mrvRequiredForOutcomeModel": "Orçamento de MRV/verificação necessário para modelo de pagamento vinculado a resultados",
+      "noFinancingPathway": "Via de financiamento não selecionada"
+    },
+    "enablingActionsDesc": "Ações necessárias para viabilizar o modelo de negócio",
+    "addAction": "Adicionar Ação",
+    "actionPlaceholder": "Descreva a ação habilitadora...",
+    "selectOwner": "Selecionar responsável...",
+    "timeframePlaceholder": "ex., T1 2026",
+    "priorityHigh": "Alta Prioridade",
+    "priorityMedium": "Média Prioridade",
+    "priorityLow": "Baixa Prioridade",
+    "risksDesc": "Identifique e gerencie riscos do modelo de negócio",
+    "addRisk": "Adicionar Risco",
+    "customRiskLabel": "Descrição de risco personalizado...",
+    "hide": "Ocultar",
+    "hiddenRisks": "riscos ocultos",
+    "riskOwner": "Responsável pelo risco...",
+    "riskLevelTooltip": {
+      "LOW": "Baixa probabilidade ou impacto - monitorar mas sem ação imediata necessária",
+      "MEDIUM": "Probabilidade ou impacto moderado - plano de mitigação recomendado",
+      "HIGH": "Alta probabilidade e/ou impacto - requer mitigação ativa"
+    },
+    "playbookTitle": "Manual do Modelo de Negócio",
+    "playbookSubtitle": "Revise, refine e exporte um resumo pronto para nota conceitual do seu modelo de negócio.",
+    "whoBenefitsWhoPays": "Quem Beneficia / Quem Paga",
+    "archetypeAndMechanism": "Arquétipo e Mecanismo",
+    "revenueStackSummary": "Resumo da Pilha de Receitas",
+    "keyActionsAndRisks": "Ações e Riscos Principais",
+    "topEnablingActions": "Principais Ações Habilitadoras",
+    "exportOptions": "Opções de Exportação",
+    "copyToConceptNoteDesc": "Copiar texto formatado para área de transferência",
+    "exportPlaybookText": "Exportar Dados JSON",
+    "exportPlaybookTextDesc": "Baixar dados estruturados do manual",
+    "generateMiroPrompt": "Gerar Prompt Miro",
+    "generateMiroPromptDesc": "Copiar prompt de diagrama de fluxo de valor",
+    "exported": "Exportado",
+    "playbookExported": "Dados do manual exportados com sucesso",
+    "miroPromptCopied": "Prompt Miro copiado para área de transferência"
   },
   "impactModel": {
     "title": "Modelo de Impacto",
