@@ -1689,8 +1689,6 @@ export default function SiteExplorerPage() {
               )}
             </div>
           )}
-          
-          <div ref={mapContainerRef} className="absolute inset-0 z-0 h-full w-full" />
         </div>
       </div>
     </div>
