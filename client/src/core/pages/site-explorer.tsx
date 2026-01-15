@@ -402,13 +402,27 @@ export default function SiteExplorerPage() {
   }, [interventionsData]);
 
   const addInterventionToPortfolio = useCallback((zoneId: string, intervention: InterventionType, areaKm2: number) => {
+    const costUnit = intervention.costRange.unit;
+    let costMultiplier = 1;
+    
+    if (costUnit === 'USD/ha') {
+      costMultiplier = areaKm2 * 100;
+    } else if (costUnit === 'USD/m²') {
+      costMultiplier = areaKm2 * 1000000;
+    } else if (costUnit === 'USD/m') {
+      const approxPerimeterM = Math.sqrt(areaKm2) * 4 * 1000;
+      costMultiplier = approxPerimeterM;
+    } else {
+      costMultiplier = areaKm2 * 100;
+    }
+
     const newIntervention: SelectedIntervention = {
       interventionId: intervention.id,
       interventionName: intervention.name,
       category: intervention.category,
       estimatedCost: {
-        min: intervention.costRange.min * areaKm2 * (intervention.typicalScale.unit === 'ha' ? 100 : 1),
-        max: intervention.costRange.max * areaKm2 * (intervention.typicalScale.unit === 'ha' ? 100 : 1),
+        min: Math.round(intervention.costRange.min * costMultiplier),
+        max: Math.round(intervention.costRange.max * costMultiplier),
         unit: 'USD',
       },
       estimatedArea: areaKm2,
