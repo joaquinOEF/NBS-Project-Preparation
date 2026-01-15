@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, Check, Building2, Users, Landmark, DollarSign, AlertTriangle, FileText, Copy, ChevronDown, ChevronUp, Plus, Trash2, Info } from 'lucide-react';
+import { ArrowLeft, Check, Building2, Users, Landmark, DollarSign, AlertTriangle, FileText, Copy, ChevronDown, ChevronUp, Plus, Trash2, Info, Edit, RotateCcw, CheckCircle } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -14,6 +14,7 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/core/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/core/components/ui/tooltip';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/core/components/ui/dialog';
 import { useTranslation } from 'react-i18next';
 import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
@@ -178,6 +179,27 @@ const FINANCING_PATHWAYS: NonNullable<FinancingPathway>[] = [
   'PPP_LIGHT',
   'PHILANTHROPY_ONLY',
 ];
+
+const BENEFIT_TYPES: BenefitType[] = [
+  'CLIMATE_RESILIENCE',
+  'FLOOD_RISK_REDUCTION',
+  'HEAT_REDUCTION',
+  'AIR_QUALITY',
+  'PROPERTY_VALUE',
+  'HEALTH',
+  'LIVABILITY',
+  'OTHER',
+];
+
+const PAYER_ROLES: PayerRole[] = [
+  'ANCHOR_PAYER',
+  'CO_PAYER',
+  'CONTINGENT_PAYER',
+  'GRANT_PROVIDER',
+  'GUARANTOR',
+];
+
+const PRIMARY_PAYER_CONFIDENCE_OPTIONS: PrimaryPayerConfidence[] = ['CONFIRMED', 'PLANNED', 'IDEA'];
 
 const DEFAULT_RISKS: BMRisk[] = [
   { id: 'r1', riskType: 'COUNTERPARTY_CREDIT', riskLevel: 'LOW', mitigation: '' },
@@ -390,6 +412,8 @@ export default function BusinessModelPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [bmData, setBMData] = useState<BusinessModelData | null>(null);
   const [playbookOpen, setPlaybookOpen] = useState(false);
+  const [editContextOpen, setEditContextOpen] = useState(false);
+  const [editingContext, setEditingContext] = useState<ImportedContext | null>(null);
 
   const action = sampleActions.find(a => a.id === projectId);
   const isNBS = action?.type === 'adaptation';
@@ -579,6 +603,72 @@ export default function BusinessModelPage() {
     });
   };
 
+  const handleAcceptContext = () => {
+    if (!bmData) return;
+    updateBMData({ importedContextMode: 'ACCEPT' });
+    toast({ title: t('bm.contextAccepted'), description: t('bm.contextAcceptedDesc') });
+    setCurrentStep(1);
+  };
+
+  const handleEditContext = () => {
+    if (!bmData) return;
+    setEditingContext({ ...bmData.importedContext });
+    setEditContextOpen(true);
+  };
+
+  const handleSaveEditedContext = () => {
+    if (!bmData || !editingContext) return;
+    updateBMData({ 
+      importedContext: editingContext, 
+      importedContextMode: 'EDIT',
+      sourcesAndUsesRom: {
+        ...bmData.sourcesAndUsesRom,
+        capexBand: editingContext.capexBand,
+        opexBand: editingContext.opexBand,
+      }
+    });
+    setEditContextOpen(false);
+    toast({ title: t('bm.contextEdited'), description: t('bm.contextEditedDesc') });
+  };
+
+  const handleStartFromScratch = () => {
+    if (!bmData || !projectId) return;
+    const omData = getStoredOMData(projectId);
+    const freshData = buildInitialBMData(action?.type || 'adaptation', hazards, stakeholders, omData);
+    freshData.importedContextMode = 'SCRATCH';
+    freshData.originalContext = bmData.originalContext;
+    freshData.payerBeneficiaryMap = { beneficiaries: [], candidatePayers: [], primaryPayerId: null };
+    freshData.revenueStack = [];
+    freshData.primaryArchetype = null;
+    freshData.financingPathway = { pathway: null };
+    setBMData(freshData);
+    toast({ title: t('bm.startedFromScratch'), description: t('bm.startedFromScratchDesc') });
+  };
+
+  const updateBeneficiary = (stakeholderId: string, updates: Partial<PayerBeneficiary>) => {
+    if (!bmData) return;
+    updateBMData({
+      payerBeneficiaryMap: {
+        ...bmData.payerBeneficiaryMap,
+        beneficiaries: bmData.payerBeneficiaryMap.beneficiaries.map(b =>
+          b.stakeholderId === stakeholderId ? { ...b, ...updates } : b
+        ),
+      },
+    });
+  };
+
+  const updateCandidatePayer = (stakeholderId: string, updates: Partial<PayerBeneficiary>) => {
+    if (!bmData) return;
+    updateBMData({
+      payerBeneficiaryMap: {
+        ...bmData.payerBeneficiaryMap,
+        candidatePayers: bmData.payerBeneficiaryMap.candidatePayers.map(p =>
+          p.stakeholderId === stakeholderId ? { ...p, ...updates } : p
+        ),
+      },
+    });
+  };
+
   if (!bmData) {
     return (
       <div className="min-h-screen bg-background">
@@ -703,12 +793,114 @@ export default function BusinessModelPage() {
                 </div>
               )}
 
-              <Button onClick={() => setCurrentStep(1)} className="w-full">
-                {t('bm.startConfiguration')}
-              </Button>
+              {bmData.importedContextMode && (
+                <div className="flex items-center gap-2 p-2 bg-muted/30 rounded">
+                  <Badge variant={bmData.importedContextMode === 'ACCEPT' ? 'default' : bmData.importedContextMode === 'EDIT' ? 'secondary' : 'outline'}>
+                    {t(`bm.contextMode.${bmData.importedContextMode}`)}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">{t('bm.currentContextMode')}</span>
+                </div>
+              )}
+
+              <div className="border-t pt-4">
+                <Label className="text-base font-medium mb-3 block">{t('bm.contextActions')}</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <Button variant="default" onClick={handleAcceptContext} className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    {t('bm.acceptPrefill')}
+                  </Button>
+                  <Button variant="outline" onClick={handleEditContext} className="flex items-center gap-2">
+                    <Edit className="h-4 w-4" />
+                    {t('bm.editContext')}
+                  </Button>
+                  <Button variant="ghost" onClick={handleStartFromScratch} className="flex items-center gap-2 text-destructive hover:text-destructive">
+                    <RotateCcw className="h-4 w-4" />
+                    {t('bm.startFromScratch')}
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
+
+        <Dialog open={editContextOpen} onOpenChange={setEditContextOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{t('bm.editImportedContext')}</DialogTitle>
+              <DialogDescription>{t('bm.editContextDescription')}</DialogDescription>
+            </DialogHeader>
+            {editingContext && (
+              <div className="space-y-4">
+                <div>
+                  <Label>{t('bm.problemSummary')}</Label>
+                  <Textarea
+                    value={editingContext.problemSummary || ''}
+                    onChange={(e) => setEditingContext({ ...editingContext, problemSummary: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>{t('bm.capexLow')}</Label>
+                    <Input
+                      type="number"
+                      value={editingContext.capexBand?.low || 0}
+                      onChange={(e) => setEditingContext({
+                        ...editingContext,
+                        capexBand: { ...editingContext.capexBand, low: Number(e.target.value) }
+                      })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>{t('bm.capexHigh')}</Label>
+                    <Input
+                      type="number"
+                      value={editingContext.capexBand?.high || 0}
+                      onChange={(e) => setEditingContext({
+                        ...editingContext,
+                        capexBand: { ...editingContext.capexBand, high: Number(e.target.value) }
+                      })}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>{t('bm.opexLow')}</Label>
+                    <Input
+                      type="number"
+                      value={editingContext.opexBand?.low || 0}
+                      onChange={(e) => setEditingContext({
+                        ...editingContext,
+                        opexBand: { ...editingContext.opexBand, low: Number(e.target.value) }
+                      })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>{t('bm.opexHigh')}</Label>
+                    <Input
+                      type="number"
+                      value={editingContext.opexBand?.high || 0}
+                      onChange={(e) => setEditingContext({
+                        ...editingContext,
+                        opexBand: { ...editingContext.opexBand, high: Number(e.target.value) }
+                      })}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">{t('common.cancel')}</Button>
+              </DialogClose>
+              <Button onClick={handleSaveEditedContext}>{t('common.save')}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {currentStep === 1 && (
           <div className="space-y-6">
@@ -721,36 +913,57 @@ export default function BusinessModelPage() {
                 <div>
                   <Label className="text-base font-medium">{t('bm.beneficiaries')}</Label>
                   <p className="text-sm text-muted-foreground mb-3">{t('bm.beneficiariesHint')}</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div className="space-y-3">
                     {stakeholders.filter(s => ['community', 'private'].includes(s.type)).map(stakeholder => {
                       const isSelected = bmData.payerBeneficiaryMap.beneficiaries.some(b => b.stakeholderId === stakeholder.id);
+                      const beneficiary = bmData.payerBeneficiaryMap.beneficiaries.find(b => b.stakeholderId === stakeholder.id);
                       return (
-                        <div key={stakeholder.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`ben-${stakeholder.id}`}
-                            checked={isSelected}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                updateBMData({
-                                  payerBeneficiaryMap: {
-                                    ...bmData.payerBeneficiaryMap,
-                                    beneficiaries: [...bmData.payerBeneficiaryMap.beneficiaries, { stakeholderId: stakeholder.id }],
-                                  },
-                                });
-                              } else {
-                                updateBMData({
-                                  payerBeneficiaryMap: {
-                                    ...bmData.payerBeneficiaryMap,
-                                    beneficiaries: bmData.payerBeneficiaryMap.beneficiaries.filter(b => b.stakeholderId !== stakeholder.id),
-                                  },
-                                });
-                              }
-                            }}
-                          />
-                          <Label htmlFor={`ben-${stakeholder.id}`} className="text-sm">
-                            {stakeholder.name}
-                            <Badge variant="outline" className="ml-2 text-xs">{stakeholder.type}</Badge>
-                          </Label>
+                        <div key={stakeholder.id} className={`p-3 border rounded-lg ${isSelected ? 'border-primary bg-primary/5' : ''}`}>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`ben-${stakeholder.id}`}
+                              checked={isSelected}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  updateBMData({
+                                    payerBeneficiaryMap: {
+                                      ...bmData.payerBeneficiaryMap,
+                                      beneficiaries: [...bmData.payerBeneficiaryMap.beneficiaries, { stakeholderId: stakeholder.id }],
+                                    },
+                                  });
+                                } else {
+                                  updateBMData({
+                                    payerBeneficiaryMap: {
+                                      ...bmData.payerBeneficiaryMap,
+                                      beneficiaries: bmData.payerBeneficiaryMap.beneficiaries.filter(b => b.stakeholderId !== stakeholder.id),
+                                    },
+                                  });
+                                }
+                              }}
+                            />
+                            <Label htmlFor={`ben-${stakeholder.id}`} className="text-sm flex-1">
+                              {stakeholder.name}
+                              <Badge variant="outline" className="ml-2 text-xs">{stakeholder.type}</Badge>
+                            </Label>
+                          </div>
+                          {isSelected && (
+                            <div className="mt-2 ml-6">
+                              <Label className="text-xs text-muted-foreground">{t('bm.benefitType')} *</Label>
+                              <Select
+                                value={beneficiary?.benefitType || ''}
+                                onValueChange={(value) => updateBeneficiary(stakeholder.id, { benefitType: value as BenefitType })}
+                              >
+                                <SelectTrigger className="h-8 mt-1">
+                                  <SelectValue placeholder={t('bm.selectBenefitType')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {BENEFIT_TYPES.map(type => (
+                                    <SelectItem key={type} value={type}>{t(`bm.benefitTypes.${type}`)}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -760,65 +973,139 @@ export default function BusinessModelPage() {
                 <div>
                   <Label className="text-base font-medium">{t('bm.candidatePayers')}</Label>
                   <p className="text-sm text-muted-foreground mb-3">{t('bm.candidatePayersHint')}</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div className="space-y-3">
                     {stakeholders.filter(s => ['government', 'utility', 'private', 'dfi', 'philanthropy'].includes(s.type)).map(stakeholder => {
                       const isSelected = bmData.payerBeneficiaryMap.candidatePayers.some(p => p.stakeholderId === stakeholder.id);
+                      const payer = bmData.payerBeneficiaryMap.candidatePayers.find(p => p.stakeholderId === stakeholder.id);
                       return (
-                        <div key={stakeholder.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`payer-${stakeholder.id}`}
-                            checked={isSelected}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                updateBMData({
-                                  payerBeneficiaryMap: {
-                                    ...bmData.payerBeneficiaryMap,
-                                    candidatePayers: [...bmData.payerBeneficiaryMap.candidatePayers, { stakeholderId: stakeholder.id }],
-                                  },
-                                });
-                              } else {
-                                updateBMData({
-                                  payerBeneficiaryMap: {
-                                    ...bmData.payerBeneficiaryMap,
-                                    candidatePayers: bmData.payerBeneficiaryMap.candidatePayers.filter(p => p.stakeholderId !== stakeholder.id),
-                                  },
-                                });
-                              }
-                            }}
-                          />
-                          <Label htmlFor={`payer-${stakeholder.id}`} className="text-sm">
-                            {stakeholder.name}
-                            <Badge variant="outline" className="ml-2 text-xs">{stakeholder.type}</Badge>
-                          </Label>
+                        <div key={stakeholder.id} className={`p-3 border rounded-lg ${isSelected ? 'border-primary bg-primary/5' : ''}`}>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`payer-${stakeholder.id}`}
+                              checked={isSelected}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  updateBMData({
+                                    payerBeneficiaryMap: {
+                                      ...bmData.payerBeneficiaryMap,
+                                      candidatePayers: [...bmData.payerBeneficiaryMap.candidatePayers, { stakeholderId: stakeholder.id }],
+                                    },
+                                  });
+                                } else {
+                                  updateBMData({
+                                    payerBeneficiaryMap: {
+                                      ...bmData.payerBeneficiaryMap,
+                                      candidatePayers: bmData.payerBeneficiaryMap.candidatePayers.filter(p => p.stakeholderId !== stakeholder.id),
+                                    },
+                                  });
+                                }
+                              }}
+                            />
+                            <Label htmlFor={`payer-${stakeholder.id}`} className="text-sm flex-1">
+                              {stakeholder.name}
+                              <Badge variant="outline" className="ml-2 text-xs">{stakeholder.type}</Badge>
+                            </Label>
+                          </div>
+                          {isSelected && (
+                            <div className="mt-2 ml-6 grid grid-cols-2 gap-2">
+                              <div>
+                                <Label className="text-xs text-muted-foreground">{t('bm.payerRole')} *</Label>
+                                <Select
+                                  value={payer?.payerRole || ''}
+                                  onValueChange={(value) => updateCandidatePayer(stakeholder.id, { payerRole: value as PayerRole })}
+                                >
+                                  <SelectTrigger className="h-8 mt-1">
+                                    <SelectValue placeholder={t('bm.selectPayerRole')} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {PAYER_ROLES.map(role => (
+                                      <SelectItem key={role} value={role}>{t(`bm.payerRoles.${role}`)}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label className="text-xs text-muted-foreground">{t('bm.mechanismHint')}</Label>
+                                <Input
+                                  className="h-8 mt-1"
+                                  placeholder={t('bm.mechanismHintPlaceholder')}
+                                  value={payer?.mechanismHint || ''}
+                                  onChange={(e) => updateCandidatePayer(stakeholder.id, { mechanismHint: e.target.value })}
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 </div>
 
-                <div>
+                <div className="border-t pt-4">
                   <Label className="text-base font-medium">{t('bm.primaryPayer')} *</Label>
                   <p className="text-sm text-muted-foreground mb-3">{t('bm.primaryPayerHint')}</p>
-                  <Select
-                    value={bmData.payerBeneficiaryMap.primaryPayerId || ''}
-                    onValueChange={(value) => updateBMData({
-                      payerBeneficiaryMap: {
-                        ...bmData.payerBeneficiaryMap,
-                        primaryPayerId: value,
-                      },
-                    })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={t('bm.selectPrimaryPayer')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bmData.payerBeneficiaryMap.candidatePayers.map(payer => (
-                        <SelectItem key={payer.stakeholderId} value={payer.stakeholderId}>
-                          {getStakeholderName(payer.stakeholderId)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-4">
+                    <Select
+                      value={bmData.payerBeneficiaryMap.primaryPayerId || ''}
+                      onValueChange={(value) => updateBMData({
+                        payerBeneficiaryMap: {
+                          ...bmData.payerBeneficiaryMap,
+                          primaryPayerId: value,
+                        },
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('bm.selectPrimaryPayer')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bmData.payerBeneficiaryMap.candidatePayers.map(payer => (
+                          <SelectItem key={payer.stakeholderId} value={payer.stakeholderId}>
+                            {getStakeholderName(payer.stakeholderId)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {bmData.payerBeneficiaryMap.primaryPayerId && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/20">
+                        <div>
+                          <Label className="text-sm">{t('bm.paymentMechanismHint')} *</Label>
+                          <Input
+                            className="mt-1"
+                            placeholder={t('bm.paymentMechanismHintPlaceholder')}
+                            value={bmData.payerBeneficiaryMap.primaryPayerMechanismHint || ''}
+                            onChange={(e) => updateBMData({
+                              payerBeneficiaryMap: {
+                                ...bmData.payerBeneficiaryMap,
+                                primaryPayerMechanismHint: e.target.value,
+                              },
+                            })}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-sm">{t('bm.primaryPayerConfidence')} *</Label>
+                          <Select
+                            value={bmData.payerBeneficiaryMap.primaryPayerConfidence || ''}
+                            onValueChange={(value) => updateBMData({
+                              payerBeneficiaryMap: {
+                                ...bmData.payerBeneficiaryMap,
+                                primaryPayerConfidence: value as PrimaryPayerConfidence,
+                              },
+                            })}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder={t('bm.selectConfidence')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PRIMARY_PAYER_CONFIDENCE_OPTIONS.map(conf => (
+                                <SelectItem key={conf} value={conf}>{t(`bm.confidence.${conf}`)}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
