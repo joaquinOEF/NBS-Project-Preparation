@@ -389,6 +389,117 @@ export default function SiteExplorerPage() {
     return '#ffedd5';
   };
 
+  const getApplicableCategories = useCallback((typology: string): InterventionCategory[] => {
+    if (!interventionsData) return [];
+    return Object.values(interventionsData.categories).filter(cat => 
+      cat.applicableTypologies.includes(typology)
+    );
+  }, [interventionsData]);
+
+  const getInterventionsByCategory = useCallback((categoryId: string): InterventionType[] => {
+    if (!interventionsData) return [];
+    return interventionsData.interventions.filter(i => i.category === categoryId);
+  }, [interventionsData]);
+
+  const addInterventionToPortfolio = useCallback((zoneId: string, intervention: InterventionType, areaKm2: number) => {
+    const newIntervention: SelectedIntervention = {
+      interventionId: intervention.id,
+      interventionName: intervention.name,
+      category: intervention.category,
+      estimatedCost: {
+        min: intervention.costRange.min * areaKm2 * (intervention.typicalScale.unit === 'ha' ? 100 : 1),
+        max: intervention.costRange.max * areaKm2 * (intervention.typicalScale.unit === 'ha' ? 100 : 1),
+        unit: 'USD',
+      },
+      estimatedArea: areaKm2,
+      areaUnit: 'km²',
+      impacts: intervention.impacts,
+      addedAt: new Date().toISOString(),
+    };
+
+    setZonePortfolios(prev => {
+      const existing = prev[zoneId] || [];
+      if (existing.some(i => i.interventionId === intervention.id)) {
+        return prev;
+      }
+      return { ...prev, [zoneId]: [...existing, newIntervention] };
+    });
+  }, []);
+
+  const removeInterventionFromPortfolio = useCallback((zoneId: string, interventionId: string) => {
+    setZonePortfolios(prev => {
+      const existing = prev[zoneId] || [];
+      return { ...prev, [zoneId]: existing.filter(i => i.interventionId !== interventionId) };
+    });
+  }, []);
+
+  const savePortfolioToContext = useCallback(() => {
+    if (!projectId) return;
+    
+    const zonesLayer = layers.find(l => l.id === 'intervention_zones');
+    const zonesData = zonesLayer?.data?.geoJson?.features || [];
+    
+    const selectedZones: SelectedZone[] = Object.entries(zonePortfolios)
+      .filter(([_, portfolio]) => portfolio.length > 0)
+      .map(([zoneId, portfolio]) => {
+        const zoneFeature = zonesData.find((f: any) => f.properties?.zoneId === zoneId);
+        const props = zoneFeature?.properties || {};
+        return {
+          zoneId,
+          zoneName: props.zoneName || zoneId,
+          hazardType: props.typologyLabel || 'LOW',
+          primaryHazard: props.primaryHazard,
+          secondaryHazard: props.secondaryHazard,
+          riskScore: Math.max(props.meanFlood || 0, props.meanHeat || 0, props.meanLandslide || 0),
+          meanFlood: props.meanFlood,
+          meanHeat: props.meanHeat,
+          meanLandslide: props.meanLandslide,
+          area: (props.areaKm2 || 0) * 1000000,
+          areaKm2: props.areaKm2,
+          populationSum: props.populationSum,
+          interventionType: props.interventionType,
+          interventionPortfolio: portfolio,
+        };
+      });
+
+    const totalCells = zonesData.reduce((sum: number, f: any) => sum + (f.properties?.cellCount || 0), 0);
+    const floodCells = zonesData.filter((f: any) => f.properties?.typologyLabel?.includes('FLOOD')).reduce((sum: number, f: any) => sum + (f.properties?.cellCount || 0), 0);
+    const heatCells = zonesData.filter((f: any) => f.properties?.typologyLabel?.includes('HEAT')).reduce((sum: number, f: any) => sum + (f.properties?.cellCount || 0), 0);
+    const landslideCells = zonesData.filter((f: any) => f.properties?.typologyLabel?.includes('LANDSLIDE')).reduce((sum: number, f: any) => sum + (f.properties?.cellCount || 0), 0);
+
+    updateModule('siteExplorer', {
+      selectedZones,
+      layerPreferences: layers.reduce((acc, l) => ({ ...acc, [l.id]: l.enabled }), {}),
+      hazardSummary: { floodCells, heatCells, landslideCells, totalCells },
+    });
+  }, [projectId, zonePortfolios, layers, updateModule]);
+
+  const formatCost = (min: number, max: number): string => {
+    const formatNum = (n: number) => {
+      if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
+      if (n >= 1000) return `$${(n / 1000).toFixed(0)}K`;
+      return `$${n.toFixed(0)}`;
+    };
+    return `${formatNum(min)} - ${formatNum(max)}`;
+  };
+
+  const getImpactBadgeColor = (impact: string): string => {
+    if (impact === 'high') return 'bg-green-100 text-green-800';
+    if (impact === 'medium-high' || impact === 'medium') return 'bg-yellow-100 text-yellow-800';
+    if (impact === 'low-medium') return 'bg-orange-100 text-orange-800';
+    return 'bg-gray-100 text-gray-600';
+  };
+
+  const getCategoryIcon = (iconName: string) => {
+    switch (iconName) {
+      case 'droplets': return <Droplets className="h-5 w-5" />;
+      case 'trees': return <Trees className="h-5 w-5" />;
+      case 'mountain': return <Mountain className="h-5 w-5" />;
+      case 'layers': return <Layers className="h-5 w-5" />;
+      default: return <Leaf className="h-5 w-5" />;
+    }
+  };
+
   const createLayerFromData = useCallback((layerId: string, data: any): L.Layer | null => {
     if (!data) return null;
 
@@ -424,10 +535,16 @@ export default function SiteExplorerPage() {
                 `${t('interventionZones.metrics.meanLandslide')}: ${((p.meanLandslide || 0) * 100).toFixed(0)}%<br/>` +
                 `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
                 `${t('interventionZones.metrics.area')}: ${(p.areaKm2 || 0).toFixed(1)} km²<br/>` +
-                `${t('interventionZones.metrics.cells')}: ${p.cellCount || 0}` +
+                `${t('interventionZones.metrics.cells')}: ${p.cellCount || 0}<br/>` +
+                `<em style="font-size: 11px; color: #60a5fa;">Click to select interventions</em>` +
                 `</div>`;
               
               layer.bindTooltip(tooltip, { sticky: true });
+              
+              layer.on('click', () => {
+                setSelectedZone(p as ZoneProperties);
+                setSelectedCategory(null);
+              });
             },
           });
         }
@@ -882,6 +999,222 @@ export default function SiteExplorerPage() {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {selectedZone && (
+            <div className="absolute top-4 left-4 z-[1000] w-[420px] max-h-[calc(100vh-160px)] bg-background rounded-lg shadow-xl border overflow-hidden flex flex-col">
+              <div className="p-4 border-b bg-muted/50 flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-4 h-4 rounded"
+                      style={{ backgroundColor: TYPOLOGY_COLORS[selectedZone.typologyLabel] || '#10b981' }}
+                    />
+                    <div>
+                      <h3 className="font-semibold">{selectedZone.zoneId}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {t(`interventionZones.typologies.${selectedZone.typologyLabel}`)}
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedZone(null)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2 rounded bg-blue-50 dark:bg-blue-950">
+                    <div className="text-lg font-semibold text-blue-600">{((selectedZone.meanFlood || 0) * 100).toFixed(0)}%</div>
+                    <div className="text-xs text-muted-foreground">{t('interventionZones.metrics.meanFlood')}</div>
+                  </div>
+                  <div className="p-2 rounded bg-red-50 dark:bg-red-950">
+                    <div className="text-lg font-semibold text-red-600">{((selectedZone.meanHeat || 0) * 100).toFixed(0)}%</div>
+                    <div className="text-xs text-muted-foreground">{t('interventionZones.metrics.meanHeat')}</div>
+                  </div>
+                  <div className="p-2 rounded bg-amber-50 dark:bg-amber-950">
+                    <div className="text-lg font-semibold text-amber-600">{((selectedZone.meanLandslide || 0) * 100).toFixed(0)}%</div>
+                    <div className="text-xs text-muted-foreground">{t('interventionZones.metrics.meanLandslide')}</div>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
+                  <span>{t('interventionZones.metrics.area')}: {(selectedZone.areaKm2 || 0).toFixed(1)} km²</span>
+                  {selectedZone.populationSum && (
+                    <span>Pop: {(selectedZone.populationSum / 1000).toFixed(0)}K</span>
+                  )}
+                </div>
+              </div>
+
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-4">
+                  {!selectedCategory ? (
+                    <>
+                      <h4 className="font-medium text-sm">Select Intervention Category</h4>
+                      <div className="space-y-2">
+                        {getApplicableCategories(selectedZone.typologyLabel).map(category => (
+                          <button
+                            key={category.id}
+                            className="w-full p-3 rounded-lg border hover:border-primary hover:bg-primary/5 transition-colors text-left flex items-center gap-3"
+                            onClick={() => setSelectedCategory(category.id)}
+                          >
+                            <div 
+                              className="p-2 rounded-lg"
+                              style={{ backgroundColor: `${category.color}20`, color: category.color }}
+                            >
+                              {getCategoryIcon(category.icon)}
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium">{category.name}</div>
+                              <div className="text-sm text-muted-foreground">{category.description}</div>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          </button>
+                        ))}
+                      </div>
+
+                      {(zonePortfolios[selectedZone.zoneId]?.length || 0) > 0 && (
+                        <div className="mt-6">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium text-sm">Selected Interventions</h4>
+                            <Badge variant="secondary">{zonePortfolios[selectedZone.zoneId]?.length || 0}</Badge>
+                          </div>
+                          <div className="space-y-2">
+                            {zonePortfolios[selectedZone.zoneId]?.map(intervention => (
+                              <div key={intervention.interventionId} className="p-3 rounded-lg border bg-muted/30 flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium text-sm">{intervention.interventionName}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {formatCost(intervention.estimatedCost.min, intervention.estimatedCost.max)}
+                                  </div>
+                                </div>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={() => removeInterventionFromPortfolio(selectedZone.zoneId, intervention.interventionId)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedCategory(null)}>
+                          <ArrowLeft className="h-4 w-4 mr-1" />
+                          Back
+                        </Button>
+                        <span className="font-medium">
+                          {interventionsData?.categories[selectedCategory]?.name}
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        {getInterventionsByCategory(selectedCategory).map(intervention => {
+                          const isSelected = zonePortfolios[selectedZone.zoneId]?.some(
+                            i => i.interventionId === intervention.id
+                          );
+                          
+                          return (
+                            <Card key={intervention.id} className={isSelected ? 'border-primary bg-primary/5' : ''}>
+                              <CardHeader className="p-4 pb-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <CardTitle className="text-base">{intervention.name}</CardTitle>
+                                    <CardDescription className="mt-1">{intervention.description}</CardDescription>
+                                  </div>
+                                  <Button
+                                    variant={isSelected ? 'secondary' : 'default'}
+                                    size="sm"
+                                    onClick={() => {
+                                      if (isSelected) {
+                                        removeInterventionFromPortfolio(selectedZone.zoneId, intervention.id);
+                                      } else {
+                                        addInterventionToPortfolio(selectedZone.zoneId, intervention, selectedZone.areaKm2 || 1);
+                                      }
+                                    }}
+                                  >
+                                    {isSelected ? (
+                                      <>
+                                        <Check className="h-4 w-4 mr-1" />
+                                        Added
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Plus className="h-4 w-4 mr-1" />
+                                        Add
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="p-4 pt-2 space-y-3">
+                                <div className="flex flex-wrap gap-2">
+                                  <div className="flex items-center gap-1 text-sm">
+                                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                    <span>{intervention.costRange.min.toLocaleString()}-{intervention.costRange.max.toLocaleString()} {intervention.costRange.unit}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-sm">
+                                    <Clock className="h-4 w-4 text-muted-foreground" />
+                                    <span>{intervention.timeToImplement.min}-{intervention.timeToImplement.max} {intervention.timeToImplement.unit}</span>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-wrap gap-1">
+                                  <Badge className={getImpactBadgeColor(intervention.impacts.flood)}>
+                                    Flood: {intervention.impacts.flood}
+                                  </Badge>
+                                  <Badge className={getImpactBadgeColor(intervention.impacts.heat)}>
+                                    Heat: {intervention.impacts.heat}
+                                  </Badge>
+                                  <Badge className={getImpactBadgeColor(intervention.impacts.landslide)}>
+                                    Landslide: {intervention.impacts.landslide}
+                                  </Badge>
+                                </div>
+
+                                <Accordion type="single" collapsible className="w-full">
+                                  <AccordionItem value="details" className="border-none">
+                                    <AccordionTrigger className="py-2 text-sm">
+                                      More details
+                                    </AccordionTrigger>
+                                    <AccordionContent className="text-sm space-y-2">
+                                      <div>
+                                        <span className="font-medium">Scale:</span> {intervention.typicalScale.min}-{intervention.typicalScale.max} {intervention.typicalScale.unit}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">Implementation:</span> {intervention.implementationNotes}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">Maintenance:</span> {intervention.maintenanceRequirements}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">Co-benefits:</span> {intervention.cobenefits.join(', ')}
+                                      </div>
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                </Accordion>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </ScrollArea>
+
+              {(zonePortfolios[selectedZone.zoneId]?.length || 0) > 0 && (
+                <div className="p-4 border-t bg-muted/30 flex-shrink-0">
+                  <Button className="w-full" onClick={savePortfolioToContext}>
+                    <Check className="h-4 w-4 mr-2" />
+                    Save Interventions ({zonePortfolios[selectedZone.zoneId]?.length || 0})
+                  </Button>
+                </div>
+              )}
             </div>
           )}
           

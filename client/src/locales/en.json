@@ -297,7 +297,19 @@
     "legend": "Map Legend",
     "cityBoundary": "City Boundary",
     "majorContour": "Major Contour",
-    "minorContour": "Minor Contour"
+    "minorContour": "Minor Contour",
+    "selectCategory": "Select Intervention Category",
+    "selectedInterventions": "Selected Interventions",
+    "saveInterventions": "Save Interventions",
+    "clickToSelect": "Click to select interventions",
+    "moreDetails": "More details",
+    "scale": "Scale",
+    "implementation": "Implementation",
+    "maintenance": "Maintenance",
+    "cobenefits": "Co-benefits",
+    "addToPortfolio": "Add",
+    "added": "Added",
+    "population": "Population"
   },
   "interventionZones": {
     "title": "Intervention Zones",
