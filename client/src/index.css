@@ -167,11 +167,24 @@
 
 /* Site explorer panel scrolling fix */
 .site-explorer-panel {
+  pointer-events: auto !important;
+  isolation: isolate;
+}
+
+.site-explorer-panel * {
   pointer-events: auto;
 }
 
 .site-explorer-panel [data-radix-scroll-area-viewport] {
   overscroll-behavior: contain;
+  pointer-events: auto !important;
+}
+
+.site-explorer-panel button,
+.site-explorer-panel [role="button"] {
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 1;
 }
 
 .mini-map {

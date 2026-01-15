@@ -1347,6 +1347,7 @@ export default function SiteExplorerPage() {
           {selectedZone && (
             <div 
               className="site-explorer-panel absolute top-4 left-4 z-[1001] w-[420px] max-h-[calc(100vh-160px)] bg-background rounded-lg shadow-xl border overflow-hidden flex flex-col"
+              style={{ pointerEvents: 'auto' }}
             >
               <div className="p-4 border-b bg-muted/50 flex-shrink-0">
                 <div className="flex items-center justify-between">
@@ -1396,7 +1397,7 @@ export default function SiteExplorerPage() {
                 </div>
               </div>
 
-              <ScrollArea className="flex-1 min-h-0">
+              <ScrollArea className="flex-1 min-h-0" style={{ pointerEvents: 'auto' }}>
                 <div className="p-4 space-y-4">
                   {!selectedCategory ? (
                     <>
@@ -1667,8 +1668,8 @@ export default function SiteExplorerPage() {
               </ScrollArea>
 
               {(zonePortfolios[selectedZone.zoneId]?.length || 0) > 0 && (
-                <div className="p-4 border-t bg-muted/30 flex-shrink-0">
-                  <Button className="w-full" onClick={savePortfolioToContext}>
+                <div className="p-4 border-t bg-muted/30 flex-shrink-0" style={{ pointerEvents: 'auto' }}>
+                  <Button className="w-full relative z-10" onClick={savePortfolioToContext} style={{ pointerEvents: 'auto' }}>
                     <Check className="h-4 w-4 mr-2" />
                     Save Interventions ({zonePortfolios[selectedZone.zoneId]?.length || 0})
                   </Button>
@@ -1677,7 +1678,7 @@ export default function SiteExplorerPage() {
             </div>
           )}
           
-          <div ref={mapContainerRef} className="h-full w-full" />
+          <div ref={mapContainerRef} className="absolute inset-0 z-0 h-full w-full" />
         </div>
       </div>
     </div>
