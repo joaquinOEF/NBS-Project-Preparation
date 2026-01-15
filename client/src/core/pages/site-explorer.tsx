@@ -409,9 +409,21 @@ export default function SiteExplorerPage() {
               return a + (c[0] * next[1] - next[0] * c[1]);
             }, 0) / 2) * 111319 * 111319;
           } else {
-            geometry = { type: 'LineString', coordinates: coords };
-            centroid = coords[Math.floor(coords.length / 2)].slice().reverse();
-            length = calculateLineLength(coords);
+            const lineFeature = turf.lineString(coords);
+            const clipped = turf.bboxClip(lineFeature, [bbox[1], bbox[0], bbox[3], bbox[2]]);
+            
+            if (clipped.geometry.type === 'LineString' && clipped.geometry.coordinates.length >= 2) {
+              geometry = clipped.geometry;
+              const clippedCoords = clipped.geometry.coordinates;
+              centroid = clippedCoords[Math.floor(clippedCoords.length / 2)].slice().reverse();
+              length = calculateLineLength(clippedCoords);
+            } else if (clipped.geometry.type === 'MultiLineString' && clipped.geometry.coordinates.length > 0) {
+              geometry = clipped.geometry;
+              const allCoords = clipped.geometry.coordinates.flat();
+              centroid = allCoords[Math.floor(allCoords.length / 2)].slice().reverse();
+              length = clipped.geometry.coordinates.reduce((total: number, seg: number[][]) => 
+                total + calculateLineLength(seg), 0);
+            }
           }
         }
         
@@ -439,10 +451,9 @@ export default function SiteExplorerPage() {
       setOsmAssets(assets);
       
       if (mapRef.current && assets.length > 0) {
-        const renderableAssets = assets.filter((a: any) => a.geometry.type !== 'LineString');
         const geoJsonFeatures = {
           type: 'FeatureCollection',
-          features: renderableAssets.map((a: any) => ({
+          features: assets.map((a: any) => ({
             type: 'Feature',
             geometry: a.geometry,
             properties: { ...a, geometry: undefined },
