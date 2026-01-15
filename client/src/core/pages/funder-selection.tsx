@@ -615,16 +615,17 @@ export default function FunderSelectionPage() {
       const savedQuestionnaire = existingContext?.funderSelection?.questionnaire as QuestionnaireAnswers | undefined;
       
       // Check if questionnaire was already completed (has key answers filled)
-      const isQuestionnaireComplete = savedQuestionnaire?.projectName && 
-        savedQuestionnaire?.sectors?.length > 0 &&
-        savedQuestionnaire?.projectStage &&
+      const isQuestionnaireComplete = savedQuestionnaire?.projectStage &&
         savedQuestionnaire?.generatesRevenue;
       
       if (isQuestionnaireComplete) {
         setAnswers(savedQuestionnaire);
         // Auto-show results if questionnaire was already completed
         setShowResults(true);
-      } else if (action && !answers.projectName) {
+      }
+      
+      // Always auto-populate project basics from action/shared context
+      if (action) {
         setAnswers(prev => ({
           ...prev,
           projectName: action.name,
@@ -726,7 +727,6 @@ export default function FunderSelectionPage() {
   }, [computedResults, projectId, hasSavedToContext, fundingPlanConfirmed, answers, updateModule]);
 
   const steps = [
-    { id: 'basics', title: t('funderSelection.steps.basics'), icon: FileText },
     { id: 'readiness', title: t('funderSelection.steps.readiness'), icon: Check },
     { id: 'political', title: t('funderSelection.steps.political'), icon: Shield },
     { id: 'financing', title: t('funderSelection.steps.financing'), icon: DollarSign },
@@ -889,11 +889,10 @@ export default function FunderSelectionPage() {
 
   const canProceed = () => {
     switch (currentStep) {
-      case 0: return answers.projectName && answers.sectors.length > 0;
-      case 1: return answers.projectStage && answers.budgetPreparation;
-      case 2: return answers.politicalMandatePlanRefs.length > 0 && answers.politicalEndorsementLevel && answers.implementingOwnership && answers.internalAlignmentLevel && answers.politicalRiskFactors.length > 0 && answers.leadershipCommitmentConfidence;
-      case 3: return answers.generatesRevenue && answers.investmentSize;
-      case 4: return answers.fundingReceiver && answers.canTakeDebt;
+      case 0: return answers.projectStage && answers.budgetPreparation;
+      case 1: return answers.politicalMandatePlanRefs.length > 0 && answers.politicalEndorsementLevel && answers.implementingOwnership && answers.internalAlignmentLevel && answers.politicalRiskFactors.length > 0 && answers.leadershipCommitmentConfidence;
+      case 2: return answers.generatesRevenue && answers.investmentSize;
+      case 3: return answers.fundingReceiver && answers.canTakeDebt;
       default: return true;
     }
   };
@@ -938,50 +937,6 @@ export default function FunderSelectionPage() {
   const renderStepContent = () => {
     switch (currentStep) {
       case 0:
-        return (
-          <div className="space-y-6">
-            <div>
-              <Label htmlFor="projectName">{t('funderSelection.projectName')}</Label>
-              <Input
-                id="projectName"
-                value={answers.projectName}
-                onChange={(e) => updateAnswer('projectName', e.target.value)}
-                placeholder={t('funderSelection.projectNamePlaceholder')}
-                className="mt-2"
-              />
-            </div>
-            <div>
-              <Label htmlFor="projectDescription">{t('funderSelection.projectDescription')}</Label>
-              <Textarea
-                id="projectDescription"
-                value={answers.projectDescription}
-                onChange={(e) => updateAnswer('projectDescription', e.target.value)}
-                placeholder={t('funderSelection.projectDescriptionPlaceholder')}
-                className="mt-2"
-                rows={3}
-              />
-            </div>
-            <div>
-              <Label>{t('funderSelection.primarySector')}</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                {SECTOR_IDS.map(id => (
-                  <div key={id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={id}
-                      checked={answers.sectors.includes(id)}
-                      onCheckedChange={() => toggleArrayAnswer('sectors', id)}
-                    />
-                    <Label htmlFor={id} className="text-sm font-normal cursor-pointer">
-                      {t(`funderSelection.sectors.${id}`)}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-
-      case 1:
         return (
           <div className="space-y-6">
             <div>
@@ -1061,7 +1016,7 @@ export default function FunderSelectionPage() {
           </div>
         );
 
-      case 2:
+      case 1:
         // Political Mandate & Leadership Readiness
         const PLAN_REF_IDS = ['city_climate_plan', 'sectoral_plan', 'multi_year_investment_plan', 'national_or_state_plan', 'not_in_official_plan'];
         const ENDORSEMENT_IDS = ['written', 'informal', 'none', 'unknown'];
@@ -1184,7 +1139,7 @@ export default function FunderSelectionPage() {
           </div>
         );
 
-      case 3:
+      case 2:
         return (
           <div className="space-y-6">
             <div>
@@ -1247,7 +1202,7 @@ export default function FunderSelectionPage() {
           </div>
         );
 
-      case 4:
+      case 3:
         return (
           <div className="space-y-6">
             <div>
