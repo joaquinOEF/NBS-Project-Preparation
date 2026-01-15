@@ -1,0 +1,228 @@
+Your task is NOT to redesign or reinterpret the module.
+Your task is to **faithfully replicate the functionality, information density, and behavior**
+of the fully implemented (dark-themed) version inside this Host Repl,
+while adapting visuals and components to the Host Repl's style system.
+
+The dark-themed version is the SOURCE OF TRUTH for:
+- features
+- flow
+- content structure
+- information shown to the user
+- AI behavior and outputs
+
+The light-themed version is currently INCOMPLETE and missing critical elements.
+Your job is to close that gap.
+
+---
+
+## 1. What must be functionally identical
+
+You must ensure the light-themed adaptation includes ALL of the following,
+matching the dark-themed version in behavior and content.
+
+### A. Wizard flow (must be identical)
+The module MUST have the following steps, in this order:
+
+1. Setup  
+2. Generate  
+3. Curate  
+4. Lenses  
+5. Export  
+
+Each step must:
+- show completion state
+- allow back/forward navigation
+- persist state across steps
+
+---
+
+### B. Project Context (currently missing or incomplete)
+The light-themed version MUST include a full **Project Context panel**
+equivalent to the dark-themed version, including:
+
+- City (name, region, country)
+- Recent events (e.g. May 2024 floods)
+- Funder profile (name, PPF, tone)
+- Budget (total, range, horizon)
+- Hazards (flooding, heat, landslides)
+- Portfolio summary
+
+This context:
+- must be visible throughout the flow (sidebar or persistent panel)
+- must also be summarized in the main content at key steps (Setup, Generate)
+- is read-only and pre-filled from earlier stages
+
+DO NOT reduce this to only a city name or label.
+The absence of this context is a critical gap in the current adaptation.
+
+---
+
+### C. Setup step – parity requirements
+The Setup step in the light-themed version MUST include:
+
+1. **Prioritization Weights**
+   - Sliders for:
+     - Flood risk reduction
+     - Heat reduction
+     - Landslide risk reduction
+     - Social equity
+     - Cost certainty
+     - Biodiversity & water quality
+   - Clear indication that these are:
+     "Imported from PLAC / project plan"
+   - Ability to adjust weights
+   - Reset to defaults
+   - Visual indicator when a weight was modified
+
+2. **Implementation Projects**
+   - List of implementation projects (not just zones)
+   - Each project must show:
+     - Name
+     - Objective
+     - Budget range
+     - Target hazards
+     - Key interventions
+   - Ability to include/exclude projects
+
+If the light-themed version uses "zones" or simplified bundles,
+replace or expand them to match the project-level structure
+of the dark-themed version.
+
+---
+
+### D. Generate step – missing content to restore
+The Generate step MUST include:
+
+- A **Generation Summary** showing:
+  - City
+  - Funder
+  - Selected projects
+  - Prioritization weights
+- Clear indication if:
+  - a previous generation exists
+  - user can continue to curation or regenerate
+- A single "Generate Narrative" action that:
+  - calls GPT
+  - produces structured JSON output
+  - stores metadata (timestamp, version, lens = neutral)
+
+If the light-themed version only triggers generation without showing
+what is being generated from, this must be fixed.
+
+---
+
+### E. Curate step – full block-based editing
+The Curate step MUST replicate the dark-themed behavior:
+
+- Narrative content is split into **blocks**, including (at minimum):
+  - Executive Summary
+  - Context & Rationale
+  - Theory of Change
+  - Portfolio Overview & Phasing
+  - Expected Impacts
+  - Key Co-Benefits
+  - Synergies & Alignment
+  - Assumptions
+  - Risks & Dependencies
+  - MRV Stub
+
+For each block, the user must be able to:
+- Edit content inline
+- Reorder blocks
+- Toggle include/exclude
+- Regenerate that block with a custom prompt
+- See evidence tier / confidence where available
+
+If the light-themed version shows only a single text output or a reduced set of blocks,
+this must be expanded to full parity.
+
+---
+
+### F. Lenses step – critical logic to preserve
+The Lenses step MUST behave exactly as in the dark-themed version:
+
+- Lenses:
+  - Neutral
+  - Climate
+  - Social
+  - Financial
+  - Institutional
+
+For each lens:
+- Show a short explanatory description of what the lens emphasizes
+- Show whether a lens version already exists
+- Do NOT auto-regenerate when switching lenses
+- Generate lens version only when the user clicks "Generate Lens Version"
+- Allow regeneration with custom instructions
+- Cache each lens version separately
+- Preserve edits per lens
+
+If the light-themed version regenerates automatically or lacks explanations,
+this must be corrected.
+
+---
+
+### G. Export step – full parity required
+The Export step MUST include:
+
+- Export summary:
+  - City
+  - Funder
+  - Lens
+  - Version
+  - Included blocks count
+- Export options:
+  - Markdown (.md)
+  - JSON (with metadata)
+  - Copy to clipboard
+- Live preview of exported content (Markdown + JSON toggle)
+
+This step must export the curated version of the selected lens,
+not always the neutral base.
+
+---
+
+## 2. AI behavior that must be preserved
+
+- AI outputs MUST be structured JSON
+- Narrative blocks, co-benefits, and signals must NOT be free text blobs
+- Lens generation must:
+  - reuse existing content
+  - adjust emphasis and tone
+  - not invent new KPIs unless explicitly instructed
+- Evidence tiers, assumptions, and confidence tags must be preserved
+
+Do NOT simplify the AI prompts to "just generate text".
+
+---
+
+## 3. Style adaptation rules
+
+You MAY:
+- Replace dark-theme colors with the Host Repl's light theme
+- Swap UI components for the Host Repl's component library
+- Adjust spacing and typography
+
+You MUST NOT:
+- Remove information
+- Collapse steps
+- Hide context
+- Reduce block granularity
+- Remove curation controls
+
+Functional parity > visual parity.
+
+---
+
+## 4. Success criteria
+
+The migration is successful when:
+- A user can move through the light-themed version and perform
+  **every action visible in the dark-themed screenshots**
+- The exported Markdown/JSON from both versions are structurally equivalent
+- No project context, blocks, or lens logic is missing
+- The module clearly feels like:
+  "one tool in a larger project preparation suite for climate funder applications"
+
+Proceed step by step, restoring missing features first,
+then aligning visuals to the Host Repl's style.

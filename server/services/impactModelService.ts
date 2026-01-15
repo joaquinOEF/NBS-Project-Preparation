@@ -140,42 +140,103 @@ PRIORITIZATION WEIGHTS:
 - Cost Certainty: ${prioritizationWeights.costCertainty ?? 0.1}
 - Biodiversity & Water Quality: ${prioritizationWeights.biodiversityWaterQuality ?? 0.1}
 
-Generate a complete impact narrative response in the following JSON structure:
+Generate a complete impact narrative response in the following JSON structure.
+You MUST generate exactly 10 narrative blocks covering all these topics:
 
 {
   "narrativeBlocks": [
     {
       "id": "block-1",
       "title": "Executive Summary",
-      "type": "summary",
+      "type": "executive_summary",
       "lens": "neutral",
-      "contentMd": "2-3 paragraph executive summary of the project's climate impact...",
+      "contentMd": "2-3 paragraph executive summary introducing the project, its scale, key outcomes, and why it matters for climate resilience...",
       "evidenceTier": "MODELLED",
       "included": true,
-      "kpis": [
-        { "name": "Key metric name", "valueRange": "X-Y%", "unit": "reduction", "confidence": "MEDIUM" }
-      ]
+      "kpis": [{ "name": "Key outcome metric", "valueRange": "X-Y%", "unit": "reduction", "confidence": "MEDIUM" }]
     },
     {
       "id": "block-2",
-      "title": "Theory of Change",
-      "type": "theory_of_change",
+      "title": "Context and Rationale",
+      "type": "context_rationale",
       "lens": "neutral",
-      "contentMd": "Explain how the interventions lead to desired outcomes...",
-      "evidenceTier": "ASSUMPTION",
+      "contentMd": "Explain the city context, climate challenges, recent events, and why NBS interventions are needed now...",
+      "evidenceTier": "EVIDENCE",
       "included": true
     },
     {
       "id": "block-3",
-      "title": "Expected Impacts",
-      "type": "expected_impacts",
-      "lens": "neutral", 
-      "contentMd": "Detail the primary and secondary impacts...",
+      "title": "Theory of Change",
+      "type": "theory_of_change",
+      "lens": "neutral",
+      "contentMd": "Explain the causal chain: how the interventions lead to outcomes. Include inputs, activities, outputs, outcomes, and impact...",
+      "evidenceTier": "ASSUMPTION",
+      "included": true
+    },
+    {
+      "id": "block-4",
+      "title": "Portfolio Overview and Phasing",
+      "type": "portfolio_phasing",
+      "lens": "neutral",
+      "contentMd": "Detail the intervention portfolio, implementation phases, timelines, and sequencing logic...",
       "evidenceTier": "MODELLED",
       "included": true,
-      "kpis": [
-        { "name": "Impact metric", "valueRange": "range", "unit": "unit", "confidence": "confidence" }
-      ]
+      "kpis": [{ "name": "Implementation timeline", "valueRange": "X-Y years", "unit": "duration", "confidence": "MEDIUM" }]
+    },
+    {
+      "id": "block-5",
+      "title": "Expected Impacts",
+      "type": "expected_impacts",
+      "lens": "neutral",
+      "contentMd": "Detail the primary climate impacts (flood reduction, heat mitigation, landslide prevention) with quantified ranges...",
+      "evidenceTier": "MODELLED",
+      "included": true,
+      "kpis": [{ "name": "Flood risk reduction", "valueRange": "X-Y%", "unit": "reduction", "confidence": "MEDIUM" }, { "name": "Heat reduction", "valueRange": "X-Y°C", "unit": "degrees", "confidence": "MEDIUM" }]
+    },
+    {
+      "id": "block-6",
+      "title": "Key Co-Benefits",
+      "type": "key_cobenefits",
+      "lens": "neutral",
+      "contentMd": "Summarize the main co-benefits across health, biodiversity, economic value, social cohesion, water quality...",
+      "evidenceTier": "MODELLED",
+      "included": true
+    },
+    {
+      "id": "block-7",
+      "title": "Synergies and Alignment",
+      "type": "synergies_alignment",
+      "lens": "neutral",
+      "contentMd": "Explain alignment with city plans, national policies, SDGs, and other initiatives. Identify synergies with existing programs...",
+      "evidenceTier": "EVIDENCE",
+      "included": true
+    },
+    {
+      "id": "block-8",
+      "title": "Assumptions",
+      "type": "assumptions",
+      "lens": "neutral",
+      "contentMd": "List key assumptions underlying the impact estimates, including climate scenarios, implementation capacity, and stakeholder engagement...",
+      "evidenceTier": "ASSUMPTION",
+      "included": true
+    },
+    {
+      "id": "block-9",
+      "title": "Risks and Dependencies",
+      "type": "risks_dependencies",
+      "lens": "neutral",
+      "contentMd": "Identify key risks (climate, implementation, financial, political) and dependencies. Include mitigation strategies...",
+      "evidenceTier": "ASSUMPTION",
+      "included": true
+    },
+    {
+      "id": "block-10",
+      "title": "MRV Stub (Monitoring, Reporting and Verification)",
+      "type": "mrv_stub",
+      "lens": "neutral",
+      "contentMd": "Outline the MRV framework: what will be measured, how, when, and by whom. Include key indicators and reporting frequency...",
+      "evidenceTier": "ASSUMPTION",
+      "included": true
     }
   ],
   "coBenefits": [
