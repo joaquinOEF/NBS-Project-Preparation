@@ -1469,37 +1469,6 @@ export default function FunderSelectionPage() {
           </Card>
         )}
 
-        {bridgeParagraph && (
-          <Card className="border-green-200 bg-green-50/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ArrowUpRight className="h-5 w-5 text-green-600" />
-                {t('funderSelection.results.whatUnlocks')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">{bridgeParagraph}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Lightbulb className="h-5 w-5" />
-              {t('funderSelection.results.nextSteps')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">{pathway.nextSteps}</p>
-            <div className="pt-3 border-t">
-              <p className="text-xs text-muted-foreground">
-                {t('funderSelection.results.disclaimer')}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Confirm Funding Plan - Floating Summary */}
         {(selectedNowFundId || fundingPlanConfirmed) && (
           <Card className={`mt-6 ${fundingPlanConfirmed ? 'border-green-500 bg-green-50' : 'border-primary/30 bg-primary/5'}`}>
