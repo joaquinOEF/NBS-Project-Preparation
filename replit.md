@@ -53,11 +53,17 @@ Preferred communication style: Simple, everyday language.
 - Integration with the Shared Project Context for data storage and retrieval.
 
 ## Geospatial Risk Analysis
-- **Site Explorer**: Uses a grid-based risk scoring system.
+- **Site Explorer**: Uses a grid-based risk scoring system with asset-based intervention selection.
 - **Risk Formulas**:
     - **Heat Risk**: Based on building density, population density, vegetation deficit, water deficit.
     - **Flood Risk**: Based on D8 flow accumulation, topographic depressions, river proximity, low-lying areas.
     - **Landslide Risk**: Based on slope, vegetation cover deficit, terrain position.
+- **OSM Asset Discovery**: Fetches real assets from OpenStreetMap Overpass API based on intervention-compatible asset types.
+- **Linear Asset Handling**: 
+    - Roads, waterways, and other linear features use `turf.bboxClip` for clipping to zone bounds
+    - Supports both LineString and MultiLineString geometries
+    - Length calculated from clipped geometry for accurate USD/m cost scaling
+    - Common OSM tags: leisure=park, leisure=garden, natural=water, highway=residential, waterway=stream, place=square, amenity=marketplace
 
 ## Business Model Module
 - A 6-step wizard to structure project financing.
