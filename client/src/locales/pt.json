@@ -166,8 +166,56 @@
     "steps": {
       "basics": "Básicos do Projeto",
       "readiness": "Prontidão",
+      "political": "Liderança",
       "financing": "Financiamento",
       "institutional": "Institucional"
+    },
+    "political": {
+      "planRefs": "Este projeto está formalmente referenciado em um plano oficial?",
+      "planRefsHint": "Selecione todas as opções aplicáveis",
+      "planRefOptions": {
+        "city_climate_plan": "Plano de Ação Climática da Cidade",
+        "sectoral_plan": "Plano setorial (transporte, água, habitação, etc.)",
+        "multi_year_investment_plan": "Plano de investimento plurianual / PPA",
+        "national_or_state_plan": "Plano nacional ou estadual",
+        "not_in_official_plan": "Ainda não incluído em um plano oficial"
+      },
+      "endorsement": "Este projeto recebeu endosso político formal?",
+      "endorsementOptions": {
+        "written": "Sim — existe endosso escrito ou resolução",
+        "informal": "Sim — aprovação informal / verbal",
+        "none": "Não — ainda não endossado",
+        "unknown": "Não tenho certeza"
+      },
+      "ownership": "Quem é responsável pela entrega deste projeto?",
+      "ownershipOptions": {
+        "single_department": "Um único departamento claramente responsável",
+        "multiple_departments": "Múltiplos departamentos conjuntamente responsáveis",
+        "not_defined": "Responsabilidade ainda não definida"
+      },
+      "alignment": "Os principais stakeholders internos estão alinhados para prosseguir com este projeto?",
+      "alignmentOptions": {
+        "high": "Sim — amplo alinhamento entre departamentos",
+        "medium": "Alinhamento parcial — alguma resistência ou questões em aberto",
+        "low": "Não — desacordo interno significativo",
+        "unknown": "Não tenho certeza"
+      },
+      "riskFactors": "Existem riscos políticos ou sociais previsíveis que podem atrasar ou bloquear este projeto?",
+      "riskFactorsHint": "Selecione todas as opções aplicáveis",
+      "riskFactorOptions": {
+        "upcoming_elections": "Eleições próximas",
+        "land_resettlement": "Sensibilidades de terra ou reassentamento",
+        "tariff_sensitivity": "Aumentos de tarifas ou taxas necessários",
+        "public_opposition": "Risco de oposição pública",
+        "none": "Nenhum identificado"
+      },
+      "commitment": "Se este projeto ficar mais lento, mais caro ou politicamente controverso, você espera que a liderança da cidade continue apoiando-o?",
+      "commitmentOptions": {
+        "high": "Sim — alta confiança",
+        "medium": "Possivelmente — depende das condições",
+        "low": "Improvável",
+        "unknown": "Não tenho certeza"
+      }
     },
     "projectName": "Nome do Projeto",
     "projectNamePlaceholder": "Digite o nome do projeto",
@@ -259,6 +307,22 @@
       "alsoConsider": "Considere também",
       "readinessSnapshot": "Visão Geral da Prontidão do Projeto",
       "assessedLevel": "Nível de prontidão avaliado",
+      "overallReadiness": "Prontidão Geral",
+      "technicalReadiness": "Técnica",
+      "financialReadiness": "Financeira",
+      "politicalReadiness": "Política",
+      "mandateStrength": "Força do Mandato",
+      "durabilityRisk": "Risco de Durabilidade",
+      "mandateStrengthOptions": {
+        "weak": "Fraco",
+        "moderate": "Moderado",
+        "strong": "Forte"
+      },
+      "durabilityRiskOptions": {
+        "low": "Baixo",
+        "medium": "Médio",
+        "high": "Alto"
+      },
       "limitingFactors": "Principais fatores limitantes",
       "topFunds": "Principais Fundos para Explorar",
       "topFundsDescription": "Estes fundos são classificados com base na adequação ao perfil do seu projeto",

@@ -166,8 +166,56 @@
     "steps": {
       "basics": "Project Basics",
       "readiness": "Readiness",
+      "political": "Leadership",
       "financing": "Financing",
       "institutional": "Institutional"
+    },
+    "political": {
+      "planRefs": "Is this project formally referenced in an official plan?",
+      "planRefsHint": "Select all that apply",
+      "planRefOptions": {
+        "city_climate_plan": "City Climate Action Plan",
+        "sectoral_plan": "Sectoral plan (transport, water, housing, etc.)",
+        "multi_year_investment_plan": "Multi-year investment plan / PPA",
+        "national_or_state_plan": "National or state plan",
+        "not_in_official_plan": "Not yet included in an official plan"
+      },
+      "endorsement": "Has this project received formal political endorsement?",
+      "endorsementOptions": {
+        "written": "Yes — written endorsement or resolution exists",
+        "informal": "Yes — informal / verbal approval",
+        "none": "No — not yet endorsed",
+        "unknown": "Not sure"
+      },
+      "ownership": "Who is responsible for delivering this project?",
+      "ownershipOptions": {
+        "single_department": "Single department clearly responsible",
+        "multiple_departments": "Multiple departments jointly responsible",
+        "not_defined": "Responsibility not yet defined"
+      },
+      "alignment": "Are key internal stakeholders aligned on pursuing this project?",
+      "alignmentOptions": {
+        "high": "Yes — broad alignment across departments",
+        "medium": "Partial alignment — some resistance or open questions",
+        "low": "No — significant internal disagreement",
+        "unknown": "Not sure"
+      },
+      "riskFactors": "Are there foreseeable political or social risks that could delay or block this project?",
+      "riskFactorsHint": "Select all that apply",
+      "riskFactorOptions": {
+        "upcoming_elections": "Upcoming elections",
+        "land_resettlement": "Land or resettlement sensitivities",
+        "tariff_sensitivity": "Tariff or fee increases required",
+        "public_opposition": "Public opposition risk",
+        "none": "None identified"
+      },
+      "commitment": "If this project becomes slower, more expensive, or politically controversial, do you expect city leadership to continue supporting it?",
+      "commitmentOptions": {
+        "high": "Yes — high confidence",
+        "medium": "Possibly — depends on conditions",
+        "low": "Unlikely",
+        "unknown": "Not sure"
+      }
     },
     "projectName": "Project Name",
     "projectNamePlaceholder": "Enter project name",
@@ -259,6 +307,22 @@
       "alsoConsider": "Also consider",
       "readinessSnapshot": "Project Readiness Snapshot",
       "assessedLevel": "Assessed readiness level",
+      "overallReadiness": "Overall Readiness",
+      "technicalReadiness": "Technical",
+      "financialReadiness": "Financial",
+      "politicalReadiness": "Political",
+      "mandateStrength": "Mandate Strength",
+      "durabilityRisk": "Durability Risk",
+      "mandateStrengthOptions": {
+        "weak": "Weak",
+        "moderate": "Moderate",
+        "strong": "Strong"
+      },
+      "durabilityRiskOptions": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      },
       "limitingFactors": "Main limiting factors",
       "topFunds": "Top Funds to Explore",
       "topFundsDescription": "These funds are ranked based on fit with your project profile",

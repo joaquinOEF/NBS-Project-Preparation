@@ -1,0 +1,151 @@
+Add Political Mandate + Political Readiness to Questionnaire + Improve Readiness Score
+Context
+We already have a working funding recommender flow:
+Questionnaire → Recommendations (NOW + NEXT) → Readiness shown in results.
+We want to extend the questionnaire to include Political Mandate and Political Readiness signals and incorporate them into the Readiness score displayed in the results.
+Important constraints:
+Do NOT add a new “Section 4” (do not create an additional major questionnaire section beyond what exists today).
+Keep existing fund recommendation logic unchanged.
+Use these new questions only to improve readiness scoring and the explanation in results.
+1) Add new questions to the questionnaire (embedded, not a new major section)
+Add a new subsection titled:
+“Institutional & Leadership Readiness”
+(Place it after the existing “Project Stage & Readiness” section and before “Financing Logic”.)
+Questions to add
+Q1. Is this project formally referenced in an official plan? (multi-select)
+City Climate Action Plan
+Sectoral plan (transport, water, housing, etc.)
+Multi-year investment plan / PPA
+National or state plan
+Not yet included in an official plan
+Q2. Has this project received formal political endorsement? (single-select)
+Yes — written endorsement or resolution exists
+Yes — informal / verbal approval
+No — not yet endorsed
+Not sure
+Q3. Who is responsible for delivering this project? (single-select)
+Single department clearly responsible
+Multiple departments jointly responsible
+Responsibility not yet defined
+Q4. Are key internal stakeholders aligned on pursuing this project? (single-select)
+Yes — broad alignment across departments
+Partial alignment — some resistance or open questions
+No — significant internal disagreement
+Not sure
+Q5. Are there foreseeable political or social risks that could delay or block this project? (multi-select)
+Upcoming elections
+Land or resettlement sensitivities
+Tariff or fee increases required
+Public opposition risk
+None identified
+Q6. If this project becomes slower, more expensive, or politically controversial, do you expect city leadership to continue supporting it? (single-select)
+Yes — high confidence
+Possibly — depends on conditions
+Unlikely
+Not sure
+2) Store responses as typed fields in ProjectProfile (no raw text blob)
+Add the following typed fields (or equivalent) to the persisted ProjectProfile:
+
+political_mandate_plan_refs: string[]; 
+// allowed values: "city_climate_plan" | "sectoral_plan" | "multi_year_investment_plan" | "national_or_state_plan" | "not_in_official_plan"
+
+political_endorsement_level: "written" | "informal" | "none" | "unknown";
+
+implementing_ownership: "single_department" | "multiple_departments" | "not_defined";
+
+internal_alignment_level: "high" | "medium" | "low" | "unknown";
+
+political_risk_factors: string[]; 
+// allowed values: "upcoming_elections" | "land_resettlement" | "tariff_sensitivity" | "public_opposition" | "none"
+
+leadership_commitment_confidence: "high" | "medium" | "low" | "unknown";
+These fields must be saved alongside existing fields (stage, capex band, can_borrow, etc.).
+3) Compute a “Political Readiness score” and incorporate it into overall Readiness
+Add derived fields computed after questionnaire completion:
+
+derived_political_readiness_score: number; // 0–100
+derived_mandate_strength: "weak" | "moderate" | "strong";
+derived_durability_risk: "low" | "medium" | "high";
+Scoring rules (simple, deterministic)
+Start political score at 0 and add points:
+Mandate (max 40)
+• Plan references:
+if includes any of city_climate_plan / sectoral_plan / multi_year_investment_plan / national_or_state_plan → +20
+if only "not_in_official_plan" → +0
+• Endorsement:
+written → +20
+informal → +10
+none/unknown → +0
+Ownership & alignment (max 40)
+• implementing_ownership:
+single_department → +15
+multiple_departments → +10
+not_defined → +0
+• internal_alignment_level:
+high → +25
+medium → +15
+low → +0
+unknown → +5
+Durability (max 20)
+• leadership_commitment_confidence:
+high → +20
+medium → +10
+low → +0
+unknown → +5
+Risk factor penalty (subtract up to 20)
+• For each risk factor selected (except "none"):
+upcoming_elections → −5
+land_resettlement → −7
+tariff_sensitivity → −5
+public_opposition → −7
+• If "none" selected → no penalty
+Clamp final score 0–100.
+Derived labels
+• mandate_strength:
+strong if plan refs present AND endorsement=written
+moderate if plan refs present OR endorsement=informal
+weak otherwise
+• durability_risk:
+high if commitment=low OR alignment=low OR 2+ risk factors
+medium if commitment=medium OR 1 risk factor
+low if commitment=high AND alignment=high AND no risk factors
+4) Update the “Readiness score” shown in Results
+We already show a Readiness label (Very Early / Emerging / Investable / Advanced). We want to improve it by incorporating political readiness.
+Approach
+Compute:
+technical_readiness_score (existing stage/studies logic, keep as-is)
+financial_readiness_score (existing loan/grant/repayment logic, keep as-is)
+political_readiness_score (new, from above)
+Then compute overall readiness (example weights):
+technical 40%
+financial 40%
+political 20%
+
+overall_readiness_score = 0.4*technical + 0.4*financial + 0.2*political;
+Update the displayed readiness label thresholds:
+Very Early: 0–25
+Emerging: 26–55
+Investable: 56–80
+Advanced: 81–100
+Results display updates
+In the results section, add a small “Readiness breakdown” block:
+Overall readiness: X/100 (label)
+Technical readiness: X/100
+Financial readiness: X/100
+Political readiness: X/100
+Mandate strength: weak/moderate/strong
+Durability risk: low/medium/high
+Keep it short and readable.
+5) Ensure fund recommendation logic remains unchanged
+Do not change:
+the NOW category selection logic
+ranking/top 3 logic
+NEXT targets logic
+Only enhance:
+readiness calculation and the explanation shown to the user
+Acceptance criteria
+New questions appear in questionnaire under “Institutional & Leadership Readiness” (no new major “Section 4” added).
+Answers are stored as typed fields (no raw question text blob).
+Results show updated readiness score including political readiness.
+Results show breakdown + mandate strength + durability risk.
+Fund recommendations remain consistent with previous behavior.

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, ArrowRight, Check, DollarSign, Building2, FileText, Users, ExternalLink, ChevronRight, AlertCircle, Lightbulb, Target, ArrowUpRight, CheckCircle2, Lock, Edit2, Search, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, DollarSign, Building2, FileText, Users, ExternalLink, ChevronRight, AlertCircle, Lightbulb, Target, ArrowUpRight, CheckCircle2, Lock, Edit2, Search, AlertTriangle, Shield } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -77,6 +77,14 @@ interface QuestionnaireAnswers {
   existingElements: string[];
   budgetPreparation: string;
   budgetImplementation: string;
+  // Political mandate & readiness fields
+  politicalMandatePlanRefs: string[];
+  politicalEndorsementLevel: string;
+  implementingOwnership: string;
+  internalAlignmentLevel: string;
+  politicalRiskFactors: string[];
+  leadershipCommitmentConfidence: string;
+  // Financing fields
   generatesRevenue: string;
   repaymentSource: string;
   investmentSize: string;
@@ -165,6 +173,123 @@ function determinePathway(answers: QuestionnaireAnswers): { primary: string; sec
   }
 
   return { primary: 'domestic_bank', readinessLevel, limitingFactorKeys };
+}
+
+interface ReadinessScores {
+  technical: number;
+  financial: number;
+  political: number;
+  overall: number;
+  overallLabel: 'very_early' | 'emerging' | 'investable' | 'advanced';
+  mandateStrength: 'weak' | 'moderate' | 'strong';
+  durabilityRisk: 'low' | 'medium' | 'high';
+}
+
+function computeReadinessScores(answers: QuestionnaireAnswers): ReadinessScores {
+  // Technical readiness (0-100)
+  let technical = 0;
+  const stage = answers.projectStage;
+  if (stage === 'procurement') technical = 100;
+  else if (stage === 'feasibility') technical = 75;
+  else if (stage === 'prefeasibility') technical = 50;
+  else if (stage === 'concept') technical = 25;
+  else technical = 10; // idea
+  
+  // Adjust for existing elements
+  const elementCount = answers.existingElements.filter(e => e !== 'none').length;
+  technical = Math.min(100, technical + elementCount * 5);
+  
+  // Financial readiness (0-100)
+  let financial = 0;
+  if (answers.generatesRevenue === 'yes') financial += 30;
+  else if (answers.generatesRevenue === 'not_sure') financial += 15;
+  
+  if (answers.budgetPreparation === 'yes') financial += 20;
+  if (answers.budgetImplementation === 'yes') financial += 20;
+  else if (answers.budgetImplementation === 'partial') financial += 10;
+  
+  if (answers.canTakeDebt === 'yes') financial += 20;
+  else if (answers.canTakeDebt === 'not_sure') financial += 10;
+  
+  if (answers.repaymentSource && answers.repaymentSource !== 'not_defined') financial += 10;
+  
+  // Political readiness (0-100) per the scoring rules
+  let political = 0;
+  
+  // Mandate (max 40)
+  const planRefs = answers.politicalMandatePlanRefs || [];
+  const hasPlanRef = planRefs.some(p => 
+    ['city_climate_plan', 'sectoral_plan', 'multi_year_investment_plan', 'national_or_state_plan'].includes(p)
+  );
+  if (hasPlanRef) political += 20;
+  
+  const endorsement = answers.politicalEndorsementLevel;
+  if (endorsement === 'written') political += 20;
+  else if (endorsement === 'informal') political += 10;
+  
+  // Ownership & alignment (max 40)
+  const ownership = answers.implementingOwnership;
+  if (ownership === 'single_department') political += 15;
+  else if (ownership === 'multiple_departments') political += 10;
+  
+  const alignment = answers.internalAlignmentLevel;
+  if (alignment === 'high') political += 25;
+  else if (alignment === 'medium') political += 15;
+  else if (alignment === 'unknown') political += 5;
+  
+  // Durability (max 20)
+  const commitment = answers.leadershipCommitmentConfidence;
+  if (commitment === 'high') political += 20;
+  else if (commitment === 'medium') political += 10;
+  else if (commitment === 'unknown') political += 5;
+  
+  // Risk factor penalty (subtract up to 20)
+  const riskFactors = answers.politicalRiskFactors || [];
+  const riskPenalties: Record<string, number> = {
+    upcoming_elections: 5,
+    land_resettlement: 7,
+    tariff_sensitivity: 5,
+    public_opposition: 7,
+  };
+  
+  let penalty = 0;
+  if (!riskFactors.includes('none')) {
+    for (const rf of riskFactors) {
+      penalty += riskPenalties[rf] || 0;
+    }
+  }
+  penalty = Math.min(20, penalty); // Cap risk penalty at 20
+  political = Math.max(0, Math.min(100, political - penalty));
+  
+  // Derived labels
+  let mandateStrength: 'weak' | 'moderate' | 'strong' = 'weak';
+  if (hasPlanRef && endorsement === 'written') mandateStrength = 'strong';
+  else if (hasPlanRef || endorsement === 'informal') mandateStrength = 'moderate';
+  
+  const riskCount = riskFactors.filter(r => r !== 'none').length;
+  let durabilityRisk: 'low' | 'medium' | 'high' = 'low';
+  if (commitment === 'low' || alignment === 'low' || riskCount >= 2) durabilityRisk = 'high';
+  else if (commitment === 'medium' || riskCount === 1) durabilityRisk = 'medium';
+  else if (commitment === 'high' && alignment === 'high' && riskCount === 0) durabilityRisk = 'low';
+  
+  // Overall readiness (weighted)
+  const overall = Math.round(0.4 * technical + 0.4 * financial + 0.2 * political);
+  
+  // Overall label
+  let overallLabel: 'very_early' | 'emerging' | 'investable' | 'advanced' = 'very_early';
+  if (overall >= 81) overallLabel = 'advanced';
+  else if (overall >= 56) overallLabel = 'investable';
+  else if (overall >= 26) overallLabel = 'emerging';
+  
+  return {
+    technical: Math.round(technical),
+    financial: Math.round(financial),
+    political: Math.round(political),
+    overall,
+    overallLabel,
+    mandateStrength,
+    durabilityRisk,
+  };
 }
 
 function rankFunds(funds: Fund[], answers: QuestionnaireAnswers, pathway: string): Fund[] {
@@ -449,6 +574,12 @@ export default function FunderSelectionPage() {
     existingElements: [],
     budgetPreparation: '',
     budgetImplementation: '',
+    politicalMandatePlanRefs: [],
+    politicalEndorsementLevel: '',
+    implementingOwnership: '',
+    internalAlignmentLevel: '',
+    politicalRiskFactors: [],
+    leadershipCommitmentConfidence: '',
     generatesRevenue: '',
     repaymentSource: '',
     investmentSize: '',
@@ -540,6 +671,7 @@ export default function FunderSelectionPage() {
     const recommendedFunds = rankFunds(fundsData.funds, answers, pathwayResult.primary);
     const targetFunders = computeTargetFundersNext(fundsData.funds, answers, pathwayResult.primary);
     const bridgeParagraph = generateBridgeParagraph(pathwayResult.primary, targetFunders);
+    const readinessScores = computeReadinessScores(answers);
     
     return {
       pathwayResult,
@@ -548,6 +680,7 @@ export default function FunderSelectionPage() {
       recommendedFunds,
       targetFunders,
       bridgeParagraph,
+      readinessScores,
     };
   }, [fundsData, showResults, answers]);
 
@@ -595,6 +728,7 @@ export default function FunderSelectionPage() {
   const steps = [
     { id: 'basics', title: t('funderSelection.steps.basics'), icon: FileText },
     { id: 'readiness', title: t('funderSelection.steps.readiness'), icon: Check },
+    { id: 'political', title: t('funderSelection.steps.political'), icon: Shield },
     { id: 'financing', title: t('funderSelection.steps.financing'), icon: DollarSign },
     { id: 'institutional', title: t('funderSelection.steps.institutional'), icon: Building2 },
   ];
@@ -737,6 +871,12 @@ export default function FunderSelectionPage() {
       existingElements: [],
       budgetPreparation: '',
       budgetImplementation: '',
+      politicalMandatePlanRefs: [],
+      politicalEndorsementLevel: '',
+      implementingOwnership: '',
+      internalAlignmentLevel: '',
+      politicalRiskFactors: [],
+      leadershipCommitmentConfidence: '',
       generatesRevenue: '',
       repaymentSource: '',
       investmentSize: '',
@@ -751,8 +891,9 @@ export default function FunderSelectionPage() {
     switch (currentStep) {
       case 0: return answers.projectName && answers.sectors.length > 0;
       case 1: return answers.projectStage && answers.budgetPreparation;
-      case 2: return answers.generatesRevenue && answers.investmentSize;
-      case 3: return answers.fundingReceiver && answers.canTakeDebt;
+      case 2: return answers.politicalMandatePlanRefs.length > 0 && answers.politicalEndorsementLevel && answers.implementingOwnership && answers.internalAlignmentLevel && answers.politicalRiskFactors.length > 0 && answers.leadershipCommitmentConfidence;
+      case 3: return answers.generatesRevenue && answers.investmentSize;
+      case 4: return answers.fundingReceiver && answers.canTakeDebt;
       default: return true;
     }
   };
@@ -777,13 +918,14 @@ export default function FunderSelectionPage() {
     setAnswers(prev => ({ ...prev, [key]: value }));
   };
 
-  const toggleArrayAnswer = (key: 'sectors' | 'existingElements', value: string) => {
+  const toggleArrayAnswer = (key: 'sectors' | 'existingElements' | 'politicalMandatePlanRefs' | 'politicalRiskFactors', value: string) => {
     setAnswers(prev => {
       const current = prev[key];
-      if (value === 'none') {
-        return { ...prev, [key]: current.includes('none') ? [] : ['none'] };
+      // Handle "none" special case for multi-selects
+      if (value === 'none' || value === 'not_in_official_plan') {
+        return { ...prev, [key]: current.includes(value) ? [] : [value] };
       }
-      const filtered = current.filter(v => v !== 'none');
+      const filtered = current.filter(v => v !== 'none' && v !== 'not_in_official_plan');
       return {
         ...prev,
         [key]: filtered.includes(value) 
@@ -920,6 +1062,129 @@ export default function FunderSelectionPage() {
         );
 
       case 2:
+        // Political Mandate & Leadership Readiness
+        const PLAN_REF_IDS = ['city_climate_plan', 'sectoral_plan', 'multi_year_investment_plan', 'national_or_state_plan', 'not_in_official_plan'];
+        const ENDORSEMENT_IDS = ['written', 'informal', 'none', 'unknown'];
+        const OWNERSHIP_IDS = ['single_department', 'multiple_departments', 'not_defined'];
+        const ALIGNMENT_IDS = ['high', 'medium', 'low', 'unknown'];
+        const RISK_FACTOR_IDS = ['upcoming_elections', 'land_resettlement', 'tariff_sensitivity', 'public_opposition', 'none'];
+        const COMMITMENT_IDS = ['high', 'medium', 'low', 'unknown'];
+        
+        return (
+          <div className="space-y-6">
+            <div>
+              <Label>{t('funderSelection.political.planRefs')}</Label>
+              <p className="text-sm text-muted-foreground mb-2">{t('funderSelection.political.planRefsHint')}</p>
+              <div className="space-y-2 mt-2">
+                {PLAN_REF_IDS.map(id => (
+                  <div key={id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`plan-${id}`}
+                      checked={answers.politicalMandatePlanRefs.includes(id)}
+                      onCheckedChange={() => toggleArrayAnswer('politicalMandatePlanRefs', id)}
+                    />
+                    <Label htmlFor={`plan-${id}`} className="text-sm font-normal cursor-pointer">
+                      {t(`funderSelection.political.planRefOptions.${id}`)}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div>
+              <Label>{t('funderSelection.political.endorsement')}</Label>
+              <RadioGroup
+                value={answers.politicalEndorsementLevel}
+                onValueChange={(v) => updateAnswer('politicalEndorsementLevel', v)}
+                className="mt-2 space-y-2"
+              >
+                {ENDORSEMENT_IDS.map(id => (
+                  <div key={id} className="flex items-center space-x-2">
+                    <RadioGroupItem value={id} id={`endorse-${id}`} />
+                    <Label htmlFor={`endorse-${id}`} className="text-sm font-normal cursor-pointer">
+                      {t(`funderSelection.political.endorsementOptions.${id}`)}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+            
+            <div>
+              <Label>{t('funderSelection.political.ownership')}</Label>
+              <RadioGroup
+                value={answers.implementingOwnership}
+                onValueChange={(v) => updateAnswer('implementingOwnership', v)}
+                className="mt-2 space-y-2"
+              >
+                {OWNERSHIP_IDS.map(id => (
+                  <div key={id} className="flex items-center space-x-2">
+                    <RadioGroupItem value={id} id={`owner-${id}`} />
+                    <Label htmlFor={`owner-${id}`} className="text-sm font-normal cursor-pointer">
+                      {t(`funderSelection.political.ownershipOptions.${id}`)}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+            
+            <div>
+              <Label>{t('funderSelection.political.alignment')}</Label>
+              <RadioGroup
+                value={answers.internalAlignmentLevel}
+                onValueChange={(v) => updateAnswer('internalAlignmentLevel', v)}
+                className="mt-2 space-y-2"
+              >
+                {ALIGNMENT_IDS.map(id => (
+                  <div key={id} className="flex items-center space-x-2">
+                    <RadioGroupItem value={id} id={`align-${id}`} />
+                    <Label htmlFor={`align-${id}`} className="text-sm font-normal cursor-pointer">
+                      {t(`funderSelection.political.alignmentOptions.${id}`)}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+            
+            <div>
+              <Label>{t('funderSelection.political.riskFactors')}</Label>
+              <p className="text-sm text-muted-foreground mb-2">{t('funderSelection.political.riskFactorsHint')}</p>
+              <div className="space-y-2 mt-2">
+                {RISK_FACTOR_IDS.map(id => (
+                  <div key={id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`risk-${id}`}
+                      checked={answers.politicalRiskFactors.includes(id)}
+                      onCheckedChange={() => toggleArrayAnswer('politicalRiskFactors', id)}
+                    />
+                    <Label htmlFor={`risk-${id}`} className="text-sm font-normal cursor-pointer">
+                      {t(`funderSelection.political.riskFactorOptions.${id}`)}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div>
+              <Label>{t('funderSelection.political.commitment')}</Label>
+              <RadioGroup
+                value={answers.leadershipCommitmentConfidence}
+                onValueChange={(v) => updateAnswer('leadershipCommitmentConfidence', v)}
+                className="mt-2 space-y-2"
+              >
+                {COMMITMENT_IDS.map(id => (
+                  <div key={id} className="flex items-center space-x-2">
+                    <RadioGroupItem value={id} id={`commit-${id}`} />
+                    <Label htmlFor={`commit-${id}`} className="text-sm font-normal cursor-pointer">
+                      {t(`funderSelection.political.commitmentOptions.${id}`)}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+          </div>
+        );
+
+      case 3:
         return (
           <div className="space-y-6">
             <div>
@@ -982,7 +1247,7 @@ export default function FunderSelectionPage() {
           </div>
         );
 
-      case 3:
+      case 4:
         return (
           <div className="space-y-6">
             <div>
@@ -1078,7 +1343,7 @@ export default function FunderSelectionPage() {
   const renderResults = () => {
     if (!computedResults) return null;
 
-    const { pathwayResult, pathway, secondaryPathway, recommendedFunds, targetFunders, bridgeParagraph } = computedResults;
+    const { pathwayResult, pathway, secondaryPathway, recommendedFunds, targetFunders, bridgeParagraph, readinessScores } = computedResults;
     const { readinessLevel, limitingFactorKeys } = pathwayResult;
 
     const readinessLabels: Record<string, { label: string; color: string }> = {
@@ -1141,13 +1406,53 @@ export default function FunderSelectionPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-medium">{t('funderSelection.results.assessedLevel')}:</span>
-              <Badge className={readinessLabels[readinessLevel]?.color || 'bg-gray-100 text-gray-800'}>
-                {readinessLabels[readinessLevel]?.label || readinessLevel}
+              <span className="text-sm font-medium">{t('funderSelection.results.overallReadiness')}:</span>
+              <span className="text-lg font-bold">{readinessScores.overall}/100</span>
+              <Badge className={readinessLabels[readinessScores.overallLabel]?.color || 'bg-gray-100 text-gray-800'}>
+                {readinessLabels[readinessScores.overallLabel]?.label || readinessScores.overallLabel}
               </Badge>
             </div>
+            
+            <div className="grid grid-cols-3 gap-4 pt-2 border-t">
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground mb-1">{t('funderSelection.results.technicalReadiness')}</p>
+                <p className="text-lg font-semibold">{readinessScores.technical}/100</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground mb-1">{t('funderSelection.results.financialReadiness')}</p>
+                <p className="text-lg font-semibold">{readinessScores.financial}/100</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground mb-1">{t('funderSelection.results.politicalReadiness')}</p>
+                <p className="text-lg font-semibold">{readinessScores.political}/100</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">{t('funderSelection.results.mandateStrength')}:</span>
+                <Badge variant="outline" className={
+                  readinessScores.mandateStrength === 'strong' ? 'border-green-500 text-green-700' :
+                  readinessScores.mandateStrength === 'moderate' ? 'border-yellow-500 text-yellow-700' :
+                  'border-red-500 text-red-700'
+                }>
+                  {t(`funderSelection.results.mandateStrengthOptions.${readinessScores.mandateStrength}`)}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">{t('funderSelection.results.durabilityRisk')}:</span>
+                <Badge variant="outline" className={
+                  readinessScores.durabilityRisk === 'low' ? 'border-green-500 text-green-700' :
+                  readinessScores.durabilityRisk === 'medium' ? 'border-yellow-500 text-yellow-700' :
+                  'border-red-500 text-red-700'
+                }>
+                  {t(`funderSelection.results.durabilityRiskOptions.${readinessScores.durabilityRisk}`)}
+                </Badge>
+              </div>
+            </div>
+            
             {limitingFactorKeys.length > 0 && (
-              <div>
+              <div className="pt-2 border-t">
                 <h4 className="text-sm font-medium mb-2">{t('funderSelection.results.limitingFactors')}:</h4>
                 <ul className="space-y-1">
                   {limitingFactorKeys.map((key, i) => (
