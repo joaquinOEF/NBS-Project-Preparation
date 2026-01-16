@@ -136,3 +136,25 @@ export type InsertCityBoundaryCache = z.infer<typeof insertCityBoundaryCacheSche
 
 export type ElevationCache = typeof elevationCache.$inferSelect;
 export type InsertElevationCache = z.infer<typeof insertElevationCacheSchema>;
+
+export const osmAssetCache = pgTable('osm_asset_cache', {
+  id: varchar('id')
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  cacheKey: text('cache_key').notNull().unique(),
+  zoneId: text('zone_id').notNull(),
+  category: text('category').notNull(),
+  bbox: jsonb('bbox').$type<[number, number, number, number]>().notNull(),
+  assets: jsonb('assets').$type<any[]>().notNull(),
+  assetCount: text('asset_count').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  expiresAt: timestamp('expires_at').notNull(),
+});
+
+export const insertOsmAssetCacheSchema = createInsertSchema(osmAssetCache).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type OsmAssetCache = typeof osmAssetCache.$inferSelect;
+export type InsertOsmAssetCache = z.infer<typeof insertOsmAssetCacheSchema>;
