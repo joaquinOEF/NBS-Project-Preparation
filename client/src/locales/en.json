@@ -383,6 +383,10 @@
     "confirmFirst": "Confirm funding plan first"
   },
   "siteExplorer": {
+    "saveInterventions": "Save Interventions",
+    "saved": "Saved!",
+    "interventionsSaved": "Interventions Saved",
+    "interventionsSavedDescription": "{{count}} intervention(s) saved to your project",
     "title": "Site Explorer",
     "loadingData": "Loading geospatial data...",
     "loadingBoundary": "Loading city boundary...",

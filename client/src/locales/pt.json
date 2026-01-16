@@ -383,6 +383,10 @@
     "confirmFirst": "Confirme o plano de financiamento primeiro"
   },
   "siteExplorer": {
+    "saveInterventions": "Salvar Intervenções",
+    "saved": "Salvo!",
+    "interventionsSaved": "Intervenções Salvas",
+    "interventionsSavedDescription": "{{count}} intervenção(ões) salva(s) no seu projeto",
     "title": "Explorador de Terreno",
     "loadingData": "Carregando dados geoespaciais...",
     "loadingBoundary": "Carregando limites da cidade...",

@@ -1,6 +1,6 @@
 import { useParams, Link } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain, Building2, MapPinned, X, Plus, Check, DollarSign, Clock, Wrench, ChevronRight, ChevronDown, AlertTriangle, Leaf, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain, Building2, MapPinned, X, Plus, Check, DollarSign, Clock, Wrench, ChevronRight, ChevronDown, AlertTriangle, Leaf, Trash2, CheckCircle } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Badge } from '@/core/components/ui/badge';
@@ -8,6 +8,7 @@ import { Switch } from '@/core/components/ui/switch';
 import { Label } from '@/core/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/core/components/ui/accordion';
+import { useToast } from '@/core/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { useProjectContext, SelectedZone, SelectedIntervention } from '@/core/contexts/project-context';
 import { 
@@ -155,6 +156,7 @@ interface ZoneProperties {
 export default function SiteExplorerPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { t } = useTranslation();
+  const { toast } = useToast();
   const { isSampleMode, sampleCity, sampleActions, initiatedProjects } = useSampleData();
   const { isSampleRoute, routePrefix } = useSampleRoute();
   const mapRef = useRef<L.Map | null>(null);
@@ -771,6 +773,8 @@ export default function SiteExplorerPage() {
     });
   }, []);
 
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  
   const savePortfolioToContext = useCallback(() => {
     if (!projectId) return;
     
@@ -810,7 +814,18 @@ export default function SiteExplorerPage() {
       layerPreferences: layers.reduce((acc, l) => ({ ...acc, [l.id]: l.enabled }), {}),
       hazardSummary: { floodCells, heatCells, landslideCells, totalCells },
     });
-  }, [projectId, zonePortfolios, layers, updateModule]);
+    
+    const zoneId = selectedZone?.zoneId;
+    const interventionCount = zoneId ? zonePortfolios[zoneId]?.length || 0 : 0;
+    
+    setSaveSuccess(zoneId || null);
+    toast({
+      title: t('siteExplorer.interventionsSaved'),
+      description: t('siteExplorer.interventionsSavedDescription', { count: interventionCount }),
+    });
+    
+    setTimeout(() => setSaveSuccess(null), 2000);
+  }, [projectId, zonePortfolios, layers, updateModule, selectedZone, toast, t]);
 
   const formatCost = (min: number, max: number): string => {
     const formatNum = (n: number) => {
@@ -1680,9 +1695,22 @@ export default function SiteExplorerPage() {
 
               {(zonePortfolios[selectedZone.zoneId]?.length || 0) > 0 && (
                 <div className="p-4 border-t bg-muted/30 flex-shrink-0" style={{ pointerEvents: 'auto' }}>
-                  <Button className="w-full relative z-10" onClick={savePortfolioToContext} style={{ pointerEvents: 'auto' }}>
-                    <Check className="h-4 w-4 mr-2" />
-                    Save Interventions ({zonePortfolios[selectedZone.zoneId]?.length || 0})
+                  <Button 
+                    className={`w-full relative z-10 transition-all ${saveSuccess === selectedZone.zoneId ? 'bg-green-600 hover:bg-green-600' : ''}`}
+                    onClick={savePortfolioToContext} 
+                    style={{ pointerEvents: 'auto' }}
+                  >
+                    {saveSuccess === selectedZone.zoneId ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        {t('siteExplorer.saved')}
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        {t('siteExplorer.saveInterventions')} ({zonePortfolios[selectedZone.zoneId]?.length || 0})
+                      </>
+                    )}
                   </Button>
                 </div>
               )}
