@@ -348,6 +348,8 @@ export default function SiteExplorerPage() {
   const OSM_RESULT_LIMIT = 50;
   const OSM_EXTENDED_LIMIT = 200;
 
+  const [osmError, setOsmError] = useState<string | null>(null);
+  
   const fetchOsmAssets = useCallback(async (zoneFeature: any, category: string) => {
     if (!zoneFeature?.geometry || !interventionsData) return;
     
@@ -355,6 +357,7 @@ export default function SiteExplorerPage() {
     setOsmAssets([]);
     setOsmResultsTruncated(false);
     setOsmShowAll(false);
+    setOsmError(null);
     
     try {
       const categoryData = interventionsData.categories[category];
@@ -367,95 +370,36 @@ export default function SiteExplorerPage() {
       
       const lats = coords.map((c: number[]) => c[1]);
       const lngs = coords.map((c: number[]) => c[0]);
-      const bbox = [Math.min(...lats), Math.min(...lngs), Math.max(...lats), Math.max(...lngs)];
+      const bbox: [number, number, number, number] = [Math.min(...lats), Math.min(...lngs), Math.max(...lats), Math.max(...lngs)];
       
-      const osmFilters = osmTypes.map(type => {
-        const [key, value] = type.split('=');
-        return `node["${key}"="${value}"](${bbox.join(',')});way["${key}"="${value}"](${bbox.join(',')});relation["${key}"="${value}"](${bbox.join(',')});`;
-      }).join('');
+      const zoneId = zoneFeature.properties?.zoneId || `zone_${bbox.join('_')}`;
       
-      const query = `[out:json][timeout:25][maxsize:10485760];(${osmFilters});out body geom;`;
-      
-      const response = await fetch('https://overpass-api.de/api/interpreter', {
+      const response = await fetch('/api/geospatial/osm-assets', {
         method: 'POST',
-        body: query,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          zoneId,
+          category,
+          bbox,
+          osmTypes,
+          zoneGeometry: zoneFeature.geometry,
+        }),
       });
-      
-      if (!response.ok) throw new Error('OSM query failed');
       
       const data = await response.json();
       
-      const calculateLineLength = (coords: number[][]): number => {
-        let length = 0;
-        for (let i = 0; i < coords.length - 1; i++) {
-          const [lng1, lat1] = coords[i];
-          const [lng2, lat2] = coords[i + 1];
-          const dLat = (lat2 - lat1) * 111319;
-          const dLng = (lng2 - lng1) * 111319 * Math.cos((lat1 + lat2) / 2 * Math.PI / 180);
-          length += Math.sqrt(dLat * dLat + dLng * dLng);
-        }
-        return length;
-      };
+      if (!response.ok || data.error) {
+        const errorMessage = data.error || `Server error: ${response.status}`;
+        setOsmError(errorMessage);
+        return;
+      }
       
-      const assets = data.elements.map((el: any) => {
-        let geometry = null;
-        let centroid = null;
-        let area = 0;
-        let length = 0;
-        
-        if (el.type === 'node') {
-          geometry = { type: 'Point', coordinates: [el.lon, el.lat] };
-          centroid = [el.lat, el.lon];
-        } else if (el.type === 'way' && el.geometry) {
-          const coords = el.geometry.map((p: any) => [p.lon, p.lat]);
-          if (coords[0][0] === coords[coords.length-1][0] && coords[0][1] === coords[coords.length-1][1]) {
-            geometry = { type: 'Polygon', coordinates: [coords] };
-            const latSum = coords.reduce((s: number, c: number[]) => s + c[1], 0);
-            const lngSum = coords.reduce((s: number, c: number[]) => s + c[0], 0);
-            centroid = [latSum / coords.length, lngSum / coords.length];
-            area = Math.abs(coords.reduce((a: number, c: number[], i: number) => {
-              const next = coords[(i + 1) % coords.length];
-              return a + (c[0] * next[1] - next[0] * c[1]);
-            }, 0) / 2) * 111319 * 111319;
-          } else {
-            const lineFeature = turf.lineString(coords);
-            const clipped = turf.bboxClip(lineFeature, [bbox[1], bbox[0], bbox[3], bbox[2]]);
-            
-            if (clipped.geometry.type === 'LineString' && clipped.geometry.coordinates.length >= 2) {
-              geometry = clipped.geometry;
-              const clippedCoords = clipped.geometry.coordinates;
-              centroid = clippedCoords[Math.floor(clippedCoords.length / 2)].slice().reverse();
-              length = calculateLineLength(clippedCoords);
-            } else if (clipped.geometry.type === 'MultiLineString' && clipped.geometry.coordinates.length > 0) {
-              geometry = clipped.geometry;
-              const allCoords = clipped.geometry.coordinates.flat();
-              centroid = allCoords[Math.floor(allCoords.length / 2)].slice().reverse();
-              length = clipped.geometry.coordinates.reduce((total: number, seg: number[][]) => 
-                total + calculateLineLength(seg), 0);
-            }
-          }
-        }
-        
-        const osmType = Object.entries(el.tags || {}).find(([k, v]) => 
-          osmTypes.includes(`${k}=${v}`)
-        );
-        
-        return {
-          id: `${el.type}/${el.id}`,
-          osmId: el.id,
-          osmType: el.type,
-          name: el.tags?.name || el.tags?.['name:en'] || `${osmType ? osmType[1] : 'Asset'} #${el.id}`,
-          tags: el.tags || {},
-          geometry,
-          centroid,
-          area,
-          length,
-          assetType: osmType ? `${osmType[0]}=${osmType[1]}` : 'unknown',
-          compatibleInterventions: interventionsInCategory.filter(i => 
-            i.osmAssetTypes.some(t => Object.entries(el.tags || {}).some(([k, v]) => `${k}=${v}` === t))
-          ),
-        };
-      }).filter((a: any) => a.geometry && a.compatibleInterventions.length > 0);
+      const assets = data.assets.map((a: any) => ({
+        ...a,
+        compatibleInterventions: interventionsInCategory.filter(i => 
+          i.osmAssetTypes.some(t => a.assetType === t || Object.entries(a.tags || {}).some(([k, v]) => `${k}=${v}` === t))
+        ),
+      })).filter((a: any) => a.compatibleInterventions.length > 0);
       
       assets.sort((a: any, b: any) => {
         const aHasName = a.tags?.name ? 1 : 0;
@@ -466,7 +410,6 @@ export default function SiteExplorerPage() {
         return bSize - aSize;
       });
       
-      const totalFound = assets.length;
       if (assets.length > OSM_EXTENDED_LIMIT) {
         setOsmResultsTruncated(true);
         setOsmAssets(assets.slice(0, OSM_EXTENDED_LIMIT));
@@ -475,6 +418,10 @@ export default function SiteExplorerPage() {
         setOsmAssets(assets);
       } else {
         setOsmAssets(assets);
+      }
+      
+      if (data.fromCache) {
+        console.log(`📦 Loaded ${assets.length} cached assets`);
       }
       
       const displayAssets = assets.slice(0, OSM_EXTENDED_LIMIT);
@@ -516,12 +463,13 @@ export default function SiteExplorerPage() {
         osmLayer.addTo(mapRef.current);
         osmLayerRef.current = osmLayer;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch OSM assets:', error);
+      setOsmError(t('siteExplorer.assetLoadErrorGeneric'));
     } finally {
       setIsLoadingOsmAssets(false);
     }
-  }, [interventionsData]);
+  }, [interventionsData, t]);
 
   useEffect(() => {
     if (selectedCategory && selectedZoneFeature) {
@@ -1509,8 +1457,25 @@ export default function SiteExplorerPage() {
                       ) : osmAssets.length === 0 ? (
                         <div className="text-center py-8">
                           <MapPinned className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-                          <p className="text-muted-foreground">No compatible assets found in this zone.</p>
-                          <p className="text-sm text-muted-foreground mt-1">Try selecting a different category or zone.</p>
+                          {osmError ? (
+                            <>
+                              <p className="text-destructive font-medium">{t('siteExplorer.assetLoadError')}</p>
+                              <p className="text-sm text-muted-foreground mt-1">{osmError}</p>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="mt-3"
+                                onClick={() => selectedZoneFeature && selectedCategory && fetchOsmAssets(selectedZoneFeature, selectedCategory)}
+                              >
+                                {t('siteExplorer.assetLoadErrorRetry')}
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-muted-foreground">{t('siteExplorer.noAssetsError')}</p>
+                              <p className="text-sm text-muted-foreground mt-1">{t('siteExplorer.noAssetsErrorDescription')}</p>
+                            </>
+                          )}
                         </div>
                       ) : (
                         <>

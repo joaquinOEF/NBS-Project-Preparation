@@ -39,6 +39,7 @@ import {
   calculateCoverageSummary,
 } from './services/gridService';
 import { generateImpactNarrative, generateLensVariant, regenerateBlock } from './services/impactModelService';
+import { fetchOsmAssets } from './services/osmAssetService';
 import type { LayerType } from '../shared/geospatial-schema';
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -779,6 +780,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Grid generation error:', error);
       res.status(500).json({ message: error.message || 'Failed to generate grid' });
+    }
+  });
+
+  // OSM Asset fetching with caching
+  app.post('/api/geospatial/osm-assets', async (req: any, res) => {
+    try {
+      const { zoneId, category, bbox, osmTypes, zoneGeometry } = req.body;
+      
+      if (!zoneId || !category || !bbox || !osmTypes) {
+        return res.status(400).json({ 
+          message: 'zoneId, category, bbox, and osmTypes are required' 
+        });
+      }
+
+      console.log(`🗺️ Fetching OSM assets for zone ${zoneId}, category ${category}`);
+
+      const result = await fetchOsmAssets({
+        zoneId,
+        category,
+        bbox,
+        osmTypes,
+        zoneGeometry,
+      });
+
+      if (result.error) {
+        console.warn(`⚠️ OSM fetch warning: ${result.error}`);
+        const statusCode = result.errorCode === 'RATE_LIMIT' ? 429 
+          : result.errorCode === 'TIMEOUT' ? 504 
+          : result.errorCode === 'SIZE_EXCEEDED' ? 413 
+          : 502;
+        return res.status(statusCode).json({
+          assets: [],
+          fromCache: false,
+          totalFound: 0,
+          error: result.error,
+          errorCode: result.errorCode,
+        });
+      }
+
+      console.log(`   Found ${result.totalFound} assets (cached: ${result.fromCache})`);
+      res.json(result);
+    } catch (error: any) {
+      console.error('OSM asset fetch error:', error);
+      res.status(500).json({ 
+        message: error.message || 'Failed to fetch OSM assets',
+        error: 'An unexpected error occurred while fetching map assets.',
+        errorCode: 'UNKNOWN',
+      });
     }
   });
 
