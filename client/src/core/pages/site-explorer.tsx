@@ -1,6 +1,6 @@
 import { useParams, Link } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain, Building2, MapPinned, X, Plus, Check, DollarSign, Clock, Wrench, ChevronRight, ChevronDown, AlertTriangle, Leaf, Trash2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain, Building2, MapPinned, X, Plus, Check, DollarSign, Clock, Wrench, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, Leaf, Trash2, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Badge } from '@/core/components/ui/badge';
@@ -24,7 +24,7 @@ import {
   loadSampleZonesData,
 } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
@@ -163,11 +163,12 @@ export default function SiteExplorerPage() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [boundaryData, setBoundaryData] = useState<BoundaryData | null>(null);
   const [elevationData, setElevationData] = useState<ElevationData | null>(null);
-  const [showLayerPanel, setShowLayerPanel] = useState(true);
+  const [showEvidenceDrawer, setShowEvidenceDrawer] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
   const [layers, setLayers] = useState<LayerState[]>(() => 
     LAYER_CONFIGS.map(config => ({
       ...config,
-      enabled: config.id === 'elevation',
+      enabled: config.id === 'intervention_zones',
       loaded: false,
       data: null,
       leafletLayer: null,
@@ -532,14 +533,22 @@ export default function SiteExplorerPage() {
     }
 
     mapRef.current = map;
+    setMapReady(true);
 
     return () => {
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
+        setMapReady(false);
       }
     };
   }, [boundaryData]);
+
+  useEffect(() => {
+    if (mapRef.current) {
+      setTimeout(() => mapRef.current?.invalidateSize(), 350);
+    }
+  }, [showEvidenceDrawer]);
 
   const loadLayerData = useCallback(async (layerId: string): Promise<any> => {
     if (!isSampleModeActive) return null;
@@ -615,6 +624,26 @@ export default function SiteExplorerPage() {
     if (!interventionsData) return [];
     return interventionsData.interventions.filter(i => i.category === categoryId);
   }, [interventionsData]);
+
+  const sortedZonesByRisk = useMemo(() => {
+    const zonesLayer = layers.find(l => l.id === 'intervention_zones');
+    const features = zonesLayer?.data?.geoJson?.features || [];
+    return features
+      .map((f: any) => ({
+        ...f.properties,
+        geometry: f.geometry,
+        maxRisk: Math.max(f.properties?.meanFlood || 0, f.properties?.meanHeat || 0, f.properties?.meanLandslide || 0),
+      }))
+      .sort((a: any, b: any) => b.maxRisk - a.maxRisk);
+  }, [layers]);
+
+  const evidenceLayers = useMemo(() => {
+    return layers.filter(l => l.id !== 'intervention_zones');
+  }, [layers]);
+
+  const zonesLayerEnabled = useMemo(() => {
+    return layers.find(l => l.id === 'intervention_zones')?.enabled ?? true;
+  }, [layers]);
 
   const addInterventionToPortfolio = useCallback((zoneId: string, intervention: InterventionType, areaKm2: number) => {
     const costUnit = intervention.costRange.unit;
@@ -1194,6 +1223,24 @@ export default function SiteExplorerPage() {
     }
   }, [elevationData, layers, createLayerFromData]);
 
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !isSampleModeActive) return;
+    
+    const zonesLayer = layers.find(l => l.id === 'intervention_zones');
+    if (zonesLayer?.enabled && !zonesLayer.loaded && !layerRefs.current.has('intervention_zones')) {
+      loadLayerData('intervention_zones').then(data => {
+        if (data && mapRef.current) {
+          const leafletLayer = createLayerFromData('intervention_zones', data);
+          if (leafletLayer) {
+            leafletLayer.addTo(mapRef.current);
+            layerRefs.current.set('intervention_zones', leafletLayer);
+            setLayers(prev => prev.map(l => l.id === 'intervention_zones' ? { ...l, loaded: true, data } : l));
+          }
+        }
+      });
+    }
+  }, [mapReady, isSampleModeActive, layers, loadLayerData, createLayerFromData]);
+
   const isNotFound = isSampleModeActive 
     ? (!sampleAction || !isSampleProjectInitiated)
     : (!projectData?.project && !isLoadingProject);
@@ -1241,8 +1288,16 @@ export default function SiteExplorerPage() {
           </div>
         </div>
         <div className="flex-1 relative">
-          {/* Map container MUST come first in DOM order so panels render on top */}
-          <div ref={mapContainerRef} className="absolute inset-0 z-0 h-full w-full" />
+          {/* Map container - leaves room for right panel and bottom drawer */}
+          <div 
+            ref={mapContainerRef} 
+            className="absolute top-0 left-0 z-0 h-full"
+            style={{ 
+              right: '320px', 
+              bottom: showEvidenceDrawer ? '180px' : '48px',
+              transition: 'bottom 0.3s ease'
+            }}
+          />
           
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10 pointer-events-none">
@@ -1259,55 +1314,167 @@ export default function SiteExplorerPage() {
             </div>
           )}
           
-          <div className="absolute top-4 right-4 z-[1001]" style={{ pointerEvents: 'auto' }}>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setShowLayerPanel(!showLayerPanel)}
-              className="shadow-lg"
-            >
-              <Layers className="h-4 w-4 mr-2" />
-              Layers
-            </Button>
-          </div>
-          
-          {showLayerPanel && (
-            <div className="absolute top-14 right-4 z-[1001] bg-zinc-900/95 backdrop-blur-sm rounded-lg shadow-xl border border-zinc-700 p-4 min-w-[240px]" style={{ pointerEvents: 'auto' }}>
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-700">
-                <span className="font-medium text-sm text-white">Data Layers</span>
-                <span className="text-xs text-zinc-400">
-                  {layers.filter(l => l.enabled).length}/{layers.length}
-                </span>
+          {/* Right Panel - Zone Priority List */}
+          <div 
+            className="absolute top-0 right-0 bottom-0 w-[320px] z-[1001] bg-background/95 backdrop-blur-sm border-l shadow-xl flex flex-col"
+            style={{ pointerEvents: 'auto', marginBottom: showEvidenceDrawer ? '180px' : '48px' }}
+            onWheel={(e) => e.stopPropagation()}
+            onMouseEnter={() => mapRef.current?.scrollWheelZoom.disable()}
+            onMouseLeave={() => mapRef.current?.scrollWheelZoom.enable()}
+          >
+            <div className="p-3 border-b flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPinned className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-sm">{t('siteExplorer.zonePriority')}</span>
               </div>
-              <div className="space-y-1">
-                {layers.map((layer) => {
-                  const IconComponent = layer.icon;
-                  return (
-                    <div 
-                      key={layer.id}
-                      className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-800/70 transition-colors cursor-pointer"
-                      onClick={() => toggleLayer(layer.id)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-4 h-4 rounded"
-                          style={{ backgroundColor: layer.enabled ? layer.color : 'transparent', border: `2px solid ${layer.color}` }}
-                        />
-                        <IconComponent className="h-4 w-4" style={{ color: layer.color }} />
-                        <span className="text-sm text-white font-medium">{layer.name}</span>
-                      </div>
-                      <Switch
-                        checked={layer.enabled}
-                        onCheckedChange={() => toggleLayer(layer.id)}
-                        className="scale-75"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
-                  );
-                })}
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => toggleLayer('intervention_zones')}
+                  className="h-8 px-2"
+                >
+                  {zonesLayerEnabled ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                </Button>
               </div>
             </div>
-          )}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {sortedZonesByRisk.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  <MapPinned className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>{t('siteExplorer.noZonesLoaded')}</p>
+                </div>
+              ) : (
+                sortedZonesByRisk.map((zone: any) => {
+                  const portfolio = zonePortfolios[zone.zoneId] || [];
+                  const isSelected = selectedZone?.zoneId === zone.zoneId;
+                  const groupedByCategory = portfolio.reduce((acc: any, item: SelectedIntervention) => {
+                    if (!acc[item.category]) acc[item.category] = [];
+                    acc[item.category].push(item);
+                    return acc;
+                  }, {});
+                  
+                  return (
+                    <div 
+                      key={zone.zoneId}
+                      className={`rounded-lg border transition-colors ${isSelected ? 'border-primary bg-primary/5' : 'border-transparent hover:border-muted-foreground/20 hover:bg-muted/30'}`}
+                    >
+                      <button
+                        className="w-full p-2 text-left flex items-center gap-2"
+                        onClick={() => {
+                          const zonesLayer = layerRefs.current.get('intervention_zones') as L.GeoJSON | undefined;
+                          if (zonesLayer) {
+                            zonesLayer.eachLayer((layer: any) => {
+                              if (layer.feature?.properties?.zoneId === zone.zoneId) {
+                                layer.fire('click');
+                              }
+                            });
+                          }
+                        }}
+                      >
+                        <div 
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: TYPOLOGY_COLORS[zone.typologyLabel] || '#10b981' }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm truncate">{zone.zoneId}</span>
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                              {(zone.maxRisk * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {t(`interventionZones.typologies.${zone.typologyLabel}`)}
+                          </div>
+                        </div>
+                        {portfolio.length > 0 && (
+                          <Badge variant="secondary" className="flex-shrink-0 text-xs">
+                            {portfolio.length}
+                          </Badge>
+                        )}
+                        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      </button>
+                      
+                      {portfolio.length > 0 && (
+                        <div className="px-2 pb-2 space-y-1">
+                          {Object.entries(groupedByCategory).map(([category, items]: [string, any]) => (
+                            <div key={category} className="ml-5 pl-2 border-l border-muted">
+                              <div className="text-xs text-muted-foreground font-medium py-1">
+                                {interventionsData?.categories[category]?.name || category} ({items.length})
+                              </div>
+                              {items.slice(0, 2).map((item: SelectedIntervention) => (
+                                <div key={item.assetId || item.interventionId} className="text-xs py-0.5 truncate text-foreground/80">
+                                  {item.assetName || item.interventionName}
+                                </div>
+                              ))}
+                              {items.length > 2 && (
+                                <div className="text-xs text-muted-foreground">+{items.length - 2} more</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Bottom Drawer - Evidence Layers */}
+          <div 
+            className={`absolute left-0 right-[320px] bottom-0 z-[1001] bg-zinc-900/95 backdrop-blur-sm border-t border-zinc-700 transition-all duration-300 ${showEvidenceDrawer ? 'h-[180px]' : 'h-[48px]'}`}
+            style={{ pointerEvents: 'auto' }}
+          >
+            <button
+              className="w-full h-[48px] px-4 flex items-center justify-between hover:bg-zinc-800/50 transition-colors"
+              onClick={() => setShowEvidenceDrawer(!showEvidenceDrawer)}
+            >
+              <div className="flex items-center gap-3">
+                <Layers className="h-4 w-4 text-zinc-400" />
+                <span className="font-medium text-sm text-white">{t('siteExplorer.evidenceLayers')}</span>
+                <span className="text-xs text-zinc-500">
+                  {evidenceLayers.filter(l => l.enabled).length} active
+                </span>
+              </div>
+              {showEvidenceDrawer ? (
+                <ChevronDown className="h-5 w-5 text-zinc-400" />
+              ) : (
+                <ChevronUp className="h-5 w-5 text-zinc-400" />
+              )}
+            </button>
+            
+            {showEvidenceDrawer && (
+              <div className="px-4 pb-4">
+                <div className="grid grid-cols-5 gap-2">
+                  {evidenceLayers.map((layer) => {
+                    const IconComponent = layer.icon;
+                    return (
+                      <button
+                        key={layer.id}
+                        className={`p-2 rounded-lg border transition-colors flex flex-col items-center gap-1 ${
+                          layer.enabled 
+                            ? 'border-primary bg-primary/10' 
+                            : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
+                        }`}
+                        onClick={() => toggleLayer(layer.id)}
+                      >
+                        <div 
+                          className="w-8 h-8 rounded-lg flex items-center justify-center"
+                          style={{ backgroundColor: layer.enabled ? `${layer.color}30` : 'transparent' }}
+                        >
+                          <IconComponent className="h-4 w-4" style={{ color: layer.enabled ? layer.color : '#71717a' }} />
+                        </div>
+                        <span className={`text-xs text-center leading-tight ${layer.enabled ? 'text-white' : 'text-zinc-500'}`}>
+                          {layer.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
 
           {selectedZone && (
             <div 
