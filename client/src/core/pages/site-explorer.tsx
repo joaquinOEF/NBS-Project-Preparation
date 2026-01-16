@@ -1314,25 +1314,25 @@ export default function SiteExplorerPage() {
             </div>
           )}
           
-          {/* Right Panel - Zone Priority List */}
+          {/* Right Panel - Zone Priority List (Frosted Glass) */}
           <div 
-            className="absolute top-0 right-0 bottom-0 w-[320px] z-[1001] bg-background/95 backdrop-blur-sm border-l shadow-xl flex flex-col"
+            className="absolute top-0 right-0 bottom-0 w-[320px] z-[1001] bg-zinc-900/80 backdrop-blur-xl border-l border-white/10 shadow-2xl flex flex-col"
             style={{ pointerEvents: 'auto', marginBottom: showEvidenceDrawer ? '180px' : '48px' }}
             onWheel={(e) => e.stopPropagation()}
             onMouseEnter={() => mapRef.current?.scrollWheelZoom.disable()}
             onMouseLeave={() => mapRef.current?.scrollWheelZoom.enable()}
           >
-            <div className="p-3 border-b flex items-center justify-between">
+            <div className="p-3 border-b border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MapPinned className="h-4 w-4 text-primary" />
-                <span className="font-semibold text-sm">{t('siteExplorer.zonePriority')}</span>
+                <span className="font-semibold text-sm text-white">{t('siteExplorer.zonePriority')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Button 
                   variant="ghost" 
                   size="sm"
                   onClick={() => toggleLayer('intervention_zones')}
-                  className="h-8 px-2"
+                  className="h-8 px-2 text-white hover:bg-white/10"
                 >
                   {zonesLayerEnabled ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                 </Button>
@@ -1340,7 +1340,7 @@ export default function SiteExplorerPage() {
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
               {sortedZonesByRisk.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">
+                <div className="text-center py-8 text-zinc-400 text-sm">
                   <MapPinned className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p>{t('siteExplorer.noZonesLoaded')}</p>
                 </div>
@@ -1357,7 +1357,7 @@ export default function SiteExplorerPage() {
                   return (
                     <div 
                       key={zone.zoneId}
-                      className={`rounded-lg border transition-colors ${isSelected ? 'border-primary bg-primary/5' : 'border-transparent hover:border-muted-foreground/20 hover:bg-muted/30'}`}
+                      className={`rounded-lg border transition-colors ${isSelected ? 'border-primary bg-primary/20' : 'border-white/5 hover:border-white/20 hover:bg-white/5'}`}
                     >
                       <button
                         className="w-full p-2 text-left flex items-center gap-2"
@@ -1378,37 +1378,37 @@ export default function SiteExplorerPage() {
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm truncate">{zone.zoneId}</span>
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                            <span className="font-medium text-sm truncate text-white">{zone.zoneId}</span>
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-white/10 text-zinc-300">
                               {(zone.maxRisk * 100).toFixed(0)}%
                             </span>
                           </div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-zinc-400">
                             {t(`interventionZones.typologies.${zone.typologyLabel}`)}
                           </div>
                         </div>
                         {portfolio.length > 0 && (
-                          <Badge variant="secondary" className="flex-shrink-0 text-xs">
+                          <Badge className="flex-shrink-0 text-xs bg-primary/20 text-primary-foreground border-primary/30">
                             {portfolio.length}
                           </Badge>
                         )}
-                        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <ChevronRight className="h-4 w-4 text-zinc-400 flex-shrink-0" />
                       </button>
                       
                       {portfolio.length > 0 && (
                         <div className="px-2 pb-2 space-y-1">
                           {Object.entries(groupedByCategory).map(([category, items]: [string, any]) => (
-                            <div key={category} className="ml-5 pl-2 border-l border-muted">
-                              <div className="text-xs text-muted-foreground font-medium py-1">
+                            <div key={category} className="ml-5 pl-2 border-l border-white/20">
+                              <div className="text-xs text-zinc-400 font-medium py-1">
                                 {interventionsData?.categories[category]?.name || category} ({items.length})
                               </div>
                               {items.slice(0, 2).map((item: SelectedIntervention) => (
-                                <div key={item.assetId || item.interventionId} className="text-xs py-0.5 truncate text-foreground/80">
+                                <div key={item.assetId || item.interventionId} className="text-xs py-0.5 truncate text-zinc-300">
                                   {item.assetName || item.interventionName}
                                 </div>
                               ))}
                               {items.length > 2 && (
-                                <div className="text-xs text-muted-foreground">+{items.length - 2} more</div>
+                                <div className="text-xs text-zinc-500">+{items.length - 2} more</div>
                               )}
                             </div>
                           ))}
