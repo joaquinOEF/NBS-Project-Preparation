@@ -189,10 +189,10 @@ const AGENT_TOOLS: AgentTool[] = [
         tags: {
           type: "array",
           items: { type: "string" },
-          description: "Optional tags to filter by: flood-resilience, heat-mitigation, slope-stabilization, co-benefits, latin-america, urban-greening, stormwater-management",
+          description: "Tags to filter results. Use empty array [] for no filtering. Available: flood-resilience, heat-mitigation, slope-stabilization, co-benefits, latin-america, urban-greening, stormwater-management",
         },
       },
-      required: ["query"],
+      required: ["query", "tags"],
       additionalProperties: false,
     },
   },
