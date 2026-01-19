@@ -1,6 +1,6 @@
 # Overview
 
-The **NBS Project Builder** is a Nature Based Solutions planning tool designed to assist cities in developing climate action recommendations. It integrates with CityCatalyst's climate data platform to provide evidence-based mitigation and adaptation strategies, leveraging Health Impact Assessment Policy (HIAP) data. The platform offers features like geospatial risk analysis, a business model wizard, and an AI-powered impact model, all aimed at streamlining project planning and financing for urban sustainability initiatives.
+The NBS Project Builder is a Nature Based Solutions planning tool designed to assist cities in developing climate action recommendations. It integrates with CityCatalyst's climate data platform to provide evidence-based mitigation and adaptation strategies, leveraging Health Impact Assessment Policy (HIAP) data. The platform offers features like geospatial risk analysis, a business model wizard, and an AI-powered impact model, all aimed at streamlining project planning and financing for urban sustainability initiatives. Its core purpose is to empower cities to accelerate urban sustainability through accessible and efficient NBS project development.
 
 # User Preferences
 
@@ -9,37 +9,37 @@ Preferred communication style: Simple, everyday language.
 # System Architecture
 
 ## Frontend
-- **Frameworks**: React 18+ with TypeScript, Vite for building, Wouter for routing.
+- **Frameworks**: React 18+ with TypeScript, Vite, Wouter.
 - **Styling**: Tailwind CSS with shadcn/ui.
-- **State Management**: React Query/TanStack Query for server state, local component state for UI, React Hook Form for forms, and a dedicated context for sample data.
+- **State Management**: React Query/TanStack Query for server state, local component state, React Hook Form, and a dedicated context for sample data.
 
 ## Backend
 - **Framework**: Express.js with TypeScript.
 - **Authentication**: Session-based with OAuth 2.0 PKCE.
-- **API Design**: RESTful, with centralized error handling, Zod schema validation, and rate limiting.
+- **API Design**: RESTful with centralized error handling, Zod schema validation, and rate limiting.
 
 ## Data Storage
 - **ORM**: Drizzle ORM.
 - **Database**: PostgreSQL (production), in-memory (development).
 - **Entities**: Users, Cities, Sessions, Projects.
-- **Abstracted Storage Layer**: Enables flexible storage implementation.
+- **Abstracted Storage Layer**: For flexible storage implementation.
 
 ## Knowledge Workspace
-- **Database Tables**: `info_blocks` (module states), `evidence_records` (evidence tracking), `assumptions` (project assumptions), `agent_action_log` (audit trail), `project_patches` (field-level changes).
-- **Module Registry**: Defines modules (funder_selection, site_explorer, impact_model, operations, business_model) with their sections and field paths.
+- **Core Tables**: `info_blocks`, `evidence_records`, `assumptions`, `agent_action_log`, `project_patches`.
+- **Module Registry**: Defines module structure, sections, and field paths for `funder_selection`, `site_explorer`, `impact_model`, `operations`, and `business_model`.
 - **Agent Action Protocol**: Supports proposing, applying, rejecting patches, auto-completion, and suggestions.
-- **Sample Mode**: Utilizes the database-backed architecture with a shared, writable project for sample users.
+- **Sample Mode**: Uses database-backed architecture with a shared, writable project.
 
 ## Conversational AI Agent
-- **Architecture**: OpenAI client (`gpt-5.2`) for streaming and structured outputs, an agent service for multi-turn tool orchestration, and dedicated routes for chat management.
+- **Architecture**: OpenAI client (`gpt-5.2`) for streaming and structured outputs, an agent service for multi-turn tool orchestration.
 - **Agent Tools**: `get_project_state`, `get_block`, `list_modules`, `propose_patch`, `record_evidence`, `get_evidence`, `get_pending_patches`.
-- **Chat Interface**: SSE streaming for real-time interaction, with database schemas for `conversations` and `messages`.
+- **Chat Interface**: SSE streaming with `conversations` and `messages` schemas.
 
 ## RAG Knowledge Base
-- **Database Tables**: `knowledge_sources` and `knowledge_chunks` for indexed content.
-- **Embedding Approach**: Hash-based TF-IDF for text embeddings due to platform limitations, enabling keyword-based similarity search.
-- **Services**: `embeddingService`, `chunkingService`, `knowledgeService` for ingestion and search.
-- **Agent Tool**: `search_knowledge` for querying the knowledge base.
+- **Database Tables**: `knowledge_sources` and `knowledge_chunks`.
+- **Embedding Approach**: Hash-based TF-IDF for text embeddings for keyword-based similarity search.
+- **Services**: `embeddingService`, `chunkingService`, `knowledgeService`.
+- **Agent Tool**: `search_knowledge`.
 
 ## Authentication & Authorization
 - **Mechanism**: OAuth 2.0 PKCE with CityCatalyst.
@@ -47,13 +47,13 @@ Preferred communication style: Simple, everyday language.
 - **Access Control**: Project-based user access.
 
 ## Shared Project Context
-- **`ProjectContextProvider`**: Facilitates data persistence and cross-module data sharing using localStorage.
+- **`ProjectContextProvider`**: Facilitates data persistence and cross-module data sharing using `localStorage`.
 - **"Read Before Ask" Principle**: Modules prefill data from context to minimize user input.
 
 ## Geospatial Risk Analysis
 - **Site Explorer**: Grid-based risk scoring for heat, flood, and landslide.
-- **OSM Asset Discovery**: Integrates with OpenStreetMap Overpass API for real-world asset identification.
-- **Linear Asset Handling**: Supports clipping and length calculation for linear features like roads and waterways.
+- **OSM Asset Discovery**: Integrates OpenStreetMap Overpass API for asset identification.
+- **Linear Asset Handling**: Supports clipping and length calculation for linear features.
 
 ## Business Model Module
 - A 6-step wizard guiding users through financing structure, archetypes, revenue, and funding pathways.
@@ -63,6 +63,15 @@ Preferred communication style: Simple, everyday language.
 - **AI Integration**: Uses OpenAI GPT-5.2 via Replit AI Integrations for structured narrative generation.
 - **AI Model Selection Strategy**: Differentiates models for narrative generation, chat, audio, images, and transcription based on task requirements.
 - **Data Flow**: Integrates inputs from Funder Selection and Site Explorer, and outputs signals to Operations and Business Model.
+
+## Module Development Pattern
+Modules follow a 5-layer integration: Page Goal, Block Type, Module Page, Context Integration, and RAG Ingestion. This ensures consistency and agent awareness for all modules like Funder Selection, Site Explorer, Impact Model, Operations, and Business Model.
+
+## Real-Time Sync Pattern
+The system ensures real-time UI updates when the AI agent proposes changes and the user approves them. This involves updating the database, fetching fresh data, updating the `ProjectContext`, dispatching a custom event, and triggering UI re-hydration.
+
+## Agent Tool Reference
+The agent utilizes tools like `get_project_state`, `get_block`, `propose_patch`, `record_evidence`, `search_knowledge`, and `get_pending_patches` for understanding context, making changes, and managing information.
 
 # External Dependencies
 
