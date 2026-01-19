@@ -1,0 +1,224 @@
+Understood. Here is a simplified, high-leverage UI structure (modules workspace + right-side agent), and what you need so the agent can “open” modules now (and scale later) without introducing zones/global objects/shortcuts yet.
+
+---
+
+## 1) Simplified UI structure (MVP)
+
+### A. Top navigation (minimal)
+
+* **Back button**: returns to “Module Selection” (your 5 Info Blocks)
+* **Project title** (city + project name)
+* **Current module name** (when inside a module)
+* Optional: a small “Draft/Ready” badge for the module
+
+### B. Main area (two columns)
+
+**Left (Primary workspace): Module UI**
+
+* Shows only the current Info Block’s structured UI:
+
+  * sections + fields
+  * “AI Suggest” buttons where relevant
+  * “Save” behavior (auto-save or explicit save; pick one)
+
+**Right (Agent panel): Conversation**
+
+* Thread + input box
+* A small “Working on: {Module}” indicator
+* A simple “Apply” mechanism:
+
+  * either auto-write into the module fields, or
+  * show a small “Proposed updates” list (even in MVP, this avoids silent overwrites)
+
+### C. Module selection screen (home)
+
+* 5 cards (Funder, Site, Impact, O&M, Business Model)
+* Each card shows:
+
+  * completion state: empty/draft/ready
+  * last updated timestamp
+* Clicking a card opens that module workspace
+
+This is enough to ship quickly and still support agentic assistance.
+
+---
+
+## 2) Can the agent open modules? Yes—do it via “UI actions” (not by free-form chat)
+
+You want the agent to be able to:
+
+* navigate the user to the relevant module
+* focus the right section/field
+* propose updates in the correct place
+
+### The correct pattern is: **Agent → Action → UI executes**
+
+Instead of the agent “clicking,” it outputs a structured action that your UI recognizes.
+
+Example actions:
+
+* `OPEN_MODULE("Impact Model")`
+* `FOCUS_FIELD("impact.narrative.problem_statement")`
+* `PROPOSE_PATCH([{path, value, evidenceRefs}])`
+
+The UI receives these actions and:
+
+* switches the visible module
+* scrolls/focuses the relevant section/field
+* displays proposed updates
+
+This is the foundation for future agentic UI control.
+
+---
+
+## 3) What you need to implement now to explore this (minimal requirements)
+
+### A. A shared “App State” for current module
+
+You need a single source of truth in the frontend:
+
+* `currentModuleId`
+* `currentModuleSectionId` (optional)
+* `currentFieldPath` (optional)
+
+When the user clicks modules in the UI, it updates this state.
+When the agent triggers an action, it updates the same state.
+
+### B. A “Module Registry” (important)
+
+Create a simple map in code:
+
+* module IDs (stable strings)
+* labels
+* routes (or component keys)
+* sections + field paths (optional but recommended)
+
+Example (conceptually):
+
+* `impact` → route `/project/:id/impact`
+* known fields:
+
+  * `impact.kpis`
+  * `impact.narrative`
+  * `impact.coBenefits`
+
+This registry allows the agent actions to be **validated** (prevents “open module X” when X doesn’t exist).
+
+### C. A minimal “Agent Action Protocol”
+
+Implement a small JSON schema the agent can emit, e.g.:
+
+```json
+{
+  "type": "OPEN_MODULE",
+  "moduleId": "impact"
+}
+```
+
+and
+
+```json
+{
+  "type": "PROPOSE_PATCH",
+  "patches": [
+    {"path": "impact.narrative.summary", "value": "...", "status": "draft"}
+  ]
+}
+```
+
+Even if you don’t fully enforce it at first, you need a consistent format.
+
+### D. A backend write endpoint (or client-side draft store)
+
+You need somewhere to persist updates:
+
+* simplest: each module saves to Postgres as JSON (`block_state_json`)
+* agent patches call the same endpoint the UI uses
+
+At MVP level, you can store:
+
+* `project_id`
+* `module_id`
+* `state_json`
+* `updated_at`
+* `updated_by` (user/agent)
+
+---
+
+## 4) How the agent decides which module to open (behavior rules)
+
+Start with explicit heuristics:
+
+* If user asks about **funding** → open Funder Selection
+* If user asks about **where / what to build** → Site Explorer
+* If user asks about **benefits / narrative / KPIs** → Impact Model
+* If user asks about **who operates / maintains** → O&M
+* If user asks about **who pays / revenue / tariffs** → Business Model
+
+Then implement a simple confirmation UI pattern:
+
+* The agent says: “I’m going to open Impact Model to draft the narrative.”
+* UI opens it automatically (or shows a small “Open” button for the user to click in MVP)
+
+For MVP, I recommend **“suggest + one-click open”** rather than auto-switching, to avoid disorientation.
+
+---
+
+## 5) What to take into account so this doesn’t break later
+
+### A. Avoid hard-coding field names in prompts
+
+Use the Module Registry to expose “available fields” to the agent as context.
+
+### B. Prevent destructive writes
+
+Even in MVP, avoid silent overwrites:
+
+* store agent writes as `draft`
+* show a small “Accept changes” UI or inline diff
+
+### C. Keep conversation and module state synchronized
+
+When the agent opens a module, reflect it in the agent panel:
+
+* “Working in: Impact Model”
+* “Target field: Narrative summary”
+
+### D. Logging (lightweight)
+
+Store:
+
+* agent action emitted
+* whether it was executed
+* what changed
+
+This will be essential once multiple agents/tools exist.
+
+---
+
+## 6) Minimal roadmap to “agent can open modules” (incremental)
+
+**Iteration 1 (exploration-ready)**
+
+* Two-pane layout + module selection
+* Agent can output `OPEN_MODULE` actions
+* UI shows a clickable “Open Impact Model” button based on that action
+
+**Iteration 2**
+
+* UI executes the action automatically
+* Add `FOCUS_FIELD`
+
+**Iteration 3**
+
+* Add `PROPOSE_PATCH` with draft review
+
+This sequence gives you agentic navigation without building a full orchestration framework.
+
+---
+
+If you want, I can draft:
+
+* the exact **action JSON schema** (OPEN_MODULE, FOCUS_FIELD, PROPOSE_PATCH)
+* a minimal **Module Registry** template for your 5 blocks
+* and the UX microcopy for “Agent wants to open module X” so it feels controlled, not jumpy.

@@ -1,0 +1,252 @@
+You are effectively building a **project memory system** that supports two interaction modes (UI + conversational agent) and five partially-independent modules, while remaining export-agnostic (concept note is only one output). The right high-level architecture is a **hybrid**: a relational “system of record” for structured project state + a document/embedding layer for retrieval + (optionally) a graph projection for cross-entity reasoning. In practice, most teams that “want a graph database” get the best outcomes by treating the graph as a **derived view** over canonical tables—not the canonical store.
+
+Below is a recommended high-level infrastructure that fits your current stack (Postgres/Neon + Drizzle + JSONB + existing caching patterns) and enables agentic read/write across modules without losing human legibility. 
+
+---
+
+## 1) Canonical data model: “Project as a Knowledge Workspace” (Postgres as source of truth)
+
+### Core idea
+
+Represent the project as a workspace with:
+
+* **Typed fields** (for deterministic UI + validation)
+* **Evidence** (sources, assumptions, citations)
+* **Derived outputs** (scores, suggested text, candidate interventions)
+* **Conversation traces** (what the agent proposed and what the user accepted)
+
+### Recommended canonical entities (tables)
+
+Keep these as normalized relational tables (plus JSONB where flexibility helps):
+
+1. **Project**
+
+* `project_id`, `city_id`, `status`, `created_by`, `current_version`, etc.
+
+2. **InfoBlock**
+
+* One row per module instance per project (Funder, Site, Impact, O&M, Business Model)
+* Stores:
+
+  * `block_type`
+  * `block_state_json` (typed payload validated by Zod)
+  * `completion_status`
+  * `last_updated_by` (user/agent)
+
+3. **ProjectField (optional but powerful)**
+
+* If you want maximum agentic flexibility and fine-grained provenance:
+
+  * `field_key` (e.g., `impact.kpis.flood_reduction_m3`)
+  * `value_json`
+  * `confidence`, `status` (draft/confirmed)
+  * `source_refs[]` (evidence IDs)
+
+4. **Evidence**
+
+* Anything that can justify a statement:
+
+  * dataset outputs (your derived grid/zones)
+  * retrieved excerpts from the NBS project library
+  * user uploads / notes
+  * citations/URLs metadata (store link, not the raw page)
+* Key fields: `evidence_id`, `type`, `summary`, `payload_ref`, `created_at`
+
+5. **InterventionPlan**
+
+* Stores the chosen zones, assets, and intervention “recipes”
+* Links to:
+
+  * `zone_id`
+  * `osm_asset_id`
+  * `intervention_type_id`
+  * `parameters` (e.g., area, canopy target, storage volume proxy)
+  * cost ranges + assumptions
+
+6. **Assumption**
+
+* Formalize assumptions so they are inspectable and editable:
+
+  * `assumption_text`
+  * `scope` (project / block / zone / intervention)
+  * `sensitivity` (high/med/low)
+  * `linked_fields[]`
+
+7. **AgentActionLog**
+
+* Every agent write is auditable:
+
+  * tool calls used
+  * changes proposed
+  * changes accepted/rejected
+  * “why” explanation snapshot
+
+This structure keeps **human curation** and **AI legibility** aligned: the agent writes into typed structures, and humans can review each field with evidence attached.
+
+Your existing approach already leans this way (Postgres + JSONB caches + cross-module shared context), so this is an extension, not a rewrite. 
+
+---
+
+## 2) Retrieval layer: “RAG as a service” (vector search + metadata + citations)
+
+### What should be in RAG
+
+Split RAG into **three distinct corpora** with different access rules:
+
+1. **Project Library RAG** (your “100 NBS projects”)
+
+* Chunked case studies, implementation notes, cost ranges, KPIs, MRV, enabling conditions.
+* Strong metadata: `hazards`, `assets`, `intervention_types`, `climate_zone`, `income_context`, `governance`, etc.
+
+2. **Project Workspace RAG** (per project)
+
+* The project’s own content: block answers, decisions, assumptions, selected zones, previous drafts.
+* This is how the agent stays consistent across modules.
+
+3. **Reference Playbooks RAG** (general guidance)
+
+* Methodologies, financing playbooks, procurement templates, MRV standards.
+
+### Where to store embeddings
+
+You can do this in three viable ways:
+
+* **Postgres + pgvector** (best operational simplicity if you already run Postgres)
+* A managed vector store (if you anticipate heavy scale)
+* A file-based embedding index for MVP (not ideal long-term)
+
+Given you are already on Postgres/Neon, pgvector is typically the cleanest path for MVP-to-prod.
+
+### Critical design rule for agentic writing
+
+The agent should never “just answer.” It should:
+
+* retrieve context
+* propose a field-level write
+* attach citations (Evidence records)
+* set status to **draft** unless the user confirms or the input came from explicit user entry
+
+That keeps governance tight.
+
+---
+
+## 3) Graph database: when it helps, and how to do it safely
+
+Your boss liking graph databases is understandable—your domain is inherently relational:
+
+* Funders ↔ instruments ↔ eligibility constraints
+* Interventions ↔ hazards ↔ co-benefits ↔ assets ↔ O&M models
+* Evidence ↔ claims ↔ assumptions ↔ fields
+
+### The pragmatic recommendation
+
+* Keep **Postgres as the canonical store**
+* Maintain a **graph projection** (either:
+
+  * a lightweight property graph inside Postgres tables, or
+  * Neo4j as a derived read model)
+
+### What the graph is good for
+
+* “Find similar projects” across multi-dimensional similarity (hazards + assets + context)
+* Dependency tracing: “If we change intervention size, what budgets, O&M, and benefits must update?”
+* Co-benefit network reasoning and narrative scaffolding
+
+### What the graph is *not* good for (as canonical store)
+
+* UI forms with typed validation and partial completion
+* audit-friendly, deterministic “current state”
+* transactional updates across blocks
+
+So: graph is excellent as an **analysis and recommendation substrate**, not the authoritative database.
+
+---
+
+## 4) Agentic workflows: two interaction modes, one shared state
+
+You described two modes:
+
+1. conversational agent
+2. UI with AI suggestions/autocomplete
+
+They should share the same “write interface”:
+
+### A. A single “Project Write API”
+
+Implement a backend service that exposes:
+
+* `get_project_state(project_id)` (structured + relevant summaries)
+* `propose_patch(project_id, patch, evidence_refs)` (agent suggests changes)
+* `apply_patch(project_id, patch)` (user-confirmed or trusted write)
+* `log_agent_action(...)`
+
+Both UI and agent use the same patch pathway. This is how you avoid divergence.
+
+### B. “Tools” the agent can call
+
+Treat each module as a tool:
+
+* `tool.site_explorer.get_zone_summary(zone_id)`
+* `tool.project_kb.retrieve(query, filters)`
+* `tool.cost_model.estimate(intervention_type, scale, context)`
+* `tool.narrative.compose(block_inputs, evidence)`
+
+The agent orchestrates, but writes always go through the same patch system.
+
+Given your current architecture already has modular services and routes, this maps cleanly to what you have. 
+
+---
+
+## 5) How to keep it legible for humans (curation + validation)
+
+To make this work in practice, your UI needs a consistent review pattern:
+
+### Per field / per block
+
+* Value
+* Confidence (or status: Draft / Needs review / Confirmed)
+* Evidence chips (click to view source)
+* “Last changed by” (User / Agent)
+* “Why” summary (one sentence)
+
+### At project level
+
+* Assumptions register
+* Risks / constraints register (e.g., CAPAG constraints on borrowing)
+* Change log (agent actions)
+
+This is the difference between “AI that generates text” and “AI that builds a bankable dossier.”
+
+---
+
+## 6) Recommended high-level blueprint (what to implement first)
+
+If you want the shortest path to something robust:
+
+1. **Canonical store in Postgres**
+
+* Projects, InfoBlocks, Evidence, InterventionPlan, Assumptions, AgentActionLog
+
+2. **RAG**
+
+* Start with Project Library RAG + Project Workspace RAG
+* Add metadata filters early (hazards/intervention types)
+
+3. **Unified patch/write API**
+
+* Both UI and agent go through it
+* Enforce evidence + draft/confirm logic
+
+4. **Graph projection (optional, later)**
+
+* Only once you have enough structured data to justify it
+
+---
+
+If you want, I can follow up with:
+
+* a concrete **schema proposal** (tables + JSONB shapes per Info Block)
+* a **tooling plan** (which “agent tools” map to which blocks and data sources)
+* and a recommended **RAG chunking + metadata taxonomy** for your 100-project library
+
+All of that can be designed to fit your existing Postgres + Drizzle + service modules without major architectural churn. 

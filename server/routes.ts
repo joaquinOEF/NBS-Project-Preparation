@@ -9,6 +9,14 @@ import {
   generateSessionToken,
 } from './services/authService';
 import {
+  type InfoBlockType,
+  type InsertProjectPatch,
+  MODULE_REGISTRY,
+  BLOCK_SCHEMAS,
+  proposePatchRequestSchema,
+  applyPatchRequestSchema,
+} from '@shared/schema';
+import {
   getUserAccessibleCities,
   getCityById,
   getCityDetail,
@@ -920,6 +928,611 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // KNOWLEDGE WORKSPACE APIs (Phase 1)
+  // ============================================
+
+  // GET /api/projects/:id/state - Unified project state
+  app.get('/api/projects/:id/state', async (req, res) => {
+    try {
+      const { id: projectId } = req.params;
+      const { blocks: blocksFilter } = req.query;
+
+      // Verify project exists
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ message: 'Project not found' });
+      }
+
+      // Get all info blocks for this project
+      const infoBlocksData = await storage.getInfoBlocksByProject(projectId);
+      
+      // Build blocks map
+      const blocks: Record<string, any> = {};
+      const blockTypes: InfoBlockType[] = ['funder_selection', 'site_explorer', 'impact_model', 'operations', 'business_model'];
+      
+      // Filter if requested
+      const requestedBlocks = blocksFilter 
+        ? (blocksFilter as string).split(',') as InfoBlockType[]
+        : blockTypes;
+
+      for (const blockType of requestedBlocks) {
+        const existingBlock = infoBlocksData.find(b => b.blockType === blockType);
+        if (existingBlock) {
+          blocks[blockType] = {
+            id: existingBlock.id,
+            status: existingBlock.status,
+            completionPercent: existingBlock.completionPercent,
+            updatedBy: existingBlock.updatedBy,
+            updatedAt: existingBlock.updatedAt,
+            version: existingBlock.version,
+            data: existingBlock.blockStateJson || {},
+          };
+        } else {
+          // Return empty block with NOT_STARTED status
+          blocks[blockType] = {
+            id: null,
+            status: 'NOT_STARTED',
+            completionPercent: 0,
+            updatedBy: null,
+            updatedAt: null,
+            version: 0,
+            data: {},
+          };
+        }
+      }
+
+      // Get evidence and assumptions
+      const [evidence, projectAssumptions, pendingPatches] = await Promise.all([
+        storage.getEvidenceByProject(projectId),
+        storage.getAssumptionsByProject(projectId),
+        storage.getPendingPatches(projectId),
+      ]);
+
+      res.json({
+        projectId,
+        blocks,
+        evidence: evidence.map(e => ({
+          id: e.id,
+          type: e.evidenceType,
+          title: e.title,
+          summary: e.summary,
+          linkedPaths: e.linkedPaths,
+          linkedBlockTypes: e.linkedBlockTypes,
+          confidence: e.confidence,
+          isActive: e.isActive,
+          sourceUrl: e.sourceUrl,
+          sourceLabel: e.sourceLabel,
+          createdBy: e.createdBy,
+          createdAt: e.createdAt,
+          updatedAt: e.updatedAt,
+        })),
+        assumptions: projectAssumptions.map(a => ({
+          id: a.id,
+          statement: a.statement,
+          scope: a.scope,
+          scopeRef: a.scopeRef,
+          sensitivity: a.sensitivity,
+          linkedPaths: a.linkedPaths,
+          linkedBlockTypes: a.linkedBlockTypes,
+          status: a.status,
+          evidenceId: a.evidenceId,
+          validatedBy: a.validatedBy,
+          validatedAt: a.validatedAt,
+          createdBy: a.createdBy,
+          createdAt: a.createdAt,
+          updatedAt: a.updatedAt,
+        })),
+        pendingPatches: pendingPatches.map(p => ({
+          id: p.id,
+          blockType: p.blockType,
+          fieldPath: p.fieldPath,
+          operation: p.operation,
+          value: p.value,
+          proposedBy: p.proposedBy,
+          createdAt: p.createdAt,
+        })),
+        moduleRegistry: MODULE_REGISTRY,
+      });
+    } catch (error: any) {
+      console.error('Project state fetch error:', error);
+      res.status(500).json({ message: error.message || 'Failed to fetch project state' });
+    }
+  });
+
+  // POST /api/projects/:id/patch - Propose patches
+  app.post('/api/projects/:id/patch', async (req, res) => {
+    try {
+      const { id: projectId } = req.params;
+      
+      // Validate request body
+      const parseResult = proposePatchRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          message: 'Invalid patch request',
+          errors: parseResult.error.errors,
+        });
+      }
+
+      const { patches, actor, actorId, explanation } = parseResult.data;
+
+      // Verify project exists
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ message: 'Project not found' });
+      }
+
+      // Create agent action log entry if actor is agent
+      let agentActionId: string | undefined;
+      if (actor === 'agent') {
+        const action = await storage.createAgentAction({
+          projectId,
+          actionType: 'propose_patch',
+          actionStatus: 'proposed',
+          actor,
+          actorId,
+          proposedPatch: { patches },
+          explanation,
+        });
+        agentActionId = action.id;
+      }
+
+      // Create patch records
+      const createdPatches = await Promise.all(
+        patches.map(async (patch) => {
+          // Get current value if updating existing block
+          let previousValue: any = null;
+          if (patch.blockType) {
+            const block = await storage.getInfoBlock(projectId, patch.blockType);
+            if (block?.blockStateJson) {
+              // Navigate to the field path to get previous value
+              const pathParts = patch.path.split('.');
+              let current: any = block.blockStateJson;
+              for (const part of pathParts) {
+                if (current && typeof current === 'object') {
+                  current = current[part];
+                } else {
+                  current = undefined;
+                  break;
+                }
+              }
+              previousValue = current;
+            }
+          }
+
+          const patchData: InsertProjectPatch = {
+            projectId,
+            blockType: patch.blockType,
+            fieldPath: patch.path,
+            operation: patch.operation,
+            value: patch.value,
+            previousValue,
+            status: patch.status === 'confirmed' ? 'applied' : 'pending',
+            evidenceRefs: patch.evidenceRefs || [],
+            proposedBy: actor,
+            proposedByAgentId: actor === 'agent' ? actorId : undefined,
+            agentActionId,
+          };
+
+          return storage.createPatch(patchData);
+        })
+      );
+
+      // If patches are confirmed, apply them immediately
+      const confirmedPatches = patches.filter(p => p.status === 'confirmed');
+      if (confirmedPatches.length > 0) {
+        const patchIds = createdPatches
+          .filter(p => p.status === 'applied')
+          .map(p => p.id);
+        
+        // Apply each confirmed patch
+        for (const patch of createdPatches.filter(p => p.status === 'applied')) {
+          if (patch.blockType) {
+            await applyPatchToBlock(projectId, patch.blockType, patch.fieldPath, patch.operation, patch.value, actor);
+          }
+        }
+      }
+
+      res.json({
+        success: true,
+        patches: createdPatches.map(p => ({
+          id: p.id,
+          blockType: p.blockType,
+          fieldPath: p.fieldPath,
+          operation: p.operation,
+          status: p.status,
+        })),
+        agentActionId,
+      });
+    } catch (error: any) {
+      console.error('Patch creation error:', error);
+      res.status(500).json({ message: error.message || 'Failed to create patches' });
+    }
+  });
+
+  // POST /api/projects/:id/apply - Apply pending patches
+  app.post('/api/projects/:id/apply', async (req, res) => {
+    try {
+      const { id: projectId } = req.params;
+      
+      // Validate request body
+      const parseResult = applyPatchRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          message: 'Invalid apply request',
+          errors: parseResult.error.errors,
+        });
+      }
+
+      const { patchIds, actor, actorId } = parseResult.data;
+
+      // Get patches to apply
+      const patches = await storage.getPatchesByIds(patchIds);
+      if (patches.length === 0) {
+        return res.status(404).json({ message: 'No patches found' });
+      }
+
+      // Verify all patches belong to this project
+      const invalidPatches = patches.filter(p => p.projectId !== projectId);
+      if (invalidPatches.length > 0) {
+        return res.status(400).json({ message: 'Some patches do not belong to this project' });
+      }
+
+      // Apply each patch
+      const results: { patchId: string; success: boolean; error?: string }[] = [];
+      
+      for (const patch of patches) {
+        try {
+          if (patch.status !== 'pending') {
+            results.push({ patchId: patch.id, success: false, error: 'Patch already processed' });
+            continue;
+          }
+
+          if (patch.blockType) {
+            await applyPatchToBlock(
+              projectId, 
+              patch.blockType as InfoBlockType, 
+              patch.fieldPath, 
+              patch.operation as 'set' | 'merge' | 'append' | 'remove', 
+              patch.value, 
+              actor
+            );
+          }
+
+          // Update patch status
+          await storage.updatePatch(patch.id, {
+            status: 'applied',
+            appliedBy: actor,
+            appliedAt: new Date(),
+          });
+
+          // Update agent action if applicable
+          if (patch.agentActionId) {
+            await storage.updateAgentAction(patch.agentActionId, {
+              actionStatus: 'accepted',
+              appliedPatch: { patchId: patch.id, fieldPath: patch.fieldPath, value: patch.value },
+            });
+          }
+
+          results.push({ patchId: patch.id, success: true });
+        } catch (err: any) {
+          results.push({ patchId: patch.id, success: false, error: err.message });
+        }
+      }
+
+      res.json({
+        success: results.every(r => r.success),
+        results,
+      });
+    } catch (error: any) {
+      console.error('Patch apply error:', error);
+      res.status(500).json({ message: error.message || 'Failed to apply patches' });
+    }
+  });
+
+  // POST /api/projects/:id/reject - Reject pending patches
+  app.post('/api/projects/:id/reject', async (req, res) => {
+    try {
+      const { id: projectId } = req.params;
+      const { patchIds, reason } = req.body;
+
+      if (!patchIds || !Array.isArray(patchIds)) {
+        return res.status(400).json({ message: 'patchIds array is required' });
+      }
+
+      const patches = await storage.getPatchesByIds(patchIds);
+      
+      // Filter to only patches belonging to this project
+      const projectPatches = patches.filter(p => p.projectId === projectId);
+      let rejectedCount = 0;
+      
+      for (const patch of projectPatches) {
+        // Only reject pending patches
+        if (patch.status !== 'pending') continue;
+        
+        await storage.updatePatch(patch.id, { status: 'rejected' });
+        rejectedCount++;
+        
+        if (patch.agentActionId) {
+          await storage.updateAgentAction(patch.agentActionId, {
+            actionStatus: 'rejected',
+            userFeedback: reason,
+          });
+        }
+      }
+
+      res.json({ success: true, rejectedCount });
+    } catch (error: any) {
+      console.error('Patch reject error:', error);
+      res.status(500).json({ message: error.message || 'Failed to reject patches' });
+    }
+  });
+
+  // GET /api/projects/:id/actions - Get agent action log
+  app.get('/api/projects/:id/actions', async (req, res) => {
+    try {
+      const { id: projectId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+
+      const actions = await storage.getAgentActions(projectId, limit);
+
+      res.json({
+        actions: actions.map(a => ({
+          id: a.id,
+          actionType: a.actionType,
+          actionStatus: a.actionStatus,
+          actor: a.actor,
+          actorId: a.actorId,
+          targetBlockType: a.targetBlockType,
+          targetFieldPath: a.targetFieldPath,
+          explanation: a.explanation,
+          createdAt: a.createdAt,
+        })),
+      });
+    } catch (error: any) {
+      console.error('Action log fetch error:', error);
+      res.status(500).json({ message: error.message || 'Failed to fetch action log' });
+    }
+  });
+
+  // PUT /api/projects/:id/blocks/:blockType - Update a specific block
+  app.put('/api/projects/:id/blocks/:blockType', async (req, res) => {
+    try {
+      const { id: projectId, blockType } = req.params;
+      const { data, status, actor = 'user' } = req.body;
+
+      if (!['funder_selection', 'site_explorer', 'impact_model', 'operations', 'business_model'].includes(blockType)) {
+        return res.status(400).json({ message: 'Invalid block type' });
+      }
+
+      // Validate data against block schema if provided
+      if (data) {
+        const schema = BLOCK_SCHEMAS[blockType as keyof typeof BLOCK_SCHEMAS];
+        if (schema) {
+          const parseResult = schema.safeParse(data);
+          if (!parseResult.success) {
+            return res.status(400).json({
+              message: 'Invalid block data',
+              errors: parseResult.error.errors,
+            });
+          }
+        }
+      }
+
+      const block = await storage.upsertInfoBlock(projectId, blockType as InfoBlockType, {
+        blockStateJson: data,
+        status: status || 'DRAFT',
+        updatedBy: actor,
+        completionPercent: calculateBlockCompletion(blockType as InfoBlockType, data),
+      });
+
+      res.json({
+        id: block.id,
+        blockType: block.blockType,
+        status: block.status,
+        completionPercent: block.completionPercent,
+        version: block.version,
+        updatedAt: block.updatedAt,
+      });
+    } catch (error: any) {
+      console.error('Block update error:', error);
+      res.status(500).json({ message: error.message || 'Failed to update block' });
+    }
+  });
+
+  // POST /api/projects/:id/evidence - Add evidence record
+  app.post('/api/projects/:id/evidence', async (req, res) => {
+    try {
+      const { id: projectId } = req.params;
+      const { type, title, summary, sourceUrl, sourceLabel, linkedPaths, linkedBlockTypes, confidence, payloadJson } = req.body;
+
+      if (!type || !title) {
+        return res.status(400).json({ message: 'type and title are required' });
+      }
+
+      const record = await storage.createEvidenceRecord({
+        projectId,
+        evidenceType: type,
+        title,
+        summary,
+        sourceUrl,
+        sourceLabel,
+        linkedPaths: linkedPaths || [],
+        linkedBlockTypes: linkedBlockTypes || [],
+        confidence: confidence || 'MEDIUM',
+        payloadJson,
+        createdBy: 'user',
+      });
+
+      res.json({
+        id: record.id,
+        type: record.evidenceType,
+        title: record.title,
+        createdAt: record.createdAt,
+      });
+    } catch (error: any) {
+      console.error('Evidence creation error:', error);
+      res.status(500).json({ message: error.message || 'Failed to create evidence' });
+    }
+  });
+
+  // POST /api/projects/:id/assumptions - Add assumption
+  app.post('/api/projects/:id/assumptions', async (req, res) => {
+    try {
+      const { id: projectId } = req.params;
+      const { statement, scope, scopeRef, sensitivity, linkedPaths, linkedBlockTypes, evidenceId } = req.body;
+
+      if (!statement) {
+        return res.status(400).json({ message: 'statement is required' });
+      }
+
+      const assumption = await storage.createAssumption({
+        projectId,
+        statement,
+        scope: scope || 'project',
+        scopeRef,
+        sensitivity: sensitivity || 'medium',
+        linkedPaths: linkedPaths || [],
+        linkedBlockTypes: linkedBlockTypes || [],
+        evidenceId,
+        createdBy: 'user',
+      });
+
+      res.json({
+        id: assumption.id,
+        statement: assumption.statement,
+        scope: assumption.scope,
+        createdAt: assumption.createdAt,
+      });
+    } catch (error: any) {
+      console.error('Assumption creation error:', error);
+      res.status(500).json({ message: error.message || 'Failed to create assumption' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
+}
+
+// Helper function to apply a patch to a block with defensive cloning
+async function applyPatchToBlock(
+  projectId: string,
+  blockType: InfoBlockType,
+  fieldPath: string,
+  operation: 'set' | 'merge' | 'append' | 'remove',
+  value: any,
+  actor: 'user' | 'agent' | 'system'
+): Promise<void> {
+  const block = await storage.getInfoBlock(projectId, blockType);
+  // Deep clone to avoid mutating the original object
+  const currentData = JSON.parse(JSON.stringify(block?.blockStateJson || {}));
+
+  // Navigate to the field and apply the operation
+  const pathParts = fieldPath.split('.');
+  let target: any = currentData;
+  
+  // Navigate to parent of target field, creating intermediate objects as needed
+  for (let i = 0; i < pathParts.length - 1; i++) {
+    const part = pathParts[i];
+    if (!(part in target) || typeof target[part] !== 'object' || target[part] === null) {
+      target[part] = {};
+    }
+    target = target[part];
+  }
+
+  const lastPart = pathParts[pathParts.length - 1];
+
+  try {
+    switch (operation) {
+      case 'set':
+        target[lastPart] = value;
+        break;
+      case 'merge':
+        if (typeof target[lastPart] === 'object' && !Array.isArray(target[lastPart]) && typeof value === 'object' && !Array.isArray(value)) {
+          target[lastPart] = { ...target[lastPart], ...value };
+        } else {
+          target[lastPart] = value;
+        }
+        break;
+      case 'append':
+        if (Array.isArray(target[lastPart])) {
+          target[lastPart] = [...target[lastPart], value];
+        } else if (target[lastPart] === undefined || target[lastPart] === null) {
+          target[lastPart] = [value];
+        } else {
+          // Convert existing value to array and append
+          target[lastPart] = [target[lastPart], value];
+        }
+        break;
+      case 'remove':
+        if (Array.isArray(target[lastPart])) {
+          const index = target[lastPart].findIndex((item: any) => 
+            JSON.stringify(item) === JSON.stringify(value)
+          );
+          if (index > -1) {
+            target[lastPart] = [
+              ...target[lastPart].slice(0, index),
+              ...target[lastPart].slice(index + 1)
+            ];
+          }
+        } else {
+          delete target[lastPart];
+        }
+        break;
+    }
+  } catch (err) {
+    console.error(`Failed to apply ${operation} to ${fieldPath}:`, err);
+    throw new Error(`Cannot apply ${operation} operation to field ${fieldPath}`);
+  }
+
+  // Preserve existing block status unless explicitly changed
+  const existingStatus = block?.status || 'DRAFT';
+
+  // Save updated block
+  await storage.upsertInfoBlock(projectId, blockType, {
+    blockStateJson: currentData,
+    status: existingStatus === 'NOT_STARTED' ? 'DRAFT' : existingStatus,
+    updatedBy: actor,
+    completionPercent: calculateBlockCompletion(blockType, currentData),
+  });
+}
+
+// Helper to get nested value from object using dot path
+function getNestedValue(obj: any, path: string): any {
+  if (!obj || !path) return undefined;
+  const parts = path.split('.');
+  let current = obj;
+  for (const part of parts) {
+    if (current === undefined || current === null || typeof current !== 'object') {
+      return undefined;
+    }
+    current = current[part];
+  }
+  return current;
+}
+
+// Helper function to calculate block completion percentage with nested path support
+function calculateBlockCompletion(blockType: InfoBlockType, data: any): number {
+  if (!data || Object.keys(data).length === 0) return 0;
+
+  const registry = MODULE_REGISTRY[blockType];
+  if (!registry) return 0;
+
+  let totalFields = 0;
+  let filledFields = 0;
+
+  for (const section of registry.sections) {
+    for (const field of section.fields) {
+      totalFields++;
+      // Support nested paths like 'questionnaire.projectName'
+      const value = getNestedValue(data, field);
+      if (value !== undefined && value !== null && value !== '' && 
+          !(Array.isArray(value) && value.length === 0) &&
+          !(typeof value === 'object' && Object.keys(value).length === 0)) {
+        filledFields++;
+      }
+    }
+  }
+
+  return totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0;
 }

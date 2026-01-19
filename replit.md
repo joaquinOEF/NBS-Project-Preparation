@@ -36,6 +36,44 @@ Preferred communication style: Simple, everyday language.
 - **Entities**: Users, Cities, Sessions, Projects
 - **Abstracted Storage Layer**: Allows switching between in-memory and database implementations.
 
+## Knowledge Workspace (Phase 1)
+The platform now supports a database-backed project state that enables agent-aware workflows.
+
+### New Database Tables
+- **info_blocks**: Stores typed block state for each module (funder_selection, site_explorer, impact_model, operations, business_model)
+- **evidence_records**: Evidence layer with source tracking, confidence levels, and linked paths
+- **assumptions**: Project assumptions with scope, sensitivity, and validation tracking
+- **agent_action_log**: Audit trail for all agent actions with proposed/applied patches
+- **project_patches**: Field-level patches with draft/confirm workflow
+
+### Key APIs
+- `GET /api/projects/:id/state` - Unified project state with all blocks, evidence, assumptions, pending patches
+- `POST /api/projects/:id/patch` - Propose field-level patches with evidence refs
+- `POST /api/projects/:id/apply` - Apply pending patches with agent action logging
+- `POST /api/projects/:id/reject` - Reject pending patches with feedback
+- `GET /api/projects/:id/actions` - Agent action audit log
+- `PUT /api/projects/:id/blocks/:blockType` - Update specific block with validation
+
+### Module Registry (MODULE_REGISTRY)
+Defines all modules with their routes, sections, and field paths for agent navigation:
+- funder_selection: questionnaire, pathway, targetFunders sections
+- site_explorer: zones, interventions, layers sections
+- impact_model: prioritization, narrative, cobenefits, signals sections
+- operations: model, serviceLevels, nbs, costs, readiness sections
+- business_model: archetype, payment, revenue, financing, readiness sections
+
+### Agent Action Protocol
+- **propose_patch**: Agent proposes field-level updates for review
+- **apply_patch**: Confirmed changes are applied to the project
+- **reject_patch**: User rejected proposed changes
+- **auto_complete**: Agent auto-fills a field based on context
+- **suggest**: Agent provides suggestions without modifying
+- **draft**: Agent drafts content for a field
+
+### Schema Files
+- `shared/workspace-schema.ts`: Drizzle table definitions and types
+- `shared/block-schemas.ts`: Zod validation schemas for all module blocks
+
 ## Authentication & Authorization
 - **Mechanism**: OAuth 2.0 PKCE with CityCatalyst, Sample Data Mode bypass
 - **Session Management**: Server-side with secure token handling
