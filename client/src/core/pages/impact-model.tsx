@@ -1486,10 +1486,25 @@ export default function ImpactModelPage() {
       if (res.ok) {
         const result = await res.json();
         if (result?.data) {
-          const freshData = result.data as ImpactModelData;
+          const defaults = getDefaultImpactModelData();
+          const freshData: ImpactModelData = {
+            ...defaults,
+            ...result.data,
+            narrativeCache: {
+              ...defaults.narrativeCache,
+              ...(result.data.narrativeCache || {}),
+              lensVariants: {
+                ...defaults.narrativeCache.lensVariants,
+                ...(result.data.narrativeCache?.lensVariants || {}),
+              },
+            },
+            downstreamSignals: {
+              ...defaults.downstreamSignals,
+              ...(result.data.downstreamSignals || {}),
+            },
+          };
           setLocalData(freshData);
-          updateModule('impactModel', freshData);
-          console.log('[ImpactModel] Hydrated from database and synced to context');
+          console.log('[ImpactModel] Hydrated from database');
         }
       } else if (res.status === 404) {
         console.log('[ImpactModel] Block not found in DB, using local state');
@@ -1497,7 +1512,7 @@ export default function ImpactModelPage() {
     } catch (err) {
       console.error('[ImpactModel] DB hydration failed:', err);
     }
-  }, [projectId, isSampleMode, isSampleRoute, updateModule]);
+  }, [projectId, isSampleMode, isSampleRoute]);
 
   useEffect(() => {
     if (projectId) {
@@ -1508,7 +1523,23 @@ export default function ImpactModelPage() {
 
   useEffect(() => {
     if (context?.impactModel) {
-      setLocalData(context.impactModel);
+      const defaults = getDefaultImpactModelData();
+      setLocalData({
+        ...defaults,
+        ...context.impactModel,
+        narrativeCache: {
+          ...defaults.narrativeCache,
+          ...(context.impactModel.narrativeCache || {}),
+          lensVariants: {
+            ...defaults.narrativeCache.lensVariants,
+            ...(context.impactModel.narrativeCache?.lensVariants || {}),
+          },
+        },
+        downstreamSignals: {
+          ...defaults.downstreamSignals,
+          ...(context.impactModel.downstreamSignals || {}),
+        },
+      });
     }
   }, [context?.impactModel]);
 
@@ -1548,9 +1579,9 @@ export default function ImpactModelPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           selectedZones: zonesForAI,
-          interventionBundles: localData.interventionBundles,
+          interventionBundles: localData.interventionBundles || [],
           funderPathway: funderPathway,
-          prioritizationWeights: localData.prioritizationWeights,
+          prioritizationWeights: localData.prioritizationWeights || DEFAULT_WEIGHTS,
           projectName: context?.projectName || 'Urban Climate Resilience Initiative',
           cityName: context?.cityName || 'Porto Alegre',
         }),
@@ -1602,7 +1633,7 @@ export default function ImpactModelPage() {
           projectContext: {
             cityName: context?.cityName || 'Porto Alegre',
             projectName: context?.projectName || 'Urban Climate Resilience Initiative',
-            weights: localData.prioritizationWeights,
+            weights: localData.prioritizationWeights || DEFAULT_WEIGHTS,
           },
         }),
       });
@@ -1613,13 +1644,15 @@ export default function ImpactModelPage() {
 
       const result = await response.json();
       
-      const updatedBlocks = (localData.narrativeCache.base || []).map(b => 
+      const updatedBlocks = (localData.narrativeCache?.base || []).map(b => 
         b.id === block.id ? { ...result.block, id: block.id } : b
       );
       
+      const defaults = getDefaultImpactModelData();
       handleUpdate({
         narrativeCache: {
-          ...localData.narrativeCache,
+          ...defaults.narrativeCache,
+          ...(localData.narrativeCache || {}),
           base: updatedBlocks,
         },
       });
@@ -1638,7 +1671,7 @@ export default function ImpactModelPage() {
   };
 
   const handleGenerateLens = async (lens: LensType, customInstructions?: string) => {
-    if (lens === 'neutral' || !localData.narrativeCache.base) return;
+    if (lens === 'neutral' || !localData.narrativeCache?.base) return;
     
     setIsGeneratingLens(lens);
     
@@ -1648,7 +1681,7 @@ export default function ImpactModelPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lens,
-          baseNarrativeBlocks: localData.narrativeCache.base,
+          baseNarrativeBlocks: localData.narrativeCache?.base || [],
           funderPathway: funderPathway,
           customInstructions,
         }),
@@ -1660,11 +1693,14 @@ export default function ImpactModelPage() {
 
       const result = await response.json();
       
+      const defaults = getDefaultImpactModelData();
       handleUpdate({
         narrativeCache: {
-          ...localData.narrativeCache,
+          ...defaults.narrativeCache,
+          ...(localData.narrativeCache || {}),
           lensVariants: {
-            ...localData.narrativeCache.lensVariants,
+            ...defaults.narrativeCache.lensVariants,
+            ...(localData.narrativeCache?.lensVariants || {}),
             [lens]: result.narrativeBlocks || [],
           },
         },
@@ -1713,7 +1749,7 @@ export default function ImpactModelPage() {
   const canProceed = () => {
     switch (currentStep) {
       case 'setup':
-        return localData.interventionBundles.length > 0;
+        return (localData.interventionBundles?.length ?? 0) > 0;
       case 'curate':
       case 'lenses':
         return true;
