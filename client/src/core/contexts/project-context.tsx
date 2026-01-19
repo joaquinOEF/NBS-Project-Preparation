@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import { SAMPLE_PROJECT_ID as SAMPLE_PROJECT_ID_CONST } from '@shared/sample-constants';
 
 export interface Stakeholder {
   id: string;
@@ -594,10 +595,18 @@ interface ProjectContextValue {
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
 
+const getDbProjectId = (projectId: string): string => {
+  if (projectId.startsWith('sample-')) {
+    return SAMPLE_PROJECT_ID_CONST;
+  }
+  return projectId;
+};
+
 export function ProjectContextProvider({ children }: { children: ReactNode }) {
   const [context, setContext] = useState<ProjectContextData | null>(null);
 
   const syncAllModulesToDatabase = useCallback(async (projectId: string, contextData: ProjectContextData) => {
+    const dbProjectId = getDbProjectId(projectId);
     const modules = ['funderSelection', 'siteExplorer', 'impactModel', 'operations', 'businessModel'] as const;
     const blockTypeMap: Record<string, string> = {
       funderSelection: 'funder_selection',
@@ -611,10 +620,10 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
       const moduleData = contextData[module];
       if (moduleData) {
         try {
-          await fetch(`/api/projects/${projectId}/blocks/${blockTypeMap[module]}`, {
+          await fetch(`/api/projects/${dbProjectId}/blocks/${blockTypeMap[module]}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: moduleData, status: (moduleData as Record<string, unknown>).status || 'DRAFT', actor: 'user' }),
+            body: JSON.stringify({ data: moduleData, status: (moduleData as unknown as Record<string, unknown>).status || 'DRAFT', actor: 'user' }),
           });
         } catch (e) {
           console.warn(`Failed to sync ${module} to database:`, e);
@@ -661,6 +670,7 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
     moduleData: unknown
   ) => {
     try {
+      const dbProjectId = getDbProjectId(projectId);
       const blockTypeMap: Record<string, string> = {
         funderSelection: 'funder_selection',
         siteExplorer: 'site_explorer',
@@ -672,7 +682,7 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
       if (!blockType || !moduleData) return;
 
       const dataObj = moduleData as Record<string, unknown>;
-      await fetch(`/api/projects/${projectId}/blocks/${blockType}`, {
+      await fetch(`/api/projects/${dbProjectId}/blocks/${blockType}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: moduleData, status: dataObj.status || 'DRAFT', actor: 'user' }),
