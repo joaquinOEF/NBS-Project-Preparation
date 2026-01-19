@@ -17,6 +17,16 @@ import {
   applyPatchRequestSchema,
 } from '@shared/schema';
 import {
+  SAMPLE_USER_ID,
+  SAMPLE_USER_EMAIL,
+  SAMPLE_USER_NAME,
+  SAMPLE_PROJECT_ID,
+  SAMPLE_CITY_ID,
+  SAMPLE_CITY_LOCODE,
+  SAMPLE_CITY_NAME,
+  SAMPLE_CITY_COUNTRY,
+} from '@shared/sample-constants';
+import {
   getUserAccessibleCities,
   getCityById,
   getCityDetail,
@@ -226,6 +236,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Logout error:', error);
       res.status(500).json({ message: 'Logout failed' });
+    }
+  });
+
+  // Sample mode project initialization
+  app.post('/api/sample/init', async (req, res) => {
+    try {
+      // Check if sample project already exists
+      let project = await storage.getProject(SAMPLE_PROJECT_ID);
+      const isNew = !project;
+      
+      if (!project) {
+        // Create sample user if not exists
+        let user = await storage.getUser(SAMPLE_USER_ID);
+        if (!user) {
+          user = await storage.createUserWithId(SAMPLE_USER_ID, {
+            email: SAMPLE_USER_EMAIL,
+            name: SAMPLE_USER_NAME,
+            projects: [SAMPLE_PROJECT_ID],
+          });
+          console.log('📦 Created sample user:', SAMPLE_USER_ID);
+        }
+
+        // Create sample city if not exists
+        let city = await storage.getCity(SAMPLE_CITY_ID);
+        if (!city) {
+          city = await storage.createCity({
+            cityId: SAMPLE_CITY_ID,
+            name: SAMPLE_CITY_NAME,
+            country: SAMPLE_CITY_COUNTRY,
+            locode: SAMPLE_CITY_LOCODE,
+            projectId: SAMPLE_PROJECT_ID,
+          });
+          console.log('🏙️ Created sample city:', SAMPLE_CITY_ID);
+        }
+
+        // Create sample project with required fields
+        project = await storage.createProjectWithId(SAMPLE_PROJECT_ID, {
+          actionId: 'sample-nbs-action',
+          actionName: 'Porto Alegre NBS Project',
+          actionDescription: 'Nature Based Solutions project for Porto Alegre exploring climate resilience interventions.',
+          actionType: 'adaptation',
+          cityId: SAMPLE_CITY_ID,
+        });
+        console.log('📋 Created sample project:', SAMPLE_PROJECT_ID);
+
+        // Initialize empty info blocks for each module type
+        const blockTypes: InfoBlockType[] = ['funder_selection', 'site_explorer', 'impact_model', 'operations', 'business_model'];
+        for (const blockType of blockTypes) {
+          await storage.upsertInfoBlock(SAMPLE_PROJECT_ID, blockType, {
+            blockStateJson: {},
+            status: 'NOT_STARTED',
+            completionPercent: 0,
+            updatedBy: 'system',
+          });
+        }
+        console.log('📝 Initialized sample info blocks');
+      }
+
+      res.json({
+        success: true,
+        projectId: SAMPLE_PROJECT_ID,
+        cityId: SAMPLE_CITY_ID,
+        userId: SAMPLE_USER_ID,
+        isNew,
+      });
+    } catch (error: any) {
+      console.error('Sample init error:', error);
+      res.status(500).json({ message: error.message || 'Failed to initialize sample project' });
+    }
+  });
+
+  // Get sample project info (no auth required for sample mode)
+  app.get('/api/sample/project', async (req, res) => {
+    try {
+      const project = await storage.getProject(SAMPLE_PROJECT_ID);
+      
+      if (!project) {
+        return res.status(404).json({ 
+          message: 'Sample project not initialized. Call POST /api/sample/init first.',
+          initialized: false,
+        });
+      }
+
+      res.json({
+        initialized: true,
+        projectId: SAMPLE_PROJECT_ID,
+        cityId: SAMPLE_CITY_ID,
+        userId: SAMPLE_USER_ID,
+        project,
+      });
+    } catch (error: any) {
+      console.error('Get sample project error:', error);
+      res.status(500).json({ message: error.message || 'Failed to get sample project' });
     }
   });
 

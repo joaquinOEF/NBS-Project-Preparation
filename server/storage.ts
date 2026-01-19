@@ -22,6 +22,8 @@ import {
   type ProjectPatch,
   type InsertProjectPatch,
   type InfoBlockType,
+  type BlockStatus,
+  type UpdatedByType,
   users,
   cities,
   sessions,
@@ -41,6 +43,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  createUserWithId(id: string, user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
 
   getCities(): Promise<City[]>;
@@ -61,6 +64,7 @@ export interface IStorage {
   getProjectsByCityId(cityId: string): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
   createProject(project: InsertProject): Promise<Project>;
+  createProjectWithId(id: string, project: InsertProject): Promise<Project>;
 
   getCityBoundaryCache(cityLocode: string): Promise<CityBoundaryCache | undefined>;
   setCityBoundaryCache(data: InsertCityBoundaryCache): Promise<CityBoundaryCache>;
@@ -114,6 +118,11 @@ export class DatabaseStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
+  }
+
+  async createUserWithId(id: string, insertUser: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values({ ...insertUser, id } as typeof users.$inferInsert).returning();
     return user;
   }
 
@@ -196,6 +205,11 @@ export class DatabaseStorage implements IStorage {
     return project;
   }
 
+  async createProjectWithId(id: string, insertProject: InsertProject): Promise<Project> {
+    const [project] = await db.insert(projects).values({ ...insertProject, id } as typeof projects.$inferInsert).returning();
+    return project;
+  }
+
   async getCityBoundaryCache(cityLocode: string): Promise<CityBoundaryCache | undefined> {
     const [cache] = await db.select().from(cityBoundaryCache).where(eq(cityBoundaryCache.cityLocode, cityLocode));
     return cache || undefined;
@@ -260,9 +274,12 @@ export class DatabaseStorage implements IStorage {
   async upsertInfoBlock(projectId: string, blockType: InfoBlockType, data: Partial<InsertInfoBlock>): Promise<InfoBlock> {
     const existing = await this.getInfoBlock(projectId, blockType);
     if (existing) {
-      const { blockType: _, ...updateData } = data;
+      const { blockType: _, status, updatedBy, ...updateData } = data;
+      const updateSet: any = { ...updateData, updatedAt: new Date(), version: (existing.version || 1) + 1 };
+      if (status) updateSet.status = status as BlockStatus;
+      if (updatedBy) updateSet.updatedBy = updatedBy as UpdatedByType;
       const [updated] = await db.update(infoBlocks)
-        .set({ ...updateData, updatedAt: new Date(), version: (existing.version || 1) + 1 })
+        .set(updateSet)
         .where(eq(infoBlocks.id, existing.id))
         .returning();
       return updated;
@@ -270,10 +287,10 @@ export class DatabaseStorage implements IStorage {
     const insertData: typeof infoBlocks.$inferInsert = {
       projectId,
       blockType,
-      status: data.status || 'NOT_STARTED',
+      status: (data.status || 'NOT_STARTED') as BlockStatus,
       blockStateJson: data.blockStateJson || {},
       completionPercent: data.completionPercent ?? 0,
-      updatedBy: data.updatedBy || 'user',
+      updatedBy: (data.updatedBy || 'user') as UpdatedByType,
       updatedByAgentId: data.updatedByAgentId,
       version: 1,
     };

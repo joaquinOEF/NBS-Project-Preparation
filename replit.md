@@ -73,6 +73,15 @@ Defines all modules with their routes, sections, and field paths for agent navig
 ### Schema Files
 - `shared/workspace-schema.ts`: Drizzle table definitions and types
 - `shared/block-schemas.ts`: Zod validation schemas for all module blocks
+- `shared/sample-constants.ts`: Sample mode constants for Porto Alegre project
+
+### Sample Mode Integration
+Sample mode now uses the same database-backed architecture as authenticated users:
+- **Shared Writable Project**: All sample mode users share a single Porto Alegre project record
+- **Sample Constants**: `SAMPLE_USER_ID`, `SAMPLE_PROJECT_ID`, `SAMPLE_CITY_ID` defined in `shared/sample-constants.ts`
+- **Init Endpoint**: `POST /api/sample/init` seeds sample user, city, and project with empty info blocks
+- **Storage Methods**: `createUserWithId` and `createProjectWithId` support explicit ID assignment for sample entities
+- **Idempotent Initialization**: Init checks for existing records before creating new ones
 
 ## Authentication & Authorization
 - **Mechanism**: OAuth 2.0 PKCE with CityCatalyst, Sample Data Mode bypass

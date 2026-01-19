@@ -1,4 +1,9 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import {
+  SAMPLE_PROJECT_ID,
+  SAMPLE_CITY_ID,
+  SAMPLE_USER_ID,
+} from '@shared/sample-constants';
 
 interface SampleDataContextType {
   isSampleMode: boolean;
@@ -8,6 +13,11 @@ interface SampleDataContextType {
   sampleActions: SampleAction[];
   initiatedProjects: string[];
   initiateProject: (actionId: string) => void;
+  sampleProjectId: string;
+  sampleCityId: string;
+  sampleUserId: string;
+  isSampleInitialized: boolean;
+  initializeSampleProject: () => Promise<void>;
 }
 
 export interface SampleCityData {
@@ -120,6 +130,7 @@ export function SampleDataProvider({ children }: { children: ReactNode }) {
   });
 
   const isSampleMode = storedSampleMode;
+  const [isSampleInitialized, setIsSampleInitialized] = useState(false);
 
   const [initiatedProjects, setInitiatedProjects] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
@@ -129,15 +140,33 @@ export function SampleDataProvider({ children }: { children: ReactNode }) {
     return [];
   });
 
+  const initializeSampleProject = useCallback(async () => {
+    try {
+      const response = await fetch('/api/sample/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (response.ok) {
+        setIsSampleInitialized(true);
+        console.log('📦 Sample project initialized');
+      } else {
+        console.error('Failed to initialize sample project');
+      }
+    } catch (error) {
+      console.error('Sample init error:', error);
+    }
+  }, []);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if (storedSampleMode) {
         localStorage.setItem(STORAGE_KEY, 'true');
+        initializeSampleProject();
       } else {
         localStorage.removeItem(STORAGE_KEY);
       }
     }
-  }, [storedSampleMode]);
+  }, [storedSampleMode, initializeSampleProject]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -152,6 +181,7 @@ export function SampleDataProvider({ children }: { children: ReactNode }) {
   const clearSampleMode = () => {
     setStoredSampleMode(false);
     setInitiatedProjects([]);
+    setIsSampleInitialized(false);
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(PROJECTS_STORAGE_KEY);
   };
@@ -172,6 +202,11 @@ export function SampleDataProvider({ children }: { children: ReactNode }) {
         sampleActions: SAMPLE_ACTIONS,
         initiatedProjects,
         initiateProject,
+        sampleProjectId: SAMPLE_PROJECT_ID,
+        sampleCityId: SAMPLE_CITY_ID,
+        sampleUserId: SAMPLE_USER_ID,
+        isSampleInitialized,
+        initializeSampleProject,
       }}
     >
       {children}
