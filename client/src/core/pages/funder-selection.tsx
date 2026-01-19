@@ -595,6 +595,7 @@ export default function FunderSelectionPage() {
   const [fundingPlanConfirmed, setFundingPlanConfirmed] = useState(false);
   const [showAllFundsModal, setShowAllFundsModal] = useState<'now' | 'next' | null>(null);
   const [fundSearchQuery, setFundSearchQuery] = useState('');
+  const [hydrationComplete, setHydrationComplete] = useState(false);
 
   const action = (isSampleMode || isSampleRoute) 
     ? sampleActions.find(a => a.id === projectId)
@@ -660,6 +661,8 @@ export default function FunderSelectionPage() {
           }
         }
       }
+      // Mark hydration as complete so auto-save knows it's safe to run
+      setHydrationComplete(true);
     }
   }, [projectId, fundsData]);
 
@@ -696,7 +699,8 @@ export default function FunderSelectionPage() {
   }, [answers, lastSavedAnswers]);
 
   useEffect(() => {
-    if (computedResults && projectId && !hasSavedToContext && !fundingPlanConfirmed) {
+    // Wait for hydration to complete before auto-saving to avoid overwriting confirmed data
+    if (computedResults && projectId && !hasSavedToContext && !fundingPlanConfirmed && hydrationComplete) {
       const { pathwayResult, recommendedFunds, targetFunders, bridgeParagraph } = computedResults;
       
       updateModule('funderSelection', {
@@ -724,7 +728,7 @@ export default function FunderSelectionPage() {
       setHasSavedToContext(true);
       setLastSavedAnswers(JSON.stringify(answers));
     }
-  }, [computedResults, projectId, hasSavedToContext, fundingPlanConfirmed, answers, updateModule]);
+  }, [computedResults, projectId, hasSavedToContext, fundingPlanConfirmed, hydrationComplete, answers, updateModule]);
 
   const steps = [
     { id: 'readiness', title: t('funderSelection.steps.readiness'), icon: Check },
