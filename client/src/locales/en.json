@@ -1360,6 +1360,8 @@
     "generationFailed": "Failed to generate narrative. Please try again.",
     "saved": "Impact Model Saved",
     "savedDescription": "Your impact model has been finalized and saved",
+    "savedToDatabase": "Your work has been saved to the database",
+    "saveFailed": "Failed to save. Please try again.",
     "finalize": "Finalize Impact Model",
     "generationSummary": "Generation Summary",
     "city": "City",

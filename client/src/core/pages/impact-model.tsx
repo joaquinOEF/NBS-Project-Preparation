@@ -1476,6 +1476,8 @@ export default function ImpactModelPage() {
   const [isRegenerating, setIsRegenerating] = useState<string | null>(null);
   const [isGeneratingLens, setIsGeneratingLens] = useState<LensType | null>(null);
   const [localData, setLocalData] = useState<ImpactModelData>(getDefaultImpactModelData());
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   const hydrateFromDB = useCallback(async () => {
     if (!projectId) return;
@@ -1560,6 +1562,45 @@ export default function ImpactModelPage() {
     const updated = { ...localData, ...updates, status: 'DRAFT' as const };
     setLocalData(updated);
     updateModule('impactModel', updated);
+  };
+
+  const handleExplicitSave = async () => {
+    if (!projectId) return;
+    
+    setIsSaving(true);
+    try {
+      const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;
+      const res = await fetch(`/api/projects/${dbProjectId}/blocks/impact_model`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          data: localData, 
+          status: localData.status || 'DRAFT', 
+          actor: 'user' 
+        }),
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error('Save failed:', errorData);
+        throw new Error(errorData.message || 'Failed to save');
+      }
+      
+      setLastSaved(new Date());
+      toast({ 
+        title: t('common.saved'), 
+        description: t('impactModel.savedToDatabase'),
+      });
+    } catch (error) {
+      console.error('Explicit save error:', error);
+      toast({ 
+        title: t('common.error'), 
+        description: t('impactModel.saveFailed'),
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleGenerate = async () => {
@@ -1781,13 +1822,40 @@ export default function ImpactModelPage() {
         </Link>
 
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-amber-500/10 rounded-lg">
-              <Lightbulb className="h-6 w-6 text-amber-600" />
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-500/10 rounded-lg">
+                <Lightbulb className="h-6 w-6 text-amber-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">{t('impactModel.title')}</h1>
+                <p className="text-muted-foreground">{t('impactModel.subtitle')}</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold">{t('impactModel.title')}</h1>
-              <p className="text-muted-foreground">{t('impactModel.subtitle')}</p>
+            <div className="flex items-center gap-2">
+              {lastSaved && (
+                <span className="text-xs text-muted-foreground">
+                  Saved {lastSaved.toLocaleTimeString()}
+                </span>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleExplicitSave}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </Button>
             </div>
           </div>
           <Progress value={progress} className="h-2 mt-4" />

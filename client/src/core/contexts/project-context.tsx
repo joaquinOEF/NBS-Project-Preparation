@@ -736,13 +736,23 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
       }
 
       const dataObj = moduleData as Record<string, unknown>;
-      await fetch(`/api/projects/${dbProjectId}/blocks/${blockType}`, {
+      const res = await fetch(`/api/projects/${dbProjectId}/blocks/${blockType}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: moduleData, status: dataObj.status || 'DRAFT', actor: 'user' }),
       });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error(`Failed to sync ${module} to database:`, errorData);
+        if (errorData.errors) {
+          console.error('Validation errors:', JSON.stringify(errorData.errors, null, 2));
+        }
+      } else {
+        console.log(`[ProjectContext] Synced ${module} to database successfully`);
+      }
     } catch (e) {
-      console.warn('Failed to sync module to database:', e);
+      console.error('Failed to sync module to database:', e);
     }
   }, []);
 

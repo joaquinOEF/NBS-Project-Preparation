@@ -117,15 +117,17 @@ export const narrativeKPISchema = z.object({
 export const narrativeBlockSchema = z.object({
   id: z.string(),
   title: z.string(),
-  type: z.string(),
-  lens: z.enum(['neutral', 'climate', 'social', 'financial', 'institutional']),
-  contentMd: z.string(),
+  type: z.string().default('summary'),
+  lens: z.enum(['neutral', 'climate', 'social', 'financial', 'institutional']).default('neutral'),
+  contentMd: z.string().default(''),
+  content: z.string().optional(),
   kpis: z.array(narrativeKPISchema).optional(),
   assumptionsUsed: z.array(z.string()).optional(),
-  evidenceTier: z.enum(['EVIDENCE', 'MODELLED', 'ASSUMPTION', 'NEEDS_VALIDATION']),
+  evidenceTier: z.enum(['EVIDENCE', 'MODELLED', 'ASSUMPTION', 'NEEDS_VALIDATION']).default('ASSUMPTION'),
   dependencies: z.array(z.string()).optional(),
-  included: z.boolean(),
+  included: z.boolean().default(true),
   order: z.number().optional(),
+  category: z.string().optional(),
 });
 
 export const coBenefitCardSchema = z.object({
@@ -180,12 +182,12 @@ export const interventionBundleSchema = z.object({
 });
 
 export const prioritizationWeightsSchema = z.object({
-  floodRiskReduction: z.number().min(0).max(1).default(0.3),
-  heatReduction: z.number().min(0).max(1).default(0.25),
-  landslideRiskReduction: z.number().min(0).max(1).default(0.15),
-  socialEquity: z.number().min(0).max(1).default(0.1),
-  costCertainty: z.number().min(0).max(1).default(0.1),
-  biodiversityWaterQuality: z.number().min(0).max(1).default(0.1),
+  floodRiskReduction: z.number().min(0).max(5).default(4),
+  heatReduction: z.number().min(0).max(5).default(4),
+  landslideRiskReduction: z.number().min(0).max(5).default(3),
+  socialEquity: z.number().min(0).max(5).default(5),
+  costCertainty: z.number().min(0).max(5).default(3),
+  biodiversityWaterQuality: z.number().min(0).max(5).default(4),
 });
 
 export const impactModelBlockSchema = z.object({
