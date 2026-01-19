@@ -15,6 +15,9 @@ export interface AgentContext {
   projectId: string;
   userId?: string;
   currentModule?: InfoBlockType;
+  currentPage?: string;
+  currentStep?: number;
+  pageGoal?: string;
   conversationHistory: Message[];
 }
 
@@ -495,6 +498,26 @@ function getNestedValue(obj: any, path: string): unknown {
   return current;
 }
 
+function buildSystemPrompt(context: AgentContext): string {
+  let prompt = SYSTEM_PROMPT;
+  
+  if (context.currentPage || context.pageGoal || context.currentStep !== undefined) {
+    prompt += '\n\n## Current Context';
+    if (context.currentPage) {
+      prompt += `\nThe user is currently on the **${context.currentPage}** page.`;
+    }
+    if (context.currentStep !== undefined) {
+      prompt += ` They are on step ${context.currentStep + 1} of the wizard.`;
+    }
+    if (context.pageGoal) {
+      prompt += `\n\n**Your goal on this page**: ${context.pageGoal}`;
+    }
+    prompt += '\n\nFocus your assistance on the specific context and goals of this page. Be proactive in helping them complete the current step or module.';
+  }
+  
+  return prompt;
+}
+
 export async function* streamAgentResponse(
   context: AgentContext,
   userMessage: string
@@ -508,7 +531,7 @@ export async function* streamAgentResponse(
   const { conversationHistory, projectId } = context;
 
   let messages: Message[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: buildSystemPrompt(context) },
     ...conversationHistory,
     { role: "user", content: userMessage },
   ];
@@ -592,7 +615,7 @@ export async function getAgentResponse(
   const { conversationHistory } = context;
 
   const messages: Message[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: buildSystemPrompt(context) },
     ...conversationHistory,
     { role: "user", content: userMessage },
   ];

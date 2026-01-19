@@ -3,11 +3,26 @@ import { streamAgentResponse, getAgentResponse, type AgentContext } from "../ser
 import { chatStorage } from "../replit_integrations/chat/storage";
 import { storage } from "../storage";
 
+const PAGE_GOALS: Record<string, string> = {
+  'funder-selection': 'Help the user complete a funding profile questionnaire and select appropriate funders for their NBS project. Guide them through questions about project stage, sectors, budget preparation, and financing needs to match them with suitable funding opportunities.',
+  'site-explorer': 'Help the user explore potential sites for their nature-based solution intervention. Assist with analyzing risk scores (heat, flood, landslide), identifying suitable zones, and selecting appropriate intervention types based on geographic and climate data.',
+  'impact-model': 'Help the user build a compelling impact narrative for their project. Guide them through creating impact statements, identifying co-benefits (health, biodiversity, social), and generating funder-ready narratives that demonstrate the value of their NBS intervention.',
+  'project-operations': 'Help the user plan operations and maintenance (O&M) for their project. Assist with defining stakeholder roles, estimating costs, scheduling tasks, and ensuring long-term sustainability of the nature-based solution.',
+  'business-model': 'Help the user develop a sustainable business model for their NBS project. Guide them through selecting financing archetypes, building revenue stacks, and creating viable funding pathways to ensure project viability.',
+  'project': 'Help the user get an overview of their NBS project and navigate between different modules. Provide guidance on next steps and what information is needed to complete their project preparation.',
+};
+
+function getPageGoal(currentPage?: string): string | undefined {
+  if (!currentPage) return undefined;
+  const pageKey = currentPage.replace(/^\/?(sample\/)?/, '').split('/')[0];
+  return PAGE_GOALS[pageKey];
+}
+
 export function registerAgentRoutes(app: Express): void {
   app.post("/api/projects/:projectId/agent/chat", async (req: Request, res: Response) => {
     try {
       const { projectId } = req.params;
-      const { message, conversationId } = req.body;
+      const { message, conversationId, currentPage, currentStep } = req.body;
 
       if (!message) {
         return res.status(400).json({ error: "Message is required" });
@@ -39,6 +54,9 @@ export function registerAgentRoutes(app: Express): void {
 
       const context: AgentContext = {
         projectId,
+        currentPage,
+        currentStep,
+        pageGoal: getPageGoal(currentPage),
         conversationHistory: conversationHistory.slice(0, -1),
       };
 

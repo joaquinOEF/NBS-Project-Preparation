@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useParams } from "wouter";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useParams, useLocation } from "wouter";
 import ReactMarkdown from "react-markdown";
 import { useSampleData } from "@/core/contexts/sample-data-context";
 import { useChatState } from "@/core/contexts/chat-context";
+import { useProjectContext } from "@/core/contexts/project-context";
 import { Button } from "@/core/components/ui/button";
 import { Input } from "@/core/components/ui/input";
 import { ScrollArea } from "@/core/components/ui/scroll-area";
@@ -36,6 +37,7 @@ interface PendingPatch {
 
 export function ChatDrawer() {
   const { isChatOpen: isOpen, openChat, closeChat, toggleChat } = useChatState();
+  const [location] = useLocation();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -52,8 +54,41 @@ export function ChatDrawer() {
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
   const { isSampleMode, sampleProjectId } = useSampleData();
   const { toast } = useToast();
+  const { updateModule } = useProjectContext();
 
   const projectId = isSampleMode ? sampleProjectId : routeProjectId;
+  
+  const syncBlockToLocalStorage = useCallback(async (blockType: string) => {
+    if (!projectId) return;
+    try {
+      const dbProjectId = isSampleMode ? 'sample-porto-alegre-project' : projectId;
+      const res = await fetch(`/api/projects/${dbProjectId}/blocks/${blockType}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.data) {
+          const moduleMap: Record<string, 'funderSelection' | 'siteExplorer' | 'impactModel' | 'operations' | 'businessModel'> = {
+            funder_selection: 'funderSelection',
+            site_explorer: 'siteExplorer',
+            impact_model: 'impactModel',
+            operations: 'operations',
+            business_model: 'businessModel',
+          };
+          const moduleName = moduleMap[blockType];
+          if (moduleName) {
+            updateModule(moduleName, data.data);
+            console.log(`[ChatDrawer] Synced ${blockType} to localStorage`);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to sync block to localStorage:', e);
+    }
+  }, [projectId, isSampleMode, updateModule]);
+  
+  const currentPage = useMemo(() => {
+    const path = location.replace(/^\/?(sample\/)?/, '').split('/')[0];
+    return path || 'project';
+  }, [location]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -144,6 +179,7 @@ export function ChatDrawer() {
         body: JSON.stringify({
           message: userMessage.content,
           conversationId,
+          currentPage,
         }),
       });
 
@@ -249,6 +285,7 @@ export function ChatDrawer() {
       });
       if (response.ok) {
         setPendingPatches(prev => prev.filter(p => p.id !== patchId));
+        await syncBlockToLocalStorage(patch.blockType);
         toast({
           title: "Saved to database",
           description: `Updated ${patch.blockType}.${patch.fieldPath}`,
@@ -307,6 +344,10 @@ export function ChatDrawer() {
       if (response.ok) {
         const result = await response.json();
         const successCount = result.results?.filter((r: { success: boolean }) => r.success).length || 0;
+        const affectedBlocks = Array.from(new Set(pendingPatches.map(p => p.blockType)));
+        for (const blockType of affectedBlocks) {
+          await syncBlockToLocalStorage(blockType);
+        }
         setPendingPatches([]);
         toast({
           title: "All changes saved",
