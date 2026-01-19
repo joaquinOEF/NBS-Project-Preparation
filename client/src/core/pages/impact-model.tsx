@@ -695,7 +695,7 @@ function CurateStep({
                   <h3 className="text-lg font-semibold leading-tight">{block.title}</h3>
                   <div className="flex gap-2 mt-2 flex-wrap">
                     <Badge variant="outline" className="text-xs capitalize">
-                      {block.type.replace(/_/g, ' ')}
+                      {(block.type || 'content').replace(/_/g, ' ')}
                     </Badge>
                     <Badge variant="secondary" className="text-xs">
                       {block.evidenceTier}
@@ -1053,7 +1053,7 @@ function LensesStep({
                             <div className="flex items-center justify-between">
                               <CardTitle className="text-base">{block.title}</CardTitle>
                               <div className="flex gap-2">
-                                <Badge variant="outline" className="text-xs capitalize">{block.type.replace(/_/g, ' ')}</Badge>
+                                <Badge variant="outline" className="text-xs capitalize">{(block.type || 'content').replace(/_/g, ' ')}</Badge>
                                 <Badge variant="secondary" className="text-xs">{block.evidenceTier}</Badge>
                               </div>
                             </div>
@@ -1108,7 +1108,7 @@ function LensesStep({
                             <div className="flex items-center justify-between">
                               <CardTitle className="text-base">{block.title}</CardTitle>
                               <div className="flex gap-2">
-                                <Badge variant="outline" className="text-xs capitalize">{block.type.replace(/_/g, ' ')}</Badge>
+                                <Badge variant="outline" className="text-xs capitalize">{(block.type || 'content').replace(/_/g, ' ')}</Badge>
                                 <Badge variant="secondary" className="text-xs">{block.evidenceTier}</Badge>
                               </div>
                             </div>
@@ -1967,33 +1967,50 @@ export default function ImpactModelPage() {
           </Button>
           {currentStep === 'setup' ? (
             <div className="flex gap-2">
-              {localData.narrativeCache?.base && localData.narrativeCache.base.length > 0 && (
+              {localData.narrativeCache?.base && localData.narrativeCache.base.length > 0 ? (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleGenerateAndProceed}
+                    disabled={!canProceed() || isGenerating}
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        {t('impactModel.generating')}
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        {t('impactModel.regenerateNarrative')}
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => setCurrentStep('curate')}
+                    disabled={isGenerating}
+                  >
+                    {t('impactModel.continueWithExisting')}
+                  </Button>
+                </>
+              ) : (
                 <Button
-                  variant="outline"
-                  onClick={() => setCurrentStep('curate')}
-                  disabled={isGenerating}
+                  onClick={handleGenerateAndProceed}
+                  disabled={!canProceed() || isGenerating}
                 >
-                  {t('impactModel.continueWithExisting')}
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {t('impactModel.generating')}
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      {t('impactModel.generateNarrative')}
+                    </>
+                  )}
                 </Button>
               )}
-              <Button
-                onClick={handleGenerateAndProceed}
-                disabled={!canProceed() || isGenerating}
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {t('impactModel.generating')}
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    {localData.narrativeCache?.base && localData.narrativeCache.base.length > 0 
-                      ? t('impactModel.regenerateNarrative') 
-                      : t('impactModel.generateNarrative')}
-                  </>
-                )}
-              </Button>
             </div>
           ) : currentStepIndex < WIZARD_STEPS.length - 1 ? (
             <Button
