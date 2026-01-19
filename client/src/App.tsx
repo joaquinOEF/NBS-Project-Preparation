@@ -22,6 +22,7 @@ import NotFound from '@/core/pages/not-found';
 
 // Dynamic module routing
 import { DynamicModuleRoutes } from '@/core/routing/dynamic-routes';
+import { ChatDrawer } from '@/core/components/agent/ChatDrawer';
 
 function Router() {
   return (
@@ -79,6 +80,7 @@ function App() {
           <TooltipProvider>
             <Toaster />
             <Router />
+            <ChatDrawer />
           </TooltipProvider>
         </ProjectContextProvider>
       </SampleDataProvider>

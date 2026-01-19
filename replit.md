@@ -83,6 +83,52 @@ Sample mode now uses the same database-backed architecture as authenticated user
 - **Storage Methods**: `createUserWithId` and `createProjectWithId` support explicit ID assignment for sample entities
 - **Idempotent Initialization**: Init checks for existing records before creating new ones
 
+## Conversational AI Agent (Phase 2)
+The platform includes a conversational AI agent that can read/write the Knowledge Workspace and interact with users through a streaming chat interface.
+
+### Agent Architecture
+- **OpenAI Client**: `server/services/openaiClient.ts` - GPT-5.2 Responses API with streaming and structured outputs
+- **Agent Service**: `server/services/agentService.ts` - Multi-turn tool orchestration with 7 tools
+- **Agent Routes**: `server/routes/agentRoutes.ts` - SSE streaming chat, conversation management, patch workflows
+- **Chat UI**: `client/src/core/components/agent/ChatDrawer.tsx` - Floating chat drawer with pending patch display
+
+### Agent Tools
+- `get_project_state`: Fetch full project state (blocks, evidence, assumptions, patches)
+- `get_block`: Get specific module block state
+- `list_modules`: List available modules with sections and field paths
+- `propose_patch`: Propose field-level updates for user approval
+- `record_evidence`: Record evidence linked to field paths
+- `get_evidence`: Retrieve all evidence records
+- `get_pending_patches`: List patches awaiting approval
+
+### Chat APIs
+- `POST /api/projects/:id/agent/chat`: Streaming chat with SSE events
+- `GET /api/projects/:id/agent/conversations`: List conversations
+- `GET /api/projects/:id/agent/conversations/:cid`: Get conversation with messages
+- `DELETE /api/projects/:id/agent/conversations/:cid`: Delete conversation
+- `GET /api/projects/:id/patches`: Get pending patches
+- `POST /api/projects/:id/patches/:pid/apply`: Apply a pending patch
+- `POST /api/projects/:id/patches/:pid/reject`: Reject a pending patch
+
+### SSE Event Types
+- `text`: Streaming text content from assistant
+- `tool_call`: Agent calling a tool (name + arguments)
+- `tool_result`: Result from tool execution
+- `done`: Response complete with conversationId
+- `error`: Error occurred during processing
+
+### Chat Database Schema
+- `conversations`: Stores chat sessions with title and timestamps
+- `messages`: Stores individual messages with role, content, and conversationId
+
+### Multi-Turn Tool Calling
+The agent uses a loop-based approach for tool calls:
+1. Send user message to GPT-5.2 with available tools
+2. If model returns function_call, execute the tool
+3. Append tool result to message history
+4. Continue until model returns text without function calls
+5. Maximum 5 tool iterations per request
+
 ## Authentication & Authorization
 - **Mechanism**: OAuth 2.0 PKCE with CityCatalyst, Sample Data Mode bypass
 - **Session Management**: Server-side with secure token handling

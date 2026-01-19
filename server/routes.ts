@@ -59,6 +59,7 @@ import {
 import { generateImpactNarrative, generateLensVariant, regenerateBlock } from './services/impactModelService';
 import { fetchOsmAssets } from './services/osmAssetService';
 import type { LayerType } from '../shared/geospatial-schema';
+import { registerAgentRoutes } from './routes/agentRoutes';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -1512,6 +1513,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: error.message || 'Failed to create assumption' });
     }
   });
+
+  registerAgentRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

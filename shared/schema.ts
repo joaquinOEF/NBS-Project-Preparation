@@ -5,3 +5,4 @@ export * from './core-schema';
 export * from './workspace-schema';
 export * from './block-schemas';
 export * from './sample-constants';
+export * from './models/chat';
