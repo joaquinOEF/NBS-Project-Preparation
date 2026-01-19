@@ -24,7 +24,7 @@ export interface SearchOptions {
 }
 
 const DEFAULT_SEARCH_LIMIT = 5;
-const DEFAULT_MIN_SCORE = 0.5;
+const DEFAULT_MIN_SCORE = 0.1;
 
 export async function ingestBlockState(
   projectId: string,
