@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, Link } from 'wouter';
 import { ArrowLeft, ArrowRight, Check, DollarSign, Building2, FileText, Users, ExternalLink, ChevronRight, AlertCircle, Lightbulb, Target, ArrowUpRight, CheckCircle2, Lock, Edit2, Search, AlertTriangle, Shield } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
@@ -638,50 +638,67 @@ export default function FunderSelectionPage() {
     }
   }, [action, projectId]);
   
+  const hydrateFromDB = useCallback(() => {
+    if (!projectId || !fundsData) return;
+    const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;
+    console.log('[Hydration] Starting fetch from DB, projectId:', dbProjectId);
+    
+    fetch(`/api/projects/${dbProjectId}/blocks/funder_selection`)
+      .then(res => res.ok ? res.json() : null)
+      .then(result => {
+        console.log('[Hydration] Got result:', result ? 'has data' : 'no data');
+        if (result?.data) {
+          const dbData = result.data as FunderSelectionData;
+          const savedPlan = dbData.fundingPlan;
+          console.log('[Hydration] savedPlan status:', savedPlan?.status);
+          
+          if (savedPlan && savedPlan.status === 'confirmed') {
+            const nowFundExists = savedPlan.selectedFunderNow && fundsData.funds.some(f => f.id === savedPlan.selectedFunderNow);
+            const nextFundExists = !savedPlan.selectedFunderNext || fundsData.funds.some(f => f.id === savedPlan.selectedFunderNext);
+            console.log('[Hydration] nowFundExists:', nowFundExists, 'nextFundExists:', nextFundExists, 'selectedFunderNow:', savedPlan.selectedFunderNow);
+            
+            if (nowFundExists && nextFundExists) {
+              skipAutoSaveRef.current = true;
+              setSelectedNowFundId(savedPlan.selectedFunderNow);
+              setSelectedNextFundId(savedPlan.selectedFunderNext || null);
+              setFundingPlanConfirmed(true);
+              setShowResults(true);
+              setHasSavedToContext(true);
+              
+              if (dbData.questionnaire) {
+                setAnswers(dbData.questionnaire as QuestionnaireAnswers);
+              }
+              console.log('[Hydration] SUCCESS - restored selectedFunderNow =', savedPlan.selectedFunderNow);
+            }
+          }
+        }
+        setHydrationComplete(true);
+      })
+      .catch(err => {
+        console.error('[Hydration] FAILED:', err);
+        setHydrationComplete(true);
+      });
+  }, [projectId, fundsData, isSampleMode, isSampleRoute]);
+
   // Hydrate funding plan selection state from DATABASE directly (not localStorage)
   useEffect(() => {
     if (projectId && fundsData && !hydrationComplete) {
-      const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;
-      console.log('[Hydration] Starting fetch from DB, projectId:', dbProjectId);
-      
-      fetch(`/api/projects/${dbProjectId}/blocks/funder_selection`)
-        .then(res => res.ok ? res.json() : null)
-        .then(result => {
-          console.log('[Hydration] Got result:', result ? 'has data' : 'no data');
-          if (result?.data) {
-            const dbData = result.data as FunderSelectionData;
-            const savedPlan = dbData.fundingPlan;
-            console.log('[Hydration] savedPlan status:', savedPlan?.status, 'fundingPlanConfirmed:', fundingPlanConfirmed);
-            
-            // Only hydrate if we have a confirmed plan
-            if (savedPlan && savedPlan.status === 'confirmed' && !fundingPlanConfirmed) {
-              const nowFundExists = savedPlan.selectedFunderNow && fundsData.funds.some(f => f.id === savedPlan.selectedFunderNow);
-              const nextFundExists = !savedPlan.selectedFunderNext || fundsData.funds.some(f => f.id === savedPlan.selectedFunderNext);
-              console.log('[Hydration] nowFundExists:', nowFundExists, 'nextFundExists:', nextFundExists, 'selectedFunderNow:', savedPlan.selectedFunderNow);
-              
-              if (nowFundExists && nextFundExists) {
-                skipAutoSaveRef.current = true; // Prevent auto-save from overwriting
-                setSelectedNowFundId(savedPlan.selectedFunderNow);
-                setSelectedNextFundId(savedPlan.selectedFunderNext || null);
-                setFundingPlanConfirmed(true);
-                setShowResults(true);
-                setHasSavedToContext(true); // Mark as already saved
-                
-                if (dbData.questionnaire) {
-                  setAnswers(dbData.questionnaire as QuestionnaireAnswers);
-                }
-                console.log('[Hydration] SUCCESS - restored selectedFunderNow =', savedPlan.selectedFunderNow);
-              }
-            }
-          }
-          setHydrationComplete(true);
-        })
-        .catch(err => {
-          console.error('[Hydration] FAILED:', err);
-          setHydrationComplete(true);
-        });
+      hydrateFromDB();
     }
-  }, [projectId, fundsData, isSampleMode, isSampleRoute, hydrationComplete, fundingPlanConfirmed]);
+  }, [projectId, fundsData, hydrationComplete, hydrateFromDB]);
+
+  // Listen for AI-triggered block updates and re-hydrate
+  useEffect(() => {
+    const handleBlockUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ blockType: string; moduleName: string; data: unknown }>;
+      if (customEvent.detail?.blockType === 'funder_selection') {
+        console.log('[FunderSelection] Received nbs-block-updated event, re-hydrating...');
+        hydrateFromDB();
+      }
+    };
+    window.addEventListener('nbs-block-updated', handleBlockUpdate);
+    return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
+  }, [hydrateFromDB]);
 
   const computedResults = useMemo(() => {
     if (!fundsData || !showResults) return null;

@@ -77,6 +77,9 @@ export function ChatDrawer() {
           if (moduleName) {
             updateModule(moduleName, data.data);
             console.log(`[ChatDrawer] Synced ${blockType} to localStorage`);
+            window.dispatchEvent(new CustomEvent('nbs-block-updated', { 
+              detail: { blockType, moduleName, data: data.data } 
+            }));
           }
         }
       }
@@ -286,6 +289,12 @@ export function ChatDrawer() {
       if (response.ok) {
         setPendingPatches(prev => prev.filter(p => p.id !== patchId));
         await syncBlockToLocalStorage(patch.blockType);
+        setMessages(prev => [...prev, {
+          id: `patch-applied-${Date.now()}`,
+          role: 'assistant',
+          content: `Changes saved to ${patch.blockType}.${patch.fieldPath}`,
+          timestamp: new Date(),
+        }]);
         toast({
           title: "Saved to database",
           description: `Updated ${patch.blockType}.${patch.fieldPath}`,
@@ -319,7 +328,16 @@ export function ChatDrawer() {
         body: JSON.stringify({ feedback: "Rejected by user" }),
       });
       if (response.ok) {
+        const rejectedPatch = pendingPatches.find(p => p.id === patchId);
         setPendingPatches(prev => prev.filter(p => p.id !== patchId));
+        if (rejectedPatch) {
+          setMessages(prev => [...prev, {
+            id: `patch-rejected-${Date.now()}`,
+            role: 'assistant',
+            content: `Change rejected: ${rejectedPatch.blockType}.${rejectedPatch.fieldPath}`,
+            timestamp: new Date(),
+          }]);
+        }
         toast({
           title: "Change rejected",
           description: "The proposed change was not applied.",
@@ -348,6 +366,12 @@ export function ChatDrawer() {
         for (const blockType of affectedBlocks) {
           await syncBlockToLocalStorage(blockType);
         }
+        setMessages(prev => [...prev, {
+          id: `patches-applied-${Date.now()}`,
+          role: 'assistant',
+          content: `All ${successCount} changes have been saved to your project.`,
+          timestamp: new Date(),
+        }]);
         setPendingPatches([]);
         toast({
           title: "All changes saved",
@@ -384,6 +408,13 @@ export function ChatDrawer() {
         body: JSON.stringify({ patchIds, reason: "Rejected all by user" }),
       });
       if (response.ok) {
+        const count = pendingPatches.length;
+        setMessages(prev => [...prev, {
+          id: `patches-rejected-${Date.now()}`,
+          role: 'assistant',
+          content: `All ${count} proposed changes were rejected and not saved.`,
+          timestamp: new Date(),
+        }]);
         setPendingPatches([]);
         toast({
           title: "All changes rejected",
@@ -441,84 +472,6 @@ export function ChatDrawer() {
             <X className="h-4 w-4" />
           </Button>
         </div>
-
-        {pendingPatches.length > 0 && (
-          <div className="px-4 py-3 border-b bg-amber-50 dark:bg-amber-900/20">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Database className="h-4 w-4 text-amber-600" />
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                  AI wants to save ({pendingPatches.length} changes)
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex gap-2 mb-3">
-              <Button
-                variant="default"
-                size="sm"
-                className="flex-1 h-8 bg-green-600 hover:bg-green-700"
-                onClick={handleApplyAll}
-                disabled={applyingAll || rejectingAll}
-              >
-                {applyingAll ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                ) : (
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                )}
-                Save All ({pendingPatches.length})
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 h-8 text-red-600 border-red-200 hover:bg-red-50"
-                onClick={handleRejectAll}
-                disabled={applyingAll || rejectingAll}
-              >
-                {rejectingAll ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                ) : (
-                  <XCircle className="h-4 w-4 mr-1" />
-                )}
-                Reject All
-              </Button>
-            </div>
-
-            <div className="space-y-3 max-h-64 overflow-y-auto">
-              {Object.entries(groupedPatches).map(([blockType, patches]) => (
-                <div key={blockType} className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs font-medium">
-                      {blockType}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {patches.length} field{patches.length > 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <Card className="p-2 bg-white dark:bg-card border-amber-200 dark:border-amber-800">
-                    <div className="space-y-2">
-                      {patches.map(patch => (
-                        <div key={patch.id} className="text-xs border-b last:border-0 pb-2 last:pb-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-medium text-muted-foreground">{patch.fieldPath}</span>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <ArrowRight className="h-3 w-3 text-green-600 mt-0.5 shrink-0" />
-                            <span className="font-medium break-words">
-                              {typeof patch.value === 'string' 
-                                ? patch.value.slice(0, 100) + (patch.value.length > 100 ? '...' : '')
-                                : JSON.stringify(patch.value).slice(0, 100)}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <ScrollArea className="flex-1 px-4" ref={scrollRef}>
           <div className="py-4 space-y-4">
@@ -586,7 +539,83 @@ export function ChatDrawer() {
           </div>
         </ScrollArea>
 
-        <div className="p-4 border-t">
+        {pendingPatches.length > 0 && (
+          <div className="px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border-t">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Database className="h-4 w-4 text-amber-600" />
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  AI wants to save ({pendingPatches.length} changes)
+                </p>
+              </div>
+            </div>
+            
+            <div className="space-y-2 max-h-32 overflow-y-auto mb-2">
+              {Object.entries(groupedPatches).map(([blockType, patches]) => (
+                <div key={blockType} className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs font-medium">
+                      {blockType}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {patches.length} field{patches.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <Card className="p-2 bg-white dark:bg-card border-amber-200 dark:border-amber-800">
+                    <div className="space-y-1">
+                      {patches.map(patch => (
+                        <div key={patch.id} className="text-xs">
+                          <div className="flex items-start gap-2">
+                            <ArrowRight className="h-3 w-3 text-green-600 mt-0.5 shrink-0" />
+                            <span className="text-muted-foreground">{patch.fieldPath}:</span>
+                            <span className="font-medium break-words">
+                              {typeof patch.value === 'string' 
+                                ? patch.value.slice(0, 60) + (patch.value.length > 60 ? '...' : '')
+                                : JSON.stringify(patch.value).slice(0, 60)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="default"
+                size="sm"
+                className="flex-1 h-8 bg-green-600 hover:bg-green-700"
+                onClick={handleApplyAll}
+                disabled={applyingAll || rejectingAll}
+              >
+                {applyingAll ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                )}
+                Save All ({pendingPatches.length})
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 h-8 text-red-600 border-red-200 hover:bg-red-50"
+                onClick={handleRejectAll}
+                disabled={applyingAll || rejectingAll}
+              >
+                {rejectingAll ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <XCircle className="h-4 w-4 mr-1" />
+                )}
+                Reject All
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className={`p-4 ${pendingPatches.length === 0 ? 'border-t' : ''}`}>
           <div className="flex gap-2">
             <Input
               placeholder="Ask about your project..."
