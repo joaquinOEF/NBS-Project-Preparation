@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams } from "wouter";
+import ReactMarkdown from "react-markdown";
 import { useSampleData } from "@/core/contexts/sample-data-context";
 import { Button } from "@/core/components/ui/button";
 import { Input } from "@/core/components/ui/input";
@@ -381,7 +382,9 @@ export function ChatDrawer() {
                   }`}
                 >
                   {message.content && (
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2">
+                      <ReactMarkdown>{message.content}</ReactMarkdown>
+                    </div>
                   )}
                   {message.toolCalls && message.toolCalls.length > 0 && (
                     <div className="mt-2 space-y-1">
