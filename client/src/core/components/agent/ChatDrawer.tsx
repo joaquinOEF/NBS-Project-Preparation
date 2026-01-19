@@ -39,11 +39,15 @@ export function ChatDrawer() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<number | null>(null);
+  const [conversationId, setConversationId] = useState<number | null>(() => {
+    const saved = localStorage.getItem('nbs_chat_conversation_id');
+    return saved ? parseInt(saved) : null;
+  });
   const [pendingPatches, setPendingPatches] = useState<PendingPatch[]>([]);
   const [applyingPatchId, setApplyingPatchId] = useState<string | null>(null);
   const [applyingAll, setApplyingAll] = useState(false);
   const [rejectingAll, setRejectingAll] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
   const { isSampleMode, sampleProjectId } = useSampleData();
@@ -56,6 +60,39 @@ export function ChatDrawer() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Save conversationId to localStorage when it changes
+  useEffect(() => {
+    if (conversationId) {
+      localStorage.setItem('nbs_chat_conversation_id', conversationId.toString());
+    }
+  }, [conversationId]);
+
+  // Load chat history when drawer opens and we have a conversationId
+  useEffect(() => {
+    if (isOpen && projectId && conversationId && !historyLoaded) {
+      fetch(`/api/projects/${projectId}/agent/conversations/${conversationId}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.messages && Array.isArray(data.messages)) {
+            const loadedMessages: ChatMessage[] = data.messages.map((m: { id: number; role: string; content: string; created_at: string }) => ({
+              id: m.id.toString(),
+              role: m.role as "user" | "assistant",
+              content: m.content,
+              timestamp: new Date(m.created_at),
+            }));
+            setMessages(loadedMessages);
+          }
+          setHistoryLoaded(true);
+        })
+        .catch(err => {
+          console.error('Failed to load chat history:', err);
+          setHistoryLoaded(true);
+        });
+    } else if (isOpen && !conversationId) {
+      setHistoryLoaded(true);
+    }
+  }, [isOpen, projectId, conversationId, historyLoaded]);
 
   const fetchPendingPatches = useCallback(async () => {
     if (!projectId) return;

@@ -14,7 +14,7 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { useTranslation } from 'react-i18next';
 import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
-import { useProjectContext } from '@/core/contexts/project-context';
+import { useProjectContext, FunderSelectionData } from '@/core/contexts/project-context';
 
 interface Fund {
   id: string;
@@ -637,34 +637,44 @@ export default function FunderSelectionPage() {
     }
   }, [action, projectId]);
   
-  // Hydrate funding plan selection state independently - runs when context or funds are loaded
+  // Hydrate funding plan selection state from DATABASE directly (not localStorage)
   useEffect(() => {
-    if (projectId && fundsData) {
-      const existingContext = loadContext(projectId);
-      const savedPlan = existingContext?.funderSelection?.fundingPlan;
+    if (projectId && fundsData && !hydrationComplete) {
+      const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;
       
-      // Only hydrate if we have a confirmed plan and haven't already hydrated
-      if (savedPlan && savedPlan.status === 'confirmed' && !fundingPlanConfirmed) {
-        // Validate the saved fund IDs still exist in funds data
-        const nowFundExists = savedPlan.selectedFunderNow && fundsData.funds.some(f => f.id === savedPlan.selectedFunderNow);
-        const nextFundExists = !savedPlan.selectedFunderNext || fundsData.funds.some(f => f.id === savedPlan.selectedFunderNext);
-        
-        if (nowFundExists && nextFundExists) {
-          setSelectedNowFundId(savedPlan.selectedFunderNow);
-          setSelectedNextFundId(savedPlan.selectedFunderNext);
-          setFundingPlanConfirmed(true);
-          setShowResults(true);
-          
-          // Also restore the questionnaire to trigger computed results
-          if (existingContext?.funderSelection?.questionnaire) {
-            setAnswers(existingContext.funderSelection.questionnaire as QuestionnaireAnswers);
+      fetch(`/api/projects/${dbProjectId}/blocks/funder_selection`)
+        .then(res => res.ok ? res.json() : null)
+        .then(result => {
+          if (result?.data) {
+            const dbData = result.data as FunderSelectionData;
+            const savedPlan = dbData.fundingPlan;
+            
+            // Only hydrate if we have a confirmed plan
+            if (savedPlan && savedPlan.status === 'confirmed' && !fundingPlanConfirmed) {
+              const nowFundExists = savedPlan.selectedFunderNow && fundsData.funds.some(f => f.id === savedPlan.selectedFunderNow);
+              const nextFundExists = !savedPlan.selectedFunderNext || fundsData.funds.some(f => f.id === savedPlan.selectedFunderNext);
+              
+              if (nowFundExists && nextFundExists) {
+                setSelectedNowFundId(savedPlan.selectedFunderNow);
+                setSelectedNextFundId(savedPlan.selectedFunderNext || null);
+                setFundingPlanConfirmed(true);
+                setShowResults(true);
+                
+                if (dbData.questionnaire) {
+                  setAnswers(dbData.questionnaire as QuestionnaireAnswers);
+                }
+                console.log('Hydrated from database: selectedFunderNow =', savedPlan.selectedFunderNow);
+              }
+            }
           }
-        }
-      }
-      // Mark hydration as complete so auto-save knows it's safe to run
-      setHydrationComplete(true);
+          setHydrationComplete(true);
+        })
+        .catch(err => {
+          console.error('Failed to hydrate from database:', err);
+          setHydrationComplete(true);
+        });
     }
-  }, [projectId, fundsData]);
+  }, [projectId, fundsData, isSampleMode, isSampleRoute, hydrationComplete, fundingPlanConfirmed]);
 
   const computedResults = useMemo(() => {
     if (!fundsData || !showResults) return null;
