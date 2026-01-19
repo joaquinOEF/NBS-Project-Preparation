@@ -597,19 +597,49 @@ const ProjectContext = createContext<ProjectContextValue | null>(null);
 export function ProjectContextProvider({ children }: { children: ReactNode }) {
   const [context, setContext] = useState<ProjectContextData | null>(null);
 
+  const syncAllModulesToDatabase = useCallback(async (projectId: string, contextData: ProjectContextData) => {
+    const modules = ['funderSelection', 'siteExplorer', 'impactModel', 'operations', 'businessModel'] as const;
+    const blockTypeMap: Record<string, string> = {
+      funderSelection: 'funder_selection',
+      siteExplorer: 'site_explorer',
+      impactModel: 'impact_model',
+      operations: 'operations',
+      businessModel: 'business_model',
+    };
+    
+    for (const module of modules) {
+      const moduleData = contextData[module];
+      if (moduleData) {
+        try {
+          await fetch(`/api/projects/${projectId}/blocks/${blockTypeMap[module]}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: moduleData, status: (moduleData as Record<string, unknown>).status || 'DRAFT', actor: 'user' }),
+          });
+        } catch (e) {
+          console.warn(`Failed to sync ${module} to database:`, e);
+        }
+      }
+    }
+    console.log('Synced all modules to database');
+  }, []);
+
   const loadContext = useCallback((projectId: string): ProjectContextData | null => {
     try {
       const stored = localStorage.getItem(`${PROJECT_CONTEXT_KEY}_${projectId}`);
       if (stored) {
         const parsed = JSON.parse(stored) as ProjectContextData;
         setContext(parsed);
+        
+        syncAllModulesToDatabase(projectId, parsed);
+        
         return parsed;
       }
     } catch (e) {
       console.error('Failed to load project context:', e);
     }
     return null;
-  }, []);
+  }, [syncAllModulesToDatabase]);
 
   const saveContext = useCallback((data: Partial<ProjectContextData>) => {
     if (!data.projectId && !context?.projectId) return;
@@ -624,6 +654,33 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
     setContext(updated);
     localStorage.setItem(`${PROJECT_CONTEXT_KEY}_${projectId}`, JSON.stringify(updated));
   }, [context]);
+
+  const syncModuleToDatabase = useCallback(async (
+    projectId: string,
+    module: string,
+    moduleData: unknown
+  ) => {
+    try {
+      const blockTypeMap: Record<string, string> = {
+        funderSelection: 'funder_selection',
+        siteExplorer: 'site_explorer',
+        impactModel: 'impact_model',
+        operations: 'operations',
+        businessModel: 'business_model',
+      };
+      const blockType = blockTypeMap[module];
+      if (!blockType || !moduleData) return;
+
+      const dataObj = moduleData as Record<string, unknown>;
+      await fetch(`/api/projects/${projectId}/blocks/${blockType}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: moduleData, status: dataObj.status || 'DRAFT', actor: 'user' }),
+      });
+    } catch (e) {
+      console.warn('Failed to sync module to database:', e);
+    }
+  }, []);
 
   const updateModule = useCallback(<K extends keyof Pick<ProjectContextData, 'funderSelection' | 'operations' | 'businessModel' | 'siteExplorer' | 'impactModel'>>(
     module: K,
@@ -642,7 +699,9 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
     
     setContext(updated);
     localStorage.setItem(`${PROJECT_CONTEXT_KEY}_${context.projectId}`, JSON.stringify(updated));
-  }, [context]);
+    
+    syncModuleToDatabase(context.projectId, module, data);
+  }, [context, syncModuleToDatabase]);
 
   const getContextSummary = useCallback(() => {
     if (!context) return {};
