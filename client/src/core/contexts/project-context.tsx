@@ -719,6 +719,22 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
       const blockType = blockTypeMap[module];
       if (!blockType || !moduleData) return;
 
+      // For funder_selection, check if DB has a confirmed plan - don't overwrite it
+      if (module === 'funderSelection') {
+        const currentDbRes = await fetch(`/api/projects/${dbProjectId}/blocks/funder_selection`);
+        if (currentDbRes.ok) {
+          const currentDb = await currentDbRes.json();
+          if (currentDb?.data?.fundingPlan?.status === 'confirmed') {
+            const localPlan = (moduleData as Record<string, unknown>)?.fundingPlan as Record<string, unknown> | undefined;
+            // Only sync if local data also has a confirmed plan (user explicitly re-confirmed)
+            if (!localPlan || localPlan.status !== 'confirmed') {
+              console.log('Skipping sync: DB has confirmed plan, local does not');
+              return;
+            }
+          }
+        }
+      }
+
       const dataObj = moduleData as Record<string, unknown>;
       await fetch(`/api/projects/${dbProjectId}/blocks/${blockType}`, {
         method: 'PUT',
