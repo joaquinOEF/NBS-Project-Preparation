@@ -42,6 +42,8 @@ export function ChatDrawer() {
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [pendingPatches, setPendingPatches] = useState<PendingPatch[]>([]);
   const [applyingPatchId, setApplyingPatchId] = useState<string | null>(null);
+  const [applyingAll, setApplyingAll] = useState(false);
+  const [rejectingAll, setRejectingAll] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
   const { isSampleMode, sampleProjectId } = useSampleData();
@@ -255,6 +257,76 @@ export function ChatDrawer() {
     }
   };
 
+  const handleApplyAll = async () => {
+    if (!projectId || pendingPatches.length === 0) return;
+    setApplyingAll(true);
+    try {
+      const patchIds = pendingPatches.map(p => p.id);
+      const response = await fetch(`/api/projects/${projectId}/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patchIds, actor: "user", actorId: "user" }),
+      });
+      if (response.ok) {
+        const result = await response.json();
+        const successCount = result.results?.filter((r: { success: boolean }) => r.success).length || 0;
+        setPendingPatches([]);
+        toast({
+          title: "All changes saved",
+          description: `Applied ${successCount} changes to your project.`,
+          duration: 4000,
+        });
+      } else {
+        toast({
+          title: "Failed to save",
+          description: "Could not apply all changes. Please try individually.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to apply all patches:", error);
+      toast({
+        title: "Error",
+        description: "Something went wrong while saving.",
+        variant: "destructive",
+      });
+    } finally {
+      setApplyingAll(false);
+    }
+  };
+
+  const handleRejectAll = async () => {
+    if (!projectId || pendingPatches.length === 0) return;
+    setRejectingAll(true);
+    try {
+      const patchIds = pendingPatches.map(p => p.id);
+      const response = await fetch(`/api/projects/${projectId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patchIds, reason: "Rejected all by user" }),
+      });
+      if (response.ok) {
+        setPendingPatches([]);
+        toast({
+          title: "All changes rejected",
+          description: "None of the proposed changes were applied.",
+          duration: 3000,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to reject all patches:", error);
+    } finally {
+      setRejectingAll(false);
+    }
+  };
+
+  const groupedPatches = pendingPatches.reduce((acc, patch) => {
+    const key = patch.blockType;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(patch);
+    return acc;
+  }, {} as Record<string, PendingPatch[]>);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -285,70 +357,77 @@ export function ChatDrawer() {
 
         {pendingPatches.length > 0 && (
           <div className="px-4 py-3 border-b bg-amber-50 dark:bg-amber-900/20">
-            <div className="flex items-center gap-2 mb-2">
-              <Database className="h-4 w-4 text-amber-600" />
-              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                AI wants to save ({pendingPatches.length})
-              </p>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Database className="h-4 w-4 text-amber-600" />
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  AI wants to save ({pendingPatches.length} changes)
+                </p>
+              </div>
             </div>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {pendingPatches.slice(0, 5).map(patch => (
-                <Card key={patch.id} className="p-3 bg-white dark:bg-card border-amber-200 dark:border-amber-800">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Badge variant="outline" className="text-xs">{patch.blockType}</Badge>
-                      <span className="text-xs text-muted-foreground">{patch.fieldPath}</span>
-                    </div>
-                    <div className="text-xs space-y-1">
-                      {patch.previousValue !== undefined && patch.previousValue !== null && (
-                        <div className="flex items-start gap-2">
-                          <span className="text-red-500 font-medium shrink-0">Old:</span>
-                          <span className="text-muted-foreground truncate">
-                            {typeof patch.previousValue === 'string' 
-                              ? patch.previousValue.slice(0, 50) + (patch.previousValue.length > 50 ? '...' : '')
-                              : JSON.stringify(patch.previousValue).slice(0, 50)}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex items-start gap-2">
-                        <span className="text-green-600 font-medium shrink-0">New:</span>
-                        <span className="font-medium truncate">
-                          {typeof patch.value === 'string' 
-                            ? patch.value.slice(0, 80) + (patch.value.length > 80 ? '...' : '')
-                            : JSON.stringify(patch.value).slice(0, 80)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 pt-1">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="flex-1 h-7 text-xs bg-green-600 hover:bg-green-700"
-                        onClick={() => handleApplyPatch(patch.id, patch)}
-                        disabled={applyingPatchId === patch.id}
-                      >
-                        {applyingPatchId === patch.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <>
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Save
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 h-7 text-xs text-red-600 border-red-200 hover:bg-red-50"
-                        onClick={() => handleRejectPatch(patch.id)}
-                        disabled={applyingPatchId === patch.id}
-                      >
-                        <XCircle className="h-3 w-3 mr-1" />
-                        Reject
-                      </Button>
-                    </div>
+            
+            <div className="flex gap-2 mb-3">
+              <Button
+                variant="default"
+                size="sm"
+                className="flex-1 h-8 bg-green-600 hover:bg-green-700"
+                onClick={handleApplyAll}
+                disabled={applyingAll || rejectingAll}
+              >
+                {applyingAll ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                )}
+                Save All ({pendingPatches.length})
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 h-8 text-red-600 border-red-200 hover:bg-red-50"
+                onClick={handleRejectAll}
+                disabled={applyingAll || rejectingAll}
+              >
+                {rejectingAll ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <XCircle className="h-4 w-4 mr-1" />
+                )}
+                Reject All
+              </Button>
+            </div>
+
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {Object.entries(groupedPatches).map(([blockType, patches]) => (
+                <div key={blockType} className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs font-medium">
+                      {blockType}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {patches.length} field{patches.length > 1 ? 's' : ''}
+                    </span>
                   </div>
-                </Card>
+                  <Card className="p-2 bg-white dark:bg-card border-amber-200 dark:border-amber-800">
+                    <div className="space-y-2">
+                      {patches.map(patch => (
+                        <div key={patch.id} className="text-xs border-b last:border-0 pb-2 last:pb-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-muted-foreground">{patch.fieldPath}</span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <ArrowRight className="h-3 w-3 text-green-600 mt-0.5 shrink-0" />
+                            <span className="font-medium break-words">
+                              {typeof patch.value === 'string' 
+                                ? patch.value.slice(0, 100) + (patch.value.length > 100 ? '...' : '')
+                                : JSON.stringify(patch.value).slice(0, 100)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                </div>
               ))}
             </div>
           </div>
