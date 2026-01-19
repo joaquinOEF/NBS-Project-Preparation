@@ -1,5 +1,6 @@
 import { openai, type Message, type ReasoningEffort } from "./openaiClient";
 import { storage } from "../storage";
+import { semanticSearch, getKnowledgeStats } from "./knowledgeService";
 import { 
   type InfoBlock, 
   type InfoBlockType, 
@@ -154,6 +155,30 @@ const AGENT_TOOLS: AgentTool[] = [
       type: "object",
       properties: {},
       required: [],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "search_knowledge",
+    description: "Search the project's knowledge base using semantic similarity. Use this to find relevant information from block states, evidence, and past conversations.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Natural language search query",
+        },
+        blockType: {
+          type: "string",
+          enum: ["funder_selection", "site_explorer", "impact_model", "operations", "business_model"],
+          description: "Optional: filter results to a specific block type",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of results to return (default: 5)",
+        },
+      },
+      required: ["query"],
       additionalProperties: false,
     },
   },
@@ -371,6 +396,35 @@ export async function executeAgentTool(
             proposedBy: p.proposedBy,
             createdAt: p.createdAt,
           })),
+        };
+      }
+
+      case "search_knowledge": {
+        const { query, blockType, limit } = args as {
+          query: string;
+          blockType?: InfoBlockType;
+          limit?: number;
+        };
+
+        const searchResult = await semanticSearch(projectId, query, {
+          blockType,
+          limit: limit || 5,
+        });
+
+        return {
+          name,
+          result: {
+            query: searchResult.query,
+            totalResults: searchResult.totalCount,
+            chunks: searchResult.chunks.map(c => ({
+              content: c.content,
+              score: c.score.toFixed(3),
+              blockType: c.blockType,
+              fieldPath: c.fieldPath,
+              sourceType: c.source?.sourceType,
+              sourceTitle: c.source?.title,
+            })),
+          },
         };
       }
 

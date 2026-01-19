@@ -24,6 +24,10 @@ import {
   type InfoBlockType,
   type BlockStatus,
   type UpdatedByType,
+  type KnowledgeSource,
+  type InsertKnowledgeSource,
+  type KnowledgeChunk,
+  type InsertKnowledgeChunk,
   users,
   cities,
   sessions,
@@ -35,6 +39,8 @@ import {
   assumptions,
   agentActionLog,
   projectPatches,
+  knowledgeSources,
+  knowledgeChunks,
 } from '@shared/schema';
 import { db } from './db';
 import { eq, and, inArray, desc } from 'drizzle-orm';
@@ -101,6 +107,19 @@ export interface IStorage {
   createPatch(data: InsertProjectPatch): Promise<ProjectPatch>;
   updatePatch(id: string, updates: Partial<ProjectPatch>): Promise<ProjectPatch | undefined>;
   getPatchesByIds(ids: string[]): Promise<ProjectPatch[]>;
+
+  // Knowledge Sources and Chunks
+  getKnowledgeSource(id: string): Promise<KnowledgeSource | undefined>;
+  getKnowledgeSourceByRef(projectId: string, sourceType: string, sourceRef: string): Promise<KnowledgeSource | undefined>;
+  getKnowledgeSourcesByProject(projectId: string): Promise<KnowledgeSource[]>;
+  createKnowledgeSource(data: InsertKnowledgeSource): Promise<KnowledgeSource>;
+  updateKnowledgeSource(id: string, updates: Partial<KnowledgeSource>): Promise<KnowledgeSource | undefined>;
+  deleteKnowledgeSource(id: string): Promise<void>;
+
+  getKnowledgeChunksBySource(sourceId: string): Promise<KnowledgeChunk[]>;
+  getKnowledgeChunksByProject(projectId: string): Promise<KnowledgeChunk[]>;
+  createKnowledgeChunks(chunks: InsertKnowledgeChunk[]): Promise<KnowledgeChunk[]>;
+  deleteChunksBySource(sourceId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -387,6 +406,61 @@ export class DatabaseStorage implements IStorage {
   async getPatchesByIds(ids: string[]): Promise<ProjectPatch[]> {
     if (ids.length === 0) return [];
     return db.select().from(projectPatches).where(inArray(projectPatches.id, ids));
+  }
+
+  // Knowledge Sources
+  async getKnowledgeSource(id: string): Promise<KnowledgeSource | undefined> {
+    const [source] = await db.select().from(knowledgeSources).where(eq(knowledgeSources.id, id));
+    return source || undefined;
+  }
+
+  async getKnowledgeSourceByRef(projectId: string, sourceType: string, sourceRef: string): Promise<KnowledgeSource | undefined> {
+    const [source] = await db.select().from(knowledgeSources)
+      .where(and(
+        eq(knowledgeSources.projectId, projectId),
+        eq(knowledgeSources.sourceType, sourceType as any),
+        eq(knowledgeSources.sourceRef, sourceRef)
+      ));
+    return source || undefined;
+  }
+
+  async getKnowledgeSourcesByProject(projectId: string): Promise<KnowledgeSource[]> {
+    return db.select().from(knowledgeSources).where(eq(knowledgeSources.projectId, projectId));
+  }
+
+  async createKnowledgeSource(data: InsertKnowledgeSource): Promise<KnowledgeSource> {
+    const [source] = await db.insert(knowledgeSources).values(data as typeof knowledgeSources.$inferInsert).returning();
+    return source;
+  }
+
+  async updateKnowledgeSource(id: string, updates: Partial<KnowledgeSource>): Promise<KnowledgeSource | undefined> {
+    const [source] = await db.update(knowledgeSources)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(knowledgeSources.id, id))
+      .returning();
+    return source || undefined;
+  }
+
+  async deleteKnowledgeSource(id: string): Promise<void> {
+    await db.delete(knowledgeSources).where(eq(knowledgeSources.id, id));
+  }
+
+  // Knowledge Chunks
+  async getKnowledgeChunksBySource(sourceId: string): Promise<KnowledgeChunk[]> {
+    return db.select().from(knowledgeChunks).where(eq(knowledgeChunks.sourceId, sourceId));
+  }
+
+  async getKnowledgeChunksByProject(projectId: string): Promise<KnowledgeChunk[]> {
+    return db.select().from(knowledgeChunks).where(eq(knowledgeChunks.projectId, projectId));
+  }
+
+  async createKnowledgeChunks(chunks: InsertKnowledgeChunk[]): Promise<KnowledgeChunk[]> {
+    if (chunks.length === 0) return [];
+    return db.insert(knowledgeChunks).values(chunks as (typeof knowledgeChunks.$inferInsert)[]).returning();
+  }
+
+  async deleteChunksBySource(sourceId: string): Promise<void> {
+    await db.delete(knowledgeChunks).where(eq(knowledgeChunks.sourceId, sourceId));
   }
 }
 
