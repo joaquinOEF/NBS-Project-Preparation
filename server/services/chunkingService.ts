@@ -1,6 +1,7 @@
 import { estimateTokens } from "./embeddingService";
 import type { InfoBlockType } from "@shared/schema";
 import type { ChunkingOptions } from "@shared/knowledge-schema";
+import type { DocumentMetadata } from "@shared/document-knowledge-registry";
 
 export interface ChunkResult {
   content: string;
@@ -12,10 +13,11 @@ export interface ChunkResult {
 }
 
 export interface ContentToChunk {
-  sourceType: "block_state" | "evidence" | "conversation";
+  sourceType: "block_state" | "evidence" | "conversation" | "document";
   content: unknown;
   blockType?: InfoBlockType;
   metadata?: Record<string, unknown>;
+  documentMetadata?: DocumentMetadata;
 }
 
 const DEFAULT_MAX_TOKENS = 500;
@@ -35,6 +37,8 @@ export function chunkContent(
       return chunkEvidence(input.content, maxTokens, overlap);
     case "conversation":
       return chunkConversation(input.content, maxTokens, overlap);
+    case "document":
+      return chunkDocument(input.content as string, input.documentMetadata, maxTokens, overlap);
     default:
       return chunkGenericText(String(input.content), maxTokens, overlap);
   }
@@ -173,6 +177,146 @@ function chunkConversation(
     });
   }
 
+  return chunks;
+}
+
+function chunkDocument(
+  text: string,
+  documentMetadata?: DocumentMetadata,
+  maxTokens: number = DEFAULT_MAX_TOKENS,
+  overlap: number = DEFAULT_OVERLAP
+): ChunkResult[] {
+  const chunks: ChunkResult[] = [];
+  
+  const sections = detectDocumentSections(text);
+  let chunkIndex = 0;
+  
+  for (const section of sections) {
+    const sectionChunks = chunkSectionText(section.content, maxTokens, overlap);
+    
+    for (const content of sectionChunks) {
+      chunks.push({
+        content,
+        tokenCount: estimateTokens(content),
+        chunkIndex,
+        metadata: {
+          section: section.title,
+          category: documentMetadata?.category,
+          tags: documentMetadata?.tags,
+          usableBy: documentMetadata?.usableBy,
+          documentType: documentMetadata?.documentType,
+          region: documentMetadata?.region,
+        },
+      });
+      chunkIndex++;
+    }
+  }
+  
+  return chunks;
+}
+
+interface DocumentSection {
+  title: string;
+  content: string;
+}
+
+function detectDocumentSections(text: string): DocumentSection[] {
+  const sectionPatterns = [
+    /^#{1,3}\s+(.+)$/gm,
+    /^([A-Z][A-Za-z\s]+)$/gm,
+    /^(\d+\.?\s+[A-Z][A-Za-z\s]+)$/gm,
+  ];
+  
+  const lines = text.split('\n');
+  const sections: DocumentSection[] = [];
+  let currentTitle = "Introduction";
+  let currentContent: string[] = [];
+  
+  for (const line of lines) {
+    const isHeading = 
+      /^#{1,3}\s+/.test(line) ||
+      (/^[A-Z][A-Za-z\s]{5,50}$/.test(line.trim()) && line.trim().length < 60);
+    
+    if (isHeading && currentContent.length > 0) {
+      sections.push({
+        title: currentTitle,
+        content: currentContent.join('\n').trim(),
+      });
+      currentTitle = line.replace(/^#{1,3}\s+/, '').trim();
+      currentContent = [];
+    } else {
+      currentContent.push(line);
+    }
+  }
+  
+  if (currentContent.length > 0) {
+    sections.push({
+      title: currentTitle,
+      content: currentContent.join('\n').trim(),
+    });
+  }
+  
+  if (sections.length === 0) {
+    sections.push({
+      title: "Content",
+      content: text,
+    });
+  }
+  
+  return sections.filter(s => s.content.length > 50);
+}
+
+function chunkSectionText(
+  text: string,
+  maxTokens: number,
+  overlap: number
+): string[] {
+  const chunks: string[] = [];
+  const paragraphs = text.split(/\n\n+/);
+  
+  let currentChunk = "";
+  
+  for (const paragraph of paragraphs) {
+    const trimmedParagraph = paragraph.trim();
+    if (!trimmedParagraph) continue;
+    
+    const paragraphTokens = estimateTokens(trimmedParagraph);
+    
+    if (paragraphTokens > maxTokens) {
+      if (currentChunk.trim()) {
+        chunks.push(currentChunk.trim());
+        currentChunk = "";
+      }
+      
+      const sentences = trimmedParagraph.split(/(?<=[.!?])\s+/);
+      let sentenceChunk = "";
+      
+      for (const sentence of sentences) {
+        if (estimateTokens(sentenceChunk + " " + sentence) > maxTokens && sentenceChunk) {
+          chunks.push(sentenceChunk.trim());
+          const overlapWords = sentenceChunk.split(' ').slice(-10).join(' ');
+          sentenceChunk = overlapWords + " " + sentence;
+        } else {
+          sentenceChunk += (sentenceChunk ? " " : "") + sentence;
+        }
+      }
+      
+      if (sentenceChunk.trim()) {
+        currentChunk = sentenceChunk;
+      }
+    } else if (estimateTokens(currentChunk) + paragraphTokens > maxTokens) {
+      chunks.push(currentChunk.trim());
+      const overlapSentences = currentChunk.split(/(?<=[.!?])\s+/).slice(-2).join(' ');
+      currentChunk = (overlapSentences ? overlapSentences + "\n\n" : "") + trimmedParagraph + "\n\n";
+    } else {
+      currentChunk += trimmedParagraph + "\n\n";
+    }
+  }
+  
+  if (currentChunk.trim()) {
+    chunks.push(currentChunk.trim());
+  }
+  
   return chunks;
 }
 

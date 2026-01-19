@@ -37,9 +37,24 @@ Preferred communication style: Simple, everyday language.
 
 ## RAG Knowledge Base
 - **Database Tables**: `knowledge_sources` and `knowledge_chunks`.
+- **Source Types**: `block_state`, `evidence`, `conversation`, `document`, `external`.
 - **Embedding Approach**: Hash-based TF-IDF for text embeddings for keyword-based similarity search.
-- **Services**: `embeddingService`, `chunkingService`, `knowledgeService`.
-- **Agent Tool**: `search_knowledge`.
+- **Services**: `embeddingService`, `chunkingService`, `knowledgeService`, `pdfService`.
+- **Agent Tool**: `search_knowledge` with tag filtering and global knowledge inclusion.
+
+## Document Knowledge Base
+- **Registry**: `shared/document-knowledge-registry.ts` defines categories, tags, and document metadata structure.
+- **Categories**: `nbs_intervention_impacts`, `funder_guidelines`, `technical_standards`, `case_studies`, `local_context`, `economic_data`, `policy_frameworks`, `climate_science`.
+- **Tags**: `flood-resilience`, `heat-mitigation`, `slope-stabilization`, `co-benefits`, `latin-america`, `urban-greening`, etc.
+- **Global Project ID**: `global-knowledge-base` - documents are project-agnostic and available to all projects.
+- **API Endpoints**:
+  - `GET /api/knowledge/documents` - List all documents with metadata.
+  - `POST /api/knowledge/documents/ingest` - Ingest a new document with metadata.
+  - `POST /api/knowledge/documents/seed` - Seed initial knowledge documents from registry.
+  - `DELETE /api/knowledge/documents/:documentId` - Remove a document.
+  - `GET /api/knowledge/stats` - Global knowledge base statistics.
+- **Initial Documents**: NBS Urban Climate Resilience research synthesis (flood, heat, slope evidence with Latin American case studies).
+- **Scalability**: Add new documents by adding entries to `INITIAL_KNOWLEDGE_DOCUMENTS` array or via API.
 
 ## Authentication & Authorization
 - **Mechanism**: OAuth 2.0 PKCE with CityCatalyst.

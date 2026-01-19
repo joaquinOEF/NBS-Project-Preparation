@@ -178,13 +178,18 @@ const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "search_knowledge",
-    description: "Search the project's knowledge base using semantic similarity. Use this to find relevant information from block states, evidence, and past conversations.",
+    description: "Search the knowledge base for evidence, research, and case studies. This includes the global NBS research library with quantified impacts (e.g., '56% rainfall retention by green roofs', '2°C temperature reduction in Medellín'). ALWAYS use this before generating impact narratives to ground them in evidence.",
     parameters: {
       type: "object",
       properties: {
         query: {
           type: "string",
-          description: "Natural language search query",
+          description: "Natural language search query describing what evidence you need (e.g., 'flood resilience green infrastructure quantified impacts')",
+        },
+        tags: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional tags to filter by: flood-resilience, heat-mitigation, slope-stabilization, co-benefits, latin-america, urban-greening, stormwater-management",
         },
       },
       required: ["query"],
@@ -196,32 +201,36 @@ const AGENT_TOOLS: AgentTool[] = [
 const SYSTEM_PROMPT = `You are an AI assistant for the NBS (Nature-Based Solutions) Project Builder platform.
 You help city planners and project managers develop climate resilience projects using nature-based solutions.
 
-You have access to a Knowledge Workspace that stores the project state across multiple modules:
-- **Funder Selection**: Questionnaire answers (projectName, projectDescription, sectors, projectStage, budgetPreparation, etc.), pathway, and target funders
-- **Site Explorer**: Selected zones, risk scores, and intervention types
-- **Impact Model**: Narrative blocks, co-benefits, and downstream signals
-- **Operations**: O&M tasks, stakeholders, and cost estimates
-- **Business Model**: Archetypes, revenue stacks, and financing pathways
+## Knowledge Workspace
+You have access to a Knowledge Workspace that stores:
+- **Project Data**: Funder Selection, Site Explorer, Impact Model, Operations, Business Model modules
+- **Global Knowledge Base**: Research synthesis on NBS effectiveness with quantified impacts from peer-reviewed studies and case studies (especially Latin American cities like Medellín, Mexico City, Rio de Janeiro)
 
-When the user asks you to fill in or update fields:
-1. First use get_block to see the current state of the relevant module
-2. Explain clearly what you will save and why BEFORE using propose_patch
-3. Use propose_patch for each field you want to update - the user must approve each change
-4. After proposing, tell the user they can approve or reject each change in the chat panel
-5. When the user says they saved/approved a patch, use get_patch_status with the patch ID to confirm it was applied before proceeding
+## Evidence-Based Approach
+When generating or editing Impact Model narratives:
+1. FIRST use search_knowledge to find relevant evidence from the knowledge base
+2. Include specific quantified impacts in your narratives (e.g., "green roofs retain 56% of rainfall", "2°C temperature reduction", "40-90% peak runoff reduction")
+3. Reference real case studies when relevant (e.g., Medellín's Green Corridors, Mexico City's La Quebradora park)
+4. Connect interventions to measurable co-benefits (health, equity, biodiversity, carbon)
 
-IMPORTANT - When saving to the database:
-- Always explain: "I'm going to save [field name] with value [value] because [reason]"
-- The user will see your proposed changes and must click "Save" to confirm
-- After the user approves, use get_patch_status to verify the save was successful
-- If the user approves, the data is written to the database immediately
-- Be specific about which module and field you are updating
+## Workflow for Field Updates
+1. Use get_block to see current module state
+2. For Impact Model: Use search_knowledge to find evidence BEFORE proposing narratives
+3. Explain what you will save and why, citing evidence when available
+4. Use propose_patch - user must approve each change
+5. After approval, use get_patch_status to confirm
+
+## Key Evidence in Knowledge Base
+- Flood resilience: green roofs (56% rainfall retention), bioretention (40-90% peak flow reduction), wetlands (50-95% flood peak reduction)
+- Heat mitigation: urban forests (1-3°C cooling), green roofs (15-45°C surface temperature reduction, 50% cooling load reduction)
+- Slope stabilization: vetiver grass (60-90% soil loss reduction), deep-rooted vegetation for soil cohesion
+- Case studies: Medellín Green Corridors ($16M for 2°C cooling), Mexico City La Quebradora (flood control + aquifer recharge)
 
 Communication guidelines:
 - Be concise and professional
-- Use clear, non-technical language when explaining concepts
-- When proposing changes, explain exactly what will be saved and where
-- After proposing, remind the user to approve or reject the pending changes`;
+- Ground narratives in evidence with specific numbers when available
+- When proposing changes, explain what will be saved and cite supporting evidence
+- After proposing, remind the user to approve or reject pending changes`;
 
 export async function executeAgentTool(
   context: AgentContext,
@@ -443,15 +452,18 @@ export async function executeAgentTool(
       }
 
       case "search_knowledge": {
-        const { query, blockType, limit } = args as {
+        const { query, blockType, limit, tags } = args as {
           query: string;
           blockType?: InfoBlockType;
           limit?: number;
+          tags?: string[];
         };
 
         const searchResult = await semanticSearch(projectId, query, {
           blockType,
           limit: limit || 5,
+          tags,
+          includeGlobalKnowledge: true,
         });
 
         return {
@@ -466,6 +478,8 @@ export async function executeAgentTool(
               fieldPath: c.fieldPath,
               sourceType: c.source?.sourceType,
               sourceTitle: c.source?.title,
+              category: (c.metadata as any)?.category,
+              tags: (c.metadata as any)?.tags,
             })),
           },
         };

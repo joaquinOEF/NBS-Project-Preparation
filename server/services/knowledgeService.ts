@@ -11,6 +11,8 @@ import type {
   KnowledgeSourceType,
   InfoBlockType,
 } from "@shared/schema";
+import type { DocumentMetadata, ModuleUsability } from "@shared/document-knowledge-registry";
+import { GLOBAL_PROJECT_ID } from "@shared/document-knowledge-registry";
 
 export interface IngestOptions {
   forceReindex?: boolean;
@@ -21,6 +23,10 @@ export interface SearchOptions {
   blockType?: InfoBlockType;
   sourceType?: KnowledgeSourceType;
   minScore?: number;
+  includeGlobalKnowledge?: boolean;
+  tags?: string[];
+  category?: string;
+  usableByModule?: ModuleUsability;
 }
 
 const DEFAULT_SEARCH_LIMIT = 5;
@@ -228,6 +234,94 @@ export async function ingestConversation(
   return source;
 }
 
+export async function ingestDocument(
+  documentId: string,
+  title: string,
+  content: string,
+  metadata: DocumentMetadata,
+  options: IngestOptions = {}
+): Promise<KnowledgeSource> {
+  const projectId = GLOBAL_PROJECT_ID;
+  const sourceRef = `document:${documentId}`;
+  const contentHash = computeContentHash(content);
+  const metadataHash = computeContentHash(metadata);
+  const combinedHash = `${contentHash}:${metadataHash}`;
+
+  const existingSource = await storage.getKnowledgeSourceByRef(projectId, "document", sourceRef);
+
+  if (existingSource && existingSource.contentHash === combinedHash && !options.forceReindex) {
+    console.log(`Document ${documentId} unchanged (content and metadata), skipping reindex`);
+    return existingSource;
+  }
+  
+  if (existingSource && existingSource.contentHash?.split(':')[0] === contentHash && !options.forceReindex) {
+    console.log(`Document ${documentId} content unchanged, updating metadata only`);
+    const updatedSource = await storage.updateKnowledgeSource(existingSource.id, {
+      title,
+      metadata: metadata as unknown as Record<string, unknown>,
+      contentHash: combinedHash,
+      lastIndexedAt: new Date(),
+    });
+    return updatedSource!;
+  }
+
+  if (existingSource) {
+    console.log(`Document ${documentId} changed, re-indexing...`);
+    await storage.deleteChunksBySource(existingSource.id);
+  }
+
+  const chunkResults = chunkContent({
+    sourceType: "document",
+    content,
+    documentMetadata: metadata,
+  });
+
+  console.log(`Chunked document ${documentId} into ${chunkResults.length} chunks`);
+
+  const embeddings = await generateEmbeddings(chunkResults.map(c => c.content));
+
+  const source = existingSource
+    ? await storage.updateKnowledgeSource(existingSource.id, {
+        title,
+        contentHash: combinedHash,
+        tokenCount: embeddings.reduce((sum, e) => sum + e.tokenCount, 0),
+        chunkCount: chunkResults.length,
+        metadata: metadata as unknown as Record<string, unknown>,
+        lastIndexedAt: new Date(),
+      })
+    : await storage.createKnowledgeSource({
+        projectId,
+        sourceType: "document",
+        sourceRef,
+        title,
+        contentHash: combinedHash,
+        tokenCount: embeddings.reduce((sum, e) => sum + e.tokenCount, 0),
+        chunkCount: chunkResults.length,
+        metadata: metadata as unknown as Record<string, unknown>,
+        lastIndexedAt: new Date(),
+      });
+
+  if (!source) {
+    throw new Error("Failed to create/update knowledge source");
+  }
+
+  const chunks: InsertKnowledgeChunk[] = chunkResults.map((chunk, idx) => ({
+    projectId,
+    sourceId: source.id,
+    chunkIndex: chunk.chunkIndex,
+    content: chunk.content,
+    tokenCount: embeddings[idx].tokenCount,
+    metadata: chunk.metadata,
+    embedding: serializeEmbedding(embeddings[idx].embedding),
+  }));
+
+  await storage.createKnowledgeChunks(chunks);
+
+  console.log(`Indexed document ${documentId}: ${chunkResults.length} chunks, ${source.tokenCount} tokens`);
+
+  return source;
+}
+
 export async function semanticSearch(
   projectId: string,
   query: string,
@@ -235,10 +329,18 @@ export async function semanticSearch(
 ): Promise<SearchResult> {
   const limit = options.limit || DEFAULT_SEARCH_LIMIT;
   const minScore = options.minScore || DEFAULT_MIN_SCORE;
+  const includeGlobal = options.includeGlobalKnowledge !== false;
 
   const queryEmbedding = await generateEmbedding(query);
 
-  const allChunks = await storage.getKnowledgeChunksByProject(projectId);
+  const projectChunks = await storage.getKnowledgeChunksByProject(projectId);
+  
+  let allChunks = [...projectChunks];
+  
+  if (includeGlobal && projectId !== GLOBAL_PROJECT_ID) {
+    const globalChunks = await storage.getKnowledgeChunksByProject(GLOBAL_PROJECT_ID);
+    allChunks = [...allChunks, ...globalChunks];
+  }
 
   let filteredChunks = allChunks;
 
@@ -247,11 +349,41 @@ export async function semanticSearch(
   }
 
   if (options.sourceType) {
-    const sources = await storage.getKnowledgeSourcesByProject(projectId);
-    const sourceIds = sources
+    const projectSources = await storage.getKnowledgeSourcesByProject(projectId);
+    let allSources = [...projectSources];
+    
+    if (includeGlobal && projectId !== GLOBAL_PROJECT_ID) {
+      const globalSources = await storage.getKnowledgeSourcesByProject(GLOBAL_PROJECT_ID);
+      allSources = [...allSources, ...globalSources];
+    }
+    
+    const sourceIds = allSources
       .filter(s => s.sourceType === options.sourceType)
       .map(s => s.id);
     filteredChunks = filteredChunks.filter(c => sourceIds.includes(c.sourceId));
+  }
+
+  if (options.tags && options.tags.length > 0) {
+    filteredChunks = filteredChunks.filter(chunk => {
+      const chunkTags = (chunk.metadata as any)?.tags as string[] | undefined;
+      if (!chunkTags) return false;
+      return options.tags!.some(tag => chunkTags.includes(tag));
+    });
+  }
+
+  if (options.category) {
+    filteredChunks = filteredChunks.filter(chunk => {
+      const chunkCategory = (chunk.metadata as any)?.category;
+      return chunkCategory === options.category;
+    });
+  }
+
+  if (options.usableByModule) {
+    filteredChunks = filteredChunks.filter(chunk => {
+      const usableBy = (chunk.metadata as any)?.usableBy as string[] | undefined;
+      if (!usableBy) return true;
+      return usableBy.includes(options.usableByModule!) || usableBy.includes("all");
+    });
   }
 
   const scoredChunks: ChunkWithScore[] = filteredChunks

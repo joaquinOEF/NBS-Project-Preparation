@@ -80,6 +80,7 @@
     "p-retry": "^7.1.1",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
+    "pdf-parse": "^2.4.5",
     "pigeon-maps": "^0.22.1",
     "posthog-js": "^1.264.2",
     "react": "18.3.1",
