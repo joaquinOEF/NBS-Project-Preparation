@@ -640,7 +640,45 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
         const parsed = JSON.parse(stored) as ProjectContextData;
         setContext(parsed);
         
-        syncAllModulesToDatabase(projectId, parsed);
+        const dbProjectId = getDbProjectId(projectId);
+        const blockTypeMap: Record<string, keyof Pick<ProjectContextData, 'funderSelection' | 'siteExplorer' | 'impactModel' | 'operations' | 'businessModel'>> = {
+          funder_selection: 'funderSelection',
+          site_explorer: 'siteExplorer',
+          impact_model: 'impactModel',
+          operations: 'operations',
+          business_model: 'businessModel',
+        };
+        
+        Promise.all(
+          Object.keys(blockTypeMap).map(blockType =>
+            fetch(`/api/projects/${dbProjectId}/blocks/${blockType}`)
+              .then(res => res.ok ? res.json() : null)
+              .catch(() => null)
+          )
+        ).then(results => {
+          const blockTypes = Object.keys(blockTypeMap);
+          let hasUpdates = false;
+          const updatedContext = { ...parsed };
+          
+          results.forEach((result, idx) => {
+            if (result?.data) {
+              const moduleKey = blockTypeMap[blockTypes[idx]];
+              const dbData = result.data;
+              const localData = parsed[moduleKey];
+              
+              if (dbData && JSON.stringify(dbData) !== JSON.stringify(localData)) {
+                (updatedContext as Record<string, unknown>)[moduleKey] = dbData;
+                hasUpdates = true;
+              }
+            }
+          });
+          
+          if (hasUpdates) {
+            setContext(updatedContext);
+            localStorage.setItem(`${PROJECT_CONTEXT_KEY}_${projectId}`, JSON.stringify(updatedContext));
+            console.log('Merged database updates into local context');
+          }
+        });
         
         return parsed;
       }
@@ -648,7 +686,7 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
       console.error('Failed to load project context:', e);
     }
     return null;
-  }, [syncAllModulesToDatabase]);
+  }, []);
 
   const saveContext = useCallback((data: Partial<ProjectContextData>) => {
     if (!data.projectId && !context?.projectId) return;
