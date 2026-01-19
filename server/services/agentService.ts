@@ -159,6 +159,21 @@ const AGENT_TOOLS: AgentTool[] = [
     },
   },
   {
+    name: "get_patch_status",
+    description: "Check the status of a specific patch by ID to see if it was approved, rejected, or is still pending",
+    parameters: {
+      type: "object",
+      properties: {
+        patchId: {
+          type: "string",
+          description: "The ID of the patch to check",
+        },
+      },
+      required: ["patchId"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "search_knowledge",
     description: "Search the project's knowledge base using semantic similarity. Use this to find relevant information from block states, evidence, and past conversations.",
     parameters: {
@@ -190,10 +205,12 @@ When the user asks you to fill in or update fields:
 2. Explain clearly what you will save and why BEFORE using propose_patch
 3. Use propose_patch for each field you want to update - the user must approve each change
 4. After proposing, tell the user they can approve or reject each change in the chat panel
+5. When the user says they saved/approved a patch, use get_patch_status with the patch ID to confirm it was applied before proceeding
 
 IMPORTANT - When saving to the database:
 - Always explain: "I'm going to save [field name] with value [value] because [reason]"
 - The user will see your proposed changes and must click "Save" to confirm
+- After the user approves, use get_patch_status to verify the save was successful
 - If the user approves, the data is written to the database immediately
 - Be specific about which module and field you are updating
 
@@ -393,6 +410,32 @@ export async function executeAgentTool(
             proposedBy: p.proposedBy,
             createdAt: p.createdAt,
           })),
+        };
+      }
+
+      case "get_patch_status": {
+        const { patchId } = args as { patchId: string };
+        const patches = await storage.getPatchesByIds([patchId]);
+        if (patches.length === 0) {
+          return {
+            name,
+            result: { found: false, message: `Patch ${patchId} not found` },
+          };
+        }
+        const patch = patches[0];
+        return {
+          name,
+          result: {
+            found: true,
+            id: patch.id,
+            status: patch.status,
+            blockType: patch.blockType,
+            fieldPath: patch.fieldPath,
+            value: patch.value,
+            previousValue: patch.previousValue,
+            appliedAt: patch.appliedAt,
+            appliedBy: patch.appliedBy,
+          },
         };
       }
 

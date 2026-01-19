@@ -1294,12 +1294,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           if (patch.blockType) {
+            let valueToApply = patch.value;
+            if (typeof valueToApply === 'string') {
+              try {
+                valueToApply = JSON.parse(valueToApply);
+              } catch {
+              }
+            }
             await applyPatchToBlock(
               projectId, 
               patch.blockType as InfoBlockType, 
               patch.fieldPath, 
               patch.operation as 'set' | 'merge' | 'append' | 'remove', 
-              patch.value, 
+              valueToApply, 
               actor
             );
           }

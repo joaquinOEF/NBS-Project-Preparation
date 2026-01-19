@@ -1,0 +1,59 @@
+I’m going to save **Funder Selection → questionnaire.investmentSize** with value **`20_50m`** (replacing `over_50m`) because you’ve confirmed the project’s investment size is in the **US$20–50m** range, which will improve funder fit and ticket-size matching.I’m going to save **Funder Selection → questionnaire.investmentSize** with value **`20_50m`** because you indicated the project sits in the **US$20–50m** investment range (instead of `over_50m`).
+
+Please **approve or reject** the pending change in the chat panel (Patch ID: **8e29c15c-672d-4ae1-911a-013045c8c7a5**).
+
+get_block
+propose_patch
+ok, now what are the current definitions we have so far in the funder selection?
+
+Here’s the **current saved state** of your **Funder Selection** definitions (what’s in the workspace right now):
+
+## Pathway (funding strategy)
+- **Primary pathway:** `preparation_facility`
+- **Secondary:** `grant`
+- **Readiness level:** `very_early`
+- **Limiting factors:** `earlyStage`, `missingAssessments`
+
+## Questionnaire (project profile used to match funders)
+- **Project name:** “Nature Based Solutions for Climate Resilience”
+- **Project description:** Green infrastructure (wetlands, bioswales, urban forests) for flood management + cooling
+- **Sectors:** `nature_based`, `urban_resilience`
+- **Funding receiver:** `municipality`
+- **Project stage:** `idea`
+- **Investment size (currently saved):** `over_50m`
+  - Note: you asked to change this to **20–50m**, but that change will only reflect here once you **approve/save** the pending patch.
+- **Generates revenue:** `yes`
+- **Repayment source:** `user_fees`
+- **Can take debt:** `yes`
+- **Open to bundling:** `yes`
+- **Existing elements:** `capex`
+- **National approval:** `yes`
+- **Budget preparation / implementation:** `yes` / `yes`
+- **Political risk factors:** `upcoming_elections`
+- **Implementing ownership:** `single_department`
+- **Internal alignment:** `high`
+- **Mandate refs:** `city_climate_plan`
+- **Political endorsement level:** `written`
+- **Leadership commitment confidence:** `high`
+
+## Funds (what you’ve shortlisted/selected)
+- **Selected/shortlisted funds IDs:** `fnmc-grants`, `c40-finance-facility`, `gcf-readiness`
+- **Shortlisted funds (same list):** `fnmc-grants`, `c40-finance-facility`, `gcf-readiness`
+
+## Target funders (next-step investment options)
+You have 3 “next” investment loan targets, each with **medium** confidence and the same key gaps:
+- **IDB Specific Investment Loan (ESP)** (loan)
+- **CAF Environment & Climate-Change Credit Window** (loan)
+- **FONPLATA Green Line – Investment Loan** (loan)
+
+**Common gap checklist across all three:**
+- Pre-feasibility + feasibility study (**high**)
+- Implementation plan + procurement approach (**medium**)
+- ESIA/ESMP + stakeholder engagement plan (**high**)
+
+## Bridge paragraph (stored narrative)
+- A saved paragraph that frames the pathway as: **use prep support to produce feasibility + safeguards → become eligible for IDB/CAF/FONPLATA investment finance**.
+
+If you approve the pending patch for investment size, I can re-check whether the “why fit” ticket-size statements for the target funders should be refreshed to match the new bracket.
+
+get_block
