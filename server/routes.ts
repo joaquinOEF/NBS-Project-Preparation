@@ -1407,6 +1407,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/projects/:id/blocks/:blockType - Get a specific block
+  app.get('/api/projects/:id/blocks/:blockType', async (req, res) => {
+    try {
+      const { id: projectId, blockType } = req.params;
+
+      if (!['funder_selection', 'site_explorer', 'impact_model', 'operations', 'business_model'].includes(blockType)) {
+        return res.status(400).json({ message: 'Invalid block type' });
+      }
+
+      const block = await storage.getInfoBlock(projectId, blockType as InfoBlockType);
+      
+      if (!block) {
+        return res.status(404).json({ message: 'Block not found' });
+      }
+
+      res.json({
+        id: block.id,
+        blockType: block.blockType,
+        status: block.status,
+        completionPercent: block.completionPercent,
+        version: block.version,
+        data: block.blockStateJson,
+        updatedAt: block.updatedAt,
+      });
+    } catch (error: any) {
+      console.error('Block fetch error:', error);
+      res.status(500).json({ message: error.message || 'Failed to fetch block' });
+    }
+  });
+
   // PUT /api/projects/:id/blocks/:blockType - Update a specific block
   app.put('/api/projects/:id/blocks/:blockType', async (req, res) => {
     try {
