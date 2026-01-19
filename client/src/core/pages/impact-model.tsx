@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useParams, Link } from 'wouter';
 import DOMPurify from 'dompurify';
 import { ArrowLeft, Lightbulb, Settings, Sparkles, Edit3, Eye, Download, Check, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Copy, FileText, Clock, AlertCircle, Scale, Thermometer, Users, TrendingUp, Building2, Info, Droplets, Mountain, Loader2 } from 'lucide-react';
@@ -16,6 +16,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/core/comp
 import { ScrollArea } from '@/core/components/ui/scroll-area';
 import { useTranslation } from 'react-i18next';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
+import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useProjectContext, ImpactModelData, PrioritizationWeights, LensType, InterventionBundle, NarrativeBlock, CoBenefitCard, SignalCard, sampleSiteExplorer, sampleFunderSelection } from '@/core/contexts/project-context';
 import { useToast } from '@/core/hooks/use-toast';
 
@@ -959,7 +960,7 @@ function LensesStep({
 
   const generateHeadlineSummary = (blocks: NarrativeBlock[]): string => {
     if (blocks.length === 0) return '';
-    const execSummary = blocks.find(b => b.type === 'executive_summary');
+    const execSummary = blocks.find(b => b.type === 'summary');
     if (execSummary) {
       const firstParagraph = execSummary.contentMd.split('\n\n')[0];
       return firstParagraph.substring(0, 200) + (firstParagraph.length > 200 ? '...' : '');
@@ -1465,7 +1466,8 @@ function ExportStep({
 export default function ImpactModelPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { t } = useTranslation();
-  const { routePrefix } = useSampleRoute();
+  const { isSampleRoute, routePrefix } = useSampleRoute();
+  const { isSampleMode } = useSampleData();
   const { context, loadContext, updateModule } = useProjectContext();
   const { toast } = useToast();
   
@@ -1475,17 +1477,53 @@ export default function ImpactModelPage() {
   const [isGeneratingLens, setIsGeneratingLens] = useState<LensType | null>(null);
   const [localData, setLocalData] = useState<ImpactModelData>(getDefaultImpactModelData());
 
+  const hydrateFromDB = useCallback(async () => {
+    if (!projectId) return;
+    const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;
+    
+    try {
+      const res = await fetch(`/api/projects/${dbProjectId}/blocks/impact_model`);
+      if (res.ok) {
+        const result = await res.json();
+        if (result?.data) {
+          const freshData = result.data as ImpactModelData;
+          setLocalData(freshData);
+          updateModule('impactModel', freshData);
+          console.log('[ImpactModel] Hydrated from database and synced to context');
+        }
+      } else if (res.status === 404) {
+        console.log('[ImpactModel] Block not found in DB, using local state');
+      }
+    } catch (err) {
+      console.error('[ImpactModel] DB hydration failed:', err);
+    }
+  }, [projectId, isSampleMode, isSampleRoute, updateModule]);
+
   useEffect(() => {
     if (projectId) {
       loadContext(projectId);
+      hydrateFromDB();
     }
-  }, [projectId, loadContext]);
+  }, [projectId, loadContext, hydrateFromDB]);
 
   useEffect(() => {
     if (context?.impactModel) {
       setLocalData(context.impactModel);
     }
   }, [context?.impactModel]);
+
+  // Listen for AI-triggered block updates and re-hydrate
+  useEffect(() => {
+    const handleBlockUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ blockType: string; moduleName: string; data: unknown }>;
+      if (customEvent.detail?.blockType === 'impact_model') {
+        console.log('[ImpactModel] Received nbs-block-updated event, re-hydrating...');
+        hydrateFromDB();
+      }
+    };
+    window.addEventListener('nbs-block-updated', handleBlockUpdate);
+    return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
+  }, [hydrateFromDB]);
 
   const handleUpdate = (updates: Partial<ImpactModelData>) => {
     const updated = { ...localData, ...updates, status: 'DRAFT' as const };
