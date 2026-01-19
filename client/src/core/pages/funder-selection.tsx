@@ -642,18 +642,22 @@ export default function FunderSelectionPage() {
   useEffect(() => {
     if (projectId && fundsData && !hydrationComplete) {
       const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;
+      console.log('[Hydration] Starting fetch from DB, projectId:', dbProjectId);
       
       fetch(`/api/projects/${dbProjectId}/blocks/funder_selection`)
         .then(res => res.ok ? res.json() : null)
         .then(result => {
+          console.log('[Hydration] Got result:', result ? 'has data' : 'no data');
           if (result?.data) {
             const dbData = result.data as FunderSelectionData;
             const savedPlan = dbData.fundingPlan;
+            console.log('[Hydration] savedPlan status:', savedPlan?.status, 'fundingPlanConfirmed:', fundingPlanConfirmed);
             
             // Only hydrate if we have a confirmed plan
             if (savedPlan && savedPlan.status === 'confirmed' && !fundingPlanConfirmed) {
               const nowFundExists = savedPlan.selectedFunderNow && fundsData.funds.some(f => f.id === savedPlan.selectedFunderNow);
               const nextFundExists = !savedPlan.selectedFunderNext || fundsData.funds.some(f => f.id === savedPlan.selectedFunderNext);
+              console.log('[Hydration] nowFundExists:', nowFundExists, 'nextFundExists:', nextFundExists, 'selectedFunderNow:', savedPlan.selectedFunderNow);
               
               if (nowFundExists && nextFundExists) {
                 skipAutoSaveRef.current = true; // Prevent auto-save from overwriting
@@ -666,14 +670,14 @@ export default function FunderSelectionPage() {
                 if (dbData.questionnaire) {
                   setAnswers(dbData.questionnaire as QuestionnaireAnswers);
                 }
-                console.log('Hydrated from database: selectedFunderNow =', savedPlan.selectedFunderNow);
+                console.log('[Hydration] SUCCESS - restored selectedFunderNow =', savedPlan.selectedFunderNow);
               }
             }
           }
           setHydrationComplete(true);
         })
         .catch(err => {
-          console.error('Failed to hydrate from database:', err);
+          console.error('[Hydration] FAILED:', err);
           setHydrationComplete(true);
         });
     }
