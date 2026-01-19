@@ -5,6 +5,7 @@ import { Toaster } from '@/core/components/ui/toaster';
 import { TooltipProvider } from '@/core/components/ui/tooltip';
 import { SampleDataProvider } from '@/core/contexts/sample-data-context';
 import { ProjectContextProvider } from '@/core/contexts/project-context';
+import { ChatProvider, useChatState } from '@/core/contexts/chat-context';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -65,6 +66,19 @@ function Router() {
   );
 }
 
+function AppLayout() {
+  const { isChatOpen } = useChatState();
+  
+  return (
+    <div className="flex min-h-screen">
+      <div className={`flex-1 transition-all duration-300 ${isChatOpen ? 'mr-[400px]' : ''}`}>
+        <Router />
+      </div>
+      <ChatDrawer />
+    </div>
+  );
+}
+
 function App() {
   const { i18n } = useTranslation();
 
@@ -77,11 +91,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <SampleDataProvider>
         <ProjectContextProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-            <ChatDrawer />
-          </TooltipProvider>
+          <ChatProvider>
+            <TooltipProvider>
+              <Toaster />
+              <AppLayout />
+            </TooltipProvider>
+          </ChatProvider>
         </ProjectContextProvider>
       </SampleDataProvider>
     </QueryClientProvider>

@@ -2,13 +2,13 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams } from "wouter";
 import ReactMarkdown from "react-markdown";
 import { useSampleData } from "@/core/contexts/sample-data-context";
+import { useChatState } from "@/core/contexts/chat-context";
 import { Button } from "@/core/components/ui/button";
 import { Input } from "@/core/components/ui/input";
 import { ScrollArea } from "@/core/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/core/components/ui/sheet";
 import { Card } from "@/core/components/ui/card";
 import { Badge } from "@/core/components/ui/badge";
-import { Loader2, MessageCircle, Send, Bot, User, Wrench, CheckCircle, XCircle, ArrowRight, Database } from "lucide-react";
+import { Loader2, MessageCircle, Send, Bot, User, Wrench, CheckCircle, XCircle, ArrowRight, Database, X } from "lucide-react";
 import { useToast } from "@/core/hooks/use-toast";
 
 interface ChatMessage {
@@ -35,7 +35,7 @@ interface PendingPatch {
 }
 
 export function ChatDrawer() {
-  const [isOpen, setIsOpen] = useState(false);
+  const { isChatOpen: isOpen, openChat, closeChat, toggleChat } = useChatState();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -374,23 +374,32 @@ export function ChatDrawer() {
   if (!projectId) return null;
 
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger asChild>
+    <>
+      {!isOpen && (
         <Button
           variant="outline"
           size="icon"
+          onClick={openChat}
           className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50 bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <MessageCircle className="h-6 w-6" />
         </Button>
-      </SheetTrigger>
-      <SheetContent className="w-full sm:max-w-md flex flex-col p-0">
-        <SheetHeader className="px-4 py-3 border-b">
-          <SheetTitle className="flex items-center gap-2">
+      )}
+      
+      <div 
+        className={`fixed top-0 right-0 h-full w-[400px] bg-background border-l shadow-xl flex flex-col transition-transform duration-300 z-40 ${
+          isOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="px-4 py-3 border-b flex items-center justify-between">
+          <div className="flex items-center gap-2 font-semibold">
             <Bot className="h-5 w-5" />
             NBS Assistant
-          </SheetTitle>
-        </SheetHeader>
+          </div>
+          <Button variant="ghost" size="icon" onClick={closeChat}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
 
         {pendingPatches.length > 0 && (
           <div className="px-4 py-3 border-b bg-amber-50 dark:bg-amber-900/20">
@@ -498,7 +507,11 @@ export function ChatDrawer() {
                   }`}
                 >
                   {message.content && (
-                    <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2">
+                    <div className={`text-sm prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 ${
+                      message.role === "user" 
+                        ? "prose-p:text-white prose-headings:text-white prose-strong:text-white prose-em:text-white prose-li:text-white text-white [&_*]:text-white" 
+                        : "dark:prose-invert"
+                    }`}>
                       <ReactMarkdown>{message.content}</ReactMarkdown>
                     </div>
                   )}
@@ -555,7 +568,7 @@ export function ChatDrawer() {
             </Button>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </>
   );
 }
