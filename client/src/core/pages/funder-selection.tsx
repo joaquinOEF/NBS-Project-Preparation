@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link } from 'wouter';
 import { ArrowLeft, ArrowRight, Check, DollarSign, Building2, FileText, Users, ExternalLink, ChevronRight, AlertCircle, Lightbulb, Target, ArrowUpRight, CheckCircle2, Lock, Edit2, Search, AlertTriangle, Shield } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
@@ -596,6 +596,7 @@ export default function FunderSelectionPage() {
   const [showAllFundsModal, setShowAllFundsModal] = useState<'now' | 'next' | null>(null);
   const [fundSearchQuery, setFundSearchQuery] = useState('');
   const [hydrationComplete, setHydrationComplete] = useState(false);
+  const skipAutoSaveRef = useRef(false);
 
   const action = (isSampleMode || isSampleRoute) 
     ? sampleActions.find(a => a.id === projectId)
@@ -655,10 +656,12 @@ export default function FunderSelectionPage() {
               const nextFundExists = !savedPlan.selectedFunderNext || fundsData.funds.some(f => f.id === savedPlan.selectedFunderNext);
               
               if (nowFundExists && nextFundExists) {
+                skipAutoSaveRef.current = true; // Prevent auto-save from overwriting
                 setSelectedNowFundId(savedPlan.selectedFunderNow);
                 setSelectedNextFundId(savedPlan.selectedFunderNext || null);
                 setFundingPlanConfirmed(true);
                 setShowResults(true);
+                setHasSavedToContext(true); // Mark as already saved
                 
                 if (dbData.questionnaire) {
                   setAnswers(dbData.questionnaire as QuestionnaireAnswers);
@@ -710,7 +713,8 @@ export default function FunderSelectionPage() {
 
   useEffect(() => {
     // Wait for hydration to complete before auto-saving to avoid overwriting confirmed data
-    if (computedResults && projectId && !hasSavedToContext && !fundingPlanConfirmed && hydrationComplete) {
+    // Also check the ref as a synchronous guard against race conditions
+    if (computedResults && projectId && !hasSavedToContext && !fundingPlanConfirmed && hydrationComplete && !skipAutoSaveRef.current) {
       const { pathwayResult, recommendedFunds, targetFunders, bridgeParagraph } = computedResults;
       
       updateModule('funderSelection', {
