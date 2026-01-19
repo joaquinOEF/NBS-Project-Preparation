@@ -168,15 +168,6 @@ const AGENT_TOOLS: AgentTool[] = [
           type: "string",
           description: "Natural language search query",
         },
-        blockType: {
-          type: "string",
-          enum: ["funder_selection", "site_explorer", "impact_model", "operations", "business_model"],
-          description: "Optional: filter results to a specific block type",
-        },
-        limit: {
-          type: "number",
-          description: "Maximum number of results to return (default: 5)",
-        },
       },
       required: ["query"],
       additionalProperties: false,
@@ -188,23 +179,29 @@ const SYSTEM_PROMPT = `You are an AI assistant for the NBS (Nature-Based Solutio
 You help city planners and project managers develop climate resilience projects using nature-based solutions.
 
 You have access to a Knowledge Workspace that stores the project state across multiple modules:
-- **Funder Selection**: Questionnaire answers, readiness scores, and target funders
+- **Funder Selection**: Questionnaire answers (projectName, projectDescription, sectors, projectStage, budgetPreparation, etc.), pathway, and target funders
 - **Site Explorer**: Selected zones, risk scores, and intervention types
 - **Impact Model**: Narrative blocks, co-benefits, and downstream signals
 - **Operations**: O&M tasks, stakeholders, and cost estimates
 - **Business Model**: Archetypes, revenue stacks, and financing pathways
 
-When the user asks questions:
-1. Use your tools to fetch relevant project data before answering
-2. Be specific and reference actual data from the workspace when possible
-3. If you need to suggest changes, use the propose_patch tool - the user must approve changes
-4. Track evidence for important claims using record_evidence
+When the user asks you to fill in or update fields:
+1. First use get_block to see the current state of the relevant module
+2. Explain clearly what you will save and why BEFORE using propose_patch
+3. Use propose_patch for each field you want to update - the user must approve each change
+4. After proposing, tell the user they can approve or reject each change in the chat panel
+
+IMPORTANT - When saving to the database:
+- Always explain: "I'm going to save [field name] with value [value] because [reason]"
+- The user will see your proposed changes and must click "Save" to confirm
+- If the user approves, the data is written to the database immediately
+- Be specific about which module and field you are updating
 
 Communication guidelines:
 - Be concise and professional
 - Use clear, non-technical language when explaining concepts
-- Proactively suggest next steps based on project state
-- When proposing changes, explain your reasoning`;
+- When proposing changes, explain exactly what will be saved and where
+- After proposing, remind the user to approve or reject the pending changes`;
 
 export async function executeAgentTool(
   context: AgentContext,

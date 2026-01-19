@@ -7,7 +7,8 @@ import { ScrollArea } from "@/core/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/core/components/ui/sheet";
 import { Card } from "@/core/components/ui/card";
 import { Badge } from "@/core/components/ui/badge";
-import { Loader2, MessageCircle, Send, Bot, User, Wrench, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, MessageCircle, Send, Bot, User, Wrench, CheckCircle, XCircle, ArrowRight, Database } from "lucide-react";
+import { useToast } from "@/core/hooks/use-toast";
 
 interface ChatMessage {
   id: string;
@@ -39,9 +40,11 @@ export function ChatDrawer() {
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [pendingPatches, setPendingPatches] = useState<PendingPatch[]>([]);
+  const [applyingPatchId, setApplyingPatchId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
   const { isSampleMode, sampleProjectId } = useSampleData();
+  const { toast } = useToast();
 
   const projectId = isSampleMode ? sampleProjectId : routeProjectId;
 
@@ -197,17 +200,36 @@ export function ChatDrawer() {
     }
   };
 
-  const handleApplyPatch = async (patchId: string) => {
+  const handleApplyPatch = async (patchId: string, patch: PendingPatch) => {
     if (!projectId) return;
+    setApplyingPatchId(patchId);
     try {
       const response = await fetch(`/api/projects/${projectId}/patches/${patchId}/apply`, {
         method: "POST",
       });
       if (response.ok) {
         setPendingPatches(prev => prev.filter(p => p.id !== patchId));
+        toast({
+          title: "Saved to database",
+          description: `Updated ${patch.blockType}.${patch.fieldPath}`,
+          duration: 4000,
+        });
+      } else {
+        toast({
+          title: "Failed to save",
+          description: "Could not apply the change. Please try again.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Failed to apply patch:", error);
+      toast({
+        title: "Error",
+        description: "Something went wrong while saving.",
+        variant: "destructive",
+      });
+    } finally {
+      setApplyingPatchId(null);
     }
   };
 
@@ -221,6 +243,11 @@ export function ChatDrawer() {
       });
       if (response.ok) {
         setPendingPatches(prev => prev.filter(p => p.id !== patchId));
+        toast({
+          title: "Change rejected",
+          description: "The proposed change was not applied.",
+          duration: 3000,
+        });
       }
     } catch (error) {
       console.error("Failed to reject patch:", error);
@@ -256,32 +283,67 @@ export function ChatDrawer() {
         </SheetHeader>
 
         {pendingPatches.length > 0 && (
-          <div className="px-4 py-2 border-b bg-muted/50">
-            <p className="text-sm font-medium mb-2">Pending Changes ({pendingPatches.length})</p>
-            <div className="space-y-2 max-h-32 overflow-y-auto">
-              {pendingPatches.slice(0, 3).map(patch => (
-                <Card key={patch.id} className="p-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">{patch.fieldPath}</p>
+          <div className="px-4 py-3 border-b bg-amber-50 dark:bg-amber-900/20">
+            <div className="flex items-center gap-2 mb-2">
+              <Database className="h-4 w-4 text-amber-600" />
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                AI wants to save ({pendingPatches.length})
+              </p>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {pendingPatches.slice(0, 5).map(patch => (
+                <Card key={patch.id} className="p-3 bg-white dark:bg-card border-amber-200 dark:border-amber-800">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
                       <Badge variant="outline" className="text-xs">{patch.blockType}</Badge>
+                      <span className="text-xs text-muted-foreground">{patch.fieldPath}</span>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="text-xs space-y-1">
+                      {patch.previousValue !== undefined && patch.previousValue !== null && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-red-500 font-medium shrink-0">Old:</span>
+                          <span className="text-muted-foreground truncate">
+                            {typeof patch.previousValue === 'string' 
+                              ? patch.previousValue.slice(0, 50) + (patch.previousValue.length > 50 ? '...' : '')
+                              : JSON.stringify(patch.previousValue).slice(0, 50)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-start gap-2">
+                        <span className="text-green-600 font-medium shrink-0">New:</span>
+                        <span className="font-medium truncate">
+                          {typeof patch.value === 'string' 
+                            ? patch.value.slice(0, 80) + (patch.value.length > 80 ? '...' : '')
+                            : JSON.stringify(patch.value).slice(0, 80)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-1">
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-green-600"
-                        onClick={() => handleApplyPatch(patch.id)}
+                        variant="default"
+                        size="sm"
+                        className="flex-1 h-7 text-xs bg-green-600 hover:bg-green-700"
+                        onClick={() => handleApplyPatch(patch.id, patch)}
+                        disabled={applyingPatchId === patch.id}
                       >
-                        <CheckCircle className="h-4 w-4" />
+                        {applyingPatchId === patch.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <>
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Save
+                          </>
+                        )}
                       </Button>
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-red-600"
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-7 text-xs text-red-600 border-red-200 hover:bg-red-50"
                         onClick={() => handleRejectPatch(patch.id)}
+                        disabled={applyingPatchId === patch.id}
                       >
-                        <XCircle className="h-4 w-4" />
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Reject
                       </Button>
                     </div>
                   </div>
