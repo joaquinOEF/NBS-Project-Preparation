@@ -1634,7 +1634,15 @@ export default function ImpactModelPage() {
 
       const result = await response.json();
 
-      handleUpdate({
+      // Build complete state preserving user inputs, replacing generated content
+      const fullUpdatedData: ImpactModelData = {
+        ...localData,
+        // Preserve user-configured fields
+        prioritizationWeights: localData.prioritizationWeights,
+        inheritedWeights: localData.inheritedWeights,
+        interventionBundles: localData.interventionBundles,
+        selectedLens: localData.selectedLens,
+        // Replace with newly generated content
         narrativeCache: {
           base: result.narrativeBlocks || [],
           lensVariants: { neutral: [], climate: [], social: [], financial: [], institutional: [] },
@@ -1646,7 +1654,47 @@ export default function ImpactModelPage() {
           model: 'GPT-5.2',
         },
         status: 'DRAFT',
-      });
+      };
+      
+      setLocalData(fullUpdatedData);
+      updateModule('impactModel', fullUpdatedData);
+
+      // Auto-save to database after generation
+      const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;
+      if (!dbProjectId) {
+        console.error('[ImpactModel] No project ID available for auto-save');
+        return;
+      }
+      
+      try {
+        const saveRes = await fetch(`/api/projects/${dbProjectId}/blocks/impact_model`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            data: fullUpdatedData, 
+            status: 'DRAFT', 
+            actor: 'user' 
+          }),
+        });
+        if (saveRes.ok) {
+          setLastSaved(new Date());
+          console.log('[ImpactModel] Auto-saved after generation');
+        } else {
+          console.error('[ImpactModel] Auto-save failed with status:', saveRes.status);
+          toast({ 
+            title: t('common.warning'), 
+            description: t('impactModel.autoSaveFailed'),
+            variant: 'destructive' 
+          });
+        }
+      } catch (saveErr) {
+        console.error('[ImpactModel] Auto-save failed:', saveErr);
+        toast({ 
+          title: t('common.warning'), 
+          description: t('impactModel.autoSaveFailed'),
+          variant: 'destructive' 
+        });
+      }
 
       toast({ title: t('impactModel.generationComplete'), description: t('impactModel.narrativeReady') });
     } catch (error) {
@@ -1918,22 +1966,35 @@ export default function ImpactModelPage() {
             {t('common.previous')}
           </Button>
           {currentStep === 'setup' ? (
-            <Button
-              onClick={handleGenerateAndProceed}
-              disabled={!canProceed() || isGenerating}
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {t('impactModel.generating')}
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  {t('impactModel.generateNarrative')}
-                </>
+            <div className="flex gap-2">
+              {localData.narrativeCache?.base && localData.narrativeCache.base.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentStep('curate')}
+                  disabled={isGenerating}
+                >
+                  {t('impactModel.continueWithExisting')}
+                </Button>
               )}
-            </Button>
+              <Button
+                onClick={handleGenerateAndProceed}
+                disabled={!canProceed() || isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {t('impactModel.generating')}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    {localData.narrativeCache?.base && localData.narrativeCache.base.length > 0 
+                      ? t('impactModel.regenerateNarrative') 
+                      : t('impactModel.generateNarrative')}
+                  </>
+                )}
+              </Button>
+            </div>
           ) : currentStepIndex < WIZARD_STEPS.length - 1 ? (
             <Button
               onClick={() => setCurrentStep(WIZARD_STEPS[currentStepIndex + 1])}
