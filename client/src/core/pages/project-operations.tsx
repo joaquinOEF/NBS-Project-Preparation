@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useToast } from '@/core/hooks/use-toast';
+import { useProjectContext } from '@/core/contexts/project-context';
 
 type OperatingModel = 'CITY_RUN' | 'UTILITY_RUN' | 'CONTRACTOR_RUN' | 'COMMUNITY_STEWARDSHIP' | 'HYBRID_SPLIT' | null;
 type CommunityRole = 'BENEFICIARY' | 'STEWARD_OPERATOR' | 'CO_OWNER_REVENUE_PARTICIPANT' | null;
@@ -433,8 +434,10 @@ export default function ProjectOperationsPage() {
   const { toast } = useToast();
   const { isSampleMode, sampleActions } = useSampleData();
   const { isSampleRoute, routePrefix } = useSampleRoute();
+  const { loadContext, updateModule } = useProjectContext();
 
   const [currentStep, setCurrentStep] = useState(0);
+  const [navigationRestored, setNavigationRestored] = useState(false);
   const [omData, setOMData] = useState<OperationsOMData | null>(null);
   const [playbookOpen, setPlaybookOpen] = useState(false);
   const [stakeholderModalOpen, setStakeholderModalOpen] = useState(false);
@@ -456,8 +459,36 @@ export default function ProjectOperationsPage() {
         const initial = buildInitialOMData(action?.type || 'adaptation', sites);
         setOMData(initial);
       }
+      
+      const existingContext = loadContext(projectId);
+      const savedNavigation = existingContext?.operations?.navigation;
+      if (savedNavigation && !navigationRestored) {
+        setCurrentStep(savedNavigation.currentStep ?? 0);
+        setNavigationRestored(true);
+      } else if (!navigationRestored) {
+        setNavigationRestored(true);
+      }
     }
-  }, [projectId, action?.type]);
+  }, [projectId, action?.type, loadContext, navigationRestored]);
+
+  // Persist only navigation state when step changes
+  useEffect(() => {
+    if (!projectId || !navigationRestored) return;
+    
+    const existingContext = loadContext(projectId);
+    const existingData = existingContext?.operations;
+    if (!existingData) return;
+    
+    // Only update if navigation actually changed
+    if (existingData.navigation?.currentStep === currentStep) {
+      return; // No change, skip update
+    }
+    
+    updateModule('operations', {
+      ...existingData,
+      navigation: { currentStep },
+    });
+  }, [projectId, currentStep, navigationRestored, updateModule, loadContext]);
 
   useEffect(() => {
     if (projectId && omData) {

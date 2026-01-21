@@ -568,6 +568,7 @@ export default function FunderSelectionPage() {
   const [fundsData, setFundsData] = useState<FundsData | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [hasSavedToContext, setHasSavedToContext] = useState(false);
+  const [navigationRestored, setNavigationRestored] = useState(false);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({
     projectName: '',
     projectDescription: '',
@@ -611,12 +612,25 @@ export default function FunderSelectionPage() {
       .catch(console.error);
   }, []);
 
-  // Hydrate questionnaire from saved context or action defaults
-  // Also auto-show results if questionnaire was already completed
+  // Hydrate questionnaire and navigation state from saved context
   useEffect(() => {
     if (projectId) {
       const existingContext = loadContext(projectId);
-      const savedQuestionnaire = existingContext?.funderSelection?.questionnaire as QuestionnaireAnswers | undefined;
+      const savedData = existingContext?.funderSelection;
+      const savedQuestionnaire = savedData?.questionnaire as QuestionnaireAnswers | undefined;
+      const savedNavigation = savedData?.navigation;
+      
+      // Restore navigation state first (if saved)
+      if (savedNavigation && !navigationRestored) {
+        setCurrentStep(savedNavigation.currentStep ?? 0);
+        setShowResults(savedNavigation.showResults ?? false);
+        if (savedNavigation.additionalState) {
+          const addState = savedNavigation.additionalState as { showDecisionStep?: boolean; fundingPlanConfirmed?: boolean };
+          if (addState.showDecisionStep !== undefined) setShowDecisionStep(addState.showDecisionStep);
+          if (addState.fundingPlanConfirmed !== undefined) setFundingPlanConfirmed(addState.fundingPlanConfirmed);
+        }
+        setNavigationRestored(true);
+      }
       
       // Check if questionnaire was already completed (has key answers filled)
       const isQuestionnaireComplete = savedQuestionnaire?.projectStage &&
@@ -624,8 +638,10 @@ export default function FunderSelectionPage() {
       
       if (isQuestionnaireComplete) {
         setAnswers(savedQuestionnaire);
-        // Auto-show results if questionnaire was already completed
-        setShowResults(true);
+        // Only auto-show results if no navigation state was saved
+        if (!savedNavigation) {
+          setShowResults(true);
+        }
       }
       
       // Always auto-populate project basics from action/shared context
@@ -638,7 +654,7 @@ export default function FunderSelectionPage() {
         }));
       }
     }
-  }, [action, projectId]);
+  }, [action, projectId, navigationRestored]);
   
   const hydrateFromDB = useCallback(() => {
     if (!projectId || !fundsData) return;
@@ -701,6 +717,36 @@ export default function FunderSelectionPage() {
     window.addEventListener('nbs-block-updated', handleBlockUpdate);
     return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
   }, [hydrateFromDB]);
+
+  // Persist navigation state whenever it changes
+  useEffect(() => {
+    if (!projectId || !navigationRestored) return;
+    
+    const existingContext = loadContext(projectId);
+    const existingData = existingContext?.funderSelection;
+    if (!existingData) return;
+    
+    // Only update if navigation actually changed
+    const oldNav = existingData.navigation;
+    const navChanged = oldNav?.currentStep !== currentStep ||
+      oldNav?.showResults !== showResults ||
+      oldNav?.additionalState?.showDecisionStep !== showDecisionStep ||
+      oldNav?.additionalState?.fundingPlanConfirmed !== fundingPlanConfirmed;
+    
+    if (!navChanged) return;
+    
+    updateModule('funderSelection', {
+      ...existingData,
+      navigation: {
+        currentStep,
+        showResults,
+        additionalState: {
+          showDecisionStep,
+          fundingPlanConfirmed,
+        },
+      },
+    } as FunderSelectionData);
+  }, [projectId, currentStep, showResults, showDecisionStep, fundingPlanConfirmed, navigationRestored, updateModule, loadContext]);
 
   const computedResults = useMemo(() => {
     if (!fundsData || !showResults) return null;

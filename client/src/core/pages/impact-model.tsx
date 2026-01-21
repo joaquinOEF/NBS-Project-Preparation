@@ -1474,6 +1474,7 @@ export default function ImpactModelPage() {
   const { setPageContext } = useChatState();
   
   const [currentStep, setCurrentStep] = useState<WizardStep>('setup');
+  const [navigationRestored, setNavigationRestored] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState<string | null>(null);
   const [isGeneratingLens, setIsGeneratingLens] = useState<LensType | null>(null);
@@ -1550,8 +1551,41 @@ export default function ImpactModelPage() {
     if (projectId) {
       loadContext(projectId);
       hydrateFromDB();
+      
+      const existingContext = loadContext(projectId);
+      const savedNavigation = existingContext?.impactModel?.navigation;
+      if (savedNavigation && !navigationRestored) {
+        const stepIndex = savedNavigation.currentStep ?? 0;
+        if (stepIndex >= 0 && stepIndex < WIZARD_STEPS.length) {
+          setCurrentStep(WIZARD_STEPS[stepIndex]);
+        }
+        setNavigationRestored(true);
+      } else if (!navigationRestored) {
+        setNavigationRestored(true);
+      }
     }
-  }, [projectId, loadContext, hydrateFromDB]);
+  }, [projectId, loadContext, hydrateFromDB, navigationRestored]);
+
+  // Persist only navigation state when step changes
+  useEffect(() => {
+    if (!projectId || !navigationRestored) return;
+    
+    const existingContext = loadContext(projectId);
+    const existingData = existingContext?.impactModel;
+    if (!existingData) return;
+    
+    const newStepIndex = WIZARD_STEPS.indexOf(currentStep);
+    
+    // Only update if navigation actually changed
+    if (existingData.navigation?.currentStep === newStepIndex) {
+      return; // No change, skip update
+    }
+    
+    updateModule('impactModel', {
+      ...existingData,
+      navigation: { currentStep: newStepIndex },
+    } as ImpactModelData);
+  }, [projectId, currentStep, navigationRestored, updateModule, loadContext]);
 
   useEffect(() => {
     if (context?.impactModel) {

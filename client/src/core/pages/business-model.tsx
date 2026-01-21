@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useToast } from '@/core/hooks/use-toast';
+import { useProjectContext } from '@/core/contexts/project-context';
 
 type BMArchetype = 'PUBLIC_PROGRAM' | 'UTILITY_SERVICE' | 'SERVICE_CONTRACT' | 'LAND_VALUE_CAPTURE' | 'BLENDED_FINANCE' | 'CREDIT_ADDON' | 'INSURANCE_LINKED' | null;
 type PaymentMechanismType = 'CITY_BUDGET' | 'FEE_TARIFF' | 'AVAILABILITY_PAYMENT' | 'DEVELOPER_CONTRIBUTION' | 'OUTCOME_PAYMENT' | 'CONCESSION_REVENUE' | 'CREDIT_REVENUE' | null;
@@ -467,8 +468,10 @@ export default function BusinessModelPage() {
   const { toast } = useToast();
   const { sampleActions } = useSampleData();
   const { routePrefix } = useSampleRoute();
+  const { loadContext, updateModule } = useProjectContext();
 
   const [currentStep, setCurrentStep] = useState(0);
+  const [navigationRestored, setNavigationRestored] = useState(false);
   const [bmData, setBMData] = useState<BusinessModelData | null>(null);
   const [playbookOpen, setPlaybookOpen] = useState(false);
   const [editContextOpen, setEditContextOpen] = useState(false);
@@ -489,8 +492,36 @@ export default function BusinessModelPage() {
         const initial = buildInitialBMData(action?.type || 'adaptation', hazards, stakeholders, omData);
         setBMData(initial);
       }
+      
+      const existingContext = loadContext(projectId);
+      const savedNavigation = existingContext?.businessModel?.navigation;
+      if (savedNavigation && !navigationRestored) {
+        setCurrentStep(savedNavigation.currentStep ?? 0);
+        setNavigationRestored(true);
+      } else if (!navigationRestored) {
+        setNavigationRestored(true);
+      }
     }
-  }, [projectId, action?.type]);
+  }, [projectId, action?.type, loadContext, navigationRestored]);
+
+  // Persist only navigation state when step changes
+  useEffect(() => {
+    if (!projectId || !navigationRestored) return;
+    
+    const existingContext = loadContext(projectId);
+    const existingData = existingContext?.businessModel;
+    if (!existingData) return;
+    
+    // Only update if navigation actually changed
+    if (existingData.navigation?.currentStep === currentStep) {
+      return; // No change, skip update
+    }
+    
+    updateModule('businessModel', {
+      ...existingData,
+      navigation: { currentStep },
+    });
+  }, [projectId, currentStep, navigationRestored, updateModule, loadContext]);
 
   useEffect(() => {
     if (projectId && bmData) {

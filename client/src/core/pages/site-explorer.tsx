@@ -231,8 +231,9 @@ export default function SiteExplorerPage() {
   const highlightLayerRef = useRef<L.Layer | null>(null);
   const osmLayerRef = useRef<L.Layer | null>(null);
   const selectedAssetMarkerRef = useRef<L.Marker | null>(null);
-  const { updateModule, context } = useProjectContext();
+  const { updateModule, context, loadContext } = useProjectContext();
   const { setPageContext } = useChatState();
+  const [navigationRestored, setNavigationRestored] = useState(false);
 
   useEffect(() => {
     const selectedZoneCount = Object.keys(zonePortfolios).length;
@@ -277,6 +278,42 @@ export default function SiteExplorerPage() {
       setZonePortfolios(portfolios);
     }
   }, [context?.siteExplorer?.selectedZones]);
+
+  // Mark navigation as restored on mount
+  // Note: Site Explorer navigation tracks whether user was viewing a zone detail,
+  // but we can't restore the exact zone because zones are dynamically loaded from the map.
+  // The saved state is still useful for analytics and future features.
+  useEffect(() => {
+    if (projectId && !navigationRestored) {
+      setNavigationRestored(true);
+    }
+  }, [projectId, navigationRestored]);
+
+  // Persist only navigation state when view changes
+  useEffect(() => {
+    if (!projectId || !navigationRestored) return;
+    
+    const existingContext = loadContext(projectId);
+    const existingData = existingContext?.siteExplorer;
+    if (!existingData) return;
+    
+    // Only update if navigation actually changed
+    const newNav = {
+      currentStep: selectedZone ? 1 : 0,
+      additionalState: { selectedZoneId: selectedZone?.zoneId ?? null },
+    };
+    
+    const oldNav = existingData.navigation;
+    if (oldNav?.currentStep === newNav.currentStep && 
+        oldNav?.additionalState?.selectedZoneId === newNav.additionalState.selectedZoneId) {
+      return; // No change, skip update
+    }
+    
+    updateModule('siteExplorer', {
+      ...existingData,
+      navigation: newNav,
+    });
+  }, [projectId, selectedZone, navigationRestored, updateModule, loadContext]);
 
   useEffect(() => {
     let cancelled = false;
