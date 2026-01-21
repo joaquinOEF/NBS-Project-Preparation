@@ -8,7 +8,9 @@ import {
   type EvidenceType,
   type Assumption,
   type ProjectPatch,
-  MODULE_REGISTRY 
+  MODULE_REGISTRY,
+  FIELD_VALIDATIONS,
+  validateFieldValue,
 } from "@shared/schema";
 
 export interface PageContext {
@@ -110,6 +112,26 @@ const AGENT_TOOLS: AgentTool[] = [
         },
       },
       required: ["blockType", "fieldPath", "proposedValue", "rationale"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_field_options",
+    description: "Look up valid values for a field BEFORE proposing a patch. Use this to ensure you propose only valid values.",
+    parameters: {
+      type: "object",
+      properties: {
+        blockType: {
+          type: "string",
+          enum: ["funder_selection", "site_explorer", "impact_model", "operations", "business_model"],
+          description: "The module/block type",
+        },
+        fieldPath: {
+          type: "string",
+          description: "The field path to look up (e.g., 'questionnaire.projectStage')",
+        },
+      },
+      required: ["blockType", "fieldPath"],
       additionalProperties: false,
     },
   },
@@ -236,10 +258,17 @@ When generating or editing Impact Model narratives:
 
 ## Workflow for Field Updates
 1. Use get_block to see current module state
-2. For Impact Model: Use search_knowledge to find evidence BEFORE proposing narratives
-3. Explain what you will save and why, citing evidence when available
-4. Use propose_patch - user must approve each change
-5. After approval, use get_patch_status to confirm
+2. IMPORTANT: Use get_field_options to look up valid values BEFORE proposing any patch
+3. For Impact Model: Use search_knowledge to find evidence BEFORE proposing narratives
+4. Explain what you will save and why, citing evidence when available
+5. Use propose_patch with ONLY valid values - user must approve each change
+6. After approval, use get_patch_status to confirm
+
+## Field Validation
+- All patches are validated before being created. Invalid values will be rejected.
+- Always use get_field_options first to see what values are allowed for a field.
+- For enum fields, you MUST use one of the exact valid values (e.g., 'idea', 'concept', 'design').
+- For enumArray fields, provide an array containing only valid values.
 
 ## Key Evidence in Knowledge Base
 - Flood resilience: green roofs (56% rainfall retention), bioretention (40-90% peak flow reduction), wetlands (50-95% flood peak reduction)
@@ -323,6 +352,49 @@ export async function executeAgentTool(
         };
       }
 
+      case "get_field_options": {
+        const { blockType, fieldPath } = args as {
+          blockType: string;
+          fieldPath: string;
+        };
+        
+        const moduleValidations = FIELD_VALIDATIONS[blockType];
+        if (!moduleValidations) {
+          return {
+            name,
+            result: {
+              hasValidation: false,
+              message: `No validation rules defined for module "${blockType}". You may use any valid value.`,
+            },
+          };
+        }
+        
+        const entry = moduleValidations.find(v => v.fieldPath === fieldPath);
+        if (!entry) {
+          return {
+            name,
+            result: {
+              hasValidation: false,
+              message: `No validation rules defined for field "${fieldPath}" in "${blockType}". You may use any valid value.`,
+            },
+          };
+        }
+        
+        const { validation, label } = entry;
+        return {
+          name,
+          result: {
+            hasValidation: true,
+            fieldPath,
+            label: label || fieldPath,
+            validationType: validation.type,
+            validValues: 'values' in validation ? validation.values : undefined,
+            constraints: validation.type === 'number' ? { min: (validation as any).min, max: (validation as any).max } : undefined,
+            message: `Use ONLY these values when proposing changes to ${label || fieldPath}.`,
+          },
+        };
+      }
+
       case "propose_patch": {
         const { blockType, fieldPath, proposedValue, rationale } = args as {
           blockType: InfoBlockType;
@@ -330,6 +402,21 @@ export async function executeAgentTool(
           proposedValue: unknown;
           rationale: string;
         };
+
+        // Validate the proposed value BEFORE creating the patch
+        const validationError = validateFieldValue(blockType, fieldPath, proposedValue);
+        if (validationError) {
+          // Look up valid options to include in error
+          const moduleValidations = FIELD_VALIDATIONS[blockType];
+          const entry = moduleValidations?.find(v => v.fieldPath === fieldPath);
+          const validOptions = entry && 'values' in entry.validation ? entry.validation.values : [];
+          
+          return {
+            name,
+            result: null,
+            error: `${validationError}. Use get_field_options tool to look up valid values before proposing.`,
+          };
+        }
 
         const block = await storage.getInfoBlock(projectId, blockType);
         const oldValue = block ? getNestedValue(block.blockStateJson, fieldPath) : undefined;
