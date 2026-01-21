@@ -40,18 +40,104 @@ export const FIELD_VALIDATIONS: Record<string, FieldValidationEntry[]> = {
     { fieldPath: 'questionnaire.leadershipCommitmentConfidence', validation: { type: 'enum', values: ['low', 'medium', 'high'] }, label: 'Leadership Commitment Confidence' },
     { fieldPath: 'questionnaire.politicalMandatePlanRefs', validation: { type: 'enumArray', values: ['city_climate_plan', 'national_ndc', 'master_plan', 'sectoral_policy', 'other'] }, label: 'Political Mandate References' },
     { fieldPath: 'questionnaire.politicalRiskFactors', validation: { type: 'enumArray', values: ['upcoming_elections', 'political_opposition', 'inter_agency_conflict', 'budget_constraints', 'none'] }, label: 'Political Risk Factors' },
+    // Block status
+    { fieldPath: 'status', validation: { type: 'enum', values: ['NOT_STARTED', 'DRAFT', 'READY'] }, label: 'Status' },
   ],
   
-  // Add other modules here as needed:
-  // site_explorer: [...],
-  // impact_model: [...],
-  // operations: [...],
-  // business_model: [...],
+  site_explorer: [
+    { fieldPath: 'status', validation: { type: 'enum', values: ['NOT_STARTED', 'DRAFT', 'READY'] }, label: 'Status' },
+    // Selected zone hazard types
+    { fieldPath: 'selectedZones.*.hazardType', validation: { type: 'enum', values: ['FLOOD', 'HEAT', 'LANDSLIDE', 'FLOOD_HEAT', 'FLOOD_LANDSLIDE', 'HEAT_LANDSLIDE', 'LOW'] }, label: 'Hazard Type' },
+  ],
+
+  impact_model: [
+    { fieldPath: 'status', validation: { type: 'enum', values: ['NOT_STARTED', 'DRAFT', 'READY'] }, label: 'Status' },
+    { fieldPath: 'selectedLens', validation: { type: 'enum', values: ['neutral', 'climate', 'social', 'financial', 'institutional'] }, label: 'Selected Lens' },
+    // Prioritization weights (0-5 scale)
+    { fieldPath: 'prioritizationWeights.floodRiskReduction', validation: { type: 'number', min: 0, max: 5 }, label: 'Flood Risk Reduction Weight' },
+    { fieldPath: 'prioritizationWeights.heatReduction', validation: { type: 'number', min: 0, max: 5 }, label: 'Heat Reduction Weight' },
+    { fieldPath: 'prioritizationWeights.landslideRiskReduction', validation: { type: 'number', min: 0, max: 5 }, label: 'Landslide Risk Reduction Weight' },
+    { fieldPath: 'prioritizationWeights.socialEquity', validation: { type: 'number', min: 0, max: 5 }, label: 'Social Equity Weight' },
+    { fieldPath: 'prioritizationWeights.costCertainty', validation: { type: 'number', min: 0, max: 5 }, label: 'Cost Certainty Weight' },
+    { fieldPath: 'prioritizationWeights.biodiversityWaterQuality', validation: { type: 'number', min: 0, max: 5 }, label: 'Biodiversity/Water Quality Weight' },
+    // Narrative block fields
+    { fieldPath: 'narrativeCache.base.*.lens', validation: { type: 'enum', values: ['neutral', 'climate', 'social', 'financial', 'institutional'] }, label: 'Narrative Lens' },
+    { fieldPath: 'narrativeCache.base.*.evidenceTier', validation: { type: 'enum', values: ['EVIDENCE', 'MODELLED', 'ASSUMPTION', 'NEEDS_VALIDATION'] }, label: 'Evidence Tier' },
+    // Co-benefit fields
+    { fieldPath: 'coBenefits.*.category', validation: { type: 'enum', values: ['HEALTH', 'BIODIVERSITY', 'WATER_QUALITY', 'MOBILITY', 'EQUITY', 'ECONOMIC_VALUE', 'PUBLIC_REALM', 'INSTITUTIONAL_CAPACITY', 'OTHER'] }, label: 'Co-Benefit Category' },
+    { fieldPath: 'coBenefits.*.confidence', validation: { type: 'enum', values: ['HIGH', 'MEDIUM', 'LOW'] }, label: 'Confidence Level' },
+    { fieldPath: 'coBenefits.*.evidenceTier', validation: { type: 'enum', values: ['EVIDENCE', 'MODELLED', 'ASSUMPTION', 'NEEDS_VALIDATION'] }, label: 'Evidence Tier' },
+    // Signal card fields
+    { fieldPath: 'downstreamSignals.*.*.timeHorizon', validation: { type: 'enum', values: ['0-2y', '3-7y', '8-12y', 'ongoing'] }, label: 'Time Horizon' },
+    { fieldPath: 'downstreamSignals.*.*.confidence', validation: { type: 'enum', values: ['HIGH', 'MEDIUM', 'LOW'] }, label: 'Confidence Level' },
+  ],
+
+  operations: [
+    { fieldPath: 'status', validation: { type: 'enum', values: ['NOT_STARTED', 'DRAFT', 'READY'] }, label: 'Status' },
+    { fieldPath: 'operatingModel', validation: { type: 'enum', values: ['CITY_RUN', 'UTILITY_RUN', 'CONTRACTOR_RUN', 'COMMUNITY_STEWARDSHIP', 'HYBRID_SPLIT'] }, label: 'Operating Model' },
+    // Role fields
+    { fieldPath: 'roles.communityRole', validation: { type: 'enum', values: ['BENEFICIARY', 'STEWARD_OPERATOR', 'CO_OWNER_REVENUE_PARTICIPANT'] }, label: 'Community Role' },
+    // Service levels
+    { fieldPath: 'serviceLevels.*.serviceType', validation: { type: 'enum', values: ['COOLING', 'STORMWATER', 'SLOPE_STABILITY', 'MULTI_BENEFIT'] }, label: 'Service Type' },
+    { fieldPath: 'serviceLevels.*.inspectionFrequency', validation: { type: 'enum', values: ['MONTHLY', 'QUARTERLY', 'BIANNUAL', 'ANNUAL'] }, label: 'Inspection Frequency' },
+    // NBS extensions
+    { fieldPath: 'nbsExtensions.establishmentPeriodMonths', validation: { type: 'enum', values: ['12', '24', '36'] }, label: 'Establishment Period' },
+    { fieldPath: 'nbsExtensions.maintenanceIntensity', validation: { type: 'enum', values: ['LOW', 'MEDIUM', 'HIGH'] }, label: 'Maintenance Intensity' },
+    { fieldPath: 'nbsExtensions.survivalTargetPercent', validation: { type: 'number', min: 0, max: 100 }, label: 'Survival Target Percent' },
+    // Capacity
+    { fieldPath: 'capacity.assessment', validation: { type: 'enum', values: ['ADEQUATE', 'PARTIAL_NEEDS_SUPPORT', 'INADEQUATE'] }, label: 'Capacity Assessment' },
+    // Ops risks
+    { fieldPath: 'opsRisks.*.riskLevel', validation: { type: 'enum', values: ['LOW', 'MEDIUM', 'HIGH'] }, label: 'Risk Level' },
+    // Readiness checklist (booleans)
+    { fieldPath: 'readiness.checklist.operatingModelSelected', validation: { type: 'boolean' }, label: 'Operating Model Selected' },
+    { fieldPath: 'readiness.checklist.operatorAssigned', validation: { type: 'boolean' }, label: 'Operator Assigned' },
+    { fieldPath: 'readiness.checklist.taskPlanPresent', validation: { type: 'boolean' }, label: 'Task Plan Present' },
+    { fieldPath: 'readiness.checklist.fundingMechanismSelected', validation: { type: 'boolean' }, label: 'Funding Mechanism Selected' },
+    { fieldPath: 'readiness.checklist.verifierSet', validation: { type: 'boolean' }, label: 'Verifier Set' },
+  ],
+
+  business_model: [
+    { fieldPath: 'status', validation: { type: 'enum', values: ['NOT_STARTED', 'DRAFT', 'READY'] }, label: 'Status' },
+    { fieldPath: 'primaryArchetype', validation: { type: 'enum', values: ['PUBLIC_PROGRAM', 'UTILITY_SERVICE', 'SERVICE_CONTRACT', 'LAND_VALUE_CAPTURE', 'BLENDED_FINANCE', 'CREDIT_ADDON', 'INSURANCE_LINKED'] }, label: 'Primary Archetype' },
+    // Revenue stack
+    { fieldPath: 'revenueStack.*.role', validation: { type: 'enum', values: ['PRIMARY_DURABLE', 'SECONDARY_SUPPORT', 'UPSIDE_OPTIONAL'] }, label: 'Revenue Role' },
+    { fieldPath: 'revenueStack.*.confidence', validation: { type: 'enum', values: ['HIGH', 'MEDIUM', 'LOW'] }, label: 'Confidence Level' },
+    // Financing pathway
+    { fieldPath: 'financingPathway.pathway', validation: { type: 'enum', values: ['PUBLIC_CAPEX', 'DFI_LOAN', 'MUNICIPAL_BOND', 'BLENDED_VEHICLE', 'PPP_LIGHT', 'PHILANTHROPY_ONLY'] }, label: 'Financing Pathway' },
+    // Enabling actions
+    { fieldPath: 'enablingActions.*.priority', validation: { type: 'enum', values: ['HIGH', 'MEDIUM', 'LOW'] }, label: 'Action Priority' },
+    // BM risks
+    { fieldPath: 'bmRisks.*.riskLevel', validation: { type: 'enum', values: ['LOW', 'MEDIUM', 'HIGH'] }, label: 'Risk Level' },
+    // Readiness checklist (booleans)
+    { fieldPath: 'readiness.checklist.primaryArchetypeSelected', validation: { type: 'boolean' }, label: 'Primary Archetype Selected' },
+    { fieldPath: 'readiness.checklist.primaryPayerSelected', validation: { type: 'boolean' }, label: 'Primary Payer Selected' },
+    { fieldPath: 'readiness.checklist.oneHighConfidenceRevenueLine', validation: { type: 'boolean' }, label: 'High Confidence Revenue Line' },
+    { fieldPath: 'readiness.checklist.durationSet', validation: { type: 'boolean' }, label: 'Duration Set' },
+    { fieldPath: 'readiness.checklist.financingPathwaySelected', validation: { type: 'boolean' }, label: 'Financing Pathway Selected' },
+    { fieldPath: 'readiness.checklist.consistencyCheckedWithOps', validation: { type: 'boolean' }, label: 'Consistency Checked with Ops' },
+  ],
 };
+
+/**
+ * Matches a concrete field path against a pattern that may contain wildcards.
+ * e.g., "selectedZones.0.hazardType" matches "selectedZones.*.hazardType"
+ */
+function matchesWildcardPath(concretePath: string, patternPath: string): boolean {
+  const concreteSegments = concretePath.split('.');
+  const patternSegments = patternPath.split('.');
+  
+  if (concreteSegments.length !== patternSegments.length) return false;
+  
+  return patternSegments.every((pattern, i) => {
+    if (pattern === '*') return true; // Wildcard matches any segment
+    return pattern === concreteSegments[i];
+  });
+}
 
 /**
  * Validates a value against the field validation registry.
  * Returns null if valid, or an error message string if invalid.
+ * Supports wildcard patterns like "array.*.field" to validate array items.
  */
 export function validateFieldValue(
   blockType: string,
@@ -61,7 +147,13 @@ export function validateFieldValue(
   const moduleValidations = FIELD_VALIDATIONS[blockType];
   if (!moduleValidations) return null; // No validations defined for this module
   
-  const entry = moduleValidations.find(v => v.fieldPath === fieldPath);
+  // Try exact match first, then wildcard patterns
+  let entry = moduleValidations.find(v => v.fieldPath === fieldPath);
+  if (!entry) {
+    entry = moduleValidations.find(v => 
+      v.fieldPath.includes('*') && matchesWildcardPath(fieldPath, v.fieldPath)
+    );
+  }
   if (!entry) return null; // No validation defined for this field
   
   const { validation, label } = entry;

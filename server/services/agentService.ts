@@ -355,7 +355,7 @@ export async function executeAgentTool(
       case "get_field_options": {
         const { blockType, fieldPath } = args as {
           blockType: string;
-          fieldPath: string;
+          fieldPath?: string;
         };
         
         const moduleValidations = FIELD_VALIDATIONS[blockType];
@@ -368,8 +368,42 @@ export async function executeAgentTool(
             },
           };
         }
+
+        // If no fieldPath provided, list all available validations for the module
+        if (!fieldPath) {
+          const fieldList = moduleValidations.map(v => ({
+            fieldPath: v.fieldPath,
+            label: v.label || v.fieldPath,
+            type: v.validation.type,
+            values: 'values' in v.validation ? v.validation.values : undefined,
+          }));
+          return {
+            name,
+            result: {
+              hasValidation: true,
+              module: blockType,
+              fields: fieldList,
+              message: `Available validated fields for ${blockType}. Use get_field_options with a specific fieldPath to see valid values.`,
+            },
+          };
+        }
         
-        const entry = moduleValidations.find(v => v.fieldPath === fieldPath);
+        // Try exact match first
+        let entry = moduleValidations.find(v => v.fieldPath === fieldPath);
+        
+        // Then try wildcard patterns (e.g., "coBenefits.0.category" matches "coBenefits.*.category")
+        if (!entry) {
+          const matchesWildcard = (concrete: string, pattern: string): boolean => {
+            const concreteSegs = concrete.split('.');
+            const patternSegs = pattern.split('.');
+            if (concreteSegs.length !== patternSegs.length) return false;
+            return patternSegs.every((p, i) => p === '*' || p === concreteSegs[i]);
+          };
+          entry = moduleValidations.find(v => 
+            v.fieldPath.includes('*') && matchesWildcard(fieldPath, v.fieldPath)
+          );
+        }
+        
         if (!entry) {
           return {
             name,
@@ -385,7 +419,8 @@ export async function executeAgentTool(
           name,
           result: {
             hasValidation: true,
-            fieldPath,
+            fieldPath: entry.fieldPath,
+            matchedFrom: fieldPath,
             label: label || fieldPath,
             validationType: validation.type,
             validValues: 'values' in validation ? validation.values : undefined,
