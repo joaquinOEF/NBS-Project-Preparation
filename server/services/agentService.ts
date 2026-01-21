@@ -431,12 +431,26 @@ export async function executeAgentTool(
       }
 
       case "propose_patch": {
-        const { blockType, fieldPath, proposedValue, rationale } = args as {
+        const { blockType, fieldPath, proposedValue: rawProposedValue, rationale } = args as {
           blockType: InfoBlockType;
           fieldPath: string;
           proposedValue: unknown;
           rationale: string;
         };
+
+        // Parse the proposed value - it might be a JSON string
+        let proposedValue: unknown = rawProposedValue;
+        if (typeof rawProposedValue === 'string') {
+          try {
+            // Try to parse as JSON (handles '"partial"' -> 'partial', '[...]' -> [...], etc.)
+            const parsed = JSON.parse(rawProposedValue);
+            proposedValue = parsed;
+          } catch {
+            // Not valid JSON, use as-is (already a plain string)
+            proposedValue = rawProposedValue;
+          }
+        }
+        console.log(`[propose_patch] blockType=${blockType}, fieldPath=${fieldPath}, rawValue=${JSON.stringify(rawProposedValue)}, parsedValue=${JSON.stringify(proposedValue)}`);
 
         // Validate the proposed value BEFORE creating the patch
         const validationError = validateFieldValue(blockType, fieldPath, proposedValue);
