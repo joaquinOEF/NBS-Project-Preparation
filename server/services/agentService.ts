@@ -117,7 +117,7 @@ const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "get_field_options",
-    description: "Look up valid values for a field BEFORE proposing a patch. Use this to ensure you propose only valid values.",
+    description: "Look up valid values for a field BEFORE proposing a patch. Call without fieldPath to list all validated fields for a module. Call with fieldPath to get valid values for a specific field.",
     parameters: {
       type: "object",
       properties: {
@@ -128,10 +128,10 @@ const AGENT_TOOLS: AgentTool[] = [
         },
         fieldPath: {
           type: "string",
-          description: "The field path to look up (e.g., 'questionnaire.projectStage')",
+          description: "The field path to look up (e.g., 'questionnaire.projectStage'). If omitted, lists all validated fields for the module.",
         },
       },
-      required: ["blockType", "fieldPath"],
+      required: ["blockType"],
       additionalProperties: false,
     },
   },
