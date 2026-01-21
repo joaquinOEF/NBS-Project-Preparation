@@ -19,6 +19,7 @@ import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useProjectContext, ImpactModelData, PrioritizationWeights, LensType, InterventionBundle, NarrativeBlock, CoBenefitCard, SignalCard, sampleSiteExplorer, sampleFunderSelection } from '@/core/contexts/project-context';
 import { useToast } from '@/core/hooks/use-toast';
+import { useChatState } from '@/core/contexts/chat-context';
 
 type WizardStep = 'setup' | 'curate' | 'lenses' | 'export';
 
@@ -1470,6 +1471,7 @@ export default function ImpactModelPage() {
   const { isSampleMode } = useSampleData();
   const { context, loadContext, updateModule } = useProjectContext();
   const { toast } = useToast();
+  const { setPageContext } = useChatState();
   
   const [currentStep, setCurrentStep] = useState<WizardStep>('setup');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -1478,6 +1480,34 @@ export default function ImpactModelPage() {
   const [localData, setLocalData] = useState<ImpactModelData>(getDefaultImpactModelData());
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const stepLabels: Record<WizardStep, string> = {
+      setup: 'Configure Inputs',
+      curate: 'Curate Narratives',
+      lenses: 'Apply Funder Lenses',
+      export: 'Export & Share',
+    };
+    const stepIndex = WIZARD_STEPS.indexOf(currentStep);
+    const hasNarratives = (localData.narrativeCache?.base?.length ?? 0) > 0;
+    
+    setPageContext({
+      moduleName: 'Impact Model',
+      currentStep: stepLabels[currentStep],
+      stepNumber: stepIndex,
+      totalSteps: WIZARD_STEPS.length,
+      viewState: isGenerating ? 'generating' : (hasNarratives ? 'has-narratives' : 'empty'),
+      additionalInfo: {
+        hasNarratives,
+        interventionCount: localData.interventionBundles?.length || 0,
+        isGenerating,
+      }
+    });
+  }, [currentStep, isGenerating, localData.narrativeCache?.base?.length, localData.interventionBundles?.length, setPageContext]);
+
+  useEffect(() => {
+    return () => setPageContext(null);
+  }, [setPageContext]);
 
   const hydrateFromDB = useCallback(async () => {
     if (!projectId) return;

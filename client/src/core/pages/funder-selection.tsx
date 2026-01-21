@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useProjectContext, FunderSelectionData } from '@/core/contexts/project-context';
+import { useChatState } from '@/core/contexts/chat-context';
 
 interface Fund {
   id: string;
@@ -561,6 +562,7 @@ export default function FunderSelectionPage() {
   const { isSampleMode, sampleActions } = useSampleData();
   const { isSampleRoute, routePrefix } = useSampleRoute();
   const { updateModule, loadContext } = useProjectContext();
+  const { setPageContext } = useChatState();
   
   const [currentStep, setCurrentStep] = useState(0);
   const [fundsData, setFundsData] = useState<FundsData | null>(null);
@@ -771,6 +773,34 @@ export default function FunderSelectionPage() {
     { id: 'financing', title: t('funderSelection.steps.financing'), icon: DollarSign },
     { id: 'institutional', title: t('funderSelection.steps.institutional'), icon: Building2 },
   ];
+
+  useEffect(() => {
+    const stepNames = ['Project Readiness', 'Political Alignment', 'Financing Needs', 'Institutional Setup'];
+    const viewState = showResults 
+      ? (showDecisionStep ? 'fund-decision' : 'recommendations-view')
+      : 'questionnaire';
+    
+    setPageContext({
+      moduleName: 'Funder Selection',
+      currentStep: showResults ? 'Review Recommendations' : stepNames[currentStep],
+      stepNumber: showResults ? steps.length : currentStep,
+      totalSteps: steps.length + 1,
+      viewState,
+      additionalInfo: showResults ? {
+        hasRecommendations: computedResults ? computedResults.recommendedFunds?.length > 0 : false,
+        fundingPlanConfirmed,
+        hasFunderNow: !!selectedNowFundId,
+        hasFunderNext: !!selectedNextFundId,
+      } : {
+        answeredSectors: answers.sectors.length,
+        projectStage: answers.projectStage || 'not-set',
+      }
+    });
+  }, [currentStep, showResults, showDecisionStep, fundingPlanConfirmed, selectedNowFundId, selectedNextFundId, answers.sectors, answers.projectStage, computedResults, setPageContext, steps.length]);
+
+  useEffect(() => {
+    return () => setPageContext(null);
+  }, [setPageContext]);
 
   const assessFundFit = (fund: Fund): { fit: 'high' | 'medium' | 'low'; warnings: string[] } => {
     const warnings: string[] = [];

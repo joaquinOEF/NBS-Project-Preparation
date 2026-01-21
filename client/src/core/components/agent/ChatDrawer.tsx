@@ -36,7 +36,7 @@ interface PendingPatch {
 }
 
 export function ChatDrawer() {
-  const { isChatOpen: isOpen, openChat, closeChat, toggleChat } = useChatState();
+  const { isChatOpen: isOpen, openChat, closeChat, toggleChat, pageContext } = useChatState();
   const [location] = useLocation();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -198,6 +198,7 @@ export function ChatDrawer() {
           message: userMessage.content,
           conversationId,
           currentPage,
+          pageContext,
         }),
       });
 

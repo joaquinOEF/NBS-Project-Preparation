@@ -34,6 +34,10 @@ Preferred communication style: Simple, everyday language.
 - **Architecture**: OpenAI client (`gpt-5.2`) for streaming and structured outputs, an agent service for multi-turn tool orchestration.
 - **Agent Tools**: `get_project_state`, `get_block`, `list_modules`, `propose_patch`, `record_evidence`, `get_evidence`, `get_pending_patches`.
 - **Chat Interface**: SSE streaming with `conversations` and `messages` schemas.
+- **PageContext System**: Modules report their current state (step, view, context details) to the agent, enabling step-aware guidance.
+  - Interface: `{ moduleName, currentStep, stepNumber, totalSteps, viewState, additionalInfo }`
+  - Implemented in: Funder Selection, Site Explorer, Impact Model
+  - Pattern: Separate useEffects for context updates (on state change) and cleanup (on unmount only)
 
 ## RAG Knowledge Base
 - **Database Tables**: `knowledge_sources` and `knowledge_chunks`.

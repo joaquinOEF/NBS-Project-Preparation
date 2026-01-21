@@ -22,7 +22,7 @@ export function registerAgentRoutes(app: Express): void {
   app.post("/api/projects/:projectId/agent/chat", async (req: Request, res: Response) => {
     try {
       const { projectId } = req.params;
-      const { message, conversationId, currentPage, currentStep } = req.body;
+      const { message, conversationId, currentPage, currentStep, pageContext } = req.body;
 
       if (!message) {
         return res.status(400).json({ error: "Message is required" });
@@ -55,9 +55,10 @@ export function registerAgentRoutes(app: Express): void {
       const context: AgentContext = {
         projectId,
         currentPage,
-        currentStep,
+        currentStep: pageContext?.stepNumber ?? currentStep,
         pageGoal: getPageGoal(currentPage),
         conversationHistory: conversationHistory.slice(0, -1),
+        pageContext,
       };
 
       let fullResponse = "";

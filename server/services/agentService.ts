@@ -11,6 +11,15 @@ import {
   MODULE_REGISTRY 
 } from "@shared/schema";
 
+export interface PageContext {
+  moduleName: string;
+  currentStep?: string;
+  stepNumber?: number;
+  totalSteps?: number;
+  viewState?: string;
+  additionalInfo?: Record<string, unknown>;
+}
+
 export interface AgentContext {
   projectId: string;
   userId?: string;
@@ -19,6 +28,7 @@ export interface AgentContext {
   currentStep?: number;
   pageGoal?: string;
   conversationHistory: Message[];
+  pageContext?: PageContext;
 }
 
 export interface AgentTool {
@@ -515,14 +525,38 @@ function getNestedValue(obj: any, path: string): unknown {
 function buildSystemPrompt(context: AgentContext): string {
   let prompt = SYSTEM_PROMPT;
   
-  if (context.currentPage || context.pageGoal || context.currentStep !== undefined) {
+  if (context.currentPage || context.pageGoal || context.currentStep !== undefined || context.pageContext) {
     prompt += '\n\n## Current Context';
     if (context.currentPage) {
       prompt += `\nThe user is currently on the **${context.currentPage}** page.`;
     }
-    if (context.currentStep !== undefined) {
+    
+    // Use pageContext for detailed step information
+    if (context.pageContext) {
+      const pc = context.pageContext;
+      if (pc.currentStep && pc.stepNumber !== undefined && pc.totalSteps !== undefined) {
+        prompt += `\nThey are on step ${pc.stepNumber + 1} of ${pc.totalSteps}: **${pc.currentStep}**.`;
+      } else if (pc.currentStep) {
+        prompt += `\nThey are on step: **${pc.currentStep}**.`;
+      } else if (pc.stepNumber !== undefined) {
+        prompt += ` They are on step ${pc.stepNumber + 1} of the wizard.`;
+      }
+      if (pc.viewState) {
+        prompt += `\nView state: ${pc.viewState}.`;
+      }
+      if (pc.additionalInfo && Object.keys(pc.additionalInfo).length > 0) {
+        const infoEntries = Object.entries(pc.additionalInfo)
+          .filter(([_, v]) => v !== null && v !== undefined)
+          .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+          .join(', ');
+        if (infoEntries) {
+          prompt += `\nContext details: ${infoEntries}`;
+        }
+      }
+    } else if (context.currentStep !== undefined) {
       prompt += ` They are on step ${context.currentStep + 1} of the wizard.`;
     }
+    
     if (context.pageGoal) {
       prompt += `\n\n**Your goal on this page**: ${context.pageGoal}`;
     }

@@ -11,6 +11,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { useToast } from '@/core/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { useProjectContext, SelectedZone, SelectedIntervention } from '@/core/contexts/project-context';
+import { useChatState } from '@/core/contexts/chat-context';
 import { 
   useSampleData, 
   loadSampleBoundaryData, 
@@ -231,6 +232,32 @@ export default function SiteExplorerPage() {
   const osmLayerRef = useRef<L.Layer | null>(null);
   const selectedAssetMarkerRef = useRef<L.Marker | null>(null);
   const { updateModule, context } = useProjectContext();
+  const { setPageContext } = useChatState();
+
+  useEffect(() => {
+    const selectedZoneCount = Object.keys(zonePortfolios).length;
+    const totalInterventions = Object.values(zonePortfolios).reduce((sum, p) => sum + p.length, 0);
+    
+    setPageContext({
+      moduleName: 'Site Explorer',
+      currentStep: selectedZone ? 'Zone Detail View' : 'Map Overview',
+      stepNumber: selectedZone ? 1 : 0,
+      totalSteps: 2,
+      viewState: selectedZone ? 'zone-selected' : 'map-view',
+      additionalInfo: {
+        selectedZoneId: selectedZone?.zoneId || null,
+        selectedZoneTypology: selectedZone?.typologyLabel || null,
+        primaryHazard: selectedZone?.primaryHazard || null,
+        selectedCategory,
+        zonesWithInterventions: selectedZoneCount,
+        totalInterventionsSelected: totalInterventions,
+      }
+    });
+  }, [selectedZone, selectedCategory, zonePortfolios, setPageContext]);
+
+  useEffect(() => {
+    return () => setPageContext(null);
+  }, [setPageContext]);
 
   useEffect(() => {
     fetch('/sample-data/interventions.json')
