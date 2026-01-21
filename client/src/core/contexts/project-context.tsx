@@ -88,9 +88,16 @@ export interface FundingPlan {
   };
 }
 
+export interface ModuleNavigation {
+  currentStep: number;
+  showResults?: boolean;
+  additionalState?: Record<string, unknown>;
+}
+
 export interface FunderSelectionData {
   status: 'NOT_STARTED' | 'DRAFT' | 'READY';
   funderName?: string;
+  navigation?: ModuleNavigation;
   questionnaire: {
     projectName: string;
     projectDescription: string;
@@ -123,6 +130,7 @@ export interface FunderSelectionData {
 
 export interface OperationsData {
   status: 'NOT_STARTED' | 'DRAFT' | 'READY';
+  navigation?: ModuleNavigation;
   operatingModel: 'CITY_RUN' | 'UTILITY_RUN' | 'CONTRACTOR_RUN' | 'COMMUNITY_STEWARDSHIP' | 'HYBRID_SPLIT' | null;
   roles: {
     assetOwnerEntityId: string | null;
@@ -195,6 +203,7 @@ export interface OperationsData {
 
 export interface BusinessModelData {
   status: 'NOT_STARTED' | 'DRAFT' | 'READY';
+  navigation?: ModuleNavigation;
   primaryArchetype: 'PUBLIC_PROGRAM' | 'UTILITY_SERVICE' | 'SERVICE_CONTRACT' | 'LAND_VALUE_CAPTURE' | 'BLENDED_FINANCE' | 'CREDIT_ADDON' | 'INSURANCE_LINKED' | null;
   payerBeneficiaryMap: {
     beneficiaries: Array<{ stakeholderId: string; benefitType?: string }>;
@@ -332,6 +341,7 @@ export interface InterventionBundle {
 
 export interface ImpactModelData {
   status: 'NOT_STARTED' | 'DRAFT' | 'READY';
+  navigation?: ModuleNavigation;
   prioritizationWeights: PrioritizationWeights;
   inheritedWeights: PrioritizationWeights;
   interventionBundles: InterventionBundle[];
@@ -390,6 +400,7 @@ export interface SelectedZone {
 }
 
 export interface SiteExplorerData {
+  navigation?: ModuleNavigation;
   selectedZones: (string | SelectedZone)[];
   layerPreferences: Record<string, boolean>;
   hazardSummary: {
