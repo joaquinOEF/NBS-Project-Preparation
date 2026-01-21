@@ -92,6 +92,14 @@ The system ensures real-time UI updates when the AI agent proposes changes and t
 ## Agent Tool Reference
 The agent utilizes tools like `get_project_state`, `get_block`, `propose_patch`, `record_evidence`, `search_knowledge`, and `get_pending_patches` for understanding context, making changes, and managing information.
 
+## Field Validation Registry
+- **Location**: `shared/block-schemas.ts` - centralized `FIELD_VALIDATIONS` object
+- **Purpose**: Scalable, declarative validation for patch values across all modules
+- **Validation Types**: `enum` (single value), `enumArray` (array of values), `string`, `number` (with min/max), `boolean`
+- **How to Add**: Add entries to `FIELD_VALIDATIONS[module_name]` array with `fieldPath`, `validation`, and optional `label`
+- **Runtime**: `validateFieldValue(blockType, fieldPath, value)` returns null if valid, error message if invalid
+- **Integration**: Called automatically in `/api/projects/:id/apply` before applying patches; invalid patches are rejected with user-friendly error messages
+
 # External Dependencies
 
 ## Authentication Service

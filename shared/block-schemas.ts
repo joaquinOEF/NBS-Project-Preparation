@@ -1,6 +1,118 @@
 import { z } from 'zod';
 
-// Funder Selection valid field values
+// ============================================================================
+// FIELD VALIDATION REGISTRY
+// A scalable, declarative system for validating patch values across all modules.
+// To add new validations: simply add entries to the FIELD_VALIDATIONS object below.
+// ============================================================================
+
+export type FieldValidationType = 
+  | { type: 'enum'; values: readonly string[] }
+  | { type: 'enumArray'; values: readonly string[] }
+  | { type: 'string' }
+  | { type: 'number'; min?: number; max?: number }
+  | { type: 'boolean' };
+
+export interface FieldValidationEntry {
+  fieldPath: string;  // e.g., "questionnaire.projectStage" or just "projectStage" for nested
+  validation: FieldValidationType;
+  label?: string;  // Human-readable label for error messages
+}
+
+// Centralized field validation registry - add new modules/fields here
+export const FIELD_VALIDATIONS: Record<string, FieldValidationEntry[]> = {
+  funder_selection: [
+    // Questionnaire fields
+    { fieldPath: 'questionnaire.projectStage', validation: { type: 'enum', values: ['idea', 'concept', 'prefeasibility', 'feasibility', 'procurement'] }, label: 'Project Stage' },
+    { fieldPath: 'questionnaire.existingElements', validation: { type: 'enumArray', values: ['capex', 'timeline', 'location', 'assessments', 'agency', 'none'] }, label: 'Existing Elements' },
+    { fieldPath: 'questionnaire.sectors', validation: { type: 'enumArray', values: ['nature_based', 'transport', 'energy', 'water', 'waste', 'urban_resilience', 'other'] }, label: 'Sectors' },
+    { fieldPath: 'questionnaire.investmentSize', validation: { type: 'enum', values: ['under_1m', '1_5m', '5_20m', '20_50m', 'over_50m', 'unknown'] }, label: 'Investment Size' },
+    { fieldPath: 'questionnaire.budgetPreparation', validation: { type: 'enum', values: ['yes', 'no'] }, label: 'Budget for Preparation' },
+    { fieldPath: 'questionnaire.budgetImplementation', validation: { type: 'enum', values: ['yes', 'no'] }, label: 'Budget for Implementation' },
+    { fieldPath: 'questionnaire.generatesRevenue', validation: { type: 'enum', values: ['yes', 'no'] }, label: 'Generates Revenue' },
+    { fieldPath: 'questionnaire.canTakeDebt', validation: { type: 'enum', values: ['yes', 'no'] }, label: 'Can Take Debt' },
+    { fieldPath: 'questionnaire.nationalApproval', validation: { type: 'enum', values: ['yes', 'no'] }, label: 'National Approval' },
+    { fieldPath: 'questionnaire.openToBundling', validation: { type: 'enum', values: ['yes', 'no'] }, label: 'Open to Bundling' },
+    { fieldPath: 'questionnaire.fundingReceiver', validation: { type: 'enum', values: ['municipality', 'utility', 'special_purpose_vehicle', 'ngo', 'other'] }, label: 'Funding Receiver' },
+    { fieldPath: 'questionnaire.politicalEndorsementLevel', validation: { type: 'enum', values: ['none', 'verbal', 'written', 'legal'] }, label: 'Political Endorsement Level' },
+    { fieldPath: 'questionnaire.implementingOwnership', validation: { type: 'enum', values: ['single_department', 'cross_department', 'external_partner', 'unclear'] }, label: 'Implementing Ownership' },
+    { fieldPath: 'questionnaire.internalAlignmentLevel', validation: { type: 'enum', values: ['low', 'medium', 'high'] }, label: 'Internal Alignment Level' },
+    { fieldPath: 'questionnaire.leadershipCommitmentConfidence', validation: { type: 'enum', values: ['low', 'medium', 'high'] }, label: 'Leadership Commitment Confidence' },
+    { fieldPath: 'questionnaire.politicalMandatePlanRefs', validation: { type: 'enumArray', values: ['city_climate_plan', 'national_ndc', 'master_plan', 'sectoral_policy', 'other'] }, label: 'Political Mandate References' },
+    { fieldPath: 'questionnaire.politicalRiskFactors', validation: { type: 'enumArray', values: ['upcoming_elections', 'political_opposition', 'inter_agency_conflict', 'budget_constraints', 'none'] }, label: 'Political Risk Factors' },
+  ],
+  
+  // Add other modules here as needed:
+  // site_explorer: [...],
+  // impact_model: [...],
+  // operations: [...],
+  // business_model: [...],
+};
+
+/**
+ * Validates a value against the field validation registry.
+ * Returns null if valid, or an error message string if invalid.
+ */
+export function validateFieldValue(
+  blockType: string,
+  fieldPath: string,
+  value: unknown
+): string | null {
+  const moduleValidations = FIELD_VALIDATIONS[blockType];
+  if (!moduleValidations) return null; // No validations defined for this module
+  
+  const entry = moduleValidations.find(v => v.fieldPath === fieldPath);
+  if (!entry) return null; // No validation defined for this field
+  
+  const { validation, label } = entry;
+  const fieldLabel = label || fieldPath;
+  
+  switch (validation.type) {
+    case 'enum':
+      if (typeof value !== 'string' || !validation.values.includes(value)) {
+        return `Invalid ${fieldLabel}: "${value}". Valid options: ${validation.values.join(', ')}`;
+      }
+      break;
+      
+    case 'enumArray':
+      if (!Array.isArray(value)) {
+        return `${fieldLabel} must be an array`;
+      }
+      const invalidItems = value.filter(v => !validation.values.includes(v as string));
+      if (invalidItems.length > 0) {
+        return `Invalid ${fieldLabel} values: ${invalidItems.join(', ')}. Valid options: ${validation.values.join(', ')}`;
+      }
+      break;
+      
+    case 'string':
+      if (typeof value !== 'string') {
+        return `${fieldLabel} must be a text value`;
+      }
+      break;
+      
+    case 'number':
+      if (typeof value !== 'number') {
+        return `${fieldLabel} must be a number`;
+      }
+      if (validation.min !== undefined && value < validation.min) {
+        return `${fieldLabel} must be at least ${validation.min}`;
+      }
+      if (validation.max !== undefined && value > validation.max) {
+        return `${fieldLabel} must be at most ${validation.max}`;
+      }
+      break;
+      
+    case 'boolean':
+      if (typeof value !== 'boolean') {
+        return `${fieldLabel} must be true or false`;
+      }
+      break;
+  }
+  
+  return null;
+}
+
+// Legacy export for backwards compatibility
 export const FUNDER_SELECTION_VALID_VALUES = {
   sectors: ['nature_based', 'transport', 'energy', 'water', 'waste', 'urban_resilience', 'other'] as const,
   projectStage: ['idea', 'concept', 'prefeasibility', 'feasibility', 'procurement'] as const,

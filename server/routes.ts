@@ -15,7 +15,7 @@ import {
   BLOCK_SCHEMAS,
   proposePatchRequestSchema,
   applyPatchRequestSchema,
-  FUNDER_SELECTION_VALID_VALUES,
+  validateFieldValue,
 } from '@shared/schema';
 import {
   SAMPLE_USER_ID,
@@ -1303,10 +1303,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
             
-            // Validate funder_selection questionnaire field values
-            if (patch.blockType === 'funder_selection' && patch.fieldPath.startsWith('questionnaire.')) {
-              const fieldName = patch.fieldPath.replace('questionnaire.', '');
-              const validationError = validateFunderSelectionValue(fieldName, valueToApply);
+            // Validate field values using centralized validation registry
+            if (patch.blockType) {
+              const validationError = validateFieldValue(patch.blockType, patch.fieldPath, valueToApply);
               if (validationError) {
                 results.push({ patchId: patch.id, success: false, error: validationError });
                 // Mark patch as rejected
@@ -1700,52 +1699,3 @@ function calculateBlockCompletion(blockType: InfoBlockType, data: any): number {
   return totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0;
 }
 
-function validateFunderSelectionValue(fieldName: string, value: unknown): string | null {
-  const validValues = FUNDER_SELECTION_VALID_VALUES;
-  
-  switch (fieldName) {
-    case 'projectStage':
-      if (typeof value !== 'string' || !validValues.projectStage.includes(value as any)) {
-        return `Invalid project stage "${value}". Valid options: ${validValues.projectStage.join(', ')}`;
-      }
-      break;
-    case 'existingElements':
-      if (Array.isArray(value)) {
-        const invalidElements = value.filter(v => !validValues.existingElements.includes(v as any));
-        if (invalidElements.length > 0) {
-          return `Invalid existing elements: ${invalidElements.join(', ')}. Valid options: ${validValues.existingElements.join(', ')}`;
-        }
-      }
-      break;
-    case 'sectors':
-      if (Array.isArray(value)) {
-        const invalidSectors = value.filter(v => !validValues.sectors.includes(v as any));
-        if (invalidSectors.length > 0) {
-          return `Invalid sectors: ${invalidSectors.join(', ')}. Valid options: ${validValues.sectors.join(', ')}`;
-        }
-      }
-      break;
-    case 'investmentSize':
-      if (typeof value !== 'string' || !validValues.investmentSize.includes(value as any)) {
-        return `Invalid investment size "${value}". Valid options: ${validValues.investmentSize.join(', ')}`;
-      }
-      break;
-    case 'budgetPreparation':
-    case 'budgetImplementation':
-    case 'generatesRevenue':
-    case 'canTakeDebt':
-    case 'nationalApproval':
-    case 'openToBundling':
-      if (typeof value !== 'string' || !validValues.yesNo.includes(value as any)) {
-        return `Invalid value "${value}" for ${fieldName}. Valid options: ${validValues.yesNo.join(', ')}`;
-      }
-      break;
-    case 'fundingReceiver':
-      if (typeof value !== 'string' || !validValues.fundingReceiver.includes(value as any)) {
-        return `Invalid funding receiver "${value}". Valid options: ${validValues.fundingReceiver.join(', ')}`;
-      }
-      break;
-  }
-  
-  return null;
-}
