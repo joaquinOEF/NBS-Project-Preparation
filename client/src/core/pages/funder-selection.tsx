@@ -656,10 +656,11 @@ export default function FunderSelectionPage() {
     }
   }, [action, projectId, navigationRestored]);
   
-  const hydrateFromDB = useCallback(() => {
+  const hydrateFromDB = useCallback((options?: { dataOnly?: boolean }) => {
     if (!projectId || !fundsData) return;
     const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;
-    console.log('[Hydration] Starting fetch from DB, projectId:', dbProjectId);
+    const dataOnly = options?.dataOnly ?? false;
+    console.log('[Hydration] Starting fetch from DB, projectId:', dbProjectId, 'dataOnly:', dataOnly);
     
     fetch(`/api/projects/${dbProjectId}/blocks/funder_selection`)
       .then(res => res.ok ? res.json() : null)
@@ -667,26 +668,29 @@ export default function FunderSelectionPage() {
         console.log('[Hydration] Got result:', result ? 'has data' : 'no data');
         if (result?.data) {
           const dbData = result.data as FunderSelectionData;
-          const savedPlan = dbData.fundingPlan;
-          console.log('[Hydration] savedPlan status:', savedPlan?.status);
           
-          if (savedPlan && savedPlan.status === 'confirmed') {
-            const nowFundExists = savedPlan.selectedFunderNow && fundsData.funds.some(f => f.id === savedPlan.selectedFunderNow);
-            const nextFundExists = !savedPlan.selectedFunderNext || fundsData.funds.some(f => f.id === savedPlan.selectedFunderNext);
-            console.log('[Hydration] nowFundExists:', nowFundExists, 'nextFundExists:', nextFundExists, 'selectedFunderNow:', savedPlan.selectedFunderNow);
+          if (dbData.questionnaire) {
+            setAnswers(dbData.questionnaire as QuestionnaireAnswers);
+          }
+          
+          if (!dataOnly) {
+            const savedPlan = dbData.fundingPlan;
+            console.log('[Hydration] savedPlan status:', savedPlan?.status);
             
-            if (nowFundExists && nextFundExists) {
-              skipAutoSaveRef.current = true;
-              setSelectedNowFundId(savedPlan.selectedFunderNow);
-              setSelectedNextFundId(savedPlan.selectedFunderNext || null);
-              setFundingPlanConfirmed(true);
-              setShowResults(true);
-              setHasSavedToContext(true);
+            if (savedPlan && savedPlan.status === 'confirmed') {
+              const nowFundExists = savedPlan.selectedFunderNow && fundsData.funds.some(f => f.id === savedPlan.selectedFunderNow);
+              const nextFundExists = !savedPlan.selectedFunderNext || fundsData.funds.some(f => f.id === savedPlan.selectedFunderNext);
+              console.log('[Hydration] nowFundExists:', nowFundExists, 'nextFundExists:', nextFundExists, 'selectedFunderNow:', savedPlan.selectedFunderNow);
               
-              if (dbData.questionnaire) {
-                setAnswers(dbData.questionnaire as QuestionnaireAnswers);
+              if (nowFundExists && nextFundExists) {
+                skipAutoSaveRef.current = true;
+                setSelectedNowFundId(savedPlan.selectedFunderNow);
+                setSelectedNextFundId(savedPlan.selectedFunderNext || null);
+                setFundingPlanConfirmed(true);
+                setShowResults(true);
+                setHasSavedToContext(true);
+                console.log('[Hydration] SUCCESS - restored selectedFunderNow =', savedPlan.selectedFunderNow);
               }
-              console.log('[Hydration] SUCCESS - restored selectedFunderNow =', savedPlan.selectedFunderNow);
             }
           }
         }
@@ -705,13 +709,13 @@ export default function FunderSelectionPage() {
     }
   }, [projectId, fundsData, hydrationComplete, hydrateFromDB]);
 
-  // Listen for AI-triggered block updates and re-hydrate
+  // Listen for AI-triggered block updates and re-hydrate data only (preserve navigation)
   useEffect(() => {
     const handleBlockUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<{ blockType: string; moduleName: string; data: unknown }>;
       if (customEvent.detail?.blockType === 'funder_selection') {
-        console.log('[FunderSelection] Received nbs-block-updated event, re-hydrating...');
-        hydrateFromDB();
+        console.log('[FunderSelection] Received nbs-block-updated event, re-hydrating data only...');
+        hydrateFromDB({ dataOnly: true });
       }
     };
     window.addEventListener('nbs-block-updated', handleBlockUpdate);
