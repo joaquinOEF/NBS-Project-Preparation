@@ -895,35 +895,11 @@ export default function FunderSelectionPage() {
   };
 
   const retakeQuestionnaire = () => {
+    // Go back to questionnaire while preserving existing answers for editing
     setShowResults(false);
     setCurrentStep(0);
     setFundingPlanConfirmed(false);
-    setSelectedNowFundId(null);
-    setSelectedNextFundId(null);
-    setHasSavedToContext(false);
-    // Reset answers to defaults
-    setAnswers({
-      projectName: '',
-      projectDescription: '',
-      sectors: [],
-      projectStage: '',
-      existingElements: [],
-      budgetPreparation: '',
-      budgetImplementation: '',
-      politicalMandatePlanRefs: [],
-      politicalEndorsementLevel: '',
-      implementingOwnership: '',
-      internalAlignmentLevel: '',
-      politicalRiskFactors: [],
-      leadershipCommitmentConfidence: '',
-      generatesRevenue: '',
-      repaymentSource: '',
-      investmentSize: '',
-      fundingReceiver: '',
-      canTakeDebt: '',
-      nationalApproval: '',
-      openToBundling: '',
-    });
+    // Keep selected funds and answers intact so user can edit them
   };
 
   const canProceed = () => {
