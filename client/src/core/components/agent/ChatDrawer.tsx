@@ -93,11 +93,24 @@ export function ChatDrawer() {
     return path || 'project';
   }, [location]);
 
+  // Scroll to bottom when messages change
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Scroll to bottom when chat opens
+  useEffect(() => {
+    if (isOpen && historyLoaded && scrollRef.current) {
+      // Use setTimeout to ensure DOM has updated after messages render
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [isOpen, historyLoaded]);
 
   // Save conversationId to localStorage when it changes
   useEffect(() => {
