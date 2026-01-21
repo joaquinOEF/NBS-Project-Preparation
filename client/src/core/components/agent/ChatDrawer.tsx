@@ -377,23 +377,65 @@ export function ChatDrawer() {
       });
       if (response.ok) {
         const result = await response.json();
-        const successCount = result.results?.filter((r: { success: boolean }) => r.success).length || 0;
-        const affectedBlocks = Array.from(new Set(pendingPatches.map(p => p.blockType)));
+        const results = result.results || [];
+        const successResults = results.filter((r: { success: boolean }) => r.success);
+        const failedResults = results.filter((r: { success: boolean; error?: string }) => !r.success);
+        const successCount = successResults.length;
+        
+        // Get successful patch IDs to filter out from pending
+        const successPatchIds = new Set(successResults.map((r: { patchId: string }) => r.patchId));
+        const affectedBlocks = Array.from(new Set(
+          pendingPatches.filter(p => successPatchIds.has(p.id)).map(p => p.blockType)
+        ));
+        
         for (const blockType of affectedBlocks) {
           await syncBlockToLocalStorage(blockType);
         }
+        
+        // Build message based on success/failure
+        let messageContent = '';
+        if (successCount > 0 && failedResults.length === 0) {
+          messageContent = `All ${successCount} changes have been saved to your project.`;
+        } else if (successCount > 0 && failedResults.length > 0) {
+          const errorMessages = failedResults.map((r: { patchId: string; error?: string }) => {
+            const patch = pendingPatches.find(p => p.id === r.patchId);
+            return `- ${patch?.fieldPath || 'Unknown field'}: ${r.error || 'Unknown error'}`;
+          }).join('\n');
+          messageContent = `Saved ${successCount} changes, but ${failedResults.length} failed:\n${errorMessages}`;
+        } else if (failedResults.length > 0) {
+          const errorMessages = failedResults.map((r: { patchId: string; error?: string }) => {
+            const patch = pendingPatches.find(p => p.id === r.patchId);
+            return `- ${patch?.fieldPath || 'Unknown field'}: ${r.error || 'Unknown error'}`;
+          }).join('\n');
+          messageContent = `Could not save changes:\n${errorMessages}`;
+        }
+        
         setMessages(prev => [...prev, {
           id: `patches-applied-${Date.now()}`,
           role: 'assistant',
-          content: `All ${successCount} changes have been saved to your project.`,
+          content: messageContent,
           timestamp: new Date(),
         }]);
-        setPendingPatches([]);
-        toast({
-          title: "All changes saved",
-          description: `Applied ${successCount} changes to your project.`,
-          duration: 4000,
-        });
+        
+        // Only remove successful patches from pending
+        setPendingPatches(prev => prev.filter(p => !successPatchIds.has(p.id)));
+        
+        if (failedResults.length > 0) {
+          toast({
+            title: successCount > 0 ? "Partial success" : "Failed to save",
+            description: successCount > 0 
+              ? `${successCount} saved, ${failedResults.length} failed with validation errors.`
+              : `${failedResults.length} changes failed. Check the chat for details.`,
+            variant: "destructive",
+            duration: 6000,
+          });
+        } else {
+          toast({
+            title: "All changes saved",
+            description: `Applied ${successCount} changes to your project.`,
+            duration: 4000,
+          });
+        }
       } else {
         toast({
           title: "Failed to save",

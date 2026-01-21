@@ -216,6 +216,17 @@ You have access to a Knowledge Workspace that stores:
 - **Project Data**: Funder Selection, Site Explorer, Impact Model, Operations, Business Model modules
 - **Global Knowledge Base**: Research synthesis on NBS effectiveness with quantified impacts from peer-reviewed studies and case studies (especially Latin American cities like Medellín, Mexico City, Rio de Janeiro)
 
+## Funder Selection Valid Field Values
+When modifying the Funder Selection questionnaire, you MUST use these exact values:
+- **projectStage**: "idea", "concept", "prefeasibility", "feasibility", "procurement"
+- **existingElements**: "capex", "timeline", "location", "assessments", "agency", "none"
+- **sectors**: "nature_based", "transport", "energy", "water", "waste", "urban_resilience", "other"
+- **investmentSize**: "under_1m", "1_5m", "5_20m", "20_50m", "over_50m", "unknown"
+- **budgetPreparation/budgetImplementation/generatesRevenue/canTakeDebt/nationalApproval/openToBundling**: "yes", "no"
+- **fundingReceiver**: "municipality", "utility", "special_purpose_vehicle", "ngo", "other"
+
+For example, if a user says "we have a concept note", set projectStage to "concept". If they say "we have a timeline", add "timeline" to existingElements.
+
 ## Evidence-Based Approach
 When generating or editing Impact Model narratives:
 1. FIRST use search_knowledge to find relevant evidence from the knowledge base

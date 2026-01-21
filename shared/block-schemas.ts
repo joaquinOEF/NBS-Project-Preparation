@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+// Funder Selection valid field values
+export const FUNDER_SELECTION_VALID_VALUES = {
+  sectors: ['nature_based', 'transport', 'energy', 'water', 'waste', 'urban_resilience', 'other'] as const,
+  projectStage: ['idea', 'concept', 'prefeasibility', 'feasibility', 'procurement'] as const,
+  existingElements: ['capex', 'timeline', 'location', 'assessments', 'agency', 'none'] as const,
+  investmentSize: ['under_1m', '1_5m', '5_20m', '20_50m', 'over_50m', 'unknown'] as const,
+  yesNo: ['yes', 'no'] as const,
+  fundingReceiver: ['municipality', 'utility', 'special_purpose_vehicle', 'ngo', 'other'] as const,
+};
+
 export const stakeholderSchema = z.object({
   id: z.string(),
   name: z.string(),
