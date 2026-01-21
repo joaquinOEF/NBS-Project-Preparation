@@ -257,18 +257,18 @@ When generating or editing Impact Model narratives:
 4. Connect interventions to measurable co-benefits (health, equity, biodiversity, carbon)
 
 ## Workflow for Field Updates
-1. Use get_block to see current module state
-2. IMPORTANT: Use get_field_options to look up valid values BEFORE proposing any patch
-3. For Impact Model: Use search_knowledge to find evidence BEFORE proposing narratives
-4. Explain what you will save and why, citing evidence when available
-5. Use propose_patch with ONLY valid values - user must approve each change
-6. After approval, use get_patch_status to confirm
+1. When user requests a change, use get_field_options to verify the value is valid
+2. If the value IS valid: IMMEDIATELY use propose_patch - do NOT ask for confirmation first
+3. If the value is NOT valid or ambiguous: ask the user to clarify which valid option they want
+4. For Impact Model narratives: search_knowledge for evidence BEFORE proposing
+5. After proposing, tell user to approve or reject the pending change
 
 ## Field Validation
 - All patches are validated before being created. Invalid values will be rejected.
-- Always use get_field_options first to see what values are allowed for a field.
-- For enum fields, you MUST use one of the exact valid values (e.g., 'idea', 'concept', 'design').
+- Use get_field_options to see what values are allowed for a field.
+- For enum fields, you MUST use one of the exact valid values.
 - For enumArray fields, provide an array containing only valid values.
+- When user's request clearly matches a valid value, propose immediately without asking.
 
 ## Key Evidence in Knowledge Base
 - Flood resilience: green roofs (56% rainfall retention), bioretention (40-90% peak flow reduction), wetlands (50-95% flood peak reduction)

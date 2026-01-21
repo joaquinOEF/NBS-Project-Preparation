@@ -552,18 +552,18 @@ export function ChatDrawer() {
                   </div>
                 )}
                 <div
-                  className={`max-w-[80%] rounded-lg px-3 py-2 ${
+                  className={`max-w-[85%] rounded-lg px-3 py-2 overflow-hidden ${
                     message.role === "user"
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted"
                   }`}
                 >
                   {message.content && (
-                    <div className={`text-sm prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 ${
+                    <div className={`text-sm prose prose-sm max-w-full prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 break-words [&_code]:break-all [&_code]:text-xs ${
                       message.role === "user" 
                         ? "prose-p:text-white prose-headings:text-white prose-strong:text-white prose-em:text-white prose-li:text-white text-white [&_*]:text-white" 
                         : "dark:prose-invert"
-                    }`}>
+                    }`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                       <ReactMarkdown>{message.content}</ReactMarkdown>
                     </div>
                   )}
