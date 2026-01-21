@@ -98,7 +98,23 @@ The agent utilizes tools like `get_project_state`, `get_block`, `propose_patch`,
 - **Validation Types**: `enum` (single value), `enumArray` (array of values), `string`, `number` (with min/max), `boolean`
 - **How to Add**: Add entries to `FIELD_VALIDATIONS[module_name]` array with `fieldPath`, `validation`, and optional `label`
 - **Runtime**: `validateFieldValue(blockType, fieldPath, value)` returns null if valid, error message if invalid
-- **Integration**: Called automatically in `/api/projects/:id/apply` before applying patches; invalid patches are rejected with user-friendly error messages
+- **Integration**: Called at two stages: (1) when agent proposes a patch via `propose_patch` tool, (2) when user approves via `/api/projects/:id/apply`
+
+## Agent Tool Reference
+The agent utilizes the following tools for understanding context and making changes:
+- `get_project_state`: Get overall project state including blocks, evidence, and pending patches
+- `get_block`: Read current state of a specific module block
+- `get_field_options`: **MUST use before proposing patches** - looks up valid values for enum/enumArray fields
+- `propose_patch`: Propose a field update (validated before creation, rejected if invalid)
+- `record_evidence`: Link evidence to a specific field path
+- `search_knowledge`: Search the RAG knowledge base with tag filtering
+- `get_pending_patches`: Check status of proposed patches
+
+**Agent Workflow for Field Updates:**
+1. Use `get_block` to see current module state
+2. Use `get_field_options` to look up valid values BEFORE proposing any patch
+3. For Impact Model: Use `search_knowledge` to find evidence before proposing narratives
+4. Use `propose_patch` with ONLY valid values - user must approve each change
 
 # External Dependencies
 
