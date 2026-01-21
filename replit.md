@@ -89,9 +89,6 @@ Modules follow a 5-layer integration: Page Goal, Block Type, Module Page, Contex
 ## Real-Time Sync Pattern
 The system ensures real-time UI updates when the AI agent proposes changes and the user approves them. This involves updating the database, fetching fresh data, updating the `ProjectContext`, dispatching a custom event, and triggering UI re-hydration.
 
-## Agent Tool Reference
-The agent utilizes tools like `get_project_state`, `get_block`, `propose_patch`, `record_evidence`, `search_knowledge`, and `get_pending_patches` for understanding context, making changes, and managing information.
-
 ## Field Validation Registry
 - **Location**: `shared/block-schemas.ts` - centralized `FIELD_VALIDATIONS` object
 - **Purpose**: Scalable, declarative validation for patch values across all modules
