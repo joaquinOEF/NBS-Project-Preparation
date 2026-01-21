@@ -117,7 +117,7 @@ const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "get_field_options",
-    description: "Look up valid values for a field BEFORE proposing a patch. Call without fieldPath to list all validated fields for a module. Call with fieldPath to get valid values for a specific field.",
+    description: "Look up valid values for a field BEFORE proposing a patch. Use fieldPath='' (empty string) to list all validated fields for a module. Use a specific fieldPath to get valid values for that field.",
     parameters: {
       type: "object",
       properties: {
@@ -128,10 +128,10 @@ const AGENT_TOOLS: AgentTool[] = [
         },
         fieldPath: {
           type: "string",
-          description: "The field path to look up (e.g., 'questionnaire.projectStage'). If omitted, lists all validated fields for the module.",
+          description: "The field path to look up (e.g., 'questionnaire.projectStage'). Use empty string '' to list all validated fields for the module.",
         },
       },
-      required: ["blockType"],
+      required: ["blockType", "fieldPath"],
       additionalProperties: false,
     },
   },
@@ -355,7 +355,7 @@ export async function executeAgentTool(
       case "get_field_options": {
         const { blockType, fieldPath } = args as {
           blockType: string;
-          fieldPath?: string;
+          fieldPath: string;
         };
         
         const moduleValidations = FIELD_VALIDATIONS[blockType];
@@ -369,8 +369,8 @@ export async function executeAgentTool(
           };
         }
 
-        // If no fieldPath provided, list all available validations for the module
-        if (!fieldPath) {
+        // If empty fieldPath, list all available validations for the module
+        if (!fieldPath || fieldPath === '') {
           const fieldList = moduleValidations.map(v => ({
             fieldPath: v.fieldPath,
             label: v.label || v.fieldPath,
