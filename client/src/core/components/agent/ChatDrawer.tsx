@@ -51,6 +51,7 @@ export function ChatDrawer() {
   const [rejectingAll, setRejectingAll] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
   const { isSampleMode, sampleProjectId } = useSampleData();
   const { toast } = useToast();
@@ -93,24 +94,25 @@ export function ChatDrawer() {
     return path || 'project';
   }, [location]);
 
+  // Scroll to bottom helper
+  const scrollToBottom = useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+    }
+  }, []);
+
   // Scroll to bottom when messages change
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   // Scroll to bottom when chat opens
   useEffect(() => {
-    if (isOpen && historyLoaded && scrollRef.current) {
+    if (isOpen && historyLoaded) {
       // Use setTimeout to ensure DOM has updated after messages render
-      setTimeout(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-      }, 100);
+      setTimeout(scrollToBottom, 150);
     }
-  }, [isOpen, historyLoaded]);
+  }, [isOpen, historyLoaded, scrollToBottom]);
 
   // Save conversationId to localStorage when it changes
   useEffect(() => {
@@ -549,6 +551,7 @@ export function ChatDrawer() {
                 <span className="text-sm">Thinking...</span>
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
 
