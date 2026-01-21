@@ -22,24 +22,25 @@ export interface FieldValidationEntry {
 // Centralized field validation registry - add new modules/fields here
 export const FIELD_VALIDATIONS: Record<string, FieldValidationEntry[]> = {
   funder_selection: [
-    // Questionnaire fields
+    // Questionnaire fields - synced with UI options
     { fieldPath: 'questionnaire.projectStage', validation: { type: 'enum', values: ['idea', 'concept', 'prefeasibility', 'feasibility', 'procurement'] }, label: 'Project Stage' },
     { fieldPath: 'questionnaire.existingElements', validation: { type: 'enumArray', values: ['capex', 'timeline', 'location', 'assessments', 'agency', 'none'] }, label: 'Existing Elements' },
     { fieldPath: 'questionnaire.sectors', validation: { type: 'enumArray', values: ['nature_based', 'transport', 'energy', 'water', 'waste', 'urban_resilience', 'other'] }, label: 'Sectors' },
     { fieldPath: 'questionnaire.investmentSize', validation: { type: 'enum', values: ['under_1m', '1_5m', '5_20m', '20_50m', 'over_50m', 'unknown'] }, label: 'Investment Size' },
     { fieldPath: 'questionnaire.budgetPreparation', validation: { type: 'enum', values: ['yes', 'partial', 'no'] }, label: 'Budget for Preparation' },
     { fieldPath: 'questionnaire.budgetImplementation', validation: { type: 'enum', values: ['yes', 'partial', 'no'] }, label: 'Budget for Implementation' },
-    { fieldPath: 'questionnaire.generatesRevenue', validation: { type: 'enum', values: ['yes', 'no'] }, label: 'Generates Revenue' },
-    { fieldPath: 'questionnaire.canTakeDebt', validation: { type: 'enum', values: ['yes', 'no'] }, label: 'Can Take Debt' },
-    { fieldPath: 'questionnaire.nationalApproval', validation: { type: 'enum', values: ['yes', 'no'] }, label: 'National Approval' },
-    { fieldPath: 'questionnaire.openToBundling', validation: { type: 'enum', values: ['yes', 'no'] }, label: 'Open to Bundling' },
-    { fieldPath: 'questionnaire.fundingReceiver', validation: { type: 'enum', values: ['municipality', 'utility', 'special_purpose_vehicle', 'ngo', 'other'] }, label: 'Funding Receiver' },
-    { fieldPath: 'questionnaire.politicalEndorsementLevel', validation: { type: 'enum', values: ['none', 'verbal', 'written', 'legal'] }, label: 'Political Endorsement Level' },
-    { fieldPath: 'questionnaire.implementingOwnership', validation: { type: 'enum', values: ['single_department', 'cross_department', 'external_partner', 'unclear'] }, label: 'Implementing Ownership' },
-    { fieldPath: 'questionnaire.internalAlignmentLevel', validation: { type: 'enum', values: ['low', 'medium', 'high'] }, label: 'Internal Alignment Level' },
-    { fieldPath: 'questionnaire.leadershipCommitmentConfidence', validation: { type: 'enum', values: ['low', 'medium', 'high'] }, label: 'Leadership Commitment Confidence' },
-    { fieldPath: 'questionnaire.politicalMandatePlanRefs', validation: { type: 'enumArray', values: ['city_climate_plan', 'national_ndc', 'master_plan', 'sectoral_policy', 'other'] }, label: 'Political Mandate References' },
-    { fieldPath: 'questionnaire.politicalRiskFactors', validation: { type: 'enumArray', values: ['upcoming_elections', 'political_opposition', 'inter_agency_conflict', 'budget_constraints', 'none'] }, label: 'Political Risk Factors' },
+    { fieldPath: 'questionnaire.generatesRevenue', validation: { type: 'enum', values: ['yes', 'no', 'not_sure'] }, label: 'Generates Revenue' },
+    { fieldPath: 'questionnaire.repaymentSource', validation: { type: 'enum', values: ['user_fees', 'budget_savings', 'transfers', 'private_offtaker', 'not_defined'] }, label: 'Repayment Source' },
+    { fieldPath: 'questionnaire.canTakeDebt', validation: { type: 'enum', values: ['yes', 'no', 'not_sure'] }, label: 'Can Take Debt' },
+    { fieldPath: 'questionnaire.nationalApproval', validation: { type: 'enum', values: ['yes', 'no', 'not_sure'] }, label: 'National Approval' },
+    { fieldPath: 'questionnaire.openToBundling', validation: { type: 'enum', values: ['yes', 'no', 'maybe'] }, label: 'Open to Bundling' },
+    { fieldPath: 'questionnaire.fundingReceiver', validation: { type: 'enum', values: ['municipality', 'state', 'utility', 'private', 'consortium'] }, label: 'Funding Receiver' },
+    { fieldPath: 'questionnaire.politicalEndorsementLevel', validation: { type: 'enum', values: ['written', 'informal', 'none', 'unknown'] }, label: 'Political Endorsement Level' },
+    { fieldPath: 'questionnaire.implementingOwnership', validation: { type: 'enum', values: ['single_department', 'multiple_departments', 'not_defined'] }, label: 'Implementing Ownership' },
+    { fieldPath: 'questionnaire.internalAlignmentLevel', validation: { type: 'enum', values: ['high', 'medium', 'low', 'unknown'] }, label: 'Internal Alignment Level' },
+    { fieldPath: 'questionnaire.leadershipCommitmentConfidence', validation: { type: 'enum', values: ['high', 'medium', 'low', 'unknown'] }, label: 'Leadership Commitment Confidence' },
+    { fieldPath: 'questionnaire.politicalMandatePlanRefs', validation: { type: 'enumArray', values: ['city_climate_plan', 'sectoral_plan', 'multi_year_investment_plan', 'national_or_state_plan', 'not_in_official_plan'] }, label: 'Political Mandate References' },
+    { fieldPath: 'questionnaire.politicalRiskFactors', validation: { type: 'enumArray', values: ['upcoming_elections', 'land_resettlement', 'tariff_sensitivity', 'public_opposition', 'none'] }, label: 'Political Risk Factors' },
     // Block status
     { fieldPath: 'status', validation: { type: 'enum', values: ['NOT_STARTED', 'DRAFT', 'READY'] }, label: 'Status' },
   ],
@@ -81,7 +82,7 @@ export const FIELD_VALIDATIONS: Record<string, FieldValidationEntry[]> = {
     { fieldPath: 'serviceLevels.*.serviceType', validation: { type: 'enum', values: ['COOLING', 'STORMWATER', 'SLOPE_STABILITY', 'MULTI_BENEFIT'] }, label: 'Service Type' },
     { fieldPath: 'serviceLevels.*.inspectionFrequency', validation: { type: 'enum', values: ['MONTHLY', 'QUARTERLY', 'BIANNUAL', 'ANNUAL'] }, label: 'Inspection Frequency' },
     // NBS extensions
-    { fieldPath: 'nbsExtensions.establishmentPeriodMonths', validation: { type: 'enum', values: ['12', '24', '36'] }, label: 'Establishment Period' },
+    { fieldPath: 'nbsExtensions.establishmentPeriodMonths', validation: { type: 'number', min: 12, max: 36 }, label: 'Establishment Period (12, 24, or 36 months)' },
     { fieldPath: 'nbsExtensions.maintenanceIntensity', validation: { type: 'enum', values: ['LOW', 'MEDIUM', 'HIGH'] }, label: 'Maintenance Intensity' },
     { fieldPath: 'nbsExtensions.survivalTargetPercent', validation: { type: 'number', min: 0, max: 100 }, label: 'Survival Target Percent' },
     // Capacity
