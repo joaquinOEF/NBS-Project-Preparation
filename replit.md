@@ -89,6 +89,17 @@ Modules follow a 5-layer integration: Page Goal, Block Type, Module Page, Contex
 ## Real-Time Sync Pattern
 The system ensures real-time UI updates when the AI agent proposes changes and the user approves them. This involves updating the database, fetching fresh data, updating the `ProjectContext`, dispatching a custom event, and triggering UI re-hydration.
 
+## Navigation State Persistence
+- **Purpose**: Users stay on the same step/view after page reload or when AI agent updates module data.
+- **Interface**: `ModuleNavigation { currentStep: number, showResults?: boolean, additionalState?: Record<string, any> }`
+- **Implementation Pattern**:
+  1. `navigationRestored` flag prevents persistence effects from running until hydration completes
+  2. Restoration effect: On mount, reads saved navigation from context and restores local state
+  3. Persistence effect: When navigation changes, saves only the navigation field (not full module data)
+  4. Change detection: Skips updates when navigation hasn't actually changed to prevent loops
+- **Modules**: All 5 main modules (Funder Selection, Site Explorer, Impact Model, Operations, Business Model)
+- **Limitation**: Site Explorer cannot restore exact zone selection since zones are loaded dynamically from the map
+
 ## Field Validation Registry
 - **Location**: `shared/block-schemas.ts` - centralized `FIELD_VALIDATIONS` object
 - **Purpose**: Scalable, declarative validation for patch values across all modules
