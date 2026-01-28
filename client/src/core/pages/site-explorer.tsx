@@ -1255,13 +1255,24 @@ export default function SiteExplorerPage() {
       if (!layer) return prev;
 
       if (layer.enabled) {
+        // Toggling OFF - remove layer from map
+        console.log(`[Layer] Toggling OFF: ${layerId}`);
         const existingLayer = layerRefs.current.get(layerId);
+        console.log(`[Layer] Found in refs: ${!!existingLayer}, map exists: ${!!mapRef.current}`);
         if (existingLayer && mapRef.current) {
-          mapRef.current.removeLayer(existingLayer);
+          try {
+            mapRef.current.removeLayer(existingLayer);
+            console.log(`[Layer] Successfully removed: ${layerId}`);
+          } catch (e) {
+            console.error(`[Layer] Failed to remove: ${layerId}`, e);
+          }
           layerRefs.current.delete(layerId);
         }
         return prev.map(l => l.id === layerId ? { ...l, enabled: false } : l);
       } else {
+        // Toggling ON - add layer to map
+        console.log(`[Layer] Toggling ON: ${layerId}`);
+        
         // Safety: remove any existing layer first to prevent duplicates
         const existingLayer = layerRefs.current.get(layerId);
         if (existingLayer && mapRef.current) {
@@ -1272,24 +1283,29 @@ export default function SiteExplorerPage() {
         const cachedData = layerDataCache.current.get(layerId);
         
         if (cachedData && mapRef.current) {
+          console.log(`[Layer] Using cached data for: ${layerId}`);
           const leafletLayer = createLayerFromData(layerId, cachedData);
           if (leafletLayer) {
             leafletLayer.addTo(mapRef.current);
             layerRefs.current.set(layerId, leafletLayer);
+            console.log(`[Layer] Added from cache: ${layerId}, ref set: ${layerRefs.current.has(layerId)}`);
           }
           return prev.map(l => l.id === layerId ? { ...l, enabled: true, loaded: true, data: cachedData } : l);
         }
         
         if (layer.loaded && layer.data && mapRef.current) {
+          console.log(`[Layer] Using layer.data for: ${layerId}`);
           const leafletLayer = createLayerFromData(layerId, layer.data);
           if (leafletLayer) {
             leafletLayer.addTo(mapRef.current);
             layerRefs.current.set(layerId, leafletLayer);
+            console.log(`[Layer] Added from layer.data: ${layerId}, ref set: ${layerRefs.current.has(layerId)}`);
           }
           return prev.map(l => l.id === layerId ? { ...l, enabled: true } : l);
         }
         
         if (!layerLoadingRef.current.has(layerId)) {
+          console.log(`[Layer] Starting async load for: ${layerId}`);
           layerLoadingRef.current.add(layerId);
           
           loadLayerData(layerId).then(data => {
@@ -1301,7 +1317,14 @@ export default function SiteExplorerPage() {
               setLayers(currentLayers => {
                 const currentLayer = currentLayers.find(l => l.id === layerId);
                 if (!currentLayer?.enabled) {
+                  console.log(`[Layer] Async complete but disabled, skipping: ${layerId}`);
                   return currentLayers;
+                }
+                
+                // Check again if layer was added while we were loading
+                if (layerRefs.current.has(layerId)) {
+                  console.log(`[Layer] Async complete but already added, skipping: ${layerId}`);
+                  return currentLayers.map(l => l.id === layerId ? { ...l, loaded: true, data } : l);
                 }
                 
                 if (mapRef.current) {
@@ -1309,6 +1332,7 @@ export default function SiteExplorerPage() {
                   if (leafletLayer) {
                     leafletLayer.addTo(mapRef.current);
                     layerRefs.current.set(layerId, leafletLayer);
+                    console.log(`[Layer] Added from async: ${layerId}, ref set: ${layerRefs.current.has(layerId)}`);
                   }
                 }
                 
