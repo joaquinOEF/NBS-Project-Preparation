@@ -176,6 +176,8 @@ export default function SiteExplorerPage() {
     }))
   );
   const layerRefs = useRef<Map<string, L.Layer>>(new Map());
+  const layerLoadingRef = useRef<Set<string>>(new Set());
+  const layerDataCache = useRef<Map<string, any>>(new Map());
 
   const isSampleModeActive = isSampleMode || isSampleRoute;
 
@@ -1226,52 +1228,75 @@ export default function SiteExplorerPage() {
   }, []);
 
   const toggleLayer = useCallback(async (layerId: string) => {
-    const layer = layers.find(l => l.id === layerId);
-    if (!layer) return;
+    setLayers(prev => {
+      const layer = prev.find(l => l.id === layerId);
+      if (!layer) return prev;
 
-    if (layer.enabled) {
-      const existingLayer = layerRefs.current.get(layerId);
-      if (existingLayer && mapRef.current) {
-        mapRef.current.removeLayer(existingLayer);
-        layerRefs.current.delete(layerId);
-      }
-      setLayers(prev => prev.map(l => l.id === layerId ? { ...l, enabled: false } : l));
-    } else {
-      setLayers(prev => prev.map(l => l.id === layerId ? { ...l, enabled: true } : l));
-      
-      if (!layer.loaded) {
-        try {
-          const data = await loadLayerData(layerId);
+      if (layer.enabled) {
+        const existingLayer = layerRefs.current.get(layerId);
+        if (existingLayer && mapRef.current) {
+          mapRef.current.removeLayer(existingLayer);
+          layerRefs.current.delete(layerId);
+        }
+        return prev.map(l => l.id === layerId ? { ...l, enabled: false } : l);
+      } else {
+        const cachedData = layerDataCache.current.get(layerId);
+        
+        if (cachedData && mapRef.current) {
+          const leafletLayer = createLayerFromData(layerId, cachedData);
+          if (leafletLayer) {
+            leafletLayer.addTo(mapRef.current);
+            layerRefs.current.set(layerId, leafletLayer);
+          }
+          return prev.map(l => l.id === layerId ? { ...l, enabled: true, loaded: true, data: cachedData } : l);
+        }
+        
+        if (layer.loaded && layer.data && mapRef.current) {
+          const leafletLayer = createLayerFromData(layerId, layer.data);
+          if (leafletLayer) {
+            leafletLayer.addTo(mapRef.current);
+            layerRefs.current.set(layerId, leafletLayer);
+          }
+          return prev.map(l => l.id === layerId ? { ...l, enabled: true } : l);
+        }
+        
+        if (!layerLoadingRef.current.has(layerId)) {
+          layerLoadingRef.current.add(layerId);
           
-          setLayers(prev => {
-            const currentLayer = prev.find(l => l.id === layerId);
-            if (!currentLayer?.enabled) {
-              return prev;
-            }
+          loadLayerData(layerId).then(data => {
+            layerLoadingRef.current.delete(layerId);
             
-            if (mapRef.current && data) {
-              const leafletLayer = createLayerFromData(layerId, data);
-              if (leafletLayer) {
-                leafletLayer.addTo(mapRef.current);
-                layerRefs.current.set(layerId, leafletLayer);
-              }
+            if (data) {
+              layerDataCache.current.set(layerId, data);
+              
+              setLayers(currentLayers => {
+                const currentLayer = currentLayers.find(l => l.id === layerId);
+                if (!currentLayer?.enabled) {
+                  return currentLayers;
+                }
+                
+                if (mapRef.current) {
+                  const leafletLayer = createLayerFromData(layerId, data);
+                  if (leafletLayer) {
+                    leafletLayer.addTo(mapRef.current);
+                    layerRefs.current.set(layerId, leafletLayer);
+                  }
+                }
+                
+                return currentLayers.map(l => l.id === layerId ? { ...l, loaded: true, data } : l);
+              });
             }
-            
-            return prev.map(l => l.id === layerId ? { ...l, loaded: true, data } : l);
+          }).catch(error => {
+            console.error(`Failed to load layer ${layerId}:`, error);
+            layerLoadingRef.current.delete(layerId);
+            setLayers(currentLayers => currentLayers.map(l => l.id === layerId ? { ...l, enabled: false } : l));
           });
-        } catch (error) {
-          console.error(`Failed to load layer ${layerId}:`, error);
-          setLayers(prev => prev.map(l => l.id === layerId ? { ...l, enabled: false } : l));
         }
-      } else if (layer.data && mapRef.current) {
-        const leafletLayer = createLayerFromData(layerId, layer.data);
-        if (leafletLayer) {
-          leafletLayer.addTo(mapRef.current);
-          layerRefs.current.set(layerId, leafletLayer);
-        }
+        
+        return prev.map(l => l.id === layerId ? { ...l, enabled: true } : l);
       }
-    }
-  }, [layers, loadLayerData, createLayerFromData]);
+    });
+  }, [loadLayerData, createLayerFromData]);
 
   useEffect(() => {
     if (!mapRef.current || !elevationData) return;
