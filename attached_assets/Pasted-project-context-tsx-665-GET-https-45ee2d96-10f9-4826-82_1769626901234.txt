@@ -1,0 +1,81 @@
+project-context.tsx:665  GET https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/api/projects/sample-porto-alegre-project/blocks/funder_selection net::ERR_INSUFFICIENT_RESOURCES
+(anonymous) @ project-context.tsx:665
+(anonymous) @ project-context.tsx:664
+(anonymous) @ site-explorer.tsx:298
+commitHookEffectListMount @ chunk-YFQVIBER.js?v=ea79ed7e:16883
+commitPassiveMountOnFiber @ chunk-YFQVIBER.js?v=ea79ed7e:18124
+commitPassiveMountEffects_complete @ chunk-YFQVIBER.js?v=ea79ed7e:18097
+commitPassiveMountEffects_begin @ chunk-YFQVIBER.js?v=ea79ed7e:18087
+commitPassiveMountEffects @ chunk-YFQVIBER.js?v=ea79ed7e:18077
+flushPassiveEffectsImpl @ chunk-YFQVIBER.js?v=ea79ed7e:19458
+flushPassiveEffects @ chunk-YFQVIBER.js?v=ea79ed7e:19415
+performSyncWorkOnRoot @ chunk-YFQVIBER.js?v=ea79ed7e:18836
+flushSyncCallbacks @ chunk-YFQVIBER.js?v=ea79ed7e:9119
+commitRootImpl @ chunk-YFQVIBER.js?v=ea79ed7e:19400
+commitRoot @ chunk-YFQVIBER.js?v=ea79ed7e:19245
+finishConcurrentRender @ chunk-YFQVIBER.js?v=ea79ed7e:18773
+performConcurrentWorkOnRoot @ chunk-YFQVIBER.js?v=ea79ed7e:18686
+workLoop @ chunk-YFQVIBER.js?v=ea79ed7e:197
+flushWork @ chunk-YFQVIBER.js?v=ea79ed7e:176
+performWorkUntilDeadline @ chunk-YFQVIBER.js?v=ea79ed7e:384Understand this error
+project-context.tsx:665  GET https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/api/projects/sample-porto-alegre-project/blocks/site_explorer net::ERR_INSUFFICIENT_RESOURCES
+(anonymous) @ project-context.tsx:665
+(anonymous) @ project-context.tsx:664
+(anonymous) @ site-explorer.tsx:298
+commitHookEffectListMount @ chunk-YFQVIBER.js?v=ea79ed7e:16883
+commitPassiveMountOnFiber @ chunk-YFQVIBER.js?v=ea79ed7e:18124
+commitPassiveMountEffects_complete @ chunk-YFQVIBER.js?v=ea79ed7e:18097
+commitPassiveMountEffects_begin @ chunk-YFQVIBER.js?v=ea79ed7e:18087
+commitPassiveMountEffects @ chunk-YFQVIBER.js?v=ea79ed7e:18077
+flushPassiveEffectsImpl @ chunk-YFQVIBER.js?v=ea79ed7e:19458
+flushPassiveEffects @ chunk-YFQVIBER.js?v=ea79ed7e:19415
+performSyncWorkOnRoot @ chunk-YFQVIBER.js?v=ea79ed7e:18836
+flushSyncCallbacks @ chunk-YFQVIBER.js?v=ea79ed7e:9119
+commitRootImpl @ chunk-YFQVIBER.js?v=ea79ed7e:19400
+commitRoot @ chunk-YFQVIBER.js?v=ea79ed7e:19245
+finishConcurrentRender @ chunk-YFQVIBER.js?v=ea79ed7e:18773
+performConcurrentWorkOnRoot @ chunk-YFQVIBER.js?v=ea79ed7e:18686
+workLoop @ chunk-YFQVIBER.js?v=ea79ed7e:197
+flushWork @ chunk-YFQVIBER.js?v=ea79ed7e:176
+performWorkUntilDeadline @ chunk-YFQVIBER.js?v=ea79ed7e:384Understand this error
+project-context.tsx:665  GET https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/api/projects/sample-porto-alegre-project/blocks/impact_model net::ERR_INSUFFICIENT_RESOURCES
+(anonymous) @ project-context.tsx:665
+(anonymous) @ project-context.tsx:664
+(anonymous) @ site-explorer.tsx:298
+commitHookEffectListMount @ chunk-YFQVIBER.js?v=ea79ed7e:16883
+commitPassiveMountOnFiber @ chunk-YFQVIBER.js?v=ea79ed7e:18124
+commitPassiveMountEffects_complete @ chunk-YFQVIBER.js?v=ea79ed7e:18097
+commitPassiveMountEffects_begin @ chunk-YFQVIBER.js?v=ea79ed7e:18087
+commitPassiveMountEffects @ chunk-YFQVIBER.js?v=ea79ed7e:18077
+flushPassiveEffectsImpl @ chunk-YFQVIBER.js?v=ea79ed7e:19458
+flushPassiveEffects @ chunk-YFQVIBER.js?v=ea79ed7e:19415
+performSyncWorkOnRoot @ chunk-YFQVIBER.js?v=ea79ed7e:18836
+flushSyncCallbacks @ chunk-YFQVIBER.js?v=ea79ed7e:9119
+commitRootImpl @ chunk-YFQVIBER.js?v=ea79ed7e:19400
+commitRoot @ chunk-YFQVIBER.js?v=ea79ed7e:19245
+finishConcurrentRender @ chunk-YFQVIBER.js?v=ea79ed7e:18773
+performConcurrentWorkOnRoot @ chunk-YFQVIBER.js?v=ea79ed7e:18686
+workLoop @ chunk-YFQVIBER.js?v=ea79ed7e:197
+flushWork @ chunk-YFQVIBER.js?v=ea79ed7e:176
+performWorkUntilDeadline @ chunk-YFQVIBER.js?v=ea79ed7e:384Understand this error
+project-context.tsx:665  GET https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/api/projects/sample-porto-alegre-project/blocks/operations net::ERR_INSUFFICIENT_RESOURCES
+(anonymous) @ project-context.tsx:665
+(anonymous) @ project-context.tsx:664
+(anonymous) @ site-explorer.tsx:298
+commitHookEffectListMount @ chunk-YFQVIBER.js?v=ea79ed7e:16883
+commitPassiveMountOnFiber @ chunk-YFQVIBER.js?v=ea79ed7e:18124
+commitPassiveMountEffects_complete @ chunk-YFQVIBER.js?v=ea79ed7e:18097
+commitPassiveMountEffects_begin @ chunk-YFQVIBER.js?v=ea79ed7e:18087
+commitPassiveMountEffects @ chunk-YFQVIBER.js?v=ea79ed7e:18077
+flushPassiveEffectsImpl @ chunk-YFQVIBER.js?v=ea79ed7e:19458
+flushPassiveEffects @ chunk-YFQVIBER.js?v=ea79ed7e:19415
+performSyncWorkOnRoot @ chunk-YFQVIBER.js?v=ea79ed7e:18836
+flushSyncCallbacks @ chunk-YFQVIBER.js?v=ea79ed7e:9119
+commitRootImpl @ chunk-YFQVIBER.js?v=ea79ed7e:19400
+commitRoot @ chunk-YFQVIBER.js?v=ea79ed7e:19245
+finishConcurrentRender @ chunk-YFQVIBER.js?v=ea79ed7e:18773
+performConcurrentWorkOnRoot @ chunk-YFQVIBER.js?v=ea79ed7e:18686
+workLoop @ chunk-YFQVIBER.js?v=ea79ed7e:197
+flushWork @ chunk-YFQVIBER.js?v=ea79ed7e:176
+performWorkUntilDeadline @ chunk-YFQVIBER.js?v=ea79ed7e:384Understand this error
+project-context.tsx:665  GET https://45ee2d96-10f9-4826-82ec-0b9

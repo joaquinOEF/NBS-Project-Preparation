@@ -579,11 +579,27 @@ export default function SiteExplorerPage() {
       zoom: 11,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: 'abcd',
       maxZoom: 19,
+      updateWhenZooming: true,
+      updateWhenIdle: false,
+      keepBuffer: 4,
     }).addTo(map);
+    
+    tileLayer.on('tileerror', (error: any) => {
+      console.warn('Tile load error, retrying...', error.tile?.src);
+      setTimeout(() => {
+        if (error.tile) {
+          error.tile.src = error.tile.src;
+        }
+      }, 1000);
+    });
+    
+    map.on('zoomend moveend', () => {
+      setTimeout(() => map.invalidateSize(), 100);
+    });
 
     if (boundaryData.boundaryGeoJson) {
       const boundaryLayer = L.geoJSON(boundaryData.boundaryGeoJson, {
@@ -600,8 +616,14 @@ export default function SiteExplorerPage() {
 
     mapRef.current = map;
     setMapReady(true);
+    
+    const resizeObserver = new ResizeObserver(() => {
+      setTimeout(() => map.invalidateSize(), 50);
+    });
+    resizeObserver.observe(mapContainerRef.current);
 
     return () => {
+      resizeObserver.disconnect();
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
