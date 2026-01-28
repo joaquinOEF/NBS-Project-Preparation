@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
 import { SAMPLE_PROJECT_ID as SAMPLE_PROJECT_ID_CONST } from '@shared/sample-constants';
 
 export interface Stakeholder {
@@ -593,7 +593,7 @@ export const sampleSiteExplorer: SiteExplorerData = {
 
 interface ProjectContextValue {
   context: ProjectContextData | null;
-  loadContext: (projectId: string) => ProjectContextData | null;
+  loadContext: (projectId: string, options?: { skipDbSync?: boolean }) => ProjectContextData | null;
   saveContext: (data: Partial<ProjectContextData>) => void;
   updateModule: <K extends keyof Pick<ProjectContextData, 'funderSelection' | 'operations' | 'businessModel' | 'siteExplorer' | 'impactModel'>>(
     module: K,
@@ -615,6 +615,8 @@ const getDbProjectId = (projectId: string): string => {
 
 export function ProjectContextProvider({ children }: { children: ReactNode }) {
   const [context, setContext] = useState<ProjectContextData | null>(null);
+  const dbSyncedProjects = useRef<Set<string>>(new Set());
+  const dbSyncInProgress = useRef<Set<string>>(new Set());
 
   const syncAllModulesToDatabase = useCallback(async (projectId: string, contextData: ProjectContextData) => {
     const dbProjectId = getDbProjectId(projectId);
@@ -644,52 +646,65 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
     console.log('Synced all modules to database');
   }, []);
 
-  const loadContext = useCallback((projectId: string): ProjectContextData | null => {
+  const loadContext = useCallback((projectId: string, options?: { skipDbSync?: boolean }): ProjectContextData | null => {
     try {
       const stored = localStorage.getItem(`${PROJECT_CONTEXT_KEY}_${projectId}`);
       if (stored) {
         const parsed = JSON.parse(stored) as ProjectContextData;
         setContext(parsed);
         
-        const dbProjectId = getDbProjectId(projectId);
-        const blockTypeMap: Record<string, keyof Pick<ProjectContextData, 'funderSelection' | 'siteExplorer' | 'impactModel' | 'operations' | 'businessModel'>> = {
-          funder_selection: 'funderSelection',
-          site_explorer: 'siteExplorer',
-          impact_model: 'impactModel',
-          operations: 'operations',
-          business_model: 'businessModel',
-        };
+        const shouldSkipSync = options?.skipDbSync || 
+          dbSyncedProjects.current.has(projectId) || 
+          dbSyncInProgress.current.has(projectId);
         
-        Promise.all(
-          Object.keys(blockTypeMap).map(blockType =>
-            fetch(`/api/projects/${dbProjectId}/blocks/${blockType}`)
-              .then(res => res.ok ? res.json() : null)
-              .catch(() => null)
-          )
-        ).then(results => {
-          const blockTypes = Object.keys(blockTypeMap);
-          let hasUpdates = false;
-          const updatedContext = { ...parsed };
+        if (!shouldSkipSync) {
+          dbSyncInProgress.current.add(projectId);
           
-          results.forEach((result, idx) => {
-            if (result?.data) {
-              const moduleKey = blockTypeMap[blockTypes[idx]];
-              const dbData = result.data;
-              const localData = parsed[moduleKey];
-              
-              if (dbData && JSON.stringify(dbData) !== JSON.stringify(localData)) {
-                (updatedContext as Record<string, unknown>)[moduleKey] = dbData;
-                hasUpdates = true;
+          const dbProjectId = getDbProjectId(projectId);
+          const blockTypeMap: Record<string, keyof Pick<ProjectContextData, 'funderSelection' | 'siteExplorer' | 'impactModel' | 'operations' | 'businessModel'>> = {
+            funder_selection: 'funderSelection',
+            site_explorer: 'siteExplorer',
+            impact_model: 'impactModel',
+            operations: 'operations',
+            business_model: 'businessModel',
+          };
+          
+          Promise.all(
+            Object.keys(blockTypeMap).map(blockType =>
+              fetch(`/api/projects/${dbProjectId}/blocks/${blockType}`)
+                .then(res => res.ok ? res.json() : null)
+                .catch(() => null)
+            )
+          ).then(results => {
+            dbSyncInProgress.current.delete(projectId);
+            dbSyncedProjects.current.add(projectId);
+            
+            const blockTypes = Object.keys(blockTypeMap);
+            let hasUpdates = false;
+            const updatedContext = { ...parsed };
+            
+            results.forEach((result, idx) => {
+              if (result?.data) {
+                const moduleKey = blockTypeMap[blockTypes[idx]];
+                const dbData = result.data;
+                const localData = parsed[moduleKey];
+                
+                if (dbData && JSON.stringify(dbData) !== JSON.stringify(localData)) {
+                  (updatedContext as Record<string, unknown>)[moduleKey] = dbData;
+                  hasUpdates = true;
+                }
               }
+            });
+            
+            if (hasUpdates) {
+              setContext(updatedContext);
+              localStorage.setItem(`${PROJECT_CONTEXT_KEY}_${projectId}`, JSON.stringify(updatedContext));
+              console.log('Merged database updates into local context');
             }
+          }).catch(() => {
+            dbSyncInProgress.current.delete(projectId);
           });
-          
-          if (hasUpdates) {
-            setContext(updatedContext);
-            localStorage.setItem(`${PROJECT_CONTEXT_KEY}_${projectId}`, JSON.stringify(updatedContext));
-            console.log('Merged database updates into local context');
-          }
-        });
+        }
         
         return parsed;
       }

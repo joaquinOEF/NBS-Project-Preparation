@@ -1552,7 +1552,7 @@ export default function ImpactModelPage() {
       loadContext(projectId);
       hydrateFromDB();
       
-      const existingContext = loadContext(projectId);
+      const existingContext = loadContext(projectId, { skipDbSync: true });
       const savedNavigation = existingContext?.impactModel?.navigation;
       if (savedNavigation && !navigationRestored) {
         const stepIndex = savedNavigation.currentStep ?? 0;
@@ -1570,7 +1570,7 @@ export default function ImpactModelPage() {
   useEffect(() => {
     if (!projectId || !navigationRestored) return;
     
-    const existingContext = loadContext(projectId);
+    const existingContext = loadContext(projectId, { skipDbSync: true });
     const existingData = existingContext?.impactModel;
     if (!existingData) return;
     

@@ -615,7 +615,7 @@ export default function FunderSelectionPage() {
   // Hydrate questionnaire and navigation state from saved context
   useEffect(() => {
     if (projectId) {
-      const existingContext = loadContext(projectId);
+      const existingContext = loadContext(projectId, { skipDbSync: true });
       const savedData = existingContext?.funderSelection;
       const savedQuestionnaire = savedData?.questionnaire as QuestionnaireAnswers | undefined;
       const savedNavigation = savedData?.navigation;
@@ -726,7 +726,7 @@ export default function FunderSelectionPage() {
   useEffect(() => {
     if (!projectId || !navigationRestored) return;
     
-    const existingContext = loadContext(projectId);
+    const existingContext = loadContext(projectId, { skipDbSync: true });
     const existingData = existingContext?.funderSelection;
     if (!existingData) return;
     

@@ -295,7 +295,7 @@ export default function SiteExplorerPage() {
   useEffect(() => {
     if (!projectId || !navigationRestored) return;
     
-    const existingContext = loadContext(projectId);
+    const existingContext = loadContext(projectId, { skipDbSync: true });
     const existingData = existingContext?.siteExplorer;
     if (!existingData) return;
     

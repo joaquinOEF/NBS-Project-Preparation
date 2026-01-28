@@ -493,7 +493,7 @@ export default function BusinessModelPage() {
         setBMData(initial);
       }
       
-      const existingContext = loadContext(projectId);
+      const existingContext = loadContext(projectId, { skipDbSync: true });
       const savedNavigation = existingContext?.businessModel?.navigation;
       if (savedNavigation && !navigationRestored) {
         setCurrentStep(savedNavigation.currentStep ?? 0);
@@ -508,7 +508,7 @@ export default function BusinessModelPage() {
   useEffect(() => {
     if (!projectId || !navigationRestored) return;
     
-    const existingContext = loadContext(projectId);
+    const existingContext = loadContext(projectId, { skipDbSync: true });
     const existingData = existingContext?.businessModel;
     if (!existingData) return;
     

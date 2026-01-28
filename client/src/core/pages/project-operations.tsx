@@ -460,7 +460,7 @@ export default function ProjectOperationsPage() {
         setOMData(initial);
       }
       
-      const existingContext = loadContext(projectId);
+      const existingContext = loadContext(projectId, { skipDbSync: true });
       const savedNavigation = existingContext?.operations?.navigation;
       if (savedNavigation && !navigationRestored) {
         setCurrentStep(savedNavigation.currentStep ?? 0);
@@ -475,7 +475,7 @@ export default function ProjectOperationsPage() {
   useEffect(() => {
     if (!projectId || !navigationRestored) return;
     
-    const existingContext = loadContext(projectId);
+    const existingContext = loadContext(projectId, { skipDbSync: true });
     const existingData = existingContext?.operations;
     if (!existingData) return;
     
