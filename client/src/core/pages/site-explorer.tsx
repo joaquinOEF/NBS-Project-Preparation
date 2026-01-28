@@ -1262,6 +1262,13 @@ export default function SiteExplorerPage() {
         }
         return prev.map(l => l.id === layerId ? { ...l, enabled: false } : l);
       } else {
+        // Safety: remove any existing layer first to prevent duplicates
+        const existingLayer = layerRefs.current.get(layerId);
+        if (existingLayer && mapRef.current) {
+          mapRef.current.removeLayer(existingLayer);
+          layerRefs.current.delete(layerId);
+        }
+        
         const cachedData = layerDataCache.current.get(layerId);
         
         if (cachedData && mapRef.current) {
@@ -1320,37 +1327,28 @@ export default function SiteExplorerPage() {
     });
   }, [loadLayerData, createLayerFromData]);
 
+  // Cache elevation data when it arrives (don't auto-add to map)
   useEffect(() => {
-    if (!mapRef.current || !elevationData) return;
-
-    const elevationLayer = layers.find(l => l.id === 'elevation');
-    if (elevationLayer?.enabled && !layerRefs.current.has('elevation')) {
-      const leafletLayer = createLayerFromData('elevation', elevationData);
-      if (leafletLayer) {
-        leafletLayer.addTo(mapRef.current);
-        layerRefs.current.set('elevation', leafletLayer);
-        setLayers(prev => prev.map(l => l.id === 'elevation' ? { ...l, loaded: true, data: elevationData } : l));
-      }
+    if (elevationData) {
+      layerDataCache.current.set('elevation', elevationData);
+      setLayers(prev => prev.map(l => l.id === 'elevation' ? { ...l, loaded: true, data: elevationData } : l));
     }
-  }, [elevationData, layers, createLayerFromData]);
+  }, [elevationData]);
 
+  // Pre-load intervention zones data in sample mode (don't auto-add to map)
   useEffect(() => {
-    if (!mapReady || !mapRef.current || !isSampleModeActive) return;
+    if (!mapReady || !isSampleModeActive) return;
     
-    const zonesLayer = layers.find(l => l.id === 'intervention_zones');
-    if (zonesLayer?.enabled && !zonesLayer.loaded && !layerRefs.current.has('intervention_zones')) {
+    // Only pre-load data, don't add to map - toggleLayer handles that
+    if (!layerDataCache.current.has('intervention_zones')) {
       loadLayerData('intervention_zones').then(data => {
-        if (data && mapRef.current) {
-          const leafletLayer = createLayerFromData('intervention_zones', data);
-          if (leafletLayer) {
-            leafletLayer.addTo(mapRef.current);
-            layerRefs.current.set('intervention_zones', leafletLayer);
-            setLayers(prev => prev.map(l => l.id === 'intervention_zones' ? { ...l, loaded: true, data } : l));
-          }
+        if (data) {
+          layerDataCache.current.set('intervention_zones', data);
+          setLayers(prev => prev.map(l => l.id === 'intervention_zones' ? { ...l, loaded: true, data } : l));
         }
       });
     }
-  }, [mapReady, isSampleModeActive, layers, loadLayerData, createLayerFromData]);
+  }, [mapReady, isSampleModeActive, loadLayerData]);
 
   const isNotFound = isSampleModeActive 
     ? (!sampleAction || !isSampleProjectInitiated)
