@@ -13,6 +13,7 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/core/components/ui/collapsible';
 import { ScrollArea } from '@/core/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/core/components/ui/tooltip';
 import { useTranslation } from 'react-i18next';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useSampleData } from '@/core/contexts/sample-data-context';
@@ -577,13 +578,34 @@ function QuantifyStep({
   const { t } = useTranslation();
   const qi = data.quantifiedImpacts;
 
+  const confidenceDescriptions: Record<string, string> = {
+    HIGH: 'Strong evidence from multiple peer-reviewed studies or validated local data supports this estimate.',
+    MEDIUM: 'Moderate evidence from similar projects or regional studies. Values may vary based on local conditions.',
+    LOW: 'Limited evidence or expert judgment. Actual results could differ significantly.',
+  };
+
+  const evidenceDescriptions: Record<string, string> = {
+    EVIDENCE: 'Based on direct measurements or peer-reviewed scientific literature with strong empirical support.',
+    MODELLED: 'Derived from validated models calibrated with similar project data or regional benchmarks.',
+    ASSUMPTION: 'Expert estimate based on professional judgment. Requires validation during implementation.',
+  };
+
   const getConfidenceBadge = (confidence: string) => {
     const colors: Record<string, string> = {
       HIGH: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
       MEDIUM: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
       LOW: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
     };
-    return <Badge className={`text-xs ${colors[confidence] || colors.MEDIUM}`}>{confidence}</Badge>;
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge className={`text-xs cursor-help ${colors[confidence] || colors.MEDIUM}`}>{confidence}</Badge>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <p className="text-sm">{confidenceDescriptions[confidence] || 'Confidence level for this estimate.'}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
   };
 
   const getEvidenceBadge = (tier: string) => {
@@ -592,10 +614,38 @@ function QuantifyStep({
       MODELLED: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
       ASSUMPTION: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
     };
-    return <Badge variant="outline" className={`text-xs ${colors[tier] || colors.ASSUMPTION}`}>{tier}</Badge>;
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant="outline" className={`text-xs cursor-help ${colors[tier] || colors.ASSUMPTION}`}>{tier}</Badge>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <p className="text-sm">{evidenceDescriptions[tier] || 'Source of the estimate.'}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
+
+  const getConfidencePercentTooltip = (confidence: number) => {
+    const pct = Math.round(confidence * 100);
+    let description = 'Confidence level for this estimate.';
+    if (pct >= 70) description = 'High confidence: Strong evidence supports this estimate.';
+    else if (pct >= 40) description = 'Medium confidence: Moderate evidence from similar projects.';
+    else description = 'Low confidence: Limited evidence, actual results may vary.';
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="text-xs text-muted-foreground cursor-help">{pct}%</span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <p className="text-sm">{description}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
   };
 
   return (
+    <TooltipProvider>
     <div className="space-y-6">
       {/* Summary of enabled bundles */}
       <Card>
@@ -668,7 +718,7 @@ function QuantifyStep({
                           </div>
                           <div className="flex items-center justify-center gap-2">
                             {typeof kpi.confidence === 'number' ? (
-                              <span className="text-xs text-muted-foreground">{Math.round(kpi.confidence * 100)}%</span>
+                              getConfidencePercentTooltip(kpi.confidence)
                             ) : (
                               getConfidenceBadge(String(kpi.confidence))
                             )}
@@ -765,6 +815,7 @@ function QuantifyStep({
         </div>
       )}
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -2374,10 +2425,10 @@ export default function ImpactModelPage() {
 
         <StepIndicator currentStep={currentStep} steps={WIZARD_STEPS} />
 
-        {/* Generation Modal */}
+        {/* Generation Modal - shows during both quantifying and generating */}
         <GenerationModal 
-          isOpen={isGenerating} 
-          estimatedTime="30-60 seconds"
+          isOpen={isGenerating || isQuantifying} 
+          estimatedTime={isQuantifying ? "20-40 seconds" : "30-60 seconds"}
         />
 
         <div className="mb-6">
