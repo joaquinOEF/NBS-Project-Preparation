@@ -530,10 +530,16 @@ function SiteMapComponent({ zones }: { zones: SelectedZone[] }) {
 
     mapRef.current = map;
 
-    setTimeout(() => map.invalidateSize(), 200);
-    setTimeout(() => map.invalidateSize(), 500);
+    const timer1 = setTimeout(() => {
+      if (mapRef.current) mapRef.current.invalidateSize();
+    }, 200);
+    const timer2 = setTimeout(() => {
+      if (mapRef.current) mapRef.current.invalidateSize();
+    }, 500);
 
     return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
       map.remove();
       mapRef.current = null;
     };
