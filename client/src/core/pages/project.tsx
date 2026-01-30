@@ -430,18 +430,26 @@ function SiteMapComponent({ zones }: { zones: SelectedZone[] }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const [ready, setReady] = useState(false);
+  const mountedRef = useRef(true);
 
   const formatInterventionName = (name: string) => {
     return name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => setReady(true), 100);
-    return () => clearTimeout(timer);
+    mountedRef.current = true;
+    const timer = setTimeout(() => {
+      if (mountedRef.current) setReady(true);
+    }, 100);
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
     if (!ready || !mapContainerRef.current || zones.length === 0) return;
+    if (!mountedRef.current) return;
 
     const container = mapContainerRef.current;
     const rect = container.getBoundingClientRect();
@@ -452,95 +460,113 @@ function SiteMapComponent({ zones }: { zones: SelectedZone[] }) {
     }
 
     if (mapRef.current) {
-      mapRef.current.remove();
+      try {
+        mapRef.current.remove();
+      } catch (e) {
+        console.warn('[SiteMapComponent] Error removing old map:', e);
+      }
       mapRef.current = null;
     }
 
-    const firstCentroid = zones.flatMap(z => z.interventionPortfolio || [])
-      .find(i => i.centroid)?.centroid;
-    const defaultCenter: [number, number] = firstCentroid 
-      ? [firstCentroid[1], firstCentroid[0]] 
-      : [-30.03, -51.23];
+    let map: L.Map | null = null;
+    let timer1: NodeJS.Timeout | null = null;
+    let timer2: NodeJS.Timeout | null = null;
 
-    const map = L.map(container, {
-      center: defaultCenter,
-      zoom: 13,
-      scrollWheelZoom: false,
-      zoomControl: true,
-      attributionControl: false,
-    });
+    try {
+      const firstCentroid = zones.flatMap(z => z.interventionPortfolio || [])
+        .find(i => i.centroid)?.centroid;
+      const defaultCenter: [number, number] = firstCentroid 
+        ? [firstCentroid[1], firstCentroid[0]] 
+        : [-30.03, -51.23];
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      subdomains: 'abcd',
-      maxZoom: 19,
-    }).addTo(map);
-
-    const allMarkers: L.Marker[] = [];
-
-    zones.forEach(zone => {
-      const interventions = zone.interventionPortfolio || [];
-      const zoneName = formatZoneName(zone.zoneName || zone.zoneId);
-
-      interventions.forEach(intervention => {
-        if (!intervention.centroid) return;
-        const [lng, lat] = intervention.centroid;
-        const { color, icon } = getCategoryStyle(intervention.category);
-        const assetName = intervention.assetName || 'Site';
-
-        const marker = L.marker([lat, lng], {
-          icon: L.divIcon({
-            className: 'intervention-site-marker',
-            html: `
-              <div style="
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 32px;
-                height: 32px;
-                background: ${color};
-                border: 3px solid white;
-                border-radius: 50%;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-                font-size: 14px;
-              ">${icon}</div>
-            `,
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
-          }),
-        }).addTo(map);
-
-        marker.bindTooltip(
-          `<div style="text-align: center;">
-            <strong>${assetName}</strong><br/>
-            <span style="font-size: 11px; color: #666;">${formatInterventionName(intervention.interventionName)}</span><br/>
-            <span style="font-size: 10px; color: #888;">${zoneName}</span>
-          </div>`,
-          { direction: 'top', offset: [0, -16] }
-        );
-
-        allMarkers.push(marker);
+      map = L.map(container, {
+        center: defaultCenter,
+        zoom: 13,
+        scrollWheelZoom: false,
+        zoomControl: true,
+        attributionControl: false,
       });
-    });
 
-    if (allMarkers.length > 0) {
-      const group = L.featureGroup(allMarkers);
-      map.fitBounds(group.getBounds().pad(0.3));
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19,
+      }).addTo(map);
+
+      const allMarkers: L.Marker[] = [];
+
+      zones.forEach(zone => {
+        const interventions = zone.interventionPortfolio || [];
+        const zoneName = formatZoneName(zone.zoneName || zone.zoneId);
+
+        interventions.forEach(intervention => {
+          if (!intervention.centroid || !map) return;
+          const [lng, lat] = intervention.centroid;
+          const { color, icon } = getCategoryStyle(intervention.category);
+          const assetName = intervention.assetName || 'Site';
+
+          const marker = L.marker([lat, lng], {
+            icon: L.divIcon({
+              className: 'intervention-site-marker',
+              html: `
+                <div style="
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  width: 32px;
+                  height: 32px;
+                  background: ${color};
+                  border: 3px solid white;
+                  border-radius: 50%;
+                  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+                  font-size: 14px;
+                ">${icon}</div>
+              `,
+              iconSize: [32, 32],
+              iconAnchor: [16, 16],
+            }),
+          }).addTo(map);
+
+          marker.bindTooltip(
+            `<div style="text-align: center;">
+              <strong>${assetName}</strong><br/>
+              <span style="font-size: 11px; color: #666;">${formatInterventionName(intervention.interventionName)}</span><br/>
+              <span style="font-size: 10px; color: #888;">${zoneName}</span>
+            </div>`,
+            { direction: 'top', offset: [0, -16] }
+          );
+
+          allMarkers.push(marker);
+        });
+      });
+
+      if (allMarkers.length > 0 && map) {
+        const group = L.featureGroup(allMarkers);
+        map.fitBounds(group.getBounds().pad(0.3));
+      }
+
+      mapRef.current = map;
+
+      timer1 = setTimeout(() => {
+        try {
+          if (mapRef.current && mountedRef.current) mapRef.current.invalidateSize();
+        } catch (e) { /* ignore */ }
+      }, 200);
+      timer2 = setTimeout(() => {
+        try {
+          if (mapRef.current && mountedRef.current) mapRef.current.invalidateSize();
+        } catch (e) { /* ignore */ }
+      }, 500);
+    } catch (e) {
+      console.warn('[SiteMapComponent] Error initializing map:', e);
     }
 
-    mapRef.current = map;
-
-    const timer1 = setTimeout(() => {
-      if (mapRef.current) mapRef.current.invalidateSize();
-    }, 200);
-    const timer2 = setTimeout(() => {
-      if (mapRef.current) mapRef.current.invalidateSize();
-    }, 500);
-
     return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      map.remove();
+      if (timer1) clearTimeout(timer1);
+      if (timer2) clearTimeout(timer2);
+      try {
+        if (map) map.remove();
+      } catch (e) { /* ignore cleanup errors */ }
       mapRef.current = null;
     };
   }, [zones, ready]);
