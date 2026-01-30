@@ -159,6 +159,13 @@ interface ZoneProperties {
   populationSum?: number;
 }
 
+function formatZoneName(zoneId: string): string {
+  if (zoneId.startsWith('zone_')) {
+    return `Zone ${zoneId.replace('zone_', '')}`;
+  }
+  return zoneId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 export default function SiteExplorerPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { t } = useTranslation();
@@ -1102,7 +1109,7 @@ export default function SiteExplorerPage() {
               const interventionDesc = t(`interventionZones.interventions.${p.interventionType}_desc`) || '';
               
               let tooltip = `<div style="min-width: 200px;">` +
-                `<strong style="font-size: 14px;">${p.zoneId}: ${typologyLabel}</strong><br/>` +
+                `<strong style="font-size: 14px;">${formatZoneName(p.zoneId)}: ${typologyLabel}</strong><br/>` +
                 `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
                 `<strong>${t('interventionZones.metrics.intervention')}:</strong> ${interventionLabel}<br/>` +
                 `<em style="font-size: 11px;">${interventionDesc}</em><br/>` +
@@ -1699,7 +1706,7 @@ export default function SiteExplorerPage() {
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm truncate text-white">{zone.zoneId}</span>
+                            <span className="font-medium text-sm truncate text-white">{formatZoneName(zone.zoneId)}</span>
                             <span className="text-xs px-1.5 py-0.5 rounded bg-white/10 text-zinc-300">
                               {(zone.maxRisk * 100).toFixed(0)}%
                             </span>
@@ -1821,7 +1828,7 @@ export default function SiteExplorerPage() {
                       style={{ backgroundColor: TYPOLOGY_COLORS[selectedZone.typologyLabel] || '#10b981' }}
                     />
                     <div>
-                      <h3 className="font-semibold">{selectedZone.zoneId}</h3>
+                      <h3 className="font-semibold">{formatZoneName(selectedZone.zoneId)}</h3>
                       <p className="text-sm text-muted-foreground">
                         {t(`interventionZones.typologies.${selectedZone.typologyLabel}`)}
                       </p>
