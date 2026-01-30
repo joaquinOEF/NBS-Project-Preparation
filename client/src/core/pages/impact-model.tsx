@@ -639,84 +639,101 @@ function QuantifyStep({
 
       {/* Quantified KPI cards */}
       {qi && qi.impactGroups.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {qi.impactGroups.map((group) => (
-            <Card key={group.id}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-base">{group.interventionBundle}</CardTitle>
-                  <Badge variant="outline" className="text-xs">{group.hazardType}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-3">
-                  {group.kpis.map((kpi) => (
-                    <div key={kpi.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{kpi.name}</p>
-                        <p className="text-xs text-muted-foreground">{kpi.methodology}</p>
+            <div key={group.id} className="space-y-4">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold">{group.interventionBundle}</h3>
+                <Badge variant="outline">{group.hazardType}</Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {group.kpis.map((kpi) => (
+                  <Card key={kpi.id} className="overflow-hidden">
+                    <CardContent className="p-5">
+                      <div className="space-y-3">
+                        <div className="text-center">
+                          <p className="text-3xl font-bold text-primary">
+                            {kpi.valueRange.low}–{kpi.valueRange.high}
+                          </p>
+                          <p className="text-sm font-medium text-muted-foreground">{kpi.unit}</p>
+                        </div>
+                        <div className="pt-2 border-t">
+                          <p className="text-sm font-medium leading-snug">{kpi.name}</p>
+                        </div>
+                        <div className="flex items-center justify-center gap-2">
+                          {typeof kpi.confidence === 'number' ? (
+                            <span className="text-xs text-muted-foreground">{Math.round(kpi.confidence * 100)}%</span>
+                          ) : (
+                            getConfidenceBadge(kpi.confidence)
+                          )}
+                          {getEvidenceBadge(kpi.evidenceTier)}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono">
-                          {kpi.valueRange.low}–{kpi.valueRange.high} {kpi.unit}
-                        </span>
-                        {getConfidenceBadge(kpi.confidence)}
-                        {getEvidenceBadge(kpi.evidenceTier)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           ))}
 
           {/* Co-benefits summary */}
           {qi.coBenefits.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">{t('impactModel.quantify.coBenefitsTitle')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-2">
-                  {qi.coBenefits.map((cb) => (
-                    <div key={cb.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
-                      <div>
-                        <p className="text-sm font-medium">{cb.title}</p>
-                        <p className="text-xs text-muted-foreground">{cb.category}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {cb.valueRange && (
-                          <span className="text-xs font-mono">{cb.valueRange.low}–{cb.valueRange.high} {cb.unit}</span>
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">{t('impactModel.quantify.coBenefitsTitle')}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {qi.coBenefits.map((cb) => (
+                  <Card key={cb.id} className="overflow-hidden">
+                    <CardContent className="p-5">
+                      <div className="space-y-3">
+                        {cb.valueRange ? (
+                          <div className="text-center">
+                            <p className="text-2xl font-bold text-primary">
+                              {cb.valueRange.low}–{cb.valueRange.high}
+                            </p>
+                            <p className="text-sm font-medium text-muted-foreground">{cb.unit}</p>
+                          </div>
+                        ) : (
+                          <div className="text-center">
+                            <Badge className="bg-primary/10 text-primary hover:bg-primary/10">{cb.category}</Badge>
+                          </div>
                         )}
-                        {getConfidenceBadge(cb.confidence)}
+                        <div className="pt-2 border-t">
+                          <p className="text-sm font-medium leading-snug">{cb.title}</p>
+                        </div>
+                        <div className="flex items-center justify-center gap-2">
+                          {getConfidenceBadge(cb.confidence)}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* MRV indicators */}
           {qi.mrvIndicators.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">{t('impactModel.quantify.mrvTitle')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-2">
-                  {qi.mrvIndicators.map((mrv) => (
-                    <div key={mrv.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
-                      <div>
-                        <p className="text-sm font-medium">{mrv.name}</p>
-                        <p className="text-xs text-muted-foreground">{mrv.dataSource} ({mrv.frequency})</p>
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">{t('impactModel.quantify.mrvTitle')}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {qi.mrvIndicators.map((mrv) => (
+                  <Card key={mrv.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 space-y-1">
+                          <p className="text-sm font-medium">{mrv.name}</p>
+                          <p className="text-xs text-muted-foreground">{mrv.dataSource}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-primary">{mrv.baselineValue} → {mrv.targetValue}</p>
+                          <p className="text-xs text-muted-foreground">{mrv.frequency}</p>
+                        </div>
                       </div>
-                      <span className="text-xs font-mono">{mrv.baselineValue} → {mrv.targetValue}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Re-quantify button */}
