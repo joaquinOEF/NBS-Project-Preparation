@@ -16,13 +16,13 @@ import { ScrollArea } from '@/core/components/ui/scroll-area';
 import { useTranslation } from 'react-i18next';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useSampleData } from '@/core/contexts/sample-data-context';
-import { useProjectContext, ImpactModelData, LensType, InterventionBundle, NarrativeBlock, CoBenefitCard, SignalCard, sampleSiteExplorer, sampleFunderSelection } from '@/core/contexts/project-context';
+import { useProjectContext, ImpactModelData, LensType, InterventionBundle, NarrativeBlock, CoBenefitCard, SignalCard, QuantifyResponse, QuantifiedImpactGroup, QuantifiedKPI, sampleSiteExplorer, sampleFunderSelection } from '@/core/contexts/project-context';
 import { useToast } from '@/core/hooks/use-toast';
 import { useChatState } from '@/core/contexts/chat-context';
 
-type WizardStep = 'setup' | 'curate' | 'lenses' | 'export';
+type WizardStep = 'setup' | 'quantify' | 'curate' | 'narrate' | 'lenses' | 'export';
 
-const WIZARD_STEPS: WizardStep[] = ['setup', 'curate', 'lenses', 'export'];
+const WIZARD_STEPS: WizardStep[] = ['setup', 'quantify', 'curate', 'narrate', 'lenses', 'export'];
 
 const GENERATION_PHRASES = [
   'Estimating project impact',
@@ -35,6 +35,7 @@ const GENERATION_PHRASES = [
 const getDefaultImpactModelData = (): ImpactModelData => ({
   status: 'NOT_STARTED',
   interventionBundles: [],
+  quantifiedImpacts: null,
   narrativeCache: {
     base: null,
     lensVariants: {
@@ -562,8 +563,262 @@ function renderMarkdown(text: string): string {
   return DOMPurify.sanitize(`<p class="my-3">${html}</p>`);
 }
 
-function CurateStep({ 
-  data, 
+function QuantifyStep({
+  data,
+  onUpdate,
+  isQuantifying,
+  onQuantify,
+}: {
+  data: ImpactModelData;
+  onUpdate: (d: Partial<ImpactModelData>) => void;
+  isQuantifying: boolean;
+  onQuantify: () => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const qi = data.quantifiedImpacts;
+
+  const getConfidenceBadge = (confidence: string) => {
+    const colors: Record<string, string> = {
+      HIGH: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+      MEDIUM: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+      LOW: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+    };
+    return <Badge className={`text-xs ${colors[confidence] || colors.MEDIUM}`}>{confidence}</Badge>;
+  };
+
+  const getEvidenceBadge = (tier: string) => {
+    const colors: Record<string, string> = {
+      EVIDENCE: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+      MODELLED: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+      ASSUMPTION: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+    };
+    return <Badge variant="outline" className={`text-xs ${colors[tier] || colors.ASSUMPTION}`}>{tier}</Badge>;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Summary of enabled bundles */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">{t('impactModel.quantify.title')}</CardTitle>
+          <CardDescription>{t('impactModel.quantify.description')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3 mb-4">
+            <Badge variant="outline">
+              {data.interventionBundles.filter(b => b.enabled).length} {t('impactModel.quantify.bundlesEnabled')}
+            </Badge>
+            {qi && (
+              <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                {qi.evidenceContext.chunksUsed} {t('impactModel.quantify.evidenceChunks')}
+              </Badge>
+            )}
+          </div>
+
+          {!qi && (
+            <Button
+              onClick={onQuantify}
+              disabled={isQuantifying || (data.interventionBundles.filter(b => b.enabled).length === 0)}
+              className="w-full"
+            >
+              {isQuantifying ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t('impactModel.quantify.quantifying')}
+                </>
+              ) : (
+                <>
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  {t('impactModel.quantify.quantifyButton')}
+                </>
+              )}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Quantified KPI cards */}
+      {qi && qi.impactGroups.length > 0 && (
+        <div className="space-y-4">
+          {qi.impactGroups.map((group) => (
+            <Card key={group.id}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-base">{group.interventionBundle}</CardTitle>
+                  <Badge variant="outline" className="text-xs">{group.hazardType}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3">
+                  {group.kpis.map((kpi) => (
+                    <div key={kpi.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{kpi.name}</p>
+                        <p className="text-xs text-muted-foreground">{kpi.methodology}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono">
+                          {kpi.valueRange.low}–{kpi.valueRange.high} {kpi.unit}
+                        </span>
+                        {getConfidenceBadge(kpi.confidence)}
+                        {getEvidenceBadge(kpi.evidenceTier)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* Co-benefits summary */}
+          {qi.coBenefits.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">{t('impactModel.quantify.coBenefitsTitle')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-2">
+                  {qi.coBenefits.map((cb) => (
+                    <div key={cb.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
+                      <div>
+                        <p className="text-sm font-medium">{cb.title}</p>
+                        <p className="text-xs text-muted-foreground">{cb.category}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {cb.valueRange && (
+                          <span className="text-xs font-mono">{cb.valueRange.low}–{cb.valueRange.high} {cb.unit}</span>
+                        )}
+                        {getConfidenceBadge(cb.confidence)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* MRV indicators */}
+          {qi.mrvIndicators.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">{t('impactModel.quantify.mrvTitle')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-2">
+                  {qi.mrvIndicators.map((mrv) => (
+                    <div key={mrv.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
+                      <div>
+                        <p className="text-sm font-medium">{mrv.name}</p>
+                        <p className="text-xs text-muted-foreground">{mrv.dataSource} ({mrv.frequency})</p>
+                      </div>
+                      <span className="text-xs font-mono">{mrv.baselineValue} → {mrv.targetValue}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Re-quantify button */}
+          <Button
+            variant="outline"
+            onClick={onQuantify}
+            disabled={isQuantifying}
+            className="w-full"
+          >
+            {isQuantifying ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {t('impactModel.quantify.quantifying')}
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                {t('impactModel.quantify.reQuantify')}
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NarrateStep({
+  data,
+  onUpdate,
+  isNarrating,
+  onNarrate,
+}: {
+  data: ImpactModelData;
+  onUpdate: (d: Partial<ImpactModelData>) => void;
+  isNarrating: boolean;
+  onNarrate: () => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const hasNarrative = (data.narrativeCache?.base?.length ?? 0) > 0;
+  const hasKPIs = (data.quantifiedImpacts?.impactGroups?.length ?? 0) > 0;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">{t('impactModel.narrate.title')}</CardTitle>
+          <CardDescription>{t('impactModel.narrate.description')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* KPI input summary */}
+          {hasKPIs && (
+            <div className="p-3 rounded-lg bg-muted/50">
+              <p className="text-sm font-medium mb-1">{t('impactModel.narrate.kpiSummary')}</p>
+              <p className="text-xs text-muted-foreground">
+                {data.quantifiedImpacts!.impactGroups.length} {t('impactModel.narrate.impactGroups')},
+                {' '}{data.quantifiedImpacts!.coBenefits.length} {t('impactModel.narrate.coBenefitsCount')},
+                {' '}{data.quantifiedImpacts!.mrvIndicators.length} {t('impactModel.narrate.mrvCount')}
+              </p>
+            </div>
+          )}
+
+          {/* Generate prose or skip */}
+          <div className="flex gap-3">
+            <Button
+              onClick={onNarrate}
+              disabled={isNarrating}
+              className="flex-1"
+            >
+              {isNarrating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t('impactModel.narrate.generating')}
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  {hasNarrative ? t('impactModel.narrate.regenerate') : t('impactModel.narrate.generate')}
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Show generated blocks count */}
+          {hasNarrative && (
+            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
+              <div className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-green-600" />
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  {data.narrativeCache!.base!.length} {t('impactModel.narrate.blocksGenerated')}
+                </p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function CurateStep({
+  data,
   onUpdate,
   onRegenerateBlock,
   isRegenerating
@@ -1449,6 +1704,7 @@ export default function ImpactModelPage() {
   const [currentStep, setCurrentStep] = useState<WizardStep>('setup');
   const [navigationRestored, setNavigationRestored] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isQuantifying, setIsQuantifying] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState<string | null>(null);
   const [isGeneratingLens, setIsGeneratingLens] = useState<LensType | null>(null);
   const [localData, setLocalData] = useState<ImpactModelData>(getDefaultImpactModelData());
@@ -1458,7 +1714,9 @@ export default function ImpactModelPage() {
   useEffect(() => {
     const stepLabels: Record<WizardStep, string> = {
       setup: 'Configure Inputs',
+      quantify: 'Quantify Impacts',
       curate: 'Curate Narratives',
+      narrate: 'Generate Prose',
       lenses: 'Apply Funder Lenses',
       export: 'Export & Share',
     };
@@ -1637,6 +1895,55 @@ export default function ImpactModelPage() {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleQuantify = async () => {
+    setIsQuantifying(true);
+    try {
+      const zonesForAI = siteExplorerZones.map(zone => ({
+        zoneId: zone.zoneId,
+        hazardType: zone.hazardType,
+        riskScore: 'riskScore' in zone ? zone.riskScore : 0.5,
+        area: 'area' in zone ? zone.area : undefined,
+        interventionType: 'interventionType' in zone ? zone.interventionType : undefined,
+      }));
+
+      const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;
+
+      const response = await fetch('/api/impact-model/quantify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: dbProjectId,
+          selectedZones: zonesForAI,
+          interventionBundles: localData.interventionBundles || [],
+          funderPathway: funderPathway,
+          projectName: context?.projectName || 'Urban Climate Resilience Initiative',
+          cityName: context?.cityName || 'Porto Alegre',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to quantify impacts');
+      }
+
+      const result = await response.json();
+      handleUpdate({ quantifiedImpacts: result, status: 'DRAFT' });
+
+      toast({
+        title: t('impactModel.quantify.success'),
+        description: `${result.impactGroups?.length || 0} ${t('impactModel.quantify.impactGroupsGenerated')}, ${result.evidenceContext?.chunksUsed || 0} ${t('impactModel.quantify.evidenceChunks')}`,
+      });
+    } catch (error) {
+      console.error('Quantify error:', error);
+      toast({
+        title: t('common.error'),
+        description: t('impactModel.quantify.failed'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsQuantifying(false);
     }
   };
 
@@ -1872,9 +2179,11 @@ export default function ImpactModelPage() {
     switch (currentStep) {
       case 'setup':
         return (localData.interventionBundles?.length ?? 0) > 0;
+      case 'quantify':
+        return !!localData.quantifiedImpacts;
       case 'curate':
+      case 'narrate':
       case 'lenses':
-        return true;
       case 'export':
         return true;
       default:
@@ -1885,7 +2194,7 @@ export default function ImpactModelPage() {
   const handleGenerateAndProceed = async () => {
     setIsGenerating(true);
     await handleGenerate();
-    setCurrentStep('curate');
+    setCurrentStep('narrate');
   };
 
   const currentStepIndex = WIZARD_STEPS.indexOf(currentStep);
@@ -1952,22 +2261,38 @@ export default function ImpactModelPage() {
 
         <div className="mb-6">
           {currentStep === 'setup' && (
-            <SetupStep 
-              data={localData} 
-              onUpdate={handleUpdate} 
-              siteExplorerZones={siteExplorerZones} 
+            <SetupStep
+              data={localData}
+              onUpdate={handleUpdate}
+              siteExplorerZones={siteExplorerZones}
               usingSampleData={usingSampleData}
               cityName={cityName}
               projectName={projectName}
               funderName={funderName}
             />
           )}
+          {currentStep === 'quantify' && (
+            <QuantifyStep
+              data={localData}
+              onUpdate={handleUpdate}
+              isQuantifying={isQuantifying}
+              onQuantify={handleQuantify}
+            />
+          )}
           {currentStep === 'curate' && (
-            <CurateStep 
-              data={localData} 
+            <CurateStep
+              data={localData}
               onUpdate={handleUpdate}
               onRegenerateBlock={handleRegenerateBlock}
               isRegenerating={isRegenerating}
+            />
+          )}
+          {currentStep === 'narrate' && (
+            <NarrateStep
+              data={localData}
+              onUpdate={handleUpdate}
+              isNarrating={isGenerating}
+              onNarrate={handleGenerate}
             />
           )}
           {currentStep === 'lenses' && (
@@ -1998,54 +2323,7 @@ export default function ImpactModelPage() {
           >
             {t('common.previous')}
           </Button>
-          {currentStep === 'setup' ? (
-            <div className="flex gap-2">
-              {localData.narrativeCache?.base && localData.narrativeCache.base.length > 0 ? (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={handleGenerateAndProceed}
-                    disabled={!canProceed() || isGenerating}
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        {t('impactModel.generating')}
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        {t('impactModel.regenerateNarrative')}
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    onClick={() => setCurrentStep('curate')}
-                    disabled={isGenerating}
-                  >
-                    {t('impactModel.continueWithExisting')}
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  onClick={handleGenerateAndProceed}
-                  disabled={!canProceed() || isGenerating}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      {t('impactModel.generating')}
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      {t('impactModel.generateNarrative')}
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          ) : currentStepIndex < WIZARD_STEPS.length - 1 ? (
+          {currentStepIndex < WIZARD_STEPS.length - 1 ? (
             <Button
               onClick={() => setCurrentStep(WIZARD_STEPS[currentStepIndex + 1])}
               disabled={!canProceed()}

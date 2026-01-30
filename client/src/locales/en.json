@@ -1371,10 +1371,37 @@
     "subtitle": "Generate AI-powered impact narratives to communicate your project's value",
     "steps": {
       "setup": "Setup",
-      "generate": "Generate",
+      "quantify": "Quantify",
       "curate": "Curate",
+      "narrate": "Narrate",
       "lenses": "Lenses",
       "export": "Export"
+    },
+    "quantify": {
+      "title": "Quantify Impacts",
+      "description": "Generate evidence-grounded KPIs from your knowledge base",
+      "bundlesEnabled": "bundles enabled",
+      "evidenceChunks": "evidence chunks used",
+      "quantifying": "Quantifying...",
+      "quantifyButton": "Quantify with Evidence",
+      "reQuantify": "Re-quantify",
+      "success": "Impacts Quantified",
+      "impactGroupsGenerated": "impact groups generated",
+      "failed": "Failed to quantify impacts",
+      "coBenefitsTitle": "Quantified Co-Benefits",
+      "mrvTitle": "MRV Indicators"
+    },
+    "narrate": {
+      "title": "Generate Narrative",
+      "description": "Generate prose narrative blocks grounded in your quantified KPIs",
+      "kpiSummary": "Quantified data available",
+      "impactGroups": "impact groups",
+      "coBenefitsCount": "co-benefits",
+      "mrvCount": "MRV indicators",
+      "generating": "Generating narrative...",
+      "generate": "Generate Prose Narrative",
+      "regenerate": "Regenerate Narrative",
+      "blocksGenerated": "narrative blocks generated"
     },
     "interventionBundles": "Intervention Bundles",
     "bundlesDescription": "Select which intervention zones to include in the impact narrative",

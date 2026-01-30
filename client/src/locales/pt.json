@@ -1371,10 +1371,37 @@
     "subtitle": "Gere narrativas de impacto com IA para comunicar o valor do seu projeto",
     "steps": {
       "setup": "Configuração",
-      "generate": "Gerar",
+      "quantify": "Quantificar",
       "curate": "Curar",
+      "narrate": "Narrar",
       "lenses": "Lentes",
       "export": "Exportar"
+    },
+    "quantify": {
+      "title": "Quantificar Impactos",
+      "description": "Gere KPIs fundamentados em evidências da base de conhecimento",
+      "bundlesEnabled": "pacotes habilitados",
+      "evidenceChunks": "trechos de evidência usados",
+      "quantifying": "Quantificando...",
+      "quantifyButton": "Quantificar com Evidências",
+      "reQuantify": "Re-quantificar",
+      "success": "Impactos Quantificados",
+      "impactGroupsGenerated": "grupos de impacto gerados",
+      "failed": "Falha ao quantificar impactos",
+      "coBenefitsTitle": "Co-Benefícios Quantificados",
+      "mrvTitle": "Indicadores MRV"
+    },
+    "narrate": {
+      "title": "Gerar Narrativa",
+      "description": "Gere blocos narrativos em prosa fundamentados nos KPIs quantificados",
+      "kpiSummary": "Dados quantificados disponíveis",
+      "impactGroups": "grupos de impacto",
+      "coBenefitsCount": "co-benefícios",
+      "mrvCount": "indicadores MRV",
+      "generating": "Gerando narrativa...",
+      "generate": "Gerar Narrativa em Prosa",
+      "regenerate": "Regenerar Narrativa",
+      "blocksGenerated": "blocos narrativos gerados"
     },
     "interventionBundles": "Pacotes de Intervenção",
     "bundlesDescription": "Selecione quais zonas de intervenção incluir na narrativa de impacto",
