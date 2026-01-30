@@ -1,6 +1,6 @@
 import { useParams, Link } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain, Building2, MapPinned, MapPin, X, Plus, Check, DollarSign, Clock, Wrench, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, Leaf, Trash2, CheckCircle, Eye, EyeOff, Search } from 'lucide-react';
+import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain, Building2, MapPinned, MapPin, X, Plus, Check, DollarSign, Clock, Wrench, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, Leaf, Trash2, CheckCircle, Eye, EyeOff, Search, Info } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Badge } from '@/core/components/ui/badge';
@@ -11,6 +11,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/core/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Input } from '@/core/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/core/components/ui/tooltip';
 import { useToast } from '@/core/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { useProjectContext, SelectedZone, SelectedIntervention } from '@/core/contexts/project-context';
@@ -239,9 +241,9 @@ export default function SiteExplorerPage() {
   const [osmSearchResults, setOsmSearchResults] = useState<any[]>([]);
   const [isSearchingOsm, setIsSearchingOsm] = useState(false);
   const [manualAssetName, setManualAssetName] = useState('');
-  const [manualAssetLat, setManualAssetLat] = useState('');
-  const [manualAssetLng, setManualAssetLng] = useState('');
+  const [manualAssetCoords, setManualAssetCoords] = useState('');
   const [manualAssetArea, setManualAssetArea] = useState('');
+  const [manualAssetType, setManualAssetType] = useState('');
   const highlightLayerRef = useRef<L.Layer | null>(null);
   const osmLayerRef = useRef<L.Layer | null>(null);
   const selectedAssetMarkerRef = useRef<L.Marker | null>(null);
@@ -895,16 +897,28 @@ export default function SiteExplorerPage() {
     }
   }, [osmSearchQuery, selectedZoneFeature, selectedCategory, interventionsData, toast]);
 
+  const parseCoordinates = useCallback((coordString: string): { lat: number; lng: number } | null => {
+    const cleaned = coordString.trim().replace(/\s+/g, ' ');
+    const parts = cleaned.split(/[,\s]+/).filter(p => p.length > 0);
+    if (parts.length >= 2) {
+      const lat = parseFloat(parts[0]);
+      const lng = parseFloat(parts[1]);
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return { lat, lng };
+      }
+    }
+    return null;
+  }, []);
+
   const createManualAsset = useCallback(() => {
-    if (!manualAssetName.trim() || !manualAssetLat || !manualAssetLng || !selectedCategory) return;
+    if (!manualAssetName.trim() || !manualAssetCoords.trim() || !selectedCategory) return;
     
-    const lat = parseFloat(manualAssetLat);
-    const lng = parseFloat(manualAssetLng);
+    const coords = parseCoordinates(manualAssetCoords);
     
-    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    if (!coords) {
       toast({
         title: 'Invalid coordinates',
-        description: 'Please enter valid latitude (-90 to 90) and longitude (-180 to 180).',
+        description: 'Please enter valid coordinates in the format: latitude, longitude (e.g., -30.024, -51.220)',
         variant: 'destructive',
       });
       return;
@@ -916,8 +930,8 @@ export default function SiteExplorerPage() {
     const manualAsset = {
       id: `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name: manualAssetName,
-      assetType: `manual=${selectedCategory}`,
-      centroid: [lat, lng] as [number, number],
+      assetType: manualAssetType || `manual=${selectedCategory}`,
+      centroid: [coords.lat, coords.lng] as [number, number],
       area: areaM2,
       length: 0,
       compatibleInterventions: interventionsInCategory,
@@ -927,10 +941,10 @@ export default function SiteExplorerPage() {
     setSelectedAsset(manualAsset);
     setShowAddAssetDialog(false);
     setManualAssetName('');
-    setManualAssetLat('');
-    setManualAssetLng('');
+    setManualAssetCoords('');
     setManualAssetArea('');
-  }, [manualAssetName, manualAssetLat, manualAssetLng, manualAssetArea, selectedCategory, interventionsData, toast]);
+    setManualAssetType('');
+  }, [manualAssetName, manualAssetCoords, manualAssetArea, manualAssetType, selectedCategory, interventionsData, toast, parseCoordinates]);
 
   const selectSearchResult = useCallback((asset: any) => {
     setSelectedAsset(asset);
@@ -1902,6 +1916,15 @@ export default function SiteExplorerPage() {
                         <div className="flex flex-col items-center justify-center py-8 gap-3">
                           <Loader2 className="h-8 w-8 animate-spin text-primary" />
                           <p className="text-sm text-muted-foreground">Searching for compatible assets...</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowAddAssetDialog(true)}
+                            className="gap-1 mt-2"
+                          >
+                            <Plus className="h-4 w-4" />
+                            Add Custom Site
+                          </Button>
                         </div>
                       ) : osmAssets.length === 0 ? (
                         <div className="text-center py-8">
@@ -1925,6 +1948,15 @@ export default function SiteExplorerPage() {
                               <p className="text-sm text-muted-foreground mt-1">{t('siteExplorer.noAssetsErrorDescription')}</p>
                             </>
                           )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowAddAssetDialog(true)}
+                            className="gap-1 mt-3"
+                          >
+                            <Plus className="h-4 w-4" />
+                            Add Custom Site
+                          </Button>
                         </div>
                       ) : (
                         <>
@@ -1942,7 +1974,7 @@ export default function SiteExplorerPage() {
                               className="gap-1"
                             >
                               <Plus className="h-4 w-4" />
-                              Add Custom
+                              Add Custom Site
                             </Button>
                           </div>
                           {osmResultsTruncated && !osmShowAll && osmAssets.length > OSM_RESULT_LIMIT && (
@@ -2214,37 +2246,62 @@ export default function SiteExplorerPage() {
           ) : (
             <div className="space-y-4">
               <div>
-                <Label htmlFor="assetName">Asset Name</Label>
+                <Label htmlFor="assetName">Site Name</Label>
                 <Input
                   id="assetName"
-                  placeholder="Enter a name for this location"
+                  placeholder="Enter a name for this site"
                   value={manualAssetName}
                   onChange={(e) => setManualAssetName(e.target.value)}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="lat">Latitude</Label>
-                  <Input
-                    id="lat"
-                    type="number"
-                    step="any"
-                    placeholder="-12.0464"
-                    value={manualAssetLat}
-                    onChange={(e) => setManualAssetLat(e.target.value)}
-                  />
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Label htmlFor="coords">Coordinates</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground hover:text-foreground">
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-sm">
+                        <strong>How to get coordinates from Google Maps:</strong><br />
+                        1. Open Google Maps and find your location<br />
+                        2. Right-click on the exact spot<br />
+                        3. Click the coordinates shown at the top (they'll be copied)<br />
+                        4. Paste here directly<br /><br />
+                        <span className="text-muted-foreground">Format: latitude, longitude (e.g., -30.024, -51.220)</span>
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
-                <div>
-                  <Label htmlFor="lng">Longitude</Label>
-                  <Input
-                    id="lng"
-                    type="number"
-                    step="any"
-                    placeholder="-77.0428"
-                    value={manualAssetLng}
-                    onChange={(e) => setManualAssetLng(e.target.value)}
-                  />
-                </div>
+                <Input
+                  id="coords"
+                  placeholder="-30.024, -51.220"
+                  value={manualAssetCoords}
+                  onChange={(e) => setManualAssetCoords(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="assetType">Site Type</Label>
+                <Select value={manualAssetType} onValueChange={setManualAssetType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a site type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="park">Park / Green Space</SelectItem>
+                    <SelectItem value="plaza">Plaza / Public Square</SelectItem>
+                    <SelectItem value="street">Street / Road</SelectItem>
+                    <SelectItem value="building">Building / Structure</SelectItem>
+                    <SelectItem value="waterway">Waterway / Canal</SelectItem>
+                    <SelectItem value="slope">Slope / Hillside</SelectItem>
+                    <SelectItem value="wetland">Wetland / Retention Area</SelectItem>
+                    <SelectItem value="rooftop">Rooftop</SelectItem>
+                    <SelectItem value="parking">Parking Lot</SelectItem>
+                    <SelectItem value="vacant">Vacant Land</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="area">Approximate Area (hectares, optional)</Label>
@@ -2260,10 +2317,10 @@ export default function SiteExplorerPage() {
               <Button
                 className="w-full"
                 onClick={createManualAsset}
-                disabled={!manualAssetName.trim() || !manualAssetLat || !manualAssetLng}
+                disabled={!manualAssetName.trim() || !manualAssetCoords.trim()}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Asset
+                Add Site
               </Button>
             </div>
           )}

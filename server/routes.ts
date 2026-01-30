@@ -971,7 +971,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const response = await fetch(searchUrl.toString(), {
         headers: {
-          'User-Agent': 'NBS-Project-Builder/1.0 (contact@example.com)',
+          'User-Agent': 'NBS-Project-Builder/1.0 (https://nbs-project-preparation.replit.app; nbs-project-builder@replit.dev)',
+          'Accept': 'application/json',
+          'Accept-Language': 'en-US,en;q=0.9',
         },
       });
 
