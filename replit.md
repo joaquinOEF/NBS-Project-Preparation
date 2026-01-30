@@ -148,11 +148,14 @@ Agent system prompt includes instructions to format responses in readable langua
 - Use bullet points for readability
 - **Location**: `server/services/agentService.ts` SYSTEM_PROMPT
 
-### Cross-Module Navigation Prompts
+### Cross-Module Navigation Buttons
 When agent updates module data and user is not on that module's page:
-- Add navigation prompt in chat message: "📍 *You can view the full results on the [Module] page.*"
-- Detect current page via `location.includes('module-name')`
-- **Example**: `showReadinessUpdate()` in ChatDrawer adds nav prompt when off funder-selection page
+- Use `[NAV_BUTTON:path|label]` syntax in chat messages to render clickable navigation buttons
+- ChatDrawer's `parseNavigationButtons()` extracts these markers and renders actual `<Button>` components
+- **Syntax**: `[NAV_BUTTON:/sample/funder-selection/sample-ada-1|View Funder Selection Results]`
+- **Implementation**: ChatDrawer parses content, strips markers, renders buttons with `setLocation(path)` onClick
+- **Path Building**: Use `isSampleMode` to construct correct path (sample vs regular project routes)
+- **Example**: `showReadinessUpdate()` in ChatDrawer adds navigation button when off funder-selection page
 
 ### Post-Patch Readiness Recalculation
 After funder_selection questionnaire patches are applied:

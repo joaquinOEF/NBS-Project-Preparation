@@ -9,9 +9,27 @@ import { Input } from "@/core/components/ui/input";
 import { ScrollArea } from "@/core/components/ui/scroll-area";
 import { Card } from "@/core/components/ui/card";
 import { Badge } from "@/core/components/ui/badge";
-import { Loader2, MessageCircle, Send, Bot, User, Wrench, CheckCircle, XCircle, ArrowRight, Database, X } from "lucide-react";
+import { Loader2, MessageCircle, Send, Bot, User, Wrench, CheckCircle, XCircle, ArrowRight, Database, X, ExternalLink } from "lucide-react";
 import { useToast } from "@/core/hooks/use-toast";
 import { computeReadinessScores, determinePathway, formatReadinessSummary, type QuestionnaireAnswers } from "@/core/utils/funding-readiness";
+
+interface NavigationButton {
+  path: string;
+  label: string;
+}
+
+function parseNavigationButtons(content: string): { cleanContent: string; navButtons: NavigationButton[] } {
+  const navButtonRegex = /\[NAV_BUTTON:([^\|]+)\|([^\]]+)\]/g;
+  const navButtons: NavigationButton[] = [];
+  let match;
+  
+  while ((match = navButtonRegex.exec(content)) !== null) {
+    navButtons.push({ path: match[1], label: match[2] });
+  }
+  
+  const cleanContent = content.replace(navButtonRegex, '').trim();
+  return { cleanContent, navButtons };
+}
 
 interface ChatMessage {
   id: string;
@@ -38,7 +56,7 @@ interface PendingPatch {
 
 export function ChatDrawer() {
   const { isChatOpen: isOpen, openChat, closeChat, toggleChat, pageContext, pendingInitialMessage, clearPendingMessage } = useChatState();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -103,14 +121,19 @@ export function ChatDrawer() {
           const summary = formatReadinessSummary(scores, pathway);
           
           const isOnFunderSelection = location.includes('funder-selection');
-          const navPrompt = isOnFunderSelection 
-            ? '' 
-            : '\n\n📍 *You can view the full results on the Funder Selection page.*';
+          let navButton = '';
+          if (!isOnFunderSelection) {
+            if (isSampleMode && sampleProjectId) {
+              navButton = `\n\n[NAV_BUTTON:/sample/funder-selection/${sampleProjectId}|View Funder Selection Results]`;
+            } else if (projectId) {
+              navButton = `\n\n[NAV_BUTTON:/projects/${projectId}/funder-selection|View Funder Selection Results]`;
+            }
+          }
           
           setMessages(prev => [...prev, {
             id: `readiness-update-${Date.now()}`,
             role: 'assistant',
-            content: summary + navPrompt,
+            content: summary + navButton,
             timestamp: new Date(),
           }]);
         }
@@ -118,7 +141,7 @@ export function ChatDrawer() {
     } catch (e) {
       console.warn('Failed to calculate readiness update:', e);
     }
-  }, [dbProjectId, location]);
+  }, [dbProjectId, location, isSampleMode, sampleProjectId, projectId]);
   
   const currentPage = useMemo(() => {
     const path = location.replace(/^\/?(sample\/)?/, '').split('/')[0];
@@ -739,15 +762,36 @@ export function ChatDrawer() {
                       : "bg-muted"
                   }`}
                 >
-                  {message.content && (
-                    <div className={`text-sm prose prose-sm max-w-full prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 break-words [&_code]:break-all [&_code]:text-xs ${
-                      message.role === "user" 
-                        ? "prose-p:text-white prose-headings:text-white prose-strong:text-white prose-em:text-white prose-li:text-white text-white [&_*]:text-white" 
-                        : "dark:prose-invert"
-                    }`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
-                      <ReactMarkdown>{message.content}</ReactMarkdown>
-                    </div>
-                  )}
+                  {message.content && (() => {
+                    const { cleanContent, navButtons } = parseNavigationButtons(message.content);
+                    return (
+                      <>
+                        <div className={`text-sm prose prose-sm max-w-full prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 break-words [&_code]:break-all [&_code]:text-xs ${
+                          message.role === "user" 
+                            ? "prose-p:text-white prose-headings:text-white prose-strong:text-white prose-em:text-white prose-li:text-white text-white [&_*]:text-white" 
+                            : "dark:prose-invert"
+                        }`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                          <ReactMarkdown>{cleanContent}</ReactMarkdown>
+                        </div>
+                        {navButtons.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {navButtons.map((nav, idx) => (
+                              <Button 
+                                key={idx} 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => setLocation(nav.path)}
+                                className="gap-1.5"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                {nav.label}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                   {message.toolCalls && message.toolCalls.length > 0 && (
                     <div className="mt-2 space-y-1">
                       {message.toolCalls.map((tool, idx) => (
