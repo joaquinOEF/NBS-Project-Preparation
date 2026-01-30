@@ -245,7 +245,7 @@ const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "find_zone_for_coordinates",
-    description: "Given coordinates (lat, lng), find which intervention zone contains that location. Returns the zone ID and details if found.",
+    description: "Given coordinates (lat, lng), find which intervention zone contains that location. Returns the zone ID, hazard type, and COMPATIBLE INTERVENTION TYPES for that zone. Always call this after lookup_location to get intervention options.",
     parameters: {
       type: "object",
       properties: {
@@ -259,6 +259,50 @@ const AGENT_TOOLS: AgentTool[] = [
         },
       },
       required: ["lat", "lng"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "add_intervention_site",
+    description: "Add a new intervention site to a zone's portfolio. Use this PROACTIVELY after finding a location and zone - present the user with intervention options and let them choose, then add the site directly.",
+    parameters: {
+      type: "object",
+      properties: {
+        zoneId: {
+          type: "string",
+          description: "The zone ID (e.g., 'zone_12')",
+        },
+        siteName: {
+          type: "string",
+          description: "Name of the site/asset",
+        },
+        interventionType: {
+          type: "string",
+          description: "Type of intervention (e.g., 'Cooling Campus', 'Tree Canopy', 'Floodable Park')",
+        },
+        category: {
+          type: "string",
+          enum: ["flood_storage", "urban_cooling", "slope_stability", "multi_benefit"],
+          description: "Intervention category",
+        },
+        lat: {
+          type: "number",
+          description: "Latitude of site centroid",
+        },
+        lng: {
+          type: "number",
+          description: "Longitude of site centroid",
+        },
+        areaHa: {
+          type: "number",
+          description: "Area in hectares (from lookup_location)",
+        },
+        osmId: {
+          type: "string",
+          description: "OSM ID if available (from lookup_location)",
+        },
+      },
+      required: ["zoneId", "siteName", "interventionType", "category", "lat", "lng"],
       additionalProperties: false,
     },
   },
@@ -310,14 +354,20 @@ When generating or editing Impact Model narratives:
 - Slope stabilization: vetiver grass (60-90% soil loss reduction), deep-rooted vegetation for soil cohesion
 - Case studies: Medellín Green Corridors ($16M for 2°C cooling), Mexico City La Quebradora (flood control + aquifer recharge)
 
-## Adding Intervention Sites (Site Explorer)
-When a user wants to add a site by name/address:
-1. Use lookup_location to find the coordinates from the name/address
-2. Use find_zone_for_coordinates with the lat/lng to determine which zone it belongs to
-3. If the location is in a zone, tell the user which zone and ask what intervention type they want
-4. For now, the user must add the site through the Site Explorer UI - tell them to navigate there, search for the site using the "Add Custom Site" button, and select the intervention
+## Adding Intervention Sites (Site Explorer) - BE PROACTIVE!
+When a user mentions a location or wants to add a site:
+1. Use lookup_location to find coordinates AND area (you'll get areaHa from the bounding box)
+2. Use find_zone_for_coordinates with lat/lng - this returns the zone AND compatible intervention types
+3. BE PROACTIVE: Present the compatible intervention options as a list for the user to choose from:
+   - "I found [Site Name] ([area] ha) in [Zone X] ([hazard type]). Here are the compatible interventions:
+     • Urban Cooling: Shade & Cooling Retrofit, Tree Canopy, Cooling Campus, Green Roof
+     • Multi-Benefit: Green Corridor, Eco-Park
+     Which would you like to add?"
+4. When user chooses an intervention type, use add_intervention_site to prepare the site data
+5. Then tell user to approve the addition in Site Explorer, or they can add via UI
 
-This workflow allows you to help the user without needing them to provide coordinates manually - you look them up automatically.
+IMPORTANT: Don't ask multiple questions. After finding the location and zone, immediately present intervention options.
+The lookup_location tool returns the site's area in hectares - use this for sizing the intervention.
 
 ## User-Friendly Communication
 When summarizing project data (like questionnaire responses), NEVER show raw schema fields.
@@ -786,6 +836,18 @@ export async function executeAgentTool(
           };
         }
         
+        // Calculate area from Nominatim bounding box (same as UI does)
+        const calcArea = (bbox: string[]): number => {
+          if (!bbox || bbox.length !== 4) return 0;
+          const [south, north, west, east] = bbox.map(Number);
+          const latSpan = north - south;
+          const lngSpan = east - west;
+          const avgLat = (south + north) / 2;
+          const metersPerDegreeLat = 111320;
+          const metersPerDegreeLng = 111320 * Math.cos(avgLat * Math.PI / 180);
+          return (latSpan * metersPerDegreeLat) * (lngSpan * metersPerDegreeLng);
+        };
+        
         const locations = results.map((r: any) => ({
           name: r.display_name.split(',')[0],
           fullAddress: r.display_name,
@@ -793,7 +855,12 @@ export async function executeAgentTool(
           lng: parseFloat(r.lon),
           type: r.type || r.class || 'place',
           osmId: r.osm_id,
+          osmType: r.osm_type,
+          areaM2: calcArea(r.boundingbox),
+          areaHa: Math.round(calcArea(r.boundingbox) / 10000 * 100) / 100, // hectares
         }));
+        
+        const firstLocation = locations[0];
         
         return {
           name,
@@ -801,7 +868,8 @@ export async function executeAgentTool(
             found: true,
             count: locations.length,
             locations,
-            message: `Found ${locations.length} location(s). Use find_zone_for_coordinates with the first result's lat/lng to determine which intervention zone it belongs to.`,
+            bestMatch: firstLocation,
+            message: `Found "${firstLocation.name}" (${firstLocation.areaHa} ha) at coordinates ${firstLocation.lat}, ${firstLocation.lng}. Now use find_zone_for_coordinates to check which zone it's in and get compatible intervention types.`,
           },
         };
       }
@@ -854,6 +922,38 @@ export async function executeAgentTool(
             // GeoJSON uses [lng, lat], we need to check with [lng, lat]
             if (pointInPolygon([lng, lat], polygon)) {
               const props = feature.properties || {};
+              
+              // Determine compatible intervention categories based on zone's primary hazard
+              const hazard = props.primaryHazard?.toUpperCase() || '';
+              const compatibleCategories: { id: string; name: string; examples: string[] }[] = [];
+              
+              if (hazard.includes('FLOOD')) {
+                compatibleCategories.push({
+                  id: 'flood_storage',
+                  name: 'Flood Storage & Delay',
+                  examples: ['Floodable Park', 'Sponge Square', 'Retention Yard', 'Bioswales'],
+                });
+              }
+              if (hazard.includes('HEAT')) {
+                compatibleCategories.push({
+                  id: 'urban_cooling',
+                  name: 'Urban Cooling & Shade',
+                  examples: ['Shade & Cooling Retrofit', 'Tree Canopy', 'Cool Pavement', 'Green Roof', 'Cooling Campus'],
+                });
+              }
+              if (hazard.includes('LANDSLIDE')) {
+                compatibleCategories.push({
+                  id: 'slope_stability',
+                  name: 'Slope Stabilization',
+                  examples: ['Vetiver Terraces', 'Root Network Planting', 'Infiltration Buffers'],
+                });
+              }
+              compatibleCategories.push({
+                id: 'multi_benefit',
+                name: 'Multi-Benefit Solutions',
+                examples: ['Green Corridor', 'Eco-Park', 'Urban Forest Patch'],
+              });
+              
               return {
                 name,
                 result: {
@@ -868,7 +968,8 @@ export async function executeAgentTool(
                     heat: props.meanHeat,
                     landslide: props.meanLandslide,
                   },
-                  message: `The location is in ${props.zoneId} (${props.typologyLabel}). You can now propose adding an intervention site to this zone.`,
+                  compatibleCategories,
+                  message: `Location is in ${props.zoneId} (${props.typologyLabel}). Compatible intervention types: ${compatibleCategories.map(c => c.name).join(', ')}. Use add_intervention_site to propose adding this site with your chosen intervention type.`,
                 },
               };
             }
@@ -880,6 +981,55 @@ export async function executeAgentTool(
           result: {
             found: false,
             message: `The coordinates (${lat}, ${lng}) are not within any intervention zone. The location may be outside the study area.`,
+          },
+        };
+      }
+      
+      case "add_intervention_site": {
+        const { zoneId, siteName, interventionType, category, lat, lng, areaHa, osmId } = args as {
+          zoneId: string;
+          siteName: string;
+          interventionType: string;
+          category: string;
+          lat: number;
+          lng: number;
+          areaHa?: number;
+          osmId?: string;
+        };
+        
+        // Generate a unique asset ID
+        const assetId = osmId ? `nominatim_${osmId}` : `manual_${Date.now()}`;
+        
+        // Build the intervention object to add to the zone's portfolio
+        const newIntervention = {
+          interventionId: interventionType.toLowerCase().replace(/\s+/g, '_'),
+          interventionName: interventionType,
+          category: category,
+          assetId: assetId,
+          assetName: siteName,
+          centroid: [lat, lng],
+          estimatedArea: areaHa || 1,
+          areaUnit: 'ha',
+          source: osmId ? 'nominatim' : 'manual',
+          addedAt: new Date().toISOString(),
+        };
+        
+        // Create a patch proposal to add this intervention
+        const patchPath = `site_explorer.selectedZones`;
+        
+        return {
+          name,
+          result: {
+            success: true,
+            intervention: newIntervention,
+            zoneId,
+            message: `Ready to add "${siteName}" as a ${interventionType} intervention to ${zoneId}. Use propose_patch to add this to the zone's intervention portfolio, or tell the user they can add it via Site Explorer → Add Custom Site.`,
+            suggestedPatch: {
+              blockType: 'site_explorer',
+              fieldPath: `selectedZones.${zoneId}.interventionPortfolio`,
+              action: 'add_to_array',
+              value: newIntervention,
+            },
           },
         };
       }
