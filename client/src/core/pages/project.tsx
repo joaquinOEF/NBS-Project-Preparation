@@ -418,6 +418,7 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
   const { t } = useTranslation();
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   const zones: SelectedZone[] = data?.selectedZones
     ?.filter((z): z is SelectedZone => typeof z !== 'string') || [];
@@ -428,96 +429,131 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
 
   useEffect(() => {
     if (!mapRef.current || zones.length === 0) return;
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
-      mapInstanceRef.current = null;
-    }
 
-    const map = L.map(mapRef.current, {
-      scrollWheelZoom: false,
-      zoomControl: true,
-      attributionControl: false,
-    });
+    const initMap = () => {
+      if (!mapRef.current) return;
+      const rect = mapRef.current.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return false;
 
-    const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      subdomains: 'abcd',
-      maxZoom: 19,
-      updateWhenZooming: true,
-      updateWhenIdle: false,
-      keepBuffer: 4,
-    }).addTo(map);
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
 
-    tileLayer.on('tileerror', (error: any) => {
-      setTimeout(() => {
-        if (error.tile) {
-          error.tile.src = error.tile.src;
-        }
-      }, 1000);
-    });
+      const firstCentroid = zones.flatMap(z => z.interventionPortfolio || [])
+        .find(i => i.centroid)?.centroid;
+      const defaultCenter: [number, number] = firstCentroid 
+        ? [firstCentroid[1], firstCentroid[0]] 
+        : [-30.03, -51.23];
 
-    const allMarkers: L.Marker[] = [];
-
-    zones.forEach(zone => {
-      const interventions = zone.interventionPortfolio || [];
-      const zoneName = formatZoneName(zone.zoneName || zone.zoneId);
-
-      interventions.forEach(intervention => {
-        if (!intervention.centroid) return;
-        const [lng, lat] = intervention.centroid;
-        const { color, icon } = getCategoryStyle(intervention.category);
-        const assetName = intervention.assetName || 'Site';
-
-        const marker = L.marker([lat, lng], {
-          icon: L.divIcon({
-            className: 'intervention-site-marker',
-            html: `
-              <div style="
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 32px;
-                height: 32px;
-                background: ${color};
-                border: 3px solid white;
-                border-radius: 50%;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-                font-size: 14px;
-              ">${icon}</div>
-            `,
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
-          }),
-        }).addTo(map);
-
-        marker.bindTooltip(
-          `<div style="text-align: center;">
-            <strong>${assetName}</strong><br/>
-            <span style="font-size: 11px; color: #666;">${formatInterventionName(intervention.interventionName)}</span><br/>
-            <span style="font-size: 10px; color: #888;">${zoneName}</span>
-          </div>`,
-          { direction: 'top', offset: [0, -16] }
-        );
-
-        allMarkers.push(marker);
+      const map = L.map(mapRef.current, {
+        center: defaultCenter,
+        zoom: 13,
+        scrollWheelZoom: false,
+        zoomControl: true,
+        attributionControl: false,
       });
-    });
 
-    if (allMarkers.length > 0) {
-      const group = L.featureGroup(allMarkers);
-      map.fitBounds(group.getBounds().pad(0.3));
-    } else {
-      map.setView([-30.03, -51.23], 12);
+      const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19,
+        updateWhenZooming: true,
+        updateWhenIdle: false,
+        keepBuffer: 4,
+      }).addTo(map);
+
+      tileLayer.on('tileerror', (error: any) => {
+        setTimeout(() => {
+          if (error.tile) {
+            error.tile.src = error.tile.src;
+          }
+        }, 1000);
+      });
+
+      const allMarkers: L.Marker[] = [];
+
+      zones.forEach(zone => {
+        const interventions = zone.interventionPortfolio || [];
+        const zoneName = formatZoneName(zone.zoneName || zone.zoneId);
+
+        interventions.forEach(intervention => {
+          if (!intervention.centroid) return;
+          const [lng, lat] = intervention.centroid;
+          const { color, icon } = getCategoryStyle(intervention.category);
+          const assetName = intervention.assetName || 'Site';
+
+          const marker = L.marker([lat, lng], {
+            icon: L.divIcon({
+              className: 'intervention-site-marker',
+              html: `
+                <div style="
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  width: 32px;
+                  height: 32px;
+                  background: ${color};
+                  border: 3px solid white;
+                  border-radius: 50%;
+                  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+                  font-size: 14px;
+                ">${icon}</div>
+              `,
+              iconSize: [32, 32],
+              iconAnchor: [16, 16],
+            }),
+          }).addTo(map);
+
+          marker.bindTooltip(
+            `<div style="text-align: center;">
+              <strong>${assetName}</strong><br/>
+              <span style="font-size: 11px; color: #666;">${formatInterventionName(intervention.interventionName)}</span><br/>
+              <span style="font-size: 10px; color: #888;">${zoneName}</span>
+            </div>`,
+            { direction: 'top', offset: [0, -16] }
+          );
+
+          allMarkers.push(marker);
+        });
+      });
+
+      if (allMarkers.length > 0) {
+        const group = L.featureGroup(allMarkers);
+        map.fitBounds(group.getBounds().pad(0.3));
+      }
+
+      mapInstanceRef.current = map;
+      setMapReady(true);
+
+      setTimeout(() => map.invalidateSize(), 100);
+      setTimeout(() => map.invalidateSize(), 300);
+
+      return true;
+    };
+
+    if (!initMap()) {
+      const observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          setTimeout(() => {
+            if (initMap()) {
+              observer.disconnect();
+            }
+          }, 100);
+        }
+      }, { threshold: 0.1 });
+
+      if (mapRef.current) {
+        observer.observe(mapRef.current);
+      }
+
+      return () => observer.disconnect();
     }
-
-    mapInstanceRef.current = map;
-
-    setTimeout(() => map.invalidateSize(), 100);
-    setTimeout(() => map.invalidateSize(), 300);
-    setTimeout(() => map.invalidateSize(), 600);
 
     const resizeObserver = new ResizeObserver(() => {
-      setTimeout(() => map.invalidateSize(), 50);
+      if (mapInstanceRef.current) {
+        setTimeout(() => mapInstanceRef.current?.invalidateSize(), 50);
+      }
     });
     if (mapRef.current) {
       resizeObserver.observe(mapRef.current);
@@ -525,8 +561,10 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
 
     return () => {
       resizeObserver.disconnect();
-      map.remove();
-      mapInstanceRef.current = null;
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
     };
   }, [zones]);
 
