@@ -552,8 +552,17 @@ export default function SiteExplorerPage() {
     }
   }, [interventionsData, t]);
 
+  const prevCategoryRef = useRef<string | null>(null);
+  const prevZoneIdRef = useRef<string | null>(null);
+  
   useEffect(() => {
-    if (selectedCategory && selectedZoneFeature) {
+    const currentZoneId = selectedZoneFeature?.properties?.zoneId;
+    const categoryChanged = selectedCategory !== prevCategoryRef.current;
+    const zoneChanged = currentZoneId !== prevZoneIdRef.current;
+    
+    if (selectedCategory && selectedZoneFeature && (categoryChanged || zoneChanged)) {
+      prevCategoryRef.current = selectedCategory;
+      prevZoneIdRef.current = currentZoneId;
       fetchOsmAssets(selectedZoneFeature, selectedCategory);
     }
   }, [selectedCategory, selectedZoneFeature, fetchOsmAssets]);
