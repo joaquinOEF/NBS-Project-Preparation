@@ -319,15 +319,6 @@ export interface SignalCard {
   userNotes: string;
 }
 
-export interface PrioritizationWeights {
-  floodRiskReduction: number;
-  heatReduction: number;
-  landslideRiskReduction: number;
-  socialEquity: number;
-  costCertainty: number;
-  biodiversityWaterQuality: number;
-}
-
 export interface InterventionBundle {
   id: string;
   name: string;
@@ -339,12 +330,67 @@ export interface InterventionBundle {
   enabled: boolean;
 }
 
+export interface QuantifiedKPI {
+  id: string;
+  name: string;
+  metric: string;
+  valueRange: { low: number; high: number };
+  unit: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  evidenceTier: 'EVIDENCE' | 'MODELLED' | 'ASSUMPTION';
+  sourceChunkIds: string[];
+  methodology: string;
+}
+
+export interface QuantifiedImpactGroup {
+  id: string;
+  hazardType: string;
+  interventionBundle: string;
+  kpis: QuantifiedKPI[];
+}
+
+export interface QuantifiedCoBenefit {
+  id: string;
+  title: string;
+  category: string;
+  metric: string;
+  valueRange: { low: number; high: number } | null;
+  unit: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  evidenceTier: 'EVIDENCE' | 'MODELLED' | 'ASSUMPTION';
+  sourceChunkIds: string[];
+  whoBenefits: string[];
+  where: string[];
+}
+
+export interface MRVIndicator {
+  id: string;
+  name: string;
+  metric: string;
+  baselineValue: string;
+  targetValue: string;
+  frequency: 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'BIANNUAL';
+  dataSource: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+export interface QuantifyResponse {
+  impactGroups: QuantifiedImpactGroup[];
+  coBenefits: QuantifiedCoBenefit[];
+  mrvIndicators: MRVIndicator[];
+  evidenceContext: {
+    chunksUsed: number;
+    topSources: Array<{ title: string; score: number }>;
+    searchQueries: string[];
+  };
+  generationMeta: { generatedAt: string; model: string; ragChunksUsed: number };
+}
+
 export interface ImpactModelData {
   status: 'NOT_STARTED' | 'DRAFT' | 'READY';
   navigation?: ModuleNavigation;
-  prioritizationWeights: PrioritizationWeights;
-  inheritedWeights: PrioritizationWeights;
   interventionBundles: InterventionBundle[];
+  quantifiedImpacts: QuantifyResponse | null;
   narrativeCache: {
     base: NarrativeBlock[] | null;
     lensVariants: Record<LensType, NarrativeBlock[]>;

@@ -191,6 +191,7 @@
       "sectionD": "Resultados Esperados",
       "sectionE": "Arranjos de Implementação",
       "sectionF": "Financiamento",
+      "sectionG": "Base de Evidências",
       "noData": "Complete mais módulos para preencher esta seção",
       "generatedFrom": "Gerado a partir dos dados do projeto em {{date}}"
     },
@@ -1371,22 +1372,39 @@
     "subtitle": "Gere narrativas de impacto com IA para comunicar o valor do seu projeto",
     "steps": {
       "setup": "Configuração",
-      "generate": "Gerar",
+      "quantify": "Quantificar",
       "curate": "Curar",
+      "narrate": "Narrar",
       "lenses": "Lentes",
       "export": "Exportar"
     },
-    "prioritizationWeights": "Pesos de Priorização",
-    "weightsDescription": "Ajuste a importância relativa de cada fator na análise de impacto",
-    "weights": {
-      "floodRiskReduction": "Redução de Risco de Inundação",
-      "heatReduction": "Redução de Calor",
-      "landslideRiskReduction": "Redução de Risco de Deslizamento",
-      "socialEquity": "Equidade Social",
-      "costCertainty": "Certeza de Custo",
-      "biodiversityWaterQuality": "Biodiversidade e Qualidade da Água"
+    "quantify": {
+      "title": "Quantificar Impactos",
+      "description": "Gere KPIs fundamentados em evidências da base de conhecimento",
+      "bundlesEnabled": "pacotes habilitados",
+      "evidenceChunks": "trechos de evidência usados",
+      "quantifying": "Quantificando...",
+      "quantifyButton": "Quantificar com Evidências",
+      "reQuantify": "Re-quantificar",
+      "success": "Impactos Quantificados",
+      "impactGroupsGenerated": "grupos de impacto gerados",
+      "failed": "Falha ao quantificar impactos",
+      "coBenefitsTitle": "Co-Benefícios Quantificados",
+      "mrvTitle": "Indicadores MRV"
     },
-    "resetToDefault": "Restaurar Padrão",
+    "narrate": {
+      "title": "Gerar Narrativa",
+      "description": "Gere blocos narrativos em prosa fundamentados nos KPIs quantificados",
+      "kpiSummary": "Dados quantificados disponíveis",
+      "impactGroups": "grupos de impacto",
+      "coBenefitsCount": "co-benefícios",
+      "mrvCount": "indicadores MRV",
+      "generating": "Gerando narrativa...",
+      "generate": "Gerar Narrativa em Prosa",
+      "regenerate": "Regenerar Narrativa",
+      "blocksGenerated": "blocos narrativos gerados",
+      "noQuantifiedData": "Complete a etapa de Quantificação antes de gerar uma narrativa"
+    },
     "interventionBundles": "Pacotes de Intervenção",
     "bundlesDescription": "Selecione quais zonas de intervenção incluir na narrativa de impacto",
     "noZonesSelected": "Nenhuma zona de intervenção disponível",

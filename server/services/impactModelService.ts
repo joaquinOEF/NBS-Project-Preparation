@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { semanticSearch } from "./knowledgeService";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -33,14 +34,6 @@ interface GenerateNarrativeRequest {
   selectedZones: SelectedZone[];
   interventionBundles: InterventionBundle[];
   funderPathway: FunderPathway;
-  prioritizationWeights: {
-    floodRiskReduction: number;
-    heatReduction: number;
-    landslideRiskReduction: number;
-    socialEquity: number;
-    costCertainty: number;
-    biodiversityWaterQuality: number;
-  };
   projectName?: string;
   cityName?: string;
 }
@@ -97,7 +90,7 @@ interface GenerateNarrativeResponse {
 export async function generateImpactNarrative(
   request: GenerateNarrativeRequest
 ): Promise<GenerateNarrativeResponse> {
-  const { selectedZones, interventionBundles, funderPathway, prioritizationWeights, projectName, cityName } = request;
+  const { selectedZones, interventionBundles, funderPathway, projectName, cityName } = request;
 
   const enabledBundles = interventionBundles.filter(b => b.enabled);
   
@@ -131,14 +124,6 @@ FUNDING PATHWAY:
 - Secondary: ${funderPathway.secondary || 'None'}
 - Readiness: ${funderPathway.readinessLevel || 'Early stage'}
 - Limiting factors: ${funderPathway.limitingFactors?.join(', ') || 'None identified'}
-
-PRIORITIZATION WEIGHTS:
-- Flood Risk Reduction: ${prioritizationWeights.floodRiskReduction ?? 0.3}
-- Heat Reduction: ${prioritizationWeights.heatReduction ?? 0.25}
-- Landslide Risk Reduction: ${prioritizationWeights.landslideRiskReduction ?? 0.15}
-- Social Equity: ${prioritizationWeights.socialEquity ?? 0.1}
-- Cost Certainty: ${prioritizationWeights.costCertainty ?? 0.1}
-- Biodiversity & Water Quality: ${prioritizationWeights.biodiversityWaterQuality ?? 0.1}
 
 Generate a complete impact narrative response in the following JSON structure.
 You MUST generate exactly 10 narrative blocks covering all these topics:
@@ -463,5 +448,328 @@ Return a JSON object with the regenerated block:
   } catch (error) {
     console.error("Failed to parse block regeneration response:", error);
     throw new Error("Failed to regenerate block");
+  }
+}
+
+// ============================================
+// Narrate API — KPI-grounded prose generation
+// ============================================
+
+interface NarrateFromKPIsRequest {
+  quantifiedImpacts: QuantifyResponse;
+  selectedZones: SelectedZone[];
+  interventionBundles: InterventionBundle[];
+  funderPathway: FunderPathway;
+  projectName?: string;
+  cityName?: string;
+}
+
+export async function generateNarrativeFromKPIs(
+  request: NarrateFromKPIsRequest
+): Promise<GenerateNarrativeResponse> {
+  const { quantifiedImpacts, selectedZones, interventionBundles, funderPathway, projectName, cityName } = request;
+
+  const enabledBundles = interventionBundles.filter(b => b.enabled);
+
+  const systemPrompt = `You are an expert in Nature-Based Solutions (NBS) for climate adaptation and urban resilience.
+You help cities create compelling, evidence-based impact narratives for climate projects.
+You have pre-computed quantified impact data. Generate prose narrative blocks that incorporate these specific metrics.
+CRITICAL: Do NOT invent new numbers — use the provided KPI values in your narrative.
+Your narratives should be:
+- Grounded in the provided quantified data
+- Tailored to the specific hazards and interventions
+- Aligned with funder expectations (${funderPathway.primary || 'general'} funding pathway)
+- Professional and suitable for funding proposals
+
+Always respond with valid JSON matching the exact structure requested.`;
+
+  // Format quantified data for the prompt
+  const kpiSummary = quantifiedImpacts.impactGroups.map(g =>
+    `${g.hazardType} — ${g.interventionBundle}:\n${g.kpis.map(k =>
+      `  • ${k.name}: ${k.valueRange.low}–${k.valueRange.high} ${k.unit} (${k.confidence}, ${k.evidenceTier})`
+    ).join('\n')}`
+  ).join('\n\n');
+
+  const coBenefitSummary = quantifiedImpacts.coBenefits.map(cb =>
+    `• ${cb.title} (${cb.category}): ${cb.valueRange ? `${cb.valueRange.low}–${cb.valueRange.high} ${cb.unit}` : cb.metric} [${cb.confidence}]`
+  ).join('\n');
+
+  const mrvSummary = quantifiedImpacts.mrvIndicators.map(m =>
+    `• ${m.name}: baseline ${m.baselineValue} → target ${m.targetValue} (${m.frequency}, ${m.confidence})`
+  ).join('\n');
+
+  const userPrompt = `Generate a prose impact narrative for this NBS project using the pre-computed quantified data below.
+Weave the KPI values naturally into the narrative. Do NOT invent additional metrics.
+
+PROJECT CONTEXT:
+- Project: ${projectName || 'Urban Climate Resilience Initiative'}
+- City: ${cityName || 'Urban area'}
+- Selected zones: ${selectedZones.length} intervention zones
+- Zone details:
+${selectedZones.map(z => `  * Zone ${z.zoneId}: ${z.hazardType} risk (score: ${(z.riskScore * 100).toFixed(0)}%), area: ${z.area || 'unknown'}m²`).join('\n')}
+
+INTERVENTION BUNDLES (${enabledBundles.length} enabled):
+${enabledBundles.map(b => `- ${b.name}: ${b.description}\n  Interventions: ${b.interventions.join(', ')}`).join('\n\n')}
+
+FUNDING PATHWAY:
+- Primary: ${funderPathway.primary || 'Not specified'}
+- Readiness: ${funderPathway.readinessLevel || 'Early stage'}
+
+QUANTIFIED IMPACT DATA:
+${kpiSummary}
+
+CO-BENEFITS:
+${coBenefitSummary}
+
+MRV INDICATORS:
+${mrvSummary}
+
+EVIDENCE CONTEXT:
+- Evidence chunks used: ${quantifiedImpacts.evidenceContext.chunksUsed}
+- Top sources: ${quantifiedImpacts.evidenceContext.topSources.map(s => s.title).join(', ') || 'None'}
+
+Generate exactly 10 narrative blocks that incorporate the above KPIs, plus 4-6 co-benefits and downstream signals.
+Use the same JSON structure as the standard narrative generation:
+{
+  "narrativeBlocks": [
+    { "id": "block-1", "title": "Executive Summary", "type": "executive_summary", "lens": "neutral", "contentMd": "...", "evidenceTier": "MODELLED", "included": true, "kpis": [...] },
+    { "id": "block-2", "title": "Context and Rationale", "type": "context_rationale", ... },
+    { "id": "block-3", "title": "Theory of Change", "type": "theory_of_change", ... },
+    { "id": "block-4", "title": "Portfolio Overview and Phasing", "type": "portfolio_phasing", ... },
+    { "id": "block-5", "title": "Expected Impacts", "type": "expected_impacts", ... },
+    { "id": "block-6", "title": "Key Co-Benefits", "type": "key_cobenefits", ... },
+    { "id": "block-7", "title": "Synergies and Alignment", "type": "synergies_alignment", ... },
+    { "id": "block-8", "title": "Assumptions", "type": "assumptions", ... },
+    { "id": "block-9", "title": "Risks and Dependencies", "type": "risks_dependencies", ... },
+    { "id": "block-10", "title": "MRV Stub", "type": "mrv_stub", ... }
+  ],
+  "coBenefits": [...],
+  "downstreamSignals": { "operations": [...], "businessModel": [...], "mrv": [], "implementors": [] }
+}
+
+Each block should be 2-4 paragraphs. Reference the specific KPI values from the quantified data.`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+    max_completion_tokens: 8000,
+    reasoning_effort: "none",
+  } as any);
+
+  const content = response.choices[0]?.message?.content || "{}";
+
+  try {
+    const parsed = JSON.parse(content) as GenerateNarrativeResponse;
+    return {
+      narrativeBlocks: parsed.narrativeBlocks || [],
+      coBenefits: parsed.coBenefits || [],
+      downstreamSignals: parsed.downstreamSignals || { operations: [], businessModel: [], mrv: [], implementors: [] },
+    };
+  } catch (error) {
+    console.error("Failed to parse narrate response:", error);
+    throw new Error("Failed to generate narrative from KPIs - invalid response format");
+  }
+}
+
+// ============================================
+// Quantify API — RAG-grounded KPI generation
+// ============================================
+
+export interface QuantifiedKPI {
+  id: string;
+  name: string;
+  metric: string;
+  valueRange: { low: number; high: number };
+  unit: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  evidenceTier: 'EVIDENCE' | 'MODELLED' | 'ASSUMPTION';
+  sourceChunkIds: string[];
+  methodology: string;
+}
+
+export interface QuantifiedImpactGroup {
+  id: string;
+  hazardType: string;
+  interventionBundle: string;
+  kpis: QuantifiedKPI[];
+}
+
+export interface QuantifiedCoBenefit {
+  id: string;
+  title: string;
+  category: string;
+  metric: string;
+  valueRange: { low: number; high: number } | null;
+  unit: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  evidenceTier: 'EVIDENCE' | 'MODELLED' | 'ASSUMPTION';
+  sourceChunkIds: string[];
+  whoBenefits: string[];
+  where: string[];
+}
+
+export interface MRVIndicator {
+  id: string;
+  name: string;
+  metric: string;
+  baselineValue: string;
+  targetValue: string;
+  frequency: 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'BIANNUAL';
+  dataSource: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+export interface QuantifyResponse {
+  impactGroups: QuantifiedImpactGroup[];
+  coBenefits: QuantifiedCoBenefit[];
+  mrvIndicators: MRVIndicator[];
+  evidenceContext: {
+    chunksUsed: number;
+    topSources: Array<{ title: string; score: number }>;
+    searchQueries: string[];
+  };
+  generationMeta: { generatedAt: string; model: string; ragChunksUsed: number };
+}
+
+interface QuantifyRequest {
+  projectId: string;
+  selectedZones: SelectedZone[];
+  interventionBundles: InterventionBundle[];
+  funderPathway: FunderPathway;
+  projectName?: string;
+  cityName?: string;
+}
+
+export async function generateQuantifiedImpacts(
+  request: QuantifyRequest
+): Promise<QuantifyResponse> {
+  const { projectId, selectedZones, interventionBundles, funderPathway, projectName, cityName } = request;
+
+  const enabledBundles = interventionBundles.filter(b => b.enabled);
+
+  // Step 1: Build search queries from hazard types + intervention names
+  const hazardTypes = Array.from(new Set(selectedZones.map(z => z.hazardType).filter(Boolean)));
+  const interventionNames = enabledBundles.flatMap(b => b.interventions);
+
+  const searchQueries: string[] = [];
+  for (const hazard of hazardTypes) {
+    searchQueries.push(`${hazard.toLowerCase()} risk reduction NBS urban`);
+    for (const intervention of interventionNames.slice(0, 3)) {
+      searchQueries.push(`${hazard.toLowerCase()} ${intervention.toLowerCase()} effectiveness`);
+    }
+  }
+  searchQueries.push("co-benefits nature-based solutions urban resilience");
+  searchQueries.push("MRV monitoring indicators NBS climate adaptation");
+
+  // Step 2: Call semanticSearch for each query
+  const allChunks: Array<{ content: string; score: number; sourceTitle?: string; chunkId?: string }> = [];
+  const seenChunkIds = new Set<string>();
+
+  for (const query of searchQueries.slice(0, 8)) {
+    try {
+      const result = await semanticSearch(projectId, query, {
+        includeGlobalKnowledge: true,
+        usableByModule: 'impact_model',
+        limit: 3,
+      });
+      for (const chunk of result.chunks) {
+        const id = chunk.id?.toString() || chunk.content.slice(0, 50);
+        if (!seenChunkIds.has(id)) {
+          seenChunkIds.add(id);
+          allChunks.push({
+            content: chunk.content,
+            score: chunk.score,
+            sourceTitle: (chunk as any).source?.title,
+            chunkId: id,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn(`RAG search failed for query "${query}":`, err);
+    }
+  }
+
+  // Step 3: Sort by score and take top chunks
+  allChunks.sort((a, b) => b.score - a.score);
+  const topChunks = allChunks.slice(0, 12);
+
+  // Step 4: Format evidence context for the LLM prompt
+  const evidenceBlock = topChunks.length > 0
+    ? topChunks.map((c, i) => `[Evidence ${i + 1}] (score: ${c.score.toFixed(2)}, source: ${c.sourceTitle || 'Unknown'})\n${c.content.slice(0, 500)}`).join('\n\n')
+    : 'No evidence chunks found in knowledge base. Use general NBS literature estimates.';
+
+  const topSources = Array.from(
+    new Map(topChunks.filter(c => c.sourceTitle).map(c => [c.sourceTitle!, c.score])).entries()
+  ).map(([title, score]) => ({ title, score }));
+
+  // Step 5: Build focused LLM prompt
+  const systemPrompt = `You are an expert in Nature-Based Solutions (NBS) quantification and evidence-based impact metrics.
+Your task is to generate structured, quantified impact data grounded in evidence.
+Output ONLY valid JSON. Be honest about confidence levels and evidence tiers.
+If evidence supports a metric, use EVIDENCE tier. If modelled/extrapolated, use MODELLED. If assumed, use ASSUMPTION.`;
+
+  const userPrompt = `Generate quantified impact KPIs for this NBS project:
+
+PROJECT CONTEXT:
+- Project: ${projectName || 'Urban Climate Resilience Initiative'}
+- City: ${cityName || 'Urban area'}
+- Zones: ${selectedZones.map(z => `${z.zoneId} (${z.hazardType}, risk: ${(z.riskScore * 100).toFixed(0)}%, area: ${z.area || 'unknown'}m²)`).join('; ')}
+- Bundles: ${enabledBundles.map(b => `${b.name} [${b.targetHazards.join(',')}]`).join('; ')}
+- Funder: ${funderPathway.primary || 'General'}
+
+EVIDENCE FROM KNOWLEDGE BASE:
+${evidenceBlock}
+
+Generate structured JSON with:
+1. impactGroups: One per hazard-intervention pair, each with 3-5 KPIs (id, name, metric, valueRange {low, high}, unit, confidence, evidenceTier, sourceChunkIds[], methodology)
+2. coBenefits: 4-6 quantifiable co-benefits (id, title, category, metric, valueRange or null, unit, confidence, evidenceTier, sourceChunkIds[], whoBenefits[], where[])
+3. mrvIndicators: 3-5 monitoring indicators (id, name, metric, baselineValue, targetValue, frequency, dataSource, confidence)
+
+Use evidence chunk IDs where applicable. Return:
+{
+  "impactGroups": [...],
+  "coBenefits": [...],
+  "mrvIndicators": [...]
+}`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.5,
+    max_completion_tokens: 3000,
+    reasoning_effort: "none",
+  } as any);
+
+  const content = response.choices[0]?.message?.content || "{}";
+
+  try {
+    const parsed = JSON.parse(content);
+    return {
+      impactGroups: parsed.impactGroups || [],
+      coBenefits: parsed.coBenefits || [],
+      mrvIndicators: parsed.mrvIndicators || [],
+      evidenceContext: {
+        chunksUsed: topChunks.length,
+        topSources,
+        searchQueries,
+      },
+      generationMeta: {
+        generatedAt: new Date().toISOString(),
+        model: 'GPT-5.2',
+        ragChunksUsed: topChunks.length,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to parse quantify response:", error);
+    throw new Error("Failed to generate quantified impacts - invalid response format");
   }
 }
