@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, ArrowRight, Check, DollarSign, Building2, FileText, Users, ExternalLink, ChevronRight, AlertCircle, Lightbulb, Target, ArrowUpRight, CheckCircle2, Lock, Edit2, Search, AlertTriangle, Shield } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, DollarSign, Building2, FileText, Users, ExternalLink, ChevronRight, AlertCircle, Lightbulb, Target, ArrowUpRight, CheckCircle2, Lock, Edit2, Search, AlertTriangle, Shield, MessageCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -16,6 +16,7 @@ import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useProjectContext, FunderSelectionData } from '@/core/contexts/project-context';
 import { useChatState } from '@/core/contexts/chat-context';
+import { Alert, AlertDescription } from '@/core/components/ui/alert';
 
 interface Fund {
   id: string;
@@ -562,7 +563,7 @@ export default function FunderSelectionPage() {
   const { isSampleMode, sampleActions } = useSampleData();
   const { isSampleRoute, routePrefix } = useSampleRoute();
   const { updateModule, loadContext } = useProjectContext();
-  const { setPageContext } = useChatState();
+  const { setPageContext, openChatWithMessage } = useChatState();
   
   const [currentStep, setCurrentStep] = useState(0);
   const [fundsData, setFundsData] = useState<FundsData | null>(null);
@@ -2050,6 +2051,29 @@ export default function FunderSelectionPage() {
 
         {showResults && (
           <>
+            <Alert className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+              <RefreshCw className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="flex items-center justify-between">
+                <span className="text-amber-800 dark:text-amber-200">
+                  {t('funderSelection.updateBanner.message')}
+                </span>
+                <div className="flex gap-2 ml-4">
+                  <Button variant="outline" size="sm" onClick={retakeQuestionnaire} className="border-amber-300 text-amber-700 hover:bg-amber-100">
+                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                    {t('funderSelection.updateBanner.updateQuestionnaire')}
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    onClick={() => openChatWithMessage(t('funderSelection.updateBanner.agentMessage'))}
+                    className="gap-1.5"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    {t('funderSelection.updateBanner.updateWithAgent')}
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
             {renderResults()}
             <div className="flex justify-between mt-6">
               <Button variant="ghost" onClick={retakeQuestionnaire}>

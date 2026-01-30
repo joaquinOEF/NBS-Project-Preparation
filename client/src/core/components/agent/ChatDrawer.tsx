@@ -36,7 +36,7 @@ interface PendingPatch {
 }
 
 export function ChatDrawer() {
-  const { isChatOpen: isOpen, openChat, closeChat, toggleChat, pageContext } = useChatState();
+  const { isChatOpen: isOpen, openChat, closeChat, toggleChat, pageContext, pendingInitialMessage, clearPendingMessage } = useChatState();
   const [location] = useLocation();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -165,6 +165,144 @@ export function ChatDrawer() {
       fetchPendingPatches();
     }
   }, [isOpen, projectId, fetchPendingPatches]);
+
+  const sendPendingMessage = useCallback(async (message: string) => {
+    if (!projectId || isLoading) return;
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: "user",
+      content: message,
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+
+    const assistantMessageId = (Date.now() + 1).toString();
+    const assistantMessage: ChatMessage = {
+      id: assistantMessageId,
+      role: "assistant",
+      content: "",
+      toolCalls: [],
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, assistantMessage]);
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/agent/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message,
+          conversationId,
+          currentPage,
+          pageContext,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to send message");
+      }
+
+      const convIdHeader = response.headers.get("X-Conversation-Id");
+      if (convIdHeader && !conversationId) {
+        setConversationId(parseInt(convIdHeader));
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error("No response body");
+      }
+
+      let fullContent = "";
+      const toolCalls: ToolCallInfo[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n").filter(line => line.startsWith("data: "));
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line.slice(6));
+
+            if (data.type === "text") {
+              fullContent += data.content || "";
+              setMessages(prev =>
+                prev.map(msg =>
+                  msg.id === assistantMessageId
+                    ? { ...msg, content: fullContent }
+                    : msg
+                )
+              );
+            } else if (data.type === "tool_call") {
+              toolCalls.push({
+                name: data.toolCall.name,
+                arguments: data.toolCall.arguments,
+              });
+              setMessages(prev =>
+                prev.map(msg =>
+                  msg.id === assistantMessageId
+                    ? { ...msg, toolCalls: [...toolCalls] }
+                    : msg
+                )
+              );
+            } else if (data.type === "tool_result") {
+              const lastToolCall = toolCalls[toolCalls.length - 1];
+              if (lastToolCall) {
+                lastToolCall.result = data.toolResult.result;
+                lastToolCall.error = data.toolResult.error;
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, toolCalls: [...toolCalls] }
+                      : msg
+                  )
+                );
+              }
+            } else if (data.type === "done") {
+              fetchPendingPatches();
+            } else if (data.type === "error") {
+              setMessages(prev =>
+                prev.map(msg =>
+                  msg.id === assistantMessageId
+                    ? { ...msg, content: msg.content + `\n\nError: ${data.error}` }
+                    : msg
+                )
+              );
+            }
+          } catch {
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Chat error:", error);
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: "Sorry, I encountered an error. Please try again." }
+            : msg
+        )
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [projectId, isLoading, conversationId, currentPage, pageContext, fetchPendingPatches]);
+
+  useEffect(() => {
+    if (isOpen && pendingInitialMessage && projectId && historyLoaded && !isLoading) {
+      const message = pendingInitialMessage;
+      clearPendingMessage();
+      setTimeout(() => {
+        sendPendingMessage(message);
+      }, 100);
+    }
+  }, [isOpen, pendingInitialMessage, projectId, historyLoaded, isLoading, clearPendingMessage, sendPendingMessage]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !projectId || isLoading) return;
