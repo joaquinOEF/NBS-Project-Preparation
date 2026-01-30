@@ -11,6 +11,7 @@ import { Card } from "@/core/components/ui/card";
 import { Badge } from "@/core/components/ui/badge";
 import { Loader2, MessageCircle, Send, Bot, User, Wrench, CheckCircle, XCircle, ArrowRight, Database, X } from "lucide-react";
 import { useToast } from "@/core/hooks/use-toast";
+import { computeReadinessScores, determinePathway, formatReadinessSummary, type QuestionnaireAnswers } from "@/core/utils/funding-readiness";
 
 interface ChatMessage {
   id: string;
@@ -58,11 +59,11 @@ export function ChatDrawer() {
   const { updateModule } = useProjectContext();
 
   const projectId = isSampleMode ? sampleProjectId : routeProjectId;
+  const dbProjectId = isSampleMode ? 'sample-porto-alegre-project' : projectId;
   
   const syncBlockToLocalStorage = useCallback(async (blockType: string) => {
-    if (!projectId) return;
+    if (!dbProjectId) return;
     try {
-      const dbProjectId = isSampleMode ? 'sample-porto-alegre-project' : projectId;
       const res = await fetch(`/api/projects/${dbProjectId}/blocks/${blockType}`);
       if (res.ok) {
         const data = await res.json();
@@ -87,7 +88,37 @@ export function ChatDrawer() {
     } catch (e) {
       console.warn('Failed to sync block to localStorage:', e);
     }
-  }, [projectId, isSampleMode, updateModule]);
+  }, [dbProjectId, updateModule]);
+
+  const showReadinessUpdate = useCallback(async () => {
+    if (!dbProjectId) return;
+    try {
+      const res = await fetch(`/api/projects/${dbProjectId}/blocks/funder_selection`);
+      if (res.ok) {
+        const data = await res.json();
+        const questionnaire = data?.data?.questionnaire as QuestionnaireAnswers | undefined;
+        if (questionnaire) {
+          const scores = computeReadinessScores(questionnaire);
+          const pathway = determinePathway(questionnaire);
+          const summary = formatReadinessSummary(scores, pathway);
+          
+          const isOnFunderSelection = location.includes('funder-selection');
+          const navPrompt = isOnFunderSelection 
+            ? '' 
+            : '\n\n📍 *You can view the full results on the Funder Selection page.*';
+          
+          setMessages(prev => [...prev, {
+            id: `readiness-update-${Date.now()}`,
+            role: 'assistant',
+            content: summary + navPrompt,
+            timestamp: new Date(),
+          }]);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to calculate readiness update:', e);
+    }
+  }, [dbProjectId, location]);
   
   const currentPage = useMemo(() => {
     const path = location.replace(/^\/?(sample\/)?/, '').split('/')[0];
@@ -124,7 +155,7 @@ export function ChatDrawer() {
   // Load chat history when drawer opens and we have a conversationId
   useEffect(() => {
     if (isOpen && projectId && conversationId && !historyLoaded) {
-      fetch(`/api/projects/${projectId}/agent/conversations/${conversationId}`)
+      fetch(`/api/projects/${dbProjectId}/agent/conversations/${conversationId}`)
         .then(res => res.ok ? res.json() : null)
         .then(data => {
           if (data?.messages && Array.isArray(data.messages)) {
@@ -150,7 +181,7 @@ export function ChatDrawer() {
   const fetchPendingPatches = useCallback(async () => {
     if (!projectId) return;
     try {
-      const response = await fetch(`/api/projects/${projectId}/patches?status=pending`);
+      const response = await fetch(`/api/projects/${dbProjectId}/patches?status=pending`);
       if (response.ok) {
         const data = await response.json();
         setPendingPatches(data.patches || []);
@@ -190,7 +221,7 @@ export function ChatDrawer() {
     setMessages(prev => [...prev, assistantMessage]);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/agent/chat`, {
+      const response = await fetch(`/api/projects/${dbProjectId}/agent/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -329,7 +360,7 @@ export function ChatDrawer() {
     setMessages(prev => [...prev, assistantMessage]);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/agent/chat`, {
+      const response = await fetch(`/api/projects/${dbProjectId}/agent/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -437,7 +468,7 @@ export function ChatDrawer() {
     if (!projectId) return;
     setApplyingPatchId(patchId);
     try {
-      const response = await fetch(`/api/projects/${projectId}/patches/${patchId}/apply`, {
+      const response = await fetch(`/api/projects/${dbProjectId}/patches/${patchId}/apply`, {
         method: "POST",
       });
       if (response.ok) {
@@ -454,6 +485,9 @@ export function ChatDrawer() {
           description: `Updated ${patch.blockType}.${patch.fieldPath}`,
           duration: 4000,
         });
+        if (patch.blockType === 'funder_selection' && patch.fieldPath.startsWith('questionnaire.')) {
+          await showReadinessUpdate();
+        }
       } else {
         toast({
           title: "Failed to save",
@@ -476,7 +510,7 @@ export function ChatDrawer() {
   const handleRejectPatch = async (patchId: string) => {
     if (!projectId) return;
     try {
-      const response = await fetch(`/api/projects/${projectId}/patches/${patchId}/reject`, {
+      const response = await fetch(`/api/projects/${dbProjectId}/patches/${patchId}/reject`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ feedback: "Rejected by user" }),
@@ -508,7 +542,7 @@ export function ChatDrawer() {
     setApplyingAll(true);
     try {
       const patchIds = pendingPatches.map(p => p.id);
-      const response = await fetch(`/api/projects/${projectId}/apply`, {
+      const response = await fetch(`/api/projects/${dbProjectId}/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ patchIds, actor: "user", actorId: "user" }),
@@ -574,6 +608,15 @@ export function ChatDrawer() {
             duration: 4000,
           });
         }
+        
+        const hasFunderSelectionQuestionnaire = pendingPatches.some(
+          p => successPatchIds.has(p.id) && 
+               p.blockType === 'funder_selection' && 
+               p.fieldPath.startsWith('questionnaire.')
+        );
+        if (hasFunderSelectionQuestionnaire) {
+          await showReadinessUpdate();
+        }
       } else {
         toast({
           title: "Failed to save",
@@ -598,7 +641,7 @@ export function ChatDrawer() {
     setRejectingAll(true);
     try {
       const patchIds = pendingPatches.map(p => p.id);
-      const response = await fetch(`/api/projects/${projectId}/reject`, {
+      const response = await fetch(`/api/projects/${dbProjectId}/reject`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ patchIds, reason: "Rejected all by user" }),

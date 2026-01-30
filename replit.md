@@ -124,6 +124,43 @@ The agent utilizes the following tools for understanding context and making chan
 3. For Impact Model: Use `search_knowledge` to find evidence before proposing narratives
 4. Use `propose_patch` with ONLY valid values - user must approve each change
 
+## Reusable UI/Agent Patterns
+
+### Update Banner Pattern
+Use for prompting users to update outdated information:
+- **Styling**: Amber/warning colors (border-amber-200, bg-amber-50)
+- **Icon**: AlertCircle for visual cue
+- **Buttons**: Primary button for main action, outline for secondary (agent)
+- **Example**: `client/src/core/pages/funder-selection.tsx` - update questionnaire banner
+
+### Agent Context Integration (openChatWithMessage)
+Pattern for opening chat with a pre-filled message:
+- **Context**: `useChatState()` from `chat-context.tsx` provides `openChatWithMessage(message: string)`
+- **Usage**: `openChatWithMessage(t('module.updateBanner.agentMessage'))`
+- **Flow**: Message is queued, chat drawer opens, message auto-sends after history loads
+- **Implementation**: `pendingInitialMessage` state + `clearPendingMessage` cleanup
+
+### User-Friendly Agent Response Formatting
+Agent system prompt includes instructions to format responses in readable language:
+- Group by logical sections (Project Status, Budget & Financing, Governance)
+- Use plain language labels, not schema field names
+- Translate enum values (e.g., "idea" → "Early idea phase", "over_50m" → "Over $50 million")
+- Use bullet points for readability
+- **Location**: `server/services/agentService.ts` SYSTEM_PROMPT
+
+### Cross-Module Navigation Prompts
+When agent updates module data and user is not on that module's page:
+- Add navigation prompt in chat message: "📍 *You can view the full results on the [Module] page.*"
+- Detect current page via `location.includes('module-name')`
+- **Example**: `showReadinessUpdate()` in ChatDrawer adds nav prompt when off funder-selection page
+
+### Post-Patch Readiness Recalculation
+After funder_selection questionnaire patches are applied:
+- **Shared Utility**: `client/src/core/utils/funding-readiness.ts`
+- **Functions**: `computeReadinessScores()`, `determinePathway()`, `formatReadinessSummary()`
+- **Trigger**: ChatDrawer calls `showReadinessUpdate()` after applying funder_selection patches
+- **Output**: Formatted summary with scores, pathway, and navigation prompt if not on page
+
 # External Dependencies
 
 ## Authentication Service
