@@ -1025,28 +1025,21 @@ export async function executeAgentTool(
         const projectId = context.projectId || 'sample-porto-alegre-project';
         
         try {
+          // Import storage to create patch directly (avoid HTTP fetch issues)
+          const { storage } = await import('../storage');
+          
           // Create a pending patch that user must approve
-          const patchResponse = await fetch(`http://localhost:5000/api/projects/${projectId}/patches`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              patches: [{
-                blockType: 'site_explorer',
-                fieldPath: `interventionSite.${zoneId}`,
-                value: intervention,
-                displayName: `Add ${interventionType} at ${siteName}`,
-                status: 'pending',
-              }],
-            }),
+          const patch = await storage.createPatch({
+            projectId,
+            blockType: 'site_explorer',
+            fieldPath: `interventionSite.${zoneId}`,
+            operation: 'set',
+            value: intervention as any,
+            status: 'pending',
+            proposedBy: 'agent',
           });
           
-          if (!patchResponse.ok) {
-            const error = await patchResponse.json();
-            console.error('Failed to create patch:', error);
-          }
-          
-          const patchResult = await patchResponse.json();
-          const patchId = patchResult.patches?.[0]?.id;
+          const patchId = patch.id;
           
           console.log(`📝 Created patch for intervention site: ${siteName} in ${zoneId}, patchId: ${patchId}`);
           
