@@ -33,14 +33,6 @@ interface GenerateNarrativeRequest {
   selectedZones: SelectedZone[];
   interventionBundles: InterventionBundle[];
   funderPathway: FunderPathway;
-  prioritizationWeights: {
-    floodRiskReduction: number;
-    heatReduction: number;
-    landslideRiskReduction: number;
-    socialEquity: number;
-    costCertainty: number;
-    biodiversityWaterQuality: number;
-  };
   projectName?: string;
   cityName?: string;
 }
@@ -97,7 +89,7 @@ interface GenerateNarrativeResponse {
 export async function generateImpactNarrative(
   request: GenerateNarrativeRequest
 ): Promise<GenerateNarrativeResponse> {
-  const { selectedZones, interventionBundles, funderPathway, prioritizationWeights, projectName, cityName } = request;
+  const { selectedZones, interventionBundles, funderPathway, projectName, cityName } = request;
 
   const enabledBundles = interventionBundles.filter(b => b.enabled);
   
@@ -131,14 +123,6 @@ FUNDING PATHWAY:
 - Secondary: ${funderPathway.secondary || 'None'}
 - Readiness: ${funderPathway.readinessLevel || 'Early stage'}
 - Limiting factors: ${funderPathway.limitingFactors?.join(', ') || 'None identified'}
-
-PRIORITIZATION WEIGHTS:
-- Flood Risk Reduction: ${prioritizationWeights.floodRiskReduction ?? 0.3}
-- Heat Reduction: ${prioritizationWeights.heatReduction ?? 0.25}
-- Landslide Risk Reduction: ${prioritizationWeights.landslideRiskReduction ?? 0.15}
-- Social Equity: ${prioritizationWeights.socialEquity ?? 0.1}
-- Cost Certainty: ${prioritizationWeights.costCertainty ?? 0.1}
-- Biodiversity & Water Quality: ${prioritizationWeights.biodiversityWaterQuality ?? 0.1}
 
 Generate a complete impact narrative response in the following JSON structure.
 You MUST generate exactly 10 narrative blocks covering all these topics:

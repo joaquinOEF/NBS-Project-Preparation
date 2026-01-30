@@ -319,15 +319,6 @@ export interface SignalCard {
   userNotes: string;
 }
 
-export interface PrioritizationWeights {
-  floodRiskReduction: number;
-  heatReduction: number;
-  landslideRiskReduction: number;
-  socialEquity: number;
-  costCertainty: number;
-  biodiversityWaterQuality: number;
-}
-
 export interface InterventionBundle {
   id: string;
   name: string;
@@ -342,8 +333,6 @@ export interface InterventionBundle {
 export interface ImpactModelData {
   status: 'NOT_STARTED' | 'DRAFT' | 'READY';
   navigation?: ModuleNavigation;
-  prioritizationWeights: PrioritizationWeights;
-  inheritedWeights: PrioritizationWeights;
   interventionBundles: InterventionBundle[];
   narrativeCache: {
     base: NarrativeBlock[] | null;

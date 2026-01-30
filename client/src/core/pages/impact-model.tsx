@@ -7,7 +7,6 @@ import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Badge } from '@/core/components/ui/badge';
 import { Progress } from '@/core/components/ui/progress';
-import { Slider } from '@/core/components/ui/slider';
 import { Label } from '@/core/components/ui/label';
 import { Checkbox } from '@/core/components/ui/checkbox';
 import { Textarea } from '@/core/components/ui/textarea';
@@ -17,7 +16,7 @@ import { ScrollArea } from '@/core/components/ui/scroll-area';
 import { useTranslation } from 'react-i18next';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useSampleData } from '@/core/contexts/sample-data-context';
-import { useProjectContext, ImpactModelData, PrioritizationWeights, LensType, InterventionBundle, NarrativeBlock, CoBenefitCard, SignalCard, sampleSiteExplorer, sampleFunderSelection } from '@/core/contexts/project-context';
+import { useProjectContext, ImpactModelData, LensType, InterventionBundle, NarrativeBlock, CoBenefitCard, SignalCard, sampleSiteExplorer, sampleFunderSelection } from '@/core/contexts/project-context';
 import { useToast } from '@/core/hooks/use-toast';
 import { useChatState } from '@/core/contexts/chat-context';
 
@@ -33,19 +32,8 @@ const GENERATION_PHRASES = [
   'Building funding-aligned recommendations'
 ];
 
-const DEFAULT_WEIGHTS: PrioritizationWeights = {
-  floodRiskReduction: 4,
-  heatReduction: 4,
-  landslideRiskReduction: 3,
-  socialEquity: 5,
-  costCertainty: 3,
-  biodiversityWaterQuality: 4,
-};
-
 const getDefaultImpactModelData = (): ImpactModelData => ({
   status: 'NOT_STARTED',
-  prioritizationWeights: { ...DEFAULT_WEIGHTS },
-  inheritedWeights: { ...DEFAULT_WEIGHTS },
   interventionBundles: [],
   narrativeCache: {
     base: null,
@@ -93,51 +81,6 @@ function StepIndicator({ currentStep, steps }: { currentStep: WizardStep; steps:
           </div>
         );
       })}
-    </div>
-  );
-}
-
-function WeightSlider({ 
-  label, 
-  value, 
-  onChange, 
-  inherited,
-  description 
-}: { 
-  label: string; 
-  value: number; 
-  onChange: (v: number) => void; 
-  inherited: number;
-  description?: string;
-}) {
-  const isModified = value !== inherited;
-  
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-sm">{label}</Label>
-        <div className="flex items-center gap-2">
-          {isModified && (
-            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">
-              Modified
-            </Badge>
-          )}
-          <span className="text-sm font-medium w-6 text-right">{value}</span>
-        </div>
-      </div>
-      {description && <p className="text-xs text-muted-foreground">{description}</p>}
-      <Slider
-        value={[value]}
-        onValueChange={([v]) => onChange(v)}
-        min={1}
-        max={5}
-        step={1}
-        className="w-full"
-      />
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>Low</span>
-        <span>High</span>
-      </div>
     </div>
   );
 }
@@ -1290,7 +1233,6 @@ function ExportStep({
       narrativeBlocks: includedBlocks,
       coBenefits: includedCoBenefits,
       downstreamSignals: data.downstreamSignals,
-      weights: data.prioritizationWeights,
     };
   };
 
@@ -1717,7 +1659,6 @@ export default function ImpactModelPage() {
           selectedZones: zonesForAI,
           interventionBundles: localData.interventionBundles || [],
           funderPathway: funderPathway,
-          prioritizationWeights: localData.prioritizationWeights || DEFAULT_WEIGHTS,
           projectName: context?.projectName || 'Urban Climate Resilience Initiative',
           cityName: context?.cityName || 'Porto Alegre',
         }),
@@ -1733,8 +1674,6 @@ export default function ImpactModelPage() {
       const fullUpdatedData: ImpactModelData = {
         ...localData,
         // Preserve user-configured fields
-        prioritizationWeights: localData.prioritizationWeights,
-        inheritedWeights: localData.inheritedWeights,
         interventionBundles: localData.interventionBundles,
         selectedLens: localData.selectedLens,
         // Replace with newly generated content
@@ -1817,7 +1756,6 @@ export default function ImpactModelPage() {
           projectContext: {
             cityName: context?.cityName || 'Porto Alegre',
             projectName: context?.projectName || 'Urban Climate Resilience Initiative',
-            weights: localData.prioritizationWeights || DEFAULT_WEIGHTS,
           },
         }),
       });

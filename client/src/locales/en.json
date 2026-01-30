@@ -1376,17 +1376,6 @@
       "lenses": "Lenses",
       "export": "Export"
     },
-    "prioritizationWeights": "Prioritization Weights",
-    "weightsDescription": "Adjust the relative importance of each factor in the impact analysis",
-    "weights": {
-      "floodRiskReduction": "Flood Risk Reduction",
-      "heatReduction": "Heat Reduction",
-      "landslideRiskReduction": "Landslide Risk Reduction",
-      "socialEquity": "Social Equity",
-      "costCertainty": "Cost Certainty",
-      "biodiversityWaterQuality": "Biodiversity & Water Quality"
-    },
-    "resetToDefault": "Reset to Default",
     "interventionBundles": "Intervention Bundles",
     "bundlesDescription": "Select which intervention zones to include in the impact narrative",
     "noZonesSelected": "No intervention zones available",

@@ -1037,7 +1037,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Impact Model AI narrative generation
   app.post('/api/impact-model/generate', async (req: any, res) => {
     try {
-      const { selectedZones, interventionBundles, funderPathway, prioritizationWeights, projectName, cityName } = req.body;
+      const { selectedZones, interventionBundles, funderPathway, projectName, cityName } = req.body;
 
       if (!selectedZones || !interventionBundles) {
         return res.status(400).json({ message: 'selectedZones and interventionBundles are required' });
@@ -1049,14 +1049,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         selectedZones,
         interventionBundles,
         funderPathway: funderPathway || { primary: 'BLENDED_FINANCE' },
-        prioritizationWeights: prioritizationWeights || {
-          floodRiskReduction: 0.3,
-          heatReduction: 0.25,
-          landslideRiskReduction: 0.15,
-          socialEquity: 0.1,
-          costCertainty: 0.1,
-          biodiversityWaterQuality: 0.1,
-        },
         projectName,
         cityName,
       });
