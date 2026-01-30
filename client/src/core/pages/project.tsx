@@ -1015,30 +1015,26 @@ function ContextViewer({ context }: { context: ProjectContextData | null }) {
 
 function DataReadinessChecklist({ items }: { items: DataReadinessItem[] }) {
   const { t } = useTranslation();
-  const available = items.filter(i => i.available).length;
 
   return (
-    <div className="border rounded-lg p-3 bg-muted/30">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium">{t('project.dataReadiness.title')}</span>
-        <Badge variant="outline" className="text-xs">
-          {t('project.dataReadiness.loaded', { count: available, total: items.length })}
-        </Badge>
-      </div>
-      <div className="space-y-1">
-        {items.map(item => (
-          <div key={item.key} className="flex items-center gap-2 text-xs">
-            {item.available ? (
-              <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
-            ) : (
-              <Circle className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-            )}
-            <span className={item.available ? 'text-foreground' : 'text-muted-foreground'}>
-              {t(`project.dataReadiness.${item.i18nKey}`)}
-            </span>
-          </div>
-        ))}
-      </div>
+    <div className="inline-flex items-center gap-2 border rounded-lg px-3 py-2 bg-card">
+      {items.map(item => (
+        <div
+          key={item.key}
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            item.available
+              ? 'bg-primary/10 text-primary border border-primary/20'
+              : 'bg-muted/50 text-muted-foreground/60 border border-muted-foreground/20'
+          }`}
+        >
+          {item.available ? (
+            <CheckCircle2 className="h-3 w-3 shrink-0" />
+          ) : (
+            <Circle className="h-3 w-3 shrink-0" />
+          )}
+          <span>{t(`project.dataReadiness.${item.i18nKey}`)}</span>
+        </div>
+      ))}
     </div>
   );
 }
