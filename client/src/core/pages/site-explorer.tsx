@@ -254,6 +254,7 @@ export default function SiteExplorerPage() {
   const highlightLayerRef = useRef<L.Layer | null>(null);
   const osmLayerRef = useRef<L.Layer | null>(null);
   const selectedAssetMarkerRef = useRef<L.Marker | null>(null);
+  const interventionMarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const { updateModule, context, loadContext } = useProjectContext();
   const { setPageContext } = useChatState();
   const [navigationRestored, setNavigationRestored] = useState(false);
@@ -600,6 +601,83 @@ export default function SiteExplorerPage() {
       mapRef.current.flyTo([lat, lng], 17, { duration: 0.5 });
     }
   }, [selectedAsset]);
+
+  // Display intervention site markers on the map
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const getCategoryIcon = (category: string): { color: string; icon: string } => {
+      switch (category) {
+        case 'urban_cooling':
+          return { color: '#22c55e', icon: '🌳' }; // green - trees/cooling
+        case 'flood_storage':
+          return { color: '#3b82f6', icon: '💧' }; // blue - water/flood
+        case 'erosion':
+          return { color: '#a16207', icon: '🏔️' }; // brown - slope
+        default:
+          return { color: '#8b5cf6', icon: '📍' }; // purple - default
+      }
+    };
+
+    // Collect all current intervention IDs
+    const currentInterventionIds = new Set<string>();
+    
+    Object.entries(zonePortfolios).forEach(([zoneId, interventions]) => {
+      interventions.forEach(intervention => {
+        if (intervention.centroid) {
+          const markerId = `${zoneId}_${intervention.assetId || intervention.interventionId}`;
+          currentInterventionIds.add(markerId);
+          
+          // Only add if not already on map
+          if (!interventionMarkersRef.current.has(markerId)) {
+            const [lat, lng] = intervention.centroid;
+            const { color, icon } = getCategoryIcon(intervention.category);
+            
+            const marker = L.marker([lat, lng], {
+              icon: L.divIcon({
+                className: 'intervention-site-marker',
+                html: `
+                  <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 32px;
+                    height: 32px;
+                    background: ${color};
+                    border: 3px solid white;
+                    border-radius: 50%;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+                    font-size: 14px;
+                  ">${icon}</div>
+                `,
+                iconSize: [32, 32],
+                iconAnchor: [16, 16],
+              }),
+            });
+            
+            marker.bindTooltip(`
+              <div style="font-size: 12px;">
+                <strong>${intervention.assetName || 'Site'}</strong><br/>
+                ${intervention.interventionName}<br/>
+                <em style="color: #888;">${formatZoneName(zoneId)}</em>
+              </div>
+            `, { permanent: false, direction: 'top', offset: [0, -16] });
+            
+            marker.addTo(mapRef.current!);
+            interventionMarkersRef.current.set(markerId, marker);
+          }
+        }
+      });
+    });
+    
+    // Remove markers that are no longer in portfolios
+    interventionMarkersRef.current.forEach((marker, markerId) => {
+      if (!currentInterventionIds.has(markerId)) {
+        marker.remove();
+        interventionMarkersRef.current.delete(markerId);
+      }
+    });
+  }, [zonePortfolios]);
 
   useEffect(() => {
     if (!mapContainerRef.current || !boundaryData) return;
