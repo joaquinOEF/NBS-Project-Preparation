@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/cor
 import { Badge } from '@/core/components/ui/badge';
 import { Progress } from '@/core/components/ui/progress';
 import { Label } from '@/core/components/ui/label';
+import { Input } from '@/core/components/ui/input';
 import { Checkbox } from '@/core/components/ui/checkbox';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
@@ -21,9 +22,9 @@ import { useProjectContext, ImpactModelData, LensType, InterventionBundle, Narra
 import { useToast } from '@/core/hooks/use-toast';
 import { useChatState } from '@/core/contexts/chat-context';
 
-type WizardStep = 'setup' | 'quantify' | 'curate' | 'narrate' | 'lenses' | 'export';
+type WizardStep = 'setup' | 'quantify' | 'narrate' | 'lenses' | 'export';
 
-const WIZARD_STEPS: WizardStep[] = ['setup', 'quantify', 'curate', 'narrate', 'lenses', 'export'];
+const WIZARD_STEPS: WizardStep[] = ['setup', 'quantify', 'narrate', 'lenses', 'export'];
 
 const GENERATION_PHRASES = [
   'Estimating project impact',
@@ -564,6 +565,15 @@ function renderMarkdown(text: string): string {
   return DOMPurify.sanitize(`<p class="my-3">${html}</p>`);
 }
 
+interface EditingKPI {
+  groupId: string;
+  kpiId: string;
+  low: number;
+  high: number;
+  unit: string;
+  evidenceSource: string;
+}
+
 function QuantifyStep({
   data,
   onUpdate,
@@ -577,6 +587,47 @@ function QuantifyStep({
 }) {
   const { t } = useTranslation();
   const qi = data.quantifiedImpacts;
+  const [editingKPI, setEditingKPI] = useState<EditingKPI | null>(null);
+
+  const handleEditKPI = (groupId: string, kpi: any) => {
+    setEditingKPI({
+      groupId,
+      kpiId: kpi.id,
+      low: kpi.valueRange.low,
+      high: kpi.valueRange.high,
+      unit: kpi.unit,
+      evidenceSource: kpi.userEvidenceSource || '',
+    });
+  };
+
+  const handleSaveKPI = () => {
+    if (!editingKPI || !qi) return;
+    
+    const updatedGroups = qi.impactGroups.map((group: any) => {
+      if (group.id !== editingKPI.groupId) return group;
+      return {
+        ...group,
+        kpis: group.kpis.map((kpi: any) => {
+          if (kpi.id !== editingKPI.kpiId) return kpi;
+          return {
+            ...kpi,
+            valueRange: { low: editingKPI.low, high: editingKPI.high },
+            unit: editingKPI.unit,
+            userEvidenceSource: editingKPI.evidenceSource || undefined,
+            evidenceTier: editingKPI.evidenceSource ? 'EVIDENCE' : kpi.evidenceTier,
+          };
+        }),
+      };
+    });
+
+    onUpdate({
+      quantifiedImpacts: {
+        ...qi,
+        impactGroups: updatedGroups,
+      },
+    });
+    setEditingKPI(null);
+  };
 
   const confidenceDescriptions: Record<string, string> = {
     HIGH: 'Strong evidence from multiple peer-reviewed studies or validated local data supports this estimate.',
@@ -700,34 +751,102 @@ function QuantifyStep({
                   {hazard && <Badge variant="outline">{hazard}</Badge>}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {group.kpis.map((kpi: any) => (
-                    <Card key={kpi.id} className="overflow-hidden">
-                      <CardContent className="p-5">
-                        <div className="space-y-3">
-                          <div className="text-center">
-                            <p className="text-3xl font-bold text-primary">
-                              {kpi.valueRange.low}–{kpi.valueRange.high}
-                            </p>
-                            <p className="text-sm font-medium text-muted-foreground">{kpi.unit}</p>
-                          </div>
-                          <div className="pt-2 border-t space-y-2">
-                            <p className="text-sm font-medium leading-snug">{kpi.name}</p>
-                            {kpi.methodology && (
-                              <p className="text-xs text-muted-foreground line-clamp-3">{kpi.methodology}</p>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-center gap-2">
-                            {typeof kpi.confidence === 'number' ? (
-                              getConfidencePercentTooltip(kpi.confidence)
-                            ) : (
-                              getConfidenceBadge(String(kpi.confidence))
-                            )}
-                            {getEvidenceBadge(kpi.evidenceTier)}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                  {group.kpis.map((kpi: any) => {
+                    const isEditing = editingKPI?.groupId === group.id && editingKPI?.kpiId === kpi.id;
+                    
+                    return (
+                      <Card key={kpi.id} className="overflow-hidden relative group/card">
+                        <CardContent className="p-5">
+                          {isEditing && editingKPI ? (
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <Label className="text-xs">Min Value</Label>
+                                  <Input
+                                    type="number"
+                                    value={editingKPI.low}
+                                    onChange={(e) => setEditingKPI({ ...editingKPI, low: parseFloat(e.target.value) || 0 })}
+                                    className="h-8"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">Max Value</Label>
+                                  <Input
+                                    type="number"
+                                    value={editingKPI.high}
+                                    onChange={(e) => setEditingKPI({ ...editingKPI, high: parseFloat(e.target.value) || 0 })}
+                                    className="h-8"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="text-xs">Unit</Label>
+                                <Input
+                                  value={editingKPI.unit}
+                                  onChange={(e) => setEditingKPI({ ...editingKPI, unit: e.target.value })}
+                                  className="h-8"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Evidence Source (optional)</Label>
+                                <Textarea
+                                  value={editingKPI.evidenceSource}
+                                  onChange={(e) => setEditingKPI({ ...editingKPI, evidenceSource: e.target.value })}
+                                  placeholder="Add a citation or URL to support your custom values..."
+                                  className="h-16 text-xs resize-none"
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <Button size="sm" onClick={handleSaveKPI} className="flex-1">
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Save
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => setEditingKPI(null)} className="flex-1">
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover/card:opacity-100 transition-opacity"
+                                onClick={() => handleEditKPI(group.id, kpi)}
+                              >
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </Button>
+                              <div className="text-center">
+                                <p className="text-3xl font-bold text-primary">
+                                  {kpi.valueRange.low}–{kpi.valueRange.high}
+                                </p>
+                                <p className="text-sm font-medium text-muted-foreground">{kpi.unit}</p>
+                              </div>
+                              <div className="pt-2 border-t space-y-2">
+                                <p className="text-sm font-medium leading-snug">{kpi.name}</p>
+                                {kpi.methodology && (
+                                  <p className="text-xs text-muted-foreground line-clamp-3">{kpi.methodology}</p>
+                                )}
+                                {kpi.userEvidenceSource && (
+                                  <p className="text-xs text-blue-600 dark:text-blue-400 italic">
+                                    📎 {kpi.userEvidenceSource}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-center gap-2">
+                                {typeof kpi.confidence === 'number' ? (
+                                  getConfidencePercentTooltip(kpi.confidence)
+                                ) : (
+                                  getConfidenceBadge(String(kpi.confidence))
+                                )}
+                                {getEvidenceBadge(kpi.evidenceTier)}
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -1790,7 +1909,6 @@ export default function ImpactModelPage() {
     const stepLabels: Record<WizardStep, string> = {
       setup: 'Configure Inputs',
       quantify: 'Quantify Impacts',
-      curate: 'Curate Narratives',
       narrate: 'Generate Prose',
       lenses: 'Apply Funder Lenses',
       export: 'Export & Share',
@@ -2353,7 +2471,6 @@ export default function ImpactModelPage() {
         return (localData.interventionBundles?.length ?? 0) > 0;
       case 'quantify':
         return !!localData.quantifiedImpacts;
-      case 'curate':
       case 'narrate':
       case 'lenses':
       case 'export':
@@ -2449,14 +2566,6 @@ export default function ImpactModelPage() {
               onUpdate={handleUpdate}
               isQuantifying={isQuantifying}
               onQuantify={handleQuantify}
-            />
-          )}
-          {currentStep === 'curate' && (
-            <CurateStep
-              data={localData}
-              onUpdate={handleUpdate}
-              onRegenerateBlock={handleRegenerateBlock}
-              isRegenerating={isRegenerating}
             />
           )}
           {currentStep === 'narrate' && (

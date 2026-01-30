@@ -340,6 +340,7 @@ export interface QuantifiedKPI {
   evidenceTier: 'EVIDENCE' | 'MODELLED' | 'ASSUMPTION';
   sourceChunkIds: string[];
   methodology: string;
+  userEvidenceSource?: string;
 }
 
 export interface QuantifiedImpactGroup {
