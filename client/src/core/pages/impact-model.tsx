@@ -640,41 +640,48 @@ function QuantifyStep({
       {/* Quantified KPI cards */}
       {qi && qi.impactGroups.length > 0 && (
         <div className="space-y-6">
-          {qi.impactGroups.map((group) => (
-            <div key={group.id} className="space-y-4">
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold">{group.interventionBundle}</h3>
-                <Badge variant="outline">{group.hazardType}</Badge>
+          {qi.impactGroups.map((group: any) => {
+            const groupName = group.interventionBundle || group.intervention || 'Impact Group';
+            const hazard = group.hazardType || group.hazard || '';
+            return (
+              <div key={group.id} className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold">{groupName}</h3>
+                  {hazard && <Badge variant="outline">{hazard}</Badge>}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {group.kpis.map((kpi: any) => (
+                    <Card key={kpi.id} className="overflow-hidden">
+                      <CardContent className="p-5">
+                        <div className="space-y-3">
+                          <div className="text-center">
+                            <p className="text-3xl font-bold text-primary">
+                              {kpi.valueRange.low}–{kpi.valueRange.high}
+                            </p>
+                            <p className="text-sm font-medium text-muted-foreground">{kpi.unit}</p>
+                          </div>
+                          <div className="pt-2 border-t space-y-2">
+                            <p className="text-sm font-medium leading-snug">{kpi.name}</p>
+                            {kpi.methodology && (
+                              <p className="text-xs text-muted-foreground line-clamp-3">{kpi.methodology}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-center gap-2">
+                            {typeof kpi.confidence === 'number' ? (
+                              <span className="text-xs text-muted-foreground">{Math.round(kpi.confidence * 100)}%</span>
+                            ) : (
+                              getConfidenceBadge(String(kpi.confidence))
+                            )}
+                            {getEvidenceBadge(kpi.evidenceTier)}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {group.kpis.map((kpi) => (
-                  <Card key={kpi.id} className="overflow-hidden">
-                    <CardContent className="p-5">
-                      <div className="space-y-3">
-                        <div className="text-center">
-                          <p className="text-3xl font-bold text-primary">
-                            {kpi.valueRange.low}–{kpi.valueRange.high}
-                          </p>
-                          <p className="text-sm font-medium text-muted-foreground">{kpi.unit}</p>
-                        </div>
-                        <div className="pt-2 border-t">
-                          <p className="text-sm font-medium leading-snug">{kpi.name}</p>
-                        </div>
-                        <div className="flex items-center justify-center gap-2">
-                          {typeof kpi.confidence === 'number' ? (
-                            <span className="text-xs text-muted-foreground">{Math.round(kpi.confidence * 100)}%</span>
-                          ) : (
-                            getConfidenceBadge(kpi.confidence)
-                          )}
-                          {getEvidenceBadge(kpi.evidenceTier)}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Co-benefits summary */}
           {qi.coBenefits.length > 0 && (
