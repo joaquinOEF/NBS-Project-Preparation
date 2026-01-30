@@ -336,6 +336,34 @@ export default function SiteExplorerPage() {
     }
   }, [context]);
 
+  // Listen for intervention site additions from chat drawer
+  useEffect(() => {
+    const handleInterventionAdded = (event: CustomEvent<{ zoneId: string; value: any }>) => {
+      const { zoneId, value } = event.detail;
+      console.log('🔔 Intervention site added event received:', zoneId, value);
+      
+      setZonePortfolios(prev => {
+        const updated = { ...prev };
+        if (!updated[zoneId]) {
+          updated[zoneId] = [];
+        }
+        // Check if already exists
+        const existingIndex = updated[zoneId].findIndex(i => i.assetId === value.assetId);
+        if (existingIndex >= 0) {
+          updated[zoneId][existingIndex] = value;
+        } else {
+          updated[zoneId] = [...updated[zoneId], value];
+        }
+        return updated;
+      });
+    };
+    
+    window.addEventListener('intervention-site-added', handleInterventionAdded as EventListener);
+    return () => {
+      window.removeEventListener('intervention-site-added', handleInterventionAdded as EventListener);
+    };
+  }, []);
+
   // Mark navigation as restored on mount
   // Note: Site Explorer navigation tracks whether user was viewing a zone detail,
   // but we can't restore the exact zone because zones are dynamically loaded from the map.
@@ -1831,21 +1859,39 @@ export default function SiteExplorerPage() {
                       
                       {portfolio.length > 0 && (
                         <div className="px-2 pb-2 space-y-1">
-                          {Object.entries(groupedByCategory).map(([category, items]: [string, any]) => (
-                            <div key={category} className="ml-5 pl-2 border-l border-white/20">
-                              <div className="text-xs text-zinc-400 font-medium py-1">
-                                {interventionsData?.categories[category]?.name || category} ({items.length})
-                              </div>
-                              {items.slice(0, 2).map((item: SelectedIntervention) => (
-                                <div key={item.assetId || item.interventionId} className="text-xs py-0.5 truncate text-zinc-300">
-                                  {item.assetName || item.interventionName}
+                          {/* Only show +N more if total sites in zone > 5 */}
+                          {portfolio.length <= 5 ? (
+                            // Show all items when 5 or fewer
+                            Object.entries(groupedByCategory).map(([category, items]: [string, any]) => (
+                              <div key={category} className="ml-5 pl-2 border-l border-white/20">
+                                <div className="text-xs text-zinc-400 font-medium py-1">
+                                  {interventionsData?.categories[category]?.name || category} ({items.length})
                                 </div>
-                              ))}
-                              {items.length > 2 && (
-                                <div className="text-xs text-zinc-500">+{items.length - 2} more</div>
-                              )}
-                            </div>
-                          ))}
+                                {items.map((item: SelectedIntervention) => (
+                                  <div key={item.assetId || item.interventionId} className="text-xs py-0.5 truncate text-zinc-300">
+                                    {item.assetName || item.interventionName}
+                                  </div>
+                                ))}
+                              </div>
+                            ))
+                          ) : (
+                            // Show limited items with +N more when > 5 total
+                            Object.entries(groupedByCategory).map(([category, items]: [string, any]) => (
+                              <div key={category} className="ml-5 pl-2 border-l border-white/20">
+                                <div className="text-xs text-zinc-400 font-medium py-1">
+                                  {interventionsData?.categories[category]?.name || category} ({items.length})
+                                </div>
+                                {items.slice(0, 2).map((item: SelectedIntervention) => (
+                                  <div key={item.assetId || item.interventionId} className="text-xs py-0.5 truncate text-zinc-300">
+                                    {item.assetName || item.interventionName}
+                                  </div>
+                                ))}
+                                {items.length > 2 && (
+                                  <div className="text-xs text-zinc-500">+{items.length - 2} more</div>
+                                )}
+                              </div>
+                            ))
+                          )}
                         </div>
                       )}
                     </div>
@@ -2023,7 +2069,8 @@ export default function SiteExplorerPage() {
                                       {intervention.interventionName}
                                     </div>
                                     <div className="text-xs text-muted-foreground mt-1">
-                                      {intervention.estimatedArea.toFixed(2)} {intervention.areaUnit} • {formatCost(intervention.estimatedCost.min, intervention.estimatedCost.max)}
+                                      {intervention.estimatedArea?.toFixed(2) || '?'} {intervention.areaUnit || 'ha'}
+                                      {intervention.estimatedCost && ` • ${formatCost(intervention.estimatedCost.min, intervention.estimatedCost.max)}`}
                                     </div>
                                   </div>
                                   <Button 

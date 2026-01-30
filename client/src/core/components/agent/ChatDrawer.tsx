@@ -509,6 +509,12 @@ export function ChatDrawer() {
           description: `Updated ${patch.blockType}.${patch.fieldPath}`,
           duration: 4000,
         });
+        // Dispatch event for site_explorer intervention site patches
+        if (patch.blockType === 'site_explorer' && patch.fieldPath.startsWith('interventionSite.')) {
+          window.dispatchEvent(new CustomEvent('intervention-site-added', { 
+            detail: { zoneId: patch.fieldPath.replace('interventionSite.', ''), value: patch.value } 
+          }));
+        }
         if (patch.blockType === 'funder_selection' && patch.fieldPath.startsWith('questionnaire.')) {
           await showReadinessUpdate();
         }
