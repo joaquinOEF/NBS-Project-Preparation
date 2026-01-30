@@ -2052,18 +2052,18 @@ export default function FunderSelectionPage() {
         {showResults && (
           <>
             <Alert className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-900/20">
-              <RefreshCw className="h-4 w-4 text-amber-600" />
+              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
               <AlertDescription className="flex items-center justify-between">
                 <span className="text-amber-800 dark:text-amber-200">
                   {t('funderSelection.updateBanner.message')}
                 </span>
                 <div className="flex gap-2 ml-4">
-                  <Button variant="outline" size="sm" onClick={retakeQuestionnaire} className="border-amber-300 text-amber-700 hover:bg-amber-100">
+                  <Button size="sm" onClick={retakeQuestionnaire}>
                     <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
                     {t('funderSelection.updateBanner.updateQuestionnaire')}
                   </Button>
                   <Button 
-                    variant="secondary" 
+                    variant="outline" 
                     size="sm" 
                     onClick={() => openChatWithMessage(t('funderSelection.updateBanner.agentMessage'))}
                     className="gap-1.5"
