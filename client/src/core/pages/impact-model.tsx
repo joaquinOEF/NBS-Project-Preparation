@@ -59,6 +59,109 @@ const getDefaultImpactModelData = (): ImpactModelData => ({
   generationMeta: null,
 });
 
+const normalizeSignalCard = (signal: unknown, prefix: string, index: number): SignalCard => {
+  if (typeof signal === 'string') {
+    return {
+      id: `${prefix}-${index + 1}`,
+      title: signal,
+      description: '',
+      whyItMatters: '',
+      triggeredBy: [],
+      ownerCandidates: [],
+      timeHorizon: '0-2y',
+      riskIfMissing: '',
+      confidence: 'MEDIUM',
+      included: true,
+      userNotes: '',
+    };
+  }
+  const obj = signal as Partial<SignalCard>;
+  return {
+    id: obj.id || `${prefix}-${index + 1}`,
+    title: obj.title || '',
+    description: obj.description || '',
+    whyItMatters: obj.whyItMatters || '',
+    triggeredBy: Array.isArray(obj.triggeredBy) ? obj.triggeredBy : [],
+    ownerCandidates: Array.isArray(obj.ownerCandidates) ? obj.ownerCandidates : [],
+    timeHorizon: obj.timeHorizon || '0-2y',
+    riskIfMissing: obj.riskIfMissing || '',
+    confidence: obj.confidence || 'MEDIUM',
+    included: obj.included !== false,
+    userNotes: obj.userNotes || '',
+  };
+};
+
+const normalizeCoBenefit = (cb: unknown, index: number): CoBenefitCard => {
+  if (typeof cb === 'string') {
+    return {
+      id: `cb-${index + 1}`,
+      title: cb,
+      category: 'OTHER',
+      description: '',
+      whoBenefits: [],
+      where: [],
+      kpiOrProxy: null,
+      confidence: 'MEDIUM',
+      evidenceTier: 'ASSUMPTION',
+      dependencies: [],
+      included: true,
+      userNotes: '',
+    };
+  }
+  const obj = cb as Partial<CoBenefitCard>;
+  return {
+    id: obj.id || `cb-${index + 1}`,
+    title: obj.title || '',
+    category: obj.category || 'OTHER',
+    description: obj.description || '',
+    whoBenefits: Array.isArray(obj.whoBenefits) ? obj.whoBenefits : [],
+    where: Array.isArray(obj.where) ? obj.where : [],
+    kpiOrProxy: obj.kpiOrProxy || null,
+    confidence: obj.confidence || 'MEDIUM',
+    evidenceTier: obj.evidenceTier || 'ASSUMPTION',
+    dependencies: Array.isArray(obj.dependencies) ? obj.dependencies : [],
+    included: obj.included !== false,
+    userNotes: obj.userNotes || '',
+  };
+};
+
+interface RawDownstreamSignals {
+  operations?: unknown[];
+  businessModel?: unknown[];
+  mrv?: unknown[];
+  implementors?: unknown[];
+}
+
+const normalizeAIResponse = (result: {
+  narrativeBlocks?: NarrativeBlock[];
+  coBenefits?: unknown[];
+  downstreamSignals?: RawDownstreamSignals;
+}): {
+  narrativeBlocks: NarrativeBlock[];
+  coBenefits: CoBenefitCard[];
+  downstreamSignals: {
+    operations: SignalCard[];
+    businessModel: SignalCard[];
+    mrv: SignalCard[];
+    implementors: SignalCard[];
+  };
+} => {
+  const rawSignals = result.downstreamSignals || {};
+  return {
+    narrativeBlocks: (result.narrativeBlocks || []).map((block, idx) => ({
+      ...block,
+      id: block.id || `block-${idx + 1}`,
+    })),
+    coBenefits: (result.coBenefits || []).map((cb, idx) => normalizeCoBenefit(cb, idx)),
+    downstreamSignals: {
+      operations: (rawSignals.operations || []).map((s, i) => normalizeSignalCard(s, 'ops', i)),
+      businessModel: (rawSignals.businessModel || []).map((s, i) => normalizeSignalCard(s, 'bm', i)),
+      mrv: (rawSignals.mrv || []).map((s, i) => normalizeSignalCard(s, 'mrv', i)),
+      implementors: (rawSignals.implementors || []).map((s, i) => normalizeSignalCard(s, 'impl', i)),
+    },
+  };
+};
+
 function StepIndicator({ currentStep, steps }: { currentStep: WizardStep; steps: WizardStep[] }) {
   const { t } = useTranslation();
   const currentIndex = steps.indexOf(currentStep);
@@ -1987,21 +2090,30 @@ export default function ImpactModelPage() {
         const result = await res.json();
         if (result?.data) {
           const defaults = getDefaultImpactModelData();
+          const rawData = result.data;
+          
+          const normalizedCoBenefits = (rawData.coBenefits || []).map((cb: unknown, idx: number) => normalizeCoBenefit(cb, idx));
+          const rawSignals = rawData.downstreamSignals || {};
+          const normalizedSignals = {
+            operations: (rawSignals.operations || []).map((s: unknown, i: number) => normalizeSignalCard(s, 'ops', i)),
+            businessModel: (rawSignals.businessModel || []).map((s: unknown, i: number) => normalizeSignalCard(s, 'bm', i)),
+            mrv: (rawSignals.mrv || []).map((s: unknown, i: number) => normalizeSignalCard(s, 'mrv', i)),
+            implementors: (rawSignals.implementors || []).map((s: unknown, i: number) => normalizeSignalCard(s, 'impl', i)),
+          };
+          
           const freshData: ImpactModelData = {
             ...defaults,
-            ...result.data,
+            ...rawData,
             narrativeCache: {
               ...defaults.narrativeCache,
-              ...(result.data.narrativeCache || {}),
+              ...(rawData.narrativeCache || {}),
               lensVariants: {
                 ...defaults.narrativeCache.lensVariants,
-                ...(result.data.narrativeCache?.lensVariants || {}),
+                ...(rawData.narrativeCache?.lensVariants || {}),
               },
             },
-            downstreamSignals: {
-              ...defaults.downstreamSignals,
-              ...(result.data.downstreamSignals || {}),
-            },
+            coBenefits: normalizedCoBenefits,
+            downstreamSignals: normalizedSignals,
           };
           setLocalData(freshData);
           console.log('[ImpactModel] Hydrated from database');
@@ -2213,6 +2325,8 @@ export default function ImpactModelPage() {
       }
 
       const result = await response.json();
+      
+      const normalized = normalizeAIResponse(result);
 
       // Build complete state preserving user inputs, replacing generated content
       const fullUpdatedData: ImpactModelData = {
@@ -2222,11 +2336,11 @@ export default function ImpactModelPage() {
         selectedLens: localData.selectedLens,
         // Replace with newly generated content
         narrativeCache: {
-          base: result.narrativeBlocks || [],
+          base: normalized.narrativeBlocks,
           lensVariants: { neutral: [], climate: [], social: [], financial: [], institutional: [] },
         },
-        coBenefits: result.coBenefits || [],
-        downstreamSignals: result.downstreamSignals || { operations: [], businessModel: [], mrv: [], implementors: [] },
+        coBenefits: normalized.coBenefits,
+        downstreamSignals: normalized.downstreamSignals,
         generationMeta: {
           generatedAt: new Date().toISOString(),
           model: 'GPT-5.2',
@@ -2326,6 +2440,8 @@ export default function ImpactModelPage() {
       }
 
       const result = await response.json();
+      
+      const normalized = normalizeAIResponse(result);
 
       const fullUpdatedData: ImpactModelData = {
         ...localData,
@@ -2333,11 +2449,11 @@ export default function ImpactModelPage() {
         selectedLens: localData.selectedLens,
         quantifiedImpacts: localData.quantifiedImpacts,
         narrativeCache: {
-          base: result.narrativeBlocks || [],
+          base: normalized.narrativeBlocks,
           lensVariants: { neutral: [], climate: [], social: [], financial: [], institutional: [] },
         },
-        coBenefits: result.coBenefits || [],
-        downstreamSignals: result.downstreamSignals || { operations: [], businessModel: [], mrv: [], implementors: [] },
+        coBenefits: normalized.coBenefits,
+        downstreamSignals: normalized.downstreamSignals,
         generationMeta: {
           generatedAt: new Date().toISOString(),
           model: 'GPT-5.2',
