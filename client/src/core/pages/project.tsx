@@ -1,6 +1,6 @@
 import { useParams, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Map, ArrowRight, DollarSign, Settings, Landmark, Database, ChevronRight, ChevronDown, Lightbulb, FileText, CheckCircle2, Circle, Download } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
@@ -9,12 +9,17 @@ import { Badge } from '@/core/components/ui/badge';
 import { Skeleton } from '@/core/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/core/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/core/components/ui/tabs';
+import { Progress } from '@/core/components/ui/progress';
 import { ScrollArea } from '@/core/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/core/components/ui/collapsible';
 import { useTranslation } from 'react-i18next';
 import { useSampleData, SAMPLE_DATA_READINESS, DataReadinessItem } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
-import { useProjectContext, ProjectContextData } from '@/core/contexts/project-context';
+import { useProjectContext, ProjectContextData, SelectedZone } from '@/core/contexts/project-context';
+import { computeReadinessScores, determinePathway } from '@/core/utils/funding-readiness';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { assembleConceptNote, ConceptNote } from '@/core/types/concept-note';
 
 interface Project {
@@ -257,6 +262,432 @@ function ImpactModelHighlight({ data }: { data: ProjectContextData['impactModel'
         )}
       </div>
     </div>
+  );
+}
+
+const HAZARD_COLORS: Record<string, string> = {
+  FLOOD: '#3b82f6',
+  HEAT: '#ef4444',
+  LANDSLIDE: '#a16207',
+  FLOOD_HEAT: '#8b5cf6',
+  FLOOD_LANDSLIDE: '#0891b2',
+  HEAT_LANDSLIDE: '#db2777',
+  LOW: '#10b981',
+};
+
+function EmptyCard({ title }: { title: string }) {
+  const { t } = useTranslation();
+  return (
+    <Card className="border-dashed border-muted-foreground/30">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-xs text-muted-foreground">{t('project.overview.emptyState')}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FunderReadinessCard({ data }: { data: ProjectContextData['funderSelection'] }) {
+  const { t } = useTranslation();
+
+  if (!data || data.status === 'NOT_STARTED') {
+    return <EmptyCard title={t('project.overview.funderReadiness')} />;
+  }
+
+  const scores = computeReadinessScores(data.questionnaire || {});
+  const pathway = determinePathway(data.questionnaire || {});
+
+  const dimensionBars = [
+    { label: t('project.overview.technical'), value: scores.technical, color: 'bg-blue-500' },
+    { label: t('project.overview.financial'), value: scores.financial, color: 'bg-green-500' },
+    { label: t('project.overview.political'), value: scores.political, color: 'bg-amber-500' },
+  ];
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm">{t('project.overview.funderReadiness')}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="text-3xl font-bold">{scores.overall}</div>
+          <div className="flex-1 space-y-1">
+            <div className="text-xs text-muted-foreground">{t('project.overview.overallScore')}</div>
+            <Progress value={scores.overall} className="h-3" />
+          </div>
+          <Badge variant="outline">{scores.overallLabel.replace(/_/g, ' ')}</Badge>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          {dimensionBars.map(dim => (
+            <div key={dim.label} className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">{dim.label}</span>
+                <span className="font-medium">{dim.value}</span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                <div className={`h-full rounded-full ${dim.color}`} style={{ width: `${dim.value}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap gap-2 pt-2 border-t">
+          <div className="text-xs text-muted-foreground">{t('project.overview.pathway')}:</div>
+          <Badge variant="secondary">{pathway.primary.replace(/_/g, ' ')}</Badge>
+          {pathway.secondary && (
+            <Badge variant="outline">{pathway.secondary.replace(/_/g, ' ')}</Badge>
+          )}
+        </div>
+
+        {pathway.limitingFactorKeys.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            <span className="text-xs text-muted-foreground">{t('project.overview.limitingFactors')}:</span>
+            {pathway.limitingFactorKeys.map(f => (
+              <Badge key={f} variant="outline" className="text-xs">{f.replace(/_/g, ' ')}</Badge>
+            ))}
+          </div>
+        )}
+
+        {data.targetFunders && data.targetFunders.length > 0 && (
+          <div className="pt-2 border-t space-y-1">
+            <div className="text-xs text-muted-foreground">{t('project.overview.targetFunders')}</div>
+            {data.targetFunders.slice(0, 3).map(f => (
+              <div key={f.fundId} className="flex justify-between items-center text-xs">
+                <span className="font-medium">{f.fundName}</span>
+                <Badge variant={f.confidence === 'high' ? 'default' : f.confidence === 'medium' ? 'secondary' : 'outline'} className="text-xs">
+                  {f.confidence}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }) {
+  const { t } = useTranslation();
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+
+  const zones: SelectedZone[] = data?.selectedZones
+    ?.filter((z): z is SelectedZone => typeof z !== 'string') || [];
+
+  useEffect(() => {
+    if (!mapRef.current || zones.length === 0) return;
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+
+    const map = L.map(mapRef.current, {
+      scrollWheelZoom: false,
+      zoomControl: true,
+      attributionControl: false,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+    }).addTo(map);
+
+    const markers: L.CircleMarker[] = [];
+
+    zones.forEach(zone => {
+      const interventions = zone.interventionPortfolio || [];
+      const firstWithCentroid = interventions.find(iv => iv.centroid);
+      if (!firstWithCentroid?.centroid) return;
+
+      const [lng, lat] = firstWithCentroid.centroid;
+      const color = HAZARD_COLORS[zone.hazardType] || HAZARD_COLORS.LOW;
+
+      const marker = L.circleMarker([lat, lng], {
+        radius: 8,
+        fillColor: color,
+        color: color,
+        weight: 2,
+        opacity: 0.8,
+        fillOpacity: 0.4,
+      }).addTo(map);
+
+      marker.bindTooltip(`${zone.zoneId || zone.zoneName || ''} (${zone.hazardType})`, {
+        direction: 'top',
+      });
+
+      markers.push(marker);
+    });
+
+    if (markers.length > 0) {
+      const group = L.featureGroup(markers);
+      map.fitBounds(group.getBounds().pad(0.3));
+    } else {
+      map.setView([-30.03, -51.23], 12);
+    }
+
+    mapInstanceRef.current = map;
+
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, [zones]);
+
+  if (!data || !data.selectedZones?.length) {
+    return <EmptyCard title={t('project.overview.siteOverview')} />;
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm">
+          {t('project.overview.siteOverview')} ({zones.length} {t('project.overview.zones')})
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div ref={mapRef} className="h-[280px] rounded-lg border overflow-hidden" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {zones.slice(0, 6).map(zone => (
+            <div key={zone.zoneId} className="p-2 rounded-lg border text-xs space-y-1">
+              <div className="flex items-center gap-1">
+                <div
+                  className="w-3 h-3 rounded-full shrink-0"
+                  style={{ backgroundColor: HAZARD_COLORS[zone.hazardType] || HAZARD_COLORS.LOW }}
+                />
+                <span className="font-medium truncate">{zone.zoneId || zone.zoneName}</span>
+              </div>
+              <div className="flex flex-wrap gap-1 text-muted-foreground">
+                <span>{t('project.overview.hazard')}: {zone.hazardType.replace(/_/g, ' ')}</span>
+                {zone.riskScore !== undefined && (
+                  <span>| {t('project.overview.risk')}: {(zone.riskScore * 100).toFixed(0)}%</span>
+                )}
+                {zone.area && (
+                  <span>| {zone.area.toFixed(2)} km²</span>
+                )}
+              </div>
+              {zone.interventionPortfolio?.length > 0 && (
+                <div className="text-muted-foreground">
+                  {zone.interventionPortfolio.length} {t('project.overview.interventions')}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ImpactOverviewCard({ data }: { data: ProjectContextData['impactModel'] }) {
+  const { t } = useTranslation();
+
+  if (!data || data.status === 'NOT_STARTED') {
+    return <EmptyCard title={t('project.overview.impactOverview')} />;
+  }
+
+  const includedCoBenefits = data.coBenefits?.filter(cb => cb.included) || [];
+  const signals = data.downstreamSignals || { operations: [], businessModel: [], mrv: [], implementors: [] };
+  const signalCounts = [
+    { label: t('project.overview.operations'), count: signals.operations?.length || 0 },
+    { label: t('project.overview.businessModelSignals'), count: signals.businessModel?.length || 0 },
+    { label: t('project.overview.mrv'), count: signals.mrv?.length || 0 },
+    { label: t('project.overview.implementors'), count: signals.implementors?.length || 0 },
+  ];
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm">{t('project.overview.impactOverview')}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {includedCoBenefits.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-xs text-muted-foreground">{t('project.overview.coBenefits')}</div>
+            <div className="flex flex-wrap gap-1">
+              {includedCoBenefits.slice(0, 5).map(cb => (
+                <Badge key={cb.id} variant="secondary" className="text-xs">{cb.title}</Badge>
+              ))}
+              {includedCoBenefits.length > 5 && (
+                <Badge variant="outline" className="text-xs">
+                  {t('project.overview.moreCount', { count: includedCoBenefits.length - 5 })}
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-1">
+          <div className="text-xs text-muted-foreground">{t('project.overview.downstreamSignals')}</div>
+          <div className="grid grid-cols-4 gap-2">
+            {signalCounts.map(s => (
+              <div key={s.label} className="text-center p-2 rounded-lg bg-muted/50">
+                <div className="text-lg font-bold">{s.count}</div>
+                <div className="text-[10px] text-muted-foreground leading-tight">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function OperationsOverviewCard({ data }: { data: ProjectContextData['operations'] }) {
+  const { t } = useTranslation();
+
+  if (!data || data.status === 'NOT_STARTED') {
+    return <EmptyCard title={t('project.overview.operationsOverview')} />;
+  }
+
+  const roleEntries = [
+    { label: t('project.overview.assetOwner'), value: data.roles?.assetOwnerEntityId },
+    { label: t('project.overview.programOwner'), value: data.roles?.programOwnerEntityId },
+    { label: t('project.overview.operator'), value: data.roles?.operatorEntityId },
+    { label: t('project.overview.maintainer'), value: data.roles?.maintainerEntityId },
+    { label: t('project.overview.verifier'), value: data.roles?.verifierEntityId },
+  ].filter(r => r.value);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm">{t('project.overview.operationsOverview')}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {data.operatingModel && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{t('project.overview.operatingModel')}:</span>
+            <Badge variant="secondary">{data.operatingModel.replace(/_/g, ' ')}</Badge>
+          </div>
+        )}
+
+        {roleEntries.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-xs text-muted-foreground">{t('project.overview.roles')}</div>
+            <div className="grid grid-cols-2 gap-1">
+              {roleEntries.map(r => (
+                <DataRow key={r.label} label={r.label} value={r.value!} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {data.omCostBand?.low != null && data.omCostBand?.high != null && (
+          <div className="space-y-1 pt-2 border-t">
+            <div className="text-xs text-muted-foreground">{t('project.overview.omCostBand')}</div>
+            <div className="text-sm font-medium">
+              {data.omCostBand.currency} {data.omCostBand.low.toLocaleString()} &ndash; {data.omCostBand.high.toLocaleString()}
+            </div>
+          </div>
+        )}
+
+        {data.nbsExtensions && (
+          <div className="space-y-1 pt-2 border-t">
+            <div className="text-xs text-muted-foreground">{t('project.overview.nbsParams')}</div>
+            <div className="flex flex-wrap gap-1">
+              <Badge variant="outline" className="text-xs">
+                {t('project.overview.establishment')}: {data.nbsExtensions.establishmentPeriodMonths} {t('project.overview.months')}
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                {t('project.overview.maintenance')}: {data.nbsExtensions.maintenanceIntensity}
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                {t('project.overview.survivalTarget')}: {data.nbsExtensions.survivalTargetPercent}%
+              </Badge>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function BusinessModelOverviewCard({ data }: { data: ProjectContextData['businessModel'] }) {
+  const { t } = useTranslation();
+
+  if (!data || data.status === 'NOT_STARTED') {
+    return <EmptyCard title={t('project.overview.businessModelOverview')} />;
+  }
+
+  const topRevenue = data.revenueStack?.slice(0, 3) || [];
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm">{t('project.overview.businessModelOverview')}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {data.primaryArchetype && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{t('project.overview.archetype')}:</span>
+            <Badge variant="secondary">{data.primaryArchetype.replace(/_/g, ' ')}</Badge>
+          </div>
+        )}
+
+        {topRevenue.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-xs text-muted-foreground">{t('project.overview.revenueStack')}</div>
+            {topRevenue.map(rev => (
+              <div key={rev.id} className="flex items-center gap-2 text-xs">
+                <Badge variant={rev.confidence === 'HIGH' ? 'default' : rev.confidence === 'MEDIUM' ? 'secondary' : 'outline'} className="text-xs shrink-0">
+                  {rev.confidence}
+                </Badge>
+                <span>{rev.revenueType.replace(/_/g, ' ')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {data.sourcesAndUsesRom && (data.sourcesAndUsesRom.capexBand || data.sourcesAndUsesRom.opexBand) && (
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+            {data.sourcesAndUsesRom.capexBand && (
+              <div>
+                <div className="text-xs text-muted-foreground">{t('project.overview.capex')}</div>
+                <div className="text-sm font-medium">
+                  {data.sourcesAndUsesRom.capexBand.currency || 'USD'} {data.sourcesAndUsesRom.capexBand.low?.toLocaleString()} &ndash; {data.sourcesAndUsesRom.capexBand.high?.toLocaleString()}
+                </div>
+              </div>
+            )}
+            {data.sourcesAndUsesRom.opexBand && (
+              <div>
+                <div className="text-xs text-muted-foreground">{t('project.overview.opex')}</div>
+                <div className="text-sm font-medium">
+                  {data.sourcesAndUsesRom.opexBand.currency || 'USD'} {data.sourcesAndUsesRom.opexBand.low?.toLocaleString()} &ndash; {data.sourcesAndUsesRom.opexBand.high?.toLocaleString()}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {data.financingPathway?.pathway && (
+          <div className="flex items-center gap-2 pt-2 border-t">
+            <span className="text-xs text-muted-foreground">{t('project.overview.financingPathway')}:</span>
+            <Badge variant="outline">{data.financingPathway.pathway.replace(/_/g, ' ')}</Badge>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProjectOverview({ context }: { context: ProjectContextData | null }) {
+  if (!context) return null;
+
+  return (
+    <ScrollArea className="h-[65vh]">
+      <div className="space-y-4 pr-4">
+        <FunderReadinessCard data={context.funderSelection} />
+        <SiteOverviewCard data={context.siteExplorer} />
+        <ImpactOverviewCard data={context.impactModel} />
+        <OperationsOverviewCard data={context.operations} />
+        <BusinessModelOverviewCard data={context.businessModel} />
+      </div>
+    </ScrollArea>
   );
 }
 
@@ -1225,12 +1656,23 @@ export default function ProjectPage() {
                     {t('project.showContext')}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-5xl max-h-[90vh]">
                   <DialogHeader>
                     <DialogTitle>{t('project.contextModalTitle')}</DialogTitle>
                     <DialogDescription>{t('project.contextModalDescription')}</DialogDescription>
                   </DialogHeader>
-                  <ContextViewer context={context} />
+                  <Tabs defaultValue="overview">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="overview">{t('project.contextTabs.overview')}</TabsTrigger>
+                      <TabsTrigger value="rawData">{t('project.contextTabs.rawData')}</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="overview">
+                      <ProjectOverview context={context} />
+                    </TabsContent>
+                    <TabsContent value="rawData">
+                      <ContextViewer context={context} />
+                    </TabsContent>
+                  </Tabs>
                 </DialogContent>
               </Dialog>
               <DataReadinessChecklist items={SAMPLE_DATA_READINESS} />
@@ -1430,12 +1872,23 @@ export default function ProjectPage() {
                   {t('project.showContext')}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-5xl max-h-[90vh]">
                 <DialogHeader>
                   <DialogTitle>{t('project.contextModalTitle')}</DialogTitle>
                   <DialogDescription>{t('project.contextModalDescription')}</DialogDescription>
                 </DialogHeader>
-                <ContextViewer context={context} />
+                <Tabs defaultValue="overview">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="overview">{t('project.contextTabs.overview')}</TabsTrigger>
+                    <TabsTrigger value="rawData">{t('project.contextTabs.rawData')}</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="overview">
+                    <ProjectOverview context={context} />
+                  </TabsContent>
+                  <TabsContent value="rawData">
+                    <ContextViewer context={context} />
+                  </TabsContent>
+                </Tabs>
               </DialogContent>
             </Dialog>
           </div>
