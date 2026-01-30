@@ -705,7 +705,7 @@ export default function SiteExplorerPage() {
         interventionMarkersRef.current.delete(markerId);
       }
     });
-  }, [zonePortfolios]);
+  }, [zonePortfolios, mapReady]);
 
   useEffect(() => {
     if (!mapContainerRef.current || !boundaryData) return;
