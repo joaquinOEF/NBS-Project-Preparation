@@ -16,6 +16,7 @@ export interface ConceptNote {
     expectedResults: ConceptNoteSection;
     implementation: ConceptNoteSection;
     financing: ConceptNoteSection;
+    evidenceBase: ConceptNoteSection;
   };
 }
 
@@ -45,6 +46,7 @@ export function assembleConceptNote(context: ProjectContextData | null): Concept
       expectedResults: buildExpectedResults(context),
       implementation: buildImplementation(context),
       financing: buildFinancing(context),
+      evidenceBase: buildEvidenceBase(context),
     },
   };
 }
@@ -144,8 +146,43 @@ function buildExpectedResults(ctx: ProjectContextData | null): ConceptNoteSectio
   const content: string[] = [];
   if (!ctx) return { title: 'sectionD', content, hasData: false };
 
-  // Impact model data
-  if (ctx.impactModel) {
+  if (!ctx.impactModel) return { title: 'sectionD', content, hasData: false };
+
+  // Prefer quantified impacts when available
+  const qi = ctx.impactModel.quantifiedImpacts;
+  if (qi) {
+    // Structured KPI data from quantify step
+    if (qi.impactGroups?.length) {
+      content.push('Quantified Impact KPIs:');
+      for (const group of qi.impactGroups) {
+        content.push(`  ${group.hazardType} — ${group.interventionBundle}:`);
+        for (const kpi of group.kpis) {
+          const range = `${kpi.valueRange.low}–${kpi.valueRange.high} ${kpi.unit}`;
+          content.push(`    • ${kpi.name}: ${range} (${kpi.confidence} confidence, ${kpi.evidenceTier})`);
+        }
+      }
+    }
+
+    if (qi.coBenefits?.length) {
+      content.push('');
+      content.push('Co-Benefits:');
+      for (const cb of qi.coBenefits) {
+        const range = cb.valueRange
+          ? `${cb.valueRange.low}–${cb.valueRange.high} ${cb.unit}`
+          : cb.metric;
+        content.push(`  • ${cb.title} (${cb.category}): ${range} [${cb.confidence}, ${cb.evidenceTier}]`);
+      }
+    }
+
+    if (qi.mrvIndicators?.length) {
+      content.push('');
+      content.push('MRV Indicators:');
+      for (const mrv of qi.mrvIndicators) {
+        content.push(`  • ${mrv.name}: baseline ${mrv.baselineValue} → target ${mrv.targetValue} (${mrv.frequency}, source: ${mrv.dataSource})`);
+      }
+    }
+  } else {
+    // Fall back to narrative-based bullet points
     if (ctx.impactModel.selectedLens && ctx.impactModel.selectedLens !== 'neutral') {
       content.push(`Impact Lens: ${ctx.impactModel.selectedLens}`);
     }
@@ -156,16 +193,46 @@ function buildExpectedResults(ctx: ProjectContextData | null): ConceptNoteSectio
     if (coBenefits?.length) {
       content.push(`Co-benefits: ${coBenefits.map(cb => cb.title || cb.id).join(', ')}`);
     }
-    const signals = ctx.impactModel.downstreamSignals;
-    if (signals) {
-      const totalSignals = Object.values(signals).flat().length;
-      if (totalSignals > 0) {
-        content.push(`Downstream Signals: ${totalSignals} signals identified for operations and business model`);
-      }
+  }
+
+  // Downstream signals (common to both paths)
+  const signals = ctx.impactModel.downstreamSignals;
+  if (signals) {
+    const totalSignals = Object.values(signals).flat().length;
+    if (totalSignals > 0) {
+      content.push(`Downstream Signals: ${totalSignals} signals identified for operations and business model`);
     }
   }
 
   return { title: 'sectionD', content, hasData: content.length > 0 };
+}
+
+function buildEvidenceBase(ctx: ProjectContextData | null): ConceptNoteSection {
+  const content: string[] = [];
+  if (!ctx) return { title: 'sectionG', content, hasData: false };
+
+  const qi = ctx.impactModel?.quantifiedImpacts;
+  if (!qi?.evidenceContext) return { title: 'sectionG', content, hasData: false };
+
+  const ec = qi.evidenceContext;
+  content.push(`Evidence chunks used: ${ec.chunksUsed}`);
+
+  if (ec.topSources?.length) {
+    content.push('Top Sources:');
+    for (const src of ec.topSources) {
+      content.push(`  • ${src.title} (relevance: ${src.score.toFixed(2)})`);
+    }
+  }
+
+  if (ec.searchQueries?.length) {
+    content.push(`Search queries: ${ec.searchQueries.length} evidence queries executed`);
+  }
+
+  if (qi.generationMeta) {
+    content.push(`Generated: ${qi.generationMeta.generatedAt} (model: ${qi.generationMeta.model}, RAG chunks: ${qi.generationMeta.ragChunksUsed})`);
+  }
+
+  return { title: 'sectionG', content, hasData: content.length > 0 };
 }
 
 function buildImplementation(ctx: ProjectContextData | null): ConceptNoteSection {

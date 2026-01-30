@@ -1515,7 +1515,7 @@ function ConceptNotePanel({ context }: { context: ProjectContextData | null }) {
 
   const sectionKeys = [
     'summary', 'contextBaseline', 'projectDescription',
-    'expectedResults', 'implementation', 'financing',
+    'expectedResults', 'implementation', 'financing', 'evidenceBase',
   ] as const;
 
   const sectionColors: Record<string, string> = {
@@ -1525,6 +1525,7 @@ function ConceptNotePanel({ context }: { context: ProjectContextData | null }) {
     expectedResults: 'border-l-purple-500',
     implementation: 'border-l-orange-500',
     financing: 'border-l-emerald-500',
+    evidenceBase: 'border-l-cyan-500',
   };
 
   return (
