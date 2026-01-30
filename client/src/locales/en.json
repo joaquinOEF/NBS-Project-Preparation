@@ -1401,7 +1401,8 @@
       "generating": "Generating narrative...",
       "generate": "Generate Prose Narrative",
       "regenerate": "Regenerate Narrative",
-      "blocksGenerated": "narrative blocks generated"
+      "blocksGenerated": "narrative blocks generated",
+      "noQuantifiedData": "Please complete the Quantify step first before generating a narrative"
     },
     "interventionBundles": "Intervention Bundles",
     "bundlesDescription": "Select which intervention zones to include in the impact narrative",

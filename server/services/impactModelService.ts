@@ -452,6 +452,131 @@ Return a JSON object with the regenerated block:
 }
 
 // ============================================
+// Narrate API — KPI-grounded prose generation
+// ============================================
+
+interface NarrateFromKPIsRequest {
+  quantifiedImpacts: QuantifyResponse;
+  selectedZones: SelectedZone[];
+  interventionBundles: InterventionBundle[];
+  funderPathway: FunderPathway;
+  projectName?: string;
+  cityName?: string;
+}
+
+export async function generateNarrativeFromKPIs(
+  request: NarrateFromKPIsRequest
+): Promise<GenerateNarrativeResponse> {
+  const { quantifiedImpacts, selectedZones, interventionBundles, funderPathway, projectName, cityName } = request;
+
+  const enabledBundles = interventionBundles.filter(b => b.enabled);
+
+  const systemPrompt = `You are an expert in Nature-Based Solutions (NBS) for climate adaptation and urban resilience.
+You help cities create compelling, evidence-based impact narratives for climate projects.
+You have pre-computed quantified impact data. Generate prose narrative blocks that incorporate these specific metrics.
+CRITICAL: Do NOT invent new numbers — use the provided KPI values in your narrative.
+Your narratives should be:
+- Grounded in the provided quantified data
+- Tailored to the specific hazards and interventions
+- Aligned with funder expectations (${funderPathway.primary || 'general'} funding pathway)
+- Professional and suitable for funding proposals
+
+Always respond with valid JSON matching the exact structure requested.`;
+
+  // Format quantified data for the prompt
+  const kpiSummary = quantifiedImpacts.impactGroups.map(g =>
+    `${g.hazardType} — ${g.interventionBundle}:\n${g.kpis.map(k =>
+      `  • ${k.name}: ${k.valueRange.low}–${k.valueRange.high} ${k.unit} (${k.confidence}, ${k.evidenceTier})`
+    ).join('\n')}`
+  ).join('\n\n');
+
+  const coBenefitSummary = quantifiedImpacts.coBenefits.map(cb =>
+    `• ${cb.title} (${cb.category}): ${cb.valueRange ? `${cb.valueRange.low}–${cb.valueRange.high} ${cb.unit}` : cb.metric} [${cb.confidence}]`
+  ).join('\n');
+
+  const mrvSummary = quantifiedImpacts.mrvIndicators.map(m =>
+    `• ${m.name}: baseline ${m.baselineValue} → target ${m.targetValue} (${m.frequency}, ${m.confidence})`
+  ).join('\n');
+
+  const userPrompt = `Generate a prose impact narrative for this NBS project using the pre-computed quantified data below.
+Weave the KPI values naturally into the narrative. Do NOT invent additional metrics.
+
+PROJECT CONTEXT:
+- Project: ${projectName || 'Urban Climate Resilience Initiative'}
+- City: ${cityName || 'Urban area'}
+- Selected zones: ${selectedZones.length} intervention zones
+- Zone details:
+${selectedZones.map(z => `  * Zone ${z.zoneId}: ${z.hazardType} risk (score: ${(z.riskScore * 100).toFixed(0)}%), area: ${z.area || 'unknown'}m²`).join('\n')}
+
+INTERVENTION BUNDLES (${enabledBundles.length} enabled):
+${enabledBundles.map(b => `- ${b.name}: ${b.description}\n  Interventions: ${b.interventions.join(', ')}`).join('\n\n')}
+
+FUNDING PATHWAY:
+- Primary: ${funderPathway.primary || 'Not specified'}
+- Readiness: ${funderPathway.readinessLevel || 'Early stage'}
+
+QUANTIFIED IMPACT DATA:
+${kpiSummary}
+
+CO-BENEFITS:
+${coBenefitSummary}
+
+MRV INDICATORS:
+${mrvSummary}
+
+EVIDENCE CONTEXT:
+- Evidence chunks used: ${quantifiedImpacts.evidenceContext.chunksUsed}
+- Top sources: ${quantifiedImpacts.evidenceContext.topSources.map(s => s.title).join(', ') || 'None'}
+
+Generate exactly 10 narrative blocks that incorporate the above KPIs, plus 4-6 co-benefits and downstream signals.
+Use the same JSON structure as the standard narrative generation:
+{
+  "narrativeBlocks": [
+    { "id": "block-1", "title": "Executive Summary", "type": "executive_summary", "lens": "neutral", "contentMd": "...", "evidenceTier": "MODELLED", "included": true, "kpis": [...] },
+    { "id": "block-2", "title": "Context and Rationale", "type": "context_rationale", ... },
+    { "id": "block-3", "title": "Theory of Change", "type": "theory_of_change", ... },
+    { "id": "block-4", "title": "Portfolio Overview and Phasing", "type": "portfolio_phasing", ... },
+    { "id": "block-5", "title": "Expected Impacts", "type": "expected_impacts", ... },
+    { "id": "block-6", "title": "Key Co-Benefits", "type": "key_cobenefits", ... },
+    { "id": "block-7", "title": "Synergies and Alignment", "type": "synergies_alignment", ... },
+    { "id": "block-8", "title": "Assumptions", "type": "assumptions", ... },
+    { "id": "block-9", "title": "Risks and Dependencies", "type": "risks_dependencies", ... },
+    { "id": "block-10", "title": "MRV Stub", "type": "mrv_stub", ... }
+  ],
+  "coBenefits": [...],
+  "downstreamSignals": { "operations": [...], "businessModel": [...], "mrv": [], "implementors": [] }
+}
+
+Each block should be 2-4 paragraphs. Reference the specific KPI values from the quantified data.`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+    max_completion_tokens: 8000,
+    reasoning_effort: "none",
+  } as any);
+
+  const content = response.choices[0]?.message?.content || "{}";
+
+  try {
+    const parsed = JSON.parse(content) as GenerateNarrativeResponse;
+    return {
+      narrativeBlocks: parsed.narrativeBlocks || [],
+      coBenefits: parsed.coBenefits || [],
+      downstreamSignals: parsed.downstreamSignals || { operations: [], businessModel: [], mrv: [], implementors: [] },
+    };
+  } catch (error) {
+    console.error("Failed to parse narrate response:", error);
+    throw new Error("Failed to generate narrative from KPIs - invalid response format");
+  }
+}
+
+// ============================================
 // Quantify API — RAG-grounded KPI generation
 // ============================================
 

@@ -2050,6 +2050,102 @@ export default function ImpactModelPage() {
     }
   };
 
+  const handleNarrate = async () => {
+    if (!localData.quantifiedImpacts) {
+      toast({
+        title: t('common.error'),
+        description: t('impactModel.narrate.noQuantifiedData'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+
+    try {
+      const zonesForAI = siteExplorerZones.map(zone => ({
+        zoneId: zone.zoneId,
+        hazardType: zone.hazardType,
+        riskScore: 'riskScore' in zone ? zone.riskScore : 0.5,
+        area: 'area' in zone ? zone.area : undefined,
+        interventionType: 'interventionType' in zone ? zone.interventionType : undefined,
+      }));
+
+      const response = await fetch('/api/impact-model/narrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quantifiedImpacts: localData.quantifiedImpacts,
+          selectedZones: zonesForAI,
+          interventionBundles: localData.interventionBundles || [],
+          funderPathway: funderPathway,
+          projectName: context?.projectName || 'Urban Climate Resilience Initiative',
+          cityName: context?.cityName || 'Porto Alegre',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate narrative from KPIs');
+      }
+
+      const result = await response.json();
+
+      const fullUpdatedData: ImpactModelData = {
+        ...localData,
+        interventionBundles: localData.interventionBundles,
+        selectedLens: localData.selectedLens,
+        quantifiedImpacts: localData.quantifiedImpacts,
+        narrativeCache: {
+          base: result.narrativeBlocks || [],
+          lensVariants: { neutral: [], climate: [], social: [], financial: [], institutional: [] },
+        },
+        coBenefits: result.coBenefits || [],
+        downstreamSignals: result.downstreamSignals || { operations: [], businessModel: [], mrv: [], implementors: [] },
+        generationMeta: {
+          generatedAt: new Date().toISOString(),
+          model: 'GPT-5.2',
+        },
+        status: 'DRAFT',
+      };
+
+      setLocalData(fullUpdatedData);
+      updateModule('impactModel', fullUpdatedData);
+
+      // Auto-save to database
+      const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;
+      if (dbProjectId) {
+        try {
+          const saveRes = await fetch(`/api/projects/${dbProjectId}/blocks/impact_model`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              data: fullUpdatedData,
+              status: 'DRAFT',
+              actor: 'user'
+            }),
+          });
+          if (saveRes.ok) {
+            setLastSaved(new Date());
+            console.log('[ImpactModel] Auto-saved after narration');
+          }
+        } catch (saveErr) {
+          console.error('[ImpactModel] Auto-save after narrate failed:', saveErr);
+        }
+      }
+
+      toast({ title: t('impactModel.generationComplete'), description: t('impactModel.narrativeReady') });
+    } catch (error) {
+      console.error('Narrate from KPIs error:', error);
+      toast({
+        title: t('common.error'),
+        description: t('impactModel.generationFailed'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleRegenerateBlock = async (block: NarrativeBlock, customPrompt: string) => {
     setIsRegenerating(block.id);
     
@@ -2292,7 +2388,7 @@ export default function ImpactModelPage() {
               data={localData}
               onUpdate={handleUpdate}
               isNarrating={isGenerating}
-              onNarrate={handleGenerate}
+              onNarrate={handleNarrate}
             />
           )}
           {currentStep === 'lenses' && (

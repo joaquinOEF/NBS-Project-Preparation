@@ -1401,7 +1401,8 @@
       "generating": "Gerando narrativa...",
       "generate": "Gerar Narrativa em Prosa",
       "regenerate": "Regenerar Narrativa",
-      "blocksGenerated": "blocos narrativos gerados"
+      "blocksGenerated": "blocos narrativos gerados",
+      "noQuantifiedData": "Complete a etapa de Quantificação antes de gerar uma narrativa"
     },
     "interventionBundles": "Pacotes de Intervenção",
     "bundlesDescription": "Selecione quais zonas de intervenção incluir na narrativa de impacto",

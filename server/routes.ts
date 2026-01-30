@@ -57,7 +57,7 @@ import {
   computeCompositeScores,
   calculateCoverageSummary,
 } from './services/gridService';
-import { generateImpactNarrative, generateLensVariant, regenerateBlock, generateQuantifiedImpacts } from './services/impactModelService';
+import { generateImpactNarrative, generateLensVariant, regenerateBlock, generateQuantifiedImpacts, generateNarrativeFromKPIs } from './services/impactModelService';
 import { fetchOsmAssets } from './services/osmAssetService';
 import type { LayerType } from '../shared/geospatial-schema';
 import { registerAgentRoutes } from './routes/agentRoutes';
@@ -1143,6 +1143,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Impact quantification error:', error);
       res.status(500).json({ message: error.message || 'Failed to quantify impacts' });
+    }
+  });
+
+  // Generate prose narrative from quantified KPIs
+  app.post('/api/impact-model/narrate', async (req: any, res) => {
+    try {
+      const { quantifiedImpacts, selectedZones, interventionBundles, funderPathway, projectName, cityName } = req.body;
+
+      if (!quantifiedImpacts || !selectedZones || !interventionBundles) {
+        return res.status(400).json({ message: 'quantifiedImpacts, selectedZones, and interventionBundles are required' });
+      }
+
+      console.log(`📝 Generating narrative from ${quantifiedImpacts.impactGroups?.length || 0} impact groups, ${quantifiedImpacts.coBenefits?.length || 0} co-benefits`);
+
+      const result = await generateNarrativeFromKPIs({
+        quantifiedImpacts,
+        selectedZones,
+        interventionBundles,
+        funderPathway: funderPathway || { primary: 'BLENDED_FINANCE' },
+        projectName,
+        cityName,
+      });
+
+      console.log(`   Generated ${result.narrativeBlocks.length} narrative blocks from KPIs`);
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('Narrate from KPIs error:', error);
+      res.status(500).json({ message: error.message || 'Failed to generate narrative from KPIs' });
     }
   });
 
