@@ -938,6 +938,7 @@ export default function SiteExplorerPage() {
       source: 'manual' as const,
     };
     
+    setOsmAssets(prev => [manualAsset, ...prev]);
     setSelectedAsset(manualAsset);
     setShowAddAssetDialog(false);
     setManualAssetName('');
@@ -947,6 +948,11 @@ export default function SiteExplorerPage() {
   }, [manualAssetName, manualAssetCoords, manualAssetArea, manualAssetType, selectedCategory, interventionsData, toast, parseCoordinates]);
 
   const selectSearchResult = useCallback((asset: any) => {
+    setOsmAssets(prev => {
+      const exists = prev.some(a => a.id === asset.id);
+      if (exists) return prev;
+      return [asset, ...prev];
+    });
     setSelectedAsset(asset);
     setShowAddAssetDialog(false);
     setOsmSearchQuery('');
