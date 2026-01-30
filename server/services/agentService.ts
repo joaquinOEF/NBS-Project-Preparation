@@ -735,11 +735,20 @@ export async function executeAgentTool(
       case "lookup_location": {
         const { query } = args as { query: string };
         
+        // Porto Alegre bounding box for constrained local search
+        const portoAlegreBbox = [-30.27, -51.32, -29.93, -51.01]; // [south, west, north, east]
+        
         const searchUrl = new URL('https://nominatim.openstreetmap.org/search');
         searchUrl.searchParams.append('q', query);
         searchUrl.searchParams.append('format', 'json');
         searchUrl.searchParams.append('addressdetails', '1');
-        searchUrl.searchParams.append('limit', '5');
+        searchUrl.searchParams.append('limit', '10');
+        searchUrl.searchParams.append('countrycodes', 'br'); // Constrain to Brazil
+        // Use viewbox to prefer results in Porto Alegre area
+        searchUrl.searchParams.append('viewbox', `${portoAlegreBbox[1]},${portoAlegreBbox[0]},${portoAlegreBbox[3]},${portoAlegreBbox[2]}`);
+        searchUrl.searchParams.append('bounded', '0'); // Prefer but don't strictly limit to viewbox
+        
+        console.log(`🔍 Agent lookup_location: "${query}"`);
         
         const response = await fetch(searchUrl.toString(), {
           headers: {
@@ -749,6 +758,7 @@ export async function executeAgentTool(
         });
         
         if (!response.ok) {
+          console.log(`❌ Nominatim lookup failed: ${response.statusText}`);
           return {
             name,
             result: null,
@@ -757,13 +767,14 @@ export async function executeAgentTool(
         }
         
         const results = await response.json() as any[];
+        console.log(`   Found ${results.length} results for "${query}"`);
         
         if (results.length === 0) {
           return {
             name,
             result: {
               found: false,
-              message: `No locations found for "${query}". Try a more specific address or place name.`,
+              message: `No locations found for "${query}" in Porto Alegre area. Try: 1) A simpler name (e.g., just "Grêmio Náutico" instead of full name), 2) The street address, or 3) Ask the user to search in Site Explorer → Add Custom Site which has more flexible matching.`,
             },
           };
         }
@@ -783,7 +794,7 @@ export async function executeAgentTool(
             found: true,
             count: locations.length,
             locations,
-            message: `Found ${locations.length} location(s). Use find_zone_for_coordinates with the lat/lng to determine which intervention zone it belongs to.`,
+            message: `Found ${locations.length} location(s). Use find_zone_for_coordinates with the first result's lat/lng to determine which intervention zone it belongs to.`,
           },
         };
       }
