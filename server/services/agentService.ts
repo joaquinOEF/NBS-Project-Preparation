@@ -526,13 +526,13 @@ export async function executeAgentTool(
           previousValue: oldValue as any,
           status: "pending",
           proposedBy: "agent",
-          proposedByAgentId: "nbs-assistant",
+          proposedByAgentId: "city-project-assistant",
         });
 
         await storage.createAgentAction({
           projectId,
           actor: "agent",
-          actorId: "nbs-assistant",
+          actorId: "city-project-assistant",
           actionType: "propose_patch",
           actionStatus: "proposed",
           targetBlockType: blockType,

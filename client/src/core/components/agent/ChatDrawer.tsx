@@ -9,7 +9,7 @@ import { Input } from "@/core/components/ui/input";
 import { ScrollArea } from "@/core/components/ui/scroll-area";
 import { Card } from "@/core/components/ui/card";
 import { Badge } from "@/core/components/ui/badge";
-import { Loader2, MessageCircle, Send, Bot, User, Wrench, CheckCircle, XCircle, ArrowRight, Database, X, ExternalLink } from "lucide-react";
+import { Loader2, MessageCircle, Send, User, Wrench, CheckCircle, XCircle, ArrowRight, Database, X, ExternalLink } from "lucide-react";
 import { useToast } from "@/core/hooks/use-toast";
 import { computeReadinessScores, determinePathway, formatReadinessSummary, type QuestionnaireAnswers } from "@/core/utils/funding-readiness";
 
@@ -728,8 +728,8 @@ export function ChatDrawer() {
       >
         <div className="px-4 py-3 border-b flex items-center justify-between">
           <div className="flex items-center gap-2 font-semibold">
-            <Bot className="h-5 w-5" />
-            NBS Assistant
+            <img src="/assets/assistant-icon.png" alt="City Project Assistant" className="h-6 w-6 rounded" />
+            City Project Assistant
           </div>
           <Button variant="ghost" size="icon" onClick={closeChat}>
             <X className="h-4 w-4" />
@@ -740,8 +740,8 @@ export function ChatDrawer() {
           <div className="py-4 space-y-4">
             {messages.length === 0 && (
               <div className="text-center text-muted-foreground py-8">
-                <Bot className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">Hi! I'm your NBS Assistant.</p>
+                <img src="/assets/assistant-icon.png" alt="City Project Assistant" className="h-12 w-12 mx-auto mb-3 rounded-lg opacity-90" />
+                <p className="text-sm">Hi! I'm your City Project Assistant.</p>
                 <p className="text-xs mt-1">Ask me about your project, interventions, or funding options.</p>
               </div>
             )}
@@ -752,8 +752,8 @@ export function ChatDrawer() {
                 className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 {message.role === "assistant" && (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Bot className="h-4 w-4 text-primary" />
+                  <div className="flex-shrink-0 w-8 h-8 rounded-lg overflow-hidden">
+                    <img src="/assets/assistant-icon.png" alt="" className="w-full h-full object-cover" />
                   </div>
                 )}
                 <div
