@@ -307,25 +307,17 @@ const HAZARD_COLORS: Record<string, string> = {
   LOW: '#10b981',
 };
 
-const INTERVENTION_EMOJIS: Record<string, string> = {
-  urban_forest: '🌳',
-  street_trees: '🌲',
-  riparian_buffer: '🌿',
-  green_corridor: '🌴',
-  bioswale: '💧',
-  rain_garden: '🌺',
-  constructed_wetland: '🏞️',
-  permeable_pavement: '🧱',
-  green_roof: '🏠',
-  cool_roof: '❄️',
-  shade_structure: '⛱️',
-  water_feature: '⛲',
-  slope_stabilization: '⛰️',
-  terracing: '📐',
-  check_dam: '🚧',
-  retention_pond: '🌊',
-  pocket_park: '🏕️',
-  community_garden: '🥕',
+const getCategoryStyle = (category: string): { color: string; icon: string } => {
+  switch (category) {
+    case 'urban_cooling':
+      return { color: '#22c55e', icon: '🌳' };
+    case 'flood_storage':
+      return { color: '#3b82f6', icon: '💧' };
+    case 'erosion':
+      return { color: '#a16207', icon: '🏔️' };
+    default:
+      return { color: '#8b5cf6', icon: '📍' };
+  }
 };
 
 function EmptyCard({ title }: { title: string }) {
@@ -430,11 +422,6 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
   const zones: SelectedZone[] = data?.selectedZones
     ?.filter((z): z is SelectedZone => typeof z !== 'string') || [];
 
-  const getInterventionEmoji = (interventionName: string) => {
-    const key = interventionName.toLowerCase().replace(/\s+/g, '_');
-    return INTERVENTION_EMOJIS[key] || '📍';
-  };
-
   const formatInterventionName = (name: string) => {
     return name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
@@ -452,39 +439,64 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
       attributionControl: false,
     });
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd',
       maxZoom: 19,
-      crossOrigin: true,
+      updateWhenZooming: true,
+      updateWhenIdle: false,
+      keepBuffer: 4,
     }).addTo(map);
+
+    tileLayer.on('tileerror', (error: any) => {
+      setTimeout(() => {
+        if (error.tile) {
+          error.tile.src = error.tile.src;
+        }
+      }, 1000);
+    });
 
     const allMarkers: L.Marker[] = [];
 
     zones.forEach(zone => {
       const interventions = zone.interventionPortfolio || [];
-      const color = HAZARD_COLORS[zone.hazardType] || HAZARD_COLORS.LOW;
       const zoneName = formatZoneName(zone.zoneName || zone.zoneId);
 
       interventions.forEach(intervention => {
         if (!intervention.centroid) return;
         const [lng, lat] = intervention.centroid;
-        const emoji = getInterventionEmoji(intervention.interventionName);
+        const { color, icon } = getCategoryStyle(intervention.category);
         const assetName = intervention.assetName || 'Site';
 
-        const icon = L.divIcon({
-          className: 'custom-emoji-marker',
-          html: `<div style="font-size: 20px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2));">${emoji}</div>`,
-          iconSize: [28, 28],
-          iconAnchor: [14, 14],
-        });
+        const marker = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: 'intervention-site-marker',
+            html: `
+              <div style="
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                background: ${color};
+                border: 3px solid white;
+                border-radius: 50%;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+                font-size: 14px;
+              ">${icon}</div>
+            `,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+          }),
+        }).addTo(map);
 
-        const marker = L.marker([lat, lng], { icon }).addTo(map);
         marker.bindTooltip(
           `<div style="text-align: center;">
             <strong>${assetName}</strong><br/>
             <span style="font-size: 11px; color: #666;">${formatInterventionName(intervention.interventionName)}</span><br/>
-            <span style="font-size: 10px; color: ${color};">${zoneName}</span>
+            <span style="font-size: 10px; color: #888;">${zoneName}</span>
           </div>`,
-          { direction: 'top', offset: [0, -10] }
+          { direction: 'top', offset: [0, -16] }
         );
 
         allMarkers.push(marker);
@@ -493,19 +505,16 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
 
     if (allMarkers.length > 0) {
       const group = L.featureGroup(allMarkers);
-      map.fitBounds(group.getBounds().pad(0.2));
+      map.fitBounds(group.getBounds().pad(0.3));
     } else {
       map.setView([-30.03, -51.23], 12);
     }
 
     mapInstanceRef.current = map;
 
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 100);
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 500);
+    setTimeout(() => map.invalidateSize(), 100);
+    setTimeout(() => map.invalidateSize(), 300);
+    setTimeout(() => map.invalidateSize(), 600);
 
     return () => {
       map.remove();
@@ -550,17 +559,25 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
                     </div>
                     {interventions.length > 0 ? (
                       <div className="space-y-1.5">
-                        {interventions.map((intervention, idx) => (
-                          <div key={idx} className="flex items-start gap-2 text-xs bg-background/50 rounded p-1.5">
-                            <span className="text-base shrink-0">{getInterventionEmoji(intervention.interventionName)}</span>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-medium truncate">{intervention.assetName || 'Site'}</div>
-                              <div className="text-muted-foreground truncate">
-                                {formatInterventionName(intervention.interventionName)}
+                        {interventions.map((intervention, idx) => {
+                          const { color, icon } = getCategoryStyle(intervention.category);
+                          return (
+                            <div key={idx} className="flex items-start gap-2 text-xs bg-background/50 rounded p-1.5">
+                              <div 
+                                className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-sm"
+                                style={{ backgroundColor: color, color: 'white' }}
+                              >
+                                {icon}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium truncate">{intervention.assetName || 'Site'}</div>
+                                <div className="text-muted-foreground truncate">
+                                  {formatInterventionName(intervention.interventionName)}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="text-xs text-muted-foreground italic">No intervention sites yet</div>
