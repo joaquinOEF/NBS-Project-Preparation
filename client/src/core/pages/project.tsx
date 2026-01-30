@@ -307,6 +307,27 @@ const HAZARD_COLORS: Record<string, string> = {
   LOW: '#10b981',
 };
 
+const INTERVENTION_EMOJIS: Record<string, string> = {
+  urban_forest: '🌳',
+  street_trees: '🌲',
+  riparian_buffer: '🌿',
+  green_corridor: '🌴',
+  bioswale: '💧',
+  rain_garden: '🌺',
+  constructed_wetland: '🏞️',
+  permeable_pavement: '🧱',
+  green_roof: '🏠',
+  cool_roof: '❄️',
+  shade_structure: '⛱️',
+  water_feature: '⛲',
+  slope_stabilization: '⛰️',
+  terracing: '📐',
+  check_dam: '🚧',
+  retention_pond: '🌊',
+  pocket_park: '🏕️',
+  community_garden: '🥕',
+};
+
 function EmptyCard({ title }: { title: string }) {
   const { t } = useTranslation();
   return (
@@ -409,6 +430,15 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
   const zones: SelectedZone[] = data?.selectedZones
     ?.filter((z): z is SelectedZone => typeof z !== 'string') || [];
 
+  const getInterventionEmoji = (interventionName: string) => {
+    const key = interventionName.toLowerCase().replace(/\s+/g, '_');
+    return INTERVENTION_EMOJIS[key] || '📍';
+  };
+
+  const formatInterventionName = (name: string) => {
+    return name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   useEffect(() => {
     if (!mapRef.current || zones.length === 0) return;
     if (mapInstanceRef.current) {
@@ -426,35 +456,43 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
       maxZoom: 18,
     }).addTo(map);
 
-    const markers: L.CircleMarker[] = [];
+    const allMarkers: L.Marker[] = [];
 
     zones.forEach(zone => {
       const interventions = zone.interventionPortfolio || [];
-      const firstWithCentroid = interventions.find(iv => iv.centroid);
-      if (!firstWithCentroid?.centroid) return;
-
-      const [lng, lat] = firstWithCentroid.centroid;
       const color = HAZARD_COLORS[zone.hazardType] || HAZARD_COLORS.LOW;
+      const zoneName = zone.zoneName || formatZoneName(zone.zoneId);
 
-      const marker = L.circleMarker([lat, lng], {
-        radius: 8,
-        fillColor: color,
-        color: color,
-        weight: 2,
-        opacity: 0.8,
-        fillOpacity: 0.4,
-      }).addTo(map);
+      interventions.forEach(intervention => {
+        if (!intervention.centroid) return;
+        const [lng, lat] = intervention.centroid;
+        const emoji = getInterventionEmoji(intervention.interventionName);
+        const assetName = intervention.assetName || 'Site';
 
-      marker.bindTooltip(`${zone.zoneName || formatZoneName(zone.zoneId)} (${zone.hazardType})`, {
-        direction: 'top',
+        const icon = L.divIcon({
+          className: 'custom-emoji-marker',
+          html: `<div style="font-size: 20px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2));">${emoji}</div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+        });
+
+        const marker = L.marker([lat, lng], { icon }).addTo(map);
+        marker.bindTooltip(
+          `<div style="text-align: center;">
+            <strong>${assetName}</strong><br/>
+            <span style="font-size: 11px; color: #666;">${formatInterventionName(intervention.interventionName)}</span><br/>
+            <span style="font-size: 10px; color: ${color};">${zoneName}</span>
+          </div>`,
+          { direction: 'top', offset: [0, -10] }
+        );
+
+        allMarkers.push(marker);
       });
-
-      markers.push(marker);
     });
 
-    if (markers.length > 0) {
-      const group = L.featureGroup(markers);
-      map.fitBounds(group.getBounds().pad(0.3));
+    if (allMarkers.length > 0) {
+      const group = L.featureGroup(allMarkers);
+      map.fitBounds(group.getBounds().pad(0.2));
     } else {
       map.setView([-30.03, -51.23], 12);
     }
@@ -475,41 +513,59 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
     return <EmptyCard title={t('project.overview.siteOverview')} />;
   }
 
+  const totalInterventions = zones.reduce((sum, z) => sum + (z.interventionPortfolio?.length || 0), 0);
+
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm">
-          {t('project.overview.siteOverview')} ({zones.length} {t('project.overview.zones')})
+          {t('project.overview.siteOverview')} ({zones.length} {t('project.overview.zones')}, {totalInterventions} sites)
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div ref={mapRef} className="h-[280px] rounded-lg border overflow-hidden" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {zones.slice(0, 6).map(zone => (
-            <div key={zone.zoneId} className="p-2 rounded-lg border text-xs space-y-1">
-              <div className="flex items-center gap-1">
-                <div
-                  className="w-3 h-3 rounded-full shrink-0"
-                  style={{ backgroundColor: HAZARD_COLORS[zone.hazardType] || HAZARD_COLORS.LOW }}
-                />
-                <span className="font-medium truncate">{zone.zoneName || formatZoneName(zone.zoneId)}</span>
-              </div>
-              <div className="flex flex-wrap gap-1 text-muted-foreground">
-                <span>{t('project.overview.hazard')}: {zone.hazardType.replace(/_/g, ' ')}</span>
-                {zone.riskScore !== undefined && (
-                  <span>| {t('project.overview.risk')}: {(zone.riskScore * 100).toFixed(0)}%</span>
-                )}
-                {zone.area && (
-                  <span>| {zone.area.toFixed(2)} km²</span>
-                )}
-              </div>
-              {zone.interventionPortfolio?.length > 0 && (
-                <div className="text-muted-foreground">
-                  {zone.interventionPortfolio.length} {t('project.overview.interventions')}
-                </div>
-              )}
+      <CardContent>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div ref={mapRef} className="h-[320px] rounded-lg border overflow-hidden" />
+          <ScrollArea className="h-[320px]">
+            <div className="space-y-3 pr-2">
+              {zones.map(zone => {
+                const interventions = zone.interventionPortfolio || [];
+                const zoneName = zone.zoneName || formatZoneName(zone.zoneId);
+                const color = HAZARD_COLORS[zone.hazardType] || HAZARD_COLORS.LOW;
+
+                return (
+                  <div key={zone.zoneId} className="p-3 rounded-lg border bg-muted/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div
+                        className="w-3 h-3 rounded-full shrink-0"
+                        style={{ backgroundColor: color }}
+                      />
+                      <span className="font-medium text-sm">{zoneName}</span>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0" style={{ borderColor: color, color }}>
+                        {zone.hazardType.replace(/_/g, ' ')}
+                      </Badge>
+                    </div>
+                    {interventions.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {interventions.map((intervention, idx) => (
+                          <div key={idx} className="flex items-start gap-2 text-xs bg-background/50 rounded p-1.5">
+                            <span className="text-base shrink-0">{getInterventionEmoji(intervention.interventionName)}</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate">{intervention.assetName || 'Site'}</div>
+                              <div className="text-muted-foreground truncate">
+                                {formatInterventionName(intervention.interventionName)}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground italic">No intervention sites yet</div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          </ScrollArea>
         </div>
       </CardContent>
     </Card>
