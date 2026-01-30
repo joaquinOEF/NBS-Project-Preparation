@@ -1392,29 +1392,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
             
-            // Validate field values using centralized validation registry
-            if (patch.blockType) {
-              const validationError = validateFieldValue(patch.blockType, patch.fieldPath, valueToApply);
-              if (validationError) {
-                results.push({ patchId: patch.id, success: false, error: validationError });
-                // Mark patch as rejected
-                await storage.updatePatch(patch.id, {
-                  status: 'rejected',
-                  appliedBy: actor,
-                  appliedAt: new Date(),
+            // Special handling for intervention site patches
+            if (patch.fieldPath.startsWith('interventionSite.')) {
+              const zoneId = patch.fieldPath.replace('interventionSite.', '');
+              const intervention = valueToApply;
+              
+              console.log(`🔧 Applying intervention site patch for ${zoneId}`);
+              
+              // Get the current site_explorer block
+              const block = await storage.getInfoBlock(projectId, 'site_explorer');
+              const currentData = JSON.parse(JSON.stringify(block?.blockStateJson || { selectedZones: [] }));
+              
+              // Find or create the zone in selectedZones
+              let zoneIndex = currentData.selectedZones?.findIndex((z: any) => z.zoneId === zoneId);
+              
+              if (zoneIndex === -1 || zoneIndex === undefined) {
+                // Zone doesn't exist, create it with minimal data
+                currentData.selectedZones = currentData.selectedZones || [];
+                currentData.selectedZones.push({
+                  zoneId,
+                  zoneName: zoneId,
+                  interventionPortfolio: [intervention],
                 });
-                continue;
+              } else {
+                // Zone exists, add to its portfolio
+                if (!currentData.selectedZones[zoneIndex].interventionPortfolio) {
+                  currentData.selectedZones[zoneIndex].interventionPortfolio = [];
+                }
+                // Check if this asset is already in the portfolio
+                const existingIndex = currentData.selectedZones[zoneIndex].interventionPortfolio.findIndex(
+                  (i: any) => i.assetId === intervention.assetId
+                );
+                if (existingIndex >= 0) {
+                  currentData.selectedZones[zoneIndex].interventionPortfolio[existingIndex] = intervention;
+                } else {
+                  currentData.selectedZones[zoneIndex].interventionPortfolio.push(intervention);
+                }
               }
+              
+              // Save updated block
+              await storage.upsertInfoBlock(projectId, 'site_explorer', {
+                blockStateJson: currentData,
+                status: block?.status || 'DRAFT',
+                updatedBy: actor,
+                completionPercent: calculateBlockCompletion('site_explorer', currentData),
+              });
+              
+              console.log(`✅ Applied intervention site to ${zoneId}`);
+            } else {
+              // Validate field values using centralized validation registry
+              if (patch.blockType) {
+                const validationError = validateFieldValue(patch.blockType, patch.fieldPath, valueToApply);
+                if (validationError) {
+                  results.push({ patchId: patch.id, success: false, error: validationError });
+                  // Mark patch as rejected
+                  await storage.updatePatch(patch.id, {
+                    status: 'rejected',
+                    appliedBy: actor,
+                    appliedAt: new Date(),
+                  });
+                  continue;
+                }
+              }
+              
+              await applyPatchToBlock(
+                projectId, 
+                patch.blockType as InfoBlockType, 
+                patch.fieldPath, 
+                patch.operation as 'set' | 'merge' | 'append' | 'remove', 
+                valueToApply, 
+                actor
+              );
             }
-            
-            await applyPatchToBlock(
-              projectId, 
-              patch.blockType as InfoBlockType, 
-              patch.fieldPath, 
-              patch.operation as 'set' | 'merge' | 'append' | 'remove', 
-              valueToApply, 
-              actor
-            );
           }
 
           // Update patch status
@@ -1449,6 +1498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/projects/:id/intervention-sites - Add intervention site to a zone's portfolio
+  // This is called when applying intervention site patches
   app.post('/api/projects/:id/intervention-sites', async (req, res) => {
     try {
       const { id: projectId } = req.params;
@@ -1457,6 +1507,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!zoneId || !intervention) {
         return res.status(400).json({ message: 'zoneId and intervention are required' });
       }
+      
+      console.log(`📍 Adding intervention site to ${zoneId}:`, intervention.assetName);
       
       // Get the current site_explorer block
       const block = await storage.getInfoBlock(projectId, 'site_explorer');
@@ -1473,6 +1525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           zoneName: zoneId,
           interventionPortfolio: [intervention],
         });
+        console.log(`   Created new zone ${zoneId} with intervention`);
       } else {
         // Zone exists, add to its portfolio
         if (!currentData.selectedZones[zoneIndex].interventionPortfolio) {
@@ -1485,9 +1538,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (existingIndex >= 0) {
           // Update existing intervention
           currentData.selectedZones[zoneIndex].interventionPortfolio[existingIndex] = intervention;
+          console.log(`   Updated existing intervention in ${zoneId}`);
         } else {
           // Add new intervention
           currentData.selectedZones[zoneIndex].interventionPortfolio.push(intervention);
+          console.log(`   Added new intervention to ${zoneId}, now has ${currentData.selectedZones[zoneIndex].interventionPortfolio.length} interventions`);
         }
       }
       
@@ -1498,6 +1553,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedBy: 'agent',
         completionPercent: calculateBlockCompletion('site_explorer', currentData),
       });
+      
+      console.log(`✅ Saved intervention site to database`);
       
       res.json({
         success: true,

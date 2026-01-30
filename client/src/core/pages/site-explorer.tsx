@@ -296,19 +296,30 @@ export default function SiteExplorerPage() {
   // Load context on mount to ensure portfolios can be hydrated on page reload
   useEffect(() => {
     if (projectId && !portfolioHydratedRef.current) {
-      loadContext(projectId);
+      console.log('🔄 Loading context for project:', projectId);
+      const loaded = loadContext(projectId);
+      console.log('📦 Context loaded:', loaded?.siteExplorer?.selectedZones?.length, 'zones');
     }
   }, [projectId, loadContext]);
   
   useEffect(() => {
+    console.log('🔍 Hydration effect running:', {
+      hydrated: portfolioHydratedRef.current,
+      hasContext: !!context,
+      hasSiteExplorer: !!context?.siteExplorer,
+      zonesCount: context?.siteExplorer?.selectedZones?.length,
+    });
+    
     if (!portfolioHydratedRef.current && context?.siteExplorer?.selectedZones) {
       const portfolios: Record<string, SelectedIntervention[]> = {};
       context.siteExplorer.selectedZones.forEach(zone => {
         if (typeof zone === 'object' && zone.interventionPortfolio) {
+          console.log(`   Zone ${zone.zoneId}: ${zone.interventionPortfolio?.length} interventions`);
           portfolios[zone.zoneId] = zone.interventionPortfolio;
         }
       });
       if (Object.keys(portfolios).length > 0) {
+        console.log('✅ Setting zonePortfolios:', Object.keys(portfolios));
         setZonePortfolios(portfolios);
       }
       portfolioHydratedRef.current = true;

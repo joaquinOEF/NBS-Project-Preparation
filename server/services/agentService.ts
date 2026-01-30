@@ -369,7 +369,7 @@ When a user mentions a location or wants to add a site:
 
 IMPORTANT: 
 - Don't ask multiple questions. After finding the location and zone, immediately present intervention options.
-- The add_intervention_site tool DIRECTLY adds the site to the database - no patch approval needed!
+- The add_intervention_site tool creates a PENDING PATCH for user approval - they can approve or reject it.
 - The lookup_location tool returns areaHa and osmId - pass these to add_intervention_site.
 
 ## User-Friendly Communication
@@ -1017,42 +1017,52 @@ export async function executeAgentTool(
           addedAt: new Date().toISOString(),
         };
         
-        // Call the intervention-sites endpoint directly to add the site
+        // Create a patch for user approval
+        const projectId = context.projectId || 'sample-porto-alegre-project';
+        
         try {
-          const projectId = context.projectId || 'sample-porto-alegre-project';
-          const response = await fetch(`http://localhost:5000/api/projects/${projectId}/intervention-sites`, {
+          // Create a pending patch that user must approve
+          const patchResponse = await fetch(`http://localhost:5000/api/projects/${projectId}/patches`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ zoneId, intervention }),
+            body: JSON.stringify({
+              patches: [{
+                blockType: 'site_explorer',
+                fieldPath: `interventionSite.${zoneId}`,
+                value: intervention,
+                displayName: `Add ${interventionType} at ${siteName}`,
+                status: 'pending',
+              }],
+            }),
           });
           
-          if (!response.ok) {
-            const error = await response.json();
-            return {
-              name,
-              result: null,
-              error: `Failed to add intervention site: ${error.message}`,
-            };
+          if (!patchResponse.ok) {
+            const error = await patchResponse.json();
+            console.error('Failed to create patch:', error);
           }
           
-          const result = await response.json();
-          console.log(`✅ Added intervention site: ${siteName} to ${zoneId}`);
+          const patchResult = await patchResponse.json();
+          const patchId = patchResult.patches?.[0]?.id;
+          
+          console.log(`📝 Created patch for intervention site: ${siteName} in ${zoneId}, patchId: ${patchId}`);
           
           return {
             name,
             result: {
               success: true,
+              patchId,
               intervention,
               zoneId,
-              message: `Successfully added "${siteName}" as a ${interventionType} to Zone ${zoneId.replace('zone_', '')}! The site will appear on the map when you open Site Explorer.`,
+              message: `I've prepared to add "${siteName}" as a ${interventionType} to Zone ${zoneId.replace('zone_', '')}. Please approve or reject this change.`,
+              requiresApproval: true,
             },
           };
         } catch (error) {
-          console.error('Failed to add intervention site:', error);
+          console.error('Failed to create patch:', error);
           return {
             name,
             result: null,
-            error: `Failed to add intervention site: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            error: `Failed to propose intervention site: ${error instanceof Error ? error.message : 'Unknown error'}`,
           };
         }
       }
