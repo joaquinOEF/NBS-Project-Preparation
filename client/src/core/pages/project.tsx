@@ -452,8 +452,9 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
       attributionControl: false,
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18,
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      crossOrigin: true,
     }).addTo(map);
 
     const allMarkers: L.Marker[] = [];
@@ -461,7 +462,7 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
     zones.forEach(zone => {
       const interventions = zone.interventionPortfolio || [];
       const color = HAZARD_COLORS[zone.hazardType] || HAZARD_COLORS.LOW;
-      const zoneName = zone.zoneName || formatZoneName(zone.zoneId);
+      const zoneName = formatZoneName(zone.zoneName || zone.zoneId);
 
       interventions.forEach(intervention => {
         if (!intervention.centroid) return;
@@ -501,7 +502,10 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
 
     setTimeout(() => {
       map.invalidateSize();
-    }, 200);
+    }, 100);
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 500);
 
     return () => {
       map.remove();
@@ -529,7 +533,7 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
             <div className="space-y-3 pr-2">
               {zones.map(zone => {
                 const interventions = zone.interventionPortfolio || [];
-                const zoneName = zone.zoneName || formatZoneName(zone.zoneId);
+                const zoneName = formatZoneName(zone.zoneName || zone.zoneId);
                 const color = HAZARD_COLORS[zone.hazardType] || HAZARD_COLORS.LOW;
 
                 return (
