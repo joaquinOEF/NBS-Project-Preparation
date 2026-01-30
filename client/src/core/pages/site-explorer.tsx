@@ -1471,10 +1471,10 @@ export default function SiteExplorerPage() {
             </div>
           )}
           
-          {/* Right Panel - Zone Priority List (Frosted Glass) */}
+          {/* Right Panel - Zone Priority List (Frosted Glass) - ends at 30% from bottom */}
           <div 
-            className="absolute top-0 right-0 bottom-0 w-[320px] z-[1001] bg-zinc-900/80 backdrop-blur-xl border-l border-white/10 shadow-2xl flex flex-col"
-            style={{ pointerEvents: 'auto', marginBottom: showEvidenceDrawer ? '180px' : '48px' }}
+            className="absolute top-0 right-0 w-[320px] z-[1001] bg-zinc-900/80 backdrop-blur-xl border-l border-white/10 shadow-2xl flex flex-col rounded-bl-xl"
+            style={{ pointerEvents: 'auto', bottom: '30%' }}
             onWheel={(e) => e.stopPropagation()}
             onMouseEnter={() => mapRef.current?.scrollWheelZoom.disable()}
             onMouseLeave={() => mapRef.current?.scrollWheelZoom.enable()}
@@ -1578,10 +1578,10 @@ export default function SiteExplorerPage() {
             </div>
           </div>
 
-          {/* Bottom Drawer - Evidence Layers */}
+          {/* Bottom Drawer - Evidence Layers - takes 70% width with rounded top-right */}
           <div 
-            className={`absolute left-0 right-[320px] bottom-0 z-[1001] bg-zinc-900/95 backdrop-blur-sm border-t border-zinc-700 transition-all duration-300 ${showEvidenceDrawer ? 'h-[180px]' : 'h-[48px]'}`}
-            style={{ pointerEvents: 'auto' }}
+            className={`absolute left-0 bottom-0 z-[1001] bg-zinc-900/95 backdrop-blur-sm border-t border-r border-zinc-700 transition-all duration-300 rounded-tr-xl ${showEvidenceDrawer ? 'h-[180px]' : 'h-[48px]'}`}
+            style={{ pointerEvents: 'auto', width: '70%' }}
           >
             <button
               className="w-full h-[48px] px-4 flex items-center justify-between hover:bg-zinc-800/50 transition-colors"
