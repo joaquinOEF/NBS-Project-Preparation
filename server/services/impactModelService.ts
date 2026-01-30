@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { semanticSearch } from "./knowledgeService";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -447,5 +448,203 @@ Return a JSON object with the regenerated block:
   } catch (error) {
     console.error("Failed to parse block regeneration response:", error);
     throw new Error("Failed to regenerate block");
+  }
+}
+
+// ============================================
+// Quantify API — RAG-grounded KPI generation
+// ============================================
+
+export interface QuantifiedKPI {
+  id: string;
+  name: string;
+  metric: string;
+  valueRange: { low: number; high: number };
+  unit: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  evidenceTier: 'EVIDENCE' | 'MODELLED' | 'ASSUMPTION';
+  sourceChunkIds: string[];
+  methodology: string;
+}
+
+export interface QuantifiedImpactGroup {
+  id: string;
+  hazardType: string;
+  interventionBundle: string;
+  kpis: QuantifiedKPI[];
+}
+
+export interface QuantifiedCoBenefit {
+  id: string;
+  title: string;
+  category: string;
+  metric: string;
+  valueRange: { low: number; high: number } | null;
+  unit: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  evidenceTier: 'EVIDENCE' | 'MODELLED' | 'ASSUMPTION';
+  sourceChunkIds: string[];
+  whoBenefits: string[];
+  where: string[];
+}
+
+export interface MRVIndicator {
+  id: string;
+  name: string;
+  metric: string;
+  baselineValue: string;
+  targetValue: string;
+  frequency: 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'BIANNUAL';
+  dataSource: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+export interface QuantifyResponse {
+  impactGroups: QuantifiedImpactGroup[];
+  coBenefits: QuantifiedCoBenefit[];
+  mrvIndicators: MRVIndicator[];
+  evidenceContext: {
+    chunksUsed: number;
+    topSources: Array<{ title: string; score: number }>;
+    searchQueries: string[];
+  };
+  generationMeta: { generatedAt: string; model: string; ragChunksUsed: number };
+}
+
+interface QuantifyRequest {
+  projectId: string;
+  selectedZones: SelectedZone[];
+  interventionBundles: InterventionBundle[];
+  funderPathway: FunderPathway;
+  projectName?: string;
+  cityName?: string;
+}
+
+export async function generateQuantifiedImpacts(
+  request: QuantifyRequest
+): Promise<QuantifyResponse> {
+  const { projectId, selectedZones, interventionBundles, funderPathway, projectName, cityName } = request;
+
+  const enabledBundles = interventionBundles.filter(b => b.enabled);
+
+  // Step 1: Build search queries from hazard types + intervention names
+  const hazardTypes = Array.from(new Set(selectedZones.map(z => z.hazardType).filter(Boolean)));
+  const interventionNames = enabledBundles.flatMap(b => b.interventions);
+
+  const searchQueries: string[] = [];
+  for (const hazard of hazardTypes) {
+    searchQueries.push(`${hazard.toLowerCase()} risk reduction NBS urban`);
+    for (const intervention of interventionNames.slice(0, 3)) {
+      searchQueries.push(`${hazard.toLowerCase()} ${intervention.toLowerCase()} effectiveness`);
+    }
+  }
+  searchQueries.push("co-benefits nature-based solutions urban resilience");
+  searchQueries.push("MRV monitoring indicators NBS climate adaptation");
+
+  // Step 2: Call semanticSearch for each query
+  const allChunks: Array<{ content: string; score: number; sourceTitle?: string; chunkId?: string }> = [];
+  const seenChunkIds = new Set<string>();
+
+  for (const query of searchQueries.slice(0, 8)) {
+    try {
+      const result = await semanticSearch(projectId, query, {
+        includeGlobalKnowledge: true,
+        usableByModule: 'impact_model',
+        limit: 3,
+      });
+      for (const chunk of result.chunks) {
+        const id = chunk.id?.toString() || chunk.content.slice(0, 50);
+        if (!seenChunkIds.has(id)) {
+          seenChunkIds.add(id);
+          allChunks.push({
+            content: chunk.content,
+            score: chunk.score,
+            sourceTitle: (chunk as any).source?.title,
+            chunkId: id,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn(`RAG search failed for query "${query}":`, err);
+    }
+  }
+
+  // Step 3: Sort by score and take top chunks
+  allChunks.sort((a, b) => b.score - a.score);
+  const topChunks = allChunks.slice(0, 12);
+
+  // Step 4: Format evidence context for the LLM prompt
+  const evidenceBlock = topChunks.length > 0
+    ? topChunks.map((c, i) => `[Evidence ${i + 1}] (score: ${c.score.toFixed(2)}, source: ${c.sourceTitle || 'Unknown'})\n${c.content.slice(0, 500)}`).join('\n\n')
+    : 'No evidence chunks found in knowledge base. Use general NBS literature estimates.';
+
+  const topSources = Array.from(
+    new Map(topChunks.filter(c => c.sourceTitle).map(c => [c.sourceTitle!, c.score])).entries()
+  ).map(([title, score]) => ({ title, score }));
+
+  // Step 5: Build focused LLM prompt
+  const systemPrompt = `You are an expert in Nature-Based Solutions (NBS) quantification and evidence-based impact metrics.
+Your task is to generate structured, quantified impact data grounded in evidence.
+Output ONLY valid JSON. Be honest about confidence levels and evidence tiers.
+If evidence supports a metric, use EVIDENCE tier. If modelled/extrapolated, use MODELLED. If assumed, use ASSUMPTION.`;
+
+  const userPrompt = `Generate quantified impact KPIs for this NBS project:
+
+PROJECT CONTEXT:
+- Project: ${projectName || 'Urban Climate Resilience Initiative'}
+- City: ${cityName || 'Urban area'}
+- Zones: ${selectedZones.map(z => `${z.zoneId} (${z.hazardType}, risk: ${(z.riskScore * 100).toFixed(0)}%, area: ${z.area || 'unknown'}m²)`).join('; ')}
+- Bundles: ${enabledBundles.map(b => `${b.name} [${b.targetHazards.join(',')}]`).join('; ')}
+- Funder: ${funderPathway.primary || 'General'}
+
+EVIDENCE FROM KNOWLEDGE BASE:
+${evidenceBlock}
+
+Generate structured JSON with:
+1. impactGroups: One per hazard-intervention pair, each with 3-5 KPIs (id, name, metric, valueRange {low, high}, unit, confidence, evidenceTier, sourceChunkIds[], methodology)
+2. coBenefits: 4-6 quantifiable co-benefits (id, title, category, metric, valueRange or null, unit, confidence, evidenceTier, sourceChunkIds[], whoBenefits[], where[])
+3. mrvIndicators: 3-5 monitoring indicators (id, name, metric, baselineValue, targetValue, frequency, dataSource, confidence)
+
+Use evidence chunk IDs where applicable. Return:
+{
+  "impactGroups": [...],
+  "coBenefits": [...],
+  "mrvIndicators": [...]
+}`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.5,
+    max_completion_tokens: 3000,
+    reasoning_effort: "none",
+  } as any);
+
+  const content = response.choices[0]?.message?.content || "{}";
+
+  try {
+    const parsed = JSON.parse(content);
+    return {
+      impactGroups: parsed.impactGroups || [],
+      coBenefits: parsed.coBenefits || [],
+      mrvIndicators: parsed.mrvIndicators || [],
+      evidenceContext: {
+        chunksUsed: topChunks.length,
+        topSources,
+        searchQueries,
+      },
+      generationMeta: {
+        generatedAt: new Date().toISOString(),
+        model: 'GPT-5.2',
+        ragChunksUsed: topChunks.length,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to parse quantify response:", error);
+    throw new Error("Failed to generate quantified impacts - invalid response format");
   }
 }

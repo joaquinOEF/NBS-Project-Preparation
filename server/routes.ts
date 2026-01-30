@@ -57,7 +57,7 @@ import {
   computeCompositeScores,
   calculateCoverageSummary,
 } from './services/gridService';
-import { generateImpactNarrative, generateLensVariant, regenerateBlock } from './services/impactModelService';
+import { generateImpactNarrative, generateLensVariant, regenerateBlock, generateQuantifiedImpacts } from './services/impactModelService';
 import { fetchOsmAssets } from './services/osmAssetService';
 import type { LayerType } from '../shared/geospatial-schema';
 import { registerAgentRoutes } from './routes/agentRoutes';
@@ -1112,6 +1112,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Block regeneration error:', error);
       res.status(500).json({ message: error.message || 'Failed to regenerate block' });
+    }
+  });
+
+  // Quantify impacts with RAG-grounded KPIs
+  app.post('/api/impact-model/quantify', async (req: any, res) => {
+    try {
+      const { projectId, selectedZones, interventionBundles, funderPathway, projectName, cityName } = req.body;
+
+      if (!selectedZones || !interventionBundles) {
+        return res.status(400).json({ message: 'selectedZones and interventionBundles are required' });
+      }
+
+      const resolvedProjectId = projectId || 'sample-porto-alegre-project';
+
+      console.log(`📊 Quantifying impacts for ${interventionBundles.length} bundles, ${selectedZones.length} zones (RAG project: ${resolvedProjectId})`);
+
+      const result = await generateQuantifiedImpacts({
+        projectId: resolvedProjectId,
+        selectedZones,
+        interventionBundles,
+        funderPathway: funderPathway || { primary: 'BLENDED_FINANCE' },
+        projectName,
+        cityName,
+      });
+
+      console.log(`   Quantified ${result.impactGroups.length} impact groups, ${result.coBenefits.length} co-benefits, ${result.mrvIndicators.length} MRV indicators (${result.evidenceContext.chunksUsed} evidence chunks used)`);
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('Impact quantification error:', error);
+      res.status(500).json({ message: error.message || 'Failed to quantify impacts' });
     }
   });
 
