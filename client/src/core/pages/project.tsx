@@ -1,7 +1,7 @@
 import { useParams, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Map, ArrowRight, DollarSign, Settings, Landmark, Database, ChevronRight, ChevronDown, Lightbulb } from 'lucide-react';
+import { ArrowLeft, Map, ArrowRight, DollarSign, Settings, Landmark, Database, ChevronRight, ChevronDown, Lightbulb, FileText, CheckCircle2, Circle, Download } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { DisplayLarge } from '@oef/components';
@@ -12,9 +12,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ScrollArea } from '@/core/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/core/components/ui/collapsible';
 import { useTranslation } from 'react-i18next';
-import { useSampleData } from '@/core/contexts/sample-data-context';
+import { useSampleData, SAMPLE_DATA_READINESS, DataReadinessItem } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useProjectContext, ProjectContextData } from '@/core/contexts/project-context';
+import { assembleConceptNote, ConceptNote } from '@/core/types/concept-note';
 
 interface Project {
   id: string;
@@ -1012,6 +1013,142 @@ function ContextViewer({ context }: { context: ProjectContextData | null }) {
   );
 }
 
+function DataReadinessChecklist({ items }: { items: DataReadinessItem[] }) {
+  const { t } = useTranslation();
+  const available = items.filter(i => i.available).length;
+
+  return (
+    <div className="border rounded-lg p-3 bg-muted/30">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium">{t('project.dataReadiness.title')}</span>
+        <Badge variant="outline" className="text-xs">
+          {t('project.dataReadiness.loaded', { count: available, total: items.length })}
+        </Badge>
+      </div>
+      <div className="space-y-1">
+        {items.map(item => (
+          <div key={item.key} className="flex items-center gap-2 text-xs">
+            {item.available ? (
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
+            ) : (
+              <Circle className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
+            )}
+            <span className={item.available ? 'text-foreground' : 'text-muted-foreground'}>
+              {t(`project.dataReadiness.${item.i18nKey}`)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ConceptNotePanel({ context }: { context: ProjectContextData | null }) {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+  const [note, setNote] = useState<ConceptNote | null>(null);
+
+  const handleGenerate = () => {
+    const assembled = assembleConceptNote(context);
+    setNote(assembled);
+    setIsOpen(true);
+  };
+
+  const sectionKeys = [
+    'summary', 'contextBaseline', 'projectDescription',
+    'expectedResults', 'implementation', 'financing',
+  ] as const;
+
+  const sectionColors: Record<string, string> = {
+    summary: 'border-l-blue-500',
+    contextBaseline: 'border-l-amber-500',
+    projectDescription: 'border-l-green-500',
+    expectedResults: 'border-l-purple-500',
+    implementation: 'border-l-orange-500',
+    financing: 'border-l-emerald-500',
+  };
+
+  return (
+    <>
+      <Card
+        className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-dashed border-primary/30 bg-primary/5"
+        onClick={handleGenerate}
+      >
+        <CardContent className="flex items-center justify-between p-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-primary/10 rounded-lg">
+              <FileText className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">{t('project.conceptNote.exportBanner')}</h3>
+              <p className="text-sm text-muted-foreground">{t('project.conceptNote.exportBannerDescription')}</p>
+            </div>
+          </div>
+          <Button size="lg">
+            {t('project.conceptNote.exportButton')}
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle>{t('project.conceptNote.viewerTitle')}</DialogTitle>
+            <DialogDescription>{t('project.conceptNote.viewerDescription')}</DialogDescription>
+          </DialogHeader>
+          {note && (
+            <ScrollArea className="h-[60vh] pr-4">
+              <div className="space-y-6">
+                <div className="text-xs text-muted-foreground text-right">
+                  {t('project.conceptNote.generatedFrom', {
+                    date: new Date(note.generatedAt).toLocaleDateString(),
+                  })}
+                </div>
+
+                <div className="text-center pb-4 border-b">
+                  <h2 className="text-xl font-bold">{note.projectName}</h2>
+                  <p className="text-sm text-muted-foreground">{note.cityName}</p>
+                </div>
+
+                {sectionKeys.map(key => {
+                  const section = note.sections[key];
+                  return (
+                    <div key={key} className={`border-l-4 ${sectionColors[key]} pl-4 space-y-2`}>
+                      <h3 className="font-semibold text-sm">
+                        {t(`project.conceptNote.${section.title}`)}
+                      </h3>
+                      {section.hasData ? (
+                        <div className="space-y-1">
+                          {section.content.map((line, i) => (
+                            <p key={i} className={`text-sm ${line.startsWith('  -') ? 'ml-4 text-muted-foreground' : ''}`}>
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">
+                          {t('project.conceptNote.noData')}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          )}
+          <div className="flex justify-end pt-2 border-t">
+            <Button variant="outline" onClick={() => window.print()}>
+              <Download className="h-4 w-4 mr-2" />
+              {t('project.conceptNote.downloadPdf')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { t } = useTranslation();
@@ -1081,7 +1218,7 @@ export default function ProjectPage() {
               <DisplayLarge>{action.name}</DisplayLarge>
               <Badge variant="secondary">{t('cityInfo.sampleDataBadge')}</Badge>
             </div>
-            <div className="flex items-center gap-3 mt-2">
+            <div className="flex items-center gap-4 mt-2">
               <Badge variant={action.type === 'mitigation' ? 'default' : 'secondary'}>
                 {action.type === 'mitigation' ? t('cityInfo.mitigation') : t('cityInfo.adaptation')}
               </Badge>
@@ -1100,124 +1237,141 @@ export default function ProjectPage() {
                   <ContextViewer context={context} />
                 </DialogContent>
               </Dialog>
+              <DataReadinessChecklist items={SAMPLE_DATA_READINESS} />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Link href={`${routePrefix}/funder-selection/${projectId}`}>
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-500/10 rounded-lg">
-                      <DollarSign className="h-6 w-6 text-green-600" />
+          {/* PREPARE Section */}
+          <div className="mb-10">
+            <div className="flex items-center gap-2 mb-4">
+              <h2 className="text-lg font-semibold tracking-tight">{t('project.sections.prepare')}</h2>
+              <span className="text-sm text-muted-foreground">{t('project.sections.prepareDescription')}</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <Link href={`${routePrefix}/funder-selection/${projectId}`}>
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-500/10 rounded-lg">
+                        <DollarSign className="h-6 w-6 text-green-600" />
+                      </div>
+                      <CardTitle className="text-lg">{t('project.funderSelection')}</CardTitle>
                     </div>
-                    <CardTitle className="text-lg">{t('project.funderSelection')}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>
-                    {t('project.funderSelectionDescription')}
-                  </CardDescription>
-                  <FunderHighlight data={context?.funderSelection} />
-                  <div className="flex items-center text-green-600 text-sm font-medium mt-3">
-                    {t('common.view')}
-                    <ArrowRight className="h-4 w-4 ml-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription>
+                      {t('project.funderSelectionDescription')}
+                    </CardDescription>
+                    <FunderHighlight data={context?.funderSelection} />
+                    <div className="flex items-center text-green-600 text-sm font-medium mt-3">
+                      {t('common.view')}
+                      <ArrowRight className="h-4 w-4 ml-1" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
 
-            <Link href={`${routePrefix}/site-explorer/${projectId}`}>
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Map className="h-6 w-6 text-primary" />
+              <Link href={`${routePrefix}/site-explorer/${projectId}`}>
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Map className="h-6 w-6 text-primary" />
+                      </div>
+                      <CardTitle className="text-lg">{t('project.siteExplorer')}</CardTitle>
                     </div>
-                    <CardTitle className="text-lg">{t('project.siteExplorer')}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>
-                    {t('project.siteExplorerDescription')}
-                  </CardDescription>
-                  <SiteExplorerHighlight data={context?.siteExplorer} />
-                  <div className="flex items-center text-primary text-sm font-medium mt-3">
-                    {t('common.view')}
-                    <ArrowRight className="h-4 w-4 ml-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription>
+                      {t('project.siteExplorerDescription')}
+                    </CardDescription>
+                    <SiteExplorerHighlight data={context?.siteExplorer} />
+                    <div className="flex items-center text-primary text-sm font-medium mt-3">
+                      {t('common.view')}
+                      <ArrowRight className="h-4 w-4 ml-1" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
 
-            <Link href={`${routePrefix}/impact-model/${projectId}`}>
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-amber-500/10 rounded-lg">
-                      <Lightbulb className="h-6 w-6 text-amber-600" />
+              <Link href={`${routePrefix}/impact-model/${projectId}`}>
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-amber-500/10 rounded-lg">
+                        <Lightbulb className="h-6 w-6 text-amber-600" />
+                      </div>
+                      <CardTitle className="text-lg">{t('project.impactModel')}</CardTitle>
                     </div>
-                    <CardTitle className="text-lg">{t('project.impactModel')}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>
-                    {t('project.impactModelDescription')}
-                  </CardDescription>
-                  <ImpactModelHighlight data={context?.impactModel} />
-                  <div className="flex items-center text-amber-600 text-sm font-medium mt-3">
-                    {t('common.view')}
-                    <ArrowRight className="h-4 w-4 ml-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription>
+                      {t('project.impactModelDescription')}
+                    </CardDescription>
+                    <ImpactModelHighlight data={context?.impactModel} />
+                    <div className="flex items-center text-amber-600 text-sm font-medium mt-3">
+                      {t('common.view')}
+                      <ArrowRight className="h-4 w-4 ml-1" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
 
-            <Link href={`${routePrefix}/project-operations/${projectId}`}>
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-orange-500/10 rounded-lg">
-                      <Settings className="h-6 w-6 text-orange-600" />
+              <Link href={`${routePrefix}/project-operations/${projectId}`}>
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-orange-500/10 rounded-lg">
+                        <Settings className="h-6 w-6 text-orange-600" />
+                      </div>
+                      <CardTitle className="text-lg">{t('project.projectOperations')}</CardTitle>
                     </div>
-                    <CardTitle className="text-lg">{t('project.projectOperations')}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>
-                    {t('project.projectOperationsDescription')}
-                  </CardDescription>
-                  <OperationsHighlight data={context?.operations} />
-                  <div className="flex items-center text-orange-600 text-sm font-medium mt-3">
-                    {t('common.view')}
-                    <ArrowRight className="h-4 w-4 ml-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription>
+                      {t('project.projectOperationsDescription')}
+                    </CardDescription>
+                    <OperationsHighlight data={context?.operations} />
+                    <div className="flex items-center text-orange-600 text-sm font-medium mt-3">
+                      {t('common.view')}
+                      <ArrowRight className="h-4 w-4 ml-1" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
 
-            <Link href={`${routePrefix}/business-model/${projectId}`}>
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-500/10 rounded-lg">
-                      <Landmark className="h-6 w-6 text-purple-600" />
+              <Link href={`${routePrefix}/business-model/${projectId}`}>
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-purple-500/10 rounded-lg">
+                        <Landmark className="h-6 w-6 text-purple-600" />
+                      </div>
+                      <CardTitle className="text-lg">{t('project.businessModel')}</CardTitle>
                     </div>
-                    <CardTitle className="text-lg">{t('project.businessModel')}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>
-                    {t('project.businessModelDescription')}
-                  </CardDescription>
-                  <BusinessModelHighlight data={context?.businessModel} />
-                  <div className="flex items-center text-purple-600 text-sm font-medium mt-3">
-                    {t('common.view')}
-                    <ArrowRight className="h-4 w-4 ml-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription>
+                      {t('project.businessModelDescription')}
+                    </CardDescription>
+                    <BusinessModelHighlight data={context?.businessModel} />
+                    <div className="flex items-center text-purple-600 text-sm font-medium mt-3">
+                      {t('common.view')}
+                      <ArrowRight className="h-4 w-4 ml-1" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            </div>
+          </div>
+
+          {/* OUTPUT Section */}
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <h2 className="text-lg font-semibold tracking-tight">{t('project.sections.output')}</h2>
+              <span className="text-sm text-muted-foreground">{t('project.sections.outputDescription')}</span>
+            </div>
+            <ConceptNotePanel context={context} />
           </div>
         </div>
       </div>
@@ -1291,116 +1445,132 @@ export default function ProjectPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Link href={`/funder-selection/${projectId}`}>
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-500/10 rounded-lg">
-                    <DollarSign className="h-6 w-6 text-green-600" />
+        {/* PREPARE Section */}
+        <div className="mb-10">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold tracking-tight">{t('project.sections.prepare')}</h2>
+            <span className="text-sm text-muted-foreground">{t('project.sections.prepareDescription')}</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Link href={`/funder-selection/${projectId}`}>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-500/10 rounded-lg">
+                      <DollarSign className="h-6 w-6 text-green-600" />
+                    </div>
+                    <CardTitle className="text-lg">{t('project.funderSelection')}</CardTitle>
                   </div>
-                  <CardTitle className="text-lg">{t('project.funderSelection')}</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="mb-4">
-                  {t('project.funderSelectionDescription')}
-                </CardDescription>
-                <div className="flex items-center text-green-600 text-sm font-medium">
-                  {t('common.view')}
-                  <ArrowRight className="h-4 w-4 ml-1" />
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="mb-4">
+                    {t('project.funderSelectionDescription')}
+                  </CardDescription>
+                  <div className="flex items-center text-green-600 text-sm font-medium">
+                    {t('common.view')}
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
-          <Link href={`/site-explorer/${projectId}`}>
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Map className="h-6 w-6 text-primary" />
+            <Link href={`/site-explorer/${projectId}`}>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Map className="h-6 w-6 text-primary" />
+                    </div>
+                    <CardTitle className="text-lg">{t('project.siteExplorer')}</CardTitle>
                   </div>
-                  <CardTitle className="text-lg">{t('project.siteExplorer')}</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="mb-4">
-                  {t('project.siteExplorerDescription')}
-                </CardDescription>
-                <div className="flex items-center text-primary text-sm font-medium">
-                  {t('common.view')}
-                  <ArrowRight className="h-4 w-4 ml-1" />
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="mb-4">
+                    {t('project.siteExplorerDescription')}
+                  </CardDescription>
+                  <div className="flex items-center text-primary text-sm font-medium">
+                    {t('common.view')}
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
-          <Link href={`/impact-model/${projectId}`}>
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-amber-500/10 rounded-lg">
-                    <Lightbulb className="h-6 w-6 text-amber-600" />
+            <Link href={`/impact-model/${projectId}`}>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-500/10 rounded-lg">
+                      <Lightbulb className="h-6 w-6 text-amber-600" />
+                    </div>
+                    <CardTitle className="text-lg">{t('project.impactModel')}</CardTitle>
                   </div>
-                  <CardTitle className="text-lg">{t('project.impactModel')}</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="mb-4">
-                  {t('project.impactModelDescription')}
-                </CardDescription>
-                <div className="flex items-center text-amber-600 text-sm font-medium">
-                  {t('common.view')}
-                  <ArrowRight className="h-4 w-4 ml-1" />
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="mb-4">
+                    {t('project.impactModelDescription')}
+                  </CardDescription>
+                  <div className="flex items-center text-amber-600 text-sm font-medium">
+                    {t('common.view')}
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
-          <Link href={`/project-operations/${projectId}`}>
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-500/10 rounded-lg">
-                    <Settings className="h-6 w-6 text-orange-600" />
+            <Link href={`/project-operations/${projectId}`}>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-500/10 rounded-lg">
+                      <Settings className="h-6 w-6 text-orange-600" />
+                    </div>
+                    <CardTitle className="text-lg">{t('project.projectOperations')}</CardTitle>
                   </div>
-                  <CardTitle className="text-lg">{t('project.projectOperations')}</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="mb-4">
-                  {t('project.projectOperationsDescription')}
-                </CardDescription>
-                <div className="flex items-center text-orange-600 text-sm font-medium">
-                  {t('common.view')}
-                  <ArrowRight className="h-4 w-4 ml-1" />
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="mb-4">
+                    {t('project.projectOperationsDescription')}
+                  </CardDescription>
+                  <div className="flex items-center text-orange-600 text-sm font-medium">
+                    {t('common.view')}
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
-          <Link href={`/business-model/${projectId}`}>
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-500/10 rounded-lg">
-                    <Landmark className="h-6 w-6 text-purple-600" />
+            <Link href={`/business-model/${projectId}`}>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-500/10 rounded-lg">
+                      <Landmark className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <CardTitle className="text-lg">{t('project.businessModel')}</CardTitle>
                   </div>
-                  <CardTitle className="text-lg">{t('project.businessModel')}</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="mb-4">
-                  {t('project.businessModelDescription')}
-                </CardDescription>
-                <div className="flex items-center text-purple-600 text-sm font-medium">
-                  {t('common.view')}
-                  <ArrowRight className="h-4 w-4 ml-1" />
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="mb-4">
+                    {t('project.businessModelDescription')}
+                  </CardDescription>
+                  <div className="flex items-center text-purple-600 text-sm font-medium">
+                    {t('common.view')}
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+        </div>
+
+        {/* OUTPUT Section */}
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-lg font-semibold tracking-tight">{t('project.sections.output')}</h2>
+            <span className="text-sm text-muted-foreground">{t('project.sections.outputDescription')}</span>
+          </div>
+          <ConceptNotePanel context={context} />
         </div>
       </div>
     </div>

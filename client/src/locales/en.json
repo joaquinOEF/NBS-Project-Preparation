@@ -161,7 +161,37 @@
       "signals": "downstream signals"
     },
     "impactModel": "Impact Model",
-    "impactModelDescription": "Generate AI-powered impact narratives, co-benefits, and downstream signals to communicate your project's value"
+    "impactModelDescription": "Generate AI-powered impact narratives, co-benefits, and downstream signals to communicate your project's value",
+    "sections": {
+      "prepare": "Prepare",
+      "prepareDescription": "Build your project through guided modules",
+      "output": "Output",
+      "outputDescription": "Generate funding-ready deliverables from your project data"
+    },
+    "dataReadiness": {
+      "title": "Data Readiness",
+      "loaded": "{{count}} of {{total}} datasets loaded",
+      "ghgInventory": "GHG Inventory",
+      "ccra": "Climate Risk Assessment",
+      "hiap": "High-Impact Action Plan",
+      "localDataEnhancement": "Local Data Enhancement"
+    },
+    "conceptNote": {
+      "exportBanner": "Export as Concept Note",
+      "exportBannerDescription": "Generate a GCF-style concept note from your project data across all modules",
+      "exportButton": "Generate Concept Note",
+      "viewerTitle": "Concept Note",
+      "viewerDescription": "GCF-style project concept note generated from your project data",
+      "downloadPdf": "Download PDF",
+      "sectionA": "Project Summary",
+      "sectionB": "Project Context & Baseline",
+      "sectionC": "Project Description",
+      "sectionD": "Expected Results",
+      "sectionE": "Implementation Arrangements",
+      "sectionF": "Financing",
+      "noData": "Complete more modules to populate this section",
+      "generatedFrom": "Generated from project data on {{date}}"
+    }
   },
   "funderSelection": {
     "title": "Funder Selection",
