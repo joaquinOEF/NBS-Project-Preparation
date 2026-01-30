@@ -445,7 +445,7 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
         fillOpacity: 0.4,
       }).addTo(map);
 
-      marker.bindTooltip(`${zone.zoneId || zone.zoneName || ''} (${zone.hazardType})`, {
+      marker.bindTooltip(`${zone.zoneName || formatZoneName(zone.zoneId)} (${zone.hazardType})`, {
         direction: 'top',
       });
 
@@ -492,7 +492,7 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
                   className="w-3 h-3 rounded-full shrink-0"
                   style={{ backgroundColor: HAZARD_COLORS[zone.hazardType] || HAZARD_COLORS.LOW }}
                 />
-                <span className="font-medium truncate">{zone.zoneId || zone.zoneName}</span>
+                <span className="font-medium truncate">{zone.zoneName || formatZoneName(zone.zoneId)}</span>
               </div>
               <div className="flex flex-wrap gap-1 text-muted-foreground">
                 <span>{t('project.overview.hazard')}: {zone.hazardType.replace(/_/g, ' ')}</span>
@@ -1415,7 +1415,7 @@ function ContextViewer({ context }: { context: ProjectContextData | null }) {
                         <div key={zone.zoneId || i} className="text-xs py-1 bg-muted/30 p-1 rounded mb-1">
                           <div className="flex items-center gap-1">
                             <Badge variant="outline" className="text-xs">{zone.hazardType}</Badge>
-                            <span className="font-medium">{zone.zoneId}</span>
+                            <span className="font-medium">{zone.zoneName || formatZoneName(zone.zoneId)}</span>
                           </div>
                           <div className="text-muted-foreground">
                             {zone.riskScore !== undefined && `Risk: ${(zone.riskScore * 100).toFixed(0)}%`}
