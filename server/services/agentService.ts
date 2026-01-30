@@ -989,6 +989,8 @@ export async function executeAgentTool(
       }
       
       case "add_intervention_site": {
+        console.log('🔧 add_intervention_site called with args:', JSON.stringify(args));
+        
         const { zoneId, siteName, interventionType, category, lat, lng, areaHa, osmId } = args as {
           zoneId: string;
           siteName: string;
@@ -999,6 +1001,8 @@ export async function executeAgentTool(
           areaHa: number;
           osmId: string;
         };
+        
+        console.log(`📍 Adding site: ${siteName} to ${zoneId} as ${interventionType} (${category})`);
         
         // Generate a unique asset ID
         const assetId = osmId ? `nominatim_${osmId}` : `manual_${Date.now()}`;
