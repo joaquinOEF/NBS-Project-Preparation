@@ -399,72 +399,72 @@ export const interventionBundleSchema = z.object({
 export const quantifiedKPISchema = z.object({
   id: z.string(),
   name: z.string(),
-  metric: z.string(),
+  metric: z.string().optional(),
   valueRange: z.object({
     low: z.number(),
     high: z.number(),
-  }),
-  unit: z.string(),
-  confidence: z.number().min(0).max(1),
-  evidenceTier: z.enum(['EVIDENCE', 'MODELLED', 'ASSUMPTION']),
+  }).optional(),
+  unit: z.string().optional(),
+  confidence: z.union([z.number(), z.enum(['HIGH', 'MEDIUM', 'LOW'])]).optional(),
+  evidenceTier: z.enum(['EVIDENCE', 'MODELLED', 'ASSUMPTION']).optional(),
   sourceChunkIds: z.array(z.string()).default([]),
   methodology: z.string().optional(),
   userEvidenceSource: z.string().optional(),
-});
+}).passthrough();
 
 export const quantifiedImpactGroupSchema = z.object({
   id: z.string(),
-  hazardType: z.string(),
-  interventionBundle: z.string(),
+  hazardType: z.string().optional(),
+  interventionBundle: z.string().optional(),
   kpis: z.array(quantifiedKPISchema).default([]),
-});
+}).passthrough();
 
 export const quantifiedCoBenefitSchema = z.object({
   id: z.string(),
-  title: z.string(),
-  category: z.string(),
-  metric: z.string(),
+  title: z.string().optional(),
+  category: z.string().optional(),
+  metric: z.string().optional(),
   valueRange: z.object({
     low: z.number(),
     high: z.number(),
-  }).nullable(),
-  unit: z.string(),
-  confidence: z.number().min(0).max(1),
-  evidenceTier: z.enum(['EVIDENCE', 'MODELLED', 'ASSUMPTION']),
+  }).nullable().optional(),
+  unit: z.string().optional(),
+  confidence: z.union([z.number(), z.enum(['HIGH', 'MEDIUM', 'LOW'])]).optional(),
+  evidenceTier: z.enum(['EVIDENCE', 'MODELLED', 'ASSUMPTION']).optional(),
   sourceChunkIds: z.array(z.string()).default([]),
   whoBenefits: z.array(z.string()).default([]),
   where: z.array(z.string()).default([]),
-});
+}).passthrough();
 
 export const mrvIndicatorSchema = z.object({
   id: z.string(),
-  name: z.string(),
-  metric: z.string(),
-  baselineValue: z.string(),
-  targetValue: z.string(),
-  frequency: z.enum(['MONTHLY', 'QUARTERLY', 'ANNUAL', 'BIANNUAL']),
-  dataSource: z.string(),
-  confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']),
-});
+  name: z.string().optional(),
+  metric: z.string().optional(),
+  baselineValue: z.union([z.string(), z.number(), z.null()]).optional(),
+  targetValue: z.union([z.string(), z.number(), z.null()]).optional(),
+  frequency: z.string().optional(),
+  dataSource: z.string().optional(),
+  confidence: z.union([z.number(), z.enum(['HIGH', 'MEDIUM', 'LOW'])]).optional(),
+}).passthrough();
 
 export const quantifyResponseSchema = z.object({
   impactGroups: z.array(quantifiedImpactGroupSchema).default([]),
   coBenefits: z.array(quantifiedCoBenefitSchema).default([]),
   mrvIndicators: z.array(mrvIndicatorSchema).default([]),
   evidenceContext: z.object({
-    chunksUsed: z.number(),
+    chunksUsed: z.number().optional(),
     topSources: z.array(z.object({
       title: z.string(),
       score: z.number(),
     })).default([]),
     searchQueries: z.array(z.string()).default([]),
-  }).optional(),
+  }).passthrough().optional(),
   generationMeta: z.object({
-    generatedAt: z.string(),
-    model: z.string(),
-    ragChunksUsed: z.number(),
-  }).optional(),
-});
+    generatedAt: z.string().optional(),
+    model: z.string().optional(),
+    ragChunksUsed: z.number().optional(),
+  }).passthrough().optional(),
+}).passthrough();
 
 export const prioritizationWeightsSchema = z.object({
   floodRiskReduction: z.number().min(0).max(5).default(4),

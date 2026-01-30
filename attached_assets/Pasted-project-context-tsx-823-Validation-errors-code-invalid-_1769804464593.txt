@@ -1,0 +1,243 @@
+project-context.tsx:823 Validation errors: 
+[
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "quantifiedImpacts",
+      "impactGroups",
+      0,
+      "hazardType"
+    ],
+    "message": "Required"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "quantifiedImpacts",
+      "impactGroups",
+      0,
+      "interventionBundle"
+    ],
+    "message": "Required"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "quantifiedImpacts",
+      "impactGroups",
+      1,
+      "hazardType"
+    ],
+    "message": "Required"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "quantifiedImpacts",
+      "impactGroups",
+      1,
+      "interventionBundle"
+    ],
+    "message": "Required"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "quantifiedImpacts",
+      "mrvIndicators",
+      0,
+      "baselineValue"
+    ],
+    "message": "Expected string, received null"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "quantifiedImpacts",
+      "mrvIndicators",
+      0,
+      "targetValue"
+    ],
+    "message": "Expected string, received null"
+  },
+  {
+    "received": "Annual",
+    "code": "invalid_enum_value",
+    "options": [
+      "MONTHLY",
+      "QUARTERLY",
+      "ANNUAL",
+      "BIANNUAL"
+    ],
+    "path": [
+      "quantifiedImpacts",
+      "mrvIndicators",
+      0,
+      "frequency"
+    ],
+    "message": "Invalid enum value. Expected 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'BIANNUAL', received 'Annual'"
+  },
+  {
+    "expected": "'HIGH' | 'MEDIUM' | 'LOW'",
+    "received": "number",
+    "code": "invalid_type",
+    "path": [
+      "quantifiedImpacts",
+      "mrvIndicators",
+      0,
+      "confidence"
+    ],
+    "message": "Expected 'HIGH' | 'MEDIUM' | 'LOW', received number"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "quantifiedImpacts",
+      "mrvIndicators",
+      1,
+      "baselineValue"
+    ],
+    "message": "Expected string, received null"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "number",
+    "path": [
+      "quantifiedImpacts",
+      "mrvIndicators",
+      1,
+      "targetValue"
+    ],
+    "message": "Expected string, received number"
+  },
+  {
+    "received": "Seasonal (summer) + during heatwaves",
+    "code": "invalid_enum_value",
+    "options": [
+      "MONTHLY",
+      "QUARTERLY",
+      "ANNUAL",
+      "BIANNUAL"
+    ],
+    "path": [
+      "quantifiedImpacts",
+      "mrvIndicators",
+      1,
+      "frequency"
+    ],
+    "message": "Invalid enum value. Expected 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'BIANNUAL', received 'Seasonal (summer) + during heatwaves'"
+  },
+  {
+    "expected": "'HIGH' | 'MEDIUM' | 'LOW'",
+    "received": "number",
+    "code": "invalid_type",
+    "path": [
+      "quantifiedImpacts",
+      "mrvIndicators",
+      1,
+      "confidence"
+    ],
+    "message": "Expected 'HIGH' | 'MEDIUM' | 'LOW', received number"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "quantifiedImpacts",
+      "mrvIndicators",
+      2,
+      "baselineValue"
+    ],
+    "message": "Expected string, received null"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "quantifiedImpacts",
+      "mrvIndicators",
+      2,
+      "targetValue"
+    ],
+    "message": "Expected string, received null"
+  },
+  {
+    "received": "Per storm event (automated) + quarterly reporting",
+    "code": "invalid_enum_value",
+    "options": [
+      "MONTHLY",
+      "QUARTERLY",
+      "ANNUAL",
+      "BIANNUAL"
+    ],
+    "path": [
+      "quantifiedImpacts",
+      "mrvIndicators",
+      2,
+      "frequency"
+    ],
+    "message": "Invalid enum value. Expected 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'BIANNUAL', received 'Per storm event (automated) + quarterly reporting'"
+  },
+  {
+    "expected": "'HIGH' | 'MEDIUM' | 'LOW'",
+    "received": "number",
+    "code": "invalid_type",
+    "path": [
+      "quantifiedImpacts",
+      "mrvIndicators",
+      2,
+      "confidence"
+    ],
+    "message": "Expected 'HIGH' | 'MEDIUM' | 'LOW', received number"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "quantifiedImpacts",
+      "mrvIndicators",
+      3,
+      "baselineValue"
+    ],
+    "message": "Expected string, received null"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "quantifiedImpacts",
+      "mrvIndicators",
+      3,
+      "targetValue"
+    ],
+    "message": "Expected string, received null"
+  },
+  {
+    "received": "Quarterly + post-storm",
+    "code": "invalid_enum_value",
+    "options": [
+      "MONTHLY",
+      "QUARTERLY",
+
+impact-model.tsx:2355 
+ PUT https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/api/projects/sample-porto-alegre-project/blocks/impact_model 400 (Bad Request)
+﻿
