@@ -812,7 +812,7 @@ export async function executeAgentTool(
         // Load the zones data
         const fs = await import('fs/promises');
         const path = await import('path');
-        const zonesPath = path.join(process.cwd(), 'public', 'sample-data', 'porto-alegre-zones.json');
+        const zonesPath = path.join(process.cwd(), 'client', 'public', 'sample-data', 'porto-alegre-zones.json');
         
         let zonesData: any;
         try {
