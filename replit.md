@@ -73,6 +73,7 @@ Preferred communication style: Simple, everyday language.
 - **Site Explorer**: Grid-based risk scoring for heat, flood, and landslide.
 - **OSM Asset Discovery**: Integrates OpenStreetMap Overpass API for asset identification.
 - **Linear Asset Handling**: Supports clipping and length calculation for linear features.
+- **Custom Asset Addition**: Users can add custom assets via OSM name search (Nominatim API) or manual coordinate entry. Custom assets include `source: 'manual'` or `source: 'nominatim'` to distinguish from auto-discovered OSM assets.
 
 ## Business Model Module
 - A 6-step wizard guiding users through financing structure, archetypes, revenue, and funding pathways.

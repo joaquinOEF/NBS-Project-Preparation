@@ -1,6 +1,6 @@
 import { useParams, Link } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain, Building2, MapPinned, X, Plus, Check, DollarSign, Clock, Wrench, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, Leaf, Trash2, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain, Building2, MapPinned, MapPin, X, Plus, Check, DollarSign, Clock, Wrench, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, Leaf, Trash2, CheckCircle, Eye, EyeOff, Search } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Badge } from '@/core/components/ui/badge';
@@ -8,6 +8,9 @@ import { Switch } from '@/core/components/ui/switch';
 import { Label } from '@/core/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/core/components/ui/accordion';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/core/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
+import { Input } from '@/core/components/ui/input';
 import { useToast } from '@/core/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { useProjectContext, SelectedZone, SelectedIntervention } from '@/core/contexts/project-context';
@@ -230,6 +233,15 @@ export default function SiteExplorerPage() {
   const [osmAssets, setOsmAssets] = useState<any[]>([]);
   const [isLoadingOsmAssets, setIsLoadingOsmAssets] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
+  const [showAddAssetDialog, setShowAddAssetDialog] = useState(false);
+  const [addAssetTab, setAddAssetTab] = useState<'search' | 'manual'>('search');
+  const [osmSearchQuery, setOsmSearchQuery] = useState('');
+  const [osmSearchResults, setOsmSearchResults] = useState<any[]>([]);
+  const [isSearchingOsm, setIsSearchingOsm] = useState(false);
+  const [manualAssetName, setManualAssetName] = useState('');
+  const [manualAssetLat, setManualAssetLat] = useState('');
+  const [manualAssetLng, setManualAssetLng] = useState('');
+  const [manualAssetArea, setManualAssetArea] = useState('');
   const highlightLayerRef = useRef<L.Layer | null>(null);
   const osmLayerRef = useRef<L.Layer | null>(null);
   const selectedAssetMarkerRef = useRef<L.Marker | null>(null);
@@ -836,6 +848,95 @@ export default function SiteExplorerPage() {
       const filtered = existing.filter(i => i.assetId !== asset.id);
       return { ...prev, [zoneId]: [...filtered, newIntervention] };
     });
+  }, []);
+
+  const searchOsmByName = useCallback(async () => {
+    if (!osmSearchQuery.trim() || !selectedZoneFeature || !selectedCategory) return;
+    
+    setIsSearchingOsm(true);
+    setOsmSearchResults([]);
+    
+    try {
+      const bounds = selectedZoneFeature.geometry.type === 'Polygon' 
+        ? turf.bbox(selectedZoneFeature)
+        : null;
+      
+      if (!interventionsData) return;
+      
+      const interventionsInCategory = interventionsData.interventions.filter(i => i.category === selectedCategory);
+      const osmTypes = Array.from(new Set(interventionsInCategory.flatMap(i => i.osmAssetTypes)));
+      
+      const response = await apiRequest('POST', '/api/geospatial/osm-search', {
+        query: osmSearchQuery,
+        bbox: bounds,
+        category: selectedCategory,
+        osmTypes,
+        zoneGeometry: selectedZoneFeature.geometry,
+      });
+      
+      const data = await response.json();
+      
+      // Add compatible interventions to search results
+      const assetsWithInterventions = (data.assets || []).map((asset: any) => ({
+        ...asset,
+        compatibleInterventions: interventionsInCategory,
+      }));
+      
+      setOsmSearchResults(assetsWithInterventions);
+    } catch (error) {
+      console.error('OSM search error:', error);
+      toast({
+        title: 'Search failed',
+        description: 'Could not search OpenStreetMap. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSearchingOsm(false);
+    }
+  }, [osmSearchQuery, selectedZoneFeature, selectedCategory, interventionsData, toast]);
+
+  const createManualAsset = useCallback(() => {
+    if (!manualAssetName.trim() || !manualAssetLat || !manualAssetLng || !selectedCategory) return;
+    
+    const lat = parseFloat(manualAssetLat);
+    const lng = parseFloat(manualAssetLng);
+    
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      toast({
+        title: 'Invalid coordinates',
+        description: 'Please enter valid latitude (-90 to 90) and longitude (-180 to 180).',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    const areaM2 = manualAssetArea ? parseFloat(manualAssetArea) * 10000 : 10000;
+    const interventionsInCategory = interventionsData?.interventions.filter(i => i.category === selectedCategory) || [];
+    
+    const manualAsset = {
+      id: `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name: manualAssetName,
+      assetType: `manual=${selectedCategory}`,
+      centroid: [lat, lng] as [number, number],
+      area: areaM2,
+      length: 0,
+      compatibleInterventions: interventionsInCategory,
+      source: 'manual' as const,
+    };
+    
+    setSelectedAsset(manualAsset);
+    setShowAddAssetDialog(false);
+    setManualAssetName('');
+    setManualAssetLat('');
+    setManualAssetLng('');
+    setManualAssetArea('');
+  }, [manualAssetName, manualAssetLat, manualAssetLng, manualAssetArea, selectedCategory, interventionsData, toast]);
+
+  const selectSearchResult = useCallback((asset: any) => {
+    setSelectedAsset(asset);
+    setShowAddAssetDialog(false);
+    setOsmSearchQuery('');
+    setOsmSearchResults([]);
   }, []);
 
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
@@ -1827,12 +1928,23 @@ export default function SiteExplorerPage() {
                         </div>
                       ) : (
                         <>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {osmResultsTruncated && !osmShowAll
-                              ? `Showing top ${Math.min(OSM_RESULT_LIMIT, osmAssets.length)} assets (${osmAssets.length} available). Named and larger assets first.`
-                              : `Found ${osmAssets.length} compatible assets. Click on an asset to assign an intervention.`
-                            }
-                          </p>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm text-muted-foreground">
+                              {osmResultsTruncated && !osmShowAll
+                                ? `Showing top ${Math.min(OSM_RESULT_LIMIT, osmAssets.length)} assets (${osmAssets.length} available).`
+                                : `Found ${osmAssets.length} compatible assets.`
+                              }
+                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowAddAssetDialog(true)}
+                              className="gap-1"
+                            >
+                              <Plus className="h-4 w-4" />
+                              Add Custom
+                            </Button>
+                          </div>
                           {osmResultsTruncated && !osmShowAll && osmAssets.length > OSM_RESULT_LIMIT && (
                             <Button
                               variant="outline"
@@ -2031,6 +2143,132 @@ export default function SiteExplorerPage() {
           )}
         </div>
       </div>
+
+      <Dialog open={showAddAssetDialog} onOpenChange={setShowAddAssetDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Custom Asset</DialogTitle>
+            <DialogDescription>
+              Search for a location by name or manually enter coordinates.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex gap-2 mb-4">
+            <Button
+              variant={addAssetTab === 'search' ? 'default' : 'outline'}
+              size="sm"
+              className="flex-1"
+              onClick={() => setAddAssetTab('search')}
+            >
+              <Search className="h-4 w-4 mr-2" />
+              Search OSM
+            </Button>
+            <Button
+              variant={addAssetTab === 'manual' ? 'default' : 'outline'}
+              size="sm"
+              className="flex-1"
+              onClick={() => setAddAssetTab('manual')}
+            >
+              <MapPin className="h-4 w-4 mr-2" />
+              Manual Entry
+            </Button>
+          </div>
+          
+          {addAssetTab === 'search' ? (
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Search for a place (e.g., 'Central Park')"
+                  value={osmSearchQuery}
+                  onChange={(e) => setOsmSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && searchOsmByName()}
+                />
+                <Button onClick={searchOsmByName} disabled={isSearchingOsm}>
+                  {isSearchingOsm ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                </Button>
+              </div>
+              
+              {osmSearchResults.length > 0 && (
+                <div className="max-h-60 overflow-y-auto space-y-2">
+                  {osmSearchResults.map((result: any) => (
+                    <button
+                      key={result.id}
+                      className="w-full p-3 text-left rounded-lg border hover:border-primary hover:bg-primary/5 transition-colors"
+                      onClick={() => selectSearchResult(result)}
+                    >
+                      <div className="font-medium">{result.name || result.assetType}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {result.area ? `${(result.area / 10000).toFixed(2)} ha` : result.length ? `${result.length.toFixed(0)}m` : 'Point'}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {isSearchingOsm && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="assetName">Asset Name</Label>
+                <Input
+                  id="assetName"
+                  placeholder="Enter a name for this location"
+                  value={manualAssetName}
+                  onChange={(e) => setManualAssetName(e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="lat">Latitude</Label>
+                  <Input
+                    id="lat"
+                    type="number"
+                    step="any"
+                    placeholder="-12.0464"
+                    value={manualAssetLat}
+                    onChange={(e) => setManualAssetLat(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="lng">Longitude</Label>
+                  <Input
+                    id="lng"
+                    type="number"
+                    step="any"
+                    placeholder="-77.0428"
+                    value={manualAssetLng}
+                    onChange={(e) => setManualAssetLng(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="area">Approximate Area (hectares, optional)</Label>
+                <Input
+                  id="area"
+                  type="number"
+                  step="0.01"
+                  placeholder="1.0"
+                  value={manualAssetArea}
+                  onChange={(e) => setManualAssetArea(e.target.value)}
+                />
+              </div>
+              <Button
+                className="w-full"
+                onClick={createManualAsset}
+                disabled={!manualAssetName.trim() || !manualAssetLat || !manualAssetLng}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Asset
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

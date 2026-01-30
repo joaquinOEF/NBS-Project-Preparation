@@ -945,6 +945,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // OSM search by name (Nominatim API)
+  app.post('/api/geospatial/osm-search', async (req: any, res) => {
+    try {
+      const { query, bbox, category, osmTypes, zoneGeometry } = req.body;
+      
+      if (!query) {
+        return res.status(400).json({ message: 'query is required' });
+      }
+
+      console.log(`🔍 Searching OSM for "${query}"`);
+
+      // Use Nominatim for name-based search
+      const searchUrl = new URL('https://nominatim.openstreetmap.org/search');
+      searchUrl.searchParams.append('q', query);
+      searchUrl.searchParams.append('format', 'json');
+      searchUrl.searchParams.append('addressdetails', '1');
+      searchUrl.searchParams.append('limit', '20');
+      
+      // If bbox is provided, constrain search to that area
+      if (bbox && Array.isArray(bbox) && bbox.length === 4) {
+        searchUrl.searchParams.append('viewbox', `${bbox[1]},${bbox[0]},${bbox[3]},${bbox[2]}`);
+        searchUrl.searchParams.append('bounded', '1');
+      }
+
+      const response = await fetch(searchUrl.toString(), {
+        headers: {
+          'User-Agent': 'NBS-Project-Builder/1.0 (contact@example.com)',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Nominatim API error: ${response.status}`);
+      }
+
+      const results = await response.json();
+      
+      // Helper to calculate approximate area from Nominatim bounding box
+      const calcArea = (bbox: string[]): number => {
+        if (!bbox || bbox.length !== 4) return 0;
+        const [south, north, west, east] = bbox.map(Number);
+        const latSpan = north - south;
+        const lngSpan = east - west;
+        const avgLat = (south + north) / 2;
+        const metersPerDegreeLat = 111320;
+        const metersPerDegreeLng = 111320 * Math.cos(avgLat * Math.PI / 180);
+        return (latSpan * metersPerDegreeLat) * (lngSpan * metersPerDegreeLng);
+      };
+      
+      // Transform results to match OSM asset format
+      const assets = results.map((r: any) => ({
+        id: `nominatim_${r.place_id}`,
+        osmId: r.osm_id,
+        name: r.display_name.split(',')[0],
+        assetType: r.type || r.class || 'place',
+        centroid: [parseFloat(r.lat), parseFloat(r.lon)] as [number, number],
+        area: calcArea(r.boundingbox),
+        length: 0,
+        tags: { name: r.display_name.split(',')[0], class: r.class, type: r.type },
+        source: 'nominatim' as const,
+      }));
+
+      console.log(`   Found ${assets.length} results for "${query}"`);
+      res.json({ assets });
+    } catch (error: any) {
+      console.error('OSM search error:', error);
+      res.status(500).json({ 
+        message: error.message || 'Failed to search OSM',
+        assets: [],
+      });
+    }
+  });
+
   // Impact Model AI narrative generation
   app.post('/api/impact-model/generate', async (req: any, res) => {
     try {
