@@ -121,6 +121,13 @@ function FunderHighlight({ data }: { data: ProjectContextData['funderSelection']
   );
 }
 
+function formatZoneName(zoneId: string): string {
+  if (zoneId.startsWith('zone_')) {
+    return `Zone ${zoneId.replace('zone_', '')}`;
+  }
+  return zoneId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function SiteExplorerHighlight({ data }: { data: ProjectContextData['siteExplorer'] | undefined }) {
   const { t } = useTranslation();
   
@@ -132,24 +139,49 @@ function SiteExplorerHighlight({ data }: { data: ProjectContextData['siteExplore
     );
   }
   
-  const hazardCounts = { flood: 0, heat: 0, landslide: 0 };
-  if (data.hazardSummary) {
-    hazardCounts.flood = data.hazardSummary.floodCells || 0;
-    hazardCounts.heat = data.hazardSummary.heatCells || 0;
-    hazardCounts.landslide = data.hazardSummary.landslideCells || 0;
-  }
+  const zonesWithInterventions = data.selectedZones.filter(
+    zone => typeof zone === 'object' && zone.interventionPortfolio?.length > 0
+  );
   
   return (
-    <div className="border-t mt-3 pt-3 space-y-1.5">
+    <div className="border-t mt-3 pt-3 space-y-2">
       <div className="text-xs">
         <span className="font-medium">{data.selectedZones.length}</span>
         <span className="text-muted-foreground"> {t('project.highlights.zonesSelected')}</span>
       </div>
-      {(hazardCounts.flood > 0 || hazardCounts.heat > 0 || hazardCounts.landslide > 0) && (
-        <div className="flex flex-wrap gap-1">
-          {hazardCounts.flood > 0 && <Badge variant="outline" className="text-xs">{t('project.highlights.flood')}: {hazardCounts.flood}</Badge>}
-          {hazardCounts.heat > 0 && <Badge variant="outline" className="text-xs">{t('project.highlights.heat')}: {hazardCounts.heat}</Badge>}
-          {hazardCounts.landslide > 0 && <Badge variant="outline" className="text-xs">{t('project.highlights.landslide')}: {hazardCounts.landslide}</Badge>}
+      {zonesWithInterventions.length > 0 && (
+        <div className="space-y-1.5">
+          {zonesWithInterventions.slice(0, 3).map((zone) => {
+            if (typeof zone === 'string') return null;
+            const zoneName = zone.zoneName || formatZoneName(zone.zoneId);
+            const sitesByIntervention = zone.interventionPortfolio.reduce((acc, intervention) => {
+              const key = intervention.interventionName;
+              if (!acc[key]) acc[key] = [];
+              if (intervention.assetName) {
+                acc[key].push(intervention.assetName);
+              }
+              return acc;
+            }, {} as Record<string, string[]>);
+            
+            return (
+              <div key={zone.zoneId} className="text-xs">
+                <span className="font-medium">{zoneName}:</span>
+                <span className="text-muted-foreground ml-1">
+                  {Object.entries(sitesByIntervention).map(([intervention, sites], idx) => (
+                    <span key={intervention}>
+                      {idx > 0 && ', '}
+                      {sites.length > 0 ? sites.join(', ') : 'Zone-wide'} ({intervention})
+                    </span>
+                  ))}
+                </span>
+              </div>
+            );
+          })}
+          {zonesWithInterventions.length > 3 && (
+            <div className="text-xs text-muted-foreground">
+              +{zonesWithInterventions.length - 3} more zones
+            </div>
+          )}
         </div>
       )}
     </div>
