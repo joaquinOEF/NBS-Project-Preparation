@@ -1359,20 +1359,44 @@ export default function SiteExplorerPage() {
     }
   }, [elevationData]);
 
-  // Pre-load intervention zones data in sample mode (don't auto-add to map)
+  // Load and display intervention zones layer in sample mode
   useEffect(() => {
-    if (!mapReady || !isSampleModeActive) return;
+    if (!mapReady || !isSampleModeActive || !mapRef.current) return;
     
-    // Only pre-load data, don't add to map - toggleLayer handles that
-    if (!layerDataCache.current.has('intervention_zones')) {
-      loadLayerData('intervention_zones').then(data => {
-        if (data) {
-          layerDataCache.current.set('intervention_zones', data);
-          setLayers(prev => prev.map(l => l.id === 'intervention_zones' ? { ...l, loaded: true, data } : l));
+    const zonesLayer = layers.find(l => l.id === 'intervention_zones');
+    
+    // If layer is enabled and not yet on map, add it
+    if (zonesLayer?.enabled && !layerRefs.current.has('intervention_zones')) {
+      if (layerDataCache.current.has('intervention_zones')) {
+        // Data already cached, just add the layer
+        const data = layerDataCache.current.get('intervention_zones');
+        const leafletLayer = createLayerFromData('intervention_zones', data);
+        if (leafletLayer && mapRef.current) {
+          leafletLayer.addTo(mapRef.current);
+          layerRefs.current.set('intervention_zones', leafletLayer);
+          console.log('[Layer] Auto-added intervention_zones from cache on mount');
         }
-      });
+      } else {
+        // Load data and add to map
+        loadLayerData('intervention_zones').then(data => {
+          if (data) {
+            layerDataCache.current.set('intervention_zones', data);
+            setLayers(prev => prev.map(l => l.id === 'intervention_zones' ? { ...l, loaded: true, data } : l));
+            
+            // Add to map if still enabled and map exists
+            if (mapRef.current && !layerRefs.current.has('intervention_zones')) {
+              const leafletLayer = createLayerFromData('intervention_zones', data);
+              if (leafletLayer) {
+                leafletLayer.addTo(mapRef.current);
+                layerRefs.current.set('intervention_zones', leafletLayer);
+                console.log('[Layer] Auto-added intervention_zones after load');
+              }
+            }
+          }
+        });
+      }
     }
-  }, [mapReady, isSampleModeActive, loadLayerData]);
+  }, [mapReady, isSampleModeActive, loadLayerData, layers, createLayerFromData]);
 
   const isNotFound = isSampleModeActive 
     ? (!sampleAction || !isSampleProjectInitiated)
