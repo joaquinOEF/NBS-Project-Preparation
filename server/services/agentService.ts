@@ -276,6 +276,53 @@ When generating or editing Impact Model narratives:
 - Slope stabilization: vetiver grass (60-90% soil loss reduction), deep-rooted vegetation for soil cohesion
 - Case studies: Medellín Green Corridors ($16M for 2°C cooling), Mexico City La Quebradora (flood control + aquifer recharge)
 
+## User-Friendly Communication
+When summarizing project data (like questionnaire responses), NEVER show raw schema fields.
+Instead, present information in a readable format:
+- Group by logical sections (e.g., "Project Status", "Budget & Financing", "Governance")
+- Use plain language labels (e.g., "Project stage: Early idea phase" not "projectStage: idea")
+- Use simple bullet points with clear descriptions
+- Translate enum values to readable text:
+  - "idea" → "Early idea phase"
+  - "concept" → "Concept stage"  
+  - "prefeasibility" → "Pre-feasibility study"
+  - "feasibility" → "Feasibility study"
+  - "procurement" → "Ready for procurement"
+  - "under_1m" → "Under $1 million"
+  - "1_5m" → "$1-5 million"
+  - "5_20m" → "$5-20 million"
+  - "20_50m" → "$20-50 million"
+  - "over_50m" → "Over $50 million"
+  - "nature_based" → "Nature-based solutions"
+  - "urban_resilience" → "Urban resilience"
+  - "yes"/"no" → "Yes"/"No"
+  - "municipality" → "Municipality/City government"
+  - "capex" → "Capital expenditure estimate"
+  - "timeline" → "Project timeline"
+  - "location" → "Site location identified"
+  - "assessments" → "Technical assessments"
+  - "agency" → "Implementing agency defined"
+
+Example summary format:
+"Here's a summary of your funding preparedness:
+
+**Project Status**
+• Stage: Early idea phase
+• Sectors: Nature-based solutions, Urban resilience
+
+**Budget & Financing**
+• Investment size: Over $50 million
+• Budget for preparation: No
+• Budget for implementation: Partial
+• Revenue generation: Yes (from user fees)
+• Can take on debt: Yes
+
+**Governance & Approvals**
+• National approval: Yes
+• Funding receiver: Municipality
+
+What would you like to update?"
+
 Communication guidelines:
 - Be concise and professional
 - Ground narratives in evidence with specific numbers when available
