@@ -22,9 +22,9 @@ import { useProjectContext, ImpactModelData, LensType, InterventionBundle, Narra
 import { useToast } from '@/core/hooks/use-toast';
 import { useChatState } from '@/core/contexts/chat-context';
 
-type WizardStep = 'setup' | 'quantify' | 'narrate' | 'lenses' | 'export';
+type WizardStep = 'setup' | 'quantify' | 'narrate' | 'lenses';
 
-const WIZARD_STEPS: WizardStep[] = ['setup', 'quantify', 'narrate', 'lenses', 'export'];
+const WIZARD_STEPS: WizardStep[] = ['setup', 'quantify', 'narrate', 'lenses'];
 
 const GENERATION_PHRASES = [
   'Estimating project impact',
@@ -654,7 +654,9 @@ function GenerationModal({
 
 function renderMarkdown(text: string): string {
   if (!text) return '';
-  const escaped = DOMPurify.sanitize(text, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  const escaped = DOMPurify.sanitize(trimmed, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
   let html = escaped
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
@@ -665,7 +667,9 @@ function renderMarkdown(text: string): string {
     .replace(/(<li.*<\/li>\n?)+/g, '<ul class="list-disc space-y-1 my-2">$&</ul>')
     .replace(/\n\n/g, '</p><p class="my-3">')
     .replace(/\n/g, '<br/>');
-  return DOMPurify.sanitize(`<p class="my-3">${html}</p>`);
+  const wrapped = `<p>${html}</p>`;
+  const cleaned = wrapped.replace(/<p>\s*<\/p>/g, '').replace(/<p class="my-3">\s*<\/p>/g, '');
+  return DOMPurify.sanitize(cleaned);
 }
 
 interface EditingKPI {
@@ -2057,7 +2061,6 @@ export default function ImpactModelPage() {
       quantify: 'Quantify Impacts',
       narrate: 'Generate Prose',
       lenses: 'Apply Funder Lenses',
-      export: 'Export & Share',
     };
     const stepIndex = WIZARD_STEPS.indexOf(currentStep);
     const hasNarratives = (localData.narrativeCache?.base?.length ?? 0) > 0;
@@ -2632,7 +2635,6 @@ export default function ImpactModelPage() {
         return !!localData.quantifiedImpacts;
       case 'narrate':
       case 'lenses':
-      case 'export':
         return true;
       default:
         return true;
@@ -2741,16 +2743,6 @@ export default function ImpactModelPage() {
               onUpdate={handleUpdate}
               onGenerateLens={handleGenerateLens}
               isGeneratingLens={isGeneratingLens}
-            />
-          )}
-          {currentStep === 'export' && (
-            <ExportStep 
-              data={localData} 
-              onUpdate={handleUpdate}
-              onPushToOperations={handlePushToOperations}
-              onPushToBusinessModel={handlePushToBusinessModel}
-              cityName={cityName}
-              funderName={funderName}
             />
           )}
         </div>
