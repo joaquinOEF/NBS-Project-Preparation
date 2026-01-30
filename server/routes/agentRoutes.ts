@@ -35,7 +35,7 @@ export function registerAgentRoutes(app: Express): void {
 
       let convId = conversationId;
       if (!convId) {
-        const conv = await chatStorage.createConversation(`NBS Assistant - ${project.actionName}`);
+        const conv = await chatStorage.createConversation(`City Project Assistant - ${project.actionName}`);
         convId = conv.id;
       }
 
