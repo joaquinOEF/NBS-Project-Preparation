@@ -1448,6 +1448,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/projects/:id/intervention-sites - Add intervention site to a zone's portfolio
+  app.post('/api/projects/:id/intervention-sites', async (req, res) => {
+    try {
+      const { id: projectId } = req.params;
+      const { zoneId, intervention } = req.body;
+      
+      if (!zoneId || !intervention) {
+        return res.status(400).json({ message: 'zoneId and intervention are required' });
+      }
+      
+      // Get the current site_explorer block
+      const block = await storage.getInfoBlock(projectId, 'site_explorer');
+      const currentData = JSON.parse(JSON.stringify(block?.blockStateJson || { selectedZones: [] }));
+      
+      // Find or create the zone in selectedZones
+      let zoneIndex = currentData.selectedZones?.findIndex((z: any) => z.zoneId === zoneId);
+      
+      if (zoneIndex === -1 || zoneIndex === undefined) {
+        // Zone doesn't exist, create it with minimal data
+        currentData.selectedZones = currentData.selectedZones || [];
+        currentData.selectedZones.push({
+          zoneId,
+          zoneName: zoneId,
+          interventionPortfolio: [intervention],
+        });
+      } else {
+        // Zone exists, add to its portfolio
+        if (!currentData.selectedZones[zoneIndex].interventionPortfolio) {
+          currentData.selectedZones[zoneIndex].interventionPortfolio = [];
+        }
+        // Check if this asset is already in the portfolio
+        const existingIndex = currentData.selectedZones[zoneIndex].interventionPortfolio.findIndex(
+          (i: any) => i.assetId === intervention.assetId
+        );
+        if (existingIndex >= 0) {
+          // Update existing intervention
+          currentData.selectedZones[zoneIndex].interventionPortfolio[existingIndex] = intervention;
+        } else {
+          // Add new intervention
+          currentData.selectedZones[zoneIndex].interventionPortfolio.push(intervention);
+        }
+      }
+      
+      // Save updated block
+      await storage.upsertInfoBlock(projectId, 'site_explorer', {
+        blockStateJson: currentData,
+        status: block?.status || 'DRAFT',
+        updatedBy: 'agent',
+        completionPercent: calculateBlockCompletion('site_explorer', currentData),
+      });
+      
+      res.json({
+        success: true,
+        message: `Added ${intervention.interventionName} to ${zoneId}`,
+        zoneId,
+        intervention,
+      });
+    } catch (error: any) {
+      console.error('Add intervention site error:', error);
+      res.status(500).json({ message: error.message || 'Failed to add intervention site' });
+    }
+  });
+
   // POST /api/projects/:id/reject - Reject pending patches
   app.post('/api/projects/:id/reject', async (req, res) => {
     try {

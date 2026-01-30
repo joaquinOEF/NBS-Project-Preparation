@@ -356,18 +356,21 @@ When generating or editing Impact Model narratives:
 
 ## Adding Intervention Sites (Site Explorer) - BE PROACTIVE!
 When a user mentions a location or wants to add a site:
-1. Use lookup_location to find coordinates AND area (you'll get areaHa from the bounding box)
+1. Use lookup_location to find coordinates AND area (you'll get areaHa and osmId from the result)
 2. Use find_zone_for_coordinates with lat/lng - this returns the zone AND compatible intervention types
 3. BE PROACTIVE: Present the compatible intervention options as a list for the user to choose from:
    - "I found [Site Name] ([area] ha) in [Zone X] ([hazard type]). Here are the compatible interventions:
      • Urban Cooling: Shade & Cooling Retrofit, Tree Canopy, Cooling Campus, Green Roof
      • Multi-Benefit: Green Corridor, Eco-Park
      Which would you like to add?"
-4. When user chooses an intervention type, use add_intervention_site to prepare the site data
-5. Then tell user to approve the addition in Site Explorer, or they can add via UI
+4. When user chooses an intervention type, use add_intervention_site to ADD THE SITE DIRECTLY (no approval needed!)
+   - Pass all required parameters: zoneId, siteName, interventionType, category, lat, lng, areaHa, osmId
+5. Confirm the site was added and tell user to refresh Site Explorer to see it on the map
 
-IMPORTANT: Don't ask multiple questions. After finding the location and zone, immediately present intervention options.
-The lookup_location tool returns the site's area in hectares - use this for sizing the intervention.
+IMPORTANT: 
+- Don't ask multiple questions. After finding the location and zone, immediately present intervention options.
+- The add_intervention_site tool DIRECTLY adds the site to the database - no patch approval needed!
+- The lookup_location tool returns areaHa and osmId - pass these to add_intervention_site.
 
 ## User-Friendly Communication
 When summarizing project data (like questionnaire responses), NEVER show raw schema fields.
@@ -993,15 +996,15 @@ export async function executeAgentTool(
           category: string;
           lat: number;
           lng: number;
-          areaHa?: number;
-          osmId?: string;
+          areaHa: number;
+          osmId: string;
         };
         
         // Generate a unique asset ID
         const assetId = osmId ? `nominatim_${osmId}` : `manual_${Date.now()}`;
         
         // Build the intervention object to add to the zone's portfolio
-        const newIntervention = {
+        const intervention = {
           interventionId: interventionType.toLowerCase().replace(/\s+/g, '_'),
           interventionName: interventionType,
           category: category,
@@ -1014,24 +1017,44 @@ export async function executeAgentTool(
           addedAt: new Date().toISOString(),
         };
         
-        // Create a patch proposal to add this intervention
-        const patchPath = `site_explorer.selectedZones`;
-        
-        return {
-          name,
-          result: {
-            success: true,
-            intervention: newIntervention,
-            zoneId,
-            message: `Ready to add "${siteName}" as a ${interventionType} intervention to ${zoneId}. Use propose_patch to add this to the zone's intervention portfolio, or tell the user they can add it via Site Explorer → Add Custom Site.`,
-            suggestedPatch: {
-              blockType: 'site_explorer',
-              fieldPath: `selectedZones.${zoneId}.interventionPortfolio`,
-              action: 'add_to_array',
-              value: newIntervention,
+        // Call the intervention-sites endpoint directly to add the site
+        try {
+          const projectId = context.projectId || 'sample-porto-alegre-project';
+          const response = await fetch(`http://localhost:5000/api/projects/${projectId}/intervention-sites`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ zoneId, intervention }),
+          });
+          
+          if (!response.ok) {
+            const error = await response.json();
+            return {
+              name,
+              result: null,
+              error: `Failed to add intervention site: ${error.message}`,
+            };
+          }
+          
+          const result = await response.json();
+          console.log(`✅ Added intervention site: ${siteName} to ${zoneId}`);
+          
+          return {
+            name,
+            result: {
+              success: true,
+              intervention,
+              zoneId,
+              message: `Successfully added "${siteName}" as a ${interventionType} to Zone ${zoneId.replace('zone_', '')}! The site will appear on the map when you open Site Explorer.`,
             },
-          },
-        };
+          };
+        } catch (error) {
+          console.error('Failed to add intervention site:', error);
+          return {
+            name,
+            result: null,
+            error: `Failed to add intervention site: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          };
+        }
       }
 
       default:
