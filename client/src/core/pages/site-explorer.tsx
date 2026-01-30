@@ -181,8 +181,8 @@ export default function SiteExplorerPage() {
     }))
   );
   const layerRefs = useRef<Map<string, L.Layer>>(new Map());
-  const layerLoadingRef = useRef<Set<string>>(new Set());
   const layerDataCache = useRef<Map<string, any>>(new Map());
+  const [loadingLayers, setLoadingLayers] = useState<Set<string>>(new Set());
 
   const isSampleModeActive = isSampleMode || isSampleRoute;
 
@@ -1463,47 +1463,52 @@ export default function SiteExplorerPage() {
           return prev.map(l => l.id === layerId ? { ...l, enabled: true } : l);
         }
         
-        if (!layerLoadingRef.current.has(layerId)) {
-          console.log(`[Layer] Starting async load for: ${layerId}`);
-          layerLoadingRef.current.add(layerId);
-          
-          loadLayerData(layerId).then(data => {
-            layerLoadingRef.current.delete(layerId);
-            
-            if (data) {
-              layerDataCache.current.set(layerId, data);
-              
-              setLayers(currentLayers => {
-                const currentLayer = currentLayers.find(l => l.id === layerId);
-                if (!currentLayer?.enabled) {
-                  console.log(`[Layer] Async complete but disabled, skipping: ${layerId}`);
-                  return currentLayers;
-                }
-                
-                // Check again if layer was added while we were loading
-                if (layerRefs.current.has(layerId)) {
-                  console.log(`[Layer] Async complete but already added, skipping: ${layerId}`);
-                  return currentLayers.map(l => l.id === layerId ? { ...l, loaded: true, data } : l);
-                }
-                
-                if (mapRef.current) {
-                  const leafletLayer = createLayerFromData(layerId, data);
-                  if (leafletLayer) {
-                    leafletLayer.addTo(mapRef.current);
-                    layerRefs.current.set(layerId, leafletLayer);
-                    console.log(`[Layer] Added from async: ${layerId}, ref set: ${layerRefs.current.has(layerId)}`);
-                  }
-                }
-                
-                return currentLayers.map(l => l.id === layerId ? { ...l, loaded: true, data } : l);
-              });
-            }
-          }).catch(error => {
-            console.error(`Failed to load layer ${layerId}:`, error);
-            layerLoadingRef.current.delete(layerId);
-            setLayers(currentLayers => currentLayers.map(l => l.id === layerId ? { ...l, enabled: false } : l));
+        setLoadingLayers(prev => new Set(prev).add(layerId));
+        console.log(`[Layer] Starting async load for: ${layerId}`);
+        
+        loadLayerData(layerId).then(data => {
+          setLoadingLayers(prev => {
+            const next = new Set(prev);
+            next.delete(layerId);
+            return next;
           });
-        }
+          
+          if (data) {
+            layerDataCache.current.set(layerId, data);
+            
+            setLayers(currentLayers => {
+              const currentLayer = currentLayers.find(l => l.id === layerId);
+              if (!currentLayer?.enabled) {
+                console.log(`[Layer] Async complete but disabled, skipping: ${layerId}`);
+                return currentLayers;
+              }
+              
+              if (layerRefs.current.has(layerId)) {
+                console.log(`[Layer] Async complete but already added, skipping: ${layerId}`);
+                return currentLayers.map(l => l.id === layerId ? { ...l, loaded: true, data } : l);
+              }
+              
+              if (mapRef.current) {
+                const leafletLayer = createLayerFromData(layerId, data);
+                if (leafletLayer) {
+                  leafletLayer.addTo(mapRef.current);
+                  layerRefs.current.set(layerId, leafletLayer);
+                  console.log(`[Layer] Added from async: ${layerId}, ref set: ${layerRefs.current.has(layerId)}`);
+                }
+              }
+              
+              return currentLayers.map(l => l.id === layerId ? { ...l, loaded: true, data } : l);
+            });
+          }
+        }).catch(error => {
+          console.error(`Failed to load layer ${layerId}:`, error);
+          setLoadingLayers(prev => {
+            const next = new Set(prev);
+            next.delete(layerId);
+            return next;
+          });
+          setLayers(currentLayers => currentLayers.map(l => l.id === layerId ? { ...l, enabled: false } : l));
+        });
         
         return prev.map(l => l.id === layerId ? { ...l, enabled: true } : l);
       }
@@ -1765,6 +1770,7 @@ export default function SiteExplorerPage() {
                 <div className="grid grid-cols-5 gap-2">
                   {evidenceLayers.map((layer) => {
                     const IconComponent = layer.icon;
+                    const isLoading = loadingLayers.has(layer.id);
                     return (
                       <button
                         key={layer.id}
@@ -1772,14 +1778,19 @@ export default function SiteExplorerPage() {
                           layer.enabled 
                             ? 'border-primary bg-primary/10' 
                             : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
-                        }`}
+                        } ${isLoading ? 'opacity-70' : ''}`}
                         onClick={() => toggleLayer(layer.id)}
+                        disabled={isLoading}
                       >
                         <div 
                           className="w-8 h-8 rounded-lg flex items-center justify-center"
                           style={{ backgroundColor: layer.enabled ? `${layer.color}30` : 'transparent' }}
                         >
-                          <IconComponent className="h-4 w-4" style={{ color: layer.enabled ? layer.color : '#71717a' }} />
+                          {isLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" style={{ color: layer.color }} />
+                          ) : (
+                            <IconComponent className="h-4 w-4" style={{ color: layer.enabled ? layer.color : '#71717a' }} />
+                          )}
                         </div>
                         <span className={`text-xs text-center leading-tight ${layer.enabled ? 'text-white' : 'text-zinc-500'}`}>
                           {layer.name}

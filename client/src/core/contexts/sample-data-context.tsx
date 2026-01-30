@@ -255,74 +255,53 @@ export const SAMPLE_DATA_READINESS: DataReadinessItem[] = [
   { key: 'localDataEnhancement', i18nKey: 'localDataEnhancement', available: false },
 ];
 
-export async function loadSampleBoundaryData(): Promise<any> {
-  const response = await fetch('/sample-data/porto-alegre-boundary.json');
-  if (!response.ok) {
-    throw new Error('Failed to load sample boundary data');
+const sampleDataCache = new Map<string, any>();
+
+async function loadCachedSampleData(path: string, errorMessage: string): Promise<any> {
+  if (sampleDataCache.has(path)) {
+    return sampleDataCache.get(path);
   }
-  return response.json();
+  const response = await fetch(path);
+  if (!response.ok) {
+    throw new Error(errorMessage);
+  }
+  const data = await response.json();
+  sampleDataCache.set(path, data);
+  return data;
+}
+
+export async function loadSampleBoundaryData(): Promise<any> {
+  return loadCachedSampleData('/sample-data/porto-alegre-boundary.json', 'Failed to load sample boundary data');
 }
 
 export async function loadSampleElevationData(): Promise<any> {
-  const response = await fetch('/sample-data/porto-alegre-elevation.json');
-  if (!response.ok) {
-    throw new Error('Failed to load sample elevation data');
-  }
-  return response.json();
+  return loadCachedSampleData('/sample-data/porto-alegre-elevation.json', 'Failed to load sample elevation data');
 }
 
 export async function loadSampleLandcoverData(): Promise<any> {
-  const response = await fetch('/sample-data/porto-alegre-landcover.json');
-  if (!response.ok) {
-    throw new Error('Failed to load sample landcover data');
-  }
-  return response.json();
+  return loadCachedSampleData('/sample-data/porto-alegre-landcover.json', 'Failed to load sample landcover data');
 }
 
 export async function loadSampleSurfaceWaterData(): Promise<any> {
-  const response = await fetch('/sample-data/porto-alegre-surface-water.json');
-  if (!response.ok) {
-    throw new Error('Failed to load sample surface water data');
-  }
-  return response.json();
+  return loadCachedSampleData('/sample-data/porto-alegre-surface-water.json', 'Failed to load sample surface water data');
 }
 
 export async function loadSampleRiversData(): Promise<any> {
-  const response = await fetch('/sample-data/porto-alegre-rivers.json');
-  if (!response.ok) {
-    throw new Error('Failed to load sample rivers data');
-  }
-  return response.json();
+  return loadCachedSampleData('/sample-data/porto-alegre-rivers.json', 'Failed to load sample rivers data');
 }
 
 export async function loadSampleForestData(): Promise<any> {
-  const response = await fetch('/sample-data/porto-alegre-forest.json');
-  if (!response.ok) {
-    throw new Error('Failed to load sample forest data');
-  }
-  return response.json();
+  return loadCachedSampleData('/sample-data/porto-alegre-forest.json', 'Failed to load sample forest data');
 }
 
 export async function loadSamplePopulationData(): Promise<any> {
-  const response = await fetch('/sample-data/porto-alegre-population.json');
-  if (!response.ok) {
-    throw new Error('Failed to load sample population data');
-  }
-  return response.json();
+  return loadCachedSampleData('/sample-data/porto-alegre-population.json', 'Failed to load sample population data');
 }
 
 export async function loadSampleGridData(): Promise<any> {
-  const response = await fetch('/sample-data/porto-alegre-grid.json');
-  if (!response.ok) {
-    throw new Error('Failed to load sample grid data');
-  }
-  return response.json();
+  return loadCachedSampleData('/sample-data/porto-alegre-grid.json', 'Failed to load sample grid data');
 }
 
 export async function loadSampleZonesData(): Promise<any> {
-  const response = await fetch('/sample-data/porto-alegre-zones.json');
-  if (!response.ok) {
-    throw new Error('Failed to load sample zones data');
-  }
-  return response.json();
+  return loadCachedSampleData('/sample-data/porto-alegre-zones.json', 'Failed to load sample zones data');
 }
