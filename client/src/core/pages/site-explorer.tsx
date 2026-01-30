@@ -945,15 +945,19 @@ export default function SiteExplorerPage() {
               const zoneRisk = Math.max(p.meanFlood || 0, p.meanHeat || 0, p.meanLandslide || 0);
               // Normalize to 0-1 range based on actual min/max spread
               const normalizedRisk = (zoneRisk - globalMinRisk) / riskRange;
-              // Opacity ranges from 0.08 (lowest risk) to 0.65 (highest risk) - more extreme
+              // Fill opacity ranges from 0.08 (lowest risk) to 0.65 (highest risk)
               const fillOpacity = 0.08 + (normalizedRisk * 0.57);
+              // Border opacity ranges from 0.3 (lowest risk) to 1.0 (highest risk)
+              const borderOpacity = 0.3 + (normalizedRisk * 0.7);
+              // Border weight also scales: 1px (lowest) to 3px (highest)
+              const borderWeight = 1 + (normalizedRisk * 2);
               
               return {
                 color: color,
-                weight: 2,
+                weight: borderWeight,
                 fillColor: color,
                 fillOpacity: fillOpacity,
-                opacity: 0.9,
+                opacity: borderOpacity,
               };
             },
             onEachFeature: (feature, layer) => {
