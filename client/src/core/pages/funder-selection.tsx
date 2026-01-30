@@ -2051,9 +2051,9 @@ export default function FunderSelectionPage() {
 
         {showResults && (
           <>
-            <Alert className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-900/20">
-              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
-              <AlertDescription className="flex items-center justify-between">
+            <div className="mb-6 flex items-center gap-3 border border-amber-200 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-4 py-3">
+              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+              <div className="flex items-center justify-between flex-1">
                 <span className="text-amber-800 dark:text-amber-200">
                   {t('funderSelection.updateBanner.message')}
                 </span>
@@ -2072,8 +2072,8 @@ export default function FunderSelectionPage() {
                     {t('funderSelection.updateBanner.updateWithAgent')}
                   </Button>
                 </div>
-              </AlertDescription>
-            </Alert>
+              </div>
+            </div>
             {renderResults()}
             <div className="flex justify-between mt-6">
               <Button variant="ghost" onClick={retakeQuestionnaire}>
