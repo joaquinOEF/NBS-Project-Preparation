@@ -380,6 +380,7 @@ export interface SelectedIntervention {
   assetType?: string;
   osmId?: number;
   centroid?: [number, number];
+  source?: 'osm' | 'manual';
 }
 
 export interface SelectedZone {
