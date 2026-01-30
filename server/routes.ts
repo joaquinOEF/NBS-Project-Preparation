@@ -1411,7 +1411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 currentData.selectedZones = currentData.selectedZones || [];
                 currentData.selectedZones.push({
                   zoneId,
-                  zoneName: zoneId,
+                  zoneName: zoneId.startsWith('zone_') ? `Zone ${zoneId.replace('zone_', '')}` : zoneId,
                   interventionPortfolio: [intervention],
                 });
               } else {
@@ -1522,7 +1522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currentData.selectedZones = currentData.selectedZones || [];
         currentData.selectedZones.push({
           zoneId,
-          zoneName: zoneId,
+          zoneName: zoneId.startsWith('zone_') ? `Zone ${zoneId.replace('zone_', '')}` : zoneId,
           interventionPortfolio: [intervention],
         });
         console.log(`   Created new zone ${zoneId} with intervention`);

@@ -1129,7 +1129,7 @@ export default function SiteExplorerPage() {
         const props = zoneFeature?.properties || {};
         return {
           zoneId,
-          zoneName: props.zoneName || zoneId,
+          zoneName: props.zoneName || (zoneId.startsWith('zone_') ? `Zone ${zoneId.replace('zone_', '')}` : zoneId),
           hazardType: props.typologyLabel || 'LOW',
           primaryHazard: props.primaryHazard,
           secondaryHazard: props.secondaryHazard,

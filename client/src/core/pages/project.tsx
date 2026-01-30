@@ -153,7 +153,7 @@ function SiteExplorerHighlight({ data }: { data: ProjectContextData['siteExplore
         <div className="space-y-1.5">
           {zonesWithInterventions.slice(0, 3).map((zone) => {
             if (typeof zone === 'string') return null;
-            const zoneName = zone.zoneName || formatZoneName(zone.zoneId);
+            const zoneName = formatZoneName(zone.zoneName || zone.zoneId);
             const sitesByIntervention = zone.interventionPortfolio.reduce((acc, intervention) => {
               const key = intervention.interventionName;
               if (!acc[key]) acc[key] = [];
