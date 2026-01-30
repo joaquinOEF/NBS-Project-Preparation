@@ -1,0 +1,305 @@
+📦 Sample project initialized
+3impact-model.tsx:2007 [ImpactModel] Hydrated from database
+project-context.tsx:826 [ProjectContext] Synced impactModel to database successfully
+project-context.tsx:813  PUT https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/api/projects/sample-porto-alegre-project/blocks/impact_model 400 (Bad Request)
+(anonymous) @ project-context.tsx:813
+(anonymous) @ project-context.tsx:851
+handleNarrate @ impact-model.tsx:2349Understand this error
+project-context.tsx:821 Failed to sync impactModel to database: {message: 'Invalid block data', errors: Array(138)}
+(anonymous) @ rrweb-plugin-console-record.js:160
+(anonymous) @ project-context.tsx:821
+await in (anonymous)
+(anonymous) @ project-context.tsx:851
+handleNarrate @ impact-model.tsx:2349Understand this error
+project-context.tsx:823 Validation errors: [
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      0,
+      "kpis",
+      0
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      0,
+      "kpis",
+      1
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      0,
+      "kpis",
+      2
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      0,
+      "kpis",
+      3
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      0,
+      "kpis",
+      4
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      0,
+      "kpis",
+      5
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      0,
+      "kpis",
+      6
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      0,
+      "kpis",
+      7
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      0,
+      "kpis",
+      8
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      1,
+      "kpis",
+      0
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      1,
+      "kpis",
+      1
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      1,
+      "kpis",
+      2
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      1,
+      "kpis",
+      3
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      1,
+      "kpis",
+      4
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      1,
+      "kpis",
+      5
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      1,
+      "kpis",
+      6
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      1,
+      "kpis",
+      7
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      1,
+      "kpis",
+      8
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      2,
+      "kpis",
+      0
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      2,
+      "kpis",
+      1
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      2,
+      "kpis",
+      2
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "narrativeCache",
+      "base",
+      2,
+      "kpis",
+      3
+    ],
+    "message": 
+(anonymous) @ rrweb-plugin-console-record.js:160
+(anonymous) @ project-context.tsx:823
+await in (anonymous)
+(anonymous) @ project-context.tsx:851
+handleNarrate @ impact-model.tsx:2349Understand this error
+impact-model.tsx:2355  PUT https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/api/projects/sample-porto-alegre-project/blocks/impact_model 400 (Bad Request)

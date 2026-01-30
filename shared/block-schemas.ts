@@ -321,62 +321,65 @@ export const siteExplorerBlockSchema = z.object({
   }).default({}),
 });
 
-export const narrativeKPISchema = z.object({
-  name: z.string(),
-  valueRange: z.string(),
-  unit: z.string(),
-  confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']),
-  notes: z.string().optional(),
-});
+export const narrativeKPISchema = z.union([
+  z.object({
+    name: z.string().optional(),
+    valueRange: z.union([z.string(), z.object({ low: z.number(), high: z.number() })]).optional(),
+    unit: z.string().optional(),
+    confidence: z.union([z.enum(['HIGH', 'MEDIUM', 'LOW']), z.string()]).optional(),
+    notes: z.string().optional(),
+  }).passthrough(),
+  z.string(),
+]);
 
 export const narrativeBlockSchema = z.object({
   id: z.string(),
-  title: z.string(),
+  title: z.string().optional(),
   type: z.string().default('summary'),
-  lens: z.enum(['neutral', 'climate', 'social', 'financial', 'institutional']).default('neutral'),
+  lens: z.string().default('neutral'),
   contentMd: z.string().default(''),
   content: z.string().optional(),
   kpis: z.array(narrativeKPISchema).optional(),
   assumptionsUsed: z.array(z.string()).optional(),
-  evidenceTier: z.enum(['EVIDENCE', 'MODELLED', 'ASSUMPTION', 'NEEDS_VALIDATION']).default('ASSUMPTION'),
+  evidenceTier: z.string().default('ASSUMPTION'),
   dependencies: z.array(z.string()).optional(),
   included: z.boolean().default(true),
   order: z.number().optional(),
   category: z.string().optional(),
-});
+}).passthrough();
 
 export const coBenefitCardSchema = z.object({
   id: z.string(),
-  title: z.string(),
-  category: z.enum(['HEALTH', 'BIODIVERSITY', 'WATER_QUALITY', 'MOBILITY', 'EQUITY', 'ECONOMIC_VALUE', 'PUBLIC_REALM', 'INSTITUTIONAL_CAPACITY', 'OTHER']),
-  description: z.string(),
-  whoBenefits: z.array(z.string()),
-  where: z.array(z.string()),
+  title: z.string().optional(),
+  category: z.string().optional(),
+  description: z.string().optional(),
+  whoBenefits: z.array(z.string()).optional(),
+  where: z.array(z.string()).optional(),
   kpiOrProxy: z.object({
     name: z.string(),
     valueRange: z.string(),
     unit: z.string(),
   }).nullable().optional(),
-  confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']),
-  evidenceTier: z.enum(['EVIDENCE', 'MODELLED', 'ASSUMPTION', 'NEEDS_VALIDATION']),
+  confidence: z.union([z.string(), z.number()]).optional(),
+  evidenceTier: z.string().optional(),
   dependencies: z.array(z.string()).optional(),
-  included: z.boolean(),
-  userNotes: z.string(),
-});
+  included: z.boolean().optional(),
+  userNotes: z.string().optional(),
+}).passthrough();
 
 export const signalCardSchema = z.object({
   id: z.string(),
-  title: z.string(),
-  description: z.string(),
-  whyItMatters: z.string(),
-  triggeredBy: z.array(z.string()),
-  ownerCandidates: z.array(z.string()),
-  timeHorizon: z.enum(['0-2y', '3-7y', '8-12y', 'ongoing']),
-  riskIfMissing: z.string(),
-  confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']),
-  included: z.boolean(),
-  userNotes: z.string(),
-});
+  title: z.string().optional(),
+  description: z.string().optional(),
+  whyItMatters: z.string().optional(),
+  triggeredBy: z.array(z.string()).optional(),
+  ownerCandidates: z.array(z.string()).optional(),
+  timeHorizon: z.string().optional(),
+  riskIfMissing: z.string().optional(),
+  confidence: z.union([z.string(), z.number()]).optional(),
+  included: z.boolean().optional(),
+  userNotes: z.string().optional(),
+}).passthrough();
 
 export const interventionBundleSchema = z.object({
   id: z.string(),
