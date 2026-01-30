@@ -293,6 +293,13 @@ export default function SiteExplorerPage() {
 
   const portfolioHydratedRef = useRef(false);
   
+  // Load context on mount to ensure portfolios can be hydrated on page reload
+  useEffect(() => {
+    if (projectId && !portfolioHydratedRef.current) {
+      loadContext(projectId);
+    }
+  }, [projectId, loadContext]);
+  
   useEffect(() => {
     if (!portfolioHydratedRef.current && context?.siteExplorer?.selectedZones) {
       const portfolios: Record<string, SelectedIntervention[]> = {};

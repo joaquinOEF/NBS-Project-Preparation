@@ -1,0 +1,43 @@
+ok what about Grêmio Náutico União
+
+Grêmio Náutico União – Moinhos de Vento is found and it falls inside your Zone 12 (Heat / Cooling Network).
+
+Location: Rua Quintino Bocaiúva, 500, Moinhos de Vento, Porto Alegre – RS
+Coordinates: -30.0225116, -51.1978011
+Zone: Zone 12 (Heat risk score ~0.62)
+Next: what intervention do you want to add there (e.g., Shade & Cooling Retrofit, tree canopy/urban forest, permeable paving + rain gardens)?
+
+To add it now, go to Site Explorer → Map Overview → Add Custom Site, search “Grêmio Náutico União Moinhos de Vento”, select it, and assign the intervention type.
+
+lookup_location
+lookup_location
+lookup_location
+find_zone_for_coordinates
+i want it to be a cooling campus
+
+Grêmio Náutico União (Moinhos) is a good fit for a Cooling Campus: it’s located inside Zone 12 (Heat / Cooling Network).
+
+Site found: Grêmio Náutico União Moinhos de Vento, Rua Quintino Bocaiúva, 500
+Coordinates: -30.0225116, -51.1978011
+Zone: Zone 12 (primary hazard: Heat)
+To add it now:
+
+Go to Site Explorer → Map Overview
+Click Add Custom Site
+Search “Grêmio Náutico União Moinhos de Vento”
+Select it and set Intervention type = Cooling Campus
+If you tell me the approximate area/campus boundary (or “use the facility footprint”), I can help you size the intervention and align it with the Zone 12 Cooling Network objective.
+
+lookup_location
+find_zone_for_coordinates
+use the facility footprint
+
+Confirmed. Grêmio Náutico União – Moinhos de Vento falls inside Zone 12 (Cooling Network / HEAT), so it’s eligible to add as an intervention site, using the facility footprint.
+
+To add it (you’ll do this in the UI for now):
+
+Site Explorer → Map Overview → Add Custom Site
+Search/select “Grêmio Náutico União Moinhos de Vento” (Rua Quintino Bocaiúva, 500)
+Choose Intervention type: Cooling Campus
+For geometry/area, select Use facility footprint (or “Use existing polygon/OSM footprint” if that’s the label)
+If you tell me what core elements you want in the Cooling Campus (e.g., shade trees, cool paving, water features/misters, green roofs), I’ll help you define a consistent intervention package for Zone 12.
