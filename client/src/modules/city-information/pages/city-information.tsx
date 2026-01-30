@@ -20,7 +20,22 @@ import {
   ArrowRight,
   FolderOpen,
   Undo2,
+  TreePine,
+  Building2,
+  Bus,
+  Thermometer,
+  Waves,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+
+const ACTION_ICONS: Record<string, { type: 'lucide'; icon: LucideIcon } | { type: 'image'; src: string }> = {
+  'sample-mit-1': { type: 'lucide', icon: TreePine },
+  'sample-mit-2': { type: 'lucide', icon: Building2 },
+  'sample-mit-3': { type: 'lucide', icon: Bus },
+  'sample-ada-1': { type: 'image', src: '/assets/nbs-icon.png' },
+  'sample-ada-2': { type: 'lucide', icon: Thermometer },
+  'sample-ada-3': { type: 'lucide', icon: Waves },
+};
 import { useTranslation } from 'react-i18next';
 import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
@@ -183,11 +198,22 @@ export default function CityInformation() {
       ? (projectsData?.projects || []).find(p => p.actionId === action.id)
       : null;
 
+    const actionIcon = ACTION_ICONS[action.id];
+
     return (
       <Card key={action.id} className='mb-4'>
         <CardHeader className='pb-3'>
           <div className='flex items-center justify-between'>
-            <CardTitle className='text-lg'>{action.name}</CardTitle>
+            <div className='flex items-center gap-2'>
+              {actionIcon && (
+                actionIcon.type === 'image' ? (
+                  <img src={actionIcon.src} alt='' className='h-6 w-6 rounded' />
+                ) : (
+                  <actionIcon.icon className='h-5 w-5 text-muted-foreground shrink-0' />
+                )
+              )}
+              <CardTitle className='text-lg'>{action.name}</CardTitle>
+            </div>
             <Badge variant={action.type === 'mitigation' ? 'default' : 'secondary'}>
               {action.type === 'mitigation' ? t('cityInfo.mitigation') : t('cityInfo.adaptation')}
             </Badge>
