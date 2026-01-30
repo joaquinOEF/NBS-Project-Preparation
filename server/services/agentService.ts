@@ -735,11 +735,17 @@ export async function executeAgentTool(
       case "lookup_location": {
         const { query } = args as { query: string };
         
+        // Normalize query: remove accents for better Nominatim matching
+        const normalizedQuery = query
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') // Remove accent marks
+          .toLowerCase();
+        
         // Porto Alegre bounding box for constrained local search
         const portoAlegreBbox = [-30.27, -51.32, -29.93, -51.01]; // [south, west, north, east]
         
         const searchUrl = new URL('https://nominatim.openstreetmap.org/search');
-        searchUrl.searchParams.append('q', query);
+        searchUrl.searchParams.append('q', normalizedQuery);
         searchUrl.searchParams.append('format', 'json');
         searchUrl.searchParams.append('addressdetails', '1');
         searchUrl.searchParams.append('limit', '10');
@@ -748,12 +754,13 @@ export async function executeAgentTool(
         searchUrl.searchParams.append('viewbox', `${portoAlegreBbox[1]},${portoAlegreBbox[0]},${portoAlegreBbox[3]},${portoAlegreBbox[2]}`);
         searchUrl.searchParams.append('bounded', '0'); // Prefer but don't strictly limit to viewbox
         
-        console.log(`🔍 Agent lookup_location: "${query}"`);
+        console.log(`🔍 Agent lookup_location: "${query}" → normalized: "${normalizedQuery}"`);
         
         const response = await fetch(searchUrl.toString(), {
           headers: {
-            'User-Agent': 'NBS-Project-Builder/1.0 (contact@example.com)',
+            'User-Agent': 'NBS-Project-Builder/1.0 (https://nbs-project-preparation.replit.app; nbs-project-builder@replit.dev)',
             'Accept': 'application/json',
+            'Accept-Language': 'en-US,en;q=0.9',
           },
         });
         
