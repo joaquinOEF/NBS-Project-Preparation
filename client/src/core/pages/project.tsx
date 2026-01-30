@@ -516,7 +516,15 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
     setTimeout(() => map.invalidateSize(), 300);
     setTimeout(() => map.invalidateSize(), 600);
 
+    const resizeObserver = new ResizeObserver(() => {
+      setTimeout(() => map.invalidateSize(), 50);
+    });
+    if (mapRef.current) {
+      resizeObserver.observe(mapRef.current);
+    }
+
     return () => {
+      resizeObserver.disconnect();
       map.remove();
       mapInstanceRef.current = null;
     };
