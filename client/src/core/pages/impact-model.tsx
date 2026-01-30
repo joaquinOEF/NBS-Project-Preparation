@@ -162,7 +162,7 @@ const normalizeAIResponse = (result: {
   };
 };
 
-function StepIndicator({ currentStep, steps }: { currentStep: WizardStep; steps: WizardStep[] }) {
+function StepIndicator({ currentStep, steps, onStepClick }: { currentStep: WizardStep; steps: WizardStep[]; onStepClick?: (step: WizardStep) => void }) {
   const { t } = useTranslation();
   const currentIndex = steps.indexOf(currentStep);
   
@@ -171,16 +171,28 @@ function StepIndicator({ currentStep, steps }: { currentStep: WizardStep; steps:
       {steps.map((step, index) => {
         const isActive = index === currentIndex;
         const isCompleted = index < currentIndex;
+        const canClick = onStepClick && (isCompleted || isActive);
         
         return (
           <div key={step} className="flex items-center">
-            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors
-              ${isActive ? 'bg-amber-500 text-white' : isCompleted ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+            <button
+              type="button"
+              onClick={() => canClick && onStepClick(step)}
+              disabled={!canClick}
+              className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors
+                ${isActive ? 'bg-amber-500 text-white' : isCompleted ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}
+                ${canClick ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+            >
               {isCompleted ? <Check className="h-4 w-4" /> : index + 1}
-            </div>
-            <span className={`ml-2 text-sm ${isActive ? 'font-medium' : 'text-muted-foreground'}`}>
+            </button>
+            <button
+              type="button"
+              onClick={() => canClick && onStepClick(step)}
+              disabled={!canClick}
+              className={`ml-2 text-sm ${isActive ? 'font-medium' : 'text-muted-foreground'} ${canClick ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
+            >
               {t(`impactModel.steps.${step}`)}
-            </span>
+            </button>
             {index < steps.length - 1 && (
               <div className={`w-8 h-0.5 mx-2 ${isCompleted ? 'bg-green-500' : 'bg-muted'}`} />
             )}
@@ -1370,7 +1382,7 @@ function CurateStep({
                   />
                 ) : (
                   <div 
-                    className="prose prose-sm max-w-none dark:prose-invert leading-relaxed text-[15px]"
+                    className="prose prose-sm max-w-none dark:prose-invert leading-relaxed text-[15px] [&>p:first-child]:mt-0"
                     dangerouslySetInnerHTML={{ __html: renderMarkdown(block.contentMd) }}
                   />
                 )}
@@ -1649,7 +1661,7 @@ function LensesStep({
                               </div>
                             )}
                             <div 
-                              className="prose prose-sm max-w-none dark:prose-invert leading-relaxed"
+                              className="prose prose-sm max-w-none dark:prose-invert leading-relaxed [&>p:first-child]:mt-0"
                               dangerouslySetInnerHTML={{ __html: renderMarkdown(block.contentMd) }}
                             />
                           </CardContent>
@@ -1704,7 +1716,7 @@ function LensesStep({
                               </div>
                             )}
                             <div 
-                              className="prose prose-sm max-w-none dark:prose-invert leading-relaxed"
+                              className="prose prose-sm max-w-none dark:prose-invert leading-relaxed [&>p:first-child]:mt-0"
                               dangerouslySetInnerHTML={{ __html: renderMarkdown(block.contentMd) }}
                             />
                           </CardContent>
@@ -2120,6 +2132,14 @@ export default function ImpactModelPage() {
           };
           setLocalData(freshData);
           console.log('[ImpactModel] Hydrated from database');
+          
+          const hasNarratives = (freshData.narrativeCache?.base?.length ?? 0) > 0;
+          const savedNavStep = freshData.navigation?.currentStep;
+          if (savedNavStep !== undefined && savedNavStep >= 0 && savedNavStep < WIZARD_STEPS.length) {
+            setCurrentStep(WIZARD_STEPS[savedNavStep]);
+          } else if (hasNarratives) {
+            setCurrentStep('lenses');
+          }
         }
       } else if (res.status === 404) {
         console.log('[ImpactModel] Block not found in DB, using local state');
@@ -2133,16 +2153,7 @@ export default function ImpactModelPage() {
     if (projectId) {
       loadContext(projectId);
       hydrateFromDB();
-      
-      const existingContext = loadContext(projectId, { skipDbSync: true });
-      const savedNavigation = existingContext?.impactModel?.navigation;
-      if (savedNavigation && !navigationRestored) {
-        const stepIndex = savedNavigation.currentStep ?? 0;
-        if (stepIndex >= 0 && stepIndex < WIZARD_STEPS.length) {
-          setCurrentStep(WIZARD_STEPS[stepIndex]);
-        }
-        setNavigationRestored(true);
-      } else if (!navigationRestored) {
+      if (!navigationRestored) {
         setNavigationRestored(true);
       }
     }
@@ -2701,7 +2712,7 @@ export default function ImpactModelPage() {
           <Progress value={progress} className="h-2 mt-4" />
         </div>
 
-        <StepIndicator currentStep={currentStep} steps={WIZARD_STEPS} />
+        <StepIndicator currentStep={currentStep} steps={WIZARD_STEPS} onStepClick={setCurrentStep} />
 
         {/* Generation Modal - shows during both quantifying and generating */}
         <GenerationModal 
