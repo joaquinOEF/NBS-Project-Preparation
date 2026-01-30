@@ -125,7 +125,9 @@ export default function CityInformation() {
 
     if (isSampleMode || isSampleRoute) {
       initiateProject(action.id);
-      setLocation(`${routePrefix}/project/${action.id}`);
+      if (action.id === 'sample-ada-1') {
+        setLocation(`${routePrefix}/project/${action.id}`);
+      }
     } else {
       createProjectMutation.mutate(action, {
         onSuccess: (response: any) => {
@@ -223,13 +225,23 @@ export default function CityInformation() {
           <p className='text-sm text-muted-foreground mb-4'>{action.description}</p>
           {isInitiated ? (
             <div className='flex gap-2'>
-              <Button
-                onClick={() => handleGoToProject(action.id, project?.id)}
-                className='flex-1'
-              >
-                {t('cityInfo.goToProject')}
-                <ArrowRight className='h-4 w-4 ml-2' />
-              </Button>
+              {useSampleContent && action.id !== 'sample-ada-1' ? (
+                <Button
+                  disabled
+                  variant='outline'
+                  className='flex-1'
+                >
+                  {t('cityInfo.moduleComingSoon')}
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => handleGoToProject(action.id, project?.id)}
+                  className='flex-1'
+                >
+                  {t('cityInfo.goToProject')}
+                  <ArrowRight className='h-4 w-4 ml-2' />
+                </Button>
+              )}
               <Button
                 variant='ghost'
                 size='icon'
