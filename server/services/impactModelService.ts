@@ -1,5 +1,14 @@
 import OpenAI from "openai";
 import { semanticSearch } from "./knowledgeService";
+import { formatArea } from "@shared/number-formatting";
+
+function formatZoneId(zoneId: string): string {
+  return zoneId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function formatPathway(pathway: string): string {
+  return pathway.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -103,6 +112,19 @@ Your narratives should be:
 - Quantitative where possible, with realistic ranges
 - Professional and suitable for funding proposals
 
+## Number Formatting Requirements (CRITICAL)
+- Round large areas appropriately:
+  - Use hectares (ha) for areas 10,000+ m². Example: "10 ha" not "100,000 m²"
+  - Use km² for very large areas (1,000,000+ m²). Example: "10.3 km²" not "10,300,000 m²"
+- Round to reasonable significant figures (2-3 max):
+  - BAD: "424,236.70860707585 m²" or "9.388314361632617 ha"
+  - GOOD: "42 ha" or "9.4 ha" or "424,000 m²"
+- For large non-area numbers, use thousands separators or words: "103 million" not "103,000,000"
+- Percentages: Round to whole numbers when >= 10%, one decimal when < 10%
+- For value ranges, format consistently: "0.5–2°C" or "10–30%"
+- Convert zone IDs to readable names: "Zone 12" not "zone_12"
+- Use words for pathway names: "preparation facility" not "preparation_facility"
+
 Always respond with valid JSON matching the exact structure requested.`;
 
   const userPrompt = `Generate an impact narrative for a Nature-Based Solutions project with the following context:
@@ -112,7 +134,7 @@ PROJECT CONTEXT:
 - City: ${cityName || 'Urban area'}
 - Selected zones: ${selectedZones.length} intervention zones
 - Zone details:
-${selectedZones.map(z => `  * Zone ${z.zoneId}: ${z.hazardType} risk (score: ${(z.riskScore * 100).toFixed(0)}%), area: ${z.area || 'unknown'}m², intervention: ${z.interventionType || 'TBD'}`).join('\n')}
+${selectedZones.map(z => `  * ${formatZoneId(z.zoneId)}: ${z.hazardType} risk (score: ${Math.round(z.riskScore * 100)}%), area: ${z.area ? formatArea(z.area) : 'unknown'}, intervention: ${z.interventionType || 'TBD'}`).join('\n')}
 
 INTERVENTION BUNDLES (${enabledBundles.length} enabled):
 ${enabledBundles.map(b => `- ${b.name}: ${b.description}
@@ -120,9 +142,9 @@ ${enabledBundles.map(b => `- ${b.name}: ${b.description}
   Interventions: ${b.interventions.join(', ')}`).join('\n\n')}
 
 FUNDING PATHWAY:
-- Primary: ${funderPathway.primary || 'Not specified'}
-- Secondary: ${funderPathway.secondary || 'None'}
-- Readiness: ${funderPathway.readinessLevel || 'Early stage'}
+- Primary: ${funderPathway.primary ? formatPathway(funderPathway.primary) : 'Not specified'}
+- Secondary: ${funderPathway.secondary ? formatPathway(funderPathway.secondary) : 'None'}
+- Readiness: ${funderPathway.readinessLevel ? formatPathway(funderPathway.readinessLevel) : 'Early stage'}
 - Limiting factors: ${funderPathway.limitingFactors?.join(', ') || 'None identified'}
 
 Generate a complete impact narrative response in the following JSON structure.
