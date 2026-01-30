@@ -302,7 +302,7 @@ const AGENT_TOOLS: AgentTool[] = [
           description: "OSM ID if available (from lookup_location)",
         },
       },
-      required: ["zoneId", "siteName", "interventionType", "category", "lat", "lng"],
+      required: ["zoneId", "siteName", "interventionType", "category", "lat", "lng", "areaHa", "osmId"],
       additionalProperties: false,
     },
   },
