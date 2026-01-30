@@ -576,28 +576,9 @@ function SiteMapComponent({ zones }: { zones: SelectedZone[] }) {
 
 function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }) {
   const { t } = useTranslation();
-  const [isVisible, setIsVisible] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const zones: SelectedZone[] = data?.selectedZones
     ?.filter((z): z is SelectedZone => typeof z !== 'string') || [];
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !isVisible) {
-          setIsVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, [isVisible]);
 
   const formatInterventionName = (name: string) => {
     return name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -610,67 +591,62 @@ function SiteOverviewCard({ data }: { data: ProjectContextData['siteExplorer'] }
   const totalInterventions = zones.reduce((sum, z) => sum + (z.interventionPortfolio?.length || 0), 0);
 
   return (
-    <Card ref={containerRef}>
+    <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm">
           {t('project.overview.siteOverview')} ({zones.length} {t('project.overview.zones')}, {totalInterventions} sites)
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="h-[320px] rounded-lg border overflow-hidden bg-muted/20">
-            {isVisible && zones.length > 0 && <SiteMapComponent zones={zones} />}
-          </div>
-          <ScrollArea className="h-[320px]">
-            <div className="space-y-3 pr-2">
-              {zones.map(zone => {
-                const interventions = zone.interventionPortfolio || [];
-                const zoneName = formatZoneName(zone.zoneName || zone.zoneId);
-                const color = HAZARD_COLORS[zone.hazardType] || HAZARD_COLORS.LOW;
+        <ScrollArea className="h-[320px]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pr-2">
+            {zones.map(zone => {
+              const interventions = zone.interventionPortfolio || [];
+              const zoneName = formatZoneName(zone.zoneName || zone.zoneId);
+              const color = HAZARD_COLORS[zone.hazardType] || HAZARD_COLORS.LOW;
 
-                return (
-                  <div key={zone.zoneId} className="p-3 rounded-lg border bg-muted/30">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div
-                        className="w-3 h-3 rounded-full shrink-0"
-                        style={{ backgroundColor: color }}
-                      />
-                      <span className="font-medium text-sm">{zoneName}</span>
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0" style={{ borderColor: color, color }}>
-                        {zone.hazardType.replace(/_/g, ' ')}
-                      </Badge>
-                    </div>
-                    {interventions.length > 0 ? (
-                      <div className="space-y-1.5">
-                        {interventions.map((intervention, idx) => {
-                          const { color: catColor, icon } = getCategoryStyle(intervention.category);
-                          return (
-                            <div key={idx} className="flex items-start gap-2 text-xs bg-background/50 rounded p-1.5">
-                              <div 
-                                className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-sm"
-                                style={{ backgroundColor: catColor, color: 'white' }}
-                              >
-                                {icon}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="font-medium truncate">{intervention.assetName || 'Site'}</div>
-                                <div className="text-muted-foreground truncate">
-                                  {formatInterventionName(intervention.interventionName)}
-                                </div>
+              return (
+                <div key={zone.zoneId} className="p-3 rounded-lg border bg-muted/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="font-medium text-sm">{zoneName}</span>
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0" style={{ borderColor: color, color }}>
+                      {zone.hazardType.replace(/_/g, ' ')}
+                    </Badge>
+                  </div>
+                  {interventions.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {interventions.map((intervention, idx) => {
+                        const { color: catColor, icon } = getCategoryStyle(intervention.category);
+                        return (
+                          <div key={idx} className="flex items-start gap-2 text-xs bg-background/50 rounded p-1.5">
+                            <div 
+                              className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-sm"
+                              style={{ backgroundColor: catColor, color: 'white' }}
+                            >
+                              {icon}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate">{intervention.assetName || 'Site'}</div>
+                              <div className="text-muted-foreground truncate">
+                                {formatInterventionName(intervention.interventionName)}
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground italic">No intervention sites yet</div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </ScrollArea>
-        </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground italic">No intervention sites yet</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </ScrollArea>
       </CardContent>
     </Card>
   );
