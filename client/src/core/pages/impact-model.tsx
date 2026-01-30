@@ -952,34 +952,30 @@ function NarrateStep({
   const { t } = useTranslation();
   const hasNarrative = (data.narrativeCache?.base?.length ?? 0) > 0;
   const hasKPIs = (data.quantifiedImpacts?.impactGroups?.length ?? 0) > 0;
+  const blocks = data.narrativeCache?.base || [];
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">{t('impactModel.narrate.title')}</CardTitle>
-          <CardDescription>{t('impactModel.narrate.description')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* KPI input summary */}
-          {hasKPIs && (
-            <div className="p-3 rounded-lg bg-muted/50">
-              <p className="text-sm font-medium mb-1">{t('impactModel.narrate.kpiSummary')}</p>
-              <p className="text-xs text-muted-foreground">
-                {data.quantifiedImpacts!.impactGroups.length} {t('impactModel.narrate.impactGroups')},
-                {' '}{data.quantifiedImpacts!.coBenefits.length} {t('impactModel.narrate.coBenefitsCount')},
-                {' '}{data.quantifiedImpacts!.mrvIndicators.length} {t('impactModel.narrate.mrvCount')}
-              </p>
-            </div>
-          )}
+      {/* Generate action card - shown when no narrative exists or always for regenerate */}
+      {!hasNarrative && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">{t('impactModel.narrate.title')}</CardTitle>
+            <CardDescription>{t('impactModel.narrate.description')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {hasKPIs && (
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-sm font-medium mb-1">{t('impactModel.narrate.kpiSummary')}</p>
+                <p className="text-xs text-muted-foreground">
+                  {data.quantifiedImpacts!.impactGroups.length} {t('impactModel.narrate.impactGroups')},
+                  {' '}{data.quantifiedImpacts!.coBenefits.length} {t('impactModel.narrate.coBenefitsCount')},
+                  {' '}{data.quantifiedImpacts!.mrvIndicators.length} {t('impactModel.narrate.mrvCount')}
+                </p>
+              </div>
+            )}
 
-          {/* Generate prose or skip */}
-          <div className="flex gap-3">
-            <Button
-              onClick={onNarrate}
-              disabled={isNarrating}
-              className="flex-1"
-            >
+            <Button onClick={onNarrate} disabled={isNarrating} className="w-full">
               {isNarrating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -988,25 +984,72 @@ function NarrateStep({
               ) : (
                 <>
                   <Sparkles className="h-4 w-4 mr-2" />
-                  {hasNarrative ? t('impactModel.narrate.regenerate') : t('impactModel.narrate.generate')}
+                  {t('impactModel.narrate.generate')}
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Show generated narrative blocks */}
+      {hasNarrative && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-semibold">{t('impactModel.narrate.generatedNarrative')}</h2>
+              <Badge variant="secondary">{blocks.length} blocks</Badge>
+            </div>
+            <Button variant="outline" onClick={onNarrate} disabled={isNarrating} size="sm">
+              {isNarrating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Regenerating...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Regenerate
                 </>
               )}
             </Button>
           </div>
 
-          {/* Show generated blocks count */}
-          {hasNarrative && (
-            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
-              <div className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-green-600" />
-                <p className="text-sm text-green-700 dark:text-green-300">
-                  {data.narrativeCache!.base!.length} {t('impactModel.narrate.blocksGenerated')}
-                </p>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <div className="space-y-4 max-w-3xl">
+            {blocks.map((block) => (
+              <Card key={block.id} className={`overflow-hidden ${!block.included ? 'opacity-60' : ''}`}>
+                <CardHeader className="py-3 bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">{block.title}</CardTitle>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {(block.type || 'content').replace(/_/g, ' ')}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {block.evidenceTier}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div 
+                    className="prose prose-sm dark:prose-invert max-w-none"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(block.contentMd) }}
+                  />
+                  {block.kpis && block.kpis.length > 0 && (
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-xs text-muted-foreground">
+                        Based on {block.kpis.length} KPI{block.kpis.length > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
