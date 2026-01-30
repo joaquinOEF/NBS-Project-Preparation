@@ -924,15 +924,32 @@ export default function SiteExplorerPage() {
     switch (layerId) {
       case 'intervention_zones':
         if (data.geoJson?.features) {
+          // Calculate max risk across all zones for opacity normalization
+          const features = data.geoJson.features;
+          const globalMaxRisk = Math.max(
+            ...features.map((f: any) => 
+              Math.max(f.properties?.meanFlood || 0, f.properties?.meanHeat || 0, f.properties?.meanLandslide || 0)
+            ),
+            0.01 // Prevent division by zero
+          );
+          
           return L.geoJSON(data.geoJson, {
             style: (feature) => {
               const typology = feature?.properties?.typologyLabel || 'LOW';
               const color = TYPOLOGY_COLORS[typology] || '#10b981';
+              
+              // Calculate this zone's risk and normalize opacity
+              const p = feature?.properties || {};
+              const zoneRisk = Math.max(p.meanFlood || 0, p.meanHeat || 0, p.meanLandslide || 0);
+              const normalizedRisk = zoneRisk / globalMaxRisk;
+              // Opacity ranges from 0.15 (lowest risk) to 0.5 (highest risk)
+              const fillOpacity = 0.15 + (normalizedRisk * 0.35);
+              
               return {
                 color: color,
                 weight: 2,
                 fillColor: color,
-                fillOpacity: 0.4,
+                fillOpacity: fillOpacity,
                 opacity: 0.9,
               };
             },
