@@ -1,0 +1,205 @@
+PostHog loaded for development
+2rrweb-plugin-console-record.js:160 Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+
+Check the render method of `Primitive.button.SlotClone`.
+    at Badge (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/components/ui/badge.tsx:35:18)
+    at https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-6B2F6LNU.js?v=749fe055:79:13
+    at https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-6B2F6LNU.js?v=749fe055:56:13
+    at https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2FYIFJM3.js?v=749fe055:42:13
+    at https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-6B2F6LNU.js?v=749fe055:79:13
+    at https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-6B2F6LNU.js?v=749fe055:56:13
+    at https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2FYIFJM3.js?v=749fe055:42:13
+    at https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-T3XNOTON.js?v=749fe055:361:13
+    at https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=749fe055:199:13
+    at Provider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-3RXG37ZK.js?v=749fe055:38:15)
+    at Provider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-3RXG37ZK.js?v=749fe055:38:15)
+    at Popper (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-T3XNOTON.js?v=749fe055:353:11)
+    at Tooltip (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=749fe055:108:5)
+    at div
+    at div
+    at div
+    at _c9 (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/components/ui/card.tsx:114:12)
+    at div
+    at _c (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/components/ui/card.tsx:20:11)
+    at div
+    at div
+    at div
+    at div
+    at Provider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-3RXG37ZK.js?v=749fe055:38:15)
+    at TooltipProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=749fe055:64:5)
+    at QuantifyStep (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/pages/impact-model.tsx:982:3)
+    at div
+    at div
+    at div
+    at ImpactModelPage (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/pages/impact-model.tsx:3894:25)
+    at Route (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=749fe055:323:16)
+    at Switch (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=749fe055:379:17)
+    at Router
+    at div
+    at div
+    at AppLayout (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/App.tsx?v=1W6vTrG4S1tY6BqFtliNz:146:26)
+    at Provider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-3RXG37ZK.js?v=749fe055:38:15)
+    at TooltipProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=749fe055:64:5)
+    at ChatProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/contexts/chat-context.tsx:20:32)
+    at ProjectContextProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/contexts/project-context.tsx:178:42)
+    at SampleDataProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/contexts/sample-data-context.tsx:94:38)
+    at QueryClientProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=749fe055:2805:3)
+    at App (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/App.tsx?v=1W6vTrG4S1tY6BqFtliNz:174:20)
+    at PostHogProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/posthog-js_react.js?v=749fe055:45:21)
+    at ChakraProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-GDJKO7MU.js?v=749fe055:2549:18)
+(anonymous) @ rrweb-plugin-console-record.js:160
+printWarning @ chunk-SNT3PAAD.js?v=749fe055:521
+error @ chunk-SNT3PAAD.js?v=749fe055:505
+validateFunctionComponentInDev @ chunk-SNT3PAAD.js?v=749fe055:14988
+mountIndeterminateComponent @ chunk-SNT3PAAD.js?v=749fe055:14963
+beginWork @ chunk-SNT3PAAD.js?v=749fe055:15882
+beginWork$1 @ chunk-SNT3PAAD.js?v=749fe055:19721
+performUnitOfWork @ chunk-SNT3PAAD.js?v=749fe055:19166
+workLoopSync @ chunk-SNT3PAAD.js?v=749fe055:19105
+renderRootSync @ chunk-SNT3PAAD.js?v=749fe055:19084
+performConcurrentWorkOnRoot @ chunk-SNT3PAAD.js?v=749fe055:18646
+workLoop @ chunk-SNT3PAAD.js?v=749fe055:197
+flushWork @ chunk-SNT3PAAD.js?v=749fe055:176
+performWorkUntilDeadline @ chunk-SNT3PAAD.js?v=749fe055:384Understand this error
+2sample-data-context.tsx:152 📦 Sample project initialized
+3impact-model.tsx:2007 [ImpactModel] Hydrated from database
+project-context.tsx:826 [ProjectContext] Synced impactModel to database successfully
+project-context.tsx:813  PUT https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/api/projects/sample-porto-alegre-project/blocks/impact_model 400 (Bad Request)
+(anonymous) @ project-context.tsx:813
+(anonymous) @ project-context.tsx:851
+handleNarrate @ impact-model.tsx:2349Understand this error
+project-context.tsx:821 Failed to sync impactModel to database: {message: 'Invalid block data', errors: Array(11)}
+(anonymous) @ rrweb-plugin-console-record.js:160
+(anonymous) @ project-context.tsx:821
+await in (anonymous)
+(anonymous) @ project-context.tsx:851
+handleNarrate @ impact-model.tsx:2349Understand this error
+project-context.tsx:823 Validation errors: [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "coBenefits",
+      0,
+      "id"
+    ],
+    "message": "Required"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "coBenefits",
+      1,
+      "id"
+    ],
+    "message": "Required"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "coBenefits",
+      2,
+      "id"
+    ],
+    "message": "Required"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "coBenefits",
+      3,
+      "id"
+    ],
+    "message": "Required"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "undefined",
+    "path": [
+      "coBenefits",
+      4,
+      "id"
+    ],
+    "message": "Required"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "downstreamSignals",
+      "operations",
+      0
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "downstreamSignals",
+      "operations",
+      1
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "downstreamSignals",
+      "operations",
+      2
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "downstreamSignals",
+      "businessModel",
+      0
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "downstreamSignals",
+      "businessModel",
+      1
+    ],
+    "message": "Expected object, received string"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "object",
+    "received": "string",
+    "path": [
+      "downstreamSignals",
+      "businessModel",
+      2
+    ],
+    "message": "Expected object, received string"
+  }
+]
+(anonymous) @ rrweb-plugin-console-record.js:160
+(anonymous) @ project-context.tsx:823
+await in (anonymous)
+(anonymous) @ project-context.tsx:851
+handleNarrate @ impact-model.tsx:2349Understand this error
+impact-model.tsx:2355  PUT https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/api/projects/sample-porto-alegre-project/blocks/impact_model 400 (Bad Request)
