@@ -228,6 +228,40 @@ const AGENT_TOOLS: AgentTool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "lookup_location",
+    description: "Look up a location by name or address using OpenStreetMap. Returns coordinates, area, and other details. Use this to find coordinates for a site before adding it as an intervention site.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Location name or address to search for (e.g., 'Lyon Park Porto Alegre', 'Rua Garibaldi 270 Porto Alegre')",
+        },
+      },
+      required: ["query"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "find_zone_for_coordinates",
+    description: "Given coordinates (lat, lng), find which intervention zone contains that location. Returns the zone ID and details if found.",
+    parameters: {
+      type: "object",
+      properties: {
+        lat: {
+          type: "number",
+          description: "Latitude coordinate",
+        },
+        lng: {
+          type: "number",
+          description: "Longitude coordinate",
+        },
+      },
+      required: ["lat", "lng"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 const SYSTEM_PROMPT = `You are an AI assistant for the NBS (Nature-Based Solutions) Project Builder platform.
@@ -275,6 +309,15 @@ When generating or editing Impact Model narratives:
 - Heat mitigation: urban forests (1-3°C cooling), green roofs (15-45°C surface temperature reduction, 50% cooling load reduction)
 - Slope stabilization: vetiver grass (60-90% soil loss reduction), deep-rooted vegetation for soil cohesion
 - Case studies: Medellín Green Corridors ($16M for 2°C cooling), Mexico City La Quebradora (flood control + aquifer recharge)
+
+## Adding Intervention Sites (Site Explorer)
+When a user wants to add a site by name/address:
+1. Use lookup_location to find the coordinates from the name/address
+2. Use find_zone_for_coordinates with the lat/lng to determine which zone it belongs to
+3. If the location is in a zone, tell the user which zone and ask what intervention type they want
+4. For now, the user must add the site through the Site Explorer UI - tell them to navigate there, search for the site using the "Add Custom Site" button, and select the intervention
+
+This workflow allows you to help the user without needing them to provide coordinates manually - you look them up automatically.
 
 ## User-Friendly Communication
 When summarizing project data (like questionnaire responses), NEVER show raw schema fields.
@@ -685,6 +728,140 @@ export async function executeAgentTool(
               category: (c.metadata as any)?.category,
               tags: (c.metadata as any)?.tags,
             })),
+          },
+        };
+      }
+
+      case "lookup_location": {
+        const { query } = args as { query: string };
+        
+        const searchUrl = new URL('https://nominatim.openstreetmap.org/search');
+        searchUrl.searchParams.append('q', query);
+        searchUrl.searchParams.append('format', 'json');
+        searchUrl.searchParams.append('addressdetails', '1');
+        searchUrl.searchParams.append('limit', '5');
+        
+        const response = await fetch(searchUrl.toString(), {
+          headers: {
+            'User-Agent': 'NBS-Project-Builder/1.0 (contact@example.com)',
+            'Accept': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          return {
+            name,
+            result: null,
+            error: `Location lookup failed: ${response.statusText}`,
+          };
+        }
+        
+        const results = await response.json() as any[];
+        
+        if (results.length === 0) {
+          return {
+            name,
+            result: {
+              found: false,
+              message: `No locations found for "${query}". Try a more specific address or place name.`,
+            },
+          };
+        }
+        
+        const locations = results.map((r: any) => ({
+          name: r.display_name.split(',')[0],
+          fullAddress: r.display_name,
+          lat: parseFloat(r.lat),
+          lng: parseFloat(r.lon),
+          type: r.type || r.class || 'place',
+          osmId: r.osm_id,
+        }));
+        
+        return {
+          name,
+          result: {
+            found: true,
+            count: locations.length,
+            locations,
+            message: `Found ${locations.length} location(s). Use find_zone_for_coordinates with the lat/lng to determine which intervention zone it belongs to.`,
+          },
+        };
+      }
+
+      case "find_zone_for_coordinates": {
+        const { lat, lng } = args as { lat: number; lng: number };
+        
+        // Load the zones data
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const zonesPath = path.join(process.cwd(), 'public', 'sample-data', 'porto-alegre-zones.json');
+        
+        let zonesData: any;
+        try {
+          const zonesJson = await fs.readFile(zonesPath, 'utf-8');
+          zonesData = JSON.parse(zonesJson);
+        } catch (error) {
+          return {
+            name,
+            result: null,
+            error: 'Could not load zones data. This feature is only available for Porto Alegre sample project.',
+          };
+        }
+        
+        // Check if point is inside any zone polygon
+        const pointInPolygon = (point: [number, number], polygon: number[][]): boolean => {
+          const [x, y] = point;
+          let inside = false;
+          for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const xi = polygon[i][0], yi = polygon[i][1];
+            const xj = polygon[j][0], yj = polygon[j][1];
+            const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+          }
+          return inside;
+        };
+        
+        const features = zonesData?.geoJson?.features || zonesData?.features || [];
+        
+        for (const feature of features) {
+          const coords = feature.geometry?.coordinates;
+          if (!coords) continue;
+          
+          // Handle both Polygon and MultiPolygon
+          const polygons = feature.geometry.type === 'MultiPolygon' 
+            ? coords.map((p: any) => p[0])
+            : [coords[0]];
+          
+          for (const polygon of polygons) {
+            // GeoJSON uses [lng, lat], we need to check with [lng, lat]
+            if (pointInPolygon([lng, lat], polygon)) {
+              const props = feature.properties || {};
+              return {
+                name,
+                result: {
+                  found: true,
+                  zoneId: props.zoneId,
+                  zoneName: `Zone ${props.zoneId?.replace('zone_', '')}`,
+                  typology: props.typologyLabel,
+                  primaryHazard: props.primaryHazard,
+                  interventionType: props.interventionType,
+                  riskScores: {
+                    flood: props.meanFlood,
+                    heat: props.meanHeat,
+                    landslide: props.meanLandslide,
+                  },
+                  message: `The location is in ${props.zoneId} (${props.typologyLabel}). You can now propose adding an intervention site to this zone.`,
+                },
+              };
+            }
+          }
+        }
+        
+        return {
+          name,
+          result: {
+            found: false,
+            message: `The coordinates (${lat}, ${lng}) are not within any intervention zone. The location may be outside the study area.`,
           },
         };
       }
