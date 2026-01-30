@@ -1816,23 +1816,25 @@ export default function SiteExplorerPage() {
                     return acc;
                   }, {});
                   
+                  const handleZoneClick = () => {
+                    const zonesLayer = layerRefs.current.get('intervention_zones') as L.GeoJSON | undefined;
+                    if (zonesLayer) {
+                      zonesLayer.eachLayer((layer: any) => {
+                        if (layer.feature?.properties?.zoneId === zone.zoneId) {
+                          layer.fire('click');
+                        }
+                      });
+                    }
+                  };
+                  
                   return (
                     <div 
                       key={zone.zoneId}
-                      className={`rounded-lg border transition-colors ${isSelected ? 'border-primary bg-primary/20' : 'border-white/5 hover:border-white/20 hover:bg-white/5'}`}
+                      className={`rounded-lg border transition-colors cursor-pointer ${isSelected ? 'border-primary bg-primary/20' : 'border-white/5 hover:border-white/20 hover:bg-white/5'}`}
+                      onClick={handleZoneClick}
                     >
-                      <button
+                      <div
                         className="w-full p-2 text-left flex items-center gap-2"
-                        onClick={() => {
-                          const zonesLayer = layerRefs.current.get('intervention_zones') as L.GeoJSON | undefined;
-                          if (zonesLayer) {
-                            zonesLayer.eachLayer((layer: any) => {
-                              if (layer.feature?.properties?.zoneId === zone.zoneId) {
-                                layer.fire('click');
-                              }
-                            });
-                          }
-                        }}
                       >
                         <div 
                           className="w-3 h-3 rounded-full flex-shrink-0"
@@ -1855,7 +1857,7 @@ export default function SiteExplorerPage() {
                           </Badge>
                         )}
                         <ChevronRight className="h-4 w-4 text-zinc-400 flex-shrink-0" />
-                      </button>
+                      </div>
                       
                       {portfolio.length > 0 && (
                         <div className="px-2 pb-2 space-y-1">
