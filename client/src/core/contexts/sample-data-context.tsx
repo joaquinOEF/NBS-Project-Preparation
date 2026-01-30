@@ -13,6 +13,7 @@ interface SampleDataContextType {
   sampleActions: SampleAction[];
   initiatedProjects: string[];
   initiateProject: (actionId: string) => void;
+  uninitateProject: (actionId: string) => void;
   sampleProjectId: string;
   sampleCityId: string;
   sampleUserId: string;
@@ -192,6 +193,10 @@ export function SampleDataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const uninitateProject = (actionId: string) => {
+    setInitiatedProjects(prev => prev.filter(id => id !== actionId));
+  };
+
   return (
     <SampleDataContext.Provider
       value={{
@@ -202,6 +207,7 @@ export function SampleDataProvider({ children }: { children: ReactNode }) {
         sampleActions: SAMPLE_ACTIONS,
         initiatedProjects,
         initiateProject,
+        uninitateProject,
         sampleProjectId: SAMPLE_PROJECT_ID,
         sampleCityId: SAMPLE_CITY_ID,
         sampleUserId: SAMPLE_USER_ID,

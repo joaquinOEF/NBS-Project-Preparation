@@ -71,6 +71,7 @@ export interface IStorage {
   getProject(id: string): Promise<Project | undefined>;
   createProject(project: InsertProject): Promise<Project>;
   createProjectWithId(id: string, project: InsertProject): Promise<Project>;
+  deleteProject(id: string): Promise<void>;
 
   getCityBoundaryCache(cityLocode: string): Promise<CityBoundaryCache | undefined>;
   setCityBoundaryCache(data: InsertCityBoundaryCache): Promise<CityBoundaryCache>;
@@ -227,6 +228,10 @@ export class DatabaseStorage implements IStorage {
   async createProjectWithId(id: string, insertProject: InsertProject): Promise<Project> {
     const [project] = await db.insert(projects).values({ ...insertProject, id } as typeof projects.$inferInsert).returning();
     return project;
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    await db.delete(projects).where(eq(projects.id, id));
   }
 
   async getCityBoundaryCache(cityLocode: string): Promise<CityBoundaryCache | undefined> {

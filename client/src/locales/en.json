@@ -83,6 +83,7 @@
     "noSelectedActions": "No selected actions",
     "emptySelectedActionsHint": "Go to the High Impact Action Prioritizer to identify actions that are relevant for your city",
     "noInitiatedProjects": "No initiated projects yet",
+    "removeProject": "Remove project",
     "mitigation": "Mitigation",
     "adaptation": "Adaptation"
   },

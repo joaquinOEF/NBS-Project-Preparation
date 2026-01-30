@@ -19,6 +19,7 @@ import {
   AlertCircle,
   ArrowRight,
   FolderOpen,
+  Undo2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSampleData } from '@/core/contexts/sample-data-context';
@@ -42,7 +43,7 @@ export default function CityInformation() {
   const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const { isSampleMode, sampleCity, sampleActions, initiatedProjects, initiateProject } = useSampleData();
+  const { isSampleMode, sampleCity, sampleActions, initiatedProjects, initiateProject, uninitateProject } = useSampleData();
   const { isSampleRoute, routePrefix } = useSampleRoute();
 
   const shouldFetchFromApi = !isSampleMode && !isSampleRoute;
@@ -63,6 +64,15 @@ export default function CityInformation() {
         actionType: action.type,
         cityId: action.cityId,
       });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', cityId] });
+    },
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      return apiRequest('DELETE', `/api/projects/${projectId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/projects', cityId] });
@@ -124,6 +134,20 @@ export default function CityInformation() {
     }
   };
 
+  const handleRemoveProject = (actionId: string, projectId?: string) => {
+    track('Climate Action - Remove Project', {
+      actionId,
+      projectId,
+      isSampleMode,
+    });
+
+    if (isSampleMode || isSampleRoute) {
+      uninitateProject(actionId);
+    } else if (projectId) {
+      deleteProjectMutation.mutate(projectId);
+    }
+  };
+
   if (isLoading && !useSampleContent) {
     return (
       <div className='min-h-screen bg-background'>
@@ -172,13 +196,24 @@ export default function CityInformation() {
         <CardContent>
           <p className='text-sm text-muted-foreground mb-4'>{action.description}</p>
           {isInitiated ? (
-            <Button 
-              onClick={() => handleGoToProject(action.id, project?.id)}
-              className='w-full'
-            >
-              {t('cityInfo.goToProject')}
-              <ArrowRight className='h-4 w-4 ml-2' />
-            </Button>
+            <div className='flex gap-2'>
+              <Button
+                onClick={() => handleGoToProject(action.id, project?.id)}
+                className='flex-1'
+              >
+                {t('cityInfo.goToProject')}
+                <ArrowRight className='h-4 w-4 ml-2' />
+              </Button>
+              <Button
+                variant='ghost'
+                size='icon'
+                onClick={() => handleRemoveProject(action.id, project?.id)}
+                disabled={deleteProjectMutation.isPending}
+                title={t('cityInfo.removeProject')}
+              >
+                <Undo2 className='h-4 w-4' />
+              </Button>
+            </div>
           ) : (
             <Button 
               onClick={() => handleStartProject(action)}

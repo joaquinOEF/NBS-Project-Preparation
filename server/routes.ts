@@ -769,6 +769,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete('/api/projects/:projectId', requireAuth, async (req: any, res) => {
+    try {
+      const { projectId } = req.params;
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ message: 'Project not found' });
+      }
+      await storage.deleteProject(projectId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete project error:', error);
+      res.status(500).json({ message: 'Failed to delete project' });
+    }
+  });
+
   // Geospatial API routes (for Site Explorer)
   app.post('/api/geospatial/boundary', async (req: any, res) => {
     try {
