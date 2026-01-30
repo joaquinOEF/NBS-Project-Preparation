@@ -123,10 +123,11 @@ export function ChatDrawer() {
           const isOnFunderSelection = location.includes('funder-selection');
           let navButton = '';
           if (!isOnFunderSelection) {
-            if (isSampleMode && sampleProjectId) {
-              navButton = `\n\n[NAV_BUTTON:/sample/funder-selection/${sampleProjectId}|View Funder Selection Results]`;
-            } else if (projectId) {
-              navButton = `\n\n[NAV_BUTTON:/projects/${projectId}/funder-selection|View Funder Selection Results]`;
+            // For navigation URLs, use routeProjectId (the action ID from URL) not sampleProjectId (database ID)
+            if (isSampleMode && routeProjectId) {
+              navButton = `\n\n[NAV_BUTTON:/sample/funder-selection/${routeProjectId}|View Funder Selection Results]`;
+            } else if (routeProjectId) {
+              navButton = `\n\n[NAV_BUTTON:/projects/${routeProjectId}/funder-selection|View Funder Selection Results]`;
             }
           }
           
@@ -141,7 +142,7 @@ export function ChatDrawer() {
     } catch (e) {
       console.warn('Failed to calculate readiness update:', e);
     }
-  }, [dbProjectId, location, isSampleMode, sampleProjectId, projectId]);
+  }, [dbProjectId, location, isSampleMode, routeProjectId]);
   
   const currentPage = useMemo(() => {
     const path = location.replace(/^\/?(sample\/)?/, '').split('/')[0];
