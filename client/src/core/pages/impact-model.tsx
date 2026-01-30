@@ -170,6 +170,30 @@ function SetupStep({
     return `${cost.unit} ${formatNum(cost.min)} - ${formatNum(cost.max)}`;
   };
 
+  // Format population to thousands (e.g., 830967 → "831K")
+  const formatPopulation = (pop: number) => {
+    if (pop >= 1000000) return `${(pop / 1000000).toFixed(1)}M`;
+    if (pop >= 1000) return `${Math.round(pop / 1000)}K`;
+    return Math.round(pop).toString();
+  };
+
+  // Format area consistently - prefer hectares for smaller areas, km² for larger
+  const formatArea = (area: number, unit: string) => {
+    if (unit === 'ha') {
+      if (area >= 100) return `${(area / 100).toFixed(1)} km²`;
+      return `${area.toFixed(area < 10 ? 1 : 0)} ha`;
+    }
+    if (unit === 'm²' || unit === 'm2') {
+      if (area >= 10000) return `${(area / 10000).toFixed(1)} ha`;
+      return `${Math.round(area).toLocaleString()} m²`;
+    }
+    if (unit === 'km²' || unit === 'km2') {
+      return `${area.toFixed(area < 10 ? 1 : 0)} km²`;
+    }
+    // Default: assume hectares
+    return `${area.toFixed(area < 10 ? 1 : 0)} ha`;
+  };
+
   const formatZoneName = (zone: any, index: number) => {
     // Check zoneName first, but also format it if it contains zone_
     const rawName = zone.zoneName || zone.name || zone.zoneId;
@@ -290,7 +314,7 @@ function SetupStep({
               const zoneName = formatZoneName(zone, index);
               const isSelected = data.interventionBundles.some(b => b.id === zoneId);
               const interventions = zone.interventionPortfolio || [];
-              const zonePopulation = zone.populationSum ? zone.populationSum.toLocaleString() : null;
+              const zonePopulation = zone.populationSum ? formatPopulation(zone.populationSum) : null;
               const zoneArea = zone.areaKm2 || zone.area;
               
               return (
@@ -345,7 +369,7 @@ function SetupStep({
                           <div>
                             <h3 className="text-lg font-semibold">{zoneName}</h3>
                             <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                              {zoneArea && <span>{zoneArea.toLocaleString()} km²</span>}
+                              {zoneArea && <span>{formatArea(zoneArea, 'km²')}</span>}
                               {zonePopulation && (
                                 <>
                                   <span>•</span>
@@ -449,7 +473,7 @@ function SetupStep({
                                     {intervention.estimatedArea && (
                                       <div className="space-y-1">
                                         <p className="text-xs text-muted-foreground">Coverage Area</p>
-                                        <p className="font-medium">{intervention.estimatedArea} {intervention.areaUnit || 'ha'}</p>
+                                        <p className="font-medium">{formatArea(intervention.estimatedArea, intervention.areaUnit || 'ha')}</p>
                                       </div>
                                     )}
                                   </div>
