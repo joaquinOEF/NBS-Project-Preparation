@@ -171,14 +171,18 @@ function SetupStep({
   };
 
   const formatZoneName = (zone: any, index: number) => {
-    if (zone.zoneName) return zone.zoneName;
-    if (zone.name) return zone.name;
-    if (zone.zoneId) {
-      const match = zone.zoneId.match(/zone_(\d+)/i);
+    // Check zoneName first, but also format it if it contains zone_
+    const rawName = zone.zoneName || zone.name || zone.zoneId;
+    if (rawName) {
+      const match = rawName.match(/zone_(\d+)/i);
       if (match) {
         return `Zone ${match[1]}`;
       }
-      return zone.zoneId.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+      // If it's already formatted (e.g., "Zone 12") return as-is
+      if (/^Zone \d+$/i.test(rawName)) {
+        return rawName;
+      }
+      return rawName.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
     }
     return `Zone ${index + 1}`;
   };
@@ -409,10 +413,19 @@ function SetupStep({
                                 <div className="space-y-4">
                                   {/* Intervention Header */}
                                   <div className="flex items-start justify-between gap-4">
-                                    <div className="space-y-1">
-                                      <h4 className="font-semibold text-base">{intervention.interventionName || intervention.name}</h4>
+                                    <div className="space-y-1.5">
+                                      {intervention.assetName ? (
+                                        <>
+                                          <h4 className="font-bold text-lg">{intervention.assetName}</h4>
+                                          <p className="text-sm font-medium text-primary/80">
+                                            {intervention.interventionName || intervention.name}
+                                          </p>
+                                        </>
+                                      ) : (
+                                        <h4 className="font-semibold text-base">{intervention.interventionName || intervention.name}</h4>
+                                      )}
                                       {intervention.category && (
-                                        <p className="text-sm text-muted-foreground">
+                                        <p className="text-xs text-muted-foreground">
                                           {intervention.category.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                                         </p>
                                       )}
@@ -426,7 +439,7 @@ function SetupStep({
                                   </div>
 
                                   {/* Intervention Details Grid */}
-                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     {intervention.estimatedCost && (
                                       <div className="space-y-1">
                                         <p className="text-xs text-muted-foreground">Estimated Cost</p>
@@ -437,12 +450,6 @@ function SetupStep({
                                       <div className="space-y-1">
                                         <p className="text-xs text-muted-foreground">Coverage Area</p>
                                         <p className="font-medium">{intervention.estimatedArea} {intervention.areaUnit || 'ha'}</p>
-                                      </div>
-                                    )}
-                                    {intervention.assetName && (
-                                      <div className="space-y-1">
-                                        <p className="text-xs text-muted-foreground">Target Asset</p>
-                                        <p className="font-medium">{intervention.assetName}</p>
                                       </div>
                                     )}
                                   </div>

@@ -991,7 +991,7 @@ export async function executeAgentTool(
       case "add_intervention_site": {
         console.log('🔧 add_intervention_site called with args:', JSON.stringify(args));
         
-        const { zoneId, siteName, interventionType, category, lat, lng, areaHa, osmId } = args as {
+        const { zoneId, siteName, interventionType, category, lat, lng, areaHa, osmId, zoneRiskLevels } = args as {
           zoneId: string;
           siteName: string;
           interventionType: string;
@@ -1000,9 +1000,49 @@ export async function executeAgentTool(
           lng: number;
           areaHa: number;
           osmId: string;
+          zoneRiskLevels?: { flood: number; heat: number; landslide: number };
         };
         
         console.log(`📍 Adding site: ${siteName} to ${zoneId} as ${interventionType} (${category})`);
+        
+        // Intervention cost and impact lookup table
+        const INTERVENTION_DATA: Record<string, { costPerHa: { min: number; max: number }; impacts: { flood: string; heat: string; landslide: string } }> = {
+          'Floodable Park / Detention Basin': { costPerHa: { min: 50000, max: 300000 }, impacts: { flood: 'high', heat: 'medium', landslide: 'low' } },
+          'Sponge Square / Plaza': { costPerHa: { min: 800000, max: 2500000 }, impacts: { flood: 'medium', heat: 'medium', landslide: 'low' } },
+          'Multi-use Retention Yard': { costPerHa: { min: 400000, max: 1500000 }, impacts: { flood: 'medium-high', heat: 'medium', landslide: 'low' } },
+          'Detention & Infiltration Field': { costPerHa: { min: 60000, max: 200000 }, impacts: { flood: 'medium', heat: 'low-medium', landslide: 'low' } },
+          'Constructed Wetland': { costPerHa: { min: 30000, max: 120000 }, impacts: { flood: 'high', heat: 'medium', landslide: 'low' } },
+          'Permeable Street Retrofit': { costPerHa: { min: 500000, max: 1500000 }, impacts: { flood: 'low-medium', heat: 'low', landslide: 'low' } },
+          'Tree Canopy Corridor': { costPerHa: { min: 100000, max: 300000 }, impacts: { flood: 'low-medium', heat: 'high', landslide: 'low' } },
+          'Shade & Cooling Retrofit': { costPerHa: { min: 500000, max: 2000000 }, impacts: { flood: 'low', heat: 'medium-high', landslide: 'low' } },
+          'Cooling Campus': { costPerHa: { min: 30000, max: 150000 }, impacts: { flood: 'low-medium', heat: 'high', landslide: 'low' } },
+          'Green Roof Network': { costPerHa: { min: 1000000, max: 3000000 }, impacts: { flood: 'medium', heat: 'high', landslide: 'low' } },
+          'Cool Pavement Program': { costPerHa: { min: 200000, max: 500000 }, impacts: { flood: 'low', heat: 'medium', landslide: 'low' } },
+          'Terraced Green Buffer': { costPerHa: { min: 80000, max: 250000 }, impacts: { flood: 'medium', heat: 'medium', landslide: 'high' } },
+          'Slope Forest Belt': { costPerHa: { min: 15000, max: 60000 }, impacts: { flood: 'medium', heat: 'medium', landslide: 'high' } },
+          'Retention Terrace System': { costPerHa: { min: 100000, max: 400000 }, impacts: { flood: 'high', heat: 'low', landslide: 'high' } },
+          'Bio-engineered Slope': { costPerHa: { min: 200000, max: 600000 }, impacts: { flood: 'medium', heat: 'low', landslide: 'high' } },
+          'Linear Green Infrastructure': { costPerHa: { min: 80000, max: 300000 }, impacts: { flood: 'medium', heat: 'medium', landslide: 'medium' } },
+          'Resilient Green Corridor': { costPerHa: { min: 100000, max: 400000 }, impacts: { flood: 'medium-high', heat: 'medium-high', landslide: 'medium' } },
+          'Urban Food Forest': { costPerHa: { min: 50000, max: 200000 }, impacts: { flood: 'medium', heat: 'high', landslide: 'medium' } },
+        };
+        
+        // Get intervention data or use defaults
+        const interventionData = INTERVENTION_DATA[interventionType] || {
+          costPerHa: { min: 50000, max: 200000 },
+          impacts: { flood: 'medium', heat: 'medium', landslide: 'low' }
+        };
+        
+        // Calculate estimated cost based on area
+        const area = areaHa || 1;
+        const estimatedCost = {
+          min: Math.round(interventionData.costPerHa.min * area),
+          max: Math.round(interventionData.costPerHa.max * area),
+          unit: 'USD'
+        };
+        
+        // Determine impact levels - use intervention default impacts, but can be enhanced based on zone risk
+        const impacts = { ...interventionData.impacts };
         
         // Generate a unique asset ID
         const assetId = osmId ? `nominatim_${osmId}` : `manual_${Date.now()}`;
@@ -1017,6 +1057,8 @@ export async function executeAgentTool(
           centroid: [lat, lng],
           estimatedArea: areaHa || 1,
           areaUnit: 'ha',
+          estimatedCost,
+          impacts,
           source: osmId ? 'nominatim' : 'manual',
           addedAt: new Date().toISOString(),
         };

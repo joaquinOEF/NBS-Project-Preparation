@@ -1395,7 +1395,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Special handling for intervention site patches
             if (patch.fieldPath.startsWith('interventionSite.')) {
               const zoneId = patch.fieldPath.replace('interventionSite.', '');
-              const intervention = valueToApply;
+              // Backfill missing cost/impact data for agent-added interventions
+              const intervention = backfillIntervention(valueToApply);
               
               console.log(`🔧 Applying intervention site patch for ${zoneId}`);
               
@@ -1494,6 +1495,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Patch apply error:', error);
       res.status(500).json({ message: error.message || 'Failed to apply patches' });
+    }
+  });
+
+  // POST /api/projects/:id/backfill-interventions - Backfill missing cost/impact data for all interventions
+  app.post('/api/projects/:id/backfill-interventions', async (req, res) => {
+    try {
+      const { id: projectId } = req.params;
+      
+      console.log(`🔄 Backfilling intervention data for project ${projectId}`);
+      
+      // Get the current site_explorer block
+      const block = await storage.getInfoBlock(projectId, 'site_explorer');
+      if (!block?.blockStateJson?.selectedZones) {
+        return res.json({ success: true, message: 'No zones to backfill', updated: 0 });
+      }
+      
+      const currentData = JSON.parse(JSON.stringify(block.blockStateJson));
+      let updatedCount = 0;
+      
+      // Iterate through all zones and backfill interventions
+      for (const zone of currentData.selectedZones) {
+        if (zone.interventionPortfolio && Array.isArray(zone.interventionPortfolio)) {
+          zone.interventionPortfolio = zone.interventionPortfolio.map((intervention: any) => {
+            const before = JSON.stringify(intervention);
+            const updated = backfillIntervention(intervention);
+            if (JSON.stringify(updated) !== before) {
+              updatedCount++;
+            }
+            return updated;
+          });
+        }
+      }
+      
+      // Save updated block
+      if (updatedCount > 0) {
+        await storage.upsertInfoBlock(projectId, 'site_explorer', {
+          blockStateJson: currentData,
+          status: block.status || 'DRAFT',
+          updatedBy: 'system',
+          completionPercent: block.completionPercent,
+        });
+      }
+      
+      console.log(`✅ Backfilled ${updatedCount} interventions for project ${projectId}`);
+      
+      res.json({ 
+        success: true, 
+        message: `Updated ${updatedCount} intervention(s) with missing cost/impact data`,
+        updated: updatedCount 
+      });
+    } catch (error: any) {
+      console.error('Backfill error:', error);
+      res.status(500).json({ message: error.message || 'Failed to backfill interventions' });
     }
   });
 
@@ -1783,6 +1837,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   return httpServer;
+}
+
+// Intervention cost and impact lookup table for backfilling and new sites
+const INTERVENTION_DATA: Record<string, { costPerHa: { min: number; max: number }; impacts: { flood: string; heat: string; landslide: string } }> = {
+  'Floodable Park / Detention Basin': { costPerHa: { min: 50000, max: 300000 }, impacts: { flood: 'high', heat: 'medium', landslide: 'low' } },
+  'Sponge Square / Plaza': { costPerHa: { min: 800000, max: 2500000 }, impacts: { flood: 'medium', heat: 'medium', landslide: 'low' } },
+  'Multi-use Retention Yard': { costPerHa: { min: 400000, max: 1500000 }, impacts: { flood: 'medium-high', heat: 'medium', landslide: 'low' } },
+  'Detention & Infiltration Field': { costPerHa: { min: 60000, max: 200000 }, impacts: { flood: 'medium', heat: 'low-medium', landslide: 'low' } },
+  'Constructed Wetland': { costPerHa: { min: 30000, max: 120000 }, impacts: { flood: 'high', heat: 'medium', landslide: 'low' } },
+  'Permeable Street Retrofit': { costPerHa: { min: 500000, max: 1500000 }, impacts: { flood: 'low-medium', heat: 'low', landslide: 'low' } },
+  'Tree Canopy Corridor': { costPerHa: { min: 100000, max: 300000 }, impacts: { flood: 'low-medium', heat: 'high', landslide: 'low' } },
+  'Shade & Cooling Retrofit': { costPerHa: { min: 500000, max: 2000000 }, impacts: { flood: 'low', heat: 'medium-high', landslide: 'low' } },
+  'Cooling Campus': { costPerHa: { min: 30000, max: 150000 }, impacts: { flood: 'low-medium', heat: 'high', landslide: 'low' } },
+  'Green Roof Network': { costPerHa: { min: 1000000, max: 3000000 }, impacts: { flood: 'medium', heat: 'high', landslide: 'low' } },
+  'Cool Pavement Program': { costPerHa: { min: 200000, max: 500000 }, impacts: { flood: 'low', heat: 'medium', landslide: 'low' } },
+  'Terraced Green Buffer': { costPerHa: { min: 80000, max: 250000 }, impacts: { flood: 'medium', heat: 'medium', landslide: 'high' } },
+  'Slope Forest Belt': { costPerHa: { min: 15000, max: 60000 }, impacts: { flood: 'medium', heat: 'medium', landslide: 'high' } },
+  'Retention Terrace System': { costPerHa: { min: 100000, max: 400000 }, impacts: { flood: 'high', heat: 'low', landslide: 'high' } },
+  'Bio-engineered Slope': { costPerHa: { min: 200000, max: 600000 }, impacts: { flood: 'medium', heat: 'low', landslide: 'high' } },
+  'Linear Green Infrastructure': { costPerHa: { min: 80000, max: 300000 }, impacts: { flood: 'medium', heat: 'medium', landslide: 'medium' } },
+  'Resilient Green Corridor': { costPerHa: { min: 100000, max: 400000 }, impacts: { flood: 'medium-high', heat: 'medium-high', landslide: 'medium' } },
+  'Urban Food Forest': { costPerHa: { min: 50000, max: 200000 }, impacts: { flood: 'medium', heat: 'high', landslide: 'medium' } },
+};
+
+// Helper to backfill missing cost and impact data for an intervention
+function backfillIntervention(intervention: any): any {
+  if (!intervention) return intervention;
+  
+  const interventionName = intervention.interventionName || intervention.name;
+  const interventionData = INTERVENTION_DATA[interventionName];
+  const area = intervention.estimatedArea || 1;
+  
+  // Add estimatedCost if missing
+  if (!intervention.estimatedCost && interventionData) {
+    intervention.estimatedCost = {
+      min: Math.round(interventionData.costPerHa.min * area),
+      max: Math.round(interventionData.costPerHa.max * area),
+      unit: 'USD'
+    };
+  }
+  
+  // Add impacts if missing
+  if (!intervention.impacts && interventionData) {
+    intervention.impacts = { ...interventionData.impacts };
+  }
+  
+  return intervention;
 }
 
 // Helper function to apply a patch to a block with defensive cloning
