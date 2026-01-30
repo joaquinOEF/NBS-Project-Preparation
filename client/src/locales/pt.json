@@ -161,7 +161,37 @@
       "signals": "sinais downstream"
     },
     "impactModel": "Modelo de Impacto",
-    "impactModelDescription": "Gere narrativas de impacto com IA, co-benefícios e sinais downstream para comunicar o valor do seu projeto"
+    "impactModelDescription": "Gere narrativas de impacto com IA, co-benefícios e sinais downstream para comunicar o valor do seu projeto",
+    "sections": {
+      "prepare": "Preparar",
+      "prepareDescription": "Construa seu projeto através de módulos guiados",
+      "output": "Resultado",
+      "outputDescription": "Gere entregas prontas para financiamento a partir dos dados do projeto"
+    },
+    "dataReadiness": {
+      "title": "Prontidão dos Dados",
+      "loaded": "{{count}} de {{total}} conjuntos de dados carregados",
+      "ghgInventory": "Inventário de GEE",
+      "ccra": "Avaliação de Risco Climático",
+      "hiap": "Plano de Ação de Alto Impacto",
+      "localDataEnhancement": "Aprimoramento de Dados Locais"
+    },
+    "conceptNote": {
+      "exportBanner": "Exportar como Nota Conceitual",
+      "exportBannerDescription": "Gere uma nota conceitual no estilo GCF a partir dos dados do projeto em todos os módulos",
+      "exportButton": "Gerar Nota Conceitual",
+      "viewerTitle": "Nota Conceitual",
+      "viewerDescription": "Nota conceitual do projeto no estilo GCF gerada a partir dos dados do projeto",
+      "downloadPdf": "Baixar PDF",
+      "sectionA": "Resumo do Projeto",
+      "sectionB": "Contexto e Linha de Base",
+      "sectionC": "Descrição do Projeto",
+      "sectionD": "Resultados Esperados",
+      "sectionE": "Arranjos de Implementação",
+      "sectionF": "Financiamento",
+      "noData": "Complete mais módulos para preencher esta seção",
+      "generatedFrom": "Gerado a partir dos dados do projeto em {{date}}"
+    }
   },
   "funderSelection": {
     "title": "Seleção de Financiador",

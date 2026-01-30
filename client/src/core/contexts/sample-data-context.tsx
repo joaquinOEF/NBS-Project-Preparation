@@ -234,6 +234,21 @@ export const SAMPLE_HIAP_ADAPTATION_DATA = {
   },
 };
 
+// Data readiness checklist - describes which upstream datasets are available for this city.
+// In sample mode these are hardcoded; in API mode, replace with a fetch to the project's data status endpoint.
+export interface DataReadinessItem {
+  key: string;
+  i18nKey: string; // maps to project.dataReadiness.[key]
+  available: boolean;
+}
+
+export const SAMPLE_DATA_READINESS: DataReadinessItem[] = [
+  { key: 'ghgInventory', i18nKey: 'ghgInventory', available: true },
+  { key: 'ccra', i18nKey: 'ccra', available: true },
+  { key: 'hiap', i18nKey: 'hiap', available: true },
+  { key: 'localDataEnhancement', i18nKey: 'localDataEnhancement', available: false },
+];
+
 export async function loadSampleBoundaryData(): Promise<any> {
   const response = await fetch('/sample-data/porto-alegre-boundary.json');
   if (!response.ok) {
