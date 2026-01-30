@@ -417,13 +417,32 @@ function FunderReadinessCard({ data }: { data: ProjectContextData['funderSelecti
 function SiteMapComponent({ zones }: { zones: SelectedZone[] }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const [ready, setReady] = useState(false);
 
   const formatInterventionName = (name: string) => {
     return name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   useEffect(() => {
-    if (!mapContainerRef.current || zones.length === 0) return;
+    const timer = setTimeout(() => setReady(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !mapContainerRef.current || zones.length === 0) return;
+
+    const container = mapContainerRef.current;
+    const rect = container.getBoundingClientRect();
+    
+    if (rect.width === 0 || rect.height === 0) {
+      console.warn('[SiteMapComponent] Container has zero dimensions, skipping');
+      return;
+    }
+
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
 
     const firstCentroid = zones.flatMap(z => z.interventionPortfolio || [])
       .find(i => i.centroid)?.centroid;
@@ -431,7 +450,7 @@ function SiteMapComponent({ zones }: { zones: SelectedZone[] }) {
       ? [firstCentroid[1], firstCentroid[0]] 
       : [-30.03, -51.23];
 
-    const map = L.map(mapContainerRef.current, {
+    const map = L.map(container, {
       center: defaultCenter,
       zoom: 13,
       scrollWheelZoom: false,
@@ -506,7 +525,7 @@ function SiteMapComponent({ zones }: { zones: SelectedZone[] }) {
       map.remove();
       mapRef.current = null;
     };
-  }, [zones]);
+  }, [zones, ready]);
 
   return <div ref={mapContainerRef} className="h-full w-full" />;
 }
