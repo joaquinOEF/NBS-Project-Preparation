@@ -78,21 +78,22 @@ export function Header() {
         <div className='flex justify-between items-center h-16'>
           <div className='flex items-center space-x-4'>
             <div
-              className='flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity'
+              className='flex items-center space-x-3 cursor-pointer hover:opacity-80 transition-opacity'
               onClick={() => setLocation('/cities')}
             >
-              <div className='w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center p-0 overflow-hidden'>
-                <img
-                  src='/poc-icon.png'
-                  alt={t('header.iconAlt')}
-                  className='w-8 h-8 object-cover'
-                />
-              </div>
+              <img
+                src='/assets/oef-logo.svg'
+                alt={t('header.oefLogoAlt')}
+                className='h-8 w-8'
+              />
+              <div className='w-px h-6 bg-white/30' />
+              <img
+                src='/assets/nbs-icon.png'
+                alt={t('header.iconAlt')}
+                className='h-8 w-8 rounded-lg'
+              />
               <TitleMedium color='base.light'>{t('header.title')}</TitleMedium>
             </div>
-            <BodySmall color='base.light' opacity={0.8}>
-              {t('header.subtitle')}
-            </BodySmall>
           </div>
 
           <div className='flex items-center space-x-4'>

@@ -17,9 +17,9 @@
     "sampleDataBadge": "Sample Data"
   },
   "header": {
-    "title": "NBS Project Builder",
-    "subtitle": "Nature Based Solutions",
-    "iconAlt": "NBS Project Builder Icon"
+    "title": "Project Builder: NBS Solutions",
+    "iconAlt": "NBS Solutions Icon",
+    "oefLogoAlt": "OpenEarth Foundation"
   },
   "navigation": {
     "home": "Home",
