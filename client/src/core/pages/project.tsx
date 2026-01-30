@@ -269,30 +269,42 @@ function ImpactModelHighlight({ data }: { data: ProjectContextData['impactModel'
     );
   }
   
-  const totalSignals = Object.values(data.downstreamSignals || {}).flat().length;
-  const includedCoBenefits = data.coBenefits?.filter(cb => cb.included).length || 0;
+  const allKpis = data.quantifiedImpacts?.impactGroups?.flatMap(g => g.kpis) || [];
+  const topKpis = allKpis.slice(0, 3);
+  
+  const formatKpiValue = (kpi: { name: string; valueRange: { low: number; high: number }; unit: string }) => {
+    const { low, high } = kpi.valueRange;
+    if (low === high) return `${low}${kpi.unit}`;
+    return `${low}–${high}${kpi.unit}`;
+  };
   
   return (
-    <div className="border-t mt-3 pt-3 space-y-1.5">
+    <div className="border-t mt-3 pt-3 space-y-2">
       <div className="flex items-center justify-between">
         <StatusBadge status={data.status} />
         {data.selectedLens && data.selectedLens !== 'neutral' && (
           <Badge variant="outline" className="text-xs">{data.selectedLens}</Badge>
         )}
       </div>
-      {data.narrativeCache?.base && (
+      {topKpis.length > 0 ? (
+        <div className="space-y-1">
+          {topKpis.map((kpi, idx) => (
+            <div key={idx} className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground truncate mr-2">{kpi.name}</span>
+              <span className="font-medium text-primary whitespace-nowrap">{formatKpiValue(kpi)}</span>
+            </div>
+          ))}
+          {allKpis.length > 3 && (
+            <div className="text-xs text-muted-foreground">
+              +{allKpis.length - 3} more impacts
+            </div>
+          )}
+        </div>
+      ) : data.narrativeCache?.base?.length ? (
         <div className="text-xs text-muted-foreground">
           {data.narrativeCache.base.length} {t('project.highlights.narrativeBlocks')}
         </div>
-      )}
-      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-        {includedCoBenefits > 0 && (
-          <span>{includedCoBenefits} {t('project.highlights.coBenefits')}</span>
-        )}
-        {totalSignals > 0 && (
-          <span>{totalSignals} {t('project.highlights.signals')}</span>
-        )}
-      </div>
+      ) : null}
     </div>
   );
 }
