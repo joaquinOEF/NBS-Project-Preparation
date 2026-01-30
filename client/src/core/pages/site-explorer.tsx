@@ -283,15 +283,20 @@ export default function SiteExplorerPage() {
       .catch(err => console.error('Failed to load interventions data:', err));
   }, []);
 
+  const portfolioHydratedRef = useRef(false);
+  
   useEffect(() => {
-    if (context?.siteExplorer?.selectedZones) {
+    if (!portfolioHydratedRef.current && context?.siteExplorer?.selectedZones) {
       const portfolios: Record<string, SelectedIntervention[]> = {};
       context.siteExplorer.selectedZones.forEach(zone => {
         if (typeof zone === 'object' && zone.interventionPortfolio) {
           portfolios[zone.zoneId] = zone.interventionPortfolio;
         }
       });
-      setZonePortfolios(portfolios);
+      if (Object.keys(portfolios).length > 0) {
+        setZonePortfolios(portfolios);
+      }
+      portfolioHydratedRef.current = true;
     }
   }, [context?.siteExplorer?.selectedZones]);
 
