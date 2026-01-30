@@ -1924,22 +1924,23 @@ export default function ImpactModelPage() {
         }),
       });
 
+      const result = await response.json();
+      
       if (!response.ok) {
-        throw new Error('Failed to quantify impacts');
+        throw new Error(result.message || 'Failed to quantify impacts');
       }
 
-      const result = await response.json();
       handleUpdate({ quantifiedImpacts: result, status: 'DRAFT' });
 
       toast({
         title: t('impactModel.quantify.success'),
         description: `${result.impactGroups?.length || 0} ${t('impactModel.quantify.impactGroupsGenerated')}, ${result.evidenceContext?.chunksUsed || 0} ${t('impactModel.quantify.evidenceChunks')}`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Quantify error:', error);
       toast({
         title: t('common.error'),
-        description: t('impactModel.quantify.failed'),
+        description: error?.message || t('impactModel.quantify.failed'),
         variant: 'destructive',
       });
     } finally {
