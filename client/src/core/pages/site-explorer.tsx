@@ -235,6 +235,7 @@ export default function SiteExplorerPage() {
   });
 
   const [isLoadingSampleData, setIsLoadingSampleData] = useState(false);
+  const [dataHydrated, setDataHydrated] = useState(false);
   const [selectedZone, setSelectedZone] = useState<ZoneProperties | null>(null);
   const [selectedZoneFeature, setSelectedZoneFeature] = useState<any | null>(null);
   const [interventionsData, setInterventionsData] = useState<InterventionsData | null>(null);
@@ -324,6 +325,9 @@ export default function SiteExplorerPage() {
           setZonePortfolios(portfolios);
         }
         portfolioHydratedRef.current = true;
+        setDataHydrated(true);
+      } else {
+        setDataHydrated(true);
       }
     }
   }, [projectId, loadContext]);
@@ -1734,6 +1738,17 @@ export default function SiteExplorerPage() {
   }
 
   const isLoading = isLoadingSampleData || (!isSampleModeActive && (isLoadingProject || isLoadingCity || boundaryMutation.isPending || elevationMutation.isPending));
+
+  if (!navigationRestored || !dataHydrated) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-8 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-background">

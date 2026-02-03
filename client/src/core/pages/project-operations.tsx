@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, Check, Building2, Users, ClipboardList, DollarSign, AlertTriangle, FileText, Copy, ChevronDown, ChevronUp, Plus, Trash2, GripVertical, Sparkles, ExternalLink, Info, Lightbulb, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Check, Building2, Users, ClipboardList, DollarSign, AlertTriangle, FileText, Copy, ChevronDown, ChevronUp, Plus, Trash2, GripVertical, Sparkles, ExternalLink, Info, Lightbulb, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useNavigationPersistence } from '@/core/hooks/useNavigationPersistence';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
@@ -468,6 +468,7 @@ export default function ProjectOperationsPage() {
   const [stakeholderModalOpen, setStakeholderModalOpen] = useState(false);
   const [editingStakeholder, setEditingStakeholder] = useState<Stakeholder | null>(null);
   const [newStakeholder, setNewStakeholder] = useState<Partial<Stakeholder>>({ name: '', type: 'other', confirmed: false });
+  const [dataHydrated, setDataHydrated] = useState(false);
 
   const action = sampleActions.find(a => a.id === projectId);
   const isNBS = action?.type === 'adaptation';
@@ -492,6 +493,7 @@ export default function ProjectOperationsPage() {
         const initial = buildInitialOMData(action?.type || 'adaptation', sites);
         setOMData(initial);
       }
+      setDataHydrated(true);
     }
   }, [projectId, action?.type]);
 
@@ -793,12 +795,12 @@ export default function ProjectOperationsPage() {
     });
   };
 
-  if (!omData) {
+  if (!omData || !navigationRestored || !dataHydrated) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="container mx-auto px-4 py-8">
-          <p>{t('common.loading')}</p>
+        <div className="container mx-auto px-4 py-8 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </div>
     );

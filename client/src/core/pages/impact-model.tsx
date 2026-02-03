@@ -2105,6 +2105,7 @@ export default function ImpactModelPage() {
   const [localData, setLocalData] = useState<ImpactModelData>(getDefaultImpactModelData());
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [dataHydrated, setDataHydrated] = useState(false);
 
   useEffect(() => {
     const stepLabels: Record<WizardStep, string> = {
@@ -2183,8 +2184,10 @@ export default function ImpactModelPage() {
       } else if (res.status === 404) {
         console.log('[ImpactModel] Block not found in DB, using local state');
       }
+      setDataHydrated(true);
     } catch (err) {
       console.error('[ImpactModel] DB hydration failed:', err);
+      setDataHydrated(true);
     }
   }, [projectId, isSampleMode, isSampleRoute]);
 
@@ -2754,7 +2757,7 @@ export default function ImpactModelPage() {
         />
 
         <div className="mb-6">
-          {!navigationRestored ? (
+          {(!navigationRestored || !dataHydrated) ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>

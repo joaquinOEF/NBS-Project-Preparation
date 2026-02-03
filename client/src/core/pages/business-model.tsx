@@ -495,6 +495,7 @@ export default function BusinessModelPage() {
   const [playbookOpen, setPlaybookOpen] = useState(false);
   const [editContextOpen, setEditContextOpen] = useState(false);
   const [editingContext, setEditingContext] = useState<ImportedContext | null>(null);
+  const [dataHydrated, setDataHydrated] = useState(false);
 
   const action = sampleActions.find(a => a.id === projectId);
   const isNBS = action?.type === 'adaptation';
@@ -519,6 +520,7 @@ export default function BusinessModelPage() {
         const initial = buildInitialBMData(action?.type || 'adaptation', hazards, stakeholders, omData);
         setBMData(initial);
       }
+      setDataHydrated(true);
     }
   }, [projectId, action?.type]);
 
@@ -944,7 +946,7 @@ export default function BusinessModelPage() {
     });
   };
 
-  if (!bmData || !navigationRestored) {
+  if (!bmData || !navigationRestored || !dataHydrated) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
