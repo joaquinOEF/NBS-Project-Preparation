@@ -299,7 +299,22 @@ function getFundingCategory(mechanism: string): FundingCategory {
 function getStoredOMData(projectId: string): OperationsOMData | null {
   if (typeof window === 'undefined') return null;
   const stored = localStorage.getItem(`${OM_STORAGE_KEY}_${projectId}`);
-  return stored ? JSON.parse(stored) : null;
+  if (!stored) return null;
+  
+  const parsed = JSON.parse(stored);
+  if (parsed.readiness?.checklist) {
+    parsed.readiness.checklist = {
+      operatingModelSelected: false,
+      operatorAssigned: false,
+      taskPlanPresent: false,
+      fundingMechanismSelected: false,
+      verifierSet: false,
+      costBandDefined: false,
+      primaryFundingSelected: false,
+      ...parsed.readiness.checklist,
+    };
+  }
+  return parsed;
 }
 
 function saveOMData(projectId: string, data: OperationsOMData) {
