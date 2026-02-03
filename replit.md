@@ -79,7 +79,10 @@ Ensures real-time UI updates upon AI agent proposed changes approval, involving 
 
 ## Navigation State Persistence
 - **Purpose**: Users remain on the same step/view after page reload or AI agent updates.
-- **Implementation**: `navigationRestored` flag, restoration effect on mount, persistence effect on navigation change, and change detection.
+- **Hook**: `useNavigationPersistence` in `client/src/core/hooks/useNavigationPersistence.ts`.
+- **Key Design**: Navigation state is stored in a SEPARATE localStorage key (`nbs-nav-state_{module}_{projectId}`), completely isolated from domain data.
+- **Why Separated**: Prevents race conditions where navigation updates could overwrite agent patches in the database. Navigation is UI state, not domain data.
+- **Usage**: Modules use the hook instead of storing navigation inside module data. The hook provides `navigationState`, `updateNavigationState`, and `navigationRestored`.
 
 ## Field Validation Registry
 - **Location**: `shared/block-schemas.ts` - centralized `FIELD_VALIDATIONS` object.

@@ -17,6 +17,7 @@ import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useProjectContext, FunderSelectionData, FundingPlan } from '@/core/contexts/project-context';
 import { useChatState } from '@/core/contexts/chat-context';
 import { Alert, AlertDescription } from '@/core/components/ui/alert';
+import { useNavigationPersistence } from '@/core/hooks/useNavigationPersistence';
 
 interface Fund {
   id: string;
@@ -565,11 +566,20 @@ export default function FunderSelectionPage() {
   const { updateModule, loadContext } = useProjectContext();
   const { setPageContext, openChatWithMessage } = useChatState();
   
+  // Separate navigation persistence from domain data to prevent race conditions
+  const { 
+    navigationState: savedNavState, 
+    updateNavigationState, 
+    navigationRestored 
+  } = useNavigationPersistence({
+    projectId,
+    moduleName: 'funderSelection',
+  });
+  
   const [currentStep, setCurrentStep] = useState(0);
   const [fundsData, setFundsData] = useState<FundsData | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [hasSavedToContext, setHasSavedToContext] = useState(false);
-  const [navigationRestored, setNavigationRestored] = useState(false);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({
     projectName: '',
     projectDescription: '',
@@ -613,25 +623,25 @@ export default function FunderSelectionPage() {
       .catch(console.error);
   }, []);
 
-  // Hydrate questionnaire and navigation state from saved context
+  // Restore navigation state from dedicated navigation persistence (separate from domain data)
+  useEffect(() => {
+    if (navigationRestored && savedNavState) {
+      setCurrentStep(savedNavState.currentStep ?? 0);
+      setShowResults(savedNavState.showResults ?? false);
+      if (savedNavState.additionalState) {
+        const addState = savedNavState.additionalState as { showDecisionStep?: boolean; fundingPlanConfirmed?: boolean };
+        if (addState.showDecisionStep !== undefined) setShowDecisionStep(addState.showDecisionStep);
+        if (addState.fundingPlanConfirmed !== undefined) setFundingPlanConfirmed(addState.fundingPlanConfirmed);
+      }
+    }
+  }, [navigationRestored, savedNavState]);
+  
+  // Hydrate questionnaire from saved context (domain data only, not navigation)
   useEffect(() => {
     if (projectId) {
       const existingContext = loadContext(projectId, { skipDbSync: true });
       const savedData = existingContext?.funderSelection;
       const savedQuestionnaire = savedData?.questionnaire as QuestionnaireAnswers | undefined;
-      const savedNavigation = savedData?.navigation;
-      
-      // Restore navigation state first (if saved)
-      if (savedNavigation && !navigationRestored) {
-        setCurrentStep(savedNavigation.currentStep ?? 0);
-        setShowResults(savedNavigation.showResults ?? false);
-        if (savedNavigation.additionalState) {
-          const addState = savedNavigation.additionalState as { showDecisionStep?: boolean; fundingPlanConfirmed?: boolean };
-          if (addState.showDecisionStep !== undefined) setShowDecisionStep(addState.showDecisionStep);
-          if (addState.fundingPlanConfirmed !== undefined) setFundingPlanConfirmed(addState.fundingPlanConfirmed);
-        }
-        setNavigationRestored(true);
-      }
       
       // Check if questionnaire was already completed (has key answers filled)
       const isQuestionnaireComplete = savedQuestionnaire?.projectStage &&
@@ -640,7 +650,7 @@ export default function FunderSelectionPage() {
       if (isQuestionnaireComplete) {
         setAnswers(savedQuestionnaire);
         // Only auto-show results if no navigation state was saved
-        if (!savedNavigation) {
+        if (!savedNavState) {
           setShowResults(true);
         }
       }
@@ -655,7 +665,7 @@ export default function FunderSelectionPage() {
         }));
       }
     }
-  }, [action, projectId, navigationRestored]);
+  }, [action, projectId, savedNavState, loadContext]);
   
   const hydrateFromDB = useCallback((options?: { dataOnly?: boolean }) => {
     if (!projectId || !fundsData) return;
@@ -732,38 +742,20 @@ export default function FunderSelectionPage() {
     return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
   }, [hydrateFromDB]);
 
-  // Persist navigation state whenever it changes
-  // IMPORTANT: This only updates localStorage, not DB, to avoid overwriting domain data
+  // Persist navigation state using dedicated hook (completely separate from domain data)
+  // This is more elegant and robust - navigation never touches the module data/DB
   useEffect(() => {
-    if (!projectId || !navigationRestored) return;
+    if (!navigationRestored) return;
     
-    const existingContext = loadContext(projectId, { skipDbSync: true });
-    const existingData = existingContext?.funderSelection;
-    if (!existingData) return;
-    
-    // Only update if navigation actually changed
-    const oldNav = existingData.navigation;
-    const navChanged = oldNav?.currentStep !== currentStep ||
-      oldNav?.showResults !== showResults ||
-      oldNav?.additionalState?.showDecisionStep !== showDecisionStep ||
-      oldNav?.additionalState?.fundingPlanConfirmed !== fundingPlanConfirmed;
-    
-    if (!navChanged) return;
-    
-    // Skip DB sync for navigation updates - navigation is UI state, not domain data
-    // This prevents the spread of existingData from overwriting DB with stale values
-    updateModule('funderSelection', {
-      ...existingData,
-      navigation: {
-        currentStep,
-        showResults,
-        additionalState: {
-          showDecisionStep,
-          fundingPlanConfirmed,
-        },
+    updateNavigationState({
+      currentStep,
+      showResults,
+      additionalState: {
+        showDecisionStep,
+        fundingPlanConfirmed,
       },
-    } as FunderSelectionData, { skipDbSync: true });
-  }, [projectId, currentStep, showResults, showDecisionStep, fundingPlanConfirmed, navigationRestored, updateModule, loadContext]);
+    });
+  }, [currentStep, showResults, showDecisionStep, fundingPlanConfirmed, navigationRestored, updateNavigationState]);
 
   // Auto-save funder selection changes immediately when user clicks to select
   const [lastSavedSelection, setLastSavedSelection] = useState<{ now: string | null; next: string | null } | null>(null);
