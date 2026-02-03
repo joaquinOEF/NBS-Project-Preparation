@@ -1286,6 +1286,53 @@ export async function executeAgentTool(
         });
         patches.push({ id: shortlistedFundsPatch.id, field: 'shortlistedFunds', value: [fundId] });
         
+        // Patch 4 & 5: Update fundingPlan with selectedFunderNow/Next based on funderType
+        if (funderType === 'preparation') {
+          const selectedFunderNowPatch = await storage.createPatch({
+            projectId,
+            blockType: 'funder_selection',
+            fieldPath: 'fundingPlan.selectedFunderNow',
+            operation: 'set',
+            value: fundId as any,
+            status: 'pending',
+            proposedBy: 'agent',
+          });
+          patches.push({ id: selectedFunderNowPatch.id, field: 'fundingPlan.selectedFunderNow', value: fundId });
+          
+          const selectedFunderNowNamePatch = await storage.createPatch({
+            projectId,
+            blockType: 'funder_selection',
+            fieldPath: 'fundingPlan.selectedFunderNowName',
+            operation: 'set',
+            value: fund.name as any,
+            status: 'pending',
+            proposedBy: 'agent',
+          });
+          patches.push({ id: selectedFunderNowNamePatch.id, field: 'fundingPlan.selectedFunderNowName', value: fund.name });
+        } else {
+          const selectedFunderNextPatch = await storage.createPatch({
+            projectId,
+            blockType: 'funder_selection',
+            fieldPath: 'fundingPlan.selectedFunderNext',
+            operation: 'set',
+            value: fundId as any,
+            status: 'pending',
+            proposedBy: 'agent',
+          });
+          patches.push({ id: selectedFunderNextPatch.id, field: 'fundingPlan.selectedFunderNext', value: fundId });
+          
+          const selectedFunderNextNamePatch = await storage.createPatch({
+            projectId,
+            blockType: 'funder_selection',
+            fieldPath: 'fundingPlan.selectedFunderNextName',
+            operation: 'set',
+            value: fund.name as any,
+            status: 'pending',
+            proposedBy: 'agent',
+          });
+          patches.push({ id: selectedFunderNextNamePatch.id, field: 'fundingPlan.selectedFunderNextName', value: fund.name });
+        }
+        
         console.log(`📝 Created ${patches.length} patches for funder selection: ${fund.name}`);
         
         return {
