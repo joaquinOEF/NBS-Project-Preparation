@@ -14,7 +14,7 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { useTranslation } from 'react-i18next';
 import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
-import { useProjectContext, FunderSelectionData } from '@/core/contexts/project-context';
+import { useProjectContext, FunderSelectionData, FundingPlan } from '@/core/contexts/project-context';
 import { useChatState } from '@/core/contexts/chat-context';
 import { Alert, AlertDescription } from '@/core/components/ui/alert';
 
@@ -691,6 +691,10 @@ export default function FunderSelectionPage() {
                 setShowResults(true);
                 setHasSavedToContext(true);
                 console.log('[Hydration] SUCCESS - restored selectedFunderNow =', savedPlan.selectedFunderNow);
+                // Reset skip flag after a brief delay to allow hydrated values to stabilize
+                setTimeout(() => {
+                  skipAutoSaveRef.current = false;
+                }, 100);
               }
             }
           }
@@ -700,6 +704,7 @@ export default function FunderSelectionPage() {
       .catch(err => {
         console.error('[Hydration] FAILED:', err);
         setHydrationComplete(true);
+        skipAutoSaveRef.current = false;
       });
   }, [projectId, fundsData, isSampleMode, isSampleRoute]);
 
@@ -752,6 +757,58 @@ export default function FunderSelectionPage() {
       },
     } as FunderSelectionData);
   }, [projectId, currentStep, showResults, showDecisionStep, fundingPlanConfirmed, navigationRestored, updateModule, loadContext]);
+
+  // Auto-save funder selection changes immediately when user clicks to select
+  const [lastSavedSelection, setLastSavedSelection] = useState<{ now: string | null; next: string | null } | null>(null);
+  
+  useEffect(() => {
+    // Skip during hydration or before hydration complete
+    if (!hydrationComplete || skipAutoSaveRef.current) return;
+    if (!projectId || !fundsData) return;
+    
+    // Check if selection actually changed from last save
+    const currentSelection = { now: selectedNowFundId, next: selectedNextFundId };
+    if (lastSavedSelection && 
+        lastSavedSelection.now === currentSelection.now && 
+        lastSavedSelection.next === currentSelection.next) {
+      return;
+    }
+    
+    // Get existing data to merge with
+    const existingData = loadContext('funderSelection') as FunderSelectionData | null;
+    if (!existingData) return; // Need existing data to have required fields
+    
+    const existingPlan = existingData.fundingPlan;
+    
+    // Only auto-save if we have a complete existing plan to merge with
+    // (we need all the required FundingPlan fields)
+    if (!existingPlan || !existingPlan.selectedPathwayCategoryNow) return;
+    
+    // Only auto-save if we have a selection
+    if (!selectedNowFundId && !selectedNextFundId) return;
+    
+    console.log('[AutoSave] Saving funder selection:', selectedNowFundId, selectedNextFundId);
+    
+    const selectedNowFund = fundsData.funds.find(f => f.id === selectedNowFundId);
+    const selectedNextFund = fundsData.funds.find(f => f.id === selectedNextFundId);
+    
+    // Update fundingPlan with new selection (preserve all existing fields)
+    const updatedPlan: FundingPlan = {
+      ...existingPlan,
+      lastUpdatedAt: new Date().toISOString(),
+      selectedFunderNow: selectedNowFundId,
+      selectedFunderNowName: selectedNowFund?.name || null,
+      selectedFunderNext: selectedNextFundId,
+      selectedFunderNextName: selectedNextFund?.name || null,
+    };
+    
+    updateModule('funderSelection', {
+      ...existingData,
+      fundingPlan: updatedPlan,
+    });
+    
+    setLastSavedSelection(currentSelection);
+  }, [selectedNowFundId, selectedNextFundId, hydrationComplete, projectId, fundsData, loadContext, updateModule, lastSavedSelection]);
 
   const computedResults = useMemo(() => {
     if (!fundsData || !showResults) return null;
