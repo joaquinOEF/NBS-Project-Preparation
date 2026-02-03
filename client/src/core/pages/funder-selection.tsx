@@ -2137,7 +2137,7 @@ export default function FunderSelectionPage() {
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 {t('funderSelection.retakeQuestionnaire')}
               </Button>
-              {navigationRestored && (
+              {navigationRestored && hydrationComplete && (
                 <Link href={`${routePrefix}/project/${projectId}`}>
                   <Button disabled={!fundingPlanConfirmed}>
                     {fundingPlanConfirmed ? t('funderSelection.backToProject') : t('funderSelection.confirmFirst')}
