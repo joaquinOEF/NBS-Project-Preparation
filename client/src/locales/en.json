@@ -43,6 +43,7 @@
   },
   "cityInfo": {
     "title": "City Information",
+    "sampleDataBadge": "Sample Data",
     "inventoryCount": "{{count}} inventories available",
     "loadingInventories": "Loading inventories...",
     "noInventories": "No inventories found",
@@ -388,6 +389,12 @@
       "investable": "Investable",
       "advanced": "Advanced"
     },
+    "warnings": {
+      "sectorMismatch": "Selected fund may not prioritize your project's sectors",
+      "borrowingRequired": "This fund requires ability to take on debt",
+      "feasibilityRequired": "A feasibility study is typically required for this fund",
+      "sovereignRequired": "This fund requires federal/sovereign approval"
+    },
     "results": {
       "recommendedPathway": "Recommended Funding Pathway",
       "whatThisMeans": "What this type of funding is",
@@ -578,7 +585,9 @@
     "select": "Select",
     "download": "Download",
     "upload": "Upload",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "continue": "Continue",
+    "warning": "Warning"
   },
   "errors": {
     "notFound": "Page not found",
@@ -635,6 +644,7 @@
       "slope_stabilization": "Slope Stabilization",
       "multi_benefit": "Multi-Benefit Greenspace"
     },
+    "governanceTitle": "Governance Structure",
     "operatingModelTitle": "Select Operating Model",
     "operatingModelDescription": "Choose how the project will be owned, operated, and maintained",
     "recommended": "Recommended",
@@ -1102,6 +1112,7 @@
       "selectFinancingPathway": "Select a financing pathway",
       "completeOMFirst": "Complete Project Operations (O&M) first"
     },
+    "enablingActions": "Enabling Actions",
     "enablingActionsTitle": "Enabling Actions",
     "categories": {
       "POLICY": "Policy",
