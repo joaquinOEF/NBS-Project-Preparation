@@ -674,28 +674,32 @@ export default function FunderSelectionPage() {
             setAnswers(dbData.questionnaire as QuestionnaireAnswers);
           }
           
-          if (!dataOnly) {
-            const savedPlan = dbData.fundingPlan;
-            console.log('[Hydration] savedPlan status:', savedPlan?.status);
+          const savedPlan = dbData.fundingPlan;
+          console.log('[Hydration] savedPlan status:', savedPlan?.status, 'dataOnly:', dataOnly);
+          
+          if (savedPlan && savedPlan.status === 'confirmed') {
+            const nowFundExists = savedPlan.selectedFunderNow && fundsData.funds.some(f => f.id === savedPlan.selectedFunderNow);
+            const nextFundExists = !savedPlan.selectedFunderNext || fundsData.funds.some(f => f.id === savedPlan.selectedFunderNext);
+            console.log('[Hydration] nowFundExists:', nowFundExists, 'nextFundExists:', nextFundExists, 'selectedFunderNow:', savedPlan.selectedFunderNow);
             
-            if (savedPlan && savedPlan.status === 'confirmed') {
-              const nowFundExists = savedPlan.selectedFunderNow && fundsData.funds.some(f => f.id === savedPlan.selectedFunderNow);
-              const nextFundExists = !savedPlan.selectedFunderNext || fundsData.funds.some(f => f.id === savedPlan.selectedFunderNext);
-              console.log('[Hydration] nowFundExists:', nowFundExists, 'nextFundExists:', nextFundExists, 'selectedFunderNow:', savedPlan.selectedFunderNow);
+            if (nowFundExists && nextFundExists) {
+              skipAutoSaveRef.current = true;
+              // Always update the selected funder IDs from DB
+              setSelectedNowFundId(savedPlan.selectedFunderNow);
+              setSelectedNextFundId(savedPlan.selectedFunderNext || null);
               
-              if (nowFundExists && nextFundExists) {
-                skipAutoSaveRef.current = true;
-                setSelectedNowFundId(savedPlan.selectedFunderNow);
-                setSelectedNextFundId(savedPlan.selectedFunderNext || null);
+              // Only update navigation/UI state on full hydration (not dataOnly)
+              if (!dataOnly) {
                 setFundingPlanConfirmed(true);
                 setShowResults(true);
                 setHasSavedToContext(true);
-                console.log('[Hydration] SUCCESS - restored selectedFunderNow =', savedPlan.selectedFunderNow);
-                // Reset skip flag after a brief delay to allow hydrated values to stabilize
-                setTimeout(() => {
-                  skipAutoSaveRef.current = false;
-                }, 100);
               }
+              
+              console.log('[Hydration] SUCCESS - restored selectedFunderNow =', savedPlan.selectedFunderNow);
+              // Reset skip flag after a brief delay to allow hydrated values to stabilize
+              setTimeout(() => {
+                skipAutoSaveRef.current = false;
+              }, 100);
             }
           }
         }

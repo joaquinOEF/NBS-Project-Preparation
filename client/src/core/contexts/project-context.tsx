@@ -790,17 +790,40 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
       const blockType = blockTypeMap[module];
       if (!blockType || !moduleData) return;
 
-      // For funder_selection, check if DB has a confirmed plan - don't overwrite it
+      // For funder_selection, prevent overwriting newer DB data with stale local data
       if (module === 'funderSelection') {
         const currentDbRes = await fetch(`/api/projects/${dbProjectId}/blocks/funder_selection`);
         if (currentDbRes.ok) {
           const currentDb = await currentDbRes.json();
-          if (currentDb?.data?.fundingPlan?.status === 'confirmed') {
-            const localPlan = (moduleData as Record<string, unknown>)?.fundingPlan as Record<string, unknown> | undefined;
-            // Only sync if local data also has a confirmed plan (user explicitly re-confirmed)
+          const dbPlan = currentDb?.data?.fundingPlan;
+          const localPlan = (moduleData as Record<string, unknown>)?.fundingPlan as Record<string, unknown> | undefined;
+          
+          if (dbPlan?.status === 'confirmed') {
+            // Only sync if local data also has a confirmed plan
             if (!localPlan || localPlan.status !== 'confirmed') {
               console.log('Skipping sync: DB has confirmed plan, local does not');
               return;
+            }
+            
+            // Compare timestamps - don't overwrite if DB has newer data
+            const dbTimestamp = dbPlan.lastUpdatedAt ? new Date(dbPlan.lastUpdatedAt as string).getTime() : 0;
+            const localTimestamp = localPlan.lastUpdatedAt ? new Date(localPlan.lastUpdatedAt as string).getTime() : 0;
+            
+            if (dbTimestamp > localTimestamp) {
+              console.log('Skipping sync: DB fundingPlan is newer than local', { dbTimestamp, localTimestamp });
+              return;
+            }
+            
+            // Also check if DB has a different selectedFunderNow and we're about to overwrite with old value
+            if (dbPlan.selectedFunderNow !== localPlan.selectedFunderNow) {
+              // DB was updated (likely by agent patches) - don't overwrite unless local timestamp is genuinely newer
+              if (dbTimestamp >= localTimestamp - 1000) { // 1 second tolerance
+                console.log('Skipping sync: DB has different funder selection, avoiding overwrite', {
+                  dbFunder: dbPlan.selectedFunderNow,
+                  localFunder: localPlan.selectedFunderNow
+                });
+                return;
+              }
             }
           }
         }
