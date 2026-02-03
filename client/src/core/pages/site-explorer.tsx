@@ -385,16 +385,23 @@ export default function SiteExplorerPage() {
     });
   }, [selectedZone, navigationRestored, updateNavigationState]);
 
-  // Listen for agent block updates
+  // Listen for agent block updates and re-hydrate local state
   useEffect(() => {
     const handleBlockUpdate = (event: Event) => {
       const customEvent = event as CustomEvent;
       if (customEvent.detail?.blockType === 'site_explorer') {
-        console.log('[SiteExplorer] Received nbs-block-updated event');
-        // Re-fetch data from context if needed
+        console.log('[SiteExplorer] Received nbs-block-updated event, re-hydrating...');
+        // Re-fetch data from context and update local state
         const existingContext = loadContext(projectId || '', { skipDbSync: true });
-        if (existingContext?.siteExplorer) {
-          // Could update local state from context here if needed
+        if (existingContext?.siteExplorer?.selectedZones) {
+          const portfolios: Record<string, SelectedIntervention[]> = {};
+          existingContext.siteExplorer.selectedZones.forEach(zone => {
+            if (typeof zone === 'object' && zone.interventionPortfolio && zone.interventionPortfolio.length > 0) {
+              portfolios[zone.zoneId] = zone.interventionPortfolio;
+            }
+          });
+          console.log('[SiteExplorer] Re-hydrated portfolios:', Object.keys(portfolios));
+          setZonePortfolios(portfolios);
         }
       }
     };
