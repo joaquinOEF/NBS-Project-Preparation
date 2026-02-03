@@ -10,6 +10,11 @@ function formatPathway(pathway: string): string {
   return pathway.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+function extractInterventionName(intervention: string): string {
+  const match = intervention.match(/^([^-–]+)/);
+  return match ? match[1].trim().toLowerCase() : intervention.toLowerCase();
+}
+
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -676,13 +681,14 @@ export async function generateQuantifiedImpacts(
 
   // Step 1: Build search queries from hazard types + intervention names
   const hazardTypes = Array.from(new Set(selectedZones.map(z => z.hazardType).filter(Boolean)));
-  const interventionNames = enabledBundles.flatMap(b => b.interventions);
+  const rawInterventionNames = enabledBundles.flatMap(b => b.interventions);
+  const cleanInterventionNames = Array.from(new Set(rawInterventionNames.map(extractInterventionName)));
 
   const searchQueries: string[] = [];
   for (const hazard of hazardTypes) {
-    searchQueries.push(`${hazard.toLowerCase()} risk reduction NBS urban`);
-    for (const intervention of interventionNames.slice(0, 3)) {
-      searchQueries.push(`${hazard.toLowerCase()} ${intervention.toLowerCase()} effectiveness`);
+    searchQueries.push(`${hazard.toLowerCase().replace(/_/g, ' ')} risk reduction NBS urban`);
+    for (const intervention of cleanInterventionNames.slice(0, 3)) {
+      searchQueries.push(`${hazard.toLowerCase().replace(/_/g, ' ')} ${intervention} effectiveness`);
     }
   }
   searchQueries.push("co-benefits nature-based solutions urban resilience");
@@ -775,6 +781,13 @@ Use evidence chunk IDs where applicable. Return:
 
   try {
     const parsed = JSON.parse(content);
+    
+    // Log if LLM returned empty results despite having evidence
+    if ((!parsed.impactGroups || parsed.impactGroups.length === 0) && topChunks.length > 0) {
+      console.warn(`⚠️  Quantify returned empty impactGroups despite ${topChunks.length} evidence chunks. Search queries:`, searchQueries.slice(0, 4));
+      console.warn(`   Raw LLM response length: ${content.length} chars`);
+    }
+    
     return {
       impactGroups: parsed.impactGroups || [],
       coBenefits: parsed.coBenefits || [],
