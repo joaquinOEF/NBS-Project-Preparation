@@ -120,7 +120,6 @@ export interface FunderSelectionData {
     readinessLevel: string;
     limitingFactors: string[];
   };
-  selectedFunds: string[];
   shortlistedFunds: string[];
   targetFunders: TargetFunderData[];
   bridgeParagraph?: string;
@@ -509,7 +508,6 @@ const defaultFunderSelection: FunderSelectionData = {
     readinessLevel: '',
     limitingFactors: [],
   },
-  selectedFunds: [],
   shortlistedFunds: [],
   targetFunders: [],
 };
@@ -539,7 +537,6 @@ export const sampleFunderSelection: FunderSelectionData = {
     readinessLevel: 'CONCEPT_NOTE',
     limitingFactors: ['MRV_CAPACITY', 'LOCAL_CAPACITY'],
   },
-  selectedFunds: ['GCF', 'AF'],
   shortlistedFunds: ['GCF', 'AF', 'CIF', 'GEF'],
   targetFunders: [
     {
@@ -874,7 +871,7 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
           status: context.funderSelection.status,
           pathway: context.funderSelection.pathway.primary,
           readinessLevel: context.funderSelection.pathway.readinessLevel,
-          selectedFunds: context.funderSelection.selectedFunds.length,
+          selectedFunder: context.funderSelection.fundingPlan?.selectedFunderNow || null,
         } : null,
         operations: context.operations ? {
           status: context.operations.status,

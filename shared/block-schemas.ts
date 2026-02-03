@@ -261,7 +261,6 @@ export const funderSelectionBlockSchema = z.object({
     readinessLevel: z.string().default(''),
     limitingFactors: z.array(z.string()).default([]),
   }),
-  selectedFunds: z.array(z.string()).default([]),
   shortlistedFunds: z.array(z.string()).default([]),
   targetFunders: z.array(targetFunderDataSchema).default([]),
   bridgeParagraph: z.string().optional(),

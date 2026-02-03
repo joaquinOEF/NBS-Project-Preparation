@@ -800,7 +800,6 @@ export default function FunderSelectionPage() {
           readinessLevel: pathwayResult.readinessLevel,
           limitingFactors: pathwayResult.limitingFactorKeys,
         },
-        selectedFunds: recommendedFunds.map(f => f.id),
         shortlistedFunds: recommendedFunds.map(f => f.id),
         targetFunders: targetFunders.map(tf => ({
           fundId: tf.fund.id,
@@ -952,7 +951,6 @@ export default function FunderSelectionPage() {
         readinessLevel: computedResults.pathwayResult.readinessLevel,
         limitingFactors: computedResults.pathwayResult.limitingFactorKeys,
       },
-      selectedFunds: selectedNowFundId ? [selectedNowFundId] : [],
       shortlistedFunds: computedResults.recommendedFunds.slice(0, 3).map(f => f.id),
       targetFunders: computedResults.targetFunders.map(tf => ({
         fundId: tf.fund.id,
