@@ -793,7 +793,17 @@ Use evidence chunk IDs where applicable. Return:
     max_output_tokens: 4000,
   } as any);
 
-  const content = extractTextFromResponse(response);
+  let content = extractTextFromResponse(response);
+  
+  // Strip markdown code blocks if present
+  if (content.startsWith('```json')) {
+    content = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+  } else if (content.startsWith('```')) {
+    content = content.replace(/^```\s*/, '').replace(/\s*```$/, '');
+  }
+  content = content.trim();
+
+  console.log(`📊 Quantify LLM response length: ${content.length} chars`);
 
   try {
     const parsed = JSON.parse(content);
@@ -801,8 +811,9 @@ Use evidence chunk IDs where applicable. Return:
     // Log if LLM returned empty results despite having evidence
     if ((!parsed.impactGroups || parsed.impactGroups.length === 0) && topChunks.length > 0) {
       console.warn(`⚠️  Quantify returned empty impactGroups despite ${topChunks.length} evidence chunks. Search queries:`, searchQueries.slice(0, 4));
-      console.warn(`   Raw LLM response length: ${content.length} chars`);
     }
+    
+    console.log(`✅ Quantified ${parsed.impactGroups?.length || 0} impact groups, ${parsed.coBenefits?.length || 0} co-benefits, ${parsed.mrvIndicators?.length || 0} MRV indicators`);
     
     return {
       impactGroups: parsed.impactGroups || [],
@@ -820,7 +831,8 @@ Use evidence chunk IDs where applicable. Return:
       },
     };
   } catch (error) {
-    console.error("Failed to parse quantify response:", error);
+    console.error("Failed to parse quantify response. Raw content:", content.slice(0, 500));
+    console.error("Parse error:", error);
     throw new Error("Failed to generate quantified impacts - invalid response format");
   }
 }
