@@ -65,11 +65,13 @@ function buildSummary(ctx: ProjectContextData | null): ConceptNoteSection {
   if (ctx.funderSelection?.pathway?.primary) {
     content.push(`Financing Pathway: ${ctx.funderSelection.pathway.primary.replace(/_/g, ' ')}`);
   }
-  if (ctx.funderSelection?.fundingPlan?.selectedFunderNowName) {
-    content.push(`Preparation Fund: ${ctx.funderSelection.fundingPlan.selectedFunderNowName}`);
+  if (ctx.funderSelection?.fundingPlan?.selectedFunderNow) {
+    const fundInfo = ctx.funderSelection.targetFunders?.find(t => t.fundId === ctx.funderSelection?.fundingPlan?.selectedFunderNow);
+    content.push(`Preparation Fund: ${fundInfo?.fundName || ctx.funderSelection.fundingPlan.selectedFunderNow}`);
   }
-  if (ctx.funderSelection?.fundingPlan?.selectedFunderNextName) {
-    content.push(`Target Funder: ${ctx.funderSelection.fundingPlan.selectedFunderNextName}`);
+  if (ctx.funderSelection?.fundingPlan?.selectedFunderNext) {
+    const fundInfo = ctx.funderSelection.targetFunders?.find(t => t.fundId === ctx.funderSelection?.fundingPlan?.selectedFunderNext);
+    content.push(`Target Funder: ${fundInfo?.fundName || ctx.funderSelection.fundingPlan.selectedFunderNext}`);
   }
 
   return { title: 'sectionA', content, hasData: content.length > 0 };
@@ -300,11 +302,13 @@ function buildFinancing(ctx: ProjectContextData | null): ConceptNoteSection {
   // Funder selection data
   if (ctx.funderSelection?.fundingPlan) {
     const plan = ctx.funderSelection.fundingPlan;
-    if (plan.selectedFunderNowName) {
-      content.push(`Project Preparation Facility: ${plan.selectedFunderNowName}`);
+    if (plan.selectedFunderNow) {
+      const fundInfo = ctx.funderSelection.targetFunders?.find(t => t.fundId === plan.selectedFunderNow);
+      content.push(`Project Preparation Facility: ${fundInfo?.fundName || plan.selectedFunderNow}`);
     }
-    if (plan.selectedFunderNextName) {
-      content.push(`Target Investment Funder: ${plan.selectedFunderNextName}`);
+    if (plan.selectedFunderNext) {
+      const fundInfo = ctx.funderSelection.targetFunders?.find(t => t.fundId === plan.selectedFunderNext);
+      content.push(`Target Investment Funder: ${fundInfo?.fundName || plan.selectedFunderNext}`);
     }
   }
 

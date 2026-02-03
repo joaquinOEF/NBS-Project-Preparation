@@ -97,18 +97,22 @@ function FunderHighlight({ data }: { data: ProjectContextData['funderSelection']
           <span className="font-medium">{data.pathway.primary.replace(/_/g, ' ')}</span>
         </div>
       )}
-      {(data.fundingPlan?.selectedFunderNowName || data.fundingPlan?.selectedFunderNextName) ? (
+      {(data.fundingPlan?.selectedFunderNow || data.fundingPlan?.selectedFunderNext) ? (
         <div className="text-xs space-y-1">
-          {data.fundingPlan?.selectedFunderNowName && (
+          {data.fundingPlan?.selectedFunderNow && (
             <div>
               <span className="text-muted-foreground">{t('project.highlights.ppfFund')}: </span>
-              <span className="font-medium">{data.fundingPlan.selectedFunderNowName}</span>
+              <span className="font-medium">
+                {data.targetFunders?.find(t => t.fundId === data.fundingPlan?.selectedFunderNow)?.fundName || data.fundingPlan.selectedFunderNow}
+              </span>
             </div>
           )}
-          {data.fundingPlan?.selectedFunderNextName && (
+          {data.fundingPlan?.selectedFunderNext && (
             <div>
               <span className="text-muted-foreground">{t('project.highlights.targetFunder')}: </span>
-              <span className="font-medium">{data.fundingPlan.selectedFunderNextName}</span>
+              <span className="font-medium">
+                {data.targetFunders?.find(t => t.fundId === data.fundingPlan?.selectedFunderNext)?.fundName || data.fundingPlan.selectedFunderNext}
+              </span>
             </div>
           )}
         </div>
@@ -1141,21 +1145,22 @@ function ContextViewer({ context }: { context: ProjectContextData | null }) {
                   </div>
                 )}
 
-                {(context.funderSelection.selectedFunds?.length > 0 || context.funderSelection.shortlistedFunds?.length > 0) && (
+                {(context.funderSelection.fundingPlan?.selectedFunderNow || context.funderSelection.shortlistedFunds?.length > 0) && (
                   <div className="border-t pt-2 mt-2">
                     <p className="text-xs font-medium mb-2">Funds:</p>
-                    {context.funderSelection.selectedFunds?.length > 0 && (
+                    {context.funderSelection.fundingPlan?.selectedFunderNow && (
                       <div className="mb-2">
-                        <p className="text-xs text-muted-foreground mb-1">Selected ({context.funderSelection?.selectedFunds?.length || 0}):</p>
+                        <p className="text-xs text-muted-foreground mb-1">Selected:</p>
                         <div className="flex flex-wrap gap-1">
-                          {context.funderSelection?.selectedFunds?.map((fundId) => {
+                          {(() => {
+                            const fundId = context.funderSelection.fundingPlan?.selectedFunderNow;
                             const fundInfo = context.funderSelection?.targetFunders?.find(t => t.fundId === fundId);
                             return (
                               <Badge key={fundId} variant="default" className="text-xs">
                                 {fundInfo?.fundName || fundId}
                               </Badge>
                             );
-                          })}
+                          })()}
                         </div>
                       </div>
                     )}

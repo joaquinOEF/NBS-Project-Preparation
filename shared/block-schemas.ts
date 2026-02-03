@@ -676,15 +676,7 @@ export interface FieldRelationship {
 }
 
 export const FIELD_RELATIONSHIPS: Record<string, FieldRelationship[]> = {
-  funder_selection: [
-    {
-      triggerField: 'selectedFunds',
-      relatedFields: [
-        { fieldPath: 'shortlistedFunds', syncType: 'ensure_in_array' },
-      ],
-      description: 'When selectedFunds changes, ensure selection is in shortlistedFunds',
-    },
-  ],
+  funder_selection: [],
   business_model: [
     {
       triggerField: 'payerBeneficiaryMap.primaryPayerId',

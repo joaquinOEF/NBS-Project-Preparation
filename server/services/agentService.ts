@@ -309,7 +309,7 @@ const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "select_funder",
-    description: "Select a funder for the project. This will update all related fields (selectedFunds, targetFunders) properly so the UI reflects the change. Use this instead of propose_patch when changing funder selections.",
+    description: "Select a funder for the project. This will update all related fields (targetFunders, shortlistedFunds, fundingPlan) properly so the UI reflects the change. Use this instead of propose_patch when changing funder selections.",
     parameters: {
       type: "object",
       properties: {
@@ -342,7 +342,7 @@ You have access to a Knowledge Workspace that stores:
 ### Changing Funders
 When the user wants to change the preparation funder or implementation funder:
 - **ALWAYS use the select_funder tool** instead of propose_patch
-- This ensures all related fields (selectedFunds, targetFunders, shortlistedFunds) are updated together
+- This ensures all related fields (targetFunders, shortlistedFunds, fundingPlan) are updated together
 - The select_funder tool creates proper patches for the UI to reflect the change
 - Available fund IDs: fnmc-grants, idb-esp, caf-environment, bndes-fundo-clima, fonplata-green, caixa-finisa, etc.
 
@@ -1247,22 +1247,10 @@ export async function executeAgentTool(
           confidence: gapChecklist.length === 0 ? 'high' : (gapChecklist.length <= 2 ? 'medium' : 'low'),
         };
         
-        // Create patches for both selectedFunds and targetFunders
+        // Create patches for funder selection (3 patches: targetFunders, shortlistedFunds, fundingPlan.selectedFunderNow/Next)
         const patches: any[] = [];
         
-        // Patch 1: Update selectedFunds
-        const selectedFundsPatch = await storage.createPatch({
-          projectId,
-          blockType: 'funder_selection',
-          fieldPath: 'selectedFunds',
-          operation: 'set',
-          value: [fundId] as any,
-          status: 'pending',
-          proposedBy: 'agent',
-        });
-        patches.push({ id: selectedFundsPatch.id, field: 'selectedFunds', value: [fundId] });
-        
-        // Patch 2: Update targetFunders
+        // Patch 1: Update targetFunders
         const targetFundersPatch = await storage.createPatch({
           projectId,
           blockType: 'funder_selection',
@@ -1298,17 +1286,6 @@ export async function executeAgentTool(
             proposedBy: 'agent',
           });
           patches.push({ id: selectedFunderNowPatch.id, field: 'fundingPlan.selectedFunderNow', value: fundId });
-          
-          const selectedFunderNowNamePatch = await storage.createPatch({
-            projectId,
-            blockType: 'funder_selection',
-            fieldPath: 'fundingPlan.selectedFunderNowName',
-            operation: 'set',
-            value: fund.name as any,
-            status: 'pending',
-            proposedBy: 'agent',
-          });
-          patches.push({ id: selectedFunderNowNamePatch.id, field: 'fundingPlan.selectedFunderNowName', value: fund.name });
         } else {
           const selectedFunderNextPatch = await storage.createPatch({
             projectId,
@@ -1320,17 +1297,6 @@ export async function executeAgentTool(
             proposedBy: 'agent',
           });
           patches.push({ id: selectedFunderNextPatch.id, field: 'fundingPlan.selectedFunderNext', value: fundId });
-          
-          const selectedFunderNextNamePatch = await storage.createPatch({
-            projectId,
-            blockType: 'funder_selection',
-            fieldPath: 'fundingPlan.selectedFunderNextName',
-            operation: 'set',
-            value: fund.name as any,
-            status: 'pending',
-            proposedBy: 'agent',
-          });
-          patches.push({ id: selectedFunderNextNamePatch.id, field: 'fundingPlan.selectedFunderNextName', value: fund.name });
         }
         
         console.log(`📝 Created ${patches.length} patches for funder selection: ${fund.name}`);
