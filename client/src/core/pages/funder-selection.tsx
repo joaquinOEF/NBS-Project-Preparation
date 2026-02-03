@@ -733,6 +733,7 @@ export default function FunderSelectionPage() {
   }, [hydrateFromDB]);
 
   // Persist navigation state whenever it changes
+  // IMPORTANT: This only updates localStorage, not DB, to avoid overwriting domain data
   useEffect(() => {
     if (!projectId || !navigationRestored) return;
     
@@ -749,6 +750,8 @@ export default function FunderSelectionPage() {
     
     if (!navChanged) return;
     
+    // Skip DB sync for navigation updates - navigation is UI state, not domain data
+    // This prevents the spread of existingData from overwriting DB with stale values
     updateModule('funderSelection', {
       ...existingData,
       navigation: {
@@ -759,7 +762,7 @@ export default function FunderSelectionPage() {
           fundingPlanConfirmed,
         },
       },
-    } as FunderSelectionData);
+    } as FunderSelectionData, { skipDbSync: true });
   }, [projectId, currentStep, showResults, showDecisionStep, fundingPlanConfirmed, navigationRestored, updateModule, loadContext]);
 
   // Auto-save funder selection changes immediately when user clicks to select

@@ -852,7 +852,8 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
 
   const updateModule = useCallback(<K extends keyof Pick<ProjectContextData, 'funderSelection' | 'operations' | 'businessModel' | 'siteExplorer' | 'impactModel'>>(
     module: K,
-    data: ProjectContextData[K]
+    data: ProjectContextData[K],
+    options?: { skipDbSync?: boolean }
   ) => {
     if (!context) return;
     
@@ -868,7 +869,10 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
     setContext(updated);
     localStorage.setItem(`${PROJECT_CONTEXT_KEY}_${context.projectId}`, JSON.stringify(updated));
     
-    syncModuleToDatabase(context.projectId, module, data);
+    // Skip DB sync for navigation-only updates to prevent overwriting domain data
+    if (!options?.skipDbSync) {
+      syncModuleToDatabase(context.projectId, module, data);
+    }
   }, [context, syncModuleToDatabase]);
 
   const getContextSummary = useCallback(() => {
