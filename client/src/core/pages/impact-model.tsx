@@ -2754,40 +2754,48 @@ export default function ImpactModelPage() {
         />
 
         <div className="mb-6">
-          {currentStep === 'setup' && (
-            <SetupStep
-              data={localData}
-              onUpdate={handleUpdate}
-              siteExplorerZones={siteExplorerZones}
-              usingSampleData={usingSampleData}
-              cityName={cityName}
-              projectName={projectName}
-              funderName={funderName}
-            />
-          )}
-          {currentStep === 'quantify' && (
-            <QuantifyStep
-              data={localData}
-              onUpdate={handleUpdate}
-              isQuantifying={isQuantifying}
-              onQuantify={handleQuantify}
-            />
-          )}
-          {currentStep === 'narrate' && (
-            <NarrateStep
-              data={localData}
-              onUpdate={handleUpdate}
-              isNarrating={isGenerating}
-              onNarrate={handleNarrate}
-            />
-          )}
-          {currentStep === 'lenses' && (
-            <LensesStep 
-              data={localData} 
-              onUpdate={handleUpdate}
-              onGenerateLens={handleGenerateLens}
-              isGeneratingLens={isGeneratingLens}
-            />
+          {!navigationRestored ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <>
+              {currentStep === 'setup' && (
+                <SetupStep
+                  data={localData}
+                  onUpdate={handleUpdate}
+                  siteExplorerZones={siteExplorerZones}
+                  usingSampleData={usingSampleData}
+                  cityName={cityName}
+                  projectName={projectName}
+                  funderName={funderName}
+                />
+              )}
+              {currentStep === 'quantify' && (
+                <QuantifyStep
+                  data={localData}
+                  onUpdate={handleUpdate}
+                  isQuantifying={isQuantifying}
+                  onQuantify={handleQuantify}
+                />
+              )}
+              {currentStep === 'narrate' && (
+                <NarrateStep
+                  data={localData}
+                  onUpdate={handleUpdate}
+                  isNarrating={isGenerating}
+                  onNarrate={handleNarrate}
+                />
+              )}
+              {currentStep === 'lenses' && (
+                <LensesStep 
+                  data={localData} 
+                  onUpdate={handleUpdate}
+                  onGenerateLens={handleGenerateLens}
+                  isGeneratingLens={isGeneratingLens}
+                />
+              )}
+            </>
           )}
         </div>
 
