@@ -306,6 +306,26 @@ const AGENT_TOOLS: AgentTool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "select_funder",
+    description: "Select a funder for the project. This will update all related fields (selectedFunds, targetFunders) properly so the UI reflects the change. Use this instead of propose_patch when changing funder selections.",
+    parameters: {
+      type: "object",
+      properties: {
+        fundId: {
+          type: "string",
+          description: "The ID of the fund to select (e.g., 'fnmc-grants', 'idb-esp', 'caf-environment')",
+        },
+        funderType: {
+          type: "string",
+          enum: ["preparation", "implementation"],
+          description: "Whether this is for preparation funding (now) or implementation funding (next/target)",
+        },
+      },
+      required: ["fundId", "funderType"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 const SYSTEM_PROMPT = `You are an AI assistant for the NBS (Nature-Based Solutions) Project Builder platform.
@@ -316,7 +336,16 @@ You have access to a Knowledge Workspace that stores:
 - **Project Data**: Funder Selection, Site Explorer, Impact Model, Operations, Business Model modules
 - **Global Knowledge Base**: Research synthesis on NBS effectiveness with quantified impacts from peer-reviewed studies and case studies (especially Latin American cities like Medellín, Mexico City, Rio de Janeiro)
 
-## Funder Selection Valid Field Values
+## Funder Selection
+
+### Changing Funders
+When the user wants to change the preparation funder or implementation funder:
+- **ALWAYS use the select_funder tool** instead of propose_patch
+- This ensures all related fields (selectedFunds, targetFunders, shortlistedFunds) are updated together
+- The select_funder tool creates proper patches for the UI to reflect the change
+- Available fund IDs: fnmc-grants, idb-esp, caf-environment, bndes-fundo-clima, fonplata-green, caixa-finisa, etc.
+
+### Valid Field Values for Questionnaire
 When modifying the Funder Selection questionnaire, you MUST use these exact values:
 - **projectStage**: "idea", "concept", "prefeasibility", "feasibility", "procurement"
 - **existingElements**: "capex", "timeline", "location", "assessments", "agency", "none"
@@ -1104,6 +1133,151 @@ export async function executeAgentTool(
             error: `Failed to propose intervention site: ${error instanceof Error ? error.message : 'Unknown error'}`,
           };
         }
+      }
+
+      case "select_funder": {
+        const { fundId, funderType } = args as { fundId: string; funderType: 'preparation' | 'implementation' };
+        
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const fundsPath = path.join(process.cwd(), 'client', 'public', 'sample-data', 'climate-funds.json');
+        
+        let fundsData: any;
+        try {
+          const fundsJson = await fs.readFile(fundsPath, 'utf-8');
+          fundsData = JSON.parse(fundsJson);
+        } catch (error) {
+          return {
+            name,
+            result: null,
+            error: 'Could not load funds data. This feature is only available for the sample project.',
+          };
+        }
+        
+        const fund = fundsData.funds?.find((f: any) => f.id === fundId);
+        if (!fund) {
+          const availableFunds = fundsData.funds?.map((f: any) => `${f.id} (${f.name})`).join(', ');
+          return {
+            name,
+            result: null,
+            error: `Fund "${fundId}" not found. Available funds: ${availableFunds}`,
+          };
+        }
+        
+        // Get current funder_selection block to access questionnaire answers
+        const block = await storage.getInfoBlock(projectId, 'funder_selection');
+        const blockData = (block?.blockStateJson as any) || {};
+        const questionnaire = blockData.questionnaire || {};
+        
+        // Build targetFunder data with computed reasons and gaps
+        const whyFitReasons: string[] = [];
+        const gapChecklist: Array<{ id: string; category: string; text: string; priority: string }> = [];
+        
+        // Compute fit reasons based on questionnaire answers
+        if (questionnaire.sectors?.includes('nature_based') && fund.prioritySectors?.includes('nature_based_solutions')) {
+          whyFitReasons.push('Sector alignment with nature-based solutions');
+        }
+        if (questionnaire.fundingReceiver && fund.eligibleBorrowers?.includes(questionnaire.fundingReceiver)) {
+          whyFitReasons.push(`Eligible borrower type: ${questionnaire.fundingReceiver.replace(/_/g, ' ')}`);
+        }
+        if (fund.category === 'multilateral') {
+          whyFitReasons.push('MDB anchor provides concessional terms and technical support');
+        }
+        if (fund.instrumentType === 'grant') {
+          whyFitReasons.push('Grant structure fits public-good project nature');
+        }
+        if (fund.supportsPreparation && funderType === 'preparation') {
+          whyFitReasons.push('Supports project preparation phase');
+        }
+        if (whyFitReasons.length === 0) {
+          whyFitReasons.push(`Selected fund: ${fund.name}`);
+        }
+        
+        // Compute gap checklist based on fund requirements
+        if (fund.requiresFeasibility && !questionnaire.existingElements?.includes('assessments')) {
+          gapChecklist.push({
+            id: 'feasibility-study',
+            category: 'feasibility',
+            text: 'Complete a feasibility study',
+            priority: 'high',
+          });
+        }
+        if (fund.requiresSovereignGuarantee && questionnaire.nationalApproval !== 'yes') {
+          gapChecklist.push({
+            id: 'sovereign-approval',
+            category: 'sovereign',
+            text: 'Obtain federal/sovereign approval',
+            priority: 'high',
+          });
+        }
+        
+        const targetFunderData = {
+          fundId: fund.id,
+          fundName: fund.name,
+          institution: fund.institution,
+          instrumentType: fund.instrumentType || fund.instrumentLabel || 'unknown',
+          whyFitReasons,
+          gapChecklist,
+          confidence: gapChecklist.length === 0 ? 'high' : (gapChecklist.length <= 2 ? 'medium' : 'low'),
+        };
+        
+        // Create patches for both selectedFunds and targetFunders
+        const patches: any[] = [];
+        
+        // Patch 1: Update selectedFunds
+        const selectedFundsPatch = await storage.createPatch({
+          projectId,
+          blockType: 'funder_selection',
+          fieldPath: 'selectedFunds',
+          operation: 'set',
+          value: [fundId] as any,
+          status: 'pending',
+          proposedBy: 'agent',
+        });
+        patches.push({ id: selectedFundsPatch.id, field: 'selectedFunds', value: [fundId] });
+        
+        // Patch 2: Update targetFunders
+        const targetFundersPatch = await storage.createPatch({
+          projectId,
+          blockType: 'funder_selection',
+          fieldPath: 'targetFunders',
+          operation: 'set',
+          value: [targetFunderData] as any,
+          status: 'pending',
+          proposedBy: 'agent',
+        });
+        patches.push({ id: targetFundersPatch.id, field: 'targetFunders', value: [targetFunderData] });
+        
+        // Patch 3: Update shortlistedFunds to include the selected fund
+        const shortlistedFundsPatch = await storage.createPatch({
+          projectId,
+          blockType: 'funder_selection',
+          fieldPath: 'shortlistedFunds',
+          operation: 'set',
+          value: [fundId] as any,
+          status: 'pending',
+          proposedBy: 'agent',
+        });
+        patches.push({ id: shortlistedFundsPatch.id, field: 'shortlistedFunds', value: [fundId] });
+        
+        console.log(`📝 Created ${patches.length} patches for funder selection: ${fund.name}`);
+        
+        return {
+          name,
+          result: {
+            success: true,
+            patches,
+            fund: {
+              id: fund.id,
+              name: fund.name,
+              institution: fund.institution,
+              instrumentType: fund.instrumentType,
+            },
+            funderType,
+            message: `I've proposed changing your ${funderType} funder to ${fund.name} (${fund.institution}). This creates ${patches.length} related updates. Please approve or reject these changes.`,
+            requiresApproval: true,
+          },
+        };
       }
 
       default:

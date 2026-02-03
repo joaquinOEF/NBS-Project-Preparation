@@ -32,7 +32,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Conversational AI Agent
 - **Architecture**: OpenAI client (`gpt-5.2`) for streaming and structured outputs, an agent service for multi-turn tool orchestration.
-- **Agent Tools**: `get_project_state`, `get_block`, `list_modules`, `propose_patch`, `record_evidence`, `get_evidence`, `get_pending_patches`, `lookup_location`, `find_zone_for_coordinates`, `add_intervention_site`.
+- **Agent Tools**: `get_project_state`, `get_block`, `list_modules`, `propose_patch`, `record_evidence`, `get_evidence`, `get_pending_patches`, `lookup_location`, `find_zone_for_coordinates`, `add_intervention_site`, `select_funder`.
 - **Chat Interface**: SSE streaming with `conversations` and `messages` schemas.
 - **PageContext System**: Modules report their current state (step, view, context details) to the agent, enabling step-aware guidance.
   - Interface: `{ moduleName, currentStep, stepNumber, totalSteps, viewState, additionalInfo }`
@@ -121,6 +121,7 @@ The agent utilizes the following tools for understanding context and making chan
 - `lookup_location`: Look up coordinates for a location by name/address using OpenStreetMap Nominatim. Returns area in hectares from bounding box.
 - `find_zone_for_coordinates`: Given lat/lng coordinates, find which intervention zone contains that location. Returns compatible intervention types for that zone.
 - `add_intervention_site`: Prepare intervention site data for adding to a zone's portfolio. Agent uses this proactively after finding location and zone.
+- `select_funder`: Select a funder for preparation or implementation. Updates all related fields (selectedFunds, targetFunders, shortlistedFunds) atomically. Use this instead of propose_patch when changing funder selections.
 
 **Agent Workflow for Field Updates:**
 1. Use `get_block` to see current module state
