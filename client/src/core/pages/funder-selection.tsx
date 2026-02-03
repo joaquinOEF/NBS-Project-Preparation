@@ -775,7 +775,8 @@ export default function FunderSelectionPage() {
     }
     
     // Get existing data to merge with
-    const existingData = loadContext('funderSelection') as FunderSelectionData | null;
+    const existingContext = loadContext(projectId, { skipDbSync: true });
+    const existingData = existingContext?.funderSelection as FunderSelectionData | null;
     if (!existingData) return; // Need existing data to have required fields
     
     const existingPlan = existingData.fundingPlan;
@@ -787,12 +788,12 @@ export default function FunderSelectionPage() {
     // Only auto-save if we have a selection
     if (!selectedNowFundId && !selectedNextFundId) return;
     
-    console.log('[AutoSave] Saving funder selection:', selectedNowFundId, selectedNextFundId);
+    console.log('[AutoSave] Saving funder selection:', selectedNowFundId, selectedNextFundId, 'existingPlan.status:', existingPlan.status);
     
     const selectedNowFund = fundsData.funds.find(f => f.id === selectedNowFundId);
     const selectedNextFund = fundsData.funds.find(f => f.id === selectedNextFundId);
     
-    // Update fundingPlan with new selection (preserve all existing fields)
+    // Update fundingPlan with new selection (preserve all existing fields including status)
     const updatedPlan: FundingPlan = {
       ...existingPlan,
       lastUpdatedAt: new Date().toISOString(),
@@ -801,6 +802,8 @@ export default function FunderSelectionPage() {
       selectedFunderNext: selectedNextFundId,
       selectedFunderNextName: selectedNextFund?.name || null,
     };
+    
+    console.log('[AutoSave] Updated plan status:', updatedPlan.status, 'selectedFunderNow:', updatedPlan.selectedFunderNow);
     
     updateModule('funderSelection', {
       ...existingData,
