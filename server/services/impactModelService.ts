@@ -765,19 +765,27 @@ Use evidence chunk IDs where applicable. Return:
   "mrvIndicators": [...]
 }`;
 
-  const response = await openai.chat.completions.create({
+  const response = await openai.responses.create({
     model: "gpt-5.2",
-    messages: [
-      { role: "system", content: systemPrompt },
+    input: [
+      { role: "developer", content: systemPrompt },
       { role: "user", content: userPrompt }
     ],
-    response_format: { type: "json_object" },
-    temperature: 0.5,
-    max_completion_tokens: 3000,
-    reasoning_effort: "none",
+    text: {
+      format: { type: "json_object" },
+    },
+    reasoning: { effort: "low" },
+    max_output_tokens: 4000,
   } as any);
 
-  const content = response.choices[0]?.message?.content || "{}";
+  // Extract text from responses API format
+  const output = (response as any).output || [];
+  const content = output
+    .filter((item: any) => item.type === "message")
+    .flatMap((item: any) => item.content || [])
+    .filter((part: any) => part.type === "output_text")
+    .map((part: any) => part.text)
+    .join("") || "{}";
 
   try {
     const parsed = JSON.parse(content);
