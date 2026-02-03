@@ -1785,6 +1785,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (schema) {
           const parseResult = schema.safeParse(data);
           if (!parseResult.success) {
+            console.error(`Block validation failed for ${blockType}:`, parseResult.error.errors);
             return res.status(400).json({
               message: 'Invalid block data',
               errors: parseResult.error.errors,
