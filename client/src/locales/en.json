@@ -784,7 +784,9 @@
       "operatorAssigned": "Operator assigned",
       "taskPlanPresent": "Task plan defined",
       "fundingMechanismSelected": "Funding mechanism selected",
-      "verifierSet": "Verifier assigned"
+      "verifierSet": "Verifier assigned",
+      "costBandDefined": "Cost band defined",
+      "primaryFundingSelected": "Primary funding selected"
     },
     "blockers": "Blockers",
     "blocker": {
