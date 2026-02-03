@@ -15,6 +15,17 @@ function extractInterventionName(intervention: string): string {
   return match ? match[1].trim().toLowerCase() : intervention.toLowerCase();
 }
 
+// Helper to extract text from OpenAI responses API format
+function extractTextFromResponse(response: any): string {
+  const output = response?.output || [];
+  return output
+    .filter((item: any) => item.type === "message")
+    .flatMap((item: any) => item.content || [])
+    .filter((part: any) => part.type === "output_text")
+    .map((part: any) => part.text)
+    .join("") || "{}";
+}
+
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -305,19 +316,20 @@ Generate exactly 10 narrative blocks as specified above, 4-6 co-benefits relevan
 Make the content specific to the zones, hazards, and interventions provided. Use realistic metrics and ranges based on NBS literature.
 Each block should have 2-4 paragraphs of substantive content. Be specific about the city, interventions, and expected outcomes.`;
 
-  const response = await openai.chat.completions.create({
+  const response = await openai.responses.create({
     model: "gpt-5.2",
-    messages: [
-      { role: "system", content: systemPrompt },
+    input: [
+      { role: "developer", content: systemPrompt },
       { role: "user", content: userPrompt }
     ],
-    response_format: { type: "json_object" },
-    temperature: 0.7,
-    max_completion_tokens: 8000,
-    reasoning_effort: "none",
+    text: {
+      format: { type: "json_object" },
+    },
+    reasoning: { effort: "low" },
+    max_output_tokens: 8000,
   } as any);
 
-  const content = response.choices[0]?.message?.content || "{}";
+  const content = extractTextFromResponse(response);
   
   try {
     const parsed = JSON.parse(content) as GenerateNarrativeResponse;
@@ -384,19 +396,20 @@ Return a JSON object with the adapted narrative blocks:
 
 Adapt ALL ${baseNarrativeBlocks.length} blocks to the ${lens} lens.`;
 
-  const response = await openai.chat.completions.create({
+  const response = await openai.responses.create({
     model: "gpt-5.2",
-    messages: [
-      { role: "system", content: systemPrompt },
+    input: [
+      { role: "developer", content: systemPrompt },
       { role: "user", content: userPrompt }
     ],
-    response_format: { type: "json_object" },
-    temperature: 0.7,
-    max_completion_tokens: 8000,
-    reasoning_effort: "none",
+    text: {
+      format: { type: "json_object" },
+    },
+    reasoning: { effort: "low" },
+    max_output_tokens: 8000,
   } as any);
 
-  const content = response.choices[0]?.message?.content || "{}";
+  const content = extractTextFromResponse(response);
   
   try {
     const parsed = JSON.parse(content);
@@ -455,19 +468,20 @@ Return a JSON object with the regenerated block:
   }
 }`;
 
-  const response = await openai.chat.completions.create({
+  const response = await openai.responses.create({
     model: "gpt-5.2",
-    messages: [
-      { role: "system", content: systemPrompt },
+    input: [
+      { role: "developer", content: systemPrompt },
       { role: "user", content: userPrompt }
     ],
-    response_format: { type: "json_object" },
-    temperature: 0.7,
-    max_completion_tokens: 2000,
-    reasoning_effort: "none",
+    text: {
+      format: { type: "json_object" },
+    },
+    reasoning: { effort: "low" },
+    max_output_tokens: 2000,
   } as any);
 
-  const content = response.choices[0]?.message?.content || "{}";
+  const content = extractTextFromResponse(response);
   
   try {
     const parsed = JSON.parse(content);
@@ -576,19 +590,20 @@ Use the same JSON structure as the standard narrative generation:
 
 Each block should be 2-4 paragraphs. Reference the specific KPI values from the quantified data.`;
 
-  const response = await openai.chat.completions.create({
+  const response = await openai.responses.create({
     model: "gpt-5.2",
-    messages: [
-      { role: "system", content: systemPrompt },
+    input: [
+      { role: "developer", content: systemPrompt },
       { role: "user", content: userPrompt }
     ],
-    response_format: { type: "json_object" },
-    temperature: 0.7,
-    max_completion_tokens: 8000,
-    reasoning_effort: "none",
+    text: {
+      format: { type: "json_object" },
+    },
+    reasoning: { effort: "low" },
+    max_output_tokens: 8000,
   } as any);
 
-  const content = response.choices[0]?.message?.content || "{}";
+  const content = extractTextFromResponse(response);
 
   try {
     const parsed = JSON.parse(content) as GenerateNarrativeResponse;
@@ -778,14 +793,7 @@ Use evidence chunk IDs where applicable. Return:
     max_output_tokens: 4000,
   } as any);
 
-  // Extract text from responses API format
-  const output = (response as any).output || [];
-  const content = output
-    .filter((item: any) => item.type === "message")
-    .flatMap((item: any) => item.content || [])
-    .filter((part: any) => part.type === "output_text")
-    .map((part: any) => part.text)
-    .join("") || "{}";
+  const content = extractTextFromResponse(response);
 
   try {
     const parsed = JSON.parse(content);
