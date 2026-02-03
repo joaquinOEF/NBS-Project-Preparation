@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from 'express';
 import cookieParser from 'cookie-parser';
 import { registerRoutes } from './routes';
 import { setupVite, serveStatic, log } from './vite';
+import { autoSeedKnowledgeBase } from './services/knowledgeService';
 
 const app = express();
 app.use(express.json());
@@ -69,8 +70,15 @@ app.use((req, res, next) => {
       host: '0.0.0.0',
       reusePort: true,
     },
-    () => {
+    async () => {
       log(`serving on port ${port}`);
+      
+      // Auto-seed knowledge base on startup (seeds only missing documents)
+      try {
+        await autoSeedKnowledgeBase();
+      } catch (error) {
+        console.error('Failed to auto-seed knowledge base:', error);
+      }
     }
   );
 })();

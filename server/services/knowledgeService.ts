@@ -1,6 +1,7 @@
 import { storage } from "../storage";
 import { generateEmbedding, generateEmbeddings, serializeEmbedding, deserializeEmbedding, cosineSimilarity } from "./embeddingService";
 import { chunkContent, computeContentHash, type ChunkResult } from "./chunkingService";
+import { parsePdfFile } from "./pdfService";
 import type { 
   KnowledgeSource, 
   KnowledgeChunk, 
@@ -12,7 +13,7 @@ import type {
   InfoBlockType,
 } from "@shared/schema";
 import type { DocumentMetadata, ModuleUsability } from "@shared/document-knowledge-registry";
-import { GLOBAL_PROJECT_ID } from "@shared/document-knowledge-registry";
+import { GLOBAL_PROJECT_ID, INITIAL_KNOWLEDGE_DOCUMENTS } from "@shared/document-knowledge-registry";
 
 export interface IngestOptions {
   forceReindex?: boolean;
@@ -437,4 +438,54 @@ export async function getKnowledgeStats(projectId: string): Promise<{
     totalTokens,
     bySourceType,
   };
+}
+
+export async function autoSeedKnowledgeBase(): Promise<{
+  seeded: string[];
+  skipped: string[];
+  errors: string[];
+}> {
+  const results = {
+    seeded: [] as string[],
+    skipped: [] as string[],
+    errors: [] as string[],
+  };
+
+  console.log(`📚 Checking knowledge base for ${INITIAL_KNOWLEDGE_DOCUMENTS.length} documents...`);
+
+  for (const doc of INITIAL_KNOWLEDGE_DOCUMENTS) {
+    try {
+      const sourceRef = `document:${doc.id}`;
+      const existingSource = await storage.getKnowledgeSourceByRef(GLOBAL_PROJECT_ID, "document", sourceRef);
+      
+      if (existingSource) {
+        results.skipped.push(doc.id);
+        continue;
+      }
+
+      console.log(`📄 Seeding: ${doc.title}...`);
+      const pdfResult = await parsePdfFile(doc.filePath);
+      
+      await ingestDocument(
+        doc.id,
+        doc.title,
+        pdfResult.text,
+        doc.metadata
+      );
+      
+      results.seeded.push(doc.id);
+      console.log(`✅ Seeded: ${doc.id} (${pdfResult.numPages} pages)`);
+    } catch (error) {
+      results.errors.push(`${doc.id}: ${error}`);
+      console.error(`❌ Failed to seed ${doc.id}:`, error);
+    }
+  }
+
+  if (results.seeded.length > 0) {
+    console.log(`📚 Knowledge base seeding complete: ${results.seeded.length} new, ${results.skipped.length} existing`);
+  } else if (results.skipped.length > 0) {
+    console.log(`📚 Knowledge base up to date (${results.skipped.length} documents)`);
+  }
+
+  return results;
 }

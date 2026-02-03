@@ -26,7 +26,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Knowledge Workspace
 - **Core Tables**: `info_blocks`, `evidence_records`, `assumptions`, `agent_action_log`, `project_patches`.
-- **Module Registry**: Defines module structure, sections, and field paths for `funder_selection`, `site_explorer`, `impact_model`, `operations`, and `business_model`.
+- **Module Registry**: Defines module structure for `funder_selection`, `site_explorer`, `impact_model`, `operations`, and `business_model`.
 - **Agent Action Protocol**: Supports proposing, applying, rejecting patches, auto-completion, and suggestions.
 - **Sample Mode**: Uses database-backed architecture with a shared, writable project.
 
@@ -34,31 +34,21 @@ Preferred communication style: Simple, everyday language.
 - **Architecture**: OpenAI client (`gpt-5.2`) for streaming and structured outputs, an agent service for multi-turn tool orchestration.
 - **Agent Tools**: `get_project_state`, `get_block`, `list_modules`, `propose_patch`, `record_evidence`, `get_evidence`, `get_pending_patches`, `lookup_location`, `find_zone_for_coordinates`, `add_intervention_site`, `select_funder`.
 - **Chat Interface**: SSE streaming with `conversations` and `messages` schemas.
-- **PageContext System**: Modules report their current state (step, view, context details) to the agent, enabling step-aware guidance.
-  - Interface: `{ moduleName, currentStep, stepNumber, totalSteps, viewState, additionalInfo }`
-  - Implemented in: Funder Selection, Site Explorer, Impact Model
-  - Pattern: Separate useEffects for context updates (on state change) and cleanup (on unmount only)
+- **PageContext System**: Modules report their current state to the agent for step-aware guidance.
 
 ## RAG Knowledge Base
 - **Database Tables**: `knowledge_sources` and `knowledge_chunks`.
 - **Source Types**: `block_state`, `evidence`, `conversation`, `document`, `external`.
 - **Embedding Approach**: Hash-based TF-IDF for text embeddings for keyword-based similarity search.
 - **Services**: `embeddingService`, `chunkingService`, `knowledgeService`, `pdfService`.
-- **Agent Tool**: `search_knowledge` with tag filtering and global knowledge inclusion.
+- **Agent Tool**: `search_knowledge` with tag filtering.
 
 ## Document Knowledge Base
-- **Registry**: `shared/document-knowledge-registry.ts` defines categories, tags, and document metadata structure.
+- **Registry**: `shared/document-knowledge-registry.ts` defines categories, tags, and document metadata.
 - **Categories**: `nbs_intervention_impacts`, `funder_guidelines`, `technical_standards`, `case_studies`, `local_context`, `economic_data`, `policy_frameworks`, `climate_science`.
-- **Tags**: `flood-resilience`, `heat-mitigation`, `slope-stabilization`, `co-benefits`, `latin-america`, `urban-greening`, etc.
-- **Global Project ID**: `global-knowledge-base` - documents are project-agnostic and available to all projects.
-- **API Endpoints**:
-  - `GET /api/knowledge/documents` - List all documents with metadata.
-  - `POST /api/knowledge/documents/ingest` - Ingest a new document with metadata.
-  - `POST /api/knowledge/documents/seed` - Seed initial knowledge documents from registry.
-  - `DELETE /api/knowledge/documents/:documentId` - Remove a document.
-  - `GET /api/knowledge/stats` - Global knowledge base statistics.
-- **Initial Documents**: NBS Urban Climate Resilience research synthesis (flood, heat, slope evidence with Latin American case studies).
-- **Scalability**: Add new documents by adding entries to `INITIAL_KNOWLEDGE_DOCUMENTS` array or via API.
+- **Global Project ID**: `global-knowledge-base` for project-agnostic documents.
+- **API Endpoints**: `GET /api/knowledge/documents`, `POST /api/knowledge/documents/ingest`, `POST /api/knowledge/documents/seed`, `DELETE /api/knowledge/documents/:documentId`, `GET /api/knowledge/stats`.
+- **Auto-Seeding**: On server startup, ensures missing documents from `INITIAL_KNOWLEDGE_DOCUMENTS` are seeded.
 
 ## Authentication & Authorization
 - **Mechanism**: OAuth 2.0 PKCE with CityCatalyst.
@@ -66,14 +56,12 @@ Preferred communication style: Simple, everyday language.
 - **Access Control**: Project-based user access.
 
 ## Shared Project Context
-- **`ProjectContextProvider`**: Facilitates data persistence and cross-module data sharing using `localStorage`.
-- **"Read Before Ask" Principle**: Modules prefill data from context to minimize user input.
+- **`ProjectContextProvider`**: Facilitates data persistence and cross-module data sharing using `localStorage`, implementing a "Read Before Ask" principle.
 
 ## Geospatial Risk Analysis
 - **Site Explorer**: Grid-based risk scoring for heat, flood, and landslide.
 - **OSM Asset Discovery**: Integrates OpenStreetMap Overpass API for asset identification.
-- **Linear Asset Handling**: Supports clipping and length calculation for linear features.
-- **Custom Asset Addition**: Users can add custom assets via OSM name search (Nominatim API) or manual coordinate entry. Custom assets include `source: 'manual'` or `source: 'nominatim'` to distinguish from auto-discovered OSM assets.
+- **Custom Asset Addition**: Users can add custom assets via OSM name search (Nominatim API) or manual coordinate entry.
 
 ## Business Model Module
 - A 6-step wizard guiding users through financing structure, archetypes, revenue, and funding pathways.
@@ -81,108 +69,39 @@ Preferred communication style: Simple, everyday language.
 ## Impact Model Module
 - A 5-step AI-powered wizard (Setup → Generate → Curate → Lenses → Export) for creating funder-ready impact narratives.
 - **AI Integration**: Uses OpenAI GPT-5.2 via Replit AI Integrations for structured narrative generation.
-- **AI Model Selection Strategy**: Differentiates models for narrative generation, chat, audio, images, and transcription based on task requirements.
 - **Data Flow**: Integrates inputs from Funder Selection and Site Explorer, and outputs signals to Operations and Business Model.
 
 ## Module Development Pattern
-Modules follow a 5-layer integration: Page Goal, Block Type, Module Page, Context Integration, and RAG Ingestion. This ensures consistency and agent awareness for all modules like Funder Selection, Site Explorer, Impact Model, Operations, and Business Model.
+Modules follow a 5-layer integration: Page Goal, Block Type, Module Page, Context Integration, and RAG Ingestion for consistency and agent awareness.
 
 ## Real-Time Sync Pattern
-The system ensures real-time UI updates when the AI agent proposes changes and the user approves them. This involves updating the database, fetching fresh data, updating the `ProjectContext`, dispatching a custom event, and triggering UI re-hydration.
+Ensures real-time UI updates upon AI agent proposed changes approval, involving database updates, data fetching, context updates, event dispatch, and UI re-hydration.
 
 ## Navigation State Persistence
-- **Purpose**: Users stay on the same step/view after page reload or when AI agent updates module data.
-- **Interface**: `ModuleNavigation { currentStep: number, showResults?: boolean, additionalState?: Record<string, any> }`
-- **Implementation Pattern**:
-  1. `navigationRestored` flag prevents persistence effects from running until hydration completes
-  2. Restoration effect: On mount, reads saved navigation from context and restores local state
-  3. Persistence effect: When navigation changes, saves only the navigation field (not full module data)
-  4. Change detection: Skips updates when navigation hasn't actually changed to prevent loops
-- **Modules**: All 5 main modules (Funder Selection, Site Explorer, Impact Model, Operations, Business Model)
-- **Limitation**: Site Explorer cannot restore exact zone selection since zones are loaded dynamically from the map
+- **Purpose**: Users remain on the same step/view after page reload or AI agent updates.
+- **Implementation**: `navigationRestored` flag, restoration effect on mount, persistence effect on navigation change, and change detection.
 
 ## Field Validation Registry
-- **Location**: `shared/block-schemas.ts` - centralized `FIELD_VALIDATIONS` object
-- **Purpose**: Scalable, declarative validation for patch values across all modules
-- **Validation Types**: `enum` (single value), `enumArray` (array of values), `string`, `number` (with min/max), `boolean`
-- **How to Add**: Add entries to `FIELD_VALIDATIONS[module_name]` array with `fieldPath`, `validation`, and optional `label`
-- **Runtime**: `validateFieldValue(blockType, fieldPath, value)` returns null if valid, error message if invalid
-- **Integration**: Called at two stages: (1) when agent proposes a patch via `propose_patch` tool, (2) when user approves via `/api/projects/:id/apply`
+- **Location**: `shared/block-schemas.ts` - centralized `FIELD_VALIDATIONS` object.
+- **Purpose**: Scalable, declarative validation for patch values across all modules.
+- **Validation Types**: `enum`, `enumArray`, `string`, `number` (with min/max), `boolean`.
+- **Integration**: Validates proposed patches and user-approved changes.
 
 ## Field Relationships Registry
-- **Location**: `shared/block-schemas.ts` - centralized `FIELD_RELATIONSHIPS` object
-- **Purpose**: Auto-create related patches when fields that depend on each other are updated
-- **Sync Types**:
-  - `ensure_in_array`: Ensure a value exists in a related array field
-  - `copy_value`: Copy the value to another field
-  - `clear_if_not_in`: Clear if value not in source array
-  - `custom`: Custom handler logic (e.g., `set_true_if_value`)
-- **How to Add**: Add relationship entries to `FIELD_RELATIONSHIPS[module_name]` with `triggerField`, `relatedFields`, and `description`
-- **Runtime**: `getRelatedPatches(blockType, fieldPath, newValue, currentBlockData)` returns array of related patches to create
-- **Current Relationships**:
-  - `funder_selection`: selectedFunds → shortlistedFunds
-  - `business_model`: primaryPayerId → candidatePayers
-  - `operations`: operatingModel/operatorEntityId → readiness checklist flags
+- **Location**: `shared/block-schemas.ts` - centralized `FIELD_RELATIONSHIPS` object.
+- **Purpose**: Auto-create related patches when dependent fields are updated.
+- **Sync Types**: `ensure_in_array`, `copy_value`, `clear_if_not_in`, `custom`.
+- **Current Relationships**: `funder_selection`: selectedFunds → shortlistedFunds; `business_model`: primaryPayerId → candidatePayers; `operations`: operatingModel/operatorEntityId → readiness checklist flags.
 
 ## Agent Tool Reference
-The agent utilizes the following tools for understanding context and making changes:
-- `get_project_state`: Get overall project state including blocks, evidence, and pending patches
-- `get_block`: Read current state of a specific module block
-- `get_field_options`: **MUST use before proposing patches** - looks up valid values for enum/enumArray fields
-- `propose_patch`: Propose a field update (validated before creation, rejected if invalid)
-- `record_evidence`: Link evidence to a specific field path
-- `search_knowledge`: Search the RAG knowledge base with tag filtering
-- `get_pending_patches`: Check status of proposed patches
-- `lookup_location`: Look up coordinates for a location by name/address using OpenStreetMap Nominatim. Returns area in hectares from bounding box.
-- `find_zone_for_coordinates`: Given lat/lng coordinates, find which intervention zone contains that location. Returns compatible intervention types for that zone.
-- `add_intervention_site`: Prepare intervention site data for adding to a zone's portfolio. Agent uses this proactively after finding location and zone.
-- `select_funder`: Select a funder for preparation or implementation. Updates all related fields (selectedFunds, targetFunders, shortlistedFunds) atomically. Use this instead of propose_patch when changing funder selections.
-
-**Agent Workflow for Field Updates:**
-1. Use `get_block` to see current module state
-2. Use `get_field_options` to look up valid values BEFORE proposing any patch
-3. For Impact Model: Use `search_knowledge` to find evidence before proposing narratives
-4. Use `propose_patch` with ONLY valid values - user must approve each change
+The agent utilizes tools like `get_project_state`, `get_block`, `get_field_options`, `propose_patch`, `record_evidence`, `search_knowledge`, `get_pending_patches`, `lookup_location`, `find_zone_for_coordinates`, `add_intervention_site`, and `select_funder` for context understanding and modifications.
 
 ## Reusable UI/Agent Patterns
-
-### Update Banner Pattern
-Use for prompting users to update outdated information:
-- **Styling**: Amber/warning colors (border-amber-200, bg-amber-50)
-- **Icon**: AlertCircle for visual cue
-- **Buttons**: Primary button for main action, outline for secondary (agent)
-- **Example**: `client/src/core/pages/funder-selection.tsx` - update questionnaire banner
-
-### Agent Context Integration (openChatWithMessage)
-Pattern for opening chat with a pre-filled message:
-- **Context**: `useChatState()` from `chat-context.tsx` provides `openChatWithMessage(message: string)`
-- **Usage**: `openChatWithMessage(t('module.updateBanner.agentMessage'))`
-- **Flow**: Message is queued, chat drawer opens, message auto-sends after history loads
-- **Implementation**: `pendingInitialMessage` state + `clearPendingMessage` cleanup
-
-### User-Friendly Agent Response Formatting
-Agent system prompt includes instructions to format responses in readable language:
-- Group by logical sections (Project Status, Budget & Financing, Governance)
-- Use plain language labels, not schema field names
-- Translate enum values (e.g., "idea" → "Early idea phase", "over_50m" → "Over $50 million")
-- Use bullet points for readability
-- **Location**: `server/services/agentService.ts` SYSTEM_PROMPT
-
-### Cross-Module Navigation Buttons
-When agent updates module data and user is not on that module's page:
-- Use `[NAV_BUTTON:path|label]` syntax in chat messages to render clickable navigation buttons
-- ChatDrawer's `parseNavigationButtons()` extracts these markers and renders actual `<Button>` components
-- **Syntax**: `[NAV_BUTTON:/sample/funder-selection/sample-ada-1|View Funder Selection Results]`
-- **Implementation**: ChatDrawer parses content, strips markers, renders buttons with `setLocation(path)` onClick
-- **Path Building**: Use `isSampleMode` to construct correct path (sample vs regular project routes)
-- **Example**: `showReadinessUpdate()` in ChatDrawer adds navigation button when off funder-selection page
-
-### Post-Patch Readiness Recalculation
-After funder_selection questionnaire patches are applied:
-- **Shared Utility**: `client/src/core/utils/funding-readiness.ts`
-- **Functions**: `computeReadinessScores()`, `determinePathway()`, `formatReadinessSummary()`
-- **Trigger**: ChatDrawer calls `showReadinessUpdate()` after applying funder_selection patches
-- **Output**: Formatted summary with scores, pathway, and navigation prompt if not on page
+- **Update Banner Pattern**: For prompting users to update outdated information, using amber styling and `AlertCircle` icon.
+- **Agent Context Integration**: `useChatState()` provides `openChatWithMessage(message: string)` for opening chat with pre-filled messages.
+- **User-Friendly Agent Response Formatting**: System prompt ensures readable language, logical grouping, plain labels, translated enum values, and bullet points.
+- **Cross-Module Navigation Buttons**: `[NAV_BUTTON:path|label]` syntax in chat messages to render clickable navigation buttons for modules.
+- **Post-Patch Readiness Recalculation**: Shared utility `funding-readiness.ts` computes readiness scores and determines pathways after funder_selection questionnaire patches.
 
 # External Dependencies
 
@@ -203,3 +122,6 @@ After funder_selection questionnaire patches are applied:
 
 ## API Integrations
 - **CityCatalyst API**: Provides HIAP data, city details, and city boundaries.
+- **OpenStreetMap Overpass API**: For geospatial asset discovery.
+- **OpenStreetMap Nominatim API**: For location lookup.
+- **OpenAI GPT-5.2**: For AI-powered conversational agent and impact model generation.
