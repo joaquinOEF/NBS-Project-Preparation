@@ -11,6 +11,7 @@ import {
   MODULE_REGISTRY,
   FIELD_VALIDATIONS,
   validateFieldValue,
+  getRelatedPatches,
 } from "@shared/schema";
 
 export interface PageContext {
@@ -640,7 +641,8 @@ export async function executeAgentTool(
         }
 
         const block = await storage.getInfoBlock(projectId, blockType);
-        const oldValue = block ? getNestedValue(block.blockStateJson, fieldPath) : undefined;
+        const blockData = (block?.blockStateJson as Record<string, unknown>) || {};
+        const oldValue = block ? getNestedValue(blockData, fieldPath) : undefined;
 
         const patch = await storage.createPatch({
           projectId,
@@ -654,6 +656,25 @@ export async function executeAgentTool(
           proposedByAgentId: "city-project-assistant",
         });
 
+        const allPatches = [{ id: patch.id, fieldPath, value: proposedValue }];
+
+        // Check for related fields that need to be updated
+        const relatedPatches = getRelatedPatches(blockType, fieldPath, proposedValue, blockData);
+        for (const related of relatedPatches) {
+          const relatedPatch = await storage.createPatch({
+            projectId,
+            blockType,
+            fieldPath: related.fieldPath,
+            operation: "set",
+            value: related.value as any,
+            previousValue: getNestedValue(blockData, related.fieldPath) as any,
+            status: "pending",
+            proposedBy: "agent",
+            proposedByAgentId: "city-project-assistant",
+          });
+          allPatches.push({ id: relatedPatch.id, fieldPath: related.fieldPath, value: related.value });
+        }
+
         await storage.createAgentAction({
           projectId,
           actor: "agent",
@@ -663,17 +684,22 @@ export async function executeAgentTool(
           targetBlockType: blockType,
           targetFieldPath: fieldPath,
           previousValue: oldValue as any,
-          proposedPatch: { value: proposedValue, rationale },
+          proposedPatch: { value: proposedValue, rationale, relatedPatches: relatedPatches.length > 0 ? relatedPatches : undefined },
         });
+
+        const message = allPatches.length > 1 
+          ? `Proposed ${allPatches.length} related changes. Awaiting user approval.`
+          : "Patch proposed. Awaiting user approval.";
 
         return {
           name,
           result: {
             patchId: patch.id,
+            allPatches,
             blockType,
             fieldPath,
             proposedValue,
-            message: "Patch proposed. Awaiting user approval.",
+            message,
           },
         };
       }

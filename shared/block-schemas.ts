@@ -665,6 +665,128 @@ export const BLOCK_SCHEMAS = {
   business_model: businessModelBlockSchema,
 } as const;
 
+export interface FieldRelationship {
+  triggerField: string;
+  relatedFields: Array<{
+    fieldPath: string;
+    syncType: 'ensure_in_array' | 'copy_value' | 'clear_if_not_in' | 'custom';
+    sourceArray?: string;
+    customHandler?: string;
+  }>;
+  description: string;
+}
+
+export const FIELD_RELATIONSHIPS: Record<string, FieldRelationship[]> = {
+  funder_selection: [
+    {
+      triggerField: 'selectedFunds',
+      relatedFields: [
+        { fieldPath: 'shortlistedFunds', syncType: 'ensure_in_array' },
+      ],
+      description: 'When selectedFunds changes, ensure selection is in shortlistedFunds',
+    },
+  ],
+  business_model: [
+    {
+      triggerField: 'payerBeneficiaryMap.primaryPayerId',
+      relatedFields: [
+        { 
+          fieldPath: 'payerBeneficiaryMap.candidatePayers', 
+          syncType: 'ensure_in_array',
+          sourceArray: 'payerBeneficiaryMap.candidatePayers',
+        },
+      ],
+      description: 'When primaryPayerId is set, ensure it exists in candidatePayers',
+    },
+  ],
+  operations: [
+    {
+      triggerField: 'operatingModel',
+      relatedFields: [
+        { fieldPath: 'readiness.checklist.operatingModelSelected', syncType: 'custom', customHandler: 'set_true_if_value' },
+      ],
+      description: 'When operatingModel is selected, update readiness checklist',
+    },
+    {
+      triggerField: 'roles.operatorEntityId',
+      relatedFields: [
+        { fieldPath: 'readiness.checklist.operatorAssigned', syncType: 'custom', customHandler: 'set_true_if_value' },
+      ],
+      description: 'When operator is assigned, update readiness checklist',
+    },
+  ],
+};
+
+export function getRelatedPatches(
+  blockType: string,
+  fieldPath: string,
+  newValue: unknown,
+  currentBlockData: Record<string, unknown>
+): Array<{ fieldPath: string; value: unknown }> {
+  const relationships = FIELD_RELATIONSHIPS[blockType] || [];
+  const relatedPatches: Array<{ fieldPath: string; value: unknown }> = [];
+  
+  for (const rel of relationships) {
+    if (rel.triggerField !== fieldPath) continue;
+    
+    for (const related of rel.relatedFields) {
+      switch (related.syncType) {
+        case 'ensure_in_array': {
+          const getNestedValue = (obj: any, path: string): any => {
+            return path.split('.').reduce((curr, key) => curr?.[key], obj);
+          };
+          
+          const currentArray = getNestedValue(currentBlockData, related.fieldPath) || [];
+          
+          if (Array.isArray(newValue)) {
+            const valuesToAdd = newValue.filter((v: unknown) => {
+              if (typeof v === 'string') return !currentArray.includes(v);
+              if (typeof v === 'object' && v && 'stakeholderId' in (v as any)) {
+                return !currentArray.some((item: any) => item.stakeholderId === (v as any).stakeholderId);
+              }
+              return false;
+            });
+            
+            if (valuesToAdd.length > 0) {
+              relatedPatches.push({
+                fieldPath: related.fieldPath,
+                value: [...currentArray, ...valuesToAdd],
+              });
+            }
+          } else if (typeof newValue === 'string' && newValue) {
+            if (!currentArray.includes(newValue) && !currentArray.some((item: any) => item.stakeholderId === newValue)) {
+              if (related.fieldPath.includes('candidatePayers')) {
+                relatedPatches.push({
+                  fieldPath: related.fieldPath,
+                  value: [...currentArray, { stakeholderId: newValue }],
+                });
+              } else {
+                relatedPatches.push({
+                  fieldPath: related.fieldPath,
+                  value: [...currentArray, newValue],
+                });
+              }
+            }
+          }
+          break;
+        }
+        
+        case 'custom': {
+          if (related.customHandler === 'set_true_if_value' && newValue) {
+            relatedPatches.push({
+              fieldPath: related.fieldPath,
+              value: true,
+            });
+          }
+          break;
+        }
+      }
+    }
+  }
+  
+  return relatedPatches;
+}
+
 export type FunderSelectionBlock = z.infer<typeof funderSelectionBlockSchema>;
 export type SiteExplorerBlock = z.infer<typeof siteExplorerBlockSchema>;
 export type ImpactModelBlock = z.infer<typeof impactModelBlockSchema>;

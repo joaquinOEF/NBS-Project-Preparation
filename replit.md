@@ -109,6 +109,21 @@ The system ensures real-time UI updates when the AI agent proposes changes and t
 - **Runtime**: `validateFieldValue(blockType, fieldPath, value)` returns null if valid, error message if invalid
 - **Integration**: Called at two stages: (1) when agent proposes a patch via `propose_patch` tool, (2) when user approves via `/api/projects/:id/apply`
 
+## Field Relationships Registry
+- **Location**: `shared/block-schemas.ts` - centralized `FIELD_RELATIONSHIPS` object
+- **Purpose**: Auto-create related patches when fields that depend on each other are updated
+- **Sync Types**:
+  - `ensure_in_array`: Ensure a value exists in a related array field
+  - `copy_value`: Copy the value to another field
+  - `clear_if_not_in`: Clear if value not in source array
+  - `custom`: Custom handler logic (e.g., `set_true_if_value`)
+- **How to Add**: Add relationship entries to `FIELD_RELATIONSHIPS[module_name]` with `triggerField`, `relatedFields`, and `description`
+- **Runtime**: `getRelatedPatches(blockType, fieldPath, newValue, currentBlockData)` returns array of related patches to create
+- **Current Relationships**:
+  - `funder_selection`: selectedFunds → shortlistedFunds
+  - `business_model`: primaryPayerId → candidatePayers
+  - `operations`: operatingModel/operatorEntityId → readiness checklist flags
+
 ## Agent Tool Reference
 The agent utilizes the following tools for understanding context and making changes:
 - `get_project_state`: Get overall project state including blocks, evidence, and pending patches
