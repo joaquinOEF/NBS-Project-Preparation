@@ -399,8 +399,8 @@ export const interventionBundleSchema = z.object({
 });
 
 export const quantifiedKPISchema = z.object({
-  id: z.string(),
-  name: z.string(),
+  id: z.string().optional(),
+  name: z.string().optional(),
   metric: z.string().optional(),
   valueRange: z.object({
     low: z.number(),
@@ -415,14 +415,14 @@ export const quantifiedKPISchema = z.object({
 }).passthrough();
 
 export const quantifiedImpactGroupSchema = z.object({
-  id: z.string(),
+  id: z.string().optional(),
   hazardType: z.string().optional(),
   interventionBundle: z.string().optional(),
   kpis: z.array(quantifiedKPISchema).default([]),
 }).passthrough();
 
 export const quantifiedCoBenefitSchema = z.object({
-  id: z.string(),
+  id: z.string().optional(),
   title: z.string().optional(),
   category: z.string().optional(),
   metric: z.string().optional(),
@@ -439,7 +439,7 @@ export const quantifiedCoBenefitSchema = z.object({
 }).passthrough();
 
 export const mrvIndicatorSchema = z.object({
-  id: z.string(),
+  id: z.string().optional(),
   name: z.string().optional(),
   metric: z.string().optional(),
   baselineValue: z.union([z.string(), z.number(), z.null()]).optional(),
