@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'wouter';
-import { ArrowLeft, Check, Building2, Users, Landmark, DollarSign, AlertTriangle, FileText, Copy, ChevronDown, ChevronUp, Plus, Trash2, Info, Edit, RotateCcw, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Check, Building2, Users, Landmark, DollarSign, AlertTriangle, FileText, Copy, ChevronDown, ChevronUp, Plus, Trash2, Info, Edit, RotateCcw, CheckCircle, Loader2 } from 'lucide-react';
 import { useNavigationPersistence } from '@/core/hooks/useNavigationPersistence';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
@@ -274,7 +274,16 @@ const OM_STORAGE_KEY = 'nbs_operations_om';
 function getStoredBMData(projectId: string): BusinessModelData | null {
   if (typeof window === 'undefined') return null;
   const stored = localStorage.getItem(`${BM_STORAGE_KEY}_${projectId}`);
-  return stored ? JSON.parse(stored) : null;
+  if (!stored) return null;
+  
+  const parsed = JSON.parse(stored);
+  return {
+    ...parsed,
+    addOnRevenues: parsed.addOnRevenues || [],
+    revenueStack: parsed.revenueStack || [],
+    enablingActions: parsed.enablingActions || [],
+    bmRisks: parsed.bmRisks || [],
+  };
 }
 
 function saveBMData(projectId: string, data: BusinessModelData) {
@@ -935,12 +944,12 @@ export default function BusinessModelPage() {
     });
   };
 
-  if (!bmData) {
+  if (!bmData || !navigationRestored) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="container mx-auto px-4 py-8">
-          <p>{t('common.loading')}</p>
+        <div className="container mx-auto px-4 py-8 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </div>
     );
@@ -1458,16 +1467,17 @@ export default function BusinessModelPage() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {ADD_ON_REVENUES.map(addon => {
-                    const isSelected = bmData.addOnRevenues.includes(addon);
+                    const currentAddOns = bmData.addOnRevenues || [];
+                    const isSelected = currentAddOns.includes(addon);
                     return (
                       <div 
                         key={addon} 
                         className={`p-3 border rounded-lg cursor-pointer transition-colors ${isSelected ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}
                         onClick={() => {
                           if (isSelected) {
-                            updateBMData({ addOnRevenues: bmData.addOnRevenues.filter(a => a !== addon) });
+                            updateBMData({ addOnRevenues: currentAddOns.filter(a => a !== addon) });
                           } else {
-                            updateBMData({ addOnRevenues: [...bmData.addOnRevenues, addon] });
+                            updateBMData({ addOnRevenues: [...currentAddOns, addon] });
                           }
                         }}
                       >
