@@ -854,6 +854,35 @@ function QuantifyStep({
               )}
             </Button>
           )}
+
+          {/* Show retry option when quantification ran but returned no results */}
+          {qi && qi.impactGroups.length === 0 && (
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800">
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  {t('impactModel.quantify.noResultsMessage', 'Quantification completed but found no impact data. This may happen if the knowledge base is empty or the evidence doesn\'t match your interventions.')}
+                </p>
+              </div>
+              <Button
+                onClick={onQuantify}
+                disabled={isQuantifying || (data.interventionBundles.filter(b => b.enabled).length === 0)}
+                variant="outline"
+                className="w-full"
+              >
+                {isQuantifying ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {t('impactModel.quantify.quantifying')}
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    {t('impactModel.quantify.retryQuantify', 'Try Again')}
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
