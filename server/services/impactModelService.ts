@@ -790,7 +790,7 @@ Use evidence chunk IDs where applicable. Return:
       format: { type: "json_object" },
     },
     reasoning: { effort: "low" },
-    max_output_tokens: 4000,
+    max_output_tokens: 16000,
   } as any);
 
   let content = extractTextFromResponse(response);
