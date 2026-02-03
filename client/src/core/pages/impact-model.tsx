@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useParams, Link } from 'wouter';
 import DOMPurify from 'dompurify';
 import { ArrowLeft, Lightbulb, Settings, Sparkles, Edit3, Eye, Download, Check, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Copy, FileText, Clock, AlertCircle, Scale, Thermometer, Users, TrendingUp, Building2, Info, Droplets, Mountain, Loader2 } from 'lucide-react';
+import { useNavigationPersistence } from '@/core/hooks/useNavigationPersistence';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -2086,8 +2087,17 @@ export default function ImpactModelPage() {
   const { toast } = useToast();
   const { setPageContext } = useChatState();
   
+  // Separate navigation persistence from domain data
+  const { 
+    navigationState: savedNavState, 
+    updateNavigationState, 
+    navigationRestored 
+  } = useNavigationPersistence({
+    projectId,
+    moduleName: 'impactModel',
+  });
+  
   const [currentStep, setCurrentStep] = useState<WizardStep>('setup');
-  const [navigationRestored, setNavigationRestored] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isQuantifying, setIsQuantifying] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState<string | null>(null);
@@ -2178,36 +2188,30 @@ export default function ImpactModelPage() {
     }
   }, [projectId, isSampleMode, isSampleRoute]);
 
+  // Restore navigation from dedicated hook
+  useEffect(() => {
+    if (navigationRestored && savedNavState?.currentStep !== undefined) {
+      const stepIndex = savedNavState.currentStep;
+      if (stepIndex >= 0 && stepIndex < WIZARD_STEPS.length) {
+        setCurrentStep(WIZARD_STEPS[stepIndex]);
+      }
+    }
+  }, [navigationRestored, savedNavState]);
+
+  // Load data on mount
   useEffect(() => {
     if (projectId) {
       loadContext(projectId);
       hydrateFromDB();
-      if (!navigationRestored) {
-        setNavigationRestored(true);
-      }
     }
-  }, [projectId, loadContext, hydrateFromDB, navigationRestored]);
+  }, [projectId, loadContext, hydrateFromDB]);
 
-  // Persist only navigation state when step changes
+  // Persist navigation using dedicated hook (completely separate from domain data)
   useEffect(() => {
-    if (!projectId || !navigationRestored) return;
-    
-    const existingContext = loadContext(projectId, { skipDbSync: true });
-    const existingData = existingContext?.impactModel;
-    if (!existingData) return;
-    
+    if (!navigationRestored) return;
     const newStepIndex = WIZARD_STEPS.indexOf(currentStep);
-    
-    // Only update if navigation actually changed
-    if (existingData.navigation?.currentStep === newStepIndex) {
-      return; // No change, skip update
-    }
-    
-    updateModule('impactModel', {
-      ...existingData,
-      navigation: { currentStep: newStepIndex },
-    } as ImpactModelData);
-  }, [projectId, currentStep, navigationRestored, updateModule, loadContext]);
+    updateNavigationState({ currentStep: newStepIndex });
+  }, [currentStep, navigationRestored, updateNavigationState]);
 
   useEffect(() => {
     if (context?.impactModel) {

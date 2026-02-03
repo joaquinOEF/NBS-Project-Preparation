@@ -1,6 +1,7 @@
 import { useParams, Link } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ArrowLeft, Loader2, Layers, Mountain, Droplets, Trees, Users, Map as MapIcon, Grid3X3, Flame, CloudRain, Building2, MapPinned, MapPin, X, Plus, Check, DollarSign, Clock, Wrench, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, Leaf, Trash2, CheckCircle, Eye, EyeOff, Search, Info } from 'lucide-react';
+import { useNavigationPersistence } from '@/core/hooks/useNavigationPersistence';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Badge } from '@/core/components/ui/badge';
@@ -257,7 +258,16 @@ export default function SiteExplorerPage() {
   const interventionMarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const { updateModule, context, loadContext } = useProjectContext();
   const { setPageContext } = useChatState();
-  const [navigationRestored, setNavigationRestored] = useState(false);
+  
+  // Separate navigation persistence from domain data
+  const { 
+    navigationState: savedNavState, 
+    updateNavigationState, 
+    navigationRestored 
+  } = useNavigationPersistence({
+    projectId,
+    moduleName: 'siteExplorer',
+  });
 
   useEffect(() => {
     const selectedZoneCount = Object.keys(zonePortfolios).length;
@@ -364,41 +374,33 @@ export default function SiteExplorerPage() {
     };
   }, []);
 
-  // Mark navigation as restored on mount
+  // Persist navigation using dedicated hook (completely separate from domain data)
   // Note: Site Explorer navigation tracks whether user was viewing a zone detail,
   // but we can't restore the exact zone because zones are dynamically loaded from the map.
-  // The saved state is still useful for analytics and future features.
   useEffect(() => {
-    if (projectId && !navigationRestored) {
-      setNavigationRestored(true);
-    }
-  }, [projectId, navigationRestored]);
-
-  // Persist only navigation state when view changes
-  useEffect(() => {
-    if (!projectId || !navigationRestored) return;
-    
-    const existingContext = loadContext(projectId, { skipDbSync: true });
-    const existingData = existingContext?.siteExplorer;
-    if (!existingData) return;
-    
-    // Only update if navigation actually changed
-    const newNav = {
+    if (!navigationRestored) return;
+    updateNavigationState({
       currentStep: selectedZone ? 1 : 0,
       additionalState: { selectedZoneId: selectedZone?.zoneId ?? null },
-    };
-    
-    const oldNav = existingData.navigation;
-    if (oldNav?.currentStep === newNav.currentStep && 
-        oldNav?.additionalState?.selectedZoneId === newNav.additionalState.selectedZoneId) {
-      return; // No change, skip update
-    }
-    
-    updateModule('siteExplorer', {
-      ...existingData,
-      navigation: newNav,
     });
-  }, [projectId, selectedZone, navigationRestored, updateModule, loadContext]);
+  }, [selectedZone, navigationRestored, updateNavigationState]);
+
+  // Listen for agent block updates
+  useEffect(() => {
+    const handleBlockUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail?.blockType === 'site_explorer') {
+        console.log('[SiteExplorer] Received nbs-block-updated event');
+        // Re-fetch data from context if needed
+        const existingContext = loadContext(projectId || '', { skipDbSync: true });
+        if (existingContext?.siteExplorer) {
+          // Could update local state from context here if needed
+        }
+      }
+    };
+    window.addEventListener('nbs-block-updated', handleBlockUpdate);
+    return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
+  }, [projectId, loadContext]);
 
   useEffect(() => {
     let cancelled = false;

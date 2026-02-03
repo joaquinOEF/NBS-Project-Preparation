@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'wouter';
 import { ArrowLeft, Check, Building2, Users, Landmark, DollarSign, AlertTriangle, FileText, Copy, ChevronDown, ChevronUp, Plus, Trash2, Info, Edit, RotateCcw, CheckCircle } from 'lucide-react';
+import { useNavigationPersistence } from '@/core/hooks/useNavigationPersistence';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -470,8 +471,17 @@ export default function BusinessModelPage() {
   const { routePrefix } = useSampleRoute();
   const { loadContext, updateModule } = useProjectContext();
 
+  // Separate navigation persistence from domain data
+  const { 
+    navigationState: savedNavState, 
+    updateNavigationState, 
+    navigationRestored 
+  } = useNavigationPersistence({
+    projectId,
+    moduleName: 'businessModel',
+  });
+
   const [currentStep, setCurrentStep] = useState(0);
-  const [navigationRestored, setNavigationRestored] = useState(false);
   const [bmData, setBMData] = useState<BusinessModelData | null>(null);
   const [playbookOpen, setPlaybookOpen] = useState(false);
   const [editContextOpen, setEditContextOpen] = useState(false);
@@ -482,6 +492,14 @@ export default function BusinessModelPage() {
   const stakeholders = SAMPLE_STAKEHOLDERS;
   const hazards = ['FLOOD', 'HEAT', 'LANDSLIDE'];
 
+  // Restore navigation from dedicated hook
+  useEffect(() => {
+    if (navigationRestored && savedNavState) {
+      setCurrentStep(savedNavState.currentStep ?? 0);
+    }
+  }, [navigationRestored, savedNavState]);
+
+  // Load business model data
   useEffect(() => {
     if (projectId) {
       const stored = getStoredBMData(projectId);
@@ -492,36 +510,36 @@ export default function BusinessModelPage() {
         const initial = buildInitialBMData(action?.type || 'adaptation', hazards, stakeholders, omData);
         setBMData(initial);
       }
-      
-      const existingContext = loadContext(projectId, { skipDbSync: true });
-      const savedNavigation = existingContext?.businessModel?.navigation;
-      if (savedNavigation && !navigationRestored) {
-        setCurrentStep(savedNavigation.currentStep ?? 0);
-        setNavigationRestored(true);
-      } else if (!navigationRestored) {
-        setNavigationRestored(true);
-      }
     }
-  }, [projectId, action?.type, loadContext, navigationRestored]);
+  }, [projectId, action?.type]);
 
-  // Persist only navigation state when step changes
+  // Persist navigation using dedicated hook (completely separate from domain data)
   useEffect(() => {
-    if (!projectId || !navigationRestored) return;
-    
-    const existingContext = loadContext(projectId, { skipDbSync: true });
-    const existingData = existingContext?.businessModel;
-    if (!existingData) return;
-    
-    // Only update if navigation actually changed
-    if (existingData.navigation?.currentStep === currentStep) {
-      return; // No change, skip update
-    }
-    
-    updateModule('businessModel', {
-      ...existingData,
-      navigation: { currentStep },
-    });
-  }, [projectId, currentStep, navigationRestored, updateModule, loadContext]);
+    if (!navigationRestored) return;
+    updateNavigationState({ currentStep });
+  }, [currentStep, navigationRestored, updateNavigationState]);
+
+  // Listen for agent block updates
+  useEffect(() => {
+    const handleBlockUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail?.blockType === 'business_model') {
+        console.log('[BusinessModel] Received nbs-block-updated event, re-hydrating...');
+        // Re-fetch data from context
+        const existingContext = loadContext(projectId || '', { skipDbSync: true });
+        const savedData = existingContext?.businessModel;
+        if (savedData) {
+          // Update local state with any changes from agent patches
+          const stored = getStoredBMData(projectId || '');
+          if (stored) {
+            setBMData(stored);
+          }
+        }
+      }
+    };
+    window.addEventListener('nbs-block-updated', handleBlockUpdate);
+    return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
+  }, [projectId, loadContext]);
 
   useEffect(() => {
     if (projectId && bmData) {

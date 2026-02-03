@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'wouter';
 import { ArrowLeft, Check, Building2, Users, ClipboardList, DollarSign, AlertTriangle, FileText, Copy, ChevronDown, ChevronUp, Plus, Trash2, GripVertical, Sparkles, ExternalLink, Info, Lightbulb, Eye, EyeOff } from 'lucide-react';
+import { useNavigationPersistence } from '@/core/hooks/useNavigationPersistence';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -451,8 +452,17 @@ export default function ProjectOperationsPage() {
   const { isSampleRoute, routePrefix } = useSampleRoute();
   const { loadContext, updateModule } = useProjectContext();
 
+  // Separate navigation persistence from domain data
+  const { 
+    navigationState: savedNavState, 
+    updateNavigationState, 
+    navigationRestored 
+  } = useNavigationPersistence({
+    projectId,
+    moduleName: 'operations',
+  });
+
   const [currentStep, setCurrentStep] = useState(0);
-  const [navigationRestored, setNavigationRestored] = useState(false);
   const [omData, setOMData] = useState<OperationsOMData | null>(null);
   const [playbookOpen, setPlaybookOpen] = useState(false);
   const [stakeholderModalOpen, setStakeholderModalOpen] = useState(false);
@@ -465,6 +475,14 @@ export default function ProjectOperationsPage() {
   
   const allStakeholders = [...SAMPLE_STAKEHOLDERS, ...(omData?.customStakeholders || [])];
 
+  // Restore navigation from dedicated hook
+  useEffect(() => {
+    if (navigationRestored && savedNavState) {
+      setCurrentStep(savedNavState.currentStep ?? 0);
+    }
+  }, [navigationRestored, savedNavState]);
+
+  // Load operations data
   useEffect(() => {
     if (projectId) {
       const stored = getStoredOMData(projectId);
@@ -474,36 +492,30 @@ export default function ProjectOperationsPage() {
         const initial = buildInitialOMData(action?.type || 'adaptation', sites);
         setOMData(initial);
       }
-      
-      const existingContext = loadContext(projectId, { skipDbSync: true });
-      const savedNavigation = existingContext?.operations?.navigation;
-      if (savedNavigation && !navigationRestored) {
-        setCurrentStep(savedNavigation.currentStep ?? 0);
-        setNavigationRestored(true);
-      } else if (!navigationRestored) {
-        setNavigationRestored(true);
-      }
     }
-  }, [projectId, action?.type, loadContext, navigationRestored]);
+  }, [projectId, action?.type]);
 
-  // Persist only navigation state when step changes
+  // Persist navigation using dedicated hook (completely separate from domain data)
   useEffect(() => {
-    if (!projectId || !navigationRestored) return;
-    
-    const existingContext = loadContext(projectId, { skipDbSync: true });
-    const existingData = existingContext?.operations;
-    if (!existingData) return;
-    
-    // Only update if navigation actually changed
-    if (existingData.navigation?.currentStep === currentStep) {
-      return; // No change, skip update
-    }
-    
-    updateModule('operations', {
-      ...existingData,
-      navigation: { currentStep },
-    });
-  }, [projectId, currentStep, navigationRestored, updateModule, loadContext]);
+    if (!navigationRestored) return;
+    updateNavigationState({ currentStep });
+  }, [currentStep, navigationRestored, updateNavigationState]);
+
+  // Listen for agent block updates
+  useEffect(() => {
+    const handleBlockUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail?.blockType === 'operations') {
+        console.log('[Operations] Received nbs-block-updated event, re-hydrating...');
+        const stored = getStoredOMData(projectId || '');
+        if (stored) {
+          setOMData(stored);
+        }
+      }
+    };
+    window.addEventListener('nbs-block-updated', handleBlockUpdate);
+    return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
+  }, [projectId]);
 
   useEffect(() => {
     if (projectId && omData) {
