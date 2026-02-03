@@ -2137,11 +2137,13 @@ export default function FunderSelectionPage() {
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 {t('funderSelection.retakeQuestionnaire')}
               </Button>
-              <Link href={`${routePrefix}/project/${projectId}`}>
-                <Button disabled={!fundingPlanConfirmed}>
-                  {fundingPlanConfirmed ? t('funderSelection.backToProject') : t('funderSelection.confirmFirst')}
-                </Button>
-              </Link>
+              {navigationRestored && (
+                <Link href={`${routePrefix}/project/${projectId}`}>
+                  <Button disabled={!fundingPlanConfirmed}>
+                    {fundingPlanConfirmed ? t('funderSelection.backToProject') : t('funderSelection.confirmFirst')}
+                  </Button>
+                </Link>
+              )}
             </div>
           </>
         )}
