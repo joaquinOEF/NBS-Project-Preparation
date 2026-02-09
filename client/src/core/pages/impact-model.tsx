@@ -995,6 +995,27 @@ function QuantifyStep({
         const projectTotals = aggregateByUnit(allKpis);
         const fmtVal = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toFixed(0);
 
+        const resolveZoneName = (group: any) => {
+          const bundle = data.interventionBundles?.find((b: any) => b.id === group.zoneId);
+          if (bundle?.name) return bundle.name;
+          const raw = group.interventionBundle || group.zoneId || 'Zone';
+          const match = raw.match(/zone_(\d+)/i);
+          if (match) return `Zone ${match[1]}`;
+          return raw.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+        };
+
+        const hazardSectionTitle = (hazardType: string) => {
+          const labels: Record<string, string> = {
+            'HEAT': 'Heat Adaptation Measures',
+            'FLOOD': 'Flood Mitigation Measures',
+            'LANDSLIDE': 'Landslide Prevention Measures',
+            'DROUGHT': 'Drought Resilience Measures',
+            'WILDFIRE': 'Wildfire Prevention Measures',
+            'OTHER': 'Other Intervention Measures',
+          };
+          return labels[hazardType] || `${hazardType.replace(/_/g, ' ')} Measures`;
+        };
+
         return (
         <div className="space-y-6">
           {projectTotals.length > 0 && (
@@ -1015,31 +1036,27 @@ function QuantifyStep({
           )}
 
           {Array.from(hazardMap.entries()).map(([hazardType, groups]) => {
-            const hazardKpis = groups.flatMap((g: any) => g.kpis);
-            const hazardTotals = aggregateByUnit(hazardKpis);
-            const hazardLabel = hazardType.replace(/_/g, ' ');
+            const totalKpiCount = groups.reduce((sum: number, g: any) => sum + g.kpis.length, 0);
 
             return (
-              <div key={hazardType} className="space-y-4">
+              <div key={hazardType} className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <h3 className="text-lg font-semibold capitalize">{hazardLabel} Risk</h3>
+                  <h3 className="text-lg font-semibold">{hazardSectionTitle(hazardType)}</h3>
                   <Badge variant="outline" className="text-xs">{groups.length} {groups.length === 1 ? 'zone' : 'zones'}</Badge>
-                  {hazardTotals.length > 0 && (
-                    <span className="text-xs text-muted-foreground ml-auto">
-                      {hazardTotals.map(([, a]) => `${fmtVal(a.low)}–${fmtVal(a.high)} ${a.unit} (${a.names[0] || ''})`).join(' · ')}
-                    </span>
-                  )}
+                  <span className="text-xs text-muted-foreground ml-auto">{totalKpiCount} metrics</span>
                 </div>
 
                 {groups.map((group: any) => {
-                  const zoneName = group.interventionBundle || group.zoneId || 'Zone';
+                  const zoneName = resolveZoneName(group);
+                  const uniqueInterventions = Array.from(new Set(group.kpis.map((k: any) => k.interventionName).filter(Boolean) as string[]));
                   return (
                     <Card key={group.id} className="bg-white dark:bg-card">
                       <CardHeader className="pb-2 pt-4 px-5">
                         <div className="flex items-center gap-2">
                           <CardTitle className="text-sm font-semibold">{zoneName}</CardTitle>
-                          {group.zoneId && <Badge variant="secondary" className="text-[11px]">{group.zoneId}</Badge>}
-                          <span className="text-xs text-muted-foreground ml-auto">{group.kpis.length} KPIs</span>
+                          {uniqueInterventions.length > 0 && (
+                            <span className="text-xs text-muted-foreground">{uniqueInterventions.length} {uniqueInterventions.length === 1 ? 'intervention' : 'interventions'}</span>
+                          )}
                         </div>
                       </CardHeader>
                       <CardContent className="px-5 pb-4">
@@ -1074,32 +1091,37 @@ function QuantifyStep({
                                     </div>
                                   </div>
                                 ) : (
-                                  <div className="space-y-2">
+                                  <div className="space-y-1.5">
                                     <Button variant="ghost" size="icon" className="absolute top-1.5 right-1.5 h-6 w-6 opacity-0 group-hover/card:opacity-100 transition-opacity" onClick={() => handleEditKPI(group.id, kpi)}>
                                       <Edit3 className="h-3 w-3" />
                                     </Button>
+                                    <p className="text-sm font-medium leading-snug pr-6">{kpi.name}</p>
                                     <div>
                                       <p className="text-2xl font-bold text-primary leading-tight">
                                         {fmtVal(kpi.valueRange.low)}–{fmtVal(kpi.valueRange.high)}
                                       </p>
                                       <p className="text-xs text-muted-foreground">{kpi.unit}</p>
                                     </div>
-                                    <div className="space-y-1">
-                                      <p className="text-sm font-medium leading-snug">{kpi.name}</p>
-                                      {kpi.interventionName && (
-                                        <p className="text-xs text-muted-foreground">{kpi.interventionName}{kpi.category ? ` · ${kpi.category.replace(/_/g, ' ')}` : ''}</p>
-                                      )}
+                                    {kpi.interventionName && (
+                                      <p className="text-xs text-muted-foreground">{kpi.interventionName}{kpi.category ? ` · ${kpi.category.replace(/_/g, ' ')}` : ''}</p>
+                                    )}
+                                    {kpi.userEvidenceSource && (
+                                      <p className="text-xs text-blue-600 dark:text-blue-400 italic line-clamp-1">{kpi.userEvidenceSource}</p>
+                                    )}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="flex items-center gap-1.5 cursor-help">
+                                          {typeof kpi.confidence === 'number' ? getConfidencePercentTooltip(kpi.confidence) : getConfidenceBadge(String(kpi.confidence))}
+                                          {getEvidenceBadge(kpi.evidenceTier)}
+                                        </div>
+                                      </TooltipTrigger>
                                       {kpi.methodology && (
-                                        <p className="text-xs text-muted-foreground line-clamp-2">{kpi.methodology}</p>
+                                        <TooltipContent side="bottom" className="max-w-xs p-3">
+                                          <p className="text-xs font-medium mb-1">Methodology</p>
+                                          <p className="text-xs text-muted-foreground">{kpi.methodology}</p>
+                                        </TooltipContent>
                                       )}
-                                      {kpi.userEvidenceSource && (
-                                        <p className="text-xs text-blue-600 dark:text-blue-400 italic line-clamp-1">{kpi.userEvidenceSource}</p>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                      {typeof kpi.confidence === 'number' ? getConfidencePercentTooltip(kpi.confidence) : getConfidenceBadge(String(kpi.confidence))}
-                                      {getEvidenceBadge(kpi.evidenceTier)}
-                                    </div>
+                                    </Tooltip>
                                   </div>
                                 )}
                               </div>
