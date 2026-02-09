@@ -939,180 +939,221 @@ function QuantifyStep({
       </Card>
 
       {/* Quantified KPI cards */}
-      {qi && qi.impactGroups.length > 0 && (
+      {qi && qi.impactGroups.length > 0 && (() => {
+        const allKpis = qi.impactGroups.flatMap((g: any) => g.kpis);
+        const hazardMap = new Map<string, any[]>();
+        for (const group of qi.impactGroups) {
+          const h = group.hazardType || 'OTHER';
+          if (!hazardMap.has(h)) hazardMap.set(h, []);
+          hazardMap.get(h)!.push(group);
+        }
+
+        const normalizeUnit = (u: string) => {
+          const lower = u.toLowerCase().trim();
+          const aliases: Record<string, string> = { 'ha': 'hectares', 'hectare': 'hectares', 'sqm': 'm²', 'sq m': 'm²', 'square meters': 'm²', 'square metres': 'm²', 'cubic meters': 'm³', 'cubic metres': 'm³', 'tons': 'tonnes', 'ton': 'tonnes', 'tonne': 'tonnes', 't co2': 'tCO₂/year', 'tco2': 'tCO₂/year', 'tco2/year': 'tCO₂/year', 'tonnes co2/year': 'tCO₂/year', 't co2e': 'tCO₂/year', 'tco2e/year': 'tCO₂/year' };
+          return aliases[lower] || lower;
+        };
+
+        const aggregateByUnit = (kpis: any[]) => {
+          const metricMap = new Map<string, { low: number; high: number; name: string; unit: string; count: number }>();
+          for (const kpi of kpis) {
+            const rawUnit = kpi.unit || '';
+            const u = normalizeUnit(rawUnit);
+            if (!u || u === 'n/a') continue;
+            if (u.includes('%') || u.includes('ratio') || u.includes('score')) continue;
+            const key = u;
+            const existing = metricMap.get(key);
+            if (existing) {
+              existing.low += kpi.valueRange?.low || 0;
+              existing.high += kpi.valueRange?.high || 0;
+              existing.count++;
+            } else {
+              metricMap.set(key, {
+                low: kpi.valueRange?.low || 0,
+                high: kpi.valueRange?.high || 0,
+                name: kpi.name,
+                unit: u,
+                count: 1,
+              });
+            }
+          }
+          return Array.from(metricMap.entries())
+            .filter(([, v]) => v.count >= 1)
+            .sort((a, b) => (b[1].high - a[1].high))
+            .slice(0, 4);
+        };
+
+        const projectTotals = aggregateByUnit(allKpis);
+        const fmtVal = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toFixed(0);
+
+        return (
         <div className="space-y-6">
-          {qi.impactGroups.map((group: any) => {
-            const groupName = group.interventionBundle || group.intervention || 'Impact Group';
-            const hazard = group.hazardType || group.hazard || '';
+          {projectTotals.length > 0 && (
+            <Card className="bg-white dark:bg-card border-primary/20">
+              <CardContent className="py-4 px-5">
+                <p className="text-sm font-semibold mb-3">Project-Wide Impact Summary</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {projectTotals.map(([, agg]) => (
+                    <div key={agg.unit} className="text-center p-3 rounded-lg bg-primary/5">
+                      <p className="text-xl font-bold text-primary">{fmtVal(agg.low)}–{fmtVal(agg.high)}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{agg.unit}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {Array.from(hazardMap.entries()).map(([hazardType, groups]) => {
+            const hazardKpis = groups.flatMap((g: any) => g.kpis);
+            const hazardTotals = aggregateByUnit(hazardKpis);
+            const hazardLabel = hazardType.replace(/_/g, ' ');
+
             return (
-              <div key={group.id} className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold">{groupName}</h3>
-                  {hazard && <Badge variant="outline">{hazard}</Badge>}
+              <div key={hazardType} className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-semibold capitalize">{hazardLabel} Risk</h3>
+                  <Badge variant="outline" className="text-xs">{groups.length} {groups.length === 1 ? 'zone' : 'zones'}</Badge>
+                  {hazardTotals.length > 0 && (
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {hazardTotals.map(([, a]) => `${fmtVal(a.low)}–${fmtVal(a.high)} ${a.unit}`).join(' · ')}
+                    </span>
+                  )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {group.kpis.map((kpi: any) => {
-                    const isEditing = editingKPI?.groupId === group.id && editingKPI?.kpiId === kpi.id;
-                    
-                    return (
-                      <Card key={kpi.id} className="overflow-hidden relative group/card">
-                        <CardContent className="p-5">
-                          {isEditing && editingKPI ? (
-                            <div className="space-y-4">
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <Label className="text-xs">Min Value</Label>
-                                  <Input
-                                    type="number"
-                                    value={editingKPI.low}
-                                    onChange={(e) => setEditingKPI({ ...editingKPI, low: parseFloat(e.target.value) || 0 })}
-                                    className="h-8"
-                                  />
-                                </div>
-                                <div>
-                                  <Label className="text-xs">Max Value</Label>
-                                  <Input
-                                    type="number"
-                                    value={editingKPI.high}
-                                    onChange={(e) => setEditingKPI({ ...editingKPI, high: parseFloat(e.target.value) || 0 })}
-                                    className="h-8"
-                                  />
-                                </div>
-                              </div>
-                              <div>
-                                <Label className="text-xs">Unit</Label>
-                                <Input
-                                  value={editingKPI.unit}
-                                  onChange={(e) => setEditingKPI({ ...editingKPI, unit: e.target.value })}
-                                  className="h-8"
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-xs">Evidence Source (optional)</Label>
-                                <Textarea
-                                  value={editingKPI.evidenceSource}
-                                  onChange={(e) => setEditingKPI({ ...editingKPI, evidenceSource: e.target.value })}
-                                  placeholder="Add a citation or URL to support your custom values..."
-                                  className="h-16 text-xs resize-none"
-                                />
-                              </div>
-                              <div className="flex gap-2">
-                                <Button size="sm" onClick={handleSaveKPI} className="flex-1">
-                                  <Check className="h-3 w-3 mr-1" />
-                                  Save
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={() => setEditingKPI(null)} className="flex-1">
-                                  Cancel
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="space-y-3">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover/card:opacity-100 transition-opacity"
-                                onClick={() => handleEditKPI(group.id, kpi)}
-                              >
-                                <Edit3 className="h-3.5 w-3.5" />
-                              </Button>
-                              <div className="text-center">
-                                <p className="text-3xl font-bold text-primary">
-                                  {kpi.valueRange.low}–{kpi.valueRange.high}
-                                </p>
-                                <p className="text-sm font-medium text-muted-foreground">{kpi.unit}</p>
-                              </div>
-                              <div className="pt-2 border-t space-y-2">
-                                <p className="text-sm font-medium leading-snug">{kpi.name}</p>
-                                {kpi.methodology && (
-                                  <p className="text-xs text-muted-foreground line-clamp-3">{kpi.methodology}</p>
-                                )}
-                                {kpi.userEvidenceSource && (
-                                  <p className="text-xs text-blue-600 dark:text-blue-400 italic">
-                                    📎 {kpi.userEvidenceSource}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="flex items-center justify-center gap-2">
-                                {typeof kpi.confidence === 'number' ? (
-                                  getConfidencePercentTooltip(kpi.confidence)
+
+                {groups.map((group: any) => {
+                  const zoneName = group.interventionBundle || group.zoneId || 'Zone';
+                  return (
+                    <Card key={group.id} className="bg-white dark:bg-card">
+                      <CardHeader className="pb-2 pt-4 px-5">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-sm font-semibold">{zoneName}</CardTitle>
+                          {group.zoneId && <Badge variant="secondary" className="text-[11px]">{group.zoneId}</Badge>}
+                          <span className="text-xs text-muted-foreground ml-auto">{group.kpis.length} KPIs</span>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="px-5 pb-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {group.kpis.map((kpi: any) => {
+                            const isEditing = editingKPI?.groupId === group.id && editingKPI?.kpiId === kpi.id;
+                            return (
+                              <div key={kpi.id} className="relative group/card p-4 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors">
+                                {isEditing && editingKPI ? (
+                                  <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div>
+                                        <Label className="text-xs">Min</Label>
+                                        <Input type="number" value={editingKPI.low} onChange={(e) => setEditingKPI({ ...editingKPI, low: parseFloat(e.target.value) || 0 })} className="h-7 text-sm" />
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs">Max</Label>
+                                        <Input type="number" value={editingKPI.high} onChange={(e) => setEditingKPI({ ...editingKPI, high: parseFloat(e.target.value) || 0 })} className="h-7 text-sm" />
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs">Unit</Label>
+                                      <Input value={editingKPI.unit} onChange={(e) => setEditingKPI({ ...editingKPI, unit: e.target.value })} className="h-7 text-sm" />
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs">Evidence (optional)</Label>
+                                      <Textarea value={editingKPI.evidenceSource} onChange={(e) => setEditingKPI({ ...editingKPI, evidenceSource: e.target.value })} className="h-14 text-xs resize-none" />
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button size="sm" onClick={handleSaveKPI} className="flex-1 h-7 text-xs"><Check className="h-3 w-3 mr-1" />Save</Button>
+                                      <Button size="sm" variant="outline" onClick={() => setEditingKPI(null)} className="flex-1 h-7 text-xs">Cancel</Button>
+                                    </div>
+                                  </div>
                                 ) : (
-                                  getConfidenceBadge(String(kpi.confidence))
+                                  <div className="space-y-2">
+                                    <Button variant="ghost" size="icon" className="absolute top-1.5 right-1.5 h-6 w-6 opacity-0 group-hover/card:opacity-100 transition-opacity" onClick={() => handleEditKPI(group.id, kpi)}>
+                                      <Edit3 className="h-3 w-3" />
+                                    </Button>
+                                    <div>
+                                      <p className="text-2xl font-bold text-primary leading-tight">
+                                        {fmtVal(kpi.valueRange.low)}–{fmtVal(kpi.valueRange.high)}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">{kpi.unit}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <p className="text-sm font-medium leading-snug">{kpi.name}</p>
+                                      {kpi.interventionName && (
+                                        <p className="text-xs text-muted-foreground">{kpi.interventionName}{kpi.category ? ` · ${kpi.category.replace(/_/g, ' ')}` : ''}</p>
+                                      )}
+                                      {kpi.methodology && (
+                                        <p className="text-xs text-muted-foreground line-clamp-2">{kpi.methodology}</p>
+                                      )}
+                                      {kpi.userEvidenceSource && (
+                                        <p className="text-xs text-blue-600 dark:text-blue-400 italic line-clamp-1">{kpi.userEvidenceSource}</p>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      {typeof kpi.confidence === 'number' ? getConfidencePercentTooltip(kpi.confidence) : getConfidenceBadge(String(kpi.confidence))}
+                                      {getEvidenceBadge(kpi.evidenceTier)}
+                                    </div>
+                                  </div>
                                 )}
-                                {getEvidenceBadge(kpi.evidenceTier)}
                               </div>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             );
           })}
 
-          {/* Co-benefits summary */}
           {qi.coBenefits.length > 0 && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">{t('impactModel.quantify.coBenefitsTitle')}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {qi.coBenefits.map((cb) => (
-                  <Card key={cb.id} className="overflow-hidden">
-                    <CardContent className="p-5">
-                      <div className="space-y-3">
-                        {cb.valueRange ? (
-                          <div className="text-center">
-                            <p className="text-2xl font-bold text-primary">
-                              {cb.valueRange.low}–{cb.valueRange.high}
-                            </p>
-                            <p className="text-sm font-medium text-muted-foreground">{cb.unit}</p>
-                          </div>
-                        ) : (
-                          <div className="text-center">
-                            <Badge className="bg-primary/10 text-primary hover:bg-primary/10">{cb.category}</Badge>
-                          </div>
-                        )}
-                        <div className="pt-2 border-t">
-                          <p className="text-sm font-medium leading-snug">{cb.title}</p>
+                  <div key={cb.id} className="p-4 rounded-lg border bg-white dark:bg-card">
+                    <div className="space-y-2">
+                      {cb.valueRange ? (
+                        <div>
+                          <p className="text-xl font-bold text-primary">
+                            {fmtVal(cb.valueRange.low)}–{fmtVal(cb.valueRange.high)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{cb.unit}</p>
                         </div>
-                        <div className="flex items-center justify-center gap-2">
-                          {getConfidenceBadge(cb.confidence)}
-                        </div>
+                      ) : (
+                        <Badge className="bg-primary/10 text-primary hover:bg-primary/10">{cb.category}</Badge>
+                      )}
+                      <p className="text-sm font-medium leading-snug">{cb.title}</p>
+                      <div className="flex items-center gap-1.5">
+                        {getConfidenceBadge(cb.confidence)}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* MRV indicators */}
           {qi.mrvIndicators.length > 0 && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">{t('impactModel.quantify.mrvTitle')}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {qi.mrvIndicators.map((mrv) => (
-                  <Card key={mrv.id} className="overflow-hidden">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 space-y-1">
-                          <p className="text-sm font-medium">{mrv.name}</p>
-                          <p className="text-xs text-muted-foreground">{mrv.dataSource}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-bold text-primary">{mrv.baselineValue} → {mrv.targetValue}</p>
-                          <p className="text-xs text-muted-foreground">{mrv.frequency}</p>
-                        </div>
+                  <div key={mrv.id} className="p-4 rounded-lg border bg-white dark:bg-card">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-1">
+                        <p className="text-sm font-medium">{mrv.name}</p>
+                        <p className="text-xs text-muted-foreground">{mrv.dataSource}</p>
                       </div>
-                    </CardContent>
-                  </Card>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold text-primary">{mrv.baselineValue} → {mrv.targetValue}</p>
+                        <p className="text-xs text-muted-foreground">{mrv.frequency}</p>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Re-quantify button */}
           <Button
             variant="outline"
             onClick={onQuantify}
@@ -1132,7 +1173,8 @@ function QuantifyStep({
             )}
           </Button>
         </div>
-      )}
+        );
+      })()}
     </div>
     </TooltipProvider>
   );
@@ -2356,6 +2398,17 @@ export default function ImpactModelPage() {
         riskScore: 'riskScore' in zone ? zone.riskScore : 0.5,
         area: 'area' in zone ? zone.area : undefined,
         interventionType: 'interventionType' in zone ? zone.interventionType : undefined,
+        interventionPortfolio: ('interventionPortfolio' in zone ? (zone as any).interventionPortfolio || [] : []).map((site: any) => ({
+          interventionId: site.interventionId,
+          interventionName: site.interventionName,
+          category: site.category,
+          estimatedArea: site.estimatedArea,
+          areaUnit: site.areaUnit,
+          estimatedCost: site.estimatedCost,
+          impacts: site.impacts,
+          assetName: site.assetName,
+          assetType: site.assetType,
+        })),
       }));
 
       const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;

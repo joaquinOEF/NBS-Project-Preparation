@@ -70,6 +70,9 @@ Preferred communication style: Simple, everyday language.
 - A 5-step AI-powered wizard (Setup → Generate → Curate → Lenses → Export) for creating funder-ready impact narratives.
 - **AI Integration**: Uses OpenAI GPT-5.2 via Replit AI Integrations for structured narrative generation.
 - **Data Flow**: Integrates inputs from Funder Selection and Site Explorer, and outputs signals to Operations and Business Model.
+- **Quantification Architecture**: KPIs are zone-specific and intervention-site-specific. Each `QuantifiedImpactGroup` has a `zoneId`, and each `QuantifiedKPI` has optional `interventionId`, `interventionName`, and `category` fields. The AI prompt receives full intervention portfolio data (areas, costs, categories, impact ratings) to generate absolute-value KPIs that can be summed across zones.
+- **UI Grouping**: Step 2 (Quantify) groups impact results by hazard type → zone, with per-hazard subtotals and a project-wide summary card that aggregates compatible KPIs by normalized unit.
+- **Unit Normalization**: Aggregation normalizes unit aliases (ha→hectares, sqm→m², tCO2→tCO₂/year) and excludes percentage/ratio KPIs from summation.
 
 ## Module Development Pattern
 Modules follow a 5-layer integration: Page Goal, Block Type, Module Page, Context Integration, and RAG Ingestion for consistency and agent awareness.

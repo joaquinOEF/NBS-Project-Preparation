@@ -31,12 +31,25 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
+interface InterventionSite {
+  interventionId: string;
+  interventionName: string;
+  category: string;
+  estimatedArea?: number;
+  areaUnit?: string;
+  estimatedCost?: { min: number; max: number; unit: string };
+  impacts?: { flood: string; heat: string; landslide: string };
+  assetName?: string;
+  assetType?: string;
+}
+
 interface SelectedZone {
   zoneId: string;
   hazardType: string;
   riskScore: number;
   area?: number;
   interventionType?: string;
+  interventionPortfolio?: InterventionSite[];
 }
 
 interface InterventionBundle {
@@ -46,6 +59,7 @@ interface InterventionBundle {
   targetHazards: string[];
   interventions: string[];
   enabled: boolean;
+  capexRange?: { low: number; high: number };
 }
 
 interface FunderPathway {
@@ -526,8 +540,8 @@ Always respond with valid JSON matching the exact structure requested.`;
 
   // Format quantified data for the prompt
   const kpiSummary = quantifiedImpacts.impactGroups.map(g =>
-    `${g.hazardType} — ${g.interventionBundle}:\n${g.kpis.map(k =>
-      `  • ${k.name}: ${k.valueRange.low}–${k.valueRange.high} ${k.unit} (${k.confidence}, ${k.evidenceTier})`
+    `${g.zoneId || 'zone'} (${g.hazardType}) — ${g.interventionBundle}:\n${g.kpis.map(k =>
+      `  • ${k.name}${k.interventionName ? ` [${k.interventionName}]` : ''}: ${k.valueRange.low}–${k.valueRange.high} ${k.unit} (${k.confidence}, ${k.evidenceTier})`
     ).join('\n')}`
   ).join('\n\n');
 
@@ -632,11 +646,15 @@ export interface QuantifiedKPI {
   evidenceTier: 'EVIDENCE' | 'MODELLED' | 'ASSUMPTION';
   sourceChunkIds: string[];
   methodology: string;
+  interventionId?: string;
+  interventionName?: string;
+  category?: string;
 }
 
 export interface QuantifiedImpactGroup {
   id: string;
   hazardType: string;
+  zoneId: string;
   interventionBundle: string;
   kpis: QuantifiedKPI[];
 }
@@ -694,19 +712,35 @@ export async function generateQuantifiedImpacts(
 
   const enabledBundles = interventionBundles.filter(b => b.enabled);
 
-  // Step 1: Build search queries from hazard types + intervention names
+  // Step 1: Build search queries from hazard types + actual intervention categories/types
   const hazardTypes = Array.from(new Set(selectedZones.map(z => z.hazardType).filter(Boolean)));
+
+  const allSiteCategories = new Set<string>();
+  const allSiteTypes = new Set<string>();
+  for (const zone of selectedZones) {
+    for (const site of zone.interventionPortfolio || []) {
+      if (site.category) allSiteCategories.add(site.category.replace(/_/g, ' '));
+      if (site.interventionName) allSiteTypes.add(extractInterventionName(site.interventionName));
+    }
+  }
   const rawInterventionNames = enabledBundles.flatMap(b => b.interventions);
-  const cleanInterventionNames = Array.from(new Set(rawInterventionNames.map(extractInterventionName)));
+  const cleanInterventionNames = Array.from(new Set<string>([
+    ...rawInterventionNames.map(extractInterventionName),
+    ...Array.from(allSiteTypes),
+  ]));
 
   const searchQueries: string[] = [];
   for (const hazard of hazardTypes) {
-    searchQueries.push(`${hazard.toLowerCase().replace(/_/g, ' ')} risk reduction NBS urban`);
-    for (const intervention of cleanInterventionNames.slice(0, 3)) {
-      searchQueries.push(`${hazard.toLowerCase().replace(/_/g, ' ')} ${intervention} effectiveness`);
+    const h = hazard.toLowerCase().replace(/_/g, ' ');
+    searchQueries.push(`${h} risk reduction NBS urban quantified impact`);
+    for (const intervention of cleanInterventionNames.slice(0, 4)) {
+      searchQueries.push(`${h} ${intervention} effectiveness area reduction`);
+    }
+    for (const cat of Array.from(allSiteCategories).slice(0, 2)) {
+      searchQueries.push(`${cat} ${h} impact quantification per hectare`);
     }
   }
-  searchQueries.push("co-benefits nature-based solutions urban resilience");
+  searchQueries.push("co-benefits nature-based solutions urban resilience quantified");
   searchQueries.push("MRV monitoring indicators NBS climate adaptation");
 
   // Step 2: Call semanticSearch for each query
@@ -750,34 +784,67 @@ export async function generateQuantifiedImpacts(
     new Map(topChunks.filter(c => c.sourceTitle).map(c => [c.sourceTitle!, c.score])).entries()
   ).map(([title, score]) => ({ title, score }));
 
-  // Step 5: Build focused LLM prompt
+  // Step 5: Build focused LLM prompt with full site-level context
   const systemPrompt = `You are an expert in Nature-Based Solutions (NBS) quantification and evidence-based impact metrics.
-Your task is to generate structured, quantified impact data grounded in evidence.
+Your task is to generate structured, quantified impact data grounded in evidence and anchored to specific zones and intervention sites.
 Output ONLY valid JSON. Be honest about confidence levels and evidence tiers.
-If evidence supports a metric, use EVIDENCE tier. If modelled/extrapolated, use MODELLED. If assumed, use ASSUMPTION.`;
+If evidence supports a metric, use EVIDENCE tier. If modelled/extrapolated, use MODELLED. If assumed, use ASSUMPTION.
+CRITICAL: Use absolute values (not rates) wherever possible so KPIs can be summed across zones. When area or cost data is given, scale metrics proportionally.`;
+
+  const zoneDetails = selectedZones.map(z => {
+    const sites = (z.interventionPortfolio || []).map(s =>
+      `    - ${s.interventionName}${s.assetName ? ` at ${s.assetName}` : ''} [${s.category?.replace(/_/g, ' ') || 'general'}] area: ${s.estimatedArea || '?'}${s.areaUnit || 'm²'}${s.estimatedCost ? `, cost: $${s.estimatedCost.min}-${s.estimatedCost.max} ${s.estimatedCost.unit}` : ''}${s.impacts ? `, flood: ${s.impacts.flood}, heat: ${s.impacts.heat}` : ''}`
+    ).join('\n');
+    return `  ${z.zoneId} (${z.hazardType}, risk: ${(z.riskScore * 100).toFixed(0)}%, zone area: ${z.area || '?'}m²)\n${sites || '    (no specific intervention sites)'}`;
+  }).join('\n');
 
   const userPrompt = `Generate quantified impact KPIs for this NBS project:
 
 PROJECT CONTEXT:
 - Project: ${projectName || 'Urban Climate Resilience Initiative'}
 - City: ${cityName || 'Urban area'}
-- Zones: ${selectedZones.map(z => `${z.zoneId} (${z.hazardType}, risk: ${(z.riskScore * 100).toFixed(0)}%, area: ${z.area || 'unknown'}m²)`).join('; ')}
-- Bundles: ${enabledBundles.map(b => `${b.name} [${b.targetHazards.join(',')}]`).join('; ')}
-- Funder: ${funderPathway.primary || 'General'}
+- Funder pathway: ${funderPathway.primary || 'General'}
+- ${enabledBundles.length} bundles enabled: ${enabledBundles.map(b => `${b.name} [${b.targetHazards.join(',')}]`).join('; ')}
+
+ZONES AND INTERVENTION SITES:
+${zoneDetails}
 
 EVIDENCE FROM KNOWLEDGE BASE:
 ${evidenceBlock}
 
-Generate structured JSON with:
-1. impactGroups: One per hazard-intervention pair, each with 3-5 KPIs (id, name, metric, valueRange {low, high}, unit, confidence, evidenceTier, sourceChunkIds[], methodology)
-2. coBenefits: 4-6 quantifiable co-benefits (id, title, category, metric, valueRange or null, unit, confidence, evidenceTier, sourceChunkIds[], whoBenefits[], where[])
-3. mrvIndicators: 3-5 monitoring indicators (id, name, metric, baselineValue, targetValue, frequency, dataSource, confidence)
+Generate structured JSON. RULES:
+- One impactGroup PER ZONE (not per hazard). Each group has zoneId matching the zone.
+- Each KPI should reference a specific interventionId and interventionName from that zone's sites when possible.
+- Use ABSOLUTE values scaled to the actual site area/size (e.g. "340 m³/year" not "15-25% reduction") so values can be summed across zones.
+- Include 3-5 KPIs per zone covering: primary hazard reduction, secondary benefits, and area/coverage metrics.
 
-Use evidence chunk IDs where applicable. Return:
 {
-  "impactGroups": [...],
-  "coBenefits": [...],
-  "mrvIndicators": [...]
+  "impactGroups": [
+    {
+      "id": "ig-{zoneId}",
+      "hazardType": "FLOOD",
+      "zoneId": "zone_12",
+      "interventionBundle": "Zone 12 Bundle Name",
+      "kpis": [
+        {
+          "id": "kpi-1",
+          "name": "Stormwater runoff captured",
+          "metric": "volume per year",
+          "valueRange": { "low": 280, "high": 420 },
+          "unit": "m³/year",
+          "confidence": "MEDIUM",
+          "evidenceTier": "MODELLED",
+          "sourceChunkIds": [],
+          "methodology": "Based on 200m² rain garden at 1.4-2.1 m³/m²/year capture rate",
+          "interventionId": "int-123",
+          "interventionName": "Rain garden",
+          "category": "green infrastructure"
+        }
+      ]
+    }
+  ],
+  "coBenefits": [4-6 items: { id, title, category, metric, valueRange {low,high} or null, unit, confidence, evidenceTier, sourceChunkIds[], whoBenefits[], where[] }],
+  "mrvIndicators": [3-5 items: { id, name, metric, baselineValue, targetValue, frequency, dataSource, confidence }]
 }`;
 
   const response = await openai.responses.create({
