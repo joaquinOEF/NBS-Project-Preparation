@@ -211,7 +211,7 @@ function SetupStep({
   usingSampleData,
   cityName,
   projectName,
-  funderName
+  targetFunderName
 }: { 
   data: ImpactModelData; 
   onUpdate: (d: Partial<ImpactModelData>) => void;
@@ -219,7 +219,7 @@ function SetupStep({
   usingSampleData: boolean;
   cityName: string;
   projectName: string;
-  funderName: string;
+  targetFunderName: string;
 }) {
   const { t } = useTranslation();
 
@@ -327,8 +327,8 @@ function SetupStep({
                   <p className="text-xl font-semibold">${(totalCost / 1000000).toFixed(1)}M</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{t('impactModel.funder')}</p>
-                  <p className="text-sm font-medium">{funderName}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{t('impactModel.targetFunder')}</p>
+                  <p className="text-sm font-medium">{targetFunderName}</p>
                 </div>
               </div>
             </div>
@@ -370,7 +370,7 @@ function SetupStep({
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {siteExplorerZones.map((zone, index) => {
               const zoneId = zone.zoneId || `zone-${index}`;
               const zoneName = formatZoneName(zone, index);
@@ -382,111 +382,100 @@ function SetupStep({
               return (
                 <Card 
                   key={zoneId} 
-                  className={`overflow-hidden transition-all ${isSelected ? 'ring-2 ring-primary/50 border-primary' : 'hover:border-primary/30'}`}
+                  className={`overflow-hidden transition-all flex flex-col ${isSelected ? 'ring-2 ring-primary/50 border-primary' : 'hover:border-primary/30'}`}
                 >
-                  {/* Zone Header */}
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-4">
-                        <Checkbox 
-                          checked={isSelected}
-                          onCheckedChange={(checked) => {
-                            if (checked === true) {
-                              const bundleInterventions = interventions.map((i: any) => {
-                                const name = i.interventionName || i.name || 'Intervention';
-                                const area = i.estimatedArea ? `${i.estimatedArea} ${i.areaUnit || 'ha'}` : '';
-                                const category = i.category ? i.category.replace(/_/g, ' ') : '';
-                                const impacts = i.impacts ? 
-                                  `(Flood: ${i.impacts.flood || 'n/a'}, Heat: ${i.impacts.heat || 'n/a'})` : '';
-                                return `${name}${area ? ` - ${area}` : ''}${category ? ` [${category}]` : ''} ${impacts}`.trim();
-                              });
-                              
-                              onUpdate({
-                                interventionBundles: [
-                                  ...data.interventionBundles,
-                                  {
-                                    id: zoneId,
-                                    name: zoneName,
-                                    objective: zone.interventionType ? formatInterventionType(zone.interventionType) : '',
-                                    targetHazards: [zone.hazardType || zone.primaryHazard || 'FLOOD'],
-                                    interventions: bundleInterventions,
-                                    locations: [{ zoneId, name: zoneName, geometryType: 'polygon' }],
-                                    capexRange: { 
-                                      low: interventions.reduce((sum: number, i: any) => sum + (i.estimatedCost?.min || 0), 0),
-                                      high: interventions.reduce((sum: number, i: any) => sum + (i.estimatedCost?.max || 0), 0),
-                                    },
-                                    enabled: true,
+                  <CardHeader className="py-3 px-4">
+                    <div className="flex items-start gap-3">
+                      <Checkbox 
+                        checked={isSelected}
+                        onCheckedChange={(checked) => {
+                          if (checked === true) {
+                            const bundleInterventions = interventions.map((i: any) => {
+                              const name = i.interventionName || i.name || 'Intervention';
+                              const area = i.estimatedArea ? `${i.estimatedArea} ${i.areaUnit || 'ha'}` : '';
+                              const category = i.category ? i.category.replace(/_/g, ' ') : '';
+                              const impacts = i.impacts ? 
+                                `(Flood: ${i.impacts.flood || 'n/a'}, Heat: ${i.impacts.heat || 'n/a'})` : '';
+                              return `${name}${area ? ` - ${area}` : ''}${category ? ` [${category}]` : ''} ${impacts}`.trim();
+                            });
+                            
+                            onUpdate({
+                              interventionBundles: [
+                                ...data.interventionBundles,
+                                {
+                                  id: zoneId,
+                                  name: zoneName,
+                                  objective: zone.interventionType ? formatInterventionType(zone.interventionType) : '',
+                                  targetHazards: [zone.hazardType || zone.primaryHazard || 'FLOOD'],
+                                  interventions: bundleInterventions,
+                                  locations: [{ zoneId, name: zoneName, geometryType: 'polygon' }],
+                                  capexRange: { 
+                                    low: interventions.reduce((sum: number, i: any) => sum + (i.estimatedCost?.min || 0), 0),
+                                    high: interventions.reduce((sum: number, i: any) => sum + (i.estimatedCost?.max || 0), 0),
                                   },
-                                ],
-                              });
-                            } else if (checked === false) {
-                              onUpdate({
-                                interventionBundles: data.interventionBundles.filter(b => b.id !== zoneId),
-                              });
-                            }
-                          }}
-                          className="mt-1"
-                        />
-                        <div className="space-y-2">
-                          <div>
-                            <h3 className="text-lg font-semibold">{zoneName}</h3>
-                            <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                              {zoneArea && <span>{formatArea(zoneArea, 'km²')}</span>}
-                              {zonePopulation && (
-                                <>
-                                  <span>•</span>
-                                  <span className="flex items-center gap-1">
-                                    <Users className="h-3.5 w-3.5" />
-                                    {zonePopulation} residents
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {(zone.hazardType || zone.primaryHazard) && (
-                              <Badge variant="outline" className="flex items-center gap-1.5 py-1 px-2.5">
-                                {getHazardIcon(zone.hazardType || zone.primaryHazard)}
-                                <span>{(zone.hazardType || zone.primaryHazard).replace(/_/g, ' ')}</span>
-                              </Badge>
-                            )}
-                            {zone.secondaryHazard && (
-                              <Badge variant="outline" className="flex items-center gap-1.5 py-1 px-2.5 opacity-70">
-                                {getHazardIcon(zone.secondaryHazard)}
-                                <span>{zone.secondaryHazard.replace(/_/g, ' ')}</span>
-                              </Badge>
-                            )}
-                            {zone.interventionType && (
-                              <Badge variant="secondary" className="py-1 px-2.5">
-                                {formatInterventionType(zone.interventionType)}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        {zone.riskScore && (
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide">Risk Level</p>
-                            <p className={`text-lg font-semibold ${zone.riskScore > 0.7 ? 'text-red-600' : zone.riskScore > 0.4 ? 'text-amber-600' : 'text-green-600'}`}>
+                                  enabled: true,
+                                },
+                              ],
+                            });
+                          } else if (checked === false) {
+                            onUpdate({
+                              interventionBundles: data.interventionBundles.filter(b => b.id !== zoneId),
+                            });
+                          }
+                        }}
+                        className="mt-0.5"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-sm font-semibold truncate">{zoneName}</h3>
+                          {zone.riskScore && (
+                            <span className={`text-xs font-semibold shrink-0 ${zone.riskScore > 0.7 ? 'text-red-600' : zone.riskScore > 0.4 ? 'text-amber-600' : 'text-green-600'}`}>
                               {(zone.riskScore * 100).toFixed(0)}%
-                            </p>
-                          </div>
-                        )}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                          {zoneArea && <span>{formatArea(zoneArea, 'km²')}</span>}
+                          {zonePopulation && (
+                            <>
+                              <span>·</span>
+                              <span className="flex items-center gap-0.5">
+                                <Users className="h-3 w-3" />
+                                {zonePopulation}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {(zone.hazardType || zone.primaryHazard) && (
+                            <Badge variant="outline" className="flex items-center gap-1 text-[10px] py-0 px-1.5 h-5">
+                              {getHazardIcon(zone.hazardType || zone.primaryHazard)}
+                              <span>{(zone.hazardType || zone.primaryHazard).replace(/_/g, ' ')}</span>
+                            </Badge>
+                          )}
+                          {zone.secondaryHazard && (
+                            <Badge variant="outline" className="flex items-center gap-1 text-[10px] py-0 px-1.5 h-5 opacity-70">
+                              {getHazardIcon(zone.secondaryHazard)}
+                              <span>{zone.secondaryHazard.replace(/_/g, ' ')}</span>
+                            </Badge>
+                          )}
+                          {zone.interventionType && (
+                            <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-5">
+                              {formatInterventionType(zone.interventionType)}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardHeader>
 
-                  {/* Interventions - Always Visible */}
-                  <CardContent className="pt-0 pb-6">
+                  <CardContent className="pt-0 pb-3 px-4 flex-1">
                     {interventions.length > 0 ? (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-muted-foreground">
-                            {interventions.length} {interventions.length === 1 ? 'Intervention' : 'Interventions'} Planned
-                          </p>
-                        </div>
-                        <div className="space-y-4">
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {interventions.length} {interventions.length === 1 ? 'Intervention' : 'Interventions'}
+                        </p>
+                        <div className="space-y-1.5">
                           {interventions.map((intervention: any) => {
                             const impacts = intervention.impacts || {};
                             const hasHighImpact = Object.values(impacts).some(v => v === 'high');
@@ -494,92 +483,66 @@ function SetupStep({
                             return (
                               <div 
                                 key={intervention.interventionId || intervention.id} 
-                                className="p-5 bg-muted/30 rounded-xl border border-border/50"
+                                className="p-2.5 bg-muted/30 rounded-lg border border-border/50"
                               >
-                                <div className="space-y-4">
-                                  {/* Intervention Header */}
-                                  <div className="flex items-start justify-between gap-4">
-                                    <div className="space-y-1.5">
-                                      {intervention.assetName ? (
-                                        <>
-                                          <h4 className="font-bold text-lg">{intervention.assetName}</h4>
-                                          <p className="text-sm font-medium text-primary/80">
-                                            {intervention.interventionName || intervention.name}
-                                          </p>
-                                        </>
-                                      ) : (
-                                        <h4 className="font-semibold text-base">{intervention.interventionName || intervention.name}</h4>
-                                      )}
-                                      {intervention.category && (
-                                        <p className="text-xs text-muted-foreground">
-                                          {intervention.category.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    {intervention.assetName ? (
+                                      <>
+                                        <p className="text-xs font-semibold truncate">{intervention.assetName}</p>
+                                        <p className="text-[11px] text-primary/80 truncate">
+                                          {intervention.interventionName || intervention.name}
                                         </p>
-                                      )}
-                                    </div>
-                                    {hasHighImpact && (
-                                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 shrink-0">
-                                        <TrendingUp className="h-3 w-3 mr-1" />
-                                        High Impact
-                                      </Badge>
+                                      </>
+                                    ) : (
+                                      <p className="text-xs font-semibold truncate">{intervention.interventionName || intervention.name}</p>
                                     )}
                                   </div>
-
-                                  {/* Intervention Details Grid */}
-                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                    {intervention.estimatedCost && (
-                                      <div className="space-y-1">
-                                        <p className="text-xs text-muted-foreground">Estimated Cost</p>
-                                        <p className="font-medium">{formatCost(intervention.estimatedCost)}</p>
-                                      </div>
-                                    )}
-                                    {intervention.estimatedArea && (
-                                      <div className="space-y-1">
-                                        <p className="text-xs text-muted-foreground">Coverage Area</p>
-                                        <p className="font-medium">{formatArea(intervention.estimatedArea, intervention.areaUnit || 'ha')}</p>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Impact Indicators */}
-                                  {intervention.impacts && (
-                                    <div className="flex flex-wrap gap-2 pt-2 border-t border-border/30">
-                                      {intervention.impacts.flood && (
-                                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${getImpactLevel(intervention.impacts.flood).color}`}>
-                                          <Droplets className="h-3.5 w-3.5" />
-                                          Flood: {intervention.impacts.flood}
-                                        </div>
-                                      )}
-                                      {intervention.impacts.heat && (
-                                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${getImpactLevel(intervention.impacts.heat).color}`}>
-                                          <Thermometer className="h-3.5 w-3.5" />
-                                          Heat: {intervention.impacts.heat}
-                                        </div>
-                                      )}
-                                      {intervention.impacts.landslide && intervention.impacts.landslide !== 'low' && (
-                                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${getImpactLevel(intervention.impacts.landslide).color}`}>
-                                          <Mountain className="h-3.5 w-3.5" />
-                                          Landslide: {intervention.impacts.landslide}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {/* Notes if available */}
-                                  {intervention.notes && (
-                                    <div className="pt-2 border-t border-border/30">
-                                      <p className="text-sm text-muted-foreground italic">{intervention.notes}</p>
-                                    </div>
+                                  {hasHighImpact && (
+                                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 shrink-0 text-[10px] py-0 px-1.5 h-4">
+                                      <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                                      High
+                                    </Badge>
                                   )}
                                 </div>
+                                <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
+                                  {intervention.estimatedCost && (
+                                    <span>{formatCost(intervention.estimatedCost)}</span>
+                                  )}
+                                  {intervention.estimatedArea && (
+                                    <span>{formatArea(intervention.estimatedArea, intervention.areaUnit || 'ha')}</span>
+                                  )}
+                                </div>
+                                {intervention.impacts && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {intervention.impacts.flood && (
+                                      <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getImpactLevel(intervention.impacts.flood).color}`}>
+                                        <Droplets className="h-2.5 w-2.5" />
+                                        {intervention.impacts.flood}
+                                      </div>
+                                    )}
+                                    {intervention.impacts.heat && (
+                                      <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getImpactLevel(intervention.impacts.heat).color}`}>
+                                        <Thermometer className="h-2.5 w-2.5" />
+                                        {intervention.impacts.heat}
+                                      </div>
+                                    )}
+                                    {intervention.impacts.landslide && intervention.impacts.landslide !== 'low' && (
+                                      <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getImpactLevel(intervention.impacts.landslide).color}`}>
+                                        <Mountain className="h-2.5 w-2.5" />
+                                        {intervention.impacts.landslide}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
                         </div>
                       </div>
                     ) : (
-                      <div className="py-6 text-center text-muted-foreground bg-muted/20 rounded-lg">
-                        <p className="text-sm">{t('impactModel.noInterventionsInZone')}</p>
-                        <p className="text-xs mt-1 opacity-70">Add interventions in the Site Explorer</p>
+                      <div className="py-4 text-center text-muted-foreground bg-muted/20 rounded-lg">
+                        <p className="text-xs">{t('impactModel.noInterventionsInZone')}</p>
                       </div>
                     )}
                   </CardContent>
@@ -2657,6 +2620,10 @@ export default function ImpactModelPage() {
 
   const cityName = context?.cityName || 'Porto Alegre';
   const funderName = context?.funderSelection?.funderName || sampleFunderSelection.funderName || 'Green Climate Fund';
+  const targetFunders = context?.funderSelection?.targetFunders ?? sampleFunderSelection.targetFunders ?? [];
+  const targetFunderName = targetFunders.length > 0
+    ? targetFunders.map(f => f.fundName).join(', ')
+    : funderName;
 
   // Detect if using real data or sample data
   const hasRealSiteData = context?.siteExplorer?.selectedZones && context.siteExplorer.selectedZones.length > 0;
@@ -2771,7 +2738,7 @@ export default function ImpactModelPage() {
                   usingSampleData={usingSampleData}
                   cityName={cityName}
                   projectName={projectName}
-                  funderName={funderName}
+                  targetFunderName={targetFunderName}
                 />
               )}
               {currentStep === 'quantify' && (

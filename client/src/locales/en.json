@@ -1491,6 +1491,7 @@
     "generationSummary": "Generation Summary",
     "city": "City",
     "funder": "Funder",
+    "targetFunder": "Target Funder",
     "selectedProjects": "Selected Projects",
     "previousGeneration": "Previous Generation Available",
     "generatedOn": "Generated on",
