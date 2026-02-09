@@ -1,0 +1,38 @@
+rrweb-plugin-console-record.js:160 Warning: Encountered two children with the same key, `cooling_campus`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at div
+    at div
+    at _c9 (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/components/ui/card.tsx:114:12)
+    at div
+    at _c (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/components/ui/card.tsx:20:11)
+    at div
+    at div
+    at div
+    at SetupStep (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/pages/impact-model.tsx:229:3)
+    at div
+    at div
+    at div
+    at ImpactModelPage (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/pages/impact-model.tsx:4232:25)
+    at Route (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.d…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=749fe055:323:16)
+    at Switch (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.d…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=749fe055:379:17)
+    at Router
+    at div
+    at div
+    at AppLayout (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/App.tsx?v=vt0d_yH3Y7-2ty8vnL07I:146:26)
+    at Provider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.d…unner/workspace/node_modules/.vite/deps/chunk-3RXG37ZK.js?v=749fe055:38:15)
+    at TooltipProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.d…rkspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=749fe055:64:5)
+    at ChatProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/contexts/chat-context.tsx:20:32)
+    at ProjectContextProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/contexts/project-context.tsx:176:42)
+    at SampleDataProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/core/contexts/sample-data-context.tsx:94:38)
+    at QueryClientProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.d…rkspace/node_modules/.vite/deps/@tanstack_react-query.js?v=749fe055:2805:3)
+    at App (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.dev/src/App.tsx?v=vt0d_yH3Y7-2ty8vnL07I:174:20)
+    at PostHogProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.d…ner/workspace/node_modules/.vite/deps/posthog-js_react.js?v=749fe055:45:21)
+    at ChakraProvider (https://45ee2d96-10f9-4826-82ec-0b97572ccaf8-00-37gtw52d6jrwt.kirk.replit.d…ner/workspace/node_modules/.vite/deps/chunk-GDJKO7MU.js?v=749fe055:2549:18)
+
+﻿
+
+Press cmd i to turn on code suggestions. Press cmd x to disable code suggestions.
+cmd
+i
+ to turn on code suggestions. Don't show again
+

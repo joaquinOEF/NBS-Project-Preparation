@@ -381,7 +381,7 @@ function SetupStep({
               
               return (
                 <Card 
-                  key={zoneId} 
+                  key={`${zoneId}-${index}`} 
                   className={`overflow-hidden transition-all flex flex-col ${isSelected ? 'ring-2 ring-primary/50 border-primary' : 'hover:border-primary/30'}`}
                 >
                   <CardHeader className="py-3 px-4">
@@ -2267,13 +2267,7 @@ export default function ImpactModelPage() {
           setLocalData(freshData);
           console.log('[ImpactModel] Hydrated from database');
           
-          const hasNarratives = (freshData.narrativeCache?.base?.length ?? 0) > 0;
-          const savedNavStep = freshData.navigation?.currentStep;
-          if (savedNavStep !== undefined && savedNavStep >= 0 && savedNavStep < WIZARD_STEPS.length) {
-            setCurrentStep(WIZARD_STEPS[savedNavStep]);
-          } else if (hasNarratives) {
-            setCurrentStep('lenses');
-          }
+          // Navigation is handled by useNavigationPersistence hook — do NOT set currentStep here
         }
       } else if (res.status === 404) {
         console.log('[ImpactModel] Block not found in DB, using local state');
@@ -2285,15 +2279,15 @@ export default function ImpactModelPage() {
     }
   }, [projectId, isSampleMode, isSampleRoute]);
 
-  // Restore navigation from dedicated hook
+  // Restore navigation from dedicated hook — only after data is hydrated to prevent jitter
   useEffect(() => {
-    if (navigationRestored && savedNavState?.currentStep !== undefined) {
+    if (navigationRestored && dataHydrated && savedNavState?.currentStep !== undefined) {
       const stepIndex = savedNavState.currentStep;
       if (stepIndex >= 0 && stepIndex < WIZARD_STEPS.length) {
         setCurrentStep(WIZARD_STEPS[stepIndex]);
       }
     }
-  }, [navigationRestored, savedNavState]);
+  }, [navigationRestored, dataHydrated]);
 
   // Load data on mount
   useEffect(() => {
@@ -2305,10 +2299,10 @@ export default function ImpactModelPage() {
 
   // Persist navigation using dedicated hook (completely separate from domain data)
   useEffect(() => {
-    if (!navigationRestored) return;
+    if (!navigationRestored || !dataHydrated) return;
     const newStepIndex = WIZARD_STEPS.indexOf(currentStep);
     updateNavigationState({ currentStep: newStepIndex });
-  }, [currentStep, navigationRestored, updateNavigationState]);
+  }, [currentStep, navigationRestored, dataHydrated, updateNavigationState]);
 
   useEffect(() => {
     if (context?.impactModel) {
