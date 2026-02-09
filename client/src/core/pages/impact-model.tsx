@@ -995,13 +995,28 @@ function QuantifyStep({
         const projectTotals = aggregateByUnit(allKpis);
         const fmtVal = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toFixed(0);
 
+        const cleanZoneLabel = (raw: string) => {
+          return raw
+            .replace(/zone_(\d+)/gi, 'Zone $1')
+            .replace(/\s*\[(HEAT|FLOOD|LANDSLIDE|DROUGHT|WILDFIRE|OTHER)\]\s*/gi, ' — ')
+            .replace(/\s+/g, ' ')
+            .replace(/\b\w/g, (l: string) => l.toUpperCase())
+            .replace(/\s*—\s*$/, '')
+            .trim();
+        };
+
         const resolveZoneName = (group: any) => {
           const bundle = data.interventionBundles?.find((b: any) => b.id === group.zoneId);
-          if (bundle?.name) return bundle.name;
+          if (bundle?.name) {
+            return cleanZoneLabel(bundle.name);
+          }
+          const seZone = siteExplorerZones.find((z: any) => (z.zoneId || z.id) === group.zoneId);
+          if (seZone) {
+            const rawSe = seZone.zoneName || seZone.name;
+            if (rawSe) return cleanZoneLabel(rawSe);
+          }
           const raw = group.interventionBundle || group.zoneId || 'Zone';
-          const match = raw.match(/zone_(\d+)/i);
-          if (match) return `Zone ${match[1]}`;
-          return raw.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+          return cleanZoneLabel(raw);
         };
 
         const hazardSectionTitle = (hazardType: string) => {
