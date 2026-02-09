@@ -791,87 +791,102 @@ function QuantifyStep({
   return (
     <TooltipProvider>
     <div className="space-y-6">
-      {enabledBundles.length > 0 && (
-        <Card className="border-muted bg-muted/30">
-          <CardContent className="py-4 px-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Settings className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm font-medium text-muted-foreground">
-                {enabledBundles.length} {enabledBundles.length === 1 ? 'Zone' : 'Zones'} selected · {totalInterventionCount} {totalInterventionCount === 1 ? 'intervention' : 'interventions'}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {enabledBundles.map(bundle => {
-                const zoneInterventions = getZoneInterventions(bundle.id);
-                const interventionCount = zoneInterventions.length || bundle.interventions?.length || 0;
-                return (
-                  <Tooltip key={bundle.id}>
-                    <TooltipTrigger asChild>
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border text-sm cursor-default hover:border-primary/40 transition-colors">
-                        <span className="font-medium">{bundle.name}</span>
-                        <Badge variant="secondary" className="text-[11px] py-0 px-1.5 h-5 ml-1">
-                          {interventionCount}
-                        </Badge>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs p-3">
-                      <p className="text-xs font-semibold mb-1.5">{bundle.name}</p>
-                      {bundle.targetHazards?.length > 0 && (
-                        <p className="text-xs text-muted-foreground mb-2">
-                          Hazards: {bundle.targetHazards.map(h => h.replace(/_/g, ' ')).join(', ')}
-                        </p>
-                      )}
-                      {zoneInterventions.length > 0 ? (
-                        <ul className="space-y-1">
-                          {zoneInterventions.map((inv: any, idx: number) => (
-                            <li key={inv.interventionId || idx} className="text-xs flex items-start gap-1.5">
-                              <span className="text-muted-foreground mt-0.5">·</span>
-                              <span>
-                                <span className="font-medium">{inv.assetName || inv.interventionName || inv.name}</span>
-                                {inv.interventionName && inv.assetName && (
-                                  <span className="text-muted-foreground"> — {inv.interventionName}</span>
-                                )}
-                                {inv.category && (
-                                  <span className="text-muted-foreground"> [{inv.category.replace(/_/g, ' ')}]</span>
-                                )}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : bundle.interventions?.length > 0 ? (
-                        <ul className="space-y-1">
-                          {bundle.interventions.map((desc, idx) => (
-                            <li key={idx} className="text-xs flex items-start gap-1.5">
-                              <span className="text-muted-foreground mt-0.5">·</span>
-                              <span>{desc}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">No interventions</p>
-                      )}
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
+      <Card className="bg-white dark:bg-card">
+        <CardHeader className="pb-3">
           <CardTitle className="text-lg">{t('impactModel.quantify.title')}</CardTitle>
           <CardDescription>{t('impactModel.quantify.description')}</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-3 mb-4">
-            {qi && (
+        <CardContent className="space-y-4">
+          {enabledBundles.length > 0 && (
+            <div className="p-4 rounded-lg bg-muted/40 border border-border/50">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Settings className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm font-medium">
+                    {enabledBundles.length} {enabledBundles.length === 1 ? 'Zone' : 'Zones'} · {totalInterventionCount} {totalInterventionCount === 1 ? 'intervention' : 'interventions'}
+                  </p>
+                </div>
+                {(() => {
+                  const totalCapex = enabledBundles.reduce((sum, b) => sum + ((b.capexRange?.low || 0) + (b.capexRange?.high || 0)) / 2, 0);
+                  if (totalCapex > 0) {
+                    const fmt = totalCapex >= 1000000 ? `$${(totalCapex / 1000000).toFixed(1)}M` : totalCapex >= 1000 ? `$${(totalCapex / 1000).toFixed(0)}K` : `$${totalCapex.toFixed(0)}`;
+                    return <span className="text-xs text-muted-foreground">Est. investment: {fmt}</span>;
+                  }
+                  return null;
+                })()}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {enabledBundles.map(bundle => {
+                  const zoneInterventions = getZoneInterventions(bundle.id);
+                  const interventionCount = zoneInterventions.length || bundle.interventions?.length || 0;
+                  const hazards = bundle.targetHazards?.map(h => h.replace(/_/g, ' ')).join(', ');
+                  return (
+                    <Tooltip key={bundle.id}>
+                      <TooltipTrigger asChild>
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border text-sm cursor-default hover:border-primary/40 transition-colors">
+                          <span className="font-medium">{bundle.name}</span>
+                          {hazards && (
+                            <span className="text-[11px] text-muted-foreground">({hazards})</span>
+                          )}
+                          <Badge variant="secondary" className="text-[11px] py-0 px-1.5 h-5 ml-0.5">
+                            {interventionCount}
+                          </Badge>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs p-3">
+                        <p className="text-xs font-semibold mb-1.5">{bundle.name}</p>
+                        {hazards && (
+                          <p className="text-xs text-muted-foreground mb-2">Hazards: {hazards}</p>
+                        )}
+                        {bundle.capexRange && (bundle.capexRange.low > 0 || bundle.capexRange.high > 0) && (
+                          <p className="text-xs text-muted-foreground mb-2">
+                            CAPEX: ${((bundle.capexRange.low) / 1000000).toFixed(1)}M – ${((bundle.capexRange.high) / 1000000).toFixed(1)}M
+                          </p>
+                        )}
+                        {zoneInterventions.length > 0 ? (
+                          <ul className="space-y-1">
+                            {zoneInterventions.map((inv: any, idx: number) => (
+                              <li key={inv.interventionId || idx} className="text-xs flex items-start gap-1.5">
+                                <span className="text-muted-foreground mt-0.5">·</span>
+                                <span>
+                                  <span className="font-medium">{inv.assetName || inv.interventionName || inv.name}</span>
+                                  {inv.interventionName && inv.assetName && (
+                                    <span className="text-muted-foreground"> — {inv.interventionName}</span>
+                                  )}
+                                  {inv.category && (
+                                    <span className="text-muted-foreground"> [{inv.category.replace(/_/g, ' ')}]</span>
+                                  )}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : bundle.interventions?.length > 0 ? (
+                          <ul className="space-y-1">
+                            {bundle.interventions.map((desc, idx) => (
+                              <li key={idx} className="text-xs flex items-start gap-1.5">
+                                <span className="text-muted-foreground mt-0.5">·</span>
+                                <span>{desc}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No interventions</p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {qi && (
+            <div className="flex items-center gap-3">
               <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                 {qi.evidenceContext.chunksUsed} {t('impactModel.quantify.evidenceChunks')}
               </Badge>
-            )}
-          </div>
+            </div>
+          )}
 
           {!qi && (
             <Button
@@ -893,7 +908,6 @@ function QuantifyStep({
             </Button>
           )}
 
-          {/* Show retry option when quantification ran but returned no results */}
           {qi && qi.impactGroups.length === 0 && (
             <div className="space-y-3">
               <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800">
