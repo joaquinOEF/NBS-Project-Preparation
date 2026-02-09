@@ -662,11 +662,13 @@ function QuantifyStep({
   onUpdate,
   isQuantifying,
   onQuantify,
+  siteExplorerZones,
 }: {
   data: ImpactModelData;
   onUpdate: (d: Partial<ImpactModelData>) => void;
   isQuantifying: boolean;
   onQuantify: () => Promise<void>;
+  siteExplorerZones: any[];
 }) {
   const { t } = useTranslation();
   const qi = data.quantifiedImpacts;
@@ -778,10 +780,85 @@ function QuantifyStep({
     );
   };
 
+  const enabledBundles = data.interventionBundles.filter(b => b.enabled);
+  const totalInterventionCount = enabledBundles.reduce((sum, b) => sum + (b.interventions?.length || 0), 0);
+
+  const getZoneInterventions = (bundleId: string) => {
+    const zone = siteExplorerZones.find(z => (z.zoneId || z.id) === bundleId);
+    return zone?.interventionPortfolio || [];
+  };
+
   return (
     <TooltipProvider>
     <div className="space-y-6">
-      {/* Summary of enabled bundles */}
+      {enabledBundles.length > 0 && (
+        <Card className="border-muted bg-muted/30">
+          <CardContent className="py-4 px-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Settings className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm font-medium text-muted-foreground">
+                {enabledBundles.length} {enabledBundles.length === 1 ? 'Zone' : 'Zones'} selected · {totalInterventionCount} {totalInterventionCount === 1 ? 'intervention' : 'interventions'}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {enabledBundles.map(bundle => {
+                const zoneInterventions = getZoneInterventions(bundle.id);
+                const interventionCount = zoneInterventions.length || bundle.interventions?.length || 0;
+                return (
+                  <Tooltip key={bundle.id}>
+                    <TooltipTrigger asChild>
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background border border-border text-sm cursor-default hover:border-primary/40 transition-colors">
+                        <span className="font-medium">{bundle.name}</span>
+                        <Badge variant="secondary" className="text-[11px] py-0 px-1.5 h-5 ml-1">
+                          {interventionCount}
+                        </Badge>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs p-3">
+                      <p className="text-xs font-semibold mb-1.5">{bundle.name}</p>
+                      {bundle.targetHazards?.length > 0 && (
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Hazards: {bundle.targetHazards.map(h => h.replace(/_/g, ' ')).join(', ')}
+                        </p>
+                      )}
+                      {zoneInterventions.length > 0 ? (
+                        <ul className="space-y-1">
+                          {zoneInterventions.map((inv: any, idx: number) => (
+                            <li key={inv.interventionId || idx} className="text-xs flex items-start gap-1.5">
+                              <span className="text-muted-foreground mt-0.5">·</span>
+                              <span>
+                                <span className="font-medium">{inv.assetName || inv.interventionName || inv.name}</span>
+                                {inv.interventionName && inv.assetName && (
+                                  <span className="text-muted-foreground"> — {inv.interventionName}</span>
+                                )}
+                                {inv.category && (
+                                  <span className="text-muted-foreground"> [{inv.category.replace(/_/g, ' ')}]</span>
+                                )}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : bundle.interventions?.length > 0 ? (
+                        <ul className="space-y-1">
+                          {bundle.interventions.map((desc, idx) => (
+                            <li key={idx} className="text-xs flex items-start gap-1.5">
+                              <span className="text-muted-foreground mt-0.5">·</span>
+                              <span>{desc}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No interventions</p>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">{t('impactModel.quantify.title')}</CardTitle>
@@ -789,9 +866,6 @@ function QuantifyStep({
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-3 mb-4">
-            <Badge variant="outline">
-              {data.interventionBundles.filter(b => b.enabled).length} {t('impactModel.quantify.bundlesEnabled')}
-            </Badge>
             {qi && (
               <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                 {qi.evidenceContext.chunksUsed} {t('impactModel.quantify.evidenceChunks')}
@@ -2750,6 +2824,7 @@ export default function ImpactModelPage() {
                   onUpdate={handleUpdate}
                   isQuantifying={isQuantifying}
                   onQuantify={handleQuantify}
+                  siteExplorerZones={siteExplorerZones}
                 />
               )}
               {currentStep === 'narrate' && (
