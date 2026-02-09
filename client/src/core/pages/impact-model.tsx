@@ -995,12 +995,34 @@ function QuantifyStep({
         const projectTotals = aggregateByUnit(allKpis);
         const fmtVal = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toFixed(0);
 
+        const zoneNameLookup = new Map<string, string>();
+        siteExplorerZones.forEach((z: any) => {
+          const id = z.zoneId || z.id;
+          const name = z.zoneName || z.name;
+          if (id && name && !/^zone_\d+$/i.test(name)) zoneNameLookup.set(id, name);
+        });
+        data.interventionBundles?.forEach((b: any) => {
+          if (b.id && b.name && !/^zone_\d+$/i.test(b.name) && !zoneNameLookup.has(b.id)) {
+            zoneNameLookup.set(b.id, b.name);
+          }
+        });
+
+        const cleanZoneRefs = (text: string) => {
+          if (!text || typeof text !== 'string') return text;
+          return text.replace(/\bzone_(\d+)\b/gi, (_m, num) => {
+            const fullId = `zone_${num}`;
+            return zoneNameLookup.get(fullId) || `Zone ${num}`;
+          });
+        };
+
         const resolveZoneName = (group: any) => {
-          if (group.interventionBundle && !group.interventionBundle.match(/^zone_\d+$/i)) {
+          const isRawId = (s: string) => /^zone_\d+$/i.test(s);
+          if (group.interventionBundle && !isRawId(group.interventionBundle)) {
             return group.interventionBundle;
           }
-          const bundle = data.interventionBundles?.find((b: any) => b.id === group.zoneId);
-          if (bundle?.name) return bundle.name;
+          if (group.zoneId && zoneNameLookup.has(group.zoneId)) {
+            return zoneNameLookup.get(group.zoneId);
+          }
           const raw = group.interventionBundle || group.zoneId || 'Zone';
           const match = raw.match(/zone_(\d+)/i);
           if (match) return `Zone ${match[1]}`;
@@ -1098,7 +1120,7 @@ function QuantifyStep({
                                     <Button variant="ghost" size="icon" className="absolute top-1.5 right-1.5 h-6 w-6 opacity-0 group-hover/card:opacity-100 transition-opacity" onClick={() => handleEditKPI(group.id, kpi)}>
                                       <Edit3 className="h-3 w-3" />
                                     </Button>
-                                    <p className="text-sm font-medium leading-snug pr-6">{kpi.name}</p>
+                                    <p className="text-sm font-medium leading-snug pr-6">{cleanZoneRefs(kpi.name)}</p>
                                     <div>
                                       <p className="text-2xl font-bold text-primary leading-tight">
                                         {fmtVal(kpi.valueRange.low)}–{fmtVal(kpi.valueRange.high)}
@@ -1146,17 +1168,18 @@ function QuantifyStep({
                 {qi.coBenefits.map((cb) => (
                   <div key={cb.id} className="p-4 rounded-lg border bg-white dark:bg-card">
                     <div className="space-y-2">
-                      {cb.valueRange ? (
+                      <Badge className="bg-primary/10 text-primary hover:bg-primary/10">{cb.category?.replace(/[_/]/g, ' ')}</Badge>
+                      {cb.valueRange && typeof cb.valueRange.low === 'number' && typeof cb.valueRange.high === 'number' && (cb.valueRange.low > 0 || cb.valueRange.high > 0) ? (
                         <div>
                           <p className="text-xl font-bold text-primary">
                             {fmtVal(cb.valueRange.low)}–{fmtVal(cb.valueRange.high)}
                           </p>
                           <p className="text-xs text-muted-foreground">{cb.unit}</p>
                         </div>
-                      ) : (
-                        <Badge className="bg-primary/10 text-primary hover:bg-primary/10">{cb.category}</Badge>
-                      )}
-                      <p className="text-sm font-medium leading-snug">{cb.title}</p>
+                      ) : cb.metric ? (
+                        <p className="text-sm text-muted-foreground italic">{cleanZoneRefs(cb.metric)}</p>
+                      ) : null}
+                      <p className="text-sm font-medium leading-snug">{cleanZoneRefs(cb.title)}</p>
                       <div className="flex items-center gap-1.5">
                         {getConfidenceBadge(cb.confidence)}
                       </div>

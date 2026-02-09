@@ -848,7 +848,8 @@ Generate structured JSON. RULES:
       ]
     }
   ],
-  "coBenefits": [4-6 items: { id, title, category, metric, valueRange {low,high} or null, unit, confidence, evidenceTier, sourceChunkIds[], whoBenefits[], where[] }],
+  "coBenefits": [4-6 items: { id, title, category, metric, valueRange: {low: number, high: number}, unit, confidence, evidenceTier, sourceChunkIds[], whoBenefits[], where[] }],
+  IMPORTANT: Every co-benefit MUST have a numeric valueRange with low and high values. Estimate ranges if exact data is unavailable. Never omit valueRange.
   "mrvIndicators": [3-5 items: { id, name, metric, baselineValue, targetValue, frequency, dataSource, confidence }]
 }`;
 
@@ -902,16 +903,44 @@ Generate structured JSON. RULES:
       targetValue: flattenValue(m.targetValue),
     }));
 
+    const replaceZoneIds = (text: string) => {
+      if (!text || typeof text !== 'string') return text;
+      return text.replace(/\bzone_(\d+)\b/gi, (match, num) => {
+        const fullId = `zone_${num}`;
+        return zoneNameMap.get(fullId) || `Zone ${num}`;
+      });
+    };
+
     const sanitizedGroups = (parsed.impactGroups || []).map((g: any) => ({
       ...g,
       interventionBundle: (g.zoneId && zoneNameMap.has(g.zoneId))
         ? zoneNameMap.get(g.zoneId)
         : g.interventionBundle || g.zoneId || 'Zone',
+      kpis: (g.kpis || []).map((k: any) => ({
+        ...k,
+        name: replaceZoneIds(k.name),
+        metric: replaceZoneIds(k.metric),
+        methodology: replaceZoneIds(k.methodology),
+      })),
     }));
+
+    const sanitizedCoBenefits = (parsed.coBenefits || []).map((cb: any) => {
+      let vr = cb.valueRange;
+      if (!vr || typeof vr.low !== 'number' || typeof vr.high !== 'number') {
+        vr = { low: 0, high: 0 };
+      }
+      return {
+        ...cb,
+        title: replaceZoneIds(cb.title),
+        metric: replaceZoneIds(cb.metric),
+        valueRange: vr,
+        unit: cb.unit || 'qualitative',
+      };
+    });
 
     return {
       impactGroups: sanitizedGroups,
-      coBenefits: parsed.coBenefits || [],
+      coBenefits: sanitizedCoBenefits,
       mrvIndicators: sanitizedMrv,
       evidenceContext: {
         chunksUsed: topChunks.length,
