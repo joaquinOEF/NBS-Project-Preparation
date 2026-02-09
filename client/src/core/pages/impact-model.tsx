@@ -955,7 +955,7 @@ function QuantifyStep({
         };
 
         const aggregateByUnit = (kpis: any[]) => {
-          const metricMap = new Map<string, { low: number; high: number; name: string; unit: string; count: number }>();
+          const metricMap = new Map<string, { low: number; high: number; names: string[]; unit: string; count: number }>();
           for (const kpi of kpis) {
             const rawUnit = kpi.unit || '';
             const u = normalizeUnit(rawUnit);
@@ -967,11 +967,14 @@ function QuantifyStep({
               existing.low += kpi.valueRange?.low || 0;
               existing.high += kpi.valueRange?.high || 0;
               existing.count++;
+              if (kpi.name && !existing.names.includes(kpi.name)) {
+                existing.names.push(kpi.name);
+              }
             } else {
               metricMap.set(key, {
                 low: kpi.valueRange?.low || 0,
                 high: kpi.valueRange?.high || 0,
-                name: kpi.name,
+                names: kpi.name ? [kpi.name] : [],
                 unit: u,
                 count: 1,
               });
@@ -981,6 +984,12 @@ function QuantifyStep({
             .filter(([, v]) => v.count >= 1)
             .sort((a, b) => (b[1].high - a[1].high))
             .slice(0, 4);
+        };
+
+        const summaryLabel = (agg: { names: string[]; unit: string; count: number }) => {
+          if (agg.names.length === 1) return agg.names[0];
+          if (agg.names.length <= 2) return agg.names.join(' + ');
+          return `${agg.names[0]} + ${agg.names.length - 1} more`;
         };
 
         const projectTotals = aggregateByUnit(allKpis);
@@ -996,7 +1005,8 @@ function QuantifyStep({
                   {projectTotals.map(([, agg]) => (
                     <div key={agg.unit} className="text-center p-3 rounded-lg bg-primary/5">
                       <p className="text-xl font-bold text-primary">{fmtVal(agg.low)}–{fmtVal(agg.high)}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{agg.unit}</p>
+                      <p className="text-xs font-medium text-foreground/70 mt-0.5">{summaryLabel(agg)}</p>
+                      <p className="text-[11px] text-muted-foreground">{agg.unit}</p>
                     </div>
                   ))}
                 </div>
@@ -1016,7 +1026,7 @@ function QuantifyStep({
                   <Badge variant="outline" className="text-xs">{groups.length} {groups.length === 1 ? 'zone' : 'zones'}</Badge>
                   {hazardTotals.length > 0 && (
                     <span className="text-xs text-muted-foreground ml-auto">
-                      {hazardTotals.map(([, a]) => `${fmtVal(a.low)}–${fmtVal(a.high)} ${a.unit}`).join(' · ')}
+                      {hazardTotals.map(([, a]) => `${fmtVal(a.low)}–${fmtVal(a.high)} ${a.unit} (${a.names[0] || ''})`).join(' · ')}
                     </span>
                   )}
                 </div>
