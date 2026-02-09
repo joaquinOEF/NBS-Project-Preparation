@@ -2785,7 +2785,7 @@ export default function ImpactModelPage() {
               onClick={() => setCurrentStep(WIZARD_STEPS[currentStepIndex + 1])}
               disabled={!canProceed()}
             >
-              {t('common.continue')}
+              {currentStep === 'setup' ? t('impactModel.quantifyImpact') : t('common.continue')}
             </Button>
           ) : (
             <Button onClick={() => {
