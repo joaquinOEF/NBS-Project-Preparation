@@ -427,9 +427,9 @@ function SetupStep({
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-sm font-semibold truncate">{zoneName}</h3>
+                          <h3 className="text-base font-semibold truncate">{zoneName}</h3>
                           {zone.riskScore && (
-                            <span className={`text-xs font-semibold shrink-0 ${zone.riskScore > 0.7 ? 'text-red-600' : zone.riskScore > 0.4 ? 'text-amber-600' : 'text-green-600'}`}>
+                            <span className={`text-sm font-semibold shrink-0 ${zone.riskScore > 0.7 ? 'text-red-600' : zone.riskScore > 0.4 ? 'text-amber-600' : 'text-green-600'}`}>
                               {(zone.riskScore * 100).toFixed(0)}%
                             </span>
                           )}
@@ -446,21 +446,21 @@ function SetupStep({
                             </>
                           )}
                         </div>
-                        <div className="flex flex-wrap gap-1 mt-1.5">
+                        <div className="flex flex-wrap gap-1.5 mt-2">
                           {(zone.hazardType || zone.primaryHazard) && (
-                            <Badge variant="outline" className="flex items-center gap-1 text-[10px] py-0 px-1.5 h-5">
+                            <Badge variant="outline" className="flex items-center gap-1 text-xs py-0.5 px-2">
                               {getHazardIcon(zone.hazardType || zone.primaryHazard)}
                               <span>{(zone.hazardType || zone.primaryHazard).replace(/_/g, ' ')}</span>
                             </Badge>
                           )}
                           {zone.secondaryHazard && (
-                            <Badge variant="outline" className="flex items-center gap-1 text-[10px] py-0 px-1.5 h-5 opacity-70">
+                            <Badge variant="outline" className="flex items-center gap-1 text-xs py-0.5 px-2 opacity-70">
                               {getHazardIcon(zone.secondaryHazard)}
                               <span>{zone.secondaryHazard.replace(/_/g, ' ')}</span>
                             </Badge>
                           )}
                           {zone.interventionType && (
-                            <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-5">
+                            <Badge variant="secondary" className="text-xs py-0.5 px-2">
                               {formatInterventionType(zone.interventionType)}
                             </Badge>
                           )}
@@ -469,13 +469,13 @@ function SetupStep({
                     </div>
                   </CardHeader>
 
-                  <CardContent className="pt-0 pb-3 px-4 flex-1">
+                  <CardContent className="pt-0 pb-4 px-4 flex-1">
                     {interventions.length > 0 ? (
                       <div className="space-y-2">
                         <p className="text-xs font-medium text-muted-foreground">
                           {interventions.length} {interventions.length === 1 ? 'Intervention' : 'Interventions'}
                         </p>
-                        <div className="space-y-1.5">
+                        <div className="space-y-2">
                           {interventions.map((intervention: any) => {
                             const impacts = intervention.impacts || {};
                             const hasHighImpact = Object.values(impacts).some(v => v === 'high');
@@ -483,29 +483,29 @@ function SetupStep({
                             return (
                               <div 
                                 key={intervention.interventionId || intervention.id} 
-                                className="p-2.5 bg-muted/30 rounded-lg border border-border/50"
+                                className="p-3 bg-muted/30 rounded-lg border border-border/50"
                               >
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0">
                                     {intervention.assetName ? (
                                       <>
-                                        <p className="text-xs font-semibold truncate">{intervention.assetName}</p>
-                                        <p className="text-[11px] text-primary/80 truncate">
+                                        <p className="text-sm font-semibold truncate">{intervention.assetName}</p>
+                                        <p className="text-xs text-primary/80 truncate">
                                           {intervention.interventionName || intervention.name}
                                         </p>
                                       </>
                                     ) : (
-                                      <p className="text-xs font-semibold truncate">{intervention.interventionName || intervention.name}</p>
+                                      <p className="text-sm font-semibold truncate">{intervention.interventionName || intervention.name}</p>
                                     )}
                                   </div>
                                   {hasHighImpact && (
-                                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 shrink-0 text-[10px] py-0 px-1.5 h-4">
-                                      <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 shrink-0 text-[11px] py-0 px-1.5 h-5">
+                                      <TrendingUp className="h-3 w-3 mr-0.5" />
                                       High
                                     </Badge>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
+                                <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
                                   {intervention.estimatedCost && (
                                     <span>{formatCost(intervention.estimatedCost)}</span>
                                   )}
@@ -516,20 +516,20 @@ function SetupStep({
                                 {intervention.impacts && (
                                   <div className="flex flex-wrap gap-1 mt-1.5">
                                     {intervention.impacts.flood && (
-                                      <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getImpactLevel(intervention.impacts.flood).color}`}>
-                                        <Droplets className="h-2.5 w-2.5" />
+                                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${getImpactLevel(intervention.impacts.flood).color}`}>
+                                        <Droplets className="h-3 w-3" />
                                         {intervention.impacts.flood}
                                       </div>
                                     )}
                                     {intervention.impacts.heat && (
-                                      <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getImpactLevel(intervention.impacts.heat).color}`}>
-                                        <Thermometer className="h-2.5 w-2.5" />
+                                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${getImpactLevel(intervention.impacts.heat).color}`}>
+                                        <Thermometer className="h-3 w-3" />
                                         {intervention.impacts.heat}
                                       </div>
                                     )}
                                     {intervention.impacts.landslide && intervention.impacts.landslide !== 'low' && (
-                                      <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getImpactLevel(intervention.impacts.landslide).color}`}>
-                                        <Mountain className="h-2.5 w-2.5" />
+                                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${getImpactLevel(intervention.impacts.landslide).color}`}>
+                                        <Mountain className="h-3 w-3" />
                                         {intervention.impacts.landslide}
                                       </div>
                                     )}
@@ -542,7 +542,7 @@ function SetupStep({
                       </div>
                     ) : (
                       <div className="py-4 text-center text-muted-foreground bg-muted/20 rounded-lg">
-                        <p className="text-xs">{t('impactModel.noInterventionsInZone')}</p>
+                        <p className="text-sm">{t('impactModel.noInterventionsInZone')}</p>
                       </div>
                     )}
                   </CardContent>
@@ -2621,9 +2621,12 @@ export default function ImpactModelPage() {
   const cityName = context?.cityName || 'Porto Alegre';
   const funderName = context?.funderSelection?.funderName || sampleFunderSelection.funderName || 'Green Climate Fund';
   const targetFunders = context?.funderSelection?.targetFunders ?? sampleFunderSelection.targetFunders ?? [];
-  const targetFunderName = targetFunders.length > 0
-    ? targetFunders.map(f => f.fundName).join(', ')
-    : funderName;
+  const fundingPlanNextName = context?.funderSelection?.fundingPlan?.selectedFunderNextName;
+  const targetFunderName = fundingPlanNextName
+    ? fundingPlanNextName
+    : targetFunders.length > 0
+      ? targetFunders.map(f => f.fundName).join(', ')
+      : funderName;
 
   // Detect if using real data or sample data
   const hasRealSiteData = context?.siteExplorer?.selectedZones && context.siteExplorer.selectedZones.length > 0;
