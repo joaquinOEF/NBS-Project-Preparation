@@ -71,6 +71,7 @@ Preferred communication style: Simple, everyday language.
 - **AI Integration**: Uses OpenAI GPT-5.2 via Replit AI Integrations for structured narrative generation.
 - **Data Flow**: Integrates inputs from Funder Selection and Site Explorer, and outputs signals to Operations and Business Model.
 - **Quantification Architecture**: KPIs are zone-specific and intervention-site-specific. Each `QuantifiedImpactGroup` has a `zoneId`, and each `QuantifiedKPI` has optional `interventionId`, `interventionName`, and `category` fields. The AI prompt receives full intervention portfolio data (areas, costs, categories, impact ratings) to generate absolute-value KPIs that can be summed across zones.
+- **Zone Name Pipeline**: `buildZonesForAI()` in impact-model.tsx maps zones to include `zoneName` from intervention bundles or zone metadata. Backend `impactModelService.ts` passes zone names in all AI prompts (quantify/generate/narrate) and post-processes responses to ensure `interventionBundle` uses human-readable names instead of raw zone IDs.
 - **UI Grouping**: Step 2 (Quantify) groups impact results by hazard type → zone, with per-hazard subtotals and a project-wide summary card that aggregates compatible KPIs by normalized unit.
 - **Unit Normalization**: Aggregation normalizes unit aliases (ha→hectares, sqm→m², tCO2→tCO₂/year) and excludes percentage/ratio KPIs from summation.
 

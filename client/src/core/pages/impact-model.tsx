@@ -995,28 +995,16 @@ function QuantifyStep({
         const projectTotals = aggregateByUnit(allKpis);
         const fmtVal = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toFixed(0);
 
-        const cleanZoneLabel = (raw: string) => {
-          return raw
-            .replace(/zone_(\d+)/gi, 'Zone $1')
-            .replace(/\s*\[(HEAT|FLOOD|LANDSLIDE|DROUGHT|WILDFIRE|OTHER)\]\s*/gi, ' — ')
-            .replace(/\s+/g, ' ')
-            .replace(/\b\w/g, (l: string) => l.toUpperCase())
-            .replace(/\s*—\s*$/, '')
-            .trim();
-        };
-
         const resolveZoneName = (group: any) => {
+          if (group.interventionBundle && !group.interventionBundle.match(/^zone_\d+$/i)) {
+            return group.interventionBundle;
+          }
           const bundle = data.interventionBundles?.find((b: any) => b.id === group.zoneId);
-          if (bundle?.name) {
-            return cleanZoneLabel(bundle.name);
-          }
-          const seZone = siteExplorerZones.find((z: any) => (z.zoneId || z.id) === group.zoneId);
-          if (seZone) {
-            const rawSe = seZone.zoneName || seZone.name;
-            if (rawSe) return cleanZoneLabel(rawSe);
-          }
+          if (bundle?.name) return bundle.name;
           const raw = group.interventionBundle || group.zoneId || 'Zone';
-          return cleanZoneLabel(raw);
+          const match = raw.match(/zone_(\d+)/i);
+          if (match) return `Zone ${match[1]}`;
+          return raw.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
         };
 
         const hazardSectionTitle = (hazardType: string) => {
@@ -2434,24 +2422,7 @@ export default function ImpactModelPage() {
   const handleQuantify = async () => {
     setIsQuantifying(true);
     try {
-      const zonesForAI = siteExplorerZones.map(zone => ({
-        zoneId: zone.zoneId,
-        hazardType: zone.hazardType,
-        riskScore: 'riskScore' in zone ? zone.riskScore : 0.5,
-        area: 'area' in zone ? zone.area : undefined,
-        interventionType: 'interventionType' in zone ? zone.interventionType : undefined,
-        interventionPortfolio: ('interventionPortfolio' in zone ? (zone as any).interventionPortfolio || [] : []).map((site: any) => ({
-          interventionId: site.interventionId,
-          interventionName: site.interventionName,
-          category: site.category,
-          estimatedArea: site.estimatedArea,
-          areaUnit: site.areaUnit,
-          estimatedCost: site.estimatedCost,
-          impacts: site.impacts,
-          assetName: site.assetName,
-          assetType: site.assetType,
-        })),
-      }));
+      const zonesForAI = buildZonesForAI(true);
 
       const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;
 
@@ -2496,13 +2467,7 @@ export default function ImpactModelPage() {
     setIsGenerating(true);
     
     try {
-      const zonesForAI = siteExplorerZones.map(zone => ({
-        zoneId: zone.zoneId,
-        hazardType: zone.hazardType,
-        riskScore: 'riskScore' in zone ? zone.riskScore : 0.5,
-        area: 'area' in zone ? zone.area : undefined,
-        interventionType: 'interventionType' in zone ? zone.interventionType : undefined,
-      }));
+      const zonesForAI = buildZonesForAI(false);
 
       const response = await fetch('/api/impact-model/generate', {
         method: 'POST',
@@ -2610,13 +2575,7 @@ export default function ImpactModelPage() {
     setIsGenerating(true);
 
     try {
-      const zonesForAI = siteExplorerZones.map(zone => ({
-        zoneId: zone.zoneId,
-        hazardType: zone.hazardType,
-        riskScore: 'riskScore' in zone ? zone.riskScore : 0.5,
-        area: 'area' in zone ? zone.area : undefined,
-        interventionType: 'interventionType' in zone ? zone.interventionType : undefined,
-      }));
+      const zonesForAI = buildZonesForAI(false);
 
       const response = await fetch('/api/impact-model/narrate', {
         method: 'POST',
@@ -2822,6 +2781,35 @@ export default function ImpactModelPage() {
     }
     return zone;
   });
+
+  const buildZonesForAI = useCallback((includePortfolio = false) => {
+    const bundleNameMap = new Map((localData.interventionBundles || []).map((b: any) => [b.id, b.name]));
+    return siteExplorerZones.map((zone: any, idx: number) => {
+      const fallbackName = zone.zoneId?.replace(/zone_(\d+)/i, 'Zone $1') || `Zone ${idx + 1}`;
+      const base: any = {
+        zoneId: zone.zoneId,
+        zoneName: bundleNameMap.get(zone.zoneId) || zone.zoneName || zone.name || fallbackName,
+        hazardType: zone.hazardType,
+        riskScore: 'riskScore' in zone ? zone.riskScore : 0.5,
+        area: 'area' in zone ? zone.area : undefined,
+        interventionType: 'interventionType' in zone ? zone.interventionType : undefined,
+      };
+      if (includePortfolio) {
+        base.interventionPortfolio = ('interventionPortfolio' in zone ? (zone as any).interventionPortfolio || [] : []).map((site: any) => ({
+          interventionId: site.interventionId,
+          interventionName: site.interventionName,
+          category: site.category,
+          estimatedArea: site.estimatedArea,
+          areaUnit: site.areaUnit,
+          estimatedCost: site.estimatedCost,
+          impacts: site.impacts,
+          assetName: site.assetName,
+          assetType: site.assetType,
+        }));
+      }
+      return base;
+    });
+  }, [siteExplorerZones, localData.interventionBundles]);
 
   const funderPathway = context?.funderSelection?.pathway ?? sampleFunderSelection.pathway;
 

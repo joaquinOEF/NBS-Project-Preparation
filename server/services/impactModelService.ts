@@ -45,6 +45,7 @@ interface InterventionSite {
 
 interface SelectedZone {
   zoneId: string;
+  zoneName?: string;
   hazardType: string;
   riskScore: number;
   area?: number;
@@ -152,7 +153,7 @@ Your narratives should be:
 - For large non-area numbers, use thousands separators or words: "103 million" not "103,000,000"
 - Percentages: Round to whole numbers when >= 10%, one decimal when < 10%
 - For value ranges, format consistently: "0.5–2°C" or "10–30%"
-- Convert zone IDs to readable names: "Zone 12" not "zone_12"
+- Use the provided human-readable zone names (e.g. "Zona Sul Residencial") as-is, do NOT convert them
 - Use words for pathway names: "preparation facility" not "preparation_facility"
 
 Always respond with valid JSON matching the exact structure requested.`;
@@ -164,7 +165,7 @@ PROJECT CONTEXT:
 - City: ${cityName || 'Urban area'}
 - Selected zones: ${selectedZones.length} intervention zones
 - Zone details:
-${selectedZones.map(z => `  * ${formatZoneId(z.zoneId)}: ${z.hazardType} risk (score: ${Math.round(z.riskScore * 100)}%), area: ${z.area ? formatArea(z.area) : 'unknown'}, intervention: ${z.interventionType || 'TBD'}`).join('\n')}
+${selectedZones.map(z => `  * "${z.zoneName || formatZoneId(z.zoneId)}": ${z.hazardType} risk (score: ${Math.round(z.riskScore * 100)}%), area: ${z.area ? formatArea(z.area) : 'unknown'}, intervention: ${z.interventionType || 'TBD'}`).join('\n')}
 
 INTERVENTION BUNDLES (${enabledBundles.length} enabled):
 ${enabledBundles.map(b => `- ${b.name}: ${b.description}
@@ -540,7 +541,7 @@ Always respond with valid JSON matching the exact structure requested.`;
 
   // Format quantified data for the prompt
   const kpiSummary = quantifiedImpacts.impactGroups.map(g =>
-    `${g.zoneId || 'zone'} (${g.hazardType}) — ${g.interventionBundle}:\n${g.kpis.map(k =>
+    `"${g.interventionBundle || g.zoneId || 'zone'}" (${g.hazardType}):\n${g.kpis.map(k =>
       `  • ${k.name}${k.interventionName ? ` [${k.interventionName}]` : ''}: ${k.valueRange.low}–${k.valueRange.high} ${k.unit} (${k.confidence}, ${k.evidenceTier})`
     ).join('\n')}`
   ).join('\n\n');
@@ -561,7 +562,7 @@ PROJECT CONTEXT:
 - City: ${cityName || 'Urban area'}
 - Selected zones: ${selectedZones.length} intervention zones
 - Zone details:
-${selectedZones.map(z => `  * Zone ${z.zoneId}: ${z.hazardType} risk (score: ${(z.riskScore * 100).toFixed(0)}%), area: ${z.area || 'unknown'}m²`).join('\n')}
+${selectedZones.map(z => `  * "${z.zoneName || formatZoneId(z.zoneId)}": ${z.hazardType} risk (score: ${(z.riskScore * 100).toFixed(0)}%), area: ${z.area || 'unknown'}m²`).join('\n')}
 
 INTERVENTION BUNDLES (${enabledBundles.length} enabled):
 ${enabledBundles.map(b => `- ${b.name}: ${b.description}\n  Interventions: ${b.interventions.join(', ')}`).join('\n\n')}
@@ -791,11 +792,14 @@ Output ONLY valid JSON. Be honest about confidence levels and evidence tiers.
 If evidence supports a metric, use EVIDENCE tier. If modelled/extrapolated, use MODELLED. If assumed, use ASSUMPTION.
 CRITICAL: Use absolute values (not rates) wherever possible so KPIs can be summed across zones. When area or cost data is given, scale metrics proportionally.`;
 
+  const zoneNameMap = new Map<string, string>();
   const zoneDetails = selectedZones.map(z => {
+    const displayName = z.zoneName || z.zoneId;
+    zoneNameMap.set(z.zoneId, displayName);
     const sites = (z.interventionPortfolio || []).map(s =>
       `    - ${s.interventionName}${s.assetName ? ` at ${s.assetName}` : ''} [${s.category?.replace(/_/g, ' ') || 'general'}] area: ${s.estimatedArea || '?'}${s.areaUnit || 'm²'}${s.estimatedCost ? `, cost: $${s.estimatedCost.min}-${s.estimatedCost.max} ${s.estimatedCost.unit}` : ''}${s.impacts ? `, flood: ${s.impacts.flood}, heat: ${s.impacts.heat}` : ''}`
     ).join('\n');
-    return `  ${z.zoneId} (${z.hazardType}, risk: ${(z.riskScore * 100).toFixed(0)}%, zone area: ${z.area || '?'}m²)\n${sites || '    (no specific intervention sites)'}`;
+    return `  "${displayName}" (id: ${z.zoneId}, ${z.hazardType}, risk: ${(z.riskScore * 100).toFixed(0)}%, zone area: ${z.area || '?'}m²)\n${sites || '    (no specific intervention sites)'}`;
   }).join('\n');
 
   const userPrompt = `Generate quantified impact KPIs for this NBS project:
@@ -813,7 +817,8 @@ EVIDENCE FROM KNOWLEDGE BASE:
 ${evidenceBlock}
 
 Generate structured JSON. RULES:
-- One impactGroup PER ZONE (not per hazard). Each group has zoneId matching the zone.
+- One impactGroup PER ZONE (not per hazard). Each group has zoneId matching the zone id.
+- The "interventionBundle" field MUST use the human-readable zone name (e.g. "Zona Sul Residencial"), NOT the zone id.
 - Each KPI should reference a specific interventionId and interventionName from that zone's sites when possible.
 - Use ABSOLUTE values scaled to the actual site area/size (e.g. "340 m³/year" not "15-25% reduction") so values can be summed across zones.
 - Include 3-5 KPIs per zone covering: primary hazard reduction, secondary benefits, and area/coverage metrics.
@@ -824,7 +829,7 @@ Generate structured JSON. RULES:
       "id": "ig-{zoneId}",
       "hazardType": "FLOOD",
       "zoneId": "zone_12",
-      "interventionBundle": "Zone 12 Bundle Name",
+      "interventionBundle": "Zona Sul Residencial",
       "kpis": [
         {
           "id": "kpi-1",
@@ -897,8 +902,15 @@ Generate structured JSON. RULES:
       targetValue: flattenValue(m.targetValue),
     }));
 
+    const sanitizedGroups = (parsed.impactGroups || []).map((g: any) => ({
+      ...g,
+      interventionBundle: (g.zoneId && zoneNameMap.has(g.zoneId))
+        ? zoneNameMap.get(g.zoneId)
+        : g.interventionBundle || g.zoneId || 'Zone',
+    }));
+
     return {
-      impactGroups: parsed.impactGroups || [],
+      impactGroups: sanitizedGroups,
       coBenefits: parsed.coBenefits || [],
       mrvIndicators: sanitizedMrv,
       evidenceContext: {
