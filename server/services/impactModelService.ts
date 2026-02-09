@@ -882,10 +882,25 @@ Generate structured JSON. RULES:
     
     console.log(`✅ Quantified ${parsed.impactGroups?.length || 0} impact groups, ${parsed.coBenefits?.length || 0} co-benefits, ${parsed.mrvIndicators?.length || 0} MRV indicators`);
     
+    const flattenValue = (v: any): string | number | null => {
+      if (v === null || v === undefined) return null;
+      if (typeof v === 'string' || typeof v === 'number') return v;
+      if (typeof v === 'object') {
+        return Object.entries(v).map(([k, val]) => `${k}: ${val}`).join(', ');
+      }
+      return String(v);
+    };
+
+    const sanitizedMrv = (parsed.mrvIndicators || []).map((m: any) => ({
+      ...m,
+      baselineValue: flattenValue(m.baselineValue),
+      targetValue: flattenValue(m.targetValue),
+    }));
+
     return {
       impactGroups: parsed.impactGroups || [],
       coBenefits: parsed.coBenefits || [],
-      mrvIndicators: parsed.mrvIndicators || [],
+      mrvIndicators: sanitizedMrv,
       evidenceContext: {
         chunksUsed: topChunks.length,
         topSources,

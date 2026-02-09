@@ -1144,7 +1144,7 @@ function QuantifyStep({
                         <p className="text-xs text-muted-foreground">{mrv.dataSource}</p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-sm font-bold text-primary">{mrv.baselineValue} → {mrv.targetValue}</p>
+                        <p className="text-sm font-bold text-primary">{typeof mrv.baselineValue === 'object' ? JSON.stringify(mrv.baselineValue) : mrv.baselineValue} → {typeof mrv.targetValue === 'object' ? JSON.stringify(mrv.targetValue) : mrv.targetValue}</p>
                         <p className="text-xs text-muted-foreground">{mrv.frequency}</p>
                       </div>
                     </div>
@@ -1937,7 +1937,8 @@ function ExportStep({
       if (block.kpis?.length) {
         md += `**Key Metrics:**\n`;
         block.kpis.forEach(kpi => {
-          md += `- ${kpi.name}: ${kpi.valueRange} ${kpi.unit} (${kpi.confidence})\n`;
+          const rangeStr = kpi.valueRange && typeof kpi.valueRange === 'object' ? `${(kpi.valueRange as any).low}–${(kpi.valueRange as any).high}` : String(kpi.valueRange || '');
+          md += `- ${kpi.name}: ${rangeStr} ${kpi.unit} (${kpi.confidence})\n`;
         });
         md += `\n`;
       }
