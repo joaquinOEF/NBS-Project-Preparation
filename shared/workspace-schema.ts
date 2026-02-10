@@ -201,12 +201,11 @@ export const MODULE_REGISTRY: Record<InfoBlockType, {
     id: 'impact_model',
     name: 'Impact Model',
     route: '/impact-model',
-    description: 'Generate impact narratives and co-benefits',
+    description: 'Quantify climate impacts and generate funder-ready narratives with analytical lenses',
     sections: [
-      { id: 'prioritization', name: 'Prioritization', fields: ['prioritizationWeights', 'interventionBundles'] },
-      { id: 'narrative', name: 'Narrative', fields: ['narrativeCache', 'selectedLens'] },
-      { id: 'cobenefits', name: 'Co-Benefits', fields: ['coBenefits'] },
-      { id: 'signals', name: 'Downstream Signals', fields: ['downstreamSignals'] },
+      { id: 'setup', name: 'Setup', fields: ['prioritizationWeights', 'interventionBundles'] },
+      { id: 'quantify', name: 'Quantify Impacts', fields: ['quantifiedImpacts'] },
+      { id: 'narrative', name: 'Generate & Refine Narrative', fields: ['narrativeCache', 'selectedLens', 'coBenefits', 'downstreamSignals'] },
     ],
   },
   operations: {

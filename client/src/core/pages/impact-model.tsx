@@ -2153,20 +2153,37 @@ export default function ImpactModelPage() {
     };
     const stepIndex = WIZARD_STEPS.indexOf(currentStep);
     const hasNarratives = (localData.narrativeCache?.base?.length ?? 0) > 0;
+    const hasQuantifiedImpacts = !!localData.quantifiedImpacts;
+    const kpiCount = localData.quantifiedImpacts?.impactGroups?.reduce(
+      (sum: number, g: any) => sum + (g.kpis?.length || 0), 0
+    ) || 0;
+    const narrativeBlockCount = localData.narrativeCache?.base?.length || 0;
+    const lensVariants = localData.narrativeCache?.lensVariants || {};
+    const activeLensVariants = Object.keys(lensVariants).filter(
+      k => ((lensVariants as Record<string, any>)[k]?.length ?? 0) > 0
+    );
+    const enabledBundleCount = localData.interventionBundles?.filter((b: any) => b.enabled).length || 0;
     
     setPageContext({
       moduleName: 'Impact Model',
       currentStep: stepLabels[currentStep],
       stepNumber: stepIndex,
       totalSteps: WIZARD_STEPS.length,
-      viewState: isGenerating ? 'generating' : (hasNarratives ? 'has-narratives' : 'empty'),
+      viewState: isGenerating ? 'generating' : isQuantifying ? 'quantifying' : (hasNarratives ? 'has-narratives' : (hasQuantifiedImpacts ? 'has-kpis' : 'empty')),
       additionalInfo: {
         hasNarratives,
-        interventionCount: localData.interventionBundles?.length || 0,
+        hasQuantifiedImpacts,
+        kpiCount,
+        narrativeBlockCount,
+        enabledBundleCount,
+        totalBundleCount: localData.interventionBundles?.length || 0,
+        activeLens: localData.selectedLens || 'neutral',
+        activeLensVariants,
         isGenerating,
+        isQuantifying,
       }
     });
-  }, [currentStep, isGenerating, localData.narrativeCache?.base?.length, localData.interventionBundles?.length, setPageContext]);
+  }, [currentStep, isGenerating, isQuantifying, localData.narrativeCache?.base?.length, localData.interventionBundles, localData.quantifiedImpacts, localData.selectedLens, localData.narrativeCache?.lensVariants, setPageContext]);
 
   useEffect(() => {
     return () => setPageContext(null);

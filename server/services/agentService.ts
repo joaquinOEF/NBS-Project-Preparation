@@ -1,6 +1,7 @@
 import { openai, type Message, type ReasoningEffort } from "./openaiClient";
 import { storage } from "../storage";
 import { semanticSearch, getKnowledgeStats } from "./knowledgeService";
+import { generateQuantifiedImpacts, generateNarrativeFromKPIs } from "./impactModelService";
 import { 
   type InfoBlock, 
   type InfoBlockType, 
@@ -327,6 +328,45 @@ const AGENT_TOOLS: AgentTool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "regenerate_kpis",
+    description: "Regenerate the quantified impact KPIs for the Impact Model. This triggers the full RAG-grounded quantification pipeline using the project's zones, intervention bundles, and funder context. The results replace the current quantified impacts. Use when the user wants to re-quantify impacts (e.g., after adding new intervention sites or changing zones).",
+    parameters: {
+      type: "object",
+      properties: {
+        reason: {
+          type: "string",
+          description: "Brief explanation of why KPIs are being regenerated (shown to user)",
+        },
+      },
+      required: ["reason"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "regenerate_narrative",
+    description: "Regenerate the impact narrative for the Impact Model. This triggers the full 3-phase narrative pipeline (Plan → Generate → Assemble) using existing quantified KPIs. Optionally applies an analytical lens (climate, social, financial, institutional) to reframe the narrative. Use when the user wants a new narrative, a different lens perspective, or provides custom instructions for focus.",
+    parameters: {
+      type: "object",
+      properties: {
+        lens: {
+          type: "string",
+          enum: ["neutral", "climate", "social", "financial", "institutional"],
+          description: "Analytical lens to apply. 'neutral' = balanced/default, 'climate' = GHG & resilience focus, 'social' = equity & health focus, 'financial' = ROI & bankability focus, 'institutional' = governance & capacity focus.",
+        },
+        customInstructions: {
+          type: "string",
+          description: "Optional custom instructions from the user for narrative focus (e.g., 'emphasize biodiversity co-benefits', 'focus on heat island reduction').",
+        },
+        reason: {
+          type: "string",
+          description: "Brief explanation of why the narrative is being regenerated (shown to user)",
+        },
+      },
+      required: ["lens", "reason"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 const SYSTEM_PROMPT = `You are an AI assistant for the NBS (Nature-Based Solutions) Project Builder platform.
@@ -356,6 +396,38 @@ When modifying the Funder Selection questionnaire, you MUST use these exact valu
 - **fundingReceiver**: "municipality", "utility", "special_purpose_vehicle", "ngo", "other"
 
 For example, if a user says "we have a concept note", set projectStage to "concept". If they say "we have a timeline", add "timeline" to existingElements.
+
+## Impact Model Module
+The Impact Model is a 3-step wizard: **Setup → Quantify → Generate & Refine Narrative**.
+
+### Step 1 — Setup
+Configure prioritization weights and intervention bundles. The user enables/disables bundles and adjusts weights.
+
+### Step 2 — Quantify
+Generates RAG-grounded quantified KPIs for each zone/intervention. Shows results grouped by hazard type → zone, with per-hazard subtotals and a project-wide summary.
+- Use **regenerate_kpis** tool to re-run quantification (e.g., after the user adds new intervention sites or changes zones)
+- KPIs include flood risk reduction, heat mitigation, slope stability, and co-benefits
+
+### Step 3 — Generate & Refine Narrative
+Generates a 10-block funder-ready narrative via 3-phase pipeline (Plan → Generate → Assemble). Supports analytical lenses:
+- **Neutral**: Balanced/default perspective
+- **Climate**: GHG reductions, resilience metrics, adaptation pathways
+- **Social**: Equity, health outcomes, community benefits, vulnerability reduction
+- **Financial**: ROI, bankability, cost-benefit, revenue potential
+- **Institutional**: Governance capacity, implementation readiness, partnerships
+
+Use **regenerate_narrative** tool to:
+- Create a new narrative with a different analytical lens
+- Apply custom instructions (e.g., "emphasize biodiversity", "focus on flood risk reduction for the IDB funder")
+- Regenerate after KPIs have been updated
+
+### Agent Guidance for Impact Model
+- If user is on Step 1: Help configure bundles and weights, explain what each bundle includes
+- If user is on Step 2: Explain KPI results, suggest re-quantification if inputs changed, help interpret numbers
+- If user is on Step 3: Help refine narrative, suggest lens perspectives, explain what each narrative block covers
+- When the user asks to "regenerate" or "redo" the narrative → use regenerate_narrative tool
+- When the user asks to "re-quantify" or "update KPIs" → use regenerate_kpis tool
+- After regeneration, tell the user to refresh the page to see updated results
 
 ## Evidence-Based Approach
 When generating or editing Impact Model narratives:
@@ -1315,6 +1387,160 @@ export async function executeAgentTool(
             funderType,
             message: `I've proposed changing your ${funderType} funder to ${fund.name} (${fund.institution}). This creates ${patches.length} related updates. Please approve or reject these changes.`,
             requiresApproval: true,
+          },
+        };
+      }
+
+      case "regenerate_kpis": {
+        const { reason } = args as { reason: string };
+        
+        const impactBlock = await storage.getInfoBlock(projectId, 'impact_model');
+        const impactData = (impactBlock?.blockStateJson as any) || {};
+        
+        const siteBlock = await storage.getInfoBlock(projectId, 'site_explorer');
+        const siteData = (siteBlock?.blockStateJson as any) || {};
+        const selectedZones = siteData.selectedZones || [];
+        
+        if (selectedZones.length === 0) {
+          return {
+            name,
+            result: null,
+            error: 'No zones selected in Site Explorer. The user needs to select intervention zones before KPIs can be quantified.',
+          };
+        }
+        
+        const interventionBundles = impactData.interventionBundles || [];
+        const enabledBundles = interventionBundles.filter((b: any) => b.enabled);
+        if (enabledBundles.length === 0) {
+          return {
+            name,
+            result: null,
+            error: 'No intervention bundles are enabled in the Impact Model setup step. The user needs to enable at least one bundle.',
+          };
+        }
+        
+        const funderBlock = await storage.getInfoBlock(projectId, 'funder_selection');
+        const funderData = (funderBlock?.blockStateJson as any) || {};
+        const funderPathway = funderData.pathway || {};
+        
+        const project = await storage.getProject(projectId);
+        
+        console.log(`🤖 Agent regenerate_kpis: ${reason}`);
+        
+        const result = await generateQuantifiedImpacts({
+          projectId,
+          selectedZones,
+          interventionBundles,
+          funderPathway,
+          projectName: project?.actionName,
+          cityName: 'Porto Alegre',
+        });
+        
+        const updatedState = {
+          ...impactData,
+          quantifiedImpacts: result,
+        };
+        
+        await storage.upsertInfoBlock(projectId, 'impact_model', {
+          projectId,
+          blockType: 'impact_model',
+          status: 'DRAFT',
+          blockStateJson: updatedState,
+        });
+        
+        const kpiCount = result.impactGroups?.reduce((sum: number, g: any) => sum + (g.kpis?.length || 0), 0) || 0;
+        
+        return {
+          name,
+          result: {
+            success: true,
+            impactGroupCount: result.impactGroups?.length || 0,
+            kpiCount,
+            coBenefitCount: result.coBenefits?.length || 0,
+            mrvIndicatorCount: result.mrvIndicators?.length || 0,
+            evidenceChunksUsed: result.evidenceContext?.chunksUsed || 0,
+            message: `Successfully regenerated KPIs: ${kpiCount} indicators across ${result.impactGroups?.length || 0} impact groups, grounded in ${result.evidenceContext?.chunksUsed || 0} evidence sources. The user should refresh the Impact Model page to see updated results.`,
+          },
+        };
+      }
+
+      case "regenerate_narrative": {
+        const { lens, customInstructions, reason } = args as { 
+          lens: string; 
+          customInstructions?: string; 
+          reason: string;
+        };
+        
+        const impactBlock = await storage.getInfoBlock(projectId, 'impact_model');
+        const impactData = (impactBlock?.blockStateJson as any) || {};
+        
+        if (!impactData.quantifiedImpacts) {
+          return {
+            name,
+            result: null,
+            error: 'No quantified impacts exist yet. Use regenerate_kpis first, or ask the user to run quantification from Step 2 of the Impact Model.',
+          };
+        }
+        
+        const siteBlock = await storage.getInfoBlock(projectId, 'site_explorer');
+        const siteData = (siteBlock?.blockStateJson as any) || {};
+        const selectedZones = siteData.selectedZones || [];
+        
+        const interventionBundles = impactData.interventionBundles || [];
+        
+        const funderBlock = await storage.getInfoBlock(projectId, 'funder_selection');
+        const funderData = (funderBlock?.blockStateJson as any) || {};
+        const funderPathway = funderData.pathway || {};
+        
+        const project = await storage.getProject(projectId);
+        
+        console.log(`🤖 Agent regenerate_narrative: lens=${lens}, reason=${reason}${customInstructions ? `, instructions=${customInstructions}` : ''}`);
+        
+        const result = await generateNarrativeFromKPIs({
+          quantifiedImpacts: impactData.quantifiedImpacts,
+          selectedZones,
+          interventionBundles,
+          funderPathway,
+          projectName: project?.actionName,
+          cityName: 'Porto Alegre',
+          projectId,
+          lens: (lens !== 'neutral' ? lens : undefined) as 'neutral' | 'climate' | 'social' | 'financial' | 'institutional' | undefined,
+          lensInstructions: customInstructions,
+        });
+        
+        const updatedNarrativeCache = { ...(impactData.narrativeCache || {}) };
+        if (lens === 'neutral' || !lens) {
+          updatedNarrativeCache.base = result.narrativeBlocks;
+        } else {
+          updatedNarrativeCache.lensVariants = {
+            ...(updatedNarrativeCache.lensVariants || {}),
+            [lens]: result.narrativeBlocks,
+          };
+        }
+        
+        const updatedState = {
+          ...impactData,
+          narrativeCache: updatedNarrativeCache,
+          coBenefits: result.coBenefits || impactData.coBenefits,
+          downstreamSignals: result.downstreamSignals || impactData.downstreamSignals,
+          selectedLens: lens || 'neutral',
+        };
+        
+        await storage.upsertInfoBlock(projectId, 'impact_model', {
+          projectId,
+          blockType: 'impact_model',
+          status: 'DRAFT',
+          blockStateJson: updatedState,
+        });
+        
+        return {
+          name,
+          result: {
+            success: true,
+            lens,
+            narrativeBlockCount: result.narrativeBlocks?.length || 0,
+            coBenefitCount: result.coBenefits?.length || 0,
+            message: `Successfully generated ${lens !== 'neutral' ? lens + ' lens' : 'neutral'} narrative with ${result.narrativeBlocks?.length || 0} blocks. The user should refresh the Impact Model page to see the updated narrative.`,
           },
         };
       }
