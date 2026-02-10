@@ -1521,7 +1521,6 @@ export async function executeAgentTool(
         const updatedState = {
           ...impactData,
           narrativeCache: updatedNarrativeCache,
-          coBenefits: result.coBenefits || impactData.coBenefits,
           downstreamSignals: result.downstreamSignals || impactData.downstreamSignals,
           selectedLens: lens || 'neutral',
         };
@@ -1539,7 +1538,6 @@ export async function executeAgentTool(
             success: true,
             lens,
             narrativeBlockCount: result.narrativeBlocks?.length || 0,
-            coBenefitCount: result.coBenefits?.length || 0,
             message: `Successfully generated ${lens !== 'neutral' ? lens + ' lens' : 'neutral'} narrative with ${result.narrativeBlocks?.length || 0} blocks. The user should refresh the Impact Model page to see the updated narrative.`,
           },
         };

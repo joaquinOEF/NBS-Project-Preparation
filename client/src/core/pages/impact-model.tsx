@@ -2225,7 +2225,8 @@ export default function ImpactModelPage() {
             downstreamSignals: normalizedSignals,
           };
           setLocalData(freshData);
-          console.log('[ImpactModel] Hydrated from database');
+          updateModule('impactModel', freshData, { skipDbSync: true });
+          console.log('[ImpactModel] Hydrated from database (context synced)');
           
           // Navigation is handled by useNavigationPersistence hook — do NOT set currentStep here
         }
@@ -2237,7 +2238,7 @@ export default function ImpactModelPage() {
       console.error('[ImpactModel] DB hydration failed:', err);
       setDataHydrated(true);
     }
-  }, [projectId, isSampleMode, isSampleRoute]);
+  }, [projectId, isSampleMode, isSampleRoute, updateModule]);
 
   // Restore navigation from dedicated hook — only after data is hydrated to prevent jitter
   useEffect(() => {
@@ -2425,8 +2426,7 @@ export default function ImpactModelPage() {
           base: normalized.narrativeBlocks,
           lensVariants: { neutral: [], climate: [], social: [], financial: [], institutional: [] },
         },
-        coBenefits: normalized.coBenefits,
-        downstreamSignals: normalized.downstreamSignals,
+        downstreamSignals: normalized.downstreamSignals || localData.downstreamSignals,
         generationMeta: {
           generatedAt: new Date().toISOString(),
           model: 'GPT-5.2',
@@ -2548,8 +2548,7 @@ export default function ImpactModelPage() {
         selectedLens: isLensGeneration ? lens : 'neutral',
         quantifiedImpacts: localData.quantifiedImpacts,
         narrativeCache: updatedNarrativeCache,
-        coBenefits: normalized.coBenefits,
-        downstreamSignals: normalized.downstreamSignals,
+        downstreamSignals: normalized.downstreamSignals || localData.downstreamSignals,
         generationMeta: {
           generatedAt: new Date().toISOString(),
           model: 'GPT-5.2',

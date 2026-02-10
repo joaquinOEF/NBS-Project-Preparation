@@ -642,7 +642,8 @@ interface ProjectContextValue {
   saveContext: (data: Partial<ProjectContextData>) => void;
   updateModule: <K extends keyof Pick<ProjectContextData, 'funderSelection' | 'operations' | 'businessModel' | 'siteExplorer' | 'impactModel'>>(
     module: K,
-    data: ProjectContextData[K]
+    data: ProjectContextData[K],
+    options?: { skipDbSync?: boolean }
   ) => void;
   getContextSummary: () => Record<string, any>;
   clearContext: (projectId: string) => void;

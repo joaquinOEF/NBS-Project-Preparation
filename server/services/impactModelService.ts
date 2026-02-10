@@ -968,28 +968,28 @@ Always respond with valid JSON.`
   return Promise.all(batchPromises);
 }
 
-// Phase 3: Generate co-benefits and downstream signals
+// Phase 3: Generate downstream signals for operations and business model modules
 async function generateSupplementary(
   projectContext: string,
   kpiSummary: string,
   coBenefitSummary: string,
   funderPathway: FunderPathway,
-): Promise<{ coBenefits: CoBenefitCard[]; downstreamSignals: GenerateNarrativeResponse['downstreamSignals'] }> {
+): Promise<{ downstreamSignals: GenerateNarrativeResponse['downstreamSignals'] }> {
   const response = await openai.responses.create({
     model: "gpt-5.2",
     input: [
       {
         role: "developer",
-        content: `You are an NBS project expert. Generate structured co-benefits and downstream signals for other modules.
+        content: `You are an NBS project expert. Generate downstream signals for operations and business model modules.
 Always respond with valid JSON.`
       },
       {
         role: "user",
-        content: `Based on this NBS project, generate co-benefits and downstream signals.
+        content: `Based on this NBS project, generate downstream signals that feed into the Operations and Business Model modules.
 
 ${projectContext}
 
-QUANTIFIED CO-BENEFITS FROM STEP 2:
+CO-BENEFITS CONTEXT:
 ${coBenefitSummary}
 
 IMPACT DATA:
@@ -997,20 +997,6 @@ ${kpiSummary}
 
 Return JSON:
 {
-  "coBenefits": [
-    {
-      "id": "cb-1",
-      "title": "Co-benefit title",
-      "category": "HEALTH|BIODIVERSITY|ECONOMIC_VALUE|SOCIAL_COHESION|WATER_QUALITY|AIR_QUALITY",
-      "description": "2-3 sentences describing the co-benefit...",
-      "whoBenefits": ["group1", "group2"],
-      "where": ["location1"],
-      "confidence": "HIGH|MEDIUM|LOW",
-      "evidenceTier": "EVIDENCE|MODELLED|ASSUMPTION",
-      "included": true,
-      "userNotes": ""
-    }
-  ],
   "downstreamSignals": {
     "operations": [
       { "id": "ops-1", "title": "Signal title", "description": "...", "whyItMatters": "...", "triggeredBy": ["intervention"], "ownerCandidates": ["owner"], "timeHorizon": "0-2y|2-5y|5-10y", "riskIfMissing": "...", "confidence": "MEDIUM", "included": true, "userNotes": "" }
@@ -1023,23 +1009,22 @@ Return JSON:
   }
 }
 
-Generate 4-6 co-benefits and 2-3 operations + 2-3 business model signals. Be specific to the project.`
+Generate 2-3 operations and 2-3 business model signals. Be specific to the project.`
       }
     ],
     text: { format: { type: "json_object" } },
     reasoning: { effort: "low" },
-    max_output_tokens: 4000,
+    max_output_tokens: 3000,
   } as any);
 
   const content = extractTextFromResponse(response);
   try {
     const parsed = JSON.parse(content);
     return {
-      coBenefits: parsed.coBenefits || [],
       downstreamSignals: parsed.downstreamSignals || { operations: [], businessModel: [], mrv: [], implementors: [] },
     };
   } catch {
-    return { coBenefits: [], downstreamSignals: { operations: [], businessModel: [], mrv: [], implementors: [] } };
+    return { downstreamSignals: { operations: [], businessModel: [], mrv: [], implementors: [] } };
   }
 }
 
@@ -1069,11 +1054,11 @@ export async function generateNarrativeFromKPIs(
     generateSupplementary(projectContext, kpiSummary, coBenefitSummary, funderPathway),
   ]);
 
-  console.log(`✅ Phase 3: Assembled ${narrativeBlocks.length} blocks, ${supplementary.coBenefits.length} co-benefits`);
+  console.log(`✅ Phase 3: Assembled ${narrativeBlocks.length} blocks`);
 
   return {
     narrativeBlocks,
-    coBenefits: supplementary.coBenefits,
+    coBenefits: [],
     downstreamSignals: supplementary.downstreamSignals,
   };
 }
