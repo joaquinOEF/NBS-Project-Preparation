@@ -1499,16 +1499,16 @@ function NarrateStep({
               <p className="text-muted-foreground mb-6">{t('impactModel.coBenefitsDescription')}</p>
               <div className="space-y-4 max-w-3xl">
                 {coBenefits.map((cb) => (
-                  <Card key={cb.name}>
+                  <Card key={cb.title}>
                     <div className="p-5">
                       <div className="flex items-start gap-4">
                         <div className="flex-1">
-                          <h3 className="font-semibold text-base mb-1">{cb.name}</h3>
+                          <h3 className="font-semibold text-base mb-1">{cb.title}</h3>
                           <p className="text-sm text-muted-foreground">{cb.description}</p>
-                          {cb.estimatedValue && (
+                          {cb.kpiOrProxy && (
                             <div className="mt-2 text-sm">
-                              <span className="text-muted-foreground">Estimated value: </span>
-                              <span className="font-medium">{cb.estimatedValue}</span>
+                              <span className="text-muted-foreground">{cb.kpiOrProxy.name}: </span>
+                              <span className="font-medium">{cb.kpiOrProxy.valueRange} {cb.kpiOrProxy.unit}</span>
                             </div>
                           )}
                           {cb.where && cb.where.length > 0 && (
