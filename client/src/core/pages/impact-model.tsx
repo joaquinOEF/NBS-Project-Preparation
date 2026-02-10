@@ -12,6 +12,7 @@ import { Label } from '@/core/components/ui/label';
 import { Input } from '@/core/components/ui/input';
 import { Checkbox } from '@/core/components/ui/checkbox';
 import { Textarea } from '@/core/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/core/components/ui/collapsible';
 import { ScrollArea } from '@/core/components/ui/scroll-area';
@@ -1252,21 +1253,22 @@ function NarrateStep({
   onUpdate,
   isNarrating,
   onNarrate,
-  onFinalize,
 }: {
   data: ImpactModelData;
   onUpdate: (d: Partial<ImpactModelData>) => void;
   isNarrating: boolean;
   onNarrate: (lens?: LensType, lensInstructions?: string) => Promise<void>;
-  onFinalize: () => void;
 }) {
   const { t } = useTranslation();
   const hasNarrative = (data.narrativeCache?.base?.length ?? 0) > 0;
   const hasKPIs = (data.quantifiedImpacts?.impactGroups?.length ?? 0) > 0;
-  const [selectedLensForGen, setSelectedLensForGen] = useState<LensType>('neutral');
+  const activeLens = data.selectedLens || 'neutral';
+  const [selectedLensForGen, setSelectedLensForGen] = useState<LensType>(activeLens);
   const [lensInstructions, setLensInstructions] = useState('');
 
-  const activeLens = data.selectedLens || 'neutral';
+  useEffect(() => {
+    setSelectedLensForGen(activeLens);
+  }, [activeLens]);
   const activeBlocks = activeLens === 'neutral'
     ? (data.narrativeCache?.base || [])
     : (data.narrativeCache?.lensVariants?.[activeLens]?.length
@@ -1347,7 +1349,7 @@ function NarrateStep({
 
       {hasNarrative && (
         <div className="space-y-6">
-          {/* Header with lens toggle */}
+          {/* Header */}
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1355,19 +1357,11 @@ function NarrateStep({
                 <h2 className="text-xl font-semibold">{t('impactModel.narrate.generatedNarrative')}</h2>
                 <Badge variant="secondary">{blocks.length} blocks</Badge>
               </div>
-              <Button variant="outline" onClick={() => onNarrate()} disabled={isNarrating} size="sm">
-                {isNarrating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Regenerating...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    {t('impactModel.regenerateNarrative')}
-                  </>
-                )}
-              </Button>
+              {data.generationMeta?.generatedAt && (
+                <p className="text-xs text-muted-foreground">
+                  Generated {new Date(data.generationMeta.generatedAt).toLocaleString()}
+                </p>
+              )}
             </div>
 
             {/* Active lens indicator + lens toggle */}
@@ -1388,68 +1382,7 @@ function NarrateStep({
                 ))}
               </div>
             )}
-
-            {/* Compact lens regeneration panel - top */}
-            <Card className="border-dashed border-primary/30 bg-primary/5">
-              <CardContent className="p-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                      <Eye className="h-4 w-4" />
-                      Generate with Analytical Lens
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {availableLenses.filter(l => l !== 'neutral').map((l) => {
-                        const hasVariant = (data.narrativeCache?.lensVariants?.[l]?.length ?? 0) > 0;
-                        return (
-                          <Button
-                            key={l}
-                            size="sm"
-                            variant={selectedLensForGen === l ? "default" : "outline"}
-                            className={`h-7 text-xs gap-1 ${hasVariant ? 'ring-1 ring-green-500/50' : ''}`}
-                            onClick={() => setSelectedLensForGen(l)}
-                          >
-                            {LENS_ICONS[l]}
-                            {t(`impactModel.lenses.${l}`)}
-                            {hasVariant && <Check className="h-3 w-3 text-green-500" />}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="flex items-end gap-2 w-full sm:w-auto">
-                    <div className="flex-1 sm:w-48">
-                      <Input
-                        placeholder="Custom instructions (optional)"
-                        value={lensInstructions}
-                        onChange={(e) => setLensInstructions(e.target.value)}
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <Button
-                      size="sm"
-                      className="h-8 shrink-0"
-                      onClick={handleLensGenerate}
-                      disabled={isNarrating || selectedLensForGen === 'neutral'}
-                    >
-                      {isNarrating ? (
-                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                      )}
-                      Generate
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
-
-          {data.generationMeta?.generatedAt && (
-            <p className="text-xs text-muted-foreground">
-              Generated {new Date(data.generationMeta.generatedAt).toLocaleString()} using {data.generationMeta.model || 'AI'}
-            </p>
-          )}
 
           <div className="space-y-4 max-w-3xl">
             {blocks.map((block, index) => (
@@ -1527,65 +1460,70 @@ function NarrateStep({
           )}
 
           <Card className="border-dashed border-primary/30 bg-primary/5">
-            <CardContent className="p-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <Eye className="h-4 w-4" />
-                    Regenerate with a Different Lens
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {availableLenses.filter(l => l !== 'neutral').map((l) => {
-                      const hasVariant = (data.narrativeCache?.lensVariants?.[l]?.length ?? 0) > 0;
-                      return (
-                        <Button
-                          key={l}
-                          size="sm"
-                          variant={selectedLensForGen === l ? "default" : "outline"}
-                          className={`h-7 text-xs gap-1 ${hasVariant ? 'ring-1 ring-green-500/50' : ''}`}
-                          onClick={() => setSelectedLensForGen(l)}
-                        >
-                          {LENS_ICONS[l]}
-                          {t(`impactModel.lenses.${l}`)}
-                          {hasVariant && <Check className="h-3 w-3 text-green-500" />}
-                        </Button>
-                      );
-                    })}
-                  </div>
+            <CardContent className="p-5">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-semibold">{t('impactModel.regenerateNarrative')}</p>
                 </div>
-                <div className="flex items-end gap-2 w-full sm:w-auto">
-                  <div className="flex-1 sm:w-48">
-                    <Input
-                      placeholder="Custom instructions (optional)"
+                <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr] gap-4 items-start">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Analytical Lens</Label>
+                    <Select value={selectedLensForGen} onValueChange={(v) => setSelectedLensForGen(v as LensType)}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select lens" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="neutral">
+                          <span className="flex items-center gap-2">
+                            {LENS_ICONS['neutral']}
+                            {t('impactModel.lenses.neutral')}
+                            {activeLens === 'neutral' && <span className="text-xs text-muted-foreground ml-1">(current)</span>}
+                          </span>
+                        </SelectItem>
+                        {availableLenses.filter(l => l !== 'neutral').map((l) => {
+                          const hasVariant = (data.narrativeCache?.lensVariants?.[l]?.length ?? 0) > 0;
+                          return (
+                            <SelectItem key={l} value={l}>
+                              <span className="flex items-center gap-2">
+                                {LENS_ICONS[l]}
+                                {t(`impactModel.lenses.${l}`)}
+                                {hasVariant && <Check className="h-3 w-3 text-green-500" />}
+                                {activeLens === l && <span className="text-xs text-muted-foreground ml-1">(current)</span>}
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Custom Instructions (optional)</Label>
+                    <Textarea
+                      placeholder="e.g. Focus more on economic ROI metrics, emphasize co-benefits for vulnerable populations, include comparison with conventional infrastructure..."
                       value={lensInstructions}
                       onChange={(e) => setLensInstructions(e.target.value)}
-                      className="h-8 text-xs"
+                      className="min-h-[80px] text-sm resize-y"
+                      rows={3}
                     />
                   </div>
+                </div>
+                <div className="flex justify-end">
                   <Button
-                    size="sm"
-                    className="h-8 shrink-0"
                     onClick={handleLensGenerate}
-                    disabled={isNarrating || selectedLensForGen === 'neutral'}
+                    disabled={isNarrating}
                   >
                     {isNarrating ? (
-                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
-                      <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                      <RefreshCw className="h-4 w-4 mr-2" />
                     )}
-                    Generate
+                    {isNarrating ? 'Regenerating...' : t('impactModel.regenerateNarrative')}
                   </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
-
-          <div className="flex justify-end pt-4 border-t">
-            <Button onClick={onFinalize} size="lg">
-              <Check className="h-4 w-4 mr-2" />
-              {t('impactModel.finalize')}
-            </Button>
-          </div>
         </div>
       )}
     </div>
@@ -2903,10 +2841,6 @@ export default function ImpactModelPage() {
                   onUpdate={handleUpdate}
                   isNarrating={isGenerating}
                   onNarrate={handleNarrate}
-                  onFinalize={() => {
-                    handleUpdate({ status: 'READY' });
-                    toast({ title: t('impactModel.saved'), description: t('impactModel.savedDescription') });
-                  }}
                 />
               )}
             </>
