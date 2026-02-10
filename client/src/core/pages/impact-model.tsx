@@ -28,10 +28,14 @@ type WizardStep = 'setup' | 'quantify' | 'narrate' | 'lenses';
 const WIZARD_STEPS: WizardStep[] = ['setup', 'quantify', 'narrate', 'lenses'];
 
 const GENERATION_PHRASES = [
+  'Searching knowledge base for evidence',
+  'Planning narrative outline',
   'Estimating project impact',
+  'Generating concept note sections',
   'Connecting co-benefits with expected impact',
-  'Generating your impact narrative',
+  'Writing intervention portfolio details',
   'Analyzing intervention synergies',
+  'Assembling narrative blocks',
   'Building funding-aligned recommendations'
 ];
 
@@ -1251,10 +1255,11 @@ function NarrateStep({
   const hasKPIs = (data.quantifiedImpacts?.impactGroups?.length ?? 0) > 0;
   const blocks = data.narrativeCache?.base || [];
 
+  const totalKPIs = data.quantifiedImpacts?.impactGroups?.reduce((sum, g) => sum + (g.kpis?.length || 0), 0) || 0;
+
   return (
     <div className="space-y-6">
-      {/* Generate action card - shown when no narrative exists or always for regenerate */}
-      {!hasNarrative && (
+      {!hasNarrative && !isNarrating && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">{t('impactModel.narrate.title')}</CardTitle>
@@ -1266,30 +1271,46 @@ function NarrateStep({
                 <p className="text-sm font-medium mb-1">{t('impactModel.narrate.kpiSummary')}</p>
                 <p className="text-xs text-muted-foreground">
                   {data.quantifiedImpacts!.impactGroups.length} {t('impactModel.narrate.impactGroups')},
+                  {' '}{totalKPIs} KPIs,
                   {' '}{data.quantifiedImpacts!.coBenefits.length} {t('impactModel.narrate.coBenefitsCount')},
                   {' '}{data.quantifiedImpacts!.mrvIndicators.length} {t('impactModel.narrate.mrvCount')}
                 </p>
               </div>
             )}
 
+            <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-800 dark:text-blue-200 font-medium mb-1">3-Phase Generation Pipeline</p>
+              <p className="text-xs text-blue-600 dark:text-blue-300">
+                1. Plan outline to prevent content overlap between sections{' \u2192 '}
+                2. Generate all 10 blocks in parallel{' \u2192 '}
+                3. Assemble with co-benefits and downstream signals
+              </p>
+            </div>
+
             <Button onClick={onNarrate} disabled={isNarrating} className="w-full">
-              {isNarrating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {t('impactModel.narrate.generating')}
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  {t('impactModel.narrate.generate')}
-                </>
-              )}
+              <Sparkles className="h-4 w-4 mr-2" />
+              {t('impactModel.generateNarrative')}
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* Show generated narrative blocks */}
+      {!hasNarrative && isNarrating && (
+        <Card className="border-primary/20">
+          <CardContent className="py-8">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div>
+                <p className="text-lg font-medium">{t('impactModel.narrate.generating')}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Planning outline, generating 10 blocks in parallel, and assembling narrative
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {hasNarrative && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
@@ -1307,18 +1328,27 @@ function NarrateStep({
               ) : (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  Regenerate
+                  {t('impactModel.regenerateNarrative')}
                 </>
               )}
             </Button>
           </div>
 
+          {data.generationMeta?.generatedAt && (
+            <p className="text-xs text-muted-foreground">
+              Generated {new Date(data.generationMeta.generatedAt).toLocaleString()} using {data.generationMeta.model || 'AI'}
+            </p>
+          )}
+
           <div className="space-y-4 max-w-3xl">
-            {blocks.map((block) => (
+            {blocks.map((block, index) => (
               <Card key={block.id} className={`overflow-hidden ${!block.included ? 'opacity-60' : ''}`}>
                 <CardHeader className="py-3 bg-muted/30">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{block.title}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-muted-foreground w-5">{index + 1}.</span>
+                      <CardTitle className="text-base">{block.title}</CardTitle>
+                    </div>
                     <div className="flex gap-2">
                       <Badge variant="outline" className="text-xs capitalize">
                         {(block.type || 'content').replace(/_/g, ' ')}
@@ -1335,10 +1365,13 @@ function NarrateStep({
                     dangerouslySetInnerHTML={{ __html: renderMarkdown(block.contentMd) }}
                   />
                   {block.kpis && block.kpis.length > 0 && (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-xs text-muted-foreground">
-                        Based on {block.kpis.length} KPI{block.kpis.length > 1 ? 's' : ''}
-                      </p>
+                    <div className="mt-3 pt-3 border-t flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {block.kpis.length} KPI{block.kpis.length > 1 ? 's' : ''} referenced
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {block.kpis.map(k => k.name).join(', ')}
+                      </span>
                     </div>
                   )}
                 </CardContent>
@@ -2595,7 +2628,7 @@ export default function ImpactModelPage() {
     setIsGenerating(true);
 
     try {
-      const zonesForAI = buildZonesForAI(false);
+      const zonesForAI = buildZonesForAI(true);
 
       const response = await fetch('/api/impact-model/narrate', {
         method: 'POST',
@@ -2607,6 +2640,7 @@ export default function ImpactModelPage() {
           funderPathway: funderPathway,
           projectName: context?.projectName || 'Urban Climate Resilience Initiative',
           cityName: context?.cityName || 'Porto Alegre',
+          projectId: (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId,
         }),
       });
 
@@ -2914,7 +2948,7 @@ export default function ImpactModelPage() {
         {/* Generation Modal - shows during both quantifying and generating */}
         <GenerationModal 
           isOpen={isGenerating || isQuantifying} 
-          estimatedTime={isQuantifying ? "20-40 seconds" : "30-60 seconds"}
+          estimatedTime={isQuantifying ? "20-40 seconds" : "45-90 seconds"}
         />
 
         <div className="mb-6">
@@ -2974,10 +3008,23 @@ export default function ImpactModelPage() {
           </Button>
           {currentStepIndex < WIZARD_STEPS.length - 1 ? (
             <Button
-              onClick={() => setCurrentStep(WIZARD_STEPS[currentStepIndex + 1])}
-              disabled={!canProceed()}
+              onClick={() => {
+                if (currentStep === 'quantify' && !localData.narrativeCache?.base?.length) {
+                  setCurrentStep('narrate');
+                  handleNarrate();
+                } else {
+                  setCurrentStep(WIZARD_STEPS[currentStepIndex + 1]);
+                }
+              }}
+              disabled={!canProceed() || isGenerating}
             >
-              {currentStep === 'setup' ? t('impactModel.quantifyImpact') : t('common.continue')}
+              {currentStep === 'setup' 
+                ? t('impactModel.quantifyImpact') 
+                : currentStep === 'quantify'
+                  ? (localData.narrativeCache?.base?.length 
+                    ? t('common.continue')
+                    : t('impactModel.generateNarrative'))
+                  : t('common.continue')}
             </Button>
           ) : (
             <Button onClick={() => {

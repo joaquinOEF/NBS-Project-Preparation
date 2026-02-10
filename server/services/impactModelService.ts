@@ -508,7 +508,10 @@ Return a JSON object with the regenerated block:
 }
 
 // ============================================
-// Narrate API — KPI-grounded prose generation
+// Narrate API — 3-Phase KPI-grounded narrative
+// Phase 1: Plan outline (prevent duplication)
+// Phase 2: Generate blocks in parallel
+// Phase 3: Assemble + co-benefits/signals
 // ============================================
 
 interface NarrateFromKPIsRequest {
@@ -518,28 +521,54 @@ interface NarrateFromKPIsRequest {
   funderPathway: FunderPathway;
   projectName?: string;
   cityName?: string;
+  projectId?: string;
 }
 
-export async function generateNarrativeFromKPIs(
-  request: NarrateFromKPIsRequest
-): Promise<GenerateNarrativeResponse> {
-  const { quantifiedImpacts, selectedZones, interventionBundles, funderPathway, projectName, cityName } = request;
+interface NarrativeOutline {
+  blocks: Array<{
+    id: string;
+    title: string;
+    type: string;
+    scope: string;
+    mustIncludeKPIs: string[];
+    mustNotCover: string[];
+    evidenceTier: string;
+    paragraphCount: number;
+  }>;
+}
 
+function buildProjectContext(
+  selectedZones: SelectedZone[],
+  interventionBundles: InterventionBundle[],
+  funderPathway: FunderPathway,
+  projectName?: string,
+  cityName?: string,
+) {
   const enabledBundles = interventionBundles.filter(b => b.enabled);
 
-  const systemPrompt = `You are an expert in Nature-Based Solutions (NBS) for climate adaptation and urban resilience.
-You help cities create compelling, evidence-based impact narratives for climate projects.
-You have pre-computed quantified impact data. Generate prose narrative blocks that incorporate these specific metrics.
-CRITICAL: Do NOT invent new numbers — use the provided KPI values in your narrative.
-Your narratives should be:
-- Grounded in the provided quantified data
-- Tailored to the specific hazards and interventions
-- Aligned with funder expectations (${funderPathway.primary || 'general'} funding pathway)
-- Professional and suitable for funding proposals
+  const zoneDetails = selectedZones.map(z => {
+    const sites = (z.interventionPortfolio || []).map(s =>
+      `    - ${s.interventionName}${s.assetName ? ` at ${s.assetName}` : ''} [${s.category?.replace(/_/g, ' ') || 'general'}] area: ${s.estimatedArea || '?'}${s.areaUnit || 'm²'}${s.estimatedCost ? `, cost: $${s.estimatedCost.min}-${s.estimatedCost.max} ${s.estimatedCost.unit}` : ''}${s.impacts ? `, flood: ${s.impacts.flood}, heat: ${s.impacts.heat}` : ''}`
+    ).join('\n');
+    return `  "${z.zoneName || formatZoneId(z.zoneId)}" (${z.hazardType}, risk: ${(z.riskScore * 100).toFixed(0)}%, area: ${z.area ? formatArea(z.area) : 'unknown'})\n${sites || '    (no specific sites)'}`;
+  }).join('\n');
 
-Always respond with valid JSON matching the exact structure requested.`;
+  return `PROJECT: ${projectName || 'Urban Climate Resilience Initiative'}
+CITY: ${cityName || 'Urban area'}
+ZONES (${selectedZones.length}):
+${zoneDetails}
 
-  // Format quantified data for the prompt
+BUNDLES (${enabledBundles.length} enabled):
+${enabledBundles.map(b => `- ${b.name}: ${b.description}\n  Hazards: ${b.targetHazards.join(', ')}\n  Interventions: ${b.interventions.join(', ')}${b.capexRange ? `\n  CAPEX: $${b.capexRange.low}-${b.capexRange.high}` : ''}`).join('\n\n')}
+
+FUNDING:
+- Primary: ${funderPathway.primary ? formatPathway(funderPathway.primary) : 'Not specified'}
+- Secondary: ${funderPathway.secondary ? formatPathway(funderPathway.secondary) : 'None'}
+- Readiness: ${funderPathway.readinessLevel ? formatPathway(funderPathway.readinessLevel) : 'Early stage'}
+- Limiting factors: ${funderPathway.limitingFactors?.join(', ') || 'None identified'}`;
+}
+
+function buildKPISummary(quantifiedImpacts: QuantifyResponse) {
   const kpiSummary = quantifiedImpacts.impactGroups.map(g =>
     `"${g.interventionBundle || g.zoneId || 'zone'}" (${g.hazardType}):\n${g.kpis.map(k =>
       `  • ${k.name}${k.interventionName ? ` [${k.interventionName}]` : ''}: ${k.valueRange.low}–${k.valueRange.high} ${k.unit} (${k.confidence}, ${k.evidenceTier})`
@@ -554,83 +583,479 @@ Always respond with valid JSON matching the exact structure requested.`;
     `• ${m.name}: baseline ${m.baselineValue} → target ${m.targetValue} (${m.frequency}, ${m.confidence})`
   ).join('\n');
 
-  const userPrompt = `Generate a prose impact narrative for this NBS project using the pre-computed quantified data below.
-Weave the KPI values naturally into the narrative. Do NOT invent additional metrics.
-
-PROJECT CONTEXT:
-- Project: ${projectName || 'Urban Climate Resilience Initiative'}
-- City: ${cityName || 'Urban area'}
-- Selected zones: ${selectedZones.length} intervention zones
-- Zone details:
-${selectedZones.map(z => `  * "${z.zoneName || formatZoneId(z.zoneId)}": ${z.hazardType} risk (score: ${(z.riskScore * 100).toFixed(0)}%), area: ${z.area || 'unknown'}m²`).join('\n')}
-
-INTERVENTION BUNDLES (${enabledBundles.length} enabled):
-${enabledBundles.map(b => `- ${b.name}: ${b.description}\n  Interventions: ${b.interventions.join(', ')}`).join('\n\n')}
-
-FUNDING PATHWAY:
-- Primary: ${funderPathway.primary || 'Not specified'}
-- Readiness: ${funderPathway.readinessLevel || 'Early stage'}
-
-QUANTIFIED IMPACT DATA:
-${kpiSummary}
-
-CO-BENEFITS:
-${coBenefitSummary}
-
-MRV INDICATORS:
-${mrvSummary}
-
-EVIDENCE CONTEXT:
-- Evidence chunks used: ${quantifiedImpacts.evidenceContext.chunksUsed}
-- Top sources: ${quantifiedImpacts.evidenceContext.topSources.map(s => s.title).join(', ') || 'None'}
-
-Generate exactly 10 narrative blocks that incorporate the above KPIs, plus 4-6 co-benefits and downstream signals.
-Use the same JSON structure as the standard narrative generation:
-{
-  "narrativeBlocks": [
-    { "id": "block-1", "title": "Executive Summary", "type": "executive_summary", "lens": "neutral", "contentMd": "...", "evidenceTier": "MODELLED", "included": true, "kpis": [...] },
-    { "id": "block-2", "title": "Context and Rationale", "type": "context_rationale", ... },
-    { "id": "block-3", "title": "Theory of Change", "type": "theory_of_change", ... },
-    { "id": "block-4", "title": "Portfolio Overview and Phasing", "type": "portfolio_phasing", ... },
-    { "id": "block-5", "title": "Expected Impacts", "type": "expected_impacts", ... },
-    { "id": "block-6", "title": "Key Co-Benefits", "type": "key_cobenefits", ... },
-    { "id": "block-7", "title": "Synergies and Alignment", "type": "synergies_alignment", ... },
-    { "id": "block-8", "title": "Assumptions", "type": "assumptions", ... },
-    { "id": "block-9", "title": "Risks and Dependencies", "type": "risks_dependencies", ... },
-    { "id": "block-10", "title": "MRV Stub", "type": "mrv_stub", ... }
-  ],
-  "coBenefits": [...],
-  "downstreamSignals": { "operations": [...], "businessModel": [...], "mrv": [], "implementors": [] }
+  return { kpiSummary, coBenefitSummary, mrvSummary };
 }
 
-Each block should be 2-4 paragraphs. Reference the specific KPI values from the quantified data.`;
+async function fetchNarrativeEvidence(
+  projectId: string,
+  selectedZones: SelectedZone[],
+  interventionBundles: InterventionBundle[],
+): Promise<{ evidenceBlock: string; topSources: Array<{ title: string; score: number }> }> {
+  const hazardTypes = Array.from(new Set(selectedZones.map(z => z.hazardType).filter(Boolean)));
+  const enabledBundles = interventionBundles.filter(b => b.enabled);
+
+  const allSiteCategories = new Set<string>();
+  for (const zone of selectedZones) {
+    for (const site of zone.interventionPortfolio || []) {
+      if (site.category) allSiteCategories.add(site.category.replace(/_/g, ' '));
+    }
+  }
+
+  const searchQueries: string[] = [];
+  for (const hazard of hazardTypes) {
+    const h = hazard.toLowerCase().replace(/_/g, ' ');
+    searchQueries.push(`${h} nature-based solutions impact narrative concept note`);
+    searchQueries.push(`${h} NBS intervention evidence effectiveness`);
+  }
+  searchQueries.push("NBS co-benefits urban resilience evidence quantified");
+  searchQueries.push("climate adaptation funding concept note best practices");
+
+  for (const cat of Array.from(allSiteCategories).slice(0, 2)) {
+    searchQueries.push(`${cat} climate adaptation evidence case study`);
+  }
+
+  const allChunks: Array<{ content: string; score: number; sourceTitle?: string; chunkId?: string }> = [];
+  const seenChunkIds = new Set<string>();
+
+  const pid = projectId || 'global-knowledge-base';
+
+  for (const query of searchQueries.slice(0, 8)) {
+    try {
+      const result = await semanticSearch(pid, query, {
+        includeGlobalKnowledge: true,
+        usableByModule: 'impact_model',
+        limit: 3,
+      });
+      for (const chunk of result.chunks) {
+        const id = chunk.id?.toString() || chunk.content.slice(0, 50);
+        if (!seenChunkIds.has(id)) {
+          seenChunkIds.add(id);
+          allChunks.push({
+            content: chunk.content,
+            score: chunk.score,
+            sourceTitle: (chunk as any).source?.title,
+            chunkId: id,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn(`[Narrate RAG] Search failed for "${query}":`, err);
+    }
+  }
+
+  allChunks.sort((a, b) => b.score - a.score);
+  const topChunks = allChunks.slice(0, 12);
+
+  const evidenceBlock = topChunks.length > 0
+    ? topChunks.map((c, i) => `[Evidence ${i + 1}] (source: ${c.sourceTitle || 'Unknown'})\n${c.content.slice(0, 400)}`).join('\n\n')
+    : 'No evidence chunks found. Use general NBS literature.';
+
+  const topSources = Array.from(
+    new Map(topChunks.filter(c => c.sourceTitle).map(c => [c.sourceTitle!, c.score])).entries()
+  ).map(([title, score]) => ({ title, score }));
+
+  return { evidenceBlock, topSources };
+}
+
+// Phase 1: Generate a structured outline to prevent duplication
+async function planNarrativeOutline(
+  projectContext: string,
+  kpiSummary: string,
+  coBenefitSummary: string,
+  mrvSummary: string,
+  evidenceBlock?: string,
+): Promise<NarrativeOutline> {
+  console.log('📋 Phase 1: Planning narrative outline...');
 
   const response = await openai.responses.create({
     model: "gpt-5.2",
     input: [
-      { role: "developer", content: systemPrompt },
-      { role: "user", content: userPrompt }
-    ],
-    text: {
-      format: { type: "json_object" },
+      {
+        role: "developer",
+        content: `You are a concept note architect for Nature-Based Solutions projects.
+Your job is to plan the structure of a 10-block narrative so that each block has a DISTINCT scope with NO overlapping content.
+Output ONLY valid JSON.`
+      },
+      {
+        role: "user",
+        content: `Plan the outline for a 10-block concept note narrative. Each block must have a clear, non-overlapping scope.
+
+${projectContext}
+
+AVAILABLE KPIs:
+${kpiSummary}
+
+CO-BENEFITS: ${coBenefitSummary}
+MRV: ${mrvSummary}
+${evidenceBlock ? `\nEVIDENCE AVAILABLE:\n${evidenceBlock.slice(0, 1000)}\n` : ''}
+Assign each KPI to exactly ONE block. Distribute KPIs so "Expected Impacts" gets the primary hazard metrics, "Co-Benefits" gets cross-cutting ones, "Portfolio Overview" gets area/coverage/cost metrics, and "Executive Summary" gets 2-3 headline numbers.
+
+Return JSON:
+{
+  "blocks": [
+    {
+      "id": "block-1",
+      "title": "Executive Summary",
+      "type": "executive_summary",
+      "scope": "Brief overview: project purpose, total scale (area, zones, investment), 2-3 headline impact numbers, and funder alignment. DO NOT detail individual zones or interventions.",
+      "mustIncludeKPIs": ["KPI name 1", "KPI name 2"],
+      "mustNotCover": ["detailed zone descriptions", "theory of change logic", "risk analysis"],
+      "evidenceTier": "MODELLED",
+      "paragraphCount": 3
     },
-    reasoning: { effort: "low" },
-    max_output_tokens: 8000,
+    {
+      "id": "block-2",
+      "title": "Context and Rationale",
+      "type": "context_rationale",
+      "scope": "City climate vulnerability, recent events, why NBS is the right approach. NO impact numbers or intervention details.",
+      "mustIncludeKPIs": [],
+      "mustNotCover": ["specific KPI values", "implementation phasing", "co-benefits"],
+      "evidenceTier": "EVIDENCE",
+      "paragraphCount": 3
+    },
+    {
+      "id": "block-3",
+      "title": "Theory of Change",
+      "type": "theory_of_change",
+      "scope": "Causal logic: inputs → activities → outputs → outcomes → impact. Reference intervention types generically, NOT zone-by-zone. NO specific numbers.",
+      "mustIncludeKPIs": [],
+      "mustNotCover": ["specific KPI values", "portfolio details", "co-benefits"],
+      "evidenceTier": "ASSUMPTION",
+      "paragraphCount": 3
+    },
+    {
+      "id": "block-4",
+      "title": "Portfolio Overview and Phasing",
+      "type": "portfolio_phasing",
+      "scope": "Zone-by-zone intervention detail: what is being built where, site names, areas, costs, phasing timeline. Include area/coverage KPIs here.",
+      "mustIncludeKPIs": ["area and coverage related KPIs"],
+      "mustNotCover": ["impact reduction percentages", "co-benefits", "MRV details"],
+      "evidenceTier": "MODELLED",
+      "paragraphCount": 4
+    },
+    {
+      "id": "block-5",
+      "title": "Expected Impacts",
+      "type": "expected_impacts",
+      "scope": "Primary hazard reduction impacts with KPI values: flood reduction, heat mitigation, landslide prevention. Zone-specific quantified outcomes.",
+      "mustIncludeKPIs": ["primary hazard KPIs"],
+      "mustNotCover": ["co-benefits", "portfolio descriptions", "MRV"],
+      "evidenceTier": "MODELLED",
+      "paragraphCount": 4
+    },
+    {
+      "id": "block-6",
+      "title": "Key Co-Benefits",
+      "type": "key_cobenefits",
+      "scope": "Cross-cutting benefits: health, biodiversity, economic value, social cohesion, water/air quality. Use co-benefit data only.",
+      "mustIncludeKPIs": ["co-benefit metrics"],
+      "mustNotCover": ["primary hazard impacts", "portfolio details", "MRV"],
+      "evidenceTier": "MODELLED",
+      "paragraphCount": 3
+    },
+    {
+      "id": "block-7",
+      "title": "Synergies and Alignment",
+      "type": "synergies_alignment",
+      "scope": "Policy alignment: SDGs, national climate plans, city strategies, existing programs. NO impact numbers.",
+      "mustIncludeKPIs": [],
+      "mustNotCover": ["KPI values", "risk analysis", "MRV"],
+      "evidenceTier": "EVIDENCE",
+      "paragraphCount": 3
+    },
+    {
+      "id": "block-8",
+      "title": "Assumptions",
+      "type": "assumptions",
+      "scope": "Key assumptions behind the estimates: climate scenarios, implementation capacity, stakeholder engagement, land availability.",
+      "mustIncludeKPIs": [],
+      "mustNotCover": ["risk mitigation strategies", "impact numbers", "MRV"],
+      "evidenceTier": "ASSUMPTION",
+      "paragraphCount": 3
+    },
+    {
+      "id": "block-9",
+      "title": "Risks and Dependencies",
+      "type": "risks_dependencies",
+      "scope": "Key risks (climate, implementation, financial, political) with mitigation strategies. Dependencies on external factors.",
+      "mustIncludeKPIs": [],
+      "mustNotCover": ["assumptions listing", "impact numbers", "MRV details"],
+      "evidenceTier": "ASSUMPTION",
+      "paragraphCount": 3
+    },
+    {
+      "id": "block-10",
+      "title": "Monitoring, Reporting and Verification",
+      "type": "mrv_framework",
+      "scope": "MRV framework: indicators, baselines, targets, frequency, data sources, responsibilities. Use MRV indicator data.",
+      "mustIncludeKPIs": ["MRV indicators"],
+      "mustNotCover": ["impact estimates", "co-benefits", "risk analysis"],
+      "evidenceTier": "ASSUMPTION",
+      "paragraphCount": 3
+    }
+  ]
+}
+
+Adjust the mustIncludeKPIs to list the ACTUAL KPI names from the provided data. Distribute them so NO KPI appears in more than one block (except Executive Summary which can repeat 2-3 headline numbers).`
+      }
+    ],
+    text: { format: { type: "json_object" } },
+    reasoning: { effort: "medium" },
+    max_output_tokens: 4000,
   } as any);
 
   const content = extractTextFromResponse(response);
-
   try {
-    const parsed = JSON.parse(content) as GenerateNarrativeResponse;
+    const parsed = JSON.parse(content) as NarrativeOutline;
+    console.log(`   ✅ Outline planned: ${parsed.blocks.length} blocks`);
+    return parsed;
+  } catch (error) {
+    console.error("Failed to parse outline:", error);
+    return getDefaultOutline();
+  }
+}
+
+function getDefaultOutline(): NarrativeOutline {
+  return {
+    blocks: [
+      { id: "block-1", title: "Executive Summary", type: "executive_summary", scope: "Project overview with headline numbers", mustIncludeKPIs: [], mustNotCover: [], evidenceTier: "MODELLED", paragraphCount: 3 },
+      { id: "block-2", title: "Context and Rationale", type: "context_rationale", scope: "City climate context and NBS rationale", mustIncludeKPIs: [], mustNotCover: [], evidenceTier: "EVIDENCE", paragraphCount: 3 },
+      { id: "block-3", title: "Theory of Change", type: "theory_of_change", scope: "Causal chain from inputs to impact", mustIncludeKPIs: [], mustNotCover: [], evidenceTier: "ASSUMPTION", paragraphCount: 3 },
+      { id: "block-4", title: "Portfolio Overview and Phasing", type: "portfolio_phasing", scope: "Zone-by-zone detail with sites and costs", mustIncludeKPIs: [], mustNotCover: [], evidenceTier: "MODELLED", paragraphCount: 4 },
+      { id: "block-5", title: "Expected Impacts", type: "expected_impacts", scope: "Quantified hazard reduction impacts", mustIncludeKPIs: [], mustNotCover: [], evidenceTier: "MODELLED", paragraphCount: 4 },
+      { id: "block-6", title: "Key Co-Benefits", type: "key_cobenefits", scope: "Health, biodiversity, economic, social benefits", mustIncludeKPIs: [], mustNotCover: [], evidenceTier: "MODELLED", paragraphCount: 3 },
+      { id: "block-7", title: "Synergies and Alignment", type: "synergies_alignment", scope: "Policy and SDG alignment", mustIncludeKPIs: [], mustNotCover: [], evidenceTier: "EVIDENCE", paragraphCount: 3 },
+      { id: "block-8", title: "Assumptions", type: "assumptions", scope: "Key assumptions behind estimates", mustIncludeKPIs: [], mustNotCover: [], evidenceTier: "ASSUMPTION", paragraphCount: 3 },
+      { id: "block-9", title: "Risks and Dependencies", type: "risks_dependencies", scope: "Risks with mitigation strategies", mustIncludeKPIs: [], mustNotCover: [], evidenceTier: "ASSUMPTION", paragraphCount: 3 },
+      { id: "block-10", title: "Monitoring, Reporting and Verification", type: "mrv_framework", scope: "MRV framework with indicators", mustIncludeKPIs: [], mustNotCover: [], evidenceTier: "ASSUMPTION", paragraphCount: 3 },
+    ]
+  };
+}
+
+// Phase 2: Generate blocks in parallel batches
+async function generateBlocksBatch(
+  blockOutlines: NarrativeOutline['blocks'],
+  projectContext: string,
+  kpiSummary: string,
+  coBenefitSummary: string,
+  mrvSummary: string,
+  evidenceBlock: string,
+  funderPathway: FunderPathway,
+): Promise<NarrativeBlock[]> {
+  const batchPromises = blockOutlines.map(async (outline) => {
+    const kpiSection = outline.mustIncludeKPIs.length > 0
+      ? `\nKPIs TO WEAVE INTO THIS BLOCK:\n${outline.mustIncludeKPIs.map(k => `  • ${k}`).join('\n')}`
+      : '';
+
+    const exclusionSection = outline.mustNotCover.length > 0
+      ? `\nDO NOT COVER (these are handled by other blocks):\n${outline.mustNotCover.map(k => `  • ${k}`).join('\n')}`
+      : '';
+
+    const prompt = `Write the "${outline.title}" section of a concept note for a Nature-Based Solutions project.
+
+SECTION SCOPE: ${outline.scope}
+Write exactly ${outline.paragraphCount} substantive paragraphs. Be specific with names, numbers, and locations.
+${kpiSection}
+${exclusionSection}
+
+${projectContext}
+
+ALL QUANTIFIED DATA:
+${kpiSummary}
+
+CO-BENEFITS: ${coBenefitSummary}
+MRV: ${mrvSummary}
+
+EVIDENCE:
+${evidenceBlock}
+
+Return JSON:
+{
+  "block": {
+    "id": "${outline.id}",
+    "title": "${outline.title}",
+    "type": "${outline.type}",
+    "lens": "neutral",
+    "contentMd": "Your markdown content here...",
+    "evidenceTier": "${outline.evidenceTier}",
+    "included": true,
+    "kpis": [{ "name": "KPI used", "valueRange": "X-Y", "unit": "unit", "confidence": "MEDIUM" }]
+  }
+}
+
+RULES:
+- Use the provided human-readable zone names as-is
+- Round numbers: "42 ha" not "42,436.70 m²"; "9.4 ha" not "9.388 ha"
+- Use pathway words: "preparation facility" not "preparation_facility"
+- Reference actual site names and intervention types from the portfolio
+- Only include KPIs that YOU use in the text in the kpis array`;
+
+    const maxRetries = 2;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          console.log(`   Retrying block ${outline.id} (attempt ${attempt + 1})...`);
+        }
+
+        const response = await openai.responses.create({
+          model: "gpt-5.2",
+          input: [
+            {
+              role: "developer",
+              content: `You are an expert NBS concept note writer. Write one specific section for a funder-ready concept note.
+Target funder pathway: ${funderPathway.primary ? formatPathway(funderPathway.primary) : 'General'}.
+CRITICAL: Do NOT invent numbers. Only use the quantified KPI data provided. Write professional, evidence-based prose.
+Always respond with valid JSON.`
+            },
+            { role: "user", content: prompt }
+          ],
+          text: { format: { type: "json_object" } },
+          reasoning: { effort: "medium" },
+          max_output_tokens: 3000,
+        } as any);
+
+        const content = extractTextFromResponse(response);
+        const parsed = JSON.parse(content);
+        return parsed.block as NarrativeBlock;
+      } catch (error) {
+        if (attempt === maxRetries) {
+          console.error(`Failed to generate block ${outline.id} after ${maxRetries + 1} attempts:`, error);
+          return {
+            id: outline.id,
+            title: outline.title,
+            type: outline.type,
+            lens: 'neutral',
+            contentMd: `*Generation failed for this block. Please use the regenerate button to try again.*`,
+            evidenceTier: outline.evidenceTier,
+            included: true,
+            kpis: [],
+          } as NarrativeBlock;
+        }
+      }
+    }
+
     return {
-      narrativeBlocks: parsed.narrativeBlocks || [],
+      id: outline.id,
+      title: outline.title,
+      type: outline.type,
+      lens: 'neutral',
+      contentMd: `*Generation failed for this block.*`,
+      evidenceTier: outline.evidenceTier,
+      included: true,
+      kpis: [],
+    } as NarrativeBlock;
+  });
+
+  return Promise.all(batchPromises);
+}
+
+// Phase 3: Generate co-benefits and downstream signals
+async function generateSupplementary(
+  projectContext: string,
+  kpiSummary: string,
+  coBenefitSummary: string,
+  funderPathway: FunderPathway,
+): Promise<{ coBenefits: CoBenefitCard[]; downstreamSignals: GenerateNarrativeResponse['downstreamSignals'] }> {
+  const response = await openai.responses.create({
+    model: "gpt-5.2",
+    input: [
+      {
+        role: "developer",
+        content: `You are an NBS project expert. Generate structured co-benefits and downstream signals for other modules.
+Always respond with valid JSON.`
+      },
+      {
+        role: "user",
+        content: `Based on this NBS project, generate co-benefits and downstream signals.
+
+${projectContext}
+
+QUANTIFIED CO-BENEFITS FROM STEP 2:
+${coBenefitSummary}
+
+IMPACT DATA:
+${kpiSummary}
+
+Return JSON:
+{
+  "coBenefits": [
+    {
+      "id": "cb-1",
+      "title": "Co-benefit title",
+      "category": "HEALTH|BIODIVERSITY|ECONOMIC_VALUE|SOCIAL_COHESION|WATER_QUALITY|AIR_QUALITY",
+      "description": "2-3 sentences describing the co-benefit...",
+      "whoBenefits": ["group1", "group2"],
+      "where": ["location1"],
+      "confidence": "HIGH|MEDIUM|LOW",
+      "evidenceTier": "EVIDENCE|MODELLED|ASSUMPTION",
+      "included": true,
+      "userNotes": ""
+    }
+  ],
+  "downstreamSignals": {
+    "operations": [
+      { "id": "ops-1", "title": "Signal title", "description": "...", "whyItMatters": "...", "triggeredBy": ["intervention"], "ownerCandidates": ["owner"], "timeHorizon": "0-2y|2-5y|5-10y", "riskIfMissing": "...", "confidence": "MEDIUM", "included": true, "userNotes": "" }
+    ],
+    "businessModel": [
+      { "id": "bm-1", "title": "Signal title", "description": "...", "whyItMatters": "...", "triggeredBy": ["intervention"], "ownerCandidates": ["owner"], "timeHorizon": "2-5y", "riskIfMissing": "...", "confidence": "MEDIUM", "included": true, "userNotes": "" }
+    ],
+    "mrv": [],
+    "implementors": []
+  }
+}
+
+Generate 4-6 co-benefits and 2-3 operations + 2-3 business model signals. Be specific to the project.`
+      }
+    ],
+    text: { format: { type: "json_object" } },
+    reasoning: { effort: "low" },
+    max_output_tokens: 4000,
+  } as any);
+
+  const content = extractTextFromResponse(response);
+  try {
+    const parsed = JSON.parse(content);
+    return {
       coBenefits: parsed.coBenefits || [],
       downstreamSignals: parsed.downstreamSignals || { operations: [], businessModel: [], mrv: [], implementors: [] },
     };
-  } catch (error) {
-    console.error("Failed to parse narrate response:", error);
-    throw new Error("Failed to generate narrative from KPIs - invalid response format");
+  } catch {
+    return { coBenefits: [], downstreamSignals: { operations: [], businessModel: [], mrv: [], implementors: [] } };
   }
+}
+
+export async function generateNarrativeFromKPIs(
+  request: NarrateFromKPIsRequest
+): Promise<GenerateNarrativeResponse> {
+  const { quantifiedImpacts, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId } = request;
+
+  const projectContext = buildProjectContext(selectedZones, interventionBundles, funderPathway, projectName, cityName);
+  const { kpiSummary, coBenefitSummary, mrvSummary } = buildKPISummary(quantifiedImpacts);
+
+  // Fetch RAG evidence for narrative grounding
+  const ragProjectId = projectId || 'global-knowledge-base';
+  console.log('🔍 Fetching RAG evidence for narrative...');
+  const { evidenceBlock, topSources } = await fetchNarrativeEvidence(ragProjectId, selectedZones, interventionBundles);
+  console.log(`   Found ${topSources.length} evidence sources`);
+
+  // PHASE 1: Plan outline (prevents block duplication)
+  const outline = await planNarrativeOutline(projectContext, kpiSummary, coBenefitSummary, mrvSummary, evidenceBlock);
+
+  // PHASE 2: Generate all 10 blocks in parallel + supplementary in parallel
+  console.log('✍️  Phase 2: Generating blocks in parallel...');
+  const [narrativeBlocks, supplementary] = await Promise.all([
+    generateBlocksBatch(outline.blocks, projectContext, kpiSummary, coBenefitSummary, mrvSummary, evidenceBlock, funderPathway),
+    generateSupplementary(projectContext, kpiSummary, coBenefitSummary, funderPathway),
+  ]);
+
+  console.log(`✅ Phase 3: Assembled ${narrativeBlocks.length} blocks, ${supplementary.coBenefits.length} co-benefits`);
+
+  return {
+    narrativeBlocks,
+    coBenefits: supplementary.coBenefits,
+    downstreamSignals: supplementary.downstreamSignals,
+  };
 }
 
 // ============================================

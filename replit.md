@@ -67,11 +67,18 @@ Preferred communication style: Simple, everyday language.
 - A 6-step wizard guiding users through financing structure, archetypes, revenue, and funding pathways.
 
 ## Impact Model Module
-- A 5-step AI-powered wizard (Setup → Generate → Curate → Lenses → Export) for creating funder-ready impact narratives.
+- A 4-step AI-powered wizard (Setup → Quantify → Narrate → Lenses) for creating funder-ready impact narratives.
 - **AI Integration**: Uses OpenAI GPT-5.2 via Replit AI Integrations for structured narrative generation.
 - **Data Flow**: Integrates inputs from Funder Selection and Site Explorer, and outputs signals to Operations and Business Model.
 - **Quantification Architecture**: KPIs are zone-specific and intervention-site-specific. Each `QuantifiedImpactGroup` has a `zoneId`, and each `QuantifiedKPI` has optional `interventionId`, `interventionName`, and `category` fields. The AI prompt receives full intervention portfolio data (areas, costs, categories, impact ratings) to generate absolute-value KPIs that can be summed across zones.
-- **Zone Name Pipeline**: `buildZonesForAI()` in impact-model.tsx maps zones to include `zoneName` from intervention bundles or zone metadata. Backend `impactModelService.ts` passes zone names in all AI prompts (quantify/generate/narrate) and post-processes responses to ensure `interventionBundle` uses human-readable names instead of raw zone IDs.
+- **Zone Name Pipeline**: `buildZonesForAI(true)` in impact-model.tsx maps zones to include `zoneName` and full `interventionPortfolio` details. Backend `impactModelService.ts` passes zone names in all AI prompts and post-processes responses to ensure `interventionBundle` uses human-readable names instead of raw zone IDs.
+- **3-Phase Narrative Pipeline** (Step 3 "Narrate"):
+  - **Phase 1 — Plan**: A single AI call generates a structured outline defining each block's scope, assigned KPIs, and explicit exclusions to prevent content overlap.
+  - **Phase 2 — Generate**: All 10 narrative blocks are generated in parallel (one AI call per block), each receiving the outline scope + full KPI/evidence context. Co-benefits and downstream signals are generated in a parallel supplementary call.
+  - **Phase 3 — Assemble**: Blocks are combined, validated, and returned as the complete narrative response.
+  - **RAG Integration**: Before Phase 1, the knowledge base is searched for evidence documents relevant to the project's hazards and interventions.
+  - **Reasoning Effort**: Medium for planning and block generation; low for supplementary data.
+- **Step 2→3 Transition**: Button says "Generate Narrative" and auto-starts generation when clicked (if no narrative exists). If narrative already exists, button says "Continue" and navigates without regenerating.
 - **UI Grouping**: Step 2 (Quantify) groups impact results by hazard type → zone, with per-hazard subtotals and a project-wide summary card that aggregates compatible KPIs by normalized unit.
 - **Unit Normalization**: Aggregation normalizes unit aliases (ha→hectares, sqm→m², tCO2→tCO₂/year) and excludes percentage/ratio KPIs from summation.
 

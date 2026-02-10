@@ -1149,13 +1149,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate prose narrative from quantified KPIs
   app.post('/api/impact-model/narrate', async (req: any, res) => {
     try {
-      const { quantifiedImpacts, selectedZones, interventionBundles, funderPathway, projectName, cityName } = req.body;
+      const { quantifiedImpacts, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId } = req.body;
 
       if (!quantifiedImpacts || !selectedZones || !interventionBundles) {
         return res.status(400).json({ message: 'quantifiedImpacts, selectedZones, and interventionBundles are required' });
       }
 
-      console.log(`📝 Generating narrative from ${quantifiedImpacts.impactGroups?.length || 0} impact groups, ${quantifiedImpacts.coBenefits?.length || 0} co-benefits`);
+      console.log(`📝 3-Phase Narrative: ${quantifiedImpacts.impactGroups?.length || 0} impact groups, ${quantifiedImpacts.coBenefits?.length || 0} co-benefits`);
 
       const result = await generateNarrativeFromKPIs({
         quantifiedImpacts,
@@ -1164,9 +1164,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         funderPathway: funderPathway || { primary: 'BLENDED_FINANCE' },
         projectName,
         cityName,
+        projectId,
       });
 
-      console.log(`   Generated ${result.narrativeBlocks.length} narrative blocks from KPIs`);
+      console.log(`   ✅ Generated ${result.narrativeBlocks.length} narrative blocks via 3-phase pipeline`);
 
       res.json(result);
     } catch (error: any) {
