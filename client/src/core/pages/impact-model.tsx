@@ -1276,7 +1276,6 @@ function NarrateStep({
         : data.narrativeCache?.base || []);
   const blocks = activeBlocks;
 
-  const coBenefits = data.coBenefits || [];
   const availableLenses: LensType[] = ['neutral', 'climate', 'social', 'financial', 'institutional'];
   const lensesWithContent = availableLenses.filter(l => {
     if (l === 'neutral') return (data.narrativeCache?.base?.length ?? 0) > 0;
@@ -1422,42 +1421,6 @@ function NarrateStep({
               </Card>
             ))}
           </div>
-
-          {coBenefits.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="h-5 w-5 text-primary" />
-                <h2 className="text-xl font-semibold">{t('impactModel.coBenefitsTitle')}</h2>
-              </div>
-              <p className="text-muted-foreground mb-6">{t('impactModel.coBenefitsDescription')}</p>
-              <div className="space-y-4 max-w-3xl">
-                {coBenefits.map((cb) => (
-                  <Card key={cb.title}>
-                    <div className="p-5">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-base mb-1">{cb.title}</h3>
-                          <p className="text-sm text-muted-foreground">{cb.description}</p>
-                          {cb.kpiOrProxy && (
-                            <div className="mt-2 text-sm">
-                              <span className="text-muted-foreground">{cb.kpiOrProxy.name}: </span>
-                              <span className="font-medium">{cb.kpiOrProxy.valueRange} {cb.kpiOrProxy.unit}</span>
-                            </div>
-                          )}
-                          {cb.where && cb.where.length > 0 && (
-                            <div className="mt-1 text-sm">
-                              <span className="text-muted-foreground">Where: </span>
-                              <span className="font-medium">{cb.where.join(', ')}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
 
           <Card className="border-dashed border-primary/30 bg-primary/5">
             <CardContent className="p-5">
