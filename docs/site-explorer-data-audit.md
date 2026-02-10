@@ -3,11 +3,13 @@
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Evidence Layer Data Sources](#evidence-layer-data-sources)
-3. [Risk Grid Calculation](#risk-grid-calculation)
-4. [Intervention Zone Creation](#intervention-zone-creation)
-5. [Zone Priority and Classification](#zone-priority-and-classification)
-6. [Known Risks and Limitations](#known-risks-and-limitations)
+2. [Sample Data Pipeline — The Reference Implementation](#sample-data-pipeline--the-reference-implementation)
+3. [Evidence Layer Data Sources](#evidence-layer-data-sources)
+4. [Composite Hazard Scoring](#composite-hazard-scoring)
+5. [Intervention Zone Creation](#intervention-zone-creation)
+6. [Zone Priority and Classification](#zone-priority-and-classification)
+7. [Live Code vs. Sample Pipeline Comparison](#live-code-vs-sample-pipeline-comparison)
+8. [Known Risks and Limitations](#known-risks-and-limitations)
 
 ---
 
@@ -15,16 +17,255 @@
 
 The Site Explorer is the geospatial analysis module of the NBS Project Builder. It overlays multiple environmental data layers on a city map, computes hazard risk scores per grid cell, clusters those cells into intervention zones, and lets users assign Nature-Based Solution (NBS) interventions to each zone. The output feeds into the Impact Model and Business Model modules downstream.
 
-There are two operating modes:
+There are two code paths that produce grid data:
 
-| Mode | Data Origin | When Used |
-|------|-------------|-----------|
-| **Sample mode** | Pre-computed JSON files for Porto Alegre (`/sample-data/porto-alegre-*.json`) | Demo/sandbox |
-| **Live mode** | Real-time API calls to OSM Overpass, Copernicus DEM, etc. | Authenticated projects |
+| Path | Scripts / Code | Data Sources | Quality |
+|------|---------------|--------------|---------|
+| **Sample data pipeline** | 3-script offline process (`generate-sample-grid.ts` → `recalc-scores.ts` → `generate-intervention-zones.ts`) | Copernicus DEM + OSM + WorldPop + GHSL | **Most sophisticated** — 20+ metrics, real satellite data, hydrological modeling |
+| **Live grid service** | `server/services/gridService.ts` runtime | OSM + Copernicus DEM | Simpler — 11 metrics, no hydrological modeling, no satellite population/buildings |
+
+The sample data for Porto Alegre is generated from **real geospatial data**, not synthetic/fake data. The word "sample" refers to it being a pre-computed demonstration dataset, not to the quality of the data itself.
+
+---
+
+## Sample Data Pipeline — The Reference Implementation
+
+The sample data pipeline is a 3-step offline process that produces the richest, most accurate analysis available in the system. Each script builds on the previous one's output.
+
+### Pipeline Architecture
+
+```
+┌─────────────────────────────┐
+│  Step 1: generate-sample-grid.ts                │
+│  Input:  Pre-fetched evidence layers (elevation, │
+│          rivers, landcover, water, forest, pop,  │
+│          WorldPop raster, GHSL built-up raster)  │
+│  Output: porto-alegre-grid.json                  │
+│          (1km² grid with 20+ metrics per cell)   │
+└──────────────────┬──────────┘
+                   │
+┌──────────────────▼──────────┐
+│  Step 2: recalc-scores.ts                        │
+│  Input:  porto-alegre-grid.json                  │
+│  Process: Adds Porto Alegre-specific geographic  │
+│           knowledge (Guaíba lake, delta region), │
+│           recalculates all composite scores with │
+│           improved formulas                      │
+│  Output: porto-alegre-grid.json (overwritten)    │
+└──────────────────┬──────────┘
+                   │
+┌──────────────────▼──────────┐
+│  Step 3: generate-intervention-zones.ts          │
+│  Input:  porto-alegre-grid.json                  │
+│  Process: Classifies cells by hazard typology,   │
+│           clusters into contiguous zones,        │
+│           merges small zones, limits to target   │
+│  Output: porto-alegre-zones.json                 │
+└─────────────────────────────┘
+```
+
+### Step 1: Grid Generation (`scripts/generate-sample-grid.ts`)
+
+Creates a 1km × 1km square grid over Porto Alegre's bounding box (−51.27 to −51.01 E, −30.27 to −29.93 N) and populates every cell with metrics from 8 real data sources.
+
+**Grid construction:**
+- Uses `@turf/turf` `squareGrid()` to create cell polygons
+- Each cell gets a unique ID (`cell_0`, `cell_1`, ...), centroid coordinates, and 20+ metric slots initialized to `null`
+
+**Data sources loaded:**
+The script loads pre-fetched JSON files from `client/public/sample-data/` — these files were originally produced by the live evidence layer services (OSM, Copernicus) and saved locally.
+
+#### Layer 1: Elevation & Hydrological Modeling
+
+**Source**: Copernicus DEM GLO-30 (real 30m satellite elevation data)
+
+Computes per cell:
+
+| Metric | Method | What It Captures |
+|--------|--------|-----------------|
+| `elevation_mean` | Average of contour line elevations intersecting the cell | Terrain height |
+| `elevation_min` | Minimum contour elevation in cell | Lowest point |
+| `elevation_max` | Maximum contour elevation in cell | Highest point |
+| `slope_mean` | `atan(elevRange / 1000m) × 180/π` — slope in degrees from the elevation range across a 1km cell | Terrain steepness |
+| `flow_accum` | Raw flow accumulation value from DEM-derived hydrological grid | Where water concentrates |
+| `flow_accum_pct` | Cell's flow accumulation ÷ max flow accumulation across all cells | Relative drainage intensity |
+| `is_depression` | Boolean from DEM depression detection grid | Ponding/pooling risk |
+| `depression_pct` | 1 if depression, 0 if not | Used in flood scoring |
+| `low_lying_pct` | `1 − (rank / totalCells)` — inverse percentile of elevation | Lower cells score higher |
+
+The flow accumulation and depression grids are derived from the Copernicus DEM using hydrological algorithms (D8 flow direction). This is the key differentiator from the live code — it models where water actually *flows* rather than just measuring proximity to mapped rivers.
+
+#### Layer 2: Rivers & Waterways
+
+**Source**: OpenStreetMap Overpass API (real mapped waterways)
+
+| Metric | Method |
+|--------|--------|
+| `dist_river_m` | `turf.pointToLineDistance(centroid, riverLine, {units: 'meters'})` — minimum distance from cell center to any OSM waterway |
+| `river_prox_pct` | `1 − (rank / totalDistances)` — inverse percentile rank of river distance (closer = higher) |
+
+Only LineString geometries are used (filters out riverbanks/polygons). Maximum distance cutoff: 50km.
+
+#### Layer 3: Land Cover Classification
+
+**Source**: OpenStreetMap (real tagged polygons)
+
+Classifies OSM features into 4 categories using tag matching:
+
+| Category | OSM Tags Matched |
+|----------|-----------------|
+| **Built-up** | `landuse=residential/commercial/industrial/retail`, `building=*`, `highway=*`, `landcover_class=built_up` |
+| **Green** | `natural=wood/scrub/grassland`, `landuse=forest/grass`, `leisure=park`, `landcover_class=tree_cover/shrubland/grassland` |
+| **Cropland** | `landuse=farmland/orchard/vineyard`, `landcover_class=cropland` |
+| **Wetland** | `natural=wetland/marsh`, `landcover_class=wetland` |
+
+Per-cell metrics:
+- `imperv_pct`: Set to 0.8 if cell centroid falls inside a built-up polygon
+- `green_pct`: Set to 0.7 if inside green area, 0.3 if inside cropland
+
+#### Layer 4: Surface Water Bodies
+
+**Source**: OpenStreetMap (real water body polygons)
+
+| Metric | Method |
+|--------|--------|
+| `dist_water_m` | Distance from centroid to nearest water body boundary (handles polygon-to-line conversion for both single and multi-polygons). 0 if centroid is inside water. |
+| `floodplain_adj_pct` | Inverse percentile rank of water body distance |
+
+#### Layer 5: Forest / Canopy Cover
+
+**Source**: OpenStreetMap (real forest polygons)
+
+| Metric | Method |
+|--------|--------|
+| `canopy_pct` | 1.0 if centroid inside any forest polygon, 0.0 otherwise |
+
+This is binary (inside forest or not) — not a continuous canopy density measure.
+
+#### Layer 6: Population (OSM Proxy)
+
+**Source**: OpenStreetMap (residential land use)
+
+| Metric | Method |
+|--------|--------|
+| `built_pct` | Set to 0.7 if centroid falls inside any residential polygon |
+
+#### Layer 7: Population (WorldPop Raster)
+
+**Source**: WorldPop 100m population count raster (real satellite-modeled data)
+
+| Metric | Method |
+|--------|--------|
+| `pop_density_raw` | Average of all WorldPop raster cells that overlap the 1km grid cell (people per pixel) |
+| `pop_density` | `min(1, pop_density_raw / maxPop)` — normalized 0–1 against city maximum |
+
+This is the only place where real satellite-modeled population data is used. The live code does not use WorldPop at all.
+
+#### Layer 8: Building Density (GHSL)
+
+**Source**: GHSL (Global Human Settlement Layer) built-up surface raster (real satellite data)
+
+| Metric | Method |
+|--------|--------|
+| `building_density` | Average of GHSL raster cells overlapping the grid cell, divided by 100 |
+| `imperv_pct` | `max(existing_imperv, building_density)` — GHSL updates imperv_pct if higher than OSM-derived value |
+
+This layer uses actual satellite-derived built-up surface data, unlike the live code which only uses OSM.
+
+#### Coverage Flags
+
+Each cell tracks which data sources successfully contributed data:
+
+```typescript
+coverage: {
+  elevation: boolean,   // Copernicus DEM contours intersected
+  flow: boolean,        // Hydrological grid data available
+  landcover: boolean,   // OSM land use features found
+  surface_water: boolean, // OSM water bodies found
+  rivers: boolean,      // OSM waterways found
+  forest: boolean,      // OSM forest features checked
+  population: boolean,  // OSM residential or WorldPop data
+  buildings: boolean,   // GHSL built-up data available
+}
+```
+
+### Step 2: Score Recalculation (`scripts/recalc-scores.ts`)
+
+This script takes the raw grid and recalculates all composite scores using **improved formulas** and **Porto Alegre-specific geographic knowledge**.
+
+#### Geographic Knowledge Encoded
+
+Porto Alegre has specific geographic features that affect flood risk:
+
+```typescript
+const LAKE_WEST_BOUNDARY = -51.23;  // Guaíba lake western edge
+const DELTA_CENTER_LAT = -30.05;    // Delta confluence center
+const DELTA_CENTER_LNG = -51.22;
+```
+
+Three new location-based flood factors are computed:
+
+| Factor | Formula | What It Models |
+|--------|---------|---------------|
+| `lakeside_risk` | `max(0, 1 − (lng − LAKE_WEST_BOUNDARY) / 0.10)` | Proximity to Guaíba Lake (1.0 at lake, 0 at ~11km away) |
+| `delta_risk` | `max(0, 1 − euclideanDistKm / 20)` | Proximity to the 4-river delta confluence (1.0 at delta, 0 at 20km) |
+| `low_elev_risk` | For cells below 40m: `max(0, 1 − (elevation − 20) / 30)` | Low-elevation flood exposure independent of relative ranking |
+
+These are stored as intermediate metrics for debugging and also feed into the flood score.
+
+#### Improved Composite Score Formulas
+
+**Flood Score** (two-component with synergy):
+
+```
+physicalFlood = 0.25 × flow_accum_pct
+              + 0.20 × depression_pct
+              + 0.20 × river_prox_pct
+              + 0.15 × low_lying_pct
+              + 0.10 × floodplain_adj_pct
+              + 0.10 × flatness
+
+locationFlood = 0.40 × lakeside_risk
+              + 0.35 × low_elev_risk
+              + 0.25 × delta_risk
+
+flood_score   = min(1, max(physicalFlood, locationFlood × 0.8) + physicalFlood × locationFlood × 0.3)
+```
+
+The synergy bonus (`physicalFlood × locationFlood × 0.3`) means cells that score high on BOTH physical drainage AND geographic location get boosted beyond either alone. This captures the real-world phenomenon where drainage problems near the lake/delta are far worse than either factor alone.
+
+**Heat Score:**
+
+```
+heat_score = 0.40 × building_density
+           + 0.30 × pop_density
+           + 0.20 × (1 − vegetation_pct)
+           + 0.10 × (1 − water_cooling)
+```
+
+Where `vegetation_pct = max(canopy_pct, green_pct)` and `water_cooling` is derived from water body distance or river/water proximity percentiles.
+
+**Landslide Score** (slope-gated):
+
+```
+slopeRisk = slope ≥ 5° ? min(1, (slope − 3) / 12) : 0
+
+landslide_score = 0.70 × slopeRisk
+                + 0.15 × (1 − vegetation_pct) × slopeRisk
+                + 0.15 × (1 − low_lying_pct) × slopeRisk
+```
+
+The slope-gating means landslide risk is ZERO for flat terrain (slope < 5°), and vegetation and elevation only contribute when there's actual slope. This is a much more realistic model than the live code.
+
+### Step 3: Zone Generation (`scripts/generate-intervention-zones.ts`)
+
+Takes the scored grid and clusters cells into intervention zones. See [Intervention Zone Creation](#intervention-zone-creation) section below for the full algorithm.
 
 ---
 
 ## Evidence Layer Data Sources
+
+These are the data sources used by **both** the sample pipeline and the live code. The sample pipeline consumes pre-fetched files from these same services.
 
 ### 1. City Boundary
 
@@ -57,11 +298,12 @@ There are two operating modes:
 - Elevation grid (width x height array)
 - Contour line GeoJSON (auto-interval: 2m–50m depending on terrain range)
 - Per-cell metrics: `elevation_mean`, `elevation_min`, `elevation_max`
+- **Sample pipeline only**: Also provides flow accumulation grid, depression detection grid, and slope calculations
 
 **Known risks:**
 - Copernicus DEM is a Digital Surface Model (DSM), not a Digital Terrain Model (DTM). It includes buildings, trees, and structures. In dense urban areas, "elevation" includes building heights, inflating slope estimates and distorting low-lying detection.
 - Missing tiles are marked as `.missing` and skipped silently. Coastal or island cities may have gaps (ocean tiles return 404).
-- The resampling grid is capped at 500x500 cells (`Math.min(..., 500)` in code, line 310-311 of `copernicusService.ts`), which reduces effective resolution for large cities.
+- The resampling grid is capped at 500×500 cells (`Math.min(..., 500)` in code, line 310-311 of `copernicusService.ts`), which reduces effective resolution for large cities.
 - Elevation values of exactly 0 are treated as no-data (`if (value !== 0)` check on line 343). This is incorrect for cities genuinely at sea level (e.g., Amsterdam, Venice, New Orleans).
 - The no-data sentinel `-9999` from the GeoTIFF is converted to 0 (line 340), which then gets excluded from elevation statistics, meaning voids are silently ignored.
 - The contour generation algorithm processes cell-by-cell crossings, producing individual line segments rather than connected contour rings, resulting in visual fragmentation at the rendering stage.
@@ -149,8 +391,8 @@ There are two operating modes:
 
 **Known risks:**
 - **Source mismatch**: Declared as "Hansen Global Forest" (satellite-derived 30m resolution tree cover) but actually uses OSM. Hansen provides pixel-level tree cover percentage derived from Landsat imagery; OSM provides manually-drawn forest boundaries. OSM often misses individual trees, street trees, small green patches, and private gardens.
-- `canopy_pct` is computed as the area fraction of forest polygons overlapping each grid cell (via `turf.intersect` + `turf.area`). While it is technically continuous (0.0–1.0), it only counts areas mapped as `natural=wood` or `landuse=forest` in OSM. Street trees, private gardens, small parks with tree cover, and scattered trees are absent from this metric.
-- The name "canopy cover" implies a continuous vegetation density measure (as Hansen provides), but this is really a binary-source area fraction — a cell is either inside a mapped forest polygon or not, with partial overlap producing fractional values only at forest edges.
+- `canopy_pct` in the live code is computed as the area fraction of forest polygons overlapping each grid cell (via `turf.intersect` + `turf.area`). In the sample pipeline, it is binary (1.0 if centroid inside forest, 0.0 otherwise). Both approaches only count areas mapped as `natural=wood` or `landuse=forest` in OSM.
+- The name "canopy cover" implies a continuous vegetation density measure (as Hansen provides), but this is really an OSM forest-boundary measure — street trees, private gardens, small parks with tree cover, and scattered trees are absent.
 
 ---
 
@@ -159,70 +401,41 @@ There are two operating modes:
 | Attribute | Detail |
 |-----------|--------|
 | **Declared source** | WorldPop 100m raster (shown in UI tooltip) |
-| **Actual source** | OpenStreetMap Overpass API (residential proxy) |
-| **Service** | `server/services/populationService.ts` → `getPopulationFromOSM()` |
-| **Overpass query** | `landuse=residential`, `building=residential`, `building=apartments`, `building=house` |
+| **Actual live source** | OpenStreetMap Overpass API (residential proxy) |
+| **Sample pipeline source** | OpenStreetMap (Layer 6) + WorldPop raster (Layer 7) + GHSL built-up (Layer 8) |
 
-**What it provides:**
+**Live code provides:**
 - Residential area polygons and building footprints
 - Estimated population: `(houses × 3) + (apartment buildings × 30)`
 - Per-cell metrics: `pop_density` (built-area fraction as proxy), `built_pct`
 
+**Sample pipeline additionally provides:**
+- `pop_density_raw` — real satellite-modeled population count from WorldPop 100m raster
+- `pop_density` — normalized against city maximum population density
+- `building_density` — GHSL satellite-derived built-up surface fraction
+
 **Known risks:**
-- **Source mismatch**: UI shows "WorldPop 100m raster" as the source, but the actual data comes from OSM building/residential queries. WorldPop provides modeled population counts per 100m grid cell; OSM provides building footprints.
-- The population estimate formula (`houses × 3 + apartments × 30`) is extremely crude. Actual household sizes, building heights, and occupancy rates vary enormously.
-- OSM building coverage varies dramatically by city. Cities with strong OSM communities (e.g., European cities) have near-complete building data; others may have <10% coverage.
-- There is no distinction between occupied and vacant buildings.
+- **Source mismatch in live code**: UI shows "WorldPop 100m raster" as the source, but live code uses OSM building/residential queries. Only the sample pipeline actually uses WorldPop data.
+- The live population estimate formula (`houses × 3 + apartments × 30`) is extremely crude. Actual household sizes, building heights, and occupancy rates vary enormously.
+- OSM building coverage varies dramatically by city.
 
 ---
 
-### 8. Building Density
+## Composite Hazard Scoring
 
-| Attribute | Detail |
-|-----------|--------|
-| **Declared source** | "GHSL Built-Up" (in schema), "OSM building footprints" (in tooltip) |
-| **Actual source** | Derived from OSM residential/building data (same as population layer) |
+### Sample Pipeline Scores (Reference — Most Accurate)
 
-**Known risks:**
-- Same data as population layer, just visualized differently.
-- Does not use GHSL (Global Human Settlement Layer) satellite-derived built-up data despite declaring it.
+The sample pipeline's `recalc-scores.ts` computes all three hazard scores using the full set of 20+ metrics, geographic context, and corrected formulas. See [Step 2: Score Recalculation](#step-2-score-recalculation-scriptsrecalc-scorests) above for the complete formulas.
 
----
+Key design principles in the sample scoring:
+- **7-factor flood score** with location-specific knowledge and synergy bonuses
+- **4-factor heat score** using satellite building density and water cooling proximity
+- **Slope-gated landslide score** that correctly produces zero risk for flat terrain
+- **All scores rounded to 2 decimal places** for consistency
 
-## Risk Grid Calculation
+### Live Code Scores (Simplified — Has Known Bugs)
 
-### Grid Generation
-
-The city bounding box is divided into a regular square grid using Turf.js:
-
-- **Default cell size**: 250m × 250m (configurable)
-- **Library**: `@turf/turf` `squareGrid()` function
-- **Service**: `server/services/gridService.ts` → `generateGrid()`
-
-Each cell gets a unique ID (`cell_0`, `cell_1`, ...) and empty metric/coverage slots.
-
-### Per-Cell Metric Computation
-
-Evidence layers are overlaid onto the grid cells in sequence. For each cell, spatial intersection or distance calculations produce normalized metrics:
-
-| Metric | Computation Method | Range |
-|--------|-------------------|-------|
-| `elevation_mean/min/max` | Average/min/max of contour lines intersecting the cell | meters |
-| `low_lying_pct` | Inverse percentile rank of elevation (lower elevation = higher value) | 0–1 |
-| `slope_mean` | Not computed in live mode (only in sample data) | m/km |
-| `dist_river_m` | Minimum distance from cell centroid to any waterway LineString | meters |
-| `river_prox_pct` | Inverse percentile rank of river distance (closer = higher) | 0–1 |
-| `dist_water_m` | Minimum distance from cell centroid to any water body polygon | meters |
-| `floodplain_adj_pct` | Inverse percentile rank of water body distance | 0–1 |
-| `imperv_pct` | Fraction of cell area covered by impervious land use | 0–1 |
-| `green_pct` | Fraction of cell area covered by vegetation land use | 0–1 |
-| `canopy_pct` | Fraction of cell area covered by forest polygons | 0–1 |
-| `pop_density` | Fraction of cell area covered by residential buildings (proxy) | 0–1 |
-| `built_pct` | Same as pop_density | 0–1 |
-
-### Composite Hazard Score Formulas
-
-After all per-cell metrics are computed, three hazard scores are calculated in `computeCompositeScores()` (gridService.ts, lines 429–448). The exact code is:
+The live code in `computeCompositeScores()` (gridService.ts, lines 429–448) uses a simpler set of formulas:
 
 ```typescript
 const A = m.river_prox_pct ?? 0;     // river proximity percentile
@@ -247,110 +460,78 @@ heat_score      = 0.45 × imperv_pct + 0.35 × pop_density + 0.20 × (1 − cano
 landslide_score = 0.15 × (1 − canopy_pct)
 ```
 
-### Critical Issues with Composite Scores
+### Critical Issues in Live Code Scoring
 
 1. **Flood score double-counts river proximity**: `river_prox_pct` appears in both the A term (weight 0.45) and the R term (weight 0.15), giving it a combined weight of 0.60 out of 1.0. This was likely a copy-paste error (variable `A` and `R` are both assigned `river_prox_pct`).
 
-2. **Landslide score is effectively non-functional**: Both `S` (slope) and `U` (soil instability) are hardcoded to 0 in the live code, making the formula reduce to:
-   ```
-   landslide_score = 0.15 × (1 − canopy_pct)
-   ```
-   This means the maximum possible landslide score is 0.15, and it only measures absence of forest cover — not actual slope, geology, or soil conditions. The formula cannot meaningfully identify landslide risk.
+2. **Landslide score is effectively non-functional**: Both `S` (slope) and `U` (soil instability) are hardcoded to 0, making the formula reduce to `0.15 × (1 − canopy_pct)`. Maximum possible landslide score is 0.15. The score only reflects absence of forest — not actual slope, geology, or soil conditions.
 
-3. **No flow accumulation**: The sample data includes advanced hydrological metrics (`flow_accum`, `flow_accum_pct`, `is_depression`, `depression_pct`, `lakeside_risk`, `delta_risk`, `low_elev_risk`, `water_cooling`) that are **not computed by the live code**. The sample data was generated by a more advanced pipeline that is no longer present in the codebase.
+3. **No flow accumulation or depression data**: The live code has no hydrological modeling. It cannot detect where water concentrates or pools.
 
-4. **All metrics are relative, not absolute**: Percentile-based normalization means scores are relative to the specific city. A "high risk" cell in a low-risk city might score equally to a "low risk" cell in a high-risk city. Cross-city comparison is meaningless.
+4. **No geographic context**: The live code applies identical generic formulas regardless of city-specific features (lakes, river deltas, coastal exposure).
 
-5. **Missing climate data**: No actual climate data is used — no precipitation records, temperature data, historical flood events, or climate projections. The scores are purely based on physical geography proxies.
+5. **All metrics are relative, not absolute**: Percentile-based normalization means scores are relative to the specific city. Cross-city comparison is meaningless.
 
-### Live Coverage Flags vs. Sample Coverage Flags
-
-The live code defines 6 coverage flags in `CoverageFlags`: `elevation`, `landcover`, `surface_water`, `rivers`, `forest`, `population`.
-
-The sample data includes 8 coverage flags: `elevation`, `flow`, `landcover`, `surface_water`, `rivers`, `forest`, `population`, `buildings`.
-
-The `flow` and `buildings` coverage flags do not exist in the live `CoverageFlags` interface or any live compute function.
-
-### Sample Data vs. Live Code Discrepancy
-
-The pre-computed sample data for Porto Alegre contains **12 additional metrics** not computed by the live grid service:
-
-| Sample-Only Metric | Description | Risk Implication |
-|---------------------|-------------|------------------|
-| `flow_accum` / `flow_accum_pct` | Hydrological flow accumulation | Absent in live = flood risk underestimated |
-| `is_depression` / `depression_pct` | Terrain depression detection | Absent in live = ponding risk missed |
-| `lakeside_risk` | Proximity to large water bodies | Absent in live |
-| `delta_risk` | River delta/confluence risk | Absent in live |
-| `low_elev_risk` | Low elevation coastal risk | Absent in live |
-| `water_cooling` | Water body cooling effect | Absent in live = heat risk less nuanced |
-| `vegetation_pct` | Continuous vegetation index | Absent in live |
-| `building_density` | Normalized building density | Absent in live |
-| `pop_density_raw` | Absolute population density (people/km²) | Absent in live |
-| `slope_mean` | Terrain slope | Absent in live = landslide score broken |
-
-This means the sample/demo experience is significantly more accurate than what a live user would get for their own city.
+6. **No climate data**: No precipitation, temperature, or historical event data. Scores are purely based on geographic proxies.
 
 ---
 
 ## Intervention Zone Creation
 
-### How Zones are Defined (Sample Data)
+### Algorithm (`scripts/generate-intervention-zones.ts`)
 
-The sample zones file (`porto-alegre-zones.json`) contains pre-computed zones with these generation parameters:
+The zone generation uses these tuning parameters:
 
-```json
-{
-  "T_ACTIVE": 0.3,
-  "T_COMBO": 0.1,
-  "MIN_CELLS": 8,
-  "TARGET_ZONES": 15
-}
+| Parameter | Value | Meaning |
+|-----------|-------|---------|
+| `T_ACTIVE` | 0.30 | Minimum hazard score threshold — cells below this are classified as LOW risk |
+| `T_COMBO` | 0.10 | If gap between top two hazard scores ≤ 0.10, create a combined typology (e.g., FLOOD_HEAT) |
+| `MIN_CELLS` | 8 | Minimum contiguous cells required to form a zone (prevents tiny zones) |
+| `TARGET_ZONES` | 15 | Maximum number of output zones (controls clustering granularity) |
+
+### Pipeline Steps
+
+**1. Cell Classification** — Each cell is classified based on its hazard scores:
+
+```
+Sort hazard scores: [h1, v1], [h2, v2], [h3, v3] (descending)
+dominanceGap = v1 − v2
+
+If v1 < T_ACTIVE (0.30):
+    typologyLabel = 'LOW'
+Else if dominanceGap ≤ T_COMBO (0.10):
+    typologyLabel = sorted(h1, h2).join('_')  // e.g., 'FLOOD_HEAT'
+    primaryHazard = h1, secondaryHazard = h2
+Else:
+    typologyLabel = h1  // e.g., 'FLOOD'
+    primaryHazard = h1
+    if v2 ≥ T_ACTIVE × 0.8:
+        secondaryHazard = h2
 ```
 
-| Parameter | Meaning |
-|-----------|---------|
-| `T_ACTIVE` | Minimum hazard score threshold — cells below this are classified as LOW risk |
-| `T_COMBO` | Minimum secondary hazard score to create a combined typology (e.g., FLOOD_HEAT) |
-| `MIN_CELLS` | Minimum number of contiguous cells required to form a zone (prevents tiny zones) |
-| `TARGET_ZONES` | Target number of output zones (controls clustering granularity) |
+**2. Spatial Clustering** — Flood-fill (BFS) groups adjacent cells with the same typology label into contiguous regions. Uses 8-connected neighbors (including diagonals).
 
-### Zone Clustering Algorithm
+**3. Small Region Merging** — Regions with fewer than `MIN_CELLS` (8) cells are merged into their nearest neighbor based on hazard distance (Euclidean distance in 3D flood-heat-landslide space).
 
-The zone generation (used for sample data) follows this pipeline:
+**4. Target Zone Reduction** — If more than `TARGET_ZONES` (15) zones remain, the smallest zone is repeatedly merged with the zone that has the most similar hazard profile until the target count is reached.
 
-1. **Hazard classification per cell**: Each cell is classified based on which hazard score exceeds `T_ACTIVE` (0.3):
-   - If `flood_score ≥ 0.3` and `heat_score ≥ 0.1` → `FLOOD_HEAT`
-   - If `flood_score ≥ 0.3` and `landslide_score ≥ 0.1` → `FLOOD_LANDSLIDE`
-   - If `heat_score ≥ 0.3` and `landslide_score ≥ 0.1` → `HEAT_LANDSLIDE`
-   - If `flood_score ≥ 0.3` → `FLOOD`
-   - If `heat_score ≥ 0.3` → `HEAT`
-   - If `landslide_score ≥ 0.3` → `LANDSLIDE`
-   - Otherwise → `LOW`
+**5. Zone Property Computation** — Each final zone gets:
 
-2. **Spatial clustering**: Cells with the same typology label that are spatially adjacent are merged into contiguous zones. Zones smaller than `MIN_CELLS` (8) are dissolved into neighboring zones.
+| Property | Computation |
+|----------|-------------|
+| `zoneId` | `zone_1`, `zone_2`, ... (numbered by descending max risk) |
+| `typologyLabel` | Re-classified from zone mean scores using same threshold logic |
+| `primaryHazard` / `secondaryHazard` | From zone-level classification |
+| `interventionType` | Mapped from typology (see below) |
+| `meanFlood/Heat/Landslide` | Arithmetic mean of all cell scores in zone |
+| `maxFlood/Heat/Landslide` | Maximum cell scores in zone |
+| `populationSum` | Sum of `pop_density_raw` across cells |
+| `areaKm2` | Cell count × (cellSize/1000)² |
+| `cellCount` | Number of grid cells |
 
-3. **Zone merging**: If the number of zones exceeds `TARGET_ZONES` (15), smaller zones are merged with their nearest same-typology neighbor until the target count is reached.
+**6. Geometry Construction** — Cell polygons within each zone are merged via iterative `turf.union()`. Falls back to bounding box if union fails.
 
-4. **Geometry construction**: Grid cells within each zone are dissolved into a single MultiPolygon geometry using polygon union operations.
-
-### Zone Properties
-
-Each zone gets these computed properties:
-
-| Property | Description | Computation |
-|----------|-------------|-------------|
-| `zoneId` | Unique identifier | `zone_1`, `zone_2`, etc. |
-| `typologyLabel` | Hazard classification | Based on thresholds above |
-| `primaryHazard` | Dominant hazard | Hazard with highest mean score |
-| `secondaryHazard` | Secondary hazard (if combo) | Second-highest hazard |
-| `interventionType` | Recommended NBS category | Mapped from typology (see below) |
-| `meanFlood` | Average flood score of all cells | Arithmetic mean |
-| `meanHeat` | Average heat score of all cells | Arithmetic mean |
-| `meanLandslide` | Average landslide score of all cells | Arithmetic mean |
-| `maxFlood/Heat/Landslide` | Maximum scores in zone | Maximum across cells |
-| `areaKm2` | Zone area | Cell count (each cell ≈ 1 km²) |
-| `cellCount` | Number of grid cells | Count |
-| `populationSum` | Total estimated population | Sum of cell population estimates |
+**7. Output Sorting** — Zones sorted by `max(meanFlood, meanHeat, meanLandslide)` descending.
 
 ---
 
@@ -364,13 +545,11 @@ Each zone gets these computed properties:
 | `FLOOD_HEAT` | `sponge_network` | Prioritizes flood over heat |
 | `FLOOD_LANDSLIDE` | `sponge_network` | Prioritizes flood over landslide |
 | `HEAT` | `cooling_network` | Urban cooling & shade solutions |
-| `HEAT_LANDSLIDE` | `cooling_network` | Prioritizes heat over landslide |
+| `HEAT_LANDSLIDE` | `slope_stabilization` | Prioritizes slope stabilization |
 | `LANDSLIDE` | `slope_stabilization` | Slope stabilization solutions |
 | `LOW` | `multi_benefit` | Hybrid/multi-benefit solutions |
 
 ### Intervention Categories and Eligible NBS Types
-
-Each intervention category defines which zone typologies it applies to:
 
 | Category | Applicable Typologies | Example Interventions |
 |----------|----------------------|----------------------|
@@ -378,16 +557,6 @@ Each intervention category defines which zone typologies it applies to:
 | **Urban Cooling & Shade** | HEAT, FLOOD_HEAT, HEAT_LANDSLIDE | Street trees, cool roofs, pocket forests, shade structures |
 | **Slope Stabilization** | LANDSLIDE, FLOOD_LANDSLIDE, HEAT_LANDSLIDE | Terracing, vetiver grass, retaining walls, slope forests |
 | **Multi-Benefit** | FLOOD_HEAT, FLOOD_LANDSLIDE, HEAT_LANDSLIDE, LOW | Constructed wetlands, green corridors, urban forests |
-
-### Zone Priority Ranking
-
-Zones are displayed in the UI sorted by **maximum risk score** (descending):
-
-```
-maxRisk = max(meanFlood, meanHeat, meanLandslide)
-```
-
-This means zones with the highest average hazard score in any category appear first, guiding users to prioritize the most at-risk areas.
 
 ### Porto Alegre Sample Zones Summary
 
@@ -399,7 +568,55 @@ This means zones with the highest average hazard score in any category appear fi
 | zone_1 | LANDSLIDE | slope_stabilization | 0.35 | 0.28 | **0.48** | 14 | 14 km² |
 | zone_9 | FLOOD_HEAT | sponge_network | **0.45** | 0.48 | 0.05 | 39 | 39 km² |
 | zone_15 | FLOOD | sponge_network | **0.46** | 0.23 | 0.02 | 303 | 303 km² |
-| ... | ... | ... | ... | ... | ... | ... | ... |
+
+---
+
+## Live Code vs. Sample Pipeline Comparison
+
+### Metrics Available
+
+| Metric | Sample Pipeline | Live Code | Impact |
+|--------|----------------|-----------|--------|
+| `elevation_mean/min/max` | Yes (from Copernicus DEM) | Yes (from Copernicus DEM) | Same |
+| `slope_mean` | Yes (computed from DEM) | No (never computed) | Landslide score broken in live |
+| `flow_accum` / `flow_accum_pct` | Yes (DEM hydrological grid) | No | Flood risk underestimated in live |
+| `is_depression` / `depression_pct` | Yes (DEM depression detection) | No | Ponding risk missed in live |
+| `low_lying_pct` | Yes | Yes | Same |
+| `dist_river_m` / `river_prox_pct` | Yes | Yes | Same |
+| `dist_water_m` / `floodplain_adj_pct` | Yes | Yes | Same |
+| `imperv_pct` | Yes (OSM + GHSL) | Yes (OSM only) | Less accurate in live |
+| `green_pct` | Yes | Yes | Same |
+| `canopy_pct` | Yes | Yes | Same |
+| `pop_density` | Yes (WorldPop raster) | Yes (OSM proxy only) | Much less accurate in live |
+| `pop_density_raw` | Yes (absolute people/pixel) | No | Missing absolute population in live |
+| `building_density` | Yes (GHSL satellite data) | No | Missing built environment detail in live |
+| `built_pct` | Yes | Yes | Same |
+| `vegetation_pct` | Yes (max of canopy, green) | No | Computed but not stored in live |
+| `water_cooling` | Yes (water body distance decay) | No | Missing cooling factor in live |
+| `lakeside_risk` | Yes (Porto Alegre specific) | No | City-specific factor |
+| `delta_risk` | Yes (Porto Alegre specific) | No | City-specific factor |
+| `low_elev_risk` | Yes (absolute elevation) | No | Absolute flood exposure missing in live |
+
+### Coverage Flags
+
+| Flag | Sample Pipeline | Live Code |
+|------|----------------|-----------|
+| `elevation` | Yes | Yes |
+| `flow` | Yes | No |
+| `landcover` | Yes | Yes |
+| `surface_water` | Yes | Yes |
+| `rivers` | Yes | Yes |
+| `forest` | Yes | Yes |
+| `population` | Yes | Yes |
+| `buildings` | Yes | No |
+
+### Score Formula Comparison
+
+| Hazard | Sample Pipeline Factors | Live Code Factors |
+|--------|------------------------|-------------------|
+| **Flood** | 7 factors (flow accum, depression, river prox, water prox, low lying, imperv, flatness) + 3 location factors (lake, delta, low elev) with synergy bonus | 3 effective factors (river prox ×0.60 due to bug, low lying, imperv) |
+| **Heat** | 4 factors (building density, pop density, vegetation, water cooling) using satellite data | 3 factors (imperv, pop density as OSM proxy, canopy) |
+| **Landslide** | 3 slope-gated factors (slope risk, vegetation × slope, elevation × slope) — zero for flat terrain | 1 factor (absence of canopy) — max score 0.15 regardless of terrain |
 
 ---
 
@@ -409,21 +626,21 @@ This means zones with the highest average hazard score in any category appear fi
 
 | Risk | Severity | Description |
 |------|----------|-------------|
-| **Source attribution mismatch** | High | UI and metadata declare authoritative sources (WorldPop, Hansen Forest, JRC Water, HydroSHEDS, ESA WorldCover, GHSL) but all layers except elevation actually use OpenStreetMap. Users may make decisions believing they are using satellite-derived scientific datasets. |
+| **Source attribution mismatch** | High | UI and metadata declare authoritative sources (WorldPop, Hansen Forest, JRC Water, HydroSHEDS, ESA WorldCover, GHSL) but all live layers except elevation actually use OpenStreetMap. The sample pipeline does use WorldPop and GHSL. |
 | **OSM coverage variability** | High | OSM data completeness varies enormously by region. Cities in sub-Saharan Africa, South Asia, or Central America may have minimal building, land use, or water mapping. |
-| **No actual climate data** | High | No precipitation, temperature, or historical event data is used. Risk scores are based entirely on geographic proxies (proximity to water, impervious surface, etc.). |
-| **Sample data ≠ live data** | Medium | The sample demo uses 12+ additional metrics from a richer pipeline. Live users get a simpler, less accurate analysis. |
+| **No actual climate data** | High | No precipitation, temperature, or historical event data is used. Risk scores are based entirely on geographic proxies. |
+| **Sample data is far more accurate than live** | Medium | The sample pipeline uses 7+ additional metrics from satellite sources and improved formulas. Live users get a simpler, less accurate analysis than the demo suggests. |
 | **Elevation = DSM not DTM** | Medium | Copernicus DEM includes structures, inflating elevation in urban areas and distorting slope/low-lying calculations. |
 
-### Algorithmic Risks
+### Algorithmic Risks (Live Code Only)
 
 | Risk | Severity | Description |
 |------|----------|-------------|
 | **Flood score double-counts river proximity** | High | River proximity has 60% weight instead of intended ~45% due to duplicate variable assignment (`A` and `R` both = `river_prox_pct`). |
 | **Landslide score is non-functional** | Critical | Slope and soil instability are hardcoded to 0. The score only reflects absence of forest (max 0.15). Cities with genuine landslide risk will not see it reflected. |
-| **Relative normalization prevents comparison** | Medium | All percentile-based metrics are city-relative. A high-risk score in a safe city ≠ a high-risk score in a dangerous city. |
+| **No hydrological modeling** | High | Flow accumulation and depression detection are absent in live code. Flood risk cannot identify where water concentrates. |
+| **Relative normalization prevents comparison** | Medium | All percentile-based metrics are city-relative. Cross-city comparison is meaningless. |
 | **No uncertainty quantification** | Medium | Scores are presented as precise percentages with no confidence intervals or data quality indicators. |
-| **Cell size assumes square Earth** | Low | Turf.js `squareGrid` uses kilometer-based squares which become trapezoidal at high latitudes. For tropical cities this is negligible but matters above ~50° latitude. |
 
 ### Operational Risks
 
@@ -436,11 +653,11 @@ This means zones with the highest average hazard score in any category appear fi
 
 ### Recommendations for Improvement
 
-1. **Fix flood score formula**: Replace duplicate `A` and `R` variables — use `flow_accum_pct` or `floodplain_adj_pct` for the second term.
-2. **Implement slope calculation**: Derive slope from the Copernicus DEM grid to make landslide scores functional.
-3. **Align source attribution**: Either update metadata/UI to truthfully say "OpenStreetMap" or implement actual connections to declared sources (WorldPop, Hansen, JRC, GHSL).
-4. **Add data quality indicators**: Show coverage percentages per layer and warn users when coverage is below thresholds.
-5. **Port sample data pipeline**: Bring the richer metrics (flow accumulation, depression detection, building density, etc.) from the sample data generator into the live code.
+1. **Port sample pipeline scoring to live code**: The `recalc-scores.ts` formulas are strictly better than the live `computeCompositeScores()`. Porting the 7-factor flood score, slope-gated landslide score, and satellite-backed heat score would close the quality gap.
+2. **Fix flood score formula**: Replace duplicate `A` and `R` variables — use `flow_accum_pct` or `floodplain_adj_pct` for the second term.
+3. **Implement slope calculation in live code**: Derive slope from the Copernicus DEM grid (the data is already downloaded) to make landslide scores functional.
+4. **Align source attribution**: Either update metadata/UI to truthfully say "OpenStreetMap" or implement actual connections to declared sources (WorldPop, Hansen, JRC, GHSL).
+5. **Add data quality indicators**: Show coverage percentages per layer and warn users when coverage is below thresholds.
 6. **Add climate data integration**: Incorporate precipitation return periods, historical flood events, or climate projection data for scientifically grounded risk assessment.
 
 ---
