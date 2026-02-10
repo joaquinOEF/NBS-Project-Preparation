@@ -1073,14 +1073,15 @@ function QuantifyStep({
 
                 {groups.map((group: any) => {
                   const zoneName = resolveZoneName(group);
-                  const uniqueInterventions = Array.from(new Set(group.kpis.map((k: any) => k.interventionName).filter(Boolean) as string[]));
+                  const zonePortfolio = siteExplorerZones.find((z: any) => (z.zoneId || z.id) === group.zoneId)?.interventionPortfolio || [];
+                  const interventionCount = zonePortfolio.length || Array.from(new Set(group.kpis.map((k: any) => k.interventionName).filter(Boolean) as string[])).length;
                   return (
                     <Card key={group.id} className="bg-white dark:bg-card">
                       <CardHeader className="pb-2 pt-4 px-5">
                         <div className="flex items-center gap-2">
                           <CardTitle className="text-sm font-semibold">{zoneName}</CardTitle>
-                          {uniqueInterventions.length > 0 && (
-                            <span className="text-xs text-muted-foreground">{uniqueInterventions.length} {uniqueInterventions.length === 1 ? 'intervention' : 'interventions'}</span>
+                          {interventionCount > 0 && (
+                            <span className="text-xs text-muted-foreground">{interventionCount} {interventionCount === 1 ? 'intervention' : 'interventions'}</span>
                           )}
                         </div>
                       </CardHeader>
@@ -1128,7 +1129,7 @@ function QuantifyStep({
                                       <p className="text-xs text-muted-foreground">{kpi.unit}</p>
                                     </div>
                                     {kpi.interventionName && (
-                                      <p className="text-xs text-muted-foreground">{kpi.interventionName}{kpi.category ? ` · ${kpi.category.replace(/_/g, ' ')}` : ''}</p>
+                                      <p className="text-xs text-muted-foreground">{cleanZoneRefs(kpi.interventionName)}{kpi.category ? ` · ${kpi.category.replace(/_/g, ' ')}` : ''}</p>
                                     )}
                                     {kpi.userEvidenceSource && (
                                       <p className="text-xs text-blue-600 dark:text-blue-400 italic line-clamp-1">{kpi.userEvidenceSource}</p>

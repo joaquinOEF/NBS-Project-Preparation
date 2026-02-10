@@ -921,6 +921,7 @@ Generate structured JSON. RULES:
         name: replaceZoneIds(k.name),
         metric: replaceZoneIds(k.metric),
         methodology: replaceZoneIds(k.methodology),
+        interventionName: replaceZoneIds(k.interventionName),
       })),
     }));
 
