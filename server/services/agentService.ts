@@ -363,7 +363,7 @@ const AGENT_TOOLS: AgentTool[] = [
           description: "Brief explanation of why the narrative is being regenerated (shown to user)",
         },
       },
-      required: ["lens", "reason"],
+      required: ["lens", "customInstructions", "reason"],
       additionalProperties: false,
     },
   },
