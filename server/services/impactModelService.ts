@@ -522,6 +522,8 @@ interface NarrateFromKPIsRequest {
   projectName?: string;
   cityName?: string;
   projectId?: string;
+  lens?: 'neutral' | 'climate' | 'social' | 'financial' | 'institutional';
+  lensInstructions?: string;
 }
 
 interface NarrativeOutline {
@@ -664,8 +666,15 @@ async function planNarrativeOutline(
   coBenefitSummary: string,
   mrvSummary: string,
   evidenceBlock?: string,
+  lens?: string,
+  lensInstructions?: string,
 ): Promise<NarrativeOutline> {
-  console.log('📋 Phase 1: Planning narrative outline...');
+  const lensLabel = lens && lens !== 'neutral' ? lens : null;
+  console.log(`📋 Phase 1: Planning narrative outline${lensLabel ? ` (${lensLabel} lens)` : ''}...`);
+
+  const lensDirective = lensLabel
+    ? `\nANALYTICAL LENS: "${lensLabel}"\n${LENS_DESCRIPTIONS[lensLabel] || ''}\nEvery block scope must be written with this lens in mind. Prioritize ${lensLabel}-relevant KPIs and frame each section through the ${lensLabel} perspective.\n${lensInstructions ? `USER INSTRUCTIONS: ${lensInstructions}` : ''}`
+    : '';
 
   const response = await openai.responses.create({
     model: "gpt-5.2",
@@ -673,7 +682,7 @@ async function planNarrativeOutline(
       {
         role: "developer",
         content: `You are a concept note architect for Nature-Based Solutions projects.
-Your job is to plan the structure of a 10-block narrative so that each block has a DISTINCT scope with NO overlapping content.
+Your job is to plan the structure of a 10-block narrative so that each block has a DISTINCT scope with NO overlapping content.${lensLabel ? ` The entire narrative must be framed through the "${lensLabel}" analytical lens.` : ''}
 Output ONLY valid JSON.`
       },
       {
@@ -681,6 +690,7 @@ Output ONLY valid JSON.`
         content: `Plan the outline for a 10-block concept note narrative. Each block must have a clear, non-overlapping scope.
 
 ${projectContext}
+${lensDirective}
 
 AVAILABLE KPIs:
 ${kpiSummary}
@@ -841,7 +851,14 @@ async function generateBlocksBatch(
   mrvSummary: string,
   evidenceBlock: string,
   funderPathway: FunderPathway,
+  lens?: string,
+  lensInstructions?: string,
 ): Promise<NarrativeBlock[]> {
+  const lensLabel = lens && lens !== 'neutral' ? lens : null;
+  const lensBlock = lensLabel
+    ? `\nANALYTICAL LENS: "${lensLabel}" — ${LENS_DESCRIPTIONS[lensLabel] || ''}\nFrame this section through the ${lensLabel} perspective. Prioritize ${lensLabel}-relevant metrics and language.\n${lensInstructions ? `USER INSTRUCTIONS: ${lensInstructions}` : ''}`
+    : '';
+
   const batchPromises = blockOutlines.map(async (outline) => {
     const kpiSection = outline.mustIncludeKPIs.length > 0
       ? `\nKPIs TO WEAVE INTO THIS BLOCK:\n${outline.mustIncludeKPIs.map(k => `  • ${k}`).join('\n')}`
@@ -857,6 +874,7 @@ SECTION SCOPE: ${outline.scope}
 Write exactly ${outline.paragraphCount} substantive paragraphs. Be specific with names, numbers, and locations.
 ${kpiSection}
 ${exclusionSection}
+${lensBlock}
 
 ${projectContext}
 
@@ -875,7 +893,7 @@ Return JSON:
     "id": "${outline.id}",
     "title": "${outline.title}",
     "type": "${outline.type}",
-    "lens": "neutral",
+    "lens": "${lensLabel || 'neutral'}",
     "contentMd": "Your markdown content here...",
     "evidenceTier": "${outline.evidenceTier}",
     "included": true,
@@ -904,7 +922,7 @@ RULES:
             {
               role: "developer",
               content: `You are an expert NBS concept note writer. Write one specific section for a funder-ready concept note.
-Target funder pathway: ${funderPathway.primary ? formatPathway(funderPathway.primary) : 'General'}.
+Target funder pathway: ${funderPathway.primary ? formatPathway(funderPathway.primary) : 'General'}.${lensLabel ? ` Write with a strong "${lensLabel}" analytical lens: ${LENS_DESCRIPTIONS[lensLabel]}` : ''}
 CRITICAL: Do NOT invent numbers. Only use the quantified KPI data provided. Write professional, evidence-based prose.
 Always respond with valid JSON.`
             },
@@ -1028,24 +1046,26 @@ Generate 4-6 co-benefits and 2-3 operations + 2-3 business model signals. Be spe
 export async function generateNarrativeFromKPIs(
   request: NarrateFromKPIsRequest
 ): Promise<GenerateNarrativeResponse> {
-  const { quantifiedImpacts, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId } = request;
+  const { quantifiedImpacts, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId, lens, lensInstructions } = request;
+
+  const lensLabel = lens && lens !== 'neutral' ? lens : null;
+  console.log(`📝 3-Phase Narrative Pipeline${lensLabel ? ` [${lensLabel} lens]` : ''}`);
 
   const projectContext = buildProjectContext(selectedZones, interventionBundles, funderPathway, projectName, cityName);
   const { kpiSummary, coBenefitSummary, mrvSummary } = buildKPISummary(quantifiedImpacts);
 
-  // Fetch RAG evidence for narrative grounding
   const ragProjectId = projectId || 'global-knowledge-base';
   console.log('🔍 Fetching RAG evidence for narrative...');
   const { evidenceBlock, topSources } = await fetchNarrativeEvidence(ragProjectId, selectedZones, interventionBundles);
   console.log(`   Found ${topSources.length} evidence sources`);
 
   // PHASE 1: Plan outline (prevents block duplication)
-  const outline = await planNarrativeOutline(projectContext, kpiSummary, coBenefitSummary, mrvSummary, evidenceBlock);
+  const outline = await planNarrativeOutline(projectContext, kpiSummary, coBenefitSummary, mrvSummary, evidenceBlock, lens, lensInstructions);
 
   // PHASE 2: Generate all 10 blocks in parallel + supplementary in parallel
-  console.log('✍️  Phase 2: Generating blocks in parallel...');
+  console.log(`✍️  Phase 2: Generating blocks in parallel${lensLabel ? ` with ${lensLabel} lens` : ''}...`);
   const [narrativeBlocks, supplementary] = await Promise.all([
-    generateBlocksBatch(outline.blocks, projectContext, kpiSummary, coBenefitSummary, mrvSummary, evidenceBlock, funderPathway),
+    generateBlocksBatch(outline.blocks, projectContext, kpiSummary, coBenefitSummary, mrvSummary, evidenceBlock, funderPathway, lens, lensInstructions),
     generateSupplementary(projectContext, kpiSummary, coBenefitSummary, funderPathway),
   ]);
 

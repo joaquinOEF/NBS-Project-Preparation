@@ -57,7 +57,7 @@ import {
   computeCompositeScores,
   calculateCoverageSummary,
 } from './services/gridService';
-import { generateImpactNarrative, generateLensVariant, regenerateBlock, generateQuantifiedImpacts, generateNarrativeFromKPIs } from './services/impactModelService';
+import { generateImpactNarrative, regenerateBlock, generateQuantifiedImpacts, generateNarrativeFromKPIs } from './services/impactModelService';
 import { fetchOsmAssets } from './services/osmAssetService';
 import type { LayerType } from '../shared/geospatial-schema';
 import { registerAgentRoutes } from './routes/agentRoutes';
@@ -1062,33 +1062,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate lens variant for impact narrative
-  app.post('/api/impact-model/generate-lens', async (req: any, res) => {
-    try {
-      const { lens, baseNarrativeBlocks, funderPathway, customInstructions } = req.body;
-
-      if (!lens || !baseNarrativeBlocks) {
-        return res.status(400).json({ message: 'lens and baseNarrativeBlocks are required' });
-      }
-
-      console.log(`🔍 Generating ${lens} lens variant for ${baseNarrativeBlocks.length} blocks`);
-
-      const result = await generateLensVariant({
-        lens,
-        baseNarrativeBlocks,
-        funderPathway: funderPathway || { primary: 'BLENDED_FINANCE' },
-        customInstructions,
-      });
-
-      console.log(`   Generated ${result.length} blocks for ${lens} lens`);
-
-      res.json({ narrativeBlocks: result });
-    } catch (error: any) {
-      console.error('Lens generation error:', error);
-      res.status(500).json({ message: error.message || 'Failed to generate lens variant' });
-    }
-  });
-
   // Regenerate a single narrative block
   app.post('/api/impact-model/regenerate-block', async (req: any, res) => {
     try {
@@ -1146,16 +1119,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate prose narrative from quantified KPIs
+  // Generate prose narrative from quantified KPIs (supports optional lens for full pipeline regeneration)
   app.post('/api/impact-model/narrate', async (req: any, res) => {
     try {
-      const { quantifiedImpacts, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId } = req.body;
+      const { quantifiedImpacts, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId, lens, lensInstructions } = req.body;
 
       if (!quantifiedImpacts || !selectedZones || !interventionBundles) {
         return res.status(400).json({ message: 'quantifiedImpacts, selectedZones, and interventionBundles are required' });
       }
 
-      console.log(`📝 3-Phase Narrative: ${quantifiedImpacts.impactGroups?.length || 0} impact groups, ${quantifiedImpacts.coBenefits?.length || 0} co-benefits`);
+      console.log(`📝 3-Phase Narrative: ${quantifiedImpacts.impactGroups?.length || 0} impact groups, ${quantifiedImpacts.coBenefits?.length || 0} co-benefits${lens && lens !== 'neutral' ? ` [${lens} lens]` : ''}`);
 
       const result = await generateNarrativeFromKPIs({
         quantifiedImpacts,
@@ -1165,6 +1138,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projectName,
         cityName,
         projectId,
+        lens,
+        lensInstructions,
       });
 
       console.log(`   ✅ Generated ${result.narrativeBlocks.length} narrative blocks via 3-phase pipeline`);
