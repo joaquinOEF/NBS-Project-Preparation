@@ -1194,18 +1194,14 @@ function QuantifyStep({
           {qi.mrvIndicators.length > 0 && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">{t('impactModel.quantify.mrvTitle')}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-2">
                 {qi.mrvIndicators.map((mrv) => (
                   <div key={mrv.id} className="p-4 rounded-lg border bg-white dark:bg-card">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 space-y-1">
-                        <p className="text-sm font-medium">{mrv.name}</p>
-                        <p className="text-xs text-muted-foreground">{mrv.dataSource}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold text-primary">{typeof mrv.baselineValue === 'object' ? JSON.stringify(mrv.baselineValue) : mrv.baselineValue} → {typeof mrv.targetValue === 'object' ? JSON.stringify(mrv.targetValue) : mrv.targetValue}</p>
-                        <p className="text-xs text-muted-foreground">{mrv.frequency}</p>
-                      </div>
+                    <p className="text-sm font-medium mb-1">{mrv.name}</p>
+                    <p className="text-sm font-bold text-primary mb-1">{typeof mrv.baselineValue === 'object' ? JSON.stringify(mrv.baselineValue) : mrv.baselineValue} → {typeof mrv.targetValue === 'object' ? JSON.stringify(mrv.targetValue) : mrv.targetValue}</p>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span>{mrv.dataSource}</span>
+                      {mrv.frequency && <span>· {mrv.frequency}</span>}
                     </div>
                   </div>
                 ))}
