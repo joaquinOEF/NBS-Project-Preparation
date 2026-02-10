@@ -1167,9 +1167,9 @@ function QuantifyStep({
               <h3 className="text-lg font-semibold">{t('impactModel.quantify.coBenefitsTitle')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {qi.coBenefits.map((cb) => (
-                  <div key={cb.id} className="p-4 rounded-lg border bg-white dark:bg-card">
-                    <div className="space-y-2">
-                      <Badge className="bg-primary/10 text-primary hover:bg-primary/10">{cb.category?.replace(/[_/]/g, ' ')}</Badge>
+                  <div key={cb.id} className="p-4 rounded-lg border bg-white dark:bg-card text-left">
+                    <div className="space-y-2 text-left">
+                      <p className="text-xs font-semibold text-primary uppercase tracking-wide">{cb.category?.replace(/[_/]/g, ' ')}</p>
                       {cb.valueRange && typeof cb.valueRange.low === 'number' && typeof cb.valueRange.high === 'number' && (cb.valueRange.low > 0 || cb.valueRange.high > 0) ? (
                         <div>
                           <p className="text-xl font-bold text-primary">
