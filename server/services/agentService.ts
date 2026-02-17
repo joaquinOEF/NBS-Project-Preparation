@@ -1650,7 +1650,7 @@ export async function executeAgentTool(
           },
         });
 
-        const updatedBlocks = blocks.map((b: any) => b.id === blockId ? { ...result, id: blockId } : b);
+        const updatedBlocks = blocks.map((b: any) => b.id === blockId ? { ...result, id: blockId, userEdited: true } : b);
         const updatedNarrativeCache = { ...narrativeCache };
         if (isLensVariant) {
           updatedNarrativeCache.lensVariants = {
