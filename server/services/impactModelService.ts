@@ -17,13 +17,21 @@ function extractInterventionName(intervention: string): string {
 
 // Helper to extract text from OpenAI responses API format
 function extractTextFromResponse(response: any): string {
+  if (response?.output_text) {
+    return response.output_text;
+  }
   const output = response?.output || [];
-  return output
+  const text = output
     .filter((item: any) => item.type === "message")
     .flatMap((item: any) => item.content || [])
     .filter((part: any) => part.type === "output_text")
     .map((part: any) => part.text)
-    .join("") || "{}";
+    .join("");
+  if (text) return text;
+  if (response?.choices?.[0]?.message?.content) {
+    return response.choices[0].message.content;
+  }
+  return "{}";
 }
 
 const openai = new OpenAI({
@@ -562,22 +570,24 @@ Return JSON:
   ]
 }
 
-Extract ALL factual claims, especially those about what the project does, uses, costs, or how it is funded. Include both positive claims ("uses X") and negative claims ("does not use Y"). Be thorough — missing a claim means missing a contradiction.`
+Extract ALL factual claims, especially those about what the project does, uses, costs, or how it is funded. Include both positive claims ("uses X") and negative claims ("does not use Y"). Be thorough — missing a claim means missing a contradiction. Keep the list concise — focus on the 5-15 most important claims.`
       }
     ],
     text: { format: { type: "json_object" } },
-    reasoning: { effort: "low" },
-    max_output_tokens: 2000,
+    reasoning: { effort: "medium" },
+    max_output_tokens: 4000,
   } as any);
 
   const content = extractTextFromResponse(response);
+  console.log(`   📄 Raw claims response length: ${content.length} chars`);
   try {
     const parsed = JSON.parse(content);
     const claims = parsed.claims || [];
-    console.log(`   ✅ Extracted ${claims.length} claims`);
+    console.log(`   ✅ Extracted ${claims.length} claims: ${claims.slice(0, 3).map((c: any) => c.claim?.substring(0, 60)).join('; ')}...`);
     return claims;
   } catch (error) {
-    console.error("Failed to parse claims:", error);
+    console.error("Failed to parse claims response:", content.substring(0, 200));
+    console.error("Parse error:", error);
     return [];
   }
 }
@@ -649,22 +659,24 @@ ${claims.map((c, i) => `${i + 1}. ${c.claim}`).join('\n')}
 BLOCK TO CHECK: "${block.title}" (${block.id})
 ${block.contentMd}
 
-Does this block contradict, duplicate, or conflict with any of the claims above?`
+Does this block contradict, duplicate, or conflict with any of the claims above? Look carefully for statements that say the OPPOSITE of any claim.`
       }
     ],
     text: { format: { type: "json_object" } },
-    reasoning: { effort: "low" },
-    max_output_tokens: 500,
+    reasoning: { effort: "medium" },
+    max_output_tokens: 1000,
   } as any);
 
   const content = extractTextFromResponse(response);
   try {
     const parsed = JSON.parse(content);
+    console.log(`      ${parsed.affected ? '❌' : '✅'} "${block.title}": ${parsed.affected ? parsed.reason : 'consistent'}`);
     if (parsed.affected) {
       return { blockId: block.id, reason: parsed.reason || 'Contradicts edited content' };
     }
     return null;
-  } catch {
+  } catch (err) {
+    console.error(`      ⚠️ Failed to parse check for "${block.title}":`, content.substring(0, 100));
     return null;
   }
 }
