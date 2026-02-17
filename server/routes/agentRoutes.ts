@@ -241,65 +241,78 @@ export function registerAgentRoutes(app: Express): void {
       }
 
       const impactBlock = await storage.getInfoBlock(projectId, 'impact_model');
-      const blockData: any = impactBlock?.data || {};
+      const blockData: any = impactBlock?.blockStateJson || {};
 
       switch (action) {
         case 'regenerate_narrative': {
           const { generateNarrativeFromKPIs } = await import('../services/impactModelService');
-          const kpis = blockData.quantifiedKPIs || blockData.kpis || [];
-          const zones = blockData.selectedZones || [];
-          const bundles = blockData.interventionBundles || [];
-          const funderPathway = blockData.funderPathway || { primary: 'general' };
-          
+          const quantifiedImpacts = blockData.quantifiedImpacts || blockData.quantifiedKPIs || {
+            impactGroups: blockData.impactGroups || [],
+            coBenefits: blockData.coBenefits || [],
+            mrvIndicators: blockData.mrvIndicators || [],
+            evidenceContext: blockData.evidenceContext || { chunksUsed: 0, topSources: [], searchQueries: [] },
+            generationMeta: blockData.generationMeta || { generatedAt: new Date().toISOString(), model: 'unknown', ragChunksUsed: 0 },
+          };
+
           const result = await generateNarrativeFromKPIs({
-            quantifiedKPIs: kpis,
-            selectedZones: zones,
-            interventionBundles: bundles,
-            funderPathway: funderPathway,
+            quantifiedImpacts,
+            selectedZones: blockData.selectedZones || [],
+            interventionBundles: blockData.interventionBundles || [],
+            funderPathway: blockData.funderPathway || { primary: 'general' },
             projectName: project.actionName || 'NBS Project',
-            cityName: project.cityName || '',
+            cityName: (project as any).cityName || '',
             projectId,
             lens: params?.lens,
             lensInstructions: params?.lensInstructions,
           });
 
-          if (result.blocks) {
-            await storage.upsertInfoBlock(projectId, 'impact_model', {
-              data: {
-                ...blockData,
-                narrativeBlocks: result.blocks,
-                narrativeOutline: result.outline,
-              },
-            });
-          }
+          await storage.upsertInfoBlock(projectId, 'impact_model', {
+            blockStateJson: {
+              ...blockData,
+              narrativeBlocks: result.narrativeBlocks,
+            },
+          });
 
-          return res.json({ success: true, message: `Narrative regenerated with ${result.blocks?.length || 0} sections.` });
+          return res.json({ success: true, message: `Narrative regenerated with ${result.narrativeBlocks.length} sections.` });
         }
 
         case 'regenerate_block': {
           const { regenerateBlock } = await import('../services/impactModelService');
-          const { blockIndex, customPrompt } = params || {};
-          const narrativeBlocks = blockData.narrativeBlocks || [];
-          
-          if (blockIndex === undefined || blockIndex >= narrativeBlocks.length) {
-            return res.status(400).json({ success: false, message: "Invalid block index" });
+          const { blockIndex, blockId, customPrompt } = params || {} as any;
+          const narrativeBlocks: any[] = blockData.narrativeBlocks || [];
+
+          let resolvedIndex = -1;
+          if (typeof blockIndex === 'number' && blockIndex >= 0 && blockIndex < narrativeBlocks.length) {
+            resolvedIndex = blockIndex;
+          } else if (blockId) {
+            resolvedIndex = narrativeBlocks.findIndex((b: any) => b.id === blockId);
+          } else if (typeof blockIndex === 'string') {
+            const parsed = parseInt(blockIndex, 10);
+            if (!isNaN(parsed) && parsed >= 0 && parsed < narrativeBlocks.length) {
+              resolvedIndex = parsed;
+            } else {
+              resolvedIndex = narrativeBlocks.findIndex((b: any) => b.id === blockIndex || b.title?.toLowerCase().includes(blockIndex.toLowerCase()));
+            }
           }
 
-          const targetBlock = narrativeBlocks[blockIndex];
+          if (resolvedIndex < 0 || resolvedIndex >= narrativeBlocks.length) {
+            return res.status(400).json({ success: false, message: `Could not find the requested block. Available blocks: ${narrativeBlocks.map((b: any, i: number) => `${i}: ${b.title}`).join(', ')}` });
+          }
+
+          const targetBlock = narrativeBlocks[resolvedIndex];
           const result = await regenerateBlock({
             block: targetBlock,
             customPrompt: customPrompt || 'Regenerate this section with improved content.',
             projectContext: {
-              projectName: project.actionName,
-              cityName: project.cityName,
-              zones: blockData.selectedZones,
-              interventionBundles: blockData.interventionBundles,
+              cityName: (project as any).cityName,
+              hazards: (blockData.selectedZones || []).map((z: any) => z.hazardType).filter(Boolean),
+              interventions: (blockData.interventionBundles || []).filter((b: any) => b.enabled).map((b: any) => b.name).filter(Boolean),
             },
           });
 
-          narrativeBlocks[blockIndex] = result;
+          narrativeBlocks[resolvedIndex] = result;
           await storage.upsertInfoBlock(projectId, 'impact_model', {
-            data: { ...blockData, narrativeBlocks },
+            blockStateJson: { ...blockData, narrativeBlocks },
           });
 
           return res.json({ success: true, message: `Section "${targetBlock.title}" has been regenerated.` });
@@ -320,7 +333,7 @@ export function registerAgentRoutes(app: Express): void {
             interventionBundles: blockData.interventionBundles || [],
             funderPathway: blockData.funderPathway || { primary: 'general' },
             projectName: project.actionName || 'NBS Project',
-            cityName: project.cityName || '',
+            cityName: (project as any).cityName || '',
             projectId,
             lens: params?.lens,
             lensInstructions: params?.lensInstructions,
@@ -328,7 +341,7 @@ export function registerAgentRoutes(app: Express): void {
 
           if (result.updatedBlocks) {
             await storage.upsertInfoBlock(projectId, 'impact_model', {
-              data: { ...blockData, narrativeBlocks: result.updatedBlocks },
+              blockStateJson: { ...blockData, narrativeBlocks: result.updatedBlocks },
             });
           }
 
@@ -346,16 +359,14 @@ export function registerAgentRoutes(app: Express): void {
             interventionBundles: blockData.interventionBundles || [],
             funderPathway: blockData.funderPathway || { primary: 'general' },
             projectName: project.actionName || 'NBS Project',
-            cityName: project.cityName || '',
+            cityName: (project as any).cityName || '',
           });
 
-          if (result.kpis) {
-            await storage.upsertInfoBlock(projectId, 'impact_model', {
-              data: { ...blockData, quantifiedKPIs: result.kpis },
-            });
-          }
+          await storage.upsertInfoBlock(projectId, 'impact_model', {
+            blockStateJson: { ...blockData, quantifiedImpacts: result },
+          });
 
-          return res.json({ success: true, message: `Regenerated ${result.kpis?.length || 0} KPIs across zones.` });
+          return res.json({ success: true, message: `Regenerated ${result.impactGroups?.length || 0} impact groups across zones.` });
         }
 
         default:
