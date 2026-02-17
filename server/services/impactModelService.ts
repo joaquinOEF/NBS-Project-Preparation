@@ -664,7 +664,7 @@ Does this block contradict, duplicate, or conflict with any of the claims above?
     ],
     text: { format: { type: "json_object" } },
     reasoning: { effort: "medium" },
-    max_output_tokens: 1000,
+    max_output_tokens: 1500,
   } as any);
 
   const content = extractTextFromResponse(response);
@@ -735,6 +735,7 @@ async function planScopedOutline(
   kpiSummary: string,
   lens?: string,
   lensInstructions?: string,
+  contradictionReasons?: Record<string, string>,
 ): Promise<ScopedOutlineBlock[]> {
   console.log(`📋 Scoped Re-Planning: ${affectedBlockIds.length} blocks to regenerate, ${lockedBlocks.length} locked...`);
 
@@ -752,7 +753,10 @@ async function planScopedOutline(
         role: "developer",
         content: `You are a concept note architect for Nature-Based Solutions projects.
 You must re-plan the scope for blocks that need regeneration, treating the user-edited blocks as LOCKED constraints.
-The re-planned scopes must ensure NO content overlap with the locked blocks.
+The re-planned scopes must:
+1. RESOLVE the specific contradictions listed for each block — the regenerated content must ALIGN with the locked blocks' positions.
+2. Ensure NO content overlap with the locked blocks.
+3. The scope must explicitly state what position the regenerated block should take on the contradicted topics.
 Output ONLY valid JSON.`
       },
       {
@@ -769,8 +773,11 @@ LOCKED BLOCKS (content is FINAL — do not duplicate anything from these):
 ${lockedBlocks.map(b => `### ${b.id}: ${b.title} (${b.type})
 ${b.contentMd.slice(0, 500)}${b.contentMd.length > 500 ? '...' : ''}`).join('\n\n')}
 
-BLOCKS TO REGENERATE:
-${blocksToRegenerate.map(b => `- ${b.id}: ${b.title} (${b.type})`).join('\n')}
+BLOCKS TO REGENERATE (with detected contradictions):
+${blocksToRegenerate.map(b => {
+  const reason = contradictionReasons?.[b.id];
+  return `- ${b.id}: ${b.title} (${b.type})${reason ? `\n  CONTRADICTION: ${reason}` : ''}`;
+}).join('\n')}
 
 Return JSON:
 {
@@ -827,6 +834,8 @@ export interface RegenerateAffectedRequest {
   projectId?: string;
   lens?: string;
   lensInstructions?: string;
+  preDetectedAffectedBlockIds?: string[];
+  preDetectedReasons?: Record<string, string>;
 }
 
 export interface RegenerateAffectedResponse {
@@ -849,7 +858,7 @@ export async function detectAffectedBlocks(
 export async function regenerateAffectedBlocks(
   request: RegenerateAffectedRequest,
 ): Promise<RegenerateAffectedResponse> {
-  const { allBlocks, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId, lens, lensInstructions } = request;
+  const { allBlocks, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId, lens, lensInstructions, preDetectedAffectedBlockIds, preDetectedReasons } = request;
 
   const editedBlockIds = allBlocks.filter(b => b.userEdited).map(b => b.id);
   if (editedBlockIds.length === 0) {
@@ -859,17 +868,26 @@ export async function regenerateAffectedBlocks(
   const lensLabel = lens && lens !== 'neutral' ? lens : null;
   console.log(`🔄 Affected Blocks Pipeline${lensLabel ? ` [${lensLabel} lens]` : ''}: ${editedBlockIds.length} edited blocks`);
 
-  // Phase A: Detect conflicts
-  const { affectedBlocks, summary } = await detectConflicts(allBlocks, editedBlockIds);
+  let affectedIds: string[];
+  let reasons: Record<string, string>;
+  let summary: string;
 
-  if (affectedBlocks.length === 0) {
-    console.log('   ✅ No conflicts detected — all blocks are consistent.');
-    return { affectedBlockIds: [], conflictSummary: summary, updatedBlocks: allBlocks, reasons: {} };
+  if (preDetectedAffectedBlockIds && preDetectedAffectedBlockIds.length > 0) {
+    affectedIds = preDetectedAffectedBlockIds;
+    reasons = preDetectedReasons || {};
+    summary = `${affectedIds.length} blocks pre-detected as needing regeneration.`;
+    console.log(`   ⏩ Skipping re-detection — using ${affectedIds.length} pre-detected affected blocks`);
+  } else {
+    const detected = await detectConflicts(allBlocks, editedBlockIds);
+    if (detected.affectedBlocks.length === 0) {
+      console.log('   ✅ No conflicts detected — all blocks are consistent.');
+      return { affectedBlockIds: [], conflictSummary: detected.summary, updatedBlocks: allBlocks, reasons: {} };
+    }
+    affectedIds = detected.affectedBlocks.map(a => a.blockId);
+    reasons = {};
+    detected.affectedBlocks.forEach(a => { reasons[a.blockId] = a.reason; });
+    summary = detected.summary;
   }
-
-  const affectedIds = affectedBlocks.map(a => a.blockId);
-  const reasons: Record<string, string> = {};
-  affectedBlocks.forEach(a => { reasons[a.blockId] = a.reason; });
 
   const lockedBlocks = allBlocks.filter(b => editedBlockIds.includes(b.id));
 
@@ -895,9 +913,9 @@ export async function regenerateAffectedBlocks(
     evidenceBlock = 'No evidence available.';
   }
 
-  // Phase B: Scoped re-planning
+  // Phase B: Scoped re-planning (with contradiction reasons for targeted fixes)
   const scopedOutline = await planScopedOutline(
-    affectedIds, lockedBlocks, allBlocks, projectContext, kpiSummary, lens, lensInstructions,
+    affectedIds, lockedBlocks, allBlocks, projectContext, kpiSummary, lens, lensInstructions, reasons,
   );
 
   // Phase C: Regenerate affected blocks in parallel

@@ -1174,7 +1174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/impact-model/regenerate-affected', async (req: any, res) => {
     try {
-      const { blocks, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId, lens, lensInstructions } = req.body;
+      const { blocks, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId, lens, lensInstructions, preDetectedAffectedBlockIds, preDetectedReasons } = req.body;
 
       if (!blocks || !Array.isArray(blocks)) {
         return res.status(400).json({ message: 'blocks array is required' });
@@ -1185,7 +1185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ affectedBlockIds: [], conflictSummary: 'No blocks have been manually edited.', updatedBlocks: blocks, reasons: {} });
       }
 
-      console.log(`🔄 Regenerate affected blocks: ${editedCount} edited, lens=${lens || 'neutral'}`);
+      console.log(`🔄 Regenerate affected blocks: ${editedCount} edited, lens=${lens || 'neutral'}${preDetectedAffectedBlockIds?.length ? ` (${preDetectedAffectedBlockIds.length} pre-detected)` : ''}`);
 
       const result = await regenerateAffectedBlocks({
         allBlocks: blocks,
@@ -1197,6 +1197,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projectId,
         lens,
         lensInstructions,
+        preDetectedAffectedBlockIds,
+        preDetectedReasons,
       });
 
       console.log(`   ✅ Regenerated ${result.affectedBlockIds.length} affected blocks`);

@@ -1361,6 +1361,10 @@ function NarrateStep({
   const handleRegenerateAffected = async () => {
     setIsRegenerating(true);
     try {
+      const preDetectedAffectedBlockIds = affectedBlocksInfo?.map((a: any) => a.blockId) || [];
+      const preDetectedReasons: Record<string, string> = {};
+      (affectedBlocksInfo || []).forEach((a: any) => { preDetectedReasons[a.blockId] = a.reason; });
+
       const res = await fetch('/api/impact-model/regenerate-affected', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1372,6 +1376,8 @@ function NarrateStep({
           projectName: projectName || 'Urban Climate Resilience Initiative',
           cityName: cityName || 'Porto Alegre',
           lens: activeLens,
+          preDetectedAffectedBlockIds,
+          preDetectedReasons,
         }),
       });
       if (!res.ok) throw new Error('Regeneration failed');
