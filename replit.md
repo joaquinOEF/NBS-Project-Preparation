@@ -79,7 +79,10 @@ Preferred communication style: Simple, everyday language.
   - **RAG Integration**: Before Phase 1, the knowledge base is searched for evidence documents relevant to the project's hazards and interventions.
   - **Reasoning Effort**: Medium for planning and block generation; low for supplementary data.
 - **Selective Regeneration Pipeline** (after manual edits):
-  - **Phase A — Detect**: AI conflict detection identifies which blocks have outdated/duplicated/contradictory content relative to user-edited (locked) blocks.
+  - **Phase A — Detect** (claim-based, 3 sub-steps):
+    1. **Extract Claims**: Small AI call extracts structured factual claims + keywords from edited blocks.
+    2. **Keyword Pre-filter**: Scans other blocks for keyword overlap (≥2 matching keywords) to identify candidates — skips blocks that don't discuss relevant topics.
+    3. **Per-Block Contradiction Check**: Each candidate block is checked against the claims list in parallel (1 focused AI call per candidate, low reasoning effort).
   - **Phase B — Scoped Re-Plan**: Generates outline for only affected blocks, with edited blocks as locked constraints and explicit exclusions to prevent content overlap.
   - **Phase C — Selective Regeneration**: Only affected blocks regenerated in parallel, merged back into the full narrative.
   - **UI**: Amber banner appears when blocks have `userEdited: true`, with "Check for affected sections" button → shows affected list with reasons → "Update N sections" button.

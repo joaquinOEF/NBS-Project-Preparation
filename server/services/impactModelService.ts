@@ -525,69 +525,183 @@ interface ConflictDetectionResult {
   summary: string;
 }
 
-async function detectConflicts(
-  allBlocks: NarrativeBlock[],
-  editedBlockIds: string[],
-): Promise<ConflictDetectionResult> {
-  console.log(`🔍 Conflict Detection: checking ${allBlocks.length} blocks (${editedBlockIds.length} edited)...`);
-
-  const editedBlocks = allBlocks.filter(b => editedBlockIds.includes(b.id));
-  const otherBlocks = allBlocks.filter(b => !editedBlockIds.includes(b.id));
+async function extractKeyClaims(
+  editedBlocks: NarrativeBlock[],
+): Promise<Array<{ claim: string; keywords: string[] }>> {
+  console.log(`   📝 Extracting key claims from ${editedBlocks.length} edited block(s)...`);
 
   const response = await openai.responses.create({
     model: "gpt-5.2",
     input: [
       {
         role: "developer",
-        content: `You are a narrative consistency checker for Nature-Based Solutions concept notes.
-Your job is to identify which blocks in a 10-block narrative need to be regenerated after the user manually edited some blocks.
-A block needs regeneration if it:
-- References content that was changed in an edited block (e.g., outdated numbers, removed interventions)
-- Duplicates content that now appears in an edited block
-- Contradicts facts stated in the edited blocks
-- Has a summary or reference that no longer matches the edited content
-Be conservative: only flag blocks that truly need updating. Don't flag blocks just because they cover related topics.
-Always respond with valid JSON.`
+        content: `Extract the key factual claims from the edited narrative block(s).
+Focus on concrete facts that other sections might reference or contradict:
+- Financial figures (costs, revenues, funding amounts)
+- Technical decisions (interventions used, materials, methods)
+- Revenue/funding mechanisms (credits, fees, grants, bonds)
+- Specific numbers (areas, populations, percentages)
+- Policy positions (what the project does or does NOT do)
+- Named entities (funders, locations, organizations)
+
+For each claim, also provide 2-4 lowercase keywords that would appear in a block discussing the same topic.
+Return valid JSON only.`
       },
       {
         role: "user",
-        content: `The user has manually edited the following blocks. Identify which OTHER blocks now need regeneration.
+        content: `Extract key factual claims from these edited blocks:
 
-EDITED BLOCKS (these are LOCKED — their content is final):
-${editedBlocks.map(b => `### ${b.id}: ${b.title} (${b.type})
-${b.contentMd}`).join('\n\n')}
-
-OTHER BLOCKS (check these for conflicts):
-${otherBlocks.map(b => `### ${b.id}: ${b.title} (${b.type})
+${editedBlocks.map(b => `### ${b.title}
 ${b.contentMd}`).join('\n\n')}
 
 Return JSON:
 {
-  "affectedBlocks": [
-    { "blockId": "block-X", "reason": "Brief explanation of why this block needs regeneration" }
-  ],
-  "summary": "One sentence summarizing what changed and why these blocks are affected"
+  "claims": [
+    { "claim": "The project relies on carbon and biodiversity credits as a financing mechanism", "keywords": ["carbon", "credit", "biodiversity", "financing"] },
+    { "claim": "Total CAPEX is USD 21-85 million", "keywords": ["capex", "cost", "investment", "million"] }
+  ]
 }
 
-Only include blocks that GENUINELY need updating. If no blocks are affected, return an empty array.`
+Extract ALL factual claims, especially those about what the project does, uses, costs, or how it is funded. Include both positive claims ("uses X") and negative claims ("does not use Y"). Be thorough — missing a claim means missing a contradiction.`
       }
     ],
     text: { format: { type: "json_object" } },
-    reasoning: { effort: "medium" },
+    reasoning: { effort: "low" },
     max_output_tokens: 2000,
   } as any);
 
   const content = extractTextFromResponse(response);
   try {
-    const parsed = JSON.parse(content) as ConflictDetectionResult;
-    const validIds = new Set(otherBlocks.map(b => b.id));
-    parsed.affectedBlocks = parsed.affectedBlocks.filter(a => validIds.has(a.blockId));
-    console.log(`   ✅ Found ${parsed.affectedBlocks.length} affected blocks: ${parsed.affectedBlocks.map(a => a.blockId).join(', ') || 'none'}`);
-    return parsed;
+    const parsed = JSON.parse(content);
+    const claims = parsed.claims || [];
+    console.log(`   ✅ Extracted ${claims.length} claims`);
+    return claims;
   } catch (error) {
-    console.error("Failed to parse conflict detection:", error);
-    return { affectedBlocks: [], summary: "Could not detect conflicts" };
+    console.error("Failed to parse claims:", error);
+    return [];
   }
+}
+
+function findCandidateBlocks(
+  claims: Array<{ claim: string; keywords: string[] }>,
+  otherBlocks: NarrativeBlock[],
+): NarrativeBlock[] {
+  const allKeywords = Array.from(new Set(claims.flatMap(c => c.keywords.map(k => k.toLowerCase()))));
+  
+  const claimTexts = claims.map(c => c.claim.toLowerCase());
+  const claimWords = Array.from(new Set(
+    claimTexts.flatMap(t => t.split(/\s+/).filter(w => w.length > 3))
+  ));
+  const expandedKeywords = Array.from(new Set([...allKeywords, ...claimWords]));
+
+  const scored = otherBlocks.map(block => {
+    const text = (block.contentMd + ' ' + block.title).toLowerCase();
+    let matchCount = 0;
+    for (let i = 0; i < expandedKeywords.length; i++) {
+      if (text.includes(expandedKeywords[i])) matchCount++;
+    }
+    return { block, matchCount };
+  });
+
+  let candidates = scored.filter(s => s.matchCount >= 2).map(s => s.block);
+
+  if (candidates.length === 0) {
+    candidates = scored.filter(s => s.matchCount >= 1).map(s => s.block);
+    console.log(`   🔎 Keyword pre-filter (relaxed to ≥1): ${candidates.length}/${otherBlocks.length} candidate blocks`);
+  } else {
+    console.log(`   🔎 Keyword pre-filter: ${candidates.length}/${otherBlocks.length} candidate blocks (matched ≥2 from ${expandedKeywords.length} keywords)`);
+  }
+
+  if (candidates.length === 0 && otherBlocks.length <= 12) {
+    console.log(`   🔎 No keyword matches — checking all ${otherBlocks.length} blocks as fallback`);
+    candidates = otherBlocks;
+  }
+
+  return candidates;
+}
+
+async function checkBlockForContradictions(
+  block: NarrativeBlock,
+  claims: Array<{ claim: string; keywords: string[] }>,
+): Promise<AffectedBlockInfo | null> {
+  const response = await openai.responses.create({
+    model: "gpt-5.2",
+    input: [
+      {
+        role: "developer",
+        content: `You check whether a narrative block contradicts, duplicates, or is outdated relative to a set of authoritative factual claims.
+A block needs updating if it:
+- States the OPPOSITE of a claim (e.g., claim says "uses credits" but block says "does not rely on credits")
+- Contains outdated figures that conflict with a claim
+- Duplicates content that should only appear in the edited section
+- References something that no longer matches the claims
+
+If the block is consistent with all claims, respond with {"affected": false}.
+If there is a genuine conflict, respond with {"affected": true, "reason": "..."}.
+Be thorough — if a claim says the project DOES use credits but this block says it does NOT, that is a clear contradiction.
+Always respond with valid JSON.`
+      },
+      {
+        role: "user",
+        content: `AUTHORITATIVE CLAIMS (from user-edited sections — these are the source of truth):
+${claims.map((c, i) => `${i + 1}. ${c.claim}`).join('\n')}
+
+BLOCK TO CHECK: "${block.title}" (${block.id})
+${block.contentMd}
+
+Does this block contradict, duplicate, or conflict with any of the claims above?`
+      }
+    ],
+    text: { format: { type: "json_object" } },
+    reasoning: { effort: "low" },
+    max_output_tokens: 500,
+  } as any);
+
+  const content = extractTextFromResponse(response);
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.affected) {
+      return { blockId: block.id, reason: parsed.reason || 'Contradicts edited content' };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function detectConflicts(
+  allBlocks: NarrativeBlock[],
+  editedBlockIds: string[],
+): Promise<ConflictDetectionResult> {
+  console.log(`🔍 Conflict Detection (claim-based): ${allBlocks.length} blocks, ${editedBlockIds.length} edited...`);
+
+  const editedBlocks = allBlocks.filter(b => editedBlockIds.includes(b.id));
+  const otherBlocks = allBlocks.filter(b => !editedBlockIds.includes(b.id));
+
+  const claims = await extractKeyClaims(editedBlocks);
+  if (claims.length === 0) {
+    console.log(`   ⚠️ No claims extracted — skipping conflict check`);
+    return { affectedBlocks: [], summary: "Could not extract key claims from edited blocks." };
+  }
+
+  const candidates = findCandidateBlocks(claims, otherBlocks);
+  if (candidates.length === 0) {
+    console.log(`   ✅ No candidate blocks found — all blocks are likely consistent`);
+    return { affectedBlocks: [], summary: "No other sections reference the topics you changed." };
+  }
+
+  console.log(`   🔄 Checking ${candidates.length} candidate blocks for contradictions...`);
+  const results = await Promise.all(
+    candidates.map(block => checkBlockForContradictions(block, claims))
+  );
+
+  const affectedBlocks = results.filter((r): r is AffectedBlockInfo => r !== null);
+  const summary = affectedBlocks.length > 0
+    ? `Found ${affectedBlocks.length} section(s) that may conflict with your edits.`
+    : "All sections are consistent with your changes.";
+
+  console.log(`   ✅ Found ${affectedBlocks.length} affected blocks: ${affectedBlocks.map(a => a.blockId).join(', ') || 'none'}`);
+  return { affectedBlocks, summary };
 }
 
 interface ScopedOutlineBlock {
