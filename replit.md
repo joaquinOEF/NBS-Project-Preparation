@@ -97,7 +97,33 @@ The agent utilizes tools like `get_project_state`, `get_block`, `propose_patch`,
 - **Agent Context Integration**: `useChatState()` provides `openChatWithMessage(message: string)` for opening chat with pre-filled messages.
 - **User-Friendly Agent Response Formatting**: System prompt ensures readable language, logical grouping, plain labels, translated enum values, and bullet points.
 - **Cross-Module Navigation Buttons**: `[NAV_BUTTON:path|label]` syntax in chat messages for clickable navigation.
+- **Action Confirmation Buttons**: `[ACTION_BUTTON:action_type|Button Label|{"param":"value"}]` syntax in chat messages for user-confirmed actions (see below).
 - **Post-Patch Readiness Recalculation**: Shared utility `funding-readiness.ts` computes readiness scores and determines pathways.
+
+## Agent Action Button Pattern
+- **Purpose**: When the AI agent suggests a long-running or destructive action (e.g., regeneration, re-quantification), it should NOT execute the action directly. Instead, it includes an `ACTION_BUTTON` in its message so the user can confirm with a single click.
+- **Syntax**: `[ACTION_BUTTON:action_type|Button Label|{"param":"value"}]`
+  - `action_type`: A short identifier for the action (e.g., `regenerate_narrative`, `regenerate_block`).
+  - `Button Label`: Human-readable text shown on the button.
+  - JSON params: A JSON object with parameters for the action. Keep keys simple; avoid `]` or `|` characters in values.
+- **Frontend** (`client/src/core/components/agent/ChatDrawer.tsx`):
+  - `parseMessageButtons()` extracts both `NAV_BUTTON` and `ACTION_BUTTON` from message content.
+  - Action buttons render with loading spinner while executing, and a checkmark once completed.
+  - State: `executingAction` (currently running action key) and `completedActions` (set of finished action keys) prevent duplicate clicks.
+  - Handler: `handleActionButton()` calls `POST /api/projects/:projectId/agent/action` with `{ action, params }`.
+- **Backend** (`server/routes/agentRoutes.ts`):
+  - `POST /api/projects/:projectId/agent/action` receives `{ action: string, params: object }`.
+  - A `switch` on `action` dispatches to the appropriate service function (e.g., `regenerateBlock`, `generateNarrativeFromKPIs`).
+  - Returns `{ success: boolean, message: string }`.
+- **Agent System Prompt** (`server/services/agentService.ts`):
+  - The system prompt instructs the agent to use `ACTION_BUTTON` syntax instead of calling regeneration tools directly.
+  - The agent tools still exist as a fallback but the prompt prioritizes buttons.
+- **Adding a New Action** (checklist):
+  1. **Choose an action_type**: A short, stable identifier (e.g., `recalculate_costs`).
+  2. **Add a case** in the `switch` block of `POST /api/projects/:projectId/agent/action` in `server/routes/agentRoutes.ts`. Import and call the relevant service function, update storage with results, and return `{ success, message }`.
+  3. **Update agent system prompt** in `server/services/agentService.ts` to document the new action and provide an example `ACTION_BUTTON` syntax for the agent.
+  4. **No frontend changes needed** — the `ChatDrawer` automatically parses and renders any new `ACTION_BUTTON` types.
+- **Existing Actions**: `regenerate_narrative`, `regenerate_block`, `regenerate_affected`, `regenerate_kpis`.
 
 ## SSE Progress Streaming
 - **Pattern**: Long-running AI endpoints use Server-Sent Events to stream real-time progress updates.
