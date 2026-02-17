@@ -242,36 +242,56 @@ export function registerAgentRoutes(app: Express): void {
 
       const impactBlock = await storage.getInfoBlock(projectId, 'impact_model');
       const blockData: any = impactBlock?.blockStateJson || {};
+      const activeLens = params?.lens || blockData.selectedLens || 'neutral';
+
+      const siteBlock = await storage.getInfoBlock(projectId, 'site_explorer');
+      const siteData: any = siteBlock?.blockStateJson || {};
+      const selectedZones = siteData.selectedZones || blockData.selectedZones || [];
+
+      const funderBlock = await storage.getInfoBlock(projectId, 'funder_selection');
+      const funderData: any = funderBlock?.blockStateJson || {};
+      const funderPathway = funderData.pathway || blockData.funderPathway || { primary: 'general' };
+
+      const interventionBundles = blockData.interventionBundles || [];
+
+      const getNarrativeBlocks = (lens: string): any[] => {
+        const cache = blockData.narrativeCache;
+        if (cache?.lensVariants?.[lens]) return [...cache.lensVariants[lens]];
+        if (cache?.base) return [...cache.base];
+        if (blockData.narrativeBlocks) return [...blockData.narrativeBlocks];
+        return [];
+      };
+
+      const saveNarrativeBlocks = (lens: string, blocks: any[]): any => {
+        const cache = blockData.narrativeCache || { base: [], lensVariants: {} };
+        cache.lensVariants = cache.lensVariants || {};
+        cache.lensVariants[lens] = blocks;
+        return { ...blockData, narrativeCache: cache };
+      };
 
       switch (action) {
         case 'regenerate_narrative': {
           const { generateNarrativeFromKPIs } = await import('../services/impactModelService');
-          const quantifiedImpacts = blockData.quantifiedImpacts || blockData.quantifiedKPIs || {
-            impactGroups: blockData.impactGroups || [],
-            coBenefits: blockData.coBenefits || [],
-            mrvIndicators: blockData.mrvIndicators || [],
-            evidenceContext: blockData.evidenceContext || { chunksUsed: 0, topSources: [], searchQueries: [] },
-            generationMeta: blockData.generationMeta || { generatedAt: new Date().toISOString(), model: 'unknown', ragChunksUsed: 0 },
+          const quantifiedImpacts = blockData.quantifiedImpacts || {
+            impactGroups: [], coBenefits: [], mrvIndicators: [],
+            evidenceContext: { chunksUsed: 0, topSources: [], searchQueries: [] },
+            generationMeta: { generatedAt: new Date().toISOString(), model: 'unknown', ragChunksUsed: 0 },
           };
 
           const result = await generateNarrativeFromKPIs({
             quantifiedImpacts,
-            selectedZones: blockData.selectedZones || [],
-            interventionBundles: blockData.interventionBundles || [],
-            funderPathway: blockData.funderPathway || { primary: 'general' },
+            selectedZones,
+            interventionBundles,
+            funderPathway,
             projectName: project.actionName || 'NBS Project',
             cityName: (project as any).cityName || '',
             projectId,
-            lens: params?.lens,
+            lens: activeLens,
             lensInstructions: params?.lensInstructions,
           });
 
-          await storage.upsertInfoBlock(projectId, 'impact_model', {
-            blockStateJson: {
-              ...blockData,
-              narrativeBlocks: result.narrativeBlocks,
-            },
-          });
+          const updated = saveNarrativeBlocks(activeLens, result.narrativeBlocks);
+          await storage.upsertInfoBlock(projectId, 'impact_model', { blockStateJson: updated });
 
           return res.json({ success: true, message: `Narrative regenerated with ${result.narrativeBlocks.length} sections.` });
         }
@@ -279,7 +299,7 @@ export function registerAgentRoutes(app: Express): void {
         case 'regenerate_block': {
           const { regenerateBlock } = await import('../services/impactModelService');
           const { blockIndex, blockId, customPrompt } = params || {} as any;
-          const narrativeBlocks: any[] = blockData.narrativeBlocks || [];
+          const narrativeBlocks: any[] = getNarrativeBlocks(activeLens);
 
           let resolvedIndex = -1;
           if (typeof blockIndex === 'number' && blockIndex >= 0 && blockIndex < narrativeBlocks.length) {
@@ -305,22 +325,21 @@ export function registerAgentRoutes(app: Express): void {
             customPrompt: customPrompt || 'Regenerate this section with improved content.',
             projectContext: {
               cityName: (project as any).cityName,
-              hazards: (blockData.selectedZones || []).map((z: any) => z.hazardType).filter(Boolean),
-              interventions: (blockData.interventionBundles || []).filter((b: any) => b.enabled).map((b: any) => b.name).filter(Boolean),
+              hazards: selectedZones.map((z: any) => z.hazardType).filter(Boolean),
+              interventions: interventionBundles.filter((b: any) => b.enabled).map((b: any) => b.name).filter(Boolean),
             },
           });
 
           narrativeBlocks[resolvedIndex] = result;
-          await storage.upsertInfoBlock(projectId, 'impact_model', {
-            blockStateJson: { ...blockData, narrativeBlocks },
-          });
+          const updated = saveNarrativeBlocks(activeLens, narrativeBlocks);
+          await storage.upsertInfoBlock(projectId, 'impact_model', { blockStateJson: updated });
 
           return res.json({ success: true, message: `Section "${targetBlock.title}" has been regenerated.` });
         }
 
         case 'regenerate_affected': {
           const { regenerateAffectedBlocks } = await import('../services/impactModelService');
-          const narrativeBlocks = blockData.narrativeBlocks || [];
+          const narrativeBlocks = getNarrativeBlocks(activeLens);
           
           const editedCount = narrativeBlocks.filter((b: any) => b.userEdited).length;
           if (editedCount === 0) {
@@ -329,20 +348,19 @@ export function registerAgentRoutes(app: Express): void {
 
           const result = await regenerateAffectedBlocks({
             allBlocks: narrativeBlocks,
-            selectedZones: blockData.selectedZones || [],
-            interventionBundles: blockData.interventionBundles || [],
-            funderPathway: blockData.funderPathway || { primary: 'general' },
+            selectedZones,
+            interventionBundles,
+            funderPathway,
             projectName: project.actionName || 'NBS Project',
             cityName: (project as any).cityName || '',
             projectId,
-            lens: params?.lens,
+            lens: activeLens,
             lensInstructions: params?.lensInstructions,
           });
 
           if (result.updatedBlocks) {
-            await storage.upsertInfoBlock(projectId, 'impact_model', {
-              blockStateJson: { ...blockData, narrativeBlocks: result.updatedBlocks },
-            });
+            const updated = saveNarrativeBlocks(activeLens, result.updatedBlocks);
+            await storage.upsertInfoBlock(projectId, 'impact_model', { blockStateJson: updated });
           }
 
           return res.json({ 
@@ -355,9 +373,9 @@ export function registerAgentRoutes(app: Express): void {
           const { generateQuantifiedImpacts } = await import('../services/impactModelService');
           const result = await generateQuantifiedImpacts({
             projectId,
-            selectedZones: blockData.selectedZones || [],
-            interventionBundles: blockData.interventionBundles || [],
-            funderPathway: blockData.funderPathway || { primary: 'general' },
+            selectedZones,
+            interventionBundles,
+            funderPathway,
             projectName: project.actionName || 'NBS Project',
             cityName: (project as any).cityName || '',
           });
