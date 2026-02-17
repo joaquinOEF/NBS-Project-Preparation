@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 import { CheckCircle2, Circle, AlertCircle, Loader2 } from 'lucide-react';
 
 export interface ProgressEntry {
+  stepId?: string;
   step: string;
   detail?: string;
   status?: 'start' | 'done' | 'info' | 'error';
@@ -10,10 +11,12 @@ export interface ProgressEntry {
 
 export function mergeProgressEntry(prev: ProgressEntry[], entry: ProgressEntry): ProgressEntry[] {
   if (entry.status === 'done' || entry.status === 'error') {
-    const idx = prev.findIndex(e => e.step === entry.step && e.status === 'start');
-    if (idx !== -1) {
+    const matchIdx = entry.stepId
+      ? prev.findIndex(e => e.stepId === entry.stepId && e.status === 'start')
+      : prev.findIndex(e => e.step === entry.step && e.status === 'start');
+    if (matchIdx !== -1) {
       const updated = [...prev];
-      updated[idx] = { ...entry };
+      updated[matchIdx] = { ...entry };
       return updated;
     }
   }

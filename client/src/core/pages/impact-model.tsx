@@ -62,7 +62,7 @@ async function processSSERequest(
           try {
             const parsed = JSON.parse(line.slice(6));
             if (parsed.type === 'progress') {
-              onProgress?.({ step: parsed.step, detail: parsed.detail || parsed.step, status: parsed.status, timestamp: Date.now() });
+              onProgress?.({ stepId: parsed.stepId, step: parsed.step, detail: parsed.detail, status: parsed.status, timestamp: Date.now() });
             } else if (parsed.type === 'result') {
               gotResult = true;
               onResult(parsed);
@@ -2545,6 +2545,7 @@ export default function ImpactModelPage() {
   const [isQuantifying, setIsQuantifying] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState<string | null>(null);
   const [narrateProgressEntries, setNarrateProgressEntries] = useState<ProgressEntry[]>([]);
+  const [quantifyProgressEntries, setQuantifyProgressEntries] = useState<ProgressEntry[]>([]);
   const [localData, setLocalData] = useState<ImpactModelData>(getDefaultImpactModelData());
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -2752,29 +2753,31 @@ export default function ImpactModelPage() {
 
   const handleQuantify = async () => {
     setIsQuantifying(true);
+    setQuantifyProgressEntries([]);
     try {
       const zonesForAI = buildZonesForAI(true);
-
       const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;
 
-      const response = await fetch('/api/impact-model/quantify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      let result: any;
+      let errorMsg: string | undefined;
+
+      await processSSERequest(
+        '/api/impact-model/quantify',
+        {
           projectId: dbProjectId,
           selectedZones: zonesForAI,
           interventionBundles: localData.interventionBundles || [],
           funderPathway: funderPathway,
           projectName: context?.projectName || 'Urban Climate Resilience Initiative',
           cityName: context?.cityName || 'Porto Alegre',
-        }),
-      });
+        },
+        (data) => { result = data; },
+        (msg) => { errorMsg = msg; },
+        (entry) => setQuantifyProgressEntries(prev => mergeProgressEntry(prev, entry)),
+      );
 
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to quantify impacts');
-      }
+      if (errorMsg) throw new Error(errorMsg);
+      if (!result) throw new Error('No result received');
 
       handleUpdate({ quantifiedImpacts: result, status: 'DRAFT' });
 
@@ -2947,7 +2950,7 @@ export default function ImpactModelPage() {
               try {
                 const parsed = JSON.parse(line.slice(6));
                 if (parsed.type === 'progress') {
-                  setNarrateProgressEntries(prev => mergeProgressEntry(prev, { step: parsed.step, detail: parsed.detail, status: parsed.status, timestamp: Date.now() }));
+                  setNarrateProgressEntries(prev => mergeProgressEntry(prev, { stepId: parsed.stepId, step: parsed.step, detail: parsed.detail, status: parsed.status, timestamp: Date.now() }));
                 } else if (parsed.type === 'result') {
                   gotResult = true;
                   result = parsed;
@@ -3227,7 +3230,7 @@ export default function ImpactModelPage() {
         <GenerationModal 
           isOpen={isGenerating || isQuantifying} 
           estimatedTime={isQuantifying ? "20-40 seconds" : "45-90 seconds"}
-          progressEntries={isGenerating ? narrateProgressEntries : undefined}
+          progressEntries={isGenerating ? narrateProgressEntries : isQuantifying ? quantifyProgressEntries : undefined}
         />
 
         <div className="mb-6">

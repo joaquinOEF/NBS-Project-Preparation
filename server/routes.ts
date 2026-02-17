@@ -1099,6 +1099,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const resolvedProjectId = projectId || 'sample-porto-alegre-project';
 
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+
+      const sendProgress = (event: { stepId?: string; step: string; detail?: string; status?: string }) => {
+        try { res.write(`data: ${JSON.stringify({ type: 'progress', ...event })}\n\n`); } catch {}
+      };
+
       console.log(`📊 Quantifying impacts for ${interventionBundles.length} bundles, ${selectedZones.length} zones (RAG project: ${resolvedProjectId})`);
 
       const result = await generateQuantifiedImpacts({
@@ -1108,14 +1118,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         funderPathway: funderPathway || { primary: 'BLENDED_FINANCE' },
         projectName,
         cityName,
-      });
+      }, sendProgress);
 
       console.log(`   Quantified ${result.impactGroups.length} impact groups, ${result.coBenefits.length} co-benefits, ${result.mrvIndicators.length} MRV indicators (${result.evidenceContext.chunksUsed} evidence chunks used)`);
 
-      res.json(result);
+      res.write(`data: ${JSON.stringify({ type: 'result', ...result })}\n\n`);
+      res.end();
     } catch (error: any) {
       console.error('Impact quantification error:', error);
-      res.status(500).json({ message: error.message || 'Failed to quantify impacts' });
+      if (!res.headersSent) {
+        res.status(500).json({ message: error.message || 'Failed to quantify impacts' });
+      } else {
+        try { res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`); } catch {}
+        res.end();
+      }
     }
   });
 
@@ -1133,7 +1149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Connection': 'keep-alive',
       });
 
-      const sendProgress = (event: { step: string; detail?: string; status?: string }) => {
+      const sendProgress = (event: { stepId?: string; step: string; detail?: string; status?: string }) => {
         try { res.write(`data: ${JSON.stringify({ type: 'progress', ...event })}\n\n`); } catch {}
       };
 
@@ -1183,7 +1199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Connection': 'keep-alive',
       });
 
-      const sendProgress = (event: { step: string; detail?: string; status?: string }) => {
+      const sendProgress = (event: { stepId?: string; step: string; detail?: string; status?: string }) => {
         try { res.write(`data: ${JSON.stringify({ type: 'progress', ...event })}\n\n`); } catch {}
       };
 
@@ -1221,7 +1237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Connection': 'keep-alive',
       });
 
-      const sendProgress = (event: { step: string; detail?: string; status?: string }) => {
+      const sendProgress = (event: { stepId?: string; step: string; detail?: string; status?: string }) => {
         try { res.write(`data: ${JSON.stringify({ type: 'progress', ...event })}\n\n`); } catch {}
       };
 

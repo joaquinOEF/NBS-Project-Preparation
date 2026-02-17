@@ -523,7 +523,7 @@ Return a JSON object with the regenerated block:
 // Phase C: Regenerate only affected blocks in parallel
 // ============================================
 
-export type ProgressCallback = (event: { step: string; detail?: string; status?: 'start' | 'done' | 'info' | 'error' }) => void;
+export type ProgressCallback = (event: { stepId?: string; step: string; detail?: string; status?: 'start' | 'done' | 'info' | 'error' }) => void;
 
 interface AffectedBlockInfo {
   blockId: string;
@@ -693,26 +693,26 @@ async function detectConflicts(
   const editedBlocks = allBlocks.filter(b => editedBlockIds.includes(b.id));
   const otherBlocks = allBlocks.filter(b => !editedBlockIds.includes(b.id));
 
-  onProgress?.({ step: 'Extracting key claims from edited sections', status: 'start' });
+  onProgress?.({ stepId: 'extract-claims', step: 'Extracting key claims from edited sections', status: 'start' });
   const claims = await extractKeyClaims(editedBlocks);
   if (claims.length === 0) {
     console.log(`   ⚠️ No claims extracted — skipping conflict check`);
-    onProgress?.({ step: 'No claims extracted', status: 'error' });
+    onProgress?.({ stepId: 'extract-claims', step: 'No claims extracted', status: 'error' });
     return { affectedBlocks: [], summary: "Could not extract key claims from edited blocks." };
   }
-  onProgress?.({ step: `Extracted ${claims.length} factual claims`, status: 'done' });
+  onProgress?.({ stepId: 'extract-claims', step: `Extracted ${claims.length} factual claims`, status: 'done' });
 
-  onProgress?.({ step: 'Scanning sections for related content', status: 'start' });
+  onProgress?.({ stepId: 'scan-sections', step: 'Scanning sections for related content', status: 'start' });
   const candidates = findCandidateBlocks(claims, otherBlocks);
   if (candidates.length === 0) {
     console.log(`   ✅ No candidate blocks found — all blocks are likely consistent`);
-    onProgress?.({ step: 'No related sections found — all consistent', status: 'done' });
+    onProgress?.({ stepId: 'scan-sections', step: 'No related sections found — all consistent', status: 'done' });
     return { affectedBlocks: [], summary: "No other sections reference the topics you changed." };
   }
-  onProgress?.({ step: `Found ${candidates.length} sections to check`, status: 'done' });
+  onProgress?.({ stepId: 'scan-sections', step: `Found ${candidates.length} sections to check`, status: 'done' });
 
   console.log(`   🔄 Checking ${candidates.length} candidate blocks for contradictions...`);
-  onProgress?.({ step: `Checking ${candidates.length} sections for contradictions`, status: 'start' });
+  onProgress?.({ stepId: 'check-contradictions', step: `Checking ${candidates.length} sections for contradictions`, status: 'start' });
 
   let checkedCount = 0;
   const results = await Promise.all(
@@ -730,7 +730,7 @@ async function detectConflicts(
     ? `Found ${affectedBlocks.length} section(s) that may conflict with your edits.`
     : "All sections are consistent with your changes.";
 
-  onProgress?.({ step: affectedBlocks.length > 0 ? `${affectedBlocks.length} sections need updating` : 'All sections are consistent', status: 'done' });
+  onProgress?.({ stepId: 'check-contradictions', step: affectedBlocks.length > 0 ? `${affectedBlocks.length} sections need updating` : 'All sections are consistent', status: 'done' });
   console.log(`   ✅ Found ${affectedBlocks.length} affected blocks: ${affectedBlocks.map(a => a.blockId).join(', ') || 'none'}`);
   return { affectedBlocks, summary };
 }
@@ -898,7 +898,7 @@ export async function regenerateAffectedBlocks(
     reasons = preDetectedReasons || {};
     summary = `${affectedIds.length} blocks pre-detected as needing regeneration.`;
     console.log(`   ⏩ Skipping re-detection — using ${affectedIds.length} pre-detected affected blocks`);
-    onProgress?.({ step: `Updating ${affectedIds.length} affected sections`, status: 'start' });
+    onProgress?.({ stepId: 'update-affected', step: `Updating ${affectedIds.length} affected sections`, status: 'start' });
   } else {
     const detected = await detectConflicts(allBlocks, editedBlockIds, onProgress);
     if (detected.affectedBlocks.length === 0) {
@@ -924,30 +924,30 @@ export async function regenerateAffectedBlocks(
   const allKpis = allBlocks.flatMap(b => (b.kpis || []).map(k => `• ${k.name}: ${k.valueRange} ${k.unit} (${k.confidence})`));
   kpiSummary = allKpis.length > 0 ? allKpis.join('\n') : 'No KPI data available from blocks';
 
-  onProgress?.({ step: 'Searching knowledge base for evidence', status: 'start' });
+  onProgress?.({ stepId: 'rag-evidence', step: 'Searching knowledge base for evidence', status: 'start' });
   console.log('🔍 Fetching RAG evidence for selective regeneration...');
   try {
     const { evidenceBlock: eb } = await fetchNarrativeEvidence(ragProjectId, selectedZones, interventionBundles);
     evidenceBlock = eb;
-    onProgress?.({ step: 'Evidence retrieved', status: 'done' });
+    onProgress?.({ stepId: 'rag-evidence', step: 'Evidence retrieved', status: 'done' });
   } catch {
     evidenceBlock = 'No evidence available.';
-    onProgress?.({ step: 'No evidence found — continuing without', status: 'info' });
+    onProgress?.({ stepId: 'rag-evidence', step: 'No evidence found — continuing without', status: 'info' });
   }
 
-  onProgress?.({ step: `Planning scope for ${affectedIds.length} sections`, status: 'start' });
+  onProgress?.({ stepId: 'plan-scope', step: `Planning scope for ${affectedIds.length} sections`, status: 'start' });
   const scopedOutline = await planScopedOutline(
     affectedIds, lockedBlocks, allBlocks, projectContext, kpiSummary, lens, lensInstructions, reasons,
   );
-  onProgress?.({ step: `Outline ready — ${scopedOutline.length} sections scoped`, status: 'done' });
+  onProgress?.({ stepId: 'plan-scope', step: `Outline ready — ${scopedOutline.length} sections scoped`, status: 'done' });
 
   console.log(`✍️  Phase C: Regenerating ${scopedOutline.length} blocks in parallel...`);
-  onProgress?.({ step: `Writing ${scopedOutline.length} sections in parallel`, status: 'start' });
+  onProgress?.({ stepId: 'write-blocks', step: `Writing ${scopedOutline.length} sections in parallel`, status: 'start' });
   const regeneratedBlocks = await generateBlocksBatch(
     scopedOutline, projectContext, kpiSummary, coBenefitSummary, mrvSummary,
     evidenceBlock, funderPathway, lens, lensInstructions,
   );
-  onProgress?.({ step: `${regeneratedBlocks.length} sections regenerated`, status: 'done' });
+  onProgress?.({ stepId: 'write-blocks', step: `${regeneratedBlocks.length} sections regenerated`, status: 'done' });
 
   // Merge: replace affected blocks with regenerated ones, and clear userEdited on ALL blocks
   const regeneratedMap = new Map(regeneratedBlocks.map(b => [b.id, b]));
@@ -1502,23 +1502,23 @@ export async function generateNarrativeFromKPIs(
   const { kpiSummary, coBenefitSummary, mrvSummary } = buildKPISummary(quantifiedImpacts);
 
   const ragProjectId = projectId || 'global-knowledge-base';
-  onProgress?.({ step: 'Searching knowledge base for evidence', status: 'start' });
+  onProgress?.({ stepId: 'narr-rag', step: 'Searching knowledge base for evidence', status: 'start' });
   console.log('🔍 Fetching RAG evidence for narrative...');
   const { evidenceBlock, topSources } = await fetchNarrativeEvidence(ragProjectId, selectedZones, interventionBundles);
   console.log(`   Found ${topSources.length} evidence sources`);
-  onProgress?.({ step: `Found ${topSources.length} evidence sources`, status: 'done' });
+  onProgress?.({ stepId: 'narr-rag', step: `Found ${topSources.length} evidence sources`, status: 'done' });
 
-  onProgress?.({ step: 'Planning narrative structure', status: 'start' });
+  onProgress?.({ stepId: 'narr-plan', step: 'Planning narrative structure', status: 'start' });
   const outline = await planNarrativeOutline(projectContext, kpiSummary, coBenefitSummary, mrvSummary, evidenceBlock, lens, lensInstructions);
-  onProgress?.({ step: `Outline ready — ${outline.blocks.length} sections planned`, status: 'done' });
+  onProgress?.({ stepId: 'narr-plan', step: `Outline ready — ${outline.blocks.length} sections planned`, status: 'done' });
 
   console.log(`✍️  Phase 2: Generating blocks in parallel${lensLabel ? ` with ${lensLabel} lens` : ''}...`);
-  onProgress?.({ step: `Writing ${outline.blocks.length} sections in parallel`, status: 'start' });
+  onProgress?.({ stepId: 'narr-write', step: `Writing ${outline.blocks.length} sections in parallel`, status: 'start' });
   const [narrativeBlocks, supplementary] = await Promise.all([
     generateBlocksBatch(outline.blocks, projectContext, kpiSummary, coBenefitSummary, mrvSummary, evidenceBlock, funderPathway, lens, lensInstructions),
     generateSupplementary(projectContext, kpiSummary, coBenefitSummary, funderPathway),
   ]);
-  onProgress?.({ step: `${narrativeBlocks.length} sections generated`, status: 'done' });
+  onProgress?.({ stepId: 'narr-write', step: `${narrativeBlocks.length} sections generated`, status: 'done' });
 
   onProgress?.({ step: 'Assembling final narrative', status: 'done' });
   console.log(`✅ Phase 3: Assembled ${narrativeBlocks.length} blocks`);
@@ -1604,7 +1604,8 @@ interface QuantifyRequest {
 }
 
 export async function generateQuantifiedImpacts(
-  request: QuantifyRequest
+  request: QuantifyRequest,
+  onProgress?: ProgressCallback,
 ): Promise<QuantifyResponse> {
   const { projectId, selectedZones, interventionBundles, funderPathway, projectName, cityName } = request;
 
@@ -1641,7 +1642,8 @@ export async function generateQuantifiedImpacts(
   searchQueries.push("co-benefits nature-based solutions urban resilience quantified");
   searchQueries.push("MRV monitoring indicators NBS climate adaptation");
 
-  // Step 2: Call semanticSearch for each query
+  onProgress?.({ stepId: 'quant-rag', step: 'Searching knowledge base for evidence', status: 'start' });
+
   const allChunks: Array<{ content: string; score: number; sourceTitle?: string; chunkId?: string }> = [];
   const seenChunkIds = new Set<string>();
 
@@ -1669,11 +1671,11 @@ export async function generateQuantifiedImpacts(
     }
   }
 
-  // Step 3: Sort by score and take top chunks
   allChunks.sort((a, b) => b.score - a.score);
   const topChunks = allChunks.slice(0, 12);
+  onProgress?.({ stepId: 'quant-rag', step: `Found ${topChunks.length} evidence chunks`, status: 'done' });
 
-  // Step 4: Format evidence context for the LLM prompt
+  onProgress?.({ stepId: 'quant-generate', step: `Quantifying impacts for ${selectedZones.length} zones`, status: 'start' });
   const evidenceBlock = topChunks.length > 0
     ? topChunks.map((c, i) => `[Evidence ${i + 1}] (score: ${c.score.toFixed(2)}, source: ${c.sourceTitle || 'Unknown'})\n${c.content.slice(0, 500)}`).join('\n\n')
     : 'No evidence chunks found in knowledge base. Use general NBS literature estimates.';
@@ -1784,6 +1786,7 @@ Generate structured JSON. RULES:
     }
     
     console.log(`✅ Quantified ${parsed.impactGroups?.length || 0} impact groups, ${parsed.coBenefits?.length || 0} co-benefits, ${parsed.mrvIndicators?.length || 0} MRV indicators`);
+    onProgress?.({ stepId: 'quant-generate', step: `${parsed.impactGroups?.length || 0} impact groups, ${parsed.coBenefits?.length || 0} co-benefits quantified`, status: 'done' });
     
     const flattenValue = (v: any): string | number | null => {
       if (v === null || v === undefined) return null;
