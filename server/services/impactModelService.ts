@@ -1791,6 +1791,17 @@ Generate structured JSON. RULES:
       targetValue: flattenValue(m.targetValue),
     }));
 
+    const VALID_CONFIDENCE = ['HIGH', 'MEDIUM', 'LOW'] as const;
+    const sanitizeConfidence = (val: any): 'HIGH' | 'MEDIUM' | 'LOW' => {
+      if (typeof val === 'string') {
+        const upper = val.toUpperCase().trim();
+        if (VALID_CONFIDENCE.includes(upper as any)) return upper as any;
+        if (upper.includes('HIGH') || upper.includes('VERY')) return 'HIGH';
+        if (upper.includes('MED')) return 'MEDIUM';
+      }
+      return 'LOW';
+    };
+
     const replaceZoneIds = (text: string) => {
       if (!text || typeof text !== 'string') return text;
       return text.replace(/\bzone_(\d+)\b/gi, (match, num) => {
@@ -1806,6 +1817,7 @@ Generate structured JSON. RULES:
         : g.interventionBundle || g.zoneId || 'Zone',
       kpis: (g.kpis || []).map((k: any) => ({
         ...k,
+        confidence: sanitizeConfidence(k.confidence),
         name: replaceZoneIds(k.name),
         metric: replaceZoneIds(k.metric),
         methodology: replaceZoneIds(k.methodology),
@@ -1820,6 +1832,7 @@ Generate structured JSON. RULES:
       }
       return {
         ...cb,
+        confidence: sanitizeConfidence(cb.confidence),
         title: replaceZoneIds(cb.title),
         metric: replaceZoneIds(cb.metric),
         valueRange: vr,
