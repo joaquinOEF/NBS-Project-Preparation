@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { semanticSearch } from "./knowledgeService";
+import { semanticSearch, batchSemanticSearch } from "./knowledgeService";
 import { formatArea } from "@shared/number-formatting";
 
 function formatZoneId(zoneId: string): string {
@@ -1644,40 +1644,27 @@ export async function generateQuantifiedImpacts(
 
   onProgress?.({ stepId: 'quant-rag', step: 'Searching knowledge base for evidence', status: 'start' });
 
-  const allChunks: Array<{ content: string; score: number; sourceTitle?: string; chunkId?: string }> = [];
-  const seenChunkIds = new Set<string>();
-
-  for (const query of searchQueries.slice(0, 8)) {
-    try {
-      const result = await semanticSearch(projectId, query, {
-        includeGlobalKnowledge: true,
-        usableByModule: 'impact_model',
-        limit: 3,
-      });
-      for (const chunk of result.chunks) {
-        const id = chunk.id?.toString() || chunk.content.slice(0, 50);
-        if (!seenChunkIds.has(id)) {
-          seenChunkIds.add(id);
-          allChunks.push({
-            content: chunk.content,
-            score: chunk.score,
-            sourceTitle: (chunk as any).source?.title,
-            chunkId: id,
-          });
-        }
-      }
-    } catch (err) {
-      console.warn(`RAG search failed for query "${query}":`, err);
-    }
+  const ragStart = Date.now();
+  let topChunks: Array<{ content: string; score: number; sourceTitle?: string; chunkId?: string }> = [];
+  try {
+    const batchResult = await batchSemanticSearch(projectId, searchQueries.slice(0, 8), {
+      includeGlobalKnowledge: true,
+      usableByModule: 'impact_model',
+      limit: 3,
+      maxTotalChunks: 8,
+    });
+    topChunks = batchResult.chunks;
+  } catch (err) {
+    console.warn('Batch RAG search failed:', err);
   }
-
-  allChunks.sort((a, b) => b.score - a.score);
-  const topChunks = allChunks.slice(0, 12);
-  onProgress?.({ stepId: 'quant-rag', step: `Found ${topChunks.length} evidence chunks`, status: 'done' });
+  const ragMs = Date.now() - ragStart;
+  console.log(`⏱️  RAG search: ${ragMs}ms (${searchQueries.length} queries, ${topChunks.length} chunks)`);
+  onProgress?.({ stepId: 'quant-rag', step: `Found ${topChunks.length} evidence chunks (${ragMs}ms)`, status: 'done' });
 
   onProgress?.({ stepId: 'quant-generate', step: `Quantifying impacts for ${selectedZones.length} zones`, status: 'start' });
+  const llmStart = Date.now();
   const evidenceBlock = topChunks.length > 0
-    ? topChunks.map((c, i) => `[Evidence ${i + 1}] (score: ${c.score.toFixed(2)}, source: ${c.sourceTitle || 'Unknown'})\n${c.content.slice(0, 500)}`).join('\n\n')
+    ? topChunks.map((c, i) => `[Evidence ${i + 1}] (score: ${c.score.toFixed(2)}, source: ${c.sourceTitle || 'Unknown'})\n${c.content.slice(0, 350)}`).join('\n\n')
     : 'No evidence chunks found in knowledge base. Use general NBS literature estimates.';
 
   const topSources = Array.from(
@@ -1762,12 +1749,13 @@ Generate structured JSON. RULES:
       format: { type: "json_object" },
     },
     reasoning: { effort: "low" },
-    max_output_tokens: 16000,
+    max_output_tokens: 8000,
   } as any);
+
+  const llmMs = Date.now() - llmStart;
 
   let content = extractTextFromResponse(response);
   
-  // Strip markdown code blocks if present
   if (content.startsWith('```json')) {
     content = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
   } else if (content.startsWith('```')) {
@@ -1775,7 +1763,7 @@ Generate structured JSON. RULES:
   }
   content = content.trim();
 
-  console.log(`📊 Quantify LLM response length: ${content.length} chars`);
+  console.log(`📊 Quantify LLM response length: ${content.length} chars (LLM: ${llmMs}ms)`);
 
   try {
     const parsed = JSON.parse(content);

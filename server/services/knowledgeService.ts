@@ -33,6 +33,120 @@ export interface SearchOptions {
 const DEFAULT_SEARCH_LIMIT = 5;
 const DEFAULT_MIN_SCORE = 0.1;
 
+const globalChunksCache: { chunks: KnowledgeChunk[] | null; fetchedAt: number } = { chunks: null, fetchedAt: 0 };
+const GLOBAL_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function getGlobalChunksCached(): Promise<KnowledgeChunk[]> {
+  const now = Date.now();
+  if (globalChunksCache.chunks && (now - globalChunksCache.fetchedAt) < GLOBAL_CACHE_TTL_MS) {
+    return globalChunksCache.chunks;
+  }
+  const chunks = await storage.getKnowledgeChunksByProject(GLOBAL_PROJECT_ID);
+  globalChunksCache.chunks = chunks;
+  globalChunksCache.fetchedAt = now;
+  return chunks;
+}
+
+export interface BatchSearchResult {
+  chunks: Array<{ content: string; score: number; sourceTitle?: string; chunkId?: string }>;
+  totalQueries: number;
+}
+
+export async function batchSemanticSearch(
+  projectId: string,
+  queries: string[],
+  options: SearchOptions & { maxTotalChunks?: number } = {}
+): Promise<BatchSearchResult> {
+  const limit = options.limit || 3;
+  const minScore = options.minScore || DEFAULT_MIN_SCORE;
+  const includeGlobal = options.includeGlobalKnowledge !== false;
+  const maxTotal = options.maxTotalChunks || 12;
+
+  const projectChunks = await storage.getKnowledgeChunksByProject(projectId);
+  let corpus = [...projectChunks];
+
+  if (includeGlobal && projectId !== GLOBAL_PROJECT_ID) {
+    const globalChunks = await getGlobalChunksCached();
+    corpus = [...corpus, ...globalChunks];
+  }
+
+  let filteredCorpus = corpus;
+  if (options.usableByModule) {
+    filteredCorpus = filteredCorpus.filter(chunk => {
+      const usableBy = (chunk.metadata as any)?.usableBy as string[] | undefined;
+      if (!usableBy) return true;
+      return usableBy.includes(options.usableByModule!) || usableBy.includes("all");
+    });
+  }
+  if (options.tags && options.tags.length > 0) {
+    filteredCorpus = filteredCorpus.filter(chunk => {
+      const chunkTags = (chunk.metadata as any)?.tags as string[] | undefined;
+      if (!chunkTags) return false;
+      return options.tags!.some(tag => chunkTags.includes(tag));
+    });
+  }
+  if (options.category) {
+    filteredCorpus = filteredCorpus.filter(chunk => {
+      const chunkCategory = (chunk.metadata as any)?.category;
+      return chunkCategory === options.category;
+    });
+  }
+
+  const embeddableCorpus = filteredCorpus.filter(c => c.embedding);
+  const deserializedEmbeddings = embeddableCorpus.map(c => ({
+    chunk: c,
+    embedding: deserializeEmbedding(c.embedding!),
+  }));
+
+  const queryEmbeddings = await generateEmbeddings(queries);
+
+  const seenChunkIds = new Set<string>();
+  const allResults: Array<{ content: string; score: number; sourceTitle?: string; chunkId?: string }> = [];
+
+  for (let qi = 0; qi < queries.length; qi++) {
+    const qEmb = queryEmbeddings[qi].embedding;
+    const scored = deserializedEmbeddings
+      .map(({ chunk, embedding }) => ({
+        chunk,
+        score: cosineSimilarity(qEmb, embedding),
+      }))
+      .filter(s => s.score >= minScore)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+
+    for (const { chunk, score } of scored) {
+      const id = chunk.id?.toString() || chunk.content.slice(0, 50);
+      if (!seenChunkIds.has(id)) {
+        seenChunkIds.add(id);
+        allResults.push({ content: chunk.content, score, chunkId: id });
+      }
+    }
+  }
+
+  allResults.sort((a, b) => b.score - a.score);
+  const topChunks = allResults.slice(0, maxTotal);
+
+  const sourceIds = new Set(embeddableCorpus.filter(c => {
+    const id = c.id?.toString() || c.content.slice(0, 50);
+    return seenChunkIds.has(id);
+  }).map(c => c.sourceId));
+
+  const sources = await Promise.all(Array.from(sourceIds).map(id => storage.getKnowledgeSource(id)));
+  const sourceMap = new Map(sources.filter(Boolean).map(s => [s!.id, s!]));
+
+  const sourceChunkMap = new Map(embeddableCorpus.map(c => [c.id?.toString() || c.content.slice(0, 50), c.sourceId]));
+
+  for (const chunk of topChunks) {
+    const sourceId = sourceChunkMap.get(chunk.chunkId!);
+    if (sourceId) {
+      const source = sourceMap.get(sourceId);
+      if (source) chunk.sourceTitle = source.title ?? undefined;
+    }
+  }
+
+  return { chunks: topChunks, totalQueries: queries.length };
+}
+
 export async function ingestBlockState(
   projectId: string,
   blockType: InfoBlockType,
