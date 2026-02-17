@@ -1712,16 +1712,21 @@ function NarrateStep({
                         dangerouslySetInnerHTML={{ __html: renderMarkdown(block.contentMd) }}
                       />
                     )}
-                    {block.kpis && block.kpis.length > 0 && (
-                      <div className="mt-3 pt-3 border-t flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {block.kpis.length} KPI{block.kpis.length > 1 ? 's' : ''} referenced
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {block.kpis.map(k => k.name).join(', ')}
-                        </span>
-                      </div>
-                    )}
+                    {block.kpis && block.kpis.length > 0 && (() => {
+                      const kpiLabels = block.kpis
+                        .map(k => typeof k === 'string' ? k : (k.name || k.valueRange || ''))
+                        .filter(Boolean);
+                      return kpiLabels.length > 0 ? (
+                        <div className="mt-3 pt-3 border-t flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {kpiLabels.length} KPI{kpiLabels.length > 1 ? 's' : ''} referenced
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {kpiLabels.join(', ')}
+                          </span>
+                        </div>
+                      ) : null;
+                    })()}
                   </CardContent>
                 </Card>
               );
