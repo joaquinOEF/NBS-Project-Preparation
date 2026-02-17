@@ -9,7 +9,7 @@ import { Input } from "@/core/components/ui/input";
 import { ScrollArea } from "@/core/components/ui/scroll-area";
 import { Card } from "@/core/components/ui/card";
 import { Badge } from "@/core/components/ui/badge";
-import { Loader2, MessageCircle, Send, User, Wrench, CheckCircle, XCircle, ArrowRight, Database, X, ExternalLink } from "lucide-react";
+import { Loader2, MessageCircle, Send, User, Wrench, CheckCircle, XCircle, ArrowRight, Database, X, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
 import { useToast } from "@/core/hooks/use-toast";
 import { computeReadinessScores, determinePathway, formatReadinessSummary, type QuestionnaireAnswers } from "@/core/utils/funding-readiness";
 
@@ -18,7 +18,13 @@ interface NavigationButton {
   label: string;
 }
 
-function parseNavigationButtons(content: string): { cleanContent: string; navButtons: NavigationButton[] } {
+interface ActionButton {
+  action: string;
+  label: string;
+  params: Record<string, unknown>;
+}
+
+function parseMessageButtons(content: string): { cleanContent: string; navButtons: NavigationButton[]; actionButtons: ActionButton[] } {
   const navButtonRegex = /\[NAV_BUTTON:([^\|]+)\|([^\]]+)\]/g;
   const navButtons: NavigationButton[] = [];
   let match;
@@ -26,9 +32,24 @@ function parseNavigationButtons(content: string): { cleanContent: string; navBut
   while ((match = navButtonRegex.exec(content)) !== null) {
     navButtons.push({ path: match[1], label: match[2] });
   }
+
+  const actionButtonRegex = /\[ACTION_BUTTON:([^\|]+)\|([^\|]+)\|([^\]]+)\]/g;
+  const actionButtons: ActionButton[] = [];
   
-  const cleanContent = content.replace(navButtonRegex, '').trim();
-  return { cleanContent, navButtons };
+  while ((match = actionButtonRegex.exec(content)) !== null) {
+    try {
+      const params = JSON.parse(match[3]);
+      actionButtons.push({ action: match[1], label: match[2], params });
+    } catch {
+      actionButtons.push({ action: match[1], label: match[2], params: {} });
+    }
+  }
+  
+  const cleanContent = content
+    .replace(navButtonRegex, '')
+    .replace(actionButtonRegex, '')
+    .trim();
+  return { cleanContent, navButtons, actionButtons };
 }
 
 interface ChatMessage {
@@ -68,6 +89,8 @@ export function ChatDrawer() {
   const [applyingPatchId, setApplyingPatchId] = useState<string | null>(null);
   const [applyingAll, setApplyingAll] = useState(false);
   const [rejectingAll, setRejectingAll] = useState(false);
+  const [executingAction, setExecutingAction] = useState<string | null>(null);
+  const [completedActions, setCompletedActions] = useState<Set<string>>(new Set());
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -718,6 +741,37 @@ export function ChatDrawer() {
     }
   };
 
+  const handleActionButton = async (action: ActionButton, messageId: string) => {
+    const actionKey = `${messageId}-${action.action}`;
+    if (executingAction || completedActions.has(actionKey)) return;
+    setExecutingAction(actionKey);
+    try {
+      const response = await fetch(`/api/projects/${dbProjectId}/agent/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: action.action, params: action.params }),
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setCompletedActions(prev => new Set(prev).add(actionKey));
+        syncBlockToLocalStorage('impact_model');
+        toast({ title: action.label, description: result.message || "Completed successfully" });
+        setMessages(prev => [...prev, {
+          id: `action-${Date.now()}`,
+          role: 'assistant' as const,
+          content: result.message || `${action.label} completed successfully.`,
+          timestamp: new Date(),
+        }]);
+      } else {
+        toast({ title: "Action failed", description: result.message || "Something went wrong", variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ title: "Action failed", description: error.message || "Network error", variant: "destructive" });
+    } finally {
+      setExecutingAction(null);
+    }
+  };
+
   const groupedPatches = pendingPatches.reduce((acc, patch) => {
     const key = patch.blockType;
     if (!acc[key]) acc[key] = [];
@@ -790,7 +844,7 @@ export function ChatDrawer() {
                   }`}
                 >
                   {message.content && (() => {
-                    const { cleanContent, navButtons } = parseNavigationButtons(message.content);
+                    const { cleanContent, navButtons, actionButtons } = parseMessageButtons(message.content);
                     return (
                       <>
                         <div className={`text-sm prose prose-sm max-w-full prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 break-words [&_code]:break-all [&_code]:text-xs ${
@@ -814,6 +868,34 @@ export function ChatDrawer() {
                                 {nav.label}
                               </Button>
                             ))}
+                          </div>
+                        )}
+                        {actionButtons.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {actionButtons.map((ab, idx) => {
+                              const actionKey = `${message.id}-${ab.action}`;
+                              const isExecuting = executingAction === actionKey;
+                              const isCompleted = completedActions.has(actionKey);
+                              return (
+                                <Button
+                                  key={idx}
+                                  size="sm"
+                                  variant={isCompleted ? "outline" : "default"}
+                                  onClick={() => handleActionButton(ab, message.id)}
+                                  disabled={isExecuting || isCompleted || !!executingAction}
+                                  className={`gap-1.5 ${isCompleted ? 'bg-green-50 border-green-300 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400' : ''}`}
+                                >
+                                  {isExecuting ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : isCompleted ? (
+                                    <CheckCircle className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <Sparkles className="h-3.5 w-3.5" />
+                                  )}
+                                  {isCompleted ? 'Done' : ab.label}
+                                </Button>
+                              );
+                            })}
                           </div>
                         )}
                       </>

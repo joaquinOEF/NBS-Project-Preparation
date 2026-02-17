@@ -225,6 +225,147 @@ export function registerAgentRoutes(app: Express): void {
       res.status(500).json({ error: "Failed to reject patch" });
     }
   });
+
+  app.post("/api/projects/:projectId/agent/action", async (req: Request, res: Response) => {
+    try {
+      const { projectId } = req.params;
+      const { action, params } = req.body;
+
+      if (!action) {
+        return res.status(400).json({ success: false, message: "Action is required" });
+      }
+
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ success: false, message: "Project not found" });
+      }
+
+      const impactBlock = await storage.getInfoBlock(projectId, 'impact_model');
+      const blockData: any = impactBlock?.data || {};
+
+      switch (action) {
+        case 'regenerate_narrative': {
+          const { generateNarrativeFromKPIs } = await import('../services/impactModelService');
+          const kpis = blockData.quantifiedKPIs || blockData.kpis || [];
+          const zones = blockData.selectedZones || [];
+          const bundles = blockData.interventionBundles || [];
+          const funderPathway = blockData.funderPathway || { primary: 'general' };
+          
+          const result = await generateNarrativeFromKPIs({
+            quantifiedKPIs: kpis,
+            selectedZones: zones,
+            interventionBundles: bundles,
+            funderPathway: funderPathway,
+            projectName: project.actionName || 'NBS Project',
+            cityName: project.cityName || '',
+            projectId,
+            lens: params?.lens,
+            lensInstructions: params?.lensInstructions,
+          });
+
+          if (result.blocks) {
+            await storage.upsertInfoBlock(projectId, 'impact_model', {
+              data: {
+                ...blockData,
+                narrativeBlocks: result.blocks,
+                narrativeOutline: result.outline,
+              },
+            });
+          }
+
+          return res.json({ success: true, message: `Narrative regenerated with ${result.blocks?.length || 0} sections.` });
+        }
+
+        case 'regenerate_block': {
+          const { regenerateBlock } = await import('../services/impactModelService');
+          const { blockIndex, customPrompt } = params || {};
+          const narrativeBlocks = blockData.narrativeBlocks || [];
+          
+          if (blockIndex === undefined || blockIndex >= narrativeBlocks.length) {
+            return res.status(400).json({ success: false, message: "Invalid block index" });
+          }
+
+          const targetBlock = narrativeBlocks[blockIndex];
+          const result = await regenerateBlock({
+            block: targetBlock,
+            customPrompt: customPrompt || 'Regenerate this section with improved content.',
+            projectContext: {
+              projectName: project.actionName,
+              cityName: project.cityName,
+              zones: blockData.selectedZones,
+              interventionBundles: blockData.interventionBundles,
+            },
+          });
+
+          narrativeBlocks[blockIndex] = result;
+          await storage.upsertInfoBlock(projectId, 'impact_model', {
+            data: { ...blockData, narrativeBlocks },
+          });
+
+          return res.json({ success: true, message: `Section "${targetBlock.title}" has been regenerated.` });
+        }
+
+        case 'regenerate_affected': {
+          const { regenerateAffectedBlocks } = await import('../services/impactModelService');
+          const narrativeBlocks = blockData.narrativeBlocks || [];
+          
+          const editedCount = narrativeBlocks.filter((b: any) => b.userEdited).length;
+          if (editedCount === 0) {
+            return res.json({ success: true, message: "No edited blocks detected — nothing to regenerate." });
+          }
+
+          const result = await regenerateAffectedBlocks({
+            allBlocks: narrativeBlocks,
+            selectedZones: blockData.selectedZones || [],
+            interventionBundles: blockData.interventionBundles || [],
+            funderPathway: blockData.funderPathway || { primary: 'general' },
+            projectName: project.actionName || 'NBS Project',
+            cityName: project.cityName || '',
+            projectId,
+            lens: params?.lens,
+            lensInstructions: params?.lensInstructions,
+          });
+
+          if (result.updatedBlocks) {
+            await storage.upsertInfoBlock(projectId, 'impact_model', {
+              data: { ...blockData, narrativeBlocks: result.updatedBlocks },
+            });
+          }
+
+          return res.json({ 
+            success: true, 
+            message: `Detected ${result.affectedBlockIds?.length || 0} affected sections and regenerated them.`
+          });
+        }
+
+        case 'regenerate_kpis': {
+          const { generateQuantifiedImpacts } = await import('../services/impactModelService');
+          const result = await generateQuantifiedImpacts({
+            projectId,
+            selectedZones: blockData.selectedZones || [],
+            interventionBundles: blockData.interventionBundles || [],
+            funderPathway: blockData.funderPathway || { primary: 'general' },
+            projectName: project.actionName || 'NBS Project',
+            cityName: project.cityName || '',
+          });
+
+          if (result.kpis) {
+            await storage.upsertInfoBlock(projectId, 'impact_model', {
+              data: { ...blockData, quantifiedKPIs: result.kpis },
+            });
+          }
+
+          return res.json({ success: true, message: `Regenerated ${result.kpis?.length || 0} KPIs across zones.` });
+        }
+
+        default:
+          return res.status(400).json({ success: false, message: `Unknown action: ${action}` });
+      }
+    } catch (error: any) {
+      console.error("Agent action error:", error);
+      return res.status(500).json({ success: false, message: error.message || "Action failed" });
+    }
+  });
 }
 
 function setNestedValue(obj: any, path: string, value: any): void {
