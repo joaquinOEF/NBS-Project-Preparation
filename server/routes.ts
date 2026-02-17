@@ -57,7 +57,7 @@ import {
   computeCompositeScores,
   calculateCoverageSummary,
 } from './services/gridService';
-import { generateImpactNarrative, regenerateBlock, generateQuantifiedImpacts, generateNarrativeFromKPIs } from './services/impactModelService';
+import { generateImpactNarrative, regenerateBlock, generateQuantifiedImpacts, generateNarrativeFromKPIs, detectAffectedBlocks, regenerateAffectedBlocks } from './services/impactModelService';
 import { fetchOsmAssets } from './services/osmAssetService';
 import type { LayerType } from '../shared/geospatial-schema';
 import { registerAgentRoutes } from './routes/agentRoutes';
@@ -1148,6 +1148,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Narrate from KPIs error:', error);
       res.status(500).json({ message: error.message || 'Failed to generate narrative from KPIs' });
+    }
+  });
+
+  app.post('/api/impact-model/detect-affected', async (req: any, res) => {
+    try {
+      const { blocks } = req.body;
+      if (!blocks || !Array.isArray(blocks)) {
+        return res.status(400).json({ message: 'blocks array is required' });
+      }
+
+      const editedCount = blocks.filter((b: any) => b.userEdited).length;
+      if (editedCount === 0) {
+        return res.json({ affectedBlocks: [], summary: 'No blocks have been manually edited.' });
+      }
+
+      console.log(`🔍 Detect affected blocks: ${editedCount} edited out of ${blocks.length}`);
+      const result = await detectAffectedBlocks(blocks);
+      res.json(result);
+    } catch (error: any) {
+      console.error('Detect affected blocks error:', error);
+      res.status(500).json({ message: error.message || 'Failed to detect affected blocks' });
+    }
+  });
+
+  app.post('/api/impact-model/regenerate-affected', async (req: any, res) => {
+    try {
+      const { blocks, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId, lens, lensInstructions } = req.body;
+
+      if (!blocks || !Array.isArray(blocks)) {
+        return res.status(400).json({ message: 'blocks array is required' });
+      }
+
+      const editedCount = blocks.filter((b: any) => b.userEdited).length;
+      if (editedCount === 0) {
+        return res.json({ affectedBlockIds: [], conflictSummary: 'No blocks have been manually edited.', updatedBlocks: blocks, reasons: {} });
+      }
+
+      console.log(`🔄 Regenerate affected blocks: ${editedCount} edited, lens=${lens || 'neutral'}`);
+
+      const result = await regenerateAffectedBlocks({
+        allBlocks: blocks,
+        selectedZones: selectedZones || [],
+        interventionBundles: interventionBundles || [],
+        funderPathway: funderPathway || { primary: 'general' },
+        projectName,
+        cityName,
+        projectId,
+        lens,
+        lensInstructions,
+      });
+
+      console.log(`   ✅ Regenerated ${result.affectedBlockIds.length} affected blocks`);
+      res.json(result);
+    } catch (error: any) {
+      console.error('Regenerate affected blocks error:', error);
+      res.status(500).json({ message: error.message || 'Failed to regenerate affected blocks' });
     }
   });
 

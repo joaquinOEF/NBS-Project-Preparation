@@ -78,6 +78,13 @@ Preferred communication style: Simple, everyday language.
   - **Phase 3 — Assemble**: Blocks are combined, validated, and returned as the complete narrative response.
   - **RAG Integration**: Before Phase 1, the knowledge base is searched for evidence documents relevant to the project's hazards and interventions.
   - **Reasoning Effort**: Medium for planning and block generation; low for supplementary data.
+- **Selective Regeneration Pipeline** (after manual edits):
+  - **Phase A — Detect**: AI conflict detection identifies which blocks have outdated/duplicated/contradictory content relative to user-edited (locked) blocks.
+  - **Phase B — Scoped Re-Plan**: Generates outline for only affected blocks, with edited blocks as locked constraints and explicit exclusions to prevent content overlap.
+  - **Phase C — Selective Regeneration**: Only affected blocks regenerated in parallel, merged back into the full narrative.
+  - **UI**: Amber banner appears when blocks have `userEdited: true`, with "Check for affected sections" button → shows affected list with reasons → "Update N sections" button.
+  - **API Endpoints**: `POST /api/impact-model/detect-affected` and `POST /api/impact-model/regenerate-affected`.
+- **Per-Block Editing**: Hover menu on each block with "Edit directly" (inline textarea) and "Chat about changes" (opens chat with block context). Inline edits set `userEdited: true` and persist to DB via `updateModule`. Snapshot stored for undo.
 - **Step 2→3 Transition**: Button says "Generate Narrative" and auto-starts generation when clicked (if no narrative exists). If narrative already exists, button says "Continue" and navigates without regenerating.
 - **UI Grouping**: Step 2 (Quantify) groups impact results by hazard type → zone, with per-hazard subtotals and a project-wide summary card that aggregates compatible KPIs by normalized unit.
 - **Unit Normalization**: Aggregation normalizes unit aliases (ha→hectares, sqm→m², tCO2→tCO₂/year) and excludes percentage/ratio KPIs from summation.

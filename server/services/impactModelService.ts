@@ -509,6 +509,298 @@ Return a JSON object with the regenerated block:
 }
 
 // ============================================
+// Selective Regeneration — Affected Blocks Pipeline
+// Phase A: Detect conflicts (which blocks are affected)
+// Phase B: Scoped re-planning (locked blocks as constraints)
+// Phase C: Regenerate only affected blocks in parallel
+// ============================================
+
+interface AffectedBlockInfo {
+  blockId: string;
+  reason: string;
+}
+
+interface ConflictDetectionResult {
+  affectedBlocks: AffectedBlockInfo[];
+  summary: string;
+}
+
+async function detectConflicts(
+  allBlocks: NarrativeBlock[],
+  editedBlockIds: string[],
+): Promise<ConflictDetectionResult> {
+  console.log(`🔍 Conflict Detection: checking ${allBlocks.length} blocks (${editedBlockIds.length} edited)...`);
+
+  const editedBlocks = allBlocks.filter(b => editedBlockIds.includes(b.id));
+  const otherBlocks = allBlocks.filter(b => !editedBlockIds.includes(b.id));
+
+  const response = await openai.responses.create({
+    model: "gpt-5.2",
+    input: [
+      {
+        role: "developer",
+        content: `You are a narrative consistency checker for Nature-Based Solutions concept notes.
+Your job is to identify which blocks in a 10-block narrative need to be regenerated after the user manually edited some blocks.
+A block needs regeneration if it:
+- References content that was changed in an edited block (e.g., outdated numbers, removed interventions)
+- Duplicates content that now appears in an edited block
+- Contradicts facts stated in the edited blocks
+- Has a summary or reference that no longer matches the edited content
+Be conservative: only flag blocks that truly need updating. Don't flag blocks just because they cover related topics.
+Always respond with valid JSON.`
+      },
+      {
+        role: "user",
+        content: `The user has manually edited the following blocks. Identify which OTHER blocks now need regeneration.
+
+EDITED BLOCKS (these are LOCKED — their content is final):
+${editedBlocks.map(b => `### ${b.id}: ${b.title} (${b.type})
+${b.contentMd}`).join('\n\n')}
+
+OTHER BLOCKS (check these for conflicts):
+${otherBlocks.map(b => `### ${b.id}: ${b.title} (${b.type})
+${b.contentMd}`).join('\n\n')}
+
+Return JSON:
+{
+  "affectedBlocks": [
+    { "blockId": "block-X", "reason": "Brief explanation of why this block needs regeneration" }
+  ],
+  "summary": "One sentence summarizing what changed and why these blocks are affected"
+}
+
+Only include blocks that GENUINELY need updating. If no blocks are affected, return an empty array.`
+      }
+    ],
+    text: { format: { type: "json_object" } },
+    reasoning: { effort: "medium" },
+    max_output_tokens: 2000,
+  } as any);
+
+  const content = extractTextFromResponse(response);
+  try {
+    const parsed = JSON.parse(content) as ConflictDetectionResult;
+    const validIds = new Set(otherBlocks.map(b => b.id));
+    parsed.affectedBlocks = parsed.affectedBlocks.filter(a => validIds.has(a.blockId));
+    console.log(`   ✅ Found ${parsed.affectedBlocks.length} affected blocks: ${parsed.affectedBlocks.map(a => a.blockId).join(', ') || 'none'}`);
+    return parsed;
+  } catch (error) {
+    console.error("Failed to parse conflict detection:", error);
+    return { affectedBlocks: [], summary: "Could not detect conflicts" };
+  }
+}
+
+interface ScopedOutlineBlock {
+  id: string;
+  title: string;
+  type: string;
+  scope: string;
+  mustIncludeKPIs: string[];
+  mustNotCover: string[];
+  evidenceTier: string;
+  paragraphCount: number;
+}
+
+async function planScopedOutline(
+  affectedBlockIds: string[],
+  lockedBlocks: NarrativeBlock[],
+  allBlocks: NarrativeBlock[],
+  projectContext: string,
+  kpiSummary: string,
+  lens?: string,
+  lensInstructions?: string,
+): Promise<ScopedOutlineBlock[]> {
+  console.log(`📋 Scoped Re-Planning: ${affectedBlockIds.length} blocks to regenerate, ${lockedBlocks.length} locked...`);
+
+  const lensLabel = lens && lens !== 'neutral' ? lens : null;
+  const lensDirective = lensLabel
+    ? `\nANALYTICAL LENS: "${lensLabel}"\n${LENS_DESCRIPTIONS[lensLabel] || ''}`
+    : '';
+
+  const blocksToRegenerate = allBlocks.filter(b => affectedBlockIds.includes(b.id));
+
+  const response = await openai.responses.create({
+    model: "gpt-5.2",
+    input: [
+      {
+        role: "developer",
+        content: `You are a concept note architect for Nature-Based Solutions projects.
+You must re-plan the scope for blocks that need regeneration, treating the user-edited blocks as LOCKED constraints.
+The re-planned scopes must ensure NO content overlap with the locked blocks.
+Output ONLY valid JSON.`
+      },
+      {
+        role: "user",
+        content: `Re-plan the scope for the blocks that need regeneration. The LOCKED blocks cannot be changed — the regenerated blocks must be consistent with them and avoid duplicating their content.
+
+${projectContext}
+${lensDirective}
+
+AVAILABLE KPIs:
+${kpiSummary}
+
+LOCKED BLOCKS (content is FINAL — do not duplicate anything from these):
+${lockedBlocks.map(b => `### ${b.id}: ${b.title} (${b.type})
+${b.contentMd.slice(0, 500)}${b.contentMd.length > 500 ? '...' : ''}`).join('\n\n')}
+
+BLOCKS TO REGENERATE:
+${blocksToRegenerate.map(b => `- ${b.id}: ${b.title} (${b.type})`).join('\n')}
+
+Return JSON:
+{
+  "blocks": [
+    {
+      "id": "block-X",
+      "title": "Block Title",
+      "type": "block_type",
+      "scope": "Clear scope description, explicitly noting what this block should cover given the locked blocks' content",
+      "mustIncludeKPIs": ["specific KPI names to include"],
+      "mustNotCover": ["topics covered by locked blocks that must be avoided"],
+      "evidenceTier": "MODELLED|EVIDENCE|ASSUMPTION",
+      "paragraphCount": 3
+    }
+  ]
+}
+
+CRITICAL: For each block's mustNotCover, list specific content that already appears in the locked blocks. This prevents duplication.`
+      }
+    ],
+    text: { format: { type: "json_object" } },
+    reasoning: { effort: "medium" },
+    max_output_tokens: 3000,
+  } as any);
+
+  const content = extractTextFromResponse(response);
+  try {
+    const parsed = JSON.parse(content);
+    const blocks = parsed.blocks as ScopedOutlineBlock[];
+    console.log(`   ✅ Scoped outline: ${blocks.length} blocks planned`);
+    return blocks;
+  } catch (error) {
+    console.error("Failed to parse scoped outline:", error);
+    return blocksToRegenerate.map(b => ({
+      id: b.id,
+      title: b.title,
+      type: b.type,
+      scope: `Regenerate ${b.title} to be consistent with the edited blocks`,
+      mustIncludeKPIs: [],
+      mustNotCover: [],
+      evidenceTier: b.evidenceTier,
+      paragraphCount: 3,
+    }));
+  }
+}
+
+export interface RegenerateAffectedRequest {
+  allBlocks: NarrativeBlock[];
+  selectedZones: SelectedZone[];
+  interventionBundles: InterventionBundle[];
+  funderPathway: FunderPathway;
+  projectName?: string;
+  cityName?: string;
+  projectId?: string;
+  lens?: string;
+  lensInstructions?: string;
+}
+
+export interface RegenerateAffectedResponse {
+  affectedBlockIds: string[];
+  conflictSummary: string;
+  updatedBlocks: NarrativeBlock[];
+  reasons: Record<string, string>;
+}
+
+export async function detectAffectedBlocks(
+  allBlocks: NarrativeBlock[],
+): Promise<ConflictDetectionResult> {
+  const editedBlockIds = allBlocks.filter(b => b.userEdited).map(b => b.id);
+  if (editedBlockIds.length === 0) {
+    return { affectedBlocks: [], summary: "No blocks have been manually edited." };
+  }
+  return detectConflicts(allBlocks, editedBlockIds);
+}
+
+export async function regenerateAffectedBlocks(
+  request: RegenerateAffectedRequest,
+): Promise<RegenerateAffectedResponse> {
+  const { allBlocks, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId, lens, lensInstructions } = request;
+
+  const editedBlockIds = allBlocks.filter(b => b.userEdited).map(b => b.id);
+  if (editedBlockIds.length === 0) {
+    return { affectedBlockIds: [], conflictSummary: "No blocks have been manually edited.", updatedBlocks: allBlocks, reasons: {} };
+  }
+
+  const lensLabel = lens && lens !== 'neutral' ? lens : null;
+  console.log(`🔄 Affected Blocks Pipeline${lensLabel ? ` [${lensLabel} lens]` : ''}: ${editedBlockIds.length} edited blocks`);
+
+  // Phase A: Detect conflicts
+  const { affectedBlocks, summary } = await detectConflicts(allBlocks, editedBlockIds);
+
+  if (affectedBlocks.length === 0) {
+    console.log('   ✅ No conflicts detected — all blocks are consistent.');
+    return { affectedBlockIds: [], conflictSummary: summary, updatedBlocks: allBlocks, reasons: {} };
+  }
+
+  const affectedIds = affectedBlocks.map(a => a.blockId);
+  const reasons: Record<string, string> = {};
+  affectedBlocks.forEach(a => { reasons[a.blockId] = a.reason; });
+
+  const lockedBlocks = allBlocks.filter(b => editedBlockIds.includes(b.id));
+
+  // Build project context and KPI summary
+  const projectContext = buildProjectContext(selectedZones, interventionBundles, funderPathway, projectName, cityName);
+  const ragProjectId = projectId || 'global-knowledge-base';
+
+  let kpiSummary = '';
+  let coBenefitSummary = '';
+  let mrvSummary = '';
+  let evidenceBlock = '';
+
+  // Attempt to get KPI data from the existing blocks' KPIs
+  const allKpis = allBlocks.flatMap(b => (b.kpis || []).map(k => `• ${k.name}: ${k.valueRange} ${k.unit} (${k.confidence})`));
+  kpiSummary = allKpis.length > 0 ? allKpis.join('\n') : 'No KPI data available from blocks';
+
+  // Fetch evidence
+  console.log('🔍 Fetching RAG evidence for selective regeneration...');
+  try {
+    const { evidenceBlock: eb } = await fetchNarrativeEvidence(ragProjectId, selectedZones, interventionBundles);
+    evidenceBlock = eb;
+  } catch {
+    evidenceBlock = 'No evidence available.';
+  }
+
+  // Phase B: Scoped re-planning
+  const scopedOutline = await planScopedOutline(
+    affectedIds, lockedBlocks, allBlocks, projectContext, kpiSummary, lens, lensInstructions,
+  );
+
+  // Phase C: Regenerate affected blocks in parallel
+  console.log(`✍️  Phase C: Regenerating ${scopedOutline.length} blocks in parallel...`);
+  const regeneratedBlocks = await generateBlocksBatch(
+    scopedOutline, projectContext, kpiSummary, coBenefitSummary, mrvSummary,
+    evidenceBlock, funderPathway, lens, lensInstructions,
+  );
+
+  // Merge: replace affected blocks with regenerated ones, keep everything else
+  const regeneratedMap = new Map(regeneratedBlocks.map(b => [b.id, b]));
+  const updatedBlocks = allBlocks.map(b => {
+    if (regeneratedMap.has(b.id)) {
+      return { ...regeneratedMap.get(b.id)!, userEdited: false };
+    }
+    return b;
+  });
+
+  console.log(`✅ Affected blocks pipeline complete: ${regeneratedBlocks.length} blocks regenerated`);
+
+  return {
+    affectedBlockIds: affectedIds,
+    conflictSummary: summary,
+    updatedBlocks,
+    reasons,
+  };
+}
+
+// ============================================
 // Narrate API — 3-Phase KPI-grounded narrative
 // Phase 1: Plan outline (prevent duplication)
 // Phase 2: Generate blocks in parallel

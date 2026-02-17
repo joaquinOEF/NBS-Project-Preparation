@@ -1254,11 +1254,19 @@ function NarrateStep({
   onUpdate,
   isNarrating,
   onNarrate,
+  siteExplorerZones,
+  funderPathway,
+  projectName,
+  cityName,
 }: {
   data: ImpactModelData;
   onUpdate: (d: Partial<ImpactModelData>) => void;
   isNarrating: boolean;
   onNarrate: (lens?: LensType, lensInstructions?: string) => Promise<void>;
+  siteExplorerZones?: any[];
+  funderPathway?: any;
+  projectName?: string;
+  cityName?: string;
 }) {
   const { t } = useTranslation();
   const { openChatWithMessage, setPageContext } = useChatState();
@@ -1276,9 +1284,10 @@ function NarrateStep({
     const lens = lensOverride || activeLens;
     const isLensVariant = lens !== 'neutral';
     if (isLensVariant) {
+      const lensKey = lens as LensType;
       const updatedVariants = {
         ...(data.narrativeCache?.lensVariants || {}),
-        [lens]: (data.narrativeCache?.lensVariants?.[lens] || []).map(b =>
+        [lensKey]: (data.narrativeCache?.lensVariants?.[lensKey] || []).map((b: NarrativeBlock) =>
           b.id === blockId ? { ...b, contentMd: newContent, ...(markEdited ? { userEdited: true } : {}) } : b
         ),
       };
@@ -1323,6 +1332,73 @@ function NarrateStep({
     }
   };
 
+  const [affectedBlocksInfo, setAffectedBlocksInfo] = useState<Array<{ blockId: string; reason: string }> | null>(null);
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [affectedSummary, setAffectedSummary] = useState('');
+
+  const handleDetectAffected = async () => {
+    setIsDetecting(true);
+    try {
+      const res = await fetch('/api/impact-model/detect-affected', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocks }),
+      });
+      if (!res.ok) throw new Error('Detection failed');
+      const result = await res.json();
+      setAffectedBlocksInfo(result.affectedBlocks || []);
+      setAffectedSummary(result.summary || '');
+    } catch (err) {
+      console.error('Failed to detect affected blocks:', err);
+      setAffectedBlocksInfo([]);
+      setAffectedSummary('Could not detect affected blocks.');
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+
+  const handleRegenerateAffected = async () => {
+    setIsRegenerating(true);
+    try {
+      const res = await fetch('/api/impact-model/regenerate-affected', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blocks,
+          selectedZones: siteExplorerZones || [],
+          interventionBundles: data.interventionBundles || [],
+          funderPathway: funderPathway || { primary: 'general' },
+          projectName: projectName || 'Urban Climate Resilience Initiative',
+          cityName: cityName || 'Porto Alegre',
+          lens: activeLens,
+        }),
+      });
+      if (!res.ok) throw new Error('Regeneration failed');
+      const result = await res.json();
+
+      if (result.updatedBlocks && result.affectedBlockIds?.length > 0) {
+        const isLensVariant = activeLens !== 'neutral';
+        if (isLensVariant) {
+          const updatedVariants = {
+            ...(data.narrativeCache?.lensVariants || {}),
+            [activeLens]: result.updatedBlocks,
+          };
+          onUpdate({ narrativeCache: { ...data.narrativeCache, lensVariants: updatedVariants } });
+        } else {
+          onUpdate({ narrativeCache: { ...data.narrativeCache, base: result.updatedBlocks } });
+        }
+      }
+
+      setAffectedBlocksInfo(null);
+      setAffectedSummary('');
+    } catch (err) {
+      console.error('Failed to regenerate affected blocks:', err);
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
   const handleChatAboutBlock = (block: NarrativeBlock) => {
     setPageContext({
       moduleName: 'impactModel',
@@ -1349,6 +1425,7 @@ function NarrateStep({
         ? data.narrativeCache.lensVariants[activeLens]
         : data.narrativeCache?.base || []);
   const blocks = activeBlocks;
+  const editedBlockCount = blocks.filter(b => b.userEdited).length;
 
   const availableLenses: LensType[] = ['neutral', 'climate', 'social', 'financial', 'institutional'];
   const lensesWithContent = availableLenses.filter(l => {
@@ -1456,6 +1533,97 @@ function NarrateStep({
               </div>
             )}
           </div>
+
+          {editedBlockCount > 0 && !isRegenerating && (
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    {editedBlockCount} {editedBlockCount === 1 ? 'section has' : 'sections have'} been manually edited
+                  </p>
+                  <p className="text-xs text-amber-600 dark:text-amber-300 mt-1">
+                    Other sections may need updating to stay consistent with your changes.
+                  </p>
+                  {affectedBlocksInfo === null ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 h-8 text-xs border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                      onClick={handleDetectAffected}
+                      disabled={isDetecting}
+                    >
+                      {isDetecting ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                          Checking for conflicts...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-3 w-3 mr-1.5" />
+                          Check for affected sections
+                        </>
+                      )}
+                    </Button>
+                  ) : affectedBlocksInfo.length === 0 ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <Check className="h-4 w-4 text-green-600" />
+                      <span className="text-xs text-green-700 dark:text-green-400">All sections are consistent. No updates needed.</span>
+                      <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => setAffectedBlocksInfo(null)}>
+                        Dismiss
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mt-2 space-y-2">
+                      {affectedSummary && (
+                        <p className="text-xs text-amber-700 dark:text-amber-300">{affectedSummary}</p>
+                      )}
+                      <div className="space-y-1">
+                        {affectedBlocksInfo.map(a => {
+                          const block = blocks.find(b => b.id === a.blockId);
+                          return (
+                            <div key={a.blockId} className="flex items-start gap-2 text-xs">
+                              <span className="font-medium text-amber-800 dark:text-amber-200 whitespace-nowrap">{block?.title || a.blockId}:</span>
+                              <span className="text-amber-600 dark:text-amber-400">{a.reason}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2 mt-1">
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs gap-1.5"
+                          onClick={handleRegenerateAffected}
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Update {affectedBlocksInfo.length} {affectedBlocksInfo.length === 1 ? 'section' : 'sections'}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setAffectedBlocksInfo(null); setAffectedSummary(''); }}>
+                          Dismiss
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isRegenerating && (
+            <Card className="border-primary/20">
+              <CardContent className="py-6">
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <div>
+                    <p className="text-sm font-medium">Updating affected sections...</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Re-planning scope and regenerating {affectedBlocksInfo?.length || 'selected'} blocks while preserving your edits
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="space-y-4 max-w-3xl">
             {blocks.map((block, index) => {
@@ -2957,6 +3125,10 @@ export default function ImpactModelPage() {
                   onUpdate={handleUpdate}
                   isNarrating={isGenerating}
                   onNarrate={handleNarrate}
+                  siteExplorerZones={siteExplorerZones}
+                  funderPathway={funderPathway}
+                  projectName={projectName}
+                  cityName={cityName}
                 />
               )}
             </>

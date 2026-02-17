@@ -1,7 +1,7 @@
 import { openai, type Message, type ReasoningEffort } from "./openaiClient";
 import { storage } from "../storage";
 import { semanticSearch, getKnowledgeStats } from "./knowledgeService";
-import { generateQuantifiedImpacts, generateNarrativeFromKPIs, regenerateBlock } from "./impactModelService";
+import { generateQuantifiedImpacts, generateNarrativeFromKPIs, regenerateBlock, regenerateAffectedBlocks, detectAffectedBlocks } from "./impactModelService";
 import { 
   type InfoBlock, 
   type InfoBlockType, 
@@ -395,6 +395,26 @@ const AGENT_TOOLS: AgentTool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "regenerate_affected_blocks",
+    description: "After the user has manually edited narrative blocks, this tool detects which OTHER blocks have conflicting, duplicated, or outdated content and regenerates only those blocks. Uses a 3-phase pipeline: (A) AI conflict detection, (B) scoped re-planning with edited blocks as locked constraints, (C) parallel regeneration of affected blocks. Use when the user says things like 'update the rest of the narrative', 'make everything consistent', or 'propagate my changes'.",
+    parameters: {
+      type: "object",
+      properties: {
+        lens: {
+          type: "string",
+          enum: ["neutral", "climate", "social", "financial", "institutional"],
+          description: "Which lens variant to check for affected blocks. Use the currently active lens.",
+        },
+        reason: {
+          type: "string",
+          description: "Brief explanation of why affected blocks need regeneration.",
+        },
+      },
+      required: ["lens", "reason"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 const SYSTEM_PROMPT = `You are an AI assistant for the NBS (Nature-Based Solutions) Project Builder platform.
@@ -453,6 +473,12 @@ Use **regenerate_block** tool to:
 - Refine a SINGLE narrative block based on user instructions (much faster than full regeneration)
 - The user may open chat from a specific block's edit menu — check pageContext.additionalInfo.editingBlock for block ID, title, type, and lens
 - When the user wants to change just one section, ALWAYS prefer regenerate_block over regenerate_narrative
+
+Use **regenerate_affected_blocks** tool to:
+- After the user has manually edited some blocks, detect and regenerate blocks that have conflicting/duplicated/outdated content
+- 3-phase pipeline: (A) AI conflict detection → (B) scoped re-planning with edited blocks locked → (C) parallel regeneration of affected blocks
+- Only regenerates blocks that genuinely need updating — preserves all other blocks
+- The user may ask to "update the rest", "make everything consistent", or "propagate my changes"
 
 ### Block-Level Chat Editing Flow
 When a user opens chat from a narrative block's edit menu:
@@ -1655,6 +1681,98 @@ export async function executeAgentTool(
             blockTitle: targetBlock.title,
             lens,
             message: `Successfully regenerated the "${targetBlock.title}" block${isLensVariant ? ` (${lens} lens)` : ''}. The updated content will appear in the Impact Model page. Does the new version look good, or would you like to make further changes?`,
+          },
+        };
+      }
+
+      case "regenerate_affected_blocks": {
+        const { lens, reason } = args as { lens: string; reason: string };
+
+        const impactBlock = await storage.getInfoBlock(projectId, 'impact_model');
+        const impactData = (impactBlock?.blockStateJson as any) || {};
+        const narrativeCache = impactData.narrativeCache || {};
+        
+        const isLensVariant = lens && lens !== 'neutral';
+        const blocks = isLensVariant
+          ? (narrativeCache.lensVariants?.[lens] || [])
+          : (narrativeCache.base || []);
+
+        const editedCount = blocks.filter((b: any) => b.userEdited).length;
+        if (editedCount === 0) {
+          return {
+            name,
+            result: {
+              success: false,
+              message: "No blocks have been manually edited. Edit some blocks first, then use this tool to update the rest.",
+            },
+          };
+        }
+
+        console.log(`🔄 Agent regenerate_affected_blocks: lens=${lens}, edited=${editedCount}, reason=${reason}`);
+
+        const siteBlock = await storage.getInfoBlock(projectId, 'site_explorer');
+        const siteData = (siteBlock?.blockStateJson as any) || {};
+        const funderBlock = await storage.getInfoBlock(projectId, 'funder_selection');
+        const funderData = (funderBlock?.blockStateJson as any) || {};
+
+        const result = await regenerateAffectedBlocks({
+          allBlocks: blocks,
+          selectedZones: siteData.selectedZones || [],
+          interventionBundles: impactData.interventionBundles || [],
+          funderPathway: funderData.funderPathway || { primary: 'general' },
+          projectName: 'Urban Climate Resilience Initiative',
+          cityName: 'Porto Alegre',
+          projectId,
+          lens,
+        });
+
+        if (result.affectedBlockIds.length === 0) {
+          return {
+            name,
+            result: {
+              success: true,
+              affectedCount: 0,
+              message: "All blocks are already consistent with your edits. No regeneration needed!",
+            },
+          };
+        }
+
+        const updatedNarrativeCache = { ...narrativeCache };
+        if (isLensVariant) {
+          updatedNarrativeCache.lensVariants = {
+            ...(updatedNarrativeCache.lensVariants || {}),
+            [lens]: result.updatedBlocks,
+          };
+        } else {
+          updatedNarrativeCache.base = result.updatedBlocks;
+        }
+
+        const updatedState = {
+          ...impactData,
+          narrativeCache: updatedNarrativeCache,
+        };
+
+        await storage.upsertInfoBlock(projectId, 'impact_model', {
+          projectId,
+          blockType: 'impact_model',
+          status: 'DRAFT',
+          blockStateJson: updatedState,
+        });
+
+        const affectedNames = result.affectedBlockIds.map(id => {
+          const b = blocks.find((bl: any) => bl.id === id);
+          return b ? `"${b.title}"` : id;
+        });
+
+        return {
+          name,
+          result: {
+            success: true,
+            affectedCount: result.affectedBlockIds.length,
+            affectedBlocks: affectedNames,
+            conflictSummary: result.conflictSummary,
+            reasons: result.reasons,
+            message: `Regenerated ${result.affectedBlockIds.length} blocks that were affected by your edits: ${affectedNames.join(', ')}. ${result.conflictSummary}`,
           },
         };
       }

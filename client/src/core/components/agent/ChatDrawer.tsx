@@ -323,6 +323,7 @@ export function ChatDrawer() {
                   regenerate_block: 'impact_model',
                   regenerate_narrative: 'impact_model',
                   regenerate_kpis: 'impact_model',
+                  regenerate_affected_blocks: 'impact_model',
                 };
                 const syncBlockType = blockSyncTools[lastToolCall.name];
                 if (syncBlockType && data.toolResult.result?.success) {
@@ -471,6 +472,7 @@ export function ChatDrawer() {
                   regenerate_block: 'impact_model',
                   regenerate_narrative: 'impact_model',
                   regenerate_kpis: 'impact_model',
+                  regenerate_affected_blocks: 'impact_model',
                 };
                 const syncBlockType = blockSyncTools[lastToolCall.name];
                 if (syncBlockType && data.toolResult.result?.success) {
