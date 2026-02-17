@@ -1426,6 +1426,15 @@ function NarrateStep({
         : data.narrativeCache?.base || []);
   const blocks = activeBlocks;
   const editedBlockCount = blocks.filter(b => b.userEdited).length;
+  const prevEditedCountRef = useRef(editedBlockCount);
+
+  useEffect(() => {
+    if (editedBlockCount !== prevEditedCountRef.current) {
+      prevEditedCountRef.current = editedBlockCount;
+      setAffectedBlocksInfo(null);
+      setAffectedSummary('');
+    }
+  }, [editedBlockCount]);
 
   const availableLenses: LensType[] = ['neutral', 'climate', 'social', 'financial', 'institutional'];
   const lensesWithContent = availableLenses.filter(l => {
@@ -1533,97 +1542,6 @@ function NarrateStep({
               </div>
             )}
           </div>
-
-          {editedBlockCount > 0 && !isRegenerating && (
-            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                    {editedBlockCount} {editedBlockCount === 1 ? 'section has' : 'sections have'} been manually edited
-                  </p>
-                  <p className="text-xs text-amber-600 dark:text-amber-300 mt-1">
-                    Other sections may need updating to stay consistent with your changes.
-                  </p>
-                  {affectedBlocksInfo === null ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-2 h-8 text-xs border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/50"
-                      onClick={handleDetectAffected}
-                      disabled={isDetecting}
-                    >
-                      {isDetecting ? (
-                        <>
-                          <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                          Checking for conflicts...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="h-3 w-3 mr-1.5" />
-                          Check for affected sections
-                        </>
-                      )}
-                    </Button>
-                  ) : affectedBlocksInfo.length === 0 ? (
-                    <div className="mt-2 flex items-center gap-2">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span className="text-xs text-green-700 dark:text-green-400">All sections are consistent. No updates needed.</span>
-                      <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => setAffectedBlocksInfo(null)}>
-                        Dismiss
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="mt-2 space-y-2">
-                      {affectedSummary && (
-                        <p className="text-xs text-amber-700 dark:text-amber-300">{affectedSummary}</p>
-                      )}
-                      <div className="space-y-1">
-                        {affectedBlocksInfo.map(a => {
-                          const block = blocks.find(b => b.id === a.blockId);
-                          return (
-                            <div key={a.blockId} className="flex items-start gap-2 text-xs">
-                              <span className="font-medium text-amber-800 dark:text-amber-200 whitespace-nowrap">{block?.title || a.blockId}:</span>
-                              <span className="text-amber-600 dark:text-amber-400">{a.reason}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="flex gap-2 mt-1">
-                        <Button
-                          size="sm"
-                          className="h-8 text-xs gap-1.5"
-                          onClick={handleRegenerateAffected}
-                        >
-                          <RefreshCw className="h-3 w-3" />
-                          Update {affectedBlocksInfo.length} {affectedBlocksInfo.length === 1 ? 'section' : 'sections'}
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setAffectedBlocksInfo(null); setAffectedSummary(''); }}>
-                          Dismiss
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {isRegenerating && (
-            <Card className="border-primary/20">
-              <CardContent className="py-6">
-                <div className="flex flex-col items-center text-center space-y-3">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  <div>
-                    <p className="text-sm font-medium">Updating affected sections...</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Re-planning scope and regenerating {affectedBlocksInfo?.length || 'selected'} blocks while preserving your edits
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           <div className="space-y-4 max-w-3xl">
             {blocks.map((block, index) => {
@@ -1789,6 +1707,97 @@ function NarrateStep({
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {(editedBlockCount > 0 || isRegenerating) && hasNarrative && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
+          <div className="max-w-3xl mx-auto px-4 pb-4 pointer-events-auto">
+            {isRegenerating ? (
+              <div className="bg-white dark:bg-gray-900 border border-primary/30 rounded-lg shadow-lg p-4">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Updating affected sections...</p>
+                    <p className="text-xs text-muted-foreground">
+                      Regenerating while preserving your edits
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg shadow-lg p-3">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                        {editedBlockCount} {editedBlockCount === 1 ? 'section' : 'sections'} edited
+                      </p>
+                      {affectedBlocksInfo !== null && affectedBlocksInfo.length === 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+                          <Check className="h-3 w-3" /> All consistent
+                        </span>
+                      )}
+                      {affectedBlocksInfo !== null && affectedBlocksInfo.length > 0 && (
+                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                          {affectedBlocksInfo.length} {affectedBlocksInfo.length === 1 ? 'section needs' : 'sections need'} updating
+                        </span>
+                      )}
+                    </div>
+                    {affectedBlocksInfo !== null && affectedBlocksInfo.length > 0 && (
+                      <div className="mt-1.5 space-y-0.5">
+                        {affectedBlocksInfo.map(a => {
+                          const blk = blocks.find(b => b.id === a.blockId);
+                          return (
+                            <p key={a.blockId} className="text-xs text-amber-600 dark:text-amber-400 truncate">
+                              <span className="font-medium">{blk?.title || a.blockId}</span>: {a.reason}
+                            </p>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {affectedBlocksInfo === null ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                        onClick={handleDetectAffected}
+                        disabled={isDetecting}
+                      >
+                        {isDetecting ? (
+                          <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3 w-3 mr-1.5" />
+                        )}
+                        {isDetecting ? 'Checking...' : 'Check for conflicts'}
+                      </Button>
+                    ) : affectedBlocksInfo.length > 0 ? (
+                      <>
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs gap-1.5"
+                          onClick={handleRegenerateAffected}
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Update {affectedBlocksInfo.length}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-8 text-xs px-2 text-amber-600" onClick={() => { setAffectedBlocksInfo(null); setAffectedSummary(''); }}>
+                          Dismiss
+                        </Button>
+                      </>
+                    ) : (
+                      <Button size="sm" variant="ghost" className="h-8 text-xs px-2 text-amber-600" onClick={() => setAffectedBlocksInfo(null)}>
+                        Dismiss
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
