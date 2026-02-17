@@ -1,6 +1,6 @@
 # Overview
 
-The NBS Project Builder is a Nature Based Solutions planning tool designed to help cities develop climate action recommendations. It integrates with CityCatalyst's climate data platform to provide evidence-based mitigation and adaptation strategies, utilizing Health Impact Assessment Policy (HIAP) data. The platform features geospatial risk analysis, a business model wizard, and an AI-powered impact model. Its primary goal is to accelerate urban sustainability by making NBS project development more accessible and efficient for cities, streamlining project planning and financing.
+The NBS Project Builder is a Nature Based Solutions planning tool that assists cities in developing climate action recommendations. It integrates with CityCatalyst's climate data platform to deliver evidence-based mitigation and adaptation strategies, utilizing Health Impact Assessment Policy (HIAP) data. The platform offers geospatial risk analysis, a business model wizard, and an AI-powered impact model. Its core purpose is to accelerate urban sustainability by simplifying NBS project development for cities, streamlining project planning and financing processes.
 
 # User Preferences
 
@@ -11,7 +11,7 @@ Preferred communication style: Simple, everyday language.
 ## Frontend
 - **Frameworks**: React 18+ with TypeScript, Vite, Wouter.
 - **Styling**: Tailwind CSS with shadcn/ui.
-- **State Management**: React Query/TanStack Query, React Hook Form, and a dedicated context for sample data.
+- **State Management**: React Query/TanStack Query, React Hook Form.
 
 ## Backend
 - **Framework**: Express.js with TypeScript.
@@ -23,12 +23,6 @@ Preferred communication style: Simple, everyday language.
 - **Database**: PostgreSQL (production), in-memory (development).
 - **Entities**: Users, Cities, Sessions, Projects.
 - **Abstracted Storage Layer**: For flexible storage implementation.
-
-## Knowledge Workspace
-- **Core Tables**: `info_blocks`, `evidence_records`, `assumptions`, `agent_action_log`, `project_patches`.
-- **Module Registry**: Defines module structure for `funder_selection`, `site_explorer`, `impact_model`, `operations`, and `business_model`.
-- **Agent Action Protocol**: Supports proposing, applying, rejecting patches, auto-completion, and suggestions.
-- **Sample Mode**: Uses database-backed architecture with a shared, writable project.
 
 ## Conversational AI Agent
 - **Architecture**: OpenAI client (`gpt-5.2`) for streaming and structured outputs, an agent service for multi-turn tool orchestration.
@@ -42,9 +36,8 @@ Preferred communication style: Simple, everyday language.
 - **Agent Tool**: `search_knowledge` with tag filtering.
 
 ## Document Knowledge Base
-- **Registry**: `shared/document-knowledge-registry.ts` defines categories, tags, and document metadata.
 - **Categories**: `nbs_intervention_impacts`, `funder_guidelines`, `technical_standards`, `case_studies`, `local_context`, `economic_data`, `policy_frameworks`, `climate_science`.
-- **Auto-Seeding**: Ensures missing documents from `INITIAL_KNOWLEDGE_DOCUMENTS` are seeded on server startup.
+- **Auto-Seeding**: Ensures missing documents are seeded on server startup.
 
 ## Authentication & Authorization
 - **Mechanism**: OAuth 2.0 PKCE with CityCatalyst.
@@ -82,63 +75,23 @@ Ensures real-time UI updates upon AI agent proposed changes approval through dat
 - **Key Design**: Navigation state is stored in a SEPARATE `localStorage` key, isolated from domain data to prevent race conditions.
 
 ## Field Validation Registry
-- **Location**: `shared/block-schemas.ts` - centralized `FIELD_VALIDATIONS` object.
 - **Purpose**: Scalable, declarative validation for patch values across all modules.
 
 ## Field Relationships Registry
-- **Location**: `shared/block-schemas.ts` - centralized `FIELD_RELATIONSHIPS` object.
 - **Purpose**: Auto-create related patches when dependent fields are updated using various sync types.
 
-## Agent Tool Reference
-The agent utilizes tools like `get_project_state`, `get_block`, `propose_patch`, `record_evidence`, `search_knowledge`, `lookup_location`, `add_intervention_site`, `select_funder`, `regenerate_kpis`, `regenerate_narrative`, and `regenerate_block` for context understanding and modifications.
-
-## Reusable UI/Agent Patterns
-- **Update Banner Pattern**: For prompting users to update outdated information.
-- **Agent Context Integration**: `useChatState()` provides `openChatWithMessage(message: string)` for opening chat with pre-filled messages.
-- **User-Friendly Agent Response Formatting**: System prompt ensures readable language, logical grouping, plain labels, translated enum values, and bullet points.
-- **Cross-Module Navigation Buttons**: `[NAV_BUTTON:path|label]` syntax in chat messages for clickable navigation.
-- **Action Confirmation Buttons**: `[ACTION_BUTTON:action_type|Button Label|{"param":"value"}]` syntax in chat messages for user-confirmed actions (see below).
-- **Post-Patch Readiness Recalculation**: Shared utility `funding-readiness.ts` computes readiness scores and determines pathways.
-
 ## Agent Action Button Pattern
-- **Purpose**: When the AI agent suggests a long-running or destructive action (e.g., regeneration, re-quantification), it should NOT execute the action directly. Instead, it includes an `ACTION_BUTTON` in its message so the user can confirm with a single click.
-- **Syntax**: `[ACTION_BUTTON:action_type|Button Label|{"param":"value"}]`
-  - `action_type`: A short identifier for the action (e.g., `regenerate_narrative`, `regenerate_block`).
-  - `Button Label`: Human-readable text shown on the button.
-  - JSON params: A JSON object with parameters for the action. Keep keys simple; avoid `]` or `|` characters in values.
-- **Frontend** (`client/src/core/components/agent/ChatDrawer.tsx`):
-  - `parseMessageButtons()` extracts both `NAV_BUTTON` and `ACTION_BUTTON` from message content.
-  - Action buttons render with loading spinner while executing, and a checkmark once completed.
-  - State: `executingAction` (currently running action key) and `completedActions` (set of finished action keys) prevent duplicate clicks.
-  - Handler: `handleActionButton()` calls `POST /api/projects/:projectId/agent/action` with `{ action, params }`.
-- **Backend** (`server/routes/agentRoutes.ts`):
-  - `POST /api/projects/:projectId/agent/action` receives `{ action: string, params: object }`.
-  - A `switch` on `action` dispatches to the appropriate service function (e.g., `regenerateBlock`, `generateNarrativeFromKPIs`).
-  - Returns `{ success: boolean, message: string }`.
-- **Agent System Prompt** (`server/services/agentService.ts`):
-  - The system prompt instructs the agent to use `ACTION_BUTTON` syntax instead of calling regeneration tools directly.
-  - The agent tools still exist as a fallback but the prompt prioritizes buttons.
-- **Adding a New Action** (checklist):
-  1. **Choose an action_type**: A short, stable identifier (e.g., `recalculate_costs`).
-  2. **Add a case** in the `switch` block of `POST /api/projects/:projectId/agent/action` in `server/routes/agentRoutes.ts`. Import and call the relevant service function, update storage with results, and return `{ success, message }`.
-  3. **Update agent system prompt** in `server/services/agentService.ts` to document the new action and provide an example `ACTION_BUTTON` syntax for the agent.
-  4. **No frontend changes needed** — the `ChatDrawer` automatically parses and renders any new `ACTION_BUTTON` types.
-- **Existing Actions**: `regenerate_narrative`, `regenerate_block`, `regenerate_affected`, `regenerate_kpis`.
+- **Purpose**: AI agent suggests long-running or destructive actions via `ACTION_BUTTON` in messages for user confirmation instead of direct execution.
+- **Frontend Handling**: `ChatDrawer` parses `ACTION_BUTTON`s, renders them with loading/completion states.
+- **Backend Handling**: `POST /api/projects/:projectId/agent/action` receives action and parameters, dispatches to appropriate service function.
+- **Agent Prompting**: System prompt instructs the agent to use `ACTION_BUTTON` syntax.
 
 ## SSE Progress Streaming
 - **Pattern**: Long-running AI endpoints use Server-Sent Events to stream real-time progress updates.
-- **Backend**: `ProgressCallback` type `(event: { stepId?: string; step: string; detail?: string; status?: string }) => void` for key stage updates, `text/event-stream` headers, and event emission.
-- **Frontend**: `processSSERequest()` utility in `client/src/core/pages/impact-model.tsx` for SSE parsing and `ProgressLog` component (`client/src/core/components/ui/progress-log.tsx`) for animated activity feed.
-- **Endpoints Using SSE**: `/api/impact-model/quantify`, `/api/impact-model/narrate`, `/api/impact-model/narrate` (selective regeneration mode), `/api/impact-model/regenerate-block`.
-- **SSE Event Format**: Each SSE line is `data: JSON\n\n`. JSON has a `type` field: `progress` (in-flight updates), `result` (final payload), or `error` (failure message).
-- **stepId Merging**: Progress events include a `stepId` field. The `mergeProgressEntry()` function uses `stepId` to replace an existing "start" entry with its "done" counterpart, even when the display text differs. This prevents duplicate spinner/checkmark entries in the UI.
-  - **Rule**: Always include `stepId` in both the "start" and "done" events for the same logical step. Use a short, stable ID (e.g., `'quant-rag'`, `'narrate-plan'`, `'regen-detect'`).
-  - **Fallback**: If `stepId` is omitted, `mergeProgressEntry` falls back to matching by `step` text. This is fragile when start and done messages differ, so always prefer `stepId`.
-- **Adding SSE to a New Endpoint** (checklist for other modules):
-  1. **Route**: Set `res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' })`. Create a `sendProgress` callback that writes `data: JSON\n\n` lines. Pass it to the service function. Write final `{ type: 'result', ...payload }` then `res.end()`. Wrap errors: if headers already sent, write `{ type: 'error' }` event; otherwise return normal JSON error.
-  2. **Service function**: Accept `onProgress?: ProgressCallback` as the last parameter. Emit `{ stepId, step, status: 'start' }` before each major phase and `{ stepId, step, status: 'done' }` after. Keep the same `stepId` for both.
-  3. **Frontend handler**: Use `processSSERequest(url, body, onResult, onError, onProgress)`. Store progress entries in a `useState<ProgressEntry[]>([])`. Pass the setter with `mergeProgressEntry`: `(entry) => setEntries(prev => mergeProgressEntry(prev, entry))`. Clear entries at the start of each operation.
-  4. **UI**: Pass the progress entries array to `<GenerationModal progressEntries={entries} />` or render `<ProgressLog entries={entries} />` directly.
+- **Backend**: `ProgressCallback` for key stage updates, `text/event-stream` headers, and event emission.
+- **Frontend**: `processSSERequest()` utility for SSE parsing and `ProgressLog` component for animated activity feed.
+- **SSE Event Format**: `data: JSON\n\n` with `type` field (`progress`, `result`, `error`).
+- **`stepId` Merging**: Ensures progress entries are correctly merged and updated in the UI.
 
 # External Dependencies
 
