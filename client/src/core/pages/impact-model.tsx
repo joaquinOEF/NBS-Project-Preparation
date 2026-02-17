@@ -1463,17 +1463,16 @@ function NarrateStep({
           preDetectedReasons,
         },
         (result) => {
-          if (result.updatedBlocks && result.affectedBlockIds?.length > 0) {
-            const isLensVariant = activeLens !== 'neutral';
-            if (isLensVariant) {
-              const updatedVariants = {
-                ...(data.narrativeCache?.lensVariants || {}),
-                [activeLens]: result.updatedBlocks,
-              };
-              onUpdate({ narrativeCache: { ...data.narrativeCache, lensVariants: updatedVariants } });
-            } else {
-              onUpdate({ narrativeCache: { ...data.narrativeCache, base: result.updatedBlocks } });
-            }
+          const blocksToSave = result.updatedBlocks || blocks.map((b: NarrativeBlock) => ({ ...b, userEdited: false }));
+          const isLensVariant = activeLens !== 'neutral';
+          if (isLensVariant) {
+            const updatedVariants = {
+              ...(data.narrativeCache?.lensVariants || {}),
+              [activeLens]: blocksToSave,
+            };
+            onUpdate({ narrativeCache: { ...data.narrativeCache, lensVariants: updatedVariants } });
+          } else {
+            onUpdate({ narrativeCache: { ...data.narrativeCache, base: blocksToSave } });
           }
           setAffectedBlocksInfo(null);
           setAffectedSummary('');
