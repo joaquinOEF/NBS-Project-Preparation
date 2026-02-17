@@ -141,3 +141,6 @@ The agent utilizes tools like `get_project_state`, `get_block`, `get_field_optio
 - **OpenStreetMap Overpass API**: For geospatial asset discovery.
 - **OpenStreetMap Nominatim API**: For location lookup.
 - **OpenAI GPT-5.2**: For AI-powered conversational agent and impact model generation.
+
+## Known Patterns & Pitfalls
+- **Callback Stability / Hydration Jitter**: See `docs/callback-stability-patterns.md` for the full pattern. TL;DR: Never use `updateModule` directly as a `useCallback` dependency — use `useRef` to stabilize. Unstable callback identities cause mount effects to re-run, triggering DB re-hydration that races with in-flight saves and snaps UI back to stale state.

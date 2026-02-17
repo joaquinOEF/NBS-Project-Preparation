@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useParams, Link } from 'wouter';
 import DOMPurify from 'dompurify';
 import { ArrowLeft, Lightbulb, Settings, Sparkles, Edit3, Eye, Download, Check, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Copy, FileText, Clock, AlertCircle, Scale, Thermometer, Users, TrendingUp, Building2, Info, Droplets, Mountain, Loader2 } from 'lucide-react';
@@ -2126,6 +2126,9 @@ export default function ImpactModelPage() {
   const { toast } = useToast();
   const { setPageContext } = useChatState();
   
+  const updateModuleRef = useRef(updateModule);
+  updateModuleRef.current = updateModule;
+  
   // Separate navigation persistence from domain data
   const { 
     navigationState: savedNavState, 
@@ -2225,7 +2228,7 @@ export default function ImpactModelPage() {
             downstreamSignals: normalizedSignals,
           };
           setLocalData(freshData);
-          updateModule('impactModel', freshData, { skipDbSync: true });
+          updateModuleRef.current('impactModel', freshData, { skipDbSync: true });
           console.log('[ImpactModel] Hydrated from database (context synced)');
           
           // Navigation is handled by useNavigationPersistence hook — do NOT set currentStep here
@@ -2238,7 +2241,7 @@ export default function ImpactModelPage() {
       console.error('[ImpactModel] DB hydration failed:', err);
       setDataHydrated(true);
     }
-  }, [projectId, isSampleMode, isSampleRoute, updateModule]);
+  }, [projectId, isSampleMode, isSampleRoute]);
 
   // Restore navigation from dedicated hook — only after data is hydrated to prevent jitter
   useEffect(() => {
