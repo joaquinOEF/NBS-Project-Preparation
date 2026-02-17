@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/t
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/core/components/ui/collapsible';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/core/components/ui/dropdown-menu';
 import { ScrollArea } from '@/core/components/ui/scroll-area';
-import { ProgressLog, type ProgressEntry } from '@/core/components/ui/progress-log';
+import { ProgressLog, mergeProgressEntry, type ProgressEntry } from '@/core/components/ui/progress-log';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/core/components/ui/tooltip';
 import { useTranslation } from 'react-i18next';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
@@ -62,7 +62,7 @@ async function processSSERequest(
           try {
             const parsed = JSON.parse(line.slice(6));
             if (parsed.type === 'progress') {
-              onProgress?.({ step: parsed.step, detail: parsed.detail, status: parsed.status, timestamp: Date.now() });
+              onProgress?.({ step: parsed.step, detail: parsed.detail || parsed.step, status: parsed.status, timestamp: Date.now() });
             } else if (parsed.type === 'result') {
               gotResult = true;
               onResult(parsed);
@@ -1413,7 +1413,7 @@ function NarrateStep({
     onError?: (msg: string) => void,
   ) => {
     setProgressEntries([]);
-    await processSSERequest(url, body, onResult, onError, (entry) => setProgressEntries(prev => [...prev, entry]));
+    await processSSERequest(url, body, onResult, onError, (entry) => setProgressEntries(prev => mergeProgressEntry(prev, entry)));
   };
 
   const handleDetectAffected = async () => {
@@ -2948,7 +2948,7 @@ export default function ImpactModelPage() {
               try {
                 const parsed = JSON.parse(line.slice(6));
                 if (parsed.type === 'progress') {
-                  setNarrateProgressEntries(prev => [...prev, { step: parsed.step, detail: parsed.detail, status: parsed.status, timestamp: Date.now() }]);
+                  setNarrateProgressEntries(prev => mergeProgressEntry(prev, { step: parsed.step, detail: parsed.detail, status: parsed.status, timestamp: Date.now() }));
                 } else if (parsed.type === 'result') {
                   gotResult = true;
                   result = parsed;

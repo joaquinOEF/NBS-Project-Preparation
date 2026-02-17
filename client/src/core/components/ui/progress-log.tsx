@@ -8,6 +8,18 @@ export interface ProgressEntry {
   timestamp: number;
 }
 
+export function mergeProgressEntry(prev: ProgressEntry[], entry: ProgressEntry): ProgressEntry[] {
+  if (entry.status === 'done' || entry.status === 'error') {
+    const idx = prev.findIndex(e => e.step === entry.step && e.status === 'start');
+    if (idx !== -1) {
+      const updated = [...prev];
+      updated[idx] = { ...entry };
+      return updated;
+    }
+  }
+  return [...prev, entry];
+}
+
 interface ProgressLogProps {
   entries: ProgressEntry[];
   maxVisible?: number;
