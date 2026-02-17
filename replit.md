@@ -108,9 +108,10 @@ Ensures real-time UI updates upon AI agent proposed changes approval, involving 
 - **Current Relationships**: `funder_selection`: selectedFunds → shortlistedFunds; `business_model`: primaryPayerId → candidatePayers; `operations`: operatingModel/operatorEntityId → readiness checklist flags.
 
 ## Agent Tool Reference
-The agent utilizes tools like `get_project_state`, `get_block`, `get_field_options`, `propose_patch`, `record_evidence`, `search_knowledge`, `get_pending_patches`, `lookup_location`, `find_zone_for_coordinates`, `add_intervention_site`, `select_funder`, `regenerate_kpis`, and `regenerate_narrative` for context understanding and modifications.
+The agent utilizes tools like `get_project_state`, `get_block`, `get_field_options`, `propose_patch`, `record_evidence`, `search_knowledge`, `get_pending_patches`, `lookup_location`, `find_zone_for_coordinates`, `add_intervention_site`, `select_funder`, `regenerate_kpis`, `regenerate_narrative`, and `regenerate_block` for context understanding and modifications.
 - **`regenerate_kpis`**: Triggers the full RAG-grounded quantification pipeline. Reads zones from Site Explorer and bundles from Impact Model, validates prerequisites, calls `generateQuantifiedImpacts`, and saves results directly to the impact_model block.
 - **`regenerate_narrative`**: Triggers the 3-phase narrative pipeline (Plan → Generate → Assemble). Supports analytical lenses (neutral, climate, social, financial, institutional) and custom instructions. Saves results to narrativeCache (base or lensVariants) in the impact_model block.
+- **`regenerate_block`**: Regenerates a SINGLE narrative block by ID. Reads the target block from narrativeCache (base or lens variant), calls `regenerateBlock` with custom instructions, and saves the updated block back. Used for per-block chat-driven editing. Preferred over `regenerate_narrative` when the user wants to change just one section.
 
 ## Reusable UI/Agent Patterns
 - **Update Banner Pattern**: For prompting users to update outdated information, using amber styling and `AlertCircle` icon.

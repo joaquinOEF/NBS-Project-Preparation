@@ -87,6 +87,7 @@ interface NarrativeBlock {
   evidenceTier: string;
   included: boolean;
   kpis?: Array<{ name: string; valueRange: string; unit: string; confidence: string }>;
+  userEdited?: boolean;
 }
 
 interface CoBenefitCard {

@@ -1,7 +1,7 @@
 import { openai, type Message, type ReasoningEffort } from "./openaiClient";
 import { storage } from "../storage";
 import { semanticSearch, getKnowledgeStats } from "./knowledgeService";
-import { generateQuantifiedImpacts, generateNarrativeFromKPIs } from "./impactModelService";
+import { generateQuantifiedImpacts, generateNarrativeFromKPIs, regenerateBlock } from "./impactModelService";
 import { 
   type InfoBlock, 
   type InfoBlockType, 
@@ -345,7 +345,7 @@ const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "regenerate_narrative",
-    description: "Regenerate the impact narrative for the Impact Model. This triggers the full 3-phase narrative pipeline (Plan → Generate → Assemble) using existing quantified KPIs. Optionally applies an analytical lens (climate, social, financial, institutional) to reframe the narrative. Use when the user wants a new narrative, a different lens perspective, or provides custom instructions for focus.",
+    description: "Regenerate the ENTIRE impact narrative for the Impact Model. This triggers the full 3-phase narrative pipeline (Plan → Generate → Assemble) using existing quantified KPIs. Optionally applies an analytical lens. Use when the user wants to regenerate ALL blocks, a different lens perspective, or provides custom instructions for the whole narrative.",
     parameters: {
       type: "object",
       properties: {
@@ -364,6 +364,34 @@ const AGENT_TOOLS: AgentTool[] = [
         },
       },
       required: ["lens", "customInstructions", "reason"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "regenerate_block",
+    description: "Regenerate a SINGLE narrative block in the Impact Model. Use this when the user wants to refine or change a specific section of the narrative (e.g., 'make the Executive Summary more concise', 'add more data to Risk Assessment'). This is much faster than regenerating the entire narrative. The block is regenerated with the user's custom instructions while preserving all other blocks.",
+    parameters: {
+      type: "object",
+      properties: {
+        blockId: {
+          type: "string",
+          description: "The ID of the narrative block to regenerate (e.g., 'block-1', 'summary-1'). Get this from the pageContext's editingBlock.id or from the current narrative state.",
+        },
+        lens: {
+          type: "string",
+          enum: ["neutral", "climate", "social", "financial", "institutional"],
+          description: "Which lens variant the block belongs to. Use the lens from pageContext's editingBlock.lens if available.",
+        },
+        customInstructions: {
+          type: "string",
+          description: "The user's instructions for how to change this block (e.g., 'focus more on financial ROI', 'add specific numbers from the KPIs', 'make it shorter and more direct').",
+        },
+        reason: {
+          type: "string",
+          description: "Brief summary of changes the user wants (shown for confirmation).",
+        },
+      },
+      required: ["blockId", "lens", "customInstructions", "reason"],
       additionalProperties: false,
     },
   },
@@ -421,13 +449,28 @@ Use **regenerate_narrative** tool to:
 - Apply custom instructions (e.g., "emphasize biodiversity", "focus on flood risk reduction for the IDB funder")
 - Regenerate after KPIs have been updated
 
+Use **regenerate_block** tool to:
+- Refine a SINGLE narrative block based on user instructions (much faster than full regeneration)
+- The user may open chat from a specific block's edit menu — check pageContext.additionalInfo.editingBlock for block ID, title, type, and lens
+- When the user wants to change just one section, ALWAYS prefer regenerate_block over regenerate_narrative
+
+### Block-Level Chat Editing Flow
+When a user opens chat from a narrative block's edit menu:
+1. The pageContext will contain editingBlock info (id, title, type, lens)
+2. Ask what they want to change about that specific block
+3. Summarize the requested changes as a bullet list
+4. Ask for confirmation: "I'll regenerate this block with these changes — shall I proceed?"
+5. On confirmation, use regenerate_block with the block ID and lens from pageContext
+6. After regeneration, ask: "Does the updated version look good, or would you like further changes?"
+
 ### Agent Guidance for Impact Model
 - If user is on Step 1: Help configure bundles and weights, explain what each bundle includes
 - If user is on Step 2: Explain KPI results, suggest re-quantification if inputs changed, help interpret numbers
 - If user is on Step 3: Help refine narrative, suggest lens perspectives, explain what each narrative block covers
-- When the user asks to "regenerate" or "redo" the narrative → use regenerate_narrative tool
+- When the user asks to change a SPECIFIC block/section → use regenerate_block tool
+- When the user asks to "regenerate" or "redo" the ENTIRE narrative → use regenerate_narrative tool
 - When the user asks to "re-quantify" or "update KPIs" → use regenerate_kpis tool
-- After regeneration, tell the user to refresh the page to see updated results
+- After regeneration, the page updates automatically — no need to tell users to refresh
 
 ## Evidence-Based Approach
 When generating or editing Impact Model narratives:
@@ -1538,7 +1581,80 @@ export async function executeAgentTool(
             success: true,
             lens,
             narrativeBlockCount: result.narrativeBlocks?.length || 0,
-            message: `Successfully generated ${lens !== 'neutral' ? lens + ' lens' : 'neutral'} narrative with ${result.narrativeBlocks?.length || 0} blocks. The user should refresh the Impact Model page to see the updated narrative.`,
+            message: `Successfully generated ${lens !== 'neutral' ? lens + ' lens' : 'neutral'} narrative with ${result.narrativeBlocks?.length || 0} blocks. The updated content will appear in the Impact Model page.`,
+          },
+        };
+      }
+
+      case "regenerate_block": {
+        const { blockId, lens, customInstructions, reason } = args as {
+          blockId: string;
+          lens: string;
+          customInstructions: string;
+          reason: string;
+        };
+
+        const impactBlock = await storage.getInfoBlock(projectId, 'impact_model');
+        const impactData = (impactBlock?.blockStateJson as any) || {};
+        const narrativeCache = impactData.narrativeCache || {};
+        
+        const isLensVariant = lens && lens !== 'neutral';
+        const blocks = isLensVariant
+          ? (narrativeCache.lensVariants?.[lens] || [])
+          : (narrativeCache.base || []);
+        
+        const targetBlock = blocks.find((b: any) => b.id === blockId);
+        if (!targetBlock) {
+          return {
+            name,
+            result: null,
+            error: `Block "${blockId}" not found in ${isLensVariant ? lens + ' lens' : 'base'} narrative. Available blocks: ${blocks.map((b: any) => b.id).join(', ')}`,
+          };
+        }
+
+        console.log(`🔄 Agent regenerate_block: blockId=${blockId}, lens=${lens}, reason=${reason}`);
+
+        const result = await regenerateBlock({
+          block: targetBlock,
+          customPrompt: customInstructions,
+          projectContext: {
+            cityName: 'Porto Alegre',
+            hazards: impactData.interventionBundles?.filter((b: any) => b.enabled).map((b: any) => b.hazardType) || [],
+            interventions: impactData.interventionBundles?.filter((b: any) => b.enabled).map((b: any) => b.name) || [],
+          },
+        });
+
+        const updatedBlocks = blocks.map((b: any) => b.id === blockId ? { ...result, id: blockId } : b);
+        const updatedNarrativeCache = { ...narrativeCache };
+        if (isLensVariant) {
+          updatedNarrativeCache.lensVariants = {
+            ...(updatedNarrativeCache.lensVariants || {}),
+            [lens]: updatedBlocks,
+          };
+        } else {
+          updatedNarrativeCache.base = updatedBlocks;
+        }
+
+        const updatedState = {
+          ...impactData,
+          narrativeCache: updatedNarrativeCache,
+        };
+
+        await storage.upsertInfoBlock(projectId, 'impact_model', {
+          projectId,
+          blockType: 'impact_model',
+          status: 'DRAFT',
+          blockStateJson: updatedState,
+        });
+
+        return {
+          name,
+          result: {
+            success: true,
+            blockId,
+            blockTitle: targetBlock.title,
+            lens,
+            message: `Successfully regenerated the "${targetBlock.title}" block${isLensVariant ? ` (${lens} lens)` : ''}. The updated content will appear in the Impact Model page. Does the new version look good, or would you like to make further changes?`,
           },
         };
       }

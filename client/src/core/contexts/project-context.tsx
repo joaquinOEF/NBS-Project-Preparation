@@ -287,6 +287,7 @@ export interface NarrativeBlock {
   dependencies?: string[];
   included: boolean;
   order?: number;
+  userEdited?: boolean;
 }
 
 export interface CoBenefitCard {

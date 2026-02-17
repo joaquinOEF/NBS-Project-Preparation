@@ -319,6 +319,15 @@ export function ChatDrawer() {
                       : msg
                   )
                 );
+                const blockSyncTools: Record<string, string> = {
+                  regenerate_block: 'impact_model',
+                  regenerate_narrative: 'impact_model',
+                  regenerate_kpis: 'impact_model',
+                };
+                const syncBlockType = blockSyncTools[lastToolCall.name];
+                if (syncBlockType && data.toolResult.result?.success) {
+                  syncBlockToLocalStorage(syncBlockType);
+                }
               }
             } else if (data.type === "done") {
               fetchPendingPatches();
@@ -458,6 +467,15 @@ export function ChatDrawer() {
                       : msg
                   )
                 );
+                const blockSyncTools: Record<string, string> = {
+                  regenerate_block: 'impact_model',
+                  regenerate_narrative: 'impact_model',
+                  regenerate_kpis: 'impact_model',
+                };
+                const syncBlockType = blockSyncTools[lastToolCall.name];
+                if (syncBlockType && data.toolResult.result?.success) {
+                  syncBlockToLocalStorage(syncBlockType);
+                }
               }
             } else if (data.type === "done") {
               fetchPendingPatches();

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useParams, Link } from 'wouter';
 import DOMPurify from 'dompurify';
-import { ArrowLeft, Lightbulb, Settings, Sparkles, Edit3, Eye, Download, Check, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Copy, FileText, Clock, AlertCircle, Scale, Thermometer, Users, TrendingUp, Building2, Info, Droplets, Mountain, Loader2 } from 'lucide-react';
+import { ArrowLeft, Lightbulb, Settings, Sparkles, Edit3, Eye, Download, Check, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Copy, FileText, Clock, AlertCircle, Scale, Thermometer, Users, TrendingUp, Building2, Info, Droplets, Mountain, Loader2, MessageSquare, Pencil, Undo2, Save } from 'lucide-react';
 import { useNavigationPersistence } from '@/core/hooks/useNavigationPersistence';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
@@ -15,6 +15,7 @@ import { Textarea } from '@/core/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/core/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/core/components/ui/collapsible';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/core/components/ui/dropdown-menu';
 import { ScrollArea } from '@/core/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/core/components/ui/tooltip';
 import { useTranslation } from 'react-i18next';
@@ -1260,11 +1261,84 @@ function NarrateStep({
   onNarrate: (lens?: LensType, lensInstructions?: string) => Promise<void>;
 }) {
   const { t } = useTranslation();
+  const { openChatWithMessage, setPageContext } = useChatState();
   const hasNarrative = (data.narrativeCache?.base?.length ?? 0) > 0;
   const hasKPIs = (data.quantifiedImpacts?.impactGroups?.length ?? 0) > 0;
   const activeLens = data.selectedLens || 'neutral';
   const [selectedLensForGen, setSelectedLensForGen] = useState<LensType>(activeLens);
   const [lensInstructions, setLensInstructions] = useState('');
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
+  const [editingLens, setEditingLens] = useState<string | null>(null);
+  const blockSnapshotRef = useRef<Record<string, string>>({});
+
+  const updateBlockContent = (blockId: string, newContent: string, markEdited: boolean, lensOverride?: string) => {
+    const lens = lensOverride || activeLens;
+    const isLensVariant = lens !== 'neutral';
+    if (isLensVariant) {
+      const updatedVariants = {
+        ...(data.narrativeCache?.lensVariants || {}),
+        [lens]: (data.narrativeCache?.lensVariants?.[lens] || []).map(b =>
+          b.id === blockId ? { ...b, contentMd: newContent, ...(markEdited ? { userEdited: true } : {}) } : b
+        ),
+      };
+      onUpdate({ narrativeCache: { ...data.narrativeCache, lensVariants: updatedVariants } });
+    } else {
+      const updatedBase = (data.narrativeCache?.base || []).map(b =>
+        b.id === blockId ? { ...b, contentMd: newContent, ...(markEdited ? { userEdited: true } : {}) } : b
+      );
+      onUpdate({ narrativeCache: { ...data.narrativeCache, base: updatedBase } });
+    }
+  };
+
+  const handleStartEdit = (block: NarrativeBlock) => {
+    blockSnapshotRef.current[block.id] = block.contentMd;
+    setEditDraft(block.contentMd);
+    setEditingBlockId(block.id);
+    setEditingLens(activeLens);
+  };
+
+  const handleSaveEdit = (blockId: string) => {
+    updateBlockContent(blockId, editDraft, true, editingLens || undefined);
+    setEditingBlockId(null);
+    setEditDraft('');
+    setEditingLens(null);
+  };
+
+  const handleCancelEdit = (blockId: string) => {
+    const snapshot = blockSnapshotRef.current[blockId];
+    if (snapshot !== undefined) {
+      updateBlockContent(blockId, snapshot, false, editingLens || undefined);
+    }
+    setEditingBlockId(null);
+    setEditDraft('');
+    setEditingLens(null);
+  };
+
+  const handleRevertBlock = (blockId: string) => {
+    const snapshot = blockSnapshotRef.current[blockId];
+    if (snapshot !== undefined) {
+      updateBlockContent(blockId, snapshot, false);
+      delete blockSnapshotRef.current[blockId];
+    }
+  };
+
+  const handleChatAboutBlock = (block: NarrativeBlock) => {
+    setPageContext({
+      moduleName: 'impactModel',
+      currentStep: 'narrate',
+      additionalInfo: {
+        editingBlock: {
+          id: block.id,
+          title: block.title,
+          type: block.type,
+          lens: activeLens,
+        },
+      },
+    });
+    const lensLabel = activeLens !== 'neutral' ? ` (${activeLens} lens)` : '';
+    openChatWithMessage(`I'd like to refine the "${block.title}"${lensLabel} section of my impact narrative.`);
+  };
 
   useEffect(() => {
     setSelectedLensForGen(activeLens);
@@ -1384,42 +1458,102 @@ function NarrateStep({
           </div>
 
           <div className="space-y-4 max-w-3xl">
-            {blocks.map((block, index) => (
-              <Card key={block.id} className={`overflow-hidden ${!block.included ? 'opacity-60' : ''}`}>
-                <CardHeader className="py-3 bg-muted/30">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-muted-foreground w-5">{index + 1}.</span>
-                      <CardTitle className="text-base">{block.title}</CardTitle>
+            {blocks.map((block, index) => {
+              const isEditing = editingBlockId === block.id;
+              const hasSnapshot = !!blockSnapshotRef.current[block.id];
+              return (
+                <Card key={block.id} className={`group/block overflow-hidden relative ${!block.included ? 'opacity-60' : ''}`}>
+                  <CardHeader className="py-3 bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-muted-foreground w-5">{index + 1}.</span>
+                        <CardTitle className="text-base">{block.title}</CardTitle>
+                        {block.userEdited && (
+                          <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">edited</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-2">
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {(block.type || 'content').replace(/_/g, ' ')}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {block.evidenceTier}
+                          </Badge>
+                        </div>
+                        {isEditing ? (
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => handleCancelEdit(block.id)}>
+                              Cancel
+                            </Button>
+                            <Button size="sm" className="h-7 px-2 text-xs gap-1" onClick={() => handleSaveEdit(block.id)}>
+                              <Save className="h-3 w-3" />
+                              Save
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-1 opacity-0 group-hover/block:opacity-100 transition-opacity">
+                            {hasSnapshot && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleRevertBlock(block.id)}>
+                                      <Undo2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Revert to previous version</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleStartEdit(block)}>
+                                  <Edit3 className="h-4 w-4 mr-2" />
+                                  Edit text directly
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleChatAboutBlock(block)}>
+                                  <MessageSquare className="h-4 w-4 mr-2" />
+                                  Chat about changes
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Badge variant="outline" className="text-xs capitalize">
-                        {(block.type || 'content').replace(/_/g, ' ')}
-                      </Badge>
-                      <Badge variant="secondary" className="text-xs">
-                        {block.evidenceTier}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div 
-                    className="prose prose-sm dark:prose-invert max-w-none"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(block.contentMd) }}
-                  />
-                  {block.kpis && block.kpis.length > 0 && (
-                    <div className="mt-3 pt-3 border-t flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {block.kpis.length} KPI{block.kpis.length > 1 ? 's' : ''} referenced
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {block.kpis.map(k => k.name).join(', ')}
-                      </span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    {isEditing ? (
+                      <Textarea
+                        value={editDraft}
+                        onChange={(e) => setEditDraft(e.target.value)}
+                        className="min-h-[200px] text-sm font-mono"
+                      />
+                    ) : (
+                      <div 
+                        className="prose prose-sm dark:prose-invert max-w-none"
+                        dangerouslySetInnerHTML={{ __html: renderMarkdown(block.contentMd) }}
+                      />
+                    )}
+                    {block.kpis && block.kpis.length > 0 && (
+                      <div className="mt-3 pt-3 border-t flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {block.kpis.length} KPI{block.kpis.length > 1 ? 's' : ''} referenced
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {block.kpis.map(k => k.name).join(', ')}
+                        </span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           <Card className="border-dashed border-primary/30 bg-primary/5">
