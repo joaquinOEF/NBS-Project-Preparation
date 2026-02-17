@@ -523,6 +523,8 @@ Return a JSON object with the regenerated block:
 // Phase C: Regenerate only affected blocks in parallel
 // ============================================
 
+export type ProgressCallback = (event: { step: string; detail?: string; status?: 'start' | 'done' | 'info' | 'error' }) => void;
+
 interface AffectedBlockInfo {
   blockId: string;
   reason: string;
@@ -684,27 +686,43 @@ Does this block contradict, duplicate, or conflict with any of the claims above?
 async function detectConflicts(
   allBlocks: NarrativeBlock[],
   editedBlockIds: string[],
+  onProgress?: ProgressCallback,
 ): Promise<ConflictDetectionResult> {
   console.log(`🔍 Conflict Detection (claim-based): ${allBlocks.length} blocks, ${editedBlockIds.length} edited...`);
 
   const editedBlocks = allBlocks.filter(b => editedBlockIds.includes(b.id));
   const otherBlocks = allBlocks.filter(b => !editedBlockIds.includes(b.id));
 
+  onProgress?.({ step: 'Extracting key claims from edited sections', status: 'start' });
   const claims = await extractKeyClaims(editedBlocks);
   if (claims.length === 0) {
     console.log(`   ⚠️ No claims extracted — skipping conflict check`);
+    onProgress?.({ step: 'No claims extracted', status: 'error' });
     return { affectedBlocks: [], summary: "Could not extract key claims from edited blocks." };
   }
+  onProgress?.({ step: `Extracted ${claims.length} factual claims`, status: 'done' });
 
+  onProgress?.({ step: 'Scanning sections for related content', status: 'start' });
   const candidates = findCandidateBlocks(claims, otherBlocks);
   if (candidates.length === 0) {
     console.log(`   ✅ No candidate blocks found — all blocks are likely consistent`);
+    onProgress?.({ step: 'No related sections found — all consistent', status: 'done' });
     return { affectedBlocks: [], summary: "No other sections reference the topics you changed." };
   }
+  onProgress?.({ step: `Found ${candidates.length} sections to check`, status: 'done' });
 
   console.log(`   🔄 Checking ${candidates.length} candidate blocks for contradictions...`);
+  onProgress?.({ step: `Checking ${candidates.length} sections for contradictions`, status: 'start' });
+
+  let checkedCount = 0;
   const results = await Promise.all(
-    candidates.map(block => checkBlockForContradictions(block, claims))
+    candidates.map(async (block) => {
+      const result = await checkBlockForContradictions(block, claims);
+      checkedCount++;
+      const icon = result ? '❌' : '✓';
+      onProgress?.({ step: `${icon} "${block.title}"`, detail: result ? result.reason.slice(0, 120) : 'consistent', status: 'info' });
+      return result;
+    })
   );
 
   const affectedBlocks = results.filter((r): r is AffectedBlockInfo => r !== null);
@@ -712,6 +730,7 @@ async function detectConflicts(
     ? `Found ${affectedBlocks.length} section(s) that may conflict with your edits.`
     : "All sections are consistent with your changes.";
 
+  onProgress?.({ step: affectedBlocks.length > 0 ? `${affectedBlocks.length} sections need updating` : 'All sections are consistent', status: 'done' });
   console.log(`   ✅ Found ${affectedBlocks.length} affected blocks: ${affectedBlocks.map(a => a.blockId).join(', ') || 'none'}`);
   return { affectedBlocks, summary };
 }
@@ -847,16 +866,18 @@ export interface RegenerateAffectedResponse {
 
 export async function detectAffectedBlocks(
   allBlocks: NarrativeBlock[],
+  onProgress?: ProgressCallback,
 ): Promise<ConflictDetectionResult> {
   const editedBlockIds = allBlocks.filter(b => b.userEdited).map(b => b.id);
   if (editedBlockIds.length === 0) {
     return { affectedBlocks: [], summary: "No blocks have been manually edited." };
   }
-  return detectConflicts(allBlocks, editedBlockIds);
+  return detectConflicts(allBlocks, editedBlockIds, onProgress);
 }
 
 export async function regenerateAffectedBlocks(
   request: RegenerateAffectedRequest,
+  onProgress?: ProgressCallback,
 ): Promise<RegenerateAffectedResponse> {
   const { allBlocks, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId, lens, lensInstructions, preDetectedAffectedBlockIds, preDetectedReasons } = request;
 
@@ -877,8 +898,9 @@ export async function regenerateAffectedBlocks(
     reasons = preDetectedReasons || {};
     summary = `${affectedIds.length} blocks pre-detected as needing regeneration.`;
     console.log(`   ⏩ Skipping re-detection — using ${affectedIds.length} pre-detected affected blocks`);
+    onProgress?.({ step: `Updating ${affectedIds.length} affected sections`, status: 'start' });
   } else {
-    const detected = await detectConflicts(allBlocks, editedBlockIds);
+    const detected = await detectConflicts(allBlocks, editedBlockIds, onProgress);
     if (detected.affectedBlocks.length === 0) {
       console.log('   ✅ No conflicts detected — all blocks are consistent.');
       return { affectedBlockIds: [], conflictSummary: detected.summary, updatedBlocks: allBlocks, reasons: {} };
@@ -891,7 +913,6 @@ export async function regenerateAffectedBlocks(
 
   const lockedBlocks = allBlocks.filter(b => editedBlockIds.includes(b.id));
 
-  // Build project context and KPI summary
   const projectContext = buildProjectContext(selectedZones, interventionBundles, funderPathway, projectName, cityName);
   const ragProjectId = projectId || 'global-knowledge-base';
 
@@ -900,38 +921,41 @@ export async function regenerateAffectedBlocks(
   let mrvSummary = '';
   let evidenceBlock = '';
 
-  // Attempt to get KPI data from the existing blocks' KPIs
   const allKpis = allBlocks.flatMap(b => (b.kpis || []).map(k => `• ${k.name}: ${k.valueRange} ${k.unit} (${k.confidence})`));
   kpiSummary = allKpis.length > 0 ? allKpis.join('\n') : 'No KPI data available from blocks';
 
-  // Fetch evidence
+  onProgress?.({ step: 'Searching knowledge base for evidence', status: 'start' });
   console.log('🔍 Fetching RAG evidence for selective regeneration...');
   try {
     const { evidenceBlock: eb } = await fetchNarrativeEvidence(ragProjectId, selectedZones, interventionBundles);
     evidenceBlock = eb;
+    onProgress?.({ step: 'Evidence retrieved', status: 'done' });
   } catch {
     evidenceBlock = 'No evidence available.';
+    onProgress?.({ step: 'No evidence found — continuing without', status: 'info' });
   }
 
-  // Phase B: Scoped re-planning (with contradiction reasons for targeted fixes)
+  onProgress?.({ step: `Planning scope for ${affectedIds.length} sections`, status: 'start' });
   const scopedOutline = await planScopedOutline(
     affectedIds, lockedBlocks, allBlocks, projectContext, kpiSummary, lens, lensInstructions, reasons,
   );
+  onProgress?.({ step: `Outline ready — ${scopedOutline.length} sections scoped`, status: 'done' });
 
-  // Phase C: Regenerate affected blocks in parallel
   console.log(`✍️  Phase C: Regenerating ${scopedOutline.length} blocks in parallel...`);
+  onProgress?.({ step: `Writing ${scopedOutline.length} sections in parallel`, status: 'start' });
   const regeneratedBlocks = await generateBlocksBatch(
     scopedOutline, projectContext, kpiSummary, coBenefitSummary, mrvSummary,
     evidenceBlock, funderPathway, lens, lensInstructions,
   );
+  onProgress?.({ step: `${regeneratedBlocks.length} sections regenerated`, status: 'done' });
 
-  // Merge: replace affected blocks with regenerated ones, keep everything else
+  // Merge: replace affected blocks with regenerated ones, and clear userEdited on ALL blocks
   const regeneratedMap = new Map(regeneratedBlocks.map(b => [b.id, b]));
   const updatedBlocks = allBlocks.map(b => {
     if (regeneratedMap.has(b.id)) {
       return { ...regeneratedMap.get(b.id)!, userEdited: false };
     }
-    return b;
+    return { ...b, userEdited: false };
   });
 
   console.log(`✅ Affected blocks pipeline complete: ${regeneratedBlocks.length} blocks regenerated`);
@@ -1466,7 +1490,8 @@ Generate 2-3 operations and 2-3 business model signals. Be specific to the proje
 }
 
 export async function generateNarrativeFromKPIs(
-  request: NarrateFromKPIsRequest
+  request: NarrateFromKPIsRequest,
+  onProgress?: ProgressCallback,
 ): Promise<GenerateNarrativeResponse> {
   const { quantifiedImpacts, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId, lens, lensInstructions } = request;
 
@@ -1477,20 +1502,25 @@ export async function generateNarrativeFromKPIs(
   const { kpiSummary, coBenefitSummary, mrvSummary } = buildKPISummary(quantifiedImpacts);
 
   const ragProjectId = projectId || 'global-knowledge-base';
+  onProgress?.({ step: 'Searching knowledge base for evidence', status: 'start' });
   console.log('🔍 Fetching RAG evidence for narrative...');
   const { evidenceBlock, topSources } = await fetchNarrativeEvidence(ragProjectId, selectedZones, interventionBundles);
   console.log(`   Found ${topSources.length} evidence sources`);
+  onProgress?.({ step: `Found ${topSources.length} evidence sources`, status: 'done' });
 
-  // PHASE 1: Plan outline (prevents block duplication)
+  onProgress?.({ step: 'Planning narrative structure', status: 'start' });
   const outline = await planNarrativeOutline(projectContext, kpiSummary, coBenefitSummary, mrvSummary, evidenceBlock, lens, lensInstructions);
+  onProgress?.({ step: `Outline ready — ${outline.blocks.length} sections planned`, status: 'done' });
 
-  // PHASE 2: Generate all 10 blocks in parallel + supplementary in parallel
   console.log(`✍️  Phase 2: Generating blocks in parallel${lensLabel ? ` with ${lensLabel} lens` : ''}...`);
+  onProgress?.({ step: `Writing ${outline.blocks.length} sections in parallel`, status: 'start' });
   const [narrativeBlocks, supplementary] = await Promise.all([
     generateBlocksBatch(outline.blocks, projectContext, kpiSummary, coBenefitSummary, mrvSummary, evidenceBlock, funderPathway, lens, lensInstructions),
     generateSupplementary(projectContext, kpiSummary, coBenefitSummary, funderPathway),
   ]);
+  onProgress?.({ step: `${narrativeBlocks.length} sections generated`, status: 'done' });
 
+  onProgress?.({ step: 'Assembling final narrative', status: 'done' });
   console.log(`✅ Phase 3: Assembled ${narrativeBlocks.length} blocks`);
 
   return {

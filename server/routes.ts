@@ -1119,7 +1119,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate prose narrative from quantified KPIs (supports optional lens for full pipeline regeneration)
   app.post('/api/impact-model/narrate', async (req: any, res) => {
     try {
       const { quantifiedImpacts, selectedZones, interventionBundles, funderPathway, projectName, cityName, projectId, lens, lensInstructions } = req.body;
@@ -1127,6 +1126,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!quantifiedImpacts || !selectedZones || !interventionBundles) {
         return res.status(400).json({ message: 'quantifiedImpacts, selectedZones, and interventionBundles are required' });
       }
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+
+      const sendProgress = (event: { step: string; detail?: string; status?: string }) => {
+        try { res.write(`data: ${JSON.stringify({ type: 'progress', ...event })}\n\n`); } catch {}
+      };
 
       console.log(`📝 3-Phase Narrative: ${quantifiedImpacts.impactGroups?.length || 0} impact groups, ${quantifiedImpacts.coBenefits?.length || 0} co-benefits${lens && lens !== 'neutral' ? ` [${lens} lens]` : ''}`);
 
@@ -1140,14 +1149,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projectId,
         lens,
         lensInstructions,
-      });
+      }, sendProgress);
 
       console.log(`   ✅ Generated ${result.narrativeBlocks.length} narrative blocks via 3-phase pipeline`);
 
-      res.json(result);
+      res.write(`data: ${JSON.stringify({ type: 'result', ...result })}\n\n`);
+      res.end();
     } catch (error: any) {
       console.error('Narrate from KPIs error:', error);
-      res.status(500).json({ message: error.message || 'Failed to generate narrative from KPIs' });
+      if (!res.headersSent) {
+        res.status(500).json({ message: error.message || 'Failed to generate narrative from KPIs' });
+      } else {
+        try { res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`); res.end(); } catch {}
+      }
     }
   });
 
@@ -1163,12 +1177,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ affectedBlocks: [], summary: 'No blocks have been manually edited.' });
       }
 
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+
+      const sendProgress = (event: { step: string; detail?: string; status?: string }) => {
+        try { res.write(`data: ${JSON.stringify({ type: 'progress', ...event })}\n\n`); } catch {}
+      };
+
       console.log(`🔍 Detect affected blocks: ${editedCount} edited out of ${blocks.length}`);
-      const result = await detectAffectedBlocks(blocks);
-      res.json(result);
+      const result = await detectAffectedBlocks(blocks, sendProgress);
+
+      res.write(`data: ${JSON.stringify({ type: 'result', ...result })}\n\n`);
+      res.end();
     } catch (error: any) {
       console.error('Detect affected blocks error:', error);
-      res.status(500).json({ message: error.message || 'Failed to detect affected blocks' });
+      if (!res.headersSent) {
+        res.status(500).json({ message: error.message || 'Failed to detect affected blocks' });
+      } else {
+        try { res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`); res.end(); } catch {}
+      }
     }
   });
 
@@ -1185,6 +1215,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ affectedBlockIds: [], conflictSummary: 'No blocks have been manually edited.', updatedBlocks: blocks, reasons: {} });
       }
 
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+
+      const sendProgress = (event: { step: string; detail?: string; status?: string }) => {
+        try { res.write(`data: ${JSON.stringify({ type: 'progress', ...event })}\n\n`); } catch {}
+      };
+
       console.log(`🔄 Regenerate affected blocks: ${editedCount} edited, lens=${lens || 'neutral'}${preDetectedAffectedBlockIds?.length ? ` (${preDetectedAffectedBlockIds.length} pre-detected)` : ''}`);
 
       const result = await regenerateAffectedBlocks({
@@ -1199,13 +1239,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lensInstructions,
         preDetectedAffectedBlockIds,
         preDetectedReasons,
-      });
+      }, sendProgress);
 
       console.log(`   ✅ Regenerated ${result.affectedBlockIds.length} affected blocks`);
-      res.json(result);
+      res.write(`data: ${JSON.stringify({ type: 'result', ...result })}\n\n`);
+      res.end();
     } catch (error: any) {
       console.error('Regenerate affected blocks error:', error);
-      res.status(500).json({ message: error.message || 'Failed to regenerate affected blocks' });
+      if (!res.headersSent) {
+        res.status(500).json({ message: error.message || 'Failed to regenerate affected blocks' });
+      } else {
+        try { res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`); res.end(); } catch {}
+      }
     }
   });
 

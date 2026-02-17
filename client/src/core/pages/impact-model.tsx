@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/core/components/ui/t
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/core/components/ui/collapsible';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/core/components/ui/dropdown-menu';
 import { ScrollArea } from '@/core/components/ui/scroll-area';
+import { ProgressLog, type ProgressEntry } from '@/core/components/ui/progress-log';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/core/components/ui/tooltip';
 import { useTranslation } from 'react-i18next';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
@@ -24,6 +25,65 @@ import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useProjectContext, ImpactModelData, LensType, InterventionBundle, NarrativeBlock, CoBenefitCard, SignalCard, QuantifyResponse, QuantifiedImpactGroup, QuantifiedKPI, sampleSiteExplorer, sampleFunderSelection } from '@/core/contexts/project-context';
 import { useToast } from '@/core/hooks/use-toast';
 import { useChatState } from '@/core/contexts/chat-context';
+
+async function processSSERequest(
+  url: string,
+  body: any,
+  onResult: (data: any) => void,
+  onError?: (msg: string) => void,
+  onProgress?: (entry: ProgressEntry) => void,
+): Promise<void> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('text/event-stream')) {
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error('No reader available');
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let gotResult = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const parsed = JSON.parse(line.slice(6));
+            if (parsed.type === 'progress') {
+              onProgress?.({ step: parsed.step, detail: parsed.detail, status: parsed.status, timestamp: Date.now() });
+            } else if (parsed.type === 'result') {
+              gotResult = true;
+              onResult(parsed);
+            } else if (parsed.type === 'error') {
+              onError?.(parsed.message || 'Unknown error');
+            }
+          } catch (e) {
+            console.warn('SSE parse error:', e, 'line:', line.slice(0, 100));
+          }
+        }
+      }
+    }
+
+    if (!gotResult) {
+      onError?.('Stream ended without a result');
+    }
+  } else {
+    const result = await res.json();
+    onResult(result);
+  }
+}
 
 type WizardStep = 'setup' | 'quantify' | 'narrate';
 
@@ -564,10 +624,12 @@ function SetupStep({
 
 function GenerationModal({ 
   isOpen, 
-  estimatedTime 
+  estimatedTime,
+  progressEntries,
 }: { 
   isOpen: boolean;
   estimatedTime: string;
+  progressEntries?: ProgressEntry[];
 }) {
   const { t } = useTranslation();
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
@@ -626,6 +688,12 @@ function GenerationModal({
                 <Clock className="h-4 w-4" />
                 <span>{t('impactModel.estimatedTime')}: {estimatedTime}</span>
               </div>
+
+              {progressEntries && progressEntries.length > 0 && (
+                <div className="w-full text-left">
+                  <ProgressLog entries={progressEntries} maxVisible={6} />
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -1336,19 +1404,34 @@ function NarrateStep({
   const [isDetecting, setIsDetecting] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [affectedSummary, setAffectedSummary] = useState('');
+  const [progressEntries, setProgressEntries] = useState<ProgressEntry[]>([]);
+
+  const processSSEStream = async (
+    url: string,
+    body: any,
+    onResult: (data: any) => void,
+    onError?: (msg: string) => void,
+  ) => {
+    setProgressEntries([]);
+    await processSSERequest(url, body, onResult, onError, (entry) => setProgressEntries(prev => [...prev, entry]));
+  };
 
   const handleDetectAffected = async () => {
     setIsDetecting(true);
+    setProgressEntries([]);
     try {
-      const res = await fetch('/api/impact-model/detect-affected', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blocks }),
-      });
-      if (!res.ok) throw new Error('Detection failed');
-      const result = await res.json();
-      setAffectedBlocksInfo(result.affectedBlocks || []);
-      setAffectedSummary(result.summary || '');
+      await processSSEStream(
+        '/api/impact-model/detect-affected',
+        { blocks },
+        (result) => {
+          setAffectedBlocksInfo(result.affectedBlocks || []);
+          setAffectedSummary(result.summary || '');
+        },
+        (msg) => {
+          setAffectedBlocksInfo([]);
+          setAffectedSummary(msg || 'Could not detect affected blocks.');
+        },
+      );
     } catch (err) {
       console.error('Failed to detect affected blocks:', err);
       setAffectedBlocksInfo([]);
@@ -1360,15 +1443,15 @@ function NarrateStep({
 
   const handleRegenerateAffected = async () => {
     setIsRegenerating(true);
+    setProgressEntries([]);
     try {
       const preDetectedAffectedBlockIds = affectedBlocksInfo?.map((a: any) => a.blockId) || [];
       const preDetectedReasons: Record<string, string> = {};
       (affectedBlocksInfo || []).forEach((a: any) => { preDetectedReasons[a.blockId] = a.reason; });
 
-      const res = await fetch('/api/impact-model/regenerate-affected', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await processSSEStream(
+        '/api/impact-model/regenerate-affected',
+        {
           blocks,
           selectedZones: siteExplorerZones || [],
           interventionBundles: data.interventionBundles || [],
@@ -1378,26 +1461,24 @@ function NarrateStep({
           lens: activeLens,
           preDetectedAffectedBlockIds,
           preDetectedReasons,
-        }),
-      });
-      if (!res.ok) throw new Error('Regeneration failed');
-      const result = await res.json();
-
-      if (result.updatedBlocks && result.affectedBlockIds?.length > 0) {
-        const isLensVariant = activeLens !== 'neutral';
-        if (isLensVariant) {
-          const updatedVariants = {
-            ...(data.narrativeCache?.lensVariants || {}),
-            [activeLens]: result.updatedBlocks,
-          };
-          onUpdate({ narrativeCache: { ...data.narrativeCache, lensVariants: updatedVariants } });
-        } else {
-          onUpdate({ narrativeCache: { ...data.narrativeCache, base: result.updatedBlocks } });
-        }
-      }
-
-      setAffectedBlocksInfo(null);
-      setAffectedSummary('');
+        },
+        (result) => {
+          if (result.updatedBlocks && result.affectedBlockIds?.length > 0) {
+            const isLensVariant = activeLens !== 'neutral';
+            if (isLensVariant) {
+              const updatedVariants = {
+                ...(data.narrativeCache?.lensVariants || {}),
+                [activeLens]: result.updatedBlocks,
+              };
+              onUpdate({ narrativeCache: { ...data.narrativeCache, lensVariants: updatedVariants } });
+            } else {
+              onUpdate({ narrativeCache: { ...data.narrativeCache, base: result.updatedBlocks } });
+            }
+          }
+          setAffectedBlocksInfo(null);
+          setAffectedSummary('');
+        },
+      );
     } catch (err) {
       console.error('Failed to regenerate affected blocks:', err);
     } finally {
@@ -1720,7 +1801,7 @@ function NarrateStep({
         <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
           <div className="max-w-3xl mx-auto px-4 pb-4 pointer-events-auto">
             {isRegenerating ? (
-              <div className="bg-white dark:bg-gray-900 border border-primary/30 rounded-lg shadow-lg p-4">
+              <div className="bg-white dark:bg-gray-900 border border-primary/30 rounded-lg shadow-lg p-4 space-y-3">
                 <div className="flex items-center gap-3">
                   <Loader2 className="h-5 w-5 animate-spin text-primary flex-shrink-0" />
                   <div>
@@ -1730,6 +1811,7 @@ function NarrateStep({
                     </p>
                   </div>
                 </div>
+                <ProgressLog entries={progressEntries} />
               </div>
             ) : (
               <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg shadow-lg p-3">
@@ -1778,7 +1860,7 @@ function NarrateStep({
                         ) : (
                           <RefreshCw className="h-3 w-3 mr-1.5" />
                         )}
-                        {isDetecting ? 'Checking...' : 'Check for conflicts'}
+                        {isDetecting ? 'Analyzing...' : 'Check for conflicts'}
                       </Button>
                     ) : affectedBlocksInfo.length > 0 ? (
                       <>
@@ -1801,6 +1883,9 @@ function NarrateStep({
                     )}
                   </div>
                 </div>
+                {isDetecting && progressEntries.length > 0 && (
+                  <ProgressLog entries={progressEntries} className="mt-2" />
+                )}
               </div>
             )}
           </div>
@@ -2460,6 +2545,7 @@ export default function ImpactModelPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isQuantifying, setIsQuantifying] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState<string | null>(null);
+  const [narrateProgressEntries, setNarrateProgressEntries] = useState<ProgressEntry[]>([]);
   const [localData, setLocalData] = useState<ImpactModelData>(getDefaultImpactModelData());
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -2819,6 +2905,7 @@ export default function ImpactModelPage() {
 
     const isLensGeneration = lens && lens !== 'neutral';
     setIsGenerating(true);
+    setNarrateProgressEntries([]);
 
     try {
       const zonesForAI = buildZonesForAI(true);
@@ -2842,7 +2929,43 @@ export default function ImpactModelPage() {
         throw new Error('Failed to generate narrative from KPIs');
       }
 
-      const result = await response.json();
+      let result: any;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('text/event-stream')) {
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('No reader');
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let gotResult = false;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const parsed = JSON.parse(line.slice(6));
+                if (parsed.type === 'progress') {
+                  setNarrateProgressEntries(prev => [...prev, { step: parsed.step, detail: parsed.detail, status: parsed.status, timestamp: Date.now() }]);
+                } else if (parsed.type === 'result') {
+                  gotResult = true;
+                  result = parsed;
+                } else if (parsed.type === 'error') {
+                  throw new Error(parsed.message);
+                }
+              } catch (e: any) {
+                if (e.message && !e.message.includes('Unexpected end of JSON input') && !e.message.includes('Unexpected token')) throw e;
+                console.warn('SSE parse warning:', e);
+              }
+            }
+          }
+        }
+        if (!gotResult) throw new Error('Stream ended without result');
+      } else {
+        result = await response.json();
+      }
       
       const normalized = normalizeAIResponse(result);
 
@@ -3105,6 +3228,7 @@ export default function ImpactModelPage() {
         <GenerationModal 
           isOpen={isGenerating || isQuantifying} 
           estimatedTime={isQuantifying ? "20-40 seconds" : "45-90 seconds"}
+          progressEntries={isGenerating ? narrateProgressEntries : undefined}
         />
 
         <div className="mb-6">
