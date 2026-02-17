@@ -101,8 +101,18 @@ The agent utilizes tools like `get_project_state`, `get_block`, `propose_patch`,
 
 ## SSE Progress Streaming
 - **Pattern**: Long-running AI endpoints use Server-Sent Events to stream real-time progress updates.
-- **Backend**: `ProgressCallback` for key stage updates, `text/event-stream` headers, and event emission.
-- **Frontend**: `processSSERequest()` utility for SSE parsing and `ProgressLog` component for animated activity feed.
+- **Backend**: `ProgressCallback` type `(event: { stepId?: string; step: string; detail?: string; status?: string }) => void` for key stage updates, `text/event-stream` headers, and event emission.
+- **Frontend**: `processSSERequest()` utility in `client/src/core/pages/impact-model.tsx` for SSE parsing and `ProgressLog` component (`client/src/core/components/ui/progress-log.tsx`) for animated activity feed.
+- **Endpoints Using SSE**: `/api/impact-model/quantify`, `/api/impact-model/narrate`, `/api/impact-model/narrate` (selective regeneration mode), `/api/impact-model/regenerate-block`.
+- **SSE Event Format**: Each SSE line is `data: JSON\n\n`. JSON has a `type` field: `progress` (in-flight updates), `result` (final payload), or `error` (failure message).
+- **stepId Merging**: Progress events include a `stepId` field. The `mergeProgressEntry()` function uses `stepId` to replace an existing "start" entry with its "done" counterpart, even when the display text differs. This prevents duplicate spinner/checkmark entries in the UI.
+  - **Rule**: Always include `stepId` in both the "start" and "done" events for the same logical step. Use a short, stable ID (e.g., `'quant-rag'`, `'narrate-plan'`, `'regen-detect'`).
+  - **Fallback**: If `stepId` is omitted, `mergeProgressEntry` falls back to matching by `step` text. This is fragile when start and done messages differ, so always prefer `stepId`.
+- **Adding SSE to a New Endpoint** (checklist for other modules):
+  1. **Route**: Set `res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' })`. Create a `sendProgress` callback that writes `data: JSON\n\n` lines. Pass it to the service function. Write final `{ type: 'result', ...payload }` then `res.end()`. Wrap errors: if headers already sent, write `{ type: 'error' }` event; otherwise return normal JSON error.
+  2. **Service function**: Accept `onProgress?: ProgressCallback` as the last parameter. Emit `{ stepId, step, status: 'start' }` before each major phase and `{ stepId, step, status: 'done' }` after. Keep the same `stepId` for both.
+  3. **Frontend handler**: Use `processSSERequest(url, body, onResult, onError, onProgress)`. Store progress entries in a `useState<ProgressEntry[]>([])`. Pass the setter with `mergeProgressEntry`: `(entry) => setEntries(prev => mergeProgressEntry(prev, entry))`. Clear entries at the start of each operation.
+  4. **UI**: Pass the progress entries array to `<GenerationModal progressEntries={entries} />` or render `<ProgressLog entries={entries} />` directly.
 
 # External Dependencies
 
