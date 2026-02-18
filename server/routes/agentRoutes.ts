@@ -52,8 +52,6 @@ export function registerAgentRoutes(app: Express): void {
       res.setHeader("Connection", "keep-alive");
       res.setHeader("X-Conversation-Id", convId.toString());
 
-      const useQuickModel = pageContext?.additionalInfo?.useQuickModel === true;
-
       const context: AgentContext = {
         projectId,
         currentPage,
@@ -61,7 +59,7 @@ export function registerAgentRoutes(app: Express): void {
         pageGoal: getPageGoal(currentPage),
         conversationHistory: conversationHistory.slice(0, -1),
         pageContext,
-        reasoningEffort: useQuickModel ? "none" : "low",
+        reasoningEffort: "low",
       };
 
       let fullResponse = "";
@@ -333,7 +331,7 @@ export function registerAgentRoutes(app: Express): void {
             },
           });
 
-          narrativeBlocks[resolvedIndex] = result;
+          narrativeBlocks[resolvedIndex] = { ...result, id: targetBlock.id, userEdited: true };
           const updated = saveNarrativeBlocks(activeLens, narrativeBlocks);
           await storage.upsertInfoBlock(projectId, 'impact_model', { blockStateJson: updated });
 
