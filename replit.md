@@ -62,7 +62,7 @@ Preferred communication style: Simple, everyday language.
 - **Quantification Architecture**: KPIs are zone-specific and intervention-site-specific, with AI prompts receiving full intervention portfolio data.
 - **3-Phase Narrative Pipeline**: Plan (outline generation), Generate (parallel block generation), Assemble (combination and validation). RAG integration occurs before Phase 1.
 - **Selective Regeneration Pipeline**: Detects affected sections after manual edits, re-plans, and regenerates only necessary blocks.
-- **Per-Block Editing**: "Update with Agent" opens chat with pre-filled input hint (not auto-sent). Uses `useQuickModel: true` in pageContext to trigger `reasoning: { effort: "none" }` for fastest responses. After single-block regeneration, an ACTION_BUTTON is auto-suggested for conflict detection across remaining blocks. Inline editing also supported for direct text changes.
+- **Per-Block Editing**: "Update with Agent" opens chat with pre-filled input hint (not auto-sent). Uses `useQuickModel: true` in pageContext to trigger `reasoning: { effort: "none" }` for fastest responses. After single-block regeneration, an ACTION_BUTTON is auto-suggested for conflict detection across remaining blocks.
 
 ## Module Development Pattern
 Modules follow a 5-layer integration: Page Goal, Block Type, Module Page, Context Integration, and RAG Ingestion for consistency and agent awareness.

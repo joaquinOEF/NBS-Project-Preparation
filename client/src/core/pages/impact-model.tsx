@@ -1337,7 +1337,7 @@ function NarrateStep({
   cityName?: string;
 }) {
   const { t } = useTranslation();
-  const { openChatWithInputHint, setPageContext } = useChatState();
+  const { openChatWithMessage, setPageContext } = useChatState();
   const hasNarrative = (data.narrativeCache?.base?.length ?? 0) > 0;
   const hasKPIs = (data.quantifiedImpacts?.impactGroups?.length ?? 0) > 0;
   const activeLens = data.selectedLens || 'neutral';
@@ -1500,7 +1500,7 @@ function NarrateStep({
       },
     });
     const lensLabel = activeLens !== 'neutral' ? ` (${activeLens} lens)` : '';
-    openChatWithInputHint(`Change the "${block.title}"${lensLabel} to `);
+    openChatWithMessage(`I'd like to refine the "${block.title}"${lensLabel} section of my impact narrative.`);
   };
 
   useEffect(() => {
