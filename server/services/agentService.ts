@@ -1905,9 +1905,10 @@ export async function* streamAgentResponse(
       const response = await openai.responses.create({
         model: "gpt-5.2",
         input: messages.map(m => ({ role: m.role, content: m.content })),
-        max_output_tokens: 4096,
+        max_output_tokens: isQuickPhase ? 200 : 4096,
         reasoning: { effort: effort as any },
         ...(isQuickPhase ? {} : { tools }),
+        ...(isQuickPhase ? { instructions: "Give a brief 1-2 sentence acknowledgment. Do NOT ask questions, list options, or provide suggestions yet. Just confirm you understand and will work on it." } : {}),
       });
 
       const output = response.output || [];
@@ -1945,9 +1946,12 @@ export async function* streamAgentResponse(
       }
 
       if (isQuickPhase) {
+        const separator = "\n\n";
+        fullText += separator;
+        yield { type: "text", content: separator };
         messages.push({
           role: "assistant",
-          content: fullText,
+          content: fullText.trim(),
         });
         quickPhaseComplete = true;
         continue;
