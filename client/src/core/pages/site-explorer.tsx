@@ -389,29 +389,27 @@ export default function SiteExplorerPage() {
     });
   }, [selectedZone, navigationRestored, updateNavigationState]);
 
-  // Listen for agent block updates and re-hydrate local state
   useEffect(() => {
     const handleBlockUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent;
+      const customEvent = event as CustomEvent<{ blockType: string; moduleName: string; data: any }>;
       if (customEvent.detail?.blockType === 'site_explorer') {
-        console.log('[SiteExplorer] Received nbs-block-updated event, re-hydrating...');
-        // Re-fetch data from context and update local state
-        const existingContext = loadContext(projectId || '', { skipDbSync: true });
-        if (existingContext?.siteExplorer?.selectedZones) {
+        console.log('[SiteExplorer] Received nbs-block-updated event, applying data directly');
+        const data = customEvent.detail.data;
+        if (data?.selectedZones) {
           const portfolios: Record<string, SelectedIntervention[]> = {};
-          existingContext.siteExplorer.selectedZones.forEach(zone => {
+          data.selectedZones.forEach((zone: any) => {
             if (typeof zone === 'object' && zone.interventionPortfolio && zone.interventionPortfolio.length > 0) {
               portfolios[zone.zoneId] = zone.interventionPortfolio;
             }
           });
-          console.log('[SiteExplorer] Re-hydrated portfolios:', Object.keys(portfolios));
+          console.log('[SiteExplorer] Applied portfolios from event:', Object.keys(portfolios));
           setZonePortfolios(portfolios);
         }
       }
     };
     window.addEventListener('nbs-block-updated', handleBlockUpdate);
     return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
-  }, [projectId, loadContext]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

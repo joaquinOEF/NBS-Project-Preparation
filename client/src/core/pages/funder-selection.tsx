@@ -729,18 +729,31 @@ export default function FunderSelectionPage() {
     }
   }, [projectId, fundsData, hydrationComplete, hydrateFromDB]);
 
-  // Listen for AI-triggered block updates and re-hydrate data only (preserve navigation)
   useEffect(() => {
     const handleBlockUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent<{ blockType: string; moduleName: string; data: unknown }>;
-      if (customEvent.detail?.blockType === 'funder_selection') {
-        console.log('[FunderSelection] Received nbs-block-updated event, re-hydrating data only...');
-        hydrateFromDB({ dataOnly: true });
+      const customEvent = e as CustomEvent<{ blockType: string; moduleName: string; data: any }>;
+      if (customEvent.detail?.blockType === 'funder_selection' && customEvent.detail?.data) {
+        console.log('[FunderSelection] Received nbs-block-updated event, applying data directly');
+        const dbData = customEvent.detail.data as FunderSelectionData;
+        if (dbData.questionnaire) {
+          setAnswers(dbData.questionnaire as QuestionnaireAnswers);
+        }
+        const savedPlan = dbData.fundingPlan;
+        if (savedPlan && savedPlan.status === 'confirmed' && fundsData) {
+          const nowFundExists = savedPlan.selectedFunderNow && fundsData.funds.some((f: any) => f.id === savedPlan.selectedFunderNow);
+          const nextFundExists = !savedPlan.selectedFunderNext || fundsData.funds.some((f: any) => f.id === savedPlan.selectedFunderNext);
+          if (nowFundExists && nextFundExists) {
+            skipAutoSaveRef.current = true;
+            setSelectedNowFundId(savedPlan.selectedFunderNow);
+            setSelectedNextFundId(savedPlan.selectedFunderNext || null);
+            setTimeout(() => { skipAutoSaveRef.current = false; }, 100);
+          }
+        }
       }
     };
     window.addEventListener('nbs-block-updated', handleBlockUpdate);
     return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
-  }, [hydrateFromDB]);
+  }, [fundsData]);
 
   // Persist navigation state using dedicated hook (completely separate from domain data)
   // This is more elegant and robust - navigation never touches the module data/DB

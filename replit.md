@@ -86,6 +86,44 @@ Ensures real-time UI updates upon AI agent proposed changes approval through dat
 - **Backend Handling**: `POST /api/projects/:projectId/agent/action` receives action and parameters, dispatches to appropriate service function.
 - **Agent Prompting**: System prompt instructs the agent to use `ACTION_BUTTON` syntax.
 
+## Hydration & Real-Time Sync (CRITICAL — Anti-Jitter Rules)
+
+### Problem Solved
+Module pages (Impact Model, Site Explorer, etc.) display data from the database. When the AI agent changes data, or when the page loads, data must flow through a single path to avoid **jitter** (UI flickering caused by multiple competing state updates).
+
+### The Single Data Path Rule
+Each module page has exactly ONE authoritative data source at any given time:
+- **On page load**: `hydrateFromDB()` fetches from API → sets `localData` → syncs to context via `updateModule(…, { skipDbSync: true })`.
+- **On AI agent update**: `syncBlockToLocalStorage` (in ChatDrawer) fetches from API → calls `updateModule` → dispatches `nbs-block-updated` event WITH data in `detail.data` → module page reads data from event detail and applies directly to `localData`. **No second API fetch.**
+
+### Anti-Jitter Rules (DO NOT VIOLATE)
+1. **Never add a `useEffect([context?.moduleName])` that calls `setLocalData`**. This creates a second write path. The context is updated as a side-effect of hydration, not as a trigger for it. The old pattern `useEffect(() => { if (context?.impactModel) setLocalData(...) }, [context?.impactModel])` caused double-renders and was removed.
+2. **Never re-fetch from API in `nbs-block-updated` handler**. The event already carries the data in `detail.data`. Use it directly. The old pattern `hydrateFromDB()` inside the event handler caused a redundant API call and triple state update.
+3. **Navigation state is SEPARATE from domain data**. Use `useNavigationPersistence` hook with its own `localStorage` key (`nbs-nav-state_<module>_<projectId>`). Never store step/navigation in the module's domain data object.
+4. **Wait for `dataHydrated` before restoring navigation**. The effect that sets `currentStep` from saved navigation must guard on both `navigationRestored && dataHydrated`.
+5. **Use `hydratingRef` guard** to prevent overlapping hydrations. Set a ref before fetching, clear it in `finally`.
+6. **`updateModule` with `skipDbSync: true`** when writing data that was just read from the DB. This prevents a write-back loop.
+
+### Data Flow Diagram
+```
+PAGE LOAD:
+  loadContext(projectId)          → reads localStorage → sets context (fast, sync)
+  hydrateFromDB()                 → fetches API → normalizes → setLocalData + updateModule(skipDbSync) → sets dataHydrated=true
+  useNavigationPersistence        → reads separate localStorage key → sets navigationRestored=true
+  Navigation restore effect       → waits for BOTH dataHydrated + navigationRestored → sets currentStep
+
+AI AGENT UPDATE:
+  syncBlockToLocalStorage()       → fetches API → updateModule(data) → dispatches nbs-block-updated(data)
+  Module event handler            → reads data from event.detail → setLocalData(normalize(data))
+                                    (NO additional API fetch, NO context effect trigger)
+```
+
+### Files Involved
+- `client/src/core/pages/impact-model.tsx` — `hydrateFromDB`, `normalizeRawData`, `applyHydratedData`, event listener
+- `client/src/core/components/agent/ChatDrawer.tsx` — `syncBlockToLocalStorage` function
+- `client/src/core/contexts/project-context.tsx` — `updateModule`, `loadContext`
+- `client/src/core/hooks/useNavigationPersistence.ts` — navigation state persistence hook
+
 ## SSE Progress Streaming
 - **Pattern**: Long-running AI endpoints use Server-Sent Events to stream real-time progress updates.
 - **Backend**: `ProgressCallback` for key stage updates, `text/event-stream` headers, and event emission.

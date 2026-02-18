@@ -2555,6 +2555,7 @@ export default function ImpactModelPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [dataHydrated, setDataHydrated] = useState(false);
+  const hydratingRef = useRef(false);
 
   useEffect(() => {
     const stepLabels: Record<WizardStep, string> = {
@@ -2600,8 +2601,44 @@ export default function ImpactModelPage() {
     return () => setPageContext(null);
   }, [setPageContext]);
 
+  const normalizeRawData = useCallback((rawData: Record<string, unknown>): ImpactModelData => {
+    const defaults = getDefaultImpactModelData();
+    const normalizedCoBenefits = (rawData.coBenefits as unknown[] || []).map((cb: unknown, idx: number) => normalizeCoBenefit(cb, idx));
+    const rawSignals = (rawData.downstreamSignals || {}) as Record<string, unknown[]>;
+    const normalizedSignals = {
+      operations: (rawSignals.operations || []).map((s: unknown, i: number) => normalizeSignalCard(s, 'ops', i)),
+      businessModel: (rawSignals.businessModel || []).map((s: unknown, i: number) => normalizeSignalCard(s, 'bm', i)),
+      mrv: (rawSignals.mrv || []).map((s: unknown, i: number) => normalizeSignalCard(s, 'mrv', i)),
+      implementors: (rawSignals.implementors || []).map((s: unknown, i: number) => normalizeSignalCard(s, 'impl', i)),
+    };
+    return {
+      ...defaults,
+      ...rawData,
+      narrativeCache: {
+        ...defaults.narrativeCache,
+        ...(rawData.narrativeCache as Record<string, unknown> || {}),
+        lensVariants: {
+          ...defaults.narrativeCache.lensVariants,
+          ...((rawData.narrativeCache as Record<string, unknown>)?.lensVariants as Record<string, unknown> || {}),
+        },
+      },
+      coBenefits: normalizedCoBenefits,
+      downstreamSignals: normalizedSignals,
+    } as ImpactModelData;
+  }, []);
+
+  const applyHydratedData = useCallback((freshData: ImpactModelData) => {
+    setLocalData(freshData);
+    updateModuleRef.current('impactModel', freshData, { skipDbSync: true });
+  }, []);
+
   const hydrateFromDB = useCallback(async () => {
     if (!projectId) return;
+    if (hydratingRef.current) {
+      console.log('[ImpactModel] Hydration already in progress, skipping');
+      return;
+    }
+    hydratingRef.current = true;
     const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;
     
     try {
@@ -2609,37 +2646,9 @@ export default function ImpactModelPage() {
       if (res.ok) {
         const result = await res.json();
         if (result?.data) {
-          const defaults = getDefaultImpactModelData();
-          const rawData = result.data;
-          
-          const normalizedCoBenefits = (rawData.coBenefits || []).map((cb: unknown, idx: number) => normalizeCoBenefit(cb, idx));
-          const rawSignals = rawData.downstreamSignals || {};
-          const normalizedSignals = {
-            operations: (rawSignals.operations || []).map((s: unknown, i: number) => normalizeSignalCard(s, 'ops', i)),
-            businessModel: (rawSignals.businessModel || []).map((s: unknown, i: number) => normalizeSignalCard(s, 'bm', i)),
-            mrv: (rawSignals.mrv || []).map((s: unknown, i: number) => normalizeSignalCard(s, 'mrv', i)),
-            implementors: (rawSignals.implementors || []).map((s: unknown, i: number) => normalizeSignalCard(s, 'impl', i)),
-          };
-          
-          const freshData: ImpactModelData = {
-            ...defaults,
-            ...rawData,
-            narrativeCache: {
-              ...defaults.narrativeCache,
-              ...(rawData.narrativeCache || {}),
-              lensVariants: {
-                ...defaults.narrativeCache.lensVariants,
-                ...(rawData.narrativeCache?.lensVariants || {}),
-              },
-            },
-            coBenefits: normalizedCoBenefits,
-            downstreamSignals: normalizedSignals,
-          };
-          setLocalData(freshData);
-          updateModuleRef.current('impactModel', freshData, { skipDbSync: true });
+          const freshData = normalizeRawData(result.data);
+          applyHydratedData(freshData);
           console.log('[ImpactModel] Hydrated from database (context synced)');
-          
-          // Navigation is handled by useNavigationPersistence hook — do NOT set currentStep here
         }
       } else if (res.status === 404) {
         console.log('[ImpactModel] Block not found in DB, using local state');
@@ -2648,8 +2657,10 @@ export default function ImpactModelPage() {
     } catch (err) {
       console.error('[ImpactModel] DB hydration failed:', err);
       setDataHydrated(true);
+    } finally {
+      hydratingRef.current = false;
     }
-  }, [projectId, isSampleMode, isSampleRoute]);
+  }, [projectId, isSampleMode, isSampleRoute, normalizeRawData, applyHydratedData]);
 
   // Restore navigation from dedicated hook — only after data is hydrated to prevent jitter
   useEffect(() => {
@@ -2677,39 +2688,17 @@ export default function ImpactModelPage() {
   }, [currentStep, navigationRestored, dataHydrated, updateNavigationState]);
 
   useEffect(() => {
-    if (context?.impactModel) {
-      const defaults = getDefaultImpactModelData();
-      setLocalData({
-        ...defaults,
-        ...context.impactModel,
-        narrativeCache: {
-          ...defaults.narrativeCache,
-          ...(context.impactModel.narrativeCache || {}),
-          lensVariants: {
-            ...defaults.narrativeCache.lensVariants,
-            ...(context.impactModel.narrativeCache?.lensVariants || {}),
-          },
-        },
-        downstreamSignals: {
-          ...defaults.downstreamSignals,
-          ...(context.impactModel.downstreamSignals || {}),
-        },
-      });
-    }
-  }, [context?.impactModel]);
-
-  // Listen for AI-triggered block updates and re-hydrate
-  useEffect(() => {
     const handleBlockUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<{ blockType: string; moduleName: string; data: unknown }>;
-      if (customEvent.detail?.blockType === 'impact_model') {
-        console.log('[ImpactModel] Received nbs-block-updated event, re-hydrating...');
-        hydrateFromDB();
+      if (customEvent.detail?.blockType === 'impact_model' && customEvent.detail?.data) {
+        console.log('[ImpactModel] Received nbs-block-updated event, applying data directly');
+        const freshData = normalizeRawData(customEvent.detail.data as Record<string, unknown>);
+        setLocalData(freshData);
       }
     };
     window.addEventListener('nbs-block-updated', handleBlockUpdate);
     return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
-  }, [hydrateFromDB]);
+  }, [normalizeRawData]);
 
   const handleUpdate = (updates: Partial<ImpactModelData>) => {
     const updated = { ...localData, ...updates, status: 'DRAFT' as const };

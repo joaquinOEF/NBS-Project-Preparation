@@ -530,27 +530,20 @@ export default function BusinessModelPage() {
     updateNavigationState({ currentStep });
   }, [currentStep, navigationRestored, updateNavigationState]);
 
-  // Listen for agent block updates
   useEffect(() => {
     const handleBlockUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      if (customEvent.detail?.blockType === 'business_model') {
-        console.log('[BusinessModel] Received nbs-block-updated event, re-hydrating...');
-        // Re-fetch data from context
-        const existingContext = loadContext(projectId || '', { skipDbSync: true });
-        const savedData = existingContext?.businessModel;
-        if (savedData) {
-          // Update local state with any changes from agent patches
-          const stored = getStoredBMData(projectId || '');
-          if (stored) {
-            setBMData(stored);
-          }
+      const customEvent = event as CustomEvent<{ blockType: string; moduleName: string; data: any }>;
+      if (customEvent.detail?.blockType === 'business_model' && customEvent.detail?.data) {
+        console.log('[BusinessModel] Received nbs-block-updated event, applying data directly');
+        const stored = getStoredBMData(projectId || '');
+        if (stored) {
+          setBMData(stored);
         }
       }
     };
     window.addEventListener('nbs-block-updated', handleBlockUpdate);
     return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
-  }, [projectId, loadContext]);
+  }, [projectId]);
 
   useEffect(() => {
     if (projectId && bmData) {
