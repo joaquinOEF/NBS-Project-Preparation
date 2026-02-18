@@ -368,54 +368,6 @@ const AGENT_TOOLS: AgentTool[] = [
       additionalProperties: false,
     },
   },
-  {
-    name: "regenerate_block",
-    description: "Regenerate a SINGLE narrative block in the Impact Model. Use this when the user wants to refine or change a specific section of the narrative (e.g., 'make the Executive Summary more concise', 'add more data to Risk Assessment'). This is much faster than regenerating the entire narrative. The block is regenerated with the user's custom instructions while preserving all other blocks.",
-    parameters: {
-      type: "object",
-      properties: {
-        blockId: {
-          type: "string",
-          description: "The ID of the narrative block to regenerate (e.g., 'block-1', 'summary-1'). Get this from the pageContext's editingBlock.id or from the current narrative state.",
-        },
-        lens: {
-          type: "string",
-          enum: ["neutral", "climate", "social", "financial", "institutional"],
-          description: "Which lens variant the block belongs to. Use the lens from pageContext's editingBlock.lens if available.",
-        },
-        customInstructions: {
-          type: "string",
-          description: "The user's instructions for how to change this block (e.g., 'focus more on financial ROI', 'add specific numbers from the KPIs', 'make it shorter and more direct').",
-        },
-        reason: {
-          type: "string",
-          description: "Brief summary of changes the user wants (shown for confirmation).",
-        },
-      },
-      required: ["blockId", "lens", "customInstructions", "reason"],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: "regenerate_affected_blocks",
-    description: "After the user has manually edited narrative blocks, this tool detects which OTHER blocks have conflicting, duplicated, or outdated content and regenerates only those blocks. Uses a 3-phase pipeline: (A) AI conflict detection, (B) scoped re-planning with edited blocks as locked constraints, (C) parallel regeneration of affected blocks. Use when the user says things like 'update the rest of the narrative', 'make everything consistent', or 'propagate my changes'.",
-    parameters: {
-      type: "object",
-      properties: {
-        lens: {
-          type: "string",
-          enum: ["neutral", "climate", "social", "financial", "institutional"],
-          description: "Which lens variant to check for affected blocks. Use the currently active lens.",
-        },
-        reason: {
-          type: "string",
-          description: "Brief explanation of why affected blocks need regeneration.",
-        },
-      },
-      required: ["lens", "reason"],
-      additionalProperties: false,
-    },
-  },
 ];
 
 const SYSTEM_PROMPT = `You are an AI assistant for the NBS (Nature-Based Solutions) Project Builder platform.
