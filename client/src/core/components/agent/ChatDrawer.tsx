@@ -884,49 +884,52 @@ export function ChatDrawer() {
                               const isExecuting = executingAction === actionKey;
                               const isCompleted = completedActions.has(actionKey);
                               return (
-                                <div
+                                <Card
                                   key={idx}
-                                  className={`rounded-lg border p-3 ${
+                                  className={`p-2.5 ${
                                     isCompleted
                                       ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700'
                                       : 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700'
                                   }`}
                                 >
-                                  <div className="flex items-center gap-2 mb-2">
-                                    {isCompleted ? (
-                                      <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                                    ) : (
-                                      <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                                    )}
-                                    <span className={`text-xs font-medium ${
-                                      isCompleted
-                                        ? 'text-green-700 dark:text-green-400'
-                                        : 'text-amber-700 dark:text-amber-400'
-                                    }`}>
-                                      {isCompleted ? 'Action completed' : 'Suggested action'}
-                                    </span>
+                                  <div className="flex items-start gap-2">
+                                    <div className="flex-shrink-0 mt-0.5">
+                                      {isCompleted ? (
+                                        <CheckCircle className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                                      ) : (
+                                        <Sparkles className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-xs leading-snug ${
+                                        isCompleted
+                                          ? 'text-green-700 dark:text-green-400'
+                                          : 'text-amber-800 dark:text-amber-200'
+                                      }`}>
+                                        {ab.label}
+                                      </p>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleActionButton(ab, message.id)}
+                                      disabled={isExecuting || isCompleted || !!executingAction}
+                                      className={`h-7 px-3 text-xs flex-shrink-0 gap-1 ${
+                                        isCompleted
+                                          ? 'bg-green-100 border-green-300 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:border-green-700 dark:text-green-400'
+                                          : 'bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-600 dark:hover:bg-amber-700'
+                                      }`}
+                                    >
+                                      {isExecuting ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : isCompleted ? (
+                                        <CheckCircle className="h-3 w-3" />
+                                      ) : (
+                                        <ArrowRight className="h-3 w-3" />
+                                      )}
+                                      {isExecuting ? 'Running' : isCompleted ? 'Done' : 'Run'}
+                                    </Button>
                                   </div>
-                                  <Button
-                                    size="sm"
-                                    variant={isCompleted ? "outline" : "default"}
-                                    onClick={() => handleActionButton(ab, message.id)}
-                                    disabled={isExecuting || isCompleted || !!executingAction}
-                                    className={`w-full gap-1.5 ${
-                                      isCompleted
-                                        ? 'bg-green-100 border-green-300 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:border-green-700 dark:text-green-400'
-                                        : 'bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-600 dark:hover:bg-amber-700'
-                                    }`}
-                                  >
-                                    {isExecuting ? (
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    ) : isCompleted ? (
-                                      <CheckCircle className="h-3.5 w-3.5" />
-                                    ) : (
-                                      <Sparkles className="h-3.5 w-3.5" />
-                                    )}
-                                    {isCompleted ? 'Done' : ab.label}
-                                  </Button>
-                                </div>
+                                </Card>
                               );
                             })}
                           </div>
