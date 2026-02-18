@@ -34,6 +34,7 @@ export interface AgentContext {
   conversationHistory: Message[];
   pageContext?: PageContext;
   reasoningEffort?: "none" | "low" | "medium" | "high";
+  quickFirstReply?: boolean;
 }
 
 export interface AgentTool {
@@ -1892,18 +1893,21 @@ export async function* streamAgentResponse(
 
   let maxIterations = 5;
   let fullText = "";
+  let quickPhaseComplete = false;
 
   try {
     while (maxIterations > 0) {
       maxIterations--;
 
-      const effort = context.reasoningEffort || "low";
+      const isQuickPhase = context.quickFirstReply && !quickPhaseComplete;
+      const effort = isQuickPhase ? "none" : (context.reasoningEffort || "low");
+
       const response = await openai.responses.create({
         model: "gpt-5.2",
         input: messages.map(m => ({ role: m.role, content: m.content })),
         max_output_tokens: 4096,
         reasoning: { effort: effort as any },
-        tools,
+        ...(isQuickPhase ? {} : { tools }),
       });
 
       const output = response.output || [];
@@ -1938,6 +1942,15 @@ export async function* streamAgentResponse(
             content: `Tool result for ${toolCall.name}: ${JSON.stringify(result.result)}`,
           });
         }
+      }
+
+      if (isQuickPhase) {
+        messages.push({
+          role: "assistant",
+          content: fullText,
+        });
+        quickPhaseComplete = true;
+        continue;
       }
 
       if (!hasFunctionCall) {
