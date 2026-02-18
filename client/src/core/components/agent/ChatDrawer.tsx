@@ -9,7 +9,7 @@ import { Input } from "@/core/components/ui/input";
 import { ScrollArea } from "@/core/components/ui/scroll-area";
 import { Card } from "@/core/components/ui/card";
 import { Badge } from "@/core/components/ui/badge";
-import { Loader2, MessageCircle, Send, User, Wrench, CheckCircle, XCircle, ArrowRight, Database, X, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
+import { Loader2, MessageCircle, Send, User, Wrench, CheckCircle, XCircle, ArrowRight, Database, X, ExternalLink, RefreshCw, Sparkles, AlertTriangle } from "lucide-react";
 import { useToast } from "@/core/hooks/use-toast";
 import { computeReadinessScores, determinePathway, formatReadinessSummary, type QuestionnaireAnswers } from "@/core/utils/funding-readiness";
 
@@ -76,7 +76,7 @@ interface PendingPatch {
 }
 
 export function ChatDrawer() {
-  const { isChatOpen: isOpen, openChat, closeChat, toggleChat, pageContext, pendingInitialMessage, clearPendingMessage } = useChatState();
+  const { isChatOpen: isOpen, openChat, closeChat, toggleChat, pageContext, pendingInitialMessage, clearPendingMessage, pendingInputHint, clearPendingInputHint } = useChatState();
   const [location, setLocation] = useLocation();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -391,6 +391,13 @@ export function ChatDrawer() {
       }, 100);
     }
   }, [isOpen, pendingInitialMessage, projectId, historyLoaded, isLoading, clearPendingMessage, sendPendingMessage]);
+
+  useEffect(() => {
+    if (isOpen && pendingInputHint && historyLoaded) {
+      setInputValue(pendingInputHint);
+      clearPendingInputHint();
+    }
+  }, [isOpen, pendingInputHint, historyLoaded, clearPendingInputHint]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !projectId || isLoading) return;
@@ -871,29 +878,55 @@ export function ChatDrawer() {
                           </div>
                         )}
                         {actionButtons.length > 0 && (
-                          <div className="mt-3 flex flex-wrap gap-2">
+                          <div className="mt-3 flex flex-col gap-2">
                             {actionButtons.map((ab, idx) => {
                               const actionKey = `${message.id}-${ab.action}`;
                               const isExecuting = executingAction === actionKey;
                               const isCompleted = completedActions.has(actionKey);
                               return (
-                                <Button
+                                <div
                                   key={idx}
-                                  size="sm"
-                                  variant={isCompleted ? "outline" : "default"}
-                                  onClick={() => handleActionButton(ab, message.id)}
-                                  disabled={isExecuting || isCompleted || !!executingAction}
-                                  className={`gap-1.5 ${isCompleted ? 'bg-green-50 border-green-300 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400' : ''}`}
+                                  className={`rounded-lg border p-3 ${
+                                    isCompleted
+                                      ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700'
+                                      : 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700'
+                                  }`}
                                 >
-                                  {isExecuting ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : isCompleted ? (
-                                    <CheckCircle className="h-3.5 w-3.5" />
-                                  ) : (
-                                    <Sparkles className="h-3.5 w-3.5" />
-                                  )}
-                                  {isCompleted ? 'Done' : ab.label}
-                                </Button>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    {isCompleted ? (
+                                      <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                    ) : (
+                                      <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                                    )}
+                                    <span className={`text-xs font-medium ${
+                                      isCompleted
+                                        ? 'text-green-700 dark:text-green-400'
+                                        : 'text-amber-700 dark:text-amber-400'
+                                    }`}>
+                                      {isCompleted ? 'Action completed' : 'Suggested action'}
+                                    </span>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant={isCompleted ? "outline" : "default"}
+                                    onClick={() => handleActionButton(ab, message.id)}
+                                    disabled={isExecuting || isCompleted || !!executingAction}
+                                    className={`w-full gap-1.5 ${
+                                      isCompleted
+                                        ? 'bg-green-100 border-green-300 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:border-green-700 dark:text-green-400'
+                                        : 'bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-600 dark:hover:bg-amber-700'
+                                    }`}
+                                  >
+                                    {isExecuting ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : isCompleted ? (
+                                      <CheckCircle className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <Sparkles className="h-3.5 w-3.5" />
+                                    )}
+                                    {isCompleted ? 'Done' : ab.label}
+                                  </Button>
+                                </div>
                               );
                             })}
                           </div>

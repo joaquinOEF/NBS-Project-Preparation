@@ -33,6 +33,7 @@ export interface AgentContext {
   pageGoal?: string;
   conversationHistory: Message[];
   pageContext?: PageContext;
+  reasoningEffort?: "none" | "low" | "medium" | "high";
 }
 
 export interface AgentTool {
@@ -1694,7 +1695,8 @@ export async function executeAgentTool(
             blockId,
             blockTitle: targetBlock.title,
             lens,
-            message: `Successfully regenerated the "${targetBlock.title}" block${isLensVariant ? ` (${lens} lens)` : ''}. The updated content will appear in the Impact Model page. Does the new version look good, or would you like to make further changes?`,
+            suggestConflictCheck: true,
+            message: `Successfully regenerated the "${targetBlock.title}" block${isLensVariant ? ` (${lens} lens)` : ''}. The updated content will appear in the Impact Model page.\n\nSince this block was changed, other sections may now be inconsistent. Would you like me to check?\n\n[ACTION_BUTTON:regenerate_affected|Check & Update Affected Sections|{"lens":"${lens}","reason":"Block '${targetBlock.title}' was regenerated, checking for downstream inconsistencies"}]`,
           },
         };
       }
@@ -1895,11 +1897,12 @@ export async function* streamAgentResponse(
     while (maxIterations > 0) {
       maxIterations--;
 
+      const effort = context.reasoningEffort || "low";
       const response = await openai.responses.create({
         model: "gpt-5.2",
         input: messages.map(m => ({ role: m.role, content: m.content })),
         max_output_tokens: 4096,
-        reasoning: { effort: "low" as any },
+        reasoning: { effort: effort as any },
         tools,
       });
 

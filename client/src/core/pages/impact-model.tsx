@@ -1337,7 +1337,7 @@ function NarrateStep({
   cityName?: string;
 }) {
   const { t } = useTranslation();
-  const { openChatWithMessage, setPageContext } = useChatState();
+  const { openChatWithInputHint, setPageContext } = useChatState();
   const hasNarrative = (data.narrativeCache?.base?.length ?? 0) > 0;
   const hasKPIs = (data.quantifiedImpacts?.impactGroups?.length ?? 0) > 0;
   const activeLens = data.selectedLens || 'neutral';
@@ -1496,10 +1496,11 @@ function NarrateStep({
           type: block.type,
           lens: activeLens,
         },
+        useQuickModel: true,
       },
     });
     const lensLabel = activeLens !== 'neutral' ? ` (${activeLens} lens)` : '';
-    openChatWithMessage(`I'd like to refine the "${block.title}"${lensLabel} section of my impact narrative.`);
+    openChatWithInputHint(`Change the "${block.title}"${lensLabel} to `);
   };
 
   useEffect(() => {
@@ -1690,7 +1691,7 @@ function NarrateStep({
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleChatAboutBlock(block)}>
                                   <MessageSquare className="h-4 w-4 mr-2" />
-                                  Chat about changes
+                                  Update with Agent
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>

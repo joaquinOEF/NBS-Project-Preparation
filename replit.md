@@ -25,7 +25,7 @@ Preferred communication style: Simple, everyday language.
 - **Abstracted Storage Layer**: For flexible storage implementation.
 
 ## Conversational AI Agent
-- **Architecture**: OpenAI client (`gpt-5.2`) for streaming and structured outputs, an agent service for multi-turn tool orchestration.
+- **Architecture**: OpenAI client (`gpt-5.2`) for streaming and structured outputs, an agent service for multi-turn tool orchestration. Reasoning effort is configurable per request: `"none"` for per-block editing (fastest), `"low"` for general chat, `"medium"` for complex tasks. Passed via `AgentContext.reasoningEffort`.
 - **Agent Tools**: Comprehensive set for project state management, evidence recording, module interaction, geospatial operations, and funder selection.
 - **Chat Interface**: SSE streaming with `conversations` and `messages` schemas.
 - **PageContext System**: Modules report their current state to the agent for step-aware guidance.
@@ -62,7 +62,7 @@ Preferred communication style: Simple, everyday language.
 - **Quantification Architecture**: KPIs are zone-specific and intervention-site-specific, with AI prompts receiving full intervention portfolio data.
 - **3-Phase Narrative Pipeline**: Plan (outline generation), Generate (parallel block generation), Assemble (combination and validation). RAG integration occurs before Phase 1.
 - **Selective Regeneration Pipeline**: Detects affected sections after manual edits, re-plans, and regenerates only necessary blocks.
-- **Per-Block Editing**: Allows inline editing and chat-driven changes for individual narrative blocks.
+- **Per-Block Editing**: "Update with Agent" opens chat with pre-filled input hint (not auto-sent). Uses `useQuickModel: true` in pageContext to trigger `reasoning: { effort: "none" }` for fastest responses. After single-block regeneration, an ACTION_BUTTON is auto-suggested for conflict detection across remaining blocks. Inline editing also supported for direct text changes.
 
 ## Module Development Pattern
 Modules follow a 5-layer integration: Page Goal, Block Type, Module Page, Context Integration, and RAG Ingestion for consistency and agent awareness.
