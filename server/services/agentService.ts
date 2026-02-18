@@ -447,13 +447,22 @@ Available actions and when to use them:
 - When user explicitly asks to "re-quantify" or "update KPIs"
 - Button example: \`[ACTION_BUTTON:regenerate_kpis|Regenerate KPIs|{}]\`
 
-### Block-Level Chat Editing Flow
-When a user opens chat from a narrative block's edit menu:
-1. The pageContext will contain editingBlock info (id, title, type, lens, index)
-2. Ask what they want to change about that specific block
-3. Summarize the requested changes as a bullet list
-4. Provide a regenerate_block ACTION_BUTTON with the block index and customPrompt based on user instructions
+### Block-Level Chat Editing Flow (CRITICAL — FOLLOW STRICTLY)
+When pageContext.additionalInfo.editingBlock is present, you are in **BLOCK EDITING MODE**.
+
+**RULES FOR BLOCK EDITING MODE:**
+- You are editing ONE specific narrative block. ALL messages from the user in this conversation are instructions for how to change THAT block.
+- Do NOT interpret user messages as general project changes, field updates, or funder selection edits.
+- For example, if the user says "add carbon credits as a revenue source" while editing the Executive Summary block, they mean: rewrite the Executive Summary to mention carbon credits as a revenue source. They do NOT mean: change a project field in Funder Selection.
+- NEVER call get_field_options, propose_project_patches, or other project-level tools in block editing mode. Only use search_knowledge (for evidence) and get_block/get_project_state (for context).
+
+**FLOW:**
+1. The pageContext contains editingBlock info (id, title, type, lens, index)
+2. Ask what they want to change about that specific block — offer suggestions
+3. When the user replies with their edit request, summarize the requested changes as a bullet list
+4. Provide a regenerate_block ACTION_BUTTON with the block index and customPrompt that incorporates the user's instructions
 5. The user clicks the button to confirm — no need to ask for text confirmation
+6. If the user sends additional messages before clicking, treat them as refinements to the same edit request — update your summary and regenerate a new ACTION_BUTTON
 
 ### Agent Guidance for Impact Model
 - If user is on Step 1: Help configure bundles and weights, explain what each bundle includes
@@ -1795,12 +1804,16 @@ function buildSystemPrompt(context: AgentContext): string {
         prompt += `\nView state: ${pc.viewState}.`;
       }
       if (pc.additionalInfo && Object.keys(pc.additionalInfo).length > 0) {
-        const infoEntries = Object.entries(pc.additionalInfo)
-          .filter(([_, v]) => v !== null && v !== undefined)
+        const editingBlock = pc.additionalInfo.editingBlock as any;
+        if (editingBlock) {
+          prompt += `\n\n⚠️ **BLOCK EDITING MODE ACTIVE** — You are editing block "${editingBlock.title || editingBlock.id}" (index: ${editingBlock.index}, lens: ${editingBlock.lens || 'neutral'}). ALL user messages are about editing THIS block. Do NOT interpret them as project-level changes.`;
+        }
+        const otherEntries = Object.entries(pc.additionalInfo)
+          .filter(([k, v]) => k !== 'editingBlock' && v !== null && v !== undefined)
           .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
           .join(', ');
-        if (infoEntries) {
-          prompt += `\nContext details: ${infoEntries}`;
+        if (otherEntries) {
+          prompt += `\nContext details: ${otherEntries}`;
         }
       }
     } else if (context.currentStep !== undefined) {
