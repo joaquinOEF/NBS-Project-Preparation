@@ -639,13 +639,16 @@ function createTileLayer(layerConfig: LayerState): L.TileLayer | null {
   const tileUrl = `/api/geospatial/tiles/${layerConfig.tileLayerId}/{z}/{x}/{y}.png`;
   return L.tileLayer(tileUrl, {
     opacity: 0.7,
-    maxZoom: 18,
+    maxNativeZoom: 15,
+    maxZoom: 19,
     minZoom: 10,
     errorTileUrl: '',
     className: 'oef-tile-layer',
   });
 }
 ```
+
+**CRITICAL — `maxNativeZoom` vs `maxZoom`**: The OEF S3 tiles (e.g. Dynamic World) only exist at zoom levels **10 through 15**. At zoom 16+ the S3 bucket returns 403/404. You MUST set `maxNativeZoom: 15` so Leaflet upscales the zoom-15 tiles at higher zoom levels instead of requesting non-existent tiles and rendering black. `maxZoom: 19` allows the user to keep zooming — the tiles just get progressively more pixelated, which is expected for raster satellite data.
 
 Tile layers are toggled differently from GeoJSON layers — no data loading needed, just create and add/remove the `L.tileLayer` instance.
 
@@ -916,9 +919,9 @@ From https://github.com/Open-Earth-Foundation/geospatial-data:
 - **Level 3 — Decision Outputs**: Risk indices, priority zones, opportunity zones
 
 ### Currently Available Tile Data
-| Layer | S3 URL Template | Status |
-|-------|----------------|--------|
-| Dynamic World Land Use | `geo-test-api.s3.us-east-1.amazonaws.com/nbs/porto_alegre/land_use/dynamic_world/V1/2023/tiles_visual/{z}/{x}/{y}.png` | Available (via proxy) |
+| Layer | S3 URL Template | Zoom Range | Status |
+|-------|----------------|------------|--------|
+| Dynamic World Land Use | `geo-test-api.s3.us-east-1.amazonaws.com/nbs/porto_alegre/land_use/dynamic_world/V1/2023/tiles_visual/{z}/{x}/{y}.png` | z10–z15 | Available (via proxy) |
 | Slope | TBD | Coming Soon |
 | Flow Accumulation | TBD | Coming Soon |
 | Canopy Cover % | TBD | Coming Soon |
