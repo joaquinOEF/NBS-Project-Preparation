@@ -51,6 +51,12 @@ Preferred communication style: Simple, everyday language.
 - **Site Explorer**: Grid-based risk scoring for heat, flood, and landslide.
 - **OSM Asset Discovery**: Integrates OpenStreetMap Overpass API for asset identification.
 - **Custom Asset Addition**: Users can add custom assets via OSM name search (Nominatim API) or manual coordinate entry.
+- **OEF Geospatial Data Layers**: Integration with Open-Earth-Foundation's pre-computed analytical layers (from `github.com/Open-Earth-Foundation/geospatial-data`).
+  - **Tile Proxy**: `GET /api/geospatial/tiles/:layerId/:z/:x/:y.png` proxies raster tiles from S3 (`geo-test-api.s3.us-east-1.amazonaws.com`) with browser caching.
+  - **Available Layer**: Dynamic World Land Use (10m categorical raster, visual tiles).
+  - **Planned Layers**: Slope, Flow Accumulation, Canopy Cover %, Flood/Heat Hazard, Exposure Score, Cooling Capacity, Composite Risk, NbS Opportunity Zones (shown as "Coming Soon" in UI).
+  - **Layer Groups**: Evidence drawer organizes layers into Risk Analysis, Environment, and OEF Geospatial Data groups.
+  - **Layer Types**: `source: 'geojson'` (local sample data) and `source: 'tiles'` (raster tile overlays via `L.tileLayer`).
 
 ## Business Model Module
 - A 6-step wizard guiding users through financing structure, archetypes, revenue, and funding pathways.

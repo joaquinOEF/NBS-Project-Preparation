@@ -74,6 +74,8 @@ interface CityInfo {
   country: string;
 }
 
+type LayerSource = 'geojson' | 'tiles';
+
 interface LayerState {
   id: string;
   name: string;
@@ -83,21 +85,43 @@ interface LayerState {
   loaded: boolean;
   data: any;
   leafletLayer: L.Layer | null;
+  source: LayerSource;
+  group: 'analysis' | 'environment' | 'oef';
+  available: boolean;
+  tileLayerId?: string;
 }
 
-const LAYER_CONFIGS: Omit<LayerState, 'enabled' | 'loaded' | 'data' | 'leafletLayer'>[] = [
-  { id: 'intervention_zones', name: 'Intervention Zones', icon: MapPinned, color: '#10b981' },
-  { id: 'grid_flood', name: 'Flood Risk', icon: CloudRain, color: '#3b82f6' },
-  { id: 'grid_heat', name: 'Heat Risk', icon: Flame, color: '#ef4444' },
-  { id: 'grid_landslide', name: 'Landslide Risk', icon: Mountain, color: '#a16207' },
-  { id: 'grid_population', name: 'Population Density', icon: Users, color: '#8b5cf6' },
-  { id: 'grid_buildings', name: 'Building Density', icon: Building2, color: '#f97316' },
-  { id: 'elevation', name: 'Elevation', icon: Mountain, color: '#c9a87c' },
-  { id: 'landcover', name: 'Land Cover', icon: MapIcon, color: '#4ade80' },
-  { id: 'surface_water', name: 'Water Bodies', icon: Droplets, color: '#3b82f6' },
-  { id: 'rivers', name: 'Rivers', icon: Droplets, color: '#06b6d4' },
-  { id: 'forest', name: 'Forest', icon: Trees, color: '#22c55e' },
+type LayerConfig = Omit<LayerState, 'enabled' | 'loaded' | 'data' | 'leafletLayer'>;
+
+const LAYER_CONFIGS: LayerConfig[] = [
+  { id: 'intervention_zones', name: 'Intervention Zones', icon: MapPinned, color: '#10b981', source: 'geojson', group: 'analysis', available: true },
+  { id: 'grid_flood', name: 'Flood Risk', icon: CloudRain, color: '#3b82f6', source: 'geojson', group: 'analysis', available: true },
+  { id: 'grid_heat', name: 'Heat Risk', icon: Flame, color: '#ef4444', source: 'geojson', group: 'analysis', available: true },
+  { id: 'grid_landslide', name: 'Landslide Risk', icon: Mountain, color: '#a16207', source: 'geojson', group: 'analysis', available: true },
+  { id: 'grid_population', name: 'Population Density', icon: Users, color: '#8b5cf6', source: 'geojson', group: 'analysis', available: true },
+  { id: 'grid_buildings', name: 'Building Density', icon: Building2, color: '#f97316', source: 'geojson', group: 'analysis', available: true },
+  { id: 'elevation', name: 'Elevation', icon: Mountain, color: '#c9a87c', source: 'geojson', group: 'environment', available: true },
+  { id: 'landcover', name: 'Land Cover', icon: MapIcon, color: '#4ade80', source: 'geojson', group: 'environment', available: true },
+  { id: 'surface_water', name: 'Water Bodies', icon: Droplets, color: '#3b82f6', source: 'geojson', group: 'environment', available: true },
+  { id: 'rivers', name: 'Rivers', icon: Droplets, color: '#06b6d4', source: 'geojson', group: 'environment', available: true },
+  { id: 'forest', name: 'Forest', icon: Trees, color: '#22c55e', source: 'geojson', group: 'environment', available: true },
+  { id: 'oef_dynamic_world', name: 'Land Use (Dynamic World)', icon: Grid3X3, color: '#06d6a0', source: 'tiles', group: 'oef', available: true, tileLayerId: 'dynamic_world' },
+  { id: 'oef_slope', name: 'Slope', icon: Mountain, color: '#bc6c25', source: 'tiles', group: 'oef', available: false },
+  { id: 'oef_flow_accumulation', name: 'Flow Accumulation', icon: Droplets, color: '#0077b6', source: 'tiles', group: 'oef', available: false },
+  { id: 'oef_canopy_cover', name: 'Canopy Cover', icon: Trees, color: '#588157', source: 'tiles', group: 'oef', available: false },
+  { id: 'oef_flood_hazard', name: 'Flood Hazard', icon: CloudRain, color: '#023e8a', source: 'tiles', group: 'oef', available: false },
+  { id: 'oef_heat_hazard', name: 'Heat Hazard', icon: Flame, color: '#d00000', source: 'tiles', group: 'oef', available: false },
+  { id: 'oef_exposure', name: 'Exposure Score', icon: Users, color: '#7b2cbf', source: 'tiles', group: 'oef', available: false },
+  { id: 'oef_cooling', name: 'Cooling Capacity', icon: Leaf, color: '#2d6a4f', source: 'tiles', group: 'oef', available: false },
+  { id: 'oef_composite_risk', name: 'Composite Risk', icon: AlertTriangle, color: '#e63946', source: 'tiles', group: 'oef', available: false },
+  { id: 'oef_opportunity_zones', name: 'NbS Opportunity Zones', icon: MapPinned, color: '#06d6a0', source: 'tiles', group: 'oef', available: false },
 ];
+
+const LAYER_GROUPS = [
+  { id: 'analysis', label: 'Risk Analysis' },
+  { id: 'environment', label: 'Environment' },
+  { id: 'oef', label: 'OEF Geospatial Data' },
+] as const;
 
 const INTERVENTION_COLORS: Record<string, string> = {
   sponge_network: '#3b82f6',
@@ -1560,20 +1584,29 @@ export default function SiteExplorerPage() {
     }
   }, []);
 
+  const createTileLayer = useCallback((layerConfig: LayerState): L.TileLayer | null => {
+    if (!layerConfig.tileLayerId) return null;
+    const tileUrl = `/api/geospatial/tiles/${layerConfig.tileLayerId}/{z}/{x}/{y}.png`;
+    return L.tileLayer(tileUrl, {
+      opacity: 0.7,
+      maxZoom: 18,
+      minZoom: 10,
+      errorTileUrl: '',
+      className: 'oef-tile-layer',
+    });
+  }, []);
+
   const toggleLayer = useCallback(async (layerId: string) => {
     setLayers(prev => {
       const layer = prev.find(l => l.id === layerId);
-      if (!layer) return prev;
+      if (!layer || !layer.available) return prev;
 
       if (layer.enabled) {
-        // Toggling OFF - remove layer from map
         console.log(`[Layer] Toggling OFF: ${layerId}`);
         const existingLayer = layerRefs.current.get(layerId);
-        console.log(`[Layer] Found in refs: ${!!existingLayer}, map exists: ${!!mapRef.current}`);
         if (existingLayer && mapRef.current) {
           try {
             mapRef.current.removeLayer(existingLayer);
-            console.log(`[Layer] Successfully removed: ${layerId}`);
           } catch (e) {
             console.error(`[Layer] Failed to remove: ${layerId}`, e);
           }
@@ -1581,14 +1614,27 @@ export default function SiteExplorerPage() {
         }
         return prev.map(l => l.id === layerId ? { ...l, enabled: false } : l);
       } else {
-        // Toggling ON - add layer to map
         console.log(`[Layer] Toggling ON: ${layerId}`);
         
-        // Safety: remove any existing layer first to prevent duplicates
         const existingLayer = layerRefs.current.get(layerId);
         if (existingLayer && mapRef.current) {
           mapRef.current.removeLayer(existingLayer);
           layerRefs.current.delete(layerId);
+        }
+
+        if (layer.source === 'tiles') {
+          if (!mapRef.current || !layer.tileLayerId) {
+            console.warn(`[Layer] Cannot add tile layer: ${layerId} — map or tileLayerId missing`);
+            return prev;
+          }
+          const tileLayer = createTileLayer(layer);
+          if (tileLayer) {
+            tileLayer.addTo(mapRef.current);
+            layerRefs.current.set(layerId, tileLayer);
+            console.log(`[Layer] Added tile layer: ${layerId}`);
+            return prev.map(l => l.id === layerId ? { ...l, enabled: true, loaded: true } : l);
+          }
+          return prev;
         }
         
         const cachedData = layerDataCache.current.get(layerId);
@@ -1599,24 +1645,20 @@ export default function SiteExplorerPage() {
           if (leafletLayer) {
             leafletLayer.addTo(mapRef.current);
             layerRefs.current.set(layerId, leafletLayer);
-            console.log(`[Layer] Added from cache: ${layerId}, ref set: ${layerRefs.current.has(layerId)}`);
           }
           return prev.map(l => l.id === layerId ? { ...l, enabled: true, loaded: true, data: cachedData } : l);
         }
         
         if (layer.loaded && layer.data && mapRef.current) {
-          console.log(`[Layer] Using layer.data for: ${layerId}`);
           const leafletLayer = createLayerFromData(layerId, layer.data);
           if (leafletLayer) {
             leafletLayer.addTo(mapRef.current);
             layerRefs.current.set(layerId, leafletLayer);
-            console.log(`[Layer] Added from layer.data: ${layerId}, ref set: ${layerRefs.current.has(layerId)}`);
           }
           return prev.map(l => l.id === layerId ? { ...l, enabled: true } : l);
         }
         
         setLoadingLayers(prev => new Set(prev).add(layerId));
-        console.log(`[Layer] Starting async load for: ${layerId}`);
         
         loadLayerData(layerId).then(data => {
           setLoadingLayers(prev => {
@@ -1630,13 +1672,9 @@ export default function SiteExplorerPage() {
             
             setLayers(currentLayers => {
               const currentLayer = currentLayers.find(l => l.id === layerId);
-              if (!currentLayer?.enabled) {
-                console.log(`[Layer] Async complete but disabled, skipping: ${layerId}`);
-                return currentLayers;
-              }
+              if (!currentLayer?.enabled) return currentLayers;
               
               if (layerRefs.current.has(layerId)) {
-                console.log(`[Layer] Async complete but already added, skipping: ${layerId}`);
                 return currentLayers.map(l => l.id === layerId ? { ...l, loaded: true, data } : l);
               }
               
@@ -1645,7 +1683,6 @@ export default function SiteExplorerPage() {
                 if (leafletLayer) {
                   leafletLayer.addTo(mapRef.current);
                   layerRefs.current.set(layerId, leafletLayer);
-                  console.log(`[Layer] Added from async: ${layerId}, ref set: ${layerRefs.current.has(layerId)}`);
                 }
               }
               
@@ -1665,7 +1702,7 @@ export default function SiteExplorerPage() {
         return prev.map(l => l.id === layerId ? { ...l, enabled: true } : l);
       }
     });
-  }, [loadLayerData, createLayerFromData]);
+  }, [loadLayerData, createLayerFromData, createTileLayer]);
 
   // Cache elevation data when it arrives (don't auto-add to map)
   useEffect(() => {
@@ -1927,8 +1964,8 @@ export default function SiteExplorerPage() {
 
           {/* Bottom Drawer - Evidence Layers - takes 70% width with rounded top-right */}
           <div 
-            className={`absolute left-0 bottom-0 z-[1001] bg-zinc-900/95 backdrop-blur-sm border-t border-r border-zinc-700 transition-all duration-300 rounded-tr-xl ${showEvidenceDrawer ? 'h-[180px]' : 'h-[48px]'}`}
-            style={{ pointerEvents: 'auto', width: '70%' }}
+            className={`absolute left-0 bottom-0 z-[1001] bg-zinc-900/95 backdrop-blur-sm border-t border-r border-zinc-700 transition-all duration-300 rounded-tr-xl ${showEvidenceDrawer ? 'max-h-[320px]' : 'h-[48px]'}`}
+            style={{ pointerEvents: 'auto', width: '75%' }}
           >
             <button
               className="w-full h-[48px] px-4 flex items-center justify-between hover:bg-zinc-800/50 transition-colors"
@@ -1949,39 +1986,67 @@ export default function SiteExplorerPage() {
             </button>
             
             {showEvidenceDrawer && (
-              <div className="px-4 pb-4">
-                <div className="grid grid-cols-5 gap-2">
-                  {evidenceLayers.map((layer) => {
-                    const IconComponent = layer.icon;
-                    const isLoading = loadingLayers.has(layer.id);
-                    return (
-                      <button
-                        key={layer.id}
-                        className={`p-2 rounded-lg border transition-colors flex flex-col items-center gap-1 ${
-                          layer.enabled 
-                            ? 'border-primary bg-primary/10' 
-                            : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
-                        } ${isLoading ? 'opacity-70' : ''}`}
-                        onClick={() => toggleLayer(layer.id)}
-                        disabled={isLoading}
-                      >
-                        <div 
-                          className="w-8 h-8 rounded-lg flex items-center justify-center"
-                          style={{ backgroundColor: layer.enabled ? `${layer.color}30` : 'transparent' }}
-                        >
-                          {isLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin" style={{ color: layer.color }} />
-                          ) : (
-                            <IconComponent className="h-4 w-4" style={{ color: layer.enabled ? layer.color : '#71717a' }} />
-                          )}
-                        </div>
-                        <span className={`text-xs text-center leading-tight ${layer.enabled ? 'text-white' : 'text-zinc-500'}`}>
-                          {layer.name}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+              <div className="px-4 pb-4 overflow-y-auto" style={{ maxHeight: '270px' }}>
+                {LAYER_GROUPS.map(group => {
+                  const groupLayers = evidenceLayers.filter(l => l.group === group.id);
+                  if (groupLayers.length === 0) return null;
+                  return (
+                    <div key={group.id} className="mb-3">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{group.label}</span>
+                        <div className="flex-1 h-px bg-zinc-800" />
+                      </div>
+                      <div className="grid grid-cols-6 gap-1.5">
+                        {groupLayers.map((layer) => {
+                          const IconComponent = layer.icon;
+                          const isLoading = loadingLayers.has(layer.id);
+                          const isUnavailable = !layer.available;
+                          return (
+                            <Tooltip key={layer.id}>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className={`p-1.5 rounded-lg border transition-colors flex flex-col items-center gap-0.5 ${
+                                    isUnavailable
+                                      ? 'border-zinc-800 opacity-40 cursor-not-allowed'
+                                      : layer.enabled 
+                                        ? 'border-primary bg-primary/10' 
+                                        : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
+                                  } ${isLoading ? 'opacity-70' : ''}`}
+                                  onClick={() => !isUnavailable && toggleLayer(layer.id)}
+                                  disabled={isLoading || isUnavailable}
+                                >
+                                  <div 
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center relative"
+                                    style={{ backgroundColor: layer.enabled ? `${layer.color}30` : 'transparent' }}
+                                  >
+                                    {isLoading ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: layer.color }} />
+                                    ) : (
+                                      <IconComponent className="h-3.5 w-3.5" style={{ color: layer.enabled ? layer.color : isUnavailable ? '#3f3f46' : '#71717a' }} />
+                                    )}
+                                    {layer.source === 'tiles' && layer.available && (
+                                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500" />
+                                    )}
+                                  </div>
+                                  <span className={`text-[10px] text-center leading-tight line-clamp-2 ${
+                                    isUnavailable ? 'text-zinc-600' : layer.enabled ? 'text-white' : 'text-zinc-500'
+                                  }`}>
+                                    {layer.name}
+                                  </span>
+                                </button>
+                              </TooltipTrigger>
+                              {isUnavailable && (
+                                <TooltipContent side="top" className="text-xs">
+                                  Coming soon — data not yet available
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
