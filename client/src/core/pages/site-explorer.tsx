@@ -1589,7 +1589,8 @@ export default function SiteExplorerPage() {
     const tileUrl = `/api/geospatial/tiles/${layerConfig.tileLayerId}/{z}/{x}/{y}.png`;
     return L.tileLayer(tileUrl, {
       opacity: 0.7,
-      maxZoom: 18,
+      maxNativeZoom: 15,
+      maxZoom: 19,
       minZoom: 10,
       errorTileUrl: '',
       className: 'oef-tile-layer',
