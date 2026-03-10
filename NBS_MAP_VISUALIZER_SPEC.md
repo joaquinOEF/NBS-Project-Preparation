@@ -2,6 +2,8 @@
 
 This document provides everything an agent needs to build a standalone geospatial map visualizer from scratch. It replicates the Site Explorer from the NbS Project Preparation platform as an independent application, using the same technology stack, component library, data sources, and visual design.
 
+> **Companion Document**: See `CITYCATALYST_DESIGN_SYSTEM.md` for the complete CityCatalyst design system specification — typography components (`@oef/components`), button variants, color tokens, CSS variables, font setup, and Tailwind config. That file defines the visual identity that this app must follow.
+
 ---
 
 ## 1. Project Overview
