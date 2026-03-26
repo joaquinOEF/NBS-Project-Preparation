@@ -18,6 +18,7 @@ import FunderSelectionPage from '@/core/pages/funder-selection';
 import ProjectOperationsPage from '@/core/pages/project-operations';
 import BusinessModelPage from '@/core/pages/business-model';
 import ImpactModelPage from '@/core/pages/impact-model';
+import ConceptNotePage from '@/core/pages/concept-note';
 import { OAuthCallback } from '@/core/components/auth/oauth-callback';
 import NotFound from '@/core/pages/not-found';
 
@@ -48,6 +49,9 @@ function Router() {
       
       {/* Impact Model routes */}
       <Route path='/impact-model/:projectId' component={ImpactModelPage} />
+
+      {/* Concept Note — split-screen agent + document editor */}
+      <Route path='/concept-note' component={ConceptNotePage} />
       
       {/* Sample mode routes - no API calls, uses local data */}
       <Route path='/sample/cities' component={CitySelection} />
