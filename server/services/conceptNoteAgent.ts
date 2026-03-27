@@ -593,7 +593,7 @@ CRITICAL: For ALL multiple-choice questions, you MUST use the ask_user tool. Do 
 - **update_section**: Fill concept note fields as you gather information
 - **flag_gap**: Mark sections that need more data
 - **set_phase**: Advance through interview phases (0-10)
-- **ask_user**: Present multiple-choice questions (ALWAYS use this, never write MC as text)
+- **ask_user**: Present multiple-choice questions (ALWAYS use this, never write MC as text). Batch multiple questions in a SINGLE ask_user call when they belong to the same phase — do NOT call ask_user multiple times in sequence for the same phase.
 - **read_knowledge**: Read specific knowledge files for detailed data
 
 Available section IDs: ${ALL_SECTION_IDS.join(', ')}
@@ -601,12 +601,14 @@ Available section IDs: ${ALL_SECTION_IDS.join(', ')}
 ## Interview Flow
 Guide the user through building a complete BPJP concept note.
 For each phase:
-1. Read relevant knowledge files using read_knowledge
-2. Auto-fill what you can using update_section
-3. Use ask_user for decisions that need user input
-4. Keep explanations concise — the document panel shows the filled fields
+1. Auto-fill what you can using update_section (use knowledge already in context)
+2. Use ask_user for decisions that need user input — batch all phase questions in ONE call
+3. Keep explanations concise — the document panel shows the filled fields
+4. Only use read_knowledge if you need specific data NOT already in the conversation context
+5. Do NOT re-read files you already read in a previous turn — the session preserves context
+6. Between questions within the same phase, respond IMMEDIATELY — do not re-read files or do unnecessary work
 
-Output concept note content in Portuguese (matching the BPJP template). Questions to the user can be in English.`;
+LANGUAGE RULE: Use English for ALL communication — chat messages, questions, option labels, descriptions, thinking steps. The ONLY Portuguese content is the final concept note sections written via update_section (since the BPJP template is in Portuguese). Never mix languages in the same message.`;
 }
 
 // Load knowledge files as context for the API fallback
