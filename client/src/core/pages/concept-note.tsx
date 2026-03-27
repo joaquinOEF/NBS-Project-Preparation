@@ -895,15 +895,12 @@ export default function ConceptNotePage() {
             }>
               <ConceptNoteMap
                 isActive={rightPanelTab === 'map'}
-                onConfirm={(zones) => {
-                  // Send selected zones as answer to current question
-                  const answer = zones.length > 0
-                    ? `Selected zones: ${zones.join(', ')}`
-                    : 'No zones selected';
+                onConfirm={(_summary, description) => {
+                  // Send rich zone data as answer to current question
                   if (currentQuestion) {
-                    handleSelectOption(answer);
+                    handleSelectOption(description);
                   } else {
-                    sendMessage(answer);
+                    sendMessage(description);
                   }
                   setRightPanelTab('document');
                   setMapRelevant(false);
