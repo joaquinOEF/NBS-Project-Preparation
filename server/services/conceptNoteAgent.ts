@@ -209,10 +209,32 @@ function createConceptNoteToolsForSdk(noteId: string) {
     { annotations: { readOnlyHint: true } }
   );
 
+  const readKnowledge = sdkTool(
+    "read_knowledge",
+    "Read a knowledge file for detailed data. Use when you need more information than what's in the city context. ONLY reads from the knowledge/ folder.",
+    {
+      folder: z.string().describe("Folder: porto-alegre, _interventions, _co-benefits, _financing-sources, _evidence, _success-cases, _inclusive-action"),
+      file: z.string().describe("File name, e.g. 'urban-forests.md', 'climate-risks.md'"),
+    },
+    async (args: any) => {
+      const fs = require('fs');
+      const pathMod = require('path');
+      const filePath = pathMod.join(process.cwd(), 'knowledge', args.folder, args.file);
+      try {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const body = content.replace(/^---[\s\S]*?---\s*/, ''); // strip frontmatter
+        return { content: [{ type: "text" as const, text: body.length > 4000 ? body.slice(0, 4000) + '\n...(truncated)' : body }] };
+      } catch {
+        return { content: [{ type: "text" as const, text: `File not found: knowledge/${args.folder}/${args.file}` }], isError: true };
+      }
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
   return sdkCreateMcpServer({
     name: "concept_note",
     version: "1.0.0",
-    tools: [updateSection, flagGap, setPhase, askUser],
+    tools: [updateSection, flagGap, setPhase, askUser, readKnowledge],
   });
 }
 
@@ -300,14 +322,17 @@ async function streamWithV2Session(
           const s = sdkCreateSession({
             model: "claude-opus-4-6",
             cwd: process.cwd(),
-            // ONLY concept_note MCP tools — no Read/Glob/Grep to prevent codebase exploration
+            // Concept note MCP tools + read_knowledge for deeper context
+            // No Read/Glob/Grep — prevents codebase exploration
+            // No settingSources — skill is embedded in system prompt
             allowedTools: [
               "mcp__concept_note__update_section",
               "mcp__concept_note__flag_gap",
               "mcp__concept_note__set_phase",
               "mcp__concept_note__ask_user",
+              "mcp__concept_note__read_knowledge",
             ],
-            tools: [], // Remove ALL built-in tools
+            tools: [], // Remove built-in file tools
             mcpServers: mcpServer ? { concept_note: mcpServer } : {},
             permissionMode: "bypassPermissions",
           });
@@ -378,15 +403,15 @@ async function streamWithV1Continue(
       prompt,
       options: {
         cwd: process.cwd(),
-        // No settingSources — prevents agent from reading codebase
-        // No Read/Glob/Grep — all knowledge is pre-baked in system prompt
+        // Concept note MCP tools only — no built-in file tools
         allowedTools: [
           "mcp__concept_note__update_section",
           "mcp__concept_note__flag_gap",
           "mcp__concept_note__set_phase",
           "mcp__concept_note__ask_user",
+          "mcp__concept_note__read_knowledge",
         ],
-        tools: [], // Remove ALL built-in tools
+        tools: [], // Remove built-in file tools (prevents codebase exploration)
         mcpServers: mcpServer ? { concept_note: mcpServer } : {},
         ...(isFirstTurn ? {} : { continue: true }),
         permissionMode: "bypassPermissions",
@@ -566,8 +591,26 @@ function formatToolStepLabel(toolName: string, input: any): string {
   }
 }
 
-// Cache for pre-baked city contexts
+// Cache for pre-loaded content
+const skillFileCache: { content: string | null; loaded: boolean } = { content: null, loaded: false };
 const cityContextCache = new Map<string, string>();
+
+async function loadSkillFile(): Promise<string> {
+  if (skillFileCache.loaded) return skillFileCache.content || '';
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const content = await fs.readFile(path.join(process.cwd(), '.claude', 'commands', 'concept-note.md'), 'utf-8');
+    skillFileCache.content = content;
+    skillFileCache.loaded = true;
+    console.log(`[concept-note] Skill file loaded: ${content.length} chars`);
+    return content;
+  } catch (e) {
+    skillFileCache.loaded = true;
+    console.warn('[concept-note] Could not load skill file');
+    return '';
+  }
+}
 
 async function loadCityContext(city: string): Promise<string> {
   if (cityContextCache.has(city)) return cityContextCache.get(city)!;
@@ -577,7 +620,7 @@ async function loadCityContext(city: string): Promise<string> {
   const knowledgeDir = path.join(process.cwd(), 'knowledge');
   const chunks: string[] = [];
 
-  // Load ALL city files in full
+  // Load city files (summaries for fast start)
   const cityDir = path.join(knowledgeDir, city);
   try {
     const files = await fs.readdir(cityDir);
@@ -585,76 +628,62 @@ async function loadCityContext(city: string): Promise<string> {
       if (!file.endsWith('.md')) continue;
       try {
         const content = await fs.readFile(path.join(cityDir, file), 'utf-8');
-        // Strip frontmatter
         const body = content.replace(/^---[\s\S]*?---\s*/, '');
-        chunks.push(`### ${file}\n${body.slice(0, 2000)}`);
+        chunks.push(`### ${city}/${file}\n${body.slice(0, 2000)}`);
       } catch {}
     }
   } catch {}
 
-  // Load key knowledge summaries (condensed)
-  const summaryFiles: Record<string, string[]> = {
-    '_interventions': ['urban-forests.md', 'wetland-restoration.md', 'bioswales-rain-gardens.md', 'green-corridors.md', 'flood-parks.md', 'green-roofs-walls.md'],
-    '_co-benefits': ['carbon-sequestration.md', 'flood-risk-reduction.md', 'heat-island-mitigation.md', 'economic-social.md'],
-    '_financing-sources': ['brazilian-domestic.md', 'international.md'],
-  };
-
-  for (const [folder, files] of Object.entries(summaryFiles)) {
-    for (const file of files) {
-      try {
-        const content = await fs.readFile(path.join(knowledgeDir, folder, file), 'utf-8');
-        const body = content.replace(/^---[\s\S]*?---\s*/, '');
-        // Extract just the first section (title + key data, ~500 chars)
-        const summary = body.slice(0, 600).split('\n\n').slice(0, 3).join('\n');
-        chunks.push(`### ${folder}/${file}\n${summary}`);
-      } catch {}
-    }
+  // List available knowledge files (agent can use read_knowledge to get full content)
+  for (const folder of ['_interventions', '_co-benefits', '_financing-sources', '_evidence', '_success-cases', '_inclusive-action']) {
+    try {
+      const files = await fs.readdir(path.join(knowledgeDir, folder));
+      const mdFiles = files.filter((f: string) => f.endsWith('.md'));
+      if (mdFiles.length > 0) chunks.push(`### Available in ${folder}/\n${mdFiles.map((f: string) => `- ${f}`).join('\n')}`);
+    } catch {}
   }
 
   const context = chunks.join('\n\n');
   cityContextCache.set(city, context);
-  console.log(`[concept-note] Pre-baked context for ${city}: ${context.length} chars`);
+  console.log(`[concept-note] City context for ${city}: ${context.length} chars`);
   return context;
 }
 
 async function buildSystemContext(state: ConceptNoteState): Promise<string> {
-  const cityContext = await loadCityContext(state.city);
+  const [skillContent, cityContext] = await Promise.all([
+    loadSkillFile(),
+    loadCityContext(state.city),
+  ]);
 
   return `You are the NBS Concept Note assistant for ${state.city}.
 Phase: ${state.phase}. Project: ${state.metadata.projectName || '(not set)'}.
 
-## YOUR TOOLS (use ONLY these — you have NO file access)
+## YOUR TOOLS
 
-1. **update_section(sectionId, field, value, confidence, source)** — fill a document field
-2. **ask_user({questions: [...]})** — present multiple-choice questions (NEVER write questions as text)
-3. **set_phase(phase)** — advance to next phase
-4. **flag_gap(sectionId, field, reason)** — mark missing data
+1. **update_section(sectionId, field, value, confidence, source)** — fill a document field. The right panel updates in real-time.
+2. **ask_user({questions: [...]})** — present multiple-choice questions. The UI renders clickable buttons. NEVER write questions as text.
+3. **set_phase(phase)** — advance to next phase (0-10).
+4. **flag_gap(sectionId, field, reason)** — mark missing data.
+5. **read_knowledge(folder, file)** — read a knowledge file for detailed data. Use when you need more detail than what's in the city context below.
 
-You have NO access to Read, Glob, Grep, or any file tools. ALL knowledge you need is provided below.
+## CRITICAL RULES
 
-## RULES
-
-1. Start IMMEDIATELY with set_phase(1) then update_section calls — NO exploring or thinking.
-2. Use update_section for EVERY piece of data. The right panel only updates when you call it.
-3. Use ask_user for ALL questions — the UI renders clickable buttons.
-4. English for chat. Portuguese for update_section content.
-5. Keep messages SHORT.
-6. For approve/review questions: include relatedSections.
-7. For spatial/zone questions: include showMap: true.
-
-## FLOW
-
-Phase 1: set_phase(1) → update_section(project_id, municipalities, "Porto Alegre") → update_section(project_id, state, "Rio Grande do Sul") → ask_user with 4 questions (sector, climate type, name, proponent) → update_section for each answer
-
-Phase 2: set_phase(2) → update_section(territorial_context, description, ...) → update_section(problem_diagnosis, description, ...) → ask_user to validate → update_section with answers
-
-Phase 3-8: same pattern — auto-fill from knowledge below, ask_user for decisions, update_section with answers.
+1. Start IMMEDIATELY with set_phase(1) and update_section calls. Do NOT explore files, read source code, or think about project structure.
+2. Use update_section for EVERY piece of data — the document panel only updates when you call it.
+3. Use ask_user for ALL questions — NEVER write questions as text.
+4. Use read_knowledge ONLY for knowledge/ folder files listed below. NEVER read .ts, .tsx, .json, or source code files.
+5. English for chat messages. Portuguese for update_section content.
+6. Keep chat messages SHORT — the document panel shows the details.
+7. For approve/review questions: include relatedSections in ask_user.
+8. For spatial/zone questions: include showMap: true in ask_user.
 
 ## Section IDs
 ${ALL_SECTION_IDS.join(', ')}
 
-## CITY KNOWLEDGE (use this data for auto-fill — do NOT try to read files)
+## SKILL INSTRUCTIONS (follow this flow)
+${skillContent ? skillContent.slice(0, 6000) : 'Follow the phase guide below.'}
 
+## CITY KNOWLEDGE (pre-loaded — use for auto-fill)
 ${cityContext}`;
 }
 
