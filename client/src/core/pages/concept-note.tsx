@@ -662,31 +662,7 @@ export default function ConceptNotePage() {
             </div>
           )}
 
-          {/* Resume button — shown when we have prior state but agent is disconnected */}
-          {!isStreaming && (state.phase > 0 || filledCount > 0) && !currentQuestion && messages.length > 0 && (
-            <div className="text-center py-4">
-              <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-primary/30 bg-primary/5">
-                <p className="text-sm text-muted-foreground">
-                  Session restored — Phase {state.phase}/10, {filledCount} sections filled
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    // Build context from filled sections
-                    const filled = Object.entries(state.sections)
-                      .filter(([_, s]) => Object.keys(s.fields).length > 0)
-                      .map(([id, s]) => {
-                        const vals = Object.entries(s.fields).map(([k, v]) => `${k}: ${String(v.value).slice(0, 80)}`).join('; ');
-                        return `${id}: ${vals}`;
-                      }).join('\n');
-                    sendMessage(`Continue the concept note interview from Phase ${state.phase}. Here is what has been filled so far:\n${filled}\n\nPick up where we left off — ask the next questions needed.`);
-                  }}
-                >
-                  Continue from Phase {state.phase}
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* Resume button moved to bottom — see before chatEndRef */}
 
           {messages.map((msg, i) => {
             // Hide thinking messages unless toggled on
@@ -792,6 +768,31 @@ export default function ConceptNotePage() {
                 <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
               <span className="text-xs text-muted-foreground">Agent is thinking...</span>
+            </div>
+          )}
+
+          {/* Resume button — at bottom of messages */}
+          {!isStreaming && (state.phase > 0 || filledCount > 0) && !currentQuestion && messages.length > 0 && (
+            <div className="text-center py-4">
+              <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-primary/30 bg-primary/5">
+                <p className="text-sm text-muted-foreground">
+                  Session restored — Phase {state.phase}/10, {filledCount} sections filled
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const filled = Object.entries(state.sections)
+                      .filter(([_, s]) => Object.keys(s.fields).length > 0)
+                      .map(([id, s]) => {
+                        const vals = Object.entries(s.fields).map(([k, v]) => `${k}: ${String(v.value).slice(0, 80)}`).join('; ');
+                        return `${id}: ${vals}`;
+                      }).join('\n');
+                    sendMessage(`Continue the concept note interview from Phase ${state.phase}. Here is what has been filled so far:\n${filled}\n\nPick up where we left off — ask the next questions needed.`);
+                  }}
+                >
+                  Continue from Phase {state.phase}
+                </Button>
+              </div>
             </div>
           )}
 

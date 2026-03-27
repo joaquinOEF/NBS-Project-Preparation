@@ -87,7 +87,8 @@ function interpolateColor(low: string, high: string, t: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
-function getHazardBadgeColor(type: string): string {
+function getHazardBadgeColor(type: string | null | undefined): string {
+  if (!type) return 'bg-gray-100 text-gray-700';
   if (type.includes('FLOOD')) return 'bg-blue-100 text-blue-700';
   if (type.includes('HEAT')) return 'bg-red-100 text-red-700';
   if (type.includes('LANDSLIDE')) return 'bg-amber-100 text-amber-700';
