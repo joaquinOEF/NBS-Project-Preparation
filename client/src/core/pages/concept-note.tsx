@@ -19,8 +19,8 @@ import {
 } from '@shared/concept-note-schema';
 import {
   Send, Download, ChevronDown, ChevronRight, AlertTriangle,
-  FileText, Loader2, RotateCcw, Eye, EyeOff, Star,
-  Check, Circle, AlertCircle,
+  FileText, Loader2, RotateCcw, Star,
+  Check, Circle, AlertCircle, Pencil,
 } from 'lucide-react';
 
 // ============================================================================
@@ -785,16 +785,21 @@ export default function ConceptNotePage() {
 
       {/* RIGHT: Document Panel */}
       <div className="w-1/2 overflow-y-auto bg-muted/30">
-        <div className="p-3 border-b bg-background sticky top-0 z-10">
+        <div className="p-4 border-b bg-background sticky top-0 z-10">
           <h2 className="text-base font-semibold">
             {state.metadata.projectName || 'Nota Conceitual'}
           </h2>
-          <div className="flex gap-2 mt-1 flex-wrap">
-            <Badge variant="outline" className="text-xs">{state.city}</Badge>
-            <Badge variant="outline" className="text-xs">Phase {state.phase}/10</Badge>
-            <Badge variant="outline" className="text-xs">{filledCount}/23 sections</Badge>
+          <div className="flex items-center gap-3 mt-2">
+            {/* Progress bar */}
+            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-500"
+                style={{ width: `${(filledCount / 23) * 100}%` }}
+              />
+            </div>
+            <span className="text-xs text-muted-foreground shrink-0">{filledCount}/23</span>
             {state.gaps.length > 0 && (
-              <Badge variant="destructive" className="text-xs">{state.gaps.length} gaps</Badge>
+              <Badge variant="destructive" className="text-[10px] h-5">{state.gaps.length} gaps</Badge>
             )}
           </div>
         </div>
@@ -897,6 +902,12 @@ function QuestionCard({
 // SECTION CARD — collapsible card showing fields for one section
 // ============================================================================
 
+// Heuristic: fields with values < 100 chars and no markdown are "short" (key-value)
+function isShortField(value: string | number | null): boolean {
+  const s = String(value || '');
+  return s.length < 100 && !s.includes('\n') && !s.includes('#') && !s.includes('**');
+}
+
 function SectionCard({
   section,
   gaps,
@@ -913,18 +924,32 @@ function SectionCard({
   const [expanded, setExpanded] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [hoveredField, setHoveredField] = useState<string | null>(null);
 
-  const fieldCount = Object.keys(section.fields).length;
+  const entries = Object.entries(section.fields);
+  const fieldCount = entries.length;
   const isReached = section.phase <= currentPhase;
   const hasGaps = gaps.length > 0;
+
+  // Split fields into short (table) and long (prose)
+  const shortFields = entries.filter(([_, f]) => isShortField(f.value));
+  const longFields = entries.filter(([_, f]) => !isShortField(f.value));
+
+  // Collect unique sources across all fields
+  const allSources = Array.from(new Set(entries.map(([_, f]) => f.source).filter((s): s is string => !!s)));
 
   // Auto-expand when fields get added or section is highlighted
   useEffect(() => {
     if ((fieldCount > 0 || isHighlighted) && !expanded) setExpanded(true);
   }, [fieldCount, isHighlighted]);
 
-  const confidenceIcon = (c: Confidence) => {
-    const map: Record<Confidence, string> = { high: '✅', medium: '🟡', low: '🔴', empty: '⬜' };
+  const confidenceColor = (c: Confidence) => {
+    const map: Record<Confidence, string> = {
+      high: 'text-green-600',
+      medium: 'text-amber-500',
+      low: 'text-red-500',
+      empty: 'text-muted-foreground/30',
+    };
     return map[c];
   };
 
@@ -941,80 +966,151 @@ function SectionCard({
   return (
     <Card className={`${isHighlighted ? 'border-primary ring-2 ring-primary/30 animate-pulse' : hasGaps ? 'border-orange-300' : ''} ${!isReached ? 'opacity-40' : ''} transition-all`}>
       <CardHeader
-        className="py-2 px-3 cursor-pointer flex flex-row items-center justify-between"
+        className="py-2.5 px-4 cursor-pointer flex flex-row items-center justify-between"
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="flex items-center gap-1.5">
-          {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-          <CardTitle className="text-xs font-medium">{section.title}</CardTitle>
+        <div className="flex items-center gap-2">
+          {expanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+          <CardTitle className="text-sm font-medium">{section.title}</CardTitle>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {hasGaps && <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />}
-          <span className="text-[10px]">{confidenceIcon(section.confidence)}</span>
-          {fieldCount > 0 && <span className="text-[10px] text-muted-foreground">{fieldCount}</span>}
+          {fieldCount > 0 && (
+            <div className={`w-2 h-2 rounded-full ${section.confidence === 'high' ? 'bg-green-500' : section.confidence === 'medium' ? 'bg-amber-400' : section.confidence === 'low' ? 'bg-red-400' : 'bg-gray-200'}`} />
+          )}
         </div>
       </CardHeader>
 
       {expanded && (
-        <CardContent className="pt-0 px-3 pb-3 space-y-2">
+        <CardContent className="pt-0 px-4 pb-4 space-y-3">
           {fieldCount === 0 && (
-            <p className="text-[10px] text-muted-foreground italic">
-              {isReached ? 'Waiting for agent to populate...' : 'Not yet reached'}
+            <p className="text-xs text-muted-foreground italic py-2">
+              {isReached ? 'Waiting for agent...' : 'Not yet reached'}
             </p>
           )}
 
-          {Object.entries(section.fields).map(([fieldName, field]) => (
-            <div key={fieldName} className="space-y-0.5">
-              <div className="flex items-center justify-between">
-                <label className="text-[10px] font-medium text-muted-foreground capitalize">
+          {/* Short fields as compact table */}
+          {shortFields.length > 0 && (
+            <div className="rounded-md border overflow-hidden">
+              <table className="w-full text-sm">
+                <tbody>
+                  {shortFields.map(([fieldName, field]) => (
+                    <tr
+                      key={fieldName}
+                      className="border-b last:border-b-0 hover:bg-muted/50 group"
+                      onMouseEnter={() => setHoveredField(fieldName)}
+                      onMouseLeave={() => setHoveredField(null)}
+                    >
+                      <td className="px-3 py-1.5 text-xs text-muted-foreground capitalize w-[140px] align-top font-medium">
+                        {fieldName.replace(/_/g, ' ')}
+                      </td>
+                      <td className="px-3 py-1.5 text-sm relative">
+                        {editingField === fieldName ? (
+                          <div className="flex gap-1 items-center">
+                            <Input
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="h-7 text-sm"
+                              autoFocus
+                              onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(fieldName); if (e.key === 'Escape') setEditingField(null); }}
+                            />
+                            <Button size="sm" onClick={() => saveEdit(fieldName)} className="h-7 px-2 text-xs">Save</Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between">
+                            <span>{String(field.value || '')}</span>
+                            {hoveredField === fieldName && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); startEdit(fieldName, field.value); }}
+                                className="text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                            )}
+                            {field.userEdited && (
+                              <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded ml-1">edited</span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Long fields as prose blocks */}
+          {longFields.map(([fieldName, field]) => (
+            <div
+              key={fieldName}
+              className="group relative"
+              onMouseEnter={() => setHoveredField(fieldName)}
+              onMouseLeave={() => setHoveredField(null)}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-muted-foreground capitalize">
                   {fieldName.replace(/_/g, ' ')}
                 </label>
-                <div className="flex items-center gap-1">
-                  <span className="text-[10px]">{confidenceIcon(field.confidence)}</span>
-                  {field.userEdited && (
-                    <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded">edited</span>
-                  )}
-                </div>
+                {(hoveredField === fieldName || field.userEdited) && (
+                  <div className="flex items-center gap-1">
+                    {field.userEdited && (
+                      <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded">edited</span>
+                    )}
+                    {hoveredField === fieldName && editingField !== fieldName && (
+                      <button
+                        onClick={() => startEdit(fieldName, field.value)}
+                        className="text-muted-foreground hover:text-primary transition-colors text-xs flex items-center gap-0.5"
+                      >
+                        <Pencil className="w-3 h-3" /> edit
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {editingField === fieldName ? (
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <Textarea
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
-                    className="text-xs min-h-[60px]"
+                    className="text-sm min-h-[100px]"
                     autoFocus
                   />
                   <div className="flex gap-1">
-                    <Button size="sm" variant="default" onClick={() => saveEdit(fieldName)} className="h-6 text-xs px-2">Save</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingField(null)} className="h-6 text-xs px-2">Cancel</Button>
+                    <Button size="sm" onClick={() => saveEdit(fieldName)} className="h-7 text-xs px-3">Save</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingField(null)} className="h-7 text-xs px-3">Cancel</Button>
                   </div>
                 </div>
               ) : (
-                <div
-                  className="text-xs bg-background rounded p-1.5 border cursor-pointer hover:border-primary/50 transition-colors"
+                <div className="text-sm prose prose-sm max-w-none bg-background rounded-md border p-3 hover:border-primary/30 transition-colors cursor-text"
                   onClick={() => startEdit(fieldName, field.value)}
                 >
-                  <div className="prose prose-xs max-w-none">
-                    <ReactMarkdown>{String(field.value || '')}</ReactMarkdown>
-                  </div>
-                  {field.source && (
-                    <p className="text-[9px] text-muted-foreground mt-0.5">📎 {field.source}</p>
-                  )}
+                  <ReactMarkdown>{String(field.value || '')}</ReactMarkdown>
                 </div>
               )}
             </div>
           ))}
 
+          {/* Gaps */}
           {gaps.map((gap, i) => (
-            <div key={i} className="flex items-start gap-1.5 p-1.5 bg-orange-50 rounded border border-orange-200">
-              <AlertTriangle className="w-3 h-3 text-orange-500 mt-0.5 shrink-0" />
+            <div key={i} className="flex items-start gap-2 p-2 bg-orange-50 rounded-md border border-orange-200">
+              <AlertTriangle className="w-3.5 h-3.5 text-orange-500 mt-0.5 shrink-0" />
               <div>
-                <p className="text-[10px] font-medium text-orange-800">{gap.field}</p>
-                <p className="text-[9px] text-orange-600">{gap.reason}</p>
+                <p className="text-xs font-medium text-orange-800">{gap.field.replace(/_/g, ' ')}</p>
+                <p className="text-xs text-orange-600">{gap.reason}</p>
               </div>
             </div>
           ))}
+
+          {/* Sources footer */}
+          {allSources.length > 0 && (
+            <div className="pt-2 border-t">
+              <p className="text-[10px] text-muted-foreground">
+                📎 {allSources.join(', ')}
+              </p>
+            </div>
+          )}
         </CardContent>
       )}
     </Card>
