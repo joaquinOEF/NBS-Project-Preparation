@@ -234,7 +234,10 @@ export async function streamConceptNoteChat(
 
   const isSdkReady = await loadSdk();
 
-  if (isSdkReady && sdkV2Available) {
+  // V2 is unstable — use V1 continue: true as primary path
+  // Set V2_SESSIONS=1 env var to opt-in to V2
+  const useV2 = sdkV2Available && process.env.V2_SESSIONS === '1';
+  if (isSdkReady && useV2) {
     await streamWithV2Session(noteId, userMessage, state, pushEvent);
   } else if (isSdkReady) {
     await streamWithV1Continue(noteId, userMessage, state, pushEvent);
@@ -315,6 +318,8 @@ async function streamWithV1Continue(
   const prompt = isFirstTurn
     ? `${buildSystemContext(state)}\n\nUser message: ${userMessage}`
     : userMessage;
+
+  console.log(`[concept-note] V1 ${isFirstTurn ? 'new session' : 'continue'} for ${noteId}`);
 
   try {
     for await (const message of sdkQuery({
