@@ -435,9 +435,7 @@ function processSDKMessage(message: any, pushEvent: EventPusher) {
   }
 
   if (message.type === "result") {
-    if (message.subtype === "success" && message.result) {
-      pushEvent({ type: 'chat', content: message.result, role: 'assistant' });
-    }
+    // Don't re-send result text — it duplicates the last assistant message
     pushEvent({ type: 'done', summary: 'Response complete' });
   }
 }
