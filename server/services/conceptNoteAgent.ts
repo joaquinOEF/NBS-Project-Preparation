@@ -322,17 +322,14 @@ async function streamWithV2Session(
           const s = sdkCreateSession({
             model: "claude-opus-4-6",
             cwd: process.cwd(),
-            // Concept note MCP tools + read_knowledge for deeper context
-            // No Read/Glob/Grep — prevents codebase exploration
-            // No settingSources — skill is embedded in system prompt
             allowedTools: [
+              "Read", "Glob", "Grep",
               "mcp__concept_note__update_section",
               "mcp__concept_note__flag_gap",
               "mcp__concept_note__set_phase",
               "mcp__concept_note__ask_user",
               "mcp__concept_note__read_knowledge",
             ],
-            tools: [], // Remove built-in file tools
             mcpServers: mcpServer ? { concept_note: mcpServer } : {},
             permissionMode: "bypassPermissions",
           });
@@ -403,15 +400,14 @@ async function streamWithV1Continue(
       prompt,
       options: {
         cwd: process.cwd(),
-        // Concept note MCP tools only — no built-in file tools
         allowedTools: [
+          "Read", "Glob", "Grep",
           "mcp__concept_note__update_section",
           "mcp__concept_note__flag_gap",
           "mcp__concept_note__set_phase",
           "mcp__concept_note__ask_user",
           "mcp__concept_note__read_knowledge",
         ],
-        tools: [], // Remove built-in file tools (prevents codebase exploration)
         mcpServers: mcpServer ? { concept_note: mcpServer } : {},
         ...(isFirstTurn ? {} : { continue: true }),
         permissionMode: "bypassPermissions",
