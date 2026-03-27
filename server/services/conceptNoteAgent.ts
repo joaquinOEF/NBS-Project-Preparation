@@ -99,18 +99,26 @@ export function addMessage(noteId: string, msg: ChatMessage): void {
 
 type EventPusher = (event: ConceptNoteEvent) => void;
 
-// Create MCP server — used by both V1 and V2 paths
-// EventPusher is mutable so we can swap it per-request (V2 sessions persist across requests)
-let currentPushEvent: EventPusher = () => {};
+// Per-noteId push function registry — avoids the global mutable problem
+// When V2 sessions persist across requests, each new request swaps the push function for its noteId
+const pushEventRegistry = new Map<string, EventPusher>();
+
+function setActivePushEvent(noteId: string, pusher: EventPusher) {
+  pushEventRegistry.set(noteId, pusher);
+}
 
 function createConceptNoteToolsForSdk(noteId: string) {
   if (!sdkTool || !sdkCreateMcpServer) return null;
 
+  // Tools resolve the push function at call time (not creation time)
+  // so it always uses the current request's SSE writer
   const pushEvent = (event: ConceptNoteEvent) => {
     if (event.type === 'field_update') console.log(`[concept-note] tool: update_section ${event.sectionId}.${event.field}`);
     if (event.type === 'phase_change') console.log(`[concept-note] tool: set_phase ${event.phase}`);
     if (event.type === 'ask_user') console.log(`[concept-note] tool: ask_user "${(event as any).question?.slice(0, 50)}..."`);
-    currentPushEvent(event);
+    const activePusher = pushEventRegistry.get(noteId);
+    if (activePusher) activePusher(event);
+    else console.warn(`[concept-note] No active push function for ${noteId}`);
   };
 
   const updateSection = sdkTool(
@@ -240,8 +248,8 @@ export async function streamConceptNoteChat(
     }
   };
 
-  // Set the mutable push function for SDK tools
-  currentPushEvent = pushEvent;
+  // Register this request's push function for the noteId
+  setActivePushEvent(noteId, pushEvent);
 
   const isSdkReady = await loadSdk();
 
