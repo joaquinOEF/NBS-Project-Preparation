@@ -13,7 +13,7 @@
           "value": "Porto Alegre",
           "confidence": "high",
           "source": "porto-alegre/city-profile.md",
-          "userEdited": false
+          "userEdited": true
         },
         "state": {
           "value": "Rio Grande do Sul",
@@ -46,7 +46,7 @@
       "sources": [
         "porto-alegre/city-profile.md"
       ],
-      "lastUpdatedBy": "agent"
+      "lastUpdatedBy": "user"
     },
     "proponent": {
       "id": "proponent",
@@ -437,11 +437,19 @@
       "oldValue": null,
       "newValue": "Porto Alegre possui precedentes relevantes que fundamentam o projeto:\\n\\n- **Orla do Guaíba (2018):** Projeto de revitalização com 100% espécies nativas em 5 zonas de vegetação ripária ao longo de 1,5 km (5,7 ha). Modelo de PPP (Gam3 Parks) e referência de restauração nativa urbana;\\n- **Projeto Regenera Dilúvio (em planejamento):** Restauração do corredor do Arroio Dilúvio (Partenon/Azenha), com apoio potencial do Banco Mundial. Parceria UFRGS/Prefeitura;\\n- **World Bank P178072 (em implementação):** USD 84,7 milhões para regeneração verde e resiliente do Centro Histórico e 4º Distrito, incluindo drenagem baseada em natureza e retrofitting verde;\\n- **Colaboração com especialistas holandeses (jun/2024):** Avaliação técnica do sistema de proteção contra cheias e recomendações para abordagem híbrida verde-cinza;\\n- **GEF Biodiversidade RS (P086341, concluído):** USD 5 milhões para gestão integrada de paisagem e corredores de conectividade no RS — demonstra viabilidade de financiamento internacional para NBS no estado.",
       "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T18:45:55.602Z",
+      "sectionId": "project_id",
+      "field": "municipalities",
+      "oldValue": "Porto Alegre",
+      "newValue": "Porto Alegre",
+      "source": "user"
     }
   ],
   "metadata": {
     "createdAt": "2026-03-27T15:47:38.521Z",
-    "updatedAt": "2026-03-27T15:58:54.502Z",
+    "updatedAt": "2026-03-27T18:45:55.602Z",
     "projectName": "",
     "proponentType": ""
   }
