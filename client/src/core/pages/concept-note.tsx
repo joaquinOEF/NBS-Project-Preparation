@@ -184,23 +184,50 @@ export default function ConceptNotePage() {
     switch (event.type) {
       case 'chat': {
         const msgType: ChatMessageType = event.messageType || 'content';
+        const text = event.content;
+
+        // Detect short narration/status fragments (agent thinking out loud)
+        // These are short sentences like "Let me load...", "Good, template loaded."
+        // that should NOT be appended to content paragraphs
+        const isNarration = msgType === 'content' && text.length < 200 && (
+          /^(Let me |Good[,.]|Now let|Starting |I'll |I can see|I've |Reading |Loading |Setting up|Creating |Checking )/i.test(text.trim()) ||
+          /\.(Let me |Good[,.]|Now |Starting |Reading |Loading )/i.test(text) // sentence boundary mid-concat
+        );
+
         setMessages(prev => {
           const last = prev[prev.length - 1];
-          // Append to last assistant message of same type
-          if (last?.role === 'assistant' && last.messageType === msgType) {
-            return [...prev.slice(0, -1), { ...last, content: last.content + event.content }];
+
+          if (isNarration) {
+            // Narration fragments → append as bullet points to a thinking-type message
+            if (last?.role === 'assistant' && last.messageType === 'thinking') {
+              // Split on sentence boundaries and add as bullets
+              const bullets = text.split(/(?<=\.)\s*/).filter(s => s.trim()).map(s => `- ${s.trim()}`).join('\n');
+              return [...prev.slice(0, -1), { ...last, content: last.content + '\n' + bullets }];
+            }
+            // Start a new thinking message with bullets
+            const bullets = text.split(/(?<=\.)\s*/).filter(s => s.trim()).map(s => `- ${s.trim()}`).join('\n');
+            return [...prev, {
+              role: 'assistant' as const,
+              content: bullets,
+              messageType: 'thinking' as const,
+              timestamp: new Date().toISOString(),
+            }];
           }
-          // Start new message
+
+          // Real content — append to last content message or start new
+          if (last?.role === 'assistant' && last.messageType === 'content') {
+            return [...prev.slice(0, -1), { ...last, content: last.content + text }];
+          }
           return [...prev, {
             role: 'assistant' as const,
-            content: event.content,
+            content: text,
             messageType: msgType,
             timestamp: new Date().toISOString(),
           }];
         });
 
         // Try to parse MC questions from content messages
-        if (msgType === 'content') {
+        if (!isNarration && msgType === 'content') {
           setMessages(prev => {
             const last = prev[prev.length - 1];
             if (last?.role === 'assistant') {
