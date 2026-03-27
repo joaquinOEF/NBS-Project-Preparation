@@ -603,9 +603,23 @@ export default function ConceptNotePage() {
               <FileText className="w-4 h-4" />
               Concept Note Assistant
             </h2>
-            <p className="text-xs text-muted-foreground">
-              Phase {state.phase}/10 — {state.city} — {filledCount}/23 sections
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {[1,2,3,4,5,6,7,8].map(p => (
+                <button
+                  key={p}
+                  onClick={() => !isStreaming && sendMessage(`Jump to Phase ${p}`)}
+                  className={`w-5 h-5 rounded text-[10px] font-medium transition-all ${
+                    p === state.phase ? 'bg-primary text-primary-foreground'
+                    : p < state.phase ? 'bg-primary/20 text-primary hover:bg-primary/30'
+                    : 'bg-muted text-muted-foreground hover:bg-muted-foreground/20'
+                  }`}
+                  title={`Phase ${p}${p <= state.phase ? ' (completed)' : ''}`}
+                >
+                  {p}
+                </button>
+              ))}
+              <span className="text-[10px] text-muted-foreground ml-1">{filledCount}/23</span>
+            </div>
           </div>
           <div className="flex gap-1">
             <Tooltip>
