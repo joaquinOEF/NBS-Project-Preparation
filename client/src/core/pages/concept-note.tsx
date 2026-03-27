@@ -326,6 +326,8 @@ export default function ConceptNotePage() {
           options: event.options,
         }]);
         setSelectedOptionIdx(0);
+        // Enable buttons — agent is waiting for user input
+        setIsStreaming(false);
         break;
 
       case 'done':
