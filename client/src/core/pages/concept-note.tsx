@@ -95,8 +95,15 @@ export default function ConceptNotePage() {
   const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
   const [activeQuestions, setActiveQuestions] = useState<ParsedQuestion[]>([]);
   const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
+  const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
+  const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({});
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const handleSelectOptionRef = useRef<(label: string) => void>(() => {});
+
+  // Computed question state
+  const currentQuestion = activeQuestions[currentQuestionIdx] || null;
+  const totalQuestions = activeQuestions.length;
 
   // Initialize or resume session
   useEffect(() => {
@@ -145,39 +152,45 @@ export default function ConceptNotePage() {
 
   // Keyboard navigation for multiple choice
   useEffect(() => {
-    if (activeQuestions.length === 0) return;
-
-    const currentQ = activeQuestions[activeQuestions.length - 1];
-    if (!currentQ) return;
+    if (!currentQuestion) return;
 
     function handleKeyDown(e: KeyboardEvent) {
-      const opts = currentQ.options;
+      const opts = currentQuestion!.options;
+      const isInInput = document.activeElement === inputRef.current;
 
+      // Tab / Shift+Tab: cycle between questions
+      if (e.key === 'Tab' && totalQuestions > 1 && !isInInput) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          setCurrentQuestionIdx(prev => (prev - 1 + totalQuestions) % totalQuestions);
+        } else {
+          setCurrentQuestionIdx(prev => (prev + 1) % totalQuestions);
+        }
+        setSelectedOptionIdx(0);
+        return;
+      }
+
+      // Arrow keys: cycle options within current question
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-        e.preventDefault();
-        setSelectedOptionIdx(prev => (prev + 1) % opts.length);
+        if (!isInInput) { e.preventDefault(); setSelectedOptionIdx(prev => (prev + 1) % opts.length); }
       } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        if (!isInInput) { e.preventDefault(); setSelectedOptionIdx(prev => (prev - 1 + opts.length) % opts.length); }
+      } else if (e.key === 'Enter' && !e.shiftKey && !isInInput) {
         e.preventDefault();
-        setSelectedOptionIdx(prev => (prev - 1 + opts.length) % opts.length);
-      } else if (e.key === 'Enter' && !e.shiftKey && document.activeElement !== inputRef.current) {
-        e.preventDefault();
-        handleSelectOption(opts[selectedOptionIdx].label);
-      } else {
-        // Letter shortcuts: A=0, B=1, C=2, D=3
+        handleSelectOptionRef.current(opts[selectedOptionIdx].label);
+      } else if (!isInInput && !e.ctrlKey && !e.metaKey) {
+        // Letter shortcuts: A=0, B=1, C=2, D=3, E=4
         const letterIdx = e.key.toUpperCase().charCodeAt(0) - 65;
-        if (letterIdx >= 0 && letterIdx < opts.length && !e.ctrlKey && !e.metaKey) {
-          // Only if not typing in input
-          if (document.activeElement !== inputRef.current) {
-            e.preventDefault();
-            handleSelectOption(opts[letterIdx].label);
-          }
+        if (letterIdx >= 0 && letterIdx < opts.length) {
+          e.preventDefault();
+          handleSelectOptionRef.current(opts[letterIdx].label);
         }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeQuestions, selectedOptionIdx]);
+  }, [currentQuestion, selectedOptionIdx, totalQuestions]);
 
   // Process SSE events
   const processEvent = useCallback((event: ConceptNoteEvent) => {
@@ -320,13 +333,19 @@ export default function ConceptNotePage() {
         break;
 
       case 'ask_user':
-        setActiveQuestions(prev => [...prev, {
-          id: `ask_${Date.now()}`,
-          question: event.question,
-          options: event.options,
-        }]);
+        setActiveQuestions(prev => {
+          // If this is the first question after no questions, reset tracking
+          if (prev.length === 0) {
+            setCurrentQuestionIdx(0);
+            setQuestionAnswers({});
+          }
+          return [...prev, {
+            id: `ask_${Date.now()}_${Math.random()}`,
+            question: event.question,
+            options: event.options,
+          }];
+        });
         setSelectedOptionIdx(0);
-        // Enable buttons — agent is waiting for user input
         setIsStreaming(false);
         break;
 
@@ -403,32 +422,44 @@ export default function ConceptNotePage() {
     setIsStreaming(false);
   }, [noteId, isStreaming, processEvent]);
 
-  // Collected answers for multi-question batches
-  const [collectedAnswers, setCollectedAnswers] = useState<string[]>([]);
-
-  // Handle MC option selection
+  // Handle MC option selection — answer current question, advance to next unanswered
   const handleSelectOption = useCallback((label: string) => {
-    setActiveQuestions(prev => {
-      if (prev.length <= 1) {
-        // Last or only question — send all collected answers + this one
-        const allAnswers = [...collectedAnswers, label];
-        setCollectedAnswers([]);
+    setQuestionAnswers(prev => {
+      const updated = { ...prev, [currentQuestionIdx]: label };
+
+      // Check if all answered after this one
+      if (Object.keys(updated).length === totalQuestions) {
+        // All done — send batch to agent
+        const allAnswers = activeQuestions.map((_, i) => updated[i]).filter(Boolean);
+        setActiveQuestions([]);
+        setCurrentQuestionIdx(0);
+        setSelectedOptionIdx(0);
         sendMessage(allAnswers.join('; '));
-        return [];
+        return {};
       }
-      // More questions remaining — collect this answer, show next question
-      setCollectedAnswers(prev2 => [...prev2, label]);
-      // Show answer as user message
-      setMessages(prev2 => [...prev2, {
-        role: 'user' as const,
-        content: label,
-        messageType: 'content' as const,
-        timestamp: new Date().toISOString(),
-      }]);
-      return prev.slice(1); // Remove answered question, show next
+
+      return updated;
     });
+
+    // Advance to next unanswered question
     setSelectedOptionIdx(0);
-  }, [sendMessage, collectedAnswers]);
+    for (let i = currentQuestionIdx + 1; i < totalQuestions; i++) {
+      if (!questionAnswers[i] && i !== currentQuestionIdx) {
+        setCurrentQuestionIdx(i);
+        return;
+      }
+    }
+    // Wrap around
+    for (let i = 0; i < currentQuestionIdx; i++) {
+      if (!questionAnswers[i]) {
+        setCurrentQuestionIdx(i);
+        return;
+      }
+    }
+  }, [currentQuestionIdx, totalQuestions, activeQuestions, questionAnswers, sendMessage]);
+
+  // Keep ref in sync
+  handleSelectOptionRef.current = handleSelectOption;
 
   // Handle user field edit
   const handleFieldEdit = useCallback(async (sectionId: string, field: string, value: string) => {
@@ -492,6 +523,8 @@ export default function ConceptNotePage() {
     clearSavedNoteId();
     setMessages([]);
     setActiveQuestions([]);
+    setCurrentQuestionIdx(0);
+    setQuestionAnswers({});
     setState(null);
     setNoteId(null);
 
@@ -604,17 +637,45 @@ export default function ConceptNotePage() {
             );
           })}
 
-          {/* Interactive Multiple Choice Questions */}
-          {activeQuestions.map((q, qi) => (
-            <QuestionCard
-              key={q.id}
-              question={q}
-              isActive={qi === activeQuestions.length - 1}
-              selectedIdx={qi === activeQuestions.length - 1 ? selectedOptionIdx : -1}
-              onSelect={handleSelectOption}
-              disabled={isStreaming}
-            />
-          ))}
+          {/* Interactive Multiple Choice — one question at a time with navigation */}
+          {currentQuestion && (
+            <div className="space-y-2">
+              {/* Question navigation header */}
+              {totalQuestions > 1 && (
+                <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                  <div className="flex items-center gap-1">
+                    {activeQuestions.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => { setCurrentQuestionIdx(i); setSelectedOptionIdx(0); }}
+                        className={`w-6 h-6 rounded-full text-[10px] font-medium flex items-center justify-center transition-all ${
+                          i === currentQuestionIdx
+                            ? 'bg-primary text-primary-foreground'
+                            : questionAnswers[i]
+                              ? 'bg-green-100 text-green-700 border border-green-300'
+                              : 'bg-muted text-muted-foreground hover:bg-muted-foreground/20'
+                        }`}
+                      >
+                        {questionAnswers[i] ? <Check className="w-3 h-3" /> : i + 1}
+                      </button>
+                    ))}
+                  </div>
+                  <span>Question {currentQuestionIdx + 1} of {totalQuestions} · Tab to cycle</span>
+                </div>
+              )}
+
+              {/* Current question card */}
+              <QuestionCard
+                question={currentQuestion}
+                isActive={true}
+                selectedIdx={selectedOptionIdx}
+                onSelect={handleSelectOption}
+                disabled={isStreaming}
+                answeredValue={questionAnswers[currentQuestionIdx]}
+                questionNumber={totalQuestions > 1 ? currentQuestionIdx + 1 : undefined}
+              />
+            </div>
+          )}
 
           {/* Thinking Steps Checklist */}
           {thinkingSteps.length > 0 && (
@@ -661,13 +722,22 @@ export default function ConceptNotePage() {
               <Loader2 className="w-3 h-3 animate-spin" /> Agent is working...
             </p>
           )}
-          {!isStreaming && activeQuestions.length > 0 && (
+          {!isStreaming && currentQuestion && (
             <p className="text-[10px] text-primary mb-1 font-medium">
-              Your turn — use arrow keys + Enter to select, or type below
+              Your turn — arrows + Enter to select{totalQuestions > 1 ? ', Tab to cycle questions' : ''}, or type below
             </p>
           )}
           <form
-            onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (currentQuestion && input.trim()) {
+                // Typed answer applies to current question
+                handleSelectOption(input.trim());
+                setInput('');
+              } else {
+                sendMessage(input);
+              }
+            }}
             className="flex gap-2"
           >
             <Input
@@ -676,7 +746,7 @@ export default function ConceptNotePage() {
               onChange={(e) => setInput(e.target.value)}
               placeholder={
                 isStreaming ? "Waiting for agent..." :
-                activeQuestions.length > 0 ? "Type a custom answer, or select above..." :
+                currentQuestion ? `Answer Q${currentQuestionIdx + 1}: ${currentQuestion.question.slice(0, 50)}...` :
                 "Type your response..."
               }
               disabled={isStreaming}
@@ -731,16 +801,30 @@ function QuestionCard({
   selectedIdx,
   onSelect,
   disabled,
+  answeredValue,
+  questionNumber,
 }: {
   question: ParsedQuestion;
   isActive: boolean;
   selectedIdx: number;
   onSelect: (label: string) => void;
   disabled: boolean;
+  answeredValue?: string;
+  questionNumber?: number;
 }) {
   return (
-    <div className="rounded-lg border bg-background p-3 space-y-2" role="listbox" aria-label={question.question}>
-      <div className="text-sm font-medium prose prose-sm max-w-none"><ReactMarkdown>{question.question}</ReactMarkdown></div>
+    <div className={`rounded-lg border bg-background p-3 space-y-2 transition-all ${answeredValue ? 'border-green-200 bg-green-50/30' : ''}`} role="listbox" aria-label={question.question}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-sm font-medium prose prose-sm max-w-none flex-1">
+          {questionNumber && <span className="text-muted-foreground mr-1">{questionNumber}.</span>}
+          <ReactMarkdown>{question.question}</ReactMarkdown>
+        </div>
+        {answeredValue && (
+          <span className="shrink-0 inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded">
+            <Check className="w-3 h-3" /> {answeredValue}
+          </span>
+        )}
+      </div>
       <div className="space-y-1.5">
         {question.options.map((opt, i) => {
           const letter = String.fromCharCode(65 + i);
