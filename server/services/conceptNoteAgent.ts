@@ -145,6 +145,8 @@ function createConceptNoteToolsForSdk(noteId: string) {
       section.lastUpdatedBy = 'agent';
       section.confidence = args.confidence as Confidence;
       if (args.source && !section.sources.includes(args.source)) section.sources.push(args.source);
+      // Clear gaps for this field
+      state.gaps = state.gaps.filter(g => !(g.sectionId === args.sectionId && g.field === args.field));
       state.editLog.push({ timestamp: new Date().toISOString(), sectionId: args.sectionId, field: args.field, oldValue, newValue: args.value, source: 'agent' });
       setConceptNoteState(noteId, state);
 
@@ -544,9 +546,13 @@ function handleToolCall(noteId: string, toolName: string, input: any, pushEvent:
     section.lastUpdatedBy = 'agent';
     section.confidence = (input.confidence || 'medium') as Confidence;
     if (input.source && !section.sources.includes(input.source)) section.sources.push(input.source);
+    // Clear any gaps for this field — it's now filled
+    const gapsBefore = state.gaps.length;
+    state.gaps = state.gaps.filter(g => !(g.sectionId === input.sectionId && g.field === input.field));
     setConceptNoteState(noteId, state);
     pushEvent({ type: 'field_update', sectionId: input.sectionId, field: input.field, value: input.value, confidence: (input.confidence || 'medium') as Confidence, source: input.source });
-    return `Updated ${input.sectionId}.${input.field}`;
+    const cleared = gapsBefore - state.gaps.length;
+    return `Updated ${input.sectionId}.${input.field}${cleared > 0 ? ` (cleared ${cleared} gap)` : ''}`;
   }
 
   if (toolName === "flag_gap") {
