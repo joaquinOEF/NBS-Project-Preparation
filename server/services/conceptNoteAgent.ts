@@ -245,9 +245,9 @@ export async function streamConceptNoteChat(
 
   const isSdkReady = await loadSdk();
 
-  // V2 is unstable — use V1 continue: true as primary path
-  // Set V2_SESSIONS=1 env var to opt-in to V2
-  const useV2 = sdkV2Available && process.env.V2_SESSIONS === '1';
+  // V2 persistent sessions are the primary path (fastest)
+  // Set V2_SESSIONS=0 env var to disable and fall back to V1
+  const useV2 = sdkV2Available && process.env.V2_SESSIONS !== '0';
   if (isSdkReady && useV2) {
     await streamWithV2Session(noteId, userMessage, state, pushEvent);
   } else if (isSdkReady) {
@@ -274,31 +274,48 @@ async function streamWithV2Session(
     const isFirstTurn = !session;
 
     if (!session) {
+      console.log(`[concept-note] V2 creating session for ${noteId}...`);
       const mcpServer = getMcpServer(noteId);
-      session = sdkCreateSession({
-        model: "claude-opus-4-6",
-        cwd: process.cwd(),
-        allowedTools: [
-          "Read", "Glob", "Grep",
-          "mcp__concept_note__update_section",
-          "mcp__concept_note__flag_gap",
-          "mcp__concept_note__set_phase",
-          "mcp__concept_note__ask_user",
-        ],
-        mcpServers: mcpServer ? { concept_note: mcpServer } : {},
-        permissionMode: "bypassPermissions",
-        settingSources: ['project'],
+
+      // Create session with timeout — if it takes > 30s, fall back to V1
+      const sessionPromise = new Promise<any>((resolve, reject) => {
+        try {
+          const s = sdkCreateSession({
+            model: "claude-opus-4-6",
+            cwd: process.cwd(),
+            allowedTools: [
+              "Read", "Glob", "Grep",
+              "mcp__concept_note__update_section",
+              "mcp__concept_note__flag_gap",
+              "mcp__concept_note__set_phase",
+              "mcp__concept_note__ask_user",
+            ],
+            mcpServers: mcpServer ? { concept_note: mcpServer } : {},
+            permissionMode: "bypassPermissions",
+            // No settingSources — we embed the system prompt directly
+          });
+          resolve(s);
+        } catch (e) {
+          reject(e);
+        }
       });
+
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("V2 session creation timed out after 30s")), 30000)
+      );
+
+      session = await Promise.race([sessionPromise, timeout]);
       activeSessions.set(noteId, session);
       sessionIsFirstTurn.set(noteId, true);
+      console.log(`[concept-note] V2 session created for ${noteId}`);
     }
 
-    // First turn includes system context; subsequent turns are just user messages
     const prompt = sessionIsFirstTurn.get(noteId)
       ? `${buildSystemContext(state)}\n\nUser message: ${userMessage}`
       : userMessage;
 
     sessionIsFirstTurn.set(noteId, false);
+    console.log(`[concept-note] V2 ${isFirstTurn ? 'first turn' : 'continue'} for ${noteId}`);
 
     await session.send(prompt);
 
@@ -306,9 +323,14 @@ async function streamWithV2Session(
       processSDKMessage(message, pushEvent);
     }
   } catch (error: any) {
-    console.error("[concept-note] V2 session error:", error.message);
-    // Fall back to V1
+    console.error("[concept-note] V2 error:", error.message, "— falling back to V1");
+    // Clean up failed session
+    const session = activeSessions.get(noteId);
+    if (session && typeof session.close === 'function') {
+      try { session.close(); } catch {}
+    }
     activeSessions.delete(noteId);
+    sessionIsFirstTurn.delete(noteId);
     await streamWithV1Continue(noteId, userMessage, state, pushEvent);
   }
 }
