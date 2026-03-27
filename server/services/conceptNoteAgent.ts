@@ -286,6 +286,18 @@ async function streamWithAnthropicApi(
 
   const tools = [
     {
+      name: "read_knowledge",
+      description: "Read a specific knowledge file from the knowledge base. Use this to get detailed data on interventions, co-benefits, financing, evidence, or city-specific information.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          folder: { type: "string", description: "Folder name: porto-alegre, _interventions, _co-benefits, _financing-sources, _evidence, _success-cases, _inclusive-action" },
+          file: { type: "string", description: "File name, e.g. 'urban-forests.md', 'climate-risks.md'" },
+        },
+        required: ["folder", "file"],
+      },
+    },
+    {
       name: "update_section",
       description: "Update a field in the concept note document.",
       input_schema: {
@@ -396,6 +408,18 @@ function handleToolCall(noteId: string, toolName: string, input: any, pushEvent:
   const state = getConceptNoteState(noteId);
   if (!state) return "Error: note not found";
 
+  if (toolName === "read_knowledge") {
+    const fs = require('fs');
+    const path = require('path');
+    const filePath = path.join(process.cwd(), 'knowledge', input.folder, input.file);
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return content.length > 4000 ? content.slice(0, 4000) + '\n...(truncated)' : content;
+    } catch {
+      return `Error: file not found at knowledge/${input.folder}/${input.file}`;
+    }
+  }
+
   if (toolName === "update_section") {
     const section = state.sections[input.sectionId as keyof typeof state.sections];
     if (!section) return `Error: unknown section '${input.sectionId}'`;
@@ -463,20 +487,29 @@ async function loadKnowledgeContext(city: string): Promise<string> {
   const knowledgeDir = path.join(process.cwd(), 'knowledge');
   const chunks: string[] = [];
 
-  const folders = [`${city}`, '_interventions', '_co-benefits', '_financing-sources', '_evidence', '_success-cases'];
+  // Only load the city folder for initial context — other folders loaded on demand via tool calls
+  const cityDir = path.join(knowledgeDir, city);
+  try {
+    const files = await fs.readdir(cityDir);
+    for (const file of files) {
+      if (!file.endsWith('.md')) continue;
+      try {
+        const content = await fs.readFile(path.join(cityDir, file), 'utf-8');
+        // Keep summaries short — agent can request full files via read_knowledge tool
+        const truncated = content.length > 1500 ? content.slice(0, 1500) + '\n...(truncated — use read_knowledge for full content)' : content;
+        chunks.push(`### ${city}/${file}\n${truncated}`);
+      } catch {}
+    }
+  } catch {}
 
-  for (const folder of folders) {
+  // Add a directory listing of available knowledge so the agent knows what to request
+  for (const folder of ['_interventions', '_co-benefits', '_financing-sources', '_evidence', '_success-cases']) {
     const dirPath = path.join(knowledgeDir, folder);
     try {
       const files = await fs.readdir(dirPath);
-      for (const file of files) {
-        if (!file.endsWith('.md')) continue;
-        try {
-          const content = await fs.readFile(path.join(dirPath, file), 'utf-8');
-          // Truncate long files to keep context manageable
-          const truncated = content.length > 2000 ? content.slice(0, 2000) + '\n...(truncated)' : content;
-          chunks.push(`### ${folder}/${file}\n${truncated}`);
-        } catch {}
+      const mdFiles = files.filter(f => f.endsWith('.md'));
+      if (mdFiles.length > 0) {
+        chunks.push(`### Available in ${folder}/\n${mdFiles.map(f => `- ${f}`).join('\n')}`);
       }
     } catch {}
   }
