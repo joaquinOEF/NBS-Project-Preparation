@@ -181,10 +181,33 @@ function createConceptNoteTools(noteId: string, pushEvent: EventPusher) {
     { annotations: { readOnlyHint: false } }
   );
 
+  const askUser = sdkTool(
+    "ask_user",
+    "ALWAYS use this tool to present multiple-choice questions to the user. The UI renders interactive clickable buttons. Do NOT write questions as numbered lists or markdown — use this tool instead.",
+    {
+      question: z.string().describe("The question to ask the user"),
+      options: z.array(z.object({
+        label: z.string().describe("Option text"),
+        description: z.string().optional().describe("Brief explanation"),
+        recommended: z.boolean().optional().describe("Whether this is the recommended option"),
+      })).describe("2-6 options for the user to choose from"),
+    },
+    async (args: any) => {
+      pushEvent({
+        type: 'ask_user',
+        question: args.question,
+        options: args.options || [],
+      });
+      // Return a message that tells the agent to STOP and wait for user response
+      return { content: [{ type: "text" as const, text: `Question presented to user: "${args.question}" with ${args.options?.length || 0} options. STOP HERE and wait for the user to respond. Do not continue until the user answers.` }] };
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
   return sdkCreateMcpServer({
     name: "concept_note",
     version: "1.0.0",
-    tools: [updateSection, flagGap, setPhase],
+    tools: [updateSection, flagGap, setPhase, askUser],
   });
 }
 
@@ -264,6 +287,7 @@ async function streamWithAgentSdk(
           "mcp__concept_note__update_section",
           "mcp__concept_note__flag_gap",
           "mcp__concept_note__set_phase",
+          "mcp__concept_note__ask_user",
         ],
         mcpServers: mcpServer ? { concept_note: mcpServer } : {},
         ...(sessionId ? { resume: sessionId } : {}),
