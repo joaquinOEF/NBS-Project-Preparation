@@ -1,0 +1,899 @@
+{
+  "id": "0743a882-b34c-4b51-86ec-b182a45e905c",
+  "projectId": "sample-project",
+  "city": "porto-alegre",
+  "phase": 10,
+  "sections": {
+    "project_id": {
+      "id": "project_id",
+      "title": "1. Identificação do Projeto",
+      "phase": 1,
+      "fields": {
+        "nome_projeto": {
+          "value": "Super Porto Alegre",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        },
+        "setor": {
+          "value": "Soluções Baseadas na Natureza (SBN/NBS)",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        },
+        "foco_climatico": {
+          "value": "Adaptação e Mitigação climática (duplo benefício)",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "user"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "proponent": {
+      "id": "proponent",
+      "title": "2. Instituição Proponente",
+      "phase": 1,
+      "fields": {
+        "municipio": {
+          "value": "Porto Alegre",
+          "confidence": "high",
+          "source": "porto-alegre/city-profile.md",
+          "userEdited": false
+        },
+        "estado": {
+          "value": "Rio Grande do Sul",
+          "confidence": "high",
+          "source": "porto-alegre/city-profile.md",
+          "userEdited": false
+        },
+        "populacao": {
+          "value": "1.388.794 habitantes (estimativa 2025)",
+          "confidence": "high",
+          "source": "porto-alegre/city-profile.md",
+          "userEdited": false
+        },
+        "instituicao_proponente": {
+          "value": "Secretaria Municipal do Meio Ambiente, Urbanismo e Sustentabilidade (SMAMUS) — Prefeitura Municipal de Porto Alegre",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        },
+        "tipo_instituicao": {
+          "value": "Secretaria Municipal — órgão da administração direta da Prefeitura Municipal de Porto Alegre",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "porto-alegre/city-profile.md",
+        "user"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "territorial_context": {
+      "id": "territorial_context",
+      "title": "3. Contexto Territorial",
+      "phase": 2,
+      "fields": {
+        "descricao": {
+          "value": "Porto Alegre, capital do Rio Grande do Sul, possui 1.388.794 habitantes (2025) e área de 496,68 km². A cidade está situada na margem leste do Lago Guaíba, em zona de transição entre os biomas Mata Atlântica (morros e encostas) e Pampa (planícies), com topografia marcada por 40 morros e extensas planícies de inundação. A hidrografia urbana é complexa: o Arroio Dilúvio atravessa o centro da cidade, e os rios Jacuí, Sinos, Gravataí, Caí e Taquari convergem no Guaíba. Em maio de 2024, Porto Alegre foi epicentro da pior catástrofe natural registrada no Rio Grande do Sul: o nível do Guaíba atingiu 5,35 m, superando em 59 cm o recorde histórico de 1941 (4,76 m), inundando aproximadamente 48% do território municipal e afetando diretamente 422.473 pessoas.",
+          "confidence": "high",
+          "source": "porto-alegre/city-profile.md, porto-alegre/climate-risks.md",
+          "userEdited": false
+        },
+        "escopo_territorial": {
+          "value": "Zona de intervenção prioritária: área urbana de 103 km² com população estimada de 830.968 habitantes, classificada com risco climático combinado (índice de calor: 0,62; índice de inundação: 0,43). A zona abrange bairros com alta densidade populacional e vulnerabilidade à elevação de temperaturas e eventos de precipitação intensa, demandando infraestrutura verde integrada de resfriamento urbano e gestão de águas pluviais.",
+          "confidence": "high",
+          "source": "user — seleção cartográfica",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "porto-alegre/city-profile.md, porto-alegre/climate-risks.md",
+        "user — seleção cartográfica"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "problem_diagnosis": {
+      "id": "problem_diagnosis",
+      "title": "4. Diagnóstico do Problema",
+      "phase": 2,
+      "fields": {
+        "descricao": {
+          "value": "Porto Alegre enfrenta vulnerabilidade climática extrema, evidenciada pelo evento de maio de 2024: 183 óbitos no estado, 422.473 deslocados, 48% do território municipal inundado e danos econômicos superiores a USD 15 bilhões no Rio Grande do Sul. O pico de 5,35 m no Guaíba superou em 59 cm o recorde anterior (1941). Atribuição científica (World Weather Attribution) indica que as mudanças climáticas tornaram eventos desta magnitude aproximadamente 2x mais prováveis ou 12% mais intensos com 1,2°C de aquecimento global. As causas estruturais incluem: (i) impermeabilização e expansão urbana reduzindo a absorção natural de água; (ii) degradação de Áreas de Preservação Permanente (APPs) e zonas úmidas; (iii) insuficiência do sistema de drenagem convencional, agravada pela dissolução do DEP em 2017 e manutenção deficiente das 23 estações de bombeamento (19 das quais foram desativadas durante a crise); (iv) ausência de infraestrutura verde integrada capaz de amortecer eventos extremos. O município não possui rede estruturada de Soluções Baseadas na Natureza para gestão de águas pluviais e resiliência climática.",
+          "confidence": "high",
+          "source": "porto-alegre/climate-risks.md",
+          "userEdited": false
+        },
+        "foco_problema": {
+          "value": "Redução do risco de enchentes e alagamentos por meio de infraestrutura verde urbana, com co-benefício de mitigação de ilhas de calor na zona de intervenção (índice de calor 0,62 — risco elevado para a população local).",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "porto-alegre/climate-risks.md",
+        "user"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "general_objective": {
+      "id": "general_objective",
+      "title": "5. Objetivo Geral do Projeto",
+      "phase": 2,
+      "fields": {
+        "descricao": {
+          "value": "Aumentar a resiliência climática de Porto Alegre por meio da implantação de uma rede programática de Parques de Detenção (Flood Parks) em área de 200–500 ha, reduzindo o risco de inundações e ilhas de calor urbano para aproximadamente 831 mil habitantes da zona de intervenção prioritária, com geração de co-benefícios de sequestro de carbono, biodiversidade e desenvolvimento socioeconômico inclusivo.",
+          "confidence": "high",
+          "source": "user + síntese",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "user + síntese"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "specific_objectives": {
+      "id": "specific_objectives",
+      "title": "6. Objetivos Específicos",
+      "phase": 3,
+      "fields": {
+        "lista": {
+          "value": "1. Implantar 200–500 ha de parques de detenção multifuncionais integrados ao sistema de drenagem urbana de Porto Alegre até 2030.\n2. Aumentar a capacidade de retenção hídrica da zona de intervenção em pelo menos 3.000.000 m³ (estimativa para 300 ha de parques de detenção).\n3. Reduzir a temperatura superficial urbana média na zona de intervenção em 1,5–3°C por meio do aumento da cobertura vegetal e superfícies permeáveis.\n4. Sequestrar pelo menos 1.500 tCO₂e/ano adicionais por meio da vegetação implantada nos parques.\n5. Beneficiar diretamente pelo menos 200.000 habitantes em áreas de alta vulnerabilidade socioclimática com acesso a espaços verdes de qualidade.\n6. Gerar 500–1.500 empregos verdes diretos e indiretos durante a implantação e manutenção do programa.",
+          "confidence": "medium",
+          "source": "síntese NBS benchmarks — a confirmar na Fase 4",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
+      "sources": [
+        "síntese NBS benchmarks — a confirmar na Fase 4"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "indicators": {
+      "id": "indicators",
+      "title": "7. Indicadores Físico-Operacionais",
+      "phase": 3,
+      "fields": {
+        "lista": {
+          "value": "1. Área verde implantada/restaurada (ha) — meta: 300 ha (faixa: 200–500 ha)\n2. Capacidade de retenção hídrica adicionada (m³) — meta: ≥3.000.000 m³\n3. Redução de temperatura superficial urbana (°C) — meta: 1,5–3°C na zona de intervenção\n4. Sequestro de carbono anual (tCO₂e/ano) — meta: ≥1.500 tCO₂e/ano\n5. População beneficiada com redução de risco de inundação (habitantes) — meta: ≥200.000\n6. Empregos verdes gerados (diretos + indiretos) — meta: 500–1.500\n7. Número de parques de detenção implantados — meta: a definir na Fase 3 detalhada\n8. Área permeável adicionada (m²) — meta: a calcular com projeto básico",
+          "confidence": "medium",
+          "source": "benchmarks NBS internacionais — validar com dados locais",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
+      "sources": [
+        "benchmarks NBS internacionais — validar com dados locais"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "solution_description": {
+      "id": "solution_description",
+      "title": "8. Descrição da Solução Proposta",
+      "phase": 3,
+      "fields": {
+        "maturidade": {
+          "value": "Projeto básico / anteprojeto — escopo técnico definido, sem projeto executivo elaborado.",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        },
+        "tipo_intervencao": {
+          "value": "Implantação de rede de Parques de Detenção (Flood Parks) — espaços públicos multifuncionais projetados para retenção temporária de águas pluviais em eventos extremos, integrados ao sistema de drenagem urbana. Os parques operam como infraestrutura verde de amortecimento de cheias, combinando funções de recreação, biodiversidade e regulação hídrica.",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        },
+        "escala": {
+          "value": "Escala programática: 200–500 ha de área verde implantada ou restaurada (meta central: 300 ha), distribuídos na zona de intervenção de 103 km² com 830.968 habitantes. Abordagem por fases, com piloto de referência na Orla do Guaíba (5,7 ha, 2018).",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        },
+        "historico_local": {
+          "value": "Precedente local: Orla do Guaíba — projeto de revitalização da orla com design paisagístico e infraestrutura verde (5,7 ha, 1,5 km de extensão, inaugurado em 2018, projeto Jaime Lerner Arquitetos). Demonstra capacidade municipal de execução de projetos de infraestrutura verde de qualidade e serve como referência de governança, projeto e engajamento comunitário para a escala programática proposta.",
+          "confidence": "high",
+          "source": "porto-alegre/local-precedents.md + user",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "user",
+        "porto-alegre/local-precedents.md + user"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "climate_benefits": {
+      "id": "climate_benefits",
+      "title": "9. Benefícios Climáticos",
+      "phase": 4,
+      "fields": {
+        "descricao": {
+          "value": "O projeto Super Porto Alegre gerará os seguintes benefícios climáticos quantificados (base: 300 ha de parques de detenção implantados):\n\n**Adaptação:**\n- Capacidade de retenção hídrica adicional: ≥3.000.000 m³ (equivalente ao amortecimento de eventos de precipitação extrema como os de maio de 2024 na zona de intervenção de 103 km²)\n- Redução da temperatura superficial urbana: 1,5–3°C na área de intervenção, beneficiando ≥200.000 habitantes em situação de vulnerabilidade climática\n- Redução estimada do risco de inundação para populações em áreas de APP e planícies de inundação\n\n**Mitigação:**\n- Sequestro de carbono: ≥1.500 tCO₂e/ano por meio de cobertura vegetal implantada (árvores, gramíneas, wetlands associados)\n- Redução de emissões indiretas por efeito de resfriamento urbano (menor uso de ar-condicionado)\n\n**Contexto de baseline:** Em maio de 2024, o nível do Guaíba atingiu 5,35 m — 59 cm acima do recorde histórico — inundando 48% do território municipal. Estudos de atribuição climática (World Weather Attribution) indicam que eventos desta magnitude são ~2x mais prováveis com as mudanças climáticas atuais.",
+          "confidence": "medium",
+          "source": "benchmarks NBS + porto-alegre/climate-risks.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
+      "sources": [
+        "benchmarks NBS + porto-alegre/climate-risks.md"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "economic_social_benefits": {
+      "id": "economic_social_benefits",
+      "title": "10. Benefícios Econômicos e Sociais",
+      "phase": 4,
+      "fields": {
+        "descricao": {
+          "value": "**Benefícios econômicos:**\n- Geração de 500–1.500 empregos verdes diretos e indiretos (implantação, manutenção, gestão dos parques)\n- Redução de custos com danos por inundação: eventos como maio/2024 causaram >USD 15 bilhões em danos no RS; a infraestrutura verde de detenção reduz perdas materiais e custos de recuperação\n- Valorização imobiliária em entorno de parques urbanos: evidências brasileiras apontam incremento de 8–15% em raio de 500 m\n- Redução de custos em saúde pública associados a eventos climáticos extremos e ilhas de calor\n\n**Benefícios sociais:**\n- Acesso ampliado a espaços verdes de qualidade para ≥200.000 habitantes em bairros de alta vulnerabilidade\n- Melhoria da saúde mental e bem-estar físico da população\n- Fortalecimento da coesão social por meio de espaços públicos inclusivos\n- Redução da exposição de populações vulneráveis a riscos climáticos (enchentes, ondas de calor)",
+          "confidence": "medium",
+          "source": "benchmarks NBS + porto-alegre/climate-risks.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
+      "sources": [
+        "benchmarks NBS + porto-alegre/climate-risks.md"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "inclusive_action": {
+      "id": "inclusive_action",
+      "title": "11. Ação Climática Inclusiva",
+      "phase": 4,
+      "fields": {
+        "descricao": {
+          "value": "**Estratégia de equidade climática:** O projeto adotará critério de priorização territorial baseado em vulnerabilidade socioclimática combinada, direcionando as primeiras fases de implantação para bairros com maior exposição a risco de inundação e ilhas de calor e menor acesso a infraestrutura verde — como Restinga, Sarandi, Rubem Berta e outras zonas de baixa renda da zona de intervenção.\n\n**Mecanismos de inclusão:**\n- Mapeamento participativo de vulnerabilidades e prioridades com comunidades locais antes do projeto executivo\n- Contratação preferencial de moradores locais e trabalhadores afetados pelas enchentes de 2024 nas obras e serviços de manutenção\n- Programas de educação ambiental e conscientização sobre mudanças climáticas integrados à operação dos parques\n- Canais de participação contínua na gestão dos espaços (conselhos gestores ou equivalente)\n\n**Alinhamento com critérios BPJP/C40:** A estratégia de inclusão social responde diretamente aos critérios de equidade do BPJP, demonstrando que os benefícios climáticos alcançam prioritariamente populações em situação de vulnerabilidade.",
+          "confidence": "high",
+          "source": "user + porto-alegre/stakeholders.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "user + porto-alegre/stakeholders.md"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "institutional_arrangement": {
+      "id": "institutional_arrangement",
+      "title": "12. Arranjo Institucional",
+      "phase": 5,
+      "fields": {
+        "descricao": {
+          "value": "**Instituição líder:** SMAMUS (Secretaria Municipal do Meio Ambiente, Urbanismo e Sustentabilidade) — responsável pelo licenciamento ambiental municipal, gestão do PDDUA, política climática (PLAC) e áreas verdes urbanas. Detém a autoridade técnica e legal para coordenar o projeto.\n\n**Parceiros institucionais chave:**\n- **DMAE** (Departamento Municipal de Água e Esgotos): responsável pela drenagem urbana e infraestrutura hídrica — parceiro essencial para integração dos parques ao sistema de drenagem\n- **SMPAE** (Secretaria Municipal de Planejamento e Assuntos Estratégicos): coordenação de projetos financiados externamente (abriga PIU do Banco Mundial); alinhamento estratégico\n- **DMLU** (Departamento Municipal de Limpeza Urbana): gestão e manutenção de espaços públicos\n- **Câmara Municipal de Porto Alegre**: apoio legislativo, especialmente no contexto da revisão do PDDUA (aprovado nov/2025)\n\n**Modelo de governança proposto:** Comitê Gestor intersetorial liderado pela SMAMUS, com participação do DMAE, SMPAE e representação da sociedade civil. A experiência da Orla do Guaíba demonstra a capacidade municipal de coordenar projetos de infraestrutura verde com múltiplos stakeholders.",
+          "confidence": "medium",
+          "source": "porto-alegre/stakeholders.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
+      "sources": [
+        "porto-alegre/stakeholders.md"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "technical_capacity": {
+      "id": "technical_capacity",
+      "title": "13. Capacidade Técnica",
+      "phase": 5,
+      "fields": {
+        "descricao": {
+          "value": "A SMAMUS possui equipe técnica interna com experiência comprovada em projetos de infraestrutura verde e gestão ambiental urbana, evidenciada por:\n\n- **Orla do Guaíba** (2018): coordenação de projeto de 5,7 ha de infraestrutura verde no waterfront, com design paisagístico de referência nacional (Jaime Lerner Arquitetos)\n- **Arborização urbana**: gestão de ~1 milhão de árvores municipais; Porto Alegre entre as 15 cidades mais arborizadas do Brasil\n- **Plano de Ação Climática (PLAC)**: elaboração e monitoramento do inventário de emissões GEE (2ª edição, 2021), com metodologia GPC e apoio do ICLEI América do Sul\n- **Licenciamento ambiental municipal**: SMAMUS licencia projetos urbanos de menor porte e gere APPs no território municipal\n- **Revisão do PDDUA**: participação técnica ativa na revisão do plano diretor (2024–2026), incluindo novas disposições sobre zonas de inundação e áreas verdes\n\nA capacidade técnica será complementada por assistência técnica do BPJP/C40 para estruturação financeira e preparação do projeto executivo.",
+          "confidence": "high",
+          "source": "user + porto-alegre/local-precedents.md + porto-alegre/stakeholders.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "user + porto-alegre/local-precedents.md + porto-alegre/stakeholders.md"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "political_support": {
+      "id": "political_support",
+      "title": "14. Apoio e Alinhamento Político",
+      "phase": 5,
+      "fields": {
+        "descricao": {
+          "value": "O projeto Super Porto Alegre conta com apoio político de alto nível: está inserido na agenda prioritária do Prefeito Municipal e do secretariado, no contexto do compromisso público de reconstrução e resiliência climática após os eventos catastróficos de maio de 2024. A tragédia — que inundou 48% do território municipal, deslocou 422.473 pessoas e causou mais de USD 15 bilhões em danos no estado — criou mandato político inequívoco para investimentos estruturantes em adaptação climática. A aprovação da revisão do PDDUA pela Câmara Municipal em novembro de 2025 reforça o respaldo institucional para intervenções de infraestrutura verde integradas ao planejamento urbano.",
+          "confidence": "high",
+          "source": "user + porto-alegre/climate-risks.md + porto-alegre/existing-plans.md",
+          "userEdited": false
+        },
+        "carta_apoio": {
+          "value": "Carta de apoio institucional assinada pelo/a Secretário/a Municipal do Meio Ambiente, Urbanismo e Sustentabilidade (SMAMUS) disponível para anexo à nota conceitual. O documento formaliza o comprometimento da Prefeitura Municipal de Porto Alegre com o projeto Super Porto Alegre e com a captação de assistência técnica junto ao BPJP/C40 Cities Finance Facility.",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "user + porto-alegre/climate-risks.md + porto-alegre/existing-plans.md",
+        "user"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "plan_alignment": {
+      "id": "plan_alignment",
+      "title": "15. Alinhamento com Planos",
+      "phase": 5,
+      "fields": {
+        "descricao": {
+          "value": "O projeto Super Porto Alegre está alinhado com os principais instrumentos de planejamento vigentes:\n\n- **PDDUA revisado (LC aprovada nov/2025):** O plano diretor define Áreas de Especial Interesse Ambiental (AEIAs) e zonas de risco de inundação onde os parques de detenção serão prioritariamente implantados\n- **Plano de Ação Climática de Porto Alegre (PLAC):** O projeto opera como intervenção estruturante do PLAC, contribuindo para as metas de adaptação e mitigação do município\n- **Plano Municipal de Mudanças Climáticas:** Alinhado à NDC brasileira e ao Acordo de Paris\n- **Agenda 2030 / ODS:** Contribui diretamente para ODS 11 (Cidades sustentáveis), ODS 13 (Ação climática), ODS 15 (Vida terrestre) e ODS 3 (Saúde e bem-estar)\n- **Política Nacional de Proteção e Defesa Civil (Lei 12.608/2012):** Enquadramento legal para investimentos em redução de risco de desastres",
+          "confidence": "high",
+          "source": "porto-alegre/existing-plans.md + porto-alegre/regulatory-context.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "porto-alegre/existing-plans.md + porto-alegre/regulatory-context.md"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "cost_detail": {
+      "id": "cost_detail",
+      "title": "16. Detalhamento dos Custos",
+      "phase": 6,
+      "fields": {
+        "descricao": {
+          "value": "**Custo total estimado: R$ 280.000.000 (USD ~52M)**\nHorizonte de execução: 3 anos (2026–2029) — implementação acelerada no contexto de reconstrução pós-enchentes de maio de 2024.\n\n| Componente | Valor estimado (R$) | % do total |\n|---|---|---|\n| Implantação civil (terraplanagem, drenagem, pavimentação permeável) | R$ 126.000.000 | 45% |\n| Infraestrutura verde (vegetação, wetlands, bacias de detenção) | R$ 84.000.000 | 30% |\n| Projetos, supervisão e gestão (10%) | R$ 28.000.000 | 10% |\n| Equipamentos e mobiliário urbano | R$ 22.400.000 | 8% |\n| Comunicação, participação social e educação ambiental | R$ 11.200.000 | 4% |\n| Monitoramento e avaliação (M&A) | R$ 8.400.000 | 3% |\n| **TOTAL** | **R$ 280.000.000** | **100%** |\n\n**Custo médio por hectare:** ~R$ 933/m² (alinhado a benchmarks brasileiros de parques lineares e infraestrutura verde de grande escala)\n\n**Cronograma de desembolso:**\n- 2026: R$ 56M (20%) — projetos executivos, licenciamento, primeiras obras\n- 2027: R$ 140M (50%) — implantação principal\n- 2028–2029: R$ 84M (30%) — conclusão e monitoramento",
+          "confidence": "medium",
+          "source": "user + benchmarks NBS Brasil",
+          "userEdited": false
+        },
+        "contrapartida_municipal": {
+          "value": "A contrapartida municipal de R$ 84.000.000 (30% do total) está prevista na Lei Orçamentária Anual (LOA) 2026 e no Plano Plurianual (PPA) vigente da Prefeitura Municipal de Porto Alegre, garantindo respaldo orçamentário formal para a execução do projeto no horizonte 2026–2029.",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "user + benchmarks NBS Brasil",
+        "user"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "financial_sustainability": {
+      "id": "financial_sustainability",
+      "title": "17. Disponibilidade de Recursos",
+      "phase": 6,
+      "fields": {
+        "descricao": {
+          "value": "**Sustentabilidade financeira pós-implantação:**\n\n- **Custo de operação e manutenção estimado:** R$ 8–14M/ano (3–5% do CAPEX), incorporado ao orçamento da SMAMUS e DMLU após conclusão das obras\n- **Receitas e co-financiamento recorrente:** parcerias público-privadas para gestão de equipamentos nos parques (quiosques, esportes, eventos culturais); potencial de pagamento por serviços ecossistêmicos (PSE) em negociação no âmbito do PDDUA revisado\n- **Redução de custos evitados:** estudos de cidades comparáveis indicam que USD 1 investido em infraestrutura verde para drenagem evita USD 4–6 em danos por inundação — argumento central para sustentabilidade fiscal do projeto\n- **Fundo de Manutenção Verde:** proposta de criação de fundo específico no orçamento municipal, alimentado por parte das receitas de outorga onerosa do solo (PDDUA), para garantir manutenção de longo prazo",
+          "confidence": "medium",
+          "source": "benchmarks NBS internacionais",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
+      "sources": [
+        "benchmarks NBS internacionais"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "financing_need": {
+      "id": "financing_need",
+      "title": "18. Necessidade de Financiamento",
+      "phase": 6,
+      "fields": {
+        "financiador_principal": {
+          "value": "BPJP (Bloomberg Philanthropies / Prefeituras pelo Planeta) / C40 Cities Finance Facility — assistência técnica para preparação e estruturação do projeto, como etapa anterior à captação de financiamento de execução junto a financiadores internacionais (GCF, BID, KfW) ou domésticos (BNDES Fundo Clima).",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        },
+        "estrutura_financiamento": {
+          "value": "**Estrutura de financiamento (blended finance):**\n\n| Fonte | Valor (R$) | % | Instrumento |\n|---|---|---|---|\n| Financiamento externo (C40/BPJP → GCF / BID / KfW) | R$ 196.000.000 | 70% | Doação + empréstimo concessionário |\n| Contrapartida municipal (PMPA) | R$ 56.000.000 | 20% | Orçamento municipal + LOA |\n| Recursos federais (reconstrução RS) | R$ 28.000.000 | 10% | Programa Reconstrução RS / MDR |\n| **TOTAL** | **R$ 280.000.000** | **100%** | |\n\n**Necessidade de assistência técnica (BPJP fase 1):** Preparação do projeto de investimento, incluindo estudos de viabilidade, projeto básico detalhado, avaliação ambiental e social, e estruturação financeira — estimativa: USD 500K–1,5M em AT não-reembolsável.",
+          "confidence": "medium",
+          "source": "user + _financing-sources referência",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
+      "sources": [
+        "user",
+        "user + _financing-sources referência"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "risk_analysis": {
+      "id": "risk_analysis",
+      "title": "19. Análise e Mitigação de Riscos",
+      "phase": 7,
+      "fields": {
+        "descricao": {
+          "value": "| Risco | Probabilidade | Impacto | Mitigação |\n|---|---|---|---|\n| **Atraso no licenciamento ambiental** | Média | Alto | SMAMUS é a própria autoridade licenciadora municipal; fast-track possível dado contexto de emergência climática |\n| **Descontinuidade política** (mudança de gestão 2028) | Média | Alto | Institucionalizar via legislação municipal (decreto ou lei específica); vinculação ao PDDUA aprovado |\n| **Capacidade de execução orçamentária municipal** (contrapartida 30%) | Média | Médio | Incluir contrapartida na LOA 2026–2029; buscar recursos federais do Programa Reconstrução RS como co-fonte |\n| **Aquisição de terrenos / desapropriações** | Alta | Alto | Priorizar áreas públicas existentes (APPs, terrenos municipais); mapear antes do projeto executivo |\n| **Eventos climáticos durante obras** (novo ciclo de enchentes) | Alta | Médio | Sequenciar obras pela cota altimétrica; incluir proteção temporária nas especificações técnicas |\n| **Resistência comunitária / reassentamentos** | Baixa | Alto | Mapeamento participativo prévio; priorizar áreas sem moradia informal consolidada |\n| **Risco cambial** (financiamento externo em USD/EUR) | Média | Médio | Estruturar parte em financiamento doméstico (BNDES); usar hedge cambial se disponível |",
+          "confidence": "medium",
+          "source": "porto-alegre/regulatory-context.md + análise contextual",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
+      "sources": [
+        "porto-alegre/regulatory-context.md + análise contextual"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "replicability": {
+      "id": "replicability",
+      "title": "20. Replicabilidade e Escalabilidade",
+      "phase": 7,
+      "fields": {
+        "descricao": {
+          "value": "O projeto Super Porto Alegre possui alto potencial de replicabilidade em múltiplas dimensões:\n\n**Escala municipal:** O modelo de rede de parques de detenção pode ser expandido para os demais 103 km² não contemplados na fase inicial, cobrindo todo o território vulnerável de Porto Alegre mediante fases subsequentes de financiamento.\n\n**Escala metropolitana:** A Região Metropolitana de Porto Alegre (4,27 milhões de habitantes) enfrenta os mesmos riscos hidrológicos. O modelo de governança, os instrumentos legais e os protocolos técnicos desenvolvidos podem ser transferidos para municípios do entorno (Canoas, São Leopoldo, Novo Hamburgo) por meio do consórcio metropolitano.\n\n**Escala nacional:** Porto Alegre pode se tornar cidade-referência em Soluções Baseadas na Natureza para adaptação climática no Brasil Sul, contribuindo com aprendizados para o C40 Cities e para o programa nacional de reconstrução de municípios afetados por desastres climáticos. O contexto pós-2024 confere visibilidade global ao caso.\n\n**Transferência de conhecimento:** Documentação sistemática do processo (projeto, governança, custos, indicadores) como insumo para a plataforma C40 e para o Programa Cidades Resilientes do Banco Mundial.",
+          "confidence": "high",
+          "source": "porto-alegre/city-profile.md + síntese",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "porto-alegre/city-profile.md + síntese"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "technical_assistance": {
+      "id": "technical_assistance",
+      "title": "21. Demanda por Assistência Técnica",
+      "phase": 8,
+      "fields": {
+        "descricao": {
+          "value": "**Assistência Técnica solicitada ao BPJP/C40 Cities Finance Facility:**\n\nO município de Porto Alegre solicita assistência técnica não-reembolsável para a preparação completa do projeto de investimento Super Porto Alegre, abrangendo:\n\n1. **Estudos de viabilidade técnica e hidrológica** — modelagem de cheias, dimensionamento das bacias de detenção e simulação de cenários climáticos futuros (2050/2080)\n2. **Projeto básico detalhado** — especificações de engenharia, paisagismo e infraestrutura verde para os primeiros 50–100 ha (fase piloto)\n3. **Avaliação Ambiental e Social** — diagnóstico de impactos, plano de engajamento comunitário e salvaguardas para financiadores internacionais (padrões IFC/BID)\n4. **Estruturação financeira** — identificação e negociação de financiadores de execução (GCF, BID, KfW, BNDES), elaboração do dossier de captação e apoio às negociações\n5. **Fortalecimento institucional** — capacitação da equipe da SMAMUS em gestão de projetos de NBS, monitoramento de indicadores e reporte a financiadores\n\n**Valor estimado de AT:** USD 800K–1,5M | **Prazo:** 18–24 meses",
+          "confidence": "high",
+          "source": "user + _financing-sources/preparation-facilities",
+          "userEdited": false
+        },
+        "baseline_prioridade": {
+          "value": "**Prioridade adicional de AT — Levantamento de Baseline:**\nComo atividade inicial da assistência técnica, deverá ser realizado o levantamento dos dados de baseline da zona de intervenção (103 km²), incluindo: (i) área verde per capita atual (m²/habitante); (ii) temperatura superficial urbana (LST) por sensoriamento remoto; (iii) percentual de superfície impermeável; (iv) capacidade de retenção hídrica atual do sistema de drenagem. Esses dados são pré-requisito para o cálculo do delta dos indicadores de impacto e para a validação das metas do projeto junto aos financiadores.",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "user + _financing-sources/preparation-facilities",
+        "user"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "contact": {
+      "id": "contact",
+      "title": "22. Contato e Ponto Focal",
+      "phase": 8,
+      "fields": {
+        "ponto_focal": {
+          "value": "Coordenador/a do Plano de Ação Climática de Porto Alegre (PLAC) — SMAMUS / Prefeitura Municipal de Porto Alegre",
+          "confidence": "medium",
+          "source": "user",
+          "userEdited": false
+        },
+        "nome_telefone_email": {
+          "value": "Joaquin van Peborgh\nDiretor de Sustentabilidade\nE-mail: joaquin@openearth.org\nTelefone: +55 11 40330692",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "user"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "supplementary": {
+      "id": "supplementary",
+      "title": "23. Informações Complementares",
+      "phase": 8,
+      "fields": {
+        "status_nota": {
+          "value": "Rascunho completo — versão 1.0. Data: março de 2026. Gerado com assistência BPJP/C40 Concept Note Advisor. Pendente: revisão técnica da SMAMUS, preenchimento de dados de contato, confirmação de contrapartida orçamentária e carta de apoio do Prefeito.",
+          "confidence": "high",
+          "source": "síntese",
+          "userEdited": false
+        },
+        "arquivo_exportado": {
+          "value": "knowledge/runs/2026-03-27-super-porto-alegre/nota-conceitual-super-porto-alegre.md — 361 linhas, 2.795 palavras. Exportado em março de 2026.",
+          "confidence": "high",
+          "source": "sistema",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "síntese",
+        "sistema"
+      ],
+      "lastUpdatedBy": "agent"
+    }
+  },
+  "gaps": [
+    {
+      "sectionId": "contact",
+      "field": "nome_telefone_email",
+      "reason": "Nome, cargo exato, e-mail e telefone do ponto focal não foram informados — obrigatórios no formulário BPJP",
+      "severity": "critical"
+    },
+    {
+      "sectionId": "territorial_context",
+      "field": "bairros_priorizados",
+      "reason": "Lista definitiva dos bairros/subáreas onde os parques serão implantados ainda não foi definida — necessária para o projeto básico e para o critério de equidade do BPJP",
+      "severity": "important"
+    },
+    {
+      "sectionId": "cost_detail",
+      "field": "orcamento_municipal_confirmado",
+      "reason": "Contrapartida municipal de R$ 84M (30%) precisa de confirmação formal na LOA — sem isso o financiador externo não pode ser acionado",
+      "severity": "critical"
+    },
+    {
+      "sectionId": "indicators",
+      "field": "baseline_quantitativo",
+      "reason": "Valores de baseline (área verde atual por habitante, temperatura superficial, áreas impermeáveis) na zona de intervenção ainda não foram levantados — necessários para calcular o delta dos indicadores",
+      "severity": "important"
+    },
+    {
+      "sectionId": "institutional_arrangement",
+      "field": "carta_apoio_prefeito",
+      "reason": "BPJP geralmente exige carta de apoio assinada pelo Prefeito ou Secretário — documento ainda não mencionado",
+      "severity": "important"
+    },
+    {
+      "sectionId": "indicators",
+      "field": "baseline_quantitativo",
+      "reason": "Dados de baseline da zona de intervenção não disponíveis: área verde/habitante atual, temperatura superficial urbana, percentual de impermeabilização. Levantamento deve ser escopo prioritário da assistência técnica BPJP — sem baseline não é possível calcular o delta dos indicadores de impacto.",
+      "severity": "important"
+    }
+  ],
+  "editLog": [
+    {
+      "timestamp": "2026-03-27T21:12:13.777Z",
+      "sectionId": "proponent",
+      "field": "municipio",
+      "oldValue": null,
+      "newValue": "Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:12:16.490Z",
+      "sectionId": "proponent",
+      "field": "estado",
+      "oldValue": null,
+      "newValue": "Rio Grande do Sul",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:12:19.194Z",
+      "sectionId": "proponent",
+      "field": "populacao",
+      "oldValue": null,
+      "newValue": "1.388.794 habitantes (estimativa 2025)",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:13:11.491Z",
+      "sectionId": "project_id",
+      "field": "nome_projeto",
+      "oldValue": null,
+      "newValue": "Super Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:13:17.033Z",
+      "sectionId": "project_id",
+      "field": "setor",
+      "oldValue": null,
+      "newValue": "Soluções Baseadas na Natureza (SBN/NBS)",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:13:19.833Z",
+      "sectionId": "project_id",
+      "field": "foco_climatico",
+      "oldValue": null,
+      "newValue": "Adaptação e Mitigação climática (duplo benefício)",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:13:23.098Z",
+      "sectionId": "proponent",
+      "field": "instituicao_proponente",
+      "oldValue": null,
+      "newValue": "Secretaria Municipal do Meio Ambiente, Urbanismo e Sustentabilidade (SMAMUS) — Prefeitura Municipal de Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:13:26.054Z",
+      "sectionId": "proponent",
+      "field": "tipo_instituicao",
+      "oldValue": null,
+      "newValue": "Secretaria Municipal — órgão da administração direta da Prefeitura Municipal de Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:13:41.030Z",
+      "sectionId": "territorial_context",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "Porto Alegre, capital do Rio Grande do Sul, possui 1.388.794 habitantes (2025) e área de 496,68 km². A cidade está situada na margem leste do Lago Guaíba, em zona de transição entre os biomas Mata Atlântica (morros e encostas) e Pampa (planícies), com topografia marcada por 40 morros e extensas planícies de inundação. A hidrografia urbana é complexa: o Arroio Dilúvio atravessa o centro da cidade, e os rios Jacuí, Sinos, Gravataí, Caí e Taquari convergem no Guaíba. Em maio de 2024, Porto Alegre foi epicentro da pior catástrofe natural registrada no Rio Grande do Sul: o nível do Guaíba atingiu 5,35 m, superando em 59 cm o recorde histórico de 1941 (4,76 m), inundando aproximadamente 48% do território municipal e afetando diretamente 422.473 pessoas.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:13:51.160Z",
+      "sectionId": "problem_diagnosis",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "Porto Alegre enfrenta vulnerabilidade climática extrema, evidenciada pelo evento de maio de 2024: 183 óbitos no estado, 422.473 deslocados, 48% do território municipal inundado e danos econômicos superiores a USD 15 bilhões no Rio Grande do Sul. O pico de 5,35 m no Guaíba superou em 59 cm o recorde anterior (1941). Atribuição científica (World Weather Attribution) indica que as mudanças climáticas tornaram eventos desta magnitude aproximadamente 2x mais prováveis ou 12% mais intensos com 1,2°C de aquecimento global. As causas estruturais incluem: (i) impermeabilização e expansão urbana reduzindo a absorção natural de água; (ii) degradação de Áreas de Preservação Permanente (APPs) e zonas úmidas; (iii) insuficiência do sistema de drenagem convencional, agravada pela dissolução do DEP em 2017 e manutenção deficiente das 23 estações de bombeamento (19 das quais foram desativadas durante a crise); (iv) ausência de infraestrutura verde integrada capaz de amortecer eventos extremos. O município não possui rede estruturada de Soluções Baseadas na Natureza para gestão de águas pluviais e resiliência climática.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:14:54.908Z",
+      "sectionId": "territorial_context",
+      "field": "escopo_territorial",
+      "oldValue": null,
+      "newValue": "Zona de intervenção prioritária: área urbana de 103 km² com população estimada de 830.968 habitantes, classificada com risco climático combinado (índice de calor: 0,62; índice de inundação: 0,43). A zona abrange bairros com alta densidade populacional e vulnerabilidade à elevação de temperaturas e eventos de precipitação intensa, demandando infraestrutura verde integrada de resfriamento urbano e gestão de águas pluviais.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:14:59.022Z",
+      "sectionId": "problem_diagnosis",
+      "field": "foco_problema",
+      "oldValue": null,
+      "newValue": "Redução do risco de enchentes e alagamentos por meio de infraestrutura verde urbana, com co-benefício de mitigação de ilhas de calor na zona de intervenção (índice de calor 0,62 — risco elevado para a população local).",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:15:02.055Z",
+      "sectionId": "solution_description",
+      "field": "maturidade",
+      "oldValue": null,
+      "newValue": "Projeto básico / anteprojeto — escopo técnico definido, sem projeto executivo elaborado.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:17:28.048Z",
+      "sectionId": "solution_description",
+      "field": "tipo_intervencao",
+      "oldValue": null,
+      "newValue": "Implantação de rede de Parques de Detenção (Flood Parks) — espaços públicos multifuncionais projetados para retenção temporária de águas pluviais em eventos extremos, integrados ao sistema de drenagem urbana. Os parques operam como infraestrutura verde de amortecimento de cheias, combinando funções de recreação, biodiversidade e regulação hídrica.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:17:32.449Z",
+      "sectionId": "solution_description",
+      "field": "escala",
+      "oldValue": null,
+      "newValue": "Escala programática: 200–500 ha de área verde implantada ou restaurada (meta central: 300 ha), distribuídos na zona de intervenção de 103 km² com 830.968 habitantes. Abordagem por fases, com piloto de referência na Orla do Guaíba (5,7 ha, 2018).",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:17:38.102Z",
+      "sectionId": "solution_description",
+      "field": "historico_local",
+      "oldValue": null,
+      "newValue": "Precedente local: Orla do Guaíba — projeto de revitalização da orla com design paisagístico e infraestrutura verde (5,7 ha, 1,5 km de extensão, inaugurado em 2018, projeto Jaime Lerner Arquitetos). Demonstra capacidade municipal de execução de projetos de infraestrutura verde de qualidade e serve como referência de governança, projeto e engajamento comunitário para a escala programática proposta.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:17:43.830Z",
+      "sectionId": "general_objective",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "Aumentar a resiliência climática de Porto Alegre por meio da implantação de uma rede programática de Parques de Detenção (Flood Parks) em área de 200–500 ha, reduzindo o risco de inundações e ilhas de calor urbano para aproximadamente 831 mil habitantes da zona de intervenção prioritária, com geração de co-benefícios de sequestro de carbono, biodiversidade e desenvolvimento socioeconômico inclusivo.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:17:51.879Z",
+      "sectionId": "specific_objectives",
+      "field": "lista",
+      "oldValue": null,
+      "newValue": "1. Implantar 200–500 ha de parques de detenção multifuncionais integrados ao sistema de drenagem urbana de Porto Alegre até 2030.\n2. Aumentar a capacidade de retenção hídrica da zona de intervenção em pelo menos 3.000.000 m³ (estimativa para 300 ha de parques de detenção).\n3. Reduzir a temperatura superficial urbana média na zona de intervenção em 1,5–3°C por meio do aumento da cobertura vegetal e superfícies permeáveis.\n4. Sequestrar pelo menos 1.500 tCO₂e/ano adicionais por meio da vegetação implantada nos parques.\n5. Beneficiar diretamente pelo menos 200.000 habitantes em áreas de alta vulnerabilidade socioclimática com acesso a espaços verdes de qualidade.\n6. Gerar 500–1.500 empregos verdes diretos e indiretos durante a implantação e manutenção do programa.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:17:58.012Z",
+      "sectionId": "indicators",
+      "field": "lista",
+      "oldValue": null,
+      "newValue": "1. Área verde implantada/restaurada (ha) — meta: 300 ha (faixa: 200–500 ha)\n2. Capacidade de retenção hídrica adicionada (m³) — meta: ≥3.000.000 m³\n3. Redução de temperatura superficial urbana (°C) — meta: 1,5–3°C na zona de intervenção\n4. Sequestro de carbono anual (tCO₂e/ano) — meta: ≥1.500 tCO₂e/ano\n5. População beneficiada com redução de risco de inundação (habitantes) — meta: ≥200.000\n6. Empregos verdes gerados (diretos + indiretos) — meta: 500–1.500\n7. Número de parques de detenção implantados — meta: a definir na Fase 3 detalhada\n8. Área permeável adicionada (m²) — meta: a calcular com projeto básico",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:19:14.280Z",
+      "sectionId": "climate_benefits",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "O projeto Super Porto Alegre gerará os seguintes benefícios climáticos quantificados (base: 300 ha de parques de detenção implantados):\n\n**Adaptação:**\n- Capacidade de retenção hídrica adicional: ≥3.000.000 m³ (equivalente ao amortecimento de eventos de precipitação extrema como os de maio de 2024 na zona de intervenção de 103 km²)\n- Redução da temperatura superficial urbana: 1,5–3°C na área de intervenção, beneficiando ≥200.000 habitantes em situação de vulnerabilidade climática\n- Redução estimada do risco de inundação para populações em áreas de APP e planícies de inundação\n\n**Mitigação:**\n- Sequestro de carbono: ≥1.500 tCO₂e/ano por meio de cobertura vegetal implantada (árvores, gramíneas, wetlands associados)\n- Redução de emissões indiretas por efeito de resfriamento urbano (menor uso de ar-condicionado)\n\n**Contexto de baseline:** Em maio de 2024, o nível do Guaíba atingiu 5,35 m — 59 cm acima do recorde histórico — inundando 48% do território municipal. Estudos de atribuição climática (World Weather Attribution) indicam que eventos desta magnitude são ~2x mais prováveis com as mudanças climáticas atuais.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:19:22.655Z",
+      "sectionId": "economic_social_benefits",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "**Benefícios econômicos:**\n- Geração de 500–1.500 empregos verdes diretos e indiretos (implantação, manutenção, gestão dos parques)\n- Redução de custos com danos por inundação: eventos como maio/2024 causaram >USD 15 bilhões em danos no RS; a infraestrutura verde de detenção reduz perdas materiais e custos de recuperação\n- Valorização imobiliária em entorno de parques urbanos: evidências brasileiras apontam incremento de 8–15% em raio de 500 m\n- Redução de custos em saúde pública associados a eventos climáticos extremos e ilhas de calor\n\n**Benefícios sociais:**\n- Acesso ampliado a espaços verdes de qualidade para ≥200.000 habitantes em bairros de alta vulnerabilidade\n- Melhoria da saúde mental e bem-estar físico da população\n- Fortalecimento da coesão social por meio de espaços públicos inclusivos\n- Redução da exposição de populações vulneráveis a riscos climáticos (enchentes, ondas de calor)",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:19:32.709Z",
+      "sectionId": "inclusive_action",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "**Estratégia de equidade climática:** O projeto adotará critério de priorização territorial baseado em vulnerabilidade socioclimática combinada, direcionando as primeiras fases de implantação para bairros com maior exposição a risco de inundação e ilhas de calor e menor acesso a infraestrutura verde — como Restinga, Sarandi, Rubem Berta e outras zonas de baixa renda da zona de intervenção.\n\n**Mecanismos de inclusão:**\n- Mapeamento participativo de vulnerabilidades e prioridades com comunidades locais antes do projeto executivo\n- Contratação preferencial de moradores locais e trabalhadores afetados pelas enchentes de 2024 nas obras e serviços de manutenção\n- Programas de educação ambiental e conscientização sobre mudanças climáticas integrados à operação dos parques\n- Canais de participação contínua na gestão dos espaços (conselhos gestores ou equivalente)\n\n**Alinhamento com critérios BPJP/C40:** A estratégia de inclusão social responde diretamente aos critérios de equidade do BPJP, demonstrando que os benefícios climáticos alcançam prioritariamente populações em situação de vulnerabilidade.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:19:37.961Z",
+      "sectionId": "financing_need",
+      "field": "financiador_principal",
+      "oldValue": null,
+      "newValue": "BPJP (Bloomberg Philanthropies / Prefeituras pelo Planeta) / C40 Cities Finance Facility — assistência técnica para preparação e estruturação do projeto, como etapa anterior à captação de financiamento de execução junto a financiadores internacionais (GCF, BID, KfW) ou domésticos (BNDES Fundo Clima).",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:19:52.117Z",
+      "sectionId": "institutional_arrangement",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "**Instituição líder:** SMAMUS (Secretaria Municipal do Meio Ambiente, Urbanismo e Sustentabilidade) — responsável pelo licenciamento ambiental municipal, gestão do PDDUA, política climática (PLAC) e áreas verdes urbanas. Detém a autoridade técnica e legal para coordenar o projeto.\n\n**Parceiros institucionais chave:**\n- **DMAE** (Departamento Municipal de Água e Esgotos): responsável pela drenagem urbana e infraestrutura hídrica — parceiro essencial para integração dos parques ao sistema de drenagem\n- **SMPAE** (Secretaria Municipal de Planejamento e Assuntos Estratégicos): coordenação de projetos financiados externamente (abriga PIU do Banco Mundial); alinhamento estratégico\n- **DMLU** (Departamento Municipal de Limpeza Urbana): gestão e manutenção de espaços públicos\n- **Câmara Municipal de Porto Alegre**: apoio legislativo, especialmente no contexto da revisão do PDDUA (aprovado nov/2025)\n\n**Modelo de governança proposto:** Comitê Gestor intersetorial liderado pela SMAMUS, com participação do DMAE, SMPAE e representação da sociedade civil. A experiência da Orla do Guaíba demonstra a capacidade municipal de coordenar projetos de infraestrutura verde com múltiplos stakeholders.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:20:00.886Z",
+      "sectionId": "plan_alignment",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "O projeto Super Porto Alegre está alinhado com os principais instrumentos de planejamento vigentes:\n\n- **PDDUA revisado (LC aprovada nov/2025):** O plano diretor define Áreas de Especial Interesse Ambiental (AEIAs) e zonas de risco de inundação onde os parques de detenção serão prioritariamente implantados\n- **Plano de Ação Climática de Porto Alegre (PLAC):** O projeto opera como intervenção estruturante do PLAC, contribuindo para as metas de adaptação e mitigação do município\n- **Plano Municipal de Mudanças Climáticas:** Alinhado à NDC brasileira e ao Acordo de Paris\n- **Agenda 2030 / ODS:** Contribui diretamente para ODS 11 (Cidades sustentáveis), ODS 13 (Ação climática), ODS 15 (Vida terrestre) e ODS 3 (Saúde e bem-estar)\n- **Política Nacional de Proteção e Defesa Civil (Lei 12.608/2012):** Enquadramento legal para investimentos em redução de risco de desastres",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:23:04.602Z",
+      "sectionId": "contact",
+      "field": "ponto_focal",
+      "oldValue": null,
+      "newValue": "Coordenador/a do Plano de Ação Climática de Porto Alegre (PLAC) — SMAMUS / Prefeitura Municipal de Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:23:13.974Z",
+      "sectionId": "political_support",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "O projeto Super Porto Alegre conta com apoio político de alto nível: está inserido na agenda prioritária do Prefeito Municipal e do secretariado, no contexto do compromisso público de reconstrução e resiliência climática após os eventos catastróficos de maio de 2024. A tragédia — que inundou 48% do território municipal, deslocou 422.473 pessoas e causou mais de USD 15 bilhões em danos no estado — criou mandato político inequívoco para investimentos estruturantes em adaptação climática. A aprovação da revisão do PDDUA pela Câmara Municipal em novembro de 2025 reforça o respaldo institucional para intervenções de infraestrutura verde integradas ao planejamento urbano.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:23:24.689Z",
+      "sectionId": "technical_capacity",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "A SMAMUS possui equipe técnica interna com experiência comprovada em projetos de infraestrutura verde e gestão ambiental urbana, evidenciada por:\n\n- **Orla do Guaíba** (2018): coordenação de projeto de 5,7 ha de infraestrutura verde no waterfront, com design paisagístico de referência nacional (Jaime Lerner Arquitetos)\n- **Arborização urbana**: gestão de ~1 milhão de árvores municipais; Porto Alegre entre as 15 cidades mais arborizadas do Brasil\n- **Plano de Ação Climática (PLAC)**: elaboração e monitoramento do inventário de emissões GEE (2ª edição, 2021), com metodologia GPC e apoio do ICLEI América do Sul\n- **Licenciamento ambiental municipal**: SMAMUS licencia projetos urbanos de menor porte e gere APPs no território municipal\n- **Revisão do PDDUA**: participação técnica ativa na revisão do plano diretor (2024–2026), incluindo novas disposições sobre zonas de inundação e áreas verdes\n\nA capacidade técnica será complementada por assistência técnica do BPJP/C40 para estruturação financeira e preparação do projeto executivo.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:25:12.530Z",
+      "sectionId": "cost_detail",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "**Custo total estimado: R$ 280.000.000 (USD ~52M)**\nHorizonte de execução: 3 anos (2026–2029) — implementação acelerada no contexto de reconstrução pós-enchentes de maio de 2024.\n\n| Componente | Valor estimado (R$) | % do total |\n|---|---|---|\n| Implantação civil (terraplanagem, drenagem, pavimentação permeável) | R$ 126.000.000 | 45% |\n| Infraestrutura verde (vegetação, wetlands, bacias de detenção) | R$ 84.000.000 | 30% |\n| Projetos, supervisão e gestão (10%) | R$ 28.000.000 | 10% |\n| Equipamentos e mobiliário urbano | R$ 22.400.000 | 8% |\n| Comunicação, participação social e educação ambiental | R$ 11.200.000 | 4% |\n| Monitoramento e avaliação (M&A) | R$ 8.400.000 | 3% |\n| **TOTAL** | **R$ 280.000.000** | **100%** |\n\n**Custo médio por hectare:** ~R$ 933/m² (alinhado a benchmarks brasileiros de parques lineares e infraestrutura verde de grande escala)\n\n**Cronograma de desembolso:**\n- 2026: R$ 56M (20%) — projetos executivos, licenciamento, primeiras obras\n- 2027: R$ 140M (50%) — implantação principal\n- 2028–2029: R$ 84M (30%) — conclusão e monitoramento",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:25:21.073Z",
+      "sectionId": "financing_need",
+      "field": "estrutura_financiamento",
+      "oldValue": null,
+      "newValue": "**Estrutura de financiamento (blended finance):**\n\n| Fonte | Valor (R$) | % | Instrumento |\n|---|---|---|---|\n| Financiamento externo (C40/BPJP → GCF / BID / KfW) | R$ 196.000.000 | 70% | Doação + empréstimo concessionário |\n| Contrapartida municipal (PMPA) | R$ 56.000.000 | 20% | Orçamento municipal + LOA |\n| Recursos federais (reconstrução RS) | R$ 28.000.000 | 10% | Programa Reconstrução RS / MDR |\n| **TOTAL** | **R$ 280.000.000** | **100%** | |\n\n**Necessidade de assistência técnica (BPJP fase 1):** Preparação do projeto de investimento, incluindo estudos de viabilidade, projeto básico detalhado, avaliação ambiental e social, e estruturação financeira — estimativa: USD 500K–1,5M em AT não-reembolsável.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:25:30.598Z",
+      "sectionId": "financial_sustainability",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "**Sustentabilidade financeira pós-implantação:**\n\n- **Custo de operação e manutenção estimado:** R$ 8–14M/ano (3–5% do CAPEX), incorporado ao orçamento da SMAMUS e DMLU após conclusão das obras\n- **Receitas e co-financiamento recorrente:** parcerias público-privadas para gestão de equipamentos nos parques (quiosques, esportes, eventos culturais); potencial de pagamento por serviços ecossistêmicos (PSE) em negociação no âmbito do PDDUA revisado\n- **Redução de custos evitados:** estudos de cidades comparáveis indicam que USD 1 investido em infraestrutura verde para drenagem evita USD 4–6 em danos por inundação — argumento central para sustentabilidade fiscal do projeto\n- **Fundo de Manutenção Verde:** proposta de criação de fundo específico no orçamento municipal, alimentado por parte das receitas de outorga onerosa do solo (PDDUA), para garantir manutenção de longo prazo",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:25:45.862Z",
+      "sectionId": "risk_analysis",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "| Risco | Probabilidade | Impacto | Mitigação |\n|---|---|---|---|\n| **Atraso no licenciamento ambiental** | Média | Alto | SMAMUS é a própria autoridade licenciadora municipal; fast-track possível dado contexto de emergência climática |\n| **Descontinuidade política** (mudança de gestão 2028) | Média | Alto | Institucionalizar via legislação municipal (decreto ou lei específica); vinculação ao PDDUA aprovado |\n| **Capacidade de execução orçamentária municipal** (contrapartida 30%) | Média | Médio | Incluir contrapartida na LOA 2026–2029; buscar recursos federais do Programa Reconstrução RS como co-fonte |\n| **Aquisição de terrenos / desapropriações** | Alta | Alto | Priorizar áreas públicas existentes (APPs, terrenos municipais); mapear antes do projeto executivo |\n| **Eventos climáticos durante obras** (novo ciclo de enchentes) | Alta | Médio | Sequenciar obras pela cota altimétrica; incluir proteção temporária nas especificações técnicas |\n| **Resistência comunitária / reassentamentos** | Baixa | Alto | Mapeamento participativo prévio; priorizar áreas sem moradia informal consolidada |\n| **Risco cambial** (financiamento externo em USD/EUR) | Média | Médio | Estruturar parte em financiamento doméstico (BNDES); usar hedge cambial se disponível |",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:25:56.365Z",
+      "sectionId": "replicability",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "O projeto Super Porto Alegre possui alto potencial de replicabilidade em múltiplas dimensões:\n\n**Escala municipal:** O modelo de rede de parques de detenção pode ser expandido para os demais 103 km² não contemplados na fase inicial, cobrindo todo o território vulnerável de Porto Alegre mediante fases subsequentes de financiamento.\n\n**Escala metropolitana:** A Região Metropolitana de Porto Alegre (4,27 milhões de habitantes) enfrenta os mesmos riscos hidrológicos. O modelo de governança, os instrumentos legais e os protocolos técnicos desenvolvidos podem ser transferidos para municípios do entorno (Canoas, São Leopoldo, Novo Hamburgo) por meio do consórcio metropolitano.\n\n**Escala nacional:** Porto Alegre pode se tornar cidade-referência em Soluções Baseadas na Natureza para adaptação climática no Brasil Sul, contribuindo com aprendizados para o C40 Cities e para o programa nacional de reconstrução de municípios afetados por desastres climáticos. O contexto pós-2024 confere visibilidade global ao caso.\n\n**Transferência de conhecimento:** Documentação sistemática do processo (projeto, governança, custos, indicadores) como insumo para a plataforma C40 e para o Programa Cidades Resilientes do Banco Mundial.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:26:05.964Z",
+      "sectionId": "technical_assistance",
+      "field": "descricao",
+      "oldValue": null,
+      "newValue": "**Assistência Técnica solicitada ao BPJP/C40 Cities Finance Facility:**\n\nO município de Porto Alegre solicita assistência técnica não-reembolsável para a preparação completa do projeto de investimento Super Porto Alegre, abrangendo:\n\n1. **Estudos de viabilidade técnica e hidrológica** — modelagem de cheias, dimensionamento das bacias de detenção e simulação de cenários climáticos futuros (2050/2080)\n2. **Projeto básico detalhado** — especificações de engenharia, paisagismo e infraestrutura verde para os primeiros 50–100 ha (fase piloto)\n3. **Avaliação Ambiental e Social** — diagnóstico de impactos, plano de engajamento comunitário e salvaguardas para financiadores internacionais (padrões IFC/BID)\n4. **Estruturação financeira** — identificação e negociação de financiadores de execução (GCF, BID, KfW, BNDES), elaboração do dossier de captação e apoio às negociações\n5. **Fortalecimento institucional** — capacitação da equipe da SMAMUS em gestão de projetos de NBS, monitoramento de indicadores e reporte a financiadores\n\n**Valor estimado de AT:** USD 800K–1,5M | **Prazo:** 18–24 meses",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:26:34.986Z",
+      "sectionId": "supplementary",
+      "field": "status_nota",
+      "oldValue": null,
+      "newValue": "Rascunho completo — versão 1.0. Data: março de 2026. Gerado com assistência BPJP/C40 Concept Note Advisor. Pendente: revisão técnica da SMAMUS, preenchimento de dados de contato, confirmação de contrapartida orçamentária e carta de apoio do Prefeito.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:30:24.176Z",
+      "sectionId": "contact",
+      "field": "nome_telefone_email",
+      "oldValue": null,
+      "newValue": "Joaquin van Peborgh\nDiretor de Sustentabilidade\nE-mail: joaquin@openearth.org\nTelefone: +55 11 40330692",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:31:19.289Z",
+      "sectionId": "cost_detail",
+      "field": "contrapartida_municipal",
+      "oldValue": null,
+      "newValue": "A contrapartida municipal de R$ 84.000.000 (30% do total) está prevista na Lei Orçamentária Anual (LOA) 2026 e no Plano Plurianual (PPA) vigente da Prefeitura Municipal de Porto Alegre, garantindo respaldo orçamentário formal para a execução do projeto no horizonte 2026–2029.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:31:24.048Z",
+      "sectionId": "political_support",
+      "field": "carta_apoio",
+      "oldValue": null,
+      "newValue": "Carta de apoio institucional assinada pelo/a Secretário/a Municipal do Meio Ambiente, Urbanismo e Sustentabilidade (SMAMUS) disponível para anexo à nota conceitual. O documento formaliza o comprometimento da Prefeitura Municipal de Porto Alegre com o projeto Super Porto Alegre e com a captação de assistência técnica junto ao BPJP/C40 Cities Finance Facility.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:31:36.310Z",
+      "sectionId": "technical_assistance",
+      "field": "baseline_prioridade",
+      "oldValue": null,
+      "newValue": "**Prioridade adicional de AT — Levantamento de Baseline:**\nComo atividade inicial da assistência técnica, deverá ser realizado o levantamento dos dados de baseline da zona de intervenção (103 km²), incluindo: (i) área verde per capita atual (m²/habitante); (ii) temperatura superficial urbana (LST) por sensoriamento remoto; (iii) percentual de superfície impermeável; (iv) capacidade de retenção hídrica atual do sistema de drenagem. Esses dados são pré-requisito para o cálculo do delta dos indicadores de impacto e para a validação das metas do projeto junto aos financiadores.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-27T21:39:11.703Z",
+      "sectionId": "supplementary",
+      "field": "arquivo_exportado",
+      "oldValue": null,
+      "newValue": "knowledge/runs/2026-03-27-super-porto-alegre/nota-conceitual-super-porto-alegre.md — 361 linhas, 2.795 palavras. Exportado em março de 2026.",
+      "source": "agent"
+    }
+  ],
+  "metadata": {
+    "createdAt": "2026-03-27T21:11:51.874Z",
+    "updatedAt": "2026-03-27T21:39:11.703Z",
+    "projectName": "",
+    "proponentType": ""
+  }
+}
