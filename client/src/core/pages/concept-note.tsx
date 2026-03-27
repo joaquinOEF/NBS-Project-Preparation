@@ -5,6 +5,7 @@ import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Input } from '@/core/components/ui/input';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/core/components/ui/tooltip';
 import {
   CONCEPT_NOTE_SECTIONS,
   type ConceptNoteState,
@@ -12,12 +13,14 @@ import {
   type ChatMessage,
   type ChatMessageType,
   type ParsedQuestion,
+  type ThinkingStep,
   type SectionId,
   type Confidence,
 } from '@shared/concept-note-schema';
 import {
   Send, Download, ChevronDown, ChevronRight, AlertTriangle,
   FileText, Loader2, RotateCcw, Eye, EyeOff, Star,
+  Check, Circle, AlertCircle,
 } from 'lucide-react';
 
 // ============================================================================
@@ -89,6 +92,7 @@ export default function ConceptNotePage() {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [showThinking, setShowThinking] = useState(false);
+  const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
   const [activeQuestions, setActiveQuestions] = useState<ParsedQuestion[]>([]);
   const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -274,6 +278,18 @@ export default function ConceptNotePage() {
         setState(prev => prev ? { ...prev, phase: event.phase } : prev);
         break;
 
+      case 'thinking_step':
+        setThinkingSteps(prev => {
+          const existing = prev.findIndex(s => s.id === event.step.id);
+          if (existing >= 0) {
+            const updated = [...prev];
+            updated[existing] = event.step;
+            return updated;
+          }
+          return [...prev, event.step];
+        });
+        break;
+
       case 'ask_user':
         setActiveQuestions(prev => [...prev, {
           id: `ask_${Date.now()}`,
@@ -285,6 +301,7 @@ export default function ConceptNotePage() {
 
       case 'done':
         setIsStreaming(false);
+        setThinkingSteps([]);
         break;
 
       case 'error':
@@ -472,15 +489,30 @@ export default function ConceptNotePage() {
             </p>
           </div>
           <div className="flex gap-1">
-            <Button variant="ghost" size="sm" onClick={() => setShowThinking(!showThinking)} title="Toggle thinking steps">
-              {showThinking ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleExport}>
-              <Download className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleRestart} title="Start over">
-              <RotateCcw className="w-4 h-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="sm" onClick={() => setShowThinking(!showThinking)}>
+                  {showThinking ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{showThinking ? 'Hide thinking steps' : 'Show thinking steps'}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" onClick={handleExport}>
+                  <Download className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Export concept note</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" onClick={handleRestart}>
+                  <RotateCcw className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Start over</TooltipContent>
+            </Tooltip>
           </div>
         </div>
 
@@ -540,10 +572,38 @@ export default function ConceptNotePage() {
             />
           ))}
 
-          {isStreaming && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-xs">Working...</span>
+          {/* Thinking Steps Checklist */}
+          {thinkingSteps.length > 0 && (
+            <div className="rounded-lg border border-dashed border-muted-foreground/20 bg-muted/30 p-2.5 space-y-1">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Agent Activity</p>
+              {thinkingSteps.map((step) => (
+                <div key={step.id} className="flex items-center gap-2 text-xs">
+                  {step.status === 'complete' ? (
+                    <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                  ) : step.status === 'active' ? (
+                    <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin shrink-0" />
+                  ) : step.status === 'error' ? (
+                    <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                  ) : (
+                    <Circle className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+                  )}
+                  <span className={step.status === 'complete' ? 'text-muted-foreground' : step.status === 'active' ? 'text-foreground' : 'text-muted-foreground/60'}>
+                    {step.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Typing indicator when streaming but no steps visible */}
+          {isStreaming && thinkingSteps.length === 0 && (
+            <div className="flex items-center gap-2 py-2">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+              <span className="text-xs text-muted-foreground">Agent is thinking...</span>
             </div>
           )}
 
@@ -551,10 +611,15 @@ export default function ConceptNotePage() {
         </div>
 
         {/* Input — always visible */}
-        <div className="p-3 border-t">
-          {activeQuestions.length > 0 && (
-            <p className="text-[10px] text-muted-foreground mb-1">
-              Use arrow keys + Enter to select, or type a custom response below
+        <div className={`p-3 border-t transition-colors ${isStreaming ? 'bg-muted/50' : activeQuestions.length > 0 ? 'bg-primary/5 border-t-primary/30' : ''}`}>
+          {isStreaming && (
+            <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
+              <Loader2 className="w-3 h-3 animate-spin" /> Agent is working...
+            </p>
+          )}
+          {!isStreaming && activeQuestions.length > 0 && (
+            <p className="text-[10px] text-primary mb-1 font-medium">
+              Your turn — use arrow keys + Enter to select, or type below
             </p>
           )}
           <form
@@ -565,9 +630,13 @@ export default function ConceptNotePage() {
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={activeQuestions.length > 0 ? "Type a custom answer, or select above..." : "Type your response..."}
+              placeholder={
+                isStreaming ? "Waiting for agent..." :
+                activeQuestions.length > 0 ? "Type a custom answer, or select above..." :
+                "Type your response..."
+              }
               disabled={isStreaming}
-              className="flex-1"
+              className={`flex-1 transition-all ${!isStreaming && activeQuestions.length > 0 ? 'border-primary/50' : ''}`}
             />
             <Button type="submit" disabled={isStreaming || !input.trim()} size="sm">
               <Send className="w-4 h-4" />

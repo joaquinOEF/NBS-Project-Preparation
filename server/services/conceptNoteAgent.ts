@@ -207,8 +207,26 @@ export async function streamConceptNoteChat(
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Note-Id", noteId);
 
+  // Push event to browser AND persist assistant messages
   const pushEvent = (event: ConceptNoteEvent) => {
     res.write(`data: ${JSON.stringify(event)}\n\n`);
+
+    // Persist chat and thinking messages as they stream
+    if (event.type === 'chat') {
+      addMessage(noteId, {
+        role: 'assistant',
+        content: event.content,
+        messageType: event.messageType || 'content',
+        timestamp: new Date().toISOString(),
+      });
+    } else if (event.type === 'chat_thinking') {
+      addMessage(noteId, {
+        role: 'assistant',
+        content: event.content,
+        messageType: 'thinking',
+        timestamp: new Date().toISOString(),
+      });
+    }
   };
 
   const isSdkReady = await loadSdk();
@@ -417,11 +435,21 @@ async function streamWithAnthropicApi(
         }
         if (block.type === "tool_use") {
           assistantContent.push(block);
-          // Emit thinking event for tool calls (so UI can show them separately)
+
+          // Emit structured thinking step for non-ask_user tool calls
+          const stepId = `tool_${block.id || Date.now()}`;
           if (block.name !== 'ask_user') {
-            pushEvent({ type: 'chat_thinking', content: `Using ${block.name}...` });
+            const stepLabel = formatToolStepLabel(block.name, block.input);
+            pushEvent({ type: 'thinking_step', step: { id: stepId, label: stepLabel, status: 'active' } });
           }
+
           const toolResult = handleToolCall(noteId, block.name, block.input, pushEvent);
+
+          if (block.name !== 'ask_user') {
+            const stepLabel = formatToolStepLabel(block.name, block.input);
+            pushEvent({ type: 'thinking_step', step: { id: stepId, label: stepLabel, status: 'complete' } });
+          }
+
           // Add assistant message + tool result to conversation
           messages.push({ role: "assistant", content: assistantContent.splice(0) });
           messages.push({
@@ -437,16 +465,6 @@ async function streamWithAnthropicApi(
       }
 
       continueLoop = data.stop_reason === "tool_use";
-    }
-
-    // Save assistant messages for persistence
-    for (const msg of messages) {
-      if (msg.role === 'assistant' && Array.isArray(msg.content)) {
-        const text = msg.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('');
-        if (text) {
-          addMessage(noteId, { role: 'assistant', content: text, messageType: 'content', timestamp: new Date().toISOString() });
-        }
-      }
     }
 
     pushEvent({ type: 'done', summary: 'Response complete' });
@@ -521,6 +539,21 @@ function handleToolCall(noteId: string, toolName: string, input: any, pushEvent:
   }
 
   return `Unknown tool: ${toolName}`;
+}
+
+function formatToolStepLabel(toolName: string, input: any): string {
+  switch (toolName) {
+    case 'read_knowledge':
+      return `Reading ${input.folder}/${input.file}`;
+    case 'update_section':
+      return `Filling ${input.sectionId} → ${input.field}`;
+    case 'flag_gap':
+      return `Flagging gap in ${input.sectionId}`;
+    case 'set_phase':
+      return `Advancing to Phase ${input.phase}`;
+    default:
+      return `Running ${toolName}`;
+  }
 }
 
 function buildSystemContext(state: ConceptNoteState): string {

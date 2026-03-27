@@ -150,10 +150,18 @@ export interface ParsedQuestion {
   options: Array<{ label: string; description: string; recommended?: boolean }>;
 }
 
+// Structured thinking step for the step checklist UI
+export interface ThinkingStep {
+  id: string;
+  label: string;
+  status: 'pending' | 'active' | 'complete' | 'error';
+}
+
 // SSE event types pushed to the browser
 export type ConceptNoteEvent =
   | { type: 'chat'; content: string; role: 'assistant'; messageType?: ChatMessageType }
   | { type: 'chat_thinking'; content: string }
+  | { type: 'thinking_step'; step: ThinkingStep }
   | { type: 'field_update'; sectionId: string; field: string; value: string; confidence: Confidence; source?: string }
   | { type: 'gap'; sectionId: string; field: string; reason: string; severity: string }
   | { type: 'phase_change'; phase: number }
