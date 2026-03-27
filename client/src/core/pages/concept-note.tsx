@@ -3,6 +3,13 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
+
+// Fix inline markdown tables — adds newlines between pipe-separated rows
+function fixMarkdownTables(text: string): string {
+  if (!text.includes('|')) return text;
+  // Match patterns like "| col1 | col2 | |---|---| | val1 | val2 |" and add newlines
+  return text.replace(/\|\s*\|/g, '|\n|').replace(/\|\s*\n\s*\|/g, '|\n|');
+}
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -705,7 +712,7 @@ export default function ConceptNotePage() {
                     <div className={`text-sm prose prose-sm max-w-none ${
                       msg.messageType === 'thinking' ? 'text-muted-foreground italic text-xs' : ''
                     }`}>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{fixMarkdownTables(msg.content)}</ReactMarkdown>
                     </div>
                   )}
                 </div>
@@ -1223,7 +1230,7 @@ function SectionCard({
                 <div className="text-sm prose prose-sm max-w-none bg-background rounded-md border p-3 hover:border-primary/30 transition-colors cursor-text"
                   onClick={() => startEdit(fieldName, field.value)}
                 >
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{String(field.value || '')}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{fixMarkdownTables(String(field.value || ''))}</ReactMarkdown>
                 </div>
               )}
             </div>
