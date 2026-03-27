@@ -133,13 +133,39 @@ export function createEmptyConceptNote(projectId: string, city: string): Concept
   };
 }
 
+// Chat message types for the frontend
+export type ChatMessageType = 'content' | 'thinking' | 'tool_status';
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  messageType: ChatMessageType;
+  timestamp: string;
+}
+
+// Structured question extracted from agent text or ask_user tool
+export interface ParsedQuestion {
+  id: string;
+  question: string;
+  options: Array<{ label: string; description: string; recommended?: boolean }>;
+}
+
 // SSE event types pushed to the browser
 export type ConceptNoteEvent =
-  | { type: 'chat'; content: string; role: 'assistant' }
+  | { type: 'chat'; content: string; role: 'assistant'; messageType?: ChatMessageType }
+  | { type: 'chat_thinking'; content: string }
   | { type: 'field_update'; sectionId: string; field: string; value: string; confidence: Confidence; source?: string }
   | { type: 'gap'; sectionId: string; field: string; reason: string; severity: string }
   | { type: 'phase_change'; phase: number }
   | { type: 'cascade'; edits: Array<{ sectionId: string; field: string; value: string }> }
-  | { type: 'ask_user'; question: string; options: Array<{ label: string; description: string }> }
+  | { type: 'ask_user'; question: string; options: Array<{ label: string; description: string; recommended?: boolean }> }
   | { type: 'done'; summary: string }
   | { type: 'error'; message: string };
+
+// Persistence types
+export interface PersistedSession {
+  noteId: string;
+  state: ConceptNoteState;
+  messages: ChatMessage[];
+  savedAt: string;
+}

@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'wouter';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -9,10 +9,74 @@ import {
   CONCEPT_NOTE_SECTIONS,
   type ConceptNoteState,
   type ConceptNoteEvent,
+  type ChatMessage,
+  type ChatMessageType,
+  type ParsedQuestion,
   type SectionId,
   type Confidence,
 } from '@shared/concept-note-schema';
-import { Send, Download, ChevronDown, ChevronRight, AlertTriangle, FileText, Loader2 } from 'lucide-react';
+import {
+  Send, Download, ChevronDown, ChevronRight, AlertTriangle,
+  FileText, Loader2, RotateCcw, Eye, EyeOff, Star,
+} from 'lucide-react';
+
+// ============================================================================
+// PERSISTENCE HELPERS
+// ============================================================================
+
+const STORAGE_KEY = 'concept-note-session-id';
+
+function getSavedNoteId(): string | null {
+  try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
+}
+
+function saveNoteId(id: string) {
+  try { localStorage.setItem(STORAGE_KEY, id); } catch {}
+}
+
+function clearSavedNoteId() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch {}
+}
+
+// ============================================================================
+// QUESTION PARSER — extracts MC questions from markdown text
+// ============================================================================
+
+function parseQuestionsFromMarkdown(text: string): ParsedQuestion[] {
+  const questions: ParsedQuestion[] = [];
+  // Match patterns like: **Q1 — Title** or **Q1 - Title**
+  const qRegex = /\*\*Q(\d+)\s*[—\-–]\s*(.+?)\*\*\s*\*?\(?choose[^)]*\)?\*?/gi;
+  // Match options like: - **A)** Text or - A) Text
+  const optRegex = /^-\s+\*?\*?([A-Z])\)\*?\*?\s+(.+?)$/gm;
+
+  let match;
+  while ((match = qRegex.exec(text)) !== null) {
+    const qNum = match[1];
+    const qTitle = match[2].trim();
+    const qStart = match.index + match[0].length;
+
+    // Find the next question or end of text to bound option search
+    const nextQ = text.indexOf('**Q', qStart + 1);
+    const searchArea = nextQ > -1 ? text.slice(qStart, nextQ) : text.slice(qStart);
+
+    const options: ParsedQuestion['options'] = [];
+    let optMatch;
+    const localOptRegex = /^-\s+\*?\*?([A-Z])\)\*?\*?\s+(.+?)$/gm;
+    while ((optMatch = localOptRegex.exec(searchArea)) !== null) {
+      const label = optMatch[2].trim();
+      const recommended = /recommended|←.*recommended/i.test(label);
+      // Clean the label
+      const cleanLabel = label.replace(/\s*←\s*\*?recommended.*?\*?/i, '').replace(/\*\*/g, '').trim();
+      options.push({ label: cleanLabel, description: '', recommended });
+    }
+
+    if (options.length >= 2) {
+      questions.push({ id: `q${qNum}`, question: qTitle, options });
+    }
+  }
+
+  return questions;
+}
 
 // ============================================================================
 // CONCEPT NOTE PAGE — Split-screen: Chat (left) + Document (right)
@@ -21,15 +85,42 @@ import { Send, Download, ChevronDown, ChevronRight, AlertTriangle, FileText, Loa
 export default function ConceptNotePage() {
   const [noteId, setNoteId] = useState<string | null>(null);
   const [state, setState] = useState<ConceptNoteState | null>(null);
-  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [mcOptions, setMcOptions] = useState<Array<{ label: string; description: string }> | null>(null);
+  const [showThinking, setShowThinking] = useState(false);
+  const [activeQuestions, setActiveQuestions] = useState<ParsedQuestion[]>([]);
+  const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize concept note session
+  // Initialize or resume session
   useEffect(() => {
     async function init() {
+      // Try to resume saved session
+      const savedId = getSavedNoteId();
+      if (savedId) {
+        try {
+          const res = await fetch(`/api/concept-note/${savedId}`);
+          if (res.ok) {
+            const data = await res.json();
+            setNoteId(savedId);
+            setState(data.state || data);
+            // Load saved messages
+            const msgRes = await fetch(`/api/concept-note/${savedId}/messages`);
+            if (msgRes.ok) {
+              const msgs = await msgRes.json();
+              if (Array.isArray(msgs) && msgs.length > 0) {
+                setMessages(msgs);
+                return;
+              }
+            }
+            return;
+          }
+        } catch {}
+      }
+
+      // Create new session
       const res = await fetch('/api/concept-note', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -38,6 +129,7 @@ export default function ConceptNotePage() {
       const data = await res.json();
       setNoteId(data.noteId);
       setState(data.state);
+      saveNoteId(data.noteId);
     }
     init();
   }, []);
@@ -47,16 +139,91 @@ export default function ConceptNotePage() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Keyboard navigation for multiple choice
+  useEffect(() => {
+    if (activeQuestions.length === 0) return;
+
+    const currentQ = activeQuestions[activeQuestions.length - 1];
+    if (!currentQ) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      const opts = currentQ.options;
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        setSelectedOptionIdx(prev => (prev + 1) % opts.length);
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setSelectedOptionIdx(prev => (prev - 1 + opts.length) % opts.length);
+      } else if (e.key === 'Enter' && !e.shiftKey && document.activeElement !== inputRef.current) {
+        e.preventDefault();
+        handleSelectOption(opts[selectedOptionIdx].label);
+      } else {
+        // Letter shortcuts: A=0, B=1, C=2, D=3
+        const letterIdx = e.key.toUpperCase().charCodeAt(0) - 65;
+        if (letterIdx >= 0 && letterIdx < opts.length && !e.ctrlKey && !e.metaKey) {
+          // Only if not typing in input
+          if (document.activeElement !== inputRef.current) {
+            e.preventDefault();
+            handleSelectOption(opts[letterIdx].label);
+          }
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeQuestions, selectedOptionIdx]);
+
   // Process SSE events
   const processEvent = useCallback((event: ConceptNoteEvent) => {
     switch (event.type) {
-      case 'chat':
+      case 'chat': {
+        const msgType: ChatMessageType = event.messageType || 'content';
         setMessages(prev => {
           const last = prev[prev.length - 1];
-          if (last?.role === 'assistant') {
+          // Append to last assistant message of same type
+          if (last?.role === 'assistant' && last.messageType === msgType) {
             return [...prev.slice(0, -1), { ...last, content: last.content + event.content }];
           }
-          return [...prev, { role: 'assistant', content: event.content }];
+          // Start new message
+          return [...prev, {
+            role: 'assistant' as const,
+            content: event.content,
+            messageType: msgType,
+            timestamp: new Date().toISOString(),
+          }];
+        });
+
+        // Try to parse MC questions from content messages
+        if (msgType === 'content') {
+          setMessages(prev => {
+            const last = prev[prev.length - 1];
+            if (last?.role === 'assistant') {
+              const parsed = parseQuestionsFromMarkdown(last.content);
+              if (parsed.length > 0) {
+                setActiveQuestions(parsed);
+                setSelectedOptionIdx(0);
+              }
+            }
+            return prev;
+          });
+        }
+        break;
+      }
+
+      case 'chat_thinking':
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last?.role === 'assistant' && last.messageType === 'thinking') {
+            return [...prev.slice(0, -1), { ...last, content: last.content + '\n' + event.content }];
+          }
+          return [...prev, {
+            role: 'assistant' as const,
+            content: event.content,
+            messageType: 'thinking' as const,
+            timestamp: new Date().toISOString(),
+          }];
         });
         break;
 
@@ -108,7 +275,12 @@ export default function ConceptNotePage() {
         break;
 
       case 'ask_user':
-        setMcOptions(event.options);
+        setActiveQuestions(prev => [...prev, {
+          id: `ask_${Date.now()}`,
+          question: event.question,
+          options: event.options,
+        }]);
+        setSelectedOptionIdx(0);
         break;
 
       case 'done':
@@ -117,7 +289,12 @@ export default function ConceptNotePage() {
 
       case 'error':
         setIsStreaming(false);
-        setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${event.message}` }]);
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `Error: ${event.message}`,
+          messageType: 'content',
+          timestamp: new Date().toISOString(),
+        }]);
         break;
     }
   }, []);
@@ -127,12 +304,14 @@ export default function ConceptNotePage() {
     if (!noteId || !text.trim() || isStreaming) return;
 
     setInput('');
-    setMcOptions(null);
-    setMessages(prev => [...prev, { role: 'user', content: text }]);
+    setActiveQuestions([]);
+    setMessages(prev => [...prev, {
+      role: 'user' as const,
+      content: text,
+      messageType: 'content' as const,
+      timestamp: new Date().toISOString(),
+    }]);
     setIsStreaming(true);
-
-    // Start new assistant message
-    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
     try {
       const res = await fetch(`/api/concept-note/${noteId}/chat`, {
@@ -165,17 +344,27 @@ export default function ConceptNotePage() {
         }
       }
     } catch (error: any) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Connection error: ${error.message}` }]);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `Connection error: ${error.message}`,
+        messageType: 'content',
+        timestamp: new Date().toISOString(),
+      }]);
     }
 
     setIsStreaming(false);
   }, [noteId, isStreaming, processEvent]);
 
+  // Handle MC option selection
+  const handleSelectOption = useCallback((label: string) => {
+    setActiveQuestions([]);
+    sendMessage(label);
+  }, [sendMessage]);
+
   // Handle user field edit
   const handleFieldEdit = useCallback(async (sectionId: string, field: string, value: string) => {
     if (!noteId) return;
 
-    // Optimistic update
     setState(prev => {
       if (!prev) return prev;
       const section = prev.sections[sectionId as SectionId];
@@ -196,10 +385,7 @@ export default function ConceptNotePage() {
       };
     });
 
-    // Trigger cascade via agent
     setIsStreaming(true);
-    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-
     try {
       const res = await fetch(`/api/concept-note/${noteId}/edit`, {
         method: 'POST',
@@ -220,22 +406,47 @@ export default function ConceptNotePage() {
           buffer = lines.pop() || '';
           for (const line of lines) {
             if (line.startsWith('data: ')) {
-              try {
-                processEvent(JSON.parse(line.slice(6)));
-              } catch {}
+              try { processEvent(JSON.parse(line.slice(6))); } catch {}
             }
           }
         }
       }
     } catch {}
-
     setIsStreaming(false);
   }, [noteId, processEvent]);
+
+  // Restart session
+  const handleRestart = useCallback(async () => {
+    if (noteId) {
+      try { await fetch(`/api/concept-note/${noteId}`, { method: 'DELETE' }); } catch {}
+    }
+    clearSavedNoteId();
+    setMessages([]);
+    setActiveQuestions([]);
+    setState(null);
+    setNoteId(null);
+
+    const res = await fetch('/api/concept-note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ city: 'porto-alegre', projectId: 'sample-project' }),
+    });
+    const data = await res.json();
+    setNoteId(data.noteId);
+    setState(data.state);
+    saveNoteId(data.noteId);
+  }, [noteId]);
 
   // Export
   const handleExport = () => {
     if (noteId) window.open(`/api/concept-note/${noteId}/export`, '_blank');
   };
+
+  // Filled section count
+  const filledCount = useMemo(() => {
+    if (!state) return 0;
+    return Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length;
+  }, [state]);
 
   if (!state) {
     return (
@@ -250,88 +461,115 @@ export default function ConceptNotePage() {
       {/* LEFT: Chat Panel */}
       <div className="w-1/2 border-r flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b bg-background flex items-center justify-between">
+        <div className="p-3 border-b bg-background flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <FileText className="w-5 h-5" />
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <FileText className="w-4 h-4" />
               Concept Note Assistant
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Phase {state.phase}/10 — {state.city}
+            <p className="text-xs text-muted-foreground">
+              Phase {state.phase}/10 — {state.city} — {filledCount}/23 sections
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="w-4 h-4 mr-1" /> Export
-          </Button>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" onClick={() => setShowThinking(!showThinking)} title="Toggle thinking steps">
+              {showThinking ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleRestart} title="Start over">
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 && (
             <div className="text-center text-muted-foreground py-8">
               <p className="text-lg mb-2">Ready to build your concept note</p>
-              <p className="text-sm">Type "start" or click below to begin the interview</p>
-              <Button className="mt-4" onClick={() => sendMessage("Start the concept note interview for Porto Alegre. Use the /concept-note skill flow.")}>
+              <p className="text-sm mb-4">Click below to begin the interview for Porto Alegre</p>
+              <Button onClick={() => sendMessage("Start the concept note interview for Porto Alegre. Use the /concept-note skill flow. Always use the ask_user tool for multiple-choice questions instead of writing them as text.")}>
                 Start Interview
               </Button>
             </div>
           )}
 
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] rounded-lg px-4 py-2 ${
-                msg.role === 'user'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted'
-              }`}>
-                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-              </div>
-            </div>
-          ))}
+          {messages.map((msg, i) => {
+            // Hide thinking messages unless toggled on
+            if (msg.messageType === 'thinking' && !showThinking) return null;
 
-          {/* Multiple choice options */}
-          {mcOptions && (
-            <div className="space-y-2">
-              {mcOptions.map((opt, i) => (
-                <Button
-                  key={i}
-                  variant="outline"
-                  className="w-full justify-start text-left h-auto py-3"
-                  onClick={() => sendMessage(opt.label)}
-                >
-                  <div>
-                    <div className="font-medium">{opt.label}</div>
-                    <div className="text-xs text-muted-foreground">{opt.description}</div>
-                  </div>
-                </Button>
-              ))}
-            </div>
-          )}
+            return (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[90%] rounded-lg px-4 py-2.5 ${
+                  msg.role === 'user'
+                    ? 'bg-primary text-primary-foreground'
+                    : msg.messageType === 'thinking'
+                      ? 'bg-muted/50 border border-dashed border-muted-foreground/20'
+                      : msg.messageType === 'tool_status'
+                        ? 'bg-blue-50 border border-blue-200'
+                        : 'bg-muted'
+                }`}>
+                  {msg.messageType === 'thinking' && (
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Thinking</p>
+                  )}
+                  {msg.role === 'user' ? (
+                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  ) : (
+                    <div className={`text-sm prose prose-sm max-w-none ${
+                      msg.messageType === 'thinking' ? 'text-muted-foreground italic text-xs' : ''
+                    }`}>
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Interactive Multiple Choice Questions */}
+          {activeQuestions.map((q, qi) => (
+            <QuestionCard
+              key={q.id}
+              question={q}
+              isActive={qi === activeQuestions.length - 1}
+              selectedIdx={qi === activeQuestions.length - 1 ? selectedOptionIdx : -1}
+              onSelect={handleSelectOption}
+              disabled={isStreaming}
+            />
+          ))}
 
           {isStreaming && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm">Thinking...</span>
+              <span className="text-xs">Working...</span>
             </div>
           )}
 
           <div ref={chatEndRef} />
         </div>
 
-        {/* Input */}
-        <div className="p-4 border-t">
+        {/* Input — always visible */}
+        <div className="p-3 border-t">
+          {activeQuestions.length > 0 && (
+            <p className="text-[10px] text-muted-foreground mb-1">
+              Use arrow keys + Enter to select, or type a custom response below
+            </p>
+          )}
           <form
             onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
             className="flex gap-2"
           >
             <Input
+              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your response..."
+              placeholder={activeQuestions.length > 0 ? "Type a custom answer, or select above..." : "Type your response..."}
               disabled={isStreaming}
               className="flex-1"
             />
-            <Button type="submit" disabled={isStreaming || !input.trim()}>
+            <Button type="submit" disabled={isStreaming || !input.trim()} size="sm">
               <Send className="w-4 h-4" />
             </Button>
           </form>
@@ -340,18 +578,21 @@ export default function ConceptNotePage() {
 
       {/* RIGHT: Document Panel */}
       <div className="w-1/2 overflow-y-auto bg-muted/30">
-        <div className="p-4 border-b bg-background sticky top-0 z-10">
-          <h2 className="text-lg font-semibold">
+        <div className="p-3 border-b bg-background sticky top-0 z-10">
+          <h2 className="text-base font-semibold">
             {state.metadata.projectName || 'Nota Conceitual'}
           </h2>
-          <div className="flex gap-2 mt-1">
-            <Badge variant="outline">{state.city}</Badge>
-            <Badge variant="outline">Phase {state.phase}/10</Badge>
-            <Badge variant="outline">{state.gaps.length} gaps</Badge>
+          <div className="flex gap-2 mt-1 flex-wrap">
+            <Badge variant="outline" className="text-xs">{state.city}</Badge>
+            <Badge variant="outline" className="text-xs">Phase {state.phase}/10</Badge>
+            <Badge variant="outline" className="text-xs">{filledCount}/23 sections</Badge>
+            {state.gaps.length > 0 && (
+              <Badge variant="destructive" className="text-xs">{state.gaps.length} gaps</Badge>
+            )}
           </div>
         </div>
 
-        <div className="p-4 space-y-3">
+        <div className="p-3 space-y-2">
           {CONCEPT_NOTE_SECTIONS.map((sec) => (
             <SectionCard
               key={sec.id}
@@ -362,6 +603,68 @@ export default function ConceptNotePage() {
             />
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// QUESTION CARD — interactive multiple-choice with keyboard nav
+// ============================================================================
+
+function QuestionCard({
+  question,
+  isActive,
+  selectedIdx,
+  onSelect,
+  disabled,
+}: {
+  question: ParsedQuestion;
+  isActive: boolean;
+  selectedIdx: number;
+  onSelect: (label: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="rounded-lg border bg-background p-3 space-y-2" role="listbox" aria-label={question.question}>
+      <p className="text-sm font-medium">{question.question}</p>
+      <div className="space-y-1.5">
+        {question.options.map((opt, i) => {
+          const letter = String.fromCharCode(65 + i);
+          const isSelected = isActive && i === selectedIdx;
+          const isRecommended = opt.recommended;
+
+          return (
+            <button
+              key={i}
+              role="option"
+              aria-selected={isSelected}
+              onClick={() => !disabled && onSelect(opt.label)}
+              className={`w-full text-left px-3 py-2 rounded-md border text-sm transition-all flex items-start gap-2 ${
+                isSelected
+                  ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                  : 'border-muted hover:border-primary/50 hover:bg-muted/50'
+              } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-mono shrink-0 ${
+                isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+              }`}>
+                {letter}
+              </span>
+              <div className="flex-1 min-w-0">
+                <span className="font-medium">{opt.label}</span>
+                {opt.description && (
+                  <span className="text-muted-foreground ml-1">{opt.description}</span>
+                )}
+                {isRecommended && (
+                  <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                    <Star className="w-2.5 h-2.5" /> recommended
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -390,15 +693,14 @@ function SectionCard({
   const isReached = section.phase <= currentPhase;
   const hasGaps = gaps.length > 0;
 
-  const confidenceBadge = (c: Confidence) => {
-    const variants: Record<Confidence, { label: string; className: string }> = {
-      high: { label: '✅', className: 'bg-green-100 text-green-800' },
-      medium: { label: '🟡', className: 'bg-yellow-100 text-yellow-800' },
-      low: { label: '🔴', className: 'bg-red-100 text-red-800' },
-      empty: { label: '⬜', className: 'bg-gray-100 text-gray-500' },
-    };
-    const v = variants[c];
-    return <span className={`text-xs px-1.5 py-0.5 rounded ${v.className}`}>{v.label}</span>;
+  // Auto-expand when fields get added
+  useEffect(() => {
+    if (fieldCount > 0 && !expanded) setExpanded(true);
+  }, [fieldCount]);
+
+  const confidenceIcon = (c: Confidence) => {
+    const map: Record<Confidence, string> = { high: '✅', medium: '🟡', low: '🔴', empty: '⬜' };
+    return map[c];
   };
 
   const startEdit = (field: string, value: string | number | null) => {
@@ -412,41 +714,40 @@ function SectionCard({
   };
 
   return (
-    <Card className={`${hasGaps ? 'border-orange-300' : ''} ${!isReached ? 'opacity-50' : ''} transition-all`}>
+    <Card className={`${hasGaps ? 'border-orange-300' : ''} ${!isReached ? 'opacity-40' : ''} transition-all`}>
       <CardHeader
-        className="py-3 px-4 cursor-pointer flex flex-row items-center justify-between"
+        className="py-2 px-3 cursor-pointer flex flex-row items-center justify-between"
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="flex items-center gap-2">
-          {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          <CardTitle className="text-sm font-medium">{section.title}</CardTitle>
+        <div className="flex items-center gap-1.5">
+          {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          <CardTitle className="text-xs font-medium">{section.title}</CardTitle>
         </div>
-        <div className="flex items-center gap-2">
-          {hasGaps && <AlertTriangle className="w-4 h-4 text-orange-500" />}
-          {confidenceBadge(section.confidence)}
-          <span className="text-xs text-muted-foreground">{fieldCount} fields</span>
+        <div className="flex items-center gap-1.5">
+          {hasGaps && <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />}
+          <span className="text-[10px]">{confidenceIcon(section.confidence)}</span>
+          {fieldCount > 0 && <span className="text-[10px] text-muted-foreground">{fieldCount}</span>}
         </div>
       </CardHeader>
 
       {expanded && (
-        <CardContent className="pt-0 px-4 pb-4 space-y-3">
-          {fieldCount === 0 && !isReached && (
-            <p className="text-xs text-muted-foreground italic">Agent hasn't reached this section yet</p>
-          )}
-          {fieldCount === 0 && isReached && (
-            <p className="text-xs text-muted-foreground italic">No fields filled yet — the agent will populate this during the interview</p>
+        <CardContent className="pt-0 px-3 pb-3 space-y-2">
+          {fieldCount === 0 && (
+            <p className="text-[10px] text-muted-foreground italic">
+              {isReached ? 'Waiting for agent to populate...' : 'Not yet reached'}
+            </p>
           )}
 
           {Object.entries(section.fields).map(([fieldName, field]) => (
-            <div key={fieldName} className="space-y-1">
+            <div key={fieldName} className="space-y-0.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-muted-foreground capitalize">
+                <label className="text-[10px] font-medium text-muted-foreground capitalize">
                   {fieldName.replace(/_/g, ' ')}
                 </label>
                 <div className="flex items-center gap-1">
-                  {confidenceBadge(field.confidence)}
+                  <span className="text-[10px]">{confidenceIcon(field.confidence)}</span>
                   {field.userEdited && (
-                    <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">edited</span>
+                    <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded">edited</span>
                   )}
                 </div>
               </div>
@@ -456,35 +757,36 @@ function SectionCard({
                   <Textarea
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
-                    className="text-sm min-h-[80px]"
+                    className="text-xs min-h-[60px]"
                     autoFocus
                   />
                   <div className="flex gap-1">
-                    <Button size="sm" variant="default" onClick={() => saveEdit(fieldName)}>Save</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingField(null)}>Cancel</Button>
+                    <Button size="sm" variant="default" onClick={() => saveEdit(fieldName)} className="h-6 text-xs px-2">Save</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingField(null)} className="h-6 text-xs px-2">Cancel</Button>
                   </div>
                 </div>
               ) : (
                 <div
-                  className="text-sm bg-background rounded p-2 border cursor-pointer hover:border-primary transition-colors"
+                  className="text-xs bg-background rounded p-1.5 border cursor-pointer hover:border-primary/50 transition-colors"
                   onClick={() => startEdit(fieldName, field.value)}
                 >
-                  <p className="whitespace-pre-wrap">{String(field.value || '')}</p>
+                  <div className="prose prose-xs max-w-none">
+                    <ReactMarkdown>{String(field.value || '')}</ReactMarkdown>
+                  </div>
                   {field.source && (
-                    <p className="text-xs text-muted-foreground mt-1">📎 {field.source}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">📎 {field.source}</p>
                   )}
                 </div>
               )}
             </div>
           ))}
 
-          {/* Gaps */}
           {gaps.map((gap, i) => (
-            <div key={i} className="flex items-start gap-2 p-2 bg-orange-50 rounded border border-orange-200">
-              <AlertTriangle className="w-4 h-4 text-orange-500 mt-0.5 shrink-0" />
+            <div key={i} className="flex items-start gap-1.5 p-1.5 bg-orange-50 rounded border border-orange-200">
+              <AlertTriangle className="w-3 h-3 text-orange-500 mt-0.5 shrink-0" />
               <div>
-                <p className="text-xs font-medium text-orange-800">{gap.field}</p>
-                <p className="text-xs text-orange-600">{gap.reason}</p>
+                <p className="text-[10px] font-medium text-orange-800">{gap.field}</p>
+                <p className="text-[9px] text-orange-600">{gap.reason}</p>
               </div>
             </div>
           ))}

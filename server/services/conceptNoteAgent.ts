@@ -3,6 +3,7 @@ import type { Response } from "express";
 import {
   type ConceptNoteState,
   type ConceptNoteEvent,
+  type ChatMessage,
   type Confidence,
   ALL_SECTION_IDS,
 } from "@shared/concept-note-schema";
@@ -34,16 +35,28 @@ async function loadSdk() {
 // Try to load on startup (non-blocking)
 loadSdk();
 
-// In-memory state store (swap for DB in production)
+// In-memory stores
 const noteStates = new Map<string, ConceptNoteState>();
+const noteMessages = new Map<string, ChatMessage[]>();
 
 export function getConceptNoteState(noteId: string): ConceptNoteState | undefined {
   return noteStates.get(noteId);
 }
 
 export function setConceptNoteState(noteId: string, state: ConceptNoteState): void {
+  if (!state) { noteStates.delete(noteId); noteMessages.delete(noteId); return; }
   state.metadata.updatedAt = new Date().toISOString();
   noteStates.set(noteId, state);
+}
+
+export function getMessages(noteId: string): ChatMessage[] {
+  return noteMessages.get(noteId) || [];
+}
+
+export function addMessage(noteId: string, msg: ChatMessage): void {
+  const msgs = noteMessages.get(noteId) || [];
+  msgs.push(msg);
+  noteMessages.set(noteId, msgs);
 }
 
 // ============================================================================
@@ -66,7 +79,7 @@ function createConceptNoteTools(noteId: string, pushEvent: EventPusher) {
       confidence: z.enum(["high", "medium", "low"]).default("medium").describe("How confident this value is based on evidence"),
       source: z.string().optional().describe("Knowledge file that grounds this value, e.g. 'porto-alegre/climate-risks.md'"),
     },
-    async (args) => {
+    async (args: any) => {
       const state = getConceptNoteState(noteId);
       if (!state) return { content: [{ type: "text" as const, text: "Error: note not found" }], isError: true };
 
@@ -123,7 +136,7 @@ function createConceptNoteTools(noteId: string, pushEvent: EventPusher) {
       reason: z.string().describe("Why this is a gap and what data is needed"),
       severity: z.enum(["critical", "important", "minor"]).default("important"),
     },
-    async (args) => {
+    async (args: any) => {
       const state = getConceptNoteState(noteId);
       if (!state) return { content: [{ type: "text" as const, text: "Error: note not found" }], isError: true };
 
@@ -154,7 +167,7 @@ function createConceptNoteTools(noteId: string, pushEvent: EventPusher) {
     {
       phase: z.number().min(0).max(10).describe("Phase number (0=setup, 1-8=interview phases, 9=gap analysis, 10=output)"),
     },
-    async (args) => {
+    async (args: any) => {
       const state = getConceptNoteState(noteId);
       if (!state) return { content: [{ type: "text" as const, text: "Error: note not found" }], isError: true };
 
@@ -337,6 +350,30 @@ async function streamWithAnthropicApi(
         required: ["phase"],
       },
     },
+    {
+      name: "ask_user",
+      description: "ALWAYS use this tool to present multiple-choice questions to the user. Do NOT write questions as markdown text — use this tool instead. The UI will render interactive clickable buttons.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          question: { type: "string", description: "The question to ask" },
+          options: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string", description: "Option text" },
+                description: { type: "string", description: "Brief explanation" },
+                recommended: { type: "boolean", description: "Whether this is the recommended option" },
+              },
+              required: ["label"],
+            },
+            description: "2-6 options for the user to choose from",
+          },
+        },
+        required: ["question", "options"],
+      },
+    },
   ];
 
   const messages: Array<{ role: string; content: any }> = [
@@ -380,6 +417,10 @@ async function streamWithAnthropicApi(
         }
         if (block.type === "tool_use") {
           assistantContent.push(block);
+          // Emit thinking event for tool calls (so UI can show them separately)
+          if (block.name !== 'ask_user') {
+            pushEvent({ type: 'chat_thinking', content: `Using ${block.name}...` });
+          }
           const toolResult = handleToolCall(noteId, block.name, block.input, pushEvent);
           // Add assistant message + tool result to conversation
           messages.push({ role: "assistant", content: assistantContent.splice(0) });
@@ -396,6 +437,16 @@ async function streamWithAnthropicApi(
       }
 
       continueLoop = data.stop_reason === "tool_use";
+    }
+
+    // Save assistant messages for persistence
+    for (const msg of messages) {
+      if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+        const text = msg.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('');
+        if (text) {
+          addMessage(noteId, { role: 'assistant', content: text, messageType: 'content', timestamp: new Date().toISOString() });
+        }
+      }
     }
 
     pushEvent({ type: 'done', summary: 'Response complete' });
@@ -460,6 +511,15 @@ function handleToolCall(noteId: string, toolName: string, input: any, pushEvent:
     return `Phase set to ${input.phase}`;
   }
 
+  if (toolName === "ask_user") {
+    pushEvent({
+      type: 'ask_user',
+      question: input.question,
+      options: input.options || [],
+    });
+    return `Question presented to user: "${input.question}" with ${input.options?.length || 0} options. Wait for user response.`;
+  }
+
   return `Unknown tool: ${toolName}`;
 }
 
@@ -469,15 +529,27 @@ The user is building a BPJP/C40 concept note for the city of ${state.city}.
 Current phase: ${state.phase}.
 Project name: ${state.metadata.projectName || '(not yet set)'}.
 
-IMPORTANT: Use the update_section tool to fill concept note fields as you gather information.
-Use flag_gap to mark sections that need more data.
-Use set_phase to advance through the interview phases.
+## Tool Usage Rules
+
+CRITICAL: For ALL multiple-choice questions, you MUST use the ask_user tool. Do NOT write questions as markdown text with **Q1**, **A)**, etc. The ask_user tool renders interactive clickable buttons in the UI.
+
+- **update_section**: Fill concept note fields as you gather information
+- **flag_gap**: Mark sections that need more data
+- **set_phase**: Advance through interview phases (0-10)
+- **ask_user**: Present multiple-choice questions (ALWAYS use this, never write MC as text)
+- **read_knowledge**: Read specific knowledge files for detailed data
 
 Available section IDs: ${ALL_SECTION_IDS.join(', ')}
 
-Guide the user through an interview to build a complete BPJP concept note.
-For each phase, auto-fill what you can from the knowledge context provided, then ask targeted questions for gaps.
-Output is in Portuguese (matching the BPJP template). Questions can be in English.`;
+## Interview Flow
+Guide the user through building a complete BPJP concept note.
+For each phase:
+1. Read relevant knowledge files using read_knowledge
+2. Auto-fill what you can using update_section
+3. Use ask_user for decisions that need user input
+4. Keep explanations concise — the document panel shows the filled fields
+
+Output concept note content in Portuguese (matching the BPJP template). Questions to the user can be in English.`;
 }
 
 // Load knowledge files as context for the API fallback
