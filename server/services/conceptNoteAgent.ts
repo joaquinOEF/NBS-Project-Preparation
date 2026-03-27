@@ -300,16 +300,16 @@ async function streamWithV2Session(
           const s = sdkCreateSession({
             model: "claude-opus-4-6",
             cwd: process.cwd(),
+            // ONLY concept_note MCP tools — no Read/Glob/Grep to prevent codebase exploration
             allowedTools: [
-              "Read", "Glob", "Grep",
               "mcp__concept_note__update_section",
               "mcp__concept_note__flag_gap",
               "mcp__concept_note__set_phase",
               "mcp__concept_note__ask_user",
             ],
+            tools: [], // Remove ALL built-in tools
             mcpServers: mcpServer ? { concept_note: mcpServer } : {},
             permissionMode: "bypassPermissions",
-            // No settingSources — we embed the system prompt directly
           });
           resolve(s);
         } catch (e) {
@@ -327,8 +327,9 @@ async function streamWithV2Session(
       console.log(`[concept-note] V2 session created for ${noteId}`);
     }
 
-    const prompt = sessionIsFirstTurn.get(noteId)
-      ? `${buildSystemContext(state)}\n\nUser message: ${userMessage}`
+    const sysCtx = sessionIsFirstTurn.get(noteId) ? await buildSystemContext(state) : null;
+    const prompt = sysCtx
+      ? `${sysCtx}\n\nUser message: ${userMessage}`
       : userMessage;
 
     sessionIsFirstTurn.set(noteId, false);
@@ -365,8 +366,9 @@ async function streamWithV1Continue(
   const mcpServer = getMcpServer(noteId);
   const isFirstTurn = !activeSessions.has(noteId);
 
-  const prompt = isFirstTurn
-    ? `${buildSystemContext(state)}\n\nUser message: ${userMessage}`
+  const sysCtx = isFirstTurn ? await buildSystemContext(state) : null;
+  const prompt = sysCtx
+    ? `${sysCtx}\n\nUser message: ${userMessage}`
     : userMessage;
 
   console.log(`[concept-note] V1 ${isFirstTurn ? 'new session' : 'continue'} for ${noteId}`);
@@ -376,14 +378,15 @@ async function streamWithV1Continue(
       prompt,
       options: {
         cwd: process.cwd(),
-        settingSources: ['project'],
+        // No settingSources — prevents agent from reading codebase
+        // No Read/Glob/Grep — all knowledge is pre-baked in system prompt
         allowedTools: [
-          "Read", "Glob", "Grep",
           "mcp__concept_note__update_section",
           "mcp__concept_note__flag_gap",
           "mcp__concept_note__set_phase",
           "mcp__concept_note__ask_user",
         ],
+        tools: [], // Remove ALL built-in tools
         mcpServers: mcpServer ? { concept_note: mcpServer } : {},
         ...(isFirstTurn ? {} : { continue: true }),
         permissionMode: "bypassPermissions",
@@ -434,7 +437,7 @@ async function streamWithAnthropicApi(
     return;
   }
 
-  const systemContext = buildSystemContext(state);
+  const systemContext = await buildSystemContext(state);
   const knowledgeContext = await loadKnowledgeContext(state.city);
 
   const tools = [
@@ -563,77 +566,96 @@ function formatToolStepLabel(toolName: string, input: any): string {
   }
 }
 
-function buildSystemContext(state: ConceptNoteState): string {
-  return `You are the NBS Concept Note assistant. You help build a BPJP/C40 concept note for ${state.city}.
-Current phase: ${state.phase}. Project: ${state.metadata.projectName || '(not set)'}.
+// Cache for pre-baked city contexts
+const cityContextCache = new Map<string, string>();
 
-## CRITICAL RULES — FOLLOW EXACTLY
+async function loadCityContext(city: string): Promise<string> {
+  if (cityContextCache.has(city)) return cityContextCache.get(city)!;
 
-1. **ALWAYS use update_section** to fill document fields. Every piece of data goes into a section field.
-2. **ALWAYS use ask_user** for questions. NEVER write questions as text.
-3. **ALWAYS use set_phase** when moving to a new phase.
-4. Use English for chat. Portuguese for update_section content only.
-5. Do NOT re-read files already in context.
-6. Keep chat messages SHORT — the document panel shows the details.
+  const fs = await import('fs/promises');
+  const path = await import('path');
+  const knowledgeDir = path.join(process.cwd(), 'knowledge');
+  const chunks: string[] = [];
 
-## REQUIRED FLOW PER PHASE
+  // Load ALL city files in full
+  const cityDir = path.join(knowledgeDir, city);
+  try {
+    const files = await fs.readdir(cityDir);
+    for (const file of files) {
+      if (!file.endsWith('.md')) continue;
+      try {
+        const content = await fs.readFile(path.join(cityDir, file), 'utf-8');
+        // Strip frontmatter
+        const body = content.replace(/^---[\s\S]*?---\s*/, '');
+        chunks.push(`### ${file}\n${body.slice(0, 2000)}`);
+      } catch {}
+    }
+  } catch {}
 
-For EVERY phase, you MUST:
-1. Call set_phase(N) to advance
-2. Call update_section for EACH field you can auto-fill from knowledge
-3. Call ask_user for decisions that need user input
-4. After user answers, call update_section with the chosen values
+  // Load key knowledge summaries (condensed)
+  const summaryFiles: Record<string, string[]> = {
+    '_interventions': ['urban-forests.md', 'wetland-restoration.md', 'bioswales-rain-gardens.md', 'green-corridors.md', 'flood-parks.md', 'green-roofs-walls.md'],
+    '_co-benefits': ['carbon-sequestration.md', 'flood-risk-reduction.md', 'heat-island-mitigation.md', 'economic-social.md'],
+    '_financing-sources': ['brazilian-domestic.md', 'international.md'],
+  };
 
-## PHASE GUIDE
+  for (const [folder, files] of Object.entries(summaryFiles)) {
+    for (const file of files) {
+      try {
+        const content = await fs.readFile(path.join(knowledgeDir, folder, file), 'utf-8');
+        const body = content.replace(/^---[\s\S]*?---\s*/, '');
+        // Extract just the first section (title + key data, ~500 chars)
+        const summary = body.slice(0, 600).split('\n\n').slice(0, 3).join('\n');
+        chunks.push(`### ${folder}/${file}\n${summary}`);
+      } catch {}
+    }
+  }
 
-Phase 1 (sections project_id, proponent):
-- Auto-fill: municipalities, state from city profile
-- Call ask_user ONCE with ALL 4 questions: sector, adaptation/mitigation, project name, proponent
-- After user responds, update_section for each answer
+  const context = chunks.join('\n\n');
+  cityContextCache.set(city, context);
+  console.log(`[concept-note] Pre-baked context for ${city}: ${context.length} chars`);
+  return context;
+}
 
-Phase 2 (sections territorial_context, problem_diagnosis, general_objective):
-- Auto-fill: territorial context from climate-risks + city-profile
-- Auto-fill: problem diagnosis from climate-risks + baseline-data
-- Ask: scope refinement, validate diagnosis, strategic objective
-- Then update_section with answers
+async function buildSystemContext(state: ConceptNoteState): Promise<string> {
+  const cityContext = await loadCityContext(state.city);
 
-Phase 3 (sections specific_objectives, indicators, solution_description):
-- Auto-fill: intervention descriptions from knowledge
-- Ask: interventions, scale, maturity, prior history
-- Then update_section with answers
+  return `You are the NBS Concept Note assistant for ${state.city}.
+Phase: ${state.phase}. Project: ${state.metadata.projectName || '(not set)'}.
 
-Phase 4 (sections climate_benefits, economic_social_benefits, inclusive_action):
-- Auto-fill: CO2, flood, heat benefits from co-benefits knowledge
-- Ask: validate benefits, vulnerable communities
-- Then update_section with answers
+## YOUR TOOLS (use ONLY these — you have NO file access)
 
-Phase 5 (sections institutional_arrangement, technical_capacity, political_support, plan_alignment):
-- Auto-fill: stakeholders, plans from knowledge
-- Ask: institutional setup, political backing, plan alignment
-- Then update_section with answers
+1. **update_section(sectionId, field, value, confidence, source)** — fill a document field
+2. **ask_user({questions: [...]})** — present multiple-choice questions (NEVER write questions as text)
+3. **set_phase(phase)** — advance to next phase
+4. **flag_gap(sectionId, field, reason)** — mark missing data
 
-Phase 6 (sections cost_detail, financial_sustainability, financing_need):
-- Auto-fill: cost estimates from intervention data
-- Ask: validate costs, budget availability
-- Then update_section with answers
+You have NO access to Read, Glob, Grep, or any file tools. ALL knowledge you need is provided below.
 
-Phase 7 (sections risk_analysis, replicability):
-- Auto-fill: risks from knowledge
-- Ask: validate risks, land tenure
-- Then update_section with answers
+## RULES
 
-Phase 8 (sections technical_assistance, contact, supplementary):
-- Ask: TA needs, timeline, contact
-- Then update_section with answers
+1. Start IMMEDIATELY with set_phase(1) then update_section calls — NO exploring or thinking.
+2. Use update_section for EVERY piece of data. The right panel only updates when you call it.
+3. Use ask_user for ALL questions — the UI renders clickable buttons.
+4. English for chat. Portuguese for update_section content.
+5. Keep messages SHORT.
+6. For approve/review questions: include relatedSections.
+7. For spatial/zone questions: include showMap: true.
+
+## FLOW
+
+Phase 1: set_phase(1) → update_section(project_id, municipalities, "Porto Alegre") → update_section(project_id, state, "Rio Grande do Sul") → ask_user with 4 questions (sector, climate type, name, proponent) → update_section for each answer
+
+Phase 2: set_phase(2) → update_section(territorial_context, description, ...) → update_section(problem_diagnosis, description, ...) → ask_user to validate → update_section with answers
+
+Phase 3-8: same pattern — auto-fill from knowledge below, ask_user for decisions, update_section with answers.
 
 ## Section IDs
 ${ALL_SECTION_IDS.join(', ')}
 
-## IMPORTANT
-- After the user answers EACH question, you MUST immediately call update_section to save their answers.
-- For ask_user questions that ask the user to APPROVE or REVIEW content, ALWAYS include relatedSections listing the section IDs the user should look at. The UI auto-scrolls to those sections.
-- Example: when asking "Approve the problem diagnosis?", set relatedSections: ["problem_diagnosis"]
-- For spatial questions (territorial scope, zone selection, intervention areas), set showMap: true — the UI switches to an interactive map where the user clicks zones to select areas`;
+## CITY KNOWLEDGE (use this data for auto-fill — do NOT try to read files)
+
+${cityContext}`;
 }
 
 async function loadKnowledgeContext(city: string): Promise<string> {
