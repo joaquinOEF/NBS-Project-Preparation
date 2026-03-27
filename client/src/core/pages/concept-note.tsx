@@ -97,9 +97,11 @@ export default function ConceptNotePage() {
   const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({});
+  const [highlightedSections, setHighlightedSections] = useState<string[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const handleSelectOptionRef = useRef<(label: string) => void>(() => {});
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Computed question state
   const currentQuestion = activeQuestions[currentQuestionIdx] || null;
@@ -149,6 +151,27 @@ export default function ConceptNotePage() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Auto-scroll right panel to related sections when question changes
+  useEffect(() => {
+    const sections = currentQuestion?.relatedSections;
+    if (!sections || sections.length === 0) {
+      setHighlightedSections([]);
+      return;
+    }
+
+    setHighlightedSections(sections);
+
+    // Scroll to first related section
+    const firstRef = sectionRefs.current[sections[0]];
+    if (firstRef) {
+      firstRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // Clear highlight after 5 seconds
+    const timer = setTimeout(() => setHighlightedSections([]), 5000);
+    return () => clearTimeout(timer);
+  }, [currentQuestionIdx, currentQuestion]);
 
   // Keyboard navigation for multiple choice
   useEffect(() => {
@@ -343,6 +366,7 @@ export default function ConceptNotePage() {
             id: `ask_${Date.now()}_${Math.random()}`,
             question: event.question,
             options: event.options,
+            relatedSections: (event as any).relatedSections,
           }];
         });
         setSelectedOptionIdx(0);
@@ -777,13 +801,15 @@ export default function ConceptNotePage() {
 
         <div className="p-3 space-y-2">
           {CONCEPT_NOTE_SECTIONS.map((sec) => (
-            <SectionCard
-              key={sec.id}
-              section={state.sections[sec.id]}
-              gaps={state.gaps.filter(g => g.sectionId === sec.id)}
-              currentPhase={state.phase}
-              onFieldEdit={(field, value) => handleFieldEdit(sec.id, field, value)}
-            />
+            <div key={sec.id} ref={(el) => { sectionRefs.current[sec.id] = el; }}>
+              <SectionCard
+                section={state.sections[sec.id]}
+                gaps={state.gaps.filter(g => g.sectionId === sec.id)}
+                currentPhase={state.phase}
+                onFieldEdit={(field, value) => handleFieldEdit(sec.id, field, value)}
+                isHighlighted={highlightedSections.includes(sec.id)}
+              />
+            </div>
           ))}
         </div>
       </div>
@@ -876,11 +902,13 @@ function SectionCard({
   gaps,
   currentPhase,
   onFieldEdit,
+  isHighlighted = false,
 }: {
   section: ConceptNoteState['sections'][SectionId];
   gaps: ConceptNoteState['gaps'];
   currentPhase: number;
   onFieldEdit: (field: string, value: string) => void;
+  isHighlighted?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -890,10 +918,10 @@ function SectionCard({
   const isReached = section.phase <= currentPhase;
   const hasGaps = gaps.length > 0;
 
-  // Auto-expand when fields get added
+  // Auto-expand when fields get added or section is highlighted
   useEffect(() => {
-    if (fieldCount > 0 && !expanded) setExpanded(true);
-  }, [fieldCount]);
+    if ((fieldCount > 0 || isHighlighted) && !expanded) setExpanded(true);
+  }, [fieldCount, isHighlighted]);
 
   const confidenceIcon = (c: Confidence) => {
     const map: Record<Confidence, string> = { high: '✅', medium: '🟡', low: '🔴', empty: '⬜' };
@@ -911,7 +939,7 @@ function SectionCard({
   };
 
   return (
-    <Card className={`${hasGaps ? 'border-orange-300' : ''} ${!isReached ? 'opacity-40' : ''} transition-all`}>
+    <Card className={`${isHighlighted ? 'border-primary ring-2 ring-primary/30 animate-pulse' : hasGaps ? 'border-orange-300' : ''} ${!isReached ? 'opacity-40' : ''} transition-all`}>
       <CardHeader
         className="py-2 px-3 cursor-pointer flex flex-row items-center justify-between"
         onClick={() => setExpanded(!expanded)}

@@ -148,6 +148,7 @@ export interface ParsedQuestion {
   id: string;
   question: string;
   options: Array<{ label: string; description: string; recommended?: boolean }>;
+  relatedSections?: string[];
 }
 
 // Structured thinking step for the step checklist UI
@@ -166,7 +167,7 @@ export type ConceptNoteEvent =
   | { type: 'gap'; sectionId: string; field: string; reason: string; severity: string }
   | { type: 'phase_change'; phase: number }
   | { type: 'cascade'; edits: Array<{ sectionId: string; field: string; value: string }> }
-  | { type: 'ask_user'; question: string; options: Array<{ label: string; description: string; recommended?: boolean }> }
+  | { type: 'ask_user'; question: string; options: Array<{ label: string; description: string; recommended?: boolean }>; relatedSections?: string[] }
   | { type: 'done'; summary: string }
   | { type: 'error'; message: string };
 

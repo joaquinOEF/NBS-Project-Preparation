@@ -175,7 +175,7 @@ function createConceptNoteToolsForSdk(noteId: string) {
 
   const askUser = sdkTool(
     "ask_user",
-    "Present multiple-choice questions to the user. The UI renders interactive buttons. ALWAYS batch ALL questions for the current phase in a SINGLE call — one question object per decision needed. The user answers all questions at once, then you process all answers together.",
+    "Present multiple-choice questions to the user. The UI renders interactive buttons. ALWAYS batch ALL questions for the current phase in a SINGLE call. Include relatedSections to highlight which document sections the user should review when answering.",
     {
       questions: z.array(z.object({
         question: z.string().describe("Question text"),
@@ -184,13 +184,13 @@ function createConceptNoteToolsForSdk(noteId: string) {
           description: z.string().optional(),
           recommended: z.boolean().optional(),
         })),
+        relatedSections: z.array(z.string()).optional().describe("Section IDs to highlight in the document panel, e.g. ['problem_diagnosis', 'territorial_context']. The UI auto-scrolls to these sections."),
       })).describe("Array of questions — batch ALL phase questions here"),
     },
     async (args: any) => {
       const questions = args.questions || [];
-      // Push each question as a separate ask_user event (frontend renders them sequentially)
       for (const q of questions) {
-        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [] });
+        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [], relatedSections: q.relatedSections });
       }
       return { content: [{ type: "text" as const, text: `${questions.length} question(s) presented. STOP and wait for ALL answers. The user will respond with their selections.` }] };
     },
@@ -403,7 +403,7 @@ async function streamWithAnthropicApi(
     { name: "update_section", description: "Update a concept note field.", input_schema: { type: "object" as const, properties: { sectionId: { type: "string" }, field: { type: "string" }, value: { type: "string" }, confidence: { type: "string", enum: ["high", "medium", "low"] }, source: { type: "string" } }, required: ["sectionId", "field", "value"] } },
     { name: "flag_gap", description: "Flag a gap.", input_schema: { type: "object" as const, properties: { sectionId: { type: "string" }, field: { type: "string" }, reason: { type: "string" }, severity: { type: "string", enum: ["critical", "important", "minor"] } }, required: ["sectionId", "field", "reason"] } },
     { name: "set_phase", description: "Advance phase.", input_schema: { type: "object" as const, properties: { phase: { type: "number" } }, required: ["phase"] } },
-    { name: "ask_user", description: "Present multiple-choice questions. Batch ALL phase questions in ONE call. Never write MC as text.", input_schema: { type: "object" as const, properties: { questions: { type: "array", items: { type: "object", properties: { question: { type: "string" }, options: { type: "array", items: { type: "object", properties: { label: { type: "string" }, description: { type: "string" }, recommended: { type: "boolean" } }, required: ["label"] } } }, required: ["question", "options"] } } }, required: ["questions"] } },
+    { name: "ask_user", description: "Present multiple-choice questions. Batch ALL phase questions in ONE call. Include relatedSections to highlight document sections for review.", input_schema: { type: "object" as const, properties: { questions: { type: "array", items: { type: "object", properties: { question: { type: "string" }, options: { type: "array", items: { type: "object", properties: { label: { type: "string" }, description: { type: "string" }, recommended: { type: "boolean" } }, required: ["label"] } }, relatedSections: { type: "array", items: { type: "string" }, description: "Section IDs to highlight in the document panel" } }, required: ["question", "options"] } } }, required: ["questions"] } },
   ];
 
   const messages: Array<{ role: string; content: any }> = [{ role: "user", content: userMessage }];
@@ -502,10 +502,10 @@ function handleToolCall(noteId: string, toolName: string, input: any, pushEvent:
   }
 
   if (toolName === "ask_user") {
-    const questions = input.questions || [{ question: input.question, options: input.options }];
+    const questions = input.questions || [{ question: input.question, options: input.options, relatedSections: input.relatedSections }];
     for (const q of questions) {
       if (q?.question) {
-        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [] });
+        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [], relatedSections: q.relatedSections });
       }
     }
     return `${questions.length} question(s) shown. STOP and wait for ALL answers.`;
@@ -591,7 +591,9 @@ Phase 8 (sections technical_assistance, contact, supplementary):
 ${ALL_SECTION_IDS.join(', ')}
 
 ## IMPORTANT
-After the user answers EACH question, you MUST immediately call update_section to save their answers to the document. The right panel only updates when you call update_section.`;
+- After the user answers EACH question, you MUST immediately call update_section to save their answers.
+- For ask_user questions that ask the user to APPROVE or REVIEW content, ALWAYS include relatedSections listing the section IDs the user should look at. The UI auto-scrolls to those sections.
+- Example: when asking "Approve the problem diagnosis?", set relatedSections: ["problem_diagnosis"]`;
 }
 
 async function loadKnowledgeContext(city: string): Promise<string> {
