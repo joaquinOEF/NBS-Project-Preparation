@@ -175,18 +175,24 @@ function createConceptNoteToolsForSdk(noteId: string) {
 
   const askUser = sdkTool(
     "ask_user",
-    "Present a multiple-choice question. The UI renders interactive buttons. ALWAYS use this for questions — never write MC as text.",
+    "Present multiple-choice questions to the user. The UI renders interactive buttons. ALWAYS batch ALL questions for the current phase in a SINGLE call — one question object per decision needed. The user answers all questions at once, then you process all answers together.",
     {
-      question: z.string(),
-      options: z.array(z.object({
-        label: z.string(),
-        description: z.string().optional(),
-        recommended: z.boolean().optional(),
-      })),
+      questions: z.array(z.object({
+        question: z.string().describe("Question text"),
+        options: z.array(z.object({
+          label: z.string(),
+          description: z.string().optional(),
+          recommended: z.boolean().optional(),
+        })),
+      })).describe("Array of questions — batch ALL phase questions here"),
     },
     async (args: any) => {
-      pushEvent({ type: 'ask_user', question: args.question, options: args.options || [] });
-      return { content: [{ type: "text" as const, text: `Question shown. STOP and wait for user response.` }] };
+      const questions = args.questions || [];
+      // Push each question as a separate ask_user event (frontend renders them sequentially)
+      for (const q of questions) {
+        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [] });
+      }
+      return { content: [{ type: "text" as const, text: `${questions.length} question(s) presented. STOP and wait for ALL answers. The user will respond with their selections.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
@@ -397,7 +403,7 @@ async function streamWithAnthropicApi(
     { name: "update_section", description: "Update a concept note field.", input_schema: { type: "object" as const, properties: { sectionId: { type: "string" }, field: { type: "string" }, value: { type: "string" }, confidence: { type: "string", enum: ["high", "medium", "low"] }, source: { type: "string" } }, required: ["sectionId", "field", "value"] } },
     { name: "flag_gap", description: "Flag a gap.", input_schema: { type: "object" as const, properties: { sectionId: { type: "string" }, field: { type: "string" }, reason: { type: "string" }, severity: { type: "string", enum: ["critical", "important", "minor"] } }, required: ["sectionId", "field", "reason"] } },
     { name: "set_phase", description: "Advance phase.", input_schema: { type: "object" as const, properties: { phase: { type: "number" } }, required: ["phase"] } },
-    { name: "ask_user", description: "Present multiple-choice question. ALWAYS use this — never write MC as text.", input_schema: { type: "object" as const, properties: { question: { type: "string" }, options: { type: "array", items: { type: "object", properties: { label: { type: "string" }, description: { type: "string" }, recommended: { type: "boolean" } }, required: ["label"] } } }, required: ["question", "options"] } },
+    { name: "ask_user", description: "Present multiple-choice questions. Batch ALL phase questions in ONE call. Never write MC as text.", input_schema: { type: "object" as const, properties: { questions: { type: "array", items: { type: "object", properties: { question: { type: "string" }, options: { type: "array", items: { type: "object", properties: { label: { type: "string" }, description: { type: "string" }, recommended: { type: "boolean" } }, required: ["label"] } } }, required: ["question", "options"] } } }, required: ["questions"] } },
   ];
 
   const messages: Array<{ role: string; content: any }> = [{ role: "user", content: userMessage }];
@@ -496,8 +502,13 @@ function handleToolCall(noteId: string, toolName: string, input: any, pushEvent:
   }
 
   if (toolName === "ask_user") {
-    pushEvent({ type: 'ask_user', question: input.question, options: input.options || [] });
-    return `Question shown. STOP and wait for user response.`;
+    const questions = input.questions || [{ question: input.question, options: input.options }];
+    for (const q of questions) {
+      if (q?.question) {
+        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [] });
+      }
+    }
+    return `${questions.length} question(s) shown. STOP and wait for ALL answers.`;
   }
 
   return `Unknown tool: ${toolName}`;
@@ -538,8 +549,8 @@ For EVERY phase, you MUST:
 
 Phase 1 (sections project_id, proponent):
 - Auto-fill: municipalities, state from city profile
-- Ask: sector, adaptation/mitigation, project name, proponent
-- Then update_section with answers
+- Call ask_user ONCE with ALL 4 questions: sector, adaptation/mitigation, project name, proponent
+- After user responds, update_section for each answer
 
 Phase 2 (sections territorial_context, problem_diagnosis, general_objective):
 - Auto-fill: territorial context from climate-risks + city-profile

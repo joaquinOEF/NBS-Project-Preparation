@@ -403,11 +403,32 @@ export default function ConceptNotePage() {
     setIsStreaming(false);
   }, [noteId, isStreaming, processEvent]);
 
+  // Collected answers for multi-question batches
+  const [collectedAnswers, setCollectedAnswers] = useState<string[]>([]);
+
   // Handle MC option selection
   const handleSelectOption = useCallback((label: string) => {
-    setActiveQuestions([]);
-    sendMessage(label);
-  }, [sendMessage]);
+    setActiveQuestions(prev => {
+      if (prev.length <= 1) {
+        // Last or only question — send all collected answers + this one
+        const allAnswers = [...collectedAnswers, label];
+        setCollectedAnswers([]);
+        sendMessage(allAnswers.join('; '));
+        return [];
+      }
+      // More questions remaining — collect this answer, show next question
+      setCollectedAnswers(prev2 => [...prev2, label]);
+      // Show answer as user message
+      setMessages(prev2 => [...prev2, {
+        role: 'user' as const,
+        content: label,
+        messageType: 'content' as const,
+        timestamp: new Date().toISOString(),
+      }]);
+      return prev.slice(1); // Remove answered question, show next
+    });
+    setSelectedOptionIdx(0);
+  }, [sendMessage, collectedAnswers]);
 
   // Handle user field edit
   const handleFieldEdit = useCallback(async (sectionId: string, field: string, value: string) => {
