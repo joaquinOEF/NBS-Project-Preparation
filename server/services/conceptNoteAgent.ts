@@ -106,7 +106,12 @@ let currentPushEvent: EventPusher = () => {};
 function createConceptNoteToolsForSdk(noteId: string) {
   if (!sdkTool || !sdkCreateMcpServer) return null;
 
-  const pushEvent = (event: ConceptNoteEvent) => currentPushEvent(event);
+  const pushEvent = (event: ConceptNoteEvent) => {
+    if (event.type === 'field_update') console.log(`[concept-note] tool: update_section ${event.sectionId}.${event.field}`);
+    if (event.type === 'phase_change') console.log(`[concept-note] tool: set_phase ${event.phase}`);
+    if (event.type === 'ask_user') console.log(`[concept-note] tool: ask_user "${(event as any).question?.slice(0, 50)}..."`);
+    currentPushEvent(event);
+  };
 
   const updateSection = sdkTool(
     "update_section",
@@ -509,28 +514,73 @@ function formatToolStepLabel(toolName: string, input: any): string {
 }
 
 function buildSystemContext(state: ConceptNoteState): string {
-  return `You are running inside the NBS Concept Note module.
-City: ${state.city}. Phase: ${state.phase}. Project: ${state.metadata.projectName || '(not set)'}.
+  return `You are the NBS Concept Note assistant. You help build a BPJP/C40 concept note for ${state.city}.
+Current phase: ${state.phase}. Project: ${state.metadata.projectName || '(not set)'}.
 
-## CRITICAL RULES
+## CRITICAL RULES — FOLLOW EXACTLY
 
-1. For ALL questions, use the ask_user tool. NEVER write questions as text.
-2. Use English for all communication. Only update_section content is in Portuguese.
-3. Do NOT re-read files already in context. Session preserves all prior reads.
-4. Between questions in the same phase, respond IMMEDIATELY — no file reads.
-5. Batch all questions for one phase in a SINGLE ask_user call.
-6. Keep chat messages short. The document panel shows details.
+1. **ALWAYS use update_section** to fill document fields. Every piece of data goes into a section field.
+2. **ALWAYS use ask_user** for questions. NEVER write questions as text.
+3. **ALWAYS use set_phase** when moving to a new phase.
+4. Use English for chat. Portuguese for update_section content only.
+5. Do NOT re-read files already in context.
+6. Keep chat messages SHORT — the document panel shows the details.
 
-## Tools
-- **update_section**: Fill concept note fields (Portuguese content)
-- **flag_gap**: Mark missing data
-- **set_phase**: Advance phases (0-10)
-- **ask_user**: Multiple-choice questions (ALWAYS use this)
+## REQUIRED FLOW PER PHASE
 
-Section IDs: ${ALL_SECTION_IDS.join(', ')}
+For EVERY phase, you MUST:
+1. Call set_phase(N) to advance
+2. Call update_section for EACH field you can auto-fill from knowledge
+3. Call ask_user for decisions that need user input
+4. After user answers, call update_section with the chosen values
 
-## Flow
-Per phase: auto-fill with update_section → ask_user for decisions → move on.`;
+## PHASE GUIDE
+
+Phase 1 (sections project_id, proponent):
+- Auto-fill: municipalities, state from city profile
+- Ask: sector, adaptation/mitigation, project name, proponent
+- Then update_section with answers
+
+Phase 2 (sections territorial_context, problem_diagnosis, general_objective):
+- Auto-fill: territorial context from climate-risks + city-profile
+- Auto-fill: problem diagnosis from climate-risks + baseline-data
+- Ask: scope refinement, validate diagnosis, strategic objective
+- Then update_section with answers
+
+Phase 3 (sections specific_objectives, indicators, solution_description):
+- Auto-fill: intervention descriptions from knowledge
+- Ask: interventions, scale, maturity, prior history
+- Then update_section with answers
+
+Phase 4 (sections climate_benefits, economic_social_benefits, inclusive_action):
+- Auto-fill: CO2, flood, heat benefits from co-benefits knowledge
+- Ask: validate benefits, vulnerable communities
+- Then update_section with answers
+
+Phase 5 (sections institutional_arrangement, technical_capacity, political_support, plan_alignment):
+- Auto-fill: stakeholders, plans from knowledge
+- Ask: institutional setup, political backing, plan alignment
+- Then update_section with answers
+
+Phase 6 (sections cost_detail, financial_sustainability, financing_need):
+- Auto-fill: cost estimates from intervention data
+- Ask: validate costs, budget availability
+- Then update_section with answers
+
+Phase 7 (sections risk_analysis, replicability):
+- Auto-fill: risks from knowledge
+- Ask: validate risks, land tenure
+- Then update_section with answers
+
+Phase 8 (sections technical_assistance, contact, supplementary):
+- Ask: TA needs, timeline, contact
+- Then update_section with answers
+
+## Section IDs
+${ALL_SECTION_IDS.join(', ')}
+
+## IMPORTANT
+After the user answers EACH question, you MUST immediately call update_section to save their answers to the document. The right panel only updates when you call update_section.`;
 }
 
 async function loadKnowledgeContext(city: string): Promise<string> {

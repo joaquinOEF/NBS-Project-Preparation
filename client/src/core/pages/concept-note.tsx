@@ -91,7 +91,7 @@ export default function ConceptNotePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [showThinking, setShowThinking] = useState(false);
+  // Thinking steps always visible (no toggle)
   const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
   const [activeQuestions, setActiveQuestions] = useState<ParsedQuestion[]>([]);
   const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
@@ -522,14 +522,6 @@ export default function ConceptNotePage() {
           <div className="flex gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="sm" onClick={() => setShowThinking(!showThinking)}>
-                  {showThinking ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{showThinking ? 'Hide thinking steps' : 'Show thinking steps'}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
                 <Button variant="outline" size="sm" onClick={handleExport}>
                   <Download className="w-4 h-4" />
                 </Button>
@@ -561,7 +553,7 @@ export default function ConceptNotePage() {
 
           {messages.map((msg, i) => {
             // Hide thinking messages unless toggled on
-            if (msg.messageType === 'thinking' && !showThinking) return null;
+            // Thinking steps always shown
 
             return (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
