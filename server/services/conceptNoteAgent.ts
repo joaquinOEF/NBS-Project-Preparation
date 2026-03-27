@@ -196,13 +196,14 @@ function createConceptNoteToolsForSdk(noteId: string) {
           recommended: z.boolean().optional(),
         })),
         relatedSections: z.array(z.string()).optional().describe("Section IDs to highlight in the document panel"),
-        showMap: z.boolean().optional().describe("Set true for spatial questions — the UI switches to an interactive map where the user can click zones to select areas"),
+        showMap: z.boolean().optional().describe("Set true for spatial questions"),
+        multiSelect: z.boolean().optional().describe("Set true when user can select multiple options (e.g., intervention types). Default is single-select."),
       })).describe("Array of questions — batch ALL phase questions here"),
     },
     async (args: any) => {
       const questions = args.questions || [];
       for (const q of questions) {
-        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [], relatedSections: q.relatedSections, showMap: q.showMap });
+        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [], relatedSections: q.relatedSections, showMap: q.showMap, multiSelect: q.multiSelect });
       }
       return { content: [{ type: "text" as const, text: `${questions.length} question(s) presented. STOP and wait for ALL answers. The user will respond with their selections.` }] };
     },
@@ -563,10 +564,10 @@ function handleToolCall(noteId: string, toolName: string, input: any, pushEvent:
   }
 
   if (toolName === "ask_user") {
-    const questions = input.questions || [{ question: input.question, options: input.options, relatedSections: input.relatedSections, showMap: input.showMap }];
+    const questions = input.questions || [{ question: input.question, options: input.options, relatedSections: input.relatedSections, showMap: input.showMap, multiSelect: input.multiSelect }];
     for (const q of questions) {
       if (q?.question) {
-        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [], relatedSections: q.relatedSections, showMap: q.showMap });
+        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [], relatedSections: q.relatedSections, showMap: q.showMap, multiSelect: q.multiSelect });
       }
     }
     return `${questions.length} question(s) shown. STOP and wait for ALL answers.`;
@@ -701,6 +702,7 @@ When the user gives you specific numbers, names, or text:
 ### Ask_user guidelines
 - For approve/review questions: include relatedSections (UI auto-scrolls to the relevant section)
 - For spatial/zone questions: include showMap: true (UI switches to interactive map)
+- For questions where user can pick MULTIPLE answers (e.g., intervention types, risk factors, plan alignment): set multiSelect: true. UI shows checkboxes + "Confirm N selected" button.
 - Batch related questions in ONE ask_user call when possible
 - Always include a recommended option when the knowledge base points to a clear winner
 

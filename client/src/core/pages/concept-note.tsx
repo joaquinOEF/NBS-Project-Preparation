@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
@@ -371,6 +372,7 @@ export default function ConceptNotePage() {
             question: event.question,
             options: event.options,
             relatedSections: (event as any).relatedSections,
+            multiSelect: (event as any).multiSelect,
           }];
         });
         setSelectedOptionIdx(0);
@@ -703,7 +705,7 @@ export default function ConceptNotePage() {
                     <div className={`text-sm prose prose-sm max-w-none ${
                       msg.messageType === 'thinking' ? 'text-muted-foreground italic text-xs' : ''
                     }`}>
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                     </div>
                   )}
                 </div>
@@ -949,12 +951,35 @@ function QuestionCard({
   answeredValue?: string;
   questionNumber?: number;
 }) {
+  const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
+  const isMulti = question.multiSelect;
+
+  const handleOptionClick = (label: string) => {
+    if (disabled) return;
+    if (isMulti) {
+      setMultiSelected(prev => {
+        const next = new Set(prev);
+        next.has(label) ? next.delete(label) : next.add(label);
+        return next;
+      });
+    } else {
+      onSelect(label);
+    }
+  };
+
+  const handleConfirmMulti = () => {
+    if (multiSelected.size > 0) {
+      onSelect(Array.from(multiSelected).join(', '));
+    }
+  };
+
   return (
     <div className={`rounded-lg border bg-background p-3 space-y-2 transition-all ${answeredValue ? 'border-green-200 bg-green-50/30' : ''}`} role="listbox" aria-label={question.question}>
       <div className="flex items-start justify-between gap-2">
         <div className="text-sm font-medium prose prose-sm max-w-none flex-1">
           {questionNumber && <span className="text-muted-foreground mr-1">{questionNumber}.</span>}
-          <ReactMarkdown>{question.question}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{question.question}</ReactMarkdown>
+          {isMulti && <span className="text-[10px] text-muted-foreground ml-1">(select multiple)</span>}
         </div>
         {answeredValue && (
           <span className="shrink-0 inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded">
@@ -965,7 +990,7 @@ function QuestionCard({
       <div className="space-y-1.5">
         {question.options.map((opt, i) => {
           const letter = String.fromCharCode(65 + i);
-          const isSelected = isActive && i === selectedIdx;
+          const isSelected = isMulti ? multiSelected.has(opt.label) : (isActive && i === selectedIdx);
           const isRecommended = opt.recommended;
 
           return (
@@ -973,7 +998,7 @@ function QuestionCard({
               key={i}
               role="option"
               aria-selected={isSelected}
-              onClick={() => !disabled && onSelect(opt.label)}
+              onClick={() => handleOptionClick(opt.label)}
               className={`w-full text-left px-3 py-2 rounded-md border text-sm transition-all flex items-start gap-2 ${
                 isSelected
                   ? 'border-primary bg-primary/5 ring-1 ring-primary'
@@ -983,7 +1008,7 @@ function QuestionCard({
               <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-mono shrink-0 ${
                 isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
               }`}>
-                {letter}
+                {isMulti && isSelected ? <Check className="w-3 h-3" /> : letter}
               </span>
               <div className="flex-1 min-w-0">
                 <span className="font-medium">{opt.label}</span>
@@ -1000,6 +1025,12 @@ function QuestionCard({
           );
         })}
       </div>
+      {/* Multi-select confirm button */}
+      {isMulti && multiSelected.size > 0 && !answeredValue && (
+        <Button size="sm" onClick={handleConfirmMulti} disabled={disabled} className="w-full h-8 text-xs gap-1">
+          <Check className="w-3 h-3" /> Confirm {multiSelected.size} selected
+        </Button>
+      )}
     </div>
   );
 }
@@ -1192,7 +1223,7 @@ function SectionCard({
                 <div className="text-sm prose prose-sm max-w-none bg-background rounded-md border p-3 hover:border-primary/30 transition-colors cursor-text"
                   onClick={() => startEdit(fieldName, field.value)}
                 >
-                  <ReactMarkdown>{String(field.value || '')}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{String(field.value || '')}</ReactMarkdown>
                 </div>
               )}
             </div>
