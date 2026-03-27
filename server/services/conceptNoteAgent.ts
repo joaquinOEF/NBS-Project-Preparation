@@ -89,6 +89,9 @@ export function getMessages(noteId: string): ChatMessage[] {
 
 export function addMessage(noteId: string, msg: ChatMessage): void {
   const msgs = noteMessages.get(noteId) || [];
+  // Dedupe: skip if same content + role as last message
+  const last = msgs[msgs.length - 1];
+  if (last && last.role === msg.role && last.content === msg.content) return;
   msgs.push(msg);
   noteMessages.set(noteId, msgs);
 }
@@ -242,7 +245,12 @@ export async function streamConceptNoteChat(
   const pushEvent = (event: ConceptNoteEvent) => {
     res.write(`data: ${JSON.stringify(event)}\n\n`);
     if (event.type === 'chat') {
-      addMessage(noteId, { role: 'assistant', content: event.content, messageType: event.messageType || 'content', timestamp: new Date().toISOString() });
+      // Detect narration/thinking on server side so persisted messages have correct type
+      const text = event.content;
+      const isNarration = /^(Let me |Good[,. —]|Now let|Starting |I'll |I can see|I've |I have |Reading |Loading |Setting up|Creating |Checking |Moving to |Knowledge |The note |Proceed|Phase \d|Municipality |All |Porto Alegre)/i.test(text.trim())
+        || (text.length < 300 && !text.includes('##') && !text.includes('**') && !/\d\.\s/.test(text));
+      const msgType = event.messageType || (isNarration ? 'thinking' : 'content');
+      addMessage(noteId, { role: 'assistant', content: text, messageType: msgType, timestamp: new Date().toISOString() });
     } else if (event.type === 'chat_thinking') {
       addMessage(noteId, { role: 'assistant', content: event.content, messageType: 'thinking', timestamp: new Date().toISOString() });
     }
