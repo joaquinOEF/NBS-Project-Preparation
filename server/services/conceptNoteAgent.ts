@@ -284,9 +284,9 @@ export async function streamConceptNoteChat(
 
   const isSdkReady = await loadSdk();
 
-  // V2 persistent sessions are the primary path (fastest)
-  // Set V2_SESSIONS=0 env var to disable and fall back to V1
-  const useV2 = sdkV2Available && process.env.V2_SESSIONS !== '0';
+  // V1 with continue:true is the primary path — V2 doesn't support MCP tools yet
+  // Set V2_SESSIONS=1 to opt-in to V2 when it supports mcpServers
+  const useV2 = sdkV2Available && process.env.V2_SESSIONS === '1';
   if (isSdkReady && useV2) {
     await streamWithV2Session(noteId, userMessage, state, pushEvent);
   } else if (isSdkReady) {
