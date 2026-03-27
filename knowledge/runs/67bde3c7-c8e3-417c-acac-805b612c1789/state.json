@@ -1,5 +1,5 @@
 {
-  "id": "df70e0aa-e625-455d-9759-c1c1923e91d9",
+  "id": "67bde3c7-c8e3-417c-acac-805b612c1789",
   "projectId": "sample-project",
   "city": "porto-alegre",
   "phase": 1,
@@ -19,26 +19,6 @@
           "value": "Rio Grande do Sul",
           "confidence": "high",
           "source": "porto-alegre/city-profile.md",
-          "userEdited": false
-        },
-        "sector": {
-          "value": "Soluções Baseadas na Natureza (NBS)",
-          "confidence": "high",
-          "userEdited": false
-        },
-        "subsector": {
-          "value": "Infraestrutura verde urbana e restauração ecológica",
-          "confidence": "high",
-          "userEdited": false
-        },
-        "adaptation_mitigation": {
-          "value": "Ambos (Adaptação e Mitigação)",
-          "confidence": "high",
-          "userEdited": false
-        },
-        "project_name": {
-          "value": "Super Porto Alegre",
-          "confidence": "high",
           "userEdited": false
         }
       },
@@ -250,7 +230,7 @@
   "gaps": [],
   "editLog": [
     {
-      "timestamp": "2026-03-27T15:06:32.899Z",
+      "timestamp": "2026-03-27T15:16:47.908Z",
       "sectionId": "project_id",
       "field": "municipalities",
       "oldValue": null,
@@ -258,49 +238,17 @@
       "source": "agent"
     },
     {
-      "timestamp": "2026-03-27T15:06:33.419Z",
+      "timestamp": "2026-03-27T15:16:48.360Z",
       "sectionId": "project_id",
       "field": "state",
       "oldValue": null,
       "newValue": "Rio Grande do Sul",
       "source": "agent"
-    },
-    {
-      "timestamp": "2026-03-27T15:09:23.815Z",
-      "sectionId": "project_id",
-      "field": "sector",
-      "oldValue": null,
-      "newValue": "Soluções Baseadas na Natureza (NBS)",
-      "source": "agent"
-    },
-    {
-      "timestamp": "2026-03-27T15:09:24.468Z",
-      "sectionId": "project_id",
-      "field": "subsector",
-      "oldValue": null,
-      "newValue": "Infraestrutura verde urbana e restauração ecológica",
-      "source": "agent"
-    },
-    {
-      "timestamp": "2026-03-27T15:10:50.627Z",
-      "sectionId": "project_id",
-      "field": "adaptation_mitigation",
-      "oldValue": null,
-      "newValue": "Ambos (Adaptação e Mitigação)",
-      "source": "agent"
-    },
-    {
-      "timestamp": "2026-03-27T15:12:05.696Z",
-      "sectionId": "project_id",
-      "field": "project_name",
-      "oldValue": null,
-      "newValue": "Super Porto Alegre",
-      "source": "agent"
     }
   ],
   "metadata": {
-    "createdAt": "2026-03-27T15:06:00.550Z",
-    "updatedAt": "2026-03-27T15:12:05.696Z",
+    "createdAt": "2026-03-27T15:16:11.831Z",
+    "updatedAt": "2026-03-27T15:16:48.360Z",
     "projectName": "",
     "proponentType": ""
   }
