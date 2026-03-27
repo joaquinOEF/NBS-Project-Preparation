@@ -619,13 +619,39 @@ export default function ConceptNotePage() {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {messages.length === 0 && (
+          {messages.length === 0 && state.phase === 0 && filledCount === 0 && (
             <div className="text-center text-muted-foreground py-8">
               <p className="text-lg mb-2">Ready to build your concept note</p>
               <p className="text-sm mb-4">Click below to begin the interview for Porto Alegre</p>
               <Button onClick={() => sendMessage("Start the concept note interview for Porto Alegre. Use the /concept-note skill flow. Always use the ask_user tool for multiple-choice questions instead of writing them as text.")}>
                 Start Interview
               </Button>
+            </div>
+          )}
+
+          {/* Resume button — shown when we have prior state but agent is disconnected */}
+          {!isStreaming && (state.phase > 0 || filledCount > 0) && !currentQuestion && messages.length > 0 && (
+            <div className="text-center py-4">
+              <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-primary/30 bg-primary/5">
+                <p className="text-sm text-muted-foreground">
+                  Session restored — Phase {state.phase}/10, {filledCount} sections filled
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    // Build context from filled sections
+                    const filled = Object.entries(state.sections)
+                      .filter(([_, s]) => Object.keys(s.fields).length > 0)
+                      .map(([id, s]) => {
+                        const vals = Object.entries(s.fields).map(([k, v]) => `${k}: ${String(v.value).slice(0, 80)}`).join('; ');
+                        return `${id}: ${vals}`;
+                      }).join('\n');
+                    sendMessage(`Continue the concept note interview from Phase ${state.phase}. Here is what has been filled so far:\n${filled}\n\nPick up where we left off — ask the next questions needed.`);
+                  }}
+                >
+                  Continue from Phase {state.phase}
+                </Button>
+              </div>
             </div>
           )}
 
