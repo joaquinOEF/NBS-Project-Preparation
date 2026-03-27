@@ -186,12 +186,14 @@ export default function ConceptNotePage() {
         const msgType: ChatMessageType = event.messageType || 'content';
         const text = event.content;
 
-        // Detect short narration/status fragments (agent thinking out loud)
-        // These are short sentences like "Let me load...", "Good, template loaded."
-        // that should NOT be appended to content paragraphs
-        const isNarration = msgType === 'content' && text.length < 200 && (
-          /^(Let me |Good[,.]|Now let|Starting |I'll |I can see|I've |Reading |Loading |Setting up|Creating |Checking )/i.test(text.trim()) ||
-          /\.(Let me |Good[,.]|Now |Starting |Reading |Loading )/i.test(text) // sentence boundary mid-concat
+        // Detect narration/status fragments (agent thinking out loud)
+        // These should be shown as thinking bullets, not content paragraphs
+        const narrationPatterns = /^(Let me |Good[,. —]|Now let|Starting |I'll |I can see|I've |I have |Reading |Loading |Setting up|Creating |Checking |Moving to |Knowledge base |The note |Proceed|Phase \d)/i;
+        const isNarration = msgType === 'content' && (
+          narrationPatterns.test(text.trim()) ||
+          /\.(Let me |Good[,.]|Now |Starting |Reading |Loading |Knowledge |The note |Creating |Moving )/i.test(text) ||
+          // Short fragments without markdown formatting are likely narration
+          (text.length < 300 && !text.includes('##') && !text.includes('**') && !/\d\.\s/.test(text))
         );
 
         setMessages(prev => {
@@ -723,7 +725,7 @@ function QuestionCard({
 }) {
   return (
     <div className="rounded-lg border bg-background p-3 space-y-2" role="listbox" aria-label={question.question}>
-      <p className="text-sm font-medium">{question.question}</p>
+      <div className="text-sm font-medium prose prose-sm max-w-none"><ReactMarkdown>{question.question}</ReactMarkdown></div>
       <div className="space-y-1.5">
         {question.options.map((opt, i) => {
           const letter = String.fromCharCode(65 + i);
