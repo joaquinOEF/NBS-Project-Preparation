@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import ReactMarkdown from 'react-markdown';
+
+const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -98,6 +100,8 @@ export default function ConceptNotePage() {
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({});
   const [highlightedSections, setHighlightedSections] = useState<string[]>([]);
+  const [rightPanelTab, setRightPanelTab] = useState<'document' | 'map'>('document');
+  const [mapRelevant, setMapRelevant] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const handleSelectOptionRef = useRef<(label: string) => void>(() => {});
@@ -355,9 +359,9 @@ export default function ConceptNotePage() {
         });
         break;
 
-      case 'ask_user':
+      case 'ask_user': {
+        const hasMap = !!(event as any).showMap;
         setActiveQuestions(prev => {
-          // If this is the first question after no questions, reset tracking
           if (prev.length === 0) {
             setCurrentQuestionIdx(0);
             setQuestionAnswers({});
@@ -371,7 +375,13 @@ export default function ConceptNotePage() {
         });
         setSelectedOptionIdx(0);
         setIsStreaming(false);
+        // Auto-switch to map when spatial question
+        if (hasMap) {
+          setMapRelevant(true);
+          setRightPanelTab('map');
+        }
         break;
+      }
 
       case 'done':
         setIsStreaming(false);
@@ -809,40 +819,99 @@ export default function ConceptNotePage() {
         </div>
       </div>
 
-      {/* RIGHT: Document Panel */}
-      <div className="w-1/2 overflow-y-auto bg-muted/30">
-        <div className="p-4 border-b bg-background sticky top-0 z-10">
-          <h2 className="text-base font-semibold">
-            {state.metadata.projectName || 'Nota Conceitual'}
-          </h2>
-          <div className="flex items-center gap-3 mt-2">
-            {/* Progress bar */}
-            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary rounded-full transition-all duration-500"
-                style={{ width: `${(filledCount / 23) * 100}%` }}
-              />
+      {/* RIGHT: Document + Map Panel */}
+      <div className="w-1/2 flex flex-col bg-muted/30">
+        {/* Tab header */}
+        <div className="border-b bg-background sticky top-0 z-10">
+          <div className="px-4 pt-3 pb-0">
+            <h2 className="text-base font-semibold">
+              {state.metadata.projectName || 'Nota Conceitual'}
+            </h2>
+            <div className="flex items-center gap-3 mt-1.5 mb-2">
+              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-500"
+                  style={{ width: `${(filledCount / 23) * 100}%` }}
+                />
+              </div>
+              <span className="text-xs text-muted-foreground shrink-0">{filledCount}/23</span>
+              {state.gaps.length > 0 && (
+                <Badge variant="destructive" className="text-[10px] h-5">{state.gaps.length} gaps</Badge>
+              )}
             </div>
-            <span className="text-xs text-muted-foreground shrink-0">{filledCount}/23</span>
-            {state.gaps.length > 0 && (
-              <Badge variant="destructive" className="text-[10px] h-5">{state.gaps.length} gaps</Badge>
-            )}
+          </div>
+          {/* Tabs */}
+          <div className="flex px-4 gap-0 border-t">
+            <button
+              onClick={() => setRightPanelTab('document')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                rightPanelTab === 'document'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Document
+            </button>
+            <button
+              onClick={() => setRightPanelTab('map')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+                rightPanelTab === 'map'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Map
+              {mapRelevant && rightPanelTab !== 'map' && (
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              )}
+            </button>
           </div>
         </div>
 
-        <div className="p-3 space-y-2">
-          {CONCEPT_NOTE_SECTIONS.map((sec) => (
-            <div key={sec.id} ref={(el) => { sectionRefs.current[sec.id] = el; }}>
-              <SectionCard
-                section={state.sections[sec.id]}
-                gaps={state.gaps.filter(g => g.sectionId === sec.id)}
-                currentPhase={state.phase}
-                onFieldEdit={(field, value) => handleFieldEdit(sec.id, field, value)}
-                isHighlighted={highlightedSections.includes(sec.id)}
+        {/* Document tab */}
+        {rightPanelTab === 'document' && (
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {CONCEPT_NOTE_SECTIONS.map((sec) => (
+              <div key={sec.id} ref={(el) => { sectionRefs.current[sec.id] = el; }}>
+                <SectionCard
+                  section={state.sections[sec.id]}
+                  gaps={state.gaps.filter(g => g.sectionId === sec.id)}
+                  currentPhase={state.phase}
+                  onFieldEdit={(field, value) => handleFieldEdit(sec.id, field, value)}
+                  isHighlighted={highlightedSections.includes(sec.id)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Map tab */}
+        {rightPanelTab === 'map' && (
+          <div className="flex-1 min-h-0 relative">
+            <Suspense fallback={
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            }>
+              <ConceptNoteMap
+                isActive={rightPanelTab === 'map'}
+                onConfirm={(zones) => {
+                  // Send selected zones as answer to current question
+                  const answer = zones.length > 0
+                    ? `Selected zones: ${zones.join(', ')}`
+                    : 'No zones selected';
+                  if (currentQuestion) {
+                    handleSelectOption(answer);
+                  } else {
+                    sendMessage(answer);
+                  }
+                  setRightPanelTab('document');
+                  setMapRelevant(false);
+                }}
               />
-            </div>
-          ))}
-        </div>
+            </Suspense>
+          </div>
+        )}
       </div>
     </div>
   );

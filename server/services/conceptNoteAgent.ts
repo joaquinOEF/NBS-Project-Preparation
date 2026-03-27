@@ -195,13 +195,14 @@ function createConceptNoteToolsForSdk(noteId: string) {
           description: z.string().optional(),
           recommended: z.boolean().optional(),
         })),
-        relatedSections: z.array(z.string()).optional().describe("Section IDs to highlight in the document panel, e.g. ['problem_diagnosis', 'territorial_context']. The UI auto-scrolls to these sections."),
+        relatedSections: z.array(z.string()).optional().describe("Section IDs to highlight in the document panel"),
+        showMap: z.boolean().optional().describe("Set true for spatial questions — the UI switches to an interactive map where the user can click zones to select areas"),
       })).describe("Array of questions — batch ALL phase questions here"),
     },
     async (args: any) => {
       const questions = args.questions || [];
       for (const q of questions) {
-        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [], relatedSections: q.relatedSections });
+        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [], relatedSections: q.relatedSections, showMap: q.showMap });
       }
       return { content: [{ type: "text" as const, text: `${questions.length} question(s) presented. STOP and wait for ALL answers. The user will respond with their selections.` }] };
     },
@@ -441,7 +442,7 @@ async function streamWithAnthropicApi(
     { name: "update_section", description: "Update a concept note field.", input_schema: { type: "object" as const, properties: { sectionId: { type: "string" }, field: { type: "string" }, value: { type: "string" }, confidence: { type: "string", enum: ["high", "medium", "low"] }, source: { type: "string" } }, required: ["sectionId", "field", "value"] } },
     { name: "flag_gap", description: "Flag a gap.", input_schema: { type: "object" as const, properties: { sectionId: { type: "string" }, field: { type: "string" }, reason: { type: "string" }, severity: { type: "string", enum: ["critical", "important", "minor"] } }, required: ["sectionId", "field", "reason"] } },
     { name: "set_phase", description: "Advance phase.", input_schema: { type: "object" as const, properties: { phase: { type: "number" } }, required: ["phase"] } },
-    { name: "ask_user", description: "Present multiple-choice questions. Batch ALL phase questions in ONE call. Include relatedSections to highlight document sections for review.", input_schema: { type: "object" as const, properties: { questions: { type: "array", items: { type: "object", properties: { question: { type: "string" }, options: { type: "array", items: { type: "object", properties: { label: { type: "string" }, description: { type: "string" }, recommended: { type: "boolean" } }, required: ["label"] } }, relatedSections: { type: "array", items: { type: "string" }, description: "Section IDs to highlight in the document panel" } }, required: ["question", "options"] } } }, required: ["questions"] } },
+    { name: "ask_user", description: "Present multiple-choice questions. Batch ALL phase questions in ONE call.", input_schema: { type: "object" as const, properties: { questions: { type: "array", items: { type: "object", properties: { question: { type: "string" }, options: { type: "array", items: { type: "object", properties: { label: { type: "string" }, description: { type: "string" }, recommended: { type: "boolean" } }, required: ["label"] } }, relatedSections: { type: "array", items: { type: "string" } }, showMap: { type: "boolean", description: "Set true for spatial/zone selection questions" } }, required: ["question", "options"] } } }, required: ["questions"] } },
   ];
 
   const messages: Array<{ role: string; content: any }> = [{ role: "user", content: userMessage }];
@@ -540,10 +541,10 @@ function handleToolCall(noteId: string, toolName: string, input: any, pushEvent:
   }
 
   if (toolName === "ask_user") {
-    const questions = input.questions || [{ question: input.question, options: input.options, relatedSections: input.relatedSections }];
+    const questions = input.questions || [{ question: input.question, options: input.options, relatedSections: input.relatedSections, showMap: input.showMap }];
     for (const q of questions) {
       if (q?.question) {
-        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [], relatedSections: q.relatedSections });
+        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [], relatedSections: q.relatedSections, showMap: q.showMap });
       }
     }
     return `${questions.length} question(s) shown. STOP and wait for ALL answers.`;
@@ -631,7 +632,8 @@ ${ALL_SECTION_IDS.join(', ')}
 ## IMPORTANT
 - After the user answers EACH question, you MUST immediately call update_section to save their answers.
 - For ask_user questions that ask the user to APPROVE or REVIEW content, ALWAYS include relatedSections listing the section IDs the user should look at. The UI auto-scrolls to those sections.
-- Example: when asking "Approve the problem diagnosis?", set relatedSections: ["problem_diagnosis"]`;
+- Example: when asking "Approve the problem diagnosis?", set relatedSections: ["problem_diagnosis"]
+- For spatial questions (territorial scope, zone selection, intervention areas), set showMap: true — the UI switches to an interactive map where the user clicks zones to select areas`;
 }
 
 async function loadKnowledgeContext(city: string): Promise<string> {
