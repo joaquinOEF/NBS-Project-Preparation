@@ -611,7 +611,7 @@ export default function ConceptNotePage() {
         {/* Chat header with back + controls */}
         <div className="p-3 border-b bg-background flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Link href="/sample/project/sample-porto-alegre">
+            <Link href="/sample/project/sample-ada-1">
               <Button variant="ghost" size="sm" className="h-7 px-2">
                 <ArrowLeft className="w-4 h-4" />
               </Button>
