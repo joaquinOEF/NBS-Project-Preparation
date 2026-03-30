@@ -1,7 +1,7 @@
 import { useParams, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Map, ArrowRight, DollarSign, Settings, Landmark, Database, ChevronRight, ChevronDown, Lightbulb, FileText, CheckCircle2, Circle, Download } from 'lucide-react';
+import { ArrowLeft, Map, ArrowRight, DollarSign, Settings, Landmark, Database, ChevronRight, ChevronDown, Lightbulb, FileText, CheckCircle2, Circle, Download, Sparkles } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { DisplayLarge } from '@oef/components';
@@ -1977,6 +1977,30 @@ export default function ProjectPage() {
             </div>
           </div>
 
+          {/* AI CONCEPT NOTE BANNER */}
+          <Link href="/concept-note">
+            <div className="group relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-violet-500/5 p-5 mb-6 cursor-pointer transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
+              {/* Subtle background decoration */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full -translate-y-8 translate-x-8" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-violet-500/10 to-transparent rounded-full translate-y-6 -translate-x-6" />
+
+              <div className="relative flex items-center gap-4">
+                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-violet-600 text-white shadow-md shadow-primary/20 group-hover:scale-105 transition-transform">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
+                    Create Concept Note with AI Agent
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Guided interview to build a fundable BPJP/C40 concept note — grounded in city data and evidence
+                  </p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+              </div>
+            </div>
+          </Link>
+
           {/* OUTPUT Section */}
           <div>
             <div className="flex items-center gap-2 mb-4">
@@ -2186,6 +2210,28 @@ export default function ProjectPage() {
             </Link>
           </div>
         </div>
+
+        {/* AI CONCEPT NOTE BANNER */}
+        <Link href="/concept-note">
+          <div className="group relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-violet-500/5 p-5 mb-6 cursor-pointer transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full -translate-y-8 translate-x-8" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-violet-500/10 to-transparent rounded-full translate-y-6 -translate-x-6" />
+            <div className="relative flex items-center gap-4">
+              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-violet-600 text-white shadow-md shadow-primary/20 group-hover:scale-105 transition-transform">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
+                  Create Concept Note with AI Agent
+                </h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Guided interview to build a fundable BPJP/C40 concept note — grounded in city data and evidence
+                </p>
+              </div>
+              <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+            </div>
+          </div>
+        </Link>
 
         {/* OUTPUT Section */}
         <div>
