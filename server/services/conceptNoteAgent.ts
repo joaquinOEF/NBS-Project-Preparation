@@ -389,14 +389,14 @@ async function streamWithV1Continue(
   pushEvent: EventPusher,
 ) {
   const mcpServer = getMcpServer(noteId);
-  const isFirstTurn = !activeSessions.has(noteId);
 
-  const sysCtx = isFirstTurn ? await buildSystemContext(state) : null;
-  const prompt = sysCtx
-    ? `${sysCtx}\n\nUser message: ${userMessage}`
-    : userMessage;
+  // Always include system context + compact state summary
+  // This avoids accumulating conversation history via continue:true
+  const sysCtx = await buildSystemContext(state);
+  const stateSummary = buildCompactStateSummary(state);
+  const prompt = `${sysCtx}\n\n## CURRENT DOCUMENT STATE\n${stateSummary}\n\nUser message: ${userMessage}`;
 
-  console.log(`[concept-note] V1 ${isFirstTurn ? 'new session' : 'continue'} for ${noteId}`);
+  console.log(`[concept-note] V1 fresh turn for ${noteId} (phase ${state.phase}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length} sections filled)`);
 
   try {
     for await (const message of sdkQuery({
@@ -412,7 +412,8 @@ async function streamWithV1Continue(
           "mcp__concept_note__read_knowledge",
         ],
         mcpServers: mcpServer ? { concept_note: mcpServer } : {},
-        ...(isFirstTurn ? {} : { continue: true }),
+        // Fresh session each turn — no continue:true
+        // Context comes from system prompt + state summary, not conversation history
         permissionMode: "bypassPermissions",
       },
     })) {
@@ -650,6 +651,28 @@ async function loadCityContext(city: string): Promise<string> {
   return context;
 }
 
+// Compact summary of filled sections — keeps each turn lightweight
+function buildCompactStateSummary(state: ConceptNoteState): string {
+  const lines: string[] = [];
+  lines.push(`Phase: ${state.phase}/10`);
+
+  for (const [sectionId, section] of Object.entries(state.sections)) {
+    const fields = Object.entries(section.fields);
+    if (fields.length === 0) continue;
+    const fieldSummary = fields.map(([k, v]) => {
+      const val = String(v.value || '').slice(0, 120);
+      return `${k}: ${val}`;
+    }).join(' | ');
+    lines.push(`${sectionId}: ${fieldSummary}`);
+  }
+
+  if (state.gaps.length > 0) {
+    lines.push(`\nGaps (${state.gaps.length}): ${state.gaps.map(g => `${g.sectionId}.${g.field}`).join(', ')}`);
+  }
+
+  return lines.join('\n');
+}
+
 async function buildSystemContext(state: ConceptNoteState): Promise<string> {
   const [skillContent, cityContext] = await Promise.all([
     loadSkillFile(),
@@ -728,7 +751,7 @@ You do NOT have an export tool. When the concept note is ready, tell the user: "
 ${ALL_SECTION_IDS.join(', ')}
 
 ## SKILL FLOW (default guide — adapt as needed)
-${skillContent ? skillContent.slice(0, 5000) : ''}
+${skillContent ? skillContent.slice(0, 2500) : ''}
 
 ## CITY KNOWLEDGE (pre-loaded)
 ${cityContext}
