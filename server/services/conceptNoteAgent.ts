@@ -710,7 +710,7 @@ When the user gives you specific numbers, names, or text:
 
 ### Ask_user guidelines
 - For approve/review questions: include relatedSections (UI auto-scrolls to the relevant section)
-- For spatial/zone questions: include showMap: true (UI switches to interactive map)
+- For ANY question about zones, territory, areas, sites, or locations: ALWAYS set showMap: true. This switches the UI to an interactive map where the user clicks zones. This is critical for Phase 2 (territorial scope) and Phase 3 (intervention sites).
 - For questions where user can pick MULTIPLE answers (e.g., intervention types, risk factors, plan alignment): set multiSelect: true. UI shows checkboxes + "Confirm N selected" button.
 - Batch related questions in ONE ask_user call when possible
 - Always include a recommended option when the knowledge base points to a clear winner

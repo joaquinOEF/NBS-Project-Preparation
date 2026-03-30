@@ -369,7 +369,9 @@ export default function ConceptNotePage() {
         break;
 
       case 'ask_user': {
-        const hasMap = !!(event as any).showMap;
+        // Detect spatial questions even if agent forgot showMap
+        const spatialKeywords = /\b(zone|zona|area|área|territory|território|territorial|location|local|site|sítio|where|onde|map|mapa|neighborhood|bairro|region|região)\b/i;
+        const hasMap = !!(event as any).showMap || spatialKeywords.test(event.question);
         setActiveQuestions(prev => {
           if (prev.length === 0) {
             setCurrentQuestionIdx(0);
