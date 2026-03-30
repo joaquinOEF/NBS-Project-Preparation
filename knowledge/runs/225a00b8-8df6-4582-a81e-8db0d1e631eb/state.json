@@ -1,0 +1,402 @@
+{
+  "id": "225a00b8-8df6-4582-a81e-8db0d1e631eb",
+  "projectId": "sample-project",
+  "city": "porto-alegre",
+  "phase": 3,
+  "sections": {
+    "project_id": {
+      "id": "project_id",
+      "title": "1. Identificação do Projeto",
+      "phase": 1,
+      "fields": {
+        "sector": {
+          "value": "Soluções Baseadas na Natureza (NBS)",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        },
+        "focus": {
+          "value": "Adaptação climática (enchentes e ilhas de calor) e mitigação (sequestro de carbono)",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        },
+        "municipality": {
+          "value": "Porto Alegre",
+          "confidence": "high",
+          "source": "city-profile",
+          "userEdited": false
+        },
+        "state": {
+          "value": "Rio Grande do Sul",
+          "confidence": "high",
+          "source": "city-profile",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "user",
+        "city-profile"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "proponent": {
+      "id": "proponent",
+      "title": "2. Instituição Proponente",
+      "phase": 1,
+      "fields": {
+        "municipality": {
+          "value": "Porto Alegre",
+          "confidence": "high",
+          "source": "city-profile.md",
+          "userEdited": false
+        },
+        "state": {
+          "value": "Rio Grande do Sul",
+          "confidence": "high",
+          "source": "city-profile.md",
+          "userEdited": false
+        },
+        "institution_name": {
+          "value": "Secretaria Municipal do Meio Ambiente, Urbanismo e Sustentabilidade (SMAMUS)",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        },
+        "institution_type": {
+          "value": "Secretaria Municipal - Prefeitura de Porto Alegre",
+          "confidence": "high",
+          "source": "user",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "city-profile.md",
+        "user"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "territorial_context": {
+      "id": "territorial_context",
+      "title": "3. Contexto Territorial",
+      "phase": 2,
+      "fields": {
+        "description": {
+          "value": "Porto Alegre está localizada na margem leste do Lago Guaíba, capital do Rio Grande do Sul, com população de aproximadamente 1,4 milhão de habitantes. A cidade apresenta topografia única caracterizada por 40 morros de granito (elevações de até 311m no Morro Santana) intercalados com planícies costeiras e várzeas fluviais. O município situa-se na zona de transição entre dois biomas: Mata Atlântica (remanescentes florestais nos morros e encostas) e Pampa (planícies baixas), concentrando 28% da flora nativa do Rio Grande do Sul.\n\n**Escopo territorial do projeto:** O projeto abrange três zonas prioritárias totalizando 306 km² e beneficiando aproximadamente 1,33 milhão de pessoas:\n\n- **Zona 12 (risco de CALOR)**: 103 km², população 830.968, vulnerabilidade térmica 0.62, requer rede de resfriamento urbano\n- **Zona 8 (risco de CALOR)**: 30 km², população 240.179, vulnerabilidade térmica 0.60 e pluvial 0.60, requer rede de infraestrutura verde absorvente (sponge network)\n- **Zona 14 (risco de INUNDAÇÃO)**: 173 km², população 260.889, vulnerabilidade pluvial 0.56, requer rede de infraestrutura verde absorvente (sponge network)\n\nAs zonas prioritárias incluem as áreas de planície aluvial junto ao Guaíba e Arroio Dilúvio, mais afetadas pelas inundações de maio de 2024.",
+          "confidence": "high",
+          "source": "user-provided spatial analysis",
+          "userEdited": false
+        },
+        "intervention_zones": {
+          "value": "O projeto abrange três zonas de intervenção prioritárias em Porto Alegre, totalizando 306 km² e beneficiando aproximadamente 1,33 milhão de pessoas:\n\n**Zona 12 (Risco: CALOR)**: 103 km², 830.968 habitantes. Área urbana densamente povoada com déficit de cobertura vegetal e alta exposição a ilhas de calor urbano (escore de calor: 0,62). Intervenção recomendada: rede de resfriamento (cooling network) através de corredores verdes, arborização urbana intensiva e infraestrutura verde para sombreamento e evapotranspiração.\n\n**Zona 8 (Risco: CALOR)**: 30 km², 240.179 habitantes. Área com vulnerabilidade combinada a enchentes (escore: 0,60) e ilhas de calor (escore: 0,60). Intervenção recomendada: rede esponja (sponge network) integrando jardins de chuva, pavimentos permeáveis, biovaletas e áreas de retenção para gestão de águas pluviais e mitigação de calor.\n\n**Zona 14 (Risco: ENCHENTE)**: 173 km², 260.889 habitantes. Inclui áreas de planície aluvial junto ao Guaíba e Arroio Dilúvio, mais afetadas pelas enchentes catastróficas de maio de 2024 (escore de enchente: 0,56). Intervenção recomendada: rede esponja com parques de inundação, restauração de várzeas, wetlands construídos e infraestrutura verde de drenagem.\n\nOs principais riscos climáticos abordados são: **enchentes fluviais e pluviais** (agravadas pelas mudanças climáticas, como demonstrado pelo evento de maio 2024) e **ilhas de calor urbano** (intensificadas pela impermeabilização e déficit de cobertura vegetal em áreas densamente urbanizadas).",
+          "confidence": "high",
+          "source": "User-provided spatial data from zone selection interface",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "city-profile.md",
+        "user-provided spatial analysis",
+        "User-provided spatial data from zone selection interface"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "problem_diagnosis": {
+      "id": "problem_diagnosis",
+      "title": "4. Diagnóstico do Problema",
+      "phase": 2,
+      "fields": {
+        "climate_vulnerabilities": {
+          "value": "As enchentes de maio de 2024 foram o pior desastre natural da história do Rio Grande do Sul. Porto Alegre foi epicentro da catástrofe: o Guaíba atingiu 5,35 m, superando o recorde histórico de 1941 (4,76 m) por 59 cm. Cerca de 48% do território municipal foi inundado, com 183 mortes no estado, 422.473 deslocados e prejuízos superiores a USD 15 bilhões. As mudanças climáticas tornaram eventos deste tipo 2x mais prováveis e 12% mais intensos. A urbanização acelerada, impermeabilização do solo e desmatamento agravaram a vulnerabilidade. Porto Alegre também enfrenta ilhas de calor urbano intensificadas pela redução da cobertura vegetal.",
+          "confidence": "high",
+          "source": "climate-risks.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "climate-risks.md"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "general_objective": {
+      "id": "general_objective",
+      "title": "5. Objetivo Geral do Projeto",
+      "phase": 2,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "specific_objectives": {
+      "id": "specific_objectives",
+      "title": "6. Objetivos Específicos",
+      "phase": 3,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "indicators": {
+      "id": "indicators",
+      "title": "7. Indicadores Físico-Operacionais",
+      "phase": 3,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "solution_description": {
+      "id": "solution_description",
+      "title": "8. Descrição da Solução Proposta",
+      "phase": 3,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "climate_benefits": {
+      "id": "climate_benefits",
+      "title": "9. Benefícios Climáticos",
+      "phase": 4,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "economic_social_benefits": {
+      "id": "economic_social_benefits",
+      "title": "10. Benefícios Econômicos e Sociais",
+      "phase": 4,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "inclusive_action": {
+      "id": "inclusive_action",
+      "title": "11. Ação Climática Inclusiva",
+      "phase": 4,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "institutional_arrangement": {
+      "id": "institutional_arrangement",
+      "title": "12. Arranjo Institucional",
+      "phase": 5,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "technical_capacity": {
+      "id": "technical_capacity",
+      "title": "13. Capacidade Técnica",
+      "phase": 5,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "political_support": {
+      "id": "political_support",
+      "title": "14. Apoio e Alinhamento Político",
+      "phase": 5,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "plan_alignment": {
+      "id": "plan_alignment",
+      "title": "15. Alinhamento com Planos",
+      "phase": 5,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "cost_detail": {
+      "id": "cost_detail",
+      "title": "16. Detalhamento dos Custos",
+      "phase": 6,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "financial_sustainability": {
+      "id": "financial_sustainability",
+      "title": "17. Disponibilidade de Recursos",
+      "phase": 6,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "financing_need": {
+      "id": "financing_need",
+      "title": "18. Necessidade de Financiamento",
+      "phase": 6,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "risk_analysis": {
+      "id": "risk_analysis",
+      "title": "19. Análise e Mitigação de Riscos",
+      "phase": 7,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "replicability": {
+      "id": "replicability",
+      "title": "20. Replicabilidade e Escalabilidade",
+      "phase": 7,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "technical_assistance": {
+      "id": "technical_assistance",
+      "title": "21. Demanda por Assistência Técnica",
+      "phase": 8,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "contact": {
+      "id": "contact",
+      "title": "22. Contato e Ponto Focal",
+      "phase": 8,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "supplementary": {
+      "id": "supplementary",
+      "title": "23. Informações Complementares",
+      "phase": 8,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    }
+  },
+  "gaps": [],
+  "editLog": [
+    {
+      "timestamp": "2026-03-30T13:02:22.174Z",
+      "sectionId": "proponent",
+      "field": "municipality",
+      "oldValue": null,
+      "newValue": "Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T13:02:22.205Z",
+      "sectionId": "proponent",
+      "field": "state",
+      "oldValue": null,
+      "newValue": "Rio Grande do Sul",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T13:03:22.447Z",
+      "sectionId": "project_id",
+      "field": "sector",
+      "oldValue": null,
+      "newValue": "Soluções Baseadas na Natureza (NBS)",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T13:03:22.488Z",
+      "sectionId": "project_id",
+      "field": "focus",
+      "oldValue": null,
+      "newValue": "Adaptação climática (enchentes e ilhas de calor) e mitigação (sequestro de carbono)",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T13:03:22.532Z",
+      "sectionId": "project_id",
+      "field": "municipality",
+      "oldValue": null,
+      "newValue": "Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T13:03:22.556Z",
+      "sectionId": "project_id",
+      "field": "state",
+      "oldValue": null,
+      "newValue": "Rio Grande do Sul",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T13:03:22.578Z",
+      "sectionId": "proponent",
+      "field": "institution_name",
+      "oldValue": null,
+      "newValue": "Secretaria Municipal do Meio Ambiente, Urbanismo e Sustentabilidade (SMAMUS)",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T13:03:22.603Z",
+      "sectionId": "proponent",
+      "field": "institution_type",
+      "oldValue": null,
+      "newValue": "Secretaria Municipal - Prefeitura de Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T13:03:22.643Z",
+      "sectionId": "territorial_context",
+      "field": "description",
+      "oldValue": null,
+      "newValue": "Porto Alegre é a capital e maior cidade do Rio Grande do Sul, com população estimada de 1.388.794 habitantes (2025) e área de 496,68 km². Localizada às margens do Lago Guaíba, apresenta topografia singular com 40 morros graníticos e áreas de planície aluvial. A cidade situa-se na zona de transição entre dois biomas: Mata Atlântica (morros e encostas) e Pampa (planícies). O município concentra 28% da flora nativa do RS, com aproximadamente 9.288 espécies, e possui cerca de 1 milhão de árvores urbanas.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T13:03:22.664Z",
+      "sectionId": "problem_diagnosis",
+      "field": "climate_vulnerabilities",
+      "oldValue": null,
+      "newValue": "As enchentes de maio de 2024 foram o pior desastre natural da história do Rio Grande do Sul. Porto Alegre foi epicentro da catástrofe: o Guaíba atingiu 5,35 m, superando o recorde histórico de 1941 (4,76 m) por 59 cm. Cerca de 48% do território municipal foi inundado, com 183 mortes no estado, 422.473 deslocados e prejuízos superiores a USD 15 bilhões. As mudanças climáticas tornaram eventos deste tipo 2x mais prováveis e 12% mais intensos. A urbanização acelerada, impermeabilização do solo e desmatamento agravaram a vulnerabilidade. Porto Alegre também enfrenta ilhas de calor urbano intensificadas pela redução da cobertura vegetal.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T13:08:28.892Z",
+      "sectionId": "territorial_context",
+      "field": "description",
+      "oldValue": "Porto Alegre é a capital e maior cidade do Rio Grande do Sul, com população estimada de 1.388.794 habitantes (2025) e área de 496,68 km². Localizada às margens do Lago Guaíba, apresenta topografia singular com 40 morros graníticos e áreas de planície aluvial. A cidade situa-se na zona de transição entre dois biomas: Mata Atlântica (morros e encostas) e Pampa (planícies). O município concentra 28% da flora nativa do RS, com aproximadamente 9.288 espécies, e possui cerca de 1 milhão de árvores urbanas.",
+      "newValue": "Porto Alegre está localizada na margem leste do Lago Guaíba, capital do Rio Grande do Sul, com população de aproximadamente 1,4 milhão de habitantes. A cidade apresenta topografia única caracterizada por 40 morros de granito (elevações de até 311m no Morro Santana) intercalados com planícies costeiras e várzeas fluviais. O município situa-se na zona de transição entre dois biomas: Mata Atlântica (remanescentes florestais nos morros e encostas) e Pampa (planícies baixas), concentrando 28% da flora nativa do Rio Grande do Sul.\n\n**Escopo territorial do projeto:** O projeto abrange três zonas prioritárias totalizando 306 km² e beneficiando aproximadamente 1,33 milhão de pessoas:\n\n- **Zona 12 (risco de CALOR)**: 103 km², população 830.968, vulnerabilidade térmica 0.62, requer rede de resfriamento urbano\n- **Zona 8 (risco de CALOR)**: 30 km², população 240.179, vulnerabilidade térmica 0.60 e pluvial 0.60, requer rede de infraestrutura verde absorvente (sponge network)\n- **Zona 14 (risco de INUNDAÇÃO)**: 173 km², população 260.889, vulnerabilidade pluvial 0.56, requer rede de infraestrutura verde absorvente (sponge network)\n\nAs zonas prioritárias incluem as áreas de planície aluvial junto ao Guaíba e Arroio Dilúvio, mais afetadas pelas inundações de maio de 2024.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T13:08:30.717Z",
+      "sectionId": "territorial_context",
+      "field": "intervention_zones",
+      "oldValue": null,
+      "newValue": "O projeto abrange três zonas de intervenção prioritárias em Porto Alegre, totalizando 306 km² e beneficiando aproximadamente 1,33 milhão de pessoas:\n\n**Zona 12 (Risco: CALOR)**: 103 km², 830.968 habitantes. Área urbana densamente povoada com déficit de cobertura vegetal e alta exposição a ilhas de calor urbano (escore de calor: 0,62). Intervenção recomendada: rede de resfriamento (cooling network) através de corredores verdes, arborização urbana intensiva e infraestrutura verde para sombreamento e evapotranspiração.\n\n**Zona 8 (Risco: CALOR)**: 30 km², 240.179 habitantes. Área com vulnerabilidade combinada a enchentes (escore: 0,60) e ilhas de calor (escore: 0,60). Intervenção recomendada: rede esponja (sponge network) integrando jardins de chuva, pavimentos permeáveis, biovaletas e áreas de retenção para gestão de águas pluviais e mitigação de calor.\n\n**Zona 14 (Risco: ENCHENTE)**: 173 km², 260.889 habitantes. Inclui áreas de planície aluvial junto ao Guaíba e Arroio Dilúvio, mais afetadas pelas enchentes catastróficas de maio de 2024 (escore de enchente: 0,56). Intervenção recomendada: rede esponja com parques de inundação, restauração de várzeas, wetlands construídos e infraestrutura verde de drenagem.\n\nOs principais riscos climáticos abordados são: **enchentes fluviais e pluviais** (agravadas pelas mudanças climáticas, como demonstrado pelo evento de maio 2024) e **ilhas de calor urbano** (intensificadas pela impermeabilização e déficit de cobertura vegetal em áreas densamente urbanizadas).",
+      "source": "agent"
+    }
+  ],
+  "metadata": {
+    "createdAt": "2026-03-30T13:02:00.411Z",
+    "updatedAt": "2026-03-30T13:08:30.717Z",
+    "projectName": "",
+    "proponentType": ""
+  }
+}
