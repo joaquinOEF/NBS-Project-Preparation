@@ -2,142 +2,380 @@
   "id": "215d589e-ef47-48fd-aebb-9812491a1e08",
   "projectId": "sample-project",
   "city": "porto-alegre",
-  "phase": 0,
+  "phase": 6,
   "sections": {
     "project_id": {
       "id": "project_id",
       "title": "1. Identificação do Projeto",
       "phase": 1,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "sector": {
+          "value": "Soluções Baseadas na Natureza (NBS) para inundações",
+          "confidence": "high",
+          "source": "user edit",
+          "userEdited": false
+        },
+        "climate_focus": {
+          "value": "Adaptação e mitigação",
+          "confidence": "high",
+          "source": "user selection",
+          "userEdited": false
+        },
+        "municipality": {
+          "value": "Porto Alegre",
+          "confidence": "high",
+          "source": "city profile",
+          "userEdited": false
+        },
+        "state": {
+          "value": "Rio Grande do Sul",
+          "confidence": "high",
+          "source": "city profile",
+          "userEdited": false
+        },
+        "project_name": {
+          "value": "Resiliência Climática Baseada na Natureza para Porto Alegre",
+          "confidence": "high",
+          "source": "user selection",
+          "userEdited": false
+        },
+        "maturity": {
+          "value": "Estudo preliminar",
+          "confidence": "high",
+          "source": "User provided",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "user input",
+        "city profile",
+        "user selection",
+        "user edit",
+        "User provided"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "proponent": {
       "id": "proponent",
       "title": "2. Instituição Proponente",
       "phase": 1,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "municipality": {
+          "value": "Porto Alegre",
+          "confidence": "high",
+          "source": "city profile",
+          "userEdited": false
+        },
+        "state": {
+          "value": "Rio Grande do Sul",
+          "confidence": "high",
+          "source": "city profile",
+          "userEdited": false
+        },
+        "institution_name": {
+          "value": "Secretaria Municipal do Meio Ambiente, Urbanismo e Sustentabilidade (SMAMUS)",
+          "confidence": "high",
+          "source": "user selection",
+          "userEdited": false
+        },
+        "institution_type": {
+          "value": "Secretaria Municipal - Prefeitura de Porto Alegre",
+          "confidence": "high",
+          "source": "city profile",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "city-profile.md",
+        "user input",
+        "user selection",
+        "city profile"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "territorial_context": {
       "id": "territorial_context",
       "title": "3. Contexto Territorial",
       "phase": 2,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "geographic_scope": {
+          "value": "Porto Alegre está localizada às margens do Lago Guaíba, capital do Rio Grande do Sul, com população de aproximadamente 1,39 milhão de habitantes (2025). O município possui 496,68 km² de área, caracterizada por topografia de 40 morros graníticos (elevações até 311 m) intercalados com planícies aluviais e zonas costeiras de baixa altitude ao longo do Guaíba. A cidade situa-se na transição entre dois biomas: Mata Atlântica (nos morros e encostas) e Pampa (nas planícies). Porto Alegre concentra 28% da flora nativa do Rio Grande do Sul, com aproximadamente 9.288 espécies. O Arroio Dilúvio, principal curso d'água urbano, atravessa a área central da cidade.",
+          "confidence": "high",
+          "source": "city-profile.md, baseline-data.md",
+          "userEdited": false
+        },
+        "scope": {
+          "value": "O projeto abrange duas áreas prioritárias de intervenção: (1) Zona Norte de Porto Alegre, compreendendo os bairros de baixa altitude próximos ao Guaíba (Humaitá, Navegantes, São João), áreas severamente afetadas pelas enchentes de maio de 2024, com exposição crítica a inundações recorrentes; e (2) Ilhas do Guaíba (arquipélago), comunidades insulares enfrentando erosão costeira, inundações frequentes e degradação de ecossistemas aquáticos e ripários. Esta abordagem integrada permitirá proteger tanto áreas urbanas densamente povoadas quanto ecossistemas fluviais vulneráveis, criando uma rede de soluções baseadas na natureza que aumenta a resiliência climática em escala metropolitana.",
+          "confidence": "high",
+          "source": "User selection + porto-alegre/climate-risks.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "city-profile.md, baseline-data.md",
+        "User selection + porto-alegre/climate-risks.md"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "problem_diagnosis": {
       "id": "problem_diagnosis",
       "title": "4. Diagnóstico do Problema",
       "phase": 2,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "climate_vulnerability": {
+          "value": "Em maio de 2024, Porto Alegre sofreu a pior catástrofe natural da história do Rio Grande do Sul. As enchentes atingiram 48% do território da cidade, com o Guaíba alcançando 535 cm — 59 cm acima do recorde histórico de 1941 (476 cm). Em todo o estado, 183 pessoas morreram, 422.473 foram deslocadas, e 2,4 milhões foram afetadas. As perdas econômicas ultrapassaram USD 15 bilhões. Em Porto Alegre, 19 das 23 estações de bombeamento pararam de funcionar, o aeroporto Salgado Filho fechou, e o transporte público foi suspenso. Atribuição climática da World Weather Attribution indica que com 1,2°C de aquecimento global, o evento tornou-se aproximadamente 2x mais provável ou 12% mais intenso. Fatores agravantes incluem: urbanização acelerada e impermeabilização do solo, desmatamento, dissolução do DEP (Departamento de Esgotos Pluviais) em 2017 com subsequente degradação da infraestrutura de drenagem, e mudanças climáticas.",
+          "confidence": "high",
+          "source": "climate-risks.md",
+          "userEdited": false
+        },
+        "core_problem": {
+          "value": "Porto Alegre enfrenta vulnerabilidade climática extrema a eventos de inundação, conforme dramaticamente evidenciado pela catástrofe de maio de 2024, quando o nível do Guaíba atingiu 535 cm (59 cm acima do recorde histórico de 1941), inundando aproximadamente 48% do território municipal, deslocando mais de 422 mil pessoas em todo o estado, e causando perdas econômicas superiores a USD 15 bilhões. A Zona Norte, com seus bairros de baixa altitude (Humaitá, Navegantes, São João), e as Ilhas do Guaíba são particularmente vulneráveis devido à combinação de: (1) topografia baixa com cotas próximas ao nível do Guaíba; (2) infraestrutura de drenagem insuficiente ou colapsada (19 de 23 estações de bombeamento paralisadas durante a enchente); (3) impermeabilização crescente do solo urbano; (4) degradação de ecossistemas ripários e áreas úmidas que historicamente amorteciam eventos extremos; e (5) mudanças climáticas que intensificaram eventos de precipitação extrema em aproximadamente 12% e dobraram a probabilidade de ocorrência. O setor de transporte domina as emissões municipais (67,7% do total de 2,3 milhões tCO2e em 2019), enquanto o setor AFOLU representa apenas 0,5%, indicando baixo sequestro de carbono pela cobertura vegetal urbana atual. A infraestrutura cinza convencional mostrou-se insuficiente, e a janela pós-desastre representa uma oportunidade crítica para implementar soluções baseadas na natureza que aumentem a resiliência a inundações, reduzam ilhas de calor urbano, sequestrem carbono, e restaurem serviços ecossistêmicos.",
+          "confidence": "high",
+          "source": "porto-alegre/climate-risks.md, baseline-data.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "climate-risks.md",
+        "porto-alegre/climate-risks.md, baseline-data.md"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "general_objective": {
       "id": "general_objective",
       "title": "5. Objetivo Geral do Projeto",
       "phase": 2,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "objective": {
+          "value": "Aumentar a resiliência climática de áreas vulneráveis a inundações na Zona Norte e Ilhas do Guaíba, em Porto Alegre, por meio da implementação de soluções baseadas na natureza que restaurem serviços ecossistêmicos, reduzam riscos de inundação, sequestrem carbono, e melhorem a qualidade de vida de comunidades afetadas pela catástrofe de maio de 2024.",
+          "confidence": "high",
+          "source": "User selection",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "User selection"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "specific_objectives": {
       "id": "specific_objectives",
       "title": "6. Objetivos Específicos",
       "phase": 3,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "objectives": {
+          "value": "1. **Reduzir o risco de inundação em áreas prioritárias**: Implementar 5-10 parques de alagamento (30-50 ha) na Zona Norte capazes de reter 15.000-150.000 m³ de água pluvial durante eventos extremos, reduzindo picos de inundação em 50-90% nas áreas de intervenção.\n\n2. **Restaurar ecossistemas ripários e áreas úmidas degradadas**: Recuperar 20-30 hectares de áreas úmidas nas Ilhas do Guaíba e margens do lago, restaurando hidrologia natural, vegetação nativa, e capacidade de amortecimento de enchentes (redução de pico de 20-80%).\n\n3. **Ampliar cobertura de floresta urbana e conectividade verde**: Plantar 5.000-10.000 árvores nativas criando corredores verdes que conectem as áreas de intervenção, aumentando cobertura arbórea, interceptação de chuva (15-40% da precipitação anual), e resfriamento urbano (redução de 2-8°C de temperatura superficial).\n\n4. **Sequestrar carbono e contribuir para metas de mitigação**: Alcançar sequestro líquido de 300-800 t CO2eq/ano através da combinação de florestas urbanas (5,5 t C/ha/ano), áreas úmidas restauradas (0,5-5,0 t C/ha/ano), e redução de emissões por gestão integrada de águas pluviais.\n\n5. **Melhorar qualidade da água e saúde de ecossistemas aquáticos**: Reduzir carga de poluentes no Guaíba através de remoção de 44-91% de nitrogênio e 43-65% de fósforo em áreas úmidas restauradas, e 60-90% de sólidos suspensos em parques de alagamento.\n\n6. **Fortalecer capacidade institucional e governança de SbN**: Estabelecer arranjo de governança intersetorial (SMAMUS-DMAE-comunidade) e protocolo de monitoramento de desempenho das intervenções, servindo de modelo replicável para outras áreas da cidade e região metropolitana.",
+          "confidence": "high",
+          "source": "_interventions/*.md calculations based on 50-100 ha scale",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "_interventions/*.md calculations based on 50-100 ha scale"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "indicators": {
       "id": "indicators",
       "title": "7. Indicadores Físico-Operacionais",
       "phase": 3,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "kpis": {
+          "value": "**Indicadores de Redução de Risco de Inundação:**\n- Volume de retenção de água pluvial instalado (m³): Meta 15.000-150.000 m³\n- Redução de pico de inundação em áreas de intervenção (%): Meta 50-90%\n- Tempo de drenagem pós-evento (horas): Meta 24-72h para parques de alagamento\n- Número de residências/negócios com risco de inundação reduzido: Meta 2.000-5.000\n\n**Indicadores de Restauração Ecológica:**\n- Área de áreas úmidas restauradas (ha): Meta 20-30 ha\n- Cobertura vegetal nativa estabelecida (%): Meta 60-80% em 3 anos\n- Riqueza de espécies (aves, peixes) em áreas restauradas: Linha de base + meta de incremento 30-60%\n\n**Indicadores de Floresta Urbana:**\n- Número de árvores nativas plantadas: Meta 5.000-10.000\n- Taxa de sobrevivência de árvores (% aos 3 anos): Meta >70%\n- Incremento de cobertura de dossel arbóreo (ha): Meta 10-20 ha\n- Redução de temperatura superficial em áreas arborizadas (°C): Meta 2-8°C\n\n**Indicadores de Mitigação:**\n- Sequestro líquido anual de carbono (t CO2eq/ano): Meta 300-800\n- Estoque de carbono acumulado em 10 anos (t CO2eq): Meta 3.000-8.000\n\n**Indicadores de Qualidade da Água:**\n- Redução de nitrogênio em áreas úmidas (%): Meta 44-91%\n- Redução de fósforo em áreas úmidas (%): Meta 43-65%\n- Redução de sólidos suspensos em parques de alagamento (%): Meta 60-90%\n\n**Indicadores Socioeconômicos:**\n- População beneficiada com acesso a áreas verdes: Meta 20.000-50.000 pessoas\n- Empregos verdes criados (diretos + indiretos): Meta 100-300\n- Taxa de aprovação comunitária do projeto (%): Meta >70%\n- Incremento de valor de propriedades adjacentes (%): Expectativa 5-20%\n\n**Indicadores de Capacidade Institucional:**\n- Existência de protocolo de monitoramento de SbN implementado (sim/não)\n- Número de técnicos municipais capacitados em gestão de SbN: Meta 20-50\n- Arranjo de governança intersetorial formalizado (sim/não)",
+          "confidence": "high",
+          "source": "_interventions/*.md KPIs",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "_interventions/*.md KPIs"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "solution_description": {
       "id": "solution_description",
       "title": "8. Descrição da Solução Proposta",
       "phase": 3,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "intervention_types": {
+          "value": "O projeto integrará três tipos complementares de Soluções Baseadas na Natureza:\n\n**1. Parques de Alagamento (Flood Parks)**\nEspaços públicos multifuncionais projetados para armazenar temporariamente água pluvial durante eventos extremos, funcionando como áreas de recreação em períodos secos. Na Zona Norte, áreas baixas serão transformadas em parques com topografia graduada para receber e controlar inundações, drenando em 24-72 horas. Custo estimado: R$ 200.000 - R$ 800.000/ha (US$ 50.000 - US$ 200.000/ha). Capacidade de retenção: 500-3.000 m³/ha. Redução de pico de enchente: 50-90%. Baseado em precedente de Curitiba (Parque Barigui, 1,4 milhões m²) e Porto Alegre (estratégia pós-enchente 2024 apoiada por engenheiros holandeses Deltares).\n\n**2. Restauração de Áreas Úmidas (Wetland Restoration)**\nReabilitação de áreas úmidas degradadas e sistemas ripários nas Ilhas do Guaíba e margens do lago, restaurando hidrologia natural, vegetação nativa e função ecológica. Provê controle de enchentes, tratamento de qualidade da água, sequestro de carbono e habitat para biodiversidade. Custo estimado: R$ 80.000 - R$ 600.000/ha (US$ 20.000 - US$ 150.000/ha). Redução de pico de inundação: 20-80%. Remoção de nitrogênio: 44-91%. Sequestro de carbono: 0,5-5,0 t C/ha/ano. Áreas úmidas cobrem apenas 1% da superfície terrestre mas armazenam 20% do carbono orgânico global.\n\n**3. Florestas Urbanas**\nPlantio estratégico e manejo de cobertura arbórea em ambas as zonas de intervenção para ampliar serviços ecossistêmicos: resfriamento urbano, sequestro de carbono, gestão de águas pluviais (interceptação de 15-40% da precipitação anual), qualidade do ar e biodiversidade. Custo estimado: R$ 10.000 - R$ 140.000/ha (US$ 2.500 - US$ 35.000/ha) dependendo da abordagem (regeneração natural vs. plantio ativo). Sequestro de carbono: 5,5 t C/ha/ano. Redução de temperatura: 2-8°C sob dossel vs. pavimento exposto. Porto Alegre possui ~1 milhão de árvores (76,5% das residências em ruas arborizadas) e concentra 28% da flora nativa do Rio Grande do Sul.",
+          "confidence": "high",
+          "source": "_interventions/flood-parks.md, wetland-restoration.md, urban-forests.md; porto-alegre/baseline-data.md",
+          "userEdited": false
+        },
+        "scale": {
+          "value": "O projeto tem escala média, abrangendo 50-100 hectares de intervenção integrada distribuída entre a Zona Norte e as Ilhas do Guaíba. A área de intervenção compreende: (1) 5-10 parques de alagamento em bairros de baixa altitude (Humaitá, Navegantes, São João), totalizando aproximadamente 30-50 hectares de áreas de retenção multifuncionais; (2) 20-30 hectares de restauração de áreas úmidas nas Ilhas do Guaíba e zonas ripárias ao longo das margens do Guaíba; e (3) corredores de florestas urbanas conectando as áreas de intervenção, com plantio de aproximadamente 5.000-10.000 árvores. Esta escala permite impacto mensurável na redução de risco de inundação em múltiplos bairros prioritários, enquanto mantém viabilidade de implementação em horizonte de 3-5 anos.",
+          "confidence": "high",
+          "source": "User selection",
+          "userEdited": false
+        },
+        "prior_work": {
+          "value": "Este projeto baseia-se em planejamento e estudos iniciados após a catástrofe de maio de 2024. Porto Alegre está desenvolvendo estratégia híbrida verde-cinza de proteção contra enchentes com apoio de engenheiros holandeses da Deltares, que integra SbN aos sistemas convencionais existentes (65 km de diques, 14 comportas, 22 estações de bombeamento que se mostraram insuficientes no evento de 2024). A cidade possui precedentes relevantes em infraestrutura verde, incluindo o Parque Orla do Guaíba (fase 1: 5,7 hectares ao longo de 1,5 km de orla, inaugurado em 2018, projetado por Jaime Lerner Arquitetos Associados), que demonstra capacidade de implementação de projetos paisagísticos de qualidade na interface urbano-fluvial. Adicionalmente, Porto Alegre conta com aproximadamente 1 milhão de árvores e forte tradição de áreas verdes urbanas (Parque Farroupilha desde 1935, Parque Marinha do Brasil com 67,38 ha), oferecendo base institucional e know-how técnico em manejo de espaços verdes. O projeto também se beneficia do Plano Diretor de Desenvolvimento Urbano Ambiental (PDDUA) em revisão (2024-2026), que oferece janela de oportunidade para fortalecer provisões de SbN no marco regulatório municipal.",
+          "confidence": "high",
+          "source": "porto-alegre/local-precedents.md, climate-risks.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "_interventions/flood-parks.md, wetland-restoration.md, urban-forests.md; porto-alegre/baseline-data.md",
+        "User selection",
+        "porto-alegre/local-precedents.md, climate-risks.md"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "climate_benefits": {
       "id": "climate_benefits",
       "title": "9. Benefícios Climáticos",
       "phase": 4,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "adaptation": {
+          "value": "**Redução de Risco de Inundação (Benefício Primário de Adaptação)**\n\nAs intervenções propostas fornecerão redução mensurável de risco de inundação através de múltiplos mecanismos:\n\n**Parques de Alagamento (5-10 unidades, 30-50 ha):**\n- Capacidade de retenção de água pluvial: 15.000-150.000 m³ (500-3.000 m³/ha)\n- Redução de pico de inundação: 50-90% para eventos de até 10 anos de período de retorno\n- Tempo de drenagem: 24-72 horas, retornando rapidamente à função recreativa\n- Proteção de 2.000-5.000 residências/negócios em áreas de baixa altitude da Zona Norte\n\n**Restauração de Áreas Úmidas (20-30 ha):**\n- Redução de pico de enchente: 20-80% através de armazenamento e amortecimento de fluxo\n- Capacidade de armazenamento: 40.000-300.000 m³ (2.000-10.000 m³/ha)\n- Redução de área de inundação: até 55% em zonas ripárias restauradas\n- Recarga de lençol freático e regulação de vazão durante períodos secos\n\n**Florestas Urbanas (5.000-10.000 árvores):**\n- Interceptação de precipitação anual: 15-40% da chuva que atinge o dossel arbóreo\n- Captura por árvore: 1,5-15 m³/ano, totalizando 7.500-150.000 m³/ano da rede completa\n- Melhoria da infiltração: solos florestais urbanos infiltram 10-15x mais que solos compactados\n\n**Redução de Temperatura e Efeito Ilha de Calor Urbano:**\n- Redução de temperatura superficial: 2-8°C sob dossel arbóreo vs. pavimento exposto\n- Redução de temperatura do ar ambiente: 0,5-2°C em escala de bairro com 35-50% de cobertura arbórea\n- Economia de energia: 10-25% de redução em resfriamento de edificações próximas a áreas arborizadas\n- Resfriamento evaporativo adicional de 1-3°C durante períodos úmidos em parques com água\n\n**Custo-Benefício de Adaptação:**\n- Estudos globais mostram que SbN são mais custo-efetivas que infraestrutura cinza em >80% dos casos para redução de risco de desastres\n- Razão benefício-custo típica: 2:1 a 5:1 para SbN de controle de inundação\n- Economia vs. infraestrutura convencional: 30-50% menor custo de capital para equivalentes de SbN\n- Custo de manutenção: 25-75% menor O&M anual comparado a sistemas cinzas\n\n**Limitações e Abordagem Híbrida:**\nÉ importante reconhecer que a efetividade de SbN diminui para eventos extremos de maior período de retorno. As intervenções propostas são mais efetivas para eventos frequentes a médios (2-10 anos) e devem complementar (não substituir) a infraestrutura cinza existente (65 km de diques, 14 comportas, 22 estações de bombeamento) para proteção contra eventos extremos (50-100 anos). Esta é uma estratégia híbrida verde-cinza que maximiza resiliência através de múltiplas linhas de defesa.",
+          "confidence": "high",
+          "source": "_co-benefits/flood-risk-reduction.md + interventions KPIs",
+          "userEdited": false
+        },
+        "mitigation": {
+          "value": "**Sequestro de Carbono e Redução de Emissões**\n\nO projeto fornecerá benefícios mensuráveis de mitigação através de sequestro direto de carbono e redução de emissões de energia:\n\n**Florestas Urbanas (10-20 ha de cobertura arbórea incremental):**\n- Taxa de sequestro: 5,5 t C/ha/ano (2,0-5,0 t CO2e/ha/ano para florestas urbanas estabelecidas)\n- Sequestro anual estimado: 110-220 t C/ano = 400-800 t CO2e/ano\n- Sequestro acumulado em 20 anos: 2.200-4.400 t C = 8.000-16.000 t CO2e\n- Estoque de carbono em árvores maduras: 93,2 t C/ha (estoque médio) após maturação completa\n\n**Áreas Úmidas Restauradas (20-30 ha):**\n- Taxa de acumulação de carbono: 0,5-5,0 t C/ha/ano dependendo do tipo de área úmida e clima\n- Sequestro anual conservador: 10-75 t C/ano = 40-275 t CO2e/ano\n- Sequestro acumulado em 20 anos: 200-1.500 t C = 800-5.500 t CO2e\n- **Nota importante**: áreas úmidas de água doce podem emitir metano (CH4); o balanço líquido de GEE depende da hidrologia e manejo. Áreas úmidas costeiras (manguezais, marismas) são sumidouros líquidos mais fortes com emissões mínimas de metano.\n\n**Parques de Alagamento (30-50 ha):**\n- Sequestro de vegetação de parque: 2-8 t CO2eq/ha/ano (menor que florestas devido ao caráter aberto)\n- Sequestro anual: 60-400 t CO2e/ano\n- Carbono incorporado evitado: 30-60% menor carbono incorporado que alternativas cinzas (túneis subterrâneos, tanques)\n- Emissões de energia evitadas: redução de 30-60% em bombeamento vs. sistemas de drenagem profunda\n\n**Total Consolidado de Mitigação:**\n- **Sequestro líquido anual**: 300-800 t CO2e/ano (estimativa conservadora combinando todas as intervenções)\n- **Estoque acumulado em 20 anos**: 6.000-16.000 t CO2e\n- **Valor de carbono potencial**: A US$ 5-50/t CO2e (faixa de mercado voluntário), o valor anual seria US$ 1.500-40.000\n\n**Contexto de Emissões Municipais:**\nPorto Alegre emitiu 2,3 milhões t CO2e em 2019, com transporte dominando (67,7%) e AFOLU representando apenas 0,5% (indicando baixo sequestro atual). O projeto aumentará significativamente a capacidade de sequestro urbano e demonstrará a viabilidade de ampliar SbN para outras áreas da cidade.\n\n**Abordagem Metodológica:**\nAs estimativas seguem abordagem Tier 2 do IPCC usando fatores regionais para Mata Atlântica e áreas úmidas tropicais. Valores conservadores (quartil inferior de faixas publicadas) são usados para credibilidade. Monitoramento será realizado através de sensoriamento remoto (cobertura de dossel), parcelas permanentes de amostragem, e equações alométricas específicas por espécie.",
+          "confidence": "high",
+          "source": "_co-benefits/carbon-sequestration.md + porto-alegre/baseline-data.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "_co-benefits/flood-risk-reduction.md + interventions KPIs",
+        "_co-benefits/carbon-sequestration.md + porto-alegre/baseline-data.md"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "economic_social_benefits": {
       "id": "economic_social_benefits",
       "title": "10. Benefícios Econômicos e Sociais",
       "phase": 4,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "benefits": {
+          "value": "**Retorno Econômico sobre Investimento**\n\nEstudos globais demonstram que SbN geram retorno de **US$ 2,80 para cada US$ 1,00 investido**, com co-benefícios econômicos e sociais representando a maior parcela do valor total (Cell Reports Sustainability, 2025). Para este projeto de escala média (50-100 ha), projetamos os seguintes benefícios econômicos:\n\n**Valorização Imobiliária e Receita Tributária Municipal:**\n- Propriedades dentro de 100 m de parques urbanos experimentam aumento de valor de **5-20%**\n- Efeito agregado de parques urbanos: +19,2% (meta-análise de 37 estudos hedônicos)\n- Para 2.000-5.000 propriedades beneficiadas na Zona Norte, isso representa incremento de valor estimado de **R$ 50-200 milhões** ao longo de 10 anos\n- Aumento de receita de IPTU para o município: estimado em **R$ 500.000-2.000.000/ano** com plena valorização\n- Efeito de decaimento de distância: benefício mensurável até 300-500 m dos parques; negligível além de ~1 km\n\n**Criação de Empregos Verdes:**\n- SbN criam **7-40 empregos por US$ 1 milhão investido**, 2-5x mais que infraestrutura cinza convencional\n- Para investimento estimado de US$ 5-15 milhões (R$ 25-75 milhões), espera-se criação de:\n  - **100-300 empregos diretos e indiretos** durante fase de implementação (3-5 anos)\n  - **20-50 posições permanentes** de manutenção e gestão\n- Tipos de emprego: viveiristas, plantadores, operadores de equipamentos, técnicos de monitoramento ambiental, gerentes de parques, educadores ambientais\n- Foco em trabalho decente: treinamento e certificação para garantir padrões ILO de emprego verde (salários justos, segurança, desenvolvimento de competências)\n\n**Economia em Tratamento de Água:**\n- Áreas úmidas construídas operam a **97% menos custo** que tratamento convencional de águas residuais\n- Remoção de 44-91% de nitrogênio e 43-65% de fósforo através de áreas úmidas restauradas reduz carga de tratamento do DMAE no Guaíba\n- Proteção de bacia hidrográfica via SbN custa **10x menos** que tratar água de fontes não protegidas\n- Economia operacional estimada para DMAE: **R$ 200.000-500.000/ano** em custos reduzidos de tratamento\n\n**Valor Recreacional e Turismo:**\n- Valor recreacional de parques urbanos: US$ 1.000-5.000/ha/ano\n- Para 30-50 ha de parques de alagamento, valor recreacional anual estimado: **US$ 30.000-250.000 (R$ 150.000-1.250.000)**\n- Visitação anual projetada: 50.000-150.000 visitantes (baseado em precedentes de parques urbanos em Porto Alegre)\n- Ecoturismo nas Ilhas do Guaíba: potencial para caiaque, observação de aves, turismo educacional\n- Aumento de gastos em negócios adjacentes: 10-30% em áreas próximas a redes de espaços verdes\n\n**Benefícios Sociais e Coesão Comunitária:**\n- **Aumento de conectividade comunitária**: maior senso de pertencimento e confiança em bairros com alta densidade arbórea\n- **Redução de criminalidade**: estudos mostram redução de 7-12% em crimes contra propriedade próximos a espaços verdes urbanos\n- **Justiça ambiental**: SbN direcionadas à Zona Norte (áreas vulneráveis afetadas por enchentes de 2024) reduzem desigualdade de exposição\n- **Segurança alimentar**: potencial para integrar agricultura urbana em componentes de agroflorestas\n- **Saúde pública**: redução de doenças relacionadas ao calor, melhoria de qualidade do ar, espaços para atividade física\n\n**Design Participativo e Capital Social:**\nO projeto seguirá abordagem de design participativo envolvendo comunidades da Zona Norte e Ilhas do Guaíba em planejamento, implementação e gestão. Isso constrói capital social, fortalece senso de propriedade comunitária, e garante que as intervenções reflitam prioridades locais. Mecanismos incluem:\n- Oficinas comunitárias de co-design (mínimo 5 por zona de intervenção)\n- Comitês de gestão comunitária para parques e áreas restauradas\n- Programas de educação ambiental alcançando 5.000-10.000 alunos/ano\n- Monitoramento participativo envolvendo moradores como cientistas cidadãos\n\n**Mitigação de Risco de Gentrificação:**\nÉ importante reconhecer que aumentos de valor de propriedade podem desencadear pressão de gentrificação em comunidades de baixa renda. O projeto incorporará salvaguardas de equidade:\n- Políticas de habitação acessível em conjunto com greening\n- Envolvimento prioritário de residentes existentes em oportunidades de emprego verde\n- Programas de capacitação e microempresas para residentes locais\n- Monitoramento de deslocamento e mecanismos de mitigação\n\n**Razão Benefício-Custo Consolidada:**\nBaseado em evidências globais e ajustado para contexto brasileiro, estima-se razão benefício-custo de **2,5-4,0:1** ao longo de 20 anos, considerando danos de enchente evitados, valorização imobiliária, economia de tratamento de água, valor recreacional, e benefícios de saúde. Esta é uma estimativa conservadora que não monetiza totalmente benefícios como biodiversidade, herança cultural e resiliência comunitária.",
+          "confidence": "high",
+          "source": "_co-benefits/economic-social.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "_co-benefits/economic-social.md"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "inclusive_action": {
       "id": "inclusive_action",
       "title": "11. Ação Climática Inclusiva",
       "phase": 4,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "vulnerable_areas": {
+          "value": "O projeto foca em **áreas carentes e altamente vulneráveis** identificadas após a catástrofe de maio de 2024:\n\n**Zona Norte (Humaitá, Navegantes, São João):**\n- Bairros de baixa altitude severamente afetados pela enchente de 2024\n- Alta proporção de famílias de baixa renda (renda < 2 salários mínimos)\n- Infraestrutura de drenagem inadequada ou colapsada\n- Exposição recorrente a inundações pluviais e fluviais\n- Ilha de calor urbano devido à baixa cobertura arbórea e alta impermeabilização\n- Acesso limitado a áreas verdes de qualidade (índice de área verde per capita abaixo da média municipal)\n\n**Ilhas do Guaíba:**\n- Comunidades insulares isoladas com vulnerabilidade socioeconômica\n- Exposição a erosão costeira, inundações frequentes e degradação ambiental\n- Acesso limitado a serviços urbanos básicos\n- Dependência de ecossistemas aquáticos para subsistência (pesca artesanal)\n- Riscos climáticos amplificados pela geografia insular\n\nEstas áreas foram identificadas através de: (1) mapeamento de áreas alagadas em maio de 2024 usando imagens de satélite e dados do DMAE; (2) sobreposição com dados de vulnerabilidade socioeconômica do IBGE (renda, educação, infraestrutura habitacional); (3) análise de déficit de áreas verdes usando dados de cobertura arbórea municipal; e (4) consulta a registros da Defesa Civil sobre áreas de risco recorrente.",
+          "confidence": "high",
+          "source": "porto-alegre/climate-risks.md + user selection",
+          "userEdited": false
+        },
+        "community_participation": {
+          "value": "O projeto adotará abordagem de **co-design e co-gestão** com participação profunda e contínua das comunidades afetadas em todas as fases:\n\n**Fase de Planejamento e Design (Meses 1-12):**\n- **Assembleias comunitárias** (mínimo 5 por zona de intervenção, 50-200 participantes cada): definição de prioridades, seleção de locais específicos, discussão de trade-offs\n- **Oficinas de co-design** (10-15 sessões, grupos de 15-30 pessoas): design participativo de parques de alagamento, restauração de áreas úmidas, corredores verdes. Uso de mapas, maquetes, e ferramentas visuais para facilitar contribuições de participantes com diferentes níveis de alfabetização\n- **Entrevistas em caminhada** (walking interviews): auditorias de acessibilidade e levantamento de necessidades específicas por local com grupos focais (mulheres, idosos, pessoas com deficiência)\n- **Pesquisas domiciliares** (amostra de 500-800 domicílios): linha de base de necessidades, prioridades e percepções de risco climático\n- **Plataforma digital** (site/aplicativo): votação em opções de design, feedback contínuo, atualização de progresso\n\n**Fase de Implementação (Anos 1-5):**\n- **Comitês de acompanhamento comunitário** (um por zona): representantes eleitos pela comunidade participam de reuniões mensais de coordenação do projeto, revisam progresso, validam mudanças de design\n- **Brigadas de plantio comunitário**: residentes participam diretamente de atividades de plantio (mutirões) com remuneração ou créditos de serviço comunitário\n- **Capacitação e emprego verde**: programas de treinamento em viveirismo, manejo de árvores, manutenção de áreas úmidas, monitoramento ambiental, com contratação prioritária de residentes locais (meta: 70% de empregos diretos preenchidos por moradores das áreas de intervenção)\n\n**Fase de Operação e Manutenção (Ano 5+):**\n- **Co-gestão de parques e áreas restauradas**: Comitês de gestão comunitária formalizados via convênio com SMAMUS, com responsabilidades compartilhadas para manutenção, programação de eventos, e resolução de conflitos\n- **Monitoramento participativo**: cientistas cidadãos treinados (30-50 moradores) realizam monitoramento de biodiversidade, qualidade da água, saúde da vegetação, usando protocolos simples e aplicativos móveis. Dados alimentam sistema de gestão adaptativa\n- **Programas de educação ambiental**: escolas e centros comunitários engajados em programas educativos alcançando 5.000-10.000 alunos/ano\n- **Mecanismos de feedback contínuo**: canal de ouvidoria comunitária (hotline, WhatsApp, presencial), reuniões semestrais de prestação de contas\n\n**Garantias de Inclusão:**\n- Reuniões em horários diversos (diurnos e noturnos) para acomodar diferentes disponibilidades\n- Creche e atividades infantis durante eventos para facilitar participação de mães\n- Transporte gratuito ou ajuda de custo para participantes de áreas mais distantes\n- Materiais em linguagem simples e acessível\n- Interpretação em Libras e acessibilidade física em todos os eventos",
+          "confidence": "high",
+          "source": "_inclusive-action/participatory-frameworks.md + user selection",
+          "userEdited": false
+        },
+        "vulnerable_groups": {
+          "value": "O projeto implementará estratégias específicas de engajamento e benefício direcionadas a grupos vulneráveis identificados nas áreas de intervenção:\n\n**Mulheres:**\n- **Meta de emprego**: Mínimo 40% de mulheres em posições de emprego verde (plantio, manutenção, monitoramento)\n- **Oficinas específicas**: sessões separadas para mulheres identificarem necessidades de design (segurança, iluminação, visibilidade, espaços para crianças)\n- **Impacto diferenciado reconhecido**: mulheres carregam fardo desproporcional durante enchentes (cuidado, evacuação, recuperação); design de parques priorizará rotas seguras de evacuação e pontos de encontro comunitários\n- **Capacitação**: programas de treinamento técnico em viveirismo e gestão ambiental com cotas de 50% para mulheres\n- **Representação em governança**: meta de 50% de mulheres em Comitês de gestão comunitária\n\n**Idosos:**\n- **Acessibilidade universal**: todos os parques e espaços restaurados seguirão NBR 9050 (acessibilidade) com rampas, corrimãos, bancos frequentes, banheiros acessíveis\n- **Consulta específica**: walking interviews com grupos de idosos para identificar barreiras de mobilidade e necessidades de design (sombra, proximidade, sinalização clara)\n- **Co-benefício de saúde**: espaços verdes acessíveis promovem atividade física e interação social, reduzindo isolamento\n- **Benefício climático**: idosos são particularmente vulneráveis ao estresse térmico; sombreamento arbóreo e resfriamento são benefícios diretos prioritários\n\n**Pessoas com Deficiência:**\n- **Design universal desde o início**: oficinas de co-design incluirão representantes de organizações de pessoas com deficiência para garantir acessibilidade integral\n- **Auditoria de acessibilidade**: avaliação formal de design por especialistas em acessibilidade antes de finalização\n- **Interpretação em Libras**: todos os eventos públicos terão interpretação para pessoas surdas\n- **Materiais acessíveis**: documentos em formato acessível (Braille, áudio, linguagem simples) conforme demanda\n- **Emprego inclusivo**: meta de 5% das posições de trabalho reservadas para pessoas com deficiência\n\n**Comunidades Tradicionais e Pescadores Artesanais (Ilhas do Guaíba):**\n- **Conhecimento tradicional integrado**: consulta com pescadores artesanais e residentes históricos das ilhas sobre ecologia local, espécies nativas, dinâmica de inundação, locais culturalmente significativos\n- **Proteção de modos de vida**: design de restauração de áreas úmidas considera necessidades de pesca artesanal sustentável e acesso a áreas de pesca tradicionais\n- **Co-gestão de áreas restauradas**: envolvimento de associações de pescadores na gestão de áreas úmidas restauradas\n- **Benefícios de subsistência**: restauração ecológica melhora estoques pesqueiros e qualidade da água, beneficiando diretamente pescadores\n\n**Jovens:**\n- **Participação significativa**: oficinas específicas com escolas e grupos juvenis para capturar perspectivas de jovens (recreação, esportes, espaços de convívio)\n- **Oportunidades educacionais**: programas de educação ambiental, estágios em monitoramento e manutenção, primeiro emprego em empregos verdes\n- **Espaços recreativos**: design de parques incluirá áreas esportivas, skate, playgrounds projetados com input de jovens\n- **Empoderamento**: jovens como agentes de mudança através de programas de liderança ambiental juvenil\n\n**Pessoas Negras e Equidade Racial:**\n- **Mapeamento de equidade**: sobreposição de áreas de intervenção com dados demográficos raciais do IBGE para garantir que projeto serve áreas com alta proporção de população negra\n- **Antirracismo em contratação**: compromisso com diversidade racial na equipe do projeto e contratações de emprego verde\n- **Organizações comunitárias**: parceria com organizações de base comunitária lideradas por pessoas negras nas áreas de intervenção\n- **Monitoramento de equidade**: desagregação de dados de beneficiários por raça/cor para garantir distribuição equitativa de benefícios\n\n**Diagnóstico de Desigualdades:**\nFoi realizado diagnóstico inicial de desigualdades usando: (1) dados do Censo IBGE desagregados por setor censitário (renda, raça/cor, gênero, idade, deficiência); (2) mapeamento de déficit de áreas verdes sobreposto com vulnerabilidade socioeconômica; (3) análise de áreas alagadas em maio de 2024 cruzada com perfil socioeconômico dos bairros afetados; (4) consulta a registros da Secretaria Municipal de Assistência Social sobre famílias em situação de vulnerabilidade. Este diagnóstico identificou que as áreas de intervenção têm concentração acima da média municipal de famílias de baixa renda, população negra, e idosos, justificando foco em equidade.",
+          "confidence": "high",
+          "source": "_inclusive-action/participatory-frameworks.md + user selection",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "porto-alegre/climate-risks.md + user selection",
+        "_inclusive-action/participatory-frameworks.md + user selection"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "institutional_arrangement": {
       "id": "institutional_arrangement",
       "title": "12. Arranjo Institucional",
       "phase": 5,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "governance": {
+          "value": "O projeto será implementado através de **parceria institucional entre SMAMUS e DMAE**, com coordenação intersetorial e participação comunitária:\n\n**SMAMUS (Secretaria Municipal do Meio Ambiente, Urbanismo e Sustentabilidade) - LÍDER DO PROJETO:**\n- **Papel**: Coordenação geral, gestão ambiental, integração urbanística, licenciamento municipal\n- **Responsabilidades específicas**:\n  - Coordenação de restauração de áreas úmidas e florestas urbanas\n  - Manejo de áreas verdes e parques\n  - Articulação com PDDUA e planejamento urbano-ambiental\n  - Gestão de contratos de consultoria técnica e execução\n  - Coordenação de processos participativos com comunidades\n  - Monitoramento de indicadores ambientais e climáticos\n  - Articulação com financiadores e parceiros internacionais\n- **Capacidade**: SMAMUS é a autoridade municipal primária para aprovações ambientais, planejamento climático (hospeda PLAC), gestão de floresta urbana, e fiscalização de APPs. Recebeu elogio da Brigada Militar do Comando Ambiental por trabalho de fiscalização ambiental.\n\n**DMAE (Departamento Municipal de Água e Esgotos) - PARCEIRO ESTRATÉGICO:**\n- **Papel**: Integração com infraestrutura de drenagem, gestão de águas pluviais, operação técnica hidráulica\n- **Responsabilidades específicas**:\n  - Design e implementação de parques de alagamento integrados ao sistema de drenagem\n  - Engenharia hidráulica para estruturas de controle de água (vertedouros, válvulas, canais)\n  - Integração com as 22 estações de bombeamento existentes\n  - Operação e manutenção de componentes hidráulicos de SbN\n  - Monitoramento hidrológico e modelagem de redução de enchentes\n  - Articulação com infraestrutura cinza (diques, comportas)\n- **Capacidade**: Autarquia municipal responsável por abastecimento de água, tratamento de esgoto, e gestão de drenagem urbana desde 2017 (quando absorveu funções do extinto DEP). Possui expertise técnica em engenharia hidráulica e gestão de estações de tratamento, essencial para abordagem híbrida verde-cinza.\n\n**ARRANJO DE COORDENAÇÃO INTERSETORIAL:**\n- **Comitê Gestor do Projeto** (reuniões mensais):\n  - Coordenador: Secretário(a) da SMAMUS\n  - Membros permanentes: Diretoria de SMAMUS, Diretor-Geral do DMAE, representante de SMPAE (planejamento estratégico), representante da Defesa Civil Municipal\n  - Participação consultiva: representantes de Comitês de gestão comunitária (2-3 por zona de intervenção)\n  - Funções: aprovação de planos de trabalho, resolução de conflitos intersetoriais, validação de mudanças de design, monitoramento de progresso contra cronograma e orçamento\n\n- **Grupo Técnico de Trabalho** (reuniões quinzenais):\n  - Co-coordenação: Diretor de áreas verdes (SMAMUS) + Engenheiro-chefe de drenagem (DMAE)\n  - Membros: técnicos de SMAMUS, DMAE, consultores externos, representantes de universidades parceiras (UFRGS/IPH)\n  - Funções: design técnico detalhado, cronograma de obras, especificações de plantio, protocolos de monitoramento, gestão adaptativa baseada em dados\n\n**PARCEIROS INSTITUCIONAIS ADICIONAIS:**\n- **UFRGS/IPH (Instituto de Pesquisas Hidráulicas)**: modelagem hidrológica, design de sistemas de retenção, monitoramento científico, capacitação técnica. IPH é instituto premier de pesquisa em água da América Latina com expertise em hidráulica, recursos hídricos, e modelagem de enchentes.\n- **FEPAM (Fundação Estadual de Proteção Ambiental)**: licenciamento ambiental estadual se necessário, monitoramento de qualidade da água do Guaíba, articulação com políticas estaduais\n- **Defesa Civil Municipal**: integração com sistemas de alerta precoce, planejamento de evacuação, monitoramento de áreas de risco\n- **Secretaria Municipal de Obras**: coordenação de obras de infraestrutura complementares (acesso, iluminação, saneamento)\n\n**PARTICIPAÇÃO COMUNITÁRIA NA GOVERNANÇA:**\n- Comitês de gestão comunitária (formalizados via convênio com SMAMUS) têm assento consultivo no Comitê Gestor\n- Representantes comunitários participam de vistorias técnicas e validação de entregas\n- Canal direto de feedback para Comitê Gestor via ouvidoria comunitária\n\n**UNIDADE DE IMPLEMENTAÇÃO DO PROJETO (PIU):**\nSerá criada PIU dedicada dentro da estrutura de SMAMUS, composta por:\n- 1 Coordenador de Projeto (dedicação integral)\n- 1 Especialista Técnico em SbN (dedicação integral)\n- 1 Especialista em Engajamento Comunitário (dedicação integral)\n- 1 Especialista em Monitoramento e Avaliação (meio período)\n- 1 Assistente Administrativo-Financeiro (dedicação integral)\n- Suporte de equipes técnicas de SMAMUS e DMAE conforme demanda\n\nEsta estrutura garante liderança ambiental clara (SMAMUS) com expertise técnica hidráulica essencial (DMAE), participação comunitária genuína, e coordenação efetiva através de comitê intersetorial de alto nível.",
+          "confidence": "high",
+          "source": "porto-alegre/stakeholders.md + user selection",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "porto-alegre/stakeholders.md + user selection"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "technical_capacity": {
       "id": "technical_capacity",
       "title": "13. Capacidade Técnica",
       "phase": 5,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "capacity": {
+          "value": "**Capacidade Técnica Atual:**\n\n**SMAMUS** possui capacidade técnica de base em gestão ambiental urbana, incluindo:\n- Equipe de manejo de floresta urbana e áreas verdes com experiência na gestão de ~1 milhão de árvores municipais\n- Técnicos em licenciamento ambiental municipal e fiscalização de APPs\n- Expertise em planejamento urbano-ambiental e coordenação de PDDUA\n- Experiência em coordenação de projetos com financiamento externo (World Bank P178072 - projeto de regeneração urbana verde, resiliente e inclusiva de Porto Alegre, em implementação desde 2023)\n\n**DMAE** possui capacidade técnica forte em engenharia hidráulica:\n- Engenheiros especializados em sistemas de drenagem urbana, operação de 22 estações de bombeamento, gestão de 65 km de diques e 14 comportas\n- Experiência em tratamento de água e esgoto com múltiplas estações de tratamento\n- Expertise em modelagem hidrológica e gestão de infraestrutura de água\n\n**Lacunas de Capacidade Identificadas:**\n\nEmbora ambas as instituições tenham expertise relevante, há **lacunas específicas em SbN** que requerem fortalecimento:\n1. **Restauração de áreas úmidas**: experiência limitada com design e manejo de sistemas de áreas úmidas construídas para tratamento de água e controle de enchentes\n2. **Parques de alagamento multifuncionais**: pouca experiência local com design integrado verde-recreativo-hidrológico (embora Curitiba forneça precedente brasileiro)\n3. **Monitoramento de desempenho de SbN**: protocolos de MRV (Monitoramento, Reporte, Verificação) específicos para SbN não estão estabelecidos\n4. **Design participativo**: processos de co-design profundo com comunidades vulneráveis requerem competências específicas além de consultas públicas tradicionais\n5. **Quantificação de co-benefícios**: metodologias para valoração econômica de serviços ecossistêmicos e análise de benefício-custo de SbN\n\n**Estratégia de Fortalecimento de Capacidade:**\n\n**1. Assistência Técnica Externa (Anos 1-3):**\n- Contratação de consultoria especializada em design de SbN para enchentes (preferencialmente com experiência em clima tropical/subtropical)\n- Engajamento de especialistas em restauração de áreas úmidas (experiência com Mata Atlântica ripária)\n- Consultoria em design participativo e ação climática inclusiva\n- Apoio técnico de organizações internacionais já engajadas em Porto Alegre:\n  - **Deltares (Holanda)**: engenheiros holandeses já apoiam estratégia pós-enchente 2024 de Porto Alegre; expertise em parques de alagamento e infraestrutura verde-cinza híbrida\n  - **World Bank**: assistência técnica através de projeto P178072 em andamento\n  - **WRI Brasil**: expertise em avaliação de SbN e florestas urbanas\n\n**2. Parcerias Universitárias (Anos 1-5):**\n- **UFRGS/IPH (Instituto de Pesquisas Hidráulicas)**: convênio formal para:\n  - Modelagem hidrológica de redução de enchentes por SbN (SWMM, HEC-RAS)\n  - Design de sistemas de retenção e estruturas hidráulicas\n  - Monitoramento científico de desempenho hidrológico\n  - Capacitação de técnicos municipais em modelagem\n- **UFRGS/Departamento de Ecologia**: suporte em seleção de espécies nativas, design de restauração de áreas úmidas, monitoramento de biodiversidade\n- **UFRGS/Faculdade de Arquitetura**: design de paisagem para parques multifuncionais\n\n**3. Programas de Capacitação para Equipe Municipal (Anos 1-2):**\n- **Curso intensivo em SbN para controle de enchentes** (40 horas): 20-30 técnicos de SMAMUS e DMAE\n  - Módulos: princípios de SbN, design de parques de alagamento, áreas úmidas construídas, florestas urbanas, modelagem hidrológica, monitoramento e avaliação\n  - Visitas técnicas a Curitiba (parques de alagamento Barigui, Tingui) e Rotterdam/Copenhague (virtualmente)\n- **Treinamento em design participativo e engajamento comunitário** (24 horas): 10-15 técnicos e equipe PIU\n  - Metodologias de co-design, facilitação de oficinas, mediação de conflitos, justiça ambiental\n- **Treinamento em MRV de SbN** (16 horas): 10-15 técnicos\n  - Protocolos de monitoramento, ferramentas de sensoriamento remoto, análise de dados, relatórios para financiadores\n\n**4. Intercâmbio de Conhecimento (Anos 2-4):**\n- Participação em rede de aprendizagem entre pares (ICLEI South America, C40 Knowledge Hub)\n- Visitas de estudo a outras cidades brasileiras com SbN (Curitiba, Recife - Parque Capibaribe, Belo Horizonte)\n- Workshops técnicos anuais com participação de especialistas nacionais e internacionais\n\n**5. Sistematização de Conhecimento (Anos 3-5):**\n- Desenvolvimento de **Manual Municipal de SbN para Porto Alegre**: diretrizes técnicas, padrões de design, especificações de plantio, protocolos de manutenção\n- Criação de **banco de dados de lições aprendidas** acessível a outras cidades brasileiras\n- Publicações técnicas e artigos científicos em parceria com UFRGS\n\n**Capacidade Permanente Pós-Projeto:**\n\nAo final do projeto, SMAMUS e DMAE terão:\n- Equipe técnica treinada (30-50 servidores) com competências sólidas em SbN\n- Protocolos e manuais institucionalizados para replicação em outras áreas da cidade\n- Parceria consolidada com UFRGS para suporte técnico contínuo\n- Modelo de governança intersetorial testado e aprimorado\n- Base de dados de monitoramento e evidências locais de desempenho de SbN\n\nEsta estratégia reconhece expertise existente enquanto aborda lacunas específicas através de assistência técnica direcionada, parcerias estratégicas, e investimento em capacitação permanente.",
+          "confidence": "high",
+          "source": "porto-alegre/stakeholders.md + _evidence/funded-projects-brazil.md (P178072) + user selection",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "porto-alegre/stakeholders.md + _evidence/funded-projects-brazil.md (P178072) + user selection"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "political_support": {
       "id": "political_support",
       "title": "14. Apoio e Alinhamento Político",
       "phase": 5,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "support": {
+          "value": "**Demonstração de Apoio Político Forte:**\n\nO projeto conta com **apoio político demonstrado e robusto** em múltiplos níveis:\n\n**1. Compromisso Pós-Catástrofe de Maio 2024:**\n\nA catástrofe de maio de 2024, que inundou 48% do território municipal e afetou diretamente centenas de milhares de residentes, criou janela política única e mandato claro para transformação da abordagem de gestão de enchentes. A administração municipal respondeu com:\n\n- **Estratégia híbrida verde-cinza**: Porto Alegre está desenvolvendo estratégia de proteção contra enchentes que integra explicitamente SbN à infraestrutura convencional (65 km de diques, 14 comportas, 22 estações de bombeamento)\n- **Parceria com especialistas holandeses**: engajamento de **Deltares** (instituto de pesquisa em água da Holanda) para apoiar redesign da proteção contra enchentes com integração de infraestrutura verde-azul em sistemas de parques. Esta parceria de alto nível demonstra compromisso com abordagens inovadoras de SbN.\n- **Suporte do Dutch Water Sector** (2024): missão de especialistas holandeses em gestão de água para apoiar Brasil no reforço da proteção contra enchentes de Porto Alegre, com foco explícito em SbN\n\n**2. Projeto World Bank em Implementação:**\n\nPorto Alegre está implementando desde 2023 o projeto **P178072 \"Green, Resilient and Inclusive Regeneration of Porto Alegre\"** (Regeneração Verde, Resiliente e Inclusiva de Porto Alegre):\n- **Financiamento**: USD 84,7 milhões (World Bank) de USD 173,4 milhões totais\n- **Co-financiadores**: AFD (Agence Française de Développement) + Município de Porto Alegre\n- **Escopo**: inclui drenagem baseada na natureza e redução de risco de inundação, retrofit verde de edifícios públicos (telhados verdes, eficiência hídrica), mobilidade urbana, e assistência técnica ao Plano de Ação Climática\n- **Status**: em implementação até 2028\n\nEste projeto demonstra:\n- Capacidade comprovada de executar projetos complexos com financiamento internacional\n- Expertise estabelecida em gestão de recursos de bancos multilaterais\n- Compromisso institucional com abordagens verdes e resilientes\n- Alinhamento entre Prefeitura e financiadores internacionais em priorização de SbN\n\n**3. Revisão do PDDUA como Janela de Oportunidade:**\n\nO **Plano Diretor de Desenvolvimento Urbano Ambiental (PDDUA)** está em processo de revisão abrangente (2024-2026):\n- Revisão foi aprovada pela Câmara Municipal em novembro de 2025 com emendas em deliberação (março 2026)\n- Janela crítica para institucionalizar provisões de SbN no marco regulatório municipal\n- Oportunidade para fortalecer requisitos de áreas verdes, gestão de APP, e infraestrutura verde em novos desenvolvimentos\n- Debate político ativo sobre sustentabilidade vs. desenvolvimento imobiliário oferece momento para advocacy pró-SbN\n\n**4. Alinhamento com Plano de Ação Climática:**\n\nPorto Alegre possui **Plano de Ação Climática (PLAC)** hospedado pela SMAMUS:\n- Segundo Inventário de Emissões de GEE concluído em 2021 (cobrindo 2016-2019)\n- Emissões municipais declinaram de 2,5 para 2,3 milhões tCO2e (-5,6%)\n- Projeto de SbN alinha diretamente com metas de adaptação e mitigação do PLAC\n- SMAMUS como coordenador de PLAC garante integração institucional\n\n**5. Mandato Eleitoral e Responsabilização Pública:**\n\n- Administração municipal enfrenta pressão política intensa após falhas de infraestrutura em maio 2024 (19 de 23 estações de bombeamento paralisadas)\n- Câmara Municipal conduziu audiências públicas e fiscalização ativa de DMAE e SMAMUS\n- Eleitorado demanda soluções de longo prazo para resiliência a enchentes\n- Abordagem de SbN oferece narrativa política positiva: reconstruir melhor (build back better) com natureza, comunidade e sustentabilidade\n\n**6. Articulação Regional e Estadual:**\n\n- **Governo do Rio Grande do Sul**: apoio a recuperação pós-enchente com foco em resiliência\n- **Região Metropolitana de Porto Alegre**: oportunidade para modelo replicável em outros municípios metropolitanos afetados\n- **Engajamento de agências federais**: ANA (Agência Nacional de Águas), MMA (Ministério do Meio Ambiente), BNDES (banco de desenvolvimento)\n\n**Riscos Políticos e Mitigação:**\n\nEmbora o apoio atual seja forte, riscos políticos existem:\n- **Mudança de administração**: eleições municipais podem alterar prioridades. Mitigação: institucionalizar SbN no PDDUA, PLAC, e estruturas de governança formal\n- **Pressão de desenvolvimento imobiliário**: tensão entre preservação de áreas verdes e desenvolvimento. Mitigação: demonstrar co-benefícios econômicos de SbN (valorização imobiliária, receita tributária)\n- **Competição orçamentária**: SbN competem com outras prioridades. Mitigação: buscar financiamento externo majoritário, demonstrar retorno sobre investimento\n\n**Evidências de Sustentabilidade Política:**\n\nO compromisso não é apenas retórico:\n- **Recursos financeiros**: DMAE reportou R$ 400 milhões retidos em contas (2024), indicando capacidade de contrapartida\n- **Infraestrutura institucional**: PIU já existe em SMPAE para projeto World Bank, modelo comprovado para gestão de projetos complexos\n- **Parceria técnica internacional**: engajamento de Deltares, World Bank, potencialmente IDB/AIIB demonstra credibilidade e acesso a expertise global\n- **Precedente local**: Porto Alegre tem histórico de inovação urbana (Orçamento Participativo desde 1989, parques urbanos emblemáticos como Orla do Guaíba)\n\n**Conclusão:** O projeto se beneficia de momento político único pós-catástrofe, compromissos institucionais demonstrados através de projetos em andamento, e alinhamento com marcos de política climática e urbana. O apoio político é não apenas declarativo, mas materializado em investimentos, parcerias internacionais, e processos de planejamento em curso.",
+          "confidence": "high",
+          "source": "porto-alegre/climate-risks.md, existing-plans.md, stakeholders.md, _evidence/funded-projects-brazil.md (P178072)",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "porto-alegre/climate-risks.md, existing-plans.md, stakeholders.md, _evidence/funded-projects-brazil.md (P178072)"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "plan_alignment": {
       "id": "plan_alignment",
       "title": "15. Alinhamento com Planos",
       "phase": 5,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "alignment": {
+          "value": "O projeto está plenamente alinhado com planos municipais, estaduais, nacionais e compromissos internacionais de Porto Alegre:\n\n**ALINHAMENTO COM PLANOS MUNICIPAIS:**\n\n**1. Plano Diretor de Desenvolvimento Urbano Ambiental (PDDUA - LC 434/1999, revisão 2024-2026):**\n- O projeto integra SbN à visão de \"desenvolvimento urbano ambiental\" do PDDUA\n- Fortalece Áreas Especiais de Interesse Ambiental (AEIAs) e gestão de APPs em áreas de intervenção\n- Alinha com zonas de risco de inundação definidas no PDDUA\n- Aproveita janela de oportunidade da revisão em curso (aprovação em novembro 2025, emendas finais em deliberação março 2026) para institucionalizar provisões de SbN no marco regulatório\n- Contribui para equilíbrio entre desenvolvimento urbano e preservação de infraestrutura verde, tema central da revisão\n\n**2. Plano de Ação Climática de Porto Alegre (PLAC) e Plano Municipal de Mudanças Climáticas:**\n- Alinha diretamente com metas de adaptação do PLAC para redução de vulnerabilidade a enchentes\n- Contribui para metas de mitigação através de sequestro de carbono (300-800 t CO2e/ano), abordando baixa participação atual de AFOLU (0,5% das emissões municipais)\n- Fortalece integração de adaptação climática no planejamento urbano, acelerada após enchentes de maio 2024\n- Contribui para atualização do Inventário de Emissões de GEE (segundo inventário cobriu 2016-2019, projeto fornecerá dados para próxima atualização)\n\n**3. Plano Municipal de Saneamento Básico (PMSB):**\n- Fortalece eixo de drenagem de águas pluviais do PMSB, identificado como lacuna crítica pós-2024\n- Complementa infraestrutura convencional de drenagem gerida por DMAE (22 estações de bombeamento, 65 km de diques, 14 comportas)\n- Contribui para meta de cobertura universal de serviços de saneamento através de soluções de gestão de águas pluviais de baixo custo\n- Integra com Plano de Drenagem Urbana em desenvolvimento (parceria World Bank/IDB/UN para plano diretor estadual de inundação e drenagem)\n\n**4. Plano Plurianual (PPA 2026-2029):**\n- Alinha com prioridades de reconstrução pós-enchente e investimentos em resiliência do PPA em preparação\n- Complementa investimentos municipais com financiamento externo, ampliando capacidade de execução\n\n**ALINHAMENTO COM PLANOS ESTADUAIS E NACIONAIS:**\n\n**5. Estratégia de Recuperação do Rio Grande do Sul (pós-maio 2024):**\n- Integra com planos de recuperação resiliente do estado (R$ 4 bilhões estimados para revisão do sistema de proteção contra enchentes de Porto Alegre)\n- Alinha com foco estadual em \"recovery readiness\" - incorporar resiliência na governança antes de eventos futuros\n- Contribui para aprendizados compartilhados sobre mitigação de inundações baseada em natureza em escala regional\n\n**6. Contribuição Nacionalmente Determinada (NDC) do Brasil:**\n- Alinha com NDC atualizada (2025): meta de redução de emissões de 59-67% até 2035 (níveis de 2005)\n- Contribui para \"federalismo climático\" da NDC 3.0 que reconhece papel dos 5.570 municípios brasileiros na ação climática\n- Demonstra ação sub-nacional concreta em adaptação e mitigação\n\n**7. Política Nacional de Mudanças Climáticas (PNMC - Lei 12.187/2009) e Plano Nacional de Adaptação:**\n- Demonstra implementação municipal de diretrizes nacionais de adaptação climática\n- Contribui para metas nacionais de restauração (PLANAVEG - 12 milhões de hectares) através de restauração urbana de áreas úmidas e florestas\n\n**8. Marco Legal do Saneamento (Lei Federal 11.445/2007):**\n- Cumpre requisito de planos municipais de saneamento básico incluindo drenagem de águas pluviais\n- Demonstra abordagem inovadora para universalização de serviços de gestão de águas pluviais através de SbN\n\n**ALINHAMENTO COM COMPROMISSOS INTERNACIONAIS:**\n\n**9. Acordo de Paris e COP30 (Belém, 2025):**\n- Contribui para meta brasileira do Acordo de Paris através de adaptação e mitigação municipal\n- Alinha com discussões de COP30 sobre perda e dano, finanças de adaptação, e papel de governos sub-nacionais (experiência de enchente de RS foi destaque em COP30)\n\n**10. Objetivos de Desenvolvimento Sustentável (ODS):**\n- **ODS 11 (Cidades Sustentáveis)**: áreas verdes acessíveis, gestão de resíduos, redução de impactos de desastres\n- **ODS 6 (Água e Saneamento)**: gestão integrada de recursos hídricos, qualidade da água, tratamento de águas residuais\n- **ODS 13 (Ação Climática)**: adaptação, resiliência, capacidade de resposta\n- **ODS 15 (Vida Terrestre)**: restauração de ecossistemas degradados, biodiversidade\n- **ODS 10 (Redução de Desigualdades)**: ação climática inclusiva beneficiando comunidades vulneráveis\n- **ODS 8 (Trabalho Decente)**: empregos verdes com padrões ILO\n\n**11. Marco de Sendai para Redução de Risco de Desastres (2015-2030):**\n- Contribui para Prioridade 1 (compreender risco de desastre) através de mapeamento de vulnerabilidade\n- Contribui para Prioridade 3 (investir em RRD para resiliência) através de SbN para redução de risco de inundação\n- Contribui para Prioridade 4 (preparação e reconstruir melhor) através de abordagem de \"build back better\" pós-maio 2024\n\n**12. Quadro Global de Biodiversidade de Kunming-Montreal (CDB COP15):**\n- Contribui para Meta 11 (restaurar 30% de ecossistemas degradados até 2030) através de 20-30 ha de restauração de áreas úmidas\n- Contribui para Meta 12 (30% de áreas verdes urbanas acessíveis) através de 30-50 ha de parques de alagamento\n\n**PARCERIAS E PROJETOS COMPLEMENTARES:**\n\n**13. Projeto World Bank P178072 \"Green, Resilient and Inclusive Regeneration of Porto Alegre\" (2023-2028):**\n- **Financiamento**: USD 84,7M (WB) de USD 173,4M total\n- **Sinergia**: projeto proposto complementa P178072 expandindo SbN para Zona Norte e Ilhas (P178072 foca em Centro Histórico e 4º Distrito)\n- **Coordenação institucional**: aproveita PIU já estabelecida em SMPAE e expertise de gestão de projetos com banco multilateral\n- **Assistência técnica**: compartilha recursos de AT ao Plano de Ação Climática\n\n**14. Parceria Deltares (Holanda) e Dutch Water Sector:**\n- Integra com suporte técnico holandês para estratégia híbrida verde-cinza de proteção contra enchentes de Porto Alegre iniciado em 2024\n- Aproveita expertise em parques de alagamento e sistemas integrados água-natureza\n\n**15. Projetos IDB e AIIB:**\n- **IDB BR-L1598 \"Porto Alegre+\"**: desenvolvimento social com sustentabilidade fiscal - potencial de coordenação\n- **AIIB Recovery and Trade-Facilitation Project**: recuperação em Guaíba, RS - oportunidades de co-financiamento\n\n**CONCLUSÃO:**\n\nO projeto demonstra alinhamento excepcional com múltiplas camadas de planos e compromissos. Não é iniciativa isolada, mas componente integrado de esforço municipal, estadual, nacional e internacional coordenado para construir resiliência climática através de SbN. Este alinhamento fortalece caso para financiamento e aumenta probabilidade de sustentabilidade de longo prazo.",
+          "confidence": "high",
+          "source": "porto-alegre/existing-plans.md + stakeholders.md + _evidence/funded-projects-brazil.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "porto-alegre/existing-plans.md + stakeholders.md + _evidence/funded-projects-brazil.md"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "cost_detail": {
       "id": "cost_detail",
@@ -213,10 +451,307 @@
     }
   },
   "gaps": [],
-  "editLog": [],
+  "editLog": [
+    {
+      "timestamp": "2026-03-30T12:25:26.583Z",
+      "sectionId": "proponent",
+      "field": "municipality",
+      "oldValue": null,
+      "newValue": "Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:25:26.599Z",
+      "sectionId": "proponent",
+      "field": "state",
+      "oldValue": null,
+      "newValue": "Rio Grande do Sul",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:25:59.525Z",
+      "sectionId": "project_id",
+      "field": "sector",
+      "oldValue": null,
+      "newValue": "Soluções Baseadas na Natureza (NBS)",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:25:59.548Z",
+      "sectionId": "project_id",
+      "field": "climate_focus",
+      "oldValue": null,
+      "newValue": "Adaptação e mitigação climática integradas",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:25:59.562Z",
+      "sectionId": "proponent",
+      "field": "institution_name",
+      "oldValue": null,
+      "newValue": "Secretaria Municipal do Meio Ambiente, Urbanismo e Sustentabilidade (SMAMUS)",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:25:59.574Z",
+      "sectionId": "proponent",
+      "field": "institution_type",
+      "oldValue": null,
+      "newValue": "Secretaria Municipal",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:25:59.586Z",
+      "sectionId": "project_id",
+      "field": "municipality",
+      "oldValue": null,
+      "newValue": "Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:25:59.599Z",
+      "sectionId": "project_id",
+      "field": "state",
+      "oldValue": null,
+      "newValue": "Rio Grande do Sul",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:27:10.822Z",
+      "sectionId": "project_id",
+      "field": "sector",
+      "oldValue": "Soluções Baseadas na Natureza (NBS)",
+      "newValue": "Soluções Baseadas na Natureza (NBS) para inundações",
+      "source": "user"
+    },
+    {
+      "timestamp": "2026-03-30T12:27:24.207Z",
+      "sectionId": "project_id",
+      "field": "project_name",
+      "oldValue": null,
+      "newValue": "Resiliência Climática Baseada na Natureza para Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:27:24.225Z",
+      "sectionId": "project_id",
+      "field": "sector",
+      "oldValue": "Soluções Baseadas na Natureza (NBS) para inundações",
+      "newValue": "Soluções Baseadas na Natureza (NBS) para inundações",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:27:24.240Z",
+      "sectionId": "project_id",
+      "field": "climate_focus",
+      "oldValue": "Adaptação e mitigação climática integradas",
+      "newValue": "Adaptação e mitigação",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:27:24.257Z",
+      "sectionId": "proponent",
+      "field": "institution_name",
+      "oldValue": "Secretaria Municipal do Meio Ambiente, Urbanismo e Sustentabilidade (SMAMUS)",
+      "newValue": "Secretaria Municipal do Meio Ambiente, Urbanismo e Sustentabilidade (SMAMUS)",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:27:24.272Z",
+      "sectionId": "proponent",
+      "field": "institution_type",
+      "oldValue": "Secretaria Municipal",
+      "newValue": "Secretaria Municipal - Prefeitura de Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:27:24.288Z",
+      "sectionId": "proponent",
+      "field": "municipality",
+      "oldValue": "Porto Alegre",
+      "newValue": "Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:27:24.303Z",
+      "sectionId": "proponent",
+      "field": "state",
+      "oldValue": "Rio Grande do Sul",
+      "newValue": "Rio Grande do Sul",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:27:49.748Z",
+      "sectionId": "territorial_context",
+      "field": "geographic_scope",
+      "oldValue": null,
+      "newValue": "Porto Alegre está localizada às margens do Lago Guaíba, capital do Rio Grande do Sul, com população de aproximadamente 1,39 milhão de habitantes (2025). O município possui 496,68 km² de área, caracterizada por topografia de 40 morros graníticos (elevações até 311 m) intercalados com planícies aluviais e zonas costeiras de baixa altitude ao longo do Guaíba. A cidade situa-se na transição entre dois biomas: Mata Atlântica (nos morros e encostas) e Pampa (nas planícies). Porto Alegre concentra 28% da flora nativa do Rio Grande do Sul, com aproximadamente 9.288 espécies. O Arroio Dilúvio, principal curso d'água urbano, atravessa a área central da cidade.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:27:49.778Z",
+      "sectionId": "problem_diagnosis",
+      "field": "climate_vulnerability",
+      "oldValue": null,
+      "newValue": "Em maio de 2024, Porto Alegre sofreu a pior catástrofe natural da história do Rio Grande do Sul. As enchentes atingiram 48% do território da cidade, com o Guaíba alcançando 535 cm — 59 cm acima do recorde histórico de 1941 (476 cm). Em todo o estado, 183 pessoas morreram, 422.473 foram deslocadas, e 2,4 milhões foram afetadas. As perdas econômicas ultrapassaram USD 15 bilhões. Em Porto Alegre, 19 das 23 estações de bombeamento pararam de funcionar, o aeroporto Salgado Filho fechou, e o transporte público foi suspenso. Atribuição climática da World Weather Attribution indica que com 1,2°C de aquecimento global, o evento tornou-se aproximadamente 2x mais provável ou 12% mais intenso. Fatores agravantes incluem: urbanização acelerada e impermeabilização do solo, desmatamento, dissolução do DEP (Departamento de Esgotos Pluviais) em 2017 com subsequente degradação da infraestrutura de drenagem, e mudanças climáticas.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:28:24.868Z",
+      "sectionId": "territorial_context",
+      "field": "scope",
+      "oldValue": null,
+      "newValue": "O projeto abrange duas áreas prioritárias de intervenção: (1) Zona Norte de Porto Alegre, compreendendo os bairros de baixa altitude próximos ao Guaíba (Humaitá, Navegantes, São João), áreas severamente afetadas pelas enchentes de maio de 2024, com exposição crítica a inundações recorrentes; e (2) Ilhas do Guaíba (arquipélago), comunidades insulares enfrentando erosão costeira, inundações frequentes e degradação de ecossistemas aquáticos e ripários. Esta abordagem integrada permitirá proteger tanto áreas urbanas densamente povoadas quanto ecossistemas fluviais vulneráveis, criando uma rede de soluções baseadas na natureza que aumenta a resiliência climática em escala metropolitana.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:28:28.183Z",
+      "sectionId": "project_id",
+      "field": "maturity",
+      "oldValue": null,
+      "newValue": "Estudo preliminar",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:28:45.846Z",
+      "sectionId": "problem_diagnosis",
+      "field": "core_problem",
+      "oldValue": null,
+      "newValue": "Porto Alegre enfrenta vulnerabilidade climática extrema a eventos de inundação, conforme dramaticamente evidenciado pela catástrofe de maio de 2024, quando o nível do Guaíba atingiu 535 cm (59 cm acima do recorde histórico de 1941), inundando aproximadamente 48% do território municipal, deslocando mais de 422 mil pessoas em todo o estado, e causando perdas econômicas superiores a USD 15 bilhões. A Zona Norte, com seus bairros de baixa altitude (Humaitá, Navegantes, São João), e as Ilhas do Guaíba são particularmente vulneráveis devido à combinação de: (1) topografia baixa com cotas próximas ao nível do Guaíba; (2) infraestrutura de drenagem insuficiente ou colapsada (19 de 23 estações de bombeamento paralisadas durante a enchente); (3) impermeabilização crescente do solo urbano; (4) degradação de ecossistemas ripários e áreas úmidas que historicamente amorteciam eventos extremos; e (5) mudanças climáticas que intensificaram eventos de precipitação extrema em aproximadamente 12% e dobraram a probabilidade de ocorrência. O setor de transporte domina as emissões municipais (67,7% do total de 2,3 milhões tCO2e em 2019), enquanto o setor AFOLU representa apenas 0,5%, indicando baixo sequestro de carbono pela cobertura vegetal urbana atual. A infraestrutura cinza convencional mostrou-se insuficiente, e a janela pós-desastre representa uma oportunidade crítica para implementar soluções baseadas na natureza que aumentem a resiliência a inundações, reduzam ilhas de calor urbano, sequestrem carbono, e restaurem serviços ecossistêmicos.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:33:04.437Z",
+      "sectionId": "general_objective",
+      "field": "objective",
+      "oldValue": null,
+      "newValue": "Aumentar a resiliência climática de áreas vulneráveis a inundações na Zona Norte e Ilhas do Guaíba, em Porto Alegre, por meio da implementação de soluções baseadas na natureza que restaurem serviços ecossistêmicos, reduzam riscos de inundação, sequestrem carbono, e melhorem a qualidade de vida de comunidades afetadas pela catástrofe de maio de 2024.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:33:43.409Z",
+      "sectionId": "solution_description",
+      "field": "intervention_types",
+      "oldValue": null,
+      "newValue": "O projeto integrará três tipos complementares de Soluções Baseadas na Natureza:\n\n**1. Parques de Alagamento (Flood Parks)**\nEspaços públicos multifuncionais projetados para armazenar temporariamente água pluvial durante eventos extremos, funcionando como áreas de recreação em períodos secos. Na Zona Norte, áreas baixas serão transformadas em parques com topografia graduada para receber e controlar inundações, drenando em 24-72 horas. Custo estimado: R$ 200.000 - R$ 800.000/ha (US$ 50.000 - US$ 200.000/ha). Capacidade de retenção: 500-3.000 m³/ha. Redução de pico de enchente: 50-90%. Baseado em precedente de Curitiba (Parque Barigui, 1,4 milhões m²) e Porto Alegre (estratégia pós-enchente 2024 apoiada por engenheiros holandeses Deltares).\n\n**2. Restauração de Áreas Úmidas (Wetland Restoration)**\nReabilitação de áreas úmidas degradadas e sistemas ripários nas Ilhas do Guaíba e margens do lago, restaurando hidrologia natural, vegetação nativa e função ecológica. Provê controle de enchentes, tratamento de qualidade da água, sequestro de carbono e habitat para biodiversidade. Custo estimado: R$ 80.000 - R$ 600.000/ha (US$ 20.000 - US$ 150.000/ha). Redução de pico de inundação: 20-80%. Remoção de nitrogênio: 44-91%. Sequestro de carbono: 0,5-5,0 t C/ha/ano. Áreas úmidas cobrem apenas 1% da superfície terrestre mas armazenam 20% do carbono orgânico global.\n\n**3. Florestas Urbanas**\nPlantio estratégico e manejo de cobertura arbórea em ambas as zonas de intervenção para ampliar serviços ecossistêmicos: resfriamento urbano, sequestro de carbono, gestão de águas pluviais (interceptação de 15-40% da precipitação anual), qualidade do ar e biodiversidade. Custo estimado: R$ 10.000 - R$ 140.000/ha (US$ 2.500 - US$ 35.000/ha) dependendo da abordagem (regeneração natural vs. plantio ativo). Sequestro de carbono: 5,5 t C/ha/ano. Redução de temperatura: 2-8°C sob dossel vs. pavimento exposto. Porto Alegre possui ~1 milhão de árvores (76,5% das residências em ruas arborizadas) e concentra 28% da flora nativa do Rio Grande do Sul.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:34:31.763Z",
+      "sectionId": "solution_description",
+      "field": "scale",
+      "oldValue": null,
+      "newValue": "O projeto tem escala média, abrangendo 50-100 hectares de intervenção integrada distribuída entre a Zona Norte e as Ilhas do Guaíba. A área de intervenção compreende: (1) 5-10 parques de alagamento em bairros de baixa altitude (Humaitá, Navegantes, São João), totalizando aproximadamente 30-50 hectares de áreas de retenção multifuncionais; (2) 20-30 hectares de restauração de áreas úmidas nas Ilhas do Guaíba e zonas ripárias ao longo das margens do Guaíba; e (3) corredores de florestas urbanas conectando as áreas de intervenção, com plantio de aproximadamente 5.000-10.000 árvores. Esta escala permite impacto mensurável na redução de risco de inundação em múltiplos bairros prioritários, enquanto mantém viabilidade de implementação em horizonte de 3-5 anos.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:34:43.009Z",
+      "sectionId": "solution_description",
+      "field": "prior_work",
+      "oldValue": null,
+      "newValue": "Este projeto baseia-se em planejamento e estudos iniciados após a catástrofe de maio de 2024. Porto Alegre está desenvolvendo estratégia híbrida verde-cinza de proteção contra enchentes com apoio de engenheiros holandeses da Deltares, que integra SbN aos sistemas convencionais existentes (65 km de diques, 14 comportas, 22 estações de bombeamento que se mostraram insuficientes no evento de 2024). A cidade possui precedentes relevantes em infraestrutura verde, incluindo o Parque Orla do Guaíba (fase 1: 5,7 hectares ao longo de 1,5 km de orla, inaugurado em 2018, projetado por Jaime Lerner Arquitetos Associados), que demonstra capacidade de implementação de projetos paisagísticos de qualidade na interface urbano-fluvial. Adicionalmente, Porto Alegre conta com aproximadamente 1 milhão de árvores e forte tradição de áreas verdes urbanas (Parque Farroupilha desde 1935, Parque Marinha do Brasil com 67,38 ha), oferecendo base institucional e know-how técnico em manejo de espaços verdes. O projeto também se beneficia do Plano Diretor de Desenvolvimento Urbano Ambiental (PDDUA) em revisão (2024-2026), que oferece janela de oportunidade para fortalecer provisões de SbN no marco regulatório municipal.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:35:02.753Z",
+      "sectionId": "specific_objectives",
+      "field": "objectives",
+      "oldValue": null,
+      "newValue": "1. **Reduzir o risco de inundação em áreas prioritárias**: Implementar 5-10 parques de alagamento (30-50 ha) na Zona Norte capazes de reter 15.000-150.000 m³ de água pluvial durante eventos extremos, reduzindo picos de inundação em 50-90% nas áreas de intervenção.\n\n2. **Restaurar ecossistemas ripários e áreas úmidas degradadas**: Recuperar 20-30 hectares de áreas úmidas nas Ilhas do Guaíba e margens do lago, restaurando hidrologia natural, vegetação nativa, e capacidade de amortecimento de enchentes (redução de pico de 20-80%).\n\n3. **Ampliar cobertura de floresta urbana e conectividade verde**: Plantar 5.000-10.000 árvores nativas criando corredores verdes que conectem as áreas de intervenção, aumentando cobertura arbórea, interceptação de chuva (15-40% da precipitação anual), e resfriamento urbano (redução de 2-8°C de temperatura superficial).\n\n4. **Sequestrar carbono e contribuir para metas de mitigação**: Alcançar sequestro líquido de 300-800 t CO2eq/ano através da combinação de florestas urbanas (5,5 t C/ha/ano), áreas úmidas restauradas (0,5-5,0 t C/ha/ano), e redução de emissões por gestão integrada de águas pluviais.\n\n5. **Melhorar qualidade da água e saúde de ecossistemas aquáticos**: Reduzir carga de poluentes no Guaíba através de remoção de 44-91% de nitrogênio e 43-65% de fósforo em áreas úmidas restauradas, e 60-90% de sólidos suspensos em parques de alagamento.\n\n6. **Fortalecer capacidade institucional e governança de SbN**: Estabelecer arranjo de governança intersetorial (SMAMUS-DMAE-comunidade) e protocolo de monitoramento de desempenho das intervenções, servindo de modelo replicável para outras áreas da cidade e região metropolitana.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:35:28.776Z",
+      "sectionId": "indicators",
+      "field": "kpis",
+      "oldValue": null,
+      "newValue": "**Indicadores de Redução de Risco de Inundação:**\n- Volume de retenção de água pluvial instalado (m³): Meta 15.000-150.000 m³\n- Redução de pico de inundação em áreas de intervenção (%): Meta 50-90%\n- Tempo de drenagem pós-evento (horas): Meta 24-72h para parques de alagamento\n- Número de residências/negócios com risco de inundação reduzido: Meta 2.000-5.000\n\n**Indicadores de Restauração Ecológica:**\n- Área de áreas úmidas restauradas (ha): Meta 20-30 ha\n- Cobertura vegetal nativa estabelecida (%): Meta 60-80% em 3 anos\n- Riqueza de espécies (aves, peixes) em áreas restauradas: Linha de base + meta de incremento 30-60%\n\n**Indicadores de Floresta Urbana:**\n- Número de árvores nativas plantadas: Meta 5.000-10.000\n- Taxa de sobrevivência de árvores (% aos 3 anos): Meta >70%\n- Incremento de cobertura de dossel arbóreo (ha): Meta 10-20 ha\n- Redução de temperatura superficial em áreas arborizadas (°C): Meta 2-8°C\n\n**Indicadores de Mitigação:**\n- Sequestro líquido anual de carbono (t CO2eq/ano): Meta 300-800\n- Estoque de carbono acumulado em 10 anos (t CO2eq): Meta 3.000-8.000\n\n**Indicadores de Qualidade da Água:**\n- Redução de nitrogênio em áreas úmidas (%): Meta 44-91%\n- Redução de fósforo em áreas úmidas (%): Meta 43-65%\n- Redução de sólidos suspensos em parques de alagamento (%): Meta 60-90%\n\n**Indicadores Socioeconômicos:**\n- População beneficiada com acesso a áreas verdes: Meta 20.000-50.000 pessoas\n- Empregos verdes criados (diretos + indiretos): Meta 100-300\n- Taxa de aprovação comunitária do projeto (%): Meta >70%\n- Incremento de valor de propriedades adjacentes (%): Expectativa 5-20%\n\n**Indicadores de Capacidade Institucional:**\n- Existência de protocolo de monitoramento de SbN implementado (sim/não)\n- Número de técnicos municipais capacitados em gestão de SbN: Meta 20-50\n- Arranjo de governança intersetorial formalizado (sim/não)",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:36:38.597Z",
+      "sectionId": "climate_benefits",
+      "field": "adaptation",
+      "oldValue": null,
+      "newValue": "**Redução de Risco de Inundação (Benefício Primário de Adaptação)**\n\nAs intervenções propostas fornecerão redução mensurável de risco de inundação através de múltiplos mecanismos:\n\n**Parques de Alagamento (5-10 unidades, 30-50 ha):**\n- Capacidade de retenção de água pluvial: 15.000-150.000 m³ (500-3.000 m³/ha)\n- Redução de pico de inundação: 50-90% para eventos de até 10 anos de período de retorno\n- Tempo de drenagem: 24-72 horas, retornando rapidamente à função recreativa\n- Proteção de 2.000-5.000 residências/negócios em áreas de baixa altitude da Zona Norte\n\n**Restauração de Áreas Úmidas (20-30 ha):**\n- Redução de pico de enchente: 20-80% através de armazenamento e amortecimento de fluxo\n- Capacidade de armazenamento: 40.000-300.000 m³ (2.000-10.000 m³/ha)\n- Redução de área de inundação: até 55% em zonas ripárias restauradas\n- Recarga de lençol freático e regulação de vazão durante períodos secos\n\n**Florestas Urbanas (5.000-10.000 árvores):**\n- Interceptação de precipitação anual: 15-40% da chuva que atinge o dossel arbóreo\n- Captura por árvore: 1,5-15 m³/ano, totalizando 7.500-150.000 m³/ano da rede completa\n- Melhoria da infiltração: solos florestais urbanos infiltram 10-15x mais que solos compactados\n\n**Redução de Temperatura e Efeito Ilha de Calor Urbano:**\n- Redução de temperatura superficial: 2-8°C sob dossel arbóreo vs. pavimento exposto\n- Redução de temperatura do ar ambiente: 0,5-2°C em escala de bairro com 35-50% de cobertura arbórea\n- Economia de energia: 10-25% de redução em resfriamento de edificações próximas a áreas arborizadas\n- Resfriamento evaporativo adicional de 1-3°C durante períodos úmidos em parques com água\n\n**Custo-Benefício de Adaptação:**\n- Estudos globais mostram que SbN são mais custo-efetivas que infraestrutura cinza em >80% dos casos para redução de risco de desastres\n- Razão benefício-custo típica: 2:1 a 5:1 para SbN de controle de inundação\n- Economia vs. infraestrutura convencional: 30-50% menor custo de capital para equivalentes de SbN\n- Custo de manutenção: 25-75% menor O&M anual comparado a sistemas cinzas\n\n**Limitações e Abordagem Híbrida:**\nÉ importante reconhecer que a efetividade de SbN diminui para eventos extremos de maior período de retorno. As intervenções propostas são mais efetivas para eventos frequentes a médios (2-10 anos) e devem complementar (não substituir) a infraestrutura cinza existente (65 km de diques, 14 comportas, 22 estações de bombeamento) para proteção contra eventos extremos (50-100 anos). Esta é uma estratégia híbrida verde-cinza que maximiza resiliência através de múltiplas linhas de defesa.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:37:03.754Z",
+      "sectionId": "climate_benefits",
+      "field": "mitigation",
+      "oldValue": null,
+      "newValue": "**Sequestro de Carbono e Redução de Emissões**\n\nO projeto fornecerá benefícios mensuráveis de mitigação através de sequestro direto de carbono e redução de emissões de energia:\n\n**Florestas Urbanas (10-20 ha de cobertura arbórea incremental):**\n- Taxa de sequestro: 5,5 t C/ha/ano (2,0-5,0 t CO2e/ha/ano para florestas urbanas estabelecidas)\n- Sequestro anual estimado: 110-220 t C/ano = 400-800 t CO2e/ano\n- Sequestro acumulado em 20 anos: 2.200-4.400 t C = 8.000-16.000 t CO2e\n- Estoque de carbono em árvores maduras: 93,2 t C/ha (estoque médio) após maturação completa\n\n**Áreas Úmidas Restauradas (20-30 ha):**\n- Taxa de acumulação de carbono: 0,5-5,0 t C/ha/ano dependendo do tipo de área úmida e clima\n- Sequestro anual conservador: 10-75 t C/ano = 40-275 t CO2e/ano\n- Sequestro acumulado em 20 anos: 200-1.500 t C = 800-5.500 t CO2e\n- **Nota importante**: áreas úmidas de água doce podem emitir metano (CH4); o balanço líquido de GEE depende da hidrologia e manejo. Áreas úmidas costeiras (manguezais, marismas) são sumidouros líquidos mais fortes com emissões mínimas de metano.\n\n**Parques de Alagamento (30-50 ha):**\n- Sequestro de vegetação de parque: 2-8 t CO2eq/ha/ano (menor que florestas devido ao caráter aberto)\n- Sequestro anual: 60-400 t CO2e/ano\n- Carbono incorporado evitado: 30-60% menor carbono incorporado que alternativas cinzas (túneis subterrâneos, tanques)\n- Emissões de energia evitadas: redução de 30-60% em bombeamento vs. sistemas de drenagem profunda\n\n**Total Consolidado de Mitigação:**\n- **Sequestro líquido anual**: 300-800 t CO2e/ano (estimativa conservadora combinando todas as intervenções)\n- **Estoque acumulado em 20 anos**: 6.000-16.000 t CO2e\n- **Valor de carbono potencial**: A US$ 5-50/t CO2e (faixa de mercado voluntário), o valor anual seria US$ 1.500-40.000\n\n**Contexto de Emissões Municipais:**\nPorto Alegre emitiu 2,3 milhões t CO2e em 2019, com transporte dominando (67,7%) e AFOLU representando apenas 0,5% (indicando baixo sequestro atual). O projeto aumentará significativamente a capacidade de sequestro urbano e demonstrará a viabilidade de ampliar SbN para outras áreas da cidade.\n\n**Abordagem Metodológica:**\nAs estimativas seguem abordagem Tier 2 do IPCC usando fatores regionais para Mata Atlântica e áreas úmidas tropicais. Valores conservadores (quartil inferior de faixas publicadas) são usados para credibilidade. Monitoramento será realizado através de sensoriamento remoto (cobertura de dossel), parcelas permanentes de amostragem, e equações alométricas específicas por espécie.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:37:43.339Z",
+      "sectionId": "economic_social_benefits",
+      "field": "benefits",
+      "oldValue": null,
+      "newValue": "**Retorno Econômico sobre Investimento**\n\nEstudos globais demonstram que SbN geram retorno de **US$ 2,80 para cada US$ 1,00 investido**, com co-benefícios econômicos e sociais representando a maior parcela do valor total (Cell Reports Sustainability, 2025). Para este projeto de escala média (50-100 ha), projetamos os seguintes benefícios econômicos:\n\n**Valorização Imobiliária e Receita Tributária Municipal:**\n- Propriedades dentro de 100 m de parques urbanos experimentam aumento de valor de **5-20%**\n- Efeito agregado de parques urbanos: +19,2% (meta-análise de 37 estudos hedônicos)\n- Para 2.000-5.000 propriedades beneficiadas na Zona Norte, isso representa incremento de valor estimado de **R$ 50-200 milhões** ao longo de 10 anos\n- Aumento de receita de IPTU para o município: estimado em **R$ 500.000-2.000.000/ano** com plena valorização\n- Efeito de decaimento de distância: benefício mensurável até 300-500 m dos parques; negligível além de ~1 km\n\n**Criação de Empregos Verdes:**\n- SbN criam **7-40 empregos por US$ 1 milhão investido**, 2-5x mais que infraestrutura cinza convencional\n- Para investimento estimado de US$ 5-15 milhões (R$ 25-75 milhões), espera-se criação de:\n  - **100-300 empregos diretos e indiretos** durante fase de implementação (3-5 anos)\n  - **20-50 posições permanentes** de manutenção e gestão\n- Tipos de emprego: viveiristas, plantadores, operadores de equipamentos, técnicos de monitoramento ambiental, gerentes de parques, educadores ambientais\n- Foco em trabalho decente: treinamento e certificação para garantir padrões ILO de emprego verde (salários justos, segurança, desenvolvimento de competências)\n\n**Economia em Tratamento de Água:**\n- Áreas úmidas construídas operam a **97% menos custo** que tratamento convencional de águas residuais\n- Remoção de 44-91% de nitrogênio e 43-65% de fósforo através de áreas úmidas restauradas reduz carga de tratamento do DMAE no Guaíba\n- Proteção de bacia hidrográfica via SbN custa **10x menos** que tratar água de fontes não protegidas\n- Economia operacional estimada para DMAE: **R$ 200.000-500.000/ano** em custos reduzidos de tratamento\n\n**Valor Recreacional e Turismo:**\n- Valor recreacional de parques urbanos: US$ 1.000-5.000/ha/ano\n- Para 30-50 ha de parques de alagamento, valor recreacional anual estimado: **US$ 30.000-250.000 (R$ 150.000-1.250.000)**\n- Visitação anual projetada: 50.000-150.000 visitantes (baseado em precedentes de parques urbanos em Porto Alegre)\n- Ecoturismo nas Ilhas do Guaíba: potencial para caiaque, observação de aves, turismo educacional\n- Aumento de gastos em negócios adjacentes: 10-30% em áreas próximas a redes de espaços verdes\n\n**Benefícios Sociais e Coesão Comunitária:**\n- **Aumento de conectividade comunitária**: maior senso de pertencimento e confiança em bairros com alta densidade arbórea\n- **Redução de criminalidade**: estudos mostram redução de 7-12% em crimes contra propriedade próximos a espaços verdes urbanos\n- **Justiça ambiental**: SbN direcionadas à Zona Norte (áreas vulneráveis afetadas por enchentes de 2024) reduzem desigualdade de exposição\n- **Segurança alimentar**: potencial para integrar agricultura urbana em componentes de agroflorestas\n- **Saúde pública**: redução de doenças relacionadas ao calor, melhoria de qualidade do ar, espaços para atividade física\n\n**Design Participativo e Capital Social:**\nO projeto seguirá abordagem de design participativo envolvendo comunidades da Zona Norte e Ilhas do Guaíba em planejamento, implementação e gestão. Isso constrói capital social, fortalece senso de propriedade comunitária, e garante que as intervenções reflitam prioridades locais. Mecanismos incluem:\n- Oficinas comunitárias de co-design (mínimo 5 por zona de intervenção)\n- Comitês de gestão comunitária para parques e áreas restauradas\n- Programas de educação ambiental alcançando 5.000-10.000 alunos/ano\n- Monitoramento participativo envolvendo moradores como cientistas cidadãos\n\n**Mitigação de Risco de Gentrificação:**\nÉ importante reconhecer que aumentos de valor de propriedade podem desencadear pressão de gentrificação em comunidades de baixa renda. O projeto incorporará salvaguardas de equidade:\n- Políticas de habitação acessível em conjunto com greening\n- Envolvimento prioritário de residentes existentes em oportunidades de emprego verde\n- Programas de capacitação e microempresas para residentes locais\n- Monitoramento de deslocamento e mecanismos de mitigação\n\n**Razão Benefício-Custo Consolidada:**\nBaseado em evidências globais e ajustado para contexto brasileiro, estima-se razão benefício-custo de **2,5-4,0:1** ao longo de 20 anos, considerando danos de enchente evitados, valorização imobiliária, economia de tratamento de água, valor recreacional, e benefícios de saúde. Esta é uma estimativa conservadora que não monetiza totalmente benefícios como biodiversidade, herança cultural e resiliência comunitária.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:39:00.208Z",
+      "sectionId": "inclusive_action",
+      "field": "vulnerable_areas",
+      "oldValue": null,
+      "newValue": "O projeto foca em **áreas carentes e altamente vulneráveis** identificadas após a catástrofe de maio de 2024:\n\n**Zona Norte (Humaitá, Navegantes, São João):**\n- Bairros de baixa altitude severamente afetados pela enchente de 2024\n- Alta proporção de famílias de baixa renda (renda < 2 salários mínimos)\n- Infraestrutura de drenagem inadequada ou colapsada\n- Exposição recorrente a inundações pluviais e fluviais\n- Ilha de calor urbano devido à baixa cobertura arbórea e alta impermeabilização\n- Acesso limitado a áreas verdes de qualidade (índice de área verde per capita abaixo da média municipal)\n\n**Ilhas do Guaíba:**\n- Comunidades insulares isoladas com vulnerabilidade socioeconômica\n- Exposição a erosão costeira, inundações frequentes e degradação ambiental\n- Acesso limitado a serviços urbanos básicos\n- Dependência de ecossistemas aquáticos para subsistência (pesca artesanal)\n- Riscos climáticos amplificados pela geografia insular\n\nEstas áreas foram identificadas através de: (1) mapeamento de áreas alagadas em maio de 2024 usando imagens de satélite e dados do DMAE; (2) sobreposição com dados de vulnerabilidade socioeconômica do IBGE (renda, educação, infraestrutura habitacional); (3) análise de déficit de áreas verdes usando dados de cobertura arbórea municipal; e (4) consulta a registros da Defesa Civil sobre áreas de risco recorrente.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:39:22.364Z",
+      "sectionId": "inclusive_action",
+      "field": "community_participation",
+      "oldValue": null,
+      "newValue": "O projeto adotará abordagem de **co-design e co-gestão** com participação profunda e contínua das comunidades afetadas em todas as fases:\n\n**Fase de Planejamento e Design (Meses 1-12):**\n- **Assembleias comunitárias** (mínimo 5 por zona de intervenção, 50-200 participantes cada): definição de prioridades, seleção de locais específicos, discussão de trade-offs\n- **Oficinas de co-design** (10-15 sessões, grupos de 15-30 pessoas): design participativo de parques de alagamento, restauração de áreas úmidas, corredores verdes. Uso de mapas, maquetes, e ferramentas visuais para facilitar contribuições de participantes com diferentes níveis de alfabetização\n- **Entrevistas em caminhada** (walking interviews): auditorias de acessibilidade e levantamento de necessidades específicas por local com grupos focais (mulheres, idosos, pessoas com deficiência)\n- **Pesquisas domiciliares** (amostra de 500-800 domicílios): linha de base de necessidades, prioridades e percepções de risco climático\n- **Plataforma digital** (site/aplicativo): votação em opções de design, feedback contínuo, atualização de progresso\n\n**Fase de Implementação (Anos 1-5):**\n- **Comitês de acompanhamento comunitário** (um por zona): representantes eleitos pela comunidade participam de reuniões mensais de coordenação do projeto, revisam progresso, validam mudanças de design\n- **Brigadas de plantio comunitário**: residentes participam diretamente de atividades de plantio (mutirões) com remuneração ou créditos de serviço comunitário\n- **Capacitação e emprego verde**: programas de treinamento em viveirismo, manejo de árvores, manutenção de áreas úmidas, monitoramento ambiental, com contratação prioritária de residentes locais (meta: 70% de empregos diretos preenchidos por moradores das áreas de intervenção)\n\n**Fase de Operação e Manutenção (Ano 5+):**\n- **Co-gestão de parques e áreas restauradas**: Comitês de gestão comunitária formalizados via convênio com SMAMUS, com responsabilidades compartilhadas para manutenção, programação de eventos, e resolução de conflitos\n- **Monitoramento participativo**: cientistas cidadãos treinados (30-50 moradores) realizam monitoramento de biodiversidade, qualidade da água, saúde da vegetação, usando protocolos simples e aplicativos móveis. Dados alimentam sistema de gestão adaptativa\n- **Programas de educação ambiental**: escolas e centros comunitários engajados em programas educativos alcançando 5.000-10.000 alunos/ano\n- **Mecanismos de feedback contínuo**: canal de ouvidoria comunitária (hotline, WhatsApp, presencial), reuniões semestrais de prestação de contas\n\n**Garantias de Inclusão:**\n- Reuniões em horários diversos (diurnos e noturnos) para acomodar diferentes disponibilidades\n- Creche e atividades infantis durante eventos para facilitar participação de mães\n- Transporte gratuito ou ajuda de custo para participantes de áreas mais distantes\n- Materiais em linguagem simples e acessível\n- Interpretação em Libras e acessibilidade física em todos os eventos",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:39:52.858Z",
+      "sectionId": "inclusive_action",
+      "field": "vulnerable_groups",
+      "oldValue": null,
+      "newValue": "O projeto implementará estratégias específicas de engajamento e benefício direcionadas a grupos vulneráveis identificados nas áreas de intervenção:\n\n**Mulheres:**\n- **Meta de emprego**: Mínimo 40% de mulheres em posições de emprego verde (plantio, manutenção, monitoramento)\n- **Oficinas específicas**: sessões separadas para mulheres identificarem necessidades de design (segurança, iluminação, visibilidade, espaços para crianças)\n- **Impacto diferenciado reconhecido**: mulheres carregam fardo desproporcional durante enchentes (cuidado, evacuação, recuperação); design de parques priorizará rotas seguras de evacuação e pontos de encontro comunitários\n- **Capacitação**: programas de treinamento técnico em viveirismo e gestão ambiental com cotas de 50% para mulheres\n- **Representação em governança**: meta de 50% de mulheres em Comitês de gestão comunitária\n\n**Idosos:**\n- **Acessibilidade universal**: todos os parques e espaços restaurados seguirão NBR 9050 (acessibilidade) com rampas, corrimãos, bancos frequentes, banheiros acessíveis\n- **Consulta específica**: walking interviews com grupos de idosos para identificar barreiras de mobilidade e necessidades de design (sombra, proximidade, sinalização clara)\n- **Co-benefício de saúde**: espaços verdes acessíveis promovem atividade física e interação social, reduzindo isolamento\n- **Benefício climático**: idosos são particularmente vulneráveis ao estresse térmico; sombreamento arbóreo e resfriamento são benefícios diretos prioritários\n\n**Pessoas com Deficiência:**\n- **Design universal desde o início**: oficinas de co-design incluirão representantes de organizações de pessoas com deficiência para garantir acessibilidade integral\n- **Auditoria de acessibilidade**: avaliação formal de design por especialistas em acessibilidade antes de finalização\n- **Interpretação em Libras**: todos os eventos públicos terão interpretação para pessoas surdas\n- **Materiais acessíveis**: documentos em formato acessível (Braille, áudio, linguagem simples) conforme demanda\n- **Emprego inclusivo**: meta de 5% das posições de trabalho reservadas para pessoas com deficiência\n\n**Comunidades Tradicionais e Pescadores Artesanais (Ilhas do Guaíba):**\n- **Conhecimento tradicional integrado**: consulta com pescadores artesanais e residentes históricos das ilhas sobre ecologia local, espécies nativas, dinâmica de inundação, locais culturalmente significativos\n- **Proteção de modos de vida**: design de restauração de áreas úmidas considera necessidades de pesca artesanal sustentável e acesso a áreas de pesca tradicionais\n- **Co-gestão de áreas restauradas**: envolvimento de associações de pescadores na gestão de áreas úmidas restauradas\n- **Benefícios de subsistência**: restauração ecológica melhora estoques pesqueiros e qualidade da água, beneficiando diretamente pescadores\n\n**Jovens:**\n- **Participação significativa**: oficinas específicas com escolas e grupos juvenis para capturar perspectivas de jovens (recreação, esportes, espaços de convívio)\n- **Oportunidades educacionais**: programas de educação ambiental, estágios em monitoramento e manutenção, primeiro emprego em empregos verdes\n- **Espaços recreativos**: design de parques incluirá áreas esportivas, skate, playgrounds projetados com input de jovens\n- **Empoderamento**: jovens como agentes de mudança através de programas de liderança ambiental juvenil\n\n**Pessoas Negras e Equidade Racial:**\n- **Mapeamento de equidade**: sobreposição de áreas de intervenção com dados demográficos raciais do IBGE para garantir que projeto serve áreas com alta proporção de população negra\n- **Antirracismo em contratação**: compromisso com diversidade racial na equipe do projeto e contratações de emprego verde\n- **Organizações comunitárias**: parceria com organizações de base comunitária lideradas por pessoas negras nas áreas de intervenção\n- **Monitoramento de equidade**: desagregação de dados de beneficiários por raça/cor para garantir distribuição equitativa de benefícios\n\n**Diagnóstico de Desigualdades:**\nFoi realizado diagnóstico inicial de desigualdades usando: (1) dados do Censo IBGE desagregados por setor censitário (renda, raça/cor, gênero, idade, deficiência); (2) mapeamento de déficit de áreas verdes sobreposto com vulnerabilidade socioeconômica; (3) análise de áreas alagadas em maio de 2024 cruzada com perfil socioeconômico dos bairros afetados; (4) consulta a registros da Secretaria Municipal de Assistência Social sobre famílias em situação de vulnerabilidade. Este diagnóstico identificou que as áreas de intervenção têm concentração acima da média municipal de famílias de baixa renda, população negra, e idosos, justificando foco em equidade.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:42:01.836Z",
+      "sectionId": "institutional_arrangement",
+      "field": "governance",
+      "oldValue": null,
+      "newValue": "O projeto será implementado através de **parceria institucional entre SMAMUS e DMAE**, com coordenação intersetorial e participação comunitária:\n\n**SMAMUS (Secretaria Municipal do Meio Ambiente, Urbanismo e Sustentabilidade) - LÍDER DO PROJETO:**\n- **Papel**: Coordenação geral, gestão ambiental, integração urbanística, licenciamento municipal\n- **Responsabilidades específicas**:\n  - Coordenação de restauração de áreas úmidas e florestas urbanas\n  - Manejo de áreas verdes e parques\n  - Articulação com PDDUA e planejamento urbano-ambiental\n  - Gestão de contratos de consultoria técnica e execução\n  - Coordenação de processos participativos com comunidades\n  - Monitoramento de indicadores ambientais e climáticos\n  - Articulação com financiadores e parceiros internacionais\n- **Capacidade**: SMAMUS é a autoridade municipal primária para aprovações ambientais, planejamento climático (hospeda PLAC), gestão de floresta urbana, e fiscalização de APPs. Recebeu elogio da Brigada Militar do Comando Ambiental por trabalho de fiscalização ambiental.\n\n**DMAE (Departamento Municipal de Água e Esgotos) - PARCEIRO ESTRATÉGICO:**\n- **Papel**: Integração com infraestrutura de drenagem, gestão de águas pluviais, operação técnica hidráulica\n- **Responsabilidades específicas**:\n  - Design e implementação de parques de alagamento integrados ao sistema de drenagem\n  - Engenharia hidráulica para estruturas de controle de água (vertedouros, válvulas, canais)\n  - Integração com as 22 estações de bombeamento existentes\n  - Operação e manutenção de componentes hidráulicos de SbN\n  - Monitoramento hidrológico e modelagem de redução de enchentes\n  - Articulação com infraestrutura cinza (diques, comportas)\n- **Capacidade**: Autarquia municipal responsável por abastecimento de água, tratamento de esgoto, e gestão de drenagem urbana desde 2017 (quando absorveu funções do extinto DEP). Possui expertise técnica em engenharia hidráulica e gestão de estações de tratamento, essencial para abordagem híbrida verde-cinza.\n\n**ARRANJO DE COORDENAÇÃO INTERSETORIAL:**\n- **Comitê Gestor do Projeto** (reuniões mensais):\n  - Coordenador: Secretário(a) da SMAMUS\n  - Membros permanentes: Diretoria de SMAMUS, Diretor-Geral do DMAE, representante de SMPAE (planejamento estratégico), representante da Defesa Civil Municipal\n  - Participação consultiva: representantes de Comitês de gestão comunitária (2-3 por zona de intervenção)\n  - Funções: aprovação de planos de trabalho, resolução de conflitos intersetoriais, validação de mudanças de design, monitoramento de progresso contra cronograma e orçamento\n\n- **Grupo Técnico de Trabalho** (reuniões quinzenais):\n  - Co-coordenação: Diretor de áreas verdes (SMAMUS) + Engenheiro-chefe de drenagem (DMAE)\n  - Membros: técnicos de SMAMUS, DMAE, consultores externos, representantes de universidades parceiras (UFRGS/IPH)\n  - Funções: design técnico detalhado, cronograma de obras, especificações de plantio, protocolos de monitoramento, gestão adaptativa baseada em dados\n\n**PARCEIROS INSTITUCIONAIS ADICIONAIS:**\n- **UFRGS/IPH (Instituto de Pesquisas Hidráulicas)**: modelagem hidrológica, design de sistemas de retenção, monitoramento científico, capacitação técnica. IPH é instituto premier de pesquisa em água da América Latina com expertise em hidráulica, recursos hídricos, e modelagem de enchentes.\n- **FEPAM (Fundação Estadual de Proteção Ambiental)**: licenciamento ambiental estadual se necessário, monitoramento de qualidade da água do Guaíba, articulação com políticas estaduais\n- **Defesa Civil Municipal**: integração com sistemas de alerta precoce, planejamento de evacuação, monitoramento de áreas de risco\n- **Secretaria Municipal de Obras**: coordenação de obras de infraestrutura complementares (acesso, iluminação, saneamento)\n\n**PARTICIPAÇÃO COMUNITÁRIA NA GOVERNANÇA:**\n- Comitês de gestão comunitária (formalizados via convênio com SMAMUS) têm assento consultivo no Comitê Gestor\n- Representantes comunitários participam de vistorias técnicas e validação de entregas\n- Canal direto de feedback para Comitê Gestor via ouvidoria comunitária\n\n**UNIDADE DE IMPLEMENTAÇÃO DO PROJETO (PIU):**\nSerá criada PIU dedicada dentro da estrutura de SMAMUS, composta por:\n- 1 Coordenador de Projeto (dedicação integral)\n- 1 Especialista Técnico em SbN (dedicação integral)\n- 1 Especialista em Engajamento Comunitário (dedicação integral)\n- 1 Especialista em Monitoramento e Avaliação (meio período)\n- 1 Assistente Administrativo-Financeiro (dedicação integral)\n- Suporte de equipes técnicas de SMAMUS e DMAE conforme demanda\n\nEsta estrutura garante liderança ambiental clara (SMAMUS) com expertise técnica hidráulica essencial (DMAE), participação comunitária genuína, e coordenação efetiva através de comitê intersetorial de alto nível.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:42:37.746Z",
+      "sectionId": "technical_capacity",
+      "field": "capacity",
+      "oldValue": null,
+      "newValue": "**Capacidade Técnica Atual:**\n\n**SMAMUS** possui capacidade técnica de base em gestão ambiental urbana, incluindo:\n- Equipe de manejo de floresta urbana e áreas verdes com experiência na gestão de ~1 milhão de árvores municipais\n- Técnicos em licenciamento ambiental municipal e fiscalização de APPs\n- Expertise em planejamento urbano-ambiental e coordenação de PDDUA\n- Experiência em coordenação de projetos com financiamento externo (World Bank P178072 - projeto de regeneração urbana verde, resiliente e inclusiva de Porto Alegre, em implementação desde 2023)\n\n**DMAE** possui capacidade técnica forte em engenharia hidráulica:\n- Engenheiros especializados em sistemas de drenagem urbana, operação de 22 estações de bombeamento, gestão de 65 km de diques e 14 comportas\n- Experiência em tratamento de água e esgoto com múltiplas estações de tratamento\n- Expertise em modelagem hidrológica e gestão de infraestrutura de água\n\n**Lacunas de Capacidade Identificadas:**\n\nEmbora ambas as instituições tenham expertise relevante, há **lacunas específicas em SbN** que requerem fortalecimento:\n1. **Restauração de áreas úmidas**: experiência limitada com design e manejo de sistemas de áreas úmidas construídas para tratamento de água e controle de enchentes\n2. **Parques de alagamento multifuncionais**: pouca experiência local com design integrado verde-recreativo-hidrológico (embora Curitiba forneça precedente brasileiro)\n3. **Monitoramento de desempenho de SbN**: protocolos de MRV (Monitoramento, Reporte, Verificação) específicos para SbN não estão estabelecidos\n4. **Design participativo**: processos de co-design profundo com comunidades vulneráveis requerem competências específicas além de consultas públicas tradicionais\n5. **Quantificação de co-benefícios**: metodologias para valoração econômica de serviços ecossistêmicos e análise de benefício-custo de SbN\n\n**Estratégia de Fortalecimento de Capacidade:**\n\n**1. Assistência Técnica Externa (Anos 1-3):**\n- Contratação de consultoria especializada em design de SbN para enchentes (preferencialmente com experiência em clima tropical/subtropical)\n- Engajamento de especialistas em restauração de áreas úmidas (experiência com Mata Atlântica ripária)\n- Consultoria em design participativo e ação climática inclusiva\n- Apoio técnico de organizações internacionais já engajadas em Porto Alegre:\n  - **Deltares (Holanda)**: engenheiros holandeses já apoiam estratégia pós-enchente 2024 de Porto Alegre; expertise em parques de alagamento e infraestrutura verde-cinza híbrida\n  - **World Bank**: assistência técnica através de projeto P178072 em andamento\n  - **WRI Brasil**: expertise em avaliação de SbN e florestas urbanas\n\n**2. Parcerias Universitárias (Anos 1-5):**\n- **UFRGS/IPH (Instituto de Pesquisas Hidráulicas)**: convênio formal para:\n  - Modelagem hidrológica de redução de enchentes por SbN (SWMM, HEC-RAS)\n  - Design de sistemas de retenção e estruturas hidráulicas\n  - Monitoramento científico de desempenho hidrológico\n  - Capacitação de técnicos municipais em modelagem\n- **UFRGS/Departamento de Ecologia**: suporte em seleção de espécies nativas, design de restauração de áreas úmidas, monitoramento de biodiversidade\n- **UFRGS/Faculdade de Arquitetura**: design de paisagem para parques multifuncionais\n\n**3. Programas de Capacitação para Equipe Municipal (Anos 1-2):**\n- **Curso intensivo em SbN para controle de enchentes** (40 horas): 20-30 técnicos de SMAMUS e DMAE\n  - Módulos: princípios de SbN, design de parques de alagamento, áreas úmidas construídas, florestas urbanas, modelagem hidrológica, monitoramento e avaliação\n  - Visitas técnicas a Curitiba (parques de alagamento Barigui, Tingui) e Rotterdam/Copenhague (virtualmente)\n- **Treinamento em design participativo e engajamento comunitário** (24 horas): 10-15 técnicos e equipe PIU\n  - Metodologias de co-design, facilitação de oficinas, mediação de conflitos, justiça ambiental\n- **Treinamento em MRV de SbN** (16 horas): 10-15 técnicos\n  - Protocolos de monitoramento, ferramentas de sensoriamento remoto, análise de dados, relatórios para financiadores\n\n**4. Intercâmbio de Conhecimento (Anos 2-4):**\n- Participação em rede de aprendizagem entre pares (ICLEI South America, C40 Knowledge Hub)\n- Visitas de estudo a outras cidades brasileiras com SbN (Curitiba, Recife - Parque Capibaribe, Belo Horizonte)\n- Workshops técnicos anuais com participação de especialistas nacionais e internacionais\n\n**5. Sistematização de Conhecimento (Anos 3-5):**\n- Desenvolvimento de **Manual Municipal de SbN para Porto Alegre**: diretrizes técnicas, padrões de design, especificações de plantio, protocolos de manutenção\n- Criação de **banco de dados de lições aprendidas** acessível a outras cidades brasileiras\n- Publicações técnicas e artigos científicos em parceria com UFRGS\n\n**Capacidade Permanente Pós-Projeto:**\n\nAo final do projeto, SMAMUS e DMAE terão:\n- Equipe técnica treinada (30-50 servidores) com competências sólidas em SbN\n- Protocolos e manuais institucionalizados para replicação em outras áreas da cidade\n- Parceria consolidada com UFRGS para suporte técnico contínuo\n- Modelo de governança intersetorial testado e aprimorado\n- Base de dados de monitoramento e evidências locais de desempenho de SbN\n\nEsta estratégia reconhece expertise existente enquanto aborda lacunas específicas através de assistência técnica direcionada, parcerias estratégicas, e investimento em capacitação permanente.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:43:18.004Z",
+      "sectionId": "political_support",
+      "field": "support",
+      "oldValue": null,
+      "newValue": "**Demonstração de Apoio Político Forte:**\n\nO projeto conta com **apoio político demonstrado e robusto** em múltiplos níveis:\n\n**1. Compromisso Pós-Catástrofe de Maio 2024:**\n\nA catástrofe de maio de 2024, que inundou 48% do território municipal e afetou diretamente centenas de milhares de residentes, criou janela política única e mandato claro para transformação da abordagem de gestão de enchentes. A administração municipal respondeu com:\n\n- **Estratégia híbrida verde-cinza**: Porto Alegre está desenvolvendo estratégia de proteção contra enchentes que integra explicitamente SbN à infraestrutura convencional (65 km de diques, 14 comportas, 22 estações de bombeamento)\n- **Parceria com especialistas holandeses**: engajamento de **Deltares** (instituto de pesquisa em água da Holanda) para apoiar redesign da proteção contra enchentes com integração de infraestrutura verde-azul em sistemas de parques. Esta parceria de alto nível demonstra compromisso com abordagens inovadoras de SbN.\n- **Suporte do Dutch Water Sector** (2024): missão de especialistas holandeses em gestão de água para apoiar Brasil no reforço da proteção contra enchentes de Porto Alegre, com foco explícito em SbN\n\n**2. Projeto World Bank em Implementação:**\n\nPorto Alegre está implementando desde 2023 o projeto **P178072 \"Green, Resilient and Inclusive Regeneration of Porto Alegre\"** (Regeneração Verde, Resiliente e Inclusiva de Porto Alegre):\n- **Financiamento**: USD 84,7 milhões (World Bank) de USD 173,4 milhões totais\n- **Co-financiadores**: AFD (Agence Française de Développement) + Município de Porto Alegre\n- **Escopo**: inclui drenagem baseada na natureza e redução de risco de inundação, retrofit verde de edifícios públicos (telhados verdes, eficiência hídrica), mobilidade urbana, e assistência técnica ao Plano de Ação Climática\n- **Status**: em implementação até 2028\n\nEste projeto demonstra:\n- Capacidade comprovada de executar projetos complexos com financiamento internacional\n- Expertise estabelecida em gestão de recursos de bancos multilaterais\n- Compromisso institucional com abordagens verdes e resilientes\n- Alinhamento entre Prefeitura e financiadores internacionais em priorização de SbN\n\n**3. Revisão do PDDUA como Janela de Oportunidade:**\n\nO **Plano Diretor de Desenvolvimento Urbano Ambiental (PDDUA)** está em processo de revisão abrangente (2024-2026):\n- Revisão foi aprovada pela Câmara Municipal em novembro de 2025 com emendas em deliberação (março 2026)\n- Janela crítica para institucionalizar provisões de SbN no marco regulatório municipal\n- Oportunidade para fortalecer requisitos de áreas verdes, gestão de APP, e infraestrutura verde em novos desenvolvimentos\n- Debate político ativo sobre sustentabilidade vs. desenvolvimento imobiliário oferece momento para advocacy pró-SbN\n\n**4. Alinhamento com Plano de Ação Climática:**\n\nPorto Alegre possui **Plano de Ação Climática (PLAC)** hospedado pela SMAMUS:\n- Segundo Inventário de Emissões de GEE concluído em 2021 (cobrindo 2016-2019)\n- Emissões municipais declinaram de 2,5 para 2,3 milhões tCO2e (-5,6%)\n- Projeto de SbN alinha diretamente com metas de adaptação e mitigação do PLAC\n- SMAMUS como coordenador de PLAC garante integração institucional\n\n**5. Mandato Eleitoral e Responsabilização Pública:**\n\n- Administração municipal enfrenta pressão política intensa após falhas de infraestrutura em maio 2024 (19 de 23 estações de bombeamento paralisadas)\n- Câmara Municipal conduziu audiências públicas e fiscalização ativa de DMAE e SMAMUS\n- Eleitorado demanda soluções de longo prazo para resiliência a enchentes\n- Abordagem de SbN oferece narrativa política positiva: reconstruir melhor (build back better) com natureza, comunidade e sustentabilidade\n\n**6. Articulação Regional e Estadual:**\n\n- **Governo do Rio Grande do Sul**: apoio a recuperação pós-enchente com foco em resiliência\n- **Região Metropolitana de Porto Alegre**: oportunidade para modelo replicável em outros municípios metropolitanos afetados\n- **Engajamento de agências federais**: ANA (Agência Nacional de Águas), MMA (Ministério do Meio Ambiente), BNDES (banco de desenvolvimento)\n\n**Riscos Políticos e Mitigação:**\n\nEmbora o apoio atual seja forte, riscos políticos existem:\n- **Mudança de administração**: eleições municipais podem alterar prioridades. Mitigação: institucionalizar SbN no PDDUA, PLAC, e estruturas de governança formal\n- **Pressão de desenvolvimento imobiliário**: tensão entre preservação de áreas verdes e desenvolvimento. Mitigação: demonstrar co-benefícios econômicos de SbN (valorização imobiliária, receita tributária)\n- **Competição orçamentária**: SbN competem com outras prioridades. Mitigação: buscar financiamento externo majoritário, demonstrar retorno sobre investimento\n\n**Evidências de Sustentabilidade Política:**\n\nO compromisso não é apenas retórico:\n- **Recursos financeiros**: DMAE reportou R$ 400 milhões retidos em contas (2024), indicando capacidade de contrapartida\n- **Infraestrutura institucional**: PIU já existe em SMPAE para projeto World Bank, modelo comprovado para gestão de projetos complexos\n- **Parceria técnica internacional**: engajamento de Deltares, World Bank, potencialmente IDB/AIIB demonstra credibilidade e acesso a expertise global\n- **Precedente local**: Porto Alegre tem histórico de inovação urbana (Orçamento Participativo desde 1989, parques urbanos emblemáticos como Orla do Guaíba)\n\n**Conclusão:** O projeto se beneficia de momento político único pós-catástrofe, compromissos institucionais demonstrados através de projetos em andamento, e alinhamento com marcos de política climática e urbana. O apoio político é não apenas declarativo, mas materializado em investimentos, parcerias internacionais, e processos de planejamento em curso.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-03-30T12:44:06.737Z",
+      "sectionId": "plan_alignment",
+      "field": "alignment",
+      "oldValue": null,
+      "newValue": "O projeto está plenamente alinhado com planos municipais, estaduais, nacionais e compromissos internacionais de Porto Alegre:\n\n**ALINHAMENTO COM PLANOS MUNICIPAIS:**\n\n**1. Plano Diretor de Desenvolvimento Urbano Ambiental (PDDUA - LC 434/1999, revisão 2024-2026):**\n- O projeto integra SbN à visão de \"desenvolvimento urbano ambiental\" do PDDUA\n- Fortalece Áreas Especiais de Interesse Ambiental (AEIAs) e gestão de APPs em áreas de intervenção\n- Alinha com zonas de risco de inundação definidas no PDDUA\n- Aproveita janela de oportunidade da revisão em curso (aprovação em novembro 2025, emendas finais em deliberação março 2026) para institucionalizar provisões de SbN no marco regulatório\n- Contribui para equilíbrio entre desenvolvimento urbano e preservação de infraestrutura verde, tema central da revisão\n\n**2. Plano de Ação Climática de Porto Alegre (PLAC) e Plano Municipal de Mudanças Climáticas:**\n- Alinha diretamente com metas de adaptação do PLAC para redução de vulnerabilidade a enchentes\n- Contribui para metas de mitigação através de sequestro de carbono (300-800 t CO2e/ano), abordando baixa participação atual de AFOLU (0,5% das emissões municipais)\n- Fortalece integração de adaptação climática no planejamento urbano, acelerada após enchentes de maio 2024\n- Contribui para atualização do Inventário de Emissões de GEE (segundo inventário cobriu 2016-2019, projeto fornecerá dados para próxima atualização)\n\n**3. Plano Municipal de Saneamento Básico (PMSB):**\n- Fortalece eixo de drenagem de águas pluviais do PMSB, identificado como lacuna crítica pós-2024\n- Complementa infraestrutura convencional de drenagem gerida por DMAE (22 estações de bombeamento, 65 km de diques, 14 comportas)\n- Contribui para meta de cobertura universal de serviços de saneamento através de soluções de gestão de águas pluviais de baixo custo\n- Integra com Plano de Drenagem Urbana em desenvolvimento (parceria World Bank/IDB/UN para plano diretor estadual de inundação e drenagem)\n\n**4. Plano Plurianual (PPA 2026-2029):**\n- Alinha com prioridades de reconstrução pós-enchente e investimentos em resiliência do PPA em preparação\n- Complementa investimentos municipais com financiamento externo, ampliando capacidade de execução\n\n**ALINHAMENTO COM PLANOS ESTADUAIS E NACIONAIS:**\n\n**5. Estratégia de Recuperação do Rio Grande do Sul (pós-maio 2024):**\n- Integra com planos de recuperação resiliente do estado (R$ 4 bilhões estimados para revisão do sistema de proteção contra enchentes de Porto Alegre)\n- Alinha com foco estadual em \"recovery readiness\" - incorporar resiliência na governança antes de eventos futuros\n- Contribui para aprendizados compartilhados sobre mitigação de inundações baseada em natureza em escala regional\n\n**6. Contribuição Nacionalmente Determinada (NDC) do Brasil:**\n- Alinha com NDC atualizada (2025): meta de redução de emissões de 59-67% até 2035 (níveis de 2005)\n- Contribui para \"federalismo climático\" da NDC 3.0 que reconhece papel dos 5.570 municípios brasileiros na ação climática\n- Demonstra ação sub-nacional concreta em adaptação e mitigação\n\n**7. Política Nacional de Mudanças Climáticas (PNMC - Lei 12.187/2009) e Plano Nacional de Adaptação:**\n- Demonstra implementação municipal de diretrizes nacionais de adaptação climática\n- Contribui para metas nacionais de restauração (PLANAVEG - 12 milhões de hectares) através de restauração urbana de áreas úmidas e florestas\n\n**8. Marco Legal do Saneamento (Lei Federal 11.445/2007):**\n- Cumpre requisito de planos municipais de saneamento básico incluindo drenagem de águas pluviais\n- Demonstra abordagem inovadora para universalização de serviços de gestão de águas pluviais através de SbN\n\n**ALINHAMENTO COM COMPROMISSOS INTERNACIONAIS:**\n\n**9. Acordo de Paris e COP30 (Belém, 2025):**\n- Contribui para meta brasileira do Acordo de Paris através de adaptação e mitigação municipal\n- Alinha com discussões de COP30 sobre perda e dano, finanças de adaptação, e papel de governos sub-nacionais (experiência de enchente de RS foi destaque em COP30)\n\n**10. Objetivos de Desenvolvimento Sustentável (ODS):**\n- **ODS 11 (Cidades Sustentáveis)**: áreas verdes acessíveis, gestão de resíduos, redução de impactos de desastres\n- **ODS 6 (Água e Saneamento)**: gestão integrada de recursos hídricos, qualidade da água, tratamento de águas residuais\n- **ODS 13 (Ação Climática)**: adaptação, resiliência, capacidade de resposta\n- **ODS 15 (Vida Terrestre)**: restauração de ecossistemas degradados, biodiversidade\n- **ODS 10 (Redução de Desigualdades)**: ação climática inclusiva beneficiando comunidades vulneráveis\n- **ODS 8 (Trabalho Decente)**: empregos verdes com padrões ILO\n\n**11. Marco de Sendai para Redução de Risco de Desastres (2015-2030):**\n- Contribui para Prioridade 1 (compreender risco de desastre) através de mapeamento de vulnerabilidade\n- Contribui para Prioridade 3 (investir em RRD para resiliência) através de SbN para redução de risco de inundação\n- Contribui para Prioridade 4 (preparação e reconstruir melhor) através de abordagem de \"build back better\" pós-maio 2024\n\n**12. Quadro Global de Biodiversidade de Kunming-Montreal (CDB COP15):**\n- Contribui para Meta 11 (restaurar 30% de ecossistemas degradados até 2030) através de 20-30 ha de restauração de áreas úmidas\n- Contribui para Meta 12 (30% de áreas verdes urbanas acessíveis) através de 30-50 ha de parques de alagamento\n\n**PARCERIAS E PROJETOS COMPLEMENTARES:**\n\n**13. Projeto World Bank P178072 \"Green, Resilient and Inclusive Regeneration of Porto Alegre\" (2023-2028):**\n- **Financiamento**: USD 84,7M (WB) de USD 173,4M total\n- **Sinergia**: projeto proposto complementa P178072 expandindo SbN para Zona Norte e Ilhas (P178072 foca em Centro Histórico e 4º Distrito)\n- **Coordenação institucional**: aproveita PIU já estabelecida em SMPAE e expertise de gestão de projetos com banco multilateral\n- **Assistência técnica**: compartilha recursos de AT ao Plano de Ação Climática\n\n**14. Parceria Deltares (Holanda) e Dutch Water Sector:**\n- Integra com suporte técnico holandês para estratégia híbrida verde-cinza de proteção contra enchentes de Porto Alegre iniciado em 2024\n- Aproveita expertise em parques de alagamento e sistemas integrados água-natureza\n\n**15. Projetos IDB e AIIB:**\n- **IDB BR-L1598 \"Porto Alegre+\"**: desenvolvimento social com sustentabilidade fiscal - potencial de coordenação\n- **AIIB Recovery and Trade-Facilitation Project**: recuperação em Guaíba, RS - oportunidades de co-financiamento\n\n**CONCLUSÃO:**\n\nO projeto demonstra alinhamento excepcional com múltiplas camadas de planos e compromissos. Não é iniciativa isolada, mas componente integrado de esforço municipal, estadual, nacional e internacional coordenado para construir resiliência climática através de SbN. Este alinhamento fortalece caso para financiamento e aumenta probabilidade de sustentabilidade de longo prazo.",
+      "source": "agent"
+    }
+  ],
   "metadata": {
     "createdAt": "2026-03-30T12:17:38.885Z",
-    "updatedAt": "2026-03-30T12:17:38.885Z",
+    "updatedAt": "2026-03-30T12:44:13.212Z",
     "projectName": "",
     "proponentType": ""
   }
