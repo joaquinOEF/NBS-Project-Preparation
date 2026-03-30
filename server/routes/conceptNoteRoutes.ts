@@ -146,7 +146,15 @@ export function registerConceptNoteRoutes(app: Express): void {
       return res.status(404).json({ error: "Note not found" });
     }
 
-    // Save user message
+    // Detect language and append directive
+    const isPortuguese = /[àáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ]/.test(message) ||
+      /\b(sim|não|qual|como|quero|projeto|cidade|obrigad|favor|pode|também)\b/i.test(message);
+    const langDirective = isPortuguese
+      ? '\n[LANGUAGE: Respond in Portuguese. Questions, options, explanations — all in Portuguese. Only use English for technical terms that have no good translation.]'
+      : '\n[LANGUAGE: Respond in English. Questions, options, explanations — all in English. update_section content stays in Portuguese.]';
+    const messageWithLang = message + langDirective;
+
+    // Save user message (without the directive)
     addMessage(req.params.noteId, {
       role: 'user',
       content: message,
@@ -154,7 +162,7 @@ export function registerConceptNoteRoutes(app: Express): void {
       timestamp: new Date().toISOString(),
     });
 
-    await streamConceptNoteChat(req.params.noteId, message, res, state);
+    await streamConceptNoteChat(req.params.noteId, messageWithLang, res, state);
 
     // Persist after response completes
     debouncedPersist(req.params.noteId);
