@@ -390,11 +390,22 @@ async function streamWithV1Continue(
 ) {
   const mcpServer = getMcpServer(noteId);
 
-  // Always include system context + compact state summary
-  // This avoids accumulating conversation history via continue:true
+  // Three-layer context: system + decisions + state + recent exchanges
   const sysCtx = await buildSystemContext(state);
   const stateSummary = buildCompactStateSummary(state);
-  const prompt = `${sysCtx}\n\n## CURRENT DOCUMENT STATE\n${stateSummary}\n\nUser message: ${userMessage}`;
+  const decisionLog = buildDecisionLog(noteId);
+  const recentExchanges = getRecentExchanges(noteId, 2);
+
+  const prompt = `${sysCtx}
+
+## CURRENT DOCUMENT STATE (what's filled so far)
+${stateSummary}
+
+## USER DECISIONS SO FAR (what they chose in previous turns)
+${decisionLog}
+
+${recentExchanges ? `## LAST EXCHANGE (immediate context)\n${recentExchanges}\n` : ''}
+User message: ${userMessage}`;
 
   console.log(`[concept-note] V1 fresh turn for ${noteId} (phase ${state.phase}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length} sections filled)`);
 
@@ -649,6 +660,42 @@ async function loadCityContext(city: string): Promise<string> {
   cityContextCache.set(city, context);
   console.log(`[concept-note] City context for ${city}: ${context.length} chars`);
   return context;
+}
+
+// Build a decision log from user messages — captures what they chose and said
+function buildDecisionLog(noteId: string): string {
+  const msgs = getMessages(noteId);
+  const userMsgs = msgs.filter(m => m.role === 'user' && m.messageType === 'content');
+
+  if (userMsgs.length === 0) return 'No prior conversation.';
+
+  // Keep last 12 user messages (covers ~4-5 phases)
+  const recent = userMsgs.slice(-12);
+  const log = recent.map((m, i) => {
+    const content = m.content.slice(0, 250);
+    return `- User: ${content}`;
+  }).join('\n');
+
+  return log;
+}
+
+// Get last few exchanges for immediate context
+function getRecentExchanges(noteId: string, count: number = 3): string {
+  const msgs = getMessages(noteId);
+  if (msgs.length === 0) return '';
+
+  // Last N non-thinking messages
+  const recent = msgs
+    .filter(m => m.messageType === 'content')
+    .slice(-count * 2); // user + assistant pairs
+
+  if (recent.length === 0) return '';
+
+  return recent.map(m => {
+    const role = m.role === 'user' ? 'User' : 'Assistant';
+    const content = m.content.slice(0, 300);
+    return `${role}: ${content}`;
+  }).join('\n');
 }
 
 // Compact summary of filled sections — keeps each turn lightweight
