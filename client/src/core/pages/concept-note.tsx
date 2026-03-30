@@ -1,21 +1,22 @@
 import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+import { Link } from 'wouter';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-
-const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
-
-// Fix inline markdown tables — adds newlines between pipe-separated rows
-function fixMarkdownTables(text: string): string {
-  if (!text.includes('|')) return text;
-  // Match patterns like "| col1 | col2 | |---|---| | val1 | val2 |" and add newlines
-  return text.replace(/\|\s*\|/g, '|\n|').replace(/\|\s*\n\s*\|/g, '|\n|');
-}
+import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Input } from '@/core/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/core/components/ui/tooltip';
+
+const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
+
+// Fix inline markdown tables
+function fixMarkdownTables(text: string): string {
+  if (!text.includes('|')) return text;
+  return text.replace(/\|\s*\|/g, '|\n|').replace(/\|\s*\n\s*\|/g, '|\n|');
+}
 import {
   CONCEPT_NOTE_SECTIONS,
   type ConceptNoteState,
@@ -28,7 +29,7 @@ import {
   type Confidence,
 } from '@shared/concept-note-schema';
 import {
-  Send, Download, ChevronDown, ChevronRight, AlertTriangle,
+  Send, Download, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft,
   FileText, Loader2, RotateCcw, Star,
   Check, Circle, AlertCircle, Pencil,
 } from 'lucide-react';
@@ -602,13 +603,21 @@ export default function ConceptNotePage() {
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="h-screen flex flex-col bg-background">
+      <Header />
+      <div className="flex flex-1 min-h-0">
       {/* LEFT: Chat Panel */}
       <div className="w-1/2 border-r flex flex-col">
-        {/* Header */}
+        {/* Chat header with back + controls */}
         <div className="p-3 border-b bg-background flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-semibold flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Link href="/sample/project/sample-porto-alegre">
+              <Button variant="ghost" size="sm" className="h-7 px-2">
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            </Link>
+            <div>
+              <h2 className="text-sm font-semibold flex items-center gap-1.5">
               <FileText className="w-4 h-4" />
               Concept Note Assistant
             </h2>
@@ -628,6 +637,7 @@ export default function ConceptNotePage() {
                 </button>
               ))}
               <span className="text-[10px] text-muted-foreground ml-1">{filledCount}/23</span>
+            </div>
             </div>
           </div>
           <div className="flex gap-1">
@@ -933,6 +943,7 @@ export default function ConceptNotePage() {
             </Suspense>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
