@@ -1853,6 +1853,28 @@ export default function ProjectPage() {
             </div>
           </div>
 
+          {/* AI CONCEPT NOTE BANNER */}
+          <Link href="/concept-note">
+            <div className="group relative overflow-hidden rounded-xl border border-violet-300/40 bg-violet-500/[0.04] p-5 mb-8 cursor-pointer transition-all duration-300 hover:bg-violet-500/[0.08] hover:border-violet-400/50 hover:shadow-lg hover:shadow-violet-500/5">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-violet-400/[0.06] to-transparent rounded-full -translate-y-10 translate-x-10" />
+              <div className="absolute bottom-0 left-0 w-28 h-28 bg-gradient-to-tr from-primary/[0.06] to-transparent rounded-full translate-y-8 -translate-x-8" />
+              <div className="relative flex items-center gap-4">
+                <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500 to-violet-700 text-white shadow-sm shadow-violet-500/20 group-hover:scale-105 transition-transform">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-foreground group-hover:text-violet-700 transition-colors">
+                    Create Concept Note with AI Agent
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Guided interview to build a fundable BPJP/C40 concept note — grounded in city data and evidence
+                  </p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-violet-300 group-hover:text-violet-500 group-hover:translate-x-1 transition-all" />
+              </div>
+            </div>
+          </Link>
+
           {/* PREPARE Section */}
           <div className="mb-10">
             <div className="flex items-center gap-2 mb-4">
@@ -1977,30 +1999,6 @@ export default function ProjectPage() {
             </div>
           </div>
 
-          {/* AI CONCEPT NOTE BANNER */}
-          <Link href="/concept-note">
-            <div className="group relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-violet-500/5 p-5 mb-6 cursor-pointer transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
-              {/* Subtle background decoration */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full -translate-y-8 translate-x-8" />
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-violet-500/10 to-transparent rounded-full translate-y-6 -translate-x-6" />
-
-              <div className="relative flex items-center gap-4">
-                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-violet-600 text-white shadow-md shadow-primary/20 group-hover:scale-105 transition-transform">
-                  <Sparkles className="w-6 h-6" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
-                    Create Concept Note with AI Agent
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    Guided interview to build a fundable BPJP/C40 concept note — grounded in city data and evidence
-                  </p>
-                </div>
-                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-              </div>
-            </div>
-          </Link>
-
           {/* OUTPUT Section */}
           <div>
             <div className="flex items-center gap-2 mb-4">
@@ -2091,6 +2089,28 @@ export default function ProjectPage() {
             </Dialog>
           </div>
         </div>
+
+        {/* AI CONCEPT NOTE BANNER */}
+        <Link href="/concept-note">
+          <div className="group relative overflow-hidden rounded-xl border border-violet-300/40 bg-violet-500/[0.04] p-5 mb-8 cursor-pointer transition-all duration-300 hover:bg-violet-500/[0.08] hover:border-violet-400/50 hover:shadow-lg hover:shadow-violet-500/5">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-violet-400/[0.06] to-transparent rounded-full -translate-y-10 translate-x-10" />
+            <div className="absolute bottom-0 left-0 w-28 h-28 bg-gradient-to-tr from-primary/[0.06] to-transparent rounded-full translate-y-8 -translate-x-8" />
+            <div className="relative flex items-center gap-4">
+              <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500 to-violet-700 text-white shadow-sm shadow-violet-500/20 group-hover:scale-105 transition-transform">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-foreground group-hover:text-violet-700 transition-colors">
+                  Create Concept Note with AI Agent
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Guided interview to build a fundable BPJP/C40 concept note — grounded in city data and evidence
+                </p>
+              </div>
+              <ArrowRight className="w-5 h-5 text-violet-300 group-hover:text-violet-500 group-hover:translate-x-1 transition-all" />
+            </div>
+          </div>
+        </Link>
 
         {/* PREPARE Section */}
         <div className="mb-10">
@@ -2210,28 +2230,6 @@ export default function ProjectPage() {
             </Link>
           </div>
         </div>
-
-        {/* AI CONCEPT NOTE BANNER */}
-        <Link href="/concept-note">
-          <div className="group relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-violet-500/5 p-5 mb-6 cursor-pointer transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full -translate-y-8 translate-x-8" />
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-violet-500/10 to-transparent rounded-full translate-y-6 -translate-x-6" />
-            <div className="relative flex items-center gap-4">
-              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-violet-600 text-white shadow-md shadow-primary/20 group-hover:scale-105 transition-transform">
-                <Sparkles className="w-6 h-6" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
-                  Create Concept Note with AI Agent
-                </h3>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Guided interview to build a fundable BPJP/C40 concept note — grounded in city data and evidence
-                </p>
-              </div>
-              <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-            </div>
-          </div>
-        </Link>
 
         {/* OUTPUT Section */}
         <div>
