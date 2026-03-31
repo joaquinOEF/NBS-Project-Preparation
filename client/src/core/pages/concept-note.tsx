@@ -207,12 +207,40 @@ export default function ConceptNotePage() {
         return;
       }
 
-      // Arrow keys: cycle options within current question
-      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-        if (!isInInput) { e.preventDefault(); setSelectedOptionIdx(prev => (prev + 1) % opts.length); }
-      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-        if (!isInInput) { e.preventDefault(); setSelectedOptionIdx(prev => (prev - 1 + opts.length) % opts.length); }
-      } else if (e.key === 'Enter' && !e.shiftKey && !isInInput) {
+      // Arrow keys: cycle options, Down past last → focus input, Up from input → last option
+      // Left/Right ignored (prevent breaking options)
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        if (!isInInput) { e.preventDefault(); } // ignore sideways on options
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        if (isInInput) return; // let input handle it
+        e.preventDefault();
+        if (selectedOptionIdx >= opts.length - 1) {
+          // Past last option → focus input
+          inputRef.current?.focus();
+        } else {
+          setSelectedOptionIdx(prev => prev + 1);
+        }
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        if (isInInput) {
+          // From input → focus last option
+          e.preventDefault();
+          inputRef.current?.blur();
+          setSelectedOptionIdx(opts.length - 1);
+          return;
+        }
+        e.preventDefault();
+        if (selectedOptionIdx <= 0) {
+          // Already at first option, stay
+        } else {
+          setSelectedOptionIdx(prev => prev - 1);
+        }
+        return;
+      }
+      if (e.key === 'Enter' && !e.shiftKey && !isInInput) {
         e.preventDefault();
         handleSelectOptionRef.current(opts[selectedOptionIdx].label);
       } else if (!isInInput && !e.ctrlKey && !e.metaKey) {

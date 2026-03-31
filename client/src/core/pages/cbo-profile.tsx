@@ -95,9 +95,20 @@ export default function CboProfilePage() {
     function handleKeyDown(e: KeyboardEvent) {
       const opts = currentQuestion!.options;
       const isInInput = document.activeElement === inputRef.current;
-      if (e.key === 'ArrowDown' && !isInInput) { e.preventDefault(); setSelectedOptionIdx(p => (p + 1) % opts.length); }
-      else if (e.key === 'ArrowUp' && !isInInput) { e.preventDefault(); setSelectedOptionIdx(p => (p - 1 + opts.length) % opts.length); }
-      else if (e.key === 'Enter' && !e.shiftKey && !isInInput) { e.preventDefault(); handleSelectRef.current(opts[selectedOptionIdx].label); }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { if (!isInInput) e.preventDefault(); return; }
+      if (e.key === 'ArrowDown') {
+        if (isInInput) return;
+        e.preventDefault();
+        if (selectedOptionIdx >= opts.length - 1) { inputRef.current?.focus(); } else { setSelectedOptionIdx(p => p + 1); }
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        if (isInInput) { e.preventDefault(); inputRef.current?.blur(); setSelectedOptionIdx(opts.length - 1); return; }
+        e.preventDefault();
+        if (selectedOptionIdx > 0) setSelectedOptionIdx(p => p - 1);
+        return;
+      }
+      if (e.key === 'Enter' && !e.shiftKey && !isInInput) { e.preventDefault(); handleSelectRef.current(opts[selectedOptionIdx].label); }
       else if (e.key === 'Tab' && totalQuestions > 1 && !isInInput) { e.preventDefault(); setCurrentQuestionIdx(p => e.shiftKey ? (p - 1 + totalQuestions) % totalQuestions : (p + 1) % totalQuestions); setSelectedOptionIdx(0); }
       else if (!isInInput && !e.ctrlKey && !e.metaKey) {
         const idx = e.key.toUpperCase().charCodeAt(0) - 65;
