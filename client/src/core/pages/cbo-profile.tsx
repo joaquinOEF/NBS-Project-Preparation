@@ -300,19 +300,37 @@ export default function CboProfilePage() {
               </div>
             ))}
 
-            {/* MC Questions */}
+            {/* MC Questions — with navigation, multi-select, answered state */}
             {currentQuestion && (
-              <div className="rounded-lg border bg-background p-3 space-y-2">
-                <div className="text-sm font-medium prose prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkGfm]}>{currentQuestion.question}</ReactMarkdown></div>
-                <div className="space-y-1.5">
-                  {currentQuestion.options.map((opt: any, i: number) => (
-                    <button key={i} onClick={() => !isStreaming && handleSelectOption(opt.label)}
-                      className={`w-full text-left px-3 py-2 rounded-md border text-sm transition-all flex items-start gap-2 ${i === selectedOptionIdx ? 'border-green-600 bg-green-50 ring-1 ring-green-600' : 'border-muted hover:border-green-400'} ${isStreaming ? 'opacity-50' : 'cursor-pointer'}`}>
-                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-mono shrink-0 ${i === selectedOptionIdx ? 'bg-green-600 text-white' : 'bg-muted text-muted-foreground'}`}>{String.fromCharCode(65 + i)}</span>
-                      <div className="flex-1"><span className="font-medium">{opt.label}</span>{opt.description && <span className="text-muted-foreground ml-1">{opt.description}</span>}{opt.recommended && <span className="ml-1.5 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded"><Star className="w-2.5 h-2.5 inline" /> recommended</span>}</div>
-                    </button>
-                  ))}
-                </div>
+              <div className="space-y-2">
+                {/* Question navigation header */}
+                {totalQuestions > 1 && (
+                  <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                    <div className="flex items-center gap-1">
+                      {activeQuestions.map((_, i) => (
+                        <button key={i} onClick={() => { setCurrentQuestionIdx(i); setSelectedOptionIdx(0); }}
+                          className={`w-6 h-6 rounded-full text-[10px] font-medium flex items-center justify-center transition-all ${
+                            i === currentQuestionIdx ? 'bg-green-600 text-white'
+                            : questionAnswers[i] ? 'bg-green-100 text-green-700 border border-green-300'
+                            : 'bg-muted text-muted-foreground hover:bg-muted-foreground/20'
+                          }`}>
+                          {questionAnswers[i] ? <Check className="w-3 h-3" /> : i + 1}
+                        </button>
+                      ))}
+                    </div>
+                    <span>Question {currentQuestionIdx + 1} of {totalQuestions} · Tab to cycle</span>
+                  </div>
+                )}
+
+                {/* Question card */}
+                <CboQuestionCard
+                  question={currentQuestion}
+                  selectedIdx={selectedOptionIdx}
+                  onSelect={handleSelectOption}
+                  disabled={isStreaming}
+                  answeredValue={questionAnswers[currentQuestionIdx]}
+                  questionNumber={totalQuestions > 1 ? currentQuestionIdx + 1 : undefined}
+                />
               </div>
             )}
 
@@ -459,6 +477,87 @@ export default function CboProfilePage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// CBO QUESTION CARD — with multi-select support (green theme)
+// ============================================================================
+
+function CboQuestionCard({
+  question,
+  selectedIdx,
+  onSelect,
+  disabled,
+  answeredValue,
+  questionNumber,
+}: {
+  question: { question: string; options: any[]; multiSelect?: boolean };
+  selectedIdx: number;
+  onSelect: (label: string) => void;
+  disabled: boolean;
+  answeredValue?: string;
+  questionNumber?: number;
+}) {
+  const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
+  const isMulti = question.multiSelect;
+
+  const handleClick = (label: string) => {
+    if (disabled) return;
+    if (isMulti) {
+      setMultiSelected(prev => {
+        const next = new Set(prev);
+        next.has(label) ? next.delete(label) : next.add(label);
+        return next;
+      });
+    } else {
+      onSelect(label);
+    }
+  };
+
+  return (
+    <div className={`rounded-lg border bg-background p-3 space-y-2 transition-all ${answeredValue ? 'border-green-200 bg-green-50/30' : ''}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-sm font-medium prose prose-sm max-w-none flex-1">
+          {questionNumber && <span className="text-muted-foreground mr-1">{questionNumber}.</span>}
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{question.question}</ReactMarkdown>
+          {isMulti && <span className="text-[10px] text-muted-foreground ml-1">(select all that apply)</span>}
+        </div>
+        {answeredValue && (
+          <span className="shrink-0 inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded">
+            <Check className="w-3 h-3" /> {answeredValue}
+          </span>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        {question.options.map((opt: any, i: number) => {
+          const letter = String.fromCharCode(65 + i);
+          const isSelected = isMulti ? multiSelected.has(opt.label) : (i === selectedIdx);
+          return (
+            <button key={i} onClick={() => handleClick(opt.label)}
+              className={`w-full text-left px-3 py-2 rounded-md border text-sm transition-all flex items-start gap-2 ${
+                isSelected ? 'border-green-600 bg-green-50 ring-1 ring-green-600' : 'border-muted hover:border-green-400'
+              } ${disabled ? 'opacity-50' : 'cursor-pointer'}`}>
+              <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-mono shrink-0 ${
+                isSelected ? 'bg-green-600 text-white' : 'bg-muted text-muted-foreground'
+              }`}>
+                {isMulti && isSelected ? <Check className="w-3 h-3" /> : letter}
+              </span>
+              <div className="flex-1">
+                <span className="font-medium">{opt.label}</span>
+                {opt.description && <span className="text-muted-foreground ml-1">{opt.description}</span>}
+                {opt.recommended && <span className="ml-1.5 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded"><Star className="w-2.5 h-2.5 inline" /> recommended</span>}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {isMulti && multiSelected.size > 0 && !answeredValue && (
+        <Button size="sm" onClick={() => onSelect(Array.from(multiSelected).join(', '))} disabled={disabled} className="w-full h-8 text-xs gap-1 bg-green-600 hover:bg-green-700">
+          <Check className="w-3 h-3" /> Confirm {multiSelected.size} selected
+        </Button>
+      )}
     </div>
   );
 }
