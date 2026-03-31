@@ -593,10 +593,11 @@ export default function ConceptNotePage() {
 
   // Filled section count
   // File drop handler
-  const { isDragging, dragHandlers } = useFileDrop({
-    onFileDrop: (file, content) => {
-      const fileMsg = `I'm uploading a document: "${file.name}" (${(file.size / 1024).toFixed(0)}KB).\n\nHere is the content:\n\n${content.slice(0, 8000)}\n\nPlease:\n1. Extract any relevant information for the concept note\n2. Auto-fill sections where the document provides data (use update_section)\n3. Tell me what you found and what sections you updated`;
-      sendMessage(fileMsg);
+  const { isDragging, isUploading, dragHandlers } = useFileDrop({
+    sessionId: noteId,
+    sessionType: 'concept-note',
+    onFileProcessed: (filename, content) => {
+      sendMessage(`I'm uploading a document: "${filename}".\n\nHere is the parsed content:\n\n${content.slice(0, 8000)}\n\nPlease:\n1. Extract any relevant information for the concept note\n2. Auto-fill sections where the document provides data (use update_section)\n3. Tell me what you found and what sections you updated`);
     },
   });
 

@@ -215,9 +215,11 @@ export default function CboProfilePage() {
   }, [cboId]);
 
   // File drop handler
-  const { isDragging, dragHandlers } = useFileDrop({
-    onFileDrop: (file, content) => {
-      sendMessage(`I'm uploading: "${file.name}" (${(file.size / 1024).toFixed(0)}KB).\n\nContent:\n${content.slice(0, 8000)}\n\nPlease extract relevant information, auto-fill sections with update_section, and score maturity metrics based on what you find.`);
+  const { isDragging, isUploading, dragHandlers } = useFileDrop({
+    sessionId: cboId,
+    sessionType: 'cbo',
+    onFileProcessed: (filename, content) => {
+      sendMessage(`I'm uploading: "${filename}".\n\nParsed content:\n${content.slice(0, 8000)}\n\nPlease extract relevant information, auto-fill sections with update_section, and score maturity metrics based on what you find.`);
     },
   });
 

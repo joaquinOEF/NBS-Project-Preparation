@@ -1,30 +1,29 @@
 import { useState, useCallback, useRef, DragEvent } from 'react';
 
 interface UseFileDropOptions {
-  onFileDrop: (file: File, content: string) => void;
-  acceptedTypes?: string[];
+  sessionId: string | null;
+  sessionType: 'concept-note' | 'cbo';
+  onFileProcessed: (filename: string, content: string) => void;
+  onError?: (error: string) => void;
 }
 
-export function useFileDrop({ onFileDrop, acceptedTypes = ['.pdf', '.docx', '.xlsx', '.png', '.jpg', '.jpeg', '.txt', '.md'] }: UseFileDropOptions) {
+export function useFileDrop({ sessionId, sessionType, onFileProcessed, onError }: UseFileDropOptions) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const dragCounter = useRef(0);
 
   const handleDragEnter = useCallback((e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     dragCounter.current++;
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      setIsDragging(true);
-    }
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) setIsDragging(true);
   }, []);
 
   const handleDragLeave = useCallback((e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     dragCounter.current--;
-    if (dragCounter.current === 0) {
-      setIsDragging(false);
-    }
+    if (dragCounter.current === 0) setIsDragging(false);
   }, []);
 
   const handleDragOver = useCallback((e: DragEvent) => {
@@ -38,29 +37,50 @@ export function useFileDrop({ onFileDrop, acceptedTypes = ['.pdf', '.docx', '.xl
     setIsDragging(false);
     dragCounter.current = 0;
 
+    if (!sessionId) return;
+
     const files = Array.from(e.dataTransfer.files);
     for (const file of files) {
-      const ext = '.' + file.name.split('.').pop()?.toLowerCase();
-      if (!acceptedTypes.includes(ext)) continue;
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const textTypes = ['txt', 'md', 'csv'];
 
-      // Read as text for simple files
-      if (['.txt', '.md'].includes(ext)) {
-        const text = await file.text();
-        onFileDrop(file, text);
+      if (textTypes.includes(ext)) {
+        // Text files — read directly
+        const content = await file.text();
+        onFileProcessed(file.name, content);
       } else {
-        // For binary files, read as base64 and let server parse
-        const reader = new FileReader();
-        reader.onload = () => {
-          const base64 = (reader.result as string).split(',')[1];
-          onFileDrop(file, `[File: ${file.name}, ${(file.size / 1024).toFixed(1)}KB, type: ${file.type}]\n(Binary file uploaded — server will parse)`);
-        };
-        reader.readAsDataURL(file);
+        // Binary files — upload to server for parsing
+        setIsUploading(true);
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const res = await fetch(`/api/upload/${sessionType}/${sessionId}`, {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!res.ok) {
+            const err = await res.json();
+            onError?.(err.error || 'Upload failed');
+            continue;
+          }
+
+          const data = await res.json();
+          const content = data.content || `[File uploaded: ${file.name}, ${data.contentLength} chars extracted]`;
+          onFileProcessed(file.name, content);
+        } catch (err: any) {
+          onError?.(err.message || 'Upload failed');
+        } finally {
+          setIsUploading(false);
+        }
       }
     }
-  }, [onFileDrop, acceptedTypes]);
+  }, [sessionId, sessionType, onFileProcessed, onError]);
 
   return {
     isDragging,
+    isUploading,
     dragHandlers: {
       onDragEnter: handleDragEnter,
       onDragLeave: handleDragLeave,
