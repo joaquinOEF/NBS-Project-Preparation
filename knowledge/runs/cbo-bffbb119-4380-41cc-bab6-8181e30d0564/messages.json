@@ -1,0 +1,26 @@
+[
+  {
+    "role": "user",
+    "content": "Start the CBO intervention profile for Porto Alegre. Use the /cbo-intervention skill flow. Always use the ask_user tool for multiple-choice questions. In your first message, mention that the user can drop existing documents (proposals, reports, plans, photos) into the chat at any time — you'll extract info and auto-fill sections.",
+    "messageType": "content",
+    "timestamp": "2026-03-31T23:18:36.110Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Welcome! 🌱 I'm so glad you're here to document your NBS project for the COUGAR initiative in Porto Alegre.\n\nBefore we begin, I want to mention: **you can drop any existing documents into this chat at any time** — proposals, project reports, photos, maps, budgets, anything you have. I'll read them and automatically fill in as many sections as possible, saving you time and effort. Many organizations already have great materials; let's use them!\n\nNow, let's start with the basics about your organization. I'm going to ask you a few quick questions to get us going.",
+    "messageType": "content",
+    "timestamp": "2026-03-31T23:18:43.453Z"
+  },
+  {
+    "role": "user",
+    "content": "I'm uploading: \"Certif. Joaquin.pdf\".\n\nParsed content:\n[Error parsing PDF: parser is not a function]\n\nPlease extract relevant information, auto-fill sections with update_section, and score maturity metrics based on what you find.",
+    "messageType": "content",
+    "timestamp": "2026-03-31T23:18:55.137Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Olá! 👋 Welcome to the COUGAR CBO Intervention Profile tool for Porto Alegre!\n\nI'm here to help you document your Nature-Based Solutions (NBS) project in a structured way that can support funding applications, collaboration with the municipality, and integration into Porto Alegre's climate resilience strategy.\n\n**Good news:** You can drop existing documents (PDFs, Word docs, presentations, reports) directly into this chat at any time, and I'll extract relevant information to auto-fill sections and speed up the process!\n\n---\n\nI see you tried to upload \"Certif. Joaquin.pdf\" but I encountered a technical issue reading it. Let me start gathering information through questions, and you can try uploading the document again or share its content in another way if you'd like.",
+    "messageType": "content",
+    "timestamp": "2026-03-31T23:19:03.633Z"
+  }
+]
