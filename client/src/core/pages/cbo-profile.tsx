@@ -1,0 +1,434 @@
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+import { Link } from 'wouter';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Header } from '@/core/components/layout/header';
+import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { Button } from '@/core/components/ui/button';
+import { Badge } from '@/core/components/ui/badge';
+import { Textarea } from '@/core/components/ui/textarea';
+import { Input } from '@/core/components/ui/input';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/core/components/ui/tooltip';
+import {
+  CBO_SECTIONS,
+  type CboState,
+  type CboEvent,
+  type CboChatMessage,
+  type CboSectionId,
+  type Confidence,
+  type MaturityScore,
+  type PriorityFlag,
+} from '@shared/cbo-schema';
+import {
+  Send, Download, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft,
+  FileText, Loader2, RotateCcw, Star, Leaf,
+  Check, Circle, AlertCircle, Pencil,
+} from 'lucide-react';
+
+const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
+
+function fixMarkdownTables(text: string): string {
+  if (!text.includes('|')) return text;
+  return text.replace(/\|\s*\|/g, '|\n|').replace(/\|\s*\n\s*\|/g, '|\n|');
+}
+
+const STORAGE_KEY = 'cbo-session-id';
+function getSavedId(): string | null { try { return localStorage.getItem(STORAGE_KEY); } catch { return null; } }
+function saveId(id: string) { try { localStorage.setItem(STORAGE_KEY, id); } catch {} }
+function clearId() { try { localStorage.removeItem(STORAGE_KEY); } catch {} }
+
+// ============================================================================
+// MAIN PAGE
+// ============================================================================
+
+export default function CboProfilePage() {
+  const [cboId, setCboId] = useState<string | null>(null);
+  const [state, setState] = useState<CboState | null>(null);
+  const [messages, setMessages] = useState<CboChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [activeQuestions, setActiveQuestions] = useState<Array<{ id: string; question: string; options: any[]; multiSelect?: boolean }>>([]);
+  const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
+  const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({});
+  const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
+  const [rightTab, setRightTab] = useState<'document' | 'map' | 'scorecard'>('document');
+  const [mapRelevant, setMapRelevant] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const handleSelectRef = useRef<(label: string) => void>(() => {});
+
+  const currentQuestion = activeQuestions[currentQuestionIdx] || null;
+  const totalQuestions = activeQuestions.length;
+
+  // Init session
+  useEffect(() => {
+    async function init() {
+      const saved = getSavedId();
+      if (saved) {
+        try {
+          const res = await fetch(`/api/cbo/${saved}`);
+          if (res.ok) {
+            const data = await res.json();
+            setCboId(saved);
+            setState(data.state);
+            const msgRes = await fetch(`/api/cbo/${saved}/messages`);
+            if (msgRes.ok) { const msgs = await msgRes.json(); if (msgs.length) setMessages(msgs); }
+            return;
+          }
+        } catch {}
+      }
+      const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
+      const data = await res.json();
+      setCboId(data.cboId);
+      setState(data.state);
+      saveId(data.cboId);
+    }
+    init();
+  }, []);
+
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  // Keyboard nav
+  useEffect(() => {
+    if (!currentQuestion) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      const opts = currentQuestion!.options;
+      const isInInput = document.activeElement === inputRef.current;
+      if (e.key === 'ArrowDown' && !isInInput) { e.preventDefault(); setSelectedOptionIdx(p => (p + 1) % opts.length); }
+      else if (e.key === 'ArrowUp' && !isInInput) { e.preventDefault(); setSelectedOptionIdx(p => (p - 1 + opts.length) % opts.length); }
+      else if (e.key === 'Enter' && !e.shiftKey && !isInInput) { e.preventDefault(); handleSelectRef.current(opts[selectedOptionIdx].label); }
+      else if (e.key === 'Tab' && totalQuestions > 1 && !isInInput) { e.preventDefault(); setCurrentQuestionIdx(p => e.shiftKey ? (p - 1 + totalQuestions) % totalQuestions : (p + 1) % totalQuestions); setSelectedOptionIdx(0); }
+      else if (!isInInput && !e.ctrlKey && !e.metaKey) {
+        const idx = e.key.toUpperCase().charCodeAt(0) - 65;
+        if (idx >= 0 && idx < opts.length) { e.preventDefault(); handleSelectRef.current(opts[idx].label); }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentQuestion, selectedOptionIdx, totalQuestions]);
+
+  // Process SSE events
+  const processEvent = useCallback((event: CboEvent) => {
+    switch (event.type) {
+      case 'chat': {
+        const isNarration = /^(Let me |Good|Now |Starting |I'll |I can |Reading |Loading |Setting |Phase )/i.test(event.content.trim())
+          || (event.content.length < 300 && !event.content.includes('##') && !event.content.includes('**'));
+        const msgType = isNarration ? 'thinking' : 'content';
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (isNarration && last?.messageType === 'thinking') {
+            const bullets = event.content.split(/(?<=\.)\s*/).filter(s => s.trim()).map(s => `- ${s.trim()}`).join('\n');
+            return [...prev.slice(0, -1), { ...last, content: last.content + '\n' + bullets }];
+          }
+          if (!isNarration && last?.role === 'assistant' && last.messageType === 'content') {
+            return [...prev.slice(0, -1), { ...last, content: last.content + event.content }];
+          }
+          return [...prev, { role: 'assistant' as const, content: isNarration ? event.content.split(/(?<=\.)\s*/).filter(s => s.trim()).map(s => `- ${s.trim()}`).join('\n') : event.content, messageType: msgType as any, timestamp: new Date().toISOString() }];
+        });
+        break;
+      }
+      case 'field_update':
+        setState(prev => {
+          if (!prev) return prev;
+          const section = prev.sections[event.sectionId as CboSectionId];
+          if (!section) return prev;
+          return { ...prev, sections: { ...prev.sections, [event.sectionId]: { ...section, fields: { ...section.fields, [event.field]: { value: event.value, confidence: event.confidence, source: event.source, userEdited: false } }, confidence: event.confidence, lastUpdatedBy: 'agent' } } };
+        });
+        break;
+      case 'gap':
+        setState(prev => prev ? { ...prev, gaps: [...prev.gaps, { sectionId: event.sectionId as CboSectionId, field: event.field, reason: event.reason, severity: event.severity as any }] } : prev);
+        break;
+      case 'phase_change':
+        setState(prev => prev ? { ...prev, phase: event.phase } : prev);
+        break;
+      case 'maturity_update':
+        setState(prev => prev ? { ...prev, maturityScores: event.scores, totalMaturityScore: event.total, priorityFlags: event.flags } : prev);
+        break;
+      case 'ask_user': {
+        const spatialKeywords = /\b(zone|zona|area|área|site|sítio|where|onde|map|mapa|location|local|bairro)\b/i;
+        const hasMap = !!(event as any).showMap || spatialKeywords.test(event.question);
+        setActiveQuestions(prev => {
+          if (prev.length === 0) { setCurrentQuestionIdx(0); setQuestionAnswers({}); }
+          return [...prev, { id: `q_${Date.now()}`, question: event.question, options: event.options, multiSelect: (event as any).multiSelect }];
+        });
+        setSelectedOptionIdx(0);
+        setIsStreaming(false);
+        if (hasMap) { setMapRelevant(true); setRightTab('map'); }
+        break;
+      }
+      case 'done': setIsStreaming(false); break;
+      case 'error': setIsStreaming(false); setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${event.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); break;
+    }
+  }, []);
+
+  // Send message
+  const sendMessage = useCallback(async (text: string) => {
+    if (!cboId || !text.trim() || isStreaming) return;
+    setInput('');
+    setActiveQuestions([]);
+    setMessages(prev => [...prev, { role: 'user', content: text, messageType: 'content', timestamp: new Date().toISOString() }]);
+    setIsStreaming(true);
+    try {
+      const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text }) });
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) { if (line.startsWith('data: ')) { try { processEvent(JSON.parse(line.slice(6))); } catch {} } }
+        }
+      }
+    } catch (e: any) { setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); }
+    setIsStreaming(false);
+  }, [cboId, isStreaming, processEvent]);
+
+  // MC selection
+  const handleSelectOption = useCallback((label: string) => {
+    setQuestionAnswers(prev => {
+      const updated = { ...prev, [currentQuestionIdx]: label };
+      if (Object.keys(updated).length === totalQuestions) {
+        const all = activeQuestions.map((_, i) => updated[i]).filter(Boolean);
+        setActiveQuestions([]); setCurrentQuestionIdx(0); setSelectedOptionIdx(0);
+        sendMessage(all.join('; '));
+        return {};
+      }
+      return updated;
+    });
+    setSelectedOptionIdx(0);
+    for (let i = currentQuestionIdx + 1; i < totalQuestions; i++) { if (!questionAnswers[i]) { setCurrentQuestionIdx(i); return; } }
+    for (let i = 0; i < currentQuestionIdx; i++) { if (!questionAnswers[i]) { setCurrentQuestionIdx(i); return; } }
+  }, [currentQuestionIdx, totalQuestions, activeQuestions, questionAnswers, sendMessage]);
+  handleSelectRef.current = handleSelectOption;
+
+  const handleRestart = useCallback(async () => {
+    if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
+    clearId(); setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
+    const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
+    const data = await res.json();
+    setCboId(data.cboId); setState(data.state); saveId(data.cboId);
+  }, [cboId]);
+
+  const filledCount = useMemo(() => state ? Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length : 0, [state]);
+
+  if (!state) return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
+
+  return (
+    <div className="h-screen flex flex-col bg-background">
+      <Header />
+      <div className="flex flex-1 min-h-0">
+        {/* LEFT: Chat */}
+        <div className="w-1/2 border-r flex flex-col">
+          <div className="p-3 border-b bg-background flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Link href="/sample/project/sample-ada-1"><Button variant="ghost" size="sm" className="h-7 px-2"><ArrowLeft className="w-4 h-4" /></Button></Link>
+              <div>
+                <h2 className="text-sm font-semibold flex items-center gap-1.5"><Leaf className="w-4 h-4 text-green-600" /> CBO Intervention Profile</h2>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {[1,2,3,4,5].map(p => (
+                    <button key={p} onClick={() => !isStreaming && sendMessage(`Jump to Phase ${p}`)}
+                      className={`w-5 h-5 rounded text-[10px] font-medium transition-all ${p === state.phase ? 'bg-green-600 text-white' : p < state.phase ? 'bg-green-200 text-green-700' : 'bg-muted text-muted-foreground'}`}
+                    >{p}</button>
+                  ))}
+                  <span className="text-[10px] text-muted-foreground ml-1">{filledCount}/5</span>
+                  {state.totalMaturityScore > 0 && <Badge variant="outline" className="text-[10px] h-4 ml-1">{state.totalMaturityScore}/27</Badge>}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-1">
+              <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => cboId && window.open(`/api/cbo/${cboId}/export`, '_blank')}><Download className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Export profile</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={handleRestart}><RotateCcw className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Start over</TooltipContent></Tooltip>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {messages.length === 0 && state.phase === 0 && (
+              <div className="text-center text-muted-foreground py-8">
+                <Leaf className="w-12 h-12 mx-auto mb-3 text-green-500" />
+                <p className="text-lg mb-2">Document Your Community Intervention</p>
+                <p className="text-sm mb-4">We'll help you create a structured profile of your NBS project</p>
+                <Button className="bg-green-600 hover:bg-green-700" onClick={() => sendMessage("Start the CBO intervention profile for Porto Alegre. Use the /cbo-intervention skill flow. Always use the ask_user tool for multiple-choice questions.")}>
+                  Start Profile
+                </Button>
+              </div>
+            )}
+
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[90%] rounded-lg px-4 py-2.5 ${msg.role === 'user' ? 'bg-green-600 text-white' : msg.messageType === 'thinking' ? 'bg-muted/50 border border-dashed border-muted-foreground/20' : 'bg-muted'}`}>
+                  {msg.messageType === 'thinking' && <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Working</p>}
+                  {msg.role === 'user' ? <p className="text-sm">{msg.content}</p> : (
+                    <div className={`text-sm prose prose-sm max-w-none ${msg.messageType === 'thinking' ? 'text-muted-foreground italic text-xs' : ''}`}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{fixMarkdownTables(msg.content)}</ReactMarkdown>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* MC Questions */}
+            {currentQuestion && (
+              <div className="rounded-lg border bg-background p-3 space-y-2">
+                <div className="text-sm font-medium prose prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkGfm]}>{currentQuestion.question}</ReactMarkdown></div>
+                <div className="space-y-1.5">
+                  {currentQuestion.options.map((opt: any, i: number) => (
+                    <button key={i} onClick={() => !isStreaming && handleSelectOption(opt.label)}
+                      className={`w-full text-left px-3 py-2 rounded-md border text-sm transition-all flex items-start gap-2 ${i === selectedOptionIdx ? 'border-green-600 bg-green-50 ring-1 ring-green-600' : 'border-muted hover:border-green-400'} ${isStreaming ? 'opacity-50' : 'cursor-pointer'}`}>
+                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-mono shrink-0 ${i === selectedOptionIdx ? 'bg-green-600 text-white' : 'bg-muted text-muted-foreground'}`}>{String.fromCharCode(65 + i)}</span>
+                      <div className="flex-1"><span className="font-medium">{opt.label}</span>{opt.description && <span className="text-muted-foreground ml-1">{opt.description}</span>}{opt.recommended && <span className="ml-1.5 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded"><Star className="w-2.5 h-2.5 inline" /> recommended</span>}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {isStreaming && <div className="flex items-center gap-2 py-2"><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} /><span className="text-xs text-muted-foreground ml-1">Working...</span></div>}
+
+            {/* Resume */}
+            {!isStreaming && state.phase > 0 && !currentQuestion && messages.length > 0 && (
+              <div className="text-center py-4">
+                <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-green-300 bg-green-50">
+                  <p className="text-sm text-muted-foreground">Phase {state.phase}/5, {filledCount} sections filled</p>
+                  <Button variant="outline" onClick={() => sendMessage(`Continue from Phase ${state.phase}.`)}>Continue</Button>
+                </div>
+              </div>
+            )}
+
+            <div ref={chatEndRef} />
+          </div>
+
+          <div className={`p-3 border-t transition-colors ${isStreaming ? 'bg-muted/50' : currentQuestion ? 'bg-green-50 border-t-green-200' : ''}`}>
+            {!isStreaming && currentQuestion && <p className="text-[10px] text-green-700 mb-1 font-medium">Your turn — arrows + Enter to select, or type below</p>}
+            <form onSubmit={(e) => { e.preventDefault(); if (currentQuestion && input.trim()) { handleSelectOption(input.trim()); setInput(''); } else sendMessage(input); }} className="flex gap-2">
+              <Input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} placeholder={isStreaming ? "Working..." : currentQuestion ? "Type a custom answer..." : "Type your response..."} disabled={isStreaming} className="flex-1" />
+              <Button type="submit" disabled={isStreaming || !input.trim()} size="sm" className="bg-green-600 hover:bg-green-700"><Send className="w-4 h-4" /></Button>
+            </form>
+          </div>
+        </div>
+
+        {/* RIGHT: Document / Map / Scorecard */}
+        <div className="w-1/2 flex flex-col bg-muted/30">
+          <div className="border-b bg-background">
+            <div className="px-4 pt-3 pb-0">
+              <h2 className="text-base font-semibold">{state.orgName || 'Intervention Profile'}</h2>
+              <div className="flex items-center gap-3 mt-1.5 mb-2">
+                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${(filledCount / 5) * 100}%` }} /></div>
+                <span className="text-xs text-muted-foreground shrink-0">{filledCount}/5</span>
+              </div>
+            </div>
+            <div className="flex px-4 gap-0 border-t">
+              {(['document', 'map', 'scorecard'] as const).map(tab => (
+                <button key={tab} onClick={() => setRightTab(tab)}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize ${rightTab === tab ? 'border-green-600 text-green-700' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+                  {tab}{tab === 'map' && mapRelevant && rightTab !== 'map' && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-1 inline-block" />}
+                  {tab === 'scorecard' && state.totalMaturityScore > 0 && <span className="ml-1 text-xs text-muted-foreground">{state.totalMaturityScore}/27</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {rightTab === 'document' && (
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {CBO_SECTIONS.map(sec => {
+                const section = state.sections[sec.id];
+                const fields = Object.entries(section.fields);
+                const hasGaps = state.gaps.some(g => g.sectionId === sec.id);
+                return (
+                  <Card key={sec.id} className={hasGaps ? 'border-orange-300' : ''}>
+                    <CardHeader className="py-2.5 px-4 cursor-pointer" onClick={() => {}}>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-medium">{sec.title}</CardTitle>
+                        <div className="flex items-center gap-1.5">
+                          {hasGaps && <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />}
+                          {fields.length > 0 && <div className={`w-2 h-2 rounded-full ${section.confidence === 'high' ? 'bg-green-500' : section.confidence === 'medium' ? 'bg-amber-400' : 'bg-gray-200'}`} />}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    {fields.length > 0 && (
+                      <CardContent className="pt-0 px-4 pb-4 space-y-2">
+                        <div className="rounded-md border overflow-hidden">
+                          <table className="w-full text-sm">
+                            <tbody>
+                              {fields.map(([k, v]) => (
+                                <tr key={k} className="border-b last:border-b-0">
+                                  <td className="px-3 py-1.5 text-xs text-muted-foreground capitalize w-[120px] font-medium">{k.replace(/_/g, ' ')}</td>
+                                  <td className="px-3 py-1.5 text-sm">
+                                    {String(v.value || '').length > 100 ? (
+                                      <div className="prose prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkGfm]}>{fixMarkdownTables(String(v.value))}</ReactMarkdown></div>
+                                    ) : String(v.value || '')}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        {section.sources.length > 0 && <p className="text-[10px] text-muted-foreground">📎 {section.sources.join(', ')}</p>}
+                      </CardContent>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {rightTab === 'map' && (
+            <div className="flex-1 min-h-0 relative">
+              <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="w-6 h-6 animate-spin" /></div>}>
+                <ConceptNoteMap isActive={rightTab === 'map'} onConfirm={(_summary, description) => {
+                  if (currentQuestion) handleSelectOption(description); else sendMessage(description);
+                  setRightTab('document'); setMapRelevant(false);
+                }} />
+              </Suspense>
+            </div>
+          )}
+
+          {rightTab === 'scorecard' && (
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="text-center py-4">
+                <div className="text-4xl font-bold text-green-700">{state.totalMaturityScore}<span className="text-lg text-muted-foreground">/27</span></div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {state.totalMaturityScore >= 25 ? 'Investment Ready' : state.totalMaturityScore >= 19 ? 'Investment Ready with Conditions' : state.totalMaturityScore >= 10 ? 'Developing — Promising with Support' : 'Early Stage'}
+                </p>
+              </div>
+
+              {state.maturityScores.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold">Maturity Metrics</h3>
+                  {state.maturityScores.map(s => (
+                    <div key={s.metric} className="flex items-center gap-3 text-sm">
+                      <span className="text-xs text-muted-foreground capitalize w-[160px]">{s.metric.replace(/_/g, ' ')}</span>
+                      <div className="flex gap-0.5">
+                        {[0,1,2].map(i => <div key={i} className={`w-8 h-3 rounded-sm ${i < s.score ? 'bg-green-500' : 'bg-gray-200'}`} />)}
+                      </div>
+                      <span className="text-xs font-medium">{s.score}/3</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {state.priorityFlags.length > 0 && (
+                <div className="space-y-1.5">
+                  <h3 className="text-sm font-semibold">Priority Flags</h3>
+                  {state.priorityFlags.map(f => (
+                    <div key={f.flag} className="flex items-center gap-2 text-sm">
+                      <span className={`text-base ${f.met ? 'text-green-600' : 'text-gray-300'}`}>{f.met ? '✅' : '⬜'}</span>
+                      <span className={f.met ? '' : 'text-muted-foreground'}>{f.flag}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {state.maturityScores.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground py-8">Complete the interview to see your maturity scorecard</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

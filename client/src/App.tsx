@@ -19,6 +19,7 @@ import ProjectOperationsPage from '@/core/pages/project-operations';
 import BusinessModelPage from '@/core/pages/business-model';
 import ImpactModelPage from '@/core/pages/impact-model';
 import ConceptNotePage from '@/core/pages/concept-note';
+import CboProfilePage from '@/core/pages/cbo-profile';
 import { OAuthCallback } from '@/core/components/auth/oauth-callback';
 import NotFound from '@/core/pages/not-found';
 
@@ -52,6 +53,7 @@ function Router() {
 
       {/* Concept Note — split-screen agent + document editor */}
       <Route path='/concept-note' component={ConceptNotePage} />
+      <Route path='/cbo-profile' component={CboProfilePage} />
       
       {/* Sample mode routes - no API calls, uses local data */}
       <Route path='/sample/cities' component={CitySelection} />

@@ -1,7 +1,7 @@
 import { useParams, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Map, ArrowRight, DollarSign, Settings, Landmark, Database, ChevronRight, ChevronDown, Lightbulb, FileText, CheckCircle2, Circle, Download, Sparkles } from 'lucide-react';
+import { ArrowLeft, Map, ArrowRight, DollarSign, Settings, Landmark, Database, ChevronRight, ChevronDown, Lightbulb, FileText, CheckCircle2, Circle, Download, Sparkles, Leaf } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
 import { DisplayLarge } from '@oef/components';
@@ -1875,6 +1875,28 @@ export default function ProjectPage() {
             </div>
           </Link>
 
+          {/* CBO INTERVENTION PROFILE BANNER */}
+          <Link href="/cbo-profile">
+            <div className="group relative overflow-hidden rounded-xl border border-green-300/40 bg-green-500/[0.04] p-5 mb-8 cursor-pointer transition-all duration-300 hover:bg-green-500/[0.08] hover:border-green-400/50 hover:shadow-lg hover:shadow-green-500/5">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-green-400/[0.06] to-transparent rounded-full -translate-y-10 translate-x-10" />
+              <div className="absolute bottom-0 left-0 w-28 h-28 bg-gradient-to-tr from-emerald-500/[0.06] to-transparent rounded-full translate-y-8 -translate-x-8" />
+              <div className="relative flex items-center gap-4">
+                <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br from-green-500 to-emerald-700 text-white shadow-sm shadow-green-500/20 group-hover:scale-105 transition-transform">
+                  <Leaf className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-foreground group-hover:text-green-700 transition-colors">
+                    Document Community Intervention
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    CBO/NGO intervention profile with maturity scorecard — for the COUGAR portfolio
+                  </p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-green-300 group-hover:text-green-500 group-hover:translate-x-1 transition-all" />
+              </div>
+            </div>
+          </Link>
+
           {/* PREPARE Section */}
           <div className="mb-10">
             <div className="flex items-center gap-2 mb-4">
@@ -2108,6 +2130,28 @@ export default function ProjectPage() {
                 </p>
               </div>
               <ArrowRight className="w-5 h-5 text-violet-300 group-hover:text-violet-500 group-hover:translate-x-1 transition-all" />
+            </div>
+          </div>
+        </Link>
+
+        {/* CBO INTERVENTION PROFILE BANNER */}
+        <Link href="/cbo-profile">
+          <div className="group relative overflow-hidden rounded-xl border border-green-300/40 bg-green-500/[0.04] p-5 mb-8 cursor-pointer transition-all duration-300 hover:bg-green-500/[0.08] hover:border-green-400/50 hover:shadow-lg hover:shadow-green-500/5">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-green-400/[0.06] to-transparent rounded-full -translate-y-10 translate-x-10" />
+            <div className="absolute bottom-0 left-0 w-28 h-28 bg-gradient-to-tr from-emerald-500/[0.06] to-transparent rounded-full translate-y-8 -translate-x-8" />
+            <div className="relative flex items-center gap-4">
+              <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br from-green-500 to-emerald-700 text-white shadow-sm shadow-green-500/20 group-hover:scale-105 transition-transform">
+                <Leaf className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-foreground group-hover:text-green-700 transition-colors">
+                  Document Community Intervention
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  CBO/NGO intervention profile with maturity scorecard — for the COUGAR portfolio
+                </p>
+              </div>
+              <ArrowRight className="w-5 h-5 text-green-300 group-hover:text-green-500 group-hover:translate-x-1 transition-all" />
             </div>
           </div>
         </Link>
