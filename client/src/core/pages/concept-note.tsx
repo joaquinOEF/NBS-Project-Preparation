@@ -9,6 +9,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Input } from '@/core/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/core/components/ui/tooltip';
+import { useFileDrop } from '@/core/hooks/useFileDrop';
 
 const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
 
@@ -591,6 +592,14 @@ export default function ConceptNotePage() {
   };
 
   // Filled section count
+  // File drop handler
+  const { isDragging, dragHandlers } = useFileDrop({
+    onFileDrop: (file, content) => {
+      const fileMsg = `I'm uploading a document: "${file.name}" (${(file.size / 1024).toFixed(0)}KB).\n\nHere is the content:\n\n${content.slice(0, 8000)}\n\nPlease:\n1. Extract any relevant information for the concept note\n2. Auto-fill sections where the document provides data (use update_section)\n3. Tell me what you found and what sections you updated`;
+      sendMessage(fileMsg);
+    },
+  });
+
   const filledCount = useMemo(() => {
     if (!state) return 0;
     return Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length;
@@ -609,7 +618,17 @@ export default function ConceptNotePage() {
       <Header />
       <div className="flex flex-1 min-h-0">
       {/* LEFT: Chat Panel */}
-      <div className="w-1/2 border-r flex flex-col">
+      <div className="w-1/2 border-r flex flex-col relative" {...dragHandlers}>
+        {/* File drop overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 z-50 bg-primary/10 border-2 border-dashed border-primary rounded-lg flex items-center justify-center backdrop-blur-sm">
+            <div className="text-center">
+              <Download className="w-10 h-10 text-primary mx-auto mb-2" />
+              <p className="text-sm font-medium text-primary">Drop your document here</p>
+              <p className="text-xs text-muted-foreground">PDF, Word, Excel, or images</p>
+            </div>
+          </div>
+        )}
         {/* Chat header with back + controls */}
         <div className="p-3 border-b bg-background flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -668,7 +687,7 @@ export default function ConceptNotePage() {
             <div className="text-center text-muted-foreground py-8">
               <p className="text-lg mb-2">Ready to build your concept note</p>
               <p className="text-sm mb-4">Click below to begin the interview for Porto Alegre</p>
-              <Button onClick={() => sendMessage("Start the concept note interview for Porto Alegre. Use the /concept-note skill flow. Always use the ask_user tool for multiple-choice questions instead of writing them as text.")}>
+              <Button onClick={() => sendMessage("Start the concept note interview for Porto Alegre. Use the /concept-note skill flow. Always use the ask_user tool for multiple-choice questions. In your first message, mention that the user can drop documents (reports, plans, studies) into the chat at any time to provide additional context.")}>
                 Start Interview
               </Button>
             </div>

@@ -412,6 +412,16 @@ ${PRIORITY_FLAG_DEFINITIONS.join(', ')}
 - Each user message has a [LANGUAGE: ...] directive — follow it
 - update_section content in Portuguese if the org is Brazilian
 - After Phase 5: generate the full maturity scorecard using score_maturity for remaining metrics + set_priority_flag for all 6 flags
+- In your FIRST message: mention that the user can drop existing documents into the chat
+
+## FILE DROPS
+When the user drops a document, you'll receive its content. React by:
+1. Extract ALL relevant info (org name, team, budget, site, interventions, progress)
+2. Call update_section for every field you can fill — maximize auto-fill
+3. Call score_maturity for metrics you can now assess (e.g., "Problem Clarity" → 2 if doc has a clear problem statement)
+4. Tell the user: "I found [X] in your document. I've filled [sections] and scored [metrics]."
+5. Skip questions already answered by the document
+6. Having a written document is itself evidence of maturity — score accordingly
 
 ## SKILL FLOW
 ${skillCache?.slice(0, 2000) || ''}

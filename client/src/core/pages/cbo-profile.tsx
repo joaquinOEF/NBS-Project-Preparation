@@ -9,6 +9,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Input } from '@/core/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/core/components/ui/tooltip';
+import { useFileDrop } from '@/core/hooks/useFileDrop';
 import {
   CBO_SECTIONS,
   type CboState,
@@ -213,6 +214,13 @@ export default function CboProfilePage() {
     setCboId(data.cboId); setState(data.state); saveId(data.cboId);
   }, [cboId]);
 
+  // File drop handler
+  const { isDragging, dragHandlers } = useFileDrop({
+    onFileDrop: (file, content) => {
+      sendMessage(`I'm uploading: "${file.name}" (${(file.size / 1024).toFixed(0)}KB).\n\nContent:\n${content.slice(0, 8000)}\n\nPlease extract relevant information, auto-fill sections with update_section, and score maturity metrics based on what you find.`);
+    },
+  });
+
   const filledCount = useMemo(() => state ? Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length : 0, [state]);
 
   if (!state) return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
@@ -222,7 +230,16 @@ export default function CboProfilePage() {
       <Header />
       <div className="flex flex-1 min-h-0">
         {/* LEFT: Chat */}
-        <div className="w-1/2 border-r flex flex-col">
+        <div className="w-1/2 border-r flex flex-col relative" {...dragHandlers}>
+          {isDragging && (
+            <div className="absolute inset-0 z-50 bg-green-500/10 border-2 border-dashed border-green-500 rounded-lg flex items-center justify-center backdrop-blur-sm">
+              <div className="text-center">
+                <Download className="w-10 h-10 text-green-600 mx-auto mb-2" />
+                <p className="text-sm font-medium text-green-700">Drop your document here</p>
+                <p className="text-xs text-muted-foreground">Reports, plans, photos, proposals</p>
+              </div>
+            </div>
+          )}
           <div className="p-3 border-b bg-background flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Link href="/sample/project/sample-ada-1"><Button variant="ghost" size="sm" className="h-7 px-2"><ArrowLeft className="w-4 h-4" /></Button></Link>
@@ -251,7 +268,7 @@ export default function CboProfilePage() {
                 <Leaf className="w-12 h-12 mx-auto mb-3 text-green-500" />
                 <p className="text-lg mb-2">Document Your Community Intervention</p>
                 <p className="text-sm mb-4">We'll help you create a structured profile of your NBS project</p>
-                <Button className="bg-green-600 hover:bg-green-700" onClick={() => sendMessage("Start the CBO intervention profile for Porto Alegre. Use the /cbo-intervention skill flow. Always use the ask_user tool for multiple-choice questions.")}>
+                <Button className="bg-green-600 hover:bg-green-700" onClick={() => sendMessage("Start the CBO intervention profile for Porto Alegre. Use the /cbo-intervention skill flow. Always use the ask_user tool for multiple-choice questions. In your first message, mention that the user can drop existing documents (proposals, reports, plans, photos) into the chat at any time — you'll extract info and auto-fill sections.")}>
                   Start Profile
                 </Button>
               </div>
