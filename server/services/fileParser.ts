@@ -41,23 +41,19 @@ async function parseDocx(filePath: string): Promise<string> {
 
 async function parsePdf(filePath: string): Promise<string> {
   try {
-    // pdf-parse has tricky ESM/CJS interop — try multiple import patterns
-    let parser: any;
-    try {
-      const mod: any = await import('pdf-parse');
-      parser = mod.default || mod;
-      if (typeof parser !== 'function' && parser.default) parser = parser.default;
-    } catch {
-      parser = require('pdf-parse');
-    }
-
-    if (typeof parser !== 'function') {
-      return `[PDF parsing unavailable — pdf-parse module could not be loaded]`;
-    }
+    // pdf-parse v2 exports a PDFParse class, not a function
+    const { createRequire } = await import('module');
+    const req = createRequire(import.meta.url);
+    const { PDFParse } = req('pdf-parse');
 
     const buffer = await fs.readFile(filePath);
-    const result = await parser(buffer);
-    return result.text;
+    const uint8Array = new Uint8Array(buffer);
+    const parser = new PDFParse(uint8Array);
+    await parser.load();
+    const result = await parser.getText();
+    const pages: any[] = result.pages || [];
+    const text = pages.map((p: any) => p.text).join('\n\n').trim();
+    return text || '[No text extracted from PDF]';
   } catch (e: any) {
     console.error('[fileParser] PDF error:', e.message);
     return `[Error parsing PDF: ${e.message}]`;

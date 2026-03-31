@@ -1,0 +1,14 @@
+[
+  {
+    "role": "user",
+    "content": "I'm uploading: \"Certif. Joaquin.pdf\".\n\nParsed content:\n[PDF parsing unavailable — pdf-parse module could not be loaded]\n\nPlease extract relevant information, auto-fill sections with update_section, and score maturity metrics based on what you find.",
+    "messageType": "content",
+    "timestamp": "2026-03-31T23:41:52.577Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Olá! 👋 Welcome to the COUGAR CBO Intervention Profile tool for Porto Alegre!\n\nI'm here to help you document your nature-based solution project step by step. We'll work through 6 phases together, and I'll help you build a complete profile that shows your organization's strengths and readiness.\n\n**Good news**: You can drop existing documents (PDFs, Word files, reports, proposals) directly into this chat at any time, and I'll automatically extract information to fill in your profile! This saves you a lot of time. 📄✨\n\n---\n\nI see you've uploaded **\"Certif. Joaquin.pdf\"**, but unfortunately the PDF parsing module isn't available right now, so I can't automatically read it. \n\n**No problem! Here's what we can do:**\n\nCould you help me by sharing what's in that document? For example:\n- Is it a certificate, project proposal, organizational registration, or something else?\n- What key information does it contain (organization name, project description, site location, budget, team info, etc.)?\n\nYou can either:\n1. **Tell me the highlights** in your own words, and I'll fill in the profile\n2. **Copy-paste key sections** if that's easier\n3. **Continue with our guided questions**, and we'll capture everything step by step\n\nLet's get started! I'll begin with **Phase 1: Who We Are** so I can learn about your organization. Ready? 🌱",
+    "messageType": "content",
+    "timestamp": "2026-03-31T23:42:04.259Z"
+  }
+]
