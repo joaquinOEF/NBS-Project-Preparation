@@ -30,7 +30,7 @@ import {
   type Confidence,
 } from '@shared/concept-note-schema';
 import {
-  Send, Download, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft,
+  Send, Download, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft, Paperclip,
   FileText, Loader2, RotateCcw, Star,
   Check, Circle, AlertCircle, Pencil,
 } from 'lucide-react';
@@ -114,6 +114,7 @@ export default function ConceptNotePage() {
   const [mapRelevant, setMapRelevant] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const handleSelectOptionRef = useRef<(label: string) => void>(() => {});
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -884,6 +885,36 @@ export default function ConceptNotePage() {
             }}
             className="flex gap-2"
           >
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept=".pdf,.docx,.xlsx,.txt,.md,.csv,.png,.jpg,.jpeg"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file && noteId) {
+                  // Trigger the same upload flow as drag-and-drop
+                  const formData = new FormData();
+                  formData.append('file', file);
+                  fetch(`/api/upload/concept-note/${noteId}`, { method: 'POST', body: formData })
+                    .then(r => r.json())
+                    .then(data => {
+                      const content = data.content || `[File: ${file.name}]`;
+                      sendMessage(`I'm uploading: "${file.name}".\n\nParsed content:\n${content.slice(0, 8000)}\n\nPlease extract relevant information and auto-fill sections.`);
+                    })
+                    .catch(() => sendMessage(`Uploaded "${file.name}" but could not parse it.`));
+                }
+                e.target.value = '';
+              }}
+            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="shrink-0">
+                  <Paperclip className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Upload a document</TooltipContent>
+            </Tooltip>
             <Input
               ref={inputRef}
               value={input}

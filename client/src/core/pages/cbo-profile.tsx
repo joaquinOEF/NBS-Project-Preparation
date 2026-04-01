@@ -21,7 +21,7 @@ import {
   type PriorityFlag,
 } from '@shared/cbo-schema';
 import {
-  Send, Download, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft,
+  Send, Download, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft, Paperclip,
   FileText, Loader2, RotateCcw, Star, Leaf,
   Check, Circle, AlertCircle, Pencil,
 } from 'lucide-react';
@@ -56,6 +56,7 @@ export default function CboProfilePage() {
   const [mapRelevant, setMapRelevant] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const handleSelectRef = useRef<(label: string) => void>(() => {});
 
   const currentQuestion = activeQuestions[currentQuestionIdx] || null;
@@ -367,6 +368,23 @@ export default function CboProfilePage() {
           <div className={`p-3 border-t transition-colors ${isStreaming ? 'bg-muted/50' : currentQuestion ? 'bg-green-50 border-t-green-200' : ''}`}>
             {!isStreaming && currentQuestion && <p className="text-[10px] text-green-700 mb-1 font-medium">Your turn — arrows + Enter to select, or type below</p>}
             <form onSubmit={(e) => { e.preventDefault(); if (currentQuestion && input.trim()) { handleSelectOption(input.trim()); setInput(''); } else sendMessage(input); }} className="flex gap-2">
+              <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.xlsx,.txt,.md,.csv,.png,.jpg,.jpeg"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file && cboId) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    fetch(`/api/upload/cbo/${cboId}`, { method: 'POST', body: formData })
+                      .then(r => r.json())
+                      .then(data => sendMessage(`I'm uploading: "${file.name}".\n\nParsed content:\n${(data.content || '').slice(0, 8000)}\n\nPlease extract info, auto-fill sections, and score maturity.`))
+                      .catch(() => sendMessage(`Uploaded "${file.name}" but could not parse.`));
+                  }
+                  e.target.value = '';
+                }}
+              />
+              <Tooltip><TooltipTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="shrink-0"><Paperclip className="w-4 h-4" /></Button>
+              </TooltipTrigger><TooltipContent>Upload a document</TooltipContent></Tooltip>
               <Input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} placeholder={isStreaming ? "Working..." : currentQuestion ? "Type a custom answer..." : "Type your response..."} disabled={isStreaming} className="flex-1" />
               <Button type="submit" disabled={isStreaming || !input.trim()} size="sm" className="bg-green-600 hover:bg-green-700"><Send className="w-4 h-4" /></Button>
             </form>
