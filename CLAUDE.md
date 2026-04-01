@@ -6,7 +6,7 @@ POC / prototype for Nature-Based Solutions (NBS) project preparation. Helps citi
 
 **Repo:** https://github.com/joaquinOEF/NBS-Project-Preparation
 **Hosted on:** Replit (autoscale deployment)
-**Default branch:** `componentslibrary` (not `main`)
+**Default branch:** `main`
 
 ## Tech Stack
 
@@ -102,10 +102,10 @@ Uses a mix of:
 
 ### Default Branch
 
-The default branch is **`componentslibrary`**, not `main`. Replit syncs this branch.
+The default branch is **`main`**. Replit syncs this branch.
 
-- Always target `componentslibrary` when creating PRs
-- Feature branches should be created from `origin/componentslibrary`
+- Always target `main` when creating PRs
+- Feature branches should be created from `origin/main`
 - After merging, Replit will auto-sync the changes
 
 ### Branch Naming
@@ -124,7 +124,7 @@ curl -s -X POST "https://api.github.com/repos/joaquinOEF/NBS-Project-Preparation
     "title": "PR title",
     "body": "Description",
     "head": "feat/branch-name",
-    "base": "componentslibrary"
+    "base": "main"
   }'
 ```
 
@@ -157,11 +157,24 @@ Requires `DATABASE_URL` for PostgreSQL (Neon). See `.env.example` for all variab
 3. Add the Express route in `server/routes.ts`
 4. Run `npm run db:push` to sync schema
 
+## Geospatial Tile Proxy
+
+All OEF tile layers are served through `server/routes/tileProxyRoutes.ts` via `registerTileProxyRoutes()`.
+
+**CRITICAL**: Do NOT add tile routes in `server/routes.ts` — they will shadow the routes registered by `registerTileProxyRoutes()` (which runs later). This caused a bug where only 1 of 48 layers worked because an old catch-all route in `routes.ts` intercepted requests first.
+
+- **Visual tiles**: `/api/geospatial/tiles/{layerId}/{z}/{x}/{y}.png` — proxied from S3
+- **Value tiles**: `/api/geospatial/proxy-tile?url={s3_url}` — generic proxy for RGB→value decode
+- **Layer list**: `/api/geospatial/tile-layers` — returns all registered layers
+- **OSM reference**: `/api/osm/{layerId}` — Overpass API proxy (parks, schools, hospitals, wetlands)
+
+Layer definitions (with value encodings) live in `shared/geospatial-layers.ts`. The `ValueTooltip` component decodes pixel values on hover using `client/src/lib/valueTileUtils.ts`.
+
 ## Lessons Learned
 
 ### Replit Sync
 
-Replit tracks the default branch (`componentslibrary`). If you create a PR targeting a different branch, merged changes won't appear in Replit. Always verify the base branch before creating PRs.
+Replit tracks the default branch (`main`). If you create a PR targeting a different branch, merged changes won't appear in Replit. Always verify the base branch before creating PRs.
 
 ### Large Files in Git
 
@@ -170,7 +183,7 @@ PNG files over ~500KB can cause git push failures (HTTP 400). Resize images befo
 ### PR Workflow
 
 When working across multiple features:
-- Create a clean feature branch from `origin/componentslibrary` for each PR
+- Create a clean feature branch from `origin/main` for each PR
 - If a commit lands after a PR is already merged/closed, create a new branch and cherry-pick
 - Use `git cherry-pick --skip` for commits already in the target branch
 
