@@ -1,0 +1,125 @@
+{
+  "id": "b8a02ac8-95e7-4971-a8b2-e1fce7c727b2",
+  "orgName": "",
+  "city": "porto-alegre",
+  "phase": 2,
+  "sections": {
+    "org_profile": {
+      "id": "org_profile",
+      "title": "1. Who We Are",
+      "phase": 1,
+      "fields": {
+        "organization_name": {
+          "value": "Associação Cultural Vila Flores",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "organization_type": {
+          "value": "ONG (organização não governamental formalizada)",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "years_active": {
+          "value": "3-10 anos",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "team_size": {
+          "value": "6-15 pessoas",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "mission_focus": {
+          "value": "Serviços sociais e desenvolvimento comunitário",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "team_composition": {
+          "value": "Maioria voluntários com alguns coordenadores remunerados",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "prior_experience": {
+          "value": "Sim, já lideramos projetos ambientais/climáticos anteriormente",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "contact_name": {
+          "value": "Joaquin van Peborgh",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "contact_role": {
+          "value": "Apoio comunitário e coordenação de projetos",
+          "confidence": "medium",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
+      "sources": [],
+      "lastUpdatedBy": "agent"
+    },
+    "intervention_site": {
+      "id": "intervention_site",
+      "title": "2. Where We Work",
+      "phase": 2,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "intervention_plan": {
+      "id": "intervention_plan",
+      "title": "3. What We're Doing",
+      "phase": 3,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "needs_assessment": {
+      "id": "needs_assessment",
+      "title": "4. What We Need",
+      "phase": 4,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "results_evidence": {
+      "id": "results_evidence",
+      "title": "5. Results & Evidence",
+      "phase": 5,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    }
+  },
+  "gaps": [],
+  "maturityScores": [
+    {
+      "metric": "org_delivery_capacity",
+      "score": 2,
+      "justification": "Formalized NGO with 3-10 years of operation and a team of 6-15 people suggests demonstrated project management capacity, though not yet at multi-stakeholder funded project scale"
+    },
+    {
+      "metric": "team_technical_experience",
+      "score": 2,
+      "justification": "Organization has led environmental/climate projects before, demonstrating pilot-scale experience with relevant technical work"
+    },
+    {
+      "metric": "community_anchoring",
+      "score": 2,
+      "justification": "Organization has 3-10 years of experience, prior environmental project leadership, and a clear community development mission with volunteer engagement — demonstrates moderate community anchoring with room for deeper governance integration."
+    }
+  ],
+  "priorityFlags": [],
+  "totalMaturityScore": 6,
+  "editLog": [],
+  "uploadedFiles": [],
+  "metadata": {
+    "createdAt": "2026-04-01T15:55:40.556Z",
+    "updatedAt": "2026-04-01T15:58:07.662Z"
+  }
+}
