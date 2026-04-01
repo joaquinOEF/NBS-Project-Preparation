@@ -107,7 +107,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const gridLayerRef = useRef<L.GeoJSON | null>(null);
   const zonesLayerRef = useRef<L.GeoJSON | null>(null);
-  const zoneLabelMarkersRef = useRef<L.Marker[]>([]);
+  const zonesGroupRef = useRef<L.LayerGroup | null>(null); // contains zones + labels as one unit
 
   const [selectedZones, setSelectedZones] = useState<Set<string>>(new Set());
   const [zoneData, setZoneData] = useState<ZoneProperties[]>([]);
@@ -196,36 +196,33 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
           gridLayerRef.current = gridLayer;
         }
 
-        // Zones — outlined, clickable
+        // Zones — outlined, clickable, wrapped in a single layer group for clean toggle
         setZoneData(zonesData.zones || []);
         if (zonesData.geoJson) {
+          const zonesGroup = L.layerGroup();
           const zonesLayer = L.geoJSON(zonesData.geoJson, {
-            style: (feature) => {
-              const props = feature?.properties;
-              return {
-                color: '#1e293b',
-                weight: 2,
-                fillColor: 'transparent',
-                fillOpacity: 0,
-                dashArray: '4 2',
-              };
-            },
+            style: () => ({
+              color: '#1e293b',
+              weight: 2,
+              fillColor: 'transparent',
+              fillOpacity: 0,
+              dashArray: '4 2',
+            }),
             onEachFeature: (feature, layer) => {
               const props = feature.properties as ZoneProperties;
               if (!props?.zoneId) return;
 
-              // Zone label
+              // Zone label — added to group, not directly to map
               const center = (layer as any).getBounds?.()?.getCenter?.();
               if (center) {
-                const labelMarker = L.marker(center, {
+                L.marker(center, {
                   icon: L.divIcon({
                     className: 'zone-label',
                     html: `<div style="background:white;border:1px solid #cbd5e1;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,0.1)">${props.zoneId.replace('zone_', 'Z')}</div>`,
                     iconSize: [0, 0],
                     iconAnchor: [20, 10],
                   }),
-                }).addTo(map);
-                zoneLabelMarkersRef.current.push(labelMarker);
+                }).addTo(zonesGroup);
               }
 
               layer.on({
@@ -247,8 +244,10 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
               });
             },
           });
-          zonesLayer.addTo(map);
+          zonesLayer.addTo(zonesGroup);
+          zonesGroup.addTo(map);
           zonesLayerRef.current = zonesLayer;
+          zonesGroupRef.current = zonesGroup;
         }
       } catch (e) {
         console.error('[map] Load error:', e);
@@ -273,17 +272,15 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
     });
   }, [activeLayer, showGrid]);
 
-  // Toggle zone layer + labels on/off the map
+  // Toggle entire zones group (polygons + labels) on/off the map
   useEffect(() => {
     const map = mapRef.current;
-    const zonesLayer = zonesLayerRef.current;
-    if (!map || !zonesLayer) return;
+    const group = zonesGroupRef.current;
+    if (!map || !group) return;
     if (showZones) {
-      if (!map.hasLayer(zonesLayer)) zonesLayer.addTo(map);
-      for (const m of zoneLabelMarkersRef.current) { if (!map.hasLayer(m)) m.addTo(map); }
+      if (!map.hasLayer(group)) group.addTo(map);
     } else {
-      if (map.hasLayer(zonesLayer)) map.removeLayer(zonesLayer);
-      for (const m of zoneLabelMarkersRef.current) { if (map.hasLayer(m)) map.removeLayer(m); }
+      if (map.hasLayer(group)) map.removeLayer(group);
     }
   }, [showZones]);
 
