@@ -1584,7 +1584,14 @@
     "typePlaceholder": "Type your response...",
     "typeCustom": "Type a custom answer...",
     "uploadDoc": "Upload a document",
-    "interventionProfile": "Intervention Profile"
+    "interventionProfile": "Intervention Profile",
+    "sections": {
+      "org_profile": "1. Who We Are",
+      "intervention_site": "2. Where We Work",
+      "intervention_plan": "3. What We're Doing",
+      "needs_assessment": "4. What We Need",
+      "results_evidence": "5. Results & Evidence"
+    }
   },
   "mapMicroapp": {
     "layers": "Layers",
