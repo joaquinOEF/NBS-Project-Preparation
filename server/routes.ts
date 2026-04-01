@@ -1040,57 +1040,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // OEF Geospatial Tile Proxy — proxies pre-computed raster tiles from S3
-  const OEF_TILE_LAYERS: Record<string, string> = {
-    dynamic_world: 'https://geo-test-api.s3.us-east-1.amazonaws.com/nbs/porto_alegre/land_use/dynamic_world/V1/2023/tiles_visual/{z}/{x}/{y}.png',
-  };
-
-  app.get('/api/geospatial/tiles/:layerId/:z/:x/:y.png', async (req: any, res) => {
-    try {
-      const { layerId, z, x, y } = req.params;
-
-      if (!/^\d+$/.test(z) || !/^\d+$/.test(x) || !/^\d+$/.test(y)) {
-        return res.status(400).json({ message: 'Invalid tile coordinates' });
-      }
-
-      const template = OEF_TILE_LAYERS[layerId];
-      if (!template) {
-        return res.status(404).json({ message: `Layer "${layerId}" has no tile data available yet` });
-      }
-
-      const tileUrl = template
-        .replace('{z}', z)
-        .replace('{x}', x)
-        .replace('{y}', y);
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
-      const tileResponse = await fetch(tileUrl, { signal: controller.signal });
-      clearTimeout(timeout);
-
-      if (!tileResponse.ok) {
-        if (tileResponse.status === 404 || tileResponse.status === 403) {
-          res.set('Cache-Control', 'public, max-age=3600');
-          res.status(204).end();
-          return;
-        }
-        return res.status(502).json({ message: `Upstream tile error: ${tileResponse.status}` });
-      }
-
-      const buffer = Buffer.from(await tileResponse.arrayBuffer());
-      res.set({
-        'Content-Type': 'image/png',
-        'Cache-Control': 'public, max-age=86400',
-        'Access-Control-Allow-Origin': '*',
-      });
-      res.send(buffer);
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        return res.status(504).json({ message: 'Upstream tile request timed out' });
-      }
-      console.error('Tile proxy error:', error.message);
-      res.status(502).json({ message: 'Failed to fetch tile from upstream' });
-    }
-  });
+  // Tile proxy routes are registered via registerTileProxyRoutes() below
+  // (old single-layer route removed — was blocking the full 48-layer proxy)
 
   // Impact Model AI narrative generation
   app.post('/api/impact-model/generate', async (req: any, res) => {
