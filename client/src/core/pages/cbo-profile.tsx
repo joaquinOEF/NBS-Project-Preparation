@@ -270,7 +270,8 @@ export default function CboProfilePage() {
 
   const handleRestart = useCallback(async () => {
     if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
-    clearId(); setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
+    clearId(); saveMapParams(null); setOpenMapParams(null); setRightTab('document'); setMapRelevant(false);
+    setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
     const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
     const data = await res.json();
     setCboId(data.cboId); setState(data.state); saveId(data.cboId);
