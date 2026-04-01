@@ -113,6 +113,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
   const [hoveredCell, setHoveredCell] = useState<GridCellMetrics | null>(null);
   const [activeLayer, setActiveLayer] = useState<RiskLayer>('flood');
   const [showGrid, setShowGrid] = useState(true);
+  const [showZones, setShowZones] = useState(true);
   const [enabledTileLayers, setEnabledTileLayers] = useState<Set<string>>(new Set());
   const [enabledOsmLayers, setEnabledOsmLayers] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -266,7 +267,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
     });
   }, [activeLayer, showGrid]);
 
-  // Update zone outlines when selection changes
+  // Update zone outlines when selection or visibility changes
   useEffect(() => {
     if (!zonesLayerRef.current) return;
     zonesLayerRef.current.eachLayer((layer: any) => {
@@ -277,11 +278,12 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
         color: sel ? '#1d4ed8' : '#1e293b',
         weight: sel ? 3 : 2,
         fillColor: sel ? '#3b82f6' : 'transparent',
-        fillOpacity: sel ? 0.2 : 0,
+        fillOpacity: showZones ? (sel ? 0.2 : 0) : 0,
+        opacity: showZones ? 1 : 0,
         dashArray: sel ? undefined : '4 2',
       });
     });
-  }, [selectedZones]);
+  }, [selectedZones, showZones]);
 
   // Resize
   useEffect(() => {
@@ -428,6 +430,12 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
             </button>
           ))}
         </div>
+        <button
+          onClick={() => setShowZones(!showZones)}
+          className={`px-2 py-0.5 rounded text-xs transition-all ${showZones ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
+        >
+          <MapPin className="w-3.5 h-3.5 inline mr-1" />Zones
+        </button>
         <button
           onClick={() => setShowGrid(!showGrid)}
           className={`px-2 py-0.5 rounded text-xs transition-all ${showGrid ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
