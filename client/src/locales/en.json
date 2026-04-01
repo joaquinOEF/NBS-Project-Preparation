@@ -1585,6 +1585,23 @@
     "typeCustom": "Type a custom answer...",
     "uploadDoc": "Upload a document",
     "interventionProfile": "Intervention Profile",
+    "scorecard": {
+      "investmentReady": "Investment Ready",
+      "investmentReadyConditions": "Investment Ready with Conditions",
+      "developing": "Developing — Promising with Support",
+      "earlyStage": "Early Stage",
+      "maturityMetrics": "Maturity Metrics",
+      "priorityFlags": "Priority Flags",
+      "completeInterview": "Complete the interview to see your maturity scorecard"
+    },
+    "priorityFlags": {
+      "Land tenure secure or likely secure": "Land tenure secure or likely secure",
+      "Baseline environmental data exists": "Baseline environmental data exists",
+      "Local government expressed interest": "Local government expressed interest",
+      "Potential buyers/payors identified": "Potential buyers/payors identified",
+      "Co-financing possibility identified": "Co-financing possibility identified",
+      "Scalable beyond one site": "Scalable beyond one site"
+    },
     "fields": {
       "organization_name": "Organization Name",
       "organization_type": "Organization Type",
