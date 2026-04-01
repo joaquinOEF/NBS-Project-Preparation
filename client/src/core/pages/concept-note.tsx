@@ -15,6 +15,28 @@ const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/Concept
 const MapMicroapp = lazy(() => import('@/core/components/concept-note/MapMicroapp'));
 
 // Fix inline markdown tables
+function formatMapResult(result: MapSelectionResult): string {
+  const lines: string[] = [`Map selection (${result.selectionMode} mode):`];
+  for (const asset of result.selectedAssets) {
+    if (asset.type === 'zone') {
+      const p = asset.properties || {};
+      lines.push(`- [zone] ${asset.name}: ${p.typologyLabel || ''} risk, intervention: ${(p.interventionType || '').replace(/_/g, ' ')}, area: ${p.areaKm2?.toFixed(1) || '?'} km², population: ${p.populationSum?.toLocaleString() || '?'}, flood: ${((p.meanFlood || 0) * 100).toFixed(0)}%, heat: ${((p.meanHeat || 0) * 100).toFixed(0)}%, at (${asset.coordinates[0].toFixed(4)}, ${asset.coordinates[1].toFixed(4)})`);
+    } else {
+      const rasterInfo = asset.rasterValues && Object.keys(asset.rasterValues).length > 0
+        ? Object.entries(asset.rasterValues).map(([k, v]) => `${k}: ${v.toFixed(3)}`).join(', ')
+        : '';
+      const geomType = asset.geometry?.type === 'Polygon' ? ' (drawn area)' : '';
+      lines.push(`- [${asset.type}] ${asset.name}${geomType} at (${asset.coordinates[0].toFixed(4)}, ${asset.coordinates[1].toFixed(4)})${rasterInfo ? ` | ${rasterInfo}` : ''}`);
+    }
+  }
+  for (const pt of result.sampledPoints) {
+    const vals = Object.entries(pt.values).map(([k, v]) => `${k}: ${v.toFixed(3)}`).join(', ');
+    lines.push(`- [sample] (${pt.lat.toFixed(4)}, ${pt.lng.toFixed(4)}) | ${vals}`);
+  }
+  lines.push(`Total: ${result.selectedAssets.length} assets, ${result.sampledPoints.length} sampled points`);
+  return lines.join('\n');
+}
+
 function fixMarkdownTables(text: string): string {
   if (!text.includes('|')) return text;
   return text.replace(/\|\s*\|/g, '|\n|').replace(/\|\s*\n\s*\|/g, '|\n|');
@@ -1023,21 +1045,7 @@ export default function ConceptNotePage() {
                 <MapMicroapp
                   params={openMapParams}
                   onConfirm={(result: MapSelectionResult) => {
-                    // Format structured selection as message for the agent
-                    const lines: string[] = [`Map selection (${result.selectionMode} mode):`];
-                    for (const asset of result.selectedAssets) {
-                      const rasterInfo = asset.rasterValues
-                        ? Object.entries(asset.rasterValues).map(([k, v]) => `${k}: ${v.toFixed(3)}`).join(', ')
-                        : '';
-                      lines.push(`- [${asset.type}] ${asset.name} at (${asset.coordinates[0].toFixed(4)}, ${asset.coordinates[1].toFixed(4)})${rasterInfo ? ` | ${rasterInfo}` : ''}`);
-                    }
-                    for (const pt of result.sampledPoints) {
-                      const vals = Object.entries(pt.values).map(([k, v]) => `${k}: ${v.toFixed(3)}`).join(', ');
-                      lines.push(`- [sample] (${pt.lat.toFixed(4)}, ${pt.lng.toFixed(4)}) | ${vals}`);
-                    }
-                    lines.push(`Total: ${result.selectedAssets.length} assets, ${result.sampledPoints.length} sampled points`);
-
-                    const message = lines.join('\n');
+                    const message = formatMapResult(result);
                     if (currentQuestion) {
                       handleSelectOption(message);
                     } else {

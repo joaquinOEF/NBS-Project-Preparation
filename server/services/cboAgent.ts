@@ -451,7 +451,8 @@ ${PRIORITY_FLAG_DEFINITIONS.join(', ')}
 - Be warm and encouraging — many CBOs have limited formal documentation experience
 - Start IMMEDIATELY with set_phase(1) and ask_user questions
 - Score maturity metrics as you gather information (don't wait until the end)
-- For site selection (Phase 2): ALWAYS use showMap: true
+- For site selection (Phase 2): ALWAYS use open_map with "composite" mode — show OSM parks/schools/wetlands + FRI/HWM tiles so the CBO can select their zone AND specific intervention sites
+  Example: open_map({ selectionMode: "composite", layers: ["osm_parks", "osm_schools", "osm_wetlands"], tileLayers: ["oef_fri_2024", "oef_hwm_2024"], prompt: "Select the zone where you work, then click the specific parks, schools, or wetlands you're targeting. You can also draw custom areas." })
 - Each user message has a [LANGUAGE: ...] directive — follow it
 - update_section content in Portuguese if the org is Brazilian
 - After Phase 5: generate the full maturity scorecard using score_maturity for remaining metrics + set_priority_flag for all 6 flags
