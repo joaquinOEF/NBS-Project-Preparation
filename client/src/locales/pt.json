@@ -1563,7 +1563,14 @@
     "typePlaceholder": "Digite sua resposta...",
     "typeCustom": "Digite uma resposta personalizada...",
     "uploadDoc": "Enviar documento",
-    "interventionProfile": "Perfil de Intervenção"
+    "interventionProfile": "Perfil de Intervenção",
+    "sections": {
+      "org_profile": "1. Quem Somos",
+      "intervention_site": "2. Onde Atuamos",
+      "intervention_plan": "3. O Que Fazemos",
+      "needs_assessment": "4. O Que Precisamos",
+      "results_evidence": "5. Resultados e Evidências"
+    }
   },
   "mapMicroapp": {
     "layers": "Camadas",
