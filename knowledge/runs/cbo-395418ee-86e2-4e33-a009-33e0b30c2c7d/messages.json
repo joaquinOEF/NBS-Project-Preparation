@@ -1,0 +1,80 @@
+[
+  {
+    "role": "user",
+    "content": "Start the CBO intervention profile for Porto Alegre. Use the /cbo-intervention skill flow. Always use the ask_user tool for multiple-choice questions. In your first message, mention that the user can drop existing documents (proposals, reports, plans, photos) into the chat at any time — you'll extract info and auto-fill sections.",
+    "messageType": "content",
+    "timestamp": "2026-04-01T16:09:44.661Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Olá! Welcome to the COUGAR Intervention Profile Assistant! 🌱\n\nI'm here to help you document your nature-based solution (NBS) project in Porto Alegre. We'll work through this together in 6 phases, and I'll help you create a structured profile that can support funding applications, coordination with the municipality, and connection to the broader COUGAR portfolio.\n\n**📄 Document Drop Tip:** You can drop existing documents into this chat at any time — proposals, project reports, budgets, photos, presentations, anything you have! I'll read them, extract relevant information, and auto-fill sections of your profile to save you time.\n\nLet me start by learning about your organization!",
+    "messageType": "content",
+    "timestamp": "2026-04-01T16:09:52.957Z"
+  },
+  {
+    "role": "assistant",
+    "content": "I've started Phase 1: **Who We Are** 🏢\n\nPlease answer the two questions above about your organization type and how long you've been active. This will help me understand your organizational foundation and assess your delivery capacity.",
+    "messageType": "thinking",
+    "timestamp": "2026-04-01T16:10:02.110Z"
+  },
+  {
+    "role": "user",
+    "content": "NGO (Registered non-profit); 3-10 years",
+    "messageType": "content",
+    "timestamp": "2026-04-01T16:10:02.972Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Great! Let me document this and continue building your organization profile.",
+    "messageType": "thinking",
+    "timestamp": "2026-04-01T16:10:10.849Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Perfect! I've recorded that you're a registered NGO with 3-10 years of experience in the community. This shows good organizational foundation!\n\nNow let me learn more about your organization:",
+    "messageType": "thinking",
+    "timestamp": "2026-04-01T16:10:18.048Z"
+  },
+  {
+    "role": "user",
+    "content": "Community development and social inclusion; 16-30 people; Mix of paid staff and volunteers",
+    "messageType": "content",
+    "timestamp": "2026-04-01T16:10:42.211Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Great! Thank you for sharing that. I can see you're running a well-established NGO with a solid team working on community development and social inclusion — that's a strong foundation for climate resilience work.\n\nLet me update your profile and then continue gathering some more organizational details.",
+    "messageType": "content",
+    "timestamp": "2026-04-01T16:10:46.677Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Perfect! I've updated your organizational profile and scored your **Organizational Delivery Capacity** at 2/3 — which reflects your demonstrated project management experience with a structured team.\n\nNow let's continue building out the organizational profile. I'd like to learn more about your experience and your team's capabilities:",
+    "messageType": "content",
+    "timestamp": "2026-04-01T16:10:56.843Z"
+  },
+  {
+    "role": "user",
+    "content": "Yes, multiple projects; Yes, we have staff or volunteers with formal training",
+    "messageType": "content",
+    "timestamp": "2026-04-01T16:11:13.141Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Excelente! Já temos um bom perfil inicial da sua organização. Vou atualizar o documento e avançar para a próxima fase.",
+    "messageType": "thinking",
+    "timestamp": "2026-04-01T16:11:22.468Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Perfect! You've scored well on organizational capacity and technical experience. I've documented your prior project experience and technical training.\n\n---\n\n## 🗺️ Phase 2: Where We Work — Intervention Site\n\nNow let's identify where your NBS project is located. Porto Alegre faces significant flood risks — as we saw with the catastrophic May 2024 floods that affected 48% of the city. Understanding your site's location, vulnerability, and community context is critical.\n\n**I'll open an interactive map** so you can:\n- ✅ Select the **zone/neighborhood** where you work\n- ✅ Click on **specific parks, schools, wetlands** you're targeting (or draw custom areas)\n- ✅ See **flood risk overlays** (Fluvial Risk Index and High Water Mark from 2024)\n\nThis will help us understand how your site relates to flood-prone areas and existing green infrastructure.",
+    "messageType": "content",
+    "timestamp": "2026-04-01T16:11:35.817Z"
+  },
+  {
+    "role": "assistant",
+    "content": "🗺️ **The map is now open!** \n\nTake your time to:\n1. **Zoom to your neighborhood** in Porto Alegre\n2. **Select the zone boundary** (if your neighborhood is highlighted)\n3. **Click on specific features** — parks, schools, wetlands — where you're working\n4. **Draw custom areas** if your site isn't already on the map\n\nThe **blue/purple overlay** shows flood risk zones. The **2024 high water mark** shows areas that were inundated during the historic May 2024 floods.\n\nOnce you've made your selections, I'll document your site details and we'll continue with community context questions! 🌱",
+    "messageType": "content",
+    "timestamp": "2026-04-01T16:11:43.115Z"
+  }
+]

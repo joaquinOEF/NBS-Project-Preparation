@@ -1,5 +1,5 @@
 {
-  "id": "b8a02ac8-95e7-4971-a8b2-e1fce7c727b2",
+  "id": "395418ee-86e2-4e33-a009-33e0b30c2c7d",
   "orgName": "",
   "city": "porto-alegre",
   "phase": 2,
@@ -9,54 +9,51 @@
       "title": "1. Who We Are",
       "phase": 1,
       "fields": {
-        "organization_name": {
-          "value": "Associação Cultural Vila Flores",
-          "confidence": "high",
-          "userEdited": false
-        },
         "organization_type": {
-          "value": "ONG (organização não governamental formalizada)",
+          "value": "NGO (Registered non-profit)",
           "confidence": "high",
+          "source": "User input",
           "userEdited": false
         },
         "years_active": {
           "value": "3-10 anos",
           "confidence": "high",
+          "source": "User input",
+          "userEdited": false
+        },
+        "mission": {
+          "value": "Desenvolvimento comunitário e inclusão social",
+          "confidence": "high",
+          "source": "User input",
           "userEdited": false
         },
         "team_size": {
-          "value": "6-15 pessoas",
+          "value": "16-30 pessoas",
           "confidence": "high",
+          "source": "User input",
           "userEdited": false
         },
-        "mission_focus": {
-          "value": "Serviços sociais e desenvolvimento comunitário",
+        "team_structure": {
+          "value": "Equipe mista de funcionários remunerados e voluntários",
           "confidence": "high",
-          "userEdited": false
-        },
-        "team_composition": {
-          "value": "Maioria voluntários com alguns coordenadores remunerados",
-          "confidence": "high",
+          "source": "User input",
           "userEdited": false
         },
         "prior_experience": {
-          "value": "Sim, já lideramos projetos ambientais/climáticos anteriormente",
+          "value": "A organização já executou múltiplos projetos anteriores, demonstrando experiência na gestão e implementação de iniciativas comunitárias.",
           "confidence": "high",
           "userEdited": false
         },
-        "contact_name": {
-          "value": "Joaquin van Peborgh",
-          "confidence": "medium",
-          "userEdited": false
-        },
-        "contact_role": {
-          "value": "Apoio comunitário e coordenação de projetos",
-          "confidence": "medium",
+        "technical_capacity": {
+          "value": "A equipe conta com funcionários e/ou voluntários com formação técnica formal relevante para as atividades da organização.",
+          "confidence": "high",
           "userEdited": false
         }
       },
-      "confidence": "medium",
-      "sources": [],
+      "confidence": "high",
+      "sources": [
+        "User input"
+      ],
       "lastUpdatedBy": "agent"
     },
     "intervention_site": {
@@ -101,25 +98,20 @@
     {
       "metric": "org_delivery_capacity",
       "score": 2,
-      "justification": "Formalized NGO with 3-10 years of operation and a team of 6-15 people suggests demonstrated project management capacity, though not yet at multi-stakeholder funded project scale"
+      "justification": "NGO with 3-10 years of operation, 16-30 person team with mix of paid staff and volunteers shows demonstrated project management capacity and organizational structure"
     },
     {
       "metric": "team_technical_experience",
       "score": 2,
-      "justification": "Organization has led environmental/climate projects before, demonstrating pilot-scale experience with relevant technical work"
-    },
-    {
-      "metric": "community_anchoring",
-      "score": 2,
-      "justification": "Organization has 3-10 years of experience, prior environmental project leadership, and a clear community development mission with volunteer engagement — demonstrates moderate community anchoring with room for deeper governance integration."
+      "justification": "Organization has staff with formal training and demonstrated project experience, indicating solid technical capacity for NBS implementation"
     }
   ],
   "priorityFlags": [],
-  "totalMaturityScore": 6,
+  "totalMaturityScore": 4,
   "editLog": [],
   "uploadedFiles": [],
   "metadata": {
-    "createdAt": "2026-04-01T15:55:40.556Z",
-    "updatedAt": "2026-04-01T15:58:07.662Z"
+    "createdAt": "2026-04-01T16:09:43.276Z",
+    "updatedAt": "2026-04-01T16:11:26.950Z"
   }
 }
