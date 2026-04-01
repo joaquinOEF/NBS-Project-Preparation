@@ -212,6 +212,42 @@ function createConceptNoteToolsForSdk(noteId: string) {
     { annotations: { readOnlyHint: true } }
   );
 
+  const openMap = sdkTool(
+    "open_map",
+    `Open an interactive map microapp. The user can select assets (parks, schools, hospitals, custom sites), zones, or sample raster values. The map opens with specified layers pre-enabled and returns structured data about what the user selected.
+
+Selection modes:
+- "zones": User clicks intervention zone boundaries (existing flow)
+- "assets": User clicks individual OSM features (parks, schools, etc.) or draws custom sites
+- "sample": User clicks anywhere to sample raster tile values at that point
+- "composite": User selects zones AND picks specific assets within them
+
+STOP and wait for the user's map selection after calling this tool.`,
+    {
+      layers: z.array(z.string()).optional().describe("OSM layer IDs to enable, e.g. ['osm_parks', 'osm_schools']"),
+      tileLayers: z.array(z.string()).optional().describe("Tile layer IDs to enable, e.g. ['oef_fri_2024', 'oef_hwm_2024']"),
+      spatialQueries: z.array(z.string()).optional().describe("Spatial query IDs to run, e.g. ['sq_parks_flood']"),
+      selectionMode: z.enum(["zones", "assets", "sample", "composite"]).describe("What the user can select"),
+      prompt: z.string().describe("Instruction shown on the map, e.g. 'Select the parks you want to target'"),
+      sampleLayers: z.array(z.string()).optional().describe("For sample mode: which tile layers to sample on click"),
+    },
+    async (args: any) => {
+      pushEvent({
+        type: 'open_map',
+        params: {
+          layers: args.layers,
+          tileLayers: args.tileLayers,
+          spatialQueries: args.spatialQueries,
+          selectionMode: args.selectionMode,
+          prompt: args.prompt,
+          sampleLayers: args.sampleLayers,
+        },
+      });
+      return { content: [{ type: "text" as const, text: `Map opened in "${args.selectionMode}" mode. STOP and wait for the user's selection.` }] };
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
   const readKnowledge = sdkTool(
     "read_knowledge",
     "Read a knowledge file for detailed data. Use when you need more information than what's in the city context. ONLY reads from the knowledge/ folder.",
@@ -237,7 +273,7 @@ function createConceptNoteToolsForSdk(noteId: string) {
   return sdkCreateMcpServer({
     name: "concept_note",
     version: "1.0.0",
-    tools: [updateSection, flagGap, setPhase, askUser, readKnowledge],
+    tools: [updateSection, flagGap, setPhase, askUser, openMap, readKnowledge],
   });
 }
 
@@ -331,6 +367,7 @@ async function streamWithV2Session(
               "mcp__concept_note__flag_gap",
               "mcp__concept_note__set_phase",
               "mcp__concept_note__ask_user",
+              "mcp__concept_note__open_map",
               "mcp__concept_note__read_knowledge",
             ],
             mcpServers: mcpServer ? { concept_note: mcpServer } : {},
@@ -420,6 +457,7 @@ User message: ${userMessage}`;
           "mcp__concept_note__flag_gap",
           "mcp__concept_note__set_phase",
           "mcp__concept_note__ask_user",
+          "mcp__concept_note__open_map",
           "mcp__concept_note__read_knowledge",
         ],
         mcpServers: mcpServer ? { concept_note: mcpServer } : {},
@@ -591,6 +629,21 @@ function handleToolCall(noteId: string, toolName: string, input: any, pushEvent:
     return `${questions.length} question(s) shown. STOP and wait for ALL answers.`;
   }
 
+  if (toolName === "open_map") {
+    pushEvent({
+      type: 'open_map',
+      params: {
+        layers: input.layers,
+        tileLayers: input.tileLayers,
+        spatialQueries: input.spatialQueries,
+        selectionMode: input.selectionMode,
+        prompt: input.prompt,
+        sampleLayers: input.sampleLayers,
+      },
+    });
+    return `Map opened in "${input.selectionMode}" mode. STOP and wait for selection.`;
+  }
+
   return `Unknown tool: ${toolName}`;
 }
 
@@ -741,9 +794,15 @@ The user may be:
 
 1. **update_section(sectionId, field, value, confidence, source)** — fill a document field. The right panel updates in real-time. ALWAYS use this to save data.
 2. **ask_user({questions: [...]})** — present multiple-choice questions. The UI renders clickable buttons. Use for key decisions.
-3. **set_phase(phase)** — advance to next phase (0-10).
-4. **flag_gap(sectionId, field, reason)** — mark missing data.
-5. **read_knowledge(folder, file)** — read a knowledge file for detailed data. Use when the user asks about something not in the pre-loaded context, or when you need specific numbers for a later phase.
+3. **open_map({selectionMode, layers, tileLayers, prompt, ...})** — open an interactive map microapp. The user can select OSM features (parks, schools, hospitals), draw custom sites, or sample raster values. Use for spatial questions instead of ask_user with showMap.
+   - selectionMode: "zones" (zone boundaries), "assets" (individual features), "sample" (click-to-sample), "composite" (zones + assets)
+   - layers: OSM layer IDs like ["osm_parks", "osm_schools", "osm_hospitals", "osm_wetlands"]
+   - tileLayers: tile layer IDs like ["oef_fri_2024", "oef_hwm_2024"] for evidence overlays
+   - spatialQueries: spatial query IDs like ["sq_parks_flood"] to pre-filter features
+   - prompt: instruction for the user, e.g. "Select the parks you want to target for NBS interventions"
+4. **set_phase(phase)** — advance to next phase (0-10).
+5. **flag_gap(sectionId, field, reason)** — mark missing data.
+6. **read_knowledge(folder, file)** — read a knowledge file for detailed data. Use when the user asks about something not in the pre-loaded context, or when you need specific numbers for a later phase.
 
 ## HOW TO BEHAVE
 

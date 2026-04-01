@@ -155,6 +155,42 @@ function createCboMcpTools(cboId: string) {
     { annotations: { readOnlyHint: true } }
   );
 
+  const openMap = sdkTool(
+    "open_map",
+    `Open an interactive map microapp. The user can select assets (parks, schools, hospitals, custom sites), zones, or sample raster values.
+
+Selection modes:
+- "zones": User clicks intervention zone boundaries
+- "assets": User clicks individual OSM features or draws custom sites
+- "sample": User clicks anywhere to sample raster tile values
+- "composite": User selects zones AND picks specific assets within them
+
+STOP and wait for the user's map selection after calling this tool.`,
+    {
+      layers: z.array(z.string()).optional().describe("OSM layer IDs to enable"),
+      tileLayers: z.array(z.string()).optional().describe("Tile layer IDs to enable"),
+      spatialQueries: z.array(z.string()).optional().describe("Spatial query IDs to run"),
+      selectionMode: z.enum(["zones", "assets", "sample", "composite"]),
+      prompt: z.string().describe("Instruction shown on the map"),
+      sampleLayers: z.array(z.string()).optional(),
+    },
+    async (args: any) => {
+      pushEvent({
+        type: 'open_map',
+        params: {
+          layers: args.layers,
+          tileLayers: args.tileLayers,
+          spatialQueries: args.spatialQueries,
+          selectionMode: args.selectionMode,
+          prompt: args.prompt,
+          sampleLayers: args.sampleLayers,
+        },
+      });
+      return { content: [{ type: "text" as const, text: `Map opened in "${args.selectionMode}" mode. STOP and wait for selection.` }] };
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
   const scoreMaturity = sdkTool(
     "score_maturity",
     "Score a maturity metric (0-3) based on the COUGAR NBS Mapping Criteria. Call this after gathering enough information for each metric.",
@@ -217,7 +253,7 @@ function createCboMcpTools(cboId: string) {
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, flagGap, setPhase, askUser, scoreMaturity, setPriorityFlag, readKnowledge],
+    tools: [updateSection, flagGap, setPhase, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge],
   });
 }
 
@@ -284,6 +320,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           "mcp__cbo__flag_gap",
           "mcp__cbo__set_phase",
           "mcp__cbo__ask_user",
+          "mcp__cbo__open_map",
           "mcp__cbo__score_maturity",
           "mcp__cbo__set_priority_flag",
           "mcp__cbo__read_knowledge",
@@ -391,12 +428,18 @@ Phase: ${state.phase}. Organization: ${state.orgName || '(not set)'}.
 
 ## YOUR TOOLS
 1. **update_section** — fill document fields (org_profile, intervention_site, intervention_plan, needs_assessment, results_evidence)
-2. **ask_user** — present multiple-choice questions. Use showMap: true for site selection.
-3. **set_phase** — advance phases (1-6)
-4. **flag_gap** — mark missing info
-5. **score_maturity** — score COUGAR maturity metrics (0-3) as you gather info
-6. **set_priority_flag** — mark priority flags (met/not met)
-7. **read_knowledge** — read detailed knowledge files
+2. **ask_user** — present multiple-choice questions for non-spatial decisions
+3. **open_map** — open interactive map microapp for spatial selection. Use instead of ask_user for site/zone/asset questions.
+   - selectionMode: "zones" | "assets" | "sample" | "composite"
+   - layers: ["osm_parks", "osm_schools", "osm_hospitals", "osm_wetlands"]
+   - tileLayers: ["oef_fri_2024", "oef_hwm_2024"] for evidence overlays
+   - spatialQueries: ["sq_parks_flood"] to highlight at-risk features
+   - For CBO Phase 2 (Where We Work): use "composite" mode with OSM layers + risk tiles
+4. **set_phase** — advance phases (1-6)
+5. **flag_gap** — mark missing info
+6. **score_maturity** — score COUGAR maturity metrics (0-3) as you gather info
+7. **set_priority_flag** — mark priority flags (met/not met)
+8. **read_knowledge** — read detailed knowledge files
 
 ## MATURITY METRICS (score each 0-3 as you go)
 ${MATURITY_METRICS.join(', ')}

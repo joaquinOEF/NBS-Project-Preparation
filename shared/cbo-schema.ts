@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { OpenMapParams } from './concept-note-schema';
 
 // ============================================================================
 // CBO INTERVENTION PROFILE — 5 sections aligned to COUGAR NBS Mapping Criteria
@@ -83,6 +84,7 @@ export type CboEvent =
   | { type: 'phase_change'; phase: number }
   | { type: 'maturity_update'; scores: MaturityScore[]; total: number; flags: PriorityFlag[] }
   | { type: 'ask_user'; question: string; options: Array<{ label: string; description: string; recommended?: boolean }>; relatedSections?: string[]; showMap?: boolean; multiSelect?: boolean }
+  | { type: 'open_map'; params: OpenMapParams }
   | { type: 'done'; summary: string }
   | { type: 'error'; message: string };
 
