@@ -66,6 +66,7 @@ import { registerCboRoutes } from './routes/cboRoutes';
 import { registerUploadRoutes } from './routes/uploadRoutes';
 import { registerTileProxyRoutes } from './routes/tileProxyRoutes';
 import { registerKnowledgeRoutes } from './routes/knowledgeRoutes';
+import { registerOverpassRoutes } from './routes/overpassRoutes';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -2043,6 +2044,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerCboRoutes(app);
   registerUploadRoutes(app);
   registerTileProxyRoutes(app);
+  registerOverpassRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;
