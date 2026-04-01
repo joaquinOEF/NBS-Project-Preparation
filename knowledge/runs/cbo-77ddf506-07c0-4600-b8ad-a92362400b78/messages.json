@@ -1,0 +1,14 @@
+[
+  {
+    "role": "user",
+    "content": "Iniciar o perfil de intervenção comunitária para Porto Alegre. Use o fluxo /cbo-intervention. Sempre use a ferramenta ask_user para perguntas de múltipla escolha. Na primeira mensagem, mencione que o usuário pode enviar documentos existentes (propostas, relatórios, planos, fotos) no chat a qualquer momento — você vai extrair as informações e preencher as seções automaticamente.",
+    "messageType": "content",
+    "timestamp": "2026-04-01T18:40:11.610Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Olá! Bem-vindo ao perfil de intervenção comunitária do COUGAR! 🌿\n\nVou ajudar você a documentar o projeto de natureza da sua organização em Porto Alegre. Vamos preencher juntos as informações sobre quem vocês são, onde atuam, o que estão fazendo, e o impacto que esperam gerar.\n\n**💡 Dica importante:** Você pode enviar documentos existentes (propostas, relatórios, planos, fotos do projeto) diretamente neste chat a qualquer momento. Vou extrair as informações automaticamente e preencher as seções para você!\n\nVamos começar conhecendo sua organização. 😊",
+    "messageType": "content",
+    "timestamp": "2026-04-01T18:40:19.563Z"
+  }
+]
