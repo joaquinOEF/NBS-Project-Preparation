@@ -228,11 +228,11 @@ export default function CboProfilePage() {
   }, []);
 
   // Send message
-  const sendMessage = useCallback(async (text: string) => {
+  const sendMessage = useCallback(async (text: string, hidden = false) => {
     if (!cboId || !text.trim() || isStreaming) return;
     setInput('');
     setActiveQuestions([]);
-    setMessages(prev => [...prev, { role: 'user', content: text, messageType: 'content', timestamp: new Date().toISOString() }]);
+    if (!hidden) setMessages(prev => [...prev, { role: 'user', content: text, messageType: 'content', timestamp: new Date().toISOString() }]);
     setIsStreaming(true);
     try {
       const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang }) });
@@ -336,7 +336,11 @@ export default function CboProfilePage() {
                 <Leaf className="w-12 h-12 mx-auto mb-3 text-green-500" />
                 <p className="text-lg mb-2">{t('cbo.welcomeTitle')}</p>
                 <p className="text-sm mb-4">{t('cbo.welcomeSubtitle')}</p>
-                <Button className="bg-green-600 hover:bg-green-700" onClick={() => sendMessage("Start the CBO intervention profile for Porto Alegre. Use the /cbo-intervention skill flow. Always use the ask_user tool for multiple-choice questions. In your first message, mention that the user can drop existing documents (proposals, reports, plans, photos) into the chat at any time — you'll extract info and auto-fill sections.")}>
+                <Button className="bg-green-600 hover:bg-green-700" onClick={() => sendMessage(lang === 'pt'
+                  ? "Iniciar o perfil de intervenção comunitária para Porto Alegre. Use o fluxo /cbo-intervention. Sempre use a ferramenta ask_user para perguntas de múltipla escolha. Na primeira mensagem, mencione que o usuário pode enviar documentos existentes (propostas, relatórios, planos, fotos) no chat a qualquer momento — você vai extrair as informações e preencher as seções automaticamente."
+                  : "Start the CBO intervention profile for Porto Alegre. Use the /cbo-intervention skill flow. Always use the ask_user tool for multiple-choice questions. In your first message, mention that the user can drop existing documents (proposals, reports, plans, photos) into the chat at any time — you'll extract info and auto-fill sections.",
+                  true // hide system prompt from chat
+                )}>
                   {t('cbo.startProfile')}
                 </Button>
               </div>
@@ -463,7 +467,7 @@ export default function CboProfilePage() {
                   <Card className={`${isHL ? 'border-green-500 ring-2 ring-green-500/30 animate-pulse' : hasGaps ? 'border-orange-300' : ''} transition-all`}>
                     <CardHeader className="py-2.5 px-4 cursor-pointer" onClick={() => {}}>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-sm font-medium">{sec.title}</CardTitle>
+                        <CardTitle className="text-sm font-medium">{t(`cbo.sections.${sec.id}`, sec.title)}</CardTitle>
                         <div className="flex items-center gap-1.5">
                           {hasGaps && <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />}
                           {fields.length > 0 && <div className={`w-2 h-2 rounded-full ${section.confidence === 'high' ? 'bg-green-500' : section.confidence === 'medium' ? 'bg-amber-400' : 'bg-gray-200'}`} />}
