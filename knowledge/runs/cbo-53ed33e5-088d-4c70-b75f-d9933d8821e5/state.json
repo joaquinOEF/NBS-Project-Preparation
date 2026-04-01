@@ -1,0 +1,294 @@
+{
+  "id": "53ed33e5-088d-4c70-b75f-d9933d8821e5",
+  "orgName": "",
+  "city": "porto-alegre",
+  "phase": 6,
+  "sections": {
+    "org_profile": {
+      "id": "org_profile",
+      "title": "1. Who We Are",
+      "phase": 1,
+      "fields": {
+        "organization_name": {
+          "value": "Associação Vila Flores",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "organization_type": {
+          "value": "ONG / Associação formal",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "mission": {
+          "value": "Desenvolvimento comunitário",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "years_active": {
+          "value": "3 a 10 anos",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "team_size": {
+          "value": "16 a 50 pessoas (maioria voluntários, alguns pagos)",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "prior_experience": {
+          "value": "Projetos ambientais ou climáticos realizados anteriormente. Experiência com projetos que receberam financiamento externo.",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "contact_name": {
+          "value": "Joaquin van Peborgh",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "contact_role": {
+          "value": "Director",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "contact_email": {
+          "value": "joaquin@openearth.org",
+          "confidence": "medium",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
+      "sources": [],
+      "lastUpdatedBy": "agent"
+    },
+    "intervention_site": {
+      "id": "intervention_site",
+      "title": "2. Where We Work",
+      "phase": 2,
+      "fields": {
+        "intervention_zone": {
+          "value": "Zona 12 (zona de risco térmico) — área de 103 km², população de 830.967 habitantes, 62% de risco de ondas de calor, 43% de risco de enchentes. Localização: -30.0511, -51.1717",
+          "confidence": "high",
+          "source": "user map selection",
+          "userEdited": false
+        },
+        "selected_sites": {
+          "value": "Três locais de intervenção selecionados:\n1. Praça Antonio Luiz Roso (área desenhada, coordenadas -30.0314, -51.1767)\n2. Ponto personalizado em coordenadas -30.0291, -51.1788\n3. Praça Geraldo Zaniratti (área desenhada, coordenadas -30.0322, -51.1720)\n\nTodos localizados na Zona 12 (zona de risco térmico alto, 62% exposição a calor extremo).",
+          "confidence": "high",
+          "source": "user map selection",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "user map selection"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "intervention_plan": {
+      "id": "intervention_plan",
+      "title": "3. What We're Doing",
+      "phase": 3,
+      "fields": {
+        "problem_statement": {
+          "value": "A zona de intervenção sofre com calor extremo e falta de sombra, especialmente durante o verão. A ausência de vegetação arbórea e espaços verdes contribui para o efeito de ilha de calor urbana, afetando a saúde e o bem-estar da população local, especialmente grupos vulneráveis como idosos e crianças.",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "nbs_type": {
+          "value": "Intervenção múltipla combinando: (1) Plantio de árvores urbanas para sombreamento e resfriamento; (2) Jardins de chuva (bioswales) para gestão de águas pluviais e resfriamento evaporativo; (3) Hortas comunitárias com espécies resilientes ao clima",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "scale_area": {
+          "value": "Área total de intervenção: 1.000 a 5.000 m² (área média) distribuída nos três locais selecionados (Praça Antonio Luiz Roso, Praça Geraldo Zaniratti e um ponto customizado na zona 12).",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "scale_quantity": {
+          "value": "Plantio de 50 a 200 árvores urbanas para sombreamento e resfriamento, distribuídas nos três locais de intervenção.",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "timeline": {
+          "value": "Início: 2026 (ainda em 2026). Status atual: plano elaborado e implementação já iniciada. A organização está na fase de execução do projeto, com o plantio e instalação das soluções baseadas na natureza em andamento.",
+          "confidence": "medium",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
+      "sources": [],
+      "lastUpdatedBy": "agent"
+    },
+    "needs_assessment": {
+      "id": "needs_assessment",
+      "title": "4. What We Need",
+      "phase": 4,
+      "fields": {
+        "technical_needs": {
+          "value": "A organização necessita de apoio técnico em duas áreas principais:\n\n1. **Design ou projeto técnico**: Apoio para elaborar projetos técnicos detalhados das intervenções de NbS (plantio de árvores, jardins de chuva, hortas comunitárias), incluindo especificações de espécies, layout, dimensionamento e integração entre os três locais.\n\n2. **Capacitação da equipe**: Treinamento para a equipe (maioria voluntários) em técnicas de implementação e manutenção de soluções baseadas na natureza, manejo de árvores urbanas, construção de jardins de chuva e gestão de hortas comunitárias.",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "budget_estimate": {
+          "value": "A organização possui uma ideia aproximada do custo total do projeto. O orçamento contempla os três locais de intervenção (Praça Antonio Luiz Roso, área customizada próxima, e Praça Geraldo Zaniratti), incluindo plantio de 50 a 200 árvores, instalação de jardins de chuva, e criação de hortas comunitárias.",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "government_engagement": {
+          "value": "Sim. A organização teve conversas com representantes do governo municipal, mas o apoio ainda não está confirmado. Não há garantia de que o governo irá apoiar oficialmente o projeto.",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "funding_sources": {
+          "value": "Sim. A organização já identificou possíveis fontes de financiamento e está ativamente buscando ou já possui recursos comprometidos para o projeto.",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "permits_status": {
+          "value": "A organização sabe que pode precisar de autorizações ou licenças, mas ainda não identificou exatamente quais são necessárias. O engajamento com órgãos ambientais municipais (SMAMUS) ou estaduais (FEPAM) está em fase inicial.",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "partnerships_sought": {
+          "value": "A organização busca parcerias com:\n\n1. **Outras organizações comunitárias** — para troca de experiências, mobilização local e co-implementação\n2. **Universidades ou centros de pesquisa** — para apoio técnico, monitoramento ambiental e validação científica das intervenções\n\nEssas parcerias podem fortalecer a capacidade técnica, ampliar o alcance comunitário e aumentar a credibilidade do projeto junto a financiadores e autoridades públicas.",
+          "confidence": "medium",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
+      "sources": [],
+      "lastUpdatedBy": "agent"
+    },
+    "results_evidence": {
+      "id": "results_evidence",
+      "title": "5. Results & Evidence",
+      "phase": 5,
+      "fields": {
+        "baseline_data": {
+          "value": "Sim. A organização realizou medições ou monitoramento inicial do local de intervenção antes de começar as atividades. Isso pode incluir medições de temperatura, umidade, tipo de solo, espécies presentes, ou outras características ambientais. A existência de dados de linha de base (baseline) é fundamental para avaliar o impacto das intervenções no futuro.",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "documentation": {
+          "value": "Sim. A organização possui documentação do projeto, incluindo:\n- Fotos do local antes e durante a implementação\n- Alguns documentos escritos (planos, relatórios, ou registros)\n\nEsta documentação é importante para demonstrar o progresso, comunicar com parceiros, e servir como evidência de realização para futuras oportunidades de financiamento.",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "observed_results": {
+          "value": "Ainda não observados. O projeto ainda está em fase inicial de implementação (iniciado em 2026), e ainda é cedo para que a comunidade ou a equipe perceba mudanças ambientais ou sociais significativas. Resultados como redução de temperatura, aumento de sombreamento, ou maior uso comunitário dos espaços verdes tendem a aparecer gradualmente após a consolidação das intervenções (árvores crescendo, jardins de chuva funcionando, etc.).",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "land_tenure_status": {
+          "value": "Sim, a organização possui documento formal comprovando controle ou autorização para uso dos locais de intervenção. Status: seguro.",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "baseline_environmental_data": {
+          "value": "A organização ainda não possui dados ambientais de referência (temperatura, umidade, qualidade do ar) mas possui capacidade de conseguir esses dados por meio de parcerias com universidades ou centros de pesquisa.",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "revenue_model": {
+          "value": "Sim. A organização possui modelo de receita claro: busca financiamento de fontes públicas e privadas, parcerias com governo municipal, e potencial para venda de serviços ambientais ou carbono no futuro.",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "potential_buyers": {
+          "value": "A organização tem ideias sobre possíveis compradores ou pagadores (governo municipal, fundos climáticos, empresas interessadas em compensação ambiental), mas ainda não confirmou compromissos formais.",
+          "confidence": "high",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [],
+      "lastUpdatedBy": "agent"
+    }
+  },
+  "gaps": [],
+  "maturityScores": [
+    {
+      "metric": "problem_clarity",
+      "score": 2,
+      "justification": "Problema claramente identificado (calor extremo, falta de sombra) com relevância local explicada. A organização entende o contexto da zona de risco térmico, mas ainda não quantificou o problema com dados específicos de temperatura ou impacto na saúde."
+    },
+    {
+      "metric": "climate_nbs_impact",
+      "score": 2,
+      "justification": "A organização descreve claramente o mecanismo de impacto climático (árvores para sombreamento e resfriamento, jardins de chuva para absorção de água, hortas para segurança alimentar). As soluções são apropriadas para o contexto de calor extremo, mas ainda não há quantificação esperada de redução de temperatura ou referências técnicas regionais."
+    },
+    {
+      "metric": "solution_clarity",
+      "score": 3,
+      "justification": "Solução muito bem definida: três locais específicos selecionados, intervenções múltiplas integradas (plantio, jardins de chuva, hortas), escala quantificada (50-200 árvores, 1.000-5.000 m²), cronograma claro, e plano já em implementação. A organização demonstra lógica coerente entre problema e solução com plano de ação concreto."
+    },
+    {
+      "metric": "org_delivery_capacity",
+      "score": 2,
+      "justification": "A organização demonstrou capacidade de gestão de projetos: realizou projetos ambientais anteriores, tem experiência com financiamentos, possui equipe de 16-50 pessoas (maioria voluntários, alguns pagos), e já iniciou a implementação do plano atual. Capacidade sólida, mas ainda não demonstrou gestão de projetos multi-atores complexos ou de grande escala."
+    },
+    {
+      "metric": "team_technical_experience",
+      "score": 1,
+      "justification": "A equipe tem experiência geral ambiental e realizou projetos anteriores, mas identificou necessidade de apoio técnico em design/projeto e capacitação. Isso sugere experiência limitada específica em SbN de arborização e jardins de chuva. Pontuação reflete experiência ambiental geral sem histórico comprovado neste tipo específico de intervenção."
+    },
+    {
+      "metric": "financial_thinking",
+      "score": 2,
+      "justification": "A organização possui estimativa aproximada de custos e já identificou fontes de financiamento (está ativamente buscando ou já recebeu recursos). Demonstra planejamento financeiro em andamento, mas ainda não apresentou orçamento detalhado por item ou estrutura clara de custos."
+    },
+    {
+      "metric": "community_anchoring",
+      "score": 2,
+      "justification": "A comunidade está envolvida na implementação das atividades, indicando participação ativa. A organização trabalha em três locais comunitários (praças) e busca parcerias com outras organizações comunitárias. No entanto, ainda não há evidência de governança comunitária formal ou estrutura cooperativa que demonstre propriedade total do projeto pela comunidade."
+    },
+    {
+      "metric": "regulatory_awareness",
+      "score": 1,
+      "justification": "A organização sabe que pode precisar de autorizações ou licenças, mas ainda não identificou exatamente quais são necessárias nem iniciou os processos formais. Teve conversas com o governo municipal, mas ainda não há clareza regulatória completa. Isso é comum em projetos em fase inicial, mas representa risco de atrasos futuros."
+    },
+    {
+      "metric": "site_control",
+      "score": 3,
+      "justification": "A organização possui documento formal comprovando controle ou autorização para uso dos locais de intervenção. Controle seguro do local."
+    }
+  ],
+  "priorityFlags": [
+    {
+      "flag": "Land tenure secure or likely secure",
+      "met": true,
+      "notes": "A organização possui documento formal comprovando controle ou autorização para uso dos locais de intervenção."
+    },
+    {
+      "flag": "Baseline environmental data exists",
+      "met": false,
+      "notes": "Dados de referência (temperatura, qualidade do ar, umidade) ainda não coletados, mas organização tem capacidade de obtê-los via parcerias."
+    },
+    {
+      "flag": "Local government expressed interest",
+      "met": true,
+      "notes": "A organização teve conversas com representantes do governo municipal sobre o projeto, indicando interesse do governo local."
+    },
+    {
+      "flag": "Potential buyers/payors identified",
+      "met": true,
+      "notes": "Organização identificou possíveis compradores/pagadores (governo municipal, fundos climáticos, empresas), mas ainda sem compromissos formais."
+    },
+    {
+      "flag": "Co-financing possibility identified",
+      "met": true,
+      "notes": "Organização já identificou fontes de financiamento e está ativamente buscando recursos de múltiplas fontes (público + privado)."
+    },
+    {
+      "flag": "Scalable beyond one site",
+      "met": true,
+      "notes": "O projeto já abrange três locais de intervenção distintos (Praça Antonio Luiz Roso, ponto customizado, Praça Geraldo Zaniratti), demonstrando replicabilidade e potencial de escala."
+    }
+  ],
+  "totalMaturityScore": 18,
+  "editLog": [],
+  "uploadedFiles": [],
+  "metadata": {
+    "createdAt": "2026-04-01T18:12:46.719Z",
+    "updatedAt": "2026-04-01T18:30:07.315Z"
+  }
+}
