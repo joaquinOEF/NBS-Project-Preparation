@@ -214,21 +214,31 @@ function createConceptNoteToolsForSdk(noteId: string) {
 
   const openMap = sdkTool(
     "open_map",
-    `Open an interactive map microapp. The user can select assets (parks, schools, hospitals, custom sites), zones, or sample raster values. The map opens with specified layers pre-enabled and returns structured data about what the user selected.
+    `Open an interactive map microapp. Returns structured data about what the user selected.
 
-Selection modes:
-- "zones": User clicks intervention zone boundaries (existing flow)
-- "assets": User clicks individual OSM features (parks, schools, etc.) or draws custom sites
-- "sample": User clicks anywhere to sample raster tile values at that point
-- "composite": User selects zones AND picks specific assets within them
+## Selection modes
+- "composite": TWO-STEP: user picks a zone first, then selects individual sites within it.
+- "assets": User clicks individual OSM features (parks, schools, etc.) or draws custom sites.
+- "zones": User clicks intervention zone boundaries only.
+- "sample": User clicks anywhere to read raster values at that point.
+
+## Available layers
+OSM: osm_parks, osm_schools, osm_hospitals, osm_wetlands
+Tiles: oef_fri_2024, oef_hwm_2024, oef_dynamic_world, oef_copernicus_dem, oef_ghsl_population, +40 more
+Spatial queries: sq_parks_flood, sq_schools_flood, sq_hospitals_flood, sq_wetlands_flood, sq_parks_heatwave, sq_schools_heatwave
+
+## Recipes
+- Territorial scope (Phase 2): zones + [] + [oef_fri_2024, oef_hwm_2024]
+- Intervention sites (Phase 3): composite + [osm_parks, osm_wetlands] + [oef_fri_2024]
+- Environmental evidence: sample + [] + [oef_fri_2024, oef_hwm_2024, oef_copernicus_dem]
 
 STOP and wait for the user's map selection after calling this tool.`,
     {
-      layers: z.array(z.string()).optional().describe("OSM layer IDs to enable, e.g. ['osm_parks', 'osm_schools']"),
-      tileLayers: z.array(z.string()).optional().describe("Tile layer IDs to enable, e.g. ['oef_fri_2024', 'oef_hwm_2024']"),
-      spatialQueries: z.array(z.string()).optional().describe("Spatial query IDs to run, e.g. ['sq_parks_flood']"),
-      selectionMode: z.enum(["zones", "assets", "sample", "composite"]).describe("What the user can select"),
-      prompt: z.string().describe("Instruction shown on the map, e.g. 'Select the parks you want to target'"),
+      layers: z.array(z.string()).optional().describe("OSM layer IDs: osm_parks, osm_schools, osm_hospitals, osm_wetlands"),
+      tileLayers: z.array(z.string()).optional().describe("Tile layer IDs as toggleable overlays: oef_fri_2024, oef_hwm_2024, etc."),
+      spatialQueries: z.array(z.string()).optional().describe("Pre-filter features: sq_parks_flood, sq_schools_heatwave, etc."),
+      selectionMode: z.enum(["zones", "assets", "sample", "composite"]).describe("composite = zone→sites. assets = sites only. zones = zones only. sample = click-to-read."),
+      prompt: z.string().describe("Clear instruction for the user"),
       sampleLayers: z.array(z.string()).optional().describe("For sample mode: which tile layers to sample on click"),
     },
     async (args: any) => {
