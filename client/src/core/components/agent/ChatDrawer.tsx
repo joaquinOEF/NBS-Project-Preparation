@@ -797,7 +797,7 @@ export function ChatDrawer() {
 
   return (
     <>
-      {!isOpen && (
+      {!isOpen && !location.includes('/concept-note') && !location.includes('/cbo') && (
         <Button
           variant="outline"
           size="icon"
