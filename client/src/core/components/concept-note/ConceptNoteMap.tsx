@@ -267,7 +267,19 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
     });
   }, [activeLayer, showGrid]);
 
-  // Update zone outlines when selection or visibility changes
+  // Toggle zone layer on/off the map
+  useEffect(() => {
+    const map = mapRef.current;
+    const zonesLayer = zonesLayerRef.current;
+    if (!map || !zonesLayer) return;
+    if (showZones) {
+      if (!map.hasLayer(zonesLayer)) zonesLayer.addTo(map);
+    } else {
+      if (map.hasLayer(zonesLayer)) map.removeLayer(zonesLayer);
+    }
+  }, [showZones]);
+
+  // Update zone outlines when selection changes
   useEffect(() => {
     if (!zonesLayerRef.current) return;
     zonesLayerRef.current.eachLayer((layer: any) => {
@@ -278,12 +290,11 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
         color: sel ? '#1d4ed8' : '#1e293b',
         weight: sel ? 3 : 2,
         fillColor: sel ? '#3b82f6' : 'transparent',
-        fillOpacity: showZones ? (sel ? 0.2 : 0) : 0,
-        opacity: showZones ? 1 : 0,
+        fillOpacity: sel ? 0.2 : 0,
         dashArray: sel ? undefined : '4 2',
       });
     });
-  }, [selectedZones, showZones]);
+  }, [selectedZones]);
 
   // Resize
   useEffect(() => {
