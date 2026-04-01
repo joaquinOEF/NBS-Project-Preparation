@@ -107,7 +107,6 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const gridLayerRef = useRef<L.GeoJSON | null>(null);
   const zonesLayerRef = useRef<L.GeoJSON | null>(null);
-  const zoneLabelMarkersRef = useRef<L.Marker[]>([]);
 
   const [selectedZones, setSelectedZones] = useState<Set<string>>(new Set());
   const [zoneData, setZoneData] = useState<ZoneProperties[]>([]);
@@ -197,35 +196,34 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
         }
 
         // Zones — outlined, clickable
+        // Labels are added as child layers of zonesLayer (FeatureGroup) so
+        // removing zonesLayer from the map removes everything at once.
         setZoneData(zonesData.zones || []);
         if (zonesData.geoJson) {
+          const labelMarkers: L.Marker[] = [];
           const zonesLayer = L.geoJSON(zonesData.geoJson, {
-            style: (feature) => {
-              const props = feature?.properties;
-              return {
-                color: '#1e293b',
-                weight: 2,
-                fillColor: 'transparent',
-                fillOpacity: 0,
-                dashArray: '4 2',
-              };
-            },
+            style: () => ({
+              color: '#1e293b',
+              weight: 2,
+              fillColor: 'transparent',
+              fillOpacity: 0,
+              dashArray: '4 2',
+            }),
             onEachFeature: (feature, layer) => {
               const props = feature.properties as ZoneProperties;
               if (!props?.zoneId) return;
 
-              // Zone label
+              // Collect label center — we'll add markers after layer is created
               const center = (layer as any).getBounds?.()?.getCenter?.();
               if (center) {
-                const labelMarker = L.marker(center, {
+                labelMarkers.push(L.marker(center, {
                   icon: L.divIcon({
                     className: 'zone-label',
                     html: `<div style="background:white;border:1px solid #cbd5e1;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,0.1)">${props.zoneId.replace('zone_', 'Z')}</div>`,
                     iconSize: [0, 0],
                     iconAnchor: [20, 10],
                   }),
-                }).addTo(map);
-                zoneLabelMarkersRef.current.push(labelMarker);
+                }));
               }
 
               layer.on({
@@ -247,6 +245,8 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
               });
             },
           });
+          // Add label markers as children of zonesLayer (FeatureGroup)
+          for (const m of labelMarkers) zonesLayer.addLayer(m);
           zonesLayer.addTo(map);
           zonesLayerRef.current = zonesLayer;
         }
@@ -273,17 +273,15 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
     });
   }, [activeLayer, showGrid]);
 
-  // Toggle zone layer + labels on/off the map
+  // Toggle zones (polygons + labels are all children of zonesLayer)
   useEffect(() => {
     const map = mapRef.current;
-    const zonesLayer = zonesLayerRef.current;
-    if (!map || !zonesLayer) return;
+    const zl = zonesLayerRef.current;
+    if (!map || !zl) return;
     if (showZones) {
-      if (!map.hasLayer(zonesLayer)) zonesLayer.addTo(map);
-      for (const m of zoneLabelMarkersRef.current) { if (!map.hasLayer(m)) m.addTo(map); }
+      if (!map.hasLayer(zl)) zl.addTo(map);
     } else {
-      if (map.hasLayer(zonesLayer)) map.removeLayer(zonesLayer);
-      for (const m of zoneLabelMarkersRef.current) { if (map.hasLayer(m)) map.removeLayer(m); }
+      if (map.hasLayer(zl)) map.removeLayer(zl);
     }
   }, [showZones]);
 
