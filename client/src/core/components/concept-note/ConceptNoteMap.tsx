@@ -277,33 +277,34 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
     if (isActive && mapRef.current) setTimeout(() => mapRef.current?.invalidateSize(), 100);
   }, [isActive]);
 
-  // Toggle evidence tile layers
+  // Toggle evidence tile layers — map operations outside state setter
   const toggleTileLayer = (layerDef: TileLayerDef) => {
     const map = mapRef.current;
     if (!map) return;
 
-    setEnabledTileLayers(prev => {
-      const next = new Set(prev);
-      if (next.has(layerDef.id)) {
-        // Remove
-        next.delete(layerDef.id);
-        const existing = tileLayerRefs.current[layerDef.id];
-        if (existing) { map.removeLayer(existing); delete tileLayerRefs.current[layerDef.id]; }
-      } else {
-        // Add
-        next.add(layerDef.id);
-        const tl = L.tileLayer(`/api/geospatial/tiles/${layerDef.tileLayerId}/{z}/{x}/{y}.png`, {
-          opacity: 0.7,
-          maxNativeZoom: 15,
-          maxZoom: 19,
-          minZoom: 8,
-          errorTileUrl: '',
-        });
-        tl.addTo(map);
-        tileLayerRefs.current[layerDef.id] = tl;
+    const isCurrentlyEnabled = enabledTileLayers.has(layerDef.id);
+
+    if (isCurrentlyEnabled) {
+      // Remove from map
+      const existing = tileLayerRefs.current[layerDef.id];
+      if (existing) {
+        map.removeLayer(existing);
+        delete tileLayerRefs.current[layerDef.id];
       }
-      return next;
-    });
+      setEnabledTileLayers(prev => { const next = new Set(prev); next.delete(layerDef.id); return next; });
+    } else {
+      // Add to map
+      const tl = L.tileLayer(`/api/geospatial/tiles/${layerDef.tileLayerId}/{z}/{x}/{y}.png`, {
+        opacity: 0.7,
+        maxNativeZoom: 15,
+        maxZoom: 19,
+        minZoom: 8,
+        errorTileUrl: '',
+      });
+      tl.addTo(map);
+      tileLayerRefs.current[layerDef.id] = tl;
+      setEnabledTileLayers(prev => { const next = new Set(prev); next.add(layerDef.id); return next; });
+    }
   };
 
   const toggleGroup = (groupId: string) => {
