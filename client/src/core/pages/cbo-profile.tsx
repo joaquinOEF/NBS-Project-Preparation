@@ -97,6 +97,14 @@ export default function CboProfilePage() {
   const [highlightedSections, setHighlightedSections] = useState<string[]>([]);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // Hide Replit chat widget on this page
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = '[class*="chat-button"], [class*="intercom"], iframe[title*="chat"], #fc_frame, .replit-ui-theme-root .chat-button { display: none !important; }';
+    document.head.appendChild(style);
+    return () => { document.head.removeChild(style); };
+  }, []);
+
   // Auto-scroll to related sections when question changes
   useEffect(() => {
     // Check if current question has relatedSections (from ask_user event)

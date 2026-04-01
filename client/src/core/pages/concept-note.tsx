@@ -189,6 +189,14 @@ export default function ConceptNotePage() {
     init();
   }, []);
 
+  // Hide Replit chat widget on this page
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = '[class*="chat-button"], [class*="intercom"], iframe[title*="chat"], #fc_frame, .replit-ui-theme-root .chat-button { display: none !important; }';
+    document.head.appendChild(style);
+    return () => { document.head.removeChild(style); };
+  }, []);
+
   // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
