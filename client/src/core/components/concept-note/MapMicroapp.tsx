@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Check, X, MapPin, Pencil, Loader2, Trash2, Eye, EyeOff, ChevronRight } from 'lucide-react';
@@ -27,6 +28,7 @@ interface Props {
 type CompositeStep = 'zone' | 'assets';
 
 export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
+  const { t } = useTranslation();
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const tileLayerRefs = useRef<Record<string, L.TileLayer>>({});
@@ -40,7 +42,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const [sampledPoints, setSampledPoints] = useState<SampledPoint[]>([]);
   const [drawMode, setDrawMode] = useState<'off' | 'point' | 'polygon'>('off');
   const [loading, setLoading] = useState(true);
-  const [loadingStatus, setLoadingStatus] = useState('Initializing...');
+  const [loadingStatus, setLoadingStatus] = useState('');
   const [enabledTiles, setEnabledTiles] = useState<Set<string>>(new Set());
   // Composite stepper: step 1 = pick zone, step 2 = pick assets
   const [compositeStep, setCompositeStep] = useState<CompositeStep>('zone');
@@ -50,7 +52,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const isComposite = selectionMode === 'composite';
   const showZones = !isComposite || compositeStep === 'zone';
   const showAssets = !isComposite || compositeStep === 'assets';
-  const polygonHelp = drawMode === 'polygon' ? 'Click vertices, double-click to close' : '';
+  const polygonHelp = drawMode === 'polygon' ? t('mapMicroapp.polygonHelp') : '';
 
   const enabledTileLayerDefs = Array.from(enabledTiles)
     .map(id => TILE_LAYERS.find(l => l.id === id))
@@ -467,11 +469,11 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   // Step instructions
   const stepInstruction = isComposite
     ? compositeStep === 'zone'
-      ? 'Step 1: Click the zone where your intervention is located'
-      : `Step 2: Select sites within ${selectedZone?.name || 'zone'} — click features or draw custom areas`
-    : selectionMode === 'assets' ? 'Click features to select'
-    : selectionMode === 'sample' ? 'Click anywhere to sample values'
-    : 'Click zone boundaries to select';
+      ? t('mapMicroapp.step1Zone')
+      : t('mapMicroapp.step2Sites', { zone: selectedZone?.name || 'zone' })
+    : selectionMode === 'assets' ? t('mapMicroapp.clickFeatures')
+    : selectionMode === 'sample' ? t('mapMicroapp.clickSample')
+    : t('mapMicroapp.clickZones');
 
   return (
     <div className="flex flex-col h-full w-full bg-background overflow-hidden">
@@ -491,7 +493,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
             className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded ${compositeStep === 'zone' ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:bg-muted/50'}`}
           >
             <span className="w-4 h-4 rounded-full bg-current/20 flex items-center justify-center text-[9px] font-bold">1</span>
-            Zone
+            {t('mapMicroapp.zone')}
             {selectedZone && <Check className="w-3 h-3 text-emerald-500" />}
           </button>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
@@ -500,11 +502,11 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
             className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded ${compositeStep === 'assets' ? 'bg-primary text-primary-foreground font-medium' : selectedZone ? 'text-foreground hover:bg-muted/50' : 'text-muted-foreground/50 cursor-not-allowed'}`}
           >
             <span className="w-4 h-4 rounded-full bg-current/20 flex items-center justify-center text-[9px] font-bold">2</span>
-            Sites
+            {t('mapMicroapp.sites')}
           </button>
           {isComposite && compositeStep === 'zone' && selectedZone && (
             <Button size="sm" className="h-6 text-[10px] gap-1 ml-auto" onClick={advanceToAssets}>
-              Next: Select sites <ChevronRight className="w-3 h-3" />
+              {t('mapMicroapp.nextSites')} <ChevronRight className="w-3 h-3" />
             </Button>
           )}
         </div>
@@ -515,7 +517,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         {/* Tile layer toggles */}
         {availableTileLayers.length > 0 && (
           <>
-            <span className="text-[9px] text-muted-foreground shrink-0">Layers:</span>
+            <span className="text-[9px] text-muted-foreground shrink-0">{t('mapMicroapp.layers')}:</span>
             {availableTileLayers.map(layer => {
               const isOn = enabledTiles.has(layer.id);
               return (
@@ -534,11 +536,11 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
           <>
             <Button variant={drawMode === 'point' ? 'default' : 'outline'} size="sm" className="h-5 text-[9px] gap-1 px-1.5"
               onClick={() => setDrawMode(drawMode === 'point' ? 'off' : 'point')}>
-              <MapPin className="w-2.5 h-2.5" /> Point
+              <MapPin className="w-2.5 h-2.5" /> {t('mapMicroapp.point')}
             </Button>
             <Button variant={drawMode === 'polygon' ? 'default' : 'outline'} size="sm" className="h-5 text-[9px] gap-1 px-1.5"
               onClick={() => setDrawMode(drawMode === 'polygon' ? 'off' : 'polygon')}>
-              <Pencil className="w-2.5 h-2.5" /> Area
+              <Pencil className="w-2.5 h-2.5" /> {t('mapMicroapp.area')}
             </Button>
           </>
         )}
@@ -584,9 +586,9 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
       {/* Action bar */}
       <div className="flex items-center gap-2 px-3 py-2 border-t bg-background shrink-0">
-        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>Cancel</Button>
+        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>{t('mapMicroapp.cancel')}</Button>
         <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={handleConfirm} disabled={totalSelections === 0}>
-          <Check className="w-3 h-3" /> Confirm {totalSelections} selection{totalSelections !== 1 ? 's' : ''}
+          <Check className="w-3 h-3" /> {t('mapMicroapp.confirm', { count: totalSelections })}
         </Button>
       </div>
     </div>
