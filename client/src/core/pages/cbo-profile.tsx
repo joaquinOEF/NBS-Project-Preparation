@@ -60,6 +60,21 @@ export default function CboProfilePage() {
 
   const currentQuestion = activeQuestions[currentQuestionIdx] || null;
   const totalQuestions = activeQuestions.length;
+  const [highlightedSections, setHighlightedSections] = useState<string[]>([]);
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Auto-scroll to related sections when question changes
+  useEffect(() => {
+    // Check if current question has relatedSections (from ask_user event)
+    const q = activeQuestions[currentQuestionIdx];
+    const sections = (q as any)?.relatedSections;
+    if (!sections || sections.length === 0) { setHighlightedSections([]); return; }
+    setHighlightedSections(sections);
+    const firstRef = sectionRefs.current[sections[0]];
+    if (firstRef) firstRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const timer = setTimeout(() => setHighlightedSections([]), 5000);
+    return () => clearTimeout(timer);
+  }, [currentQuestionIdx, activeQuestions]);
 
   // Init session
   useEffect(() => {
@@ -161,7 +176,7 @@ export default function CboProfilePage() {
         const hasMap = !!(event as any).showMap || spatialKeywords.test(event.question);
         setActiveQuestions(prev => {
           if (prev.length === 0) { setCurrentQuestionIdx(0); setQuestionAnswers({}); }
-          return [...prev, { id: `q_${Date.now()}`, question: event.question, options: event.options, multiSelect: (event as any).multiSelect }];
+          return [...prev, { id: `q_${Date.now()}`, question: event.question, options: event.options, multiSelect: (event as any).multiSelect, relatedSections: (event as any).relatedSections }];
         });
         setSelectedOptionIdx(0);
         setIsStreaming(false);
@@ -385,8 +400,10 @@ export default function CboProfilePage() {
                 const section = state.sections[sec.id];
                 const fields = Object.entries(section.fields);
                 const hasGaps = state.gaps.some(g => g.sectionId === sec.id);
+                const isHL = highlightedSections.includes(sec.id);
                 return (
-                  <Card key={sec.id} className={hasGaps ? 'border-orange-300' : ''}>
+                  <div key={sec.id} ref={(el) => { sectionRefs.current[sec.id] = el; }}>
+                  <Card className={`${isHL ? 'border-green-500 ring-2 ring-green-500/30 animate-pulse' : hasGaps ? 'border-orange-300' : ''} transition-all`}>
                     <CardHeader className="py-2.5 px-4 cursor-pointer" onClick={() => {}}>
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-sm font-medium">{sec.title}</CardTitle>
@@ -418,6 +435,7 @@ export default function CboProfilePage() {
                       </CardContent>
                     )}
                   </Card>
+                  </div>
                 );
               })}
             </div>
