@@ -58,9 +58,12 @@ function fixMarkdownTables(text: string): string {
 }
 
 const STORAGE_KEY = 'cbo-session-id';
+const MAP_PARAMS_KEY = 'cbo-map-params';
 function getSavedId(): string | null { try { return localStorage.getItem(STORAGE_KEY); } catch { return null; } }
 function saveId(id: string) { try { localStorage.setItem(STORAGE_KEY, id); } catch {} }
 function clearId() { try { localStorage.removeItem(STORAGE_KEY); } catch {} }
+function getSavedMapParams(): OpenMapParams | null { try { const s = sessionStorage.getItem(MAP_PARAMS_KEY); return s ? JSON.parse(s) : null; } catch { return null; } }
+function saveMapParams(p: OpenMapParams | null) { try { if (p) sessionStorage.setItem(MAP_PARAMS_KEY, JSON.stringify(p)); else sessionStorage.removeItem(MAP_PARAMS_KEY); } catch {} }
 
 // ============================================================================
 // MAIN PAGE
@@ -76,9 +79,10 @@ export default function CboProfilePage() {
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({});
   const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
-  const [rightTab, setRightTab] = useState<'document' | 'map' | 'scorecard'>('document');
-  const [mapRelevant, setMapRelevant] = useState(false);
-  const [openMapParams, setOpenMapParams] = useState<OpenMapParams | null>(null);
+  const [rightTab, setRightTab] = useState<'document' | 'map' | 'scorecard'>(getSavedMapParams() ? 'map' : 'document');
+  const [mapRelevant, setMapRelevant] = useState(!!getSavedMapParams());
+  const [openMapParams, _setOpenMapParams] = useState<OpenMapParams | null>(getSavedMapParams);
+  const setOpenMapParams = useCallback((p: OpenMapParams | null) => { _setOpenMapParams(p); saveMapParams(p); }, []);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
