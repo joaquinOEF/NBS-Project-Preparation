@@ -157,22 +157,33 @@ function createCboMcpTools(cboId: string) {
 
   const openMap = sdkTool(
     "open_map",
-    `Open an interactive map microapp. The user can select assets (parks, schools, hospitals, custom sites), zones, or sample raster values.
+    `Open an interactive map microapp. Returns structured data about what the user selected.
 
-Selection modes:
-- "zones": User clicks intervention zone boundaries
-- "assets": User clicks individual OSM features or draws custom sites
-- "sample": User clicks anywhere to sample raster tile values
-- "composite": User selects zones AND picks specific assets within them
+## Selection modes
+- "composite": TWO-STEP: user picks a zone first, then selects individual sites within it. Best for CBO Phase 2.
+- "assets": User clicks individual OSM features (parks, schools, etc.) or draws custom sites. No zone selection.
+- "zones": User clicks intervention zone boundaries only. No individual site selection.
+- "sample": User clicks anywhere to read raster values at that point. No feature selection.
+
+## Available layers
+OSM (vector): osm_parks, osm_schools, osm_hospitals, osm_wetlands
+Tiles (raster): oef_fri_2024 (Flood Risk), oef_hwm_2024 (Heatwave), oef_dynamic_world (Land Use), oef_chirps_r90p_2024, oef_copernicus_dem, oef_ghsl_population, oef_merit_elv, +40 more
+Spatial queries: sq_parks_flood, sq_schools_flood, sq_hospitals_flood, sq_wetlands_flood, sq_parks_heatwave, sq_schools_heatwave
+
+## Recipes
+- CBO Phase 2 (Where We Work): composite + [osm_parks, osm_schools, osm_wetlands] + [oef_fri_2024, oef_hwm_2024]
+- CBO Phase 3 (What We're Doing): assets + [osm_parks, osm_wetlands] + [oef_dynamic_world, oef_fri_2024]
+- Concept Note Phase 2 (Territorial Scope): zones + [] + [oef_fri_2024, oef_hwm_2024]
+- Environmental analysis: sample + [] + [oef_fri_2024, oef_hwm_2024, oef_copernicus_dem]
 
 STOP and wait for the user's map selection after calling this tool.`,
     {
-      layers: z.array(z.string()).optional().describe("OSM layer IDs to enable"),
-      tileLayers: z.array(z.string()).optional().describe("Tile layer IDs to enable"),
-      spatialQueries: z.array(z.string()).optional().describe("Spatial query IDs to run"),
-      selectionMode: z.enum(["zones", "assets", "sample", "composite"]),
-      prompt: z.string().describe("Instruction shown on the map"),
-      sampleLayers: z.array(z.string()).optional(),
+      layers: z.array(z.string()).optional().describe("OSM layer IDs to show: osm_parks, osm_schools, osm_hospitals, osm_wetlands"),
+      tileLayers: z.array(z.string()).optional().describe("Tile layer IDs as toggleable overlays (not auto-shown): oef_fri_2024, oef_hwm_2024, etc."),
+      spatialQueries: z.array(z.string()).optional().describe("Pre-filter features: sq_parks_flood, sq_schools_heatwave, etc."),
+      selectionMode: z.enum(["zones", "assets", "sample", "composite"]).describe("composite = zone first, then sites. assets = sites only. zones = zones only. sample = click-to-read-values."),
+      prompt: z.string().describe("Clear instruction for the user, e.g. 'Select the zone where you work, then pick the parks and schools you are targeting'"),
+      sampleLayers: z.array(z.string()).optional().describe("For sample mode: which tile layers to sample on click"),
     },
     async (args: any) => {
       pushEvent({
@@ -429,12 +440,10 @@ Phase: ${state.phase}. Organization: ${state.orgName || '(not set)'}.
 ## YOUR TOOLS
 1. **update_section** — fill document fields (org_profile, intervention_site, intervention_plan, needs_assessment, results_evidence)
 2. **ask_user** — present multiple-choice questions for non-spatial decisions
-3. **open_map** — open interactive map microapp for spatial selection. Use instead of ask_user for site/zone/asset questions.
-   - selectionMode: "zones" | "assets" | "sample" | "composite"
-   - layers: ["osm_parks", "osm_schools", "osm_hospitals", "osm_wetlands"]
-   - tileLayers: ["oef_fri_2024", "oef_hwm_2024"] for evidence overlays
-   - spatialQueries: ["sq_parks_flood"] to highlight at-risk features
-   - For CBO Phase 2 (Where We Work): use "composite" mode with OSM layers + risk tiles
+3. **open_map** — open interactive map microapp. Use for ALL spatial/site questions instead of ask_user.
+   - Phase 2 (Where We Work): open_map({ selectionMode: "composite", layers: ["osm_parks", "osm_schools", "osm_wetlands"], tileLayers: ["oef_fri_2024", "oef_hwm_2024"], prompt: "Select the zone where you work, then pick the specific sites you're targeting" })
+   - Phase 3 (What intervention): open_map({ selectionMode: "assets", layers: ["osm_parks", "osm_wetlands"], tileLayers: ["oef_dynamic_world", "oef_fri_2024"], prompt: "Select the green spaces or wetlands your NBS will transform" })
+   - Evidence check: open_map({ selectionMode: "sample", tileLayers: ["oef_fri_2024", "oef_hwm_2024", "oef_copernicus_dem"], prompt: "Click locations to check climate risk values" })
 4. **set_phase** — advance phases (1-6)
 5. **flag_gap** — mark missing info
 6. **score_maturity** — score COUGAR maturity metrics (0-3) as you gather info
@@ -451,8 +460,10 @@ ${PRIORITY_FLAG_DEFINITIONS.join(', ')}
 - Be warm and encouraging — many CBOs have limited formal documentation experience
 - Start IMMEDIATELY with set_phase(1) and ask_user questions
 - Score maturity metrics as you gather information (don't wait until the end)
-- For site selection (Phase 2): ALWAYS use open_map with "composite" mode — show OSM parks/schools/wetlands + FRI/HWM tiles so the CBO can select their zone AND specific intervention sites
-  Example: open_map({ selectionMode: "composite", layers: ["osm_parks", "osm_schools", "osm_wetlands"], tileLayers: ["oef_fri_2024", "oef_hwm_2024"], prompt: "Select the zone where you work, then click the specific parks, schools, or wetlands you're targeting. You can also draw custom areas." })
+- For ANY spatial question: use open_map (not ask_user with showMap)
+- Phase 2: ALWAYS use open_map with "composite" mode
+- Phase 3: use open_map with "assets" mode if asking about specific intervention sites
+- The tool description has recipes — follow them
 - Each user message has a [LANGUAGE: ...] directive — follow it
 - update_section content in Portuguese if the org is Brazilian
 - After Phase 5: generate the full maturity scorecard using score_maturity for remaining metrics + set_priority_flag for all 6 flags
