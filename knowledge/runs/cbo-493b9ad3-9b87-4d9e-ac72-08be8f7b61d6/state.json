@@ -1,0 +1,305 @@
+{
+  "id": "493b9ad3-9b87-4d9e-ac72-08be8f7b61d6",
+  "orgName": "",
+  "city": "porto-alegre",
+  "phase": 6,
+  "sections": {
+    "org_profile": {
+      "id": "org_profile",
+      "title": "1. Who We Are",
+      "phase": 1,
+      "fields": {
+        "organization_name": {
+          "value": "Associação Cultural Vila Flores (ACVF)",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "organization_type": {
+          "value": "Associação cultural sem fins lucrativos (formalizada em 2014)",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "mission": {
+          "value": "Coordenar programação cultural e ações de resiliência climática junto a autoridades públicas, setor privado e comunidade do 4º Distrito de Porto Alegre.",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "team_size": {
+          "value": "15 membros na equipe principal, mais de 100 participantes regulares em 40+ iniciativas que compartilham o espaço",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "years_active": {
+          "value": "Desde 2013 (12 anos de engajamento comunitário)",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "prior_experience": {
+          "value": "12 anos gerindo programas culturais, coordenação de recuperação pós-enchente, implementação da metodologia ME CONTA, gestão de recursos da Caixa Federal. Quatro pilares de atuação: Arte e Cultura, Arquitetura e Urbanismo, Educação, Empreendedorismo Social e Criativo.",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "contact_name": {
+          "value": "contato@vilaflores.org | vilaflores.org",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "Vila_Flores_Intervention_Profile.pdf"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "intervention_site": {
+      "id": "intervention_site",
+      "title": "2. Where We Work",
+      "phase": 2,
+      "fields": {
+        "neighborhood": {
+          "value": "Floresta / 4º Distrito, Porto Alegre",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "area_estimate": {
+          "value": "1.415 m² (complexo histórico principal) + áreas públicas adjacentes nos bairros Floresta, São Geraldo e Navegantes",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "current_conditions": {
+          "value": "Reconstrução pós-enchente em andamento. Danos à infraestrutura nos quarteirões circundantes. Recuperação da comunidade deslocada. Área fortemente afetada pelas enchentes de maio de 2024 (48% do território inundado).",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "community_description": {
+          "value": "Aproximadamente 50.000 moradores no 4º Distrito. Mix de famílias de baixa renda, trabalhadores da economia criativa, catadores de resíduos, assentamentos informais, população idosa.",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "land_tenure": {
+          "value": "ACVF possui contrato de locação formal do imóvel tombado no Inventário Municipal do Patrimônio Cultural. Áreas de intervenção adjacentes são terrenos públicos (ruas, parques) e espaços municipais.",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "community_engagement": {
+          "value": "Metodologia ME CONTA implementada. Pesquisa comunitária realizada em 2025. Redes de apoio mútuo. Mais de 100 participantes regulares em 40+ iniciativas. Governança compartilhada com foco em resiliência comunitária.",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "Vila_Flores_Intervention_Profile.pdf"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "intervention_plan": {
+      "id": "intervention_plan",
+      "title": "3. What We're Doing",
+      "phase": 3,
+      "fields": {
+        "problem_statement": {
+          "value": "As enchentes de maio de 2024 expuseram vulnerabilidade crítica no 4º Distrito: drenagem inadequada, perda de superfícies permeáveis, insegurança alimentar durante crises e falta de preparação comunitária para eventos climáticos extremos.",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "nbs_type": {
+          "value": "Multi-intervenção: Jardins de chuva e biorretenção, hortas comunitárias com espécies resilientes ao clima, laboratório de economia circular/redução de resíduos, laboratório de segurança alimentar, educação para adaptação climática e preparação comunitária",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "description": {
+          "value": "Várzea Lab / Programa Palafita: Cinco laboratórios interconectados para adaptação climática:\n• Lab 1: Segurança Alimentar — hortas comunitárias com espécies resilientes a enchentes, bancos de sementes\n• Lab 2: Economia Circular — transformação de resíduos, reciclagem têxtil, compostagem\n• Lab 3: Jardins de Chuva — infraestrutura de biorretenção em espaços públicos para gestão de águas pluviais\n• Lab 4: Educação Climática — oficinas sobre adaptação, preparação para emergências, conhecimentos tradicionais\n• Lab 5: Resiliência Comunitária — infraestrutura social, redes de apoio mútuo, geração de renda",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "scale": {
+          "value": "5 laboratórios em comunidades de baixa renda. Local principal: 1.415 m². Alcance estendido: bairros Floresta, São Geraldo, Navegantes.",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "timeline": {
+          "value": "2024: conceito + avaliação. 2025: financiamento garantido. 2026: Labs 1-2 operacionais, lançamento do Programa Palafita. 2027-2028: implementação completa + monitoramento.",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "progress": {
+          "value": "Financiamento de US$ 900.000 garantido pela Caixa Federal. Labs 1-2 em operação (2026). Planejamento e aquisição de equipamentos em andamento. Programa Palafita lançado.",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "Vila_Flores_Intervention_Profile.pdf"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "needs_assessment": {
+      "id": "needs_assessment",
+      "title": "4. What We Need",
+      "phase": 4,
+      "fields": {
+        "technical_needs": {
+          "value": "Design hidrológico para jardins de chuva (parceria com UFRGS/IPH), seleção de espécies para jardins resilientes a enchentes, protocolos de monitoramento.",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "financial_gap": {
+          "value": "US$ 200.000-500.000 necessários para expansão dos Labs 3-5 e fundo de manutenção de longo prazo.",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "partnerships_sought": {
+          "value": "Coordenação municipal com SMAMUS e DMAE, setor privado para reciclagem têxtil (proximidade com Renner), parceiros acadêmicos para monitoramento.",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "regulatory_status": {
+          "value": "Imóvel tombado possui proteções municipais. Conversas de licenciamento ambiental iniciadas com FEPAM para instalação de jardins de chuva.",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "Vila_Flores_Intervention_Profile.pdf"
+      ],
+      "lastUpdatedBy": "agent"
+    },
+    "results_evidence": {
+      "id": "results_evidence",
+      "title": "5. Results & Evidence",
+      "phase": 5,
+      "fields": {
+        "documentation": {
+          "value": "Documentação de recursos da Caixa Federal, avaliação de danos pós-enchente, registros do programa ME CONTA, resultados de pesquisa comunitária (2025). Identificada como \"iniciativa-chave\" em sistemas alimentares pela Pyxera Global (set 2025). Alinha-se com o Plano de Ação Climática: Ação 14 (educação ambiental), Ação 27 (refúgio contra ondas de calor), Ação 30 (agrofloresta).",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        },
+        "scalability": {
+          "value": "Modelo replicável para outros espaços culturais do 4º Distrito e bairros periféricos via rede COUGAR.",
+          "confidence": "high",
+          "source": "Vila_Flores_Intervention_Profile.pdf",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "Vila_Flores_Intervention_Profile.pdf"
+      ],
+      "lastUpdatedBy": "agent"
+    }
+  },
+  "gaps": [],
+  "maturityScores": [
+    {
+      "metric": "org_delivery_capacity",
+      "score": 3,
+      "justification": "12 anos de experiência gerindo programas culturais e comunitários, gestão comprovada de US$ 900.000 da Caixa Federal, equipe estruturada de 15 membros, implementação de metodologia ME CONTA, coordenação de recuperação pós-enchente — evidências de capacidade consolidada de entrega multipartes."
+    },
+    {
+      "metric": "team_technical_experience",
+      "score": 2,
+      "justification": "Experiência comprovada em programas culturais e sociais, mas busca parceria técnica com UFRGS/IPH para design hidrológico de jardins de chuva — indica experiência relevante mas não especializada em todas as dimensões técnicas de SbN."
+    },
+    {
+      "metric": "problem_clarity",
+      "score": 3,
+      "justification": "Problema claramente definido com dados de suporte: enchentes de maio 2024, 48% do território inundado, vulnerabilidades específicas identificadas (drenagem inadequada, perda de superfícies permeáveis, insegurança alimentar), baseado em avaliação pós-enchente e pesquisa comunitária."
+    },
+    {
+      "metric": "climate_nbs_impact",
+      "score": 3,
+      "justification": "Mecanismo claro de impacto climático via SbN: jardins de chuva para gestão de águas pluviais, espécies resilientes a enchentes, biorretenção, alinhamento explícito com Plano de Ação Climática municipal (Ações 14, 27, 30). Reconhecimento pela Pyxera/COUGAR como iniciativa-chave."
+    },
+    {
+      "metric": "solution_clarity",
+      "score": 3,
+      "justification": "Solução coerente com lógica problema-solução clara, 5 laboratórios interconectados com atividades definidas, cronograma de implementação detalhado 2024-2028, orçamento estruturado, evidências de design baseadas em metodologia ME CONTA e avaliação técnica."
+    },
+    {
+      "metric": "site_control",
+      "score": 3,
+      "justification": "Contrato formal de locação do complexo histórico (1.415 m²), áreas de intervenção adjacentes são espaços públicos municipais com alinhamento institucional, conversas de licenciamento com FEPAM em andamento, parcerias com SMAMUS e DMAE buscadas — controle formal e acordos institucionais robustos."
+    },
+    {
+      "metric": "financial_thinking",
+      "score": 3,
+      "justification": "Estrutura de custos clara com itens de linha detalhados (equipamentos, construção, programas, monitoramento, gestão), US$ 900.000 já garantidos com fonte identificada (Caixa Federal), lacuna financeira específica quantificada (US$ 200-500k para Labs 3-5), orçamento por categoria e fase."
+    },
+    {
+      "metric": "community_anchoring",
+      "score": 3,
+      "justification": "Governança comunitária consolidada: 12 anos de presença, 100+ participantes regulares em 40+ iniciativas, metodologia ME CONTA implementada, pesquisa comunitária 2025, redes de apoio mútuo, foco em infraestrutura social e resiliência comunitária — evidências de enraizamento profundo e governança compartilhada."
+    },
+    {
+      "metric": "regulatory_awareness",
+      "score": 2,
+      "justification": "Proteções municipais do patrimônio conhecido, conversas iniciadas com FEPAM para licenciamento ambiental, busca de coordenação com SMAMUS e DMAE — demonstra consciência regulatória e ação proativa, mas processos ainda em negociação (não finalizados)."
+    }
+  ],
+  "priorityFlags": [
+    {
+      "flag": "Land tenure secure or likely secure",
+      "met": true,
+      "notes": "Contrato formal de locação do complexo histórico; áreas públicas adjacentes com alinhamento municipal buscado via SMAMUS/DMAE."
+    },
+    {
+      "flag": "Baseline environmental data exists",
+      "met": true,
+      "notes": "Avaliação de danos pós-enchente realizada, pesquisa comunitária 2025, dados de inundação (48% do território), parceria técnica com UFRGS/IPH para dados hidrológicos."
+    },
+    {
+      "flag": "Local government expressed interest",
+      "met": true,
+      "notes": "Coordenação buscada com SMAMUS e DMAE. Alinhamento com Plano de Ação Climática municipal (Ações 14, 27, 30). Conversas de licenciamento com FEPAM iniciadas."
+    },
+    {
+      "flag": "Potential buyers/payors identified",
+      "met": true,
+      "notes": "Caixa Federal já compromissou US$ 900.000. Setor privado identificado (Renner para reciclagem têxtil). Busca ativa por US$ 200-500k adicionais."
+    },
+    {
+      "flag": "Co-financing possibility identified",
+      "met": true,
+      "notes": "Financiamento da Caixa Federal garantido (US$ 900k). Potencial para cofinanciamento privado (Renner) e municipal (SMAMUS/DMAE). Lacuna de US$ 200-500k identificada para expansão Labs 3-5."
+    },
+    {
+      "flag": "Scalable beyond one site",
+      "met": true,
+      "notes": "Modelo explicitamente replicável para outros espaços culturais do 4º Distrito e bairros periféricos via rede COUGAR. 5 laboratórios desenhados para disseminação."
+    }
+  ],
+  "totalMaturityScore": 25,
+  "editLog": [],
+  "uploadedFiles": [],
+  "metadata": {
+    "createdAt": "2026-04-01T13:29:03.921Z",
+    "updatedAt": "2026-04-01T13:30:32.974Z"
+  }
+}
