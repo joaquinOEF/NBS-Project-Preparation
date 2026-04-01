@@ -20,6 +20,7 @@ import {
   type MaturityScore,
   type PriorityFlag,
 } from '@shared/cbo-schema';
+import type { OpenMapParams, MapSelectionResult } from '@shared/concept-note-schema';
 import {
   Send, Download, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft, Paperclip,
   FileText, Loader2, RotateCcw, Star, Leaf,
@@ -27,6 +28,7 @@ import {
 } from 'lucide-react';
 
 const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
+const MapMicroapp = lazy(() => import('@/core/components/concept-note/MapMicroapp'));
 
 function fixMarkdownTables(text: string): string {
   if (!text.includes('|')) return text;
@@ -54,6 +56,7 @@ export default function CboProfilePage() {
   const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
   const [rightTab, setRightTab] = useState<'document' | 'map' | 'scorecard'>('document');
   const [mapRelevant, setMapRelevant] = useState(false);
+  const [openMapParams, setOpenMapParams] = useState<OpenMapParams | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -184,6 +187,12 @@ export default function CboProfilePage() {
         if (hasMap) { setMapRelevant(true); setRightTab('map'); }
         break;
       }
+      case 'open_map':
+        setOpenMapParams(event.params);
+        setRightTab('map');
+        setMapRelevant(true);
+        setIsStreaming(false);
+        break;
       case 'done': setIsStreaming(false); break;
       case 'error': setIsStreaming(false); setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${event.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); break;
     }
@@ -462,10 +471,38 @@ export default function CboProfilePage() {
           {rightTab === 'map' && (
             <div className="flex-1 min-h-0 relative">
               <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="w-6 h-6 animate-spin" /></div>}>
-                <ConceptNoteMap isActive={rightTab === 'map'} onConfirm={(_summary, description) => {
-                  if (currentQuestion) handleSelectOption(description); else sendMessage(description);
-                  setRightTab('document'); setMapRelevant(false);
-                }} />
+                {openMapParams ? (
+                  <MapMicroapp
+                    params={openMapParams}
+                    onConfirm={(result: MapSelectionResult) => {
+                      const lines: string[] = [`Map selection (${result.selectionMode} mode):`];
+                      for (const asset of result.selectedAssets) {
+                        const rasterInfo = asset.rasterValues
+                          ? Object.entries(asset.rasterValues).map(([k, v]) => `${k}: ${v.toFixed(3)}`).join(', ')
+                          : '';
+                        lines.push(`- [${asset.type}] ${asset.name} at (${asset.coordinates[0].toFixed(4)}, ${asset.coordinates[1].toFixed(4)})${rasterInfo ? ` | ${rasterInfo}` : ''}`);
+                      }
+                      for (const pt of result.sampledPoints) {
+                        const vals = Object.entries(pt.values).map(([k, v]) => `${k}: ${v.toFixed(3)}`).join(', ');
+                        lines.push(`- [sample] (${pt.lat.toFixed(4)}, ${pt.lng.toFixed(4)}) | ${vals}`);
+                      }
+                      lines.push(`Total: ${result.selectedAssets.length} assets, ${result.sampledPoints.length} sampled points`);
+                      const message = lines.join('\n');
+                      if (currentQuestion) handleSelectOption(message); else sendMessage(message);
+                      setOpenMapParams(null);
+                      setRightTab('document'); setMapRelevant(false);
+                    }}
+                    onCancel={() => {
+                      setOpenMapParams(null);
+                      setRightTab('document'); setMapRelevant(false);
+                    }}
+                  />
+                ) : (
+                  <ConceptNoteMap isActive={rightTab === 'map'} onConfirm={(_summary, description) => {
+                    if (currentQuestion) handleSelectOption(description); else sendMessage(description);
+                    setRightTab('document'); setMapRelevant(false);
+                  }} />
+                )}
               </Suspense>
             </div>
           )}

@@ -159,6 +159,42 @@ export interface ThinkingStep {
   status: 'pending' | 'active' | 'complete' | 'error';
 }
 
+// ── Map Microapp types ────────────────────────────────────────────────────────
+
+export type MapSelectionMode = 'zones' | 'assets' | 'sample' | 'composite';
+
+export interface OpenMapParams {
+  layers?: string[];          // OSM layer IDs to enable (e.g., 'osm_parks')
+  tileLayers?: string[];      // Tile layer IDs to enable (e.g., 'oef_fri_2024')
+  spatialQueries?: string[];  // Spatial query IDs to run (e.g., 'sq_parks_flood')
+  selectionMode: MapSelectionMode;
+  prompt: string;             // Instruction shown on the map
+  sampleLayers?: string[];    // For 'sample' mode: which tile layers to sample on click
+}
+
+export interface SelectedAsset {
+  type: 'osm' | 'custom' | 'zone';
+  source?: string;            // e.g., 'osm_parks', 'intervention_zones'
+  name: string;
+  geometry?: any;             // GeoJSON geometry
+  coordinates: [number, number]; // [lat, lng] centroid
+  properties: Record<string, any>;
+  rasterValues?: Record<string, number>; // sampled values from active tile layers
+}
+
+export interface SampledPoint {
+  lat: number;
+  lng: number;
+  values: Record<string, number>; // layerName → decoded value
+}
+
+export interface MapSelectionResult {
+  selectionMode: MapSelectionMode;
+  selectedAssets: SelectedAsset[];
+  sampledPoints: SampledPoint[];
+  enabledLayers: string[];
+}
+
 // SSE event types pushed to the browser
 export type ConceptNoteEvent =
   | { type: 'chat'; content: string; role: 'assistant'; messageType?: ChatMessageType }
@@ -169,6 +205,7 @@ export type ConceptNoteEvent =
   | { type: 'phase_change'; phase: number }
   | { type: 'cascade'; edits: Array<{ sectionId: string; field: string; value: string }> }
   | { type: 'ask_user'; question: string; options: Array<{ label: string; description: string; recommended?: boolean }>; relatedSections?: string[]; showMap?: boolean; multiSelect?: boolean }
+  | { type: 'open_map'; params: OpenMapParams }
   | { type: 'done'; summary: string }
   | { type: 'error'; message: string };
 
