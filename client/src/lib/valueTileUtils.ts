@@ -137,3 +137,41 @@ export async function sampleRasterAtPoint(
     return null;
   }
 }
+
+// ── Geometry centroid helpers ─────────────────────────────────────────────────
+// Returns [lat, lng] centroid of a GeoJSON geometry (coordinates are [lng, lat]).
+export function geometryCentroid(geometry: any): [number, number] | null {
+  if (!geometry) return null;
+
+  let coords: [number, number][] = [];
+
+  const collect = (geom: any): void => {
+    switch (geom.type) {
+      case "Point":
+        coords.push(geom.coordinates);
+        break;
+      case "MultiPoint":
+      case "LineString":
+        coords.push(...geom.coordinates);
+        break;
+      case "MultiLineString":
+      case "Polygon":
+        for (const ring of geom.coordinates) coords.push(...ring);
+        break;
+      case "MultiPolygon":
+        for (const poly of geom.coordinates)
+          for (const ring of poly) coords.push(...ring);
+        break;
+      case "GeometryCollection":
+        for (const g of geom.geometries) collect(g);
+        break;
+    }
+  };
+
+  collect(geometry);
+  if (coords.length === 0) return null;
+
+  const sumLng = coords.reduce((s, c) => s + c[0], 0);
+  const sumLat = coords.reduce((s, c) => s + c[1], 0);
+  return [sumLat / coords.length, sumLng / coords.length]; // [lat, lng]
+}
