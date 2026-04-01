@@ -41,6 +41,8 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
   const [sampledPoints, setSampledPoints] = useState<SampledPoint[]>([]);
   const [drawMode, setDrawMode] = useState<'off' | 'point' | 'polygon'>('off');
+  const drawModeRef = useRef(drawMode);
+  drawModeRef.current = drawMode;
   const [loading, setLoading] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState('');
   const [enabledTiles, setEnabledTiles] = useState<Set<string>>(new Set());
@@ -113,6 +115,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
             );
 
             (featureLayer as any).on('click', (e: any) => {
+              if (drawModeRef.current !== 'off') return; // Let draw handler take it
               L.DomEvent.stopPropagation(e);
               const centroid = geometryCentroid(feature.geometry);
               if (!centroid) return;
@@ -205,6 +208,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
               );
 
               (featureLayer as any).on('click', async (e: any) => {
+                if (drawModeRef.current !== 'off') return;
                 L.DomEvent.stopPropagation(e);
                 const centroid = geometryCentroid(feature.geometry);
                 if (!centroid) return;
@@ -586,10 +590,18 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
       {/* Action bar */}
       <div className="flex items-center gap-2 px-3 py-2 border-t bg-background shrink-0">
-        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>{t('mapMicroapp.cancel')}</Button>
-        <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={handleConfirm} disabled={totalSelections === 0}>
-          <Check className="w-3 h-3" /> {t('mapMicroapp.confirm', { count: totalSelections })}
+        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={isComposite && compositeStep === 'assets' ? backToZones : onCancel}>
+          {isComposite && compositeStep === 'assets' ? '← ' + t('mapMicroapp.zone') : t('mapMicroapp.cancel')}
         </Button>
+        {isComposite && compositeStep === 'zone' ? (
+          <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={advanceToAssets} disabled={!selectedZone}>
+            {t('mapMicroapp.nextSites')} <ChevronRight className="w-3 h-3" />
+          </Button>
+        ) : (
+          <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={handleConfirm} disabled={totalSelections === 0}>
+            <Check className="w-3 h-3" /> {t('mapMicroapp.confirm', { count: totalSelections })}
+          </Button>
+        )}
       </div>
     </div>
   );

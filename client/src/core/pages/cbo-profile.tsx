@@ -481,7 +481,7 @@ export default function CboProfilePage() {
                             <tbody>
                               {fields.map(([k, v]) => (
                                 <tr key={k} className="border-b last:border-b-0">
-                                  <td className="px-3 py-1.5 text-xs text-muted-foreground capitalize w-[120px] font-medium">{k.replace(/_/g, ' ')}</td>
+                                  <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">{t(`cbo.fields.${k}`, k.replace(/_/g, ' '))}</td>
                                   <td className="px-3 py-1.5 text-sm">
                                     {String(v.value || '').length > 100 ? (
                                       <div className="prose prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkGfm]}>{fixMarkdownTables(String(v.value))}</ReactMarkdown></div>
@@ -543,7 +543,7 @@ export default function CboProfilePage() {
                   <h3 className="text-sm font-semibold">Maturity Metrics</h3>
                   {state.maturityScores.map(s => (
                     <div key={s.metric} className="flex items-center gap-3 text-sm">
-                      <span className="text-xs text-muted-foreground capitalize w-[160px]">{s.metric.replace(/_/g, ' ')}</span>
+                      <span className="text-xs text-muted-foreground w-[160px]">{t(`cbo.fields.${s.metric}`, s.metric.replace(/_/g, ' '))}</span>
                       <div className="flex gap-0.5">
                         {[0,1,2].map(i => <div key={i} className={`w-8 h-3 rounded-sm ${i < s.score ? 'bg-green-500' : 'bg-gray-200'}`} />)}
                       </div>
