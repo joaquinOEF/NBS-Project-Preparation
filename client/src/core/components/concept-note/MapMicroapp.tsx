@@ -29,6 +29,8 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
   const [sampledPoints, setSampledPoints] = useState<SampledPoint[]>([]);
   const [drawMode, setDrawMode] = useState<'off' | 'point' | 'polygon'>('off');
+  // Show polygon instruction when in polygon draw mode
+  const polygonHelp = drawMode === 'polygon' ? 'Click to place vertices. Double-click to close.' : '';
   const [loading, setLoading] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState('Initializing map...');
 
@@ -271,47 +273,119 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     };
   }, [mapReady, selectionMode]);
 
-  // ── Custom draw (point) mode ────────────────────────────────────────────────
+  // ── Custom draw (point/polygon) mode ─────────────────────────────────────────
+  const polygonPointsRef = useRef<L.LatLng[]>([]);
+  const polygonPreviewRef = useRef<L.Polyline | null>(null);
+
   useEffect(() => {
-    if (!mapReady || !mapRef.current || drawMode !== 'point') return;
+    if (!mapReady || !mapRef.current || (drawMode !== 'point' && drawMode !== 'polygon')) return;
     const map = mapRef.current;
 
     const handleClick = async (e: L.LeafletMouseEvent) => {
       const { lat, lng } = e.latlng;
 
-      // Sample raster values
-      const rasterValues: Record<string, number> = {};
-      for (const tileId of params.tileLayers || []) {
-        const tileDef = TILE_LAYERS.find(l => l.id === tileId);
-        if (!tileDef?.valueEncoding?.urlTemplate) continue;
-        const val = await sampleRasterAtPoint(lat, lng, tileDef.valueEncoding, 11);
-        if (val !== null) rasterValues[tileDef.name] = val;
+      if (drawMode === 'point') {
+        // Sample raster values
+        const rasterValues: Record<string, number> = {};
+        for (const tileId of params.tileLayers || []) {
+          const tileDef = TILE_LAYERS.find(l => l.id === tileId);
+          if (!tileDef?.valueEncoding?.urlTemplate) continue;
+          const val = await sampleRasterAtPoint(lat, lng, tileDef.valueEncoding, 11);
+          if (val !== null) rasterValues[tileDef.name] = val;
+        }
+
+        const marker = L.circleMarker([lat, lng], {
+          radius: 8, color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.8, weight: 2,
+        });
+        marker.bindTooltip('Custom site', { permanent: false });
+        marker.addTo(map);
+        customMarkersRef.current.push(marker);
+
+        const asset: SelectedAsset = {
+          type: 'custom',
+          name: `Custom point (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+          coordinates: [lat, lng],
+          properties: {},
+          rasterValues,
+        };
+        setSelectedAssets(prev => [...prev, asset]);
+        setDrawMode('off');
       }
 
-      const marker = L.circleMarker([lat, lng], {
-        radius: 8, color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.8, weight: 2,
+      if (drawMode === 'polygon') {
+        polygonPointsRef.current.push(e.latlng);
+        // Update preview polyline
+        if (polygonPreviewRef.current) map.removeLayer(polygonPreviewRef.current);
+        if (polygonPointsRef.current.length >= 2) {
+          polygonPreviewRef.current = L.polyline(
+            [...polygonPointsRef.current, polygonPointsRef.current[0]],
+            { color: '#8b5cf6', weight: 2, dashArray: '4 4' }
+          ).addTo(map);
+        }
+        // Add vertex marker
+        const vm = L.circleMarker([lat, lng], { radius: 4, color: '#8b5cf6', fillColor: '#fff', fillOpacity: 1, weight: 2 });
+        vm.addTo(map);
+        customMarkersRef.current.push(vm);
+      }
+    };
+
+    const handleDblClick = async (e: L.LeafletMouseEvent) => {
+      if (drawMode !== 'polygon' || polygonPointsRef.current.length < 3) return;
+      e.originalEvent.preventDefault();
+
+      // Close polygon
+      const coords = polygonPointsRef.current.map(p => [p.lng, p.lat] as [number, number]);
+      coords.push(coords[0]); // close ring
+      const geometry = { type: 'Polygon' as const, coordinates: [coords] };
+
+      // Remove preview
+      if (polygonPreviewRef.current) { map.removeLayer(polygonPreviewRef.current); polygonPreviewRef.current = null; }
+
+      // Draw final polygon
+      const poly = L.polygon(polygonPointsRef.current, {
+        color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.3, weight: 2,
       });
-      marker.bindTooltip('Custom site', { permanent: false });
-      marker.addTo(map);
-      customMarkersRef.current.push(marker);
+      poly.addTo(map);
+      customMarkersRef.current.push(poly);
+
+      // Centroid + raster sample
+      const centroid = geometryCentroid(geometry);
+      const rasterValues: Record<string, number> = {};
+      if (centroid) {
+        for (const tileId of params.tileLayers || []) {
+          const tileDef = TILE_LAYERS.find(l => l.id === tileId);
+          if (!tileDef?.valueEncoding?.urlTemplate) continue;
+          const val = await sampleRasterAtPoint(centroid[0], centroid[1], tileDef.valueEncoding, 11);
+          if (val !== null) rasterValues[tileDef.name] = val;
+        }
+      }
 
       const asset: SelectedAsset = {
         type: 'custom',
-        name: `Custom point (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
-        coordinates: [lat, lng],
+        name: `Custom area (${polygonPointsRef.current.length} vertices)`,
+        geometry,
+        coordinates: centroid || [polygonPointsRef.current[0].lat, polygonPointsRef.current[0].lng],
         properties: {},
         rasterValues,
       };
       setSelectedAssets(prev => [...prev, asset]);
+
+      polygonPointsRef.current = [];
       setDrawMode('off');
     };
 
     map.on('click', handleClick);
+    map.on('dblclick', handleDblClick);
+    map.doubleClickZoom.disable();
     map.getContainer().style.cursor = 'crosshair';
 
     return () => {
       map.off('click', handleClick);
+      map.off('dblclick', handleDblClick);
+      map.doubleClickZoom.enable();
       map.getContainer().style.cursor = '';
+      polygonPointsRef.current = [];
+      if (polygonPreviewRef.current) { map.removeLayer(polygonPreviewRef.current); polygonPreviewRef.current = null; }
     };
   }, [mapReady, drawMode]);
 
@@ -353,20 +427,31 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium truncate">{params.prompt}</p>
           <p className="text-[10px] text-muted-foreground">
-            Mode: {selectionMode} — {selectionMode === 'assets' ? 'Click features to select' : selectionMode === 'sample' ? 'Click to sample values' : selectionMode === 'composite' ? 'Select zones + assets' : 'Click zone boundaries'}
+            {polygonHelp || (selectionMode === 'assets' ? 'Click features to select' : selectionMode === 'sample' ? 'Click to sample values' : selectionMode === 'composite' ? 'Select zones + assets' : 'Click zone boundaries')}
           </p>
         </div>
         <div className="flex items-center gap-1.5 ml-2">
           {(selectionMode === 'assets' || selectionMode === 'composite') && (
-            <Button
-              variant={drawMode === 'point' ? 'default' : 'outline'}
-              size="sm"
-              className="h-6 text-[10px] gap-1"
-              onClick={() => setDrawMode(drawMode === 'point' ? 'off' : 'point')}
-            >
-              <Pencil className="w-3 h-3" />
-              {drawMode === 'point' ? 'Drawing...' : 'Draw'}
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant={drawMode === 'point' ? 'default' : 'outline'}
+                size="sm"
+                className="h-6 text-[10px] gap-1"
+                onClick={() => setDrawMode(drawMode === 'point' ? 'off' : 'point')}
+              >
+                <MapPin className="w-3 h-3" />
+                Point
+              </Button>
+              <Button
+                variant={drawMode === 'polygon' ? 'default' : 'outline'}
+                size="sm"
+                className="h-6 text-[10px] gap-1"
+                onClick={() => setDrawMode(drawMode === 'polygon' ? 'off' : 'polygon')}
+              >
+                <Pencil className="w-3 h-3" />
+                Area
+              </Button>
+            </div>
           )}
           {totalSelections > 0 && (
             <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={clearAll}>
