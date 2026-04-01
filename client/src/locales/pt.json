@@ -1564,6 +1564,23 @@
     "typeCustom": "Digite uma resposta personalizada...",
     "uploadDoc": "Enviar documento",
     "interventionProfile": "Perfil de Intervenção",
+    "scorecard": {
+      "investmentReady": "Pronto para Investimento",
+      "investmentReadyConditions": "Pronto para Investimento com Condições",
+      "developing": "Em Desenvolvimento — Promissor com Apoio",
+      "earlyStage": "Estágio Inicial",
+      "maturityMetrics": "Métricas de Maturidade",
+      "priorityFlags": "Sinais Prioritários",
+      "completeInterview": "Complete a entrevista para ver seu placar de maturidade"
+    },
+    "priorityFlags": {
+      "Land tenure secure or likely secure": "Posse da terra segura ou provável",
+      "Baseline environmental data exists": "Dados ambientais de referência existem",
+      "Local government expressed interest": "Governo local expressou interesse",
+      "Potential buyers/payors identified": "Compradores/pagadores potenciais identificados",
+      "Co-financing possibility identified": "Possibilidade de cofinanciamento identificada",
+      "Scalable beyond one site": "Escalável além de um local"
+    },
     "fields": {
       "organization_name": "Nome da Organização",
       "organization_type": "Tipo de Organização",

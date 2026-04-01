@@ -567,13 +567,13 @@ export default function CboProfilePage() {
               <div className="text-center py-4">
                 <div className="text-4xl font-bold text-green-700">{state.totalMaturityScore}<span className="text-lg text-muted-foreground">/27</span></div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {state.totalMaturityScore >= 25 ? 'Investment Ready' : state.totalMaturityScore >= 19 ? 'Investment Ready with Conditions' : state.totalMaturityScore >= 10 ? 'Developing — Promising with Support' : 'Early Stage'}
+                  {state.totalMaturityScore >= 25 ? t('cbo.scorecard.investmentReady') : state.totalMaturityScore >= 19 ? t('cbo.scorecard.investmentReadyConditions') : state.totalMaturityScore >= 10 ? t('cbo.scorecard.developing') : t('cbo.scorecard.earlyStage')}
                 </p>
               </div>
 
               {state.maturityScores.length > 0 && (
                 <div className="space-y-2">
-                  <h3 className="text-sm font-semibold">Maturity Metrics</h3>
+                  <h3 className="text-sm font-semibold">{t('cbo.scorecard.maturityMetrics')}</h3>
                   {state.maturityScores.map(s => (
                     <div key={s.metric} className="flex items-center gap-3 text-sm">
                       <span className="text-xs text-muted-foreground w-[160px]">{t(`cbo.fields.${s.metric}`, s.metric.replace(/_/g, ' '))}</span>
@@ -588,18 +588,18 @@ export default function CboProfilePage() {
 
               {state.priorityFlags.length > 0 && (
                 <div className="space-y-1.5">
-                  <h3 className="text-sm font-semibold">Priority Flags</h3>
+                  <h3 className="text-sm font-semibold">{t('cbo.scorecard.priorityFlags')}</h3>
                   {state.priorityFlags.map(f => (
                     <div key={f.flag} className="flex items-center gap-2 text-sm">
                       <span className={`text-base ${f.met ? 'text-green-600' : 'text-gray-300'}`}>{f.met ? '✅' : '⬜'}</span>
-                      <span className={f.met ? '' : 'text-muted-foreground'}>{f.flag}</span>
+                      <span className={f.met ? '' : 'text-muted-foreground'}>{t(`cbo.priorityFlags.${f.flag}`, f.flag)}</span>
                     </div>
                   ))}
                 </div>
               )}
 
               {state.maturityScores.length === 0 && (
-                <p className="text-center text-sm text-muted-foreground py-8">Complete the interview to see your maturity scorecard</p>
+                <p className="text-center text-sm text-muted-foreground py-8">{t('cbo.scorecard.completeInterview')}</p>
               )}
             </div>
           )}
