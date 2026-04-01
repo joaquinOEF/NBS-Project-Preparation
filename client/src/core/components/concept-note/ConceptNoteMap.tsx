@@ -3,9 +3,10 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
-import { Check, MapPin, Layers, X, BarChart3, ChevronDown, ChevronRight } from 'lucide-react';
-import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, type TileLayerDef } from '@shared/geospatial-layers';
+import { Check, MapPin, Layers, X, BarChart3, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, type TileLayerDef } from '@shared/geospatial-layers';
 import ValueTooltip from './ValueTooltip';
+import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
 
 // ============================================================================
 // TYPES
@@ -116,10 +117,13 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
   const [showZones, setShowZones] = useState(true);
   const [enabledTileLayers, setEnabledTileLayers] = useState<Set<string>>(new Set());
   const [enabledOsmLayers, setEnabledOsmLayers] = useState<Set<string>>(new Set());
+  const [enabledSpatialQueries, setEnabledSpatialQueries] = useState<Set<string>>(new Set());
+  const [loadingSpatialQueries, setLoadingSpatialQueries] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [mapReady, setMapReady] = useState(false);
   const tileLayerRefs = useRef<Record<string, L.TileLayer>>({});
   const osmLayerRefs = useRef<Record<string, L.GeoJSON>>({});
+  const spatialQueryRefs = useRef<Record<string, L.GeoJSON>>({});
 
   // Enabled tile layer defs for ValueTooltip
   const enabledTileLayerDefs = useMemo(
@@ -372,6 +376,36 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
     }
   };
 
+  const toggleSpatialQuery = async (query: typeof SPATIAL_QUERIES[0]) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const isEnabled = enabledSpatialQueries.has(query.id);
+
+    if (isEnabled) {
+      const existing = spatialQueryRefs.current[query.id];
+      if (existing) {
+        map.removeLayer(existing);
+        delete spatialQueryRefs.current[query.id];
+      }
+      setEnabledSpatialQueries(prev => { const next = new Set(prev); next.delete(query.id); return next; });
+    } else {
+      setLoadingSpatialQueries(prev => { const next = new Set(prev); next.add(query.id); return next; });
+      try {
+        const result = await buildSpatialQueryLayer(query);
+        if (result) {
+          result.layer.addTo(map);
+          spatialQueryRefs.current[query.id] = result.layer;
+          setEnabledSpatialQueries(prev => { const next = new Set(prev); next.add(query.id); return next; });
+        }
+      } catch {
+        // silently skip
+      } finally {
+        setLoadingSpatialQueries(prev => { const next = new Set(prev); next.delete(query.id); return next; });
+      }
+    }
+  };
+
   const toggleGroup = (groupId: string) => {
     setExpandedGroups(prev => {
       const next = new Set(prev);
@@ -574,6 +608,44 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
                     >
                       <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: isOn ? layer.color : '#d1d5db' }} />
                       <span className="truncate">{layer.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          {/* Spatial Queries */}
+          <div className="border-b">
+            <button
+              onClick={() => toggleGroup('spatial_queries')}
+              className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-muted/50 transition-colors"
+            >
+              <span className="text-[10px] font-medium">Spatial Queries</span>
+              <div className="flex items-center gap-1">
+                {enabledSpatialQueries.size > 0 && <span className="text-[9px] bg-primary/10 text-primary px-1 rounded">{enabledSpatialQueries.size}</span>}
+                {expandedGroups.has('spatial_queries') ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              </div>
+            </button>
+            {expandedGroups.has('spatial_queries') && (
+              <div className="px-1 pb-1 space-y-0.5">
+                {SPATIAL_QUERIES.map(query => {
+                  const isOn = enabledSpatialQueries.has(query.id);
+                  const isLoading = loadingSpatialQueries.has(query.id);
+                  return (
+                    <button
+                      key={query.id}
+                      onClick={() => toggleSpatialQuery(query)}
+                      disabled={isLoading}
+                      className={`w-full text-left px-1.5 py-1 rounded text-[10px] flex items-center gap-1.5 transition-all ${
+                        isOn ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'
+                      } ${isLoading ? 'opacity-60' : ''}`}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-2 h-2 animate-spin shrink-0" />
+                      ) : (
+                        <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: isOn ? query.color : '#d1d5db' }} />
+                      )}
+                      <span className="truncate">{query.name}</span>
                     </button>
                   );
                 })}

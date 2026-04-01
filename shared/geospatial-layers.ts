@@ -169,3 +169,93 @@ export const OSM_LAYERS: OsmLayerDef[] = [
   { id: 'osm_hospitals', name: 'Hospitals & Health',    color: '#ef4444', endpoint: '/api/osm/hospitals' },
   { id: 'osm_wetlands',  name: 'Wetlands',             color: '#3b82f6', endpoint: '/api/osm/wetlands' },
 ];
+
+// ── Spatial Queries (vector × raster intersection) ────────────────────────────
+
+export interface SpatialQueryDef {
+  id: string;
+  name: string;
+  color: string;
+  vectorSource: string;  // OSM layer endpoint or static GeoJSON path
+  rasterLayerId: string; // TILE_LAYERS id to sample
+  threshold: number;
+  comparator: '>' | '>=' | '<' | '<=';
+  valueKey: string;      // property name for the sampled value
+  tooltipLabel: string;  // e.g. "High flood risk"
+  tooltipIcon: string;   // emoji for tooltip
+}
+
+export const SPATIAL_QUERIES: SpatialQueryDef[] = [
+  {
+    id: 'sq_parks_flood',
+    name: 'Parks in Flood Risk > 0.4',
+    color: '#ef4444',
+    vectorSource: '/api/osm/parks',
+    rasterLayerId: 'oef_fri_2024',
+    threshold: 0.4,
+    comparator: '>',
+    valueKey: 'fri_value',
+    tooltipLabel: 'High flood risk',
+    tooltipIcon: '⚠',
+  },
+  {
+    id: 'sq_schools_flood',
+    name: 'Schools in Flood Risk > 0.4',
+    color: '#dc2626',
+    vectorSource: '/api/osm/schools',
+    rasterLayerId: 'oef_fri_2024',
+    threshold: 0.4,
+    comparator: '>',
+    valueKey: 'fri_value',
+    tooltipLabel: 'High flood risk',
+    tooltipIcon: '⚠',
+  },
+  {
+    id: 'sq_hospitals_flood',
+    name: 'Hospitals in Flood Risk > 0.4',
+    color: '#b91c1c',
+    vectorSource: '/api/osm/hospitals',
+    rasterLayerId: 'oef_fri_2024',
+    threshold: 0.4,
+    comparator: '>',
+    valueKey: 'fri_value',
+    tooltipLabel: 'High flood risk',
+    tooltipIcon: '⚠',
+  },
+  {
+    id: 'sq_parks_heatwave',
+    name: 'Parks in Heatwave >= 10 °C·d',
+    color: '#fb923c',
+    vectorSource: '/api/osm/parks',
+    rasterLayerId: 'oef_hwm_2024',
+    threshold: 10,
+    comparator: '>=',
+    valueKey: 'hwm_value',
+    tooltipLabel: 'Heatwave zone',
+    tooltipIcon: '🌡',
+  },
+  {
+    id: 'sq_schools_heatwave',
+    name: 'Schools in Heatwave >= 10 °C·d',
+    color: '#ea580c',
+    vectorSource: '/api/osm/schools',
+    rasterLayerId: 'oef_hwm_2024',
+    threshold: 10,
+    comparator: '>=',
+    valueKey: 'hwm_value',
+    tooltipLabel: 'Heatwave zone',
+    tooltipIcon: '🌡',
+  },
+  {
+    id: 'sq_wetlands_flood',
+    name: 'Wetlands in Flood Risk > 0.4',
+    color: '#7c3aed',
+    vectorSource: '/api/osm/wetlands',
+    rasterLayerId: 'oef_fri_2024',
+    threshold: 0.4,
+    comparator: '>',
+    valueKey: 'fri_value',
+    tooltipLabel: 'High flood risk',
+    tooltipIcon: '⚠',
+  },
+];
