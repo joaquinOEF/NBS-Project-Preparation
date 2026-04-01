@@ -36,7 +36,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
-import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS } from '@shared/geospatial-layers';
+import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES } from '@shared/geospatial-layers';
+import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
 import ValueTooltip from '@/core/components/concept-note/ValueTooltip';
 
 interface BoundaryData {
@@ -77,7 +78,7 @@ interface CityInfo {
 }
 
 type LayerSource = 'geojson' | 'tiles';
-type LayerGroupId = 'analysis' | 'environment' | 'osm_reference' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections';
+type LayerGroupId = 'analysis' | 'environment' | 'osm_reference' | 'spatial_queries' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections';
 
 interface LayerState {
   id: string;
@@ -120,6 +121,16 @@ const LAYER_CONFIGS: LayerConfig[] = [
     group: 'osm_reference' as LayerGroupId,
     available: true,
   })),
+  // Spatial query layers (vector × raster intersection)
+  ...SPATIAL_QUERIES.map(q => ({
+    id: q.id,
+    name: q.name,
+    icon: AlertTriangle,
+    color: q.color,
+    source: 'geojson' as LayerSource,
+    group: 'spatial_queries' as LayerGroupId,
+    available: true,
+  })),
   // OEF tile layers — generated from shared catalog (48 layers)
   ...TILE_LAYERS.filter(l => l.available).map(l => ({
     id: l.id,
@@ -139,6 +150,7 @@ const LAYER_GROUPS: readonly { id: LayerGroupId; label: string }[] = [
   { id: 'analysis', label: 'Risk Analysis' },
   { id: 'environment', label: 'Environment' },
   { id: 'osm_reference', label: 'OSM Reference' },
+  { id: 'spatial_queries', label: 'Spatial Queries' },
   ...TILE_LAYER_GROUPS.map(g => ({ id: g.id as LayerGroupId, label: g.label })),
 ];
 
@@ -1673,6 +1685,29 @@ export default function SiteExplorerPage() {
         if (existingLayer && mapRef.current) {
           mapRef.current.removeLayer(existingLayer);
           layerRefs.current.delete(layerId);
+        }
+
+        // Spatial query layers — use buildSpatialQueryLayer
+        if (layerId.startsWith('sq_')) {
+          const queryDef = SPATIAL_QUERIES.find(q => q.id === layerId);
+          if (queryDef && mapRef.current) {
+            setLoadingLayers(prev => new Set(prev).add(layerId));
+            buildSpatialQueryLayer(queryDef).then(result => {
+              setLoadingLayers(prev => { const next = new Set(prev); next.delete(layerId); return next; });
+              if (result && mapRef.current) {
+                result.layer.addTo(mapRef.current);
+                layerRefs.current.set(layerId, result.layer);
+                setLayers(cur => cur.map(l => l.id === layerId ? { ...l, enabled: true, loaded: true } : l));
+              } else {
+                setLayers(cur => cur.map(l => l.id === layerId ? { ...l, enabled: false } : l));
+              }
+            }).catch(() => {
+              setLoadingLayers(prev => { const next = new Set(prev); next.delete(layerId); return next; });
+              setLayers(cur => cur.map(l => l.id === layerId ? { ...l, enabled: false } : l));
+            });
+            return prev.map(l => l.id === layerId ? { ...l, enabled: true } : l);
+          }
+          return prev;
         }
 
         if (layer.source === 'tiles') {
