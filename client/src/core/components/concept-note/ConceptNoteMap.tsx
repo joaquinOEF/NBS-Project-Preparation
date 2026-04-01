@@ -3,7 +3,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
-import { Check, MapPin, Layers, X, BarChart3 } from 'lucide-react';
+import { Check, MapPin, Layers, X, BarChart3, ChevronDown, ChevronRight } from 'lucide-react';
+import { TILE_LAYERS, TILE_LAYER_GROUPS, type TileLayerDef } from '@shared/geospatial-layers';
 
 // ============================================================================
 // TYPES
@@ -111,6 +112,9 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
   const [hoveredCell, setHoveredCell] = useState<GridCellMetrics | null>(null);
   const [activeLayer, setActiveLayer] = useState<RiskLayer>('flood');
   const [showGrid, setShowGrid] = useState(true);
+  const [enabledTileLayers, setEnabledTileLayers] = useState<Set<string>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const tileLayerRefs = useRef<Record<string, L.TileLayer>>({});
 
   // Load all data
   useEffect(() => {
@@ -273,6 +277,43 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
     if (isActive && mapRef.current) setTimeout(() => mapRef.current?.invalidateSize(), 100);
   }, [isActive]);
 
+  // Toggle evidence tile layers
+  const toggleTileLayer = (layerDef: TileLayerDef) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    setEnabledTileLayers(prev => {
+      const next = new Set(prev);
+      if (next.has(layerDef.id)) {
+        // Remove
+        next.delete(layerDef.id);
+        const existing = tileLayerRefs.current[layerDef.id];
+        if (existing) { map.removeLayer(existing); delete tileLayerRefs.current[layerDef.id]; }
+      } else {
+        // Add
+        next.add(layerDef.id);
+        const tl = L.tileLayer(`/api/geospatial/tiles/${layerDef.tileLayerId}/{z}/{x}/{y}.png`, {
+          opacity: 0.7,
+          maxNativeZoom: 15,
+          maxZoom: 19,
+          minZoom: 8,
+          errorTileUrl: '',
+        });
+        tl.addTo(map);
+        tileLayerRefs.current[layerDef.id] = tl;
+      }
+      return next;
+    });
+  };
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      next.has(groupId) ? next.delete(groupId) : next.add(groupId);
+      return next;
+    });
+  };
+
   // Build aggregation from selected zones
   const selectionSummary: SelectionSummary | null = selectedZones.size > 0 ? (() => {
     const zones: ZoneAggregation[] = zoneData
@@ -354,8 +395,76 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
         <span className="ml-2">— — Zone boundary</span>
       </div>
 
-      {/* Map */}
-      <div ref={mapContainerRef} className="flex-1 min-h-0" />
+      {/* Evidence Layers Panel */}
+      {enabledTileLayers.size > 0 && (
+        <div className="flex items-center gap-1 px-3 py-1 border-b bg-muted/30 flex-wrap">
+          <span className="text-[10px] text-muted-foreground">Active:</span>
+          {Array.from(enabledTileLayers).map(id => {
+            const layer = TILE_LAYERS.find(l => l.id === id);
+            return layer ? (
+              <Badge key={id} variant="secondary" className="text-[9px] h-4 gap-0.5">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: layer.color }} />
+                {layer.name.length > 20 ? layer.name.slice(0, 18) + '…' : layer.name}
+                <button onClick={() => toggleTileLayer(layer)}><X className="w-2.5 h-2.5" /></button>
+              </Badge>
+            ) : null;
+          })}
+        </div>
+      )}
+
+      <div className="flex flex-1 min-h-0">
+        {/* Map */}
+        <div ref={mapContainerRef} className="flex-1 min-h-0" />
+
+        {/* Layer sidebar — collapsible */}
+        <div className="w-48 border-l overflow-y-auto bg-background text-xs">
+          <div className="p-2 border-b">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+              <Layers className="w-3 h-3" /> Evidence Layers
+            </p>
+            <p className="text-[9px] text-muted-foreground">{TILE_LAYERS.filter(l => l.available).length} layers available</p>
+          </div>
+          {TILE_LAYER_GROUPS.map(group => {
+            const groupLayers = TILE_LAYERS.filter(l => l.group === group.id && l.available);
+            if (groupLayers.length === 0) return null;
+            const isExpanded = expandedGroups.has(group.id);
+            const activeCount = groupLayers.filter(l => enabledTileLayers.has(l.id)).length;
+            return (
+              <div key={group.id} className="border-b">
+                <button
+                  onClick={() => toggleGroup(group.id)}
+                  className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-muted/50 transition-colors"
+                >
+                  <span className="text-[10px] font-medium">{group.label}</span>
+                  <div className="flex items-center gap-1">
+                    {activeCount > 0 && <span className="text-[9px] bg-primary/10 text-primary px-1 rounded">{activeCount}</span>}
+                    {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                  </div>
+                </button>
+                {isExpanded && (
+                  <div className="px-1 pb-1 space-y-0.5">
+                    {groupLayers.map(layer => {
+                      const isOn = enabledTileLayers.has(layer.id);
+                      return (
+                        <button
+                          key={layer.id}
+                          onClick={() => toggleTileLayer(layer)}
+                          className={`w-full text-left px-1.5 py-1 rounded text-[10px] flex items-center gap-1.5 transition-all ${
+                            isOn ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'
+                          }`}
+                        >
+                          <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: isOn ? layer.color : '#d1d5db' }} />
+                          <span className="truncate">{layer.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Hover info */}
       {(hoveredZone || hoveredCell) && (
