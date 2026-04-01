@@ -168,5 +168,46 @@ export function registerTileProxyRoutes(app: Express): void {
     res.json({ count: layers.length, layers });
   });
 
-  console.log(`[tiles] Registered ${Object.keys(OEF_TILE_LAYERS).length} tile proxy routes`);
+  // Generic proxy for value tiles (used by ValueTooltip for RGB→value decoding)
+  // Client sends: /api/geospatial/proxy-tile?url=https://geo-test-api.s3.../{z}/{x}/{y}.png
+  app.get('/api/geospatial/proxy-tile', async (req: Request, res: Response) => {
+    const url = req.query.url as string;
+    if (!url || !url.startsWith('https://geo-test-api.s3.us-east-1.amazonaws.com/')) {
+      return res.status(400).json({ error: 'Invalid or missing S3 URL' });
+    }
+
+    // Check fail cache
+    const failedAt = failedTiles.get(url);
+    if (failedAt && Date.now() - failedAt < FAIL_CACHE_MS) {
+      return res.status(204).end();
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { 'Accept': 'image/png' },
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        failedTiles.set(url, Date.now());
+        return res.status(204).end();
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.send(buffer);
+    } catch {
+      failedTiles.set(url, Date.now());
+      res.status(204).end();
+    }
+  });
+
+  console.log(`[tiles] Registered ${Object.keys(OEF_TILE_LAYERS).length} tile proxy routes + generic proxy`);
 }

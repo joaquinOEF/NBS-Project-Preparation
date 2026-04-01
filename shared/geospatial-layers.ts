@@ -14,6 +14,18 @@ export type LayerGroup =
   | 'climate_extreme'  // New: CHIRPS, ERA5
   | 'climate_projections'; // New: FRI, HWM projections
 
+// Value-tile encoding from OEF GitHub catalog (datasets.yaml).
+// Formula for numeric layers: value = (R + 256*G + 65536*B + offset) / scale
+// Formula for categorical layers: class_id = R  (G=B=0)
+export interface ValueTileEncoding {
+  type: "numeric" | "categorical";
+  scale?: number;
+  offset?: number;
+  unit?: string;
+  urlTemplate?: string;
+  classes?: Record<number, string>;
+}
+
 export interface TileLayerDef {
   id: string;
   name: string;
@@ -21,6 +33,8 @@ export interface TileLayerDef {
   color: string;
   tileLayerId: string; // maps to /api/geospatial/tiles/{tileLayerId}/{z}/{x}/{y}.png
   available: boolean;
+  hasValueTiles?: boolean;
+  valueEncoding?: ValueTileEncoding;
 }
 
 // Groups for the layer selector UI
@@ -33,10 +47,22 @@ export const TILE_LAYER_GROUPS: Array<{ id: LayerGroup; label: string }> = [
   { id: 'climate_projections', label: 'Climate Projections' },
 ];
 
+// S3 base URL for value tiles
+const S3 = "https://geo-test-api.s3.us-east-1.amazonaws.com";
+const vtUrl = (path: string) => `${S3}/${path}/tiles_values/{z}/{x}/{y}.png`;
+
 // All tile layers from the OEF geospatial-data catalog
 export const TILE_LAYERS: TileLayerDef[] = [
   // ── Land Use & Urban Form ──────────────────────────────────────────────────
-  { id: 'oef_dynamic_world',    name: 'Land Use (Dynamic World)',       group: 'urban_land', color: '#06d6a0', tileLayerId: 'dynamic_world',      available: true },
+  {
+    id: 'oef_dynamic_world', name: 'Land Use (Dynamic World)', group: 'urban_land', color: '#06d6a0',
+    tileLayerId: 'dynamic_world', available: true, hasValueTiles: true,
+    valueEncoding: {
+      type: "categorical",
+      urlTemplate: vtUrl("dynamic_world/release/v1/2023/porto_alegre"),
+      classes: { 0:"Water", 1:"Trees", 2:"Grass", 3:"Flooded veg", 4:"Crops", 5:"Shrub", 6:"Built", 7:"Bare", 8:"Snow" },
+    },
+  },
   { id: 'oef_ghsl_built_up',    name: 'Built-Up Surface (GHSL)',       group: 'urban_land', color: '#ef4444', tileLayerId: 'ghsl_built_up',      available: true },
   { id: 'oef_ghsl_urbanization',name: 'Degree of Urbanisation (GHSL)', group: 'urban_land', color: '#f97316', tileLayerId: 'ghsl_urbanization',  available: true },
   { id: 'oef_viirs_nightlights',name: 'Night Lights (VIIRS)',          group: 'urban_land', color: '#fbbf24', tileLayerId: 'viirs_nightlights',  available: true },
@@ -61,16 +87,27 @@ export const TILE_LAYERS: TileLayerDef[] = [
   { id: 'oef_hansen_treecover',name: 'Tree Cover 2000 (Hansen)',      group: 'hydrology', color: '#166534', tileLayerId: 'hansen_treecover2000', available: true },
 
   // ── Extreme Climate Indices — Precipitation (CHIRPS) ───────────────────────
-  { id: 'oef_chirps_r90p_2024', name: 'Precipitation R90p 2024',      group: 'climate_extreme', color: '#1e40af', tileLayerId: 'chirps_r90p_2024', available: true },
-  { id: 'oef_chirps_r90p_clim', name: 'Precipitation R90p Baseline',  group: 'climate_extreme', color: '#3b82f6', tileLayerId: 'chirps_r90p_clim', available: true },
-  { id: 'oef_chirps_r95p_2024', name: 'Precipitation R95p 2024',      group: 'climate_extreme', color: '#1e3a8a', tileLayerId: 'chirps_r95p_2024', available: true },
-  { id: 'oef_chirps_r95p_clim', name: 'Precipitation R95p Baseline',  group: 'climate_extreme', color: '#2563eb', tileLayerId: 'chirps_r95p_clim', available: true },
-  { id: 'oef_chirps_r99p_2024', name: 'Precipitation R99p 2024',      group: 'climate_extreme', color: '#172554', tileLayerId: 'chirps_r99p_2024', available: true },
-  { id: 'oef_chirps_r99p_clim', name: 'Precipitation R99p Baseline',  group: 'climate_extreme', color: '#1d4ed8', tileLayerId: 'chirps_r99p_clim', available: true },
-  { id: 'oef_chirps_rx1day_2024', name: 'Max 1-Day Precip 2024',     group: 'climate_extreme', color: '#1e3a8a', tileLayerId: 'chirps_rx1day_2024', available: true },
-  { id: 'oef_chirps_rx1day_clim', name: 'Max 1-Day Precip Baseline', group: 'climate_extreme', color: '#2563eb', tileLayerId: 'chirps_rx1day_clim', available: true },
-  { id: 'oef_chirps_rx5day_2024', name: 'Max 5-Day Precip 2024',     group: 'climate_extreme', color: '#172554', tileLayerId: 'chirps_rx5day_2024', available: true },
-  { id: 'oef_chirps_rx5day_clim', name: 'Max 5-Day Precip Baseline', group: 'climate_extreme', color: '#1d4ed8', tileLayerId: 'chirps_rx5day_clim', available: true },
+  // All CHIRPS layers have confirmed accessible value_tiles (scale=100)
+  { id: 'oef_chirps_r90p_2024', name: 'Precipitation R90p 2024',      group: 'climate_extreme', color: '#1e40af', tileLayerId: 'chirps_r90p_2024', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 49960, unit: "mm", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/extreme_precipitation/chirps/V2_0/2024/r90p") } },
+  { id: 'oef_chirps_r90p_clim', name: 'Precipitation R90p Baseline',  group: 'climate_extreme', color: '#3b82f6', tileLayerId: 'chirps_r90p_clim', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 37045, unit: "mm", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/extreme_precipitation/chirps/V2_0/annual_climatology/r90p") } },
+  { id: 'oef_chirps_r95p_2024', name: 'Precipitation R95p 2024',      group: 'climate_extreme', color: '#1e3a8a', tileLayerId: 'chirps_r95p_2024', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 31068, unit: "mm", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/extreme_precipitation/chirps/V2_0/2024/r95p") } },
+  { id: 'oef_chirps_r95p_clim', name: 'Precipitation R95p Baseline',  group: 'climate_extreme', color: '#2563eb', tileLayerId: 'chirps_r95p_clim', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 21819, unit: "mm", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/extreme_precipitation/chirps/V2_0/annual_climatology/r95p") } },
+  { id: 'oef_chirps_r99p_2024', name: 'Precipitation R99p 2024',      group: 'climate_extreme', color: '#172554', tileLayerId: 'chirps_r99p_2024', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 12196, unit: "mm", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/extreme_precipitation/chirps/V2_0/2024/r99p") } },
+  { id: 'oef_chirps_r99p_clim', name: 'Precipitation R99p Baseline',  group: 'climate_extreme', color: '#1d4ed8', tileLayerId: 'chirps_r99p_clim', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 8476, unit: "mm", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/extreme_precipitation/chirps/V2_0/annual_climatology/r99p") } },
+  { id: 'oef_chirps_rx1day_2024', name: 'Max 1-Day Precip 2024',     group: 'climate_extreme', color: '#1e3a8a', tileLayerId: 'chirps_rx1day_2024', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 6459, unit: "mm", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/extreme_precipitation/chirps/V2_0/2024/rx1day") } },
+  { id: 'oef_chirps_rx1day_clim', name: 'Max 1-Day Precip Baseline', group: 'climate_extreme', color: '#2563eb', tileLayerId: 'chirps_rx1day_clim', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 5727, unit: "mm", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/extreme_precipitation/chirps/V2_0/annual_climatology/rx1day") } },
+  { id: 'oef_chirps_rx5day_2024', name: 'Max 5-Day Precip 2024',     group: 'climate_extreme', color: '#172554', tileLayerId: 'chirps_rx5day_2024', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 17535, unit: "mm", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/extreme_precipitation/chirps/V2_0/2024/rx5day") } },
+  { id: 'oef_chirps_rx5day_clim', name: 'Max 5-Day Precip Baseline', group: 'climate_extreme', color: '#1d4ed8', tileLayerId: 'chirps_rx5day_clim', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 11014, unit: "mm", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/extreme_precipitation/chirps/V2_0/annual_climatology/rx5day") } },
 
   // ── Extreme Climate Indices — Temperature (ERA5-Land) ──────────────────────
   { id: 'oef_era5_tnx_2024',   name: 'Min Night Temp 2024 (TNx)',    group: 'climate_extreme', color: '#f97316', tileLayerId: 'era5_tnx_2024',   available: true },
@@ -83,24 +120,52 @@ export const TILE_LAYERS: TileLayerDef[] = [
   { id: 'oef_era5_txx_clim',   name: 'Max Temp Baseline (TXx)',      group: 'climate_extreme', color: '#991b1b', tileLayerId: 'era5_txx_clim',   available: true },
 
   // ── Heatwave Magnitude Index ───────────────────────────────────────────────
-  { id: 'oef_hwm_2024',      name: 'Heatwave Magnitude 2024',       group: 'climate_extreme', color: '#d00000', tileLayerId: 'hwm_2024',      available: true },
+  { id: 'oef_hwm_2024', name: 'Heatwave Magnitude 2024', group: 'climate_extreme', color: '#d00000', tileLayerId: 'hwm_2024', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 600, unit: "°C·days", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/heatwave_indices/hwm/2024") } },
   { id: 'oef_hwm_clim',      name: 'Heatwave Magnitude Baseline',   group: 'climate_extreme', color: '#e63946', tileLayerId: 'hwm_clim',      available: true },
 
   // ── Climate Projections — Heatwave ─────────────────────────────────────────
-  { id: 'oef_hwm_2030s_245', name: 'HWM 2030s SSP2-4.5',           group: 'climate_projections', color: '#f97316', tileLayerId: 'hwm_2030s_245', available: true },
-  { id: 'oef_hwm_2030s_585', name: 'HWM 2030s SSP5-8.5',           group: 'climate_projections', color: '#dc2626', tileLayerId: 'hwm_2030s_585', available: true },
-  { id: 'oef_hwm_2050s_585', name: 'HWM 2050s SSP5-8.5',           group: 'climate_projections', color: '#b91c1c', tileLayerId: 'hwm_2050s_585', available: true },
-  { id: 'oef_hwm_2100s_585', name: 'HWM 2100s SSP5-8.5',           group: 'climate_projections', color: '#7f1d1d', tileLayerId: 'hwm_2100s_585', available: true },
+  { id: 'oef_hwm_2030s_245', name: 'HWM 2030s SSP2-4.5', group: 'climate_projections', color: '#f97316', tileLayerId: 'hwm_2030s_245', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 1035, unit: "°C·days", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/heatwave_indices/hwm/2030s_ssp245") } },
+  { id: 'oef_hwm_2030s_585', name: 'HWM 2030s SSP5-8.5', group: 'climate_projections', color: '#dc2626', tileLayerId: 'hwm_2030s_585', available: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 1003, unit: "°C·days" } },
+  { id: 'oef_hwm_2050s_585', name: 'HWM 2050s SSP5-8.5', group: 'climate_projections', color: '#b91c1c', tileLayerId: 'hwm_2050s_585', available: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 1003, unit: "°C·days" } },
+  { id: 'oef_hwm_2100s_585', name: 'HWM 2100s SSP5-8.5', group: 'climate_projections', color: '#7f1d1d', tileLayerId: 'hwm_2100s_585', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 2383, unit: "°C·days", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/heatwave_indices/hwm/2100s_ssp585") } },
 
   // ── Climate Projections — Flood Risk ───────────────────────────────────────
-  { id: 'oef_fri_2024',      name: 'Flood Risk Index 2024',          group: 'climate_projections', color: '#1d4ed8', tileLayerId: 'fri_2024',      available: true },
-  { id: 'oef_fri_2030s_245', name: 'FRI 2030s SSP2-4.5',            group: 'climate_projections', color: '#2563eb', tileLayerId: 'fri_2030s_245', available: true },
-  { id: 'oef_fri_2030s_585', name: 'FRI 2030s SSP5-8.5',            group: 'climate_projections', color: '#1e40af', tileLayerId: 'fri_2030s_585', available: true },
-  { id: 'oef_fri_2050s_245', name: 'FRI 2050s SSP2-4.5',            group: 'climate_projections', color: '#1e3a8a', tileLayerId: 'fri_2050s_245', available: true },
-  { id: 'oef_fri_2050s_585', name: 'FRI 2050s SSP5-8.5',            group: 'climate_projections', color: '#172554', tileLayerId: 'fri_2050s_585', available: true },
-  { id: 'oef_fri_2100s_245', name: 'FRI 2100s SSP2-4.5',            group: 'climate_projections', color: '#0f172a', tileLayerId: 'fri_2100s_245', available: true },
-  { id: 'oef_fri_2100s_585', name: 'FRI 2100s SSP5-8.5',            group: 'climate_projections', color: '#020617', tileLayerId: 'fri_2100s_585', available: true },
+  { id: 'oef_fri_2024', name: 'Flood Risk Index 2024', group: 'climate_projections', color: '#1d4ed8', tileLayerId: 'fri_2024', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 6, unit: "index 0–1", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/floods/flood_risk_index/oef_calculation/2024") } },
+  { id: 'oef_fri_2030s_245', name: 'FRI 2030s SSP2-4.5', group: 'climate_projections', color: '#2563eb', tileLayerId: 'fri_2030s_245', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 1, unit: "index 0–1", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/floods/flood_risk_index/oef_calculation/2030s_ssp245") } },
+  { id: 'oef_fri_2030s_585', name: 'FRI 2030s SSP5-8.5', group: 'climate_projections', color: '#1e40af', tileLayerId: 'fri_2030s_585', available: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 13, unit: "index 0–1" } },
+  { id: 'oef_fri_2050s_245', name: 'FRI 2050s SSP2-4.5', group: 'climate_projections', color: '#1e3a8a', tileLayerId: 'fri_2050s_245', available: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 9, unit: "index 0–1" } },
+  { id: 'oef_fri_2050s_585', name: 'FRI 2050s SSP5-8.5', group: 'climate_projections', color: '#172554', tileLayerId: 'fri_2050s_585', available: true, hasValueTiles: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 0, unit: "index 0–1", urlTemplate: vtUrl("nbs/porto_alegre/climate_hazards/floods/flood_risk_index/oef_calculation/2050s_ssp585") } },
+  { id: 'oef_fri_2100s_245', name: 'FRI 2100s SSP2-4.5', group: 'climate_projections', color: '#0f172a', tileLayerId: 'fri_2100s_245', available: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 0, unit: "index 0–1" } },
+  { id: 'oef_fri_2100s_585', name: 'FRI 2100s SSP5-8.5', group: 'climate_projections', color: '#020617', tileLayerId: 'fri_2100s_585', available: true,
+    valueEncoding: { type: "numeric", scale: 100, offset: 0, unit: "index 0–1" } },
 ];
 
 // Total count
 export const TOTAL_TILE_LAYERS = TILE_LAYERS.length;
+
+// ── OSM Reference Layers (fetched from Overpass API) ──────────────────────────
+
+export interface OsmLayerDef {
+  id: string;
+  name: string;
+  color: string;
+  endpoint: string; // /api/osm/{id}
+}
+
+export const OSM_LAYERS: OsmLayerDef[] = [
+  { id: 'osm_parks',     name: 'Parks & Green Space',  color: '#22c55e', endpoint: '/api/osm/parks' },
+  { id: 'osm_schools',   name: 'Schools & Education',  color: '#f59e0b', endpoint: '/api/osm/schools' },
+  { id: 'osm_hospitals', name: 'Hospitals & Health',    color: '#ef4444', endpoint: '/api/osm/hospitals' },
+  { id: 'osm_wetlands',  name: 'Wetlands',             color: '#3b82f6', endpoint: '/api/osm/wetlands' },
+];

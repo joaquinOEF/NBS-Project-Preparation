@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Check, MapPin, Layers, X, BarChart3, ChevronDown, ChevronRight } from 'lucide-react';
-import { TILE_LAYERS, TILE_LAYER_GROUPS, type TileLayerDef } from '@shared/geospatial-layers';
+import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, type TileLayerDef } from '@shared/geospatial-layers';
+import ValueTooltip from './ValueTooltip';
 
 // ============================================================================
 // TYPES
@@ -113,8 +114,17 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
   const [activeLayer, setActiveLayer] = useState<RiskLayer>('flood');
   const [showGrid, setShowGrid] = useState(true);
   const [enabledTileLayers, setEnabledTileLayers] = useState<Set<string>>(new Set());
+  const [enabledOsmLayers, setEnabledOsmLayers] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [mapReady, setMapReady] = useState(false);
   const tileLayerRefs = useRef<Record<string, L.TileLayer>>({});
+  const osmLayerRefs = useRef<Record<string, L.GeoJSON>>({});
+
+  // Enabled tile layer defs for ValueTooltip
+  const enabledTileLayerDefs = useMemo(
+    () => TILE_LAYERS.filter(l => enabledTileLayers.has(l.id)),
+    [enabledTileLayers]
+  );
 
   // Load all data
   useEffect(() => {
@@ -142,6 +152,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
           L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 17 }).addTo(map);
           L.control.zoom({ position: 'bottomright' }).addTo(map);
           mapRef.current = map;
+          setMapReady(true);
         }
 
         const map = mapRef.current;
@@ -307,6 +318,47 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
     }
   };
 
+  const toggleOsmLayer = async (osmLayer: typeof OSM_LAYERS[0]) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const isEnabled = enabledOsmLayers.has(osmLayer.id);
+
+    if (isEnabled) {
+      const existing = osmLayerRefs.current[osmLayer.id];
+      if (existing) {
+        map.removeLayer(existing);
+        delete osmLayerRefs.current[osmLayer.id];
+      }
+      setEnabledOsmLayers(prev => { const next = new Set(prev); next.delete(osmLayer.id); return next; });
+    } else {
+      try {
+        const res = await fetch(osmLayer.endpoint);
+        if (!res.ok) return;
+        const geojson = await res.json();
+
+        const layer = L.geoJSON(geojson, {
+          style: { color: osmLayer.color, weight: 1.5, fillColor: osmLayer.color, fillOpacity: 0.3, opacity: 0.7 },
+          pointToLayer: (_feature, latlng) => L.circleMarker(latlng, {
+            radius: 5, color: osmLayer.color, fillColor: osmLayer.color, fillOpacity: 0.6, weight: 1,
+          }),
+          onEachFeature: (feature, layer) => {
+            const p = feature.properties || {};
+            const name = p.name ? `<strong>${p.name}</strong>` : '';
+            const type = p.amenity || p.leisure || p.natural || p.landuse || '';
+            const label = [name, type].filter(Boolean).join('<br/>') || 'OSM Feature';
+            layer.bindTooltip(label, { sticky: true });
+          },
+        });
+        layer.addTo(map);
+        osmLayerRefs.current[osmLayer.id] = layer;
+        setEnabledOsmLayers(prev => { const next = new Set(prev); next.add(osmLayer.id); return next; });
+      } catch {
+        // silently skip failed fetch
+      }
+    }
+  };
+
   const toggleGroup = (groupId: string) => {
     setExpandedGroups(prev => {
       const next = new Set(prev);
@@ -397,7 +449,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
       </div>
 
       {/* Evidence Layers Panel */}
-      {enabledTileLayers.size > 0 && (
+      {(enabledTileLayers.size > 0 || enabledOsmLayers.size > 0) && (
         <div className="flex items-center gap-1 px-3 py-1 border-b bg-muted/30 flex-wrap">
           <span className="text-[10px] text-muted-foreground">Active:</span>
           {Array.from(enabledTileLayers).map(id => {
@@ -410,12 +462,24 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
               </Badge>
             ) : null;
           })}
+          {Array.from(enabledOsmLayers).map(id => {
+            const layer = OSM_LAYERS.find(l => l.id === id);
+            return layer ? (
+              <Badge key={id} variant="secondary" className="text-[9px] h-4 gap-0.5">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: layer.color }} />
+                {layer.name}
+                <button onClick={() => toggleOsmLayer(layer)}><X className="w-2.5 h-2.5" /></button>
+              </Badge>
+            ) : null;
+          })}
         </div>
       )}
 
       <div className="flex flex-1 min-h-0">
         {/* Map */}
-        <div ref={mapContainerRef} className="flex-1 min-h-0" />
+        <div ref={mapContainerRef} className="flex-1 min-h-0 relative">
+          <ValueTooltip mapRef={mapRef} enabledLayers={enabledTileLayerDefs} mapReady={mapReady} />
+        </div>
 
         {/* Layer sidebar — collapsible */}
         <div className="w-48 border-l overflow-y-auto bg-background text-xs">
@@ -456,6 +520,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
                         >
                           <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: isOn ? layer.color : '#d1d5db' }} />
                           <span className="truncate">{layer.name}</span>
+                          {layer.hasValueTiles && <span className="w-1 h-1 rounded-full bg-emerald-500 shrink-0 ml-auto" title="Values on hover" />}
                         </button>
                       );
                     })}
@@ -464,6 +529,38 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
               </div>
             );
           })}
+          {/* OSM Reference Layers */}
+          <div className="border-b">
+            <button
+              onClick={() => toggleGroup('osm_reference')}
+              className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-muted/50 transition-colors"
+            >
+              <span className="text-[10px] font-medium">OSM Reference</span>
+              <div className="flex items-center gap-1">
+                {enabledOsmLayers.size > 0 && <span className="text-[9px] bg-primary/10 text-primary px-1 rounded">{enabledOsmLayers.size}</span>}
+                {expandedGroups.has('osm_reference') ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              </div>
+            </button>
+            {expandedGroups.has('osm_reference') && (
+              <div className="px-1 pb-1 space-y-0.5">
+                {OSM_LAYERS.map(layer => {
+                  const isOn = enabledOsmLayers.has(layer.id);
+                  return (
+                    <button
+                      key={layer.id}
+                      onClick={() => toggleOsmLayer(layer)}
+                      className={`w-full text-left px-1.5 py-1 rounded text-[10px] flex items-center gap-1.5 transition-all ${
+                        isOn ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: isOn ? layer.color : '#d1d5db' }} />
+                      <span className="truncate">{layer.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

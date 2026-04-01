@@ -36,6 +36,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
+import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS } from '@shared/geospatial-layers';
+import ValueTooltip from '@/core/components/concept-note/ValueTooltip';
 
 interface BoundaryData {
   cityLocode: string;
@@ -75,6 +77,7 @@ interface CityInfo {
 }
 
 type LayerSource = 'geojson' | 'tiles';
+type LayerGroupId = 'analysis' | 'environment' | 'osm_reference' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections';
 
 interface LayerState {
   id: string;
@@ -86,9 +89,11 @@ interface LayerState {
   data: any;
   leafletLayer: L.Layer | null;
   source: LayerSource;
-  group: 'analysis' | 'environment' | 'oef';
+  group: LayerGroupId;
   available: boolean;
   tileLayerId?: string;
+  hasValueTiles?: boolean;
+  valueEncoding?: import('@shared/geospatial-layers').ValueTileEncoding;
 }
 
 type LayerConfig = Omit<LayerState, 'enabled' | 'loaded' | 'data' | 'leafletLayer'>;
@@ -105,23 +110,37 @@ const LAYER_CONFIGS: LayerConfig[] = [
   { id: 'surface_water', name: 'Water Bodies', icon: Droplets, color: '#3b82f6', source: 'geojson', group: 'environment', available: true },
   { id: 'rivers', name: 'Rivers', icon: Droplets, color: '#06b6d4', source: 'geojson', group: 'environment', available: true },
   { id: 'forest', name: 'Forest', icon: Trees, color: '#22c55e', source: 'geojson', group: 'environment', available: true },
-  { id: 'oef_dynamic_world', name: 'Land Use (Dynamic World)', icon: Grid3X3, color: '#06d6a0', source: 'tiles', group: 'oef', available: true, tileLayerId: 'dynamic_world' },
-  { id: 'oef_slope', name: 'Slope', icon: Mountain, color: '#bc6c25', source: 'tiles', group: 'oef', available: false },
-  { id: 'oef_flow_accumulation', name: 'Flow Accumulation', icon: Droplets, color: '#0077b6', source: 'tiles', group: 'oef', available: false },
-  { id: 'oef_canopy_cover', name: 'Canopy Cover', icon: Trees, color: '#588157', source: 'tiles', group: 'oef', available: false },
-  { id: 'oef_flood_hazard', name: 'Flood Hazard', icon: CloudRain, color: '#023e8a', source: 'tiles', group: 'oef', available: false },
-  { id: 'oef_heat_hazard', name: 'Heat Hazard', icon: Flame, color: '#d00000', source: 'tiles', group: 'oef', available: false },
-  { id: 'oef_exposure', name: 'Exposure Score', icon: Users, color: '#7b2cbf', source: 'tiles', group: 'oef', available: false },
-  { id: 'oef_cooling', name: 'Cooling Capacity', icon: Leaf, color: '#2d6a4f', source: 'tiles', group: 'oef', available: false },
-  { id: 'oef_composite_risk', name: 'Composite Risk', icon: AlertTriangle, color: '#e63946', source: 'tiles', group: 'oef', available: false },
-  { id: 'oef_opportunity_zones', name: 'NbS Opportunity Zones', icon: MapPinned, color: '#06d6a0', source: 'tiles', group: 'oef', available: false },
+  // OSM reference layers (fetched from Overpass API)
+  ...OSM_LAYERS.map(l => ({
+    id: l.id,
+    name: l.name,
+    icon: MapPin,
+    color: l.color,
+    source: 'geojson' as LayerSource,
+    group: 'osm_reference' as LayerGroupId,
+    available: true,
+  })),
+  // OEF tile layers — generated from shared catalog (48 layers)
+  ...TILE_LAYERS.filter(l => l.available).map(l => ({
+    id: l.id,
+    name: l.name,
+    icon: Layers,
+    color: l.color,
+    source: 'tiles' as LayerSource,
+    group: l.group as LayerGroupId,
+    available: true,
+    tileLayerId: l.tileLayerId,
+    hasValueTiles: l.hasValueTiles,
+    valueEncoding: l.valueEncoding,
+  })),
 ];
 
-const LAYER_GROUPS = [
+const LAYER_GROUPS: readonly { id: LayerGroupId; label: string }[] = [
   { id: 'analysis', label: 'Risk Analysis' },
   { id: 'environment', label: 'Environment' },
-  { id: 'oef', label: 'OEF Geospatial Data' },
-] as const;
+  { id: 'osm_reference', label: 'OSM Reference' },
+  ...TILE_LAYER_GROUPS.map(g => ({ id: g.id as LayerGroupId, label: g.label })),
+];
 
 const INTERVENTION_COLORS: Record<string, string> = {
   sponge_network: '#3b82f6',
@@ -217,6 +236,12 @@ export default function SiteExplorerPage() {
   const [loadingLayers, setLoadingLayers] = useState<Set<string>>(new Set());
 
   const isSampleModeActive = isSampleMode || isSampleRoute;
+
+  // Enabled tile layers with value encodings for ValueTooltip
+  const enabledTileLayerDefs = useMemo(
+    () => TILE_LAYERS.filter(l => layers.some(ls => ls.id === l.id && ls.enabled)),
+    [layers]
+  );
 
   const sampleAction = isSampleModeActive 
     ? sampleActions.find(a => a.id === projectId)
@@ -859,7 +884,16 @@ export default function SiteExplorerPage() {
       case 'grid_population':
       case 'grid_buildings':
         return loadSampleGridData();
-      default: return null;
+      default:
+        // OSM reference layers — fetch from Overpass API proxy
+        if (layerId.startsWith('osm_')) {
+          const osmId = layerId.replace('osm_', '');
+          const res = await fetch(`/api/osm/${osmId}`);
+          if (!res.ok) return null;
+          const geojson = await res.json();
+          return { geoJson: geojson };
+        }
+        return null;
     }
   }, [isSampleModeActive]);
 
@@ -1580,6 +1614,24 @@ export default function SiteExplorerPage() {
         return null;
       
       default:
+        // OSM reference layers — generic GeoJSON rendering
+        if (layerId.startsWith('osm_') && data.geoJson?.features) {
+          const layerConfig = LAYER_CONFIGS.find(l => l.id === layerId);
+          const color = layerConfig?.color || '#888';
+          return L.geoJSON(data.geoJson, {
+            style: { color, weight: 1.5, fillColor: color, fillOpacity: 0.3, opacity: 0.7 },
+            pointToLayer: (_feature, latlng) => L.circleMarker(latlng, {
+              radius: 5, color, fillColor: color, fillOpacity: 0.6, weight: 1,
+            }),
+            onEachFeature: (feature, layer) => {
+              const p = feature.properties || {};
+              const name = p.name ? `<strong>${p.name}</strong>` : '';
+              const type = p.amenity || p.leisure || p.natural || p.landuse || '';
+              const label = [name, type].filter(Boolean).join('<br/>') || 'OSM Feature';
+              layer.bindTooltip(label, { sticky: true });
+            },
+          });
+        }
         return null;
     }
   }, []);
@@ -1811,15 +1863,17 @@ export default function SiteExplorerPage() {
         </div>
         <div className="flex-1 relative">
           {/* Map container - leaves room for right panel and bottom drawer */}
-          <div 
-            ref={mapContainerRef} 
+          <div
+            ref={mapContainerRef}
             className="absolute top-0 left-0 z-0 h-full"
-            style={{ 
-              right: '320px', 
+            style={{
+              right: '320px',
               bottom: showEvidenceDrawer ? '180px' : '48px',
               transition: 'bottom 0.3s ease'
             }}
-          />
+          >
+            <ValueTooltip mapRef={mapRef} enabledLayers={enabledTileLayerDefs} mapReady={mapReady} />
+          </div>
           
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10 pointer-events-none">
@@ -2025,8 +2079,8 @@ export default function SiteExplorerPage() {
                                     ) : (
                                       <IconComponent className="h-3.5 w-3.5" style={{ color: layer.enabled ? layer.color : isUnavailable ? '#3f3f46' : '#71717a' }} />
                                     )}
-                                    {layer.source === 'tiles' && layer.available && (
-                                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500" />
+                                    {layer.hasValueTiles && (
+                                      <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500" title="Values on hover" />
                                     )}
                                   </div>
                                   <span className={`text-[10px] text-center leading-tight line-clamp-2 ${
