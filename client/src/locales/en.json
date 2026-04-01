@@ -1564,5 +1564,46 @@
     },
     "selectLensToExport": "Select which lens version to export",
     "lensToExport": "Lens to Export"
+  },
+  "cbo": {
+    "title": "CBO Intervention Profile",
+    "welcomeTitle": "Document Your Community Intervention",
+    "welcomeSubtitle": "We'll help you create a structured profile of your NBS project",
+    "startProfile": "Start Profile",
+    "tabs": {
+      "document": "Document",
+      "map": "Map",
+      "scorecard": "Scorecard"
+    },
+    "export": "Export profile",
+    "startOver": "Start over",
+    "working": "Working...",
+    "phase": "Phase {{num}}/5, {{count}} sections filled",
+    "continue": "Continue",
+    "yourTurn": "Your turn — arrows + Enter to select, or type below",
+    "typePlaceholder": "Type your response...",
+    "typeCustom": "Type a custom answer...",
+    "uploadDoc": "Upload a document",
+    "interventionProfile": "Intervention Profile"
+  },
+  "mapMicroapp": {
+    "layers": "Layers",
+    "point": "Point",
+    "area": "Area",
+    "cancel": "Cancel",
+    "confirm": "Confirm {{count}} selection",
+    "confirm_plural": "Confirm {{count}} selections",
+    "step1Zone": "Step 1: Click the zone where your intervention is located",
+    "step2Sites": "Step 2: Select sites within {{zone}} — click features or draw",
+    "clickFeatures": "Click features to select",
+    "clickSample": "Click anywhere to sample values",
+    "selectZonesAssets": "Select zones + click assets",
+    "clickZones": "Click zone boundaries",
+    "polygonHelp": "Click vertices, double-click to close",
+    "zone": "Zone",
+    "sites": "Sites",
+    "nextSites": "Next: Select sites",
+    "loading": "Loading...",
+    "clickToSelect": "click to select"
   }
 }

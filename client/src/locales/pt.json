@@ -1543,5 +1543,46 @@
     },
     "selectLensToExport": "Selecione qual versão da lente exportar",
     "lensToExport": "Lente para Exportar"
+  },
+  "cbo": {
+    "title": "Perfil de Intervenção Comunitária",
+    "welcomeTitle": "Documente sua Intervenção Comunitária",
+    "welcomeSubtitle": "Vamos criar um perfil estruturado do seu projeto de soluções baseadas na natureza",
+    "startProfile": "Iniciar Perfil",
+    "tabs": {
+      "document": "Documento",
+      "map": "Mapa",
+      "scorecard": "Placar"
+    },
+    "export": "Exportar perfil",
+    "startOver": "Recomeçar",
+    "working": "Processando...",
+    "phase": "Fase {{num}}/5, {{count}} seções preenchidas",
+    "continue": "Continuar",
+    "yourTurn": "Sua vez — setas + Enter para selecionar, ou digite abaixo",
+    "typePlaceholder": "Digite sua resposta...",
+    "typeCustom": "Digite uma resposta personalizada...",
+    "uploadDoc": "Enviar documento",
+    "interventionProfile": "Perfil de Intervenção"
+  },
+  "mapMicroapp": {
+    "layers": "Camadas",
+    "point": "Ponto",
+    "area": "Área",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar {{count}} seleção",
+    "confirm_plural": "Confirmar {{count}} seleções",
+    "step1Zone": "Passo 1: Clique na zona onde fica sua intervenção",
+    "step2Sites": "Passo 2: Selecione os locais em {{zone}} — clique ou desenhe",
+    "clickFeatures": "Clique nos locais para selecionar",
+    "clickSample": "Clique em qualquer lugar para ver valores",
+    "selectZonesAssets": "Selecione zona + clique nos locais",
+    "clickZones": "Clique nos limites das zonas",
+    "polygonHelp": "Clique nos vértices, duplo clique para fechar",
+    "zone": "Zona",
+    "sites": "Locais",
+    "nextSites": "Próximo: Selecionar locais",
+    "loading": "Carregando...",
+    "clickToSelect": "clique para selecionar"
   }
 }

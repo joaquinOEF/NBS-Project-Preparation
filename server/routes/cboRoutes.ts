@@ -82,7 +82,7 @@ export function registerCboRoutes(app: Express): void {
 
   // Chat (SSE)
   app.post("/api/cbo/:id/chat", async (req: Request, res: Response) => {
-    const { message } = req.body;
+    const { message, lang } = req.body;
     if (!message) return res.status(400).json({ error: "message required" });
 
     let state = getCboState(req.params.id);
@@ -92,11 +92,13 @@ export function registerCboRoutes(app: Express): void {
     }
     if (!state) return res.status(404).json({ error: "Not found" });
 
-    // Language detection
-    const isPt = /[àáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ]/.test(message) ||
-      /\b(sim|não|qual|como|quero|projeto|nossa|organização|comunidade)\b/i.test(message);
+    // Language: prefer explicit lang from UI picker, fall back to auto-detection
+    const isPt = lang === 'pt' || (!lang && (
+      /[àáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ]/.test(message) ||
+      /\b(sim|não|qual|como|quero|projeto|nossa|organização|comunidade)\b/i.test(message)
+    ));
     const langDirective = isPt
-      ? '\n[LANGUAGE: Respond in Portuguese.]'
+      ? '\n[LANGUAGE: Respond in Portuguese. ask_user option labels in Portuguese. update_section content in Portuguese.]'
       : '\n[LANGUAGE: Respond in English. update_section content in Portuguese for Brazilian orgs.]';
 
     addCboMessage(req.params.id, { role: 'user', content: message, messageType: 'content', timestamp: new Date().toISOString() });

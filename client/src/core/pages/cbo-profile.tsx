@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } fro
 import { Link } from 'wouter';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useTranslation } from 'react-i18next';
 import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
@@ -70,6 +71,8 @@ function saveMapParams(p: OpenMapParams | null) { try { if (p) sessionStorage.se
 // ============================================================================
 
 export default function CboProfilePage() {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage || 'en';
   const [cboId, setCboId] = useState<string | null>(null);
   const [state, setState] = useState<CboState | null>(null);
   const [messages, setMessages] = useState<CboChatMessage[]>([]);
@@ -232,7 +235,7 @@ export default function CboProfilePage() {
     setMessages(prev => [...prev, { role: 'user', content: text, messageType: 'content', timestamp: new Date().toISOString() }]);
     setIsStreaming(true);
     try {
-      const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text }) });
+      const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang }) });
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -309,7 +312,7 @@ export default function CboProfilePage() {
             <div className="flex items-center gap-2">
               <Link href="/sample/project/sample-ada-1"><Button variant="ghost" size="sm" className="h-7 px-2"><ArrowLeft className="w-4 h-4" /></Button></Link>
               <div>
-                <h2 className="text-sm font-semibold flex items-center gap-1.5"><Leaf className="w-4 h-4 text-green-600" /> CBO Intervention Profile</h2>
+                <h2 className="text-sm font-semibold flex items-center gap-1.5"><Leaf className="w-4 h-4 text-green-600" /> {t('cbo.title')}</h2>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   {[1,2,3,4,5].map(p => (
                     <button key={p} onClick={() => !isStreaming && sendMessage(`Jump to Phase ${p}`)}
@@ -322,8 +325,8 @@ export default function CboProfilePage() {
               </div>
             </div>
             <div className="flex gap-1">
-              <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => cboId && window.open(`/api/cbo/${cboId}/export`, '_blank')}><Download className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Export profile</TooltipContent></Tooltip>
-              <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={handleRestart}><RotateCcw className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Start over</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => cboId && window.open(`/api/cbo/${cboId}/export`, '_blank')}><Download className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>{t('cbo.export')}</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={handleRestart}><RotateCcw className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>{t('cbo.startOver')}</TooltipContent></Tooltip>
             </div>
           </div>
 
@@ -331,10 +334,10 @@ export default function CboProfilePage() {
             {messages.length === 0 && state.phase === 0 && (
               <div className="text-center text-muted-foreground py-8">
                 <Leaf className="w-12 h-12 mx-auto mb-3 text-green-500" />
-                <p className="text-lg mb-2">Document Your Community Intervention</p>
-                <p className="text-sm mb-4">We'll help you create a structured profile of your NBS project</p>
+                <p className="text-lg mb-2">{t('cbo.welcomeTitle')}</p>
+                <p className="text-sm mb-4">{t('cbo.welcomeSubtitle')}</p>
                 <Button className="bg-green-600 hover:bg-green-700" onClick={() => sendMessage("Start the CBO intervention profile for Porto Alegre. Use the /cbo-intervention skill flow. Always use the ask_user tool for multiple-choice questions. In your first message, mention that the user can drop existing documents (proposals, reports, plans, photos) into the chat at any time — you'll extract info and auto-fill sections.")}>
-                  Start Profile
+                  {t('cbo.startProfile')}
                 </Button>
               </div>
             )}
@@ -342,7 +345,7 @@ export default function CboProfilePage() {
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[90%] rounded-lg px-4 py-2.5 ${msg.role === 'user' ? 'bg-green-600 text-white' : msg.messageType === 'thinking' ? 'bg-muted/50 border border-dashed border-muted-foreground/20' : 'bg-muted'}`}>
-                  {msg.messageType === 'thinking' && <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Working</p>}
+                  {msg.messageType === 'thinking' && <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('cbo.working')}</p>}
                   {msg.role === 'user' ? <p className="text-sm">{msg.content}</p> : (
                     <div className={`text-sm prose prose-sm max-w-none ${msg.messageType === 'thinking' ? 'text-muted-foreground italic text-xs' : ''}`}>
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{fixMarkdownTables(msg.content)}</ReactMarkdown>
@@ -386,14 +389,14 @@ export default function CboProfilePage() {
               </div>
             )}
 
-            {isStreaming && <div className="flex items-center gap-2 py-2"><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} /><span className="text-xs text-muted-foreground ml-1">Working...</span></div>}
+            {isStreaming && <div className="flex items-center gap-2 py-2"><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} /><span className="text-xs text-muted-foreground ml-1">{t('cbo.working')}</span></div>}
 
             {/* Resume */}
             {!isStreaming && state.phase > 0 && !currentQuestion && messages.length > 0 && (
               <div className="text-center py-4">
                 <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-green-300 bg-green-50">
-                  <p className="text-sm text-muted-foreground">Phase {state.phase}/5, {filledCount} sections filled</p>
-                  <Button variant="outline" onClick={() => sendMessage(`Continue from Phase ${state.phase}.`)}>Continue</Button>
+                  <p className="text-sm text-muted-foreground">{t('cbo.phase', { num: state.phase, count: filledCount })}</p>
+                  <Button variant="outline" onClick={() => sendMessage(`Continue from Phase ${state.phase}.`)}>{t('cbo.continue')}</Button>
                 </div>
               </div>
             )}
@@ -402,7 +405,7 @@ export default function CboProfilePage() {
           </div>
 
           <div className={`p-3 border-t transition-colors ${isStreaming ? 'bg-muted/50' : currentQuestion ? 'bg-green-50 border-t-green-200' : ''}`}>
-            {!isStreaming && currentQuestion && <p className="text-[10px] text-green-700 mb-1 font-medium">Your turn — arrows + Enter to select, or type below</p>}
+            {!isStreaming && currentQuestion && <p className="text-[10px] text-green-700 mb-1 font-medium">{t('cbo.yourTurn')}</p>}
             <form onSubmit={(e) => { e.preventDefault(); if (currentQuestion && input.trim()) { handleSelectOption(input.trim()); setInput(''); } else sendMessage(input); }} className="flex gap-2">
               <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.xlsx,.txt,.md,.csv,.png,.jpg,.jpeg"
                 onChange={(e) => {
@@ -420,8 +423,8 @@ export default function CboProfilePage() {
               />
               <Tooltip><TooltipTrigger asChild>
                 <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="shrink-0"><Paperclip className="w-4 h-4" /></Button>
-              </TooltipTrigger><TooltipContent>Upload a document</TooltipContent></Tooltip>
-              <Input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} placeholder={isStreaming ? "Working..." : currentQuestion ? "Type a custom answer..." : "Type your response..."} disabled={isStreaming} className="flex-1" />
+              </TooltipTrigger><TooltipContent>{t('cbo.uploadDoc')}</TooltipContent></Tooltip>
+              <Input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} placeholder={isStreaming ? t('cbo.working') : currentQuestion ? t('cbo.typeCustom') : t('cbo.typePlaceholder')} disabled={isStreaming} className="flex-1" />
               <Button type="submit" disabled={isStreaming || !input.trim()} size="sm" className="bg-green-600 hover:bg-green-700"><Send className="w-4 h-4" /></Button>
             </form>
           </div>
@@ -431,7 +434,7 @@ export default function CboProfilePage() {
         <div className="w-1/2 flex flex-col bg-muted/30">
           <div className="border-b bg-background">
             <div className="px-4 pt-3 pb-0">
-              <h2 className="text-base font-semibold">{state.orgName || 'Intervention Profile'}</h2>
+              <h2 className="text-base font-semibold">{state.orgName || t('cbo.interventionProfile')}</h2>
               <div className="flex items-center gap-3 mt-1.5 mb-2">
                 <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${(filledCount / 5) * 100}%` }} /></div>
                 <span className="text-xs text-muted-foreground shrink-0">{filledCount}/5</span>
@@ -440,8 +443,8 @@ export default function CboProfilePage() {
             <div className="flex px-4 gap-0 border-t">
               {(['document', 'map', 'scorecard'] as const).map(tab => (
                 <button key={tab} onClick={() => setRightTab(tab)}
-                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize ${rightTab === tab ? 'border-green-600 text-green-700' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-                  {tab}{tab === 'map' && mapRelevant && rightTab !== 'map' && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-1 inline-block" />}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${rightTab === tab ? 'border-green-600 text-green-700' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+                  {t(`cbo.tabs.${tab}`)}{tab === 'map' && mapRelevant && rightTab !== 'map' && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-1 inline-block" />}
                   {tab === 'scorecard' && state.totalMaturityScore > 0 && <span className="ml-1 text-xs text-muted-foreground">{state.totalMaturityScore}/27</span>}
                 </button>
               ))}
