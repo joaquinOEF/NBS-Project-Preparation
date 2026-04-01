@@ -82,6 +82,7 @@ export default function CboProfilePage() {
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({});
   const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
+  const [multiSelectedOptions, setMultiSelectedOptions] = useState<Set<string>>(new Set());
   const [rightTab, setRightTab] = useState<'document' | 'map' | 'scorecard'>(getSavedMapParams() ? 'map' : 'document');
   const [mapRelevant, setMapRelevant] = useState(!!getSavedMapParams());
   const [openMapParams, _setOpenMapParams] = useState<OpenMapParams | null>(getSavedMapParams);
@@ -156,16 +157,45 @@ export default function CboProfilePage() {
         if (selectedOptionIdx > 0) setSelectedOptionIdx(p => p - 1);
         return;
       }
-      if (e.key === 'Enter' && !e.shiftKey && !isInInput) { e.preventDefault(); handleSelectRef.current(opts[selectedOptionIdx].label); }
-      else if (e.key === 'Tab' && totalQuestions > 1 && !isInInput) { e.preventDefault(); setCurrentQuestionIdx(p => e.shiftKey ? (p - 1 + totalQuestions) % totalQuestions : (p + 1) % totalQuestions); setSelectedOptionIdx(0); }
+      if (e.key === 'Enter' && !e.shiftKey && !isInInput) {
+        e.preventDefault();
+        if (currentQuestion!.multiSelect) {
+          // Toggle focused option
+          const label = opts[selectedOptionIdx].label;
+          setMultiSelectedOptions(prev => {
+            const next = new Set(prev);
+            next.has(label) ? next.delete(label) : next.add(label);
+            return next;
+          });
+        } else {
+          handleSelectRef.current(opts[selectedOptionIdx].label);
+        }
+      }
+      // Shift+Enter confirms multi-select
+      else if (e.key === 'Enter' && e.shiftKey && !isInInput && currentQuestion!.multiSelect && multiSelectedOptions.size > 0) {
+        e.preventDefault();
+        handleSelectRef.current(Array.from(multiSelectedOptions).join(', '));
+        setMultiSelectedOptions(new Set());
+      }
+      else if (e.key === 'Tab' && totalQuestions > 1 && !isInInput) { e.preventDefault(); setCurrentQuestionIdx(p => e.shiftKey ? (p - 1 + totalQuestions) % totalQuestions : (p + 1) % totalQuestions); setSelectedOptionIdx(0); setMultiSelectedOptions(new Set()); }
       else if (!isInInput && !e.ctrlKey && !e.metaKey) {
         const idx = e.key.toUpperCase().charCodeAt(0) - 65;
-        if (idx >= 0 && idx < opts.length) { e.preventDefault(); handleSelectRef.current(opts[idx].label); }
+        if (idx >= 0 && idx < opts.length) {
+          e.preventDefault();
+          if (currentQuestion!.multiSelect) {
+            // Letter keys toggle in multi-select
+            const label = opts[idx].label;
+            setMultiSelectedOptions(prev => { const next = new Set(prev); next.has(label) ? next.delete(label) : next.add(label); return next; });
+            setSelectedOptionIdx(idx);
+          } else {
+            handleSelectRef.current(opts[idx].label);
+          }
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentQuestion, selectedOptionIdx, totalQuestions]);
+  }, [currentQuestion, selectedOptionIdx, totalQuestions, multiSelectedOptions]);
 
   // Process SSE events
   const processEvent = useCallback((event: CboEvent) => {
@@ -389,6 +419,9 @@ export default function CboProfilePage() {
                   disabled={isStreaming}
                   answeredValue={questionAnswers[currentQuestionIdx]}
                   questionNumber={totalQuestions > 1 ? currentQuestionIdx + 1 : undefined}
+                  multiSelected={multiSelectedOptions}
+                  onMultiToggle={(label) => setMultiSelectedOptions(prev => { const next = new Set(prev); next.has(label) ? next.delete(label) : next.add(label); return next; })}
+                  onMultiConfirm={() => { handleSelectOption(Array.from(multiSelectedOptions).join(', ')); setMultiSelectedOptions(new Set()); }}
                 />
               </div>
             )}
@@ -587,6 +620,9 @@ function CboQuestionCard({
   disabled,
   answeredValue,
   questionNumber,
+  multiSelected,
+  onMultiToggle,
+  onMultiConfirm,
 }: {
   question: { question: string; options: any[]; multiSelect?: boolean };
   selectedIdx: number;
@@ -594,18 +630,17 @@ function CboQuestionCard({
   disabled: boolean;
   answeredValue?: string;
   questionNumber?: number;
+  multiSelected?: Set<string>;
+  onMultiToggle?: (label: string) => void;
+  onMultiConfirm?: () => void;
 }) {
-  const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
   const isMulti = question.multiSelect;
+  const multiSet = multiSelected || new Set<string>();
 
   const handleClick = (label: string) => {
     if (disabled) return;
-    if (isMulti) {
-      setMultiSelected(prev => {
-        const next = new Set(prev);
-        next.has(label) ? next.delete(label) : next.add(label);
-        return next;
-      });
+    if (isMulti && onMultiToggle) {
+      onMultiToggle(label);
     } else {
       onSelect(label);
     }
@@ -628,7 +663,7 @@ function CboQuestionCard({
       <div className="space-y-1.5">
         {question.options.map((opt: any, i: number) => {
           const letter = String.fromCharCode(65 + i);
-          const isSelected = isMulti ? multiSelected.has(opt.label) : (i === selectedIdx);
+          const isSelected = isMulti ? multiSet.has(opt.label) : (i === selectedIdx);
           return (
             <button key={i} onClick={() => handleClick(opt.label)}
               className={`w-full text-left px-3 py-2 rounded-md border text-sm transition-all flex items-start gap-2 ${
@@ -648,9 +683,9 @@ function CboQuestionCard({
           );
         })}
       </div>
-      {isMulti && multiSelected.size > 0 && !answeredValue && (
-        <Button size="sm" onClick={() => onSelect(Array.from(multiSelected).join(', '))} disabled={disabled} className="w-full h-8 text-xs gap-1 bg-green-600 hover:bg-green-700">
-          <Check className="w-3 h-3" /> Confirm {multiSelected.size} selected
+      {isMulti && multiSet.size > 0 && !answeredValue && (
+        <Button size="sm" onClick={onMultiConfirm} disabled={disabled} className="w-full h-8 text-xs gap-1 bg-green-600 hover:bg-green-700">
+          <Check className="w-3 h-3" /> Confirm {multiSet.size} selected
         </Button>
       )}
     </div>

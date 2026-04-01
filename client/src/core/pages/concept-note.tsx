@@ -132,6 +132,7 @@ export default function ConceptNotePage() {
   const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
   const [activeQuestions, setActiveQuestions] = useState<ParsedQuestion[]>([]);
   const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
+  const [multiSelectedOptions, setMultiSelectedOptions] = useState<Set<string>>(new Set());
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({});
   const [highlightedSections, setHighlightedSections] = useState<string[]>([]);
@@ -269,20 +270,34 @@ export default function ConceptNotePage() {
       }
       if (e.key === 'Enter' && !e.shiftKey && !isInInput) {
         e.preventDefault();
-        handleSelectOptionRef.current(opts[selectedOptionIdx].label);
+        if (currentQuestion!.multiSelect) {
+          const label = opts[selectedOptionIdx].label;
+          setMultiSelectedOptions(prev => { const next = new Set(prev); next.has(label) ? next.delete(label) : next.add(label); return next; });
+        } else {
+          handleSelectOptionRef.current(opts[selectedOptionIdx].label);
+        }
+      } else if (e.key === 'Enter' && e.shiftKey && !isInInput && currentQuestion!.multiSelect && multiSelectedOptions.size > 0) {
+        e.preventDefault();
+        handleSelectOptionRef.current(Array.from(multiSelectedOptions).join(', '));
+        setMultiSelectedOptions(new Set());
       } else if (!isInInput && !e.ctrlKey && !e.metaKey) {
-        // Letter shortcuts: A=0, B=1, C=2, D=3, E=4
         const letterIdx = e.key.toUpperCase().charCodeAt(0) - 65;
         if (letterIdx >= 0 && letterIdx < opts.length) {
           e.preventDefault();
-          handleSelectOptionRef.current(opts[letterIdx].label);
+          if (currentQuestion!.multiSelect) {
+            const label = opts[letterIdx].label;
+            setMultiSelectedOptions(prev => { const next = new Set(prev); next.has(label) ? next.delete(label) : next.add(label); return next; });
+            setSelectedOptionIdx(letterIdx);
+          } else {
+            handleSelectOptionRef.current(opts[letterIdx].label);
+          }
         }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentQuestion, selectedOptionIdx, totalQuestions]);
+  }, [currentQuestion, selectedOptionIdx, totalQuestions, multiSelectedOptions]);
 
   // Process SSE events
   const processEvent = useCallback((event: ConceptNoteEvent) => {
@@ -826,6 +841,9 @@ export default function ConceptNotePage() {
                 disabled={isStreaming}
                 answeredValue={questionAnswers[currentQuestionIdx]}
                 questionNumber={totalQuestions > 1 ? currentQuestionIdx + 1 : undefined}
+                multiSelected={multiSelectedOptions}
+                onMultiToggle={(label) => setMultiSelectedOptions(prev => { const next = new Set(prev); next.has(label) ? next.delete(label) : next.add(label); return next; })}
+                onMultiConfirm={() => { handleSelectOption(Array.from(multiSelectedOptions).join(', ')); setMultiSelectedOptions(new Set()); }}
               />
             </div>
           )}
@@ -1096,6 +1114,9 @@ function QuestionCard({
   disabled,
   answeredValue,
   questionNumber,
+  multiSelected,
+  onMultiToggle,
+  onMultiConfirm,
 }: {
   question: ParsedQuestion;
   isActive: boolean;
@@ -1104,26 +1125,25 @@ function QuestionCard({
   disabled: boolean;
   answeredValue?: string;
   questionNumber?: number;
+  multiSelected?: Set<string>;
+  onMultiToggle?: (label: string) => void;
+  onMultiConfirm?: () => void;
 }) {
-  const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
   const isMulti = question.multiSelect;
+  const multiSet = multiSelected || new Set<string>();
 
   const handleOptionClick = (label: string) => {
     if (disabled) return;
-    if (isMulti) {
-      setMultiSelected(prev => {
-        const next = new Set(prev);
-        next.has(label) ? next.delete(label) : next.add(label);
-        return next;
-      });
+    if (isMulti && onMultiToggle) {
+      onMultiToggle(label);
     } else {
       onSelect(label);
     }
   };
 
   const handleConfirmMulti = () => {
-    if (multiSelected.size > 0) {
-      onSelect(Array.from(multiSelected).join(', '));
+    if (onMultiConfirm) {
+      onMultiConfirm();
     }
   };
 
@@ -1144,7 +1164,7 @@ function QuestionCard({
       <div className="space-y-1.5">
         {question.options.map((opt, i) => {
           const letter = String.fromCharCode(65 + i);
-          const isSelected = isMulti ? multiSelected.has(opt.label) : (isActive && i === selectedIdx);
+          const isSelected = isMulti ? multiSet.has(opt.label) : (isActive && i === selectedIdx);
           const isRecommended = opt.recommended;
 
           return (
@@ -1180,9 +1200,9 @@ function QuestionCard({
         })}
       </div>
       {/* Multi-select confirm button */}
-      {isMulti && multiSelected.size > 0 && !answeredValue && (
+      {isMulti && multiSet.size > 0 && !answeredValue && (
         <Button size="sm" onClick={handleConfirmMulti} disabled={disabled} className="w-full h-8 text-xs gap-1">
-          <Check className="w-3 h-3" /> Confirm {multiSelected.size} selected
+          <Check className="w-3 h-3" /> Confirm {multiSet.size} selected
         </Button>
       )}
     </div>
