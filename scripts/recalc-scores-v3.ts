@@ -169,23 +169,29 @@ for (const cell of gridData.geoJson.features) {
   // Slope + soil + precipitation trigger
   // ════════════════════════════════════════════════════════════════════════════
 
-  const slopeRisk = slope >= 5 ? clamp01((slope - 3) / 12) : 0;
+  // Geotechnical slope risk thresholds (best practices):
+  //   < 15° = generally stable (no risk)
+  //   15-25° = moderate susceptibility
+  //   25-35° = high susceptibility
+  //   > 35° = very high
+  const slopeRisk = slope >= 15 ? clamp01((slope - 15) / 20) : 0; // Activates at 15°, max at 35°
+
   const lackOfVeg = 1 - vegetation;
   const elevated = 1 - lowLying;
   const precipTrigger = rx1day != null ? clamp01((rx1day - 40) / 80) : 0.5;
 
-  // Soil cohesion: clay soils are more cohesive (resist sliding) but saturate slowly
+  // Soil cohesion: clay soils are more cohesive (resist sliding)
   const soilCohesion = m.clay_pct != null ? clamp01(m.clay_pct / 40) : 0.5;
 
-  // Bare/built on steep terrain
-  const bareOnSlope = (dwClass === 7 || dwClass === 6) && slope >= 5 ? 0.2 : 0;
+  // Bare/built on steep terrain (only counts if slope ≥ 15°)
+  const bareOnSlope = (dwClass === 7 || dwClass === 6) && slope >= 15 ? 0.2 : 0;
 
   let landslideScore: number;
   if (slopeRisk > 0) {
     landslideScore = clamp01(
       0.45 * slopeRisk +
       0.20 * precipTrigger * slopeRisk +
-      0.15 * (1 - soilCohesion) * slopeRisk + // Low cohesion = high risk
+      0.15 * (1 - soilCohesion) * slopeRisk +
       0.10 * lackOfVeg * slopeRisk +
       0.05 * elevated * slopeRisk +
       0.05 * bareOnSlope
