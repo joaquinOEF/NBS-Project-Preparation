@@ -91,57 +91,76 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     })();
   }, [mapReady]);
 
-  // ── Load zones ──────────────────────────────────────────────────────────────
+  // ── Load zone/neighborhood boundaries (step 1 of composite) ─────────────────
+  const zoneSource = params.zoneSource || 'intervention_zones';
+  const isNeighborhoods = zoneSource === 'neighborhoods';
+
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     if (selectionMode !== 'zones' && selectionMode !== 'composite') return;
     const map = mapRef.current;
 
-    setLoadingStatus('Loading intervention zones...');
+    setLoadingStatus(isNeighborhoods ? 'Loading neighborhoods...' : 'Loading intervention zones...');
     (async () => {
       try {
-        const res = await fetch('/sample-data/porto-alegre-zones.json');
+        const url = isNeighborhoods
+          ? '/sample-data/porto-alegre-ibge-indicators.json'
+          : '/sample-data/porto-alegre-zones.json';
+        const res = await fetch(url);
         const data = await res.json();
-        if (!data.geoJson) { setLoading(false); return; }
+        const geojson = isNeighborhoods ? data : data.geoJson;
+        if (!geojson?.features) { setLoading(false); return; }
 
-        const zonesLayer = L.geoJSON(data.geoJson, {
-          style: { color: '#1e293b', weight: 2, fillColor: 'transparent', fillOpacity: 0, dashArray: '4 2' },
+        const defaultStyle = { color: '#475569', weight: 1.5, fillColor: 'transparent', fillOpacity: 0, dashArray: isNeighborhoods ? undefined : '4 2' };
+
+        const zonesLayer = L.geoJSON(geojson, {
+          style: defaultStyle,
           onEachFeature: (feature, featureLayer) => {
             const p = feature.properties || {};
-            const hc = p.primaryHazard === 'FLOOD' ? '#3b82f6' : p.primaryHazard === 'HEAT' ? '#ef4444' : '#a16207';
-            featureLayer.bindTooltip(
-              `<div style="font-size:11px"><strong>${p.zoneId}</strong><br/><span style="color:${hc}">${p.typologyLabel}</span> — ${(p.interventionType || '').replace(/_/g, ' ')}<br/>${p.areaKm2?.toFixed(1)} km² · ${p.populationSum?.toLocaleString() || '?'} people</div>`,
-              { sticky: true }
-            );
+
+            // Tooltip
+            if (isNeighborhoods) {
+              const pop = p.population_total?.toLocaleString() || '?';
+              const poverty = p.poverty_rate != null ? `${(p.poverty_rate * 100).toFixed(1)}%` : '?';
+              featureLayer.bindTooltip(
+                `<div style="font-size:11px"><strong>${p.neighbourhood_name}</strong><br/>` +
+                `${pop} hab. · ${p.area_km2?.toFixed(1) || '?'} km²<br/>` +
+                `<span style="color:#888">Pobreza: ${poverty}</span></div>`,
+                { sticky: true }
+              );
+            } else {
+              const hc = p.primaryHazard === 'FLOOD' ? '#3b82f6' : p.primaryHazard === 'HEAT' ? '#ef4444' : '#a16207';
+              featureLayer.bindTooltip(
+                `<div style="font-size:11px"><strong>${p.zoneId}</strong><br/><span style="color:${hc}">${p.typologyLabel}</span> — ${(p.interventionType || '').replace(/_/g, ' ')}<br/>${p.areaKm2?.toFixed(1)} km² · ${p.populationSum?.toLocaleString() || '?'} people</div>`,
+                { sticky: true }
+              );
+            }
+
+            // Click to select
+            const zoneName = isNeighborhoods ? p.neighbourhood_name : p.zoneId;
+            const zoneSourceId = isNeighborhoods ? 'neighborhoods' : 'intervention_zones';
 
             (featureLayer as any).on('click', (e: any) => {
-              if (drawModeRef.current !== 'off') return; // Let draw handler take it
+              if (drawModeRef.current !== 'off') return;
               L.DomEvent.stopPropagation(e);
               const centroid = geometryCentroid(feature.geometry);
               if (!centroid) return;
 
               const asset: SelectedAsset = {
-                type: 'zone', source: 'intervention_zones', name: p.zoneId,
+                type: 'zone', source: zoneSourceId, name: zoneName,
                 geometry: feature.geometry, coordinates: centroid, properties: p,
               };
 
               if (isComposite) {
-                // In composite mode, selecting a zone advances to step 2
-                // Reset any previous zone style
                 zonesLayer.eachLayer((l: any) => zonesLayer.resetStyle(l));
                 (featureLayer as any).setStyle({ color: '#1d4ed8', weight: 3, fillColor: '#3b82f6', fillOpacity: 0.15, dashArray: undefined });
                 setSelectedZone(asset);
-                setSelectedAssets(prev => {
-                  // Replace any existing zone selection
-                  const withoutZones = prev.filter(a => a.type !== 'zone');
-                  return [...withoutZones, asset];
-                });
+                setSelectedAssets(prev => [...prev.filter(a => a.type !== 'zone'), asset]);
               } else {
-                // In zones-only mode, toggle selection
                 setSelectedAssets(prev => {
                   const existing = prev.findIndex(a => a.type === 'zone' && a.name === asset.name);
                   if (existing >= 0) {
-                    (featureLayer as any).setStyle({ color: '#1e293b', weight: 2, fillColor: 'transparent', fillOpacity: 0, dashArray: '4 2' });
+                    (featureLayer as any).setStyle(defaultStyle);
                     return prev.filter((_, i) => i !== existing);
                   }
                   (featureLayer as any).setStyle({ color: '#1d4ed8', weight: 3, fillColor: '#3b82f6', fillOpacity: 0.2, dashArray: undefined });
@@ -152,8 +171,8 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
             (featureLayer as any).on('mouseover', () => (featureLayer as any).setStyle({ weight: 3, fillOpacity: 0.08 }));
             (featureLayer as any).on('mouseout', () => {
-              const isSel = (isComposite ? selectedZone?.name : selectedAssets.find(a => a.type === 'zone')?.name) === p.zoneId;
-              if (!isSel) (featureLayer as any).setStyle({ color: '#1e293b', weight: 2, fillColor: 'transparent', fillOpacity: 0, dashArray: '4 2' });
+              const currentName = isComposite ? selectedZone?.name : selectedAssets.find(a => a.type === 'zone')?.name;
+              if (currentName !== zoneName) (featureLayer as any).setStyle(defaultStyle);
             });
           },
         });
@@ -471,9 +490,10 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const canDraw = showAssets && (selectionMode === 'assets' || selectionMode === 'composite');
 
   // Step instructions
+  const step1Key = isNeighborhoods ? 'mapMicroapp.step1Neighborhood' : 'mapMicroapp.step1Zone';
   const stepInstruction = isComposite
     ? compositeStep === 'zone'
-      ? t('mapMicroapp.step1Zone')
+      ? t(step1Key)
       : t('mapMicroapp.step2Sites', { zone: selectedZone?.name || 'zone' })
     : selectionMode === 'assets' ? t('mapMicroapp.clickFeatures')
     : selectionMode === 'sample' ? t('mapMicroapp.clickSample')
@@ -497,7 +517,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
             className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded ${compositeStep === 'zone' ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:bg-muted/50'}`}
           >
             <span className="w-4 h-4 rounded-full bg-current/20 flex items-center justify-center text-[9px] font-bold">1</span>
-            {t('mapMicroapp.zone')}
+            {isNeighborhoods ? t('mapMicroapp.neighborhood') : t('mapMicroapp.zone')}
             {selectedZone && <Check className="w-3 h-3 text-emerald-500" />}
           </button>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
@@ -591,7 +611,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       {/* Action bar */}
       <div className="flex items-center gap-2 px-3 py-2 border-t bg-background shrink-0">
         <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={isComposite && compositeStep === 'assets' ? backToZones : onCancel}>
-          {isComposite && compositeStep === 'assets' ? '← ' + t('mapMicroapp.zone') : t('mapMicroapp.cancel')}
+          {isComposite && compositeStep === 'assets' ? '← ' + (isNeighborhoods ? t('mapMicroapp.neighborhood') : t('mapMicroapp.zone')) : t('mapMicroapp.cancel')}
         </Button>
         {isComposite && compositeStep === 'zone' ? (
           <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={advanceToAssets} disabled={!selectedZone}>
