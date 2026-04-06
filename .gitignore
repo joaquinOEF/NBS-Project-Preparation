@@ -5,3 +5,6 @@ server/public
 vite.config.ts.*
 *.tar.gz
 .env
+# Generated 250m grid (run generate-grid-250m.ts to create)
+client/public/sample-data/porto-alegre-grid-250m.json
+scripts/output/
