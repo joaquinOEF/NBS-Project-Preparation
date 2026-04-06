@@ -1664,12 +1664,16 @@ export default function SiteExplorerPage() {
 
   const createTileLayer = useCallback((layerConfig: LayerState): L.TileLayer | null => {
     if (!layerConfig.tileLayerId) return null;
-    const tileUrl = `/api/geospatial/tiles/${layerConfig.tileLayerId}/{z}/{x}/{y}.png`;
+    // Local risk tiles use /tiles/ path, S3 tiles use the proxy
+    const isLocal = layerConfig.tileLayerId.startsWith('_local_');
+    const tileUrl = isLocal
+      ? `/tiles/${layerConfig.tileLayerId.replace('_local_', '')}/{z}/{x}/{y}.png`
+      : `/api/geospatial/tiles/${layerConfig.tileLayerId}/{z}/{x}/{y}.png`;
     return L.tileLayer(tileUrl, {
       opacity: 0.7,
-      maxNativeZoom: 15,
+      maxNativeZoom: isLocal ? 14 : 15,
       maxZoom: 19,
-      minZoom: 10,
+      minZoom: isLocal ? 10 : 10,
       errorTileUrl: '',
       className: 'oef-tile-layer',
     });
