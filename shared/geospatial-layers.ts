@@ -199,6 +199,21 @@ export const OSM_LAYERS: OsmLayerDef[] = [
   { id: 'osm_wetlands',  name: 'Wetlands',             color: '#3b82f6', endpoint: '/api/osm/wetlands' },
 ];
 
+// ── Reference Data Layers (GeoJSON, loaded from sample-data) ──────────────────
+
+export interface ReferenceLayerDef {
+  id: string;
+  name: string;
+  color: string;
+  dataPath: string; // path relative to /sample-data/
+}
+
+export const REFERENCE_LAYERS: ReferenceLayerDef[] = [
+  { id: 'ibge_census', name: 'Census / Poverty by Neighborhood', color: '#a855f7', dataPath: '/sample-data/porto-alegre-ibge-indicators.json' },
+  { id: 'ibge_settlements', name: 'Informal Settlements', color: '#f43f5e', dataPath: '/sample-data/porto-alegre-ibge-settlements.json' },
+  { id: 'flood_2024_extent', name: '2024 Flood Extent (observed)', color: '#60a5fa', dataPath: '/sample-data/porto-alegre-flood-2024.json' },
+];
+
 // ── Spatial Queries (vector × raster intersection) ────────────────────────────
 
 export interface SpatialQueryDef {

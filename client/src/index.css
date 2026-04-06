@@ -252,3 +252,9 @@
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out;
 }
+
+/* Risk tile layers: smooth upscaling to fill gaps between 250m cells */
+.risk-tile-layer img {
+  image-rendering: auto;
+  filter: blur(0.5px);
+}
