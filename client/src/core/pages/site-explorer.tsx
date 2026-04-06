@@ -101,11 +101,9 @@ type LayerConfig = Omit<LayerState, 'enabled' | 'loaded' | 'data' | 'leafletLaye
 
 const LAYER_CONFIGS: LayerConfig[] = [
   { id: 'intervention_zones', name: 'Intervention Zones', icon: MapPinned, color: '#10b981', source: 'geojson', group: 'analysis', available: true },
-  { id: 'grid_flood', name: 'Flood Risk', icon: CloudRain, color: '#3b82f6', source: 'geojson', group: 'analysis', available: true },
-  { id: 'grid_heat', name: 'Heat Risk', icon: Flame, color: '#ef4444', source: 'geojson', group: 'analysis', available: true },
-  { id: 'grid_landslide', name: 'Landslide Risk', icon: Mountain, color: '#a16207', source: 'geojson', group: 'analysis', available: true },
-  { id: 'grid_population', name: 'Population Density', icon: Users, color: '#8b5cf6', source: 'geojson', group: 'analysis', available: true },
-  { id: 'grid_buildings', name: 'Building Density', icon: Building2, color: '#f97316', source: 'geojson', group: 'analysis', available: true },
+  { id: 'ibge_census', name: 'Census / Poverty by Neighborhood', icon: Users, color: '#a855f7', source: 'geojson', group: 'analysis', available: true },
+  { id: 'ibge_settlements', name: 'Informal Settlements', icon: AlertTriangle, color: '#f43f5e', source: 'geojson', group: 'analysis', available: true },
+  { id: 'flood_2024_extent', name: '2024 Flood Extent (observed)', icon: CloudRain, color: '#60a5fa', source: 'geojson', group: 'analysis', available: true },
   { id: 'elevation', name: 'Elevation', icon: Mountain, color: '#c9a87c', source: 'geojson', group: 'environment', available: true },
   { id: 'landcover', name: 'Land Cover', icon: MapIcon, color: '#4ade80', source: 'geojson', group: 'environment', available: true },
   { id: 'surface_water', name: 'Water Bodies', icon: Droplets, color: '#3b82f6', source: 'geojson', group: 'environment', available: true },
@@ -904,12 +902,20 @@ export default function SiteExplorerPage() {
       case 'forest': return loadSampleForestData();
       case 'population': return loadSamplePopulationData();
       case 'intervention_zones': return loadSampleZonesData();
-      case 'grid_flood':
-      case 'grid_heat':
-      case 'grid_landslide':
-      case 'grid_population':
-      case 'grid_buildings':
-        return loadSampleGridData();
+      case 'ibge_census': {
+        const res = await fetch('/sample-data/porto-alegre-ibge-indicators.json');
+        return res.ok ? { geoJson: await res.json() } : null;
+      }
+      case 'ibge_settlements': {
+        const res = await fetch('/sample-data/porto-alegre-ibge-settlements.json');
+        return res.ok ? { geoJson: await res.json() } : null;
+      }
+      case 'flood_2024_extent': {
+        const res = await fetch('/sample-data/porto-alegre-flood-2024.json');
+        if (!res.ok) return null;
+        const data = await res.json();
+        return { geoJson: data.geoJson || data };
+      }
       default:
         // OSM reference layers — fetch from Overpass API proxy
         if (layerId.startsWith('osm_')) {
@@ -1366,33 +1372,22 @@ export default function SiteExplorerPage() {
         }
         return null;
 
-      case 'grid_flood':
+      case 'ibge_census':
         if (data.geoJson?.features) {
           return L.geoJSON(data.geoJson, {
             style: (feature) => {
-              const score = feature?.properties?.metrics?.flood_score ?? 0;
-              return {
-                color: getFloodColor(score),
-                weight: 0.5,
-                fillColor: getFloodColor(score),
-                fillOpacity: score > 0 ? 0.6 : 0.1,
-                opacity: 0.8,
-              };
+              const pov = feature?.properties?.poverty_rate ?? 0;
+              const opacity = Math.min(0.7, pov * 5);
+              return { color: '#a855f7', weight: 1.5, fillColor: '#a855f7', fillOpacity: opacity, opacity: 0.8 };
             },
             onEachFeature: (feature, layer) => {
-              const m = feature.properties?.metrics || {};
-              const cov = feature.properties?.coverage || {};
-              const coverageList = Object.entries(cov)
-                .filter(([_, v]) => v)
-                .map(([k]) => k)
-                .join(', ');
+              const p = feature.properties || {};
               layer.bindTooltip(
-                `<strong>Flood Risk: ${((m.flood_score || 0) * 100).toFixed(0)}%</strong><br/>` +
-                `Flow accumulation: ${((m.flow_accum_pct || 0) * 100).toFixed(0)}%<br/>` +
-                `Depression: ${m.is_depression ? 'Yes' : 'No'}<br/>` +
-                `River proximity: ${((m.river_prox_pct || 0) * 100).toFixed(0)}%<br/>` +
-                `Low-lying: ${((m.low_lying_pct || 0) * 100).toFixed(0)}%<br/>` +
-                `<em>Coverage: ${coverageList || 'none'}</em>`,
+                `<strong>${p.neighbourhood_name || '?'}</strong><br/>` +
+                `Pop: ${p.population_total?.toLocaleString() || '?'}<br/>` +
+                `Poverty: ${((p.poverty_rate || 0) * 100).toFixed(1)}%<br/>` +
+                `Low income: ${((p.pct_low_income || 0) * 100).toFixed(0)}%<br/>` +
+                `Area: ${p.area_km2?.toFixed(1) || '?'} km²`,
                 { sticky: true }
               );
             },
@@ -1400,123 +1395,28 @@ export default function SiteExplorerPage() {
         }
         return null;
 
-      case 'grid_heat':
+      case 'ibge_settlements':
         if (data.geoJson?.features) {
           return L.geoJSON(data.geoJson, {
-            style: (feature) => {
-              const score = feature?.properties?.metrics?.heat_score ?? 0;
-              return {
-                color: getHeatColor(score),
-                weight: 0.5,
-                fillColor: getHeatColor(score),
-                fillOpacity: score > 0 ? 0.6 : 0.1,
-                opacity: 0.8,
-              };
-            },
+            style: { color: '#f43f5e', weight: 2, fillColor: '#f43f5e', fillOpacity: 0.4, opacity: 0.9 },
             onEachFeature: (feature, layer) => {
-              const m = feature.properties?.metrics || {};
-              const cov = feature.properties?.coverage || {};
-              const coverageList = Object.entries(cov)
-                .filter(([_, v]) => v)
-                .map(([k]) => k)
-                .join(', ');
-              layer.bindTooltip(
-                `<strong>Heat Risk: ${((m.heat_score || 0) * 100).toFixed(0)}%</strong><br/>` +
-                `Building density: ${((m.building_density || 0) * 100).toFixed(0)}%<br/>` +
-                `Population: ${m.pop_density_raw ? m.pop_density_raw.toFixed(0) + '/km²' : ((m.pop_density || 0) * 100).toFixed(0) + '%'}<br/>` +
-                `Vegetation: ${((m.vegetation_pct || 0) * 100).toFixed(0)}%<br/>` +
-                `Water cooling: ${((m.water_cooling || 0) * 100).toFixed(0)}%<br/>` +
-                `<em>Coverage: ${coverageList || 'none'}</em>`,
-                { sticky: true }
-              );
+              const name = feature.properties?.settlement_name || 'Informal Settlement';
+              layer.bindTooltip(`<strong>${name}</strong><br/><em>Informal settlement</em>`, { sticky: true });
             },
           });
         }
         return null;
 
-      case 'grid_landslide':
+      case 'flood_2024_extent':
         if (data.geoJson?.features) {
           return L.geoJSON(data.geoJson, {
-            style: (feature) => {
-              const score = feature?.properties?.metrics?.landslide_score ?? 0;
-              return {
-                color: getLandslideColor(score),
-                weight: 0.5,
-                fillColor: getLandslideColor(score),
-                fillOpacity: score > 0 ? 0.6 : 0.1,
-                opacity: 0.8,
-              };
-            },
+            style: { color: '#3b82f6', weight: 1.5, fillColor: '#60a5fa', fillOpacity: 0.35, opacity: 0.7 },
             onEachFeature: (feature, layer) => {
-              const m = feature.properties?.metrics || {};
-              const cov = feature.properties?.coverage || {};
-              const coverageList = Object.entries(cov)
-                .filter(([_, v]) => v)
-                .map(([k]) => k)
-                .join(', ');
+              const p = feature.properties || {};
               layer.bindTooltip(
-                `<strong>Landslide Risk: ${((m.landslide_score || 0) * 100).toFixed(0)}%</strong><br/>` +
-                `Slope: ${(m.slope_mean || 0).toFixed(1)} m/km<br/>` +
-                `Canopy: ${((m.canopy_pct || 0) * 100).toFixed(0)}%<br/>` +
-                `Low-lying: ${((m.low_lying_pct || 0) * 100).toFixed(0)}%<br/>` +
-                `<em>Coverage: ${coverageList || 'none'}</em>`,
-                { sticky: true }
-              );
-            },
-          });
-        }
-        return null;
-
-      case 'grid_population':
-        if (data.geoJson?.features) {
-          return L.geoJSON(data.geoJson, {
-            style: (feature) => {
-              const density = feature?.properties?.metrics?.pop_density ?? 0;
-              return {
-                color: getPopulationColor(density),
-                weight: 0.5,
-                fillColor: getPopulationColor(density),
-                fillOpacity: density > 0 ? 0.6 : 0.1,
-                opacity: 0.8,
-              };
-            },
-            onEachFeature: (feature, layer) => {
-              const m = feature.properties?.metrics || {};
-              const popRaw = m.pop_density_raw;
-              const popDisplay = popRaw ? `${popRaw.toFixed(0)} people/km²` : 'No data';
-              const popPct = ((m.pop_density || 0) * 100).toFixed(0);
-              layer.bindTooltip(
-                `<strong>Population: ${popDisplay}</strong><br/>` +
-                `Normalized: ${popPct}% of max<br/>` +
-                `Data: WorldPop 100m raster`,
-                { sticky: true }
-              );
-            },
-          });
-        }
-        return null;
-
-      case 'grid_buildings':
-        if (data.geoJson?.features) {
-          return L.geoJSON(data.geoJson, {
-            style: (feature) => {
-              const density = feature?.properties?.metrics?.building_density ?? 0;
-              return {
-                color: getBuildingColor(density),
-                weight: 0.5,
-                fillColor: getBuildingColor(density),
-                fillOpacity: density > 0 ? 0.6 : 0.1,
-                opacity: 0.8,
-              };
-            },
-            onEachFeature: (feature, layer) => {
-              const m = feature.properties?.metrics || {};
-              const buildingPct = ((m.building_density || 0) * 100).toFixed(0);
-              const impervPct = ((m.imperv_pct || 0) * 100).toFixed(0);
-              layer.bindTooltip(
-                `<strong>Building Density: ${buildingPct}%</strong><br/>` +
-                `Impervious surface: ${impervPct}%<br/>` +
-                `Data: OSM building footprints`,
+                `<strong>2024 Flood Extent</strong><br/>` +
+                `${p.event_date || 'May 2024'}<br/>` +
+                `<em>${p.data_source || 'Planet SkySat'}</em>`,
                 { sticky: true }
               );
             },
