@@ -1378,8 +1378,11 @@ export default function SiteExplorerPage() {
           return L.geoJSON(data.geoJson, {
             style: (feature) => {
               const pov = feature?.properties?.poverty_rate ?? 0;
-              const opacity = Math.min(0.7, pov * 5);
-              return { color: '#a855f7', weight: 1.5, fillColor: '#a855f7', fillOpacity: opacity, opacity: 0.8 };
+              const r = Math.min(255, Math.round(100 + pov * 800));
+              const g = Math.max(0, Math.round(50 - pov * 50));
+              const b = Math.max(0, Math.round(180 - pov * 80));
+              const c = `rgb(${r},${g},${b})`;
+              return { color: c, weight: 1.5, fillColor: c, fillOpacity: 0.15 + pov * 3, opacity: 0.8 };
             },
             onEachFeature: (feature, layer) => {
               const p = feature.properties || {};
