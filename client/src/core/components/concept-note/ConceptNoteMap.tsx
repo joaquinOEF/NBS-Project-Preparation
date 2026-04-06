@@ -577,22 +577,6 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
             </button>
             {expandedGroups.has('risk_analysis') && (
               <div className="px-1 pb-1 space-y-0.5">
-                {/* Grid coloring selector */}
-                {showGrid && (
-                  <div className="flex items-center gap-0.5 px-1 py-1 mb-1">
-                    <span className="text-[9px] text-muted-foreground mr-1">Grid:</span>
-                    {(['flood', 'heat', 'landslide'] as const).map(r => (
-                      <button key={r} onClick={() => setActiveLayer(r)}
-                        className={`px-1.5 py-0.5 rounded text-[9px] transition-all ${
-                          activeLayer === r
-                            ? r === 'flood' ? 'bg-blue-100 text-blue-700' : r === 'heat' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
-                            : 'text-muted-foreground hover:bg-muted/50'
-                        }`}>
-                        {r.charAt(0).toUpperCase() + r.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                )}
                 {LOCAL_RISK_LAYERS.filter(l => l.id !== 'risk_composite_hotspot').map(layer => {
                   const isOn = enabledTileLayers.has(layer.id);
                   return (
