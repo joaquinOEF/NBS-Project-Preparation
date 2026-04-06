@@ -34,18 +34,6 @@ interface ZoneProperties {
   cellCount: number;
 }
 
-interface GridCellMetrics {
-  flood_score: number | null;
-  heat_score: number | null;
-  landslide_score: number | null;
-  imperv_pct: number | null;
-  canopy_pct: number | null;
-  pop_density: number | null;
-  dist_river_m: number | null;
-  elevation_mean: number | null;
-  green_pct: number | null;
-}
-
 export interface ZoneAggregation {
   zoneId: string;
   neighbourhoodName?: string;
@@ -71,8 +59,6 @@ export interface SelectionSummary {
   primaryHazards: string[];
 }
 
-type RiskLayer = 'flood' | 'heat' | 'landslide';
-
 interface ConceptNoteMapProps {
   onConfirm?: (summary: SelectionSummary, description: string) => void;
   isActive: boolean;
@@ -82,21 +68,13 @@ interface ConceptNoteMapProps {
 // COLORS
 // ============================================================================
 
-const RISK_COLORS: Record<RiskLayer, { low: string; high: string }> = {
-  flood: { low: '#dbeafe', high: '#1d4ed8' },
-  heat: { low: '#fee2e2', high: '#dc2626' },
-  landslide: { low: '#fef3c7', high: '#d97706' },
+// Intervention type → fill color for priority view
+const INTERVENTION_COLORS: Record<string, string> = {
+  sponge_network: '#1d4ed8',       // Blue — flood
+  cooling_network: '#dc2626',       // Red — heat
+  slope_stabilization: '#d97706',   // Amber — landslide
+  multi_benefit: '#10b981',         // Green — low risk / multi
 };
-
-function interpolateColor(low: string, high: string, t: number): string {
-  const parse = (hex: string) => [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
-  const [r1,g1,b1] = parse(low);
-  const [r2,g2,b2] = parse(high);
-  const r = Math.round(r1 + (r2-r1)*t);
-  const g = Math.round(g1 + (g2-g1)*t);
-  const b = Math.round(b1 + (b2-b1)*t);
-  return `rgb(${r},${g},${b})`;
-}
 
 function getHazardBadgeColor(type: string | null | undefined): string {
   if (!type) return 'bg-gray-100 text-gray-700';
@@ -113,17 +91,13 @@ function getHazardBadgeColor(type: string | null | undefined): string {
 export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const gridLayerRef = useRef<L.GeoJSON | null>(null);
   const zonesLayerRef = useRef<L.GeoJSON | null>(null);
-  const zoneLabelMarkersRef = useRef<L.Marker[]>([]);
 
   const [selectedZones, setSelectedZones] = useState<Set<string>>(new Set());
   const [zoneData, setZoneData] = useState<ZoneProperties[]>([]);
   const [hoveredZone, setHoveredZone] = useState<ZoneProperties | null>(null);
-  const [hoveredCell, setHoveredCell] = useState<GridCellMetrics | null>(null);
-  const [activeLayer, setActiveLayer] = useState<RiskLayer>('flood');
-  const [showGrid, setShowGrid] = useState(false); // Off by default — use 250m tile layers instead
-  const [showZones, setShowZones] = useState(false); // Off by default — use 250m layers instead
+  const [showPriority, setShowPriority] = useState(true); // Color-fill neighborhoods by intervention type + priority
+  const [showZones, setShowZones] = useState(true); // Show zone boundaries
   const [enabledTileLayers, setEnabledTileLayers] = useState<Set<string>>(new Set());
   const [enabledOsmLayers, setEnabledOsmLayers] = useState<Set<string>>(new Set());
   const [enabledSpatialQueries, setEnabledSpatialQueries] = useState<Set<string>>(new Set());
@@ -147,14 +121,12 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
 
     async function loadData() {
       try {
-        const [boundaryRes, zonesRes, gridRes] = await Promise.all([
+        const [boundaryRes, zonesRes] = await Promise.all([
           fetch('/sample-data/porto-alegre-boundary.json'),
           fetch('/sample-data/porto-alegre-neighborhood-zones.json'),
-          fetch('/sample-data/porto-alegre-grid.json'),
         ]);
         const boundaryData = await boundaryRes.json();
         const zonesData = await zonesRes.json();
-        const gridData = await gridRes.json();
 
         if (!mapContainerRef.current) return;
 
@@ -180,74 +152,41 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
           map.fitBounds(bl.getBounds(), { padding: [20, 20] });
         }
 
-        // Grid cells — colored by risk score
-        // Clean up existing grid layer first (prevents duplicates on re-mount)
-        if (gridLayerRef.current && map.hasLayer(gridLayerRef.current)) {
-          map.removeLayer(gridLayerRef.current);
-          gridLayerRef.current = null;
-        }
-        if (gridData.geoJson) {
-          const gridLayer = L.geoJSON(gridData.geoJson, {
-            style: (feature) => {
-              const m = feature?.properties?.metrics;
-              if (!m) return { fillOpacity: 0 };
-              const score = m.flood_score ?? 0;
-              return {
-                color: 'transparent',
-                weight: 0,
-                fillColor: interpolateColor(RISK_COLORS.flood.low, RISK_COLORS.flood.high, score),
-                fillOpacity: 0, // Grid starts hidden; showGrid effect controls visibility
-              };
-            },
-            onEachFeature: (feature, layer) => {
-              layer.on({
-                mouseover: () => setHoveredCell(feature.properties?.metrics),
-                mouseout: () => setHoveredCell(null),
-              });
-            },
-          });
-          gridLayer.addTo(map);
-          gridLayerRef.current = gridLayer;
-        }
-
-        // Zones — outlined, clickable
-        // IMPORTANT: clean up any existing zone layers first (prevents duplicates on re-mount)
+        // Neighborhood zones — outlined + color-filled by intervention type & priority
+        // Clean up existing layers (prevents duplicates on re-mount)
         if (zonesLayerRef.current && map.hasLayer(zonesLayerRef.current)) {
           map.removeLayer(zonesLayerRef.current);
         }
-        for (const m of zoneLabelMarkersRef.current) {
-          if (map.hasLayer(m)) map.removeLayer(m);
-        }
         zonesLayerRef.current = null;
-        zoneLabelMarkersRef.current = [];
+
+        // Compute priority range for opacity normalization
+        const allPriorities = (zonesData.geoJson?.features || []).map(
+          (f: any) => f.properties?.priorityScore ?? 0
+        );
+        const maxPriority = Math.max(...allPriorities, 0.01);
+        const minPriority = Math.min(...allPriorities);
+        const priorityRange = maxPriority - minPriority || 0.01;
 
         setZoneData(zonesData.zones || []);
         if (zonesData.geoJson) {
-          const labels: L.Marker[] = [];
           const zonesLayer = L.geoJSON(zonesData.geoJson, {
-            style: () => ({
-              color: '#1e293b',
-              weight: 2,
-              fillColor: 'transparent',
-              fillOpacity: 0,
-              dashArray: '4 2',
-            }),
+            style: (feature) => {
+              const p = feature?.properties || {};
+              const interventionColor = INTERVENTION_COLORS[p.interventionType] || '#94a3b8';
+              // Normalize priority to 0-1 range for opacity
+              const normalizedPriority = ((p.priorityScore ?? 0) - minPriority) / priorityRange;
+              const fillOpacity = 0.08 + normalizedPriority * 0.45; // 0.08 (low) to 0.53 (high)
+              return {
+                color: '#1e293b',
+                weight: 1.5,
+                fillColor: interventionColor,
+                fillOpacity: showPriority ? fillOpacity : 0,
+                opacity: showZones ? 1 : 0,
+              };
+            },
             onEachFeature: (feature, layer) => {
               const props = feature.properties as ZoneProperties;
               if (!props?.zoneId) return;
-
-              // Zone label — collect now, add to map after
-              const center = (layer as any).getBounds?.()?.getCenter?.();
-              if (center) {
-                labels.push(L.marker(center, {
-                  icon: L.divIcon({
-                    className: 'zone-label',
-                    html: `<div style="background:white;border:1px solid #cbd5e1;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,0.1)">${props.neighbourhoodName || props.zoneId.replace('zone_', 'Z')}</div>`,
-                    iconSize: [0, 0],
-                    iconAnchor: [20, 10],
-                  }),
-                }));
-              }
 
               layer.on({
                 click: () => {
@@ -259,7 +198,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
                 },
                 mouseover: () => {
                   setHoveredZone(props);
-                  (layer as any).setStyle({ weight: 3, color: '#1d4ed8', fillColor: '#3b82f6', fillOpacity: 0.15 });
+                  (layer as any).setStyle({ weight: 3, color: '#1d4ed8', fillOpacity: 0.25 });
                 },
                 mouseout: () => {
                   setHoveredZone(null);
@@ -270,9 +209,6 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
           });
           zonesLayer.addTo(map);
           zonesLayerRef.current = zonesLayer;
-          // Add labels to map and track them
-          for (const m of labels) m.addTo(map);
-          zoneLabelMarkersRef.current = labels;
         }
       } catch (e) {
         console.error('[map] Load error:', e);
@@ -282,53 +218,38 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
     loadData();
   }, [isActive]);
 
-  // Update grid coloring when layer changes
-  useEffect(() => {
-    if (!gridLayerRef.current) return;
-    gridLayerRef.current.eachLayer((layer: any) => {
-      const m = layer.feature?.properties?.metrics;
-      if (!m) return;
-      const scoreKey = `${activeLayer}_score` as keyof GridCellMetrics;
-      const score = (m[scoreKey] as number) ?? 0;
-      layer.setStyle({
-        fillColor: interpolateColor(RISK_COLORS[activeLayer].low, RISK_COLORS[activeLayer].high, score),
-        fillOpacity: showGrid && score > 0.05 ? 0.5 : 0,
-      });
-    });
-  }, [activeLayer, showGrid]);
-
-  // Toggle zones: remove/add BOTH the GeoJSON layer AND label markers individually
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const zl = zonesLayerRef.current;
-    const labels = zoneLabelMarkersRef.current;
-
-    if (showZones) {
-      if (zl && !map.hasLayer(zl)) zl.addTo(map);
-      for (const m of labels) { if (!map.hasLayer(m)) m.addTo(map); }
-    } else {
-      if (zl && map.hasLayer(zl)) map.removeLayer(zl);
-      for (const m of labels) { if (map.hasLayer(m)) map.removeLayer(m); }
-    }
-  }, [showZones]);
-
-  // Update zone outlines when selection changes
+  // Update zone styling when showPriority, showZones, or selection changes
   useEffect(() => {
     if (!zonesLayerRef.current) return;
     zonesLayerRef.current.eachLayer((layer: any) => {
-      const zid = layer.feature?.properties?.zoneId;
-      if (!zid) return;
-      const sel = selectedZones.has(zid);
-      layer.setStyle({
-        color: sel ? '#1d4ed8' : '#1e293b',
-        weight: sel ? 3 : 2,
-        fillColor: sel ? '#3b82f6' : 'transparent',
-        fillOpacity: sel ? 0.2 : 0,
-        dashArray: sel ? undefined : '4 2',
-      });
+      const p = layer.feature?.properties;
+      if (!p?.zoneId) return;
+      const sel = selectedZones.has(p.zoneId);
+      const interventionColor = INTERVENTION_COLORS[p.interventionType] || '#94a3b8';
+
+      if (sel) {
+        // Selected: bold blue outline + tinted fill
+        layer.setStyle({
+          color: '#1d4ed8',
+          weight: 3,
+          fillColor: '#3b82f6',
+          fillOpacity: 0.25,
+          opacity: 1,
+        });
+      } else {
+        // Normal: intervention color fill if priority is on, boundary if zones is on
+        const normalizedPriority = (p.priorityScore ?? 0) / 1.3; // max priority ~1.2
+        const fillOpacity = showPriority ? 0.08 + Math.min(normalizedPriority, 1) * 0.45 : 0;
+        layer.setStyle({
+          color: '#1e293b',
+          weight: 1.5,
+          fillColor: interventionColor,
+          fillOpacity,
+          opacity: showZones ? 1 : 0,
+        });
+      }
     });
-  }, [selectedZones]);
+  }, [selectedZones, showPriority, showZones]);
 
   // Resize
   useEffect(() => {
@@ -519,23 +440,23 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
           <MapPin className="w-3.5 h-3.5 inline mr-1" />Zones
         </button>
         <button
-          onClick={() => setShowGrid(!showGrid)}
-          className={`px-2 py-0.5 rounded text-xs transition-all ${showGrid ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
+          onClick={() => setShowPriority(!showPriority)}
+          className={`px-2 py-0.5 rounded text-xs transition-all ${showPriority ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
         >
-          <BarChart3 className="w-3.5 h-3.5 inline mr-1" />Grid
+          <BarChart3 className="w-3.5 h-3.5 inline mr-1" />Priority
         </button>
       </div>
 
-      {/* Legend — only when grid is visible */}
-      {showGrid && (
-      <div className="flex items-center gap-2 px-3 py-1 border-b bg-muted/30 text-[10px] text-muted-foreground">
-        <span>Low</span>
-        <div className="flex h-2 flex-1 max-w-[80px] rounded-sm overflow-hidden">
-          {[0, 0.2, 0.4, 0.6, 0.8, 1].map(t => (
-            <div key={t} className="flex-1" style={{ backgroundColor: interpolateColor(RISK_COLORS[activeLayer].low, RISK_COLORS[activeLayer].high, t) }} />
-          ))}
-        </div>
-        <span>High ({activeLayer})</span>
+      {/* Legend — intervention type colors when priority fill is visible */}
+      {showPriority && (
+      <div className="flex items-center gap-3 px-3 py-1 border-b bg-muted/30 text-[10px] text-muted-foreground">
+        {Object.entries(INTERVENTION_COLORS).map(([type, color]) => (
+          <span key={type} className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: color }} />
+            {type.replace(/_/g, ' ')}
+          </span>
+        ))}
+        <span className="ml-auto opacity-60">opacity = priority</span>
       </div>
       )}
 
@@ -796,42 +717,31 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
         </div>
       </div>
 
-      {/* Hover info */}
-      {(hoveredZone || hoveredCell) && (
+      {/* Hover info — neighborhood details on hover */}
+      {hoveredZone && (
         <div className="absolute bottom-20 left-3 right-3 z-[1000] pointer-events-none">
           <div className="bg-background/95 backdrop-blur border rounded-lg shadow-lg p-2.5 text-xs max-w-sm">
-            {hoveredZone && (
-              <>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold">{hoveredZone.neighbourhoodName || hoveredZone.zoneId}</span>
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getHazardBadgeColor(hoveredZone.primaryHazard)}`}>
-                    {hoveredZone.primaryHazard}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-muted-foreground">
-                  <div>Flood: <span className="text-foreground">{(hoveredZone.meanFlood * 100).toFixed(0)}%</span></div>
-                  <div>Heat: <span className="text-foreground">{(hoveredZone.meanHeat * 100).toFixed(0)}%</span></div>
-                  <div>Area: <span className="text-foreground">{hoveredZone.areaKm2.toFixed(1)} km²</span></div>
-                  <div>Pop: <span className="text-foreground">{(hoveredZone.populationTotal ?? hoveredZone.populationSum ?? 0).toLocaleString()}</span></div>
-                  {hoveredZone.povertyRate != null && (
-                    <div>Poverty: <span className="text-foreground">{(hoveredZone.povertyRate * 100).toFixed(1)}%</span></div>
-                  )}
-                  {hoveredZone.priorityScore != null && (
-                    <div>Priority: <span className="text-foreground">{hoveredZone.priorityScore.toFixed(2)}</span></div>
-                  )}
-                </div>
-                <div className="text-muted-foreground mt-0.5">
-                  {hoveredZone.interventionType.replace(/_/g, ' ')}
-                </div>
-              </>
-            )}
-            {!hoveredZone && hoveredCell && (
-              <div className="grid grid-cols-3 gap-x-3 gap-y-0.5 text-muted-foreground">
-                <div>Flood: <span className="text-foreground">{((hoveredCell.flood_score ?? 0) * 100).toFixed(0)}%</span></div>
-                <div>Heat: <span className="text-foreground">{((hoveredCell.heat_score ?? 0) * 100).toFixed(0)}%</span></div>
-                <div>Imperv: <span className="text-foreground">{((hoveredCell.imperv_pct ?? 0) * 100).toFixed(0)}%</span></div>
-              </div>
-            )}
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-semibold">{hoveredZone.neighbourhoodName || hoveredZone.zoneId}</span>
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getHazardBadgeColor(hoveredZone.primaryHazard)}`}>
+                {hoveredZone.primaryHazard}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-muted-foreground">
+              <div>Flood: <span className="text-foreground">{(hoveredZone.meanFlood * 100).toFixed(0)}%</span></div>
+              <div>Heat: <span className="text-foreground">{(hoveredZone.meanHeat * 100).toFixed(0)}%</span></div>
+              <div>Area: <span className="text-foreground">{hoveredZone.areaKm2.toFixed(1)} km²</span></div>
+              <div>Pop: <span className="text-foreground">{(hoveredZone.populationTotal ?? hoveredZone.populationSum ?? 0).toLocaleString()}</span></div>
+              {hoveredZone.povertyRate != null && (
+                <div>Poverty: <span className="text-foreground">{(hoveredZone.povertyRate * 100).toFixed(1)}%</span></div>
+              )}
+              {hoveredZone.priorityScore != null && (
+                <div>Priority: <span className="text-foreground">{hoveredZone.priorityScore.toFixed(2)}</span></div>
+              )}
+            </div>
+            <div className="text-muted-foreground mt-0.5">
+              {hoveredZone.interventionType.replace(/_/g, ' ')}
+            </div>
           </div>
         </div>
       )}
