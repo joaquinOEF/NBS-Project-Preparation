@@ -36,7 +36,10 @@ function formatMapResult(result: MapSelectionResult): string {
   for (const asset of result.selectedAssets) {
     if (asset.type === 'zone') {
       const p = asset.properties || {};
-      lines.push(`- [zone] ${asset.name}: ${p.typologyLabel || ''} risk, intervention: ${(p.interventionType || '').replace(/_/g, ' ')}, area: ${p.areaKm2?.toFixed(1) || '?'} km², population: ${p.populationSum?.toLocaleString() || '?'}, flood: ${((p.meanFlood || 0) * 100).toFixed(0)}%, heat: ${((p.meanHeat || 0) * 100).toFixed(0)}%, at (${asset.coordinates[0].toFixed(4)}, ${asset.coordinates[1].toFixed(4)})`);
+      const pop = (p.populationTotal || p.populationSum)?.toLocaleString() || '?';
+      const poverty = p.povertyRate != null ? `, poverty: ${(p.povertyRate * 100).toFixed(1)}%` : '';
+      const priority = p.priorityScore != null ? `, priority: ${p.priorityScore.toFixed(2)}` : '';
+      lines.push(`- [zone] ${asset.name}: ${p.typologyLabel || ''} risk, intervention: ${(p.interventionType || '').replace(/_/g, ' ')}, area: ${p.areaKm2?.toFixed(1) || '?'} km², pop: ${pop}${poverty}${priority}, flood: ${((p.meanFlood || 0) * 100).toFixed(0)}%, heat: ${((p.meanHeat || 0) * 100).toFixed(0)}%, landslide: ${((p.meanLandslide || 0) * 100).toFixed(0)}%, at (${asset.coordinates[0].toFixed(4)}, ${asset.coordinates[1].toFixed(4)})`);
     } else {
       const rasterInfo = asset.rasterValues && Object.keys(asset.rasterValues).length > 0
         ? Object.entries(asset.rasterValues).map(([k, v]) => `${k}: ${v.toFixed(3)}`).join(', ')
