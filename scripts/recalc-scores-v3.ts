@@ -93,50 +93,50 @@ for (const cell of gridData.geoJson.features) {
 
   // ════════════════════════════════════════════════════════════════════════════
   // FLOOD SCORE v3
-  // FRI foundation + soil permeability + local hydrology + location
+  // HAND-driven flood scoring (literature: HAND is #1 predictor)
+  // HAND = Height Above Nearest Drainage (MERIT Hydro, 90m resolution)
+  // Low HAND = close to drainage channel = high flood risk
   // ════════════════════════════════════════════════════════════════════════════
 
-  const flatness = slope > 0 ? Math.max(0, 1 - slope / 50) : 0.5;
+  const hand = m.hand_m; // meters above nearest drainage (null if no data)
+  const floodDepth2024 = m.flood_depth_2024_cm; // cm of observed flooding (null if dry)
 
-  const physicalFlood = (
-    0.25 * flowAccumPct +
-    0.20 * depressionPct +
-    0.20 * riverProx +
-    0.15 * lowLying +
-    0.10 * waterProx +
-    0.10 * flatness
-  );
+  // HAND risk: exponential decay — <5m = very high, 5-15m = moderate, >15m = low
+  const handRisk = hand != null ? clamp01(Math.exp(-hand / 8)) : 0.3; // e^(-h/8): h=0→1.0, h=5→0.54, h=10→0.29, h=20→0.08
 
-  // Location factors — original ranges preserved for recall, weight reduced to avoid inflation
-  const distToLake = Math.max(0, lng - LAKE_WEST_BOUNDARY) / 0.10; // 11km
+  // Observed flood evidence: cells that actually flooded in 2024 get boosted
+  const floodEvidence = floodDepth2024 != null ? clamp01(floodDepth2024 / 150) : 0; // 150cm = max
+
+  // Location factors (tightened)
+  const distToLake = Math.max(0, lng - LAKE_WEST_BOUNDARY) / 0.10;
   const lakesideRisk = Math.max(0, 1 - distToLake);
   const distToDelta = Math.sqrt(Math.pow((lng - DELTA_CENTER_LNG) * 111, 2) + Math.pow((lat - DELTA_CENTER_LAT) * 111, 2));
-  const deltaRisk = Math.max(0, 1 - distToDelta / 20); // 20km
-  const lowElevRisk = elevation < 40 ? Math.max(0, 1 - (elevation - 20) / 30) : 0;
-  const locationFlood = 0.40 * lakesideRisk + 0.35 * lowElevRisk + 0.25 * deltaRisk;
+  const deltaRisk = Math.max(0, 1 - distToDelta / 20);
 
-  // Soil runoff amplifier (NEW in v3)
-  const soilAmplifier = 1 + (runoffPotential * 0.2); // Up to 20% boost for clay soils
+  // Soil runoff
+  const soilAmplifier = 1 + (runoffPotential * 0.15);
 
   let floodScore: number;
-  if (friNorm != null) {
+  if (hand != null || fri != null) {
     floodScore = clamp01((
-      0.55 * friNorm +           // Satellite-calibrated foundation (dominant)
-      0.15 * physicalFlood +     // Local terrain/hydrology
-      0.20 * locationFlood +     // Porto Alegre geography
-      0.10 * runoffPotential     // Soil permeability
+      0.35 * handRisk +            // HAND: #1 flood predictor (90m, channel-following)
+      0.25 * (friNorm ?? handRisk) + // FRI: calibrated composite (backup to HAND if missing)
+      0.15 * floodEvidence +        // 2024 observed flood depth
+      0.10 * lakesideRisk +         // Lake proximity
+      0.10 * deltaRisk +            // River confluence
+      0.05 * runoffPotential        // Soil permeability
     ) * soilAmplifier);
   } else {
-    // No FRI coverage — rely more heavily on location + physical factors
-    const combined = Math.max(physicalFlood, locationFlood) + (physicalFlood * locationFlood * 0.4);
-    floodScore = clamp01(combined * soilAmplifier);
+    // No HAND or FRI — fallback to physical + location
+    const flatness = slope > 0 ? Math.max(0, 1 - slope / 50) : 0.5;
+    const physicalFlood = 0.30 * riverProx + 0.25 * lowLying + 0.20 * flowAccumPct + 0.15 * depressionPct + 0.10 * flatness;
+    const locationFlood = 0.50 * lakesideRisk + 0.50 * deltaRisk;
+    floodScore = clamp01(Math.max(physicalFlood, locationFlood * 0.7) * soilAmplifier);
   }
 
-  // Water cells: expanded water during floods IS a flood zone.
-  // Keep flood score for water cells near land (FRI-covered or near rivers).
-  // Only deep open lake far from shore gets suppressed.
-  if (isWater && fri == null && lakesideRisk < 0.3 && riverProx < 0.3) {
-    floodScore = Math.min(floodScore, 0.15); // Suppress only deep open water
+  // Water cells: only suppress deep open lake (no HAND, no FRI, far from everything)
+  if (isWater && hand == null && fri == null && lakesideRisk < 0.3 && riverProx < 0.3) {
+    floodScore = Math.min(floodScore, 0.15);
   }
 
   m.flood_score = round3(floodScore);

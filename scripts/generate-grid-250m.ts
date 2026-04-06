@@ -51,6 +51,8 @@ const hwmLayer = SAMPLE_LAYERS.find(l => l.id === 'hwm_2024')!;
 const hwm2030Layer = SAMPLE_LAYERS.find(l => l.id === 'hwm_2030s_245')!;
 const chirpsLayer = SAMPLE_LAYERS.find(l => l.id === 'chirps_rx1day_2024')!;
 const dwLayer = SAMPLE_LAYERS.find(l => l.id === 'dynamic_world')!;
+const handLayer = SAMPLE_LAYERS.find(l => l.id === 'merit_hand')!;
+const floodDepthLayer = SAMPLE_LAYERS.find(l => l.id === 'flood_depth_2024')!;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function clamp01(v: number): number { return Math.max(0, Math.min(1, v)); }
@@ -210,12 +212,14 @@ async function main() {
     const m = cell.properties.metrics;
 
     // Sample key layers in parallel
-    const [fri, hwm, hwm2030, rx1day, dw] = await Promise.all([
+    const [fri, hwm, hwm2030, rx1day, dw, hand, floodDepth] = await Promise.all([
       sampleValue(lat, lng, friLayer, 13),
       sampleValue(lat, lng, hwmLayer, 13),
       sampleValue(lat, lng, hwm2030Layer, 13),
       sampleValue(lat, lng, chirpsLayer, 13),
       sampleValue(lat, lng, dwLayer, 13),
+      sampleValue(lat, lng, handLayer, 13),
+      sampleValue(lat, lng, floodDepthLayer, 13),
     ]);
 
     m.fri_raw = fri != null ? round3(fri) : null;
@@ -223,6 +227,8 @@ async function main() {
     if (m.hwm_raw != null) m.hwm_raw = round3(m.hwm_raw);
     m.precip_rx1day = rx1day != null ? round3(rx1day) : null;
     m.dw_class = dw;
+    m.hand_m = hand != null ? round3(hand) : null;  // MERIT HAND: meters above nearest drainage
+    m.flood_depth_2024_cm = floodDepth != null && floodDepth > 0 ? round3(floodDepth) : null;
 
     // Override imperviousness from Dynamic World
     if (dw === 6) m.imperv_pct = Math.max(m.imperv_pct || 0, 0.7); // Built
@@ -245,7 +251,12 @@ async function main() {
 
   console.log(`\n=== 250m Grid Statistics ===`);
   console.log(`Total cells: ${subCells.length}`);
+  const handVals = subCells.filter(c => c.properties.metrics.hand_m != null);
+  const depthVals = subCells.filter(c => c.properties.metrics.flood_depth_2024_cm != null);
+
   console.log(`FRI coverage: ${friVals.length} (${(friVals.length / subCells.length * 100).toFixed(0)}%)`);
+  console.log(`MERIT HAND: ${handVals.length} (${(handVals.length / subCells.length * 100).toFixed(0)}%)`);
+  console.log(`Flood depth 2024: ${depthVals.length} (${(depthVals.length / subCells.length * 100).toFixed(0)}%)`);
   console.log(`Soil data: ${soilVals.length} (${(soilVals.length / subCells.length * 100).toFixed(0)}%)`);
   console.log(`Dynamic World: ${dwVals.length} (${(dwVals.length / subCells.length * 100).toFixed(0)}%)`);
   console.log(`In 2024 flood extent: ${floodCells.length} (${(floodCells.length / subCells.length * 100).toFixed(0)}%)`);
