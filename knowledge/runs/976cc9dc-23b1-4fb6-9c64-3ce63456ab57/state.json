@@ -1,0 +1,223 @@
+{
+  "id": "976cc9dc-23b1-4fb6-9c64-3ce63456ab57",
+  "projectId": "sample-project",
+  "city": "porto-alegre",
+  "phase": 0,
+  "sections": {
+    "project_id": {
+      "id": "project_id",
+      "title": "1. Identificação do Projeto",
+      "phase": 1,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "proponent": {
+      "id": "proponent",
+      "title": "2. Instituição Proponente",
+      "phase": 1,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "territorial_context": {
+      "id": "territorial_context",
+      "title": "3. Contexto Territorial",
+      "phase": 2,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "problem_diagnosis": {
+      "id": "problem_diagnosis",
+      "title": "4. Diagnóstico do Problema",
+      "phase": 2,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "general_objective": {
+      "id": "general_objective",
+      "title": "5. Objetivo Geral do Projeto",
+      "phase": 2,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "specific_objectives": {
+      "id": "specific_objectives",
+      "title": "6. Objetivos Específicos",
+      "phase": 3,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "indicators": {
+      "id": "indicators",
+      "title": "7. Indicadores Físico-Operacionais",
+      "phase": 3,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "solution_description": {
+      "id": "solution_description",
+      "title": "8. Descrição da Solução Proposta",
+      "phase": 3,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "climate_benefits": {
+      "id": "climate_benefits",
+      "title": "9. Benefícios Climáticos",
+      "phase": 4,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "economic_social_benefits": {
+      "id": "economic_social_benefits",
+      "title": "10. Benefícios Econômicos e Sociais",
+      "phase": 4,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "inclusive_action": {
+      "id": "inclusive_action",
+      "title": "11. Ação Climática Inclusiva",
+      "phase": 4,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "institutional_arrangement": {
+      "id": "institutional_arrangement",
+      "title": "12. Arranjo Institucional",
+      "phase": 5,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "technical_capacity": {
+      "id": "technical_capacity",
+      "title": "13. Capacidade Técnica",
+      "phase": 5,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "political_support": {
+      "id": "political_support",
+      "title": "14. Apoio e Alinhamento Político",
+      "phase": 5,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "plan_alignment": {
+      "id": "plan_alignment",
+      "title": "15. Alinhamento com Planos",
+      "phase": 5,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "cost_detail": {
+      "id": "cost_detail",
+      "title": "16. Detalhamento dos Custos",
+      "phase": 6,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "financial_sustainability": {
+      "id": "financial_sustainability",
+      "title": "17. Disponibilidade de Recursos",
+      "phase": 6,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "financing_need": {
+      "id": "financing_need",
+      "title": "18. Necessidade de Financiamento",
+      "phase": 6,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "risk_analysis": {
+      "id": "risk_analysis",
+      "title": "19. Análise e Mitigação de Riscos",
+      "phase": 7,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "replicability": {
+      "id": "replicability",
+      "title": "20. Replicabilidade e Escalabilidade",
+      "phase": 7,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "technical_assistance": {
+      "id": "technical_assistance",
+      "title": "21. Demanda por Assistência Técnica",
+      "phase": 8,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "contact": {
+      "id": "contact",
+      "title": "22. Contato e Ponto Focal",
+      "phase": 8,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "supplementary": {
+      "id": "supplementary",
+      "title": "23. Informações Complementares",
+      "phase": 8,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    }
+  },
+  "gaps": [],
+  "editLog": [],
+  "metadata": {
+    "createdAt": "2026-04-06T12:58:21.184Z",
+    "updatedAt": "2026-04-06T12:58:21.184Z",
+    "projectName": "",
+    "proponentType": ""
+  }
+}

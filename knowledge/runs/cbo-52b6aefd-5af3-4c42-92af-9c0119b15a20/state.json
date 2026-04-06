@@ -1,0 +1,63 @@
+{
+  "id": "52b6aefd-5af3-4c42-92af-9c0119b15a20",
+  "orgName": "",
+  "city": "porto-alegre",
+  "phase": 0,
+  "sections": {
+    "org_profile": {
+      "id": "org_profile",
+      "title": "1. Who We Are",
+      "phase": 1,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "intervention_site": {
+      "id": "intervention_site",
+      "title": "2. Where We Work",
+      "phase": 2,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "intervention_plan": {
+      "id": "intervention_plan",
+      "title": "3. What We're Doing",
+      "phase": 3,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "needs_assessment": {
+      "id": "needs_assessment",
+      "title": "4. What We Need",
+      "phase": 4,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "results_evidence": {
+      "id": "results_evidence",
+      "title": "5. Results & Evidence",
+      "phase": 5,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    }
+  },
+  "gaps": [],
+  "maturityScores": [],
+  "priorityFlags": [],
+  "totalMaturityScore": 0,
+  "editLog": [],
+  "uploadedFiles": [],
+  "metadata": {
+    "createdAt": "2026-04-06T12:58:30.231Z",
+    "updatedAt": "2026-04-06T12:58:30.231Z"
+  }
+}
