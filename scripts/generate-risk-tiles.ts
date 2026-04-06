@@ -230,15 +230,20 @@ for (const layer of layers) {
   console.log(`  ${layer.name}: ${totalTiles} value tiles`);
 }
 
-// ── COMPOSITE HOTSPOT LAYER — additive RGB glow ──────────────────────────────
-// Red = heat, Blue = flood, Green component from landslide (amber = R+G)
-// Overlaps blend naturally: flood+heat = purple, all three = white
-// Alpha proportional to max risk — safe areas are transparent
+// ── COMPOSITE HOTSPOT LAYER — "islands of risk" with exponential falloff ──────
+// Only shows TRUE hotspots as glowing islands. Water excluded.
+// Exponential alpha: only the peaks are visible, medium risk fades fast.
+// Red = heat, Blue = flood, Amber (R+G) = landslide.
 
 console.log('\nGenerating composite hotspot tiles...');
 
 let compositeTotal = 0;
-const RISK_THRESHOLD = 0.15; // Below this, pixel is transparent
+
+// Per-risk thresholds — only show the top percentiles as hotspots
+const FLOOD_THRESH = 0.45;     // Top ~27% of non-water cells
+const HEAT_THRESH = 0.45;      // Top ~39% — heat clusters in urban core
+const LANDSLIDE_THRESH = 0.25; // Top ~30% — steep hillside zones
+const EXPONENT = 2.0;          // Exponential falloff — 2.0 for visible islands
 
 for (const z of ZOOM_LEVELS) {
   const tileGroups = new Map<string, CellPosition[]>();
@@ -262,24 +267,28 @@ for (const z of ZOOM_LEVELS) {
     }
 
     for (const pos of positions) {
+      // Skip water cells — no risk over water
+      if (pos.metrics.dw_class === 0) continue;
+
       const flood = pos.metrics.flood_score ?? 0;
       const heat = pos.metrics.heat_score ?? 0;
       const landslide = pos.metrics.landslide_score ?? 0;
-      const maxRisk = Math.max(flood, heat, landslide);
 
-      if (maxRisk < RISK_THRESHOLD) continue;
+      // Apply per-risk thresholds — only values above threshold contribute
+      const floodAbove = flood > FLOOD_THRESH ? (flood - FLOOD_THRESH) / (1 - FLOOD_THRESH) : 0;
+      const heatAbove = heat > HEAT_THRESH ? (heat - HEAT_THRESH) / (1 - HEAT_THRESH) : 0;
+      const landslideAbove = landslide > LANDSLIDE_THRESH ? (landslide - LANDSLIDE_THRESH) / (1 - LANDSLIDE_THRESH) : 0;
 
-      // Additive color channels:
-      // Red = heat (+ landslide amber component)
-      // Green = landslide amber component (R+G = amber)
-      // Blue = flood
-      const r = Math.min(255, Math.round(heat * 255 + landslide * 200));
-      const g = Math.min(255, Math.round(landslide * 180));
-      const b = Math.min(255, Math.round(flood * 255));
+      const maxAbove = Math.max(floodAbove, heatAbove, landslideAbove);
+      if (maxAbove <= 0) continue; // Nothing above any threshold
 
-      // Alpha: stronger glow for higher risk, fade in from threshold
-      const intensity = (maxRisk - RISK_THRESHOLD) / (1 - RISK_THRESHOLD);
-      const a = Math.min(220, Math.round(intensity * 250));
+      // Color channels — only from above-threshold values
+      const r = Math.min(255, Math.round(heatAbove * 255 + landslideAbove * 200));
+      const g = Math.min(255, Math.round(landslideAbove * 180));
+      const b = Math.min(255, Math.round(floodAbove * 255));
+
+      // Exponential alpha: pow(intensity, 2.5) — sharp peaks, fast falloff
+      const a = Math.min(220, Math.round(Math.pow(maxAbove, EXPONENT) * 255));
 
       const half = Math.floor(pos.cellSizePx / 2);
       // Add a 1px soft edge for glow effect at higher zooms
