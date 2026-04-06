@@ -41,7 +41,10 @@ export async function fetchTilePixels(tileUrl: string): Promise<ImageData | null
   if (tileCache.has(tileUrl)) return tileCache.get(tileUrl)!;
   if (pendingTiles.has(tileUrl)) return pendingTiles.get(tileUrl)!;
 
-  const proxyUrl = `/api/geospatial/proxy-tile?url=${encodeURIComponent(tileUrl)}`;
+  // Local tiles (starting with /) don't need the S3 proxy
+  const proxyUrl = tileUrl.startsWith('/')
+    ? tileUrl
+    : `/api/geospatial/proxy-tile?url=${encodeURIComponent(tileUrl)}`;
 
   const promise = new Promise<ImageData | null>((resolve) => {
     const img = new Image();

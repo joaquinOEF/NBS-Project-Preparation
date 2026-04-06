@@ -157,5 +157,79 @@ for (const layer of layers) {
   console.log(`  ${layer.name}: ${totalTiles} tiles across z${ZOOM_LEVELS[0]}-${ZOOM_LEVELS[ZOOM_LEVELS.length - 1]}`);
 }
 
-console.log('\n✓ Tile pyramids generated in client/public/tiles/');
-console.log('  Use in Leaflet: L.tileLayer("/tiles/{layer}/{z}/{x}/{y}.png")');
+// ── VALUE TILES — encode scores as RGB for programmatic decoding ──────────────
+// Encoding: raw = score * 1000 (0.423 → 423)
+//   R = raw % 256, G = floor(raw / 256), B = 0
+//   Alpha = 255 (data) or 0 (nodata)
+// Decode formula: value = (R + 256*G + 65536*B + 0) / 1000
+// This matches the OEF ValueTileEncoding interface with scale=1000, offset=0
+
+console.log('\nGenerating value tiles...');
+
+for (const layer of layers) {
+  let totalTiles = 0;
+
+  for (const z of ZOOM_LEVELS) {
+    const tileGroups = new Map<string, CellPosition[]>();
+    const n = Math.pow(2, z);
+    const degreesPerPixel = 360 / (n * 256);
+    const cellDegrees = gridData.cellSizeMeters / 111000;
+    const cellSizePx = Math.max(1, Math.round(cellDegrees / degreesPerPixel));
+
+    for (const cell of cells) {
+      const [lng, lat] = cell.properties.centroid;
+      const { x, y, px, py } = latLngToTileXY(lat, lng, z);
+      const key = `${z}/${x}/${y}`;
+      if (!tileGroups.has(key)) tileGroups.set(key, []);
+      tileGroups.get(key)!.push({ tileKey: key, px, py, metrics: cell.properties.metrics, cellSizePx });
+    }
+
+    for (const [key, positions] of tileGroups) {
+      const png = new PNG({ width: 256, height: 256 });
+      // Transparent = nodata
+      for (let i = 0; i < png.data.length; i += 4) {
+        png.data[i] = 0; png.data[i + 1] = 0; png.data[i + 2] = 0; png.data[i + 3] = 0;
+      }
+
+      for (const pos of positions) {
+        const score = pos.metrics[layer.scoreKey] ?? 0;
+        if (score <= 0) continue;
+
+        // Encode: score * 1000 → R + 256*G
+        const raw = Math.round(score * 1000);
+        const r = raw % 256;
+        const g = Math.floor(raw / 256) % 256;
+        const b = 0;
+
+        const half = Math.floor(pos.cellSizePx / 2);
+        for (let dy = -half; dy <= half; dy++) {
+          for (let dx = -half; dx <= half; dx++) {
+            const px = pos.px + dx;
+            const py = pos.py + dy;
+            if (px >= 0 && px < 256 && py >= 0 && py < 256) {
+              const idx = (py * 256 + px) * 4;
+              if (png.data[idx + 3] === 0) { // Don't overwrite
+                png.data[idx] = r;
+                png.data[idx + 1] = g;
+                png.data[idx + 2] = b;
+                png.data[idx + 3] = 255; // data present
+              }
+            }
+          }
+        }
+      }
+
+      const [, tileX, tileY] = key.split('/');
+      const dir = `client/public/tiles_values/${layer.name}/${z}/${tileX}`;
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(`${dir}/${tileY}.png`, PNG.sync.write(png));
+      totalTiles++;
+    }
+  }
+
+  console.log(`  ${layer.name}: ${totalTiles} value tiles`);
+}
+
+console.log('\n✓ Visual tiles: client/public/tiles/{layer}/{z}/{x}/{y}.png');
+console.log('✓ Value tiles:  client/public/tiles_values/{layer}/{z}/{x}/{y}.png');
+console.log('  Decode: value = (R + 256*G) / 1000 (scale=1000, offset=0)');
