@@ -37,6 +37,35 @@ export interface TileLayerDef {
   valueEncoding?: ValueTileEncoding;
 }
 
+// Pre-rendered risk analysis layers (250m grid, generated locally)
+// Visual tiles: client/public/tiles/{name}/{z}/{x}/{y}.png
+// Value tiles:  client/public/tiles_values/{name}/{z}/{x}/{y}.png
+// Decode: value = (R + 256*G) / 1000 (scale=1000, offset=0, unit="index 0–1")
+export const LOCAL_RISK_LAYERS: TileLayerDef[] = [
+  {
+    id: 'risk_flood_250m', name: 'Flood Risk (250m)', group: 'risk_analysis', color: '#1d4ed8',
+    tileLayerId: '_local_flood_risk', available: true, hasValueTiles: true,
+    valueEncoding: { type: 'numeric', scale: 1000, offset: 0, unit: 'index 0–1',
+      urlTemplate: '/tiles_values/flood_risk/{z}/{x}/{y}.png' },
+  },
+  {
+    id: 'risk_heat_250m', name: 'Heat Risk (250m)', group: 'risk_analysis', color: '#dc2626',
+    tileLayerId: '_local_heat_risk', available: true, hasValueTiles: true,
+    valueEncoding: { type: 'numeric', scale: 1000, offset: 0, unit: 'index 0–1',
+      urlTemplate: '/tiles_values/heat_risk/{z}/{x}/{y}.png' },
+  },
+  {
+    id: 'risk_landslide_250m', name: 'Landslide Risk (250m)', group: 'risk_analysis', color: '#a16207',
+    tileLayerId: '_local_landslide_risk', available: true, hasValueTiles: true,
+    valueEncoding: { type: 'numeric', scale: 1000, offset: 0, unit: 'index 0–1',
+      urlTemplate: '/tiles_values/landslide_risk/{z}/{x}/{y}.png' },
+  },
+  {
+    id: 'risk_composite_hotspot', name: 'Risk Hotspots (all)', group: 'risk_analysis', color: '#8b5cf6',
+    tileLayerId: '_local_composite_hotspot', available: true,
+  },
+];
+
 // Groups for the layer selector UI
 export const TILE_LAYER_GROUPS: Array<{ id: LayerGroup; label: string }> = [
   { id: 'urban_land', label: 'Land Use & Urban Form' },
@@ -257,5 +286,42 @@ export const SPATIAL_QUERIES: SpatialQueryDef[] = [
     valueKey: 'fri_value',
     tooltipLabel: 'High flood risk',
     tooltipIcon: '⚠',
+  },
+  // ── Spatial queries using local 250m risk scores (more accurate than FRI) ──
+  {
+    id: 'sq_parks_flood_250m',
+    name: 'Parks in Flood Risk > 0.4 (250m)',
+    color: '#b91c1c',
+    vectorSource: '/api/osm/parks',
+    rasterLayerId: 'risk_flood_250m',
+    threshold: 0.4,
+    comparator: '>',
+    valueKey: 'flood_risk_250m',
+    tooltipLabel: 'High flood risk (250m)',
+    tooltipIcon: '🌊',
+  },
+  {
+    id: 'sq_schools_heat_250m',
+    name: 'Schools in Heat Risk > 0.4 (250m)',
+    color: '#991b1b',
+    vectorSource: '/api/osm/schools',
+    rasterLayerId: 'risk_heat_250m',
+    threshold: 0.4,
+    comparator: '>',
+    valueKey: 'heat_risk_250m',
+    tooltipLabel: 'High heat risk (250m)',
+    tooltipIcon: '🔥',
+  },
+  {
+    id: 'sq_hospitals_flood_250m',
+    name: 'Hospitals in Flood Risk > 0.4 (250m)',
+    color: '#7f1d1d',
+    vectorSource: '/api/osm/hospitals',
+    rasterLayerId: 'risk_flood_250m',
+    threshold: 0.4,
+    comparator: '>',
+    valueKey: 'flood_risk_250m',
+    tooltipLabel: 'High flood risk (250m)',
+    tooltipIcon: '🌊',
   },
 ];
