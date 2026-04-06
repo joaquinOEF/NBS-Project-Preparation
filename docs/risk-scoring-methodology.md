@@ -172,3 +172,71 @@ Elevation range: 0–312m (mostly <50m in urban areas)
 - MERIT Hydro: Yamazaki et al. (2019) https://doi.org/10.1029/2019WR024873
 - Copernicus DEM GLO-30: https://spacedata.copernicus.eu/
 - GHSL R2023A: https://human-settlement.emergency.copernicus.eu/
+
+## Composite Hotspot Visualization
+
+### Concept
+
+The "Risk Hotspots" layer shows all three risks simultaneously as glowing islands on the map. Instead of coloring the entire city uniformly, it highlights only the TRUE danger zones — discrete neighborhood-level clusters that stand out against a clean base map.
+
+### Color Encoding
+
+| Risk | Color Channel | Example |
+|------|--------------|---------|
+| Flood | Blue | Blue glow on lakeside/river areas |
+| Heat | Red | Red glow in dense urban core |
+| Landslide | Amber (Red + Green) | Amber glow on hillsides/morros |
+| Flood + Heat | Purple/Magenta | Overlap zones |
+| Heat + Landslide | Orange | Built-up hillside areas |
+| All three | White/bright | Extreme combined risk |
+
+### Percentile Normalization
+
+Each risk type has a different absolute value range:
+- Flood: compressed (0.17–0.88, most cells between 0.35–0.50)
+- Heat: wide spread (0.00–0.90)
+- Landslide: bimodal (0 for flat areas, 0.46+ for hills)
+
+To ensure equal visual weight, thresholds and max values are computed from the distribution:
+
+```
+threshold = percentile(non_water_values, 0.75)  // Only top 25% visible
+max = percentile(non_water_values, 0.98)         // Normalization cap
+normalized = (value - threshold) / (max - threshold)  // 0→1 range
+```
+
+Current thresholds (Porto Alegre):
+- Flood: threshold=0.45, max=0.57
+- Heat: threshold=0.53, max=0.90
+- Landslide: threshold=0.45, max=0.74
+
+### Exponential Alpha Falloff
+
+```
+alpha = pow(max_normalized_risk, 2.0) * 255
+```
+
+The exponent of 2.0 means:
+- Risk at 50% of max → alpha = 25% (barely visible)
+- Risk at 75% of max → alpha = 56% (moderate)
+- Risk at 100% of max → alpha = 100% (bright)
+
+This creates sharp "island" boundaries instead of a gradual wash.
+
+### Water Exclusion
+
+Cells classified as Water (Dynamic World class 0) are transparent. This prevents the lake and rivers from showing risk, keeping the visualization focused on land areas where interventions are needed.
+
+### Tile Layers
+
+| Layer | Path | Description |
+|-------|------|-------------|
+| Visual (individual) | `/tiles/{flood,heat,landslide}_risk/{z}/{x}/{y}.png` | Color-coded risk per type |
+| Value (individual) | `/tiles_values/{flood,heat,landslide}_risk/{z}/{x}/{y}.png` | RGB-encoded scores (scale=1000) |
+| Composite hotspot | `/tiles/composite_hotspot/{z}/{x}/{y}.png` | Additive RGB glow, all risks |
+
+### UI Integration
+
+- **Top bar**: "Hotspots" toggle enables/disables the composite layer
+- **Sidebar**: Individual risk layers (Flood Risk 250m, Heat Risk 250m, Landslide Risk 250m) with hover decode
+- Grid coloring selector (Flood/Heat/Landslide) when Grid is visible
