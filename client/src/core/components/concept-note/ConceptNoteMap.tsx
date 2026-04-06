@@ -175,7 +175,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
               const interventionColor = INTERVENTION_COLORS[p.interventionType] || '#94a3b8';
               // Normalize priority to 0-1 range for opacity
               const normalizedPriority = ((p.priorityScore ?? 0) - minPriority) / priorityRange;
-              const fillOpacity = 0.08 + normalizedPriority * 0.45; // 0.08 (low) to 0.53 (high)
+              const fillOpacity = 0.05 + normalizedPriority * 0.65; // 0.05 (low) to 0.70 (high)
               return {
                 color: '#1e293b',
                 weight: 1.5,
@@ -239,7 +239,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
       } else {
         // Normal: intervention color fill if priority is on, boundary if zones is on
         const normalizedPriority = (p.priorityScore ?? 0) / 1.3; // max priority ~1.2
-        const fillOpacity = showPriority ? 0.08 + Math.min(normalizedPriority, 1) * 0.45 : 0;
+        const fillOpacity = showPriority ? 0.05 + Math.min(normalizedPriority, 1) * 0.65 : 0;
         layer.setStyle({
           color: '#1e293b',
           weight: 1.5,
@@ -730,6 +730,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-muted-foreground">
               <div>Flood: <span className="text-foreground">{(hoveredZone.meanFlood * 100).toFixed(0)}%</span></div>
               <div>Heat: <span className="text-foreground">{(hoveredZone.meanHeat * 100).toFixed(0)}%</span></div>
+              <div>Landslide: <span className="text-foreground">{(hoveredZone.meanLandslide * 100).toFixed(0)}%</span></div>
               <div>Area: <span className="text-foreground">{hoveredZone.areaKm2.toFixed(1)} km²</span></div>
               <div>Pop: <span className="text-foreground">{(hoveredZone.populationTotal ?? hoveredZone.populationSum ?? 0).toLocaleString()}</span></div>
               {hoveredZone.povertyRate != null && (
