@@ -1663,6 +1663,8 @@
     "confirm": "Confirm {{count}} selection",
     "confirm_plural": "Confirm {{count}} selections",
     "step1Zone": "Step 1: Click the zone where your intervention is located",
+    "step1Neighborhood": "Step 1: Click your neighborhood (bairro)",
+    "neighborhood": "Neighborhood",
     "step2Sites": "Step 2: Select sites within {{zone}} — click features or draw",
     "clickFeatures": "Click features to select",
     "clickSample": "Click anywhere to sample values",

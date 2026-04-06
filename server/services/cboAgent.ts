@@ -171,7 +171,7 @@ Tiles (raster): oef_fri_2024 (Flood Risk), oef_hwm_2024 (Heatwave), oef_dynamic_
 Spatial queries: sq_parks_flood, sq_schools_flood, sq_hospitals_flood, sq_wetlands_flood, sq_parks_heatwave, sq_schools_heatwave
 
 ## Recipes
-- CBO Phase 2 (Where We Work): composite + [osm_parks, osm_schools, osm_wetlands] + [oef_fri_2024, oef_hwm_2024]
+- CBO Phase 2 (Where We Work): composite + zoneSource:"neighborhoods" + [osm_parks, osm_schools, osm_wetlands] + [oef_fri_2024, oef_hwm_2024]
 - CBO Phase 3 (What We're Doing): assets + [osm_parks, osm_wetlands] + [oef_dynamic_world, oef_fri_2024]
 - Concept Note Phase 2 (Territorial Scope): zones + [] + [oef_fri_2024, oef_hwm_2024]
 - Environmental analysis: sample + [] + [oef_fri_2024, oef_hwm_2024, oef_copernicus_dem]
@@ -184,6 +184,7 @@ STOP and wait for the user's map selection after calling this tool.`,
       selectionMode: z.enum(["zones", "assets", "sample", "composite"]).describe("composite = zone first, then sites. assets = sites only. zones = zones only. sample = click-to-read-values."),
       prompt: z.string().describe("Clear instruction for the user, e.g. 'Select the zone where you work, then pick the parks and schools you are targeting'"),
       sampleLayers: z.array(z.string()).optional().describe("For sample mode: which tile layers to sample on click"),
+      zoneSource: z.enum(["intervention_zones", "neighborhoods"]).optional().describe("For composite mode step 1: 'neighborhoods' shows bairros with census data (population, poverty). Default: intervention_zones."),
     },
     async (args: any) => {
       pushEvent({
@@ -195,6 +196,7 @@ STOP and wait for the user's map selection after calling this tool.`,
           selectionMode: args.selectionMode,
           prompt: args.prompt,
           sampleLayers: args.sampleLayers,
+          zoneSource: args.zoneSource,
         },
       });
       return { content: [{ type: "text" as const, text: `Map opened in "${args.selectionMode}" mode. STOP and wait for selection.` }] };
@@ -441,7 +443,7 @@ Phase: ${state.phase}. Organization: ${state.orgName || '(not set)'}.
 1. **update_section** — fill document fields (org_profile, intervention_site, intervention_plan, needs_assessment, results_evidence)
 2. **ask_user** — present multiple-choice questions for non-spatial decisions
 3. **open_map** — open interactive map microapp. Use for ALL spatial/site questions instead of ask_user.
-   - Phase 2 (Where We Work): open_map({ selectionMode: "composite", layers: ["osm_parks", "osm_schools", "osm_wetlands"], tileLayers: ["oef_fri_2024", "oef_hwm_2024"], prompt: "Select the zone where you work, then pick the specific sites you're targeting" })
+   - Phase 2 (Where We Work): open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks", "osm_schools", "osm_wetlands"], tileLayers: ["oef_fri_2024", "oef_hwm_2024"], prompt: "Select your neighborhood, then pick the parks, schools, or sites you're targeting" })
    - Phase 3 (What intervention): open_map({ selectionMode: "assets", layers: ["osm_parks", "osm_wetlands"], tileLayers: ["oef_dynamic_world", "oef_fri_2024"], prompt: "Select the green spaces or wetlands your NBS will transform" })
    - Evidence check: open_map({ selectionMode: "sample", tileLayers: ["oef_fri_2024", "oef_hwm_2024", "oef_copernicus_dem"], prompt: "Click locations to check climate risk values" })
 4. **set_phase** — advance phases (1-6)
