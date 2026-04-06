@@ -107,7 +107,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const gridLayerRef = useRef<L.GeoJSON | null>(null);
   const zonesLayerRef = useRef<L.GeoJSON | null>(null);
-  const zonesGroupRef = useRef<L.LayerGroup | null>(null); // contains zones + labels as one unit
+  const zoneLabelMarkersRef = useRef<L.Marker[]>([]);
 
   const [selectedZones, setSelectedZones] = useState<Set<string>>(new Set());
   const [zoneData, setZoneData] = useState<ZoneProperties[]>([]);
@@ -196,10 +196,11 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
           gridLayerRef.current = gridLayer;
         }
 
-        // Zones — outlined, clickable, wrapped in a single layer group for clean toggle
+        // Zones — outlined, clickable
+        // Labels tracked separately for clean toggle
         setZoneData(zonesData.zones || []);
         if (zonesData.geoJson) {
-          const zonesGroup = L.layerGroup();
+          const labels: L.Marker[] = [];
           const zonesLayer = L.geoJSON(zonesData.geoJson, {
             style: () => ({
               color: '#1e293b',
@@ -212,17 +213,17 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
               const props = feature.properties as ZoneProperties;
               if (!props?.zoneId) return;
 
-              // Zone label — added to group, not directly to map
+              // Zone label — collect now, add to map after
               const center = (layer as any).getBounds?.()?.getCenter?.();
               if (center) {
-                L.marker(center, {
+                labels.push(L.marker(center, {
                   icon: L.divIcon({
                     className: 'zone-label',
                     html: `<div style="background:white;border:1px solid #cbd5e1;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,0.1)">${props.zoneId.replace('zone_', 'Z')}</div>`,
                     iconSize: [0, 0],
                     iconAnchor: [20, 10],
                   }),
-                }).addTo(zonesGroup);
+                }));
               }
 
               layer.on({
@@ -244,10 +245,11 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
               });
             },
           });
-          zonesLayer.addTo(zonesGroup);
-          zonesGroup.addTo(map);
+          zonesLayer.addTo(map);
           zonesLayerRef.current = zonesLayer;
-          zonesGroupRef.current = zonesGroup;
+          // Add labels to map and track them
+          for (const m of labels) m.addTo(map);
+          zoneLabelMarkersRef.current = labels;
         }
       } catch (e) {
         console.error('[map] Load error:', e);
@@ -272,15 +274,19 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
     });
   }, [activeLayer, showGrid]);
 
-  // Toggle entire zones group (polygons + labels) on/off the map
+  // Toggle zones: remove/add BOTH the GeoJSON layer AND label markers individually
   useEffect(() => {
     const map = mapRef.current;
-    const group = zonesGroupRef.current;
-    if (!map || !group) return;
+    if (!map) return;
+    const zl = zonesLayerRef.current;
+    const labels = zoneLabelMarkersRef.current;
+
     if (showZones) {
-      if (!map.hasLayer(group)) group.addTo(map);
+      if (zl && !map.hasLayer(zl)) zl.addTo(map);
+      for (const m of labels) { if (!map.hasLayer(m)) m.addTo(map); }
     } else {
-      if (map.hasLayer(group)) map.removeLayer(group);
+      if (zl && map.hasLayer(zl)) map.removeLayer(zl);
+      for (const m of labels) { if (map.hasLayer(m)) map.removeLayer(m); }
     }
   }, [showZones]);
 
