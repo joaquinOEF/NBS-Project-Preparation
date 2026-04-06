@@ -38,6 +38,7 @@ export interface LayerEncoding {
   unit?: string;
   urlTemplate: string;
   classes?: Record<number, string>;
+  channel?: 'rgb' | 'r' | 'g' | 'b'; // Which channel(s) to decode (default: rgb = R+256G+65536B)
 }
 
 const vtUrl = (path: string) => `${S3_BASE}/${path}/tiles_values/{z}/{x}/{y}.png`;
@@ -62,7 +63,19 @@ export const SAMPLE_LAYERS: LayerEncoding[] = [
     urlTemplate: vtUrl('dynamic_world/release/v1/2023/porto_alegre'),
     classes: { 0: 'Water', 1: 'Trees', 2: 'Grass', 3: 'Flooded veg', 4: 'Crops', 5: 'Shrub', 6: 'Built', 7: 'Bare', 8: 'Snow' } },
 
-  // Future projections for comparison
+  // MERIT Hydro — critical for flood modeling
+  { id: 'merit_hand', name: 'MERIT HAND (m above drainage)', type: 'numeric', scale: 1, offset: 0, unit: 'm',
+    urlTemplate: vtUrl('merit_hydro/release/v1/porto_alegre/hnd') },
+  { id: 'merit_elv', name: 'MERIT Elevation', type: 'numeric', scale: 100, offset: 0, unit: 'm',
+    urlTemplate: vtUrl('merit_hydro/release/v1/porto_alegre/elv') },
+  { id: 'merit_upa', name: 'MERIT Upstream Area', type: 'numeric', scale: 1, offset: 0, unit: 'cells',
+    urlTemplate: vtUrl('merit_hydro/release/v1/porto_alegre/upa') },
+
+  // Copernicus 2024 flood depth (encoded in B channel)
+  { id: 'flood_depth_2024', name: '2024 Flood Depth (Copernicus)', type: 'numeric', scale: 1, offset: 0, unit: 'cm',
+    urlTemplate: vtUrl('copernicus_emsn194/release/v1/2024/porto_alegre'), channel: 'b' },
+
+  // Future projections
   { id: 'fri_2050s_585', name: 'FRI 2050s SSP5-8.5', type: 'numeric', scale: 100, offset: 0, unit: 'index 0–1',
     urlTemplate: vtUrl('nbs/porto_alegre/climate_hazards/floods/flood_risk_index/oef_calculation/2050s_ssp585') },
   { id: 'hwm_2030s_245', name: 'HWM 2030s SSP2-4.5', type: 'numeric', scale: 100, offset: 1035, unit: '°C·days',
@@ -133,7 +146,14 @@ export async function sampleValue(
 
   if (layer.type === 'categorical') return r;
 
-  const raw = r + 256 * g + 65536 * b;
+  // Channel selection
+  let raw: number;
+  switch (layer.channel) {
+    case 'r': raw = r; break;
+    case 'g': raw = g; break;
+    case 'b': raw = b; break;
+    default: raw = r + 256 * g + 65536 * b; break;
+  }
   const scale = layer.scale ?? 100;
   const offset = layer.offset ?? 0;
   const value = (raw + offset) / scale;
