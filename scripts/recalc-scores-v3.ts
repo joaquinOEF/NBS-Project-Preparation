@@ -107,11 +107,11 @@ for (const cell of gridData.geoJson.features) {
     0.10 * flatness
   );
 
-  // Location factors
-  const distToLake = Math.max(0, lng - LAKE_WEST_BOUNDARY) / 0.10;
+  // Location factors — original ranges preserved for recall, weight reduced to avoid inflation
+  const distToLake = Math.max(0, lng - LAKE_WEST_BOUNDARY) / 0.10; // 11km
   const lakesideRisk = Math.max(0, 1 - distToLake);
   const distToDelta = Math.sqrt(Math.pow((lng - DELTA_CENTER_LNG) * 111, 2) + Math.pow((lat - DELTA_CENTER_LAT) * 111, 2));
-  const deltaRisk = Math.max(0, 1 - distToDelta / 20);
+  const deltaRisk = Math.max(0, 1 - distToDelta / 20); // 20km
   const lowElevRisk = elevation < 40 ? Math.max(0, 1 - (elevation - 20) / 30) : 0;
   const locationFlood = 0.40 * lakesideRisk + 0.35 * lowElevRisk + 0.25 * deltaRisk;
 
@@ -121,9 +121,9 @@ for (const cell of gridData.geoJson.features) {
   let floodScore: number;
   if (friNorm != null) {
     floodScore = clamp01((
-      0.50 * friNorm +           // Satellite-calibrated foundation (dominant)
+      0.55 * friNorm +           // Satellite-calibrated foundation (dominant)
       0.15 * physicalFlood +     // Local terrain/hydrology
-      0.25 * locationFlood +     // Porto Alegre geography (lake, delta, low elevation)
+      0.20 * locationFlood +     // Porto Alegre geography
       0.10 * runoffPotential     // Soil permeability
     ) * soilAmplifier);
   } else {
