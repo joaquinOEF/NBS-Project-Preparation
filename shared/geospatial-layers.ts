@@ -37,6 +37,14 @@ export interface TileLayerDef {
   valueEncoding?: ValueTileEncoding;
 }
 
+// Pre-rendered risk analysis layers (250m grid, generated locally)
+// These are served from client/public/tiles/ — NOT from S3
+export const LOCAL_RISK_LAYERS: TileLayerDef[] = [
+  { id: 'risk_flood_250m', name: 'Flood Risk (250m)', group: 'risk_analysis', color: '#1d4ed8', tileLayerId: '_local_flood_risk', available: true },
+  { id: 'risk_heat_250m', name: 'Heat Risk (250m)', group: 'risk_analysis', color: '#dc2626', tileLayerId: '_local_heat_risk', available: true },
+  { id: 'risk_landslide_250m', name: 'Landslide Risk (250m)', group: 'risk_analysis', color: '#a16207', tileLayerId: '_local_landslide_risk', available: true },
+];
+
 // Groups for the layer selector UI
 export const TILE_LAYER_GROUPS: Array<{ id: LayerGroup; label: string }> = [
   { id: 'urban_land', label: 'Land Use & Urban Form' },

@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Check, MapPin, Layers, X, BarChart3, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
-import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, type TileLayerDef } from '@shared/geospatial-layers';
+import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, type TileLayerDef } from '@shared/geospatial-layers';
 import ValueTooltip from './ValueTooltip';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
 
@@ -322,12 +322,16 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
       }
       setEnabledTileLayers(prev => { const next = new Set(prev); next.delete(layerDef.id); return next; });
     } else {
-      // Add to map
-      const tl = L.tileLayer(`/api/geospatial/tiles/${layerDef.tileLayerId}/{z}/{x}/{y}.png`, {
+      // Add to map — local risk tiles use /tiles/ path, S3 tiles use proxy
+      const isLocal = layerDef.tileLayerId.startsWith('_local_');
+      const urlTemplate = isLocal
+        ? `/tiles/${layerDef.tileLayerId.replace('_local_', '')}/{z}/{x}/{y}.png`
+        : `/api/geospatial/tiles/${layerDef.tileLayerId}/{z}/{x}/{y}.png`;
+      const tl = L.tileLayer(urlTemplate, {
         opacity: 0.7,
-        maxNativeZoom: 15,
+        maxNativeZoom: isLocal ? 14 : 15,
         maxZoom: 19,
-        minZoom: 8,
+        minZoom: isLocal ? 10 : 8,
         errorTileUrl: '',
       });
       tl.addTo(map);
@@ -542,6 +546,37 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
               <Layers className="w-3 h-3" /> Evidence Layers
             </p>
             <p className="text-[9px] text-muted-foreground">{TILE_LAYERS.filter(l => l.available).length} layers available</p>
+          </div>
+          {/* Risk Analysis (250m pre-rendered tiles) */}
+          <div className="border-b">
+            <button onClick={() => toggleGroup('risk_analysis')}
+              className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-muted/50 transition-colors">
+              <span className="text-[10px] font-medium">Risk Analysis (250m)</span>
+              <div className="flex items-center gap-1">
+                {LOCAL_RISK_LAYERS.filter(l => enabledTileLayers.has(l.id)).length > 0 && (
+                  <span className="text-[9px] bg-primary/10 text-primary px-1 rounded">
+                    {LOCAL_RISK_LAYERS.filter(l => enabledTileLayers.has(l.id)).length}
+                  </span>
+                )}
+                {expandedGroups.has('risk_analysis') ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              </div>
+            </button>
+            {expandedGroups.has('risk_analysis') && (
+              <div className="px-1 pb-1 space-y-0.5">
+                {LOCAL_RISK_LAYERS.map(layer => {
+                  const isOn = enabledTileLayers.has(layer.id);
+                  return (
+                    <button key={layer.id} onClick={() => toggleTileLayer(layer)}
+                      className={`w-full text-left px-1.5 py-1 rounded text-[10px] flex items-center gap-1.5 transition-all ${
+                        isOn ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'
+                      }`}>
+                      <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: isOn ? layer.color : '#d1d5db' }} />
+                      <span className="truncate">{layer.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
           {TILE_LAYER_GROUPS.map(group => {
             const groupLayers = TILE_LAYERS.filter(l => l.group === group.id && l.available);
