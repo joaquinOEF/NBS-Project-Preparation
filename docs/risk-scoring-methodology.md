@@ -2,241 +2,235 @@
 
 ## Overview
 
-The NBS Project Preparation platform calculates three climate risk scores (flood, heat, landslide) for each grid cell covering Porto Alegre, Brazil. Version 2 integrates OEF's pre-computed satellite indices with high-resolution local terrain and land-use data.
+The NBS Project Preparation platform calculates three climate risk scores (flood, heat, landslide) for each 250m grid cell covering Porto Alegre, Brazil. Version 3 integrates OEF's pre-computed satellite indices with high-resolution local terrain, land-use, and soil data, validated against the May 2024 observed flood extent.
+
+**Grid**: 16,576 cells at 250m resolution
+**Validation**: Flood F1 = 68% against 2024 disaster (P=54%, R=91%)
 
 ## Data Sources
 
-### Satellite-Derived Indices (sampled from S3 tile layers)
+### Satellite/Raster (sampled from S3 at z=13)
 
 | Source | Resolution | What It Provides | Used In |
 |--------|-----------|-----------------|---------|
-| **OEF Flood Risk Index (FRI) 2024** | ~90m | Calibrated flood susceptibility index (0–1) derived from MERIT DEM, precipitation, hydrology | Flood score (55% weight) |
-| **OEF Heatwave Magnitude (HWM) 2024** | ~9km (ERA5) | Cumulative °C·days above heatwave threshold | Heat score (regional multiplier) |
-| **CHIRPS Rx1day 2024** | ~5km | Maximum 1-day precipitation intensity (mm) | Landslide trigger factor |
-| **Dynamic World 2023** | 10m | Land use classification (9 classes: Water, Trees, Grass, Built, etc.) | All scores (imperviousness, vegetation) |
+| **OEF Flood Risk Index (FRI) 2024** | ~90m | Calibrated flood susceptibility (0–1) | Flood (50% weight) |
+| **OEF Heatwave Magnitude (HWM) 2024** | ~9km | °C·days above heatwave threshold | Heat (regional multiplier) |
+| **CHIRPS Rx1day 2024** | ~5km | Max 1-day precipitation (mm) | Landslide trigger |
+| **Dynamic World 2023** | 10m | Land use (9 classes) | All scores |
 
-### Local GeoJSON Data (pre-processed)
+### Local/Processed
 
 | Source | Resolution | What It Provides | Used In |
 |--------|-----------|-----------------|---------|
-| **Copernicus DEM** | 30m | Elevation, slope (via contour lines) | Flood (low-lying), Landslide (slope) |
-| **OSM Rivers** | Vector | Distance to nearest waterway | Flood (river proximity) |
-| **OSM Surface Water** | Vector | Distance to lakes/wetlands | Flood (water proximity), Heat (cooling) |
-| **GHSL Built-Up** | 30m | Building density per cell | Heat (UHI dominant factor) |
+| **SoilGrids (ISRIC WCS)** | 250m | Clay/sand → soil permeability | Flood (runoff potential) |
+| **Copernicus DEM contours** | 30m | Elevation, slope | Flood (low-lying), Landslide (slope) |
+| **2024 Flood Extent (Planet SkySat)** | ~3m | 197 observed flood polygons | Validation ground truth |
+| **OSM Rivers/Water** | Vector | Distance to waterways | Flood (proximity) |
+| **GHSL Built-Up** | 30m | Building density | Heat (UHI dominant) |
 | **WorldPop** | 100m | Population density | Heat (human heat generation) |
-| **OSM Forest** | Vector | Forest/canopy coverage | Heat (cooling), Landslide (root cohesion) |
-| **ESA WorldCover** | 10m | Land cover classification | Flood (imperviousness), Heat (green deficit) |
-
-### Data Processing Pipeline
-
-```
-Step 1: generate-sample-grid.ts
-  Input: GeoJSON layers (elevation, rivers, water, landcover, forest, population, buildings)
-  Process: Create 1km² grid, compute 28 metrics per cell via spatial intersection
-  Output: porto-alegre-grid.json (1,036 cells)
-
-Step 2: recalc-scores-v2.ts
-  Input: porto-alegre-grid.json + S3 value tiles (FRI, HWM, CHIRPS, Dynamic World)
-  Process: Sample raster tiles at each cell centroid (z=11), combine with local metrics
-  Output: Updated porto-alegre-grid.json with enhanced flood/heat/landslide scores
-
-Step 3: render-risk-maps.ts (validation)
-  Input: porto-alegre-grid.json
-  Process: Render color-coded PNG maps for visual inspection
-  Output: scripts/output/*.png
-```
 
 ## Score Formulas
 
-### Flood Score v2
+### Flood Score v3
 
-**Foundation**: OEF's Flood Risk Index (FRI) — a calibrated composite index that accounts for precipitation, terrain, and hydrology at ~90m resolution.
-
-**Enhancement**: Local factors add urban-scale detail that the FRI's climate-grid resolution misses.
+**Foundation**: OEF's FRI — calibrated composite index at ~90m.
+**Enhancement**: local hydrology + Porto Alegre geography + soil permeability.
 
 ```
-FRI_normalized = FRI_value / FRI_max   (normalize to 0–1 using city max)
+FRI_normalized = FRI_value / FRI_max
 
 physical_flood = (
-  0.25 × flow_accumulation +    // D8 flow concentration (contour-derived)
-  0.20 × depression_pct +       // Topographic depressions (pooling areas)
-  0.20 × river_proximity +      // Percentile distance to rivers
-  0.15 × low_lying_pct +        // Low elevation percentile
-  0.10 × water_proximity +      // Distance to lakes/wetlands
-  0.10 × flatness               // Slope inversion (flat = higher risk)
+  0.25 × flow_accumulation +
+  0.20 × depression_pct +
+  0.20 × river_proximity +
+  0.15 × low_lying_pct +
+  0.10 × water_proximity +
+  0.10 × flatness
 )
 
 location_flood = (
-  0.40 × lakeside_risk +        // Proximity to Lake Guaíba (-51.23° W)
+  0.40 × lakeside_risk +        // Proximity to Lake Guaíba
   0.35 × low_elevation_risk +   // Absolute elevation < 40m
-  0.25 × delta_risk             // Proximity to 4-river confluence
+  0.25 × delta_risk             // 4-river confluence zone
 )
+
+soil_amplifier = 1 + (runoff_potential × 0.2)  // Clay soil = more runoff
 
 flood_score = clamp(0, 1,
-  0.55 × FRI_normalized +       // Satellite-calibrated foundation
-  0.25 × physical_flood +       // Local terrain/hydrology
-  0.20 × location_flood         // Porto Alegre-specific geography
+  (0.50 × FRI_normalized +
+   0.20 × physical_flood +
+   0.25 × location_flood +
+   0.10 × runoff_potential) × soil_amplifier
 )
+
+// Water cells: only deep open lake suppressed (no FRI, far from shore)
+// Flood-expanded water keeps its score — it IS the flood zone
 ```
 
-**Correlation with FRI**: r = 0.898 (865 cells with FRI coverage)
+**Validation**: F1 = 68% at threshold 0.40 (P=54%, R=91%) against May 2024 flood extent.
 
-### Heat Score v2
+### Heat Score v3
 
-**Foundation**: HWM (Heatwave Magnitude) has minimal spatial variation within a single city (~11 °C·days everywhere in Porto Alegre). It serves as a regional climate multiplier, not a local discriminator.
+**Foundation**: HWM has minimal within-city variation (~11 °C·days everywhere). Serves as regional multiplier (0.8–1.2×), not local discriminator.
 
-**Primary driver**: Urban Heat Island (UHI) factors derived from high-resolution land use and building data.
+**Primary driver**: Urban Heat Island factors from building density and vegetation.
 
 ```
 UHI_factor = (
-  0.40 × building_density +     // GHSL built-up surface (dominant)
-  0.30 × vegetation_deficit +   // 1 - max(canopy, green_pct)
-  0.15 × imperviousness +       // DW-enhanced impervious surface
-  0.10 × population_density +   // WorldPop normalized
-  0.05 × water_cooling_deficit  // 1 - water proximity cooling
+  0.40 × building_density +
+  0.30 × vegetation_deficit +   // 1 - max(canopy, green)
+  0.15 × imperviousness +       // DW-enhanced
+  0.10 × population_density +
+  0.05 × water_cooling_deficit
 )
 
-HWM_multiplier = 0.8 + (clamp(HWM / 15) × 0.4)   // Range: 0.8–1.2
+HWM_multiplier = 0.8 + (clamp(HWM / 15) × 0.4)
 
 heat_score = UHI_factor × HWM_multiplier
 
-// Adjustments:
-// - Vegetated areas (DW class 1,2,3,5) with vegetation > 50%: score × 0.5
-// - Water bodies (DW class 0): score = 0
-// - Cap at 0.90 (reserve 1.0 for extreme cases)
+// Vegetated areas (DW trees/grass/shrub) with vegetation > 50%: × 0.5
+// Water bodies (DW class 0): score = 0
+// Capped at 0.90
 ```
 
-### Landslide Score v2
+### Landslide Score v3
 
-**No pre-computed satellite index available.** Uses terrain-based approach with precipitation trigger.
+**No pre-computed index.** Terrain-based with geotechnical best-practice thresholds.
+
+**Slope thresholds** (geotechnical engineering standards):
+- **< 15°**: generally stable — no risk
+- **15–25°**: moderate susceptibility
+- **25–35°**: high susceptibility
+- **> 35°**: very high susceptibility
 
 ```
-slope_risk = slope ≥ 5° ? clamp((slope - 3) / 12) : 0
-  // Zero below 5°. Linear from 5° to 15°. Capped at 1.0.
+slope_risk = slope ≥ 15° ? clamp((slope - 15) / 20) : 0
+  // Zero below 15°. Linear 15°→35°. Capped at 1.0.
 
 precip_trigger = clamp((CHIRPS_Rx1day - 40) / 80)
-  // Activates above 40mm/day. Saturates at 120mm.
+  // Rainfall > 40mm/day triggers, saturates at 120mm
 
-bare_on_slope = (DW_class ∈ {Bare, Built} AND slope ≥ 5°) ? 0.2 : 0
+soil_cohesion = clamp(clay_pct / 40)
+  // Clay = more cohesive (resists sliding)
+
+bare_on_slope = (DW ∈ {Bare, Built} AND slope ≥ 15°) ? 0.2 : 0
 
 landslide_score = slope_risk > 0 ? clamp(
-  0.50 × slope_risk +                    // Terrain steepness (dominant)
-  0.20 × precip_trigger × slope_risk +   // Rain on steep = trigger
-  0.15 × vegetation_deficit × slope +    // No roots = less cohesion
-  0.10 × elevation_factor × slope +      // Higher = more potential energy
-  0.05 × bare_on_slope                   // Bare/built on steep terrain
+  0.45 × slope_risk +
+  0.20 × precip_trigger × slope_risk +
+  0.15 × (1 - soil_cohesion) × slope_risk +
+  0.10 × vegetation_deficit × slope_risk +
+  0.05 × elevation_factor × slope_risk +
+  0.05 × bare_on_slope
 ) : 0
 ```
 
-**Note**: Porto Alegre is predominantly flat (~95% of cells have slope < 5°). Landslide risk is concentrated in the Serra Geral foothills on the southern edge.
+**Note**: Slope is computed at 250m cell size: `atan(elevation_range / 250m)`. However, elevation_max and elevation_min are inherited from the 1km parent grid, so landslide risk has effective 1km blocky resolution. Future improvement: sample DEM directly at 250m.
 
-## Distribution (v2, 1036 cells)
+## Distribution (v3, 16,576 cells)
 
-| Risk | Average | Median | Max | Min | Dominant Cells |
-|------|---------|--------|-----|-----|---------------|
-| Flood | 0.443 | 0.448 | 0.78 | 0.17 | 595 |
-| Heat | 0.374 | 0.364 | 0.90 | 0.00 | 425 |
-| Landslide | 0.026 | 0.000 | 0.58 | 0.00 | 10 |
-
-## Porto Alegre Geography Constants
-
-```
-Lake Guaíba western boundary: -51.23° longitude
-Delta confluence center: (-30.05°, -51.22°)
-Cell size: 1000m (v2), planned 250m (v3)
-Elevation range: 0–312m (mostly <50m in urban areas)
-```
-
-## Known Limitations
-
-1. **No ground truth validation** — scores are not yet compared against actual flood/heat/landslide events
-2. **Coarse climate data** — CHIRPS (25km) and ERA5 (31km) provide the same value across many cells
-3. **No soil permeability** — infiltration capacity not modeled (planned for v3 via SoilGrids 250m)
-4. **Proxy-based heat** — UHI uses building density as proxy; actual surface temperature (Landsat 100m) planned for v3
-5. **1km grid** — misses intra-neighborhood variation (planned 250m upgrade in v3)
-
-## Planned Improvements (v3, Issue #61)
-
-- 250m grid resolution (16K cells)
-- EMSR720 2024 flood extent for validation
-- SoilGrids 250m for soil permeability
-- Landsat Surface Temperature 100m for heat
-- CPRM/Defesa Civil official risk areas for validation
-
-## References
-
-- OEF Geospatial Data Catalog: https://github.com/Open-Earth-Foundation/geospatial-data
-- CHIRPS v2.0: Funk et al. (2015) https://doi.org/10.1038/sdata.2015.66
-- ERA5-Land: https://cds.climate.copernicus.eu/
-- Dynamic World: Brown et al. (2022) https://doi.org/10.1038/s41597-022-01307-4
-- MERIT Hydro: Yamazaki et al. (2019) https://doi.org/10.1029/2019WR024873
-- Copernicus DEM GLO-30: https://spacedata.copernicus.eu/
-- GHSL R2023A: https://human-settlement.emergency.copernicus.eu/
+| Risk | Average | Max | Dominant Cells |
+|------|---------|-----|---------------|
+| Flood | 0.423 | 0.88 | 10,299 |
+| Heat | 0.268 | 0.90 | 5,325 |
+| Landslide | 0.038 | 0.76 | 630 |
+| Low risk (<0.25) | — | — | 322 |
 
 ## Composite Hotspot Visualization
 
 ### Concept
 
-The "Risk Hotspots" layer shows all three risks simultaneously as glowing islands on the map. Instead of coloring the entire city uniformly, it highlights only the TRUE danger zones — discrete neighborhood-level clusters that stand out against a clean base map.
+Shows all three risks simultaneously as glowing "islands" against a clean map. Only the TRUE hotspots are visible — medium risk fades to transparent via exponential falloff.
 
 ### Color Encoding
 
-| Risk | Color Channel | Example |
-|------|--------------|---------|
+| Risk | Channel | Visual |
+|------|---------|--------|
 | Flood | Blue | Blue glow on lakeside/river areas |
 | Heat | Red | Red glow in dense urban core |
-| Landslide | Amber (Red + Green) | Amber glow on hillsides/morros |
-| Flood + Heat | Purple/Magenta | Overlap zones |
-| Heat + Landslide | Orange | Built-up hillside areas |
-| All three | White/bright | Extreme combined risk |
+| Landslide | Amber (R+G) | Amber glow on morros |
+| Flood + Heat | Purple | Overlap zones |
+| Heat + Landslide | Orange | Built-up hillsides |
 
 ### Percentile Normalization
 
-Each risk type has a different absolute value range:
-- Flood: compressed (0.17–0.88, most cells between 0.35–0.50)
-- Heat: wide spread (0.00–0.90)
-- Landslide: bimodal (0 for flat areas, 0.46+ for hills)
-
-To ensure equal visual weight, thresholds and max values are computed from the distribution:
+Each risk has a different absolute value range. To ensure equal visual weight:
 
 ```
-threshold = percentile(non_water_values, 0.75)  // Only top 25% visible
+threshold = percentile(non_water_values, 0.75)  // Top 25% visible
 max = percentile(non_water_values, 0.98)         // Normalization cap
-normalized = (value - threshold) / (max - threshold)  // 0→1 range
+normalized = (value - threshold) / (max - threshold)
 ```
 
 Current thresholds (Porto Alegre):
-- Flood: threshold=0.45, max=0.57
-- Heat: threshold=0.53, max=0.90
-- Landslide: threshold=0.45, max=0.74
+- Flood: p75=0.45, p98=0.57
+- Heat: p75=0.53, p98=0.90
+- Landslide: p50=0.23, p98=0.65
 
-### Exponential Alpha Falloff
+### Exponential Alpha
 
 ```
-alpha = pow(max_normalized_risk, 2.0) * 255
+alpha = pow(max_normalized_risk, 2.0) × 255
 ```
 
-The exponent of 2.0 means:
-- Risk at 50% of max → alpha = 25% (barely visible)
-- Risk at 75% of max → alpha = 56% (moderate)
-- Risk at 100% of max → alpha = 100% (bright)
-
-This creates sharp "island" boundaries instead of a gradual wash.
+50% of max → 25% visible. 75% → 56%. 100% → full brightness.
 
 ### Water Exclusion
 
-Cells classified as Water (Dynamic World class 0) are transparent. This prevents the lake and rivers from showing risk, keeping the visualization focused on land areas where interventions are needed.
+Dynamic World class 0 (Water) cells are transparent in the hotspot layer.
 
-### Tile Layers
+## Tile Layers
 
 | Layer | Path | Description |
 |-------|------|-------------|
-| Visual (individual) | `/tiles/{flood,heat,landslide}_risk/{z}/{x}/{y}.png` | Color-coded risk per type |
-| Value (individual) | `/tiles_values/{flood,heat,landslide}_risk/{z}/{x}/{y}.png` | RGB-encoded scores (scale=1000) |
-| Composite hotspot | `/tiles/composite_hotspot/{z}/{x}/{y}.png` | Additive RGB glow, all risks |
+| Visual (per risk) | `/tiles/{flood,heat,landslide}_risk/{z}/{x}/{y}.png` | Color-coded |
+| Value (per risk) | `/tiles_values/{flood,heat,landslide}_risk/{z}/{x}/{y}.png` | RGB-encoded (scale=1000) |
+| Composite hotspot | `/tiles/composite_hotspot/{z}/{x}/{y}.png` | Additive RGB glow |
 
-### UI Integration
+Value tile decoding: `value = (R + 256×G) / 1000`
 
-- **Top bar**: "Hotspots" toggle enables/disables the composite layer
-- **Sidebar**: Individual risk layers (Flood Risk 250m, Heat Risk 250m, Landslide Risk 250m) with hover decode
-- Grid coloring selector (Flood/Heat/Landslide) when Grid is visible
+## Processing Pipeline
+
+```bash
+# 1. Generate 250m grid (subdivides 1km, samples rasters at z=13, ~5 min)
+npx tsx scripts/generate-grid-250m.ts
+
+# 2. Calculate scores + validate against 2024 flood extent
+npx tsx scripts/recalc-scores-v3.ts
+
+# 3. Generate tile pyramids (visual + value + composite hotspot)
+npx tsx scripts/generate-risk-tiles.ts
+
+# 4. Render PNG validation maps
+npx tsx scripts/render-risk-maps-250m.ts
+
+# 5. Analyze false negatives
+npx tsx scripts/analyze-fn.ts
+```
+
+## Porto Alegre Geography
+
+```
+Lake Guaíba western boundary: -51.23° longitude
+Delta confluence center: (-30.05°, -51.22°)
+Cell size: 250m (v3), was 1000m (v1-v2)
+Elevation range: 25–246m
+```
+
+## Known Limitations
+
+1. **Slope at 1km effective resolution** — elevation_max/min inherited from 1km parent. Landslide risk is blocky. Fix: sample DEM at each 250m cell centroid.
+2. **Coarse climate data** — CHIRPS (5km) and ERA5 (9km) have no intra-urban variation
+3. **Proxy-based heat** — UHI uses building density as proxy. Fix: integrate Landsat LST 100m
+4. **No official landslide validation** — CPRM risk area maps not yet integrated
+5. **Soil coverage 64%** — SoilGrids doesn't cover all cells (edges of bbox)
+
+## References
+
+- OEF Geospatial Data: https://github.com/Open-Earth-Foundation/geospatial-data
+- CHIRPS v2.0: Funk et al. (2015) https://doi.org/10.1038/sdata.2015.66
+- Dynamic World: Brown et al. (2022) https://doi.org/10.1038/s41597-022-01307-4
+- SoilGrids: Poggio et al. (2021) https://doi.org/10.5194/soil-7-217-2021
+- MERIT Hydro: Yamazaki et al. (2019) https://doi.org/10.1029/2019WR024873
+- Copernicus DEM GLO-30: https://spacedata.copernicus.eu/
+- Landslide slope thresholds: Varnes (1978) classification; USGS Landslide Hazard Program
