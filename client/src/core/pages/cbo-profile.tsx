@@ -159,7 +159,7 @@ export default function CboProfilePage() {
       if (e.key === 'ArrowDown') {
         if (isInInput) return;
         e.preventDefault();
-        if (selectedOptionIdx >= opts.length - 1) { inputRef.current?.focus(); } else { setSelectedOptionIdx(p => p + 1); }
+        if (selectedOptionIdx >= opts.length - 1) { setSelectedOptionIdx(-1); inputRef.current?.focus(); } else { setSelectedOptionIdx(p => p + 1); }
         return;
       }
       if (e.key === 'ArrowUp') {
@@ -674,16 +674,18 @@ function CboQuestionCard({
       <div className="space-y-1.5">
         {question.options.map((opt: any, i: number) => {
           const letter = String.fromCharCode(65 + i);
-          const isSelected = isMulti ? multiSet.has(opt.label) : (i === selectedIdx);
+          const isChecked = isMulti && multiSet.has(opt.label);
+          const isFocused = i === selectedIdx;
+          const isHighlighted = isMulti ? isChecked : isFocused;
           return (
             <button key={i} onClick={() => handleClick(opt.label)}
               className={`w-full text-left px-3 py-2 rounded-md border text-sm transition-all flex items-start gap-2 ${
-                isSelected ? 'border-green-600 bg-green-50 ring-1 ring-green-600' : 'border-muted hover:border-green-400'
+                isHighlighted ? 'border-green-600 bg-green-50 ring-1 ring-green-600' : isFocused ? 'border-green-400 bg-green-50/50 ring-1 ring-green-400' : 'border-muted hover:border-green-400'
               } ${disabled ? 'opacity-50' : 'cursor-pointer'}`}>
               <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-mono shrink-0 ${
-                isSelected ? 'bg-green-600 text-white' : 'bg-muted text-muted-foreground'
+                isChecked ? 'bg-green-600 text-white' : isFocused ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'
               }`}>
-                {isMulti && isSelected ? <Check className="w-3 h-3" /> : letter}
+                {isMulti && isChecked ? <Check className="w-3 h-3" /> : letter}
               </span>
               <div className="flex-1">
                 <span className="font-medium">{opt.label}</span>

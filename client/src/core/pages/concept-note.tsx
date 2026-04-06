@@ -256,7 +256,8 @@ export default function ConceptNotePage() {
         if (isInInput) return; // let input handle it
         e.preventDefault();
         if (selectedOptionIdx >= opts.length - 1) {
-          // Past last option → focus input
+          // Past last option → focus input, deselect option
+          setSelectedOptionIdx(-1);
           inputRef.current?.focus();
         } else {
           setSelectedOptionIdx(prev => prev + 1);
@@ -1175,25 +1176,29 @@ function QuestionCard({
       <div className="space-y-1.5">
         {question.options.map((opt, i) => {
           const letter = String.fromCharCode(65 + i);
-          const isSelected = isMulti ? multiSet.has(opt.label) : (isActive && i === selectedIdx);
+          const isChecked = isMulti && multiSet.has(opt.label);
+          const isFocused = isActive && i === selectedIdx;
+          const isHighlighted = isMulti ? isChecked : isFocused;
           const isRecommended = opt.recommended;
 
           return (
             <button
               key={i}
               role="option"
-              aria-selected={isSelected}
+              aria-selected={isHighlighted}
               onClick={() => handleOptionClick(opt.label)}
               className={`w-full text-left px-3 py-2 rounded-md border text-sm transition-all flex items-start gap-2 ${
-                isSelected
+                isHighlighted
                   ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                  : isFocused
+                  ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/50'
                   : 'border-muted hover:border-primary/50 hover:bg-muted/50'
               } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-mono shrink-0 ${
-                isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                isChecked ? 'bg-primary text-primary-foreground' : isFocused ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
               }`}>
-                {isMulti && isSelected ? <Check className="w-3 h-3" /> : letter}
+                {isMulti && isChecked ? <Check className="w-3 h-3" /> : letter}
               </span>
               <div className="flex-1 min-w-0">
                 <span className="font-medium">{opt.label}</span>
