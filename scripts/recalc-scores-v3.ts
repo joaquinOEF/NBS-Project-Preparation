@@ -121,12 +121,17 @@ for (const cell of gridData.geoJson.features) {
       0.10 * runoffPotential     // Soil permeability
     ) * soilAmplifier);
   } else {
-    const combined = Math.max(physicalFlood, locationFlood * 0.8) + (physicalFlood * locationFlood * 0.3);
+    // No FRI coverage — rely more heavily on location + physical factors
+    const combined = Math.max(physicalFlood, locationFlood) + (physicalFlood * locationFlood * 0.4);
     floodScore = clamp01(combined * soilAmplifier);
   }
 
-  // Water bodies have zero flood risk (they ARE water)
-  if (isWater) floodScore = 0;
+  // Water cells: expanded water during floods IS a flood zone.
+  // Keep flood score for water cells near land (FRI-covered or near rivers).
+  // Only deep open lake far from shore gets suppressed.
+  if (isWater && fri == null && lakesideRisk < 0.3 && riverProx < 0.3) {
+    floodScore = Math.min(floodScore, 0.15); // Suppress only deep open water
+  }
 
   m.flood_score = round3(floodScore);
 
