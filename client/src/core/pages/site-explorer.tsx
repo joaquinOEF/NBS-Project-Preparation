@@ -78,7 +78,7 @@ interface CityInfo {
 }
 
 type LayerSource = 'geojson' | 'tiles';
-type LayerGroupId = 'analysis' | 'environment' | 'osm_reference' | 'spatial_queries' | 'risk_250m' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections';
+type LayerGroupId = 'analysis' | 'environment' | 'reference_data' | 'osm_reference' | 'spatial_queries' | 'risk_250m' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections';
 
 interface LayerState {
   id: string;
@@ -101,9 +101,9 @@ type LayerConfig = Omit<LayerState, 'enabled' | 'loaded' | 'data' | 'leafletLaye
 
 const LAYER_CONFIGS: LayerConfig[] = [
   { id: 'intervention_zones', name: 'Intervention Zones', icon: MapPinned, color: '#10b981', source: 'geojson', group: 'analysis', available: true },
-  { id: 'ibge_census', name: 'Census / Poverty by Neighborhood', icon: Users, color: '#a855f7', source: 'geojson', group: 'analysis', available: true },
-  { id: 'ibge_settlements', name: 'Informal Settlements', icon: AlertTriangle, color: '#f43f5e', source: 'geojson', group: 'analysis', available: true },
-  { id: 'flood_2024_extent', name: '2024 Flood Extent (observed)', icon: CloudRain, color: '#60a5fa', source: 'geojson', group: 'analysis', available: true },
+  { id: 'ibge_census', name: 'Census / Poverty', icon: Users, color: '#a855f7', source: 'geojson', group: 'reference_data' as LayerGroupId, available: true },
+  { id: 'ibge_settlements', name: 'Informal Settlements', icon: AlertTriangle, color: '#f43f5e', source: 'geojson', group: 'reference_data' as LayerGroupId, available: true },
+  { id: 'flood_2024_extent', name: '2024 Flood Extent', icon: CloudRain, color: '#60a5fa', source: 'geojson', group: 'reference_data' as LayerGroupId, available: true },
   { id: 'elevation', name: 'Elevation', icon: Mountain, color: '#c9a87c', source: 'geojson', group: 'environment', available: true },
   { id: 'landcover', name: 'Land Cover', icon: MapIcon, color: '#4ade80', source: 'geojson', group: 'environment', available: true },
   { id: 'surface_water', name: 'Water Bodies', icon: Droplets, color: '#3b82f6', source: 'geojson', group: 'environment', available: true },
@@ -159,9 +159,10 @@ const LAYER_CONFIGS: LayerConfig[] = [
 
 const LAYER_GROUPS: readonly { id: LayerGroupId; label: string }[] = [
   { id: 'risk_250m', label: 'Risk Analysis (250m)' },
-  { id: 'analysis', label: 'Grid Analysis' },
+  { id: 'reference_data', label: 'Reference Data' },
+  { id: 'analysis', label: 'Intervention Zones' },
   { id: 'environment', label: 'Environment' },
-  { id: 'osm_reference', label: 'OSM Reference' },
+  { id: 'osm_reference', label: 'OSM Features' },
   { id: 'spatial_queries', label: 'Spatial Queries' },
   ...TILE_LAYER_GROUPS.map(g => ({ id: g.id as LayerGroupId, label: g.label })),
 ];
@@ -1575,7 +1576,7 @@ export default function SiteExplorerPage() {
       maxZoom: 19,
       minZoom: isLocal ? 10 : 10,
       errorTileUrl: '',
-      className: 'oef-tile-layer',
+      className: isLocal ? 'risk-tile-layer' : 'oef-tile-layer',
     });
   }, []);
 

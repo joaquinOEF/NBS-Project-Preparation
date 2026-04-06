@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Check, MapPin, Layers, X, BarChart3, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
-import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, type TileLayerDef } from '@shared/geospatial-layers';
+import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, REFERENCE_LAYERS, type TileLayerDef } from '@shared/geospatial-layers';
 import ValueTooltip from './ValueTooltip';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
 
@@ -353,6 +353,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
         maxZoom: 19,
         minZoom: isLocal ? 10 : 8,
         errorTileUrl: '',
+        className: isLocal ? 'risk-tile-layer' : '',
       });
       tl.addTo(map);
       tileLayerRefs.current[layerDef.id] = tl;
@@ -633,20 +634,64 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
               </div>
             );
           })}
-          {/* OSM Reference Layers */}
+          {/* Reference Data (OSM + Census + Flood) */}
           <div className="border-b">
             <button
-              onClick={() => toggleGroup('osm_reference')}
+              onClick={() => toggleGroup('reference_data')}
               className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-muted/50 transition-colors"
             >
-              <span className="text-[10px] font-medium">OSM Reference</span>
+              <span className="text-[10px] font-medium">Reference Data</span>
               <div className="flex items-center gap-1">
                 {enabledOsmLayers.size > 0 && <span className="text-[9px] bg-primary/10 text-primary px-1 rounded">{enabledOsmLayers.size}</span>}
-                {expandedGroups.has('osm_reference') ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                {expandedGroups.has('reference_data') ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
               </div>
             </button>
-            {expandedGroups.has('osm_reference') && (
+            {expandedGroups.has('reference_data') && (
               <div className="px-1 pb-1 space-y-0.5">
+                {/* Census & vulnerability layers */}
+                {REFERENCE_LAYERS.map(layer => {
+                  const isOn = enabledOsmLayers.has(layer.id);
+                  return (
+                    <button
+                      key={layer.id}
+                      onClick={async () => {
+                        const map = mapRef.current;
+                        if (!map) return;
+                        if (isOn) {
+                          const existing = osmLayerRefs.current[layer.id];
+                          if (existing) { map.removeLayer(existing); delete osmLayerRefs.current[layer.id]; }
+                          setEnabledOsmLayers(prev => { const n = new Set(prev); n.delete(layer.id); return n; });
+                        } else {
+                          try {
+                            const res = await fetch(layer.dataPath);
+                            if (!res.ok) return;
+                            const rawData = await res.json();
+                            const geojson = rawData.geoJson || rawData;
+                            const lyr = L.geoJSON(geojson, {
+                              style: { color: layer.color, weight: 1.5, fillColor: layer.color, fillOpacity: 0.3, opacity: 0.7 },
+                              onEachFeature: (f, l) => {
+                                const p = f.properties || {};
+                                const name = p.neighbourhood_name || p.settlement_name || p.event || 'Feature';
+                                const detail = p.poverty_rate != null ? `Poverty: ${(p.poverty_rate * 100).toFixed(1)}%` : p.event_date || '';
+                                l.bindTooltip(`<strong>${name}</strong>${detail ? '<br/>' + detail : ''}`, { sticky: true });
+                              },
+                            });
+                            lyr.addTo(map);
+                            osmLayerRefs.current[layer.id] = lyr;
+                            setEnabledOsmLayers(prev => { const n = new Set(prev); n.add(layer.id); return n; });
+                          } catch {}
+                        }
+                      }}
+                      className={`w-full text-left px-1.5 py-1 rounded text-[10px] flex items-center gap-1.5 transition-all ${
+                        isOn ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: isOn ? layer.color : '#d1d5db' }} />
+                      <span className="truncate">{layer.name}</span>
+                    </button>
+                  );
+                })}
+                {/* OSM layers */}
                 {OSM_LAYERS.map(layer => {
                   const isOn = enabledOsmLayers.has(layer.id);
                   return (
