@@ -2,25 +2,95 @@
   "id": "52b6aefd-5af3-4c42-92af-9c0119b15a20",
   "orgName": "",
   "city": "porto-alegre",
-  "phase": 0,
+  "phase": 2,
   "sections": {
     "org_profile": {
       "id": "org_profile",
       "title": "1. Who We Are",
       "phase": 1,
-      "fields": {},
-      "confidence": "empty",
+      "fields": {
+        "organization_name": {
+          "value": "Associação Vila Flores",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "organization_type": {
+          "value": "Organização comunitária (CBO)",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "years_active": {
+          "value": "5-10 anos ativa na comunidade",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "focus_area": {
+          "value": "Desenvolvimento comunitário",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "team_size": {
+          "value": "16-50 pessoas (misto de remunerados e voluntários)",
+          "confidence": "high",
+          "userEdited": false
+        },
+        "prior_experience": {
+          "value": "A organização já entregou múltiplos projetos na comunidade, demonstrando experiência prática em gestão e implementação de iniciativas.",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "funding_experience": {
+          "value": "A organização recebeu financiamento externo uma ou duas vezes, demonstrando capacidade inicial de mobilização de recursos.",
+          "confidence": "medium",
+          "userEdited": false
+        },
+        "technical_expertise": {
+          "value": "A organização conta com especialistas técnicos na equipe, incluindo profissionais com conhecimento em áreas relevantes para a implementação de soluções baseadas na natureza e projetos de resiliência climática.",
+          "confidence": "medium",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
       "sources": [],
-      "lastUpdatedBy": null
+      "lastUpdatedBy": "agent"
     },
     "intervention_site": {
       "id": "intervention_site",
       "title": "2. Where We Work",
       "phase": 2,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "neighborhood": {
+          "value": "Jardim Floresta (bairro), 4º Distrito, Porto Alegre",
+          "confidence": "high",
+          "source": "User map selection",
+          "userEdited": false
+        },
+        "site_names": {
+          "value": "Parque 20 de Maio, Parque Alim Pedro",
+          "confidence": "high",
+          "source": "User map selection - OSM features",
+          "userEdited": false
+        },
+        "coordinates": {
+          "value": "Parque 20 de Maio: -30.0171, -51.1434 | Parque Alim Pedro: -30.0142, -51.1750 | Zona de intervenção (Jardim Floresta): -30.0022, -51.1590",
+          "confidence": "high",
+          "source": "User map selection",
+          "userEdited": false
+        },
+        "current_conditions": {
+          "value": "**Parque 20 de Maio**: Área verde existente, mas degradada e necessitando de restauração ecológica.\n\n**Parque Alim Pedro**: Parque bem mantido, porém localizado em zona de alto risco de inundação conforme demonstrado pelas enchentes de maio de 2024.",
+          "confidence": "high",
+          "source": "User description of site conditions",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "User map selection",
+        "User map selection - OSM features",
+        "User description of site conditions"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "intervention_plan": {
       "id": "intervention_plan",
@@ -51,13 +121,24 @@
     }
   },
   "gaps": [],
-  "maturityScores": [],
+  "maturityScores": [
+    {
+      "metric": "org_delivery_capacity",
+      "score": 2,
+      "justification": "Organization has delivered multiple projects and received external funding 1-2 times. Shows demonstrated project management capacity but not yet extensive multi-stakeholder funded project track record."
+    },
+    {
+      "metric": "team_technical_experience",
+      "score": 2,
+      "justification": "The organization has technical experts on the team, demonstrating more than general environmental experience and showing capacity to implement NBS at pilot scale"
+    }
+  ],
   "priorityFlags": [],
-  "totalMaturityScore": 0,
+  "totalMaturityScore": 4,
   "editLog": [],
   "uploadedFiles": [],
   "metadata": {
     "createdAt": "2026-04-06T12:58:30.231Z",
-    "updatedAt": "2026-04-06T12:58:30.231Z"
+    "updatedAt": "2026-04-06T20:20:59.085Z"
   }
 }
