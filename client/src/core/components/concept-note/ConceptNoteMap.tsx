@@ -114,8 +114,8 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
   const [hoveredZone, setHoveredZone] = useState<ZoneProperties | null>(null);
   const [hoveredCell, setHoveredCell] = useState<GridCellMetrics | null>(null);
   const [activeLayer, setActiveLayer] = useState<RiskLayer>('flood');
-  const [showGrid, setShowGrid] = useState(true);
-  const [showZones, setShowZones] = useState(true);
+  const [showGrid, setShowGrid] = useState(false); // Off by default — use 250m tile layers instead
+  const [showZones, setShowZones] = useState(false); // Off by default — use 250m layers instead
   const [enabledTileLayers, setEnabledTileLayers] = useState<Set<string>>(new Set());
   const [enabledOsmLayers, setEnabledOsmLayers] = useState<Set<string>>(new Set());
   const [enabledSpatialQueries, setEnabledSpatialQueries] = useState<Set<string>>(new Set());
@@ -187,7 +187,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
                 color: 'transparent',
                 weight: 0,
                 fillColor: interpolateColor(RISK_COLORS.flood.low, RISK_COLORS.flood.high, score),
-                fillOpacity: score > 0.05 ? 0.5 : 0,
+                fillOpacity: 0, // Grid starts hidden; showGrid effect controls visibility
               };
             },
             onEachFeature: (feature, layer) => {
