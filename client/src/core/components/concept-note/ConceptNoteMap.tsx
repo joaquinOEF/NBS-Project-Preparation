@@ -668,7 +668,18 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
                             const rawData = await res.json();
                             const geojson = rawData.geoJson || rawData;
                             const lyr = L.geoJSON(geojson, {
-                              style: { color: layer.color, weight: 1.5, fillColor: layer.color, fillOpacity: 0.3, opacity: 0.7 },
+                              style: (feature) => {
+                                const p = feature?.properties || {};
+                                // Census: color by poverty rate (darker = higher poverty)
+                                if (p.poverty_rate != null) {
+                                  const pov = p.poverty_rate;
+                                  const r = Math.round(100 + pov * 800); // 100-255
+                                  const g = Math.round(50 - pov * 50);   // 50-0
+                                  const b = Math.round(180 - pov * 80);  // 180-100
+                                  return { color: `rgb(${Math.min(255,r)},${Math.max(0,g)},${Math.max(0,b)})`, weight: 1.5, fillColor: `rgb(${Math.min(255,r)},${Math.max(0,g)},${Math.max(0,b)})`, fillOpacity: 0.15 + pov * 3, opacity: 0.8 };
+                                }
+                                return { color: layer.color, weight: 1.5, fillColor: layer.color, fillOpacity: 0.3, opacity: 0.7 };
+                              },
                               onEachFeature: (f, l) => {
                                 const p = f.properties || {};
                                 const name = p.neighbourhood_name || p.settlement_name || p.event || 'Feature';
