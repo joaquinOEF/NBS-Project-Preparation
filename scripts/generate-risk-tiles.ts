@@ -128,7 +128,7 @@ for (const layer of layers) {
         const [r, g, b, a] = layer.colorFn(score);
 
         // Fill a square of cellSizePx × cellSizePx
-        const half = Math.floor(pos.cellSizePx / 2);
+        const half = Math.ceil(pos.cellSizePx / 2) + 1; // +1 to eliminate gaps between cells
         for (let dy = -half; dy <= half; dy++) {
           for (let dx = -half; dx <= half; dx++) {
             const px = pos.px + dx;
@@ -201,7 +201,7 @@ for (const layer of layers) {
         const g = Math.floor(raw / 256) % 256;
         const b = 0;
 
-        const half = Math.floor(pos.cellSizePx / 2);
+        const half = Math.ceil(pos.cellSizePx / 2) + 1; // +1 to eliminate gaps between cells
         for (let dy = -half; dy <= half; dy++) {
           for (let dx = -half; dx <= half; dx++) {
             const px = pos.px + dx;
@@ -306,7 +306,7 @@ for (const z of ZOOM_LEVELS) {
       // Exponential alpha: pow(intensity, 2.0) — sharp peaks, fast falloff
       const a = Math.min(220, Math.round(Math.pow(maxAbove, EXPONENT) * 255));
 
-      const half = Math.floor(pos.cellSizePx / 2);
+      const half = Math.ceil(pos.cellSizePx / 2) + 1; // +1 to eliminate gaps between cells
       // Add a 1px soft edge for glow effect at higher zooms
       const glowExtra = cellSizePx >= 3 ? 1 : 0;
       for (let dy = -(half + glowExtra); dy <= half + glowExtra; dy++) {
