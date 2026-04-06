@@ -230,15 +230,36 @@ for (const layer of layers) {
   console.log(`  ${layer.name}: ${totalTiles} value tiles`);
 }
 
-// ── COMPOSITE HOTSPOT LAYER — additive RGB glow ──────────────────────────────
-// Red = heat, Blue = flood, Green component from landslide (amber = R+G)
-// Overlaps blend naturally: flood+heat = purple, all three = white
-// Alpha proportional to max risk — safe areas are transparent
+// ── COMPOSITE HOTSPOT LAYER — "islands of risk" ──────────────────────────────
+// Shows only TRUE hotspots as glowing islands. Water excluded.
+// Percentile-normalized per risk type so each gets equal visual weight.
+// Exponential alpha: peaks are bright, medium risk fades fast.
+// Red = heat, Blue = flood, Amber (R+G) = landslide.
 
 console.log('\nGenerating composite hotspot tiles...');
 
+// Percentile-based thresholds — each risk shows its top ~25% as hotspots
+const nonWaterCells = cells.filter((c: any) => c.properties.metrics.dw_class !== 0);
+function percentile(arr: number[], p: number): number {
+  const sorted = [...arr].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length * p)] ?? 0;
+}
+const floodVals = nonWaterCells.map((c: any) => c.properties.metrics.flood_score ?? 0);
+const heatVals = nonWaterCells.map((c: any) => c.properties.metrics.heat_score ?? 0);
+const landslideVals = nonWaterCells.map((c: any) => c.properties.metrics.landslide_score ?? 0).filter((v: number) => v > 0);
+
+const FLOOD_THRESH = percentile(floodVals, 0.75);
+const HEAT_THRESH = percentile(heatVals, 0.75);
+const LANDSLIDE_THRESH = percentile(landslideVals, 0.50);
+const FLOOD_MAX = percentile(floodVals, 0.98);
+const HEAT_MAX = percentile(heatVals, 0.98);
+const LANDSLIDE_MAX = percentile(landslideVals, 0.98);
+const EXPONENT = 2.0;
+
+console.log(`  Thresholds: flood=${FLOOD_THRESH.toFixed(2)} heat=${HEAT_THRESH.toFixed(2)} landslide=${LANDSLIDE_THRESH.toFixed(2)}`);
+console.log(`  Max (p98):  flood=${FLOOD_MAX.toFixed(2)} heat=${HEAT_MAX.toFixed(2)} landslide=${LANDSLIDE_MAX.toFixed(2)}`);
+
 let compositeTotal = 0;
-const RISK_THRESHOLD = 0.15; // Below this, pixel is transparent
 
 for (const z of ZOOM_LEVELS) {
   const tileGroups = new Map<string, CellPosition[]>();
@@ -262,24 +283,28 @@ for (const z of ZOOM_LEVELS) {
     }
 
     for (const pos of positions) {
+      // Skip water — no risk over water
+      if (pos.metrics.dw_class === 0) continue;
+
       const flood = pos.metrics.flood_score ?? 0;
       const heat = pos.metrics.heat_score ?? 0;
       const landslide = pos.metrics.landslide_score ?? 0;
-      const maxRisk = Math.max(flood, heat, landslide);
 
-      if (maxRisk < RISK_THRESHOLD) continue;
+      // Per-risk normalization: threshold → 0, max → 1
+      const floodAbove = flood > FLOOD_THRESH ? Math.min(1, (flood - FLOOD_THRESH) / Math.max(0.01, FLOOD_MAX - FLOOD_THRESH)) : 0;
+      const heatAbove = heat > HEAT_THRESH ? Math.min(1, (heat - HEAT_THRESH) / Math.max(0.01, HEAT_MAX - HEAT_THRESH)) : 0;
+      const landslideAbove = landslide > LANDSLIDE_THRESH ? Math.min(1, (landslide - LANDSLIDE_THRESH) / Math.max(0.01, LANDSLIDE_MAX - LANDSLIDE_THRESH)) : 0;
 
-      // Additive color channels:
-      // Red = heat (+ landslide amber component)
-      // Green = landslide amber component (R+G = amber)
-      // Blue = flood
-      const r = Math.min(255, Math.round(heat * 255 + landslide * 200));
-      const g = Math.min(255, Math.round(landslide * 180));
-      const b = Math.min(255, Math.round(flood * 255));
+      const maxAbove = Math.max(floodAbove, heatAbove, landslideAbove);
+      if (maxAbove <= 0) continue;
 
-      // Alpha: stronger glow for higher risk, fade in from threshold
-      const intensity = (maxRisk - RISK_THRESHOLD) / (1 - RISK_THRESHOLD);
-      const a = Math.min(220, Math.round(intensity * 250));
+      // Color channels — only from above-threshold values
+      const r = Math.min(255, Math.round(heatAbove * 255 + landslideAbove * 200));
+      const g = Math.min(255, Math.round(landslideAbove * 180));
+      const b = Math.min(255, Math.round(floodAbove * 255));
+
+      // Exponential alpha: pow(intensity, 2.0) — sharp peaks, fast falloff
+      const a = Math.min(220, Math.round(Math.pow(maxAbove, EXPONENT) * 255));
 
       const half = Math.floor(pos.cellSizePx / 2);
       // Add a 1px soft edge for glow effect at higher zooms
