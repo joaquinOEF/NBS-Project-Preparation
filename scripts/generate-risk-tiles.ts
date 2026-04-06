@@ -230,20 +230,36 @@ for (const layer of layers) {
   console.log(`  ${layer.name}: ${totalTiles} value tiles`);
 }
 
-// ── COMPOSITE HOTSPOT LAYER — "islands of risk" with exponential falloff ──────
-// Only shows TRUE hotspots as glowing islands. Water excluded.
-// Exponential alpha: only the peaks are visible, medium risk fades fast.
+// ── COMPOSITE HOTSPOT LAYER — "islands of risk" ──────────────────────────────
+// Shows only TRUE hotspots as glowing islands. Water excluded.
+// Percentile-normalized per risk type so each gets equal visual weight.
+// Exponential alpha: peaks are bright, medium risk fades fast.
 // Red = heat, Blue = flood, Amber (R+G) = landslide.
 
 console.log('\nGenerating composite hotspot tiles...');
 
-let compositeTotal = 0;
+// Percentile-based thresholds — each risk shows its top ~25% as hotspots
+const nonWaterCells = cells.filter((c: any) => c.properties.metrics.dw_class !== 0);
+function percentile(arr: number[], p: number): number {
+  const sorted = [...arr].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length * p)] ?? 0;
+}
+const floodVals = nonWaterCells.map((c: any) => c.properties.metrics.flood_score ?? 0);
+const heatVals = nonWaterCells.map((c: any) => c.properties.metrics.heat_score ?? 0);
+const landslideVals = nonWaterCells.map((c: any) => c.properties.metrics.landslide_score ?? 0).filter((v: number) => v > 0);
 
-// Per-risk thresholds — only show the top percentiles as hotspots
-const FLOOD_THRESH = 0.45;     // Top ~27% of non-water cells
-const HEAT_THRESH = 0.45;      // Top ~39% — heat clusters in urban core
-const LANDSLIDE_THRESH = 0.25; // Top ~30% — steep hillside zones
-const EXPONENT = 2.0;          // Exponential falloff — 2.0 for visible islands
+const FLOOD_THRESH = percentile(floodVals, 0.75);
+const HEAT_THRESH = percentile(heatVals, 0.75);
+const LANDSLIDE_THRESH = percentile(landslideVals, 0.50);
+const FLOOD_MAX = percentile(floodVals, 0.98);
+const HEAT_MAX = percentile(heatVals, 0.98);
+const LANDSLIDE_MAX = percentile(landslideVals, 0.98);
+const EXPONENT = 2.0;
+
+console.log(`  Thresholds: flood=${FLOOD_THRESH.toFixed(2)} heat=${HEAT_THRESH.toFixed(2)} landslide=${LANDSLIDE_THRESH.toFixed(2)}`);
+console.log(`  Max (p98):  flood=${FLOOD_MAX.toFixed(2)} heat=${HEAT_MAX.toFixed(2)} landslide=${LANDSLIDE_MAX.toFixed(2)}`);
+
+let compositeTotal = 0;
 
 for (const z of ZOOM_LEVELS) {
   const tileGroups = new Map<string, CellPosition[]>();
@@ -267,27 +283,27 @@ for (const z of ZOOM_LEVELS) {
     }
 
     for (const pos of positions) {
-      // Skip water cells — no risk over water
+      // Skip water — no risk over water
       if (pos.metrics.dw_class === 0) continue;
 
       const flood = pos.metrics.flood_score ?? 0;
       const heat = pos.metrics.heat_score ?? 0;
       const landslide = pos.metrics.landslide_score ?? 0;
 
-      // Apply per-risk thresholds — only values above threshold contribute
-      const floodAbove = flood > FLOOD_THRESH ? (flood - FLOOD_THRESH) / (1 - FLOOD_THRESH) : 0;
-      const heatAbove = heat > HEAT_THRESH ? (heat - HEAT_THRESH) / (1 - HEAT_THRESH) : 0;
-      const landslideAbove = landslide > LANDSLIDE_THRESH ? (landslide - LANDSLIDE_THRESH) / (1 - LANDSLIDE_THRESH) : 0;
+      // Per-risk normalization: threshold → 0, max → 1
+      const floodAbove = flood > FLOOD_THRESH ? Math.min(1, (flood - FLOOD_THRESH) / Math.max(0.01, FLOOD_MAX - FLOOD_THRESH)) : 0;
+      const heatAbove = heat > HEAT_THRESH ? Math.min(1, (heat - HEAT_THRESH) / Math.max(0.01, HEAT_MAX - HEAT_THRESH)) : 0;
+      const landslideAbove = landslide > LANDSLIDE_THRESH ? Math.min(1, (landslide - LANDSLIDE_THRESH) / Math.max(0.01, LANDSLIDE_MAX - LANDSLIDE_THRESH)) : 0;
 
       const maxAbove = Math.max(floodAbove, heatAbove, landslideAbove);
-      if (maxAbove <= 0) continue; // Nothing above any threshold
+      if (maxAbove <= 0) continue;
 
       // Color channels — only from above-threshold values
       const r = Math.min(255, Math.round(heatAbove * 255 + landslideAbove * 200));
       const g = Math.min(255, Math.round(landslideAbove * 180));
       const b = Math.min(255, Math.round(floodAbove * 255));
 
-      // Exponential alpha: pow(intensity, 2.5) — sharp peaks, fast falloff
+      // Exponential alpha: pow(intensity, 2.0) — sharp peaks, fast falloff
       const a = Math.min(220, Math.round(Math.pow(maxAbove, EXPONENT) * 255));
 
       const half = Math.floor(pos.cellSizePx / 2);
