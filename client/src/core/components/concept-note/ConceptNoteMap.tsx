@@ -172,6 +172,11 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
         }
 
         // Grid cells — colored by risk score
+        // Clean up existing grid layer first (prevents duplicates on re-mount)
+        if (gridLayerRef.current && map.hasLayer(gridLayerRef.current)) {
+          map.removeLayer(gridLayerRef.current);
+          gridLayerRef.current = null;
+        }
         if (gridData.geoJson) {
           const gridLayer = L.geoJSON(gridData.geoJson, {
             style: (feature) => {
@@ -197,7 +202,16 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
         }
 
         // Zones — outlined, clickable
-        // Labels tracked separately for clean toggle
+        // IMPORTANT: clean up any existing zone layers first (prevents duplicates on re-mount)
+        if (zonesLayerRef.current && map.hasLayer(zonesLayerRef.current)) {
+          map.removeLayer(zonesLayerRef.current);
+        }
+        for (const m of zoneLabelMarkersRef.current) {
+          if (map.hasLayer(m)) map.removeLayer(m);
+        }
+        zonesLayerRef.current = null;
+        zoneLabelMarkersRef.current = [];
+
         setZoneData(zonesData.zones || []);
         if (zonesData.geoJson) {
           const labels: L.Marker[] = [];
