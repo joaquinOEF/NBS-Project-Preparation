@@ -500,6 +500,17 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
             </button>
           ))}
         </div>
+        {(() => {
+          const hotspotLayer = LOCAL_RISK_LAYERS.find(l => l.id === 'risk_composite_hotspot');
+          if (!hotspotLayer) return null;
+          const isOn = enabledTileLayers.has(hotspotLayer.id);
+          return (
+            <button onClick={() => toggleTileLayer(hotspotLayer)}
+              className={`px-2 py-0.5 rounded text-xs transition-all ${isOn ? 'bg-purple-100 text-purple-800' : 'text-muted-foreground hover:bg-muted'}`}>
+              Hotspots
+            </button>
+          );
+        })()}
         <button
           onClick={() => setShowZones(!showZones)}
           className={`px-2 py-0.5 rounded text-xs transition-all ${showZones ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
@@ -567,15 +578,15 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
             </p>
             <p className="text-[9px] text-muted-foreground">{TILE_LAYERS.filter(l => l.available).length} layers available</p>
           </div>
-          {/* Risk Analysis (250m pre-rendered tiles) */}
+          {/* Risk Analysis (250m) — individual risk layers (not composite hotspot) */}
           <div className="border-b">
             <button onClick={() => toggleGroup('risk_analysis')}
               className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-muted/50 transition-colors">
               <span className="text-[10px] font-medium">Risk Analysis (250m)</span>
               <div className="flex items-center gap-1">
-                {LOCAL_RISK_LAYERS.filter(l => enabledTileLayers.has(l.id)).length > 0 && (
+                {LOCAL_RISK_LAYERS.filter(l => l.id !== 'risk_composite_hotspot' && enabledTileLayers.has(l.id)).length > 0 && (
                   <span className="text-[9px] bg-primary/10 text-primary px-1 rounded">
-                    {LOCAL_RISK_LAYERS.filter(l => enabledTileLayers.has(l.id)).length}
+                    {LOCAL_RISK_LAYERS.filter(l => l.id !== 'risk_composite_hotspot' && enabledTileLayers.has(l.id)).length}
                   </span>
                 )}
                 {expandedGroups.has('risk_analysis') ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
@@ -583,7 +594,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
             </button>
             {expandedGroups.has('risk_analysis') && (
               <div className="px-1 pb-1 space-y-0.5">
-                {LOCAL_RISK_LAYERS.map(layer => {
+                {LOCAL_RISK_LAYERS.filter(l => l.id !== 'risk_composite_hotspot').map(layer => {
                   const isOn = enabledTileLayers.has(layer.id);
                   return (
                     <button key={layer.id} onClick={() => toggleTileLayer(layer)}
@@ -592,6 +603,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
                       }`}>
                       <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: isOn ? layer.color : '#d1d5db' }} />
                       <span className="truncate">{layer.name}</span>
+                      {layer.hasValueTiles && <span className="w-1 h-1 rounded-full bg-emerald-500 shrink-0 ml-auto" title="Values on hover" />}
                     </button>
                   );
                 })}
