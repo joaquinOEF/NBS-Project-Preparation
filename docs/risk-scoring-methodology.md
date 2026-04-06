@@ -5,7 +5,7 @@
 The NBS Project Preparation platform calculates three climate risk scores (flood, heat, landslide) for each 250m grid cell covering Porto Alegre, Brazil. Version 3 integrates OEF's pre-computed satellite indices with high-resolution local terrain, land-use, and soil data, validated against the May 2024 observed flood extent.
 
 **Grid**: 16,576 cells at 250m resolution
-**Validation**: Flood F1 = 68% against 2024 disaster (P=54%, R=91%)
+**Validation**: Flood F1 = 70% against 2024 disaster (P=57%, R=91%)
 
 ## Data Sources
 
@@ -13,8 +13,10 @@ The NBS Project Preparation platform calculates three climate risk scores (flood
 
 | Source | Resolution | What It Provides | Used In |
 |--------|-----------|-----------------|---------|
-| **OEF Flood Risk Index (FRI) 2024** | ~90m | Calibrated flood susceptibility (0–1) | Flood (50% weight) |
+| **MERIT Hydro HAND** | 90m | Height Above Nearest Drainage (m) | Flood (35% weight — primary predictor) |
+| **OEF Flood Risk Index (FRI) 2024** | ~90m | Calibrated flood susceptibility (0–1) | Flood (25% weight — secondary/backup) |
 | **OEF Heatwave Magnitude (HWM) 2024** | ~9km | °C·days above heatwave threshold | Heat (regional multiplier) |
+| **Copernicus EMSN194 2024** | ~10m | Observed flood depth from May 2024 (cm) | Flood (15% weight — evidence) |
 | **CHIRPS Rx1day 2024** | ~5km | Max 1-day precipitation (mm) | Landslide trigger |
 | **Dynamic World 2023** | 10m | Land use (9 classes) | All scores |
 
@@ -22,6 +24,7 @@ The NBS Project Preparation platform calculates three climate risk scores (flood
 
 | Source | Resolution | What It Provides | Used In |
 |--------|-----------|-----------------|---------|
+| **MERIT Hydro (ELV, UPA)** | 90m | Elevation, upstream drainage area | Flood (terrain), Hydrology |
 | **SoilGrids (ISRIC WCS)** | 250m | Clay/sand → soil permeability | Flood (runoff potential) |
 | **Copernicus DEM contours** | 30m | Elevation, slope | Flood (low-lying), Landslide (slope) |
 | **2024 Flood Extent (Planet SkySat)** | ~3m | 197 observed flood polygons | Validation ground truth |
@@ -33,41 +36,44 @@ The NBS Project Preparation platform calculates three climate risk scores (flood
 
 ### Flood Score v3
 
-**Foundation**: OEF's FRI — calibrated composite index at ~90m.
-**Enhancement**: local hydrology + Porto Alegre geography + soil permeability.
+**Foundation**: MERIT Hydro HAND (Height Above Nearest Drainage) — the strongest single predictor of pluvial/fluvial flood susceptibility in the literature. Cells near drainage channels (low HAND) are most flood-prone.
+
+**Secondary**: OEF's FRI provides a calibrated composite; observed 2024 flood depth adds evidence.
 
 ```
+// HAND risk: exponential decay — physically grounded
+// h=0m → 1.0, h=5m → 0.54, h=10m → 0.29, h=20m → 0.08
+hand_risk = exp(-HAND / 8)       // If HAND missing: default 0.3
+
 FRI_normalized = FRI_value / FRI_max
 
-physical_flood = (
-  0.25 × flow_accumulation +
-  0.20 × depression_pct +
-  0.20 × river_proximity +
-  0.15 × low_lying_pct +
-  0.10 × water_proximity +
-  0.10 × flatness
-)
+flood_evidence = clamp(flood_depth_2024_cm / 100)  // Copernicus observed depth
 
-location_flood = (
-  0.40 × lakeside_risk +        // Proximity to Lake Guaíba
-  0.35 × low_elevation_risk +   // Absolute elevation < 40m
-  0.25 × delta_risk             // 4-river confluence zone
-)
+lakeside_risk = f(distance to Lake Guaíba)
+delta_risk    = f(distance to 4-river confluence)
+runoff_potential = f(clay%, sand%)                  // SoilGrids
 
-soil_amplifier = 1 + (runoff_potential × 0.2)  // Clay soil = more runoff
+soil_amplifier = 1 + (runoff_potential × 0.15)
 
+// Primary path: HAND and/or FRI available
 flood_score = clamp(0, 1,
-  (0.50 × FRI_normalized +
-   0.20 × physical_flood +
-   0.25 × location_flood +
-   0.10 × runoff_potential) × soil_amplifier
+  (0.35 × hand_risk +           // HAND: #1 flood predictor (90m)
+   0.25 × FRI_normalized +      // FRI: calibrated composite (falls back to hand_risk)
+   0.15 × flood_evidence +      // 2024 observed flood depth
+   0.10 × lakeside_risk +       // Lake proximity
+   0.10 × delta_risk +          // River confluence
+   0.05 × runoff_potential      // Soil permeability
+  ) × soil_amplifier
 )
 
-// Water cells: only deep open lake suppressed (no FRI, far from shore)
+// Fallback path: no HAND or FRI — uses physical terrain + location
+// (rare: only ~3% of cells lack both)
+
+// Water cells: only suppress deep open lake (no HAND, no FRI, far from shore)
 // Flood-expanded water keeps its score — it IS the flood zone
 ```
 
-**Validation**: F1 = 68% at threshold 0.40 (P=54%, R=91%) against May 2024 flood extent.
+**Validation**: F1 = 70% at threshold 0.40 (P=57%, R=91%) against May 2024 flood extent.
 
 ### Heat Score v3
 

@@ -120,6 +120,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
   const [enabledOsmLayers, setEnabledOsmLayers] = useState<Set<string>>(new Set());
   const [enabledSpatialQueries, setEnabledSpatialQueries] = useState<Set<string>>(new Set());
   const [loadingSpatialQueries, setLoadingSpatialQueries] = useState<Set<string>>(new Set());
+  const [loadingLayers, setLoadingLayers] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [mapReady, setMapReady] = useState(false);
   const tileLayerRefs = useRef<Record<string, L.TileLayer>>({});
@@ -375,6 +376,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
       }
       setEnabledOsmLayers(prev => { const next = new Set(prev); next.delete(osmLayer.id); return next; });
     } else {
+      setLoadingLayers(prev => { const next = new Set(prev); next.add(osmLayer.id); return next; });
       try {
         const res = await fetch(osmLayer.endpoint);
         if (!res.ok) return;
@@ -398,6 +400,8 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
         setEnabledOsmLayers(prev => { const next = new Set(prev); next.add(osmLayer.id); return next; });
       } catch {
         // silently skip failed fetch
+      } finally {
+        setLoadingLayers(prev => { const next = new Set(prev); next.delete(osmLayer.id); return next; });
       }
     }
   };
@@ -651,9 +655,11 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
                 {/* Census & vulnerability layers */}
                 {REFERENCE_LAYERS.map(layer => {
                   const isOn = enabledOsmLayers.has(layer.id);
+                  const isLoading = loadingLayers.has(layer.id);
                   return (
                     <button
                       key={layer.id}
+                      disabled={isLoading}
                       onClick={async () => {
                         const map = mapRef.current;
                         if (!map) return;
@@ -662,6 +668,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
                           if (existing) { map.removeLayer(existing); delete osmLayerRefs.current[layer.id]; }
                           setEnabledOsmLayers(prev => { const n = new Set(prev); n.delete(layer.id); return n; });
                         } else {
+                          setLoadingLayers(prev => { const n = new Set(prev); n.add(layer.id); return n; });
                           try {
                             const res = await fetch(layer.dataPath);
                             if (!res.ok) return;
@@ -690,14 +697,21 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
                             lyr.addTo(map);
                             osmLayerRefs.current[layer.id] = lyr;
                             setEnabledOsmLayers(prev => { const n = new Set(prev); n.add(layer.id); return n; });
-                          } catch {}
+                          } catch {
+                          } finally {
+                            setLoadingLayers(prev => { const n = new Set(prev); n.delete(layer.id); return n; });
+                          }
                         }
                       }}
                       className={`w-full text-left px-1.5 py-1 rounded text-[10px] flex items-center gap-1.5 transition-all ${
                         isOn ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'
-                      }`}
+                      } ${isLoading ? 'opacity-60' : ''}`}
                     >
-                      <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: isOn ? layer.color : '#d1d5db' }} />
+                      {isLoading ? (
+                        <Loader2 className="w-2 h-2 animate-spin shrink-0" />
+                      ) : (
+                        <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: isOn ? layer.color : '#d1d5db' }} />
+                      )}
                       <span className="truncate">{layer.name}</span>
                     </button>
                   );
@@ -705,15 +719,21 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
                 {/* OSM layers */}
                 {OSM_LAYERS.map(layer => {
                   const isOn = enabledOsmLayers.has(layer.id);
+                  const isLoading = loadingLayers.has(layer.id);
                   return (
                     <button
                       key={layer.id}
                       onClick={() => toggleOsmLayer(layer)}
+                      disabled={isLoading}
                       className={`w-full text-left px-1.5 py-1 rounded text-[10px] flex items-center gap-1.5 transition-all ${
                         isOn ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'
-                      }`}
+                      } ${isLoading ? 'opacity-60' : ''}`}
                     >
-                      <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: isOn ? layer.color : '#d1d5db' }} />
+                      {isLoading ? (
+                        <Loader2 className="w-2 h-2 animate-spin shrink-0" />
+                      ) : (
+                        <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: isOn ? layer.color : '#d1d5db' }} />
+                      )}
                       <span className="truncate">{layer.name}</span>
                     </button>
                   );
