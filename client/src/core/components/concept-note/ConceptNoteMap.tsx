@@ -481,25 +481,18 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
   return (
     <div className="flex flex-col h-full">
       {/* Controls */}
-      <div className="flex items-center justify-between gap-2 p-2 border-b bg-background">
-        <div className="flex items-center gap-1.5">
-          <Layers className="w-3.5 h-3.5 text-muted-foreground" />
-          {(['flood', 'heat', 'landslide'] as const).map((layer) => (
-            <button
-              key={layer}
-              onClick={() => setActiveLayer(layer)}
-              className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${
-                activeLayer === layer
-                  ? layer === 'flood' ? 'bg-blue-100 text-blue-800'
-                    : layer === 'heat' ? 'bg-red-100 text-red-800'
-                    : 'bg-amber-100 text-amber-800'
-                  : 'text-muted-foreground hover:bg-muted'
-              }`}
-            >
-              {layer.charAt(0).toUpperCase() + layer.slice(1)}
+      <div className="flex items-center justify-end gap-1.5 p-2 border-b bg-background">
+        {(() => {
+          const hotspotLayer = LOCAL_RISK_LAYERS.find(l => l.id === 'risk_composite_hotspot');
+          if (!hotspotLayer) return null;
+          const isOn = enabledTileLayers.has(hotspotLayer.id);
+          return (
+            <button onClick={() => toggleTileLayer(hotspotLayer)}
+              className={`px-2 py-0.5 rounded text-xs transition-all ${isOn ? 'bg-purple-100 text-purple-800 font-medium' : 'text-muted-foreground hover:bg-muted'}`}>
+              Hotspots
             </button>
-          ))}
-        </div>
+          );
+        })()}
         <button
           onClick={() => setShowZones(!showZones)}
           className={`px-2 py-0.5 rounded text-xs transition-all ${showZones ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
@@ -514,17 +507,18 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
         </button>
       </div>
 
-      {/* Legend */}
-      <div className="flex items-center gap-2 px-3 py-1 border-b bg-muted/30 text-[10px] text-muted-foreground">
-        <span>Low risk</span>
-        <div className="flex h-2 flex-1 max-w-[100px] rounded-sm overflow-hidden">
-          {[0, 0.2, 0.4, 0.6, 0.8, 1].map(t => (
-            <div key={t} className="flex-1" style={{ backgroundColor: interpolateColor(RISK_COLORS[activeLayer].low, RISK_COLORS[activeLayer].high, t) }} />
-          ))}
+      {/* Legend — only show when grid is visible */}
+      {showGrid && (
+        <div className="flex items-center gap-2 px-3 py-1 border-b bg-muted/30 text-[10px] text-muted-foreground">
+          <span>Low</span>
+          <div className="flex h-2 flex-1 max-w-[80px] rounded-sm overflow-hidden">
+            {[0, 0.2, 0.4, 0.6, 0.8, 1].map(t => (
+              <div key={t} className="flex-1" style={{ backgroundColor: interpolateColor(RISK_COLORS[activeLayer].low, RISK_COLORS[activeLayer].high, t) }} />
+            ))}
+          </div>
+          <span>High ({activeLayer})</span>
         </div>
-        <span>High risk</span>
-        <span className="ml-2">— — Zone boundary</span>
-      </div>
+      )}
 
       {/* Evidence Layers Panel */}
       {(enabledTileLayers.size > 0 || enabledOsmLayers.size > 0) && (
@@ -567,15 +561,15 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
             </p>
             <p className="text-[9px] text-muted-foreground">{TILE_LAYERS.filter(l => l.available).length} layers available</p>
           </div>
-          {/* Risk Analysis (250m pre-rendered tiles) */}
+          {/* Risk Analysis (250m) — individual risk layers (not composite hotspot) */}
           <div className="border-b">
             <button onClick={() => toggleGroup('risk_analysis')}
               className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-muted/50 transition-colors">
               <span className="text-[10px] font-medium">Risk Analysis (250m)</span>
               <div className="flex items-center gap-1">
-                {LOCAL_RISK_LAYERS.filter(l => enabledTileLayers.has(l.id)).length > 0 && (
+                {LOCAL_RISK_LAYERS.filter(l => l.id !== 'risk_composite_hotspot' && enabledTileLayers.has(l.id)).length > 0 && (
                   <span className="text-[9px] bg-primary/10 text-primary px-1 rounded">
-                    {LOCAL_RISK_LAYERS.filter(l => enabledTileLayers.has(l.id)).length}
+                    {LOCAL_RISK_LAYERS.filter(l => l.id !== 'risk_composite_hotspot' && enabledTileLayers.has(l.id)).length}
                   </span>
                 )}
                 {expandedGroups.has('risk_analysis') ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
@@ -583,7 +577,23 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
             </button>
             {expandedGroups.has('risk_analysis') && (
               <div className="px-1 pb-1 space-y-0.5">
-                {LOCAL_RISK_LAYERS.map(layer => {
+                {/* Grid coloring selector */}
+                {showGrid && (
+                  <div className="flex items-center gap-0.5 px-1 py-1 mb-1">
+                    <span className="text-[9px] text-muted-foreground mr-1">Grid:</span>
+                    {(['flood', 'heat', 'landslide'] as const).map(r => (
+                      <button key={r} onClick={() => setActiveLayer(r)}
+                        className={`px-1.5 py-0.5 rounded text-[9px] transition-all ${
+                          activeLayer === r
+                            ? r === 'flood' ? 'bg-blue-100 text-blue-700' : r === 'heat' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                            : 'text-muted-foreground hover:bg-muted/50'
+                        }`}>
+                        {r.charAt(0).toUpperCase() + r.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {LOCAL_RISK_LAYERS.filter(l => l.id !== 'risk_composite_hotspot').map(layer => {
                   const isOn = enabledTileLayers.has(layer.id);
                   return (
                     <button key={layer.id} onClick={() => toggleTileLayer(layer)}
@@ -592,6 +602,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
                       }`}>
                       <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: isOn ? layer.color : '#d1d5db' }} />
                       <span className="truncate">{layer.name}</span>
+                      {layer.hasValueTiles && <span className="w-1 h-1 rounded-full bg-emerald-500 shrink-0 ml-auto" title="Values on hover" />}
                     </button>
                   );
                 })}
