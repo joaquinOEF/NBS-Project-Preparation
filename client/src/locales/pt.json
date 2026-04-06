@@ -545,7 +545,11 @@
       "meanLandslide": "Risco Médio de Deslizamento",
       "area": "Área",
       "cells": "Células da Grade",
-      "intervention": "Intervenção Recomendada"
+      "intervention": "Intervenção Recomendada",
+      "poverty": "Taxa de Pobreza",
+      "priority": "Pontuação de Prioridade",
+      "population": "População",
+      "vulnerability": "Vulnerabilidade"
     }
   },
   "user": {

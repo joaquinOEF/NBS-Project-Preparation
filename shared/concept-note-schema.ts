@@ -170,7 +170,7 @@ export interface OpenMapParams {
   selectionMode: MapSelectionMode;
   prompt: string;             // Instruction shown on the map
   sampleLayers?: string[];    // For 'sample' mode: which tile layers to sample on click
-  zoneSource?: 'intervention_zones' | 'neighborhoods'; // Step 1 source for composite mode
+  zoneSource?: 'neighborhood_zones' | 'intervention_zones' | 'neighborhoods'; // Step 1 source for composite mode (default: neighborhood_zones)
 }
 
 export interface SelectedAsset {

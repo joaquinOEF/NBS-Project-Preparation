@@ -14,6 +14,7 @@ import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
 
 interface ZoneProperties {
   zoneId: string;
+  neighbourhoodName?: string;
   typologyLabel: string;
   primaryHazard: string;
   secondaryHazard?: string;
@@ -24,7 +25,11 @@ interface ZoneProperties {
   maxFlood: number;
   maxHeat: number;
   maxLandslide: number;
-  populationSum: number;
+  populationSum?: number;
+  populationTotal?: number;
+  povertyRate?: number;
+  vulnerabilityFactor?: number;
+  priorityScore?: number;
   areaKm2: number;
   cellCount: number;
 }
@@ -43,10 +48,13 @@ interface GridCellMetrics {
 
 export interface ZoneAggregation {
   zoneId: string;
+  neighbourhoodName?: string;
   primaryHazard: string;
   interventionType: string;
   areaKm2: number;
   population: number;
+  povertyRate?: number;
+  priorityScore?: number;
   meanFloodScore: number;
   meanHeatScore: number;
   meanLandslideScore: number;
@@ -141,7 +149,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
       try {
         const [boundaryRes, zonesRes, gridRes] = await Promise.all([
           fetch('/sample-data/porto-alegre-boundary.json'),
-          fetch('/sample-data/porto-alegre-zones.json'),
+          fetch('/sample-data/porto-alegre-neighborhood-zones.json'),
           fetch('/sample-data/porto-alegre-grid.json'),
         ]);
         const boundaryData = await boundaryRes.json();
@@ -234,7 +242,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
                 labels.push(L.marker(center, {
                   icon: L.divIcon({
                     className: 'zone-label',
-                    html: `<div style="background:white;border:1px solid #cbd5e1;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,0.1)">${props.zoneId.replace('zone_', 'Z')}</div>`,
+                    html: `<div style="background:white;border:1px solid #cbd5e1;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,0.1)">${props.neighbourhoodName || props.zoneId.replace('zone_', 'Z')}</div>`,
                     iconSize: [0, 0],
                     iconAnchor: [20, 10],
                   }),
@@ -450,14 +458,17 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
       .filter(z => selectedZones.has(z.zoneId))
       .map(z => ({
         zoneId: z.zoneId,
+        neighbourhoodName: z.neighbourhoodName,
         primaryHazard: z.primaryHazard,
         interventionType: z.interventionType,
         areaKm2: z.areaKm2,
-        population: z.populationSum,
+        population: z.populationTotal ?? z.populationSum ?? 0,
+        povertyRate: z.povertyRate,
+        priorityScore: z.priorityScore,
         meanFloodScore: z.meanFlood,
         meanHeatScore: z.meanHeat,
         meanLandslideScore: z.meanLandslide,
-        avgImperviousness: 0, // would need grid cell aggregation
+        avgImperviousness: 0,
         avgCanopy: 0,
         avgDistRiver: 0,
       }));
@@ -472,10 +483,13 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
 
   const handleConfirm = () => {
     if (!selectionSummary) return;
-    // Build a rich description for the agent
-    const lines = [`Selected ${selectionSummary.zones.length} intervention zones:`];
+    // Build a rich description for the agent using neighborhood names
+    const lines = [`Selected ${selectionSummary.zones.length} neighborhoods for NBS intervention:`];
     for (const z of selectionSummary.zones) {
-      lines.push(`- ${z.zoneId}: ${z.primaryHazard} risk, ${z.areaKm2.toFixed(1)} km², population ${z.population.toLocaleString()}, intervention: ${z.interventionType.replace(/_/g, ' ')}, flood score ${z.meanFloodScore.toFixed(2)}, heat score ${z.meanHeatScore.toFixed(2)}`);
+      const name = z.neighbourhoodName || z.zoneId;
+      const poverty = z.povertyRate != null ? `, poverty ${(z.povertyRate * 100).toFixed(1)}%` : '';
+      const priority = z.priorityScore != null ? `, priority ${z.priorityScore.toFixed(2)}` : '';
+      lines.push(`- ${name}: ${z.primaryHazard} risk, ${z.areaKm2.toFixed(1)} km², pop ${z.population.toLocaleString()}${poverty}${priority}, intervention: ${z.interventionType.replace(/_/g, ' ')}`);
     }
     lines.push(`Total: ${selectionSummary.totalArea.toFixed(1)} km², ${selectionSummary.totalPopulation.toLocaleString()} people`);
     lines.push(`Hazards: ${selectionSummary.primaryHazards.join(', ')}`);
@@ -789,7 +803,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
             {hoveredZone && (
               <>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold">{hoveredZone.zoneId}</span>
+                  <span className="font-semibold">{hoveredZone.neighbourhoodName || hoveredZone.zoneId}</span>
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getHazardBadgeColor(hoveredZone.primaryHazard)}`}>
                     {hoveredZone.primaryHazard}
                   </span>
@@ -798,10 +812,16 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
                   <div>Flood: <span className="text-foreground">{(hoveredZone.meanFlood * 100).toFixed(0)}%</span></div>
                   <div>Heat: <span className="text-foreground">{(hoveredZone.meanHeat * 100).toFixed(0)}%</span></div>
                   <div>Area: <span className="text-foreground">{hoveredZone.areaKm2.toFixed(1)} km²</span></div>
-                  <div>Pop: <span className="text-foreground">{hoveredZone.populationSum.toLocaleString()}</span></div>
+                  <div>Pop: <span className="text-foreground">{(hoveredZone.populationTotal ?? hoveredZone.populationSum ?? 0).toLocaleString()}</span></div>
+                  {hoveredZone.povertyRate != null && (
+                    <div>Poverty: <span className="text-foreground">{(hoveredZone.povertyRate * 100).toFixed(1)}%</span></div>
+                  )}
+                  {hoveredZone.priorityScore != null && (
+                    <div>Priority: <span className="text-foreground">{hoveredZone.priorityScore.toFixed(2)}</span></div>
+                  )}
                 </div>
                 <div className="text-muted-foreground mt-0.5">
-                  Intervention: {hoveredZone.interventionType.replace(/_/g, ' ')}
+                  {hoveredZone.interventionType.replace(/_/g, ' ')}
                 </div>
               </>
             )}
@@ -821,7 +841,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
         {selectedZones.size === 0 ? (
           <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1.5">
             <MapPin className="w-3.5 h-3.5" />
-            Click zone boundaries to select intervention areas
+            Click neighborhoods to select intervention areas
           </p>
         ) : (
           <div className="space-y-2">
@@ -831,7 +851,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
                 const zone = zoneData.find(z => z.zoneId === id);
                 return (
                   <Badge key={id} variant="secondary" className="text-[10px] h-5 gap-1">
-                    {id.replace('zone_', 'Z')}
+                    {zone?.neighbourhoodName || id.replace('zone_', 'Z')}
                     {zone && <span className={`px-1 rounded ${getHazardBadgeColor(zone.primaryHazard)} text-[9px]`}>{zone.primaryHazard}</span>}
                     <button onClick={() => setSelectedZones(prev => { const n = new Set(prev); n.delete(id); return n; })}>
                       <X className="w-2.5 h-2.5" />

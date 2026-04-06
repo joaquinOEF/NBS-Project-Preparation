@@ -184,7 +184,7 @@ STOP and wait for the user's map selection after calling this tool.`,
       selectionMode: z.enum(["zones", "assets", "sample", "composite"]).describe("composite = zone first, then sites. assets = sites only. zones = zones only. sample = click-to-read-values."),
       prompt: z.string().describe("Clear instruction for the user, e.g. 'Select the zone where you work, then pick the parks and schools you are targeting'"),
       sampleLayers: z.array(z.string()).optional().describe("For sample mode: which tile layers to sample on click"),
-      zoneSource: z.enum(["intervention_zones", "neighborhoods"]).optional().describe("For composite mode step 1: 'neighborhoods' shows bairros with census data (population, poverty). Default: intervention_zones."),
+      zoneSource: z.enum(["neighborhood_zones", "intervention_zones", "neighborhoods"]).optional().describe("For composite mode step 1: 'neighborhood_zones' (default) shows bairros with risk scores + vulnerability-weighted priority. 'neighborhoods' shows raw IBGE census data. 'intervention_zones' uses legacy synthetic zones."),
     },
     async (args: any) => {
       pushEvent({

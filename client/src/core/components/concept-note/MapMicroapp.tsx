@@ -92,23 +92,27 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   }, [mapReady]);
 
   // ── Load zone/neighborhood boundaries (step 1 of composite) ─────────────────
-  const zoneSource = params.zoneSource || 'intervention_zones';
-  const isNeighborhoods = zoneSource === 'neighborhoods';
+  // Default: neighborhood-based zones (IBGE bairros with risk scores + vulnerability)
+  // Legacy: 'intervention_zones' for old synthetic zones, 'neighborhoods' for raw IBGE
+  const zoneSource = params.zoneSource || 'neighborhood_zones';
+  const isNeighborhoods = zoneSource === 'neighborhoods' || zoneSource === 'neighborhood_zones';
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     if (selectionMode !== 'zones' && selectionMode !== 'composite') return;
     const map = mapRef.current;
 
-    setLoadingStatus(isNeighborhoods ? 'Loading neighborhoods...' : 'Loading intervention zones...');
+    setLoadingStatus('Loading neighborhoods...');
     (async () => {
       try {
-        const url = isNeighborhoods
+        const url = zoneSource === 'neighborhoods'
           ? '/sample-data/porto-alegre-ibge-indicators.json'
-          : '/sample-data/porto-alegre-zones.json';
+          : zoneSource === 'intervention_zones'
+          ? '/sample-data/porto-alegre-zones.json'
+          : '/sample-data/porto-alegre-neighborhood-zones.json';
         const res = await fetch(url);
         const data = await res.json();
-        const geojson = isNeighborhoods ? data : data.geoJson;
+        const geojson = zoneSource === 'neighborhoods' ? data : data.geoJson;
         if (!geojson?.features) { setLoading(false); return; }
 
         const defaultStyle = { color: '#475569', weight: 1.5, fillColor: 'transparent', fillOpacity: 0, dashArray: isNeighborhoods ? undefined : '4 2' };
@@ -118,17 +122,21 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
           onEachFeature: (feature, featureLayer) => {
             const p = feature.properties || {};
 
-            // Tooltip
-            if (isNeighborhoods) {
-              const pop = p.population_total?.toLocaleString() || '?';
-              const poverty = p.poverty_rate != null ? `${(p.poverty_rate * 100).toFixed(1)}%` : '?';
+            // Tooltip — neighborhood zones include risk + vulnerability data
+            if (p.neighbourhoodName) {
+              const pop = (p.populationTotal || p.population_total)?.toLocaleString() || '?';
+              const poverty = p.povertyRate != null ? `${(p.povertyRate * 100).toFixed(1)}%` : p.poverty_rate != null ? `${(p.poverty_rate * 100).toFixed(1)}%` : '?';
+              const hc = p.primaryHazard === 'FLOOD' ? '#3b82f6' : p.primaryHazard === 'HEAT' ? '#ef4444' : p.primaryHazard === 'LANDSLIDE' ? '#a16207' : '#888';
+              const hazardLine = p.primaryHazard ? `<span style="color:${hc}">${p.typologyLabel}</span> — ${(p.interventionType || '').replace(/_/g, ' ')}<br/>` : '';
+              const priorityLine = p.priorityScore != null ? `Priority: <strong>${p.priorityScore.toFixed(2)}</strong><br/>` : '';
               featureLayer.bindTooltip(
-                `<div style="font-size:11px"><strong>${p.neighbourhood_name}</strong><br/>` +
-                `${pop} hab. · ${p.area_km2?.toFixed(1) || '?'} km²<br/>` +
-                `<span style="color:#888">Pobreza: ${poverty}</span></div>`,
+                `<div style="font-size:11px"><strong>${p.neighbourhoodName || p.neighbourhood_name}</strong><br/>` +
+                hazardLine + priorityLine +
+                `${pop} hab. · ${(p.areaKm2 || p.area_km2)?.toFixed(1) || '?'} km²<br/>` +
+                `<span style="color:#888">Poverty: ${poverty}</span></div>`,
                 { sticky: true }
               );
-            } else {
+            } else if (zoneSource === 'intervention_zones') {
               const hc = p.primaryHazard === 'FLOOD' ? '#3b82f6' : p.primaryHazard === 'HEAT' ? '#ef4444' : '#a16207';
               featureLayer.bindTooltip(
                 `<div style="font-size:11px"><strong>${p.zoneId}</strong><br/><span style="color:${hc}">${p.typologyLabel}</span> — ${(p.interventionType || '').replace(/_/g, ' ')}<br/>${p.areaKm2?.toFixed(1)} km² · ${p.populationSum?.toLocaleString() || '?'} people</div>`,
@@ -137,8 +145,8 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
             }
 
             // Click to select
-            const zoneName = isNeighborhoods ? p.neighbourhood_name : p.zoneId;
-            const zoneSourceId = isNeighborhoods ? 'neighborhoods' : 'intervention_zones';
+            const zoneName = p.neighbourhoodName || p.neighbourhood_name || p.zoneId;
+            const zoneSourceId = zoneSource;
 
             (featureLayer as any).on('click', (e: any) => {
               if (drawModeRef.current !== 'off') return;

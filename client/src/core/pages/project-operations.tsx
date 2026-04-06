@@ -191,10 +191,10 @@ const SAMPLE_STAKEHOLDERS: Stakeholder[] = [
 ];
 
 const SAMPLE_SITES: Site[] = [
-  { id: 'zone-1', name: 'Centro Histórico Sponge Zone', hazardType: 'FLOOD', interventionType: 'sponge_network' },
-  { id: 'zone-2', name: 'Cidade Baixa Cooling Corridor', hazardType: 'HEAT', interventionType: 'cooling_network' },
-  { id: 'zone-3', name: 'Morro Santana Slope Stabilization', hazardType: 'LANDSLIDE', interventionType: 'slope_stabilization' },
-  { id: 'zone-4', name: 'Guaíba Waterfront Multi-Benefit', hazardType: 'MULTI', interventionType: 'multi_benefit' },
+  { id: 'arquipelago', name: 'Arquipélago Sponge Network', hazardType: 'FLOOD', interventionType: 'sponge_network' },
+  { id: 'centro_historico', name: 'Centro Histórico Cooling Corridor', hazardType: 'HEAT', interventionType: 'cooling_network' },
+  { id: 'cascata', name: 'Cascata Slope Stabilization', hazardType: 'LANDSLIDE', interventionType: 'slope_stabilization' },
+  { id: 'humaita', name: 'Humaitá Waterfront Multi-Benefit', hazardType: 'MULTI', interventionType: 'multi_benefit' },
 ];
 
 const OPERATING_MODELS = [

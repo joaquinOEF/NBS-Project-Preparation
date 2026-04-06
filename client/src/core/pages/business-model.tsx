@@ -371,8 +371,8 @@ function buildInitialBMData(actionType: string, hazards: string[], stakeholders:
     objectives: ['Reduce climate risk', 'Improve urban resilience', 'Enhance ecosystem services'],
     solutionArchetype: isNBS ? 'Nature-Based Solution' : 'Traditional Infrastructure',
     sites: [
-      { id: 'zone-1', name: 'Centro Histórico' },
-      { id: 'zone-2', name: 'Cidade Baixa' },
+      { id: 'arquipelago', name: 'Arquipélago' },
+      { id: 'centro_historico', name: 'Centro Histórico' },
     ],
     stakeholders: stakeholders.slice(0, 6),
     capexBand: { low: 5000000, mid: 10000000, high: 20000000, currency: 'BRL' },

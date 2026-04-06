@@ -100,7 +100,7 @@ interface LayerState {
 type LayerConfig = Omit<LayerState, 'enabled' | 'loaded' | 'data' | 'leafletLayer'>;
 
 const LAYER_CONFIGS: LayerConfig[] = [
-  { id: 'intervention_zones', name: 'Intervention Zones', icon: MapPinned, color: '#10b981', source: 'geojson', group: 'analysis', available: true },
+  { id: 'intervention_zones', name: 'Neighborhood Zones', icon: MapPinned, color: '#10b981', source: 'geojson', group: 'analysis', available: true },
   { id: 'ibge_census', name: 'Census / Poverty', icon: Users, color: '#a855f7', source: 'geojson', group: 'reference_data' as LayerGroupId, available: true },
   { id: 'ibge_settlements', name: 'Informal Settlements', icon: AlertTriangle, color: '#f43f5e', source: 'geojson', group: 'reference_data' as LayerGroupId, available: true },
   { id: 'flood_2024_extent', name: '2024 Flood Extent', icon: CloudRain, color: '#60a5fa', source: 'geojson', group: 'reference_data' as LayerGroupId, available: true },
@@ -1344,16 +1344,22 @@ export default function SiteExplorerPage() {
               const interventionLabel = t(`interventionZones.interventions.${p.interventionType}`) || p.interventionType;
               const interventionDesc = t(`interventionZones.interventions.${p.interventionType}_desc`) || '';
               
+              const displayName = p.neighbourhoodName || formatZoneName(p.zoneId);
+              const povertyLine = p.povertyRate != null ? `${t('interventionZones.metrics.poverty') || 'Poverty'}: ${(p.povertyRate * 100).toFixed(1)}%<br/>` : '';
+              const priorityLine = p.priorityScore != null ? `${t('interventionZones.metrics.priority') || 'Priority'}: ${p.priorityScore.toFixed(2)}<br/>` : '';
+              const popLine = p.populationTotal ? `${t('interventionZones.metrics.population') || 'Population'}: ${p.populationTotal.toLocaleString()}<br/>` : '';
               let tooltip = `<div style="min-width: 200px;">` +
-                `<strong style="font-size: 14px;">${formatZoneName(p.zoneId)}: ${typologyLabel}</strong><br/>` +
+                `<strong style="font-size: 14px;">${displayName}: ${typologyLabel}</strong><br/>` +
                 `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
                 `<strong>${t('interventionZones.metrics.intervention')}:</strong> ${interventionLabel}<br/>` +
                 `<em style="font-size: 11px;">${interventionDesc}</em><br/>` +
                 `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
+                priorityLine +
                 `${t('interventionZones.metrics.meanFlood')}: ${((p.meanFlood || 0) * 100).toFixed(0)}%<br/>` +
                 `${t('interventionZones.metrics.meanHeat')}: ${((p.meanHeat || 0) * 100).toFixed(0)}%<br/>` +
                 `${t('interventionZones.metrics.meanLandslide')}: ${((p.meanLandslide || 0) * 100).toFixed(0)}%<br/>` +
                 `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
+                popLine + povertyLine +
                 `${t('interventionZones.metrics.area')}: ${(p.areaKm2 || 0).toFixed(1)} km²<br/>` +
                 `${t('interventionZones.metrics.cells')}: ${p.cellCount || 0}<br/>` +
                 `<em style="font-size: 11px; color: #60a5fa;">Click to select interventions</em>` +
