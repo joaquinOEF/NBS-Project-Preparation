@@ -303,5 +303,5 @@ export async function loadSampleGridData(): Promise<any> {
 }
 
 export async function loadSampleZonesData(): Promise<any> {
-  return loadCachedSampleData('/sample-data/porto-alegre-zones.json', 'Failed to load sample zones data');
+  return loadCachedSampleData('/sample-data/porto-alegre-neighborhood-zones.json', 'Failed to load sample zones data');
 }

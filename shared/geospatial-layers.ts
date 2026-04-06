@@ -106,9 +106,15 @@ export const TILE_LAYERS: TileLayerDef[] = [
 
   // ── Hydrology & Terrain ────────────────────────────────────────────────────
   { id: 'oef_copernicus_dem',  name: 'DEM Elevation (Copernicus)',     group: 'hydrology', color: '#a16207', tileLayerId: 'copernicus_dem_visual', available: true },
-  { id: 'oef_merit_elv',      name: 'Terrain Elevation (MERIT)',      group: 'hydrology', color: '#bc6c25', tileLayerId: 'merit_elv',            available: true },
-  { id: 'oef_merit_upa',      name: 'Upstream Area (MERIT)',          group: 'hydrology', color: '#0369a1', tileLayerId: 'merit_upa',            available: true },
-  { id: 'oef_merit_hydro',    name: 'Height Above Drainage (MERIT)', group: 'hydrology', color: '#0ea5e9', tileLayerId: 'merit_hydro_hand',     available: true },
+  { id: 'oef_merit_elv',      name: 'Terrain Elevation (MERIT)',      group: 'hydrology', color: '#bc6c25', tileLayerId: 'merit_elv',            available: true, hasValueTiles: true,
+    valueEncoding: { type: 'numeric', scale: 100, offset: 0, unit: 'm',
+      urlTemplate: 'https://geo-test-api.s3.us-east-1.amazonaws.com/merit_hydro/release/v1/porto_alegre/elv/tiles_values/{z}/{x}/{y}.png' } },
+  { id: 'oef_merit_upa',      name: 'Upstream Area (MERIT)',          group: 'hydrology', color: '#0369a1', tileLayerId: 'merit_upa',            available: true, hasValueTiles: true,
+    valueEncoding: { type: 'numeric', scale: 1, offset: 0, unit: 'cells',
+      urlTemplate: 'https://geo-test-api.s3.us-east-1.amazonaws.com/merit_hydro/release/v1/porto_alegre/upa/tiles_values/{z}/{x}/{y}.png' } },
+  { id: 'oef_merit_hydro',    name: 'Height Above Drainage (MERIT)', group: 'hydrology', color: '#0ea5e9', tileLayerId: 'merit_hydro_hand',     available: true, hasValueTiles: true,
+    valueEncoding: { type: 'numeric', scale: 1, offset: 0, unit: 'm',
+      urlTemplate: 'https://geo-test-api.s3.us-east-1.amazonaws.com/merit_hydro/release/v1/porto_alegre/hnd/tiles_values/{z}/{x}/{y}.png' } },
   { id: 'oef_emsn194',        name: '2024 Flood Depth (Copernicus)', group: 'hydrology', color: '#1d4ed8', tileLayerId: 'copernicus_emsn194',   available: true },
   { id: 'oef_jrc_occurrence',  name: 'Surface Water Occurrence',      group: 'hydrology', color: '#1d4ed8', tileLayerId: 'jrc_occurrence',       available: true },
   { id: 'oef_jrc_seasonality', name: 'Surface Water Seasonality',     group: 'hydrology', color: '#0891b2', tileLayerId: 'jrc_seasonality',      available: true },

@@ -552,7 +552,11 @@
       "meanLandslide": "Mean Landslide Risk",
       "area": "Area",
       "cells": "Grid Cells",
-      "intervention": "Recommended Intervention"
+      "intervention": "Recommended Intervention",
+      "poverty": "Poverty Rate",
+      "priority": "Priority Score",
+      "population": "Population",
+      "vulnerability": "Vulnerability"
     }
   },
   "user": {

@@ -1055,7 +1055,7 @@ export async function executeAgentTool(
         // Load the zones data
         const fs = await import('fs/promises');
         const path = await import('path');
-        const zonesPath = path.join(process.cwd(), 'client', 'public', 'sample-data', 'porto-alegre-zones.json');
+        const zonesPath = path.join(process.cwd(), 'client', 'public', 'sample-data', 'porto-alegre-neighborhood-zones.json');
         
         let zonesData: any;
         try {
@@ -1134,17 +1134,19 @@ export async function executeAgentTool(
                 result: {
                   found: true,
                   zoneId: props.zoneId,
-                  zoneName: `Zone ${props.zoneId?.replace('zone_', '')}`,
+                  zoneName: props.neighbourhoodName || props.zoneId?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
                   typology: props.typologyLabel,
                   primaryHazard: props.primaryHazard,
                   interventionType: props.interventionType,
+                  povertyRate: props.povertyRate,
+                  priorityScore: props.priorityScore,
                   riskScores: {
                     flood: props.meanFlood,
                     heat: props.meanHeat,
                     landslide: props.meanLandslide,
                   },
                   compatibleCategories,
-                  message: `Location is in ${props.zoneId} (${props.typologyLabel}). Compatible intervention types: ${compatibleCategories.map(c => c.name).join(', ')}. Use add_intervention_site to propose adding this site with your chosen intervention type.`,
+                  message: `Location is in ${props.neighbourhoodName || props.zoneId} (${props.typologyLabel}). Compatible intervention types: ${compatibleCategories.map(c => c.name).join(', ')}. Use add_intervention_site to propose adding this site with your chosen intervention type.`,
                 },
               };
             }
@@ -1264,7 +1266,7 @@ export async function executeAgentTool(
               patchId,
               intervention,
               zoneId,
-              message: `I've prepared to add "${siteName}" as a ${interventionType} to Zone ${zoneId.replace('zone_', '')}. Please approve or reject this change.`,
+              message: `I've prepared to add "${siteName}" as a ${interventionType} to ${zoneId.includes('zone_') ? 'Zone ' + zoneId.replace('zone_', '') : zoneId.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}. Please approve or reject this change.`,
               requiresApproval: true,
             },
           };

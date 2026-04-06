@@ -162,7 +162,7 @@ Your narratives should be:
 - For large non-area numbers, use thousands separators or words: "103 million" not "103,000,000"
 - Percentages: Round to whole numbers when >= 10%, one decimal when < 10%
 - For value ranges, format consistently: "0.5–2°C" or "10–30%"
-- Use the provided human-readable zone names (e.g. "Zona Sul Residencial") as-is, do NOT convert them
+- Use the provided human-readable zone names (e.g. "Arquipélago") as-is, do NOT convert them
 - Use words for pathway names: "preparation facility" not "preparation_facility"
 
 Always respond with valid JSON matching the exact structure requested.`;
@@ -1704,7 +1704,7 @@ ${evidenceBlock}
 
 Generate structured JSON. RULES:
 - One impactGroup PER ZONE (not per hazard). Each group has zoneId matching the zone id.
-- The "interventionBundle" field MUST use the human-readable zone name (e.g. "Zona Sul Residencial"), NOT the zone id.
+- The "interventionBundle" field MUST use the human-readable zone name (e.g. "Arquipélago"), NOT the zone id.
 - Each KPI should reference a specific interventionId and interventionName from that zone's sites when possible.
 - Use ABSOLUTE values scaled to the actual site area/size (e.g. "340 m³/year" not "15-25% reduction") so values can be summed across zones.
 - Include 3-5 KPIs per zone covering: primary hazard reduction, secondary benefits, and area/coverage metrics.
@@ -1714,8 +1714,8 @@ Generate structured JSON. RULES:
     {
       "id": "ig-{zoneId}",
       "hazardType": "FLOOD",
-      "zoneId": "zone_12",
-      "interventionBundle": "Zona Sul Residencial",
+      "zoneId": "arquipelago",
+      "interventionBundle": "Arquipélago",
       "kpis": [
         {
           "id": "kpi-1",
