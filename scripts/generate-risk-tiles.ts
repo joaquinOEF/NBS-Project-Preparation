@@ -230,6 +230,92 @@ for (const layer of layers) {
   console.log(`  ${layer.name}: ${totalTiles} value tiles`);
 }
 
+// ── COMPOSITE HOTSPOT LAYER — additive RGB glow ──────────────────────────────
+// Red = heat, Blue = flood, Green component from landslide (amber = R+G)
+// Overlaps blend naturally: flood+heat = purple, all three = white
+// Alpha proportional to max risk — safe areas are transparent
+
+console.log('\nGenerating composite hotspot tiles...');
+
+let compositeTotal = 0;
+const RISK_THRESHOLD = 0.15; // Below this, pixel is transparent
+
+for (const z of ZOOM_LEVELS) {
+  const tileGroups = new Map<string, CellPosition[]>();
+  const n = Math.pow(2, z);
+  const degreesPerPixel = 360 / (n * 256);
+  const cellDegrees = gridData.cellSizeMeters / 111000;
+  const cellSizePx = Math.max(1, Math.round(cellDegrees / degreesPerPixel));
+
+  for (const cell of cells) {
+    const [lng, lat] = cell.properties.centroid;
+    const { x, y, px, py } = latLngToTileXY(lat, lng, z);
+    const key = `${z}/${x}/${y}`;
+    if (!tileGroups.has(key)) tileGroups.set(key, []);
+    tileGroups.get(key)!.push({ tileKey: key, px, py, metrics: cell.properties.metrics, cellSizePx });
+  }
+
+  for (const [key, positions] of tileGroups) {
+    const png = new PNG({ width: 256, height: 256 });
+    for (let i = 0; i < png.data.length; i += 4) {
+      png.data[i] = 0; png.data[i + 1] = 0; png.data[i + 2] = 0; png.data[i + 3] = 0;
+    }
+
+    for (const pos of positions) {
+      const flood = pos.metrics.flood_score ?? 0;
+      const heat = pos.metrics.heat_score ?? 0;
+      const landslide = pos.metrics.landslide_score ?? 0;
+      const maxRisk = Math.max(flood, heat, landslide);
+
+      if (maxRisk < RISK_THRESHOLD) continue;
+
+      // Additive color channels:
+      // Red = heat (+ landslide amber component)
+      // Green = landslide amber component (R+G = amber)
+      // Blue = flood
+      const r = Math.min(255, Math.round(heat * 255 + landslide * 200));
+      const g = Math.min(255, Math.round(landslide * 180));
+      const b = Math.min(255, Math.round(flood * 255));
+
+      // Alpha: stronger glow for higher risk, fade in from threshold
+      const intensity = (maxRisk - RISK_THRESHOLD) / (1 - RISK_THRESHOLD);
+      const a = Math.min(220, Math.round(intensity * 250));
+
+      const half = Math.floor(pos.cellSizePx / 2);
+      // Add a 1px soft edge for glow effect at higher zooms
+      const glowExtra = cellSizePx >= 3 ? 1 : 0;
+      for (let dy = -(half + glowExtra); dy <= half + glowExtra; dy++) {
+        for (let dx = -(half + glowExtra); dx <= half + glowExtra; dx++) {
+          const px = pos.px + dx;
+          const py = pos.py + dy;
+          if (px >= 0 && px < 256 && py >= 0 && py < 256) {
+            const idx = (py * 256 + px) * 4;
+            // Soft edge: reduce alpha at the boundary
+            const isEdge = Math.abs(dx) > half || Math.abs(dy) > half;
+            const edgeA = isEdge ? Math.round(a * 0.4) : a;
+
+            // Additive blend: brighter where risks overlap
+            png.data[idx] = Math.min(255, png.data[idx] + r);
+            png.data[idx + 1] = Math.min(255, png.data[idx + 1] + g);
+            png.data[idx + 2] = Math.min(255, png.data[idx + 2] + b);
+            png.data[idx + 3] = Math.max(png.data[idx + 3], edgeA);
+          }
+        }
+      }
+    }
+
+    const [, tileX, tileY] = key.split('/');
+    const dir = `client/public/tiles/composite_hotspot/${z}/${tileX}`;
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(`${dir}/${tileY}.png`, PNG.sync.write(png));
+    compositeTotal++;
+  }
+}
+
+console.log(`  composite_hotspot: ${compositeTotal} tiles`);
+
 console.log('\n✓ Visual tiles: client/public/tiles/{layer}/{z}/{x}/{y}.png');
 console.log('✓ Value tiles:  client/public/tiles_values/{layer}/{z}/{x}/{y}.png');
+console.log('✓ Composite:    client/public/tiles/composite_hotspot/{z}/{x}/{y}.png');
 console.log('  Decode: value = (R + 256*G) / 1000 (scale=1000, offset=0)');
+console.log('  Hotspot: R=heat, G=landslide, B=flood (additive)');

@@ -56,6 +56,12 @@ for (const cell of gridData.geoJson.features) {
   const m = cell.properties.metrics;
   const [lng, lat] = cell.properties.centroid;
 
+  // Recalculate slope at 250m cell size (not inherited 1km)
+  if (m.elevation_max != null && m.elevation_min != null) {
+    const elevRange = m.elevation_max - m.elevation_min;
+    m.slope_mean = Math.atan(elevRange / gridData.cellSizeMeters) * (180 / Math.PI);
+  }
+
   // Extract metrics
   const fri = m.fri_raw;
   const friNorm = fri != null ? clamp01(fri / friMax) : null;

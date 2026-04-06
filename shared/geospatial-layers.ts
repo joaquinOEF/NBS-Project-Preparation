@@ -60,6 +60,10 @@ export const LOCAL_RISK_LAYERS: TileLayerDef[] = [
     valueEncoding: { type: 'numeric', scale: 1000, offset: 0, unit: 'index 0–1',
       urlTemplate: '/tiles_values/landslide_risk/{z}/{x}/{y}.png' },
   },
+  {
+    id: 'risk_composite_hotspot', name: 'Risk Hotspots (all)', group: 'risk_analysis', color: '#8b5cf6',
+    tileLayerId: '_local_composite_hotspot', available: true,
+  },
 ];
 
 // Groups for the layer selector UI
