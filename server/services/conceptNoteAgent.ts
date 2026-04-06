@@ -240,6 +240,7 @@ STOP and wait for the user's map selection after calling this tool.`,
       selectionMode: z.enum(["zones", "assets", "sample", "composite"]).describe("composite = zone→sites. assets = sites only. zones = zones only. sample = click-to-read."),
       prompt: z.string().describe("Clear instruction for the user"),
       sampleLayers: z.array(z.string()).optional().describe("For sample mode: which tile layers to sample on click"),
+      zoneSource: z.enum(["intervention_zones", "neighborhoods"]).optional().describe("For composite step 1: 'neighborhoods' shows bairros with census data. Default: intervention_zones."),
     },
     async (args: any) => {
       pushEvent({
@@ -251,6 +252,7 @@ STOP and wait for the user's map selection after calling this tool.`,
           selectionMode: args.selectionMode,
           prompt: args.prompt,
           sampleLayers: args.sampleLayers,
+          zoneSource: args.zoneSource,
         },
       });
       return { content: [{ type: "text" as const, text: `Map opened in "${args.selectionMode}" mode. STOP and wait for the user's selection.` }] };

@@ -1642,6 +1642,8 @@
     "confirm": "Confirmar {{count}} seleção",
     "confirm_plural": "Confirmar {{count}} seleções",
     "step1Zone": "Passo 1: Clique na zona onde fica sua intervenção",
+    "step1Neighborhood": "Passo 1: Clique no seu bairro",
+    "neighborhood": "Bairro",
     "step2Sites": "Passo 2: Selecione os locais em {{zone}} — clique ou desenhe",
     "clickFeatures": "Clique nos locais para selecionar",
     "clickSample": "Clique em qualquer lugar para ver valores",
