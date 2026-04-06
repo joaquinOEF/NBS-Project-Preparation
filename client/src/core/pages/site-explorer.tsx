@@ -36,7 +36,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
-import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES } from '@shared/geospatial-layers';
+import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS } from '@shared/geospatial-layers';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
 import ValueTooltip from '@/core/components/concept-note/ValueTooltip';
 
@@ -78,7 +78,7 @@ interface CityInfo {
 }
 
 type LayerSource = 'geojson' | 'tiles';
-type LayerGroupId = 'analysis' | 'environment' | 'osm_reference' | 'spatial_queries' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections';
+type LayerGroupId = 'analysis' | 'environment' | 'osm_reference' | 'spatial_queries' | 'risk_250m' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections';
 
 interface LayerState {
   id: string;
@@ -131,6 +131,19 @@ const LAYER_CONFIGS: LayerConfig[] = [
     group: 'spatial_queries' as LayerGroupId,
     available: true,
   })),
+  // Local 250m risk layers (pre-rendered tiles)
+  ...LOCAL_RISK_LAYERS.map(l => ({
+    id: l.id,
+    name: l.name,
+    icon: AlertTriangle,
+    color: l.color,
+    source: 'tiles' as LayerSource,
+    group: 'risk_250m' as LayerGroupId,
+    available: true,
+    tileLayerId: l.tileLayerId,
+    hasValueTiles: l.hasValueTiles,
+    valueEncoding: l.valueEncoding,
+  })),
   // OEF tile layers — generated from shared catalog (48 layers)
   ...TILE_LAYERS.filter(l => l.available).map(l => ({
     id: l.id,
@@ -147,7 +160,8 @@ const LAYER_CONFIGS: LayerConfig[] = [
 ];
 
 const LAYER_GROUPS: readonly { id: LayerGroupId; label: string }[] = [
-  { id: 'analysis', label: 'Risk Analysis' },
+  { id: 'risk_250m', label: 'Risk Analysis (250m)' },
+  { id: 'analysis', label: 'Grid Analysis' },
   { id: 'environment', label: 'Environment' },
   { id: 'osm_reference', label: 'OSM Reference' },
   { id: 'spatial_queries', label: 'Spatial Queries' },
