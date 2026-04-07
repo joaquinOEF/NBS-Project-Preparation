@@ -81,7 +81,7 @@ function createCboMcpTools(cboId: string) {
     "update_section",
     "Update a field in the CBO intervention profile. The document panel updates in real-time.",
     {
-      sectionId: z.string().describe("Section ID: org_profile, intervention_site, intervention_plan, needs_assessment, results_evidence"),
+      sectionId: z.string().describe("Section ID: org_profile, intervention_site, intervention_type, impact_monitoring, operations_sustain, needs_assessment, results_evidence"),
       field: z.string().describe("Field name"),
       value: z.string().describe("Content to set"),
       confidence: z.enum(["high", "medium", "low"]).default("medium"),
@@ -247,7 +247,18 @@ STOP and wait for the user's map selection after calling this tool.`,
 
   const readKnowledge = sdkTool(
     "read_knowledge",
-    "Read a knowledge file for detailed data about interventions, co-benefits, or city context.",
+    `Read a knowledge file for detailed data about interventions, co-benefits, city context, or case studies.
+
+## Key folders
+- _interventions/: bioswales-rain-gardens.md, flood-parks.md, green-corridors.md, green-roofs-walls.md, urban-forests.md, wetland-restoration.md
+- _co-benefits/: public-health.md, carbon-sequestration.md, flood-risk-reduction.md, heat-island-mitigation.md, economic-social.md, biodiversity.md
+- _success-cases/: brazilian-municipal.md (Curitiba, Recife, BH, São Paulo, Salvador examples)
+- _evidence/: impact-benchmarks.md, funded-projects-brazil.md (GCF, World Bank, GEF projects)
+- _financing-sources/: preparation-facilities.md, international.md, brazilian-domestic.md
+- porto-alegre/: climate-risks.md, local-precedents.md, existing-plans.md, stakeholders.md, baseline-data.md
+- _cougar/: nbs-mapping-criteria.md, ecosystem-assessment-summary.md, sample-cbo-vilaflores.md
+
+USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — read relevant files and share insights.`,
     { folder: z.string(), file: z.string() },
     async (args: any) => {
       const fs = require('fs');
@@ -263,10 +274,42 @@ STOP and wait for the user's map selection after calling this tool.`,
     { annotations: { readOnlyHint: true } }
   );
 
+  const openInterventionSelector = sdkTool(
+    "open_intervention_selector",
+    `Open the NBS Intervention Type Selector micro-app. Shows 6 NBS types as visual cards with images, descriptions, cost ranges, and Brazilian case studies. The user browses and selects their intervention type.
+
+Use this in Phase 3a after collecting site information. Pass siteHazards from Phase 2 data to highlight the most relevant intervention types.
+
+STOP and wait for the user's selection after calling this tool.`,
+    {
+      prompt: z.string().describe("Instruction shown to the user, e.g. 'Choose the type of nature-based solution that best matches your project'"),
+      preSelectedType: z.string().optional().describe("Pre-select a type if the user already mentioned one"),
+      showCaseStudies: z.boolean().optional().default(true),
+      siteHazards: z.object({
+        flood: z.number().min(0).max(1),
+        heat: z.number().min(0).max(1),
+        landslide: z.number().min(0).max(1),
+      }).optional().describe("Hazard scores from Phase 2 neighborhood data to highlight relevant types"),
+    },
+    async (args: any) => {
+      pushEvent({
+        type: 'open_intervention_selector',
+        params: {
+          prompt: args.prompt,
+          preSelectedType: args.preSelectedType,
+          showCaseStudies: args.showCaseStudies ?? true,
+          siteHazards: args.siteHazards,
+        },
+      });
+      return { content: [{ type: "text" as const, text: `Intervention selector opened. STOP and wait for selection.` }] };
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, flagGap, setPhase, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge],
+    tools: [updateSection, flagGap, setPhase, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, openInterventionSelector],
   });
 }
 
@@ -284,6 +327,99 @@ function getMcpServer(cboId: string) {
 // STREAMING
 // ============================================================================
 
+// ── Skip mechanism: [SKIP TO phase:X] ────────────────────────────────────────
+// Pre-fills previous phases with CEA Bom Jesus sample data and jumps to target phase.
+// Supports: 1, 2, 3a, 3b, 3c, 4, 5
+
+const SKIP_PATTERN = /^\[SKIP TO phase:(\w+)\]/i;
+
+const SAMPLE_CBO_DATA: Record<string, Record<string, { value: string; confidence: 'high' | 'medium'; source?: string }>> = {
+  org_profile: {
+    org_name: { value: 'CEA Bom Jesus', confidence: 'high', source: 'sample' },
+    org_type: { value: 'ONG / Organização Não-Governamental', confidence: 'high', source: 'sample' },
+    mission: { value: 'Gestão de resíduos sólidos, energia renovável e economia circular na comunidade Bom Jesus, Porto Alegre', confidence: 'high', source: 'sample' },
+    team_size: { value: '12 membros (8 remunerados, 4 voluntários)', confidence: 'medium', source: 'sample' },
+    years_active: { value: '6 anos (desde 2020)', confidence: 'high', source: 'sample' },
+    prior_projects: { value: 'Cooperativa de reciclagem (2020-presente), Horta comunitária Bom Jesus (2022), Capacitação em compostagem (2023)', confidence: 'medium', source: 'sample' },
+    contact_name: { value: 'Maria Santos', confidence: 'high', source: 'sample' },
+    contact_role: { value: 'Coordenadora', confidence: 'high', source: 'sample' },
+    contact_email: { value: 'maria@ceabomjesus.org.br', confidence: 'high', source: 'sample' },
+  },
+  intervention_site: {
+    neighborhood: { value: 'Arquipélago (Ilhas)', confidence: 'high', source: 'map selection' },
+    area: { value: '2.5 hectares', confidence: 'medium', source: 'map selection' },
+    current_conditions: { value: 'Área degradada próxima ao arroio, com vegetação rasteira e acúmulo de resíduos. Solo argiloso, parcialmente inundável durante cheias.', confidence: 'medium', source: 'sample' },
+    population: { value: 'Aproximadamente 3.200 moradores no entorno direto', confidence: 'medium', source: 'sample' },
+    land_tenure: { value: 'Terreno público municipal com cessão de uso pendente', confidence: 'medium', source: 'sample' },
+    community_engagement: { value: 'Modelo cooperativo com assembleia mensal e núcleos por rua', confidence: 'high', source: 'sample' },
+  },
+  intervention_type: {
+    nbs_type: { value: 'wetland-restoration', confidence: 'high', source: 'intervention selector' },
+    problem: { value: 'Inundações recorrentes no bairro Arquipélago, agravadas pelas enchentes de 2024. Água contaminada do arroio afeta a saúde da comunidade.', confidence: 'high', source: 'sample' },
+    description: { value: 'Restauração de área úmida (várzea) ao longo do arroio, com plantio de espécies nativas para filtragem natural da água e retenção de cheias. Inclui construção de caminhos elevados e espaço de educação ambiental.', confidence: 'medium', source: 'sample' },
+    scale: { value: '2.5 ha de área úmida restaurada, 800 mudas nativas, 3 bacias de retenção', confidence: 'medium', source: 'sample' },
+  },
+  impact_monitoring: {
+    impact_areas: { value: 'Redução de inundação, melhoria da qualidade da água, biodiversidade, saúde pública', confidence: 'medium', source: 'sample' },
+    expected_outcomes: { value: 'Redução de 40-60% do volume de enchente local, filtragem natural reduzindo coliformes em 70%, habitat para fauna ribeirinha', confidence: 'medium', source: 'knowledge benchmarks' },
+    baseline: { value: 'Nível de inundação medido em 2024 (1.2m acima do normal). Análise de qualidade da água pendente.', confidence: 'medium', source: 'sample' },
+    monitoring_plan: { value: 'Medição mensal do nível da água, análise trimestral de qualidade, contagem anual de espécies', confidence: 'medium', source: 'sample' },
+  },
+  operations_sustain: {
+    operations_model: { value: 'Manutenção por equipe comunitária com apoio técnico da prefeitura', confidence: 'medium', source: 'sample' },
+    maintenance: { value: 'Limpeza semanal, replantio trimestral, monitoramento mensal das bacias', confidence: 'medium', source: 'sample' },
+    sustainability_model: { value: 'Combinação: taxa municipal de drenagem (40%), ecoturismo educacional (30%), pagamento por serviços ambientais (30%)', confidence: 'medium', source: 'sample' },
+    timeline_start: { value: '2025-06', confidence: 'medium', source: 'sample' },
+    timeline_milestones: { value: 'Limpeza do terreno (Jun 2025), Plantio fase 1 (Set 2025), Bacias de retenção (Dez 2025), Inauguração (Mar 2026)', confidence: 'medium', source: 'sample' },
+  },
+  needs_assessment: {
+    technical_needs: { value: 'Projeto hidráulico detalhado, seleção de espécies nativas, engenharia das bacias de retenção', confidence: 'medium', source: 'sample' },
+    financial_gap: { value: 'Custo total estimado: R$ 480.000. Já obtido: R$ 120.000 (edital FEPAM). Faltam: R$ 360.000', confidence: 'medium', source: 'sample' },
+    regulatory_status: { value: 'Licença ambiental em análise na SMAMUS. Prefeito visitou o local em fevereiro.', confidence: 'medium', source: 'sample' },
+  },
+};
+
+function applySkipData(state: CboState, targetPhase: string): { phase: number; agentMessage: string } {
+  // Map phase labels to ordered phases
+  const phaseOrder = ['1', '2', '3a', '3b', '3c', '4', '5'];
+  const phaseToNumber: Record<string, number> = { '1': 1, '2': 2, '3a': 3, '3b': 3, '3c': 3, '4': 4, '5': 5 };
+  const phaseToSection: Record<string, string> = {
+    '1': 'org_profile', '2': 'intervention_site', '3a': 'intervention_type',
+    '3b': 'impact_monitoring', '3c': 'operations_sustain', '4': 'needs_assessment', '5': 'results_evidence',
+  };
+
+  const targetIdx = phaseOrder.indexOf(targetPhase.toLowerCase());
+  if (targetIdx === -1) return { phase: 1, agentMessage: `Unknown phase "${targetPhase}". Starting from Phase 1.` };
+
+  // Fill all sections before the target phase
+  const filledSections: string[] = [];
+  for (let i = 0; i < targetIdx; i++) {
+    const sectionId = phaseToSection[phaseOrder[i]];
+    const sampleData = SAMPLE_CBO_DATA[sectionId];
+    if (sampleData && state.sections[sectionId as keyof typeof state.sections]) {
+      const section = state.sections[sectionId as keyof typeof state.sections];
+      for (const [field, data] of Object.entries(sampleData)) {
+        section.fields[field] = { value: data.value, confidence: data.confidence, source: data.source, userEdited: false };
+      }
+      section.confidence = 'medium';
+      section.lastUpdatedBy = 'agent';
+      filledSections.push(sectionId);
+    }
+  }
+
+  // Set org name from sample data
+  state.orgName = 'CEA Bom Jesus';
+  state.phase = phaseToNumber[targetPhase.toLowerCase()] || 1;
+
+  const phaseNum = phaseToNumber[targetPhase.toLowerCase()];
+  const subPhase = targetPhase.toLowerCase().includes('a') ? 'a' : targetPhase.toLowerCase().includes('b') ? 'b' : targetPhase.toLowerCase().includes('c') ? 'c' : '';
+
+  return {
+    phase: phaseNum,
+    agentMessage: `[SKIP] Pre-filled ${filledSections.length} sections with CEA Bom Jesus sample data. Now at Phase ${phaseNum}${subPhase}. Continue the interview from this phase. The user is testing — proceed as if previous phases were completed naturally.`,
+  };
+}
+
 export async function streamCboChat(cboId: string, userMessage: string, res: Response, state: CboState) {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -299,6 +435,23 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       addCboMessage(cboId, { role: 'assistant', content: event.content, messageType: 'thinking', timestamp: new Date().toISOString() });
     }
   };
+
+  // Handle [SKIP TO phase:X] magic prefix
+  const skipMatch = userMessage.match(SKIP_PATTERN);
+  if (skipMatch) {
+    const targetPhase = skipMatch[1];
+    const { phase, agentMessage } = applySkipData(state, targetPhase);
+    setCboState(cboId, state);
+    // Push field updates for all pre-filled sections so the UI updates
+    for (const [sectionId, section] of Object.entries(state.sections)) {
+      for (const [field, data] of Object.entries(section.fields)) {
+        pushEvent({ type: 'field_update', sectionId, field, value: String(data.value), confidence: data.confidence, source: data.source });
+      }
+    }
+    pushEvent({ type: 'phase_change', phase });
+    // Replace user message with the skip instruction for the agent
+    userMessage = agentMessage;
+  }
 
   setActivePushEvent(cboId, pushEvent);
   const isSdkReady = await loadSdk();
@@ -320,7 +473,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
 
   const prompt = `${sysCtx}\n\n## CURRENT STATE\n${stateSummary}\n\n## USER DECISIONS\n${decisionLog}\n\nUser message: ${userMessage}`;
 
-  console.log(`[cbo] Turn for ${cboId} (phase ${state.phase}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length}/5 sections)`);
+  console.log(`[cbo] Turn for ${cboId} (phase ${state.phase}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length}/7 sections)`);
 
   try {
     for await (const message of sdkQuery({
@@ -334,6 +487,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           "mcp__cbo__set_phase",
           "mcp__cbo__ask_user",
           "mcp__cbo__open_map",
+          "mcp__cbo__open_intervention_selector",
           "mcp__cbo__score_maturity",
           "mcp__cbo__set_priority_flag",
           "mcp__cbo__read_knowledge",
@@ -384,9 +538,12 @@ function buildDecisionLog(cboId: string): string {
   return msgs.slice(-10).map(m => `- User: ${m.content.slice(0, 200)}`).join('\n');
 }
 
-// Skill + knowledge cache
+// Skill + knowledge cache (cleared on server restart)
 let skillCache: string | null = null;
 let knowledgeCache: string | null = null;
+
+// Invalidate caches so updated skill/knowledge files take effect
+export function invalidateCboCache() { skillCache = null; knowledgeCache = null; }
 
 async function buildSystemContext(state: CboState): Promise<string> {
   if (!skillCache) {
@@ -436,27 +593,63 @@ async function buildSystemContext(state: CboState): Promise<string> {
     console.log(`[cbo] Knowledge loaded: ${knowledgeCache.length} chars`);
   }
 
-  return `You are a friendly CBO intervention profile advisor helping a community organization in ${state.city} document their NBS project.
+  return `You are a friendly NBS project preparation consultant helping a community organization in ${state.city} prepare their nature-based solution project. You are NOT just collecting data — you are helping them THINK through their project like a consultant would.
+
 Phase: ${state.phase}. Organization: ${state.orgName || '(not set)'}.
 
 ## YOUR TOOLS
-1. **update_section** — fill document fields (org_profile, intervention_site, intervention_plan, needs_assessment, results_evidence)
+1. **update_section** — fill document fields (org_profile, intervention_site, intervention_type, impact_monitoring, operations_sustain, needs_assessment, results_evidence)
 2. **ask_user** — present multiple-choice questions for non-spatial decisions
-3. **open_map** — open interactive map microapp. Use for ALL spatial/site questions instead of ask_user.
-   - Phase 2 (Where We Work): open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks", "osm_schools", "osm_wetlands"], tileLayers: ["oef_fri_2024", "oef_hwm_2024"], prompt: "Select your neighborhood, then pick the parks, schools, or sites you're targeting" })
-   - Phase 3 (What intervention): open_map({ selectionMode: "assets", layers: ["osm_parks", "osm_wetlands"], tileLayers: ["oef_dynamic_world", "oef_fri_2024"], prompt: "Select the green spaces or wetlands your NBS will transform" })
+3. **open_map** — open interactive map microapp for spatial/site questions
+   - Phase 2: open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks", "osm_schools", "osm_wetlands"], tileLayers: ["oef_fri_2024", "oef_hwm_2024"], prompt: "Select your neighborhood, then pick the parks, schools, or sites you're targeting" })
    - Evidence check: open_map({ selectionMode: "sample", tileLayers: ["oef_fri_2024", "oef_hwm_2024", "oef_copernicus_dem"], prompt: "Click locations to check climate risk values" })
-4. **set_phase** — advance phases (1-6)
-5. **flag_gap** — mark missing info
-6. **score_maturity** — score COUGAR maturity metrics (0-3) as you gather info
-7. **set_priority_flag** — mark priority flags (met/not met)
-8. **read_knowledge** — read detailed knowledge files
+4. **open_intervention_selector** — Phase 3a: open NBS type selector micro-app with visual cards, images, and case studies. Pass siteHazards from Phase 2 data.
+5. **set_phase** — advance phases (1-5, where Phase 3 has sub-phases 3a/3b/3c)
+6. **flag_gap** — mark missing info (but prefer guiding the user over flagging gaps)
+7. **score_maturity** — score COUGAR maturity metrics (0-3) as you gather info
+8. **set_priority_flag** — mark priority flags (met/not met)
+9. **read_knowledge** — read knowledge files for interventions, co-benefits, case studies, benchmarks. USE THIS PROACTIVELY.
+
+## PHASE FLOW
+- Phase 1: Who We Are (org_profile) — org info, team, experience
+- Phase 2: Where We Work (intervention_site) — map selection, neighborhood, site conditions
+- Phase 3a: What We're Building (intervention_type) — NBS type via selector micro-app, design details
+- Phase 3b: Expected Impact (impact_monitoring) — outcomes, baseline, monitoring indicators
+- Phase 3c: Operations & Sustainability (operations_sustain) — ops model, maintenance, revenue/sustainability
+- Phase 4: What We Need (needs_assessment) — technical, financial, regulatory
+- Phase 5: Results & Evidence (results_evidence) — documents, photos, links, data
 
 ## MATURITY METRICS (score each 0-3 as you go)
 ${MATURITY_METRICS.join(', ')}
 
 ## PRIORITY FLAGS (set as you discover them)
 ${PRIORITY_FLAG_DEFINITIONS.join(', ')}
+
+## GUIDANCE MODE — CRITICAL
+You are a CONSULTANT, not an interviewer. Every substantive question MUST include an "I don't know / Help me decide" option.
+
+When the user selects "I don't know":
+1. DON'T just flag a gap — HELP them think through it
+2. Read relevant knowledge files (interventions, co-benefits, case studies, benchmarks)
+3. Ask 2-3 simple follow-up questions to understand their situation
+4. Present 2-3 concrete recommendations with real Brazilian examples
+5. Explain WHY each option fits their specific site and situation
+6. Use benchmarks: "Projects like yours in Curitiba typically see 65% flood reduction"
+7. Reference funded projects: "The World Bank's Porto Alegre resilience project (US$85M) includes similar NBS"
+
+Example guidance flow for "I don't know what type of NBS":
+→ "No problem! Let me help. First: what's the biggest problem you see at your site?"
+→ [Flooding / Heat / Erosion / Pollution]
+→ "And what does the land look like now?"
+→ [Empty lot / Park / Near river / Hillside]
+→ read_knowledge(_interventions/flood-parks.md) + read_knowledge(_success-cases/brazilian-municipal.md)
+→ "Based on your flood-prone site near the river, I'd recommend a Flood Park — like what Curitiba did with Barigui..."
+
+## PROACTIVE EVIDENCE COLLECTION
+Ask for evidence at 3 key moments:
+- After Phase 2: "Do you have photos of the site? You can drag them into the chat."
+- After Phase 3a: "Do you have any documents about this project — proposals, reports, plans?"
+- Phase 5: "Can you share links to your website, social media, or any news coverage?"
 
 ## LANGUAGE
 - Each user message ends with [LANGUAGE: ...]. Follow it strictly.
@@ -467,33 +660,33 @@ ${PRIORITY_FLAG_DEFINITIONS.join(', ')}
 ## QUESTION STYLE
 - Use simple words: "Que tipo de solução?" not "Qual o tipo de SbN?"
 - Add example hints in descriptions: "(ex: plantio de árvores, restauração de áreas úmidas)"
-- Break complex questions into small steps: ask team size, THEN ask about paid vs volunteer
-- For financial questions: ask "Quanto custa o projeto todo?" then "Quanto vocês já têm?" then "Quanto falta?"
+- Break complex questions into small steps
 - Avoid technical terms: "Alguém do governo sabe do projeto?" not "Status regulatório"
 - Offer encouragement: "Ótimo! Isso mostra que vocês já têm experiência."
+- ALWAYS include "I don't know / Help me" as an option for substantive questions
 
 ## BEHAVIOR
-- Be warm and encouraging — many CBOs have limited formal documentation experience
+- Be warm, encouraging, and consultative
 - Start IMMEDIATELY with set_phase(1) and ask_user questions
 - Score maturity metrics as you gather information (don't wait until the end)
 - For ANY spatial question: use open_map (not ask_user with showMap)
 - Phase 2: ALWAYS use open_map with "composite" mode
-- Phase 3: use open_map with "assets" mode if asking about specific intervention sites
-- The tool description has recipes — follow them
-- After Phase 5: generate the full maturity scorecard using score_maturity for remaining metrics + set_priority_flag for all 6 flags
+- Phase 3a: ALWAYS use open_intervention_selector (not ask_user for NBS type)
+- Phase 3b/3c: read_knowledge PROACTIVELY to provide benchmarks and examples
+- After Phase 5: generate the full maturity scorecard
 - In your FIRST message: mention that the user can drop existing documents into the chat
 
 ## FILE DROPS
 When the user drops a document, you'll receive its content. React by:
 1. Extract ALL relevant info (org name, team, budget, site, interventions, progress)
 2. Call update_section for every field you can fill — maximize auto-fill
-3. Call score_maturity for metrics you can now assess (e.g., "Problem Clarity" → 2 if doc has a clear problem statement)
+3. Call score_maturity for metrics you can now assess
 4. Tell the user: "I found [X] in your document. I've filled [sections] and scored [metrics]."
 5. Skip questions already answered by the document
 6. Having a written document is itself evidence of maturity — score accordingly
 
 ## SKILL FLOW
-${skillCache?.slice(0, 2000) || ''}
+${skillCache?.slice(0, 3000) || ''}
 
 ## KNOWLEDGE
 ${knowledgeCache}`;

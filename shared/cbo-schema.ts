@@ -8,8 +8,10 @@ import type { OpenMapParams } from './concept-note-schema';
 export const CBO_SECTIONS = [
   { id: 'org_profile', title: '1. Who We Are', phase: 1, maturityMetrics: ['org_delivery_capacity', 'team_technical_experience'] },
   { id: 'intervention_site', title: '2. Where We Work', phase: 2, maturityMetrics: ['site_control', 'community_anchoring'] },
-  { id: 'intervention_plan', title: '3. What We\'re Doing', phase: 3, maturityMetrics: ['problem_clarity', 'climate_nbs_impact', 'solution_clarity'] },
-  { id: 'needs_assessment', title: '4. What We Need', phase: 4, maturityMetrics: ['financial_thinking', 'regulatory_awareness'] },
+  { id: 'intervention_type', title: '3a. What We\'re Building', phase: 3, subPhase: 'a', maturityMetrics: ['problem_clarity', 'solution_clarity'] },
+  { id: 'impact_monitoring', title: '3b. Expected Impact', phase: 3, subPhase: 'b', maturityMetrics: ['climate_nbs_impact'] },
+  { id: 'operations_sustain', title: '3c. Operations & Sustainability', phase: 3, subPhase: 'c', maturityMetrics: ['financial_thinking'] },
+  { id: 'needs_assessment', title: '4. What We Need', phase: 4, maturityMetrics: ['regulatory_awareness'] },
   { id: 'results_evidence', title: '5. Results & Evidence', phase: 5, maturityMetrics: [] },
 ] as const;
 
@@ -74,6 +76,52 @@ export interface CboState {
   };
 }
 
+// NBS intervention types available in the selector micro-app
+export const NBS_INTERVENTION_TYPES = [
+  { id: 'bioswales-rain-gardens', label: 'Bioswales & Rain Gardens', emoji: '🌿', primaryBenefit: 'adaptation', knowledgeFile: 'bioswales-rain-gardens.md',
+    description: 'Channels and planted areas that filter rainwater naturally',
+    example: 'Rain garden in a park, bioswale along a street',
+    caseStudy: { city: 'Recife, PE', project: 'Municipal Rain Gardens', image: '/assets/interventions/bioswales.jpg' } },
+  { id: 'flood-parks', label: 'Flood Parks', emoji: '🌊', primaryBenefit: 'adaptation', knowledgeFile: 'flood-parks.md',
+    description: 'Parks that absorb floodwater and serve the community',
+    example: 'Praça that becomes a retention pond during rain',
+    caseStudy: { city: 'Curitiba, PR', project: 'Barigui River Basin Parks', image: '/assets/interventions/flood-parks.jpg' } },
+  { id: 'green-corridors', label: 'Green Corridors', emoji: '🌳', primaryBenefit: 'both', knowledgeFile: 'green-corridors.md',
+    description: 'Linear green spaces connecting neighborhoods and ecosystems',
+    example: 'Tree-lined avenue, riverside walking path with native plants',
+    caseStudy: { city: 'Recife, PE', project: 'Parque Capibaribe', image: '/assets/interventions/green-corridors.jpg' } },
+  { id: 'green-roofs-walls', label: 'Green Roofs & Walls', emoji: '🏗️', primaryBenefit: 'both', knowledgeFile: 'green-roofs-walls.md',
+    description: 'Vegetation on rooftops and building facades for cooling and insulation',
+    example: 'Garden on a school roof, vertical garden on a community center',
+    caseStudy: { city: 'São Paulo, SP', project: 'Green Roof Research Program', image: '/assets/interventions/green-roofs.jpg' } },
+  { id: 'urban-forests', label: 'Urban Forests', emoji: '🌲', primaryBenefit: 'both', knowledgeFile: 'urban-forests.md',
+    description: 'Tree planting to cool neighborhoods, clean air, and absorb water',
+    example: 'Reforestation of a hillside, street tree program, community orchard',
+    caseStudy: { city: 'Porto Alegre, RS', project: 'Orla do Guaíba', image: '/assets/interventions/urban-forests.jpg' } },
+  { id: 'wetland-restoration', label: 'Wetland Restoration', emoji: '🌾', primaryBenefit: 'adaptation', knowledgeFile: 'wetland-restoration.md',
+    description: 'Restoring natural water areas for filtration, flood control, and habitat',
+    example: 'Recovering a degraded stream or várzea area',
+    caseStudy: { city: 'Belo Horizonte, MG', project: 'DRENURBS Stream Rehabilitation', image: '/assets/interventions/wetland-restoration.jpg' } },
+] as const;
+
+export type NbsInterventionTypeId = typeof NBS_INTERVENTION_TYPES[number]['id'];
+
+// Params for the NBS Type Selector micro-app
+export interface OpenInterventionSelectorParams {
+  prompt: string;
+  preSelectedType?: NbsInterventionTypeId;
+  showCaseStudies?: boolean;
+  siteHazards?: { flood: number; heat: number; landslide: number }; // from Phase 2 to highlight relevant types
+}
+
+// Result returned when user confirms selection in the micro-app
+export interface InterventionSelectorResult {
+  interventionType: NbsInterventionTypeId;
+  label: string;
+  primaryBenefit: string;
+  knowledgeFile: string;
+}
+
 // SSE events — same structure as concept note but with CBO types
 export type CboEvent =
   | { type: 'chat'; content: string; role: 'assistant'; messageType?: 'content' | 'thinking' | 'tool_status' }
@@ -83,8 +131,9 @@ export type CboEvent =
   | { type: 'gap'; sectionId: string; field: string; reason: string; severity: string }
   | { type: 'phase_change'; phase: number }
   | { type: 'maturity_update'; scores: MaturityScore[]; total: number; flags: PriorityFlag[] }
-  | { type: 'ask_user'; question: string; options: Array<{ label: string; description: string; recommended?: boolean }>; relatedSections?: string[]; showMap?: boolean; multiSelect?: boolean }
+  | { type: 'ask_user'; question: string; options: Array<{ label: string; description: string; recommended?: boolean; imageUrl?: string; location?: string }>; relatedSections?: string[]; showMap?: boolean; multiSelect?: boolean }
   | { type: 'open_map'; params: OpenMapParams }
+  | { type: 'open_intervention_selector'; params: OpenInterventionSelectorParams }
   | { type: 'done'; summary: string }
   | { type: 'error'; message: string };
 

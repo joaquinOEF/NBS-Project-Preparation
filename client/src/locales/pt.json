@@ -1556,6 +1556,7 @@
     "tabs": {
       "document": "Documento",
       "map": "Mapa",
+      "interventions": "Tipos de SbN",
       "scorecard": "Placar"
     },
     "export": "Exportar perfil",
@@ -1633,7 +1634,9 @@
     "sections": {
       "org_profile": "1. Quem Somos",
       "intervention_site": "2. Onde Atuamos",
-      "intervention_plan": "3. O Que Fazemos",
+      "intervention_type": "3a. O Que Estamos Construindo",
+      "impact_monitoring": "3b. Impacto Esperado",
+      "operations_sustain": "3c. Operação e Sustentabilidade",
       "needs_assessment": "4. O Que Precisamos",
       "results_evidence": "5. Resultados e Evidências"
     }

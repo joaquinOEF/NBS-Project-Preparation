@@ -20,6 +20,8 @@ import {
   type Confidence,
   type MaturityScore,
   type PriorityFlag,
+  type OpenInterventionSelectorParams,
+  type InterventionSelectorResult,
 } from '@shared/cbo-schema';
 import type { OpenMapParams, MapSelectionResult, SelectedAsset } from '@shared/concept-note-schema';
 import {
@@ -30,6 +32,7 @@ import {
 
 const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
 const MapMicroapp = lazy(() => import('@/core/components/concept-note/MapMicroapp'));
+const InterventionSelector = lazy(() => import('@/core/components/concept-note/InterventionSelector'));
 
 function formatMapResult(result: MapSelectionResult): string {
   const lines: string[] = [`Map selection (${result.selectionMode} mode):`];
@@ -86,9 +89,10 @@ export default function CboProfilePage() {
   const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({});
   const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
   const [multiSelectedOptions, setMultiSelectedOptions] = useState<Set<string>>(new Set());
-  const [rightTab, setRightTab] = useState<'document' | 'map' | 'scorecard'>(getSavedMapParams() ? 'map' : 'document');
+  const [rightTab, setRightTab] = useState<'document' | 'map' | 'scorecard' | 'interventions'>(getSavedMapParams() ? 'map' : 'document');
   const [mapRelevant, setMapRelevant] = useState(!!getSavedMapParams());
   const [openMapParams, _setOpenMapParams] = useState<OpenMapParams | null>(getSavedMapParams);
+  const [interventionSelectorParams, setInterventionSelectorParams] = useState<OpenInterventionSelectorParams | null>(null);
   const setOpenMapParams = useCallback((p: OpenMapParams | null) => { _setOpenMapParams(p); saveMapParams(p); }, []);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -263,6 +267,11 @@ export default function CboProfilePage() {
         setMapRelevant(true);
         setIsStreaming(false);
         break;
+      case 'open_intervention_selector':
+        setInterventionSelectorParams((event as any).params);
+        setRightTab('interventions');
+        setIsStreaming(false);
+        break;
       case 'done': setIsStreaming(false); break;
       case 'error': setIsStreaming(false); setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${event.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); break;
     }
@@ -314,7 +323,7 @@ export default function CboProfilePage() {
 
   const handleRestart = useCallback(async () => {
     if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
-    clearId(); saveMapParams(null); setOpenMapParams(null); setRightTab('document'); setMapRelevant(false);
+    clearId(); saveMapParams(null); setOpenMapParams(null); setInterventionSelectorParams(null); setRightTab('document'); setMapRelevant(false);
     setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
     const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
     const data = await res.json();
@@ -354,13 +363,29 @@ export default function CboProfilePage() {
               <Link href="/sample/project/sample-ada-1"><Button variant="ghost" size="sm" className="h-7 px-2"><ArrowLeft className="w-4 h-4" /></Button></Link>
               <div>
                 <h2 className="text-sm font-semibold flex items-center gap-1.5"><Leaf className="w-4 h-4 text-green-600" /> {t('cbo.title')}</h2>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  {[1,2,3,4,5].map(p => (
-                    <button key={p} onClick={() => !isStreaming && sendMessage(`Jump to Phase ${p}`)}
-                      className={`w-5 h-5 rounded text-[10px] font-medium transition-all ${p === state.phase ? 'bg-green-600 text-white' : p < state.phase ? 'bg-green-200 text-green-700' : 'bg-muted text-muted-foreground'}`}
-                    >{p}</button>
-                  ))}
-                  <span className="text-[10px] text-muted-foreground ml-1">{filledCount}/5</span>
+                <div className="flex items-center gap-1 mt-0.5">
+                  {[
+                    { label: '1', phase: 1, skip: '1' },
+                    { label: '2', phase: 2, skip: '2' },
+                    { label: '3a', phase: 3, skip: '3a' },
+                    { label: '3b', phase: 3, skip: '3b' },
+                    { label: '3c', phase: 3, skip: '3c' },
+                    { label: '4', phase: 4, skip: '4' },
+                    { label: '5', phase: 5, skip: '5' },
+                  ].map(p => {
+                    // Determine if this sub-phase is active or completed
+                    const sectionMap: Record<string, string> = { '1': 'org_profile', '2': 'intervention_site', '3a': 'intervention_type', '3b': 'impact_monitoring', '3c': 'operations_sustain', '4': 'needs_assessment', '5': 'results_evidence' };
+                    const sectionId = sectionMap[p.skip];
+                    const sectionFilled = sectionId && state.sections[sectionId as CboSectionId] && Object.keys(state.sections[sectionId as CboSectionId].fields).length > 0;
+                    const isActive = p.phase === state.phase;
+                    const isPast = p.phase < state.phase || sectionFilled;
+                    return (
+                      <button key={p.skip} onClick={() => !isStreaming && sendMessage(`[SKIP TO phase:${p.skip}]`)}
+                        className={`h-5 px-1.5 rounded text-[10px] font-medium transition-all ${isActive ? 'bg-green-600 text-white' : isPast ? 'bg-green-200 text-green-700' : 'bg-muted text-muted-foreground'}`}
+                      >{p.label}</button>
+                    );
+                  })}
+                  <span className="text-[10px] text-muted-foreground ml-1">{filledCount}/7</span>
                   {state.totalMaturityScore > 0 && <Badge variant="outline" className="text-[10px] h-4 ml-1">{state.totalMaturityScore}/27</Badge>}
                 </div>
               </div>
@@ -484,15 +509,17 @@ export default function CboProfilePage() {
             <div className="px-4 pt-3 pb-0">
               <h2 className="text-base font-semibold">{state.orgName || t('cbo.interventionProfile')}</h2>
               <div className="flex items-center gap-3 mt-1.5 mb-2">
-                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${(filledCount / 5) * 100}%` }} /></div>
-                <span className="text-xs text-muted-foreground shrink-0">{filledCount}/5</span>
+                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${(filledCount / 7) * 100}%` }} /></div>
+                <span className="text-xs text-muted-foreground shrink-0">{filledCount}/7</span>
               </div>
             </div>
             <div className="flex px-4 gap-0 border-t">
-              {(['document', 'map', 'scorecard'] as const).map(tab => (
+              {(['document', 'map', 'interventions', 'scorecard'] as const).map(tab => (
                 <button key={tab} onClick={() => setRightTab(tab)}
                   className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${rightTab === tab ? 'border-green-600 text-green-700' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-                  {t(`cbo.tabs.${tab}`)}{tab === 'map' && mapRelevant && rightTab !== 'map' && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-1 inline-block" />}
+                  {tab === 'interventions' ? (t('cbo.tabs.interventions', 'NBS Types')) : t(`cbo.tabs.${tab}`)}
+                  {tab === 'map' && mapRelevant && rightTab !== 'map' && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-1 inline-block" />}
+                  {tab === 'interventions' && interventionSelectorParams && rightTab !== 'interventions' && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-1 inline-block" />}
                   {tab === 'scorecard' && state.totalMaturityScore > 0 && <span className="ml-1 text-xs text-muted-foreground">{state.totalMaturityScore}/27</span>}
                 </button>
               ))}
@@ -568,6 +595,34 @@ export default function CboProfilePage() {
                     if (currentQuestion) handleSelectOption(description); else sendMessage(description);
                     setRightTab('document'); setMapRelevant(false);
                   }} />
+                )}
+              </Suspense>
+            </div>
+          )}
+
+          {rightTab === 'interventions' && (
+            <div className="flex-1 min-h-0 relative">
+              <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="w-6 h-6 animate-spin" /></div>}>
+                {interventionSelectorParams ? (
+                  <InterventionSelector
+                    params={interventionSelectorParams}
+                    onConfirm={(result: InterventionSelectorResult) => {
+                      const message = result.interventionType
+                        ? `Selected NBS type: ${result.label} (${result.interventionType}). Primary benefit: ${result.primaryBenefit}. Knowledge file: ${result.knowledgeFile}`
+                        : result.label; // "I don't know — help me decide"
+                      if (currentQuestion) handleSelectOption(message); else sendMessage(message);
+                      setInterventionSelectorParams(null);
+                      setRightTab('document');
+                    }}
+                    onCancel={() => {
+                      setInterventionSelectorParams(null);
+                      setRightTab('document');
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-sm text-muted-foreground p-8 text-center">
+                    {t('cbo.interventionsEmpty', 'The NBS Type Selector will open here when the agent asks you to choose your intervention type (Phase 3a).')}
+                  </div>
                 )}
               </Suspense>
             </div>
