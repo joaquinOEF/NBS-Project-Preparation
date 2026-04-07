@@ -1577,6 +1577,7 @@
     "tabs": {
       "document": "Document",
       "map": "Map",
+      "interventions": "NBS Types",
       "scorecard": "Scorecard"
     },
     "export": "Export profile",
@@ -1654,7 +1655,9 @@
     "sections": {
       "org_profile": "1. Who We Are",
       "intervention_site": "2. Where We Work",
-      "intervention_plan": "3. What We're Doing",
+      "intervention_type": "3a. What We're Building",
+      "impact_monitoring": "3b. Expected Impact",
+      "operations_sustain": "3c. Operations & Sustainability",
       "needs_assessment": "4. What We Need",
       "results_evidence": "5. Results & Evidence"
     }
