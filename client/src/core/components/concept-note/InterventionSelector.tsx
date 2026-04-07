@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Card, CardContent } from '@/core/components/ui/card';
-import { Check, HelpCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { Check, HelpCircle, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 import {
   NBS_INTERVENTION_TYPES,
   type OpenInterventionSelectorParams,
@@ -17,69 +17,102 @@ interface Props {
   onCancel: () => void;
 }
 
-// Placeholder images — will be replaced with real case study photos
-const PLACEHOLDER_GRADIENTS: Record<string, string> = {
-  'bioswales-rain-gardens': 'from-emerald-400 to-teal-600',
-  'flood-parks': 'from-blue-400 to-cyan-600',
-  'green-corridors': 'from-green-500 to-emerald-700',
-  'green-roofs-walls': 'from-lime-400 to-green-600',
-  'urban-forests': 'from-green-600 to-emerald-800',
-  'wetland-restoration': 'from-teal-500 to-blue-700',
-};
-
-// Hazard → which intervention types address it
-const HAZARD_RELEVANCE: Record<string, NbsInterventionTypeId[]> = {
-  flood: ['bioswales-rain-gardens', 'flood-parks', 'wetland-restoration'],
-  heat: ['green-corridors', 'green-roofs-walls', 'urban-forests'],
-  landslide: ['urban-forests', 'green-corridors'],
+// Hazard → which intervention types address it (with weight)
+const HAZARD_WEIGHTS: Record<string, Record<NbsInterventionTypeId, number>> = {
+  flood: { 'bioswales-rain-gardens': 0.9, 'flood-parks': 1.0, 'wetland-restoration': 0.95, 'green-corridors': 0.3, 'green-roofs-walls': 0.4, 'urban-forests': 0.3 },
+  heat: { 'green-corridors': 0.9, 'green-roofs-walls': 0.85, 'urban-forests': 1.0, 'bioswales-rain-gardens': 0.2, 'flood-parks': 0.3, 'wetland-restoration': 0.2 },
+  landslide: { 'urban-forests': 0.9, 'green-corridors': 0.7, 'bioswales-rain-gardens': 0.3, 'flood-parks': 0.1, 'green-roofs-walls': 0.1, 'wetland-restoration': 0.2 },
 };
 
 export default function InterventionSelector({ params, onConfirm, onCancel }: Props) {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const isPt = i18n.resolvedLanguage === 'pt';
-  const [selected, setSelected] = useState<NbsInterventionTypeId | null>(params.preSelectedType || null);
+  const [selected, setSelected] = useState<Set<NbsInterventionTypeId>>(() => {
+    if (params.preSelectedType) return new Set([params.preSelectedType]);
+    return new Set();
+  });
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [helpMode, setHelpMode] = useState(false);
+  const multiSelect = params.multiSelect ?? true; // default to multi-select
+  const maxRecs = params.maxRecommendations ?? 2;
 
-  // Sort types by relevance to site hazards
+  // Calculate relevance scores for each type
+  const typeScores = useMemo(() => {
+    const scores = new Map<NbsInterventionTypeId, number>();
+
+    // If agent passed explicit recommendations, use those as primary ranking
+    if (params.recommendedTypes && params.recommendedTypes.length > 0) {
+      for (const type of NBS_INTERVENTION_TYPES) {
+        const idx = params.recommendedTypes.indexOf(type.id);
+        scores.set(type.id, idx >= 0 ? 1000 - idx : 0); // recommended types get high scores in order
+      }
+      return scores;
+    }
+
+    // Otherwise, score based on hazards
+    if (!params.siteHazards) {
+      for (const type of NBS_INTERVENTION_TYPES) scores.set(type.id, 0);
+      return scores;
+    }
+
+    const { flood, heat, landslide } = params.siteHazards;
+    for (const type of NBS_INTERVENTION_TYPES) {
+      const score = (HAZARD_WEIGHTS.flood[type.id] || 0) * flood
+        + (HAZARD_WEIGHTS.heat[type.id] || 0) * heat
+        + (HAZARD_WEIGHTS.landslide[type.id] || 0) * landslide;
+      scores.set(type.id, score);
+    }
+    return scores;
+  }, [params.siteHazards, params.recommendedTypes]);
+
+  // Sort types by score (highest first)
   const sortedTypes = useMemo(() => {
-    if (!params.siteHazards) return [...NBS_INTERVENTION_TYPES];
-    const { flood, heat, landslide } = params.siteHazards;
-    return [...NBS_INTERVENTION_TYPES].sort((a, b) => {
-      const scoreA = (HAZARD_RELEVANCE.flood?.includes(a.id) ? flood : 0)
-        + (HAZARD_RELEVANCE.heat?.includes(a.id) ? heat : 0)
-        + (HAZARD_RELEVANCE.landslide?.includes(a.id) ? landslide : 0);
-      const scoreB = (HAZARD_RELEVANCE.flood?.includes(b.id) ? flood : 0)
-        + (HAZARD_RELEVANCE.heat?.includes(b.id) ? heat : 0)
-        + (HAZARD_RELEVANCE.landslide?.includes(b.id) ? landslide : 0);
-      return scoreB - scoreA;
-    });
-  }, [params.siteHazards]);
+    return [...NBS_INTERVENTION_TYPES].sort((a, b) =>
+      (typeScores.get(b.id) || 0) - (typeScores.get(a.id) || 0)
+    );
+  }, [typeScores]);
 
-  // Check if a type is relevant to the site hazards
-  const isRelevant = (typeId: NbsInterventionTypeId): boolean => {
-    if (!params.siteHazards) return true;
-    const { flood, heat, landslide } = params.siteHazards;
-    return (HAZARD_RELEVANCE.flood?.includes(typeId) && flood > 0.3)
-      || (HAZARD_RELEVANCE.heat?.includes(typeId) && heat > 0.3)
-      || (HAZARD_RELEVANCE.landslide?.includes(typeId) && landslide > 0.3);
+  // Only top N types get "Recommended" badge
+  const recommendedSet = useMemo(() => {
+    const sorted = [...typeScores.entries()].sort((a, b) => b[1] - a[1]);
+    const topN = sorted.slice(0, maxRecs).filter(([, score]) => score > 0);
+    return new Set(topN.map(([id]) => id));
+  }, [typeScores, maxRecs]);
+
+  const toggleSelect = (id: NbsInterventionTypeId) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        if (!multiSelect) next.clear();
+        next.add(id);
+      }
+      return next;
+    });
   };
 
   const handleConfirm = () => {
-    if (!selected) return;
-    const type = NBS_INTERVENTION_TYPES.find(t => t.id === selected);
-    if (!type) return;
+    if (selected.size === 0) return;
+    const types = NBS_INTERVENTION_TYPES.filter(t => selected.has(t.id));
+    const first = types[0];
     onConfirm({
-      interventionType: type.id,
-      label: type.label,
-      primaryBenefit: type.primaryBenefit,
-      knowledgeFile: type.knowledgeFile,
+      interventionTypes: types.map(t => t.id),
+      labels: types.map(t => t.label),
+      primaryBenefits: types.map(t => t.primaryBenefit),
+      knowledgeFiles: types.map(t => t.knowledgeFile),
+      interventionType: first.id,
+      label: first.label,
+      primaryBenefit: first.primaryBenefit,
+      knowledgeFile: first.knowledgeFile,
     });
   };
 
   const handleHelpMe = () => {
-    // Send "I don't know" as the result — agent will enter guidance mode
     onConfirm({
+      interventionTypes: [],
+      labels: ['I don\'t know — help me decide'],
+      primaryBenefits: [],
+      knowledgeFiles: [],
       interventionType: '' as NbsInterventionTypeId,
       label: 'I don\'t know — help me decide',
       primaryBenefit: '',
@@ -92,34 +125,38 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
       {/* Header */}
       <div className="p-4 border-b bg-background">
         <h3 className="text-sm font-semibold text-foreground">{params.prompt}</h3>
-        {params.siteHazards && (
-          <div className="flex gap-2 mt-2">
-            {params.siteHazards.flood > 0.3 && (
-              <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-700">
-                🌊 {isPt ? 'Risco de inundação' : 'Flood risk'}: {(params.siteHazards.flood * 100).toFixed(0)}%
-              </Badge>
-            )}
-            {params.siteHazards.heat > 0.3 && (
-              <Badge variant="outline" className="text-[10px] border-red-300 text-red-700">
-                🔥 {isPt ? 'Risco de calor' : 'Heat risk'}: {(params.siteHazards.heat * 100).toFixed(0)}%
-              </Badge>
-            )}
-            {params.siteHazards.landslide > 0.3 && (
-              <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700">
-                ⛰️ {isPt ? 'Risco de deslizamento' : 'Landslide risk'}: {(params.siteHazards.landslide * 100).toFixed(0)}%
-              </Badge>
-            )}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2 mt-2">
+          {params.siteHazards && params.siteHazards.flood > 0.3 && (
+            <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-700">
+              🌊 {isPt ? 'Inundação' : 'Flood'}: {(params.siteHazards.flood * 100).toFixed(0)}%
+            </Badge>
+          )}
+          {params.siteHazards && params.siteHazards.heat > 0.3 && (
+            <Badge variant="outline" className="text-[10px] border-red-300 text-red-700">
+              🔥 {isPt ? 'Calor' : 'Heat'}: {(params.siteHazards.heat * 100).toFixed(0)}%
+            </Badge>
+          )}
+          {params.siteHazards && params.siteHazards.landslide > 0.3 && (
+            <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700">
+              ⛰️ {isPt ? 'Deslizamento' : 'Landslide'}: {(params.siteHazards.landslide * 100).toFixed(0)}%
+            </Badge>
+          )}
+          {multiSelect && (
+            <Badge variant="outline" className="text-[10px] border-green-300 text-green-700">
+              {isPt ? 'Pode escolher mais de um' : 'You can select multiple'}
+            </Badge>
+          )}
+        </div>
       </div>
 
-      {/* Cards grid */}
+      {/* Cards */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {sortedTypes.map((type) => {
-          const relevant = isRelevant(type.id);
-          const isSelected = selected === type.id;
+          const isRec = recommendedSet.has(type.id);
+          const isSelected = selected.has(type.id);
           const isExpanded = expandedId === type.id;
-          const gradient = PLACEHOLDER_GRADIENTS[type.id] || 'from-gray-400 to-gray-600';
+          const score = typeScores.get(type.id) || 0;
+          const cs = type.caseStudy;
 
           return (
             <Card
@@ -127,16 +164,22 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
               className={`cursor-pointer transition-all overflow-hidden ${
                 isSelected
                   ? 'ring-2 ring-green-500 border-green-500'
-                  : relevant
+                  : isRec
                     ? 'hover:border-green-300 hover:shadow-md'
-                    : 'opacity-60 hover:opacity-80'
+                    : 'opacity-70 hover:opacity-90'
               }`}
-              onClick={() => setSelected(type.id)}
+              onClick={() => toggleSelect(type.id)}
             >
-              {/* Image placeholder — gradient with emoji */}
-              <div className={`h-28 bg-gradient-to-br ${gradient} relative flex items-center justify-center`}>
-                <span className="text-4xl">{type.emoji}</span>
-                {relevant && params.siteHazards && (
+              {/* Real photo */}
+              <div className="h-36 relative overflow-hidden bg-muted">
+                <img
+                  src={cs.image}
+                  alt={`${cs.project} — ${cs.city}`}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                {isRec && (
                   <Badge className="absolute top-2 right-2 bg-green-600 text-[10px]">
                     {isPt ? 'Recomendado' : 'Recommended'}
                   </Badge>
@@ -146,11 +189,12 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
                     <Check className="w-4 h-4 text-white" />
                   </div>
                 )}
-                {type.caseStudy && (
-                  <span className="absolute bottom-2 left-2 text-[10px] text-white/80 bg-black/30 px-1.5 py-0.5 rounded">
-                    📍 {type.caseStudy.city}
+                <div className="absolute bottom-2 left-2 right-2 flex items-end justify-between">
+                  <span className="text-[10px] text-white/90 bg-black/40 px-1.5 py-0.5 rounded">
+                    📍 {cs.city}
                   </span>
-                )}
+                  <span className="text-4xl">{type.emoji}</span>
+                </div>
               </div>
 
               <CardContent className="p-3">
@@ -169,8 +213,8 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
                   </Badge>
                 </div>
 
-                {/* Expandable case study section */}
-                {params.showCaseStudies && type.caseStudy && (
+                {/* Expandable real case study */}
+                {params.showCaseStudies !== false && (
                   <div className="mt-2">
                     <button
                       className="text-[11px] text-green-700 hover:text-green-900 flex items-center gap-1"
@@ -180,15 +224,30 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
                       }}
                     >
                       {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                      {isPt ? 'Ver exemplo real' : 'See real example'}: {type.caseStudy.project}
+                      {isPt ? 'Ver exemplo real' : 'See real example'}: {cs.project}
                     </button>
                     {isExpanded && (
-                      <div className="mt-2 p-2 bg-muted/50 rounded-md text-xs text-muted-foreground space-y-1">
-                        <p><strong>{type.caseStudy.project}</strong> — {type.caseStudy.city}</p>
-                        <p className="text-[10px]">
-                          {isPt
-                            ? 'Clique em "Confirmar" para ver detalhes completos, custos e indicadores deste tipo de intervenção.'
-                            : 'Click "Confirm" to see full details, costs, and indicators for this intervention type.'}
+                      <div className="mt-2 p-3 bg-muted/50 rounded-md text-xs space-y-2 border border-muted">
+                        <div>
+                          <p className="font-semibold text-foreground">{cs.project}</p>
+                          <p className="text-muted-foreground">{cs.city}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">{isPt ? 'Resultados' : 'Outcomes'}:</p>
+                          <p className="text-muted-foreground">{cs.outcome}</p>
+                        </div>
+                        <div className="flex gap-4">
+                          <div>
+                            <p className="font-medium text-foreground">{isPt ? 'Custo' : 'Cost'}:</p>
+                            <p className="text-muted-foreground">{cs.cost}</p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">{isPt ? 'Prazo' : 'Timeline'}:</p>
+                            <p className="text-muted-foreground">{cs.timeline}</p>
+                          </div>
+                        </div>
+                        <p className="text-[9px] text-muted-foreground/60 flex items-center gap-1">
+                          <Camera className="w-3 h-3" /> {cs.photoCredit}
                         </p>
                       </div>
                     )}
@@ -228,19 +287,21 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
           {isPt ? 'Cancelar' : 'Cancel'}
         </Button>
         <div className="flex items-center gap-2">
-          {selected && (
+          {selected.size > 0 && (
             <span className="text-xs text-muted-foreground">
-              {NBS_INTERVENTION_TYPES.find(t => t.id === selected)?.label}
+              {selected.size === 1
+                ? NBS_INTERVENTION_TYPES.find(t => selected.has(t.id))?.label
+                : `${selected.size} ${isPt ? 'selecionados' : 'selected'}`}
             </span>
           )}
           <Button
             size="sm"
             className="bg-green-600 hover:bg-green-700"
-            disabled={!selected}
+            disabled={selected.size === 0}
             onClick={handleConfirm}
           >
             <Check className="w-4 h-4 mr-1" />
-            {isPt ? 'Confirmar' : 'Confirm'}
+            {isPt ? 'Confirmar' : 'Confirm'}{selected.size > 1 ? ` (${selected.size})` : ''}
           </Button>
         </div>
       </div>

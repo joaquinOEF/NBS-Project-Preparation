@@ -302,20 +302,27 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
 
   const openInterventionSelector = sdkTool(
     "open_intervention_selector",
-    `Open the NBS Intervention Type Selector micro-app. Shows 6 NBS types as visual cards with images, descriptions, cost ranges, and Brazilian case studies. The user browses and selects their intervention type.
+    `Open the NBS Intervention Type Selector micro-app. Shows 6 NBS types as visual cards with REAL PHOTOS from Brazilian case studies, cost data, outcomes, and timelines. The user browses and selects one or more intervention types.
 
-Use this in Phase 3a after collecting site information. Pass siteHazards from Phase 2 data to highlight the most relevant intervention types.
+Use this in Phase 3a after collecting site information. Pass siteHazards from Phase 2 data to highlight the most relevant types. Only the top 2 types get the "Recommended" badge.
+
+If the user went through guidance mode first (asked about problems, site conditions), pass recommendedTypes with your recommended order — the selector will sort and badge accordingly.
+
+The user can select MULTIPLE types (e.g., wetland restoration + bioswales combo).
 
 STOP and wait for the user's selection after calling this tool.`,
     {
-      prompt: z.string().describe("Instruction shown to the user, e.g. 'Choose the type of nature-based solution that best matches your project'"),
+      prompt: z.string().describe("Instruction shown to the user"),
       preSelectedType: z.string().optional().describe("Pre-select a type if the user already mentioned one"),
       showCaseStudies: z.boolean().optional().default(true),
+      multiSelect: z.boolean().optional().default(true).describe("Allow selecting multiple NBS types"),
       siteHazards: z.object({
         flood: z.number().min(0).max(1),
         heat: z.number().min(0).max(1),
         landslide: z.number().min(0).max(1),
-      }).optional().describe("Hazard scores from Phase 2 neighborhood data to highlight relevant types"),
+      }).optional().describe("Hazard scores from Phase 2 to rank types by relevance"),
+      recommendedTypes: z.array(z.string()).optional().describe("Ordered list of recommended type IDs from guidance mode, e.g. ['wetland-restoration', 'bioswales-rain-gardens', 'flood-parks']. First 2 get 'Recommended' badge."),
+      maxRecommendations: z.number().optional().default(2).describe("How many types to badge as Recommended (default 2)"),
     },
     async (args: any) => {
       pushEvent({
@@ -324,10 +331,13 @@ STOP and wait for the user's selection after calling this tool.`,
           prompt: args.prompt,
           preSelectedType: args.preSelectedType,
           showCaseStudies: args.showCaseStudies ?? true,
+          multiSelect: args.multiSelect ?? true,
           siteHazards: args.siteHazards,
+          recommendedTypes: args.recommendedTypes,
+          maxRecommendations: args.maxRecommendations ?? 2,
         },
       });
-      return { content: [{ type: "text" as const, text: `Intervention selector opened. STOP and wait for selection.` }] };
+      return { content: [{ type: "text" as const, text: `Intervention selector opened (multi-select enabled). STOP and wait for selection.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
