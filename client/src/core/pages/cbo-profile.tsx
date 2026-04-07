@@ -629,8 +629,8 @@ export default function CboProfilePage() {
                   <InterventionSelector
                     params={interventionSelectorParams}
                     onConfirm={(result: InterventionSelectorResult) => {
-                      const message = result.interventionType
-                        ? `Selected NBS type: ${result.label} (${result.interventionType}). Primary benefit: ${result.primaryBenefit}. Knowledge file: ${result.knowledgeFile}`
+                      const message = result.interventionTypes.length > 0
+                        ? `Selected NBS type${result.interventionTypes.length > 1 ? 's' : ''}: ${result.labels.join(' + ')} (${result.interventionTypes.join(', ')}). Primary benefits: ${result.primaryBenefits.join(', ')}. Knowledge files: ${result.knowledgeFiles.join(', ')}`
                         : result.label; // "I don't know — help me decide"
                       if (currentQuestion) handleSelectOption(message); else sendMessage(message);
                       setInterventionSelectorParams(null);
