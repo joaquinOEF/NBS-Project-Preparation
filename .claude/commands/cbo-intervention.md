@@ -37,32 +37,46 @@ Help a community-based organization (CBO/NGO) prepare their NBS intervention for
 - Scale: area (ha), tree count, structures
 - **Maturity assessment**: Problem Clarity (0-3), Solution Clarity (0-3)
 
-### Phase 3b: Expected Impact (impact_monitoring)
-- Read co-benefits files for the selected intervention type
-- Expected impact areas (multi-select): flood reduction, heat cooling, biodiversity, carbon, jobs, health
-- For each: provide benchmarks from knowledge ("bioswales typically reduce runoff by 65%")
-- Baseline: "Do you have current measurements?" → "I don't know" → explain what to measure and how
-- Monitoring plan: "How will you know it's working?" → "I don't know" → suggest simple indicators
-- Ask for existing data or studies: "Do you have any documents about this project?"
+### Phase 3b: Expected Impact (impact_monitoring) — B£ST-STYLE ASSESSMENT
+Follow the B£ST (Benefits Estimation Tool) model for guided impact assessment:
+
+**Step 1 — Screening**: 5-6 yes/no toggles to identify relevant benefit categories
+  - Flooding? Heat? Water body nearby? People within 500m? Existing vegetation? Erosion?
+  - Pre-fill from Phase 2 hazard data
+
+**Step 2 — Site inputs**: Collect details that improve the estimate
+  - Baseline condition (what was there before?)
+  - Population nearby (from Phase 2)
+  - Maintenance commitment (weekly/monthly/seasonal)
+  - Timeframe (1/3/5/10 years)
+
+**Step 3 — With/without comparison**: Read co-benefits + impact benchmarks knowledge files
+  - Present as: "WITHOUT your project: X" vs "WITH your project: Y"
+  - ALWAYS show ranges, never point estimates
+  - Show confidence levels (high/medium/low)
+  - Reference similar funded project as benchmark
+
 - **Maturity assessment**: Climate NBS Impact (0-3)
 
 ### Phase 3c: Operations & Sustainability (operations_sustain)
 - Operations model: who maintains it? (community volunteers, paid staff, municipal, partnership)
-- Maintenance schedule: what tasks, how often
+- Maintenance schedule: what tasks, how often (read OPEX section from intervention knowledge file)
 - Sustainability model: how will you pay for maintenance long-term?
-  - Options: grants, carbon credits, PES, productive use (food, tourism), municipal budget, social enterprise
-  - "I don't know" → walk through each model with examples from funded projects
+  - Realistic options for CBOs: municipal budget allocation, community cooperative fee, productive use (food, tourism, education), grant renewal (watch for new editais)
+  - Be HONEST: carbon credits are NOT practical for small projects (<100 ha)
+  - "I don't know" → walk through each model with simple examples
 - Timeline: started when, milestones, expected completion
 - What's already done vs what's planned
-- Show relevant funded project cards from evidence database
 - **Maturity assessment**: Financial Thinking (0-3)
 
-### Phase 4: What We Need (needs_assessment)
+### Phase 4: What We Need (needs_assessment) — REAL FUNDING SOURCES
+- Read knowledge: _financing-sources/cbo-grants.md
+- Present ONLY funding sources the CBO can actually access:
+  - **Tier 1** (apply directly): Teia da Sociobiodiversidade (R$100K), Fundo Casa RS (R$40K), Periferias Verdes Resilientes, GEF SGP (US$50K)
+  - **Tier 2** (through partnership/municipality): Petrobras NBS Urbano, World Bank P178072 sub-components
+  - **Monitor**: capta.org.br/fontes for new editais
+- DO NOT present BNDES (min R$10M) or GCF (US$50M+) as direct options for CBOs
 - Technical help needed (design, monitoring, engineering)
-- Financial gap: funding needed and for what
-- Equipment / materials needed
-- Partnerships sought
-- Training needs
 - Regulatory status: permits, conversations with authorities
 - Ask for links: "Do you have a website, social media, or news coverage?"
 - **Maturity assessment**: Regulatory Awareness (0-3)

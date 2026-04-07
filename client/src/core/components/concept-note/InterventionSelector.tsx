@@ -70,7 +70,8 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
     setDetailLoading(true);
     setActiveSection('description');
     try {
-      const res = await fetch(`/api/knowledge/interventions/${id}`);
+      const lang = isPt ? 'pt' : 'en';
+      const res = await fetch(`/api/knowledge/interventions/${id}?lang=${lang}`);
       if (res.ok) {
         const data = await res.json();
         setDetailSections(data.sections);
