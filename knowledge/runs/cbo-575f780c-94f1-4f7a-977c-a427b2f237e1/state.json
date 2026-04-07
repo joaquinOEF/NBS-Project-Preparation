@@ -1,0 +1,173 @@
+{
+  "id": "575f780c-94f1-4f7a-977c-a427b2f237e1",
+  "orgName": "CEA Bom Jesus",
+  "city": "porto-alegre",
+  "phase": 3,
+  "sections": {
+    "org_profile": {
+      "id": "org_profile",
+      "title": "1. Who We Are",
+      "phase": 1,
+      "fields": {
+        "org_name": {
+          "value": "CEA Bom Jesus",
+          "confidence": "high",
+          "source": "sample",
+          "userEdited": false
+        },
+        "org_type": {
+          "value": "ONG / Organização Não-Governamental",
+          "confidence": "high",
+          "source": "sample",
+          "userEdited": false
+        },
+        "mission": {
+          "value": "Gestão de resíduos sólidos, energia renovável e economia circular na comunidade Bom Jesus, Porto Alegre",
+          "confidence": "high",
+          "source": "sample",
+          "userEdited": false
+        },
+        "team_size": {
+          "value": "12 membros (8 remunerados, 4 voluntários)",
+          "confidence": "medium",
+          "source": "sample",
+          "userEdited": false
+        },
+        "years_active": {
+          "value": "6 anos (desde 2020)",
+          "confidence": "high",
+          "source": "sample",
+          "userEdited": false
+        },
+        "prior_projects": {
+          "value": "Cooperativa de reciclagem (2020-presente), Horta comunitária Bom Jesus (2022), Capacitação em compostagem (2023)",
+          "confidence": "medium",
+          "source": "sample",
+          "userEdited": false
+        },
+        "contact_name": {
+          "value": "Maria Santos",
+          "confidence": "high",
+          "source": "sample",
+          "userEdited": false
+        },
+        "contact_role": {
+          "value": "Coordenadora",
+          "confidence": "high",
+          "source": "sample",
+          "userEdited": false
+        },
+        "contact_email": {
+          "value": "maria@ceabomjesus.org.br",
+          "confidence": "high",
+          "source": "sample",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
+      "sources": [],
+      "lastUpdatedBy": "agent"
+    },
+    "intervention_site": {
+      "id": "intervention_site",
+      "title": "2. Where We Work",
+      "phase": 2,
+      "fields": {
+        "neighborhood": {
+          "value": "Arquipélago (Ilhas)",
+          "confidence": "high",
+          "source": "map selection",
+          "userEdited": false
+        },
+        "area": {
+          "value": "2.5 hectares",
+          "confidence": "medium",
+          "source": "map selection",
+          "userEdited": false
+        },
+        "current_conditions": {
+          "value": "Área degradada próxima ao arroio, com vegetação rasteira e acúmulo de resíduos. Solo argiloso, parcialmente inundável durante cheias.",
+          "confidence": "medium",
+          "source": "sample",
+          "userEdited": false
+        },
+        "population": {
+          "value": "Aproximadamente 3.200 moradores no entorno direto",
+          "confidence": "medium",
+          "source": "sample",
+          "userEdited": false
+        },
+        "land_tenure": {
+          "value": "Terreno público municipal com cessão de uso pendente",
+          "confidence": "medium",
+          "source": "sample",
+          "userEdited": false
+        },
+        "community_engagement": {
+          "value": "Modelo cooperativo com assembleia mensal e núcleos por rua",
+          "confidence": "high",
+          "source": "sample",
+          "userEdited": false
+        }
+      },
+      "confidence": "medium",
+      "sources": [],
+      "lastUpdatedBy": "agent"
+    },
+    "intervention_type": {
+      "id": "intervention_type",
+      "title": "3a. What We're Building",
+      "phase": 3,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "impact_monitoring": {
+      "id": "impact_monitoring",
+      "title": "3b. Expected Impact",
+      "phase": 3,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "operations_sustain": {
+      "id": "operations_sustain",
+      "title": "3c. Operations & Sustainability",
+      "phase": 3,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "needs_assessment": {
+      "id": "needs_assessment",
+      "title": "4. What We Need",
+      "phase": 4,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "results_evidence": {
+      "id": "results_evidence",
+      "title": "5. Results & Evidence",
+      "phase": 5,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    }
+  },
+  "gaps": [],
+  "maturityScores": [],
+  "priorityFlags": [],
+  "totalMaturityScore": 0,
+  "editLog": [],
+  "uploadedFiles": [],
+  "metadata": {
+    "createdAt": "2026-04-07T19:41:17.897Z",
+    "updatedAt": "2026-04-07T19:41:19.877Z"
+  }
+}
