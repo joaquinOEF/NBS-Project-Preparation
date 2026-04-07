@@ -8,6 +8,7 @@ import {
   type MaturityScore,
   type PriorityFlag,
   ALL_CBO_SECTION_IDS,
+  CBO_SECTIONS,
   MATURITY_METRICS,
   PRIORITY_FLAG_DEFINITIONS,
 } from "@shared/cbo-schema";
@@ -45,10 +46,35 @@ loadSdk();
 const cboStates = new Map<string, CboState>();
 const cboMessages = new Map<string, CboChatMessage[]>();
 
-export function getCboState(id: string): CboState | undefined { return cboStates.get(id); }
+// Ensure old 5-section states get the new sections added
+function migrateSections(state: CboState): CboState {
+  for (const sec of CBO_SECTIONS) {
+    if (!state.sections[sec.id as keyof typeof state.sections]) {
+      (state.sections as any)[sec.id] = { id: sec.id, title: sec.title, phase: sec.phase, fields: {}, confidence: 'empty', sources: [], lastUpdatedBy: null };
+    }
+  }
+  // Move data from old intervention_plan → intervention_type
+  if ((state.sections as any).intervention_plan) {
+    const old = (state.sections as any).intervention_plan;
+    if (old.fields && Object.keys(old.fields).length > 0 && Object.keys((state.sections as any).intervention_type?.fields || {}).length === 0) {
+      (state.sections as any).intervention_type.fields = old.fields;
+      (state.sections as any).intervention_type.confidence = old.confidence;
+      (state.sections as any).intervention_type.sources = old.sources;
+    }
+    delete (state.sections as any).intervention_plan;
+  }
+  return state;
+}
+
+export function getCboState(id: string): CboState | undefined {
+  const state = cboStates.get(id);
+  if (state) migrateSections(state);
+  return state;
+}
 export function setCboState(id: string, state: CboState): void {
   if (!state) { cboStates.delete(id); cboMessages.delete(id); return; }
   state.metadata.updatedAt = new Date().toISOString();
+  migrateSections(state);
   cboStates.set(id, state);
 }
 export function getCboMessages(id: string): CboChatMessage[] { return cboMessages.get(id) || []; }

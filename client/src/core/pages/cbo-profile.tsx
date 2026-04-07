@@ -66,6 +66,27 @@ function fixMarkdownTables(text: string): string {
 
 const STORAGE_KEY = 'cbo-session-id';
 const MAP_PARAMS_KEY = 'cbo-map-params';
+// Migrate old 5-section states to 7 sections (adds intervention_type, impact_monitoring, operations_sustain)
+function migrateCboState(state: CboState): CboState {
+  for (const sec of CBO_SECTIONS) {
+    if (!state.sections[sec.id]) {
+      state.sections[sec.id] = { id: sec.id, title: sec.title, phase: sec.phase, fields: {}, confidence: 'empty', sources: [], lastUpdatedBy: null };
+    }
+  }
+  // Remove old section that was replaced
+  if ((state.sections as any).intervention_plan) {
+    const old = (state.sections as any).intervention_plan;
+    // Move old fields to intervention_type if it's empty
+    if (old.fields && Object.keys(old.fields).length > 0 && Object.keys(state.sections.intervention_type.fields).length === 0) {
+      state.sections.intervention_type.fields = old.fields;
+      state.sections.intervention_type.confidence = old.confidence;
+      state.sections.intervention_type.sources = old.sources;
+    }
+    delete (state.sections as any).intervention_plan;
+  }
+  return state;
+}
+
 function getSavedId(): string | null { try { return localStorage.getItem(STORAGE_KEY); } catch { return null; } }
 function saveId(id: string) { try { localStorage.setItem(STORAGE_KEY, id); } catch {} }
 function clearId() { try { localStorage.removeItem(STORAGE_KEY); } catch {} }
@@ -135,7 +156,7 @@ export default function CboProfilePage() {
           if (res.ok) {
             const data = await res.json();
             setCboId(saved);
-            setState(data.state);
+            setState(migrateCboState(data.state));
             const msgRes = await fetch(`/api/cbo/${saved}/messages`);
             if (msgRes.ok) { const msgs = await msgRes.json(); if (msgs.length) setMessages(msgs); }
             return;
@@ -530,6 +551,7 @@ export default function CboProfilePage() {
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {CBO_SECTIONS.map(sec => {
                 const section = state.sections[sec.id];
+                if (!section) return null;
                 const fields = Object.entries(section.fields);
                 const hasGaps = state.gaps.some(g => g.sectionId === sec.id);
                 const isHL = highlightedSections.includes(sec.id);
