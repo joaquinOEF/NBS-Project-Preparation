@@ -277,6 +277,63 @@ export function registerKnowledgeRoutes(app: Express): void {
     }
   });
 
+  // ── Intervention knowledge files (parsed into structured JSON) ──────────
+
+  app.get("/api/knowledge/interventions/:id", async (req: Request, res: Response) => {
+    try {
+      const fs = await import('fs/promises');
+      const pathMod = await import('path');
+      const id = req.params.id;
+      const filePath = pathMod.join(process.cwd(), 'knowledge', '_interventions', `${id}.md`);
+      const raw = await fs.readFile(filePath, 'utf-8');
+      const body = raw.replace(/^---[\s\S]*?---\s*/, ''); // strip frontmatter
+
+      // Parse markdown sections
+      const sections: Record<string, string> = {};
+      let currentKey = '';
+      for (const line of body.split('\n')) {
+        const h2 = line.match(/^## (.+)/);
+        if (h2) {
+          currentKey = h2[1].trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_|_$/g, '');
+          sections[currentKey] = '';
+        } else if (currentKey) {
+          sections[currentKey] += line + '\n';
+        }
+      }
+
+      // Trim whitespace from each section
+      for (const key of Object.keys(sections)) {
+        sections[key] = sections[key].trim();
+      }
+
+      res.json({ id, sections });
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        res.status(404).json({ error: `Intervention not found: ${req.params.id}` });
+      } else {
+        console.error('Intervention knowledge error:', error);
+        res.status(500).json({ error: 'Failed to load intervention data' });
+      }
+    }
+  });
+
+  // List all available intervention types
+  app.get("/api/knowledge/interventions", async (_req: Request, res: Response) => {
+    try {
+      const fs = await import('fs/promises');
+      const pathMod = await import('path');
+      const dir = pathMod.join(process.cwd(), 'knowledge', '_interventions');
+      const files = await fs.readdir(dir);
+      const ids = files.filter(f => f.endsWith('.md')).map(f => f.replace('.md', ''));
+      res.json({ interventions: ids });
+    } catch {
+      res.json({ interventions: [] });
+    }
+  });
+
   app.get("/api/knowledge/stats", async (_req: Request, res: Response) => {
     try {
       const stats = await getKnowledgeStats(GLOBAL_PROJECT_ID);
