@@ -489,11 +489,13 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     map.on('click', handleClick);
     map.on('dblclick', handleDblClick);
     map.doubleClickZoom.disable();
+    map.dragging.disable(); // Disable drag so clicks register for drawing
     map.getContainer().style.cursor = 'crosshair';
     return () => {
       map.off('click', handleClick);
       map.off('dblclick', handleDblClick);
       map.doubleClickZoom.enable();
+      map.dragging.enable(); // Re-enable drag when draw mode exits
       map.getContainer().style.cursor = '';
       polygonPointsRef.current = [];
       if (polygonPreviewRef.current) { map.removeLayer(polygonPreviewRef.current); polygonPreviewRef.current = null; }
