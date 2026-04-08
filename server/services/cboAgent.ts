@@ -619,7 +619,7 @@ async function buildSystemContext(state: CboState): Promise<string> {
       }
     } catch {}
     // Available knowledge listing
-    for (const folder of ['_interventions', '_co-benefits']) {
+    for (const folder of ['_interventions', '_co-benefits', '_financing-sources', '_evidence', '_success-cases']) {
       try {
         const files = await fs.readdir(path.join(process.cwd(), 'knowledge', folder));
         chunks.push(`### Available in ${folder}/\n${files.filter((f: string) => f.endsWith('.md')).map((f: string) => `- ${f}`).join('\n')}`);
@@ -647,13 +647,79 @@ Phase: ${state.phase}. Organization: ${state.orgName || '(not set)'}.
 9. **read_knowledge** — read knowledge files for interventions, co-benefits, case studies, benchmarks. USE THIS PROACTIVELY.
 
 ## PHASE FLOW
-- Phase 1: Who We Are (org_profile) — org info, team, experience
-- Phase 2: Where We Work (intervention_site) — map selection, neighborhood, site conditions
-- Phase 3a: What We're Building (intervention_type) — NBS type via selector micro-app, design details
-- Phase 3b: Expected Impact (impact_monitoring) — outcomes, baseline, monitoring indicators
-- Phase 3c: Operations & Sustainability (operations_sustain) — ops model, maintenance, revenue/sustainability
-- Phase 4: What We Need (needs_assessment) — technical, financial, regulatory
-- Phase 5: Results & Evidence (results_evidence) — documents, photos, links, data
+
+### Phase 1: Who We Are (org_profile)
+Org info, team, experience. Straightforward Q&A via ask_user.
+
+### Phase 2: Where We Work (intervention_site)
+Map selection via open_map (composite mode), neighborhood, site conditions.
+
+### Phase 3a: What We're Building (intervention_type)
+NBS type via open_intervention_selector micro-app, design details.
+
+### Phase 3b: Expected Impact (impact_monitoring) — B£ST-STYLE ASSESSMENT
+This is a GUIDED IMPACT ASSESSMENT, not a simple Q&A. Follow the B£ST model:
+
+**Step 1 — Screening (pre-fill from Phase 2 data):**
+Ask 5-6 yes/no toggle questions via ask_user to identify relevant benefit categories:
+- Does your site experience flooding or water accumulation?
+- Is heat stress a problem in the neighborhood?
+- Is there a water body (stream, river, wetland) at or near the site?
+- Do people live within 500m of the site?
+- Is there existing vegetation on the site?
+- Is erosion or landslide a risk?
+Pre-fill answers from Phase 2 hazard data when available. Let user correct.
+
+**Step 2 — Site-specific inputs:**
+Ask for details that improve the estimate (show defaults from Phase 2/3a, let user adjust):
+- What was the site like BEFORE? (paved/degraded/bare soil/existing vegetation)
+- How many people live nearby? (from Phase 2 population data)
+- What maintenance can you commit to? (weekly/monthly/seasonal)
+- Over what timeframe? (1 year/3 years/5 years/10 years)
+
+**Step 3 — With/without comparison:**
+Read knowledge files: read_knowledge(_co-benefits/flood-risk-reduction.md), read_knowledge(_co-benefits/carbon-sequestration.md), read_knowledge(_evidence/impact-benchmarks.md), etc.
+
+Present results as a WITH vs WITHOUT comparison:
+- "WITHOUT your project: flooding continues, 0 tCO2 sequestered, 3,200 people at risk"
+- "WITH your project: flood reduction 40-60% (high confidence), carbon 5-20 tCO2/yr (medium confidence), 2-3 jobs created"
+- Reference a similar funded project as benchmark
+- Show confidence levels honestly (high/medium/low)
+- ALWAYS show ranges, NEVER point estimates
+
+Then call update_section for impact_monitoring fields and score_maturity for climate_nbs_impact.
+
+### Phase 3c: Operations & Sustainability (operations_sustain)
+Ask about:
+1. Who will maintain the project? (community volunteers / paid staff / municipality / mixed)
+2. How often? (weekly, monthly, seasonal tasks)
+3. What does maintenance involve? (read_knowledge for the selected NBS type's OPEX section)
+4. How will you fund maintenance long-term?
+   - Include "I don't know" → explain options simply:
+   - Municipal budget allocation (if government supports the project)
+   - Community fee or cooperative model
+   - Productive use (food gardens, eco-tourism, educational visits)
+   - Grant renewal (watch for new editais)
+   - Carbon credits are NOT practical for small projects — be honest about this
+5. Timeline: started when, milestones, expected completion
+
+### Phase 4: What We Need (needs_assessment) — REAL FUNDING SOURCES
+Read knowledge: read_knowledge(_financing-sources/cbo-grants.md)
+
+Present ONLY funding sources that match the CBO's actual profile:
+- **Tier 1** (apply directly): Teia da Sociobiodiversidade (R$100K), Fundo Casa Reconstruir RS (R$40K), Periferias Verdes Resilientes (federal), GEF SGP (US$50K)
+- **Tier 2** (through municipality/partnership): Petrobras NBS Urbano (consortium), World Bank P178072 sub-components
+- **Monitoring**: Recommend capta.org.br for tracking new editais
+
+DO NOT present BNDES (min R$10M), GCF regular proposals (US$50M+), or World Bank loans as direct options for CBOs. Be honest: "These larger funds are for municipalities — but you can advocate for your project to be included."
+
+Also ask about:
+- Technical needs (engineering, species selection, monitoring equipment)
+- Regulatory status (has anyone from the government visited? do you need permits?)
+- Training needs
+
+### Phase 5: Results & Evidence (results_evidence)
+Documents, photos, links, data. Proactively ask for evidence and set priority flags.
 
 ## MATURITY METRICS (score each 0-3 as you go)
 ${MATURITY_METRICS.join(', ')}

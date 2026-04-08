@@ -279,17 +279,41 @@ export function registerKnowledgeRoutes(app: Express): void {
 
   // ── Intervention knowledge files (parsed into structured JSON) ──────────
 
+  // Section header translations for Portuguese
+  const SECTION_HEADERS_PT: Record<string, string> = {
+    description: '## Descrição',
+    how_it_works: '## Como Funciona',
+    costs: '## Custos',
+    key_performance_indicators_kpis: '## Indicadores de Desempenho',
+    climate_benefits: '## Benefícios Climáticos',
+    optimal_site_conditions: '## Condições Ideais do Local',
+    typical_scale_and_timeline: '## Escala e Prazo Típicos',
+    risks_and_failure_modes: '## Riscos e Modos de Falha',
+    brazilian_and_latin_american_examples: '## Exemplos Brasileiros e Latino-Americanos',
+    key_references: '## Referências',
+  };
+
   app.get("/api/knowledge/interventions/:id", async (req: Request, res: Response) => {
     try {
       const fs = await import('fs/promises');
       const pathMod = await import('path');
       const id = req.params.id;
-      const filePath = pathMod.join(process.cwd(), 'knowledge', '_interventions', `${id}.md`);
-      const raw = await fs.readFile(filePath, 'utf-8');
+      const lang = (req.query.lang as string) || 'en';
+
+      // Try language-specific file first, fall back to default
+      let filePath = pathMod.join(process.cwd(), 'knowledge', '_interventions', `${id}.${lang}.md`);
+      let raw: string;
+      try {
+        raw = await fs.readFile(filePath, 'utf-8');
+      } catch {
+        filePath = pathMod.join(process.cwd(), 'knowledge', '_interventions', `${id}.md`);
+        raw = await fs.readFile(filePath, 'utf-8');
+      }
       const body = raw.replace(/^---[\s\S]*?---\s*/, ''); // strip frontmatter
 
       // Parse markdown sections
       const sections: Record<string, string> = {};
+      const sectionHeaders: Record<string, string> = {}; // original headers for display
       let currentKey = '';
       for (const line of body.split('\n')) {
         const h2 = line.match(/^## (.+)/);
@@ -299,6 +323,7 @@ export function registerKnowledgeRoutes(app: Express): void {
             .replace(/[^a-z0-9]+/g, '_')
             .replace(/^_|_$/g, '');
           sections[currentKey] = '';
+          sectionHeaders[currentKey] = h2[1].trim();
         } else if (currentKey) {
           sections[currentKey] += line + '\n';
         }
@@ -309,7 +334,10 @@ export function registerKnowledgeRoutes(app: Express): void {
         sections[key] = sections[key].trim();
       }
 
-      res.json({ id, sections });
+      // If Portuguese was requested but we served English, include translated headers
+      const translatedHeaders = lang === 'pt' ? SECTION_HEADERS_PT : undefined;
+
+      res.json({ id, lang: lang === 'pt' && !filePath.includes('.pt.md') ? 'en' : lang, sections, sectionHeaders, translatedHeaders });
     } catch (error: any) {
       if (error.code === 'ENOENT') {
         res.status(404).json({ error: `Intervention not found: ${req.params.id}` });
@@ -321,16 +349,18 @@ export function registerKnowledgeRoutes(app: Express): void {
   });
 
   // List all available intervention types
-  app.get("/api/knowledge/interventions", async (_req: Request, res: Response) => {
+  app.get("/api/knowledge/interventions", async (req: Request, res: Response) => {
     try {
       const fs = await import('fs/promises');
       const pathMod = await import('path');
+      const lang = (req.query.lang as string) || 'en';
       const dir = pathMod.join(process.cwd(), 'knowledge', '_interventions');
       const files = await fs.readdir(dir);
-      const ids = files.filter(f => f.endsWith('.md')).map(f => f.replace('.md', ''));
-      res.json({ interventions: ids });
+      // Only list base files (not .pt.md variants)
+      const ids = files.filter(f => f.endsWith('.md') && !f.includes('.'+ 'pt.')).map(f => f.replace('.md', ''));
+      res.json({ interventions: ids, lang });
     } catch {
-      res.json({ interventions: [] });
+      res.json({ interventions: [], lang: 'en' });
     }
   });
 
