@@ -490,7 +490,7 @@ export default function CboProfilePage() {
               <div className="text-center py-4">
                 <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-green-300 bg-green-50">
                   <p className="text-sm text-muted-foreground">{t('cbo.phase', { num: state.phase, count: filledCount })}</p>
-                  <Button variant="outline" onClick={() => sendMessage(`Continue from Phase ${state.phase}.`)}>{t('cbo.continue')}</Button>
+                  <Button variant="outline" onClick={() => sendMessage(lang === 'pt' ? `Continuar da Fase ${state.phase}.` : `Continue from Phase ${state.phase}.`)}>{t('cbo.continue')}</Button>
                 </div>
               </div>
             )}
