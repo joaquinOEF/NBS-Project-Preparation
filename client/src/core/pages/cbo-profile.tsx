@@ -64,6 +64,59 @@ function fixMarkdownTables(text: string): string {
   return text.replace(/\|\s*\|/g, '|\n|').replace(/\|\s*\n\s*\|/g, '|\n|');
 }
 
+// ── Inline editable field ────────────────────────────────────────────────────
+function EditableField({ value, onSave, userEdited }: { value: string; onSave: (v: string) => void; userEdited?: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => { if (editing && textareaRef.current) { textareaRef.current.focus(); textareaRef.current.select(); } }, [editing]);
+
+  if (!editing) {
+    return (
+      <div className="group flex items-start gap-1 min-w-0">
+        <div className="flex-1 min-w-0">
+          {String(value || '').length > 100 ? (
+            <div className="prose prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkGfm]}>{fixMarkdownTables(String(value))}</ReactMarkdown></div>
+          ) : <span>{String(value || '')}</span>}
+        </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); setDraft(String(value || '')); setEditing(true); }}
+          className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-0.5 rounded hover:bg-muted"
+          title="Edit"
+        >
+          <Pencil className="w-3 h-3 text-muted-foreground" />
+        </button>
+        {userEdited && <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5" title="Edited by you" />}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+      <textarea
+        ref={textareaRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (draft !== value) onSave(draft); setEditing(false); }
+          if (e.key === 'Escape') { setDraft(String(value || '')); setEditing(false); }
+        }}
+        className="w-full text-sm border rounded px-2 py-1 min-h-[60px] resize-y focus:outline-none focus:ring-1 focus:ring-green-500"
+        rows={Math.max(2, String(draft).split('\n').length)}
+      />
+      <div className="flex gap-1 justify-end">
+        <button onClick={() => { setDraft(String(value || '')); setEditing(false); }} className="text-[10px] px-2 py-0.5 rounded text-muted-foreground hover:bg-muted">
+          Cancel
+        </button>
+        <button onClick={() => { if (draft !== value) onSave(draft); setEditing(false); }} className="text-[10px] px-2 py-0.5 rounded bg-green-600 text-white hover:bg-green-700">
+          Save
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const STORAGE_KEY = 'cbo-session-id';
 const MAP_PARAMS_KEY = 'cbo-map-params';
 // Migrate old 5-section states to 7 sections (adds intervention_type, impact_monitoring, operations_sustain)
@@ -342,6 +395,35 @@ export default function CboProfilePage() {
   }, [currentQuestionIdx, totalQuestions, activeQuestions, questionAnswers, sendMessage]);
   handleSelectRef.current = handleSelectOption;
 
+  // Edit a field in the document panel — updates locally + sends to server
+  const handleFieldEdit = useCallback(async (sectionId: string, field: string, newValue: string) => {
+    if (!cboId) return;
+    // Optimistic local update
+    setState(prev => {
+      if (!prev) return prev;
+      const section = prev.sections[sectionId as CboSectionId];
+      if (!section) return prev;
+      return { ...prev, sections: { ...prev.sections, [sectionId]: { ...section, fields: { ...section.fields, [field]: { ...section.fields[field], value: newValue, userEdited: true } }, lastUpdatedBy: 'user' } } };
+    });
+    // Server update (streams agent response for related fields)
+    try {
+      const res = await fetch(`/api/cbo/${cboId}/edit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sectionId, field, value: newValue }) });
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) { if (line.startsWith('data: ')) { try { processEvent(JSON.parse(line.slice(6))); } catch {} } }
+        }
+      }
+    } catch {}
+  }, [cboId, processEvent]);
+
   const handleRestart = useCallback(async () => {
     if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
     clearId(); saveMapParams(null); setOpenMapParams(null); setInterventionSelectorParams(null); setRightTab('document'); setMapRelevant(false);
@@ -576,9 +658,11 @@ export default function CboProfilePage() {
                                 <tr key={k} className="border-b last:border-b-0">
                                   <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">{t(`cbo.fields.${k}`, k.replace(/_/g, ' '))}</td>
                                   <td className="px-3 py-1.5 text-sm">
-                                    {String(v.value || '').length > 100 ? (
-                                      <div className="prose prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkGfm]}>{fixMarkdownTables(String(v.value))}</ReactMarkdown></div>
-                                    ) : String(v.value || '')}
+                                    <EditableField
+                                      value={String(v.value || '')}
+                                      userEdited={v.userEdited}
+                                      onSave={(newVal) => handleFieldEdit(sec.id, k, newVal)}
+                                    />
                                   </td>
                                 </tr>
                               ))}
