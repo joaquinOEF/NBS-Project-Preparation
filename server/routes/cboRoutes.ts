@@ -101,8 +101,9 @@ export function registerCboRoutes(app: Express): void {
       ? '\n[LANGUAGE: Respond in Portuguese. ask_user option labels in Portuguese. update_section content in Portuguese.]'
       : '\n[LANGUAGE: Respond in English. update_section content in Portuguese for Brazilian orgs.]';
 
+    const resolvedLang = isPt ? 'pt' : 'en';
     addCboMessage(req.params.id, { role: 'user', content: message, messageType: 'content', timestamp: new Date().toISOString() });
-    await streamCboChat(req.params.id, message + langDirective, res, state);
+    await streamCboChat(req.params.id, message + langDirective, res, state, resolvedLang);
     debouncedPersist(req.params.id);
   });
 

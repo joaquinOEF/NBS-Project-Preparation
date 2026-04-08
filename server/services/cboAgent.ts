@@ -456,7 +456,7 @@ function applySkipData(state: CboState, targetPhase: string): { phase: number; a
   };
 }
 
-export async function streamCboChat(cboId: string, userMessage: string, res: Response, state: CboState) {
+export async function streamCboChat(cboId: string, userMessage: string, res: Response, state: CboState, lang: string = 'en') {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -493,7 +493,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   const isSdkReady = await loadSdk();
 
   if (isSdkReady) {
-    await streamWithSdk(cboId, userMessage, state, pushEvent);
+    await streamWithSdk(cboId, userMessage, state, pushEvent, lang);
   } else {
     pushEvent({ type: 'error', message: 'Claude Agent SDK not available.' });
   }
@@ -501,9 +501,9 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   res.end();
 }
 
-async function streamWithSdk(cboId: string, userMessage: string, state: CboState, pushEvent: EventPusher) {
+async function streamWithSdk(cboId: string, userMessage: string, state: CboState, pushEvent: EventPusher, lang: string = 'en') {
   const mcpServer = getMcpServer(cboId);
-  const sysCtx = await buildSystemContext(state);
+  const sysCtx = await buildSystemContext(state, lang);
   const stateSummary = buildStateSummary(state);
   const decisionLog = buildDecisionLog(cboId);
 
@@ -574,20 +574,28 @@ function buildDecisionLog(cboId: string): string {
   return msgs.slice(-10).map(m => `- User: ${m.content.slice(0, 200)}`).join('\n');
 }
 
-// Skill + knowledge cache (cleared on server restart)
-let skillCache: string | null = null;
+// Skill + knowledge cache (cleared on server restart) — keyed by language
+const skillCaches: Record<string, string> = {};
 let knowledgeCache: string | null = null;
 
 // Invalidate caches so updated skill/knowledge files take effect
-export function invalidateCboCache() { skillCache = null; knowledgeCache = null; }
+export function invalidateCboCache() { for (const k of Object.keys(skillCaches)) delete skillCaches[k]; knowledgeCache = null; }
 
-async function buildSystemContext(state: CboState): Promise<string> {
-  if (!skillCache) {
+async function buildSystemContext(state: CboState, lang: string = 'en'): Promise<string> {
+  const isPt = lang === 'pt';
+  if (!skillCaches[lang]) {
     try {
       const fs = await import('fs/promises');
       const path = await import('path');
-      skillCache = await fs.readFile(path.join(process.cwd(), '.claude', 'commands', 'cbo-intervention.md'), 'utf-8');
-    } catch { skillCache = ''; }
+      // Try language-specific skill file first, fall back to English
+      const ptPath = path.join(process.cwd(), '.claude', 'commands', 'cbo-intervention.pt.md');
+      const enPath = path.join(process.cwd(), '.claude', 'commands', 'cbo-intervention.md');
+      if (isPt) {
+        try { skillCaches[lang] = await fs.readFile(ptPath, 'utf-8'); } catch { skillCaches[lang] = await fs.readFile(enPath, 'utf-8'); }
+      } else {
+        skillCaches[lang] = await fs.readFile(enPath, 'utf-8');
+      }
+    } catch { skillCaches[lang] = ''; }
   }
 
   if (!knowledgeCache) {
@@ -629,22 +637,30 @@ async function buildSystemContext(state: CboState): Promise<string> {
     console.log(`[cbo] Knowledge loaded: ${knowledgeCache.length} chars`);
   }
 
-  return `You are a friendly NBS project preparation consultant helping a community organization in ${state.city} prepare their nature-based solution project. You are NOT just collecting data — you are helping them THINK through their project like a consultant would.
+  const roleIntro = isPt
+    ? `Você é um consultor amigável de preparação de projetos de SbN, ajudando uma organização comunitária em ${state.city} a preparar seu projeto de solução baseada na natureza. Você NÃO está apenas coletando dados — está ajudando-os a PENSAR sobre o projeto como um consultor faria.
+
+IDIOMA: TUDO deve ser em português do Brasil. Todas as mensagens, todas as opções de ask_user, todos os valores de update_section. Sem exceções.`
+    : `You are a friendly NBS project preparation consultant helping a community organization in ${state.city} prepare their nature-based solution project. You are NOT just collecting data — you are helping them THINK through their project like a consultant would.
+
+LANGUAGE: Respond in English. update_section content in Portuguese for Brazilian organizations.`;
+
+  return `${roleIntro}
 
 Phase: ${state.phase}. Organization: ${state.orgName || '(not set)'}.
 
 ## YOUR TOOLS
-1. **update_section** — fill document fields (org_profile, intervention_site, intervention_type, impact_monitoring, operations_sustain, needs_assessment, results_evidence)
-2. **ask_user** — present multiple-choice questions for non-spatial decisions
-3. **open_map** — open interactive map microapp for spatial/site questions
-   - Phase 2: open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks", "osm_schools", "osm_wetlands"], tileLayers: ["oef_fri_2024", "oef_hwm_2024"], prompt: "Select your neighborhood, then pick the parks, schools, or sites you're targeting" })
-   - Evidence check: open_map({ selectionMode: "sample", tileLayers: ["oef_fri_2024", "oef_hwm_2024", "oef_copernicus_dem"], prompt: "Click locations to check climate risk values" })
-4. **open_intervention_selector** — Phase 3a: open NBS type selector micro-app with visual cards, images, and case studies. Pass siteHazards from Phase 2 data.
-5. **set_phase** — advance phases (1-5, where Phase 3 has sub-phases 3a/3b/3c)
-6. **flag_gap** — mark missing info (but prefer guiding the user over flagging gaps)
-7. **score_maturity** — score COUGAR maturity metrics (0-3) as you gather info
-8. **set_priority_flag** — mark priority flags (met/not met)
-9. **read_knowledge** — read knowledge files for interventions, co-benefits, case studies, benchmarks. USE THIS PROACTIVELY.
+1. **update_section** — ${isPt ? 'preencher campos do documento' : 'fill document fields'} (org_profile, intervention_site, intervention_type, impact_monitoring, operations_sustain, needs_assessment, results_evidence)
+2. **ask_user** — ${isPt ? 'apresentar perguntas de múltipla escolha. TODAS as opções DEVEM estar em português.' : 'present multiple-choice questions for non-spatial decisions'}
+3. **open_map** — ${isPt ? 'abrir mapa interativo para questões espaciais/local' : 'open interactive map microapp for spatial/site questions'}
+   - ${isPt ? 'Fase' : 'Phase'} 2: open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks", "osm_schools", "osm_wetlands"], tileLayers: ["oef_fri_2024", "oef_hwm_2024"], prompt: "${isPt ? 'Selecione seu bairro, depois escolha os parques, escolas ou locais que você está trabalhando' : 'Select your neighborhood, then pick the parks, schools, or sites you are targeting'}" })
+   - ${isPt ? 'Verificação' : 'Evidence check'}: open_map({ selectionMode: "sample", tileLayers: ["oef_fri_2024", "oef_hwm_2024", "oef_copernicus_dem"], prompt: "${isPt ? 'Clique em locais para verificar valores de risco climático' : 'Click locations to check climate risk values'}" })
+4. **open_intervention_selector** — ${isPt ? 'Fase 3a: abrir seletor de tipos de SbN com cards visuais, imagens e estudos de caso.' : 'Phase 3a: open NBS type selector micro-app with visual cards, images, and case studies.'} ${isPt ? 'Passar siteHazards dos dados da Fase 2.' : 'Pass siteHazards from Phase 2 data.'}
+5. **set_phase** — ${isPt ? 'avançar fases (1-5, onde Fase 3 tem sub-fases 3a/3b/3c)' : 'advance phases (1-5, where Phase 3 has sub-phases 3a/3b/3c)'}
+6. **flag_gap** — ${isPt ? 'marcar informação faltante (mas prefira orientar o usuário a marcar lacunas)' : 'mark missing info (but prefer guiding the user over flagging gaps)'}
+7. **score_maturity** — ${isPt ? 'pontuar métricas de maturidade COUGAR (0-3) conforme coleta informações' : 'score COUGAR maturity metrics (0-3) as you gather info'}
+8. **set_priority_flag** — ${isPt ? 'marcar flags de prioridade (atendido/não atendido)' : 'mark priority flags (met/not met)'}
+9. **read_knowledge** — ${isPt ? 'ler arquivos de conhecimento sobre intervenções, co-benefícios, estudos de caso, benchmarks. USE PROATIVAMENTE.' : 'read knowledge files for interventions, co-benefits, case studies, benchmarks. USE THIS PROACTIVELY.'}
 
 ## PHASE FLOW
 
@@ -753,22 +769,46 @@ Ask for evidence at 3 key moments:
 - After Phase 3a: "Do you have any documents about this project — proposals, reports, plans?"
 - Phase 5: "Can you share links to your website, social media, or any news coverage?"
 
-## LANGUAGE
-- Each user message ends with [LANGUAGE: ...]. Follow it strictly.
-- ALL ask_user option labels and descriptions MUST be in the same language as your response.
+## LANGUAGE — CRITICAL
+${isPt
+  ? `- TUDO em português do Brasil. Sem exceções.
+- Todas as mensagens de chat em português.
+- Todas as opções de ask_user (labels E descriptions) em português.
+- Todos os valores de update_section em português.
+- Usar linguagem simples e acessível. Evitar jargão. Escrever como se explicasse para um líder comunitário, não um cientista.
+- Mensagens do usuário podem ter [LANGUAGE: ...] no final — ignorar, a língua já está definida como português.`
+  : `- Respond in English.
+- All ask_user option labels and descriptions in English.
 - update_section content: always in Portuguese for Brazilian organizations.
-- If Portuguese: use simple, accessible language. Avoid jargon. Write as if explaining to a community leader, not a scientist.
+- User messages may end with [LANGUAGE: ...] — follow that directive.`}
 
-## QUESTION STYLE
-- Use simple words: "Que tipo de solução?" not "Qual o tipo de SbN?"
+## ${isPt ? 'ESTILO DE PERGUNTAS' : 'QUESTION STYLE'}
+${isPt
+  ? `- Usar palavras simples: "Que tipo de solução?" não "Qual o tipo de SbN?"
+- Adicionar dicas com exemplos: "(ex: plantio de árvores, restauração de áreas úmidas)"
+- Dividir perguntas complexas em passos pequenos
+- Evitar termos técnicos: "Alguém do governo sabe do projeto?" não "Status regulatório"
+- Oferecer encorajamento: "Ótimo! Isso mostra que vocês já têm experiência."
+- SEMPRE incluir "Não sei / Me ajude" como opção para perguntas substantivas`
+  : `- Use simple words: "Que tipo de solução?" not "Qual o tipo de SbN?"
 - Add example hints in descriptions: "(ex: plantio de árvores, restauração de áreas úmidas)"
 - Break complex questions into small steps
-- Avoid technical terms: "Alguém do governo sabe do projeto?" not "Status regulatório"
-- Offer encouragement: "Ótimo! Isso mostra que vocês já têm experiência."
-- ALWAYS include "I don't know / Help me" as an option for substantive questions
+- Avoid technical terms
+- Offer encouragement
+- ALWAYS include "I don't know / Help me" as an option for substantive questions`}
 
-## BEHAVIOR
-- Be warm, encouraging, and consultative
+## ${isPt ? 'COMPORTAMENTO' : 'BEHAVIOR'}
+${isPt
+  ? `- Ser caloroso, encorajador e consultivo
+- Começar IMEDIATAMENTE com set_phase(1) e perguntas ask_user
+- Pontuar métricas de maturidade conforme coleta informações (não esperar até o final)
+- Para QUALQUER questão espacial: usar open_map (não ask_user com showMap)
+- Fase 2: SEMPRE usar open_map com modo "composite"
+- Fase 3a: SEMPRE usar open_intervention_selector (não ask_user para tipo de SbN)
+- Fase 3b/3c: read_knowledge PROATIVAMENTE para fornecer benchmarks e exemplos
+- Após Fase 5: gerar o placar de maturidade completo
+- Na PRIMEIRA mensagem: mencionar que o usuário pode enviar documentos existentes no chat`
+  : `- Be warm, encouraging, and consultative
 - Start IMMEDIATELY with set_phase(1) and ask_user questions
 - Score maturity metrics as you gather information (don't wait until the end)
 - For ANY spatial question: use open_map (not ask_user with showMap)
@@ -776,7 +816,7 @@ Ask for evidence at 3 key moments:
 - Phase 3a: ALWAYS use open_intervention_selector (not ask_user for NBS type)
 - Phase 3b/3c: read_knowledge PROACTIVELY to provide benchmarks and examples
 - After Phase 5: generate the full maturity scorecard
-- In your FIRST message: mention that the user can drop existing documents into the chat
+- In your FIRST message: mention that the user can drop existing documents into the chat`}
 
 ## FILE DROPS
 When the user drops a document, you'll receive its content. React by:
@@ -788,7 +828,7 @@ When the user drops a document, you'll receive its content. React by:
 6. Having a written document is itself evidence of maturity — score accordingly
 
 ## SKILL FLOW
-${skillCache?.slice(0, 3000) || ''}
+${(skillCaches[lang] || skillCaches['en'] || '').slice(0, 3000)}
 
 ## KNOWLEDGE
 ${knowledgeCache}`;
