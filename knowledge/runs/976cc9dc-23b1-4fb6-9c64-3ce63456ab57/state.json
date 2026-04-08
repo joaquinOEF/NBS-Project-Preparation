@@ -2,43 +2,111 @@
   "id": "976cc9dc-23b1-4fb6-9c64-3ce63456ab57",
   "projectId": "sample-project",
   "city": "porto-alegre",
-  "phase": 0,
+  "phase": 2,
   "sections": {
     "project_id": {
       "id": "project_id",
       "title": "1. Identificação do Projeto",
       "phase": 1,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "sector": {
+          "value": "Soluções Baseadas na Natureza (SbN) aaa",
+          "confidence": "high",
+          "source": "user-provided",
+          "userEdited": false
+        },
+        "focus": {
+          "value": "Adaptação e mitigação climática",
+          "confidence": "high",
+          "source": "user-provided",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "user-provided"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "proponent": {
       "id": "proponent",
       "title": "2. Instituição Proponente",
       "phase": 1,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "institution": {
+          "value": "Prefeitura de Porto Alegre",
+          "confidence": "high",
+          "source": "user-provided",
+          "userEdited": false
+        },
+        "municipality": {
+          "value": "Porto Alegre",
+          "confidence": "high",
+          "source": "city-profile",
+          "userEdited": false
+        },
+        "state": {
+          "value": "Rio Grande do Sul",
+          "confidence": "high",
+          "source": "city-profile",
+          "userEdited": true
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "user-provided",
+        "city-profile"
+      ],
+      "lastUpdatedBy": "user"
     },
     "territorial_context": {
       "id": "territorial_context",
       "title": "3. Contexto Territorial",
       "phase": 2,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "population": {
+          "value": "Porto Alegre possui população estimada de 1.388.794 habitantes (2025), sendo a décima maior cidade do Brasil e capital do Rio Grande do Sul. A região metropolitana conta com aproximadamente 4.269.000 habitantes. A densidade demográfica é de aproximadamente 2.690 hab/km² em área municipal de 496,68 km².",
+          "confidence": "high",
+          "source": "city-profile.md",
+          "userEdited": false
+        },
+        "geography": {
+          "value": "Porto Alegre localiza-se na margem leste do Lago Guaíba (496 km² de superfície), em zona de transição entre dois biomas: Mata Atlântica (remanescentes florestais nos morros e cristas) e Pampa (campos nas planícies). A topografia é caracterizada por 40 morros (elevação máxima de 311 m no Morro Santana) intercalados com planícies costeiras e várzeas de rios. O Arroio Dilúvio é curso d'água urbano central, altamente canalizado. A cidade concentra 28% da flora nativa do RS, com aproximadamente 9.288 espécies.",
+          "confidence": "high",
+          "source": "city-profile.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "city-profile.md"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "problem_diagnosis": {
       "id": "problem_diagnosis",
       "title": "4. Diagnóstico do Problema",
       "phase": 2,
-      "fields": {},
-      "confidence": "empty",
-      "sources": [],
-      "lastUpdatedBy": null
+      "fields": {
+        "climate_risks": {
+          "value": "Porto Alegre enfrenta riscos climáticos crescentes, agravados pelas mudanças climáticas globais e urbanização. As **enchentes de maio de 2024** foram o pior desastre natural da história do estado (183 mortes, 422.473 deslocados, 2,4 milhões de afetados, prejuízos >US$ 15 bilhões). O nível do Guaíba atingiu 535 cm, superando em 59 cm o recorde histórico de 1941. Aproximadamente **48% do território de Porto Alegre** foi inundado. Estudos de atribuição climática (World Weather Attribution) indicam que o aquecimento global de 1,2°C tornou o evento **2x mais provável** ou **12% mais intenso**. Além das enchentes, Porto Alegre sofre com ondas de calor crescentes (abril 2024: 41,8°C, novo recorde) e ilhas de calor urbanas em áreas impermeabilizadas. A impermeabilização do solo reduz a capacidade de absorção de água, agravando inundações e diminuindo recarga de aquíferos.",
+          "confidence": "high",
+          "source": "climate-risks.md",
+          "userEdited": false
+        },
+        "emissions": {
+          "value": "O Inventário Municipal de Emissões de GEE (2ª edição, 2021, protocolo GPC, apoio ICLEI) aponta emissões totais de 2,3 milhões tCO2e em 2019, redução de 5,6% em relação a 2016 (2,5 milhões tCO2e). Emissões per capita: ~1,7 tCO2e/ano. Distribuição setorial (2019): **Transporte 67,7%** (dominante, veículos particulares), Energia Estacionária 23%, Resíduos 8,8%, AFOLU 0,5%. O setor AFOLU tem participação mínima, mas representa oportunidade estratégica para sequestro de carbono via SbN (arborização urbana, restauração de áreas verdes).",
+          "confidence": "high",
+          "source": "baseline-data.md",
+          "userEdited": false
+        }
+      },
+      "confidence": "high",
+      "sources": [
+        "climate-risks.md",
+        "baseline-data.md"
+      ],
+      "lastUpdatedBy": "agent"
     },
     "general_objective": {
       "id": "general_objective",
@@ -213,10 +281,107 @@
     }
   },
   "gaps": [],
-  "editLog": [],
+  "editLog": [
+    {
+      "timestamp": "2026-04-08T15:16:53.501Z",
+      "sectionId": "project_id",
+      "field": "sector",
+      "oldValue": null,
+      "newValue": "Soluções Baseadas na Natureza (SbN)",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-04-08T15:16:53.529Z",
+      "sectionId": "project_id",
+      "field": "focus",
+      "oldValue": null,
+      "newValue": "Adaptação e mitigação climática",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-04-08T15:16:53.553Z",
+      "sectionId": "proponent",
+      "field": "institution",
+      "oldValue": null,
+      "newValue": "Prefeitura de Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-04-08T15:16:53.566Z",
+      "sectionId": "proponent",
+      "field": "municipality",
+      "oldValue": null,
+      "newValue": "Porto Alegre",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-04-08T15:16:53.583Z",
+      "sectionId": "proponent",
+      "field": "state",
+      "oldValue": null,
+      "newValue": "Rio Grande do Sul",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-04-08T15:16:53.597Z",
+      "sectionId": "territorial_context",
+      "field": "population",
+      "oldValue": null,
+      "newValue": "Porto Alegre possui população estimada de 1.388.794 habitantes (2025), sendo a décima maior cidade do Brasil e capital do Rio Grande do Sul. A região metropolitana conta com aproximadamente 4.269.000 habitantes. A densidade demográfica é de aproximadamente 2.690 hab/km² em área municipal de 496,68 km².",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-04-08T15:16:53.613Z",
+      "sectionId": "territorial_context",
+      "field": "geography",
+      "oldValue": null,
+      "newValue": "Porto Alegre localiza-se na margem leste do Lago Guaíba (496 km² de superfície), em zona de transição entre dois biomas: Mata Atlântica (remanescentes florestais nos morros e cristas) e Pampa (campos nas planícies). A topografia é caracterizada por 40 morros (elevação máxima de 311 m no Morro Santana) intercalados com planícies costeiras e várzeas de rios. O Arroio Dilúvio é curso d'água urbano central, altamente canalizado. A cidade concentra 28% da flora nativa do RS, com aproximadamente 9.288 espécies.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-04-08T15:16:53.628Z",
+      "sectionId": "problem_diagnosis",
+      "field": "climate_risks",
+      "oldValue": null,
+      "newValue": "Porto Alegre enfrenta riscos climáticos crescentes, agravados pelas mudanças climáticas globais e urbanização. As **enchentes de maio de 2024** foram o pior desastre natural da história do estado (183 mortes, 422.473 deslocados, 2,4 milhões de afetados, prejuízos >US$ 15 bilhões). O nível do Guaíba atingiu 535 cm, superando em 59 cm o recorde histórico de 1941. Aproximadamente **48% do território de Porto Alegre** foi inundado. Estudos de atribuição climática (World Weather Attribution) indicam que o aquecimento global de 1,2°C tornou o evento **2x mais provável** ou **12% mais intenso**. Além das enchentes, Porto Alegre sofre com ondas de calor crescentes (abril 2024: 41,8°C, novo recorde) e ilhas de calor urbanas em áreas impermeabilizadas. A impermeabilização do solo reduz a capacidade de absorção de água, agravando inundações e diminuindo recarga de aquíferos.",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-04-08T15:16:53.642Z",
+      "sectionId": "problem_diagnosis",
+      "field": "emissions",
+      "oldValue": null,
+      "newValue": "O Inventário Municipal de Emissões de GEE (2ª edição, 2021, protocolo GPC, apoio ICLEI) aponta emissões totais de 2,3 milhões tCO2e em 2019, redução de 5,6% em relação a 2016 (2,5 milhões tCO2e). Emissões per capita: ~1,7 tCO2e/ano. Distribuição setorial (2019): **Transporte 67,7%** (dominante, veículos particulares), Energia Estacionária 23%, Resíduos 8,8%, AFOLU 0,5%. O setor AFOLU tem participação mínima, mas representa oportunidade estratégica para sequestro de carbono via SbN (arborização urbana, restauração de áreas verdes).",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-04-08T15:18:38.668Z",
+      "sectionId": "project_id",
+      "field": "sector",
+      "oldValue": "Soluções Baseadas na Natureza (SbN)",
+      "newValue": "Soluções Baseadas na Natureza (SbN) aaa",
+      "source": "user"
+    },
+    {
+      "timestamp": "2026-04-08T15:18:44.228Z",
+      "sectionId": "project_id",
+      "field": "sector",
+      "oldValue": "Soluções Baseadas na Natureza (SbN) aaa",
+      "newValue": "Soluções Baseadas na Natureza (SbN) aaa",
+      "source": "agent"
+    },
+    {
+      "timestamp": "2026-04-08T15:18:59.150Z",
+      "sectionId": "proponent",
+      "field": "state",
+      "oldValue": "Rio Grande do Sul",
+      "newValue": "Rio Grande do Sul",
+      "source": "user"
+    }
+  ],
   "metadata": {
     "createdAt": "2026-04-06T12:58:21.184Z",
-    "updatedAt": "2026-04-06T12:58:21.184Z",
+    "updatedAt": "2026-04-08T15:18:59.150Z",
     "projectName": "",
     "proponentType": ""
   }
