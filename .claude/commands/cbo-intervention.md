@@ -16,6 +16,7 @@ Help a community-based organization (CBO/NGO) prepare their NBS intervention for
 ### Phase 2: Where We Work (intervention_site)
 - **Show map** — open_map with composite mode for neighborhood + site selection
 - Neighborhood / bairro
+- **Custom site naming**: When the user draws a custom point or area (not a named OSM feature), ask: "Does this site have a name?" Options: "Yes, it's called [name]" / "No, use the location". Store the name in the site_name field.
 - Area estimate (ha or m²)
 - Current conditions (what's there now)
 - Who lives nearby, population, vulnerabilities
@@ -99,6 +100,8 @@ Follow the B£ST (Benefits Estimation Tool) model for guided impact assessment:
   - 19-24: Investment ready with conditions
   - 25-27: Investment ready
 - Recommend specific next steps based on lowest scores
+- **Call set_phase(6)** to signal completion — this activates the Export button and shows a review prompt
+- Tell the user: "Your profile is complete! Review each section in the Document tab — you can click any field to edit it. When you're ready, click Export."
 
 ## Guidance Mode
 
