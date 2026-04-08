@@ -1602,6 +1602,7 @@
       "contact_email": "Email do Contato",
       "contact_phone": "Telefone do Contato",
       "neighborhood": "Bairro",
+      "site_name": "Nome do Local",
       "area": "Área",
       "area_estimate": "Estimativa de Área",
       "current_conditions": "Condições Atuais",

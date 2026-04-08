@@ -494,7 +494,7 @@ export default function CboProfilePage() {
               </div>
             </div>
             <div className="flex gap-1">
-              <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => cboId && window.open(`/api/cbo/${cboId}/export`, '_blank')}><Download className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>{t('cbo.export')}</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild><Button variant={state.phase >= 6 ? 'default' : 'outline'} size="sm" className={state.phase >= 6 ? 'bg-green-600 hover:bg-green-700 animate-pulse' : ''} onClick={() => cboId && window.open(`/api/cbo/${cboId}/export`, '_blank')}><Download className="w-4 h-4" />{state.phase >= 6 && <span className="ml-1 text-xs">{t('cbo.export')}</span>}</Button></TooltipTrigger><TooltipContent>{t('cbo.export')}</TooltipContent></Tooltip>
               <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={handleRestart}><RotateCcw className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>{t('cbo.startOver')}</TooltipContent></Tooltip>
             </div>
           </div>
@@ -567,13 +567,35 @@ export default function CboProfilePage() {
 
             {isStreaming && <div className="flex items-center gap-2 py-2"><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} /><span className="text-xs text-muted-foreground ml-1">{t('cbo.working')}</span></div>}
 
-            {/* Resume */}
+            {/* Resume / Completion */}
             {!isStreaming && state.phase > 0 && !currentQuestion && messages.length > 0 && (
               <div className="text-center py-4">
-                <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-green-300 bg-green-50">
-                  <p className="text-sm text-muted-foreground">{t('cbo.phase', { num: state.phase, count: filledCount })}</p>
-                  <Button variant="outline" onClick={() => sendMessage(lang === 'pt' ? `Continuar da Fase ${state.phase}.` : `Continue from Phase ${state.phase}.`)}>{t('cbo.continue')}</Button>
-                </div>
+                {state.phase >= 6 ? (
+                  <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-green-400 bg-green-50">
+                    <Star className="w-6 h-6 text-green-600" />
+                    <p className="text-sm font-semibold text-green-800">
+                      {lang === 'pt' ? 'Perfil completo!' : 'Profile complete!'}
+                    </p>
+                    <p className="text-xs text-green-600">
+                      {lang === 'pt'
+                        ? `Maturidade: ${state.totalMaturityScore}/27 · ${filledCount}/7 seções preenchidas`
+                        : `Maturity: ${state.totalMaturityScore}/27 · ${filledCount}/7 sections filled`}
+                    </p>
+                    <div className="flex gap-2 mt-1">
+                      <Button variant="outline" size="sm" onClick={() => setRightTab('document')}>
+                        {lang === 'pt' ? 'Revisar documento' : 'Review document'}
+                      </Button>
+                      <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => cboId && window.open(`/api/cbo/${cboId}/export`, '_blank')}>
+                        <Download className="w-3 h-3 mr-1" /> {t('cbo.export')}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-green-300 bg-green-50">
+                    <p className="text-sm text-muted-foreground">{t('cbo.phase', { num: state.phase, count: filledCount })}</p>
+                    <Button variant="outline" onClick={() => sendMessage(lang === 'pt' ? `Continuar da Fase ${state.phase}.` : `Continue from Phase ${state.phase}.`)}>{t('cbo.continue')}</Button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -631,6 +653,21 @@ export default function CboProfilePage() {
 
           {rightTab === 'document' && (
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {state.phase >= 6 && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-green-800">{lang === 'pt' ? 'Perfil completo!' : 'Profile complete!'}</p>
+                    <p className="text-xs text-green-600">
+                      {lang === 'pt'
+                        ? `Maturidade: ${state.totalMaturityScore}/27. Revise as seções e clique em Exportar quando estiver pronto.`
+                        : `Maturity: ${state.totalMaturityScore}/27. Review sections below and click Export when ready.`}
+                    </p>
+                  </div>
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => cboId && window.open(`/api/cbo/${cboId}/export`, '_blank')}>
+                    <Download className="w-3 h-3 mr-1" /> {t('cbo.export')}
+                  </Button>
+                </div>
+              )}
               {CBO_SECTIONS.map(sec => {
                 const section = state.sections[sec.id];
                 if (!section) return null;

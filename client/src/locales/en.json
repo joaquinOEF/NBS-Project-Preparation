@@ -1623,6 +1623,7 @@
       "contact_email": "Contact Email",
       "contact_phone": "Contact Phone",
       "neighborhood": "Neighborhood",
+      "site_name": "Site Name",
       "area": "Area",
       "area_estimate": "Area Estimate",
       "current_conditions": "Current Conditions",
