@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import {
   NBS_INTERVENTION_TYPES,
+  getLocalizedNbsType,
   type OpenInterventionSelectorParams,
   type InterventionSelectorResult,
   type NbsInterventionTypeId,
@@ -104,11 +105,13 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
     return scores;
   }, [params.siteHazards, params.recommendedTypes]);
 
+  const lang = isPt ? 'pt' : 'en';
+
   const sortedTypes = useMemo(() => {
-    return [...NBS_INTERVENTION_TYPES].sort((a, b) =>
-      (typeScores.get(b.id) || 0) - (typeScores.get(a.id) || 0)
-    );
-  }, [typeScores]);
+    return [...NBS_INTERVENTION_TYPES]
+      .sort((a, b) => (typeScores.get(b.id) || 0) - (typeScores.get(a.id) || 0))
+      .map(t => getLocalizedNbsType(t, lang));
+  }, [typeScores, lang]);
 
   const recommendedSet = useMemo(() => {
     const sorted = [...typeScores.entries()].sort((a, b) => b[1] - a[1]);
@@ -139,15 +142,17 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
   };
 
   const handleHelpMe = () => {
+    const helpLabel = isPt ? 'Não sei — me ajude a decidir' : 'I don\'t know — help me decide';
     onConfirm({
-      interventionTypes: [], labels: ['I don\'t know — help me decide'],
+      interventionTypes: [], labels: [helpLabel],
       primaryBenefits: [], knowledgeFiles: [],
-      interventionType: '' as NbsInterventionTypeId, label: 'I don\'t know — help me decide',
+      interventionType: '' as NbsInterventionTypeId, label: helpLabel,
       primaryBenefit: '', knowledgeFile: '',
     });
   };
 
-  const detailType = detailId ? NBS_INTERVENTION_TYPES.find(t => t.id === detailId) : null;
+  const detailTypeRaw = detailId ? NBS_INTERVENTION_TYPES.find(t => t.id === detailId) : null;
+  const detailType = detailTypeRaw ? getLocalizedNbsType(detailTypeRaw, lang) : null;
 
   // ── Detail panel view ──────────────────────────────────────────────────────
   if (detailId && detailType) {
