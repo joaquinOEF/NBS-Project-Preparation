@@ -660,10 +660,27 @@ const getDbProjectId = (projectId: string): string => {
   return projectId;
 };
 
+const DB_SYNC_DEBOUNCE_MS = 400;
+
 export function ProjectContextProvider({ children }: { children: ReactNode }) {
   const [context, setContext] = useState<ProjectContextData | null>(null);
   const dbSyncedProjects = useRef<Set<string>>(new Set());
   const dbSyncInProgress = useRef<Set<string>>(new Set());
+  // Mirror of latest context — lets callbacks below have [] deps, so their
+  // identity is stable across renders and consumer effects don't loop.
+  const contextRef = useRef<ProjectContextData | null>(null);
+  useEffect(() => { contextRef.current = context; }, [context]);
+  // Debounce + generation counter prevents ping-pong writes and lets a late
+  // response lose to a newer local edit.
+  const dbSyncTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const dbSyncGenerationRef = useRef<Map<string, number>>(new Map());
+  useEffect(() => {
+    const timers = dbSyncTimersRef.current;
+    return () => {
+      timers.forEach(t => clearTimeout(t));
+      timers.clear();
+    };
+  }, []);
 
   const syncAllModulesToDatabase = useCallback(async (projectId: string, contextData: ProjectContextData) => {
     const dbProjectId = getDbProjectId(projectId);
@@ -762,18 +779,19 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const saveContext = useCallback((data: Partial<ProjectContextData>) => {
-    if (!data.projectId && !context?.projectId) return;
-    
-    const projectId = data.projectId || context!.projectId;
+    const current = contextRef.current;
+    const projectId = data.projectId || current?.projectId;
+    if (!projectId) return;
+
     const updated: ProjectContextData = {
-      ...context,
+      ...current,
       ...data,
       projectId,
     } as ProjectContextData;
-    
+
     setContext(updated);
     localStorage.setItem(`${PROJECT_CONTEXT_KEY}_${projectId}`, JSON.stringify(updated));
-  }, [context]);
+  }, []);
 
   const syncModuleToDatabase = useCallback(async (
     projectId: string,
@@ -852,30 +870,50 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const scheduleDbSync = useCallback((projectId: string, module: string, data: unknown) => {
+    const key = `${projectId}:${module}`;
+    const timers = dbSyncTimersRef.current;
+    const generations = dbSyncGenerationRef.current;
+    const existing = timers.get(key);
+    if (existing) clearTimeout(existing);
+    const generation = (generations.get(key) ?? 0) + 1;
+    generations.set(key, generation);
+    const timer = setTimeout(() => {
+      timers.delete(key);
+      // Only sync if our generation is still the latest — a newer write
+      // will have bumped the generation and queued its own timer.
+      if (generations.get(key) === generation) {
+        syncModuleToDatabase(projectId, module, data);
+      }
+    }, DB_SYNC_DEBOUNCE_MS);
+    timers.set(key, timer);
+  }, [syncModuleToDatabase]);
+
   const updateModule = useCallback(<K extends keyof Pick<ProjectContextData, 'funderSelection' | 'operations' | 'businessModel' | 'siteExplorer' | 'impactModel'>>(
     module: K,
     data: ProjectContextData[K],
     options?: { skipDbSync?: boolean }
   ) => {
-    if (!context) return;
-    
+    const current = contextRef.current;
+    if (!current) return;
+
     const updated: ProjectContextData = {
-      ...context,
+      ...current,
       [module]: data,
       lastUpdated: {
-        ...context.lastUpdated,
+        ...current.lastUpdated,
         [module]: new Date().toISOString(),
       },
     };
-    
+
     setContext(updated);
-    localStorage.setItem(`${PROJECT_CONTEXT_KEY}_${context.projectId}`, JSON.stringify(updated));
-    
+    localStorage.setItem(`${PROJECT_CONTEXT_KEY}_${current.projectId}`, JSON.stringify(updated));
+
     // Skip DB sync for navigation-only updates to prevent overwriting domain data
     if (!options?.skipDbSync) {
-      syncModuleToDatabase(context.projectId, module, data);
+      scheduleDbSync(current.projectId, module, data);
     }
-  }, [context, syncModuleToDatabase]);
+  }, [scheduleDbSync]);
 
   const getContextSummary = useCallback(() => {
     if (!context) return {};
