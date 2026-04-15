@@ -8,6 +8,46 @@ export interface NavigationState {
   additionalState?: Record<string, unknown>;
 }
 
+/**
+ * Navigation persistence — remembers per-module UI state across reloads via localStorage.
+ *
+ * ⚠️ Anti-pattern to avoid: "persisted-state swap loop"
+ * ----------------------------------------------------
+ * Do NOT drive local component state FROM `navigationState` on every change.
+ * If you also have a write-back effect that pushes local state INTO
+ * `navigationState` (the usual pairing), the two effects will alternate
+ * values on every commit — ~125 renders/sec, visible UI flicker.
+ *
+ *   ❌ // runs on every savedNavState reference change → loops with write-back
+ *   useEffect(() => {
+ *     if (navigationRestored && savedNavState) {
+ *       setCurrentStep(savedNavState.currentStep ?? 0);
+ *       setFoo(savedNavState.additionalState?.foo);
+ *     }
+ *   }, [navigationRestored, savedNavState]);
+ *
+ *   ✅ // restore ONCE when persistence finishes loading; latch with a ref
+ *   const navRestoreAppliedRef = useRef(false);
+ *   useEffect(() => {
+ *     if (!navigationRestored || navRestoreAppliedRef.current) return;
+ *     navRestoreAppliedRef.current = true;
+ *     if (savedNavState) {
+ *       setCurrentStep(savedNavState.currentStep ?? 0);
+ *       setFoo(savedNavState.additionalState?.foo);
+ *     }
+ *   }, [navigationRestored, savedNavState]);
+ *
+ * After the one-shot restore, local state is the source of truth; the
+ * persisted store becomes write-only for the rest of the session.
+ *
+ * Also applies to any effect that **reads** from `navigationState` in its
+ * deps (e.g. an effect that calls `loadContext` gated on `savedNavState`).
+ * Reference churn on every write-back cascades through `setContext` and
+ * triggers every context subscriber — same class of loop, longer chain.
+ *
+ * Seen in: NBS funder-selection, April 2026. Fixed in PRs #114, #115.
+ */
+
 interface UseNavigationPersistenceOptions {
   projectId: string | undefined;
   moduleName: string;
