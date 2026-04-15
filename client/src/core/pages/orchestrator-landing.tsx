@@ -6,23 +6,16 @@
  *
  * See docs/ROLE-ARCHITECTURE.md.
  */
-import { useLocation } from 'wouter';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Network } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
 import { TitleLarge, BodyMedium, BodySmall } from '@oef/components';
-import { useRoleContext } from '@/core/contexts/role-context';
+import { useResetRole } from '@/core/contexts/role-context';
 
 export default function OrchestratorLandingPage() {
   const { t } = useTranslation();
-  const [, setLocation] = useLocation();
-  const { setRole } = useRoleContext();
-
-  const switchRole = () => {
-    setRole(null);
-    setLocation('/');
-  };
+  const switchRole = useResetRole();
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-background dark:to-slate-950">

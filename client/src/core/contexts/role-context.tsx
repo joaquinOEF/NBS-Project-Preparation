@@ -10,12 +10,14 @@
  * than branching on the role string directly.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useLocation } from 'wouter';
 import {
   ROLE_CONFIGS,
   parseRole,
   type AudienceRole,
   type RoleConfig,
 } from '@shared/roles';
+import { useSampleData } from '@/core/contexts/sample-data-context';
 
 const STORAGE_KEY = 'nbs_user_role';
 const QUERY_PARAM = 'role';
@@ -83,4 +85,21 @@ export function useRoleContext(): RoleContextValue {
 export function useRoleConfig(): RoleConfig | null {
   const { role } = useRoleContext();
   return role ? ROLE_CONFIGS[role] : null;
+}
+
+/**
+ * Escape-hatch callback used anywhere the user might want to go back to the
+ * role gate and pick again — Login, demo banner, orchestrator stub. Clears
+ * both role and sample mode so the next gate visit starts clean, then
+ * navigates to `/`.
+ */
+export function useResetRole(): () => void {
+  const { setRole } = useRoleContext();
+  const { setSampleMode } = useSampleData();
+  const [, setLocation] = useLocation();
+  return useCallback(() => {
+    setRole(null);
+    setSampleMode(false);
+    setLocation('/');
+  }, [setRole, setSampleMode, setLocation]);
 }

@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useSampleData, SAMPLE_DATA_READINESS, DataReadinessItem } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useProjectContext, ProjectContextData, SelectedZone } from '@/core/contexts/project-context';
-import { useRoleConfig } from '@/core/contexts/role-context';
+import { useRoleConfig, useResetRole } from '@/core/contexts/role-context';
 import { computeReadinessScores, determinePathway } from '@/core/utils/funding-readiness';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -1762,6 +1762,7 @@ export default function ProjectPage() {
   // deep-linked past the landing gate — in that case we show the legacy layout
   // (both banners) so nothing disappears for existing demo links.
   const roleConfig = useRoleConfig();
+  const resetRole = useResetRole();
   const locale: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
   const showConceptBanner = !roleConfig || roleConfig.id === 'city';
   const showCboBanner = !roleConfig || roleConfig.id === 'cbo';
@@ -1863,8 +1864,16 @@ export default function ProjectPage() {
 
           {/* DEMO DATA BANNER (role-driven) */}
           {roleConfig?.demoBanner && (
-            <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-              {roleConfig.demoBanner[locale]}
+            <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+              <span className="flex-1">{roleConfig.demoBanner[locale]}</span>
+              <button
+                type="button"
+                onClick={resetRole}
+                className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-amber-900/80 dark:text-amber-200/80 hover:text-amber-900 dark:hover:text-amber-100 underline-offset-2 hover:underline transition-colors"
+                data-testid="button-demo-banner-switch-role"
+              >
+                {t('roleSelection.changeRole')}
+              </button>
             </div>
           )}
 
