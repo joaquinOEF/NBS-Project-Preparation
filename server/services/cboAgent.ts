@@ -714,7 +714,7 @@ Ask about:
 2. **Sustainability model** — "${isPt ? 'Como vocês vão pagar pela manutenção a longo prazo?' : 'How will you fund maintenance long-term?'}"
    - Realistic options: municipal budget, community cooperative fee, productive use (food, tourism, education), grant renewal
    - Carbon credits are NOT practical for small projects — be honest
-   - "${isPt ? 'Não sei' : 'I don\\'t know'}" → walk through each model with simple examples
+   - "${isPt ? 'Não sei' : "I don't know"}" → walk through each model with simple examples
 3. **Timeline** — "${isPt ? 'Quando começou ou vai começar? Quais os marcos principais?' : 'When did it start or will it start? What are the main milestones?'}"
 
 ### Phase 4: What We Need (needs_assessment) — REFERENCE BUDGET FROM 3c
@@ -722,7 +722,7 @@ Ask about:
 **DO NOT re-ask about budget** if already discussed in Phase 3c sustainability model. Instead:
 "${isPt
   ? 'Na fase anterior, falamos sobre sustentabilidade. Agora vamos detalhar o que vocês precisam para começar ou continuar.'
-  : 'In the previous phase, we discussed sustainability. Now let\\'s detail what you need to start or continue.'}"
+  : "In the previous phase, we discussed sustainability. Now let's detail what you need to start or continue."}"
 
 Read knowledge: read_knowledge(_financing-sources/cbo-grants.md)
 
