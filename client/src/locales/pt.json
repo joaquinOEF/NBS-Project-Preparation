@@ -12,7 +12,11 @@
     "title": "Vamos preparar seu projeto climático.",
     "subtitle": "Ajudamos cidades e organizações comunitárias a transformar soluções baseadas na natureza em projetos prontos para investimento. Conte-nos quem é você para começar.",
     "continue": "Continuar",
-    "footer": "Uma ferramenta da Open Earth Foundation"
+    "currentBadge": "Atual",
+    "helper": "Você pode trocar de perfil a qualquer momento — tudo fica salvo localmente.",
+    "footer": "Uma ferramenta da Open Earth Foundation",
+    "footerLink": "openearth.org",
+    "changeRole": "Trocar perfil"
   },
   "orchestrator": {
     "title": "Visão da organização articuladora — em breve",

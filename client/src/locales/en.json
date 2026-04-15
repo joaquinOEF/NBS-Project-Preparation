@@ -12,7 +12,11 @@
     "title": "Let's prepare your climate project.",
     "subtitle": "We help cities and community organizations turn nature-based solutions into investment-ready projects. Tell us who you are to get started.",
     "continue": "Continue",
-    "footer": "A tool by Open Earth Foundation"
+    "currentBadge": "Current",
+    "helper": "You can switch roles any time — everything you do is saved locally.",
+    "footer": "A tool by Open Earth Foundation",
+    "footerLink": "openearth.org",
+    "changeRole": "Switch role"
   },
   "orchestrator": {
     "title": "Orchestrator view — coming soon",

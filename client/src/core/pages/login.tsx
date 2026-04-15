@@ -9,7 +9,8 @@ import { useToast } from '@/core/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { analytics } from '@/core/lib/analytics';
 import { useSampleData } from '@/core/contexts/sample-data-context';
-import { ArrowRight, Database } from 'lucide-react';
+import { useResetRole } from '@/core/contexts/role-context';
+import { ArrowLeft, ArrowRight, Database } from 'lucide-react';
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -17,6 +18,7 @@ export default function Login() {
   const { toast } = useToast();
   const { t } = useTranslation();
   const { setSampleMode } = useSampleData();
+  const resetRole = useResetRole();
 
   // Only auto-redirect when the user is actually authenticated. We used to
   // also auto-redirect when `isSampleMode` was true, but since sample mode
@@ -123,6 +125,18 @@ export default function Login() {
             </div>
           </CardContent>
         </Card>
+
+        <div className='text-center pt-6'>
+          <button
+            type='button'
+            onClick={resetRole}
+            className='inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors'
+            data-testid='button-login-switch-role'
+          >
+            <ArrowLeft className='w-3 h-3' />
+            {t('roleSelection.changeRole')}
+          </button>
+        </div>
       </div>
     </div>
   );

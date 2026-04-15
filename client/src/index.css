@@ -253,6 +253,34 @@
   animation: fadeIn 0.5s ease-out;
 }
 
+/* Aurora blobs used on the role-selection landing page. Slow, soft drifts
+   across the hero backdrop. Keep amplitudes small so it doesn't distract. */
+@keyframes aurora-drift-a {
+  0%, 100% { transform: translate3d(-10%, -10%, 0) scale(1); }
+  50%      { transform: translate3d(12%, 8%, 0) scale(1.15); }
+}
+@keyframes aurora-drift-b {
+  0%, 100% { transform: translate3d(10%, 5%, 0) scale(1.05); }
+  50%      { transform: translate3d(-12%, 15%, 0) scale(0.95); }
+}
+@keyframes aurora-drift-c {
+  0%, 100% { transform: translate3d(-5%, 10%, 0) scale(0.9); }
+  50%      { transform: translate3d(15%, -10%, 0) scale(1.1); }
+}
+.animate-aurora-a { animation: aurora-drift-a 22s ease-in-out infinite; }
+.animate-aurora-b { animation: aurora-drift-b 28s ease-in-out infinite; }
+.animate-aurora-c { animation: aurora-drift-c 32s ease-in-out infinite; }
+
+/* Subtle grain overlay for the landing backdrop — adds texture without being
+   visible on close inspection. Inlined SVG to avoid a round-trip. */
+.bg-noise {
+  background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/></svg>");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-aurora-a, .animate-aurora-b, .animate-aurora-c { animation: none; }
+}
+
 /* Risk tile layers: smooth upscaling to fill gaps between 250m cells */
 .risk-tile-layer img {
   image-rendering: auto;
