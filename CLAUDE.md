@@ -172,6 +172,18 @@ Layer definitions (with value encodings) live in `shared/geospatial-layers.ts`. 
 
 ## Lessons Learned
 
+### Persisted-state swap loop (useNavigationPersistence)
+
+**Symptom**: a module page jittering at ~125 renders/sec — two state values (one local, one inside `savedNavState`) alternate true↔false on every React commit.
+
+**Cause**: a restoration effect with `[navigationRestored, savedNavState]` deps that reads from `savedNavState` into local state, paired with a write-back effect that pushes local state into `savedNavState`. Once the two sides disagree by one value, each commit makes them swap.
+
+**Fix**: restoration MUST be one-shot. Use a `useRef(false)` latch that flips to `true` after the first apply; subsequent savedNavState changes are ignored for reads (writes continue as normal). See the JSDoc on `client/src/core/hooks/useNavigationPersistence.ts` for the exact pattern.
+
+**Also watch for** any effect that has `savedNavState` in its deps and calls `loadContext` / `setContext` — its reference churn cascades through every context subscriber (same class of loop, longer chain). The questionnaire-hydration effect in funder-selection hit this.
+
+Fixed across all 5 module pages in PRs #114, #115.
+
 ### Replit Sync
 
 Replit tracks the default branch (`main`). If you create a PR targeting a different branch, merged changes won't appear in Replit. Always verify the base branch before creating PRs.
