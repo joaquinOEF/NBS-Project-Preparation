@@ -16,15 +16,20 @@ export default function Login() {
   const { isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const { t } = useTranslation();
-  const { isSampleMode, setSampleMode } = useSampleData();
+  const { setSampleMode } = useSampleData();
 
+  // Only auto-redirect when the user is actually authenticated. We used to
+  // also auto-redirect when `isSampleMode` was true, but since sample mode
+  // persists in localStorage and can now be toggled from the role-selection
+  // landing, that auto-redirect was hijacking anyone who came back to /login
+  // intentionally (e.g. to sign in as a city after trying the CBO demo).
+  // If the user wants sample data, the "Use Sample Data" button below still
+  // sets sample mode and navigates explicitly.
   useEffect(() => {
     if (isAuthenticated) {
       setLocation('/cities');
-    } else if (isSampleMode) {
-      setLocation('/sample/cities');
     }
-  }, [isAuthenticated, isSampleMode, setLocation]);
+  }, [isAuthenticated, setLocation]);
 
   useEffect(() => {
     analytics.navigation.pageViewed('Login');

@@ -77,11 +77,11 @@ export default function RoleSelectionPage() {
   const choose = (next: AudienceRole) => {
     setRole(next);
     const config = ROLE_CONFIGS[next];
-    // Bypass-auth roles go through sample mode so downstream components read
-    // the right data source.
-    if (config.bypassAuth) {
-      setSampleMode(true);
-    }
+    // Keep sample mode in sync with the chosen role's auth posture. Picking
+    // a bypass-auth role (CBO demo) enables sample data; picking an
+    // auth-requiring role (City) clears it so the user isn't stuck in a
+    // sample session from a previous CBO visit.
+    setSampleMode(config.bypassAuth);
     setLocation(config.entryRoute);
   };
 
