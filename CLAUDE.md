@@ -57,6 +57,14 @@ shared/
 
 ## Key Architecture Patterns
 
+### Role / Audience Architecture
+
+The app serves three audiences: **city** governments, **community-based organizations** (CBOs), and **orchestrators** that coordinate CBOs. Role is a cross-cutting parameter read from a single `ROLE_CONFIGS` record in `shared/roles.ts` — NOT a component-level conditional.
+
+**Rule**: if you find yourself writing `if (role === 'cbo') { … } else { … }` in a component, stop and push the variation into `RoleConfig` instead. Likewise, don't fork files per role (no `cboFunderSelection.tsx`, no `cbo-funds.json`) — parameterize the shared one.
+
+See **`docs/ROLE-ARCHITECTURE.md`** for the contract, the `RoleConfig` shape, right/wrong examples, and the phased migration plan. See also `docs/modular-agent-architecture.md` for how agent skills (orthogonal to roles) get unified.
+
 ### Dual Mode: Sample vs API
 
 The app runs in two modes controlled by `SampleDataContext`:
