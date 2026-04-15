@@ -563,7 +563,7 @@ export default function FunderSelectionPage() {
   const { t } = useTranslation();
   const { isSampleMode, sampleActions } = useSampleData();
   const { isSampleRoute, routePrefix } = useSampleRoute();
-  const { updateModule, loadContext } = useProjectContext();
+  const { updateModule, loadContext, context } = useProjectContext();
   const { setPageContext, openChatWithMessage } = useChatState();
   
   // Separate navigation persistence from domain data to prevent race conditions
@@ -729,31 +729,28 @@ export default function FunderSelectionPage() {
     }
   }, [projectId, fundsData, hydrationComplete, hydrateFromDB]);
 
+  // React to external updates to funderSelection (e.g. from ChatDrawer/agent).
+  // We skip self-writes by tracking the last slice reference we synced from.
+  const lastSyncedFunderRef = useRef<FunderSelectionData | null | undefined>(undefined);
   useEffect(() => {
-    const handleBlockUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent<{ blockType: string; moduleName: string; data: any }>;
-      if (customEvent.detail?.blockType === 'funder_selection' && customEvent.detail?.data) {
-        console.log('[FunderSelection] Received nbs-block-updated event, applying data directly');
-        const dbData = customEvent.detail.data as FunderSelectionData;
-        if (dbData.questionnaire) {
-          setAnswers(dbData.questionnaire as QuestionnaireAnswers);
-        }
-        const savedPlan = dbData.fundingPlan;
-        if (savedPlan && savedPlan.status === 'confirmed' && fundsData) {
-          const nowFundExists = savedPlan.selectedFunderNow && fundsData.funds.some((f: any) => f.id === savedPlan.selectedFunderNow);
-          const nextFundExists = !savedPlan.selectedFunderNext || fundsData.funds.some((f: any) => f.id === savedPlan.selectedFunderNext);
-          if (nowFundExists && nextFundExists) {
-            skipAutoSaveRef.current = true;
-            setSelectedNowFundId(savedPlan.selectedFunderNow);
-            setSelectedNextFundId(savedPlan.selectedFunderNext || null);
-            setTimeout(() => { skipAutoSaveRef.current = false; }, 100);
-          }
-        }
+    const dbData = context?.funderSelection;
+    if (!dbData || dbData === lastSyncedFunderRef.current) return;
+    lastSyncedFunderRef.current = dbData;
+    if (dbData.questionnaire) {
+      setAnswers(dbData.questionnaire as QuestionnaireAnswers);
+    }
+    const savedPlan = dbData.fundingPlan;
+    if (savedPlan && savedPlan.status === 'confirmed' && fundsData) {
+      const nowFundExists = savedPlan.selectedFunderNow && fundsData.funds.some((f: any) => f.id === savedPlan.selectedFunderNow);
+      const nextFundExists = !savedPlan.selectedFunderNext || fundsData.funds.some((f: any) => f.id === savedPlan.selectedFunderNext);
+      if (nowFundExists && nextFundExists) {
+        skipAutoSaveRef.current = true;
+        setSelectedNowFundId(savedPlan.selectedFunderNow);
+        setSelectedNextFundId(savedPlan.selectedFunderNext || null);
+        setTimeout(() => { skipAutoSaveRef.current = false; }, 100);
       }
-    };
-    window.addEventListener('nbs-block-updated', handleBlockUpdate);
-    return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
-  }, [fundsData]);
+    }
+  }, [context?.funderSelection, fundsData]);
 
   // Persist navigation state using dedicated hook (completely separate from domain data)
   // This is more elegant and robust - navigation never touches the module data/DB

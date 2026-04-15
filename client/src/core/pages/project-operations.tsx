@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'wouter';
 import { ArrowLeft, Check, Building2, Users, ClipboardList, DollarSign, AlertTriangle, FileText, Copy, ChevronDown, ChevronUp, Plus, Trash2, GripVertical, Sparkles, ExternalLink, Info, Lightbulb, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useNavigationPersistence } from '@/core/hooks/useNavigationPersistence';
@@ -450,7 +450,7 @@ export default function ProjectOperationsPage() {
   const { toast } = useToast();
   const { isSampleMode, sampleActions } = useSampleData();
   const { isSampleRoute, routePrefix } = useSampleRoute();
-  const { loadContext, updateModule } = useProjectContext();
+  const { loadContext, updateModule, context } = useProjectContext();
 
   // Separate navigation persistence from domain data
   const { 
@@ -503,21 +503,19 @@ export default function ProjectOperationsPage() {
     updateNavigationState({ currentStep });
   }, [currentStep, navigationRestored, updateNavigationState]);
 
-  // Listen for agent block updates
+  // React to external updates to operations (agent/ChatDrawer).
+  // ChatDrawer writes through updateModule, which updates context AND localStorage;
+  // we read back through getStoredOMData to preserve the existing hydration path.
+  const lastSyncedOperationsRef = useRef<unknown>(undefined);
   useEffect(() => {
-    const handleBlockUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      if (customEvent.detail?.blockType === 'operations') {
-        console.log('[Operations] Received nbs-block-updated event, re-hydrating...');
-        const stored = getStoredOMData(projectId || '');
-        if (stored) {
-          setOMData(stored);
-        }
-      }
-    };
-    window.addEventListener('nbs-block-updated', handleBlockUpdate);
-    return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
-  }, [projectId]);
+    const slice = context?.operations;
+    if (!slice || slice === lastSyncedOperationsRef.current) return;
+    lastSyncedOperationsRef.current = slice;
+    const stored = getStoredOMData(projectId || '');
+    if (stored) {
+      setOMData(stored);
+    }
+  }, [context?.operations, projectId]);
 
   useEffect(() => {
     if (projectId && omData) {
