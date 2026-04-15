@@ -63,9 +63,16 @@ export default function RoleSelectionPage() {
 
   const locale: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
 
-  // If role is already set, skip the gate.
+  // Only auto-skip the gate when the user arrived via a deep-link like
+  // `?role=cbo`. A persisted role in localStorage is NOT a reason to
+  // redirect — if the user navigated to `/` explicitly they almost always
+  // want the gate (to switch role, start over, or just see the landing).
+  // RoleProvider already hydrated role from the query param before we got
+  // here, so this just decides whether to honor the redirect this one time.
   useEffect(() => {
-    if (role) {
+    if (typeof window === 'undefined') return;
+    const hasDeepLinkedRole = new URLSearchParams(window.location.search).has('role');
+    if (hasDeepLinkedRole && role) {
       setLocation(ROLE_CONFIGS[role].entryRoute);
     }
   }, [role, setLocation]);
