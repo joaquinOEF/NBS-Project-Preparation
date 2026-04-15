@@ -9,11 +9,22 @@
       "description": "Long-term loan that helps companies upgrade factories, swap inefficient boilers, install energy-efficiency measures, or develop bio-based inputs. Finances up to 80% of costs, with fixed concessional rates and a five-year grace period.",
       "instrumentType": "loan",
       "instrumentLabel": "Direct reimbursable loan",
-      "eligibleBorrowers": ["private_corporations"],
+      "eligibleBorrowers": [
+        "private_corporations"
+      ],
       "eligibleBorrowersLabel": "Brazilian private corporations",
-      "prioritySectors": ["industrial_efficiency", "bioeconomy", "biofuels", "low_carbon_industry"],
+      "prioritySectors": [
+        "industrial_efficiency",
+        "bioeconomy",
+        "biofuels",
+        "low_carbon_industry"
+      ],
       "prioritySectorsLabel": "Industrial energy efficiency, bioeconomy, advanced biofuels, low-carbon industrial upgrades",
-      "ticketWindow": { "min": 20000000, "max": 500000000, "currency": "BRL" },
+      "ticketWindow": {
+        "min": 20000000,
+        "max": 500000000,
+        "currency": "BRL"
+      },
       "ticketWindowLabel": "R$ 20m – R$ 500m per economic group / 12 months",
       "financingShare": "Up to 80%",
       "financialCost": "6.5% p.a. financial cost + ≥ 1.3% BNDES spread",
@@ -25,7 +36,10 @@
       "requiresFeasibility": true,
       "requiresSovereignGuarantee": false,
       "supportsPreparation": false,
-      "supportsGrants": false
+      "supportsGrants": false,
+      "audience": [
+        "city"
+      ]
     },
     {
       "id": "fnmc-grants",
@@ -34,11 +48,25 @@
       "description": "Non-repayable funds from Brazil's Environment Ministry for cities, states, or NGOs to prepare climate plans, pilot adaptation measures, monitoring systems, or training programs. Requires at least a 5% local counterpart.",
       "instrumentType": "grant",
       "instrumentLabel": "Non-reimbursable grant",
-      "eligibleBorrowers": ["municipality", "state_government", "public_consortia", "civil_society"],
+      "eligibleBorrowers": [
+        "municipality",
+        "state_government",
+        "public_consortia",
+        "civil_society"
+      ],
       "eligibleBorrowersLabel": "Municipal & state governments, public consortia, CSOs",
-      "prioritySectors": ["climate_studies", "adaptation_pilots", "risk_information", "nature_based_solutions"],
+      "prioritySectors": [
+        "climate_studies",
+        "adaptation_pilots",
+        "risk_information",
+        "nature_based_solutions"
+      ],
       "prioritySectorsLabel": "Climate mitigation & adaptation studies, pilots, risk information systems",
-      "ticketWindow": { "min": 2000000, "max": 20000000, "currency": "BRL" },
+      "ticketWindow": {
+        "min": 2000000,
+        "max": 20000000,
+        "currency": "BRL"
+      },
       "ticketWindowLabel": "R$ 2m – R$ 20m (set by each PAAR call)",
       "financingShare": "Grant; local counterpart ≥ 5%",
       "financialCost": "N/A (grant)",
@@ -50,7 +78,10 @@
       "requiresFeasibility": false,
       "requiresSovereignGuarantee": false,
       "supportsPreparation": true,
-      "supportsGrants": true
+      "supportsGrants": true,
+      "audience": [
+        "both"
+      ]
     },
     {
       "id": "idb-esp",
@@ -59,11 +90,25 @@
       "description": "The IDB's flagship loan for public works: BRT corridors, wastewater plants, solar parks, resilient hospitals. Needs a federal guarantee and Senate approval. Up to 25 years to repay.",
       "instrumentType": "loan",
       "instrumentLabel": "Sovereign-guaranteed investment loan",
-      "eligibleBorrowers": ["municipality", "state_government", "federal_government"],
+      "eligibleBorrowers": [
+        "municipality",
+        "state_government",
+        "federal_government"
+      ],
       "eligibleBorrowersLabel": "Federal, state or municipal governments (with sovereign guarantee)",
-      "prioritySectors": ["energy", "transport", "water_sanitation", "health", "disaster_risk_reduction"],
+      "prioritySectors": [
+        "energy",
+        "transport",
+        "water_sanitation",
+        "health",
+        "disaster_risk_reduction"
+      ],
       "prioritySectorsLabel": "Energy transition, resilient transport, water & sanitation, AFOLU, health, DRR",
-      "ticketWindow": { "min": 30000000, "max": null, "currency": "USD" },
+      "ticketWindow": {
+        "min": 30000000,
+        "max": null,
+        "currency": "USD"
+      },
       "ticketWindowLabel": "≥ US$ 30m (project-driven)",
       "financingShare": "Negotiated; typically up to 80%",
       "financialCost": "SOFR + 0.80% spread + 0.41% funding margin + 0.50% commitment fee",
@@ -75,7 +120,10 @@
       "requiresFeasibility": true,
       "requiresSovereignGuarantee": true,
       "supportsPreparation": false,
-      "supportsGrants": false
+      "supportsGrants": false,
+      "audience": [
+        "city"
+      ]
     },
     {
       "id": "caf-environment",
@@ -84,11 +132,24 @@
       "description": "Sovereign or sub-sovereign loan that can be blended with grants from the GEF or the Green Climate Fund to cut interest costs. Suits large low-carbon infrastructure or conservation projects with social co-benefits.",
       "instrumentType": "loan",
       "instrumentLabel": "Sovereign / sub-sovereign loan (blended possible)",
-      "eligibleBorrowers": ["municipality", "state_government", "federal_government", "ppp_spv"],
+      "eligibleBorrowers": [
+        "municipality",
+        "state_government",
+        "federal_government",
+        "ppp_spv"
+      ],
       "eligibleBorrowersLabel": "National & sub-national governments; PPP SPVs with public guarantee",
-      "prioritySectors": ["low_carbon_infrastructure", "biodiversity", "climate_adaptation"],
+      "prioritySectors": [
+        "low_carbon_infrastructure",
+        "biodiversity",
+        "climate_adaptation"
+      ],
       "prioritySectorsLabel": "Low-carbon infrastructure, biodiversity conservation, climate adaptation",
-      "ticketWindow": { "min": 20000000, "max": 300000000, "currency": "USD" },
+      "ticketWindow": {
+        "min": 20000000,
+        "max": 300000000,
+        "currency": "USD"
+      },
       "ticketWindowLabel": "US$ 20m – US$ 300m",
       "financingShare": "Negotiated",
       "financialCost": "≈ SOFR + 1.10% (net of any grant element)",
@@ -100,7 +161,10 @@
       "requiresFeasibility": true,
       "requiresSovereignGuarantee": true,
       "supportsPreparation": false,
-      "supportsGrants": false
+      "supportsGrants": false,
+      "audience": [
+        "city"
+      ]
     },
     {
       "id": "fonplata-green",
@@ -109,11 +173,25 @@
       "description": "Targets cities in the Plata Basin that need clean mobility, drainage, or urban green space. Typical tickets of US$ 20–60 million, 15-year terms, and streamlined safeguard rules.",
       "instrumentType": "loan",
       "instrumentLabel": "Sovereign / sub-sovereign infrastructure loan",
-      "eligibleBorrowers": ["municipality", "state_government", "federal_government"],
+      "eligibleBorrowers": [
+        "municipality",
+        "state_government",
+        "federal_government"
+      ],
       "eligibleBorrowersLabel": "Federal, state, municipal governments in Plata Basin",
-      "prioritySectors": ["urban_mobility", "water", "flood_control", "green_spaces", "small_hydro"],
+      "prioritySectors": [
+        "urban_mobility",
+        "water",
+        "flood_control",
+        "green_spaces",
+        "small_hydro"
+      ],
       "prioritySectorsLabel": "Urban mobility, water, flood control, green spaces, small hydro",
-      "ticketWindow": { "min": 20000000, "max": 60000000, "currency": "USD" },
+      "ticketWindow": {
+        "min": 20000000,
+        "max": 60000000,
+        "currency": "USD"
+      },
       "ticketWindowLabel": "US$ 20m – US$ 60m",
       "financingShare": "Negotiated",
       "financialCost": "SOFR + ~1.50% + 0.50% commitment fee",
@@ -125,7 +203,10 @@
       "requiresFeasibility": true,
       "requiresSovereignGuarantee": true,
       "supportsPreparation": false,
-      "supportsGrants": false
+      "supportsGrants": false,
+      "audience": [
+        "city"
+      ]
     },
     {
       "id": "caixa-procidades",
@@ -134,11 +215,23 @@
       "description": "Integrated urban development funding. Finances projects to improve urban public spaces, revitalize city centers, upgrade slums, and implement smart city solutions. Low-cost loans aimed at medium-sized cities.",
       "instrumentType": "loan",
       "instrumentLabel": "Concessional loan (domestic)",
-      "eligibleBorrowers": ["municipality"],
+      "eligibleBorrowers": [
+        "municipality"
+      ],
       "eligibleBorrowersLabel": "Municipal governments (typically mid-sized cities)",
-      "prioritySectors": ["urban_revitalization", "smart_cities", "public_spaces", "social_housing", "urban_governance"],
+      "prioritySectors": [
+        "urban_revitalization",
+        "smart_cities",
+        "public_spaces",
+        "social_housing",
+        "urban_governance"
+      ],
       "prioritySectorsLabel": "Urban revitalization & smart cities – public space upgrades, social housing, lighting, urban governance tech",
-      "ticketWindow": { "min": 5000000, "max": 50000000, "currency": "BRL" },
+      "ticketWindow": {
+        "min": 5000000,
+        "max": 50000000,
+        "currency": "BRL"
+      },
       "ticketWindowLabel": "R$ 5m – R$ 50m per city project",
       "financingShare": "Up to 100% of project investment",
       "financialCost": "FGTS-subsidized interest (~6–8% p.a. in BRL)",
@@ -150,7 +243,10 @@
       "requiresFeasibility": true,
       "requiresSovereignGuarantee": false,
       "supportsPreparation": false,
-      "supportsGrants": false
+      "supportsGrants": false,
+      "audience": [
+        "city"
+      ]
     },
     {
       "id": "gcf-readiness",
@@ -159,11 +255,24 @@
       "description": "Grants for developing countries to strengthen institutional capacity, develop climate policies, and prepare project pipelines. Helps cities and national entities get ready for larger GCF investments.",
       "instrumentType": "grant",
       "instrumentLabel": "Capacity building grant",
-      "eligibleBorrowers": ["municipality", "state_government", "federal_government", "national_entity"],
+      "eligibleBorrowers": [
+        "municipality",
+        "state_government",
+        "federal_government",
+        "national_entity"
+      ],
       "eligibleBorrowersLabel": "National designated authorities and accredited entities",
-      "prioritySectors": ["capacity_building", "climate_planning", "project_preparation"],
+      "prioritySectors": [
+        "capacity_building",
+        "climate_planning",
+        "project_preparation"
+      ],
       "prioritySectorsLabel": "Institutional strengthening, climate policy development, project pipeline preparation",
-      "ticketWindow": { "min": 300000, "max": 3000000, "currency": "USD" },
+      "ticketWindow": {
+        "min": 300000,
+        "max": 3000000,
+        "currency": "USD"
+      },
       "ticketWindowLabel": "US$ 300k – US$ 3m per country/entity",
       "financingShare": "100% grant",
       "financialCost": "N/A (grant)",
@@ -175,7 +284,10 @@
       "requiresFeasibility": false,
       "requiresSovereignGuarantee": false,
       "supportsPreparation": true,
-      "supportsGrants": true
+      "supportsGrants": true,
+      "audience": [
+        "city"
+      ]
     },
     {
       "id": "c40-finance-facility",
@@ -184,11 +296,19 @@
       "description": "Technical assistance to help cities develop bankable climate projects. Provides project preparation support including feasibility studies, financial structuring, and investor engagement.",
       "instrumentType": "technical_assistance",
       "instrumentLabel": "Technical assistance (free)",
-      "eligibleBorrowers": ["municipality"],
+      "eligibleBorrowers": [
+        "municipality"
+      ],
       "eligibleBorrowersLabel": "C40 member cities and partner cities",
-      "prioritySectors": ["all_climate_sectors"],
+      "prioritySectors": [
+        "all_climate_sectors"
+      ],
       "prioritySectorsLabel": "All climate sectors – buildings, transport, waste, energy, adaptation",
-      "ticketWindow": { "min": 0, "max": 1000000, "currency": "USD" },
+      "ticketWindow": {
+        "min": 0,
+        "max": 1000000,
+        "currency": "USD"
+      },
       "ticketWindowLabel": "In-kind support valued at up to US$ 1m",
       "financingShare": "100% grant (technical assistance)",
       "financialCost": "N/A (free TA)",
@@ -200,7 +320,213 @@
       "requiresFeasibility": false,
       "requiresSovereignGuarantee": false,
       "supportsPreparation": true,
-      "supportsGrants": true
+      "supportsGrants": true,
+      "audience": [
+        "city"
+      ]
+    },
+    {
+      "id": "teia-sociobio",
+      "institution": "MDA / MMA (Brazil)",
+      "name": "Teia da Sociobiodiversidade",
+      "description": "Non-reimbursable funding for community-based organizations working on sociobiodiversity value chains — riverine, quilombola, Indigenous and family-farming groups. Supports productive use of nature-based solutions, seed networks, and community stewardship.",
+      "instrumentType": "grant",
+      "instrumentLabel": "Community grant (non-reimbursable)",
+      "eligibleBorrowers": [
+        "civil_society",
+        "community_organization"
+      ],
+      "eligibleBorrowersLabel": "Community-based organizations, cooperatives, Indigenous/quilombola associations",
+      "prioritySectors": [
+        "sociobiodiversity",
+        "nature_based_solutions",
+        "food_security",
+        "community_forestry"
+      ],
+      "prioritySectorsLabel": "Sociobiodiversity value chains, community NBS, food security",
+      "ticketWindow": {
+        "min": 50000,
+        "max": 100000,
+        "currency": "BRL"
+      },
+      "ticketWindowLabel": "R$ 50k – R$ 100k per organization",
+      "financingShare": "Grant",
+      "financialCost": "N/A (grant)",
+      "tenorGrace": "Aligned to project calendar (typically 12–24 months)",
+      "safeguards": "Community approval + alignment with MDA/MMA social policy",
+      "applicationChannel": "Periodic public calls by MDA / MMA",
+      "officialLink": "https://www.gov.br/mda/pt-br",
+      "category": "grant",
+      "requiresFeasibility": false,
+      "requiresSovereignGuarantee": false,
+      "supportsPreparation": true,
+      "supportsGrants": true,
+      "audience": [
+        "cbo"
+      ]
+    },
+    {
+      "id": "fundo-casa-rs",
+      "institution": "Fundo Casa Socioambiental",
+      "name": "Fundo Casa Reconstruir RS",
+      "description": "Emergency and recovery grants for community organizations in Rio Grande do Sul affected by the 2024 floods. Funds nature-based recovery, community-led reconstruction, and climate resilience at neighborhood scale.",
+      "instrumentType": "grant",
+      "instrumentLabel": "Community grant (non-reimbursable)",
+      "eligibleBorrowers": [
+        "civil_society",
+        "community_organization"
+      ],
+      "eligibleBorrowersLabel": "CSOs and CBOs operating in Rio Grande do Sul",
+      "prioritySectors": [
+        "climate_resilience",
+        "nature_based_solutions",
+        "community_reconstruction",
+        "flood_adaptation"
+      ],
+      "prioritySectorsLabel": "Climate recovery, NBS, community-led reconstruction",
+      "ticketWindow": {
+        "min": 10000,
+        "max": 40000,
+        "currency": "BRL"
+      },
+      "ticketWindowLabel": "Up to R$ 40k per organization",
+      "financingShare": "Grant",
+      "financialCost": "N/A (grant)",
+      "tenorGrace": "6–12 months typical",
+      "safeguards": "Alignment with Fundo Casa social and environmental criteria",
+      "applicationChannel": "Fundo Casa open calls (casa.org.br)",
+      "officialLink": "https://casa.org.br",
+      "category": "grant",
+      "requiresFeasibility": false,
+      "requiresSovereignGuarantee": false,
+      "supportsPreparation": true,
+      "supportsGrants": true,
+      "audience": [
+        "cbo"
+      ]
+    },
+    {
+      "id": "gef-sgp",
+      "institution": "UNDP / GEF",
+      "name": "GEF Small Grants Programme",
+      "description": "UNDP-administered small grants for community-based environmental action. Long-running global programme (active in Brazil) funding biodiversity, climate adaptation, land degradation, and international waters projects led by CBOs and Indigenous groups.",
+      "instrumentType": "grant",
+      "instrumentLabel": "International community grant (non-reimbursable)",
+      "eligibleBorrowers": [
+        "civil_society",
+        "community_organization",
+        "indigenous_group"
+      ],
+      "eligibleBorrowersLabel": "Community-based organizations, NGOs, Indigenous/traditional community groups",
+      "prioritySectors": [
+        "biodiversity",
+        "climate_adaptation",
+        "land_degradation",
+        "nature_based_solutions"
+      ],
+      "prioritySectorsLabel": "Biodiversity, climate, land, waters — community scale",
+      "ticketWindow": {
+        "min": 25000,
+        "max": 50000,
+        "currency": "USD"
+      },
+      "ticketWindowLabel": "Up to US$ 50k per project",
+      "financingShare": "Grant; in-kind or co-financing usually required",
+      "financialCost": "N/A (grant)",
+      "tenorGrace": "12–24 months",
+      "safeguards": "GEF SGP social and environmental standards",
+      "applicationChannel": "National GEF SGP country office (UNDP Brazil)",
+      "officialLink": "https://sgp.undp.org",
+      "category": "grant",
+      "requiresFeasibility": false,
+      "requiresSovereignGuarantee": false,
+      "supportsPreparation": true,
+      "supportsGrants": true,
+      "audience": [
+        "cbo"
+      ]
+    },
+    {
+      "id": "periferias-verdes",
+      "institution": "Federal Government (Brazil)",
+      "name": "Periferias Verdes Resilientes",
+      "description": "Federal programme supporting green infrastructure in urban peripheries. Combines direct CBO grants with municipal co-financing to accelerate nature-based interventions in under-served neighborhoods.",
+      "instrumentType": "grant",
+      "instrumentLabel": "Community grant with municipal partnership",
+      "eligibleBorrowers": [
+        "civil_society",
+        "community_organization",
+        "municipality"
+      ],
+      "eligibleBorrowersLabel": "CBOs (direct) or in partnership with municipal governments",
+      "prioritySectors": [
+        "urban_greening",
+        "nature_based_solutions",
+        "climate_justice",
+        "community_health"
+      ],
+      "prioritySectorsLabel": "Urban NBS in peripheral neighborhoods, climate justice",
+      "ticketWindow": {
+        "min": 100000,
+        "max": 500000,
+        "currency": "BRL"
+      },
+      "ticketWindowLabel": "R$ 100k – R$ 500k (varies by call)",
+      "financingShare": "Grant; may require municipal partnership agreement",
+      "financialCost": "N/A (grant)",
+      "tenorGrace": "Per project schedule",
+      "safeguards": "Federal programme safeguards + community benefit plan",
+      "applicationChannel": "Federal public calls",
+      "officialLink": "https://www.gov.br",
+      "category": "grant",
+      "requiresFeasibility": false,
+      "requiresSovereignGuarantee": false,
+      "supportsPreparation": true,
+      "supportsGrants": true,
+      "audience": [
+        "cbo"
+      ]
+    },
+    {
+      "id": "petrobras-nbs-urbano",
+      "institution": "Petrobras",
+      "name": "Petrobras Socioambiental — NBS Urbano",
+      "description": "Corporate sustainability programme funding nature-based solutions in Brazilian cities. Typically accessed via consortium: CBOs partner with a municipality or a larger anchor organization to apply.",
+      "instrumentType": "grant",
+      "instrumentLabel": "Corporate sustainability grant (consortium-access)",
+      "eligibleBorrowers": [
+        "civil_society",
+        "community_organization",
+        "municipality",
+        "public_consortia"
+      ],
+      "eligibleBorrowersLabel": "CBOs in consortium with municipalities or anchor NGOs",
+      "prioritySectors": [
+        "nature_based_solutions",
+        "urban_greening",
+        "climate_resilience"
+      ],
+      "prioritySectorsLabel": "Urban NBS, climate adaptation, community stewardship",
+      "ticketWindow": {
+        "min": 250000,
+        "max": 2000000,
+        "currency": "BRL"
+      },
+      "ticketWindowLabel": "R$ 250k – R$ 2m per consortium",
+      "financingShare": "Grant; counterpart sometimes required",
+      "financialCost": "N/A (grant)",
+      "tenorGrace": "12–36 months",
+      "safeguards": "Petrobras social programme criteria + environmental plan",
+      "applicationChannel": "Petrobras Socioambiental public calls",
+      "officialLink": "https://socioambiental.petrobras.com.br",
+      "category": "grant",
+      "requiresFeasibility": false,
+      "requiresSovereignGuarantee": false,
+      "supportsPreparation": true,
+      "supportsGrants": true,
+      "audience": [
+        "both"
+      ]
     }
   ],
   "pathways": {
