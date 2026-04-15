@@ -2688,18 +2688,16 @@ export default function ImpactModelPage() {
     updateNavigationState({ currentStep: newStepIndex });
   }, [currentStep, navigationRestored, dataHydrated, updateNavigationState]);
 
+  // React to external updates to impactModel (agent/ChatDrawer).
+  // Skip self-writes by remembering the last slice reference we applied.
+  const lastSyncedImpactRef = useRef<ImpactModelData | null | undefined>(undefined);
   useEffect(() => {
-    const handleBlockUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent<{ blockType: string; moduleName: string; data: unknown }>;
-      if (customEvent.detail?.blockType === 'impact_model' && customEvent.detail?.data) {
-        console.log('[ImpactModel] Received nbs-block-updated event, applying data directly');
-        const freshData = normalizeRawData(customEvent.detail.data as Record<string, unknown>);
-        setLocalData(freshData);
-      }
-    };
-    window.addEventListener('nbs-block-updated', handleBlockUpdate);
-    return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
-  }, [normalizeRawData]);
+    const dbData = context?.impactModel;
+    if (!dbData || dbData === lastSyncedImpactRef.current) return;
+    lastSyncedImpactRef.current = dbData;
+    const freshData = normalizeRawData(dbData as unknown as Record<string, unknown>);
+    setLocalData(freshData);
+  }, [context?.impactModel, normalizeRawData]);
 
   const handleUpdate = (updates: Partial<ImpactModelData>) => {
     const updated = { ...localData, ...updates, status: 'DRAFT' as const };

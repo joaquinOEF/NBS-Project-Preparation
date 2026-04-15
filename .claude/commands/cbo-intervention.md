@@ -38,47 +38,42 @@ Help a community-based organization (CBO/NGO) prepare their NBS intervention for
 - Scale: area (ha), tree count, structures
 - **Maturity assessment**: Problem Clarity (0-3), Solution Clarity (0-3)
 
-### Phase 3b: Expected Impact (impact_monitoring) — B£ST-STYLE ASSESSMENT
-Follow the B£ST (Benefits Estimation Tool) model for guided impact assessment:
+### Phase 3b: Expected Impact (impact_monitoring) — GO DEEPER, DON'T REPEAT
+**DO NOT re-ask what's already known from Phase 2.** You already have flood/heat/landslide risk, population, and site conditions. Use them.
 
-**Step 1 — Screening**: 5-6 yes/no toggles to identify relevant benefit categories
-  - Flooding? Heat? Water body nearby? People within 500m? Existing vegetation? Erosion?
-  - Pre-fill from Phase 2 hazard data
-
-**Step 2 — Site inputs**: Collect details that improve the estimate
-  - Baseline condition (what was there before?)
-  - Population nearby (from Phase 2)
-  - Maintenance commitment (weekly/monthly/seasonal)
-  - Timeframe (1/3/5/10 years)
-
-**Step 3 — With/without comparison**: Read co-benefits + impact benchmarks knowledge files
-  - Present as: "WITHOUT your project: X" vs "WITH your project: Y"
-  - ALWAYS show ranges, never point estimates
-  - Show confidence levels (high/medium/low)
-  - Reference similar funded project as benchmark
-
+1. **Acknowledge**: "Your site has X% flood risk and Y% heat risk. With [NBS type] on Z hectares..."
+2. **Ask only what's NEW** (2-3 questions max):
+   - Baseline condition BEFORE the project (paved/degraded/bare/vegetated)
+   - Maintenance frequency commitment (weekly/monthly/seasonal)
+   - Project timeframe (1/3/5/10 years)
+3. **Read knowledge** for co-benefits and impact benchmarks matching their NBS type
+4. **Present WITH vs WITHOUT comparison** using their actual site data
+   - Ranges only, never point estimates
+   - Confidence levels (high/medium/low)
+   - Reference a similar funded project
 - **Maturity assessment**: Climate NBS Impact (0-3)
 
-### Phase 3c: Operations & Sustainability (operations_sustain)
-- Operations model: who maintains it? (community volunteers, paid staff, municipal, partnership)
-- Maintenance schedule: what tasks, how often (read OPEX section from intervention knowledge file)
-- Sustainability model: how will you pay for maintenance long-term?
-  - Realistic options for CBOs: municipal budget allocation, community cooperative fee, productive use (food, tourism, education), grant renewal (watch for new editais)
-  - Be HONEST: carbon credits are NOT practical for small projects (<100 ha)
-  - "I don't know" → walk through each model with simple examples
-- Timeline: started when, milestones, expected completion
-- What's already done vs what's planned
+### Phase 3c: Operations & Sustainability (operations_sustain) — BUILD ON EARLIER ANSWERS
+**DO NOT re-ask about the team** (Phase 1 already has team size, paid/volunteer split). Reference it:
+"In Phase 1, you mentioned having X members. How will this team split for maintenance?"
+
+- Maintenance specifics for THIS NBS type — read_knowledge for OPEX section
+- Sustainability model: municipal budget, cooperative fee, productive use, grant renewal
+  - Be HONEST: carbon credits NOT practical for small projects
+  - "I don't know" → walk through models with examples
+- Timeline: when started/starting, milestones, completion
 - **Maturity assessment**: Financial Thinking (0-3)
 
-### Phase 4: What We Need (needs_assessment) — REAL FUNDING SOURCES
+### Phase 4: What We Need (needs_assessment) — REFERENCE EARLIER CONTEXT
+**DO NOT re-ask about budget** if discussed in Phase 3c. Instead:
+"In the previous phase, we discussed sustainability. Now let's detail what you need."
+
 - Read knowledge: _financing-sources/cbo-grants.md
-- Present ONLY funding sources the CBO can actually access:
-  - **Tier 1** (apply directly): Teia da Sociobiodiversidade (R$100K), Fundo Casa RS (R$40K), Periferias Verdes Resilientes, GEF SGP (US$50K)
-  - **Tier 2** (through partnership/municipality): Petrobras NBS Urbano, World Bank P178072 sub-components
-  - **Monitor**: capta.org.br/fontes for new editais
-- DO NOT present BNDES (min R$10M) or GCF (US$50M+) as direct options for CBOs
-- Technical help needed (design, monitoring, engineering)
-- Regulatory status: permits, conversations with authorities
+- **Tier 1** (direct): Teia (R$100K), Fundo Casa RS (R$40K), Periferias Verdes, GEF SGP (US$50K)
+- **Tier 2** (partnership): Petrobras NBS Urbano, World Bank P178072
+- **Monitor**: capta.org.br/fontes
+- DO NOT present BNDES or GCF as direct CBO options
+- Ask only NEW things: technical needs not in 3a, regulatory status, training needs
 - Ask for links: "Do you have a website, social media, or news coverage?"
 - **Maturity assessment**: Regulatory Awareness (0-3)
 

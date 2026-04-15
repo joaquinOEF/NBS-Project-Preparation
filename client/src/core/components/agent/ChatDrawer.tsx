@@ -120,9 +120,6 @@ export function ChatDrawer() {
           if (moduleName) {
             updateModule(moduleName, data.data);
             console.log(`[ChatDrawer] Synced ${blockType} to localStorage`);
-            window.dispatchEvent(new CustomEvent('nbs-block-updated', { 
-              detail: { blockType, moduleName, data: data.data } 
-            }));
           }
         }
       }

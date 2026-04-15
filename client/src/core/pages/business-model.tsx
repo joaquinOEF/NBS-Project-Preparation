@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'wouter';
 import { ArrowLeft, Check, Building2, Users, Landmark, DollarSign, AlertTriangle, FileText, Copy, ChevronDown, ChevronUp, Plus, Trash2, Info, Edit, RotateCcw, CheckCircle, Loader2 } from 'lucide-react';
 import { useNavigationPersistence } from '@/core/hooks/useNavigationPersistence';
@@ -478,7 +478,7 @@ export default function BusinessModelPage() {
   const { toast } = useToast();
   const { sampleActions } = useSampleData();
   const { routePrefix } = useSampleRoute();
-  const { loadContext, updateModule } = useProjectContext();
+  const { loadContext, updateModule, context } = useProjectContext();
 
   // Separate navigation persistence from domain data
   const { 
@@ -530,20 +530,17 @@ export default function BusinessModelPage() {
     updateNavigationState({ currentStep });
   }, [currentStep, navigationRestored, updateNavigationState]);
 
+  // React to external updates to businessModel (agent/ChatDrawer).
+  const lastSyncedBusinessModelRef = useRef<unknown>(undefined);
   useEffect(() => {
-    const handleBlockUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent<{ blockType: string; moduleName: string; data: any }>;
-      if (customEvent.detail?.blockType === 'business_model' && customEvent.detail?.data) {
-        console.log('[BusinessModel] Received nbs-block-updated event, applying data directly');
-        const stored = getStoredBMData(projectId || '');
-        if (stored) {
-          setBMData(stored);
-        }
-      }
-    };
-    window.addEventListener('nbs-block-updated', handleBlockUpdate);
-    return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
-  }, [projectId]);
+    const slice = context?.businessModel;
+    if (!slice || slice === lastSyncedBusinessModelRef.current) return;
+    lastSyncedBusinessModelRef.current = slice;
+    const stored = getStoredBMData(projectId || '');
+    if (stored) {
+      setBMData(stored);
+    }
+  }, [context?.businessModel, projectId]);
 
   useEffect(() => {
     if (projectId && bmData) {

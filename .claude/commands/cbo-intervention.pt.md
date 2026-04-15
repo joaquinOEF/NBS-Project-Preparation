@@ -38,47 +38,42 @@ Ajude uma organização comunitária (OBC/ONG) a preparar seu projeto de Soluç�
 - Escala: área (ha), contagem de árvores, estruturas
 - **Avaliação de maturidade**: Clareza do Problema (0-3), Clareza da Solução (0-3)
 
-### Fase 3b: Impacto Esperado (impact_monitoring) — AVALIAÇÃO ESTILO B£ST
-Siga o modelo B£ST (Ferramenta de Estimativa de Benefícios) para avaliação guiada de impacto:
+### Fase 3b: Impacto Esperado (impact_monitoring) — APROFUNDAR, NÃO REPETIR
+**NÃO pergunte novamente o que já sabe da Fase 2.** Você já tem risco de inundação/calor/deslizamento, população e condições do local. Use-os.
 
-**Passo 1 — Triagem**: 5-6 perguntas sim/não para identificar categorias de benefícios relevantes
-  - Inundação? Calor? Corpo d'água próximo? Pessoas a menos de 500m? Vegetação existente? Erosão?
-  - Pré-preencher com dados de risco da Fase 2
-
-**Passo 2 — Dados do local**: Coletar detalhes que melhoram a estimativa
-  - Condição antes do projeto (o que tinha lá antes?)
-  - População próxima (dados da Fase 2)
-  - Compromisso de manutenção (semanal/mensal/sazonal)
-  - Prazo (1/3/5/10 anos)
-
-**Passo 3 — Comparação com/sem**: Ler co-benefícios + benchmarks de impacto
-  - Apresentar como: "SEM seu projeto: X" vs "COM seu projeto: Y"
-  - SEMPRE mostrar faixas, nunca estimativas pontuais
-  - Mostrar níveis de confiança (alto/médio/baixo)
-  - Referenciar projeto financiado similar como benchmark
-
+1. **Reconheça o que sabe**: "Seu local tem X% de risco de inundação e Y% de calor. Com [tipo de SbN] em Z hectares, vou estimar o impacto."
+2. **Pergunte APENAS o que é NOVO** (2-3 perguntas máximo):
+   - Condição do terreno ANTES do projeto (pavimentado/degradado/solo exposto/com vegetação)
+   - Frequência de manutenção que podem se comprometer (semanal/mensal/sazonal)
+   - Prazo do projeto (1/3/5/10 anos)
+3. **Ler conhecimento** de co-benefícios e benchmarks de impacto do tipo de SbN escolhido
+4. **Apresentar comparação COM vs SEM** usando dados reais do local
+   - Faixas apenas, nunca estimativas pontuais
+   - Níveis de confiança (alto/médio/baixo)
+   - Referenciar projeto financiado similar
 - **Avaliação de maturidade**: Impacto Climático/SbN (0-3)
 
-### Fase 3c: Operação e Sustentabilidade (operations_sustain)
-- Modelo operacional: quem mantém? (voluntários comunitários, equipe remunerada, prefeitura, parceria)
-- Cronograma de manutenção: quais tarefas, com que frequência (ler seção OPEX do arquivo de conhecimento da intervenção)
-- Modelo de sustentabilidade: como vocês vão pagar pela manutenção a longo prazo?
-  - Opções realistas para OBCs: dotação orçamentária municipal, taxa cooperativa comunitária, uso produtivo (alimentos, turismo, educação), renovação de editais
-  - Ser HONESTO: créditos de carbono NÃO são práticos para projetos pequenos (<100 ha)
-  - "Não sei" → apresentar cada modelo com exemplos simples
-- Cronograma: quando começou, marcos, conclusão prevista
-- O que já foi feito vs o que está planejado
+### Fase 3c: Operação e Sustentabilidade (operations_sustain) — CONSTRUIR SOBRE RESPOSTAS ANTERIORES
+**NÃO pergunte novamente sobre a equipe** (Fase 1 já tem tamanho, divisão remunerado/voluntário). Referencie:
+"Na Fase 1, vocês mencionaram ter X membros. Como essa equipe vai se dividir para a manutenção?"
+
+- Detalhes de manutenção para ESTE tipo de SbN — ler seção OPEX do conhecimento
+- Modelo de sustentabilidade: orçamento municipal, taxa cooperativa, uso produtivo, renovação de editais
+  - Ser HONESTO: créditos de carbono NÃO são práticos para projetos pequenos
+  - "Não sei" → apresentar modelos com exemplos
+- Cronograma: quando começou/vai começar, marcos, conclusão
 - **Avaliação de maturidade**: Planejamento Financeiro (0-3)
 
-### Fase 4: O Que Precisamos (needs_assessment) — FONTES REAIS DE FINANCIAMENTO
+### Fase 4: O Que Precisamos (needs_assessment) — REFERENCIAR CONTEXTO ANTERIOR
+**NÃO pergunte sobre orçamento de novo** se já discutido na Fase 3c. Em vez disso:
+"Na fase anterior, falamos sobre sustentabilidade. Agora vamos detalhar o que vocês precisam."
+
 - Ler conhecimento: _financing-sources/cbo-grants.md
-- Apresentar APENAS fontes de financiamento que a OBC pode realmente acessar:
-  - **Nível 1** (aplicar diretamente): Teia da Sociobiodiversidade (R$100K), Fundo Casa Reconstruir RS (R$40K), Periferias Verdes Resilientes, GEF SGP (US$50K)
-  - **Nível 2** (através de parceria/prefeitura): Petrobras SbN Urbano, subcomponentes World Bank P178072
-  - **Monitorar**: capta.org.br/fontes para novos editais
-- NÃO apresentar BNDES (mín R$10M) ou GCF (US$50M+) como opções diretas para OBCs
-- Ajuda técnica necessária (engenharia, seleção de espécies, equipamento de monitoramento)
-- Situação regulatória: alvarás, conversas com autoridades
+- **Nível 1** (direto): Teia (R$100K), Fundo Casa RS (R$40K), Periferias Verdes, GEF SGP (US$50K)
+- **Nível 2** (parceria): Petrobras SbN Urbano, World Bank P178072
+- **Monitorar**: capta.org.br/fontes
+- NÃO apresentar BNDES ou GCF como opções diretas para OBCs
+- Perguntar APENAS coisas NOVAS: necessidades técnicas não cobertas na 3a, situação regulatória, capacitação
 - Pedir links: "Vocês têm site, redes sociais ou alguma reportagem?"
 - **Avaliação de maturidade**: Consciência Regulatória (0-3)
 

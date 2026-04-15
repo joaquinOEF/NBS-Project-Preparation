@@ -463,27 +463,22 @@ export default function SiteExplorerPage() {
     });
   }, [selectedZone, navigationRestored, updateNavigationState]);
 
+  // React to external updates to siteExplorer (agent/ChatDrawer).
+  const lastSyncedSiteExplorerRef = useRef<unknown>(undefined);
   useEffect(() => {
-    const handleBlockUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent<{ blockType: string; moduleName: string; data: any }>;
-      if (customEvent.detail?.blockType === 'site_explorer') {
-        console.log('[SiteExplorer] Received nbs-block-updated event, applying data directly');
-        const data = customEvent.detail.data;
-        if (data?.selectedZones) {
-          const portfolios: Record<string, SelectedIntervention[]> = {};
-          data.selectedZones.forEach((zone: any) => {
-            if (typeof zone === 'object' && zone.interventionPortfolio && zone.interventionPortfolio.length > 0) {
-              portfolios[zone.zoneId] = zone.interventionPortfolio;
-            }
-          });
-          console.log('[SiteExplorer] Applied portfolios from event:', Object.keys(portfolios));
-          setZonePortfolios(portfolios);
+    const data = context?.siteExplorer;
+    if (!data || data === lastSyncedSiteExplorerRef.current) return;
+    lastSyncedSiteExplorerRef.current = data;
+    if (data.selectedZones) {
+      const portfolios: Record<string, SelectedIntervention[]> = {};
+      data.selectedZones.forEach((zone: any) => {
+        if (typeof zone === 'object' && zone.interventionPortfolio && zone.interventionPortfolio.length > 0) {
+          portfolios[zone.zoneId] = zone.interventionPortfolio;
         }
-      }
-    };
-    window.addEventListener('nbs-block-updated', handleBlockUpdate);
-    return () => window.removeEventListener('nbs-block-updated', handleBlockUpdate);
-  }, []);
+      });
+      setZonePortfolios(portfolios);
+    }
+  }, [context?.siteExplorer]);
 
   useEffect(() => {
     let cancelled = false;
