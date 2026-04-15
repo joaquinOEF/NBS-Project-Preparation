@@ -897,6 +897,14 @@ export function ProjectContextProvider({ children }: { children: ReactNode }) {
     const current = contextRef.current;
     if (!current) return;
 
+    // [JitterDebug] Log every updateModule call with caller stack.
+    const stack = new Error().stack?.split('\n').slice(2, 6).join(' | ') ?? '(no stack)';
+    const summary = module === 'funderSelection'
+      ? `selectedFunderNow=${(data as unknown as { fundingPlan?: { selectedFunderNow?: string | null } } | null)?.fundingPlan?.selectedFunderNow ?? '(n/a)'} status=${(data as unknown as { status?: string } | null)?.status ?? '(n/a)'}`
+      : '';
+    // eslint-disable-next-line no-console
+    console.log(`[JitterDebug] updateModule(${module}) ${summary} skipDb=${options?.skipDbSync ?? false} caller: ${stack}`);
+
     const updated: ProjectContextData = {
       ...current,
       [module]: data,
