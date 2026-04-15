@@ -1,6 +1,6 @@
 import { useParams, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ReactElement } from 'react';
 import { ArrowLeft, Map, ArrowRight, DollarSign, Settings, Landmark, Database, ChevronRight, ChevronDown, Lightbulb, FileText, CheckCircle2, Circle, Download, Sparkles, Leaf } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { Header } from '@/core/components/layout/header';
@@ -18,6 +18,7 @@ import { useSampleData, SAMPLE_DATA_READINESS, DataReadinessItem } from '@/core/
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useProjectContext, ProjectContextData, SelectedZone } from '@/core/contexts/project-context';
 import { useRoleConfig, useResetRole } from '@/core/contexts/role-context';
+import type { ModuleKey } from '@shared/roles';
 import { computeReadinessScores, determinePathway } from '@/core/utils/funding-readiness';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -1751,6 +1752,129 @@ function ConceptNotePanel({ context }: { context: ProjectContextData | null }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Module card registry — drives the PREPARE grid. Role config picks which
+// entries are visible (`config.visibleModules`) and optionally overrides
+// the default titles per role (`config.moduleLabels`).
+// ---------------------------------------------------------------------------
+type ModuleCardDef = {
+  routePath: string;
+  Icon: typeof Map;
+  bubbleBg: string;    // tailwind bg for the icon bubble
+  iconFg: string;      // tailwind text color for the icon
+  accentFg: string;    // tailwind text color for the "View →" affordance
+  titleKey: string;    // i18n key for default title
+  descriptionKey: string;
+  getData: (ctx: ProjectContextData | null) => unknown;
+  Highlight: (props: { data: any }) => ReactElement;
+};
+
+const MODULE_CARD_DEFS: Record<ModuleKey, ModuleCardDef> = {
+  funderSelection: {
+    routePath: 'funder-selection',
+    Icon: DollarSign,
+    bubbleBg: 'bg-green-500/10',
+    iconFg: 'text-green-600',
+    accentFg: 'text-green-600',
+    titleKey: 'project.funderSelection',
+    descriptionKey: 'project.funderSelectionDescription',
+    getData: ctx => ctx?.funderSelection,
+    Highlight: FunderHighlight as any,
+  },
+  siteExplorer: {
+    routePath: 'site-explorer',
+    Icon: Map,
+    bubbleBg: 'bg-primary/10',
+    iconFg: 'text-primary',
+    accentFg: 'text-primary',
+    titleKey: 'project.siteExplorer',
+    descriptionKey: 'project.siteExplorerDescription',
+    getData: ctx => ctx?.siteExplorer,
+    Highlight: SiteExplorerHighlight as any,
+  },
+  impactModel: {
+    routePath: 'impact-model',
+    Icon: Lightbulb,
+    bubbleBg: 'bg-amber-500/10',
+    iconFg: 'text-amber-600',
+    accentFg: 'text-amber-600',
+    titleKey: 'project.impactModel',
+    descriptionKey: 'project.impactModelDescription',
+    getData: ctx => ctx?.impactModel,
+    Highlight: ImpactModelHighlight as any,
+  },
+  operations: {
+    routePath: 'project-operations',
+    Icon: Settings,
+    bubbleBg: 'bg-orange-500/10',
+    iconFg: 'text-orange-600',
+    accentFg: 'text-orange-600',
+    titleKey: 'project.projectOperations',
+    descriptionKey: 'project.projectOperationsDescription',
+    getData: ctx => ctx?.operations,
+    Highlight: OperationsHighlight as any,
+  },
+  businessModel: {
+    routePath: 'business-model',
+    Icon: Landmark,
+    bubbleBg: 'bg-purple-500/10',
+    iconFg: 'text-purple-600',
+    accentFg: 'text-purple-600',
+    titleKey: 'project.businessModel',
+    descriptionKey: 'project.businessModelDescription',
+    getData: ctx => ctx?.businessModel,
+    Highlight: BusinessModelHighlight as any,
+  },
+};
+
+const DEFAULT_VISIBLE_MODULES: ModuleKey[] = [
+  'funderSelection', 'siteExplorer', 'impactModel', 'operations', 'businessModel',
+];
+
+function ModuleCard({
+  moduleKey,
+  projectId,
+  routePrefix,
+  context,
+  titleOverride,
+}: {
+  moduleKey: ModuleKey;
+  projectId: string | undefined;
+  routePrefix: string;
+  context: ProjectContextData | null;
+  titleOverride?: { en: string; pt: string };
+}) {
+  const { t, i18n } = useTranslation();
+  const def = MODULE_CARD_DEFS[moduleKey];
+  const locale: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
+  const title = titleOverride ? titleOverride[locale] : t(def.titleKey);
+  const Highlight = def.Highlight;
+  const Icon = def.Icon;
+  const data = def.getData(context);
+  return (
+    <Link href={`${routePrefix}/${def.routePath}/${projectId}`}>
+      <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className={`p-2 ${def.bubbleBg} rounded-lg`}>
+              <Icon className={`h-6 w-6 ${def.iconFg}`} />
+            </div>
+            <CardTitle className="text-lg">{title}</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <CardDescription>{t(def.descriptionKey)}</CardDescription>
+          <Highlight data={data as any} />
+          <div className={`flex items-center ${def.accentFg} text-sm font-medium mt-3`}>
+            {t('common.view')}
+            <ArrowRight className="h-4 w-4 ml-1" />
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
 export default function ProjectPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { t, i18n } = useTranslation();
@@ -1935,120 +2059,16 @@ export default function ProjectPage() {
               <span className="text-sm text-muted-foreground">{t('project.sections.prepareDescription')}</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Link href={`${routePrefix}/funder-selection/${projectId}`}>
-                <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-500/10 rounded-lg">
-                        <DollarSign className="h-6 w-6 text-green-600" />
-                      </div>
-                      <CardTitle className="text-lg">{t('project.funderSelection')}</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription>
-                      {t('project.funderSelectionDescription')}
-                    </CardDescription>
-                    <FunderHighlight data={context?.funderSelection} />
-                    <div className="flex items-center text-green-600 text-sm font-medium mt-3">
-                      {t('common.view')}
-                      <ArrowRight className="h-4 w-4 ml-1" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-
-              <Link href={`${routePrefix}/site-explorer/${projectId}`}>
-                <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <Map className="h-6 w-6 text-primary" />
-                      </div>
-                      <CardTitle className="text-lg">{t('project.siteExplorer')}</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription>
-                      {t('project.siteExplorerDescription')}
-                    </CardDescription>
-                    <SiteExplorerHighlight data={context?.siteExplorer} />
-                    <div className="flex items-center text-primary text-sm font-medium mt-3">
-                      {t('common.view')}
-                      <ArrowRight className="h-4 w-4 ml-1" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-
-              <Link href={`${routePrefix}/impact-model/${projectId}`}>
-                <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-amber-500/10 rounded-lg">
-                        <Lightbulb className="h-6 w-6 text-amber-600" />
-                      </div>
-                      <CardTitle className="text-lg">{t('project.impactModel')}</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription>
-                      {t('project.impactModelDescription')}
-                    </CardDescription>
-                    <ImpactModelHighlight data={context?.impactModel} />
-                    <div className="flex items-center text-amber-600 text-sm font-medium mt-3">
-                      {t('common.view')}
-                      <ArrowRight className="h-4 w-4 ml-1" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-
-              <Link href={`${routePrefix}/project-operations/${projectId}`}>
-                <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-orange-500/10 rounded-lg">
-                        <Settings className="h-6 w-6 text-orange-600" />
-                      </div>
-                      <CardTitle className="text-lg">{t('project.projectOperations')}</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription>
-                      {t('project.projectOperationsDescription')}
-                    </CardDescription>
-                    <OperationsHighlight data={context?.operations} />
-                    <div className="flex items-center text-orange-600 text-sm font-medium mt-3">
-                      {t('common.view')}
-                      <ArrowRight className="h-4 w-4 ml-1" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-
-              <Link href={`${routePrefix}/business-model/${projectId}`}>
-                <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-purple-500/10 rounded-lg">
-                        <Landmark className="h-6 w-6 text-purple-600" />
-                      </div>
-                      <CardTitle className="text-lg">{t('project.businessModel')}</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription>
-                      {t('project.businessModelDescription')}
-                    </CardDescription>
-                    <BusinessModelHighlight data={context?.businessModel} />
-                    <div className="flex items-center text-purple-600 text-sm font-medium mt-3">
-                      {t('common.view')}
-                      <ArrowRight className="h-4 w-4 ml-1" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
+              {(roleConfig?.visibleModules ?? DEFAULT_VISIBLE_MODULES).map(key => (
+                <ModuleCard
+                  key={key}
+                  moduleKey={key}
+                  projectId={projectId}
+                  routePrefix={routePrefix}
+                  context={context ?? null}
+                  titleOverride={roleConfig?.moduleLabels?.[key]}
+                />
+              ))}
             </div>
           </div>
 
@@ -2145,8 +2165,16 @@ export default function ProjectPage() {
 
         {/* DEMO DATA BANNER (role-driven) */}
         {roleConfig?.demoBanner && (
-          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-            {roleConfig.demoBanner[locale]}
+          <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+            <span className="flex-1">{roleConfig.demoBanner[locale]}</span>
+            <button
+              type="button"
+              onClick={resetRole}
+              className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-amber-900/80 dark:text-amber-200/80 hover:text-amber-900 dark:hover:text-amber-100 underline-offset-2 hover:underline transition-colors"
+              data-testid="button-demo-banner-switch-role-auth"
+            >
+              {t('roleSelection.changeRole')}
+            </button>
           </div>
         )}
 
@@ -2205,115 +2233,16 @@ export default function ProjectPage() {
             <span className="text-sm text-muted-foreground">{t('project.sections.prepareDescription')}</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Link href={`/funder-selection/${projectId}`}>
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-500/10 rounded-lg">
-                      <DollarSign className="h-6 w-6 text-green-600" />
-                    </div>
-                    <CardTitle className="text-lg">{t('project.funderSelection')}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="mb-4">
-                    {t('project.funderSelectionDescription')}
-                  </CardDescription>
-                  <div className="flex items-center text-green-600 text-sm font-medium">
-                    {t('common.view')}
-                    <ArrowRight className="h-4 w-4 ml-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href={`/site-explorer/${projectId}`}>
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Map className="h-6 w-6 text-primary" />
-                    </div>
-                    <CardTitle className="text-lg">{t('project.siteExplorer')}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="mb-4">
-                    {t('project.siteExplorerDescription')}
-                  </CardDescription>
-                  <div className="flex items-center text-primary text-sm font-medium">
-                    {t('common.view')}
-                    <ArrowRight className="h-4 w-4 ml-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href={`/impact-model/${projectId}`}>
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-amber-500/10 rounded-lg">
-                      <Lightbulb className="h-6 w-6 text-amber-600" />
-                    </div>
-                    <CardTitle className="text-lg">{t('project.impactModel')}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="mb-4">
-                    {t('project.impactModelDescription')}
-                  </CardDescription>
-                  <div className="flex items-center text-amber-600 text-sm font-medium">
-                    {t('common.view')}
-                    <ArrowRight className="h-4 w-4 ml-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href={`/project-operations/${projectId}`}>
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-orange-500/10 rounded-lg">
-                      <Settings className="h-6 w-6 text-orange-600" />
-                    </div>
-                    <CardTitle className="text-lg">{t('project.projectOperations')}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="mb-4">
-                    {t('project.projectOperationsDescription')}
-                  </CardDescription>
-                  <div className="flex items-center text-orange-600 text-sm font-medium">
-                    {t('common.view')}
-                    <ArrowRight className="h-4 w-4 ml-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-
-            <Link href={`/business-model/${projectId}`}>
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-500/10 rounded-lg">
-                      <Landmark className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <CardTitle className="text-lg">{t('project.businessModel')}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="mb-4">
-                    {t('project.businessModelDescription')}
-                  </CardDescription>
-                  <div className="flex items-center text-purple-600 text-sm font-medium">
-                    {t('common.view')}
-                    <ArrowRight className="h-4 w-4 ml-1" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+            {(roleConfig?.visibleModules ?? DEFAULT_VISIBLE_MODULES).map(key => (
+              <ModuleCard
+                key={key}
+                moduleKey={key}
+                projectId={projectId}
+                routePrefix=""
+                context={context ?? null}
+                titleOverride={roleConfig?.moduleLabels?.[key]}
+              />
+            ))}
           </div>
         </div>
 
