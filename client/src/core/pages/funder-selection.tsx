@@ -684,11 +684,16 @@ export default function FunderSelectionPage() {
       .catch(console.error);
   }, []);
 
-  // Restore navigation state from dedicated navigation persistence (separate from domain data)
+  // Restore navigation state ONCE when persistence finishes loading. After
+  // that, local state is the source of truth — re-reading savedNavState on
+  // every write creates a swap loop with the write-back effect below.
+  const navRestoreAppliedRef = useRef(false);
   useEffect(() => {
     // eslint-disable-next-line no-console
-    console.log(`[JitterDebug] effect:navRestore FIRE navRestored=${navigationRestored} savedNavState=${JSON.stringify(savedNavState)}`);
-    if (navigationRestored && savedNavState) {
+    console.log(`[JitterDebug] effect:navRestore FIRE navRestored=${navigationRestored} applied=${navRestoreAppliedRef.current} savedNavState=${JSON.stringify(savedNavState)}`);
+    if (!navigationRestored || navRestoreAppliedRef.current) return;
+    navRestoreAppliedRef.current = true;
+    if (savedNavState) {
       setCurrentStep(savedNavState.currentStep ?? 0);
       setShowResults(savedNavState.showResults ?? false);
       if (savedNavState.additionalState) {
@@ -699,36 +704,43 @@ export default function FunderSelectionPage() {
     }
   }, [navigationRestored, savedNavState]);
   
-  // Hydrate questionnaire from saved context (domain data only, not navigation)
+  // Hydrate questionnaire from saved context — ONCE per project. savedNavState
+  // is intentionally not in deps: it churns on every write, and loadContext
+  // here would keep calling setContext, which would churn context.funderSelection
+  // and cascade through the context watcher below.
+  const questionnaireHydratedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (projectId) {
-      const existingContext = loadContext(projectId, { skipDbSync: true });
-      const savedData = existingContext?.funderSelection;
-      const savedQuestionnaire = savedData?.questionnaire as QuestionnaireAnswers | undefined;
-      
-      // Check if questionnaire was already completed (has key answers filled)
-      const isQuestionnaireComplete = savedQuestionnaire?.projectStage &&
-        savedQuestionnaire?.generatesRevenue;
-      
-      if (isQuestionnaireComplete) {
-        setAnswers(savedQuestionnaire);
-        // Only auto-show results if no navigation state was saved
-        if (!savedNavState) {
-          setShowResults(true);
-        }
-      }
-      
-      // Always auto-populate project basics from action/shared context
-      if (action) {
-        setAnswers(prev => ({
-          ...prev,
-          projectName: action.name,
-          projectDescription: action.description || '',
-          sectors: action.type === 'adaptation' ? ['nature_based', 'urban_resilience'] : ['energy', 'transport'],
-        }));
+    if (!projectId || !navigationRestored) return;
+    if (questionnaireHydratedRef.current === projectId) return;
+    questionnaireHydratedRef.current = projectId;
+
+    const existingContext = loadContext(projectId, { skipDbSync: true });
+    const savedData = existingContext?.funderSelection;
+    const savedQuestionnaire = savedData?.questionnaire as QuestionnaireAnswers | undefined;
+
+    const isQuestionnaireComplete = savedQuestionnaire?.projectStage &&
+      savedQuestionnaire?.generatesRevenue;
+
+    if (isQuestionnaireComplete) {
+      setAnswers(savedQuestionnaire);
+      // Only auto-show results if no navigation state was saved at the moment
+      // we hydrate. We snapshot savedNavState here rather than depend on it.
+      if (!savedNavState) {
+        setShowResults(true);
       }
     }
-  }, [action, projectId, savedNavState, loadContext]);
+
+    // Always auto-populate project basics from action/shared context
+    if (action) {
+      setAnswers(prev => ({
+        ...prev,
+        projectName: action.name,
+        projectDescription: action.description || '',
+        sectors: action.type === 'adaptation' ? ['nature_based', 'urban_resilience'] : ['energy', 'transport'],
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [action, projectId, navigationRestored, loadContext]);
   
   const hydrateFromDB = useCallback((options?: { dataOnly?: boolean }) => {
     if (!projectId || !fundsData) return;
