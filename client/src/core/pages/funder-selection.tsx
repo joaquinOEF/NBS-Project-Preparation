@@ -612,67 +612,6 @@ export default function FunderSelectionPage() {
   const [hydrationComplete, setHydrationComplete] = useState(false);
   const skipAutoSaveRef = useRef(false);
 
-  // ==========================================================================
-  // [JitterDebug] Instrumentation — temporary. Grep console for `[JitterDebug]`.
-  // Remove this block once the root cause is identified.
-  // ==========================================================================
-  const jitterRenderCountRef = useRef(0);
-  jitterRenderCountRef.current += 1;
-  const jitterRenderId = jitterRenderCountRef.current;
-  if (typeof window !== 'undefined') {
-    const w = window as unknown as { __jitterCounters?: Record<string, { count: number; firstAt: number; lastAt: number }> };
-    w.__jitterCounters = w.__jitterCounters ?? {};
-    const bucketKey = `render:FunderSelectionPage:${Math.floor(Date.now() / 1000)}`;
-    const bucket = w.__jitterCounters[bucketKey] ?? { count: 0, firstAt: Date.now(), lastAt: Date.now() };
-    bucket.count += 1;
-    bucket.lastAt = Date.now();
-    w.__jitterCounters[bucketKey] = bucket;
-    if (bucket.count === 5) {
-      // eslint-disable-next-line no-console
-      console.warn(`[JitterDebug] ⚠ FunderSelectionPage rendered ${bucket.count}+ times in 1s — jitter candidate. See window.__jitterCounters.`);
-    }
-  }
-  // eslint-disable-next-line no-console
-  console.log(`[JitterDebug] render #${jitterRenderId} t=${Date.now() % 100000} fundingPlanConfirmed=${fundingPlanConfirmed} selectedNowFundId=${selectedNowFundId} selectedNextFundId=${selectedNextFundId} hydrationComplete=${hydrationComplete} showResults=${showResults} currentStep=${currentStep} navigationRestored=${navigationRestored}`);
-
-  useEffect(() => {
-    const t = Date.now();
-    // eslint-disable-next-line no-console
-    console.log(`[JitterDebug] 🟢 FunderSelectionPage MOUNT at t=${t}`);
-    return () => {
-      // eslint-disable-next-line no-console
-      console.log(`[JitterDebug] 🔴 FunderSelectionPage UNMOUNT at t=${Date.now()} (lived ${Date.now() - t}ms)`);
-    };
-  }, []);
-
-  const jitterPrevRef = useRef<Record<string, unknown>>({});
-  useEffect(() => {
-    const current: Record<string, unknown> = {
-      fundingPlanConfirmed,
-      selectedNowFundId,
-      selectedNextFundId,
-      hydrationComplete,
-      showResults,
-      currentStep,
-      showDecisionStep,
-      hasSavedToContext,
-      navigationRestored,
-      'context.funderSelection.fundingPlan.selectedFunderNow': context?.funderSelection?.fundingPlan?.selectedFunderNow ?? null,
-      'context.funderSelection.status': context?.funderSelection?.status ?? null,
-      'savedNavState.additionalState.fundingPlanConfirmed': (savedNavState?.additionalState as { fundingPlanConfirmed?: boolean } | undefined)?.fundingPlanConfirmed ?? null,
-    };
-    const prev = jitterPrevRef.current;
-    for (const key of Object.keys(current)) {
-      if (!(key in prev)) continue; // first render, seed only
-      if (prev[key] !== current[key]) {
-        // eslint-disable-next-line no-console
-        console.log(`[JitterDebug] Δ ${key}: ${JSON.stringify(prev[key])} → ${JSON.stringify(current[key])} (render #${jitterRenderId})`);
-      }
-    }
-    jitterPrevRef.current = current;
-  });
-  // ==========================================================================
-
   const action = (isSampleMode || isSampleRoute)
     ? sampleActions.find(a => a.id === projectId)
     : null;
@@ -689,8 +628,6 @@ export default function FunderSelectionPage() {
   // every write creates a swap loop with the write-back effect below.
   const navRestoreAppliedRef = useRef(false);
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log(`[JitterDebug] effect:navRestore FIRE navRestored=${navigationRestored} applied=${navRestoreAppliedRef.current} savedNavState=${JSON.stringify(savedNavState)}`);
     if (!navigationRestored || navRestoreAppliedRef.current) return;
     navRestoreAppliedRef.current = true;
     if (savedNavState) {
@@ -746,11 +683,9 @@ export default function FunderSelectionPage() {
     if (!projectId || !fundsData) return;
     const dbProjectId = (isSampleMode || isSampleRoute) ? 'sample-porto-alegre-project' : projectId;
     const dataOnly = options?.dataOnly ?? false;
-    // eslint-disable-next-line no-console
     console.log('[Hydration] Starting fetch from DB, projectId:', dbProjectId, 'dataOnly:', dataOnly);
-    // eslint-disable-next-line no-console
-    console.log('[JitterDebug] hydrateFromDB CALLED. Stack:\n' + (new Error().stack?.split('\n').slice(2, 8).join('\n') ?? '(no stack)'));
-    
+
+
     fetch(`/api/projects/${dbProjectId}/blocks/funder_selection`)
       .then(res => res.ok ? res.json() : null)
       .then(result => {
@@ -802,8 +737,6 @@ export default function FunderSelectionPage() {
 
   // Hydrate funding plan selection state from DATABASE directly (not localStorage)
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log(`[JitterDebug] effect:hydrateGate FIRE projectId=${projectId} fundsData=${!!fundsData} hydrationComplete=${hydrationComplete}`);
     if (projectId && fundsData && !hydrationComplete) {
       hydrateFromDB();
     }
@@ -814,13 +747,8 @@ export default function FunderSelectionPage() {
   const lastSyncedFunderRef = useRef<FunderSelectionData | null | undefined>(undefined);
   useEffect(() => {
     const dbData = context?.funderSelection;
-    const sameRef = dbData === lastSyncedFunderRef.current;
-    // eslint-disable-next-line no-console
-    console.log(`[JitterDebug] effect:ctxWatcher FIRE hasData=${!!dbData} sameRef=${sameRef} newSelectedFunderNow=${dbData?.fundingPlan?.selectedFunderNow ?? null}`);
-    if (!dbData || sameRef) return;
+    if (!dbData || dbData === lastSyncedFunderRef.current) return;
     lastSyncedFunderRef.current = dbData;
-    // eslint-disable-next-line no-console
-    console.log(`[JitterDebug] ctxWatcher APPLYING questionnaire + funder IDs from context`);
     if (dbData.questionnaire) {
       setAnswers(dbData.questionnaire as QuestionnaireAnswers);
     }
@@ -856,8 +784,6 @@ export default function FunderSelectionPage() {
   const [lastSavedSelection, setLastSavedSelection] = useState<{ now: string | null; next: string | null } | null>(null);
   
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log(`[JitterDebug] effect:autoSaveSelection FIRE hydrationComplete=${hydrationComplete} skipAutoSave=${skipAutoSaveRef.current} selNow=${selectedNowFundId} selNext=${selectedNextFundId} lastSaved=${JSON.stringify(lastSavedSelection)}`);
     // Skip during hydration or before hydration complete
     if (!hydrationComplete || skipAutoSaveRef.current) return;
     if (!projectId || !fundsData) return;
@@ -936,16 +862,12 @@ export default function FunderSelectionPage() {
   
   useEffect(() => {
     const answersKey = JSON.stringify(answers);
-    // eslint-disable-next-line no-console
-    console.log(`[JitterDebug] effect:answersChanged FIRE changed=${!!lastSavedAnswers && answersKey !== lastSavedAnswers}`);
     if (lastSavedAnswers && answersKey !== lastSavedAnswers) {
       setHasSavedToContext(false);
     }
   }, [answers, lastSavedAnswers]);
 
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log(`[JitterDebug] effect:readyBlockSave FIRE computedResults=${!!computedResults} hasSavedToContext=${hasSavedToContext} fundingPlanConfirmed=${fundingPlanConfirmed} hydrationComplete=${hydrationComplete} skipAutoSave=${skipAutoSaveRef.current}`);
     // Wait for hydration to complete before auto-saving to avoid overwriting confirmed data
     // Also check the ref as a synchronous guard against race conditions
     if (computedResults && projectId && !hasSavedToContext && !fundingPlanConfirmed && hydrationComplete && !skipAutoSaveRef.current) {

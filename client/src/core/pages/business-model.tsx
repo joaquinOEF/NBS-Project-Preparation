@@ -502,9 +502,14 @@ export default function BusinessModelPage() {
   const stakeholders = SAMPLE_STAKEHOLDERS;
   const hazards = ['FLOOD', 'HEAT', 'LANDSLIDE'];
 
-  // Restore navigation from dedicated hook
+  // Restore navigation ONCE when persistence finishes loading. After that,
+  // local state owns currentStep — re-reading savedNavState on every write
+  // creates a swap loop with the write-back effect below (see PR #114).
+  const navRestoreAppliedRef = useRef(false);
   useEffect(() => {
-    if (navigationRestored && savedNavState) {
+    if (!navigationRestored || navRestoreAppliedRef.current) return;
+    navRestoreAppliedRef.current = true;
+    if (savedNavState) {
       setCurrentStep(savedNavState.currentStep ?? 0);
     }
   }, [navigationRestored, savedNavState]);
