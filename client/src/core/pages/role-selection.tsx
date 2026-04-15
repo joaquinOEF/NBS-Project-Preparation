@@ -13,7 +13,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { ArrowRight, Building2, Check, Network, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, Building2, Check, Droplets, Leaf, Mountain, Network, Sparkles, Sprout, Trees, Users, Waves } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { TitleLarge, BodyMedium, BodySmall } from '@oef/components';
 import { useRoleContext } from '@/core/contexts/role-context';
@@ -33,6 +33,33 @@ type RolePresentation = {
     glowVia: string;
     corner: string;
   };
+};
+
+// NBS typology showcase — the educational strip below the role cards. Derived
+// from the intervention types referenced in server/services/cboAgent.ts and
+// the sample-data interventions. Copy is deliberately compact; the grid is
+// scannable, not a full catalog.
+type NbsTypology = {
+  key: string;
+  Icon: typeof Building2;
+  /** primary hazard for icon color accent */
+  tone: 'flood' | 'heat' | 'landslide' | 'biodiversity';
+};
+
+const NBS_TYPOLOGIES: NbsTypology[] = [
+  { key: 'floodParks',     Icon: Droplets, tone: 'flood' },
+  { key: 'bioswales',      Icon: Leaf,     tone: 'flood' },
+  { key: 'urbanForests',   Icon: Trees,    tone: 'heat' },
+  { key: 'greenCorridors', Icon: Sprout,   tone: 'biodiversity' },
+  { key: 'wetlands',       Icon: Waves,    tone: 'flood' },
+  { key: 'slopeStabilize', Icon: Mountain, tone: 'landslide' },
+];
+
+const TONE_STYLES: Record<NbsTypology['tone'], { bubble: string; fg: string; chip: string }> = {
+  flood:        { bubble: 'bg-sky-50 dark:bg-sky-950/40',       fg: 'text-sky-600 dark:text-sky-300',       chip: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800' },
+  heat:         { bubble: 'bg-amber-50 dark:bg-amber-950/40',   fg: 'text-amber-600 dark:text-amber-300',   chip: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800' },
+  landslide:    { bubble: 'bg-orange-50 dark:bg-orange-950/40', fg: 'text-orange-600 dark:text-orange-300', chip: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800' },
+  biodiversity: { bubble: 'bg-emerald-50 dark:bg-emerald-950/40', fg: 'text-emerald-600 dark:text-emerald-300', chip: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800' },
 };
 
 const PRESENTATIONS: RolePresentation[] = [
@@ -104,6 +131,12 @@ export default function RoleSelectionPage() {
     // a bypass-auth role (CBO demo) enables sample data; picking an
     // auth-requiring role (City) clears any sticky CBO sample mode.
     setSampleMode(config.bypassAuth);
+    // Auto-switch to Portuguese for the CBO path — our primary CBO audience
+    // is Brazilian. City / Orchestrator keep whatever the user picked on the
+    // landing. Users can always override via the EN/PT pill.
+    if (next === 'cbo' && !i18n.language?.startsWith('pt')) {
+      i18n.changeLanguage('pt');
+    }
     // Pre-initiate any sample projects this role's entryRoute lands on
     // directly — otherwise the project page sees an un-initiated id and
     // renders "project not found" on the first click.
@@ -270,6 +303,80 @@ export default function RoleSelectionPage() {
           </motion.div>
         </div>
       </main>
+
+      {/* NBS typology showcase — scroll-down educational strip */}
+      <section className="relative z-10 border-t border-foreground/5 bg-background/50 backdrop-blur-sm">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
+          <motion.div
+            className="text-center mb-10 sm:mb-12"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.5 }}
+          >
+            <BodySmall className="uppercase tracking-[0.2em] text-muted-foreground mb-3">
+              {t('roleSelection.showcase.eyebrow')}
+            </BodySmall>
+            <TitleLarge className="!text-2xl sm:!text-3xl tracking-tight mb-3">
+              {t('roleSelection.showcase.title')}
+            </TitleLarge>
+            <BodyMedium className="text-muted-foreground max-w-2xl mx-auto">
+              {t('roleSelection.showcase.subtitle')}
+            </BodyMedium>
+          </motion.div>
+
+          <motion.div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: '-60px' }}
+            variants={{
+              hidden: {},
+              show: { transition: { staggerChildren: 0.05 } },
+            }}
+          >
+            {NBS_TYPOLOGIES.map(({ key, Icon, tone }) => {
+              const toneStyle = TONE_STYLES[tone];
+              const hazards = t(`roleSelection.showcase.typologies.${key}.hazards`, { returnObjects: true }) as string[];
+              return (
+                <motion.div
+                  key={key}
+                  variants={{
+                    hidden: { opacity: 0, y: 12 },
+                    show:   { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+                  }}
+                >
+                  <div className="group h-full rounded-xl border border-foreground/10 bg-card/60 p-5 hover:border-foreground/20 hover:bg-card transition-all duration-300">
+                    <div className="flex items-start gap-4">
+                      <div className={`shrink-0 w-11 h-11 rounded-lg flex items-center justify-center ${toneStyle.bubble} ${toneStyle.fg} transition-transform duration-300 group-hover:scale-105`}>
+                        <Icon className="w-5 h-5" strokeWidth={1.75} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-semibold tracking-tight mb-1">
+                          {t(`roleSelection.showcase.typologies.${key}.name`)}
+                        </h3>
+                        <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                          {t(`roleSelection.showcase.typologies.${key}.description`)}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {Array.isArray(hazards) && hazards.map((h, i) => (
+                            <span
+                              key={i}
+                              className={`inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full border ${toneStyle.chip}`}
+                            >
+                              {h}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </div>
+      </section>
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-foreground/5 py-6 px-6 sm:px-10 bg-background/40 backdrop-blur-sm">

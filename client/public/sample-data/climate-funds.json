@@ -363,7 +363,8 @@
       "supportsGrants": true,
       "audience": [
         "cbo"
-      ]
+      ],
+      "needsValidation": true
     },
     {
       "id": "fundo-casa-rs",
@@ -403,7 +404,8 @@
       "supportsGrants": true,
       "audience": [
         "cbo"
-      ]
+      ],
+      "needsValidation": true
     },
     {
       "id": "gef-sgp",
@@ -444,7 +446,8 @@
       "supportsGrants": true,
       "audience": [
         "cbo"
-      ]
+      ],
+      "needsValidation": true
     },
     {
       "id": "periferias-verdes",
@@ -485,7 +488,8 @@
       "supportsGrants": true,
       "audience": [
         "cbo"
-      ]
+      ],
+      "needsValidation": true
     },
     {
       "id": "petrobras-nbs-urbano",
@@ -526,7 +530,8 @@
       "supportsGrants": true,
       "audience": [
         "both"
-      ]
+      ],
+      "needsValidation": true
     }
   ],
   "pathways": {

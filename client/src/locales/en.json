@@ -16,13 +16,82 @@
     "helper": "You can switch roles any time — everything you do is saved locally.",
     "footer": "A tool by Open Earth Foundation",
     "footerLink": "openearth.org",
-    "changeRole": "Switch role"
+    "changeRole": "Switch role",
+    "showcase": {
+      "eyebrow": "Nature-based solutions",
+      "title": "The toolkit we help you design around.",
+      "subtitle": "Every project you build here draws on a catalog of interventions tuned to Brazilian cities and community contexts.",
+      "typologies": {
+        "floodParks": {
+          "name": "Floodable Parks",
+          "description": "Public green spaces designed to store stormwater during heavy rain and return to use afterwards.",
+          "hazards": ["Flood"]
+        },
+        "bioswales": {
+          "name": "Bioswales & Rain Gardens",
+          "description": "Vegetated channels and small depressions that slow runoff, filter pollutants, and recharge groundwater.",
+          "hazards": ["Flood", "Water quality"]
+        },
+        "urbanForests": {
+          "name": "Urban Forests",
+          "description": "Dense tree canopy that cools neighborhoods, improves air quality, and creates habitat for wildlife.",
+          "hazards": ["Heat", "Air quality"]
+        },
+        "greenCorridors": {
+          "name": "Green Corridors",
+          "description": "Connected strips of vegetation that link parks and rivers, giving people and wildlife a cooler, greener path.",
+          "hazards": ["Heat", "Biodiversity"]
+        },
+        "wetlands": {
+          "name": "Wetland Restoration",
+          "description": "Rehabilitated wetlands that buffer floods, filter water, sequester carbon, and anchor biodiversity.",
+          "hazards": ["Flood", "Biodiversity"]
+        },
+        "slopeStabilize": {
+          "name": "Slope Stabilization",
+          "description": "Living walls, terraces, and deep-rooted plantings that reduce landslide risk on steep urban slopes.",
+          "hazards": ["Landslide"]
+        }
+      }
+    }
   },
   "orchestrator": {
     "title": "Orchestrator view — coming soon",
     "subtitle": "You'll be able to coordinate a portfolio of community-based projects here: see their status, aggregate impact, and shepherd them through funding cycles.",
     "status": "We're designing this with partners now. Want early access? Reach out to the team.",
-    "switchRole": "Back to role selection"
+    "switchRole": "Back to role selection",
+    "demo": {
+      "headerEyebrow": "Coordinator view",
+      "headerTitle": "Community projects portfolio",
+      "codesignBannerTitle": "Early prototype — help us design this.",
+      "codesignBannerBody": "The three projects below are illustrative. Tell us what's missing, what's useless, and what a real coordinator view should show.",
+      "stats": {
+        "activeProjects": "Active projects",
+        "totalSecured": "Funding secured",
+        "totalSought": "Total pipeline"
+      },
+      "portfolioTitle": "Community projects",
+      "portfolioSubtitle": "Each card represents a CBO you'd coordinate. Click one to preview how you'd open its workspace.",
+      "funding": "Funding",
+      "updatedAgo_one": "Updated {{count}} day ago",
+      "updatedAgo_other": "Updated {{count}} days ago",
+      "phase": {
+        "profilePartial": "Profile in progress",
+        "profileComplete": "Profile complete",
+        "seekingFunding": "Seeking funding",
+        "funded": "Funded",
+        "implementing": "Implementing"
+      },
+      "nextAction": {
+        "applyTeia": "Apply to the next Teia da Sociobiodiversidade call",
+        "completePhase3": "Complete Phase 3 of the CBO profile",
+        "applyFundoCasa": "Apply to Fundo Casa Reconstruir RS"
+      },
+      "toastTitle": "Prototype view",
+      "toastBody": "In Phase 3, clicking here would open {{project}}'s workspace.",
+      "feedbackTitle": "What would you want to see here?",
+      "feedbackBody": "This page is deliberately sparse. Tell us which metrics, alerts, or actions a coordinator would actually use day to day — that's what we'll build next."
+    }
   },
   "citySelection": {
     "title": "Select a City",
@@ -419,6 +488,8 @@
       "sovereignRequired": "This fund requires federal/sovereign approval"
     },
     "results": {
+      "preliminaryBadge": "Preliminary",
+      "preliminaryHint": "These amounts and dates are our best estimates — your feedback updates the catalog.",
       "recommendedPathway": "Recommended Funding Pathway",
       "whatThisMeans": "What this type of funding is",
       "whyThisFits": "Why this fits your project",
