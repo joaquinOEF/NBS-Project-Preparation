@@ -1766,6 +1766,9 @@ export default function ProjectPage() {
   const locale: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
   const showConceptBanner = !roleConfig || roleConfig.id === 'city';
   const showCboBanner = !roleConfig || roleConfig.id === 'cbo';
+  // Role-aware back target. CBO/Orchestrator go back to the landing (they
+  // didn't come via a city selection); City keeps the existing behavior.
+  const sampleBackRoute = roleConfig?.projectBackRoute;
 
   const { data: projectData, isLoading } = useQuery<{ project: Project }>({
     queryKey: ['/api/project', projectId],
@@ -1800,7 +1803,7 @@ export default function ProjectPage() {
         <div className="min-h-screen bg-background">
           <Header />
           <div className="container mx-auto px-4 py-8">
-            <Link href={`${routePrefix}/cities`}>
+            <Link href={sampleBackRoute ?? `${routePrefix}/cities`}>
               <Button variant="ghost" className="mb-4">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 {t('common.back')}
@@ -1816,7 +1819,7 @@ export default function ProjectPage() {
       <div className="min-h-screen bg-background">
         <Header />
         <div className="container mx-auto px-4 py-8">
-          <Link href={`${routePrefix}/city-information/${action.cityId}`}>
+          <Link href={sampleBackRoute ?? `${routePrefix}/city-information/${action.cityId}`}>
             <Button variant="ghost" className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
               {t('common.back')}
@@ -2082,7 +2085,7 @@ export default function ProjectPage() {
       <div className="min-h-screen bg-background">
         <Header />
         <div className="container mx-auto px-4 py-8">
-          <Link href="/cities">
+          <Link href={sampleBackRoute ?? '/cities'}>
             <Button variant="ghost" className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
               {t('common.back')}
@@ -2098,7 +2101,7 @@ export default function ProjectPage() {
     <div className="min-h-screen bg-background">
       <Header />
       <div className="container mx-auto px-4 py-8">
-        <Link href={`/city-information/${project.cityId}`}>
+        <Link href={sampleBackRoute ?? `/city-information/${project.cityId}`}>
           <Button variant="ghost" className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             {t('common.back')}

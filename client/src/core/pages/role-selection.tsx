@@ -78,7 +78,7 @@ export default function RoleSelectionPage() {
   const [, setLocation] = useLocation();
   const { role, setRole } = useRoleContext();
   const { i18n, t } = useTranslation();
-  const { setSampleMode } = useSampleData();
+  const { setSampleMode, initiateProject } = useSampleData();
 
   const locale: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
 
@@ -104,6 +104,12 @@ export default function RoleSelectionPage() {
     // a bypass-auth role (CBO demo) enables sample data; picking an
     // auth-requiring role (City) clears any sticky CBO sample mode.
     setSampleMode(config.bypassAuth);
+    // Pre-initiate any sample projects this role's entryRoute lands on
+    // directly — otherwise the project page sees an un-initiated id and
+    // renders "project not found" on the first click.
+    if (config.seedSampleProjects) {
+      for (const id of config.seedSampleProjects) initiateProject(id);
+    }
     setLocation(config.entryRoute);
   };
 
