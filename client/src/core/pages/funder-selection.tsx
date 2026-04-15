@@ -15,6 +15,8 @@ import { useTranslation } from 'react-i18next';
 import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useProjectContext, FunderSelectionData, FundingPlan } from '@/core/contexts/project-context';
+import { useRoleConfig } from '@/core/contexts/role-context';
+import type { FunderQuestionnaireStepKey } from '@shared/roles';
 import { useChatState } from '@/core/contexts/chat-context';
 import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import { useNavigationPersistence } from '@/core/hooks/useNavigationPersistence';
@@ -43,6 +45,11 @@ interface Fund {
   requiresSovereignGuarantee: boolean;
   supportsPreparation: boolean;
   supportsGrants: boolean;
+  /**
+   * Which audiences this fund is relevant for (see shared/roles.ts).
+   * Missing audience is treated as `['city']` for backward compatibility.
+   */
+  audience?: Array<'city' | 'cbo' | 'both'>;
 }
 
 interface Pathway {
@@ -565,6 +572,9 @@ export default function FunderSelectionPage() {
   const { isSampleRoute, routePrefix } = useSampleRoute();
   const { updateModule, loadContext, context } = useProjectContext();
   const { setPageContext, openChatWithMessage } = useChatState();
+  // Role-driven audience filter. Falls back to city (legacy) if no role is set.
+  const roleConfig = useRoleConfig();
+  const funderAudience = roleConfig?.funders.audience ?? ['city', 'both'];
   
   // Separate navigation persistence from domain data to prevent race conditions
   const { 
@@ -619,8 +629,27 @@ export default function FunderSelectionPage() {
   useEffect(() => {
     fetch('/sample-data/climate-funds.json')
       .then(res => res.json())
-      .then(data => setFundsData(data))
+      .then((data: FundsData) => {
+        // Filter the fund catalog by the role's audience BEFORE anything
+        // downstream ranks/ selects — so rankFunds, hydrateFromDB, and
+        // funder existence checks all work off a role-appropriate universe.
+        // `both` always passes; missing `audience` (legacy data) defaults
+        // to city for backward compatibility.
+        const allowed = new Set(funderAudience);
+        const filtered: FundsData = {
+          ...data,
+          funds: data.funds.filter(f => {
+            const aud = f.audience ?? ['city'];
+            return aud.some(a => allowed.has(a));
+          }),
+        };
+        setFundsData(filtered);
+      })
       .catch(console.error);
+    // funderAudience derives from a stable role config; joining it into the
+    // dep array would only re-fetch when the user switches role, which is a
+    // page remount anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Restore navigation state ONCE when persistence finishes loading. After
@@ -899,12 +928,22 @@ export default function FunderSelectionPage() {
     }
   }, [computedResults, projectId, hasSavedToContext, fundingPlanConfirmed, hydrationComplete, answers, updateModule]);
 
-  const steps = [
-    { id: 'readiness', title: t('funderSelection.steps.readiness'), icon: Check },
-    { id: 'political', title: t('funderSelection.steps.political'), icon: Shield },
-    { id: 'financing', title: t('funderSelection.steps.financing'), icon: DollarSign },
-    { id: 'institutional', title: t('funderSelection.steps.institutional'), icon: Building2 },
-  ];
+  // All possible wizard steps. Step id is the stable FunderQuestionnaireStepKey
+  // so role-based filtering and the switch statements below can agree without
+  // depending on array position. useMemo keeps reference stability across
+  // renders so the page-context effect further up doesn't thrash.
+  const steps = useMemo(() => {
+    const allSteps: Array<{ id: FunderQuestionnaireStepKey; title: string; icon: typeof Check }> = [
+      { id: 'projectReadiness',    title: t('funderSelection.steps.readiness'),     icon: Check },
+      { id: 'politicalAlignment',  title: t('funderSelection.steps.political'),     icon: Shield },
+      { id: 'financingNeeds',      title: t('funderSelection.steps.financing'),     icon: DollarSign },
+      { id: 'institutionalSetup',  title: t('funderSelection.steps.institutional'), icon: Building2 },
+    ];
+    const allowed = roleConfig?.funders.questionnaireSteps;
+    if (!allowed || allowed.length === 0) return allSteps;
+    const allowedSet = new Set(allowed);
+    return allSteps.filter(s => allowedSet.has(s.id));
+  }, [t, roleConfig]);
 
   useEffect(() => {
     const stepNames = ['Project Readiness', 'Political Alignment', 'Financing Needs', 'Institutional Setup'];
@@ -1064,14 +1103,34 @@ export default function FunderSelectionPage() {
   };
 
   const canProceed = () => {
-    switch (currentStep) {
-      case 0: return answers.projectStage && answers.budgetPreparation;
-      case 1: return answers.politicalMandatePlanRefs.length > 0 && answers.politicalEndorsementLevel && answers.implementingOwnership && answers.internalAlignmentLevel && answers.politicalRiskFactors.length > 0 && answers.leadershipCommitmentConfidence;
-      case 2: return answers.generatesRevenue && answers.investmentSize;
-      case 3: return answers.fundingReceiver && answers.canTakeDebt;
-      default: return true;
+    // Dispatch on step id rather than index — roles can hide steps via
+    // `config.funders.questionnaireSteps`, which shifts indices.
+    switch (steps[currentStep]?.id) {
+      case 'projectReadiness':
+        return answers.projectStage && answers.budgetPreparation;
+      case 'politicalAlignment':
+        return answers.politicalMandatePlanRefs.length > 0
+          && answers.politicalEndorsementLevel
+          && answers.implementingOwnership
+          && answers.internalAlignmentLevel
+          && answers.politicalRiskFactors.length > 0
+          && answers.leadershipCommitmentConfidence;
+      case 'financingNeeds':
+        return answers.generatesRevenue && answers.investmentSize;
+      case 'institutionalSetup':
+        return answers.fundingReceiver && answers.canTakeDebt;
+      default:
+        return true;
     }
   };
+
+  // Clamp currentStep if the visible step list shrinks (e.g. role switched
+  // mid-flow). Stops the wizard from landing on a blank step.
+  useEffect(() => {
+    if (currentStep > steps.length - 1 && steps.length > 0) {
+      setCurrentStep(steps.length - 1);
+    }
+  }, [steps.length, currentStep]);
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -1111,8 +1170,9 @@ export default function FunderSelectionPage() {
   };
 
   const renderStepContent = () => {
-    switch (currentStep) {
-      case 0:
+    // Dispatch on step id so role-filtered step arrays render correctly.
+    switch (steps[currentStep]?.id) {
+      case 'projectReadiness':
         return (
           <div className="space-y-6">
             <div>
@@ -1192,7 +1252,7 @@ export default function FunderSelectionPage() {
           </div>
         );
 
-      case 1:
+      case 'politicalAlignment': {
         // Political Mandate & Leadership Readiness
         const PLAN_REF_IDS = ['city_climate_plan', 'sectoral_plan', 'multi_year_investment_plan', 'national_or_state_plan', 'not_in_official_plan'];
         const ENDORSEMENT_IDS = ['written', 'informal', 'none', 'unknown'];
@@ -1314,8 +1374,9 @@ export default function FunderSelectionPage() {
             </div>
           </div>
         );
+      }
 
-      case 2:
+      case 'financingNeeds':
         return (
           <div className="space-y-6">
             <div>
@@ -1378,7 +1439,7 @@ export default function FunderSelectionPage() {
           </div>
         );
 
-      case 3:
+      case 'institutionalSetup':
         return (
           <div className="space-y-6">
             <div>
