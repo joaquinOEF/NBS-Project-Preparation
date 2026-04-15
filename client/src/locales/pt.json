@@ -6,6 +6,20 @@
     "sampleButton": "Usar Dados de Exemplo",
     "sampleButtonDescription": "Explore com dados de exemplo de Porto Alegre"
   },
+  "roleSelection": {
+    "header": "NBS Project Builder",
+    "eyebrow": "Soluções Baseadas na Natureza",
+    "title": "Vamos preparar seu projeto climático.",
+    "subtitle": "Ajudamos cidades e organizações comunitárias a transformar soluções baseadas na natureza em projetos prontos para investimento. Conte-nos quem é você para começar.",
+    "continue": "Continuar",
+    "footer": "Uma ferramenta da Open Earth Foundation"
+  },
+  "orchestrator": {
+    "title": "Visão da organização articuladora — em breve",
+    "subtitle": "Você poderá coordenar um portfólio de projetos comunitários aqui: acompanhar o status, ver o impacto agregado e orientá-los nos ciclos de financiamento.",
+    "status": "Estamos desenhando isso junto com parceiros. Quer acesso antecipado? Entre em contato com a equipe.",
+    "switchRole": "Voltar para seleção de perfil"
+  },
   "citySelection": {
     "title": "Selecione uma Cidade",
     "subtitle": "Escolha uma cidade para ver ações climáticas",
@@ -89,6 +103,11 @@
     "adaptation": "Adaptação"
   },
   "project": {
+    "primaryCta": {
+      "city": "Gerar Nota Conceitual",
+      "cbo": "Iniciar Perfil da Organização",
+      "orchestrator": "Abrir Portfólio"
+    },
     "notFound": "Projeto não encontrado",
     "siteExplorer": "Explorador de Terreno",
     "siteExplorerDescription": "Visualize dados de elevação e limites da cidade em um mapa interativo",

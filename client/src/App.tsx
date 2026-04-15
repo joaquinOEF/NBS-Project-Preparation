@@ -6,11 +6,14 @@ import { TooltipProvider } from '@/core/components/ui/tooltip';
 import { SampleDataProvider } from '@/core/contexts/sample-data-context';
 import { ProjectContextProvider } from '@/core/contexts/project-context';
 import { ChatProvider, useChatState } from '@/core/contexts/chat-context';
+import { RoleProvider } from '@/core/contexts/role-context';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 // Core pages
 import Login from '@/core/pages/login';
+import RoleSelectionPage from '@/core/pages/role-selection';
+import OrchestratorLandingPage from '@/core/pages/orchestrator-landing';
 import CitySelection from '@/core/pages/city-selection';
 import ProjectPage from '@/core/pages/project';
 import SiteExplorerPage from '@/core/pages/site-explorer';
@@ -30,8 +33,9 @@ import { ChatDrawer } from '@/core/components/agent/ChatDrawer';
 function Router() {
   return (
     <Switch>
-      <Route path='/' component={Login} />
+      <Route path='/' component={RoleSelectionPage} />
       <Route path='/login' component={Login} />
+      <Route path='/orchestrator' component={OrchestratorLandingPage} />
       <Route path='/auth/callback' component={OAuthCallback} />
       <Route path='/cities' component={CitySelection} />
       <Route path='/project/:projectId' component={ProjectPage} />
@@ -96,14 +100,16 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SampleDataProvider>
-        <ProjectContextProvider>
-          <ChatProvider>
-            <TooltipProvider>
-              <Toaster />
-              <AppLayout />
-            </TooltipProvider>
-          </ChatProvider>
-        </ProjectContextProvider>
+        <RoleProvider>
+          <ProjectContextProvider>
+            <ChatProvider>
+              <TooltipProvider>
+                <Toaster />
+                <AppLayout />
+              </TooltipProvider>
+            </ChatProvider>
+          </ProjectContextProvider>
+        </RoleProvider>
       </SampleDataProvider>
     </QueryClientProvider>
   );

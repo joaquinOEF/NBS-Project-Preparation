@@ -57,6 +57,14 @@ export type FunderQuestionnaireStepKey =
 export type SkillKey = 'concept-note' | 'cbo-profile' | 'portfolio';
 
 /**
+ * Bilingual label pair. `en` and `pt` track the app's current locale set.
+ */
+export interface LocalizedLabel {
+  en: string;
+  pt: string;
+}
+
+/**
  * The contract every consumer reads from. Changes to this shape are
  * architecture changes — discuss in PR before extending.
  */
@@ -64,9 +72,9 @@ export interface RoleConfig {
   /** Role identifier. */
   id: AudienceRole;
   /** Display labels (shown on the landing page, header, etc.). */
-  label: { en: string; pt: string };
+  label: LocalizedLabel;
   /** One-line description for the landing-page card. */
-  tagline: { en: string; pt: string };
+  tagline: LocalizedLabel;
   /** Where to route after the role is chosen. */
   entryRoute: string;
   /**
@@ -76,6 +84,12 @@ export interface RoleConfig {
   bypassAuth: boolean;
   /** Which project modules appear on the project page, in order. */
   visibleModules: ModuleKey[];
+  /**
+   * Optional per-module label override. Roles can rebrand module names without
+   * a fork — e.g. 'Funder Selection' → 'Funding & Grants' for CBOs. When a
+   * module is not in this map, the module's default label is used.
+   */
+  moduleLabels?: Partial<Record<ModuleKey, LocalizedLabel>>;
   /** Hero call-to-action on the project page (Concept Note vs CBO Profile vs …). */
   primaryCta: {
     /** Route to navigate to (sample-prefix is applied by caller if needed). */
@@ -87,6 +101,12 @@ export interface RoleConfig {
   agent: {
     skillId: SkillKey;
   };
+  /**
+   * Optional banner shown at the top of the project page. Used for the CBO
+   * demo to set expectations that the sample data belongs to Porto Alegre.
+   * `null` for roles that don't need a banner.
+   */
+  demoBanner: LocalizedLabel | null;
   /** How the funder-selection module behaves for this role. */
   funders: {
     /** Values to accept when filtering `climate-funds.json[].audience`. */
@@ -116,23 +136,24 @@ export const ROLE_CONFIGS: Record<AudienceRole, RoleConfig> = {
     id: 'city',
     label: { en: 'City', pt: 'Cidade' },
     tagline: {
-      en: 'I work for a city government preparing a climate project.',
-      pt: 'Trabalho em um governo municipal preparando um projeto climático.',
+      en: 'City government preparing a climate project for financing.',
+      pt: 'Governo municipal preparando um projeto climático para financiamento.',
     },
-    entryRoute: '/cities', // existing city selection flow
+    entryRoute: '/login', // OAuth + sample-mode picker lives here; Login auto-redirects to /cities after auth or sample-mode toggle
     bypassAuth: false,
     visibleModules: [
-      'funderSelection',
       'siteExplorer',
       'impactModel',
+      'funderSelection',
       'operations',
       'businessModel',
     ],
     primaryCta: {
-      route: '/concept-note', // TODO phase-1: confirm sample-prefix handling
-      labelKey: 'project.primaryCta.city', // TODO phase-1: add to locales
+      route: '/concept-note',
+      labelKey: 'project.primaryCta.city',
     },
     agent: { skillId: 'concept-note' },
+    demoBanner: null,
     funders: {
       audience: ['city', 'both'],
       questionnaireSteps: [
@@ -152,33 +173,61 @@ export const ROLE_CONFIGS: Record<AudienceRole, RoleConfig> = {
       pt: 'Organização de Base Comunitária',
     },
     tagline: {
-      en: 'We are a community organization building or running a nature-based project.',
-      pt: 'Somos uma organização comunitária construindo ou mantendo um projeto de base natural.',
+      en: 'Community group building or running a nature-based project.',
+      pt: 'Grupo comunitário construindo ou mantendo um projeto de base natural.',
     },
-    entryRoute: '/sample/project/sample-ada-1', // direct into NBS sample
+    entryRoute: '/sample/project/sample-ada-1',
     bypassAuth: true,
+    // All 5 modules visible, reordered for CBO priority: funding + impact
+    // lead (what CBOs care about most), site/operations/business-model trail.
+    // Labels are role-branded below.
     visibleModules: [
-      // TODO phase-1: confirm which modules make sense; operations + businessModel
-      // are likely out-of-scope for CBO MVP.
       'funderSelection',
-      'siteExplorer',
       'impactModel',
+      'siteExplorer',
+      'operations',
+      'businessModel',
     ],
+    moduleLabels: {
+      funderSelection: {
+        en: 'Funding & Grants',
+        pt: 'Financiamento e Editais',
+      },
+      impactModel: {
+        en: 'Our Impact',
+        pt: 'Nosso Impacto',
+      },
+      siteExplorer: {
+        en: 'Our Site',
+        pt: 'Nosso Território',
+      },
+      operations: {
+        en: 'How We Run It',
+        pt: 'Como Gerenciamos',
+      },
+      businessModel: {
+        en: 'Sustainability Model',
+        pt: 'Modelo de Sustentabilidade',
+      },
+    },
     primaryCta: {
       route: '/cbo-profile',
-      labelKey: 'project.primaryCta.cbo', // TODO phase-1: add to locales
+      labelKey: 'project.primaryCta.cbo',
     },
     agent: { skillId: 'cbo-profile' },
+    demoBanner: {
+      en: 'Demo data based on Porto Alegre. Your project content will be different.',
+      pt: 'Dados de demonstração baseados em Porto Alegre. O conteúdo do seu projeto será diferente.',
+    },
     funders: {
       audience: ['cbo', 'both'],
       questionnaireSteps: [
-        // TODO phase-1: confirm with Villa Flores which questionnaire steps
-        // are meaningful for a CBO. politicalAlignment + institutionalSetup
-        // are probably out.
+        // politicalAlignment + institutionalSetup omitted — those steps assume
+        // sovereign / MDB-style approval pathways that don't apply to CBOs.
         'projectReadiness',
         'financingNeeds',
       ],
-      rankingWeights: {}, // TODO phase-1: prioritize grants, small ticket size
+      rankingWeights: {}, // TODO phase-1b: prioritize grants, small ticket size
     },
   },
 
@@ -189,8 +238,8 @@ export const ROLE_CONFIGS: Record<AudienceRole, RoleConfig> = {
       pt: 'Organização Articuladora',
     },
     tagline: {
-      en: 'I coordinate several community organizations implementing nature-based projects.',
-      pt: 'Coordeno várias organizações comunitárias implementando projetos de base natural.',
+      en: 'Organization coordinating several community-based projects.',
+      pt: 'Organização articulando vários projetos de base comunitária.',
     },
     entryRoute: '/orchestrator', // phase-1 ships a "coming soon" stub here
     bypassAuth: true,
@@ -198,12 +247,12 @@ export const ROLE_CONFIGS: Record<AudienceRole, RoleConfig> = {
     // ignores this field.
     visibleModules: [],
     primaryCta: {
-      route: '/orchestrator', // stub self-route
+      route: '/orchestrator',
       labelKey: 'project.primaryCta.orchestrator', // TODO phase-3
     },
     agent: { skillId: 'portfolio' }, // phase-3 skill, not yet implemented
+    demoBanner: null,
     funders: {
-      // Orchestrators likely want a union view — defer until phase 3.
       audience: ['city', 'cbo', 'both'],
       questionnaireSteps: [],
       rankingWeights: {},
