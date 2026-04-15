@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useSampleData } from '@/core/contexts/sample-data-context';
 import { useSampleRoute } from '@/core/hooks/useSampleRoute';
 import { useProjectContext, FunderSelectionData, FundingPlan } from '@/core/contexts/project-context';
+import { useRoleConfig } from '@/core/contexts/role-context';
 import { useChatState } from '@/core/contexts/chat-context';
 import { Alert, AlertDescription } from '@/core/components/ui/alert';
 import { useNavigationPersistence } from '@/core/hooks/useNavigationPersistence';
@@ -43,6 +44,11 @@ interface Fund {
   requiresSovereignGuarantee: boolean;
   supportsPreparation: boolean;
   supportsGrants: boolean;
+  /**
+   * Which audiences this fund is relevant for (see shared/roles.ts).
+   * Missing audience is treated as `['city']` for backward compatibility.
+   */
+  audience?: Array<'city' | 'cbo' | 'both'>;
 }
 
 interface Pathway {
@@ -565,6 +571,9 @@ export default function FunderSelectionPage() {
   const { isSampleRoute, routePrefix } = useSampleRoute();
   const { updateModule, loadContext, context } = useProjectContext();
   const { setPageContext, openChatWithMessage } = useChatState();
+  // Role-driven audience filter. Falls back to city (legacy) if no role is set.
+  const roleConfig = useRoleConfig();
+  const funderAudience = roleConfig?.funders.audience ?? ['city', 'both'];
   
   // Separate navigation persistence from domain data to prevent race conditions
   const { 
@@ -619,8 +628,27 @@ export default function FunderSelectionPage() {
   useEffect(() => {
     fetch('/sample-data/climate-funds.json')
       .then(res => res.json())
-      .then(data => setFundsData(data))
+      .then((data: FundsData) => {
+        // Filter the fund catalog by the role's audience BEFORE anything
+        // downstream ranks/ selects — so rankFunds, hydrateFromDB, and
+        // funder existence checks all work off a role-appropriate universe.
+        // `both` always passes; missing `audience` (legacy data) defaults
+        // to city for backward compatibility.
+        const allowed = new Set(funderAudience);
+        const filtered: FundsData = {
+          ...data,
+          funds: data.funds.filter(f => {
+            const aud = f.audience ?? ['city'];
+            return aud.some(a => allowed.has(a));
+          }),
+        };
+        setFundsData(filtered);
+      })
       .catch(console.error);
+    // funderAudience derives from a stable role config; joining it into the
+    // dep array would only re-fetch when the user switches role, which is a
+    // page remount anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Restore navigation state ONCE when persistence finishes loading. After
