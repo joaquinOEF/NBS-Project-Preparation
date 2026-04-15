@@ -107,6 +107,22 @@ export interface RoleConfig {
    * `null` for roles that don't need a banner.
    */
   demoBanner: LocalizedLabel | null;
+  /**
+   * Sample action IDs that should be pre-initiated when this role is chosen
+   * on the landing page. Needed for roles whose entryRoute lands directly on
+   * a sample project, because the sample-data context only tracks projects
+   * that went through the city-information "Start" click (which the CBO
+   * demo bypasses). Without this, first-time CBO visitors see
+   * "project not found" until they navigate elsewhere and back.
+   */
+  seedSampleProjects?: string[];
+  /**
+   * Override for the "Back" link on the project page. City uses the default
+   * city-information route (derived from the project's cityId); CBO and
+   * Orchestrator should go back to the landing gate instead, since they
+   * didn't come through a city selection step.
+   */
+  projectBackRoute?: string;
   /** How the funder-selection module behaves for this role. */
   funders: {
     /** Values to accept when filtering `climate-funds.json[].audience`. */
@@ -219,6 +235,8 @@ export const ROLE_CONFIGS: Record<AudienceRole, RoleConfig> = {
       en: 'Demo data based on Porto Alegre. Your project content will be different.',
       pt: 'Dados de demonstração baseados em Porto Alegre. O conteúdo do seu projeto será diferente.',
     },
+    seedSampleProjects: ['sample-ada-1'],
+    projectBackRoute: '/',
     funders: {
       audience: ['cbo', 'both'],
       questionnaireSteps: [
@@ -252,6 +270,7 @@ export const ROLE_CONFIGS: Record<AudienceRole, RoleConfig> = {
     },
     agent: { skillId: 'portfolio' }, // phase-3 skill, not yet implemented
     demoBanner: null,
+    projectBackRoute: '/',
     funders: {
       audience: ['city', 'cbo', 'both'],
       questionnaireSteps: [],
