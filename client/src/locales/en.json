@@ -6,6 +6,20 @@
     "sampleButton": "Use Sample Data",
     "sampleButtonDescription": "Explore with sample data from Porto Alegre"
   },
+  "roleSelection": {
+    "header": "NBS Project Builder",
+    "eyebrow": "Nature-Based Solutions",
+    "title": "Let's prepare your climate project.",
+    "subtitle": "We help cities and community organizations turn nature-based solutions into investment-ready projects. Tell us who you are to get started.",
+    "continue": "Continue",
+    "footer": "A tool by Open Earth Foundation"
+  },
+  "orchestrator": {
+    "title": "Orchestrator view — coming soon",
+    "subtitle": "You'll be able to coordinate a portfolio of community-based projects here: see their status, aggregate impact, and shepherd them through funding cycles.",
+    "status": "We're designing this with partners now. Want early access? Reach out to the team.",
+    "switchRole": "Back to role selection"
+  },
   "citySelection": {
     "title": "Select a City",
     "subtitle": "Choose a city to view climate actions",
@@ -90,6 +104,11 @@
     "adaptation": "Adaptation"
   },
   "project": {
+    "primaryCta": {
+      "city": "Generate Concept Note",
+      "cbo": "Start CBO Profile",
+      "orchestrator": "Open Portfolio"
+    },
     "notFound": "Project not found",
     "siteExplorer": "Site Explorer",
     "siteExplorerDescription": "View elevation data and city boundaries on an interactive map",
