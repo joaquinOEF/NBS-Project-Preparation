@@ -281,6 +281,35 @@
   .animate-aurora-a, .animate-aurora-b, .animate-aurora-c { animation: none; }
 }
 
+/* Orchestrator map markers. Tone color arrives via --m on the inner div,
+   set inline when the DivIcon is constructed. Selected state is driven by a
+   class toggled from React; keep transitions snappy. */
+.orch-marker { background: transparent !important; border: none !important; }
+.orch-marker-inner {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--m, #0284c7);
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+  transform-origin: center;
+}
+.orch-marker-selected .orch-marker-inner {
+  transform: scale(1.35);
+  box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.25), 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+.orch-marker-tip {
+  background: rgba(15, 23, 42, 0.92) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  font-size: 11px !important;
+  padding: 4px 8px !important;
+  border-radius: 6px !important;
+}
+.orch-marker-tip::before { border-top-color: rgba(15, 23, 42, 0.92) !important; }
+
 /* Risk tile layers: smooth upscaling to fill gaps between 250m cells */
 .risk-tile-layer img {
   image-rendering: auto;

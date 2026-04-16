@@ -65,33 +65,56 @@
       "headerEyebrow": "Coordinator view",
       "headerTitle": "Community projects portfolio",
       "codesignBannerTitle": "Early prototype — help us design this.",
-      "codesignBannerBody": "The three projects below are illustrative. Tell us what's missing, what's useless, and what a real coordinator view should show.",
-      "stats": {
-        "activeProjects": "Active projects",
-        "totalSecured": "Funding secured",
-        "totalSought": "Total pipeline"
+      "codesignBannerBody": "Four illustrative CBOs at different points in the diagnostic flow. Tell us what's missing, what's useless, and what a real coordinator view should show.",
+      "pipeline": {
+        "sitesMapped": "Sites mapped",
+        "profilesInProgress": "Profiles in progress",
+        "profilesComplete": "Profiles complete"
       },
       "portfolioTitle": "Community projects",
-      "portfolioSubtitle": "Each card represents a CBO you'd coordinate. Click one to preview how you'd open its workspace.",
-      "funding": "Funding",
+      "portfolioSubtitle": "Each CBO sits somewhere in the profile diagnostic. Hover a card to find its site on the map.",
+      "locationPending": "Location pending",
+      "sectionsLabel": "Sections complete",
+      "sectionsCount": "{{done}} of {{total}}",
+      "flagsCount": "{{met}} of {{total}} priority flags",
+      "maturityTooltip": "Sum of 9 COUGAR maturity metrics (0–3 each, max 27).",
+      "updatedJust": "Just started",
       "updatedAgo_one": "Updated {{count}} day ago",
       "updatedAgo_other": "Updated {{count}} days ago",
       "phase": {
-        "profilePartial": "Profile in progress",
-        "profileComplete": "Profile complete",
-        "seekingFunding": "Seeking funding",
-        "funded": "Funded",
-        "implementing": "Implementing"
+        "who":        "Phase 1 — Who We Are",
+        "where":      "Phase 2 — Where We Work",
+        "building":   "Phase 3a — What We're Building",
+        "impact":     "Phase 3b — Expected Impact",
+        "operations": "Phase 3c — Ops & Sustainability",
+        "needs":      "Phase 4 — What We Need",
+        "results":    "Phase 5 — Results & Evidence"
+      },
+      "intervention": {
+        "notChosen":             "Intervention not yet chosen",
+        "bioswales":             "Bioswales & Rain Gardens",
+        "flood-parks":           "Floodable Parks",
+        "urban-forests":         "Urban Forests",
+        "green-corridors":       "Green Corridors",
+        "wetlands":              "Wetland Restoration",
+        "slope-stabilization":   "Slope Stabilization"
+      },
+      "maturityBand": {
+        "emerging":   "Emerging",
+        "developing": "Developing",
+        "building":   "Building",
+        "mature":     "Mature"
       },
       "nextAction": {
-        "applyTeia": "Apply to the next Teia da Sociobiodiversidade call",
-        "completePhase3": "Complete Phase 3 of the CBO profile",
-        "applyFundoCasa": "Apply to Fundo Casa Reconstruir RS"
+        "reviewNeeds":           "Review Phase 4 — What We Need",
+        "completeIntervention":  "Finish choosing an intervention (Phase 3a)",
+        "publishScorecard":      "Publish maturity scorecard to funders",
+        "beginProfile":          "Begin Phase 1 — Who We Are"
       },
       "toastTitle": "Prototype view",
       "toastBody": "In Phase 3, clicking here would open {{project}}'s workspace.",
       "feedbackTitle": "What would you want to see here?",
-      "feedbackBody": "This page is deliberately sparse. Tell us which metrics, alerts, or actions a coordinator would actually use day to day — that's what we'll build next."
+      "feedbackBody": "This view is deliberately sparse. Tell us which metrics, alerts, or actions a coordinator would actually use day to day — that's what we'll build next."
     }
   },
   "citySelection": {
