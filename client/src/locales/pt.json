@@ -16,13 +16,82 @@
     "helper": "Você pode trocar de perfil a qualquer momento — tudo fica salvo localmente.",
     "footer": "Uma ferramenta da Open Earth Foundation",
     "footerLink": "openearth.org",
-    "changeRole": "Trocar perfil"
+    "changeRole": "Trocar perfil",
+    "showcase": {
+      "eyebrow": "Soluções baseadas na natureza",
+      "title": "O repertório que usamos para desenhar seu projeto.",
+      "subtitle": "Cada projeto que você constrói aqui parte de um catálogo de intervenções adaptado a cidades brasileiras e organizações comunitárias.",
+      "typologies": {
+        "floodParks": {
+          "name": "Parques Alagáveis",
+          "description": "Áreas verdes públicas que armazenam águas pluviais em chuvas intensas e voltam ao uso comum depois.",
+          "hazards": ["Inundação"]
+        },
+        "bioswales": {
+          "name": "Biovaletas e Jardins de Chuva",
+          "description": "Canais e depressões vegetados que retardam o escoamento, filtram poluentes e recarregam o lençol.",
+          "hazards": ["Inundação", "Qualidade da água"]
+        },
+        "urbanForests": {
+          "name": "Florestas Urbanas",
+          "description": "Copa arbórea densa que refresca bairros, melhora a qualidade do ar e cria habitat para fauna.",
+          "hazards": ["Calor", "Qualidade do ar"]
+        },
+        "greenCorridors": {
+          "name": "Corredores Verdes",
+          "description": "Faixas conectadas de vegetação que ligam parques e rios, criando caminhos mais frescos e vivos.",
+          "hazards": ["Calor", "Biodiversidade"]
+        },
+        "wetlands": {
+          "name": "Recuperação de Banhados",
+          "description": "Áreas úmidas recuperadas que amortecem enchentes, filtram água, sequestram carbono e ancoram biodiversidade.",
+          "hazards": ["Inundação", "Biodiversidade"]
+        },
+        "slopeStabilize": {
+          "name": "Estabilização de Encostas",
+          "description": "Muros vivos, terraços e plantios de raízes profundas que reduzem risco de deslizamentos em encostas urbanas.",
+          "hazards": ["Deslizamento"]
+        }
+      }
+    }
   },
   "orchestrator": {
     "title": "Visão da organização articuladora — em breve",
     "subtitle": "Você poderá coordenar um portfólio de projetos comunitários aqui: acompanhar o status, ver o impacto agregado e orientá-los nos ciclos de financiamento.",
     "status": "Estamos desenhando isso junto com parceiros. Quer acesso antecipado? Entre em contato com a equipe.",
-    "switchRole": "Voltar para seleção de perfil"
+    "switchRole": "Voltar para seleção de perfil",
+    "demo": {
+      "headerEyebrow": "Visão da articuladora",
+      "headerTitle": "Portfólio de projetos comunitários",
+      "codesignBannerTitle": "Protótipo inicial — ajude a desenhar essa visão.",
+      "codesignBannerBody": "Os três projetos abaixo são ilustrativos. Diga o que está faltando, o que não é útil e o que uma articuladora realmente precisaria ver aqui.",
+      "stats": {
+        "activeProjects": "Projetos ativos",
+        "totalSecured": "Financiamento garantido",
+        "totalSought": "Pipeline total"
+      },
+      "portfolioTitle": "Projetos comunitários",
+      "portfolioSubtitle": "Cada card é uma OBC que você coordenaria. Clique em um para pré-visualizar como abriria o espaço de trabalho dela.",
+      "funding": "Financiamento",
+      "updatedAgo_one": "Atualizado há {{count}} dia",
+      "updatedAgo_other": "Atualizado há {{count}} dias",
+      "phase": {
+        "profilePartial": "Perfil em andamento",
+        "profileComplete": "Perfil completo",
+        "seekingFunding": "Buscando financiamento",
+        "funded": "Financiado",
+        "implementing": "Em implementação"
+      },
+      "nextAction": {
+        "applyTeia": "Submeter ao próximo edital Teia da Sociobiodiversidade",
+        "completePhase3": "Completar a Fase 3 do perfil da OBC",
+        "applyFundoCasa": "Submeter ao Fundo Casa Reconstruir RS"
+      },
+      "toastTitle": "Visão protótipo",
+      "toastBody": "Na Fase 3, clicar aqui abriria o espaço de {{project}}.",
+      "feedbackTitle": "O que você gostaria de ver aqui?",
+      "feedbackBody": "Essa página é propositalmente enxuta. Nos conte quais métricas, alertas ou ações uma articuladora realmente usaria no dia a dia — é isso que vamos construir a seguir."
+    }
   },
   "citySelection": {
     "title": "Selecione uma Cidade",
@@ -412,6 +481,8 @@
       "advanced": "Avançado"
     },
     "results": {
+      "preliminaryBadge": "Preliminar",
+      "preliminaryHint": "Os valores e prazos são estimativas iniciais — sua validação atualiza o catálogo.",
       "recommendedPathway": "Caminho de Financiamento Recomendado",
       "whatThisMeans": "O que este tipo de financiamento significa",
       "whyThisFits": "Por que isso se encaixa no seu projeto",

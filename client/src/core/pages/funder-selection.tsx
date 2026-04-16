@@ -50,6 +50,12 @@ interface Fund {
    * Missing audience is treated as `['city']` for backward compatibility.
    */
   audience?: Array<'city' | 'cbo' | 'both'>;
+  /**
+   * When true, the catalog entry is our first-pass estimate and hasn't been
+   * validated by someone with domain knowledge. The UI shows a 'Preliminary'
+   * badge on cards for these funds so demo participants know to redline.
+   */
+  needsValidation?: boolean;
 }
 
 interface Pathway {
@@ -1689,13 +1695,23 @@ export default function FunderSelectionPage() {
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Badge variant="outline">#{index + 1}</Badge>
                             <h4 className="font-medium">{fund.name}</h4>
                             {isSelected && (
                               <Badge className="bg-green-600">
                                 <Check className="h-3 w-3 mr-1" />
                                 {t('funderSelection.decision.selected')}
+                              </Badge>
+                            )}
+                            {fund.needsValidation && (
+                              <Badge
+                                variant="outline"
+                                className="border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+                                title={t('funderSelection.results.preliminaryHint')}
+                              >
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                {t('funderSelection.results.preliminaryBadge')}
                               </Badge>
                             )}
                           </div>
