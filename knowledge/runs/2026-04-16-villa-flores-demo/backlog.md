@@ -1,13 +1,19 @@
 # Platform Backlog — Vila Flores × OEF Demo, 2026-04-16
 
-Platform / product items only. Engagement commitments + narrative-deck work live in `README.md`. Sources reference speakers + timestamps from `raw/meeting-transcript.pdf`.
+Platform / product items only. Engagement commitments + narrative-deck work live in `README.md`. Sources reference speakers + timestamps from `raw/meeting-transcript.pdf`; the 8-page Fireflies summary (`raw/meeting-fireflies-summary.pdf`) was used to validate this list on 2026-04-16.
+
+## Guiding principles (from the meeting)
+
+- **Free-text in addition to multiple choice** (Julia 33:59, 44:13). The CBO profile agent must always accept free-text responses; never force MCQ. Joaquin confirmed in-meeting that the agent already handles this — call out explicitly on every new form so it isn't regressed by a future designer.
+- **Profile flexibility over rigidity** (Julia 44:13). Users should see how much of the profile is done; content should be editable at any time; state persists forever. See P-4 + P-22.
+- **Diagnostic can evolve beyond climate** (Julia 46:30). Don't hard-code "climate risk" into the diagnostic schema; keep it parameterized so entrepreneurship / health / education can layer in later.
 
 ## Impact × Effort matrix
 
 |  | **Low effort** | **Medium effort** | **High effort** |
 |---|---|---|---|
 | **High impact** | P-1, P-2, P-3, P-4 | P-5, P-6, P-7, P-8 | P-9, P-10, P-11 |
-| **Medium impact** | P-12, P-13, P-14 | P-15, P-16, P-17 | — |
+| **Medium impact** | P-12, P-13, P-14, **P-22** | P-15, P-16, P-17, **P-21** | — |
 | **Low impact** | P-18, P-19, P-20 | — | — |
 
 **Suggested pickup order (until the April 27 Kami visit)**: P-1 → P-2 → P-3 → P-4 → P-6 → P-8. All quick-wins + the highest-leverage medium-effort items that make the Kami/Clayton Will meeting demo materially stronger.
@@ -184,6 +190,24 @@ Intervention cards today are one-liners. Add: typical cost range (BRL), primary 
 After Antônia sends the workshop agenda + goals (end of next week per commitment), update the CBO agent's prompt "recipe" to match the Palafita program's actual flow and learning goals.
 
 **Acceptance**: prompt update in `server/services/cboAgent.ts` + `.claude/commands/cbo-intervention.md`. Tested end-to-end with a Palafita coordinator; their feedback recorded in a follow-up run log.
+
+### P-21. Sector-based platform segmentation
+
+**Source**: Antônia 30:50. *"It's so important to understand how the platform will be divided in these sectors, like the community projects portfolio is one very important sector, then maybe the government projects that are already happening, and then who is going to fill the platform with this project and how."*
+
+Today the platform presents a single mixed view of projects regardless of origin. Antônia's framing: three distinct sector views that a coordinator can switch between — **Community projects** (CBO-originated), **Government projects** (POA Futura / PO Futura / FUNRIGS earmarks), **Funding opportunities** (fund catalog, filterable by territory). Each sector has its own data shape and its own map overlay.
+
+This is partly implicit in P-9 (dual-mode map) and P-10 (funding overlay), but the decision to *segment* these as top-level concerns — rather than ad-hoc layers — is structurally different and should drive the next iteration's information architecture.
+
+**Acceptance**: orchestrator landing has a segmented control (or tabs) with three sectors; each sector has its own map layer + list + filters; the navigation is consistent and the underlying data model distinguishes origin (community vs government vs fund).
+
+### P-22. Profile-completion progress indicator
+
+**Source**: Julia 44:13. *"Could be nice for the person to understand, like the path that is happening. Like, I'm, I've done 50% already, so it's just like this part for me to do."*
+
+Surface a clear "X% complete · Y of 7 sections" indicator in the CBO profile so users are motivated to finish. Covered indirectly by P-7 (mobile optimization) and P-4 (saved-forever messaging), but distinct enough — and low enough effort — to track explicitly.
+
+**Acceptance**: sticky header in the profile flow shows a progress bar + "X% · section Y of 7" label; updates live as sections are filled; persists across visits.
 
 ### P-17. Pixar scanning-criteria ingestion
 

@@ -2,7 +2,8 @@
 
 ## Contents of this folder
 
-- `raw/meeting-transcript.pdf` — 32-page meeting transcript (Fireflies.ai output).
+- `raw/meeting-transcript.pdf` — 32-page full meeting transcript (Fireflies.ai).
+- `raw/meeting-fireflies-summary.pdf` — 8-page Fireflies auto-summary (action items + topical highlights). Cross-checked against the backlog on 2026-04-16; three small gaps folded back in (see backlog P-21, P-22 and the R$88M note below).
 - `raw/poa-futura-revista.pdf` — Porto Alegre "POA Futura" investment-program brochure (16 pages, Dec 2025).
 - `raw/poa-futura-landing.html` — snapshot of <https://prefeitura.poa.br/poafutura>.
 - `raw/plano-rio-grande-investimentos.pdf` — Rio Grande do Sul state investment plan (41 pages, 16 Sep 2024, v2).
@@ -20,6 +21,7 @@
 - **Anchor city partner** = Porto Alegre's **Office of Innovation** (contact: Clayton Will; Sherpa: Luis Carlos). SMAMUS (environment) comes *through* Innovation, not as the primary convener.
 - **Secondary target**: Secretariat of Planning & Management, which administers the **R$7B "PO Futura" fund** (Ezra Shirmer is the money lead). Meeting with Planning once the narrative deck is ready.
 - **End goal**: Present a community-anchored NBS pipeline at **COP end-of-year 2026** under the banner "Porto Alegre, the most climate-community-advanced city in the world." Target scale: **$1M → $10M** aggregated portfolio.
+- **R$88M civil-engineering line** targeted at poor communities (Julia 24:50) — managed across several secretariats (SMAMUS, Civil Defense, Habitação, Obras). Julia flagged it as one of the multi-secretariat coordination pain points the platform should help unpack. Distinct from (though adjacent to) the R$7B PO Futura fund.
 - **Operating mode going forward**: next working meetings in **Portuguese**, without Joaquin/Martin, after Vila Flores tests the platform with 3–4 Palafita coordinators.
 
 ### Engagement commitments (tracked here; NOT in `backlog.md` per scope decision)
@@ -28,6 +30,7 @@
 |---|---|---|
 | OEF (Fernanda + Martin) | Narrative deck (PT) for government meetings | Before 27 Apr |
 | OEF (Fernanda) | Reconnect with Kami / Luis Carlos / Andrew | Week of **27 Apr 2026** (Kami visits POA) |
+| OEF (Fernanda) | Share updated names + contacts for operational staff managing the PO Futura fund (Secretariat of Planning & Management) | TBD |
 | OEF (Ana) | Google Doc w/ link + comment sections for VF async feedback | Immediately |
 | OEF (Fernanda) | Internal NBS project screening for pipeline | Ongoing |
 | Vila Flores (Antônia) | 20-org Palafita roster + 4 districts + workshop agenda | End of next week |
