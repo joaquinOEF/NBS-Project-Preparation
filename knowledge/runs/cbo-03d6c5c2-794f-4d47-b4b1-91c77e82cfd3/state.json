@@ -1,0 +1,81 @@
+{
+  "id": "03d6c5c2-794f-4d47-b4b1-91c77e82cfd3",
+  "orgName": "",
+  "city": "porto-alegre",
+  "phase": 0,
+  "sections": {
+    "org_profile": {
+      "id": "org_profile",
+      "title": "1. Who We Are",
+      "phase": 1,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "intervention_site": {
+      "id": "intervention_site",
+      "title": "2. Where We Work",
+      "phase": 2,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "intervention_type": {
+      "id": "intervention_type",
+      "title": "3a. What We're Building",
+      "phase": 3,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "impact_monitoring": {
+      "id": "impact_monitoring",
+      "title": "3b. Expected Impact",
+      "phase": 3,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "operations_sustain": {
+      "id": "operations_sustain",
+      "title": "3c. Operations & Sustainability",
+      "phase": 3,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "needs_assessment": {
+      "id": "needs_assessment",
+      "title": "4. What We Need",
+      "phase": 4,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    },
+    "results_evidence": {
+      "id": "results_evidence",
+      "title": "5. Results & Evidence",
+      "phase": 5,
+      "fields": {},
+      "confidence": "empty",
+      "sources": [],
+      "lastUpdatedBy": null
+    }
+  },
+  "gaps": [],
+  "maturityScores": [],
+  "priorityFlags": [],
+  "totalMaturityScore": 0,
+  "editLog": [],
+  "uploadedFiles": [],
+  "metadata": {
+    "createdAt": "2026-04-16T00:11:01.334Z",
+    "updatedAt": "2026-04-16T00:11:01.334Z"
+  }
+}
