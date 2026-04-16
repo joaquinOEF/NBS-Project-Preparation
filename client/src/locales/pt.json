@@ -65,33 +65,56 @@
       "headerEyebrow": "Visão da articuladora",
       "headerTitle": "Portfólio de projetos comunitários",
       "codesignBannerTitle": "Protótipo inicial — ajude a desenhar essa visão.",
-      "codesignBannerBody": "Os três projetos abaixo são ilustrativos. Diga o que está faltando, o que não é útil e o que uma articuladora realmente precisaria ver aqui.",
-      "stats": {
-        "activeProjects": "Projetos ativos",
-        "totalSecured": "Financiamento garantido",
-        "totalSought": "Pipeline total"
+      "codesignBannerBody": "Quatro OBCs ilustrativas em diferentes pontos do diagnóstico. Diga o que está faltando, o que não é útil e o que uma articuladora realmente precisaria ver aqui.",
+      "pipeline": {
+        "sitesMapped": "Locais mapeados",
+        "profilesInProgress": "Perfis em andamento",
+        "profilesComplete": "Perfis completos"
       },
       "portfolioTitle": "Projetos comunitários",
-      "portfolioSubtitle": "Cada card é uma OBC que você coordenaria. Clique em um para pré-visualizar como abriria o espaço de trabalho dela.",
-      "funding": "Financiamento",
+      "portfolioSubtitle": "Cada OBC está em algum ponto do diagnóstico. Passe o mouse sobre um card para localizar o ponto no mapa.",
+      "locationPending": "Local pendente",
+      "sectionsLabel": "Seções concluídas",
+      "sectionsCount": "{{done}} de {{total}}",
+      "flagsCount": "{{met}} de {{total}} flags prioritárias",
+      "maturityTooltip": "Soma das 9 métricas de maturidade COUGAR (0–3 cada, máx. 27).",
+      "updatedJust": "Iniciado agora",
       "updatedAgo_one": "Atualizado há {{count}} dia",
       "updatedAgo_other": "Atualizado há {{count}} dias",
       "phase": {
-        "profilePartial": "Perfil em andamento",
-        "profileComplete": "Perfil completo",
-        "seekingFunding": "Buscando financiamento",
-        "funded": "Financiado",
-        "implementing": "Em implementação"
+        "who":        "Fase 1 — Quem Somos",
+        "where":      "Fase 2 — Onde Atuamos",
+        "building":   "Fase 3a — O Que Construímos",
+        "impact":     "Fase 3b — Impacto Esperado",
+        "operations": "Fase 3c — Operação e Sustentabilidade",
+        "needs":      "Fase 4 — O Que Precisamos",
+        "results":    "Fase 5 — Resultados e Evidências"
+      },
+      "intervention": {
+        "notChosen":             "Intervenção ainda não escolhida",
+        "bioswales":             "Biovaletas e Jardins de Chuva",
+        "flood-parks":           "Parques Alagáveis",
+        "urban-forests":         "Florestas Urbanas",
+        "green-corridors":       "Corredores Verdes",
+        "wetlands":              "Recuperação de Banhados",
+        "slope-stabilization":   "Estabilização de Encostas"
+      },
+      "maturityBand": {
+        "emerging":   "Inicial",
+        "developing": "Em desenvolvimento",
+        "building":   "Em consolidação",
+        "mature":     "Consolidado"
       },
       "nextAction": {
-        "applyTeia": "Submeter ao próximo edital Teia da Sociobiodiversidade",
-        "completePhase3": "Completar a Fase 3 do perfil da OBC",
-        "applyFundoCasa": "Submeter ao Fundo Casa Reconstruir RS"
+        "reviewNeeds":           "Revisar a Fase 4 — O Que Precisamos",
+        "completeIntervention":  "Concluir a escolha de intervenção (Fase 3a)",
+        "publishScorecard":      "Publicar o placar de maturidade para financiadores",
+        "beginProfile":          "Começar a Fase 1 — Quem Somos"
       },
       "toastTitle": "Visão protótipo",
       "toastBody": "Na Fase 3, clicar aqui abriria o espaço de {{project}}.",
       "feedbackTitle": "O que você gostaria de ver aqui?",
-      "feedbackBody": "Essa página é propositalmente enxuta. Nos conte quais métricas, alertas ou ações uma articuladora realmente usaria no dia a dia — é isso que vamos construir a seguir."
+      "feedbackBody": "Essa visão é propositalmente enxuta. Nos conte quais métricas, alertas ou ações uma articuladora realmente usaria no dia a dia — é isso que vamos construir a seguir."
     }
   },
   "citySelection": {
