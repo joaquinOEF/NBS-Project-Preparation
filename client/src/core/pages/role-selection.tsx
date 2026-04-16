@@ -44,15 +44,58 @@ type NbsTypology = {
   Icon: typeof Building2;
   /** primary hazard for icon color accent */
   tone: 'flood' | 'heat' | 'landslide' | 'biodiversity';
+  /** Public-path image shown at the top of the card. All assets under
+   *  /assets/nbs/ are sourced from Wikimedia Commons (CC-BY / CC-BY-SA /
+   *  CC0). See `credits` below for attribution; full list rendered in
+   *  the landing footer.
+   */
+  image: string;
+  credit: { author: string; license: string; source: string };
 };
 
 const NBS_TYPOLOGIES: NbsTypology[] = [
-  { key: 'floodParks',     Icon: Droplets, tone: 'flood' },
-  { key: 'bioswales',      Icon: Leaf,     tone: 'flood' },
-  { key: 'urbanForests',   Icon: Trees,    tone: 'heat' },
-  { key: 'greenCorridors', Icon: Sprout,   tone: 'biodiversity' },
-  { key: 'wetlands',       Icon: Waves,    tone: 'flood' },
-  { key: 'slopeStabilize', Icon: Mountain, tone: 'landslide' },
+  {
+    key: 'floodParks',
+    Icon: Droplets,
+    tone: 'flood',
+    image: '/assets/nbs/flood-park.jpg',
+    credit: { author: 'Marc Merlin', license: 'CC BY-SA 4.0', source: 'Wikimedia Commons' },
+  },
+  {
+    key: 'bioswales',
+    Icon: Leaf,
+    tone: 'flood',
+    image: '/assets/nbs/bioswales.jpg',
+    credit: { author: 'Ɱ (Wikimedia)', license: 'CC BY-SA 4.0', source: 'Wikimedia Commons' },
+  },
+  {
+    key: 'urbanForests',
+    Icon: Trees,
+    tone: 'heat',
+    image: '/assets/nbs/urban-forest.jpg',
+    credit: { author: 'Ciaran Hendry', license: 'CC BY-SA 4.0', source: 'Wikimedia Commons' },
+  },
+  {
+    key: 'greenCorridors',
+    Icon: Sprout,
+    tone: 'biodiversity',
+    image: '/assets/nbs/green-corridor.jpg',
+    credit: { author: 'Luca Nebuloni', license: 'CC BY 2.0', source: 'Wikimedia Commons' },
+  },
+  {
+    key: 'wetlands',
+    Icon: Waves,
+    tone: 'flood',
+    image: '/assets/nbs/wetland.jpg',
+    credit: { author: 'Basile Morin', license: 'CC BY-SA 4.0', source: 'Wikimedia Commons' },
+  },
+  {
+    key: 'slopeStabilize',
+    Icon: Mountain,
+    tone: 'landslide',
+    image: '/assets/nbs/slope-stabilization.jpg',
+    credit: { author: 'Germartin1', license: 'CC0', source: 'Wikimedia Commons' },
+  },
 ];
 
 const TONE_STYLES: Record<NbsTypology['tone'], { bubble: string; fg: string; chip: string }> = {
@@ -326,48 +369,60 @@ export default function RoleSelectionPage() {
           </motion.div>
 
           <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+            className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6"
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: '-60px' }}
             variants={{
               hidden: {},
-              show: { transition: { staggerChildren: 0.05 } },
+              show: { transition: { staggerChildren: 0.06 } },
             }}
           >
-            {NBS_TYPOLOGIES.map(({ key, Icon, tone }) => {
+            {NBS_TYPOLOGIES.map(({ key, Icon, tone, image }) => {
               const toneStyle = TONE_STYLES[tone];
               const hazards = t(`roleSelection.showcase.typologies.${key}.hazards`, { returnObjects: true }) as string[];
               return (
                 <motion.div
                   key={key}
                   variants={{
-                    hidden: { opacity: 0, y: 12 },
-                    show:   { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+                    hidden: { opacity: 0, y: 16 },
+                    show:   { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
                   }}
                 >
-                  <div className="group h-full rounded-xl border border-foreground/10 bg-card/60 p-5 hover:border-foreground/20 hover:bg-card transition-all duration-300">
-                    <div className="flex items-start gap-4">
-                      <div className={`shrink-0 w-11 h-11 rounded-lg flex items-center justify-center ${toneStyle.bubble} ${toneStyle.fg} transition-transform duration-300 group-hover:scale-105`}>
+                  <div className="group h-full overflow-hidden rounded-xl border border-foreground/10 bg-card hover:border-foreground/20 hover:shadow-lg transition-all duration-300">
+                    {/* Image — 16:9, center-cropped, subtle zoom on hover */}
+                    <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+                      <img
+                        src={image}
+                        alt={t(`roleSelection.showcase.typologies.${key}.name`)}
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]"
+                      />
+                      {/* Soft gradient so the icon bubble stays readable */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
+                      {/* Icon bubble pinned top-left */}
+                      <div className={`absolute top-3 left-3 w-10 h-10 rounded-lg flex items-center justify-center backdrop-blur-md bg-white/80 dark:bg-black/40 ${toneStyle.fg} shadow-sm`}>
                         <Icon className="w-5 h-5" strokeWidth={1.75} />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-semibold tracking-tight mb-1">
-                          {t(`roleSelection.showcase.typologies.${key}.name`)}
-                        </h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-                          {t(`roleSelection.showcase.typologies.${key}.description`)}
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {Array.isArray(hazards) && hazards.map((h, i) => (
-                            <span
-                              key={i}
-                              className={`inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full border ${toneStyle.chip}`}
-                            >
-                              {h}
-                            </span>
-                          ))}
-                        </div>
+                    </div>
+                    {/* Content */}
+                    <div className="p-5 sm:p-6">
+                      <h3 className="text-base sm:text-lg font-semibold tracking-tight mb-1.5">
+                        {t(`roleSelection.showcase.typologies.${key}.name`)}
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                        {t(`roleSelection.showcase.typologies.${key}.description`)}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {Array.isArray(hazards) && hazards.map((h, i) => (
+                          <span
+                            key={i}
+                            className={`inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full border ${toneStyle.chip}`}
+                          >
+                            {h}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -375,6 +430,34 @@ export default function RoleSelectionPage() {
               );
             })}
           </motion.div>
+
+          {/* Image credits — small, unobtrusive, compliant with CC licensing */}
+          <div className="mt-8 text-center">
+            <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+              {t('roleSelection.showcase.creditsPrefix')}{' '}
+              {NBS_TYPOLOGIES.map((tpy, i) => {
+                const name = t(`roleSelection.showcase.typologies.${tpy.key}.name`);
+                return (
+                  <span key={tpy.key}>
+                    {i > 0 ? ' · ' : ''}
+                    <span className="text-muted-foreground">
+                      {name}
+                    </span>
+                    <span> © {tpy.credit.author} / {tpy.credit.license}</span>
+                  </span>
+                );
+              })}
+              {' · '}
+              <a
+                href="https://commons.wikimedia.org"
+                target="_blank"
+                rel="noreferrer"
+                className="underline hover:text-foreground transition-colors"
+              >
+                Wikimedia Commons
+              </a>
+            </p>
+          </div>
         </div>
       </section>
 
