@@ -34,6 +34,8 @@ import {
   LoadCohortDialog,
   InviteCboDialog,
   ShareLinkDialog,
+  BulkInviteSummaryDialog,
+  type BulkInviteResult,
 } from '@/core/components/orchestrator/CohortDialogs';
 import { WorkshopCadence } from '@/core/components/orchestrator/WorkshopCadence';
 
@@ -619,6 +621,8 @@ export default function OrchestratorLandingPage() {
     | { kind: 'coordinator'; cohortName: string }
     | null
   >(null);
+  const [bulkSummaryOpen, setBulkSummaryOpen] = useState(false);
+  const [bulkInvitations, setBulkInvitations] = useState<BulkInviteResult[]>([]);
 
   const openShare = (url: string, ctx: typeof shareContext) => {
     setShareUrl(url);
@@ -711,18 +715,23 @@ export default function OrchestratorLandingPage() {
     setInviteOpen(true);
   };
 
+  // Pure: just makes the invite. The post-success share dialog is wired
+  // separately via onSingleSuccess so the bulk-invite loop doesn't trigger
+  // N share dialogs (it uses onBulkComplete instead).
   const handleInviteSubmit = async (params: { orgName: string; neighborhood?: string; role: 'priority' | 'alternate' }) => {
     const created = await invite(params);
     if (!created) {
       toast({ title: t('orchestrator.cohort.inviteFailed', { defaultValue: 'Could not create invitation' }) });
       return null;
     }
-    // Open the share dialog with the new CBO link.
-    openShare(
-      `${window.location.origin}/cbo-profile?cbo=${created.memberSlug}`,
-      { kind: 'cbo', orgName: created.orgName }
-    );
     return { memberSlug: created.memberSlug, orgName: created.orgName };
+  };
+
+  const handleSingleInviteSuccess = (result: { memberSlug: string; orgName: string }) => {
+    openShare(
+      `${window.location.origin}/cbo-profile?cbo=${result.memberSlug}`,
+      { kind: 'cbo', orgName: result.orgName },
+    );
   };
 
   const handleCreateSubmit = async (name: string) => {
@@ -962,8 +971,24 @@ export default function OrchestratorLandingPage() {
       {/* Cohort flow dialogs */}
       <CreateCohortDialog open={createOpen} onOpenChange={setCreateOpen} onSubmit={handleCreateSubmit} />
       <LoadCohortDialog open={loadOpen} onOpenChange={setLoadOpen} onSubmit={handleLoadSubmit} />
-      <InviteCboDialog open={inviteOpen} onOpenChange={setInviteOpen} onSubmit={handleInviteSubmit} />
+      <InviteCboDialog
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        onSubmit={handleInviteSubmit}
+        onSingleSuccess={handleSingleInviteSuccess}
+        onBulkComplete={(results) => {
+          if (results.length === 0) return;
+          setBulkInvitations(results);
+          setBulkSummaryOpen(true);
+        }}
+      />
       <ShareLinkDialog open={shareOpen} onOpenChange={setShareOpen} url={shareUrl} context={shareContext} />
+      <BulkInviteSummaryDialog
+        open={bulkSummaryOpen}
+        onOpenChange={setBulkSummaryOpen}
+        invitations={bulkInvitations}
+        origin={typeof window !== 'undefined' ? window.location.origin : ''}
+      />
     </div>
   );
 }
