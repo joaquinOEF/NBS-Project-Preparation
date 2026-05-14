@@ -178,6 +178,35 @@ export default function CboProfilePage() {
   const [highlightedSections, setHighlightedSections] = useState<string[]>([]);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // Cohort membership: if `?cbo=<memberSlug>` is in the URL, this CBO is part
+  // of a coordinator-managed cohort and the coordinator gates phase access.
+  const [memberSlug, setMemberSlug] = useState<string | null>(null);
+  const [unlockedPhases, setUnlockedPhases] = useState<number[]>([1, 2, 3, 4, 5]); // ungated by default
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get('cbo');
+    if (!slug) return;
+    setMemberSlug(slug);
+    fetch(`/api/cbo-member/${slug}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.unlockedPhases) setUnlockedPhases(data.unlockedPhases); })
+      .catch(() => {});
+    // Re-fetch on focus so coordinator unlocks propagate without a hard reload.
+    const onFocus = () => {
+      fetch(`/api/cbo-member/${slug}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data?.unlockedPhases) setUnlockedPhases(data.unlockedPhases); })
+        .catch(() => {});
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
+
+  const isPhaseUnlocked = useCallback(
+    (phase: number) => unlockedPhases.includes(phase),
+    [unlockedPhases]
+  );
+
   // Hide Replit chat widget on this page
   useEffect(() => {
     const style = document.createElement('style');
@@ -319,9 +348,28 @@ export default function CboProfilePage() {
         break;
       case 'phase_change':
         setState(prev => prev ? { ...prev, phase: event.phase } : prev);
+        if (memberSlug) {
+          fetch(`/api/cbo-member/${memberSlug}/snapshot`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phase: event.phase, cboStateId: cboId }),
+          }).catch(() => {});
+        }
         break;
       case 'maturity_update':
         setState(prev => prev ? { ...prev, maturityScores: event.scores, totalMaturityScore: event.total, priorityFlags: event.flags } : prev);
+        if (memberSlug) {
+          // Count filled sections from current state for the snapshot.
+          fetch(`/api/cbo-member/${memberSlug}/snapshot`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              maturityScore: event.total,
+              flagsMet: (event.flags || []).filter((f: PriorityFlag) => f.met).length,
+              cboStateId: cboId,
+            }),
+          }).catch(() => {});
+        }
         break;
       case 'ask_user': {
         const spatialKeywords = /\b(zone|zona|area|área|site|sítio|where|onde|map|mapa|location|local|bairro)\b/i;
@@ -482,9 +530,25 @@ export default function CboProfilePage() {
                     const sectionFilled = sectionId && state.sections[sectionId as CboSectionId] && Object.keys(state.sections[sectionId as CboSectionId].fields).length > 0;
                     const isActive = p.phase === state.phase;
                     const isPast = p.phase < state.phase || sectionFilled;
+                    const locked = !isPhaseUnlocked(p.phase);
+                    const baseClass = `h-5 px-1.5 rounded text-[10px] font-medium transition-all ${isActive ? 'bg-green-600 text-white' : isPast ? 'bg-green-200 text-green-700' : 'bg-muted text-muted-foreground'}`;
+                    if (locked) {
+                      return (
+                        <Tooltip key={p.skip}>
+                          <TooltipTrigger asChild>
+                            <button
+                              aria-disabled
+                              className={`${baseClass} opacity-40 cursor-not-allowed`}
+                              onClick={(e) => e.preventDefault()}
+                            >🔒{p.label}</button>
+                          </TooltipTrigger>
+                          <TooltipContent>{t('cbo.phaseLocked', { defaultValue: 'Your coordinator will unlock this after the next workshop.' })}</TooltipContent>
+                        </Tooltip>
+                      );
+                    }
                     return (
                       <button key={p.skip} onClick={() => !isStreaming && sendMessage(`[SKIP TO phase:${p.skip}]`)}
-                        className={`h-5 px-1.5 rounded text-[10px] font-medium transition-all ${isActive ? 'bg-green-600 text-white' : isPast ? 'bg-green-200 text-green-700' : 'bg-muted text-muted-foreground'}`}
+                        className={baseClass}
                       >{p.label}</button>
                     );
                   })}

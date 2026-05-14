@@ -63,6 +63,7 @@ import type { LayerType } from '../shared/geospatial-schema';
 import { registerAgentRoutes } from './routes/agentRoutes';
 import { registerConceptNoteRoutes } from './routes/conceptNoteRoutes';
 import { registerCboRoutes } from './routes/cboRoutes';
+import { registerCohortRoutes } from './routes/cohortRoutes';
 import { registerUploadRoutes } from './routes/uploadRoutes';
 import { registerTileProxyRoutes } from './routes/tileProxyRoutes';
 import { registerKnowledgeRoutes } from './routes/knowledgeRoutes';
@@ -1993,6 +1994,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerKnowledgeRoutes(app);
   registerConceptNoteRoutes(app);
   registerCboRoutes(app);
+  registerCohortRoutes(app);
   registerUploadRoutes(app);
   registerTileProxyRoutes(app);
   registerOverpassRoutes(app);
