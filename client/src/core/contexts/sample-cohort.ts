@@ -13,11 +13,16 @@ export const SAMPLE_COHORT: Cohort = {
   coordinatorSlug: 'sample',
   name: 'Vila Flores — Sample cohort',
   settings: {
-    workshops: DEFAULT_WORKSHOPS.map((w, i) => ({
-      ...w,
-      // Seed dates: weekly Thursdays starting mid-June 2026.
-      date: new Date(2026, 5, 11 + i * 7).toISOString().slice(0, 10),
-    })),
+    workshops: DEFAULT_WORKSHOPS.map((w, i) => {
+      // Scheduled dates: weekly Thursdays starting mid-June 2026.
+      const date = new Date(2026, 5, 11 + i * 7).toISOString().slice(0, 10);
+      // Seed first two workshops as already-held so the stakeholder demo
+      // shows the full state spectrum (Past · Open · Next-up · Locked).
+      const openedAt = i === 0 ? daysAgo(7).toISOString().slice(0, 10)
+                     : i === 1 ? daysAgo(0).toISOString().slice(0, 10)
+                     : null;
+      return { ...w, date, openedAt };
+    }),
   },
   createdAt: daysAgo(14),
 };

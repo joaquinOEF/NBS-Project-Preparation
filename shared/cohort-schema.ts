@@ -9,8 +9,10 @@ import { pgTable, text, varchar, jsonb, timestamp, integer } from 'drizzle-orm/p
 
 export type WorkshopConfig = {
   name: string;       // "Workshop 1"
-  date: string | null; // ISO date or null if unscheduled
-  unlocksPhase: number; // which CBO phase this workshop unlocks (1..5)
+  date: string | null;     // ISO date — the *scheduled* workshop date (editable by coordinator)
+  unlocksPhase: number;    // which CBO phase this workshop unlocks (1..5)
+  openedAt?: string | null; // ISO date — set the moment the coordinator clicks "Open for cohort".
+                           // Source of truth for state (held vs not). null until opened.
 };
 
 export type CohortSettings = {
