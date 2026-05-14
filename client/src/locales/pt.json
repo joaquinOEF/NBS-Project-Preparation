@@ -26,32 +26,48 @@
         "floodParks": {
           "name": "Parques Alagáveis",
           "description": "Áreas verdes públicas que armazenam águas pluviais em chuvas intensas e voltam ao uso comum depois.",
-          "hazards": ["Inundação"]
+          "hazards": [
+            "Inundação"
+          ]
         },
         "bioswales": {
           "name": "Biovaletas e Jardins de Chuva",
           "description": "Canais e depressões vegetados que retardam o escoamento, filtram poluentes e recarregam o lençol.",
-          "hazards": ["Inundação", "Qualidade da água"]
+          "hazards": [
+            "Inundação",
+            "Qualidade da água"
+          ]
         },
         "urbanForests": {
           "name": "Florestas Urbanas",
           "description": "Copa arbórea densa que refresca bairros, melhora a qualidade do ar e cria habitat para fauna.",
-          "hazards": ["Calor", "Qualidade do ar"]
+          "hazards": [
+            "Calor",
+            "Qualidade do ar"
+          ]
         },
         "greenCorridors": {
           "name": "Corredores Verdes",
           "description": "Faixas conectadas de vegetação que ligam parques e rios, criando caminhos mais frescos e vivos.",
-          "hazards": ["Calor", "Biodiversidade"]
+          "hazards": [
+            "Calor",
+            "Biodiversidade"
+          ]
         },
         "wetlands": {
           "name": "Recuperação de Banhados",
           "description": "Áreas úmidas recuperadas que amortecem enchentes, filtram água, sequestram carbono e ancoram biodiversidade.",
-          "hazards": ["Inundação", "Biodiversidade"]
+          "hazards": [
+            "Inundação",
+            "Biodiversidade"
+          ]
         },
         "slopeStabilize": {
           "name": "Estabilização de Encostas",
           "description": "Muros vivos, terraços e plantios de raízes profundas que reduzem risco de deslizamentos em encostas urbanas.",
-          "hazards": ["Deslizamento"]
+          "hazards": [
+            "Deslizamento"
+          ]
         }
       }
     }
@@ -82,34 +98,34 @@
       "updatedAgo_one": "Atualizado há {{count}} dia",
       "updatedAgo_other": "Atualizado há {{count}} dias",
       "phase": {
-        "who":        "Fase 1 — Quem Somos",
-        "where":      "Fase 2 — Onde Atuamos",
-        "building":   "Fase 3a — O Que Construímos",
-        "impact":     "Fase 3b — Impacto Esperado",
+        "who": "Fase 1 — Quem Somos",
+        "where": "Fase 2 — Onde Atuamos",
+        "building": "Fase 3a — O Que Construímos",
+        "impact": "Fase 3b — Impacto Esperado",
         "operations": "Fase 3c — Operação e Sustentabilidade",
-        "needs":      "Fase 4 — O Que Precisamos",
-        "results":    "Fase 5 — Resultados e Evidências"
+        "needs": "Fase 4 — O Que Precisamos",
+        "results": "Fase 5 — Resultados e Evidências"
       },
       "intervention": {
-        "notChosen":             "Intervenção ainda não escolhida",
-        "bioswales":             "Biovaletas e Jardins de Chuva",
-        "flood-parks":           "Parques Alagáveis",
-        "urban-forests":         "Florestas Urbanas",
-        "green-corridors":       "Corredores Verdes",
-        "wetlands":              "Recuperação de Banhados",
-        "slope-stabilization":   "Estabilização de Encostas"
+        "notChosen": "Intervenção ainda não escolhida",
+        "bioswales": "Biovaletas e Jardins de Chuva",
+        "flood-parks": "Parques Alagáveis",
+        "urban-forests": "Florestas Urbanas",
+        "green-corridors": "Corredores Verdes",
+        "wetlands": "Recuperação de Banhados",
+        "slope-stabilization": "Estabilização de Encostas"
       },
       "maturityBand": {
-        "emerging":   "Inicial",
+        "emerging": "Inicial",
         "developing": "Em desenvolvimento",
-        "building":   "Em consolidação",
-        "mature":     "Consolidado"
+        "building": "Em consolidação",
+        "mature": "Consolidado"
       },
       "nextAction": {
-        "reviewNeeds":           "Revisar a Fase 4 — O Que Precisamos",
-        "completeIntervention":  "Concluir a escolha de intervenção (Fase 3a)",
-        "publishScorecard":      "Publicar o placar de maturidade para financiadores",
-        "beginProfile":          "Começar a Fase 1 — Quem Somos"
+        "reviewNeeds": "Revisar a Fase 4 — O Que Precisamos",
+        "completeIntervention": "Concluir a escolha de intervenção (Fase 3a)",
+        "publishScorecard": "Publicar o placar de maturidade para financiadores",
+        "beginProfile": "Começar a Fase 1 — Quem Somos"
       },
       "toastTitle": "Visão protótipo",
       "toastBody": "Na Fase 3, clicar aqui abriria o espaço de {{project}}.",
@@ -621,7 +637,6 @@
     "minorContour": "Contorno Secundário",
     "selectCategory": "Selecionar Categoria de Intervenção",
     "selectedInterventions": "Intervenções Selecionadas",
-    "saveInterventions": "Salvar Intervenções",
     "clickToSelect": "Clique para selecionar intervenções",
     "moreDetails": "Mais detalhes",
     "scale": "Escala",
@@ -883,11 +898,7 @@
       "VANDALISM": "Vandalismo",
       "PESTS_DISEASE": "Pragas/Doenças"
     },
-    "riskLevel": {
-      "LOW": "Baixo",
-      "MEDIUM": "Médio",
-      "HIGH": "Alto"
-    },
+    "riskLevel": "Nível de Risco",
     "mitigationPlaceholder": "Descreva medidas de mitigação...",
     "noMitigation": "Sem mitigação definida",
     "readinessGate": "Portal de Prontidão",
@@ -1040,12 +1051,10 @@
     "miroPromptDesc": "Prompt de diagrama para Miro",
     "miroPromptCopied": "Prompt Miro copiado para a área de transferência",
     "conceptNoteDesc": "Formatado para notas conceituais",
-    "notAssigned": "Não atribuído",
     "operatingModelLabel": "Modelo Operacional",
     "operatorLabel": "Operador",
     "verifierLabel": "Verificador",
-    "communityRoleLabel": "Função da Comunidade",
-    "riskLevel": "Nível de Risco"
+    "communityRoleLabel": "Função da Comunidade"
   },
   "bm": {
     "pageTitle": "Modelo de Negócio",
@@ -1784,7 +1793,41 @@
       "operations_sustain": "3c. Operação e Sustentabilidade",
       "needs_assessment": "4. O Que Precisamos",
       "results_evidence": "5. Resultados e Evidências"
-    }
+    },
+    "welcome": {
+      "brand": "COUGAR · Vila Flores",
+      "greeting": "Olá,",
+      "neighborhood": "de {{n}}",
+      "invitationLead": "Você foi convidado(a) para a plataforma do {{cohort}} — um espaço tranquilo para contar o que a sua organização faz, onde trabalha, e do que precisa para tirar o seu projeto do papel.",
+      "invitationFraming": "Vamos construir isso juntos, uma parte de cada vez. Cada seção abre depois do encontro em que tratamos do tema.",
+      "nextWorkshopLabel": "Próximo encontro",
+      "whatWeWillDoLabel": "O que vamos fazer juntos",
+      "step1": "Quem somos",
+      "step2": "Onde trabalhamos",
+      "step3": "O que construímos",
+      "step4": "O que precisamos",
+      "step5": "Resultados e evidências",
+      "ctaStart": "Começar",
+      "ctaResume": "Continuar de onde parei",
+      "ctaStartOver": "Ou começar do zero",
+      "timeEstimate": "Cerca de 20 min no total, ao longo dos encontros. Salva sozinho.",
+      "footer": "Open Earth Foundation · Piloto COUGAR"
+    },
+    "progress": {
+      "sectionOf": "Seção {{current}} de {{total}}",
+      "phase": {
+        "who": "Quem somos",
+        "where": "Onde trabalhamos",
+        "building": "O que construímos",
+        "needs": "O que precisamos",
+        "results": "Resultados e evidências"
+      },
+      "lockedWithWorkshop": "Abre depois do {{workshop}}{{date,select, ?\\` · ${date}\\`:\\`\\`}}",
+      "lockedNoWorkshop": "Seu coordenador vai abrir esta seção."
+    },
+    "cohortWelcomePrefix": "Bem-vindo(a),",
+    "cohortPhasesUnlocked": "Seções abertas: {{phases}}",
+    "phaseLocked": "Seu coordenador vai abrir esta seção depois do próximo encontro."
   },
   "mapMicroapp": {
     "layers": "Camadas",

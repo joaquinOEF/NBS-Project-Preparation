@@ -29,6 +29,9 @@ import {
   FileText, Loader2, RotateCcw, Star, Leaf,
   Check, Circle, AlertCircle, Pencil,
 } from 'lucide-react';
+import { CboWelcome } from '@/core/components/cbo/CboWelcome';
+import { CboProgress } from '@/core/components/cbo/CboProgress';
+import type { WorkshopConfig } from '@shared/cohort-schema';
 
 const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
 const MapMicroapp = lazy(() => import('@/core/components/concept-note/MapMicroapp'));
@@ -181,22 +184,38 @@ export default function CboProfilePage() {
   // Cohort membership: if `?cbo=<memberSlug>` is in the URL, this CBO is part
   // of a coordinator-managed cohort and the coordinator gates phase access.
   const [memberSlug, setMemberSlug] = useState<string | null>(null);
+  const [memberInfo, setMemberInfo] = useState<{ orgName: string; neighborhood: string | null } | null>(null);
+  const [cohortName, setCohortName] = useState<string | null>(null);
+  const [workshops, setWorkshops] = useState<WorkshopConfig[]>([]);
+  const [nextWorkshop, setNextWorkshop] = useState<WorkshopConfig | null>(null);
   const [unlockedPhases, setUnlockedPhases] = useState<number[]>([1, 2, 3, 4, 5]); // ungated by default
+  // When arriving via ?cbo=<slug>, render the premium welcome screen until
+  // the user taps Start / Continue. Flipped to true once member-fetch lands.
+  const [welcomeMode, setWelcomeMode] = useState(false);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const slug = params.get('cbo');
     if (!slug) return;
     setMemberSlug(slug);
+    const applyMember = (data: any) => {
+      if (!data) return;
+      if (data.unlockedPhases) setUnlockedPhases(data.unlockedPhases);
+      if (data.orgName) setMemberInfo({ orgName: data.orgName, neighborhood: data.neighborhood ?? null });
+      if (data.cohort?.name) setCohortName(data.cohort.name);
+      if (Array.isArray(data.workshops)) setWorkshops(data.workshops);
+      setNextWorkshop(data.nextWorkshop ?? null);
+    };
     fetch(`/api/cbo-member/${slug}`)
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data?.unlockedPhases) setUnlockedPhases(data.unlockedPhases); })
+      .then(data => {
+        applyMember(data);
+        if (data) setWelcomeMode(true);
+      })
       .catch(() => {});
     // Re-fetch on focus so coordinator unlocks propagate without a hard reload.
     const onFocus = () => {
-      fetch(`/api/cbo-member/${slug}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(data => { if (data?.unlockedPhases) setUnlockedPhases(data.unlockedPhases); })
-        .catch(() => {});
+      fetch(`/api/cbo-member/${slug}`).then(r => r.ok ? r.json() : null).then(applyMember).catch(() => {});
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
@@ -481,6 +500,17 @@ export default function CboProfilePage() {
     setCboId(data.cboId); setState(data.state); saveId(data.cboId);
   }, [cboId]);
 
+  // Kick off the agent chat with the standard intake prompt. Hidden from the
+  // visible message stream — the agent's first response is what the user sees.
+  // Called from the welcome screen's "Start" button (cohort CBOs) and from
+  // the inline empty-state button (standalone visitors).
+  const kickoffChat = useCallback(() => {
+    const text = lang === 'pt'
+      ? "Iniciar o perfil de intervenção comunitária para Porto Alegre. Use o fluxo /cbo-intervention. Sempre use a ferramenta ask_user para perguntas de múltipla escolha. Na primeira mensagem, mencione que o usuário pode enviar documentos existentes (propostas, relatórios, planos, fotos) no chat a qualquer momento — você vai extrair as informações e preencher as seções automaticamente."
+      : "Start the CBO intervention profile for Porto Alegre. Use the /cbo-intervention skill flow. Always use the ask_user tool for multiple-choice questions. In your first message, mention that the user can drop existing documents (proposals, reports, plans, photos) into the chat at any time — you'll extract info and auto-fill sections.";
+    sendMessage(text, true);
+  }, [lang, sendMessage]);
+
   // File drop handler
   const { isDragging, isUploading, dragHandlers } = useFileDrop({
     sessionId: cboId,
@@ -494,12 +524,32 @@ export default function CboProfilePage() {
 
   if (!state) return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
 
+  // Cohort welcome screen — only when the user arrived via an invite and
+  // hasn't dismissed the welcome. Replaces the entire chrome with a calm,
+  // single-CTA first-impression. Tapping Start (or Continue) flips
+  // welcomeMode off and reveals the chat.
+  if (welcomeMode && memberInfo) {
+    const hasExistingProgress = messages.length > 0 || (state?.phase ?? 0) > 0;
+    return (
+      <CboWelcome
+        orgName={memberInfo.orgName}
+        neighborhood={memberInfo.neighborhood}
+        cohortName={cohortName}
+        nextWorkshop={nextWorkshop}
+        unlockedPhases={unlockedPhases}
+        hasExistingProgress={hasExistingProgress}
+        onStart={() => { setWelcomeMode(false); if (!hasExistingProgress) kickoffChat(); }}
+        onResume={() => setWelcomeMode(false)}
+      />
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col bg-background">
       <Header />
       <div className="flex flex-1 min-h-0">
-        {/* LEFT: Chat */}
-        <div className="w-1/2 border-r flex flex-col relative" {...dragHandlers}>
+        {/* LEFT: Chat — full width on mobile, half on md+ */}
+        <div className="w-full md:w-1/2 md:border-r flex flex-col relative" {...dragHandlers}>
           {isDragging && (
             <div className="absolute inset-0 z-50 bg-green-500/10 border-2 border-dashed border-green-500 rounded-lg flex items-center justify-center backdrop-blur-sm">
               <div className="text-center">
@@ -509,51 +559,33 @@ export default function CboProfilePage() {
               </div>
             </div>
           )}
-          <div className="p-3 border-b bg-background flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Link href="/sample/project/sample-ada-1"><Button variant="ghost" size="sm" className="h-7 px-2"><ArrowLeft className="w-4 h-4" /></Button></Link>
-              <div>
-                <h2 className="text-sm font-semibold flex items-center gap-1.5"><Leaf className="w-4 h-4 text-green-600" /> {t('cbo.title')}</h2>
-                <div className="flex items-center gap-1 mt-0.5">
-                  {[
-                    { label: '1', phase: 1, skip: '1' },
-                    { label: '2', phase: 2, skip: '2' },
-                    { label: '3a', phase: 3, skip: '3a' },
-                    { label: '3b', phase: 3, skip: '3b' },
-                    { label: '3c', phase: 3, skip: '3c' },
-                    { label: '4', phase: 4, skip: '4' },
-                    { label: '5', phase: 5, skip: '5' },
-                  ].map(p => {
-                    // Determine if this sub-phase is active or completed
-                    const sectionMap: Record<string, string> = { '1': 'org_profile', '2': 'intervention_site', '3a': 'intervention_type', '3b': 'impact_monitoring', '3c': 'operations_sustain', '4': 'needs_assessment', '5': 'results_evidence' };
-                    const sectionId = sectionMap[p.skip];
-                    const sectionFilled = sectionId && state.sections[sectionId as CboSectionId] && Object.keys(state.sections[sectionId as CboSectionId].fields).length > 0;
-                    const isActive = p.phase === state.phase;
-                    const isPast = p.phase < state.phase || sectionFilled;
-                    const locked = !isPhaseUnlocked(p.phase);
-                    const baseClass = `h-5 px-1.5 rounded text-[10px] font-medium transition-all ${isActive ? 'bg-green-600 text-white' : isPast ? 'bg-green-200 text-green-700' : 'bg-muted text-muted-foreground'}`;
-                    if (locked) {
-                      return (
-                        <Tooltip key={p.skip}>
-                          <TooltipTrigger asChild>
-                            <button
-                              aria-disabled
-                              className={`${baseClass} opacity-40 cursor-not-allowed`}
-                              onClick={(e) => e.preventDefault()}
-                            >🔒{p.label}</button>
-                          </TooltipTrigger>
-                          <TooltipContent>{t('cbo.phaseLocked', { defaultValue: 'Your coordinator will unlock this after the next workshop.' })}</TooltipContent>
-                        </Tooltip>
-                      );
-                    }
-                    return (
-                      <button key={p.skip} onClick={() => !isStreaming && sendMessage(`[SKIP TO phase:${p.skip}]`)}
-                        className={baseClass}
-                      >{p.label}</button>
-                    );
-                  })}
-                  <span className="text-[10px] text-muted-foreground ml-1">{filledCount}/7</span>
-                  {state.totalMaturityScore > 0 && <Badge variant="outline" className="text-[10px] h-4 ml-1">{state.totalMaturityScore}/27</Badge>}
+          <div className="px-4 py-3 border-b bg-background flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <Link href="/sample/project/sample-ada-1"><Button variant="ghost" size="sm" className="h-7 px-2 shrink-0"><ArrowLeft className="w-4 h-4" /></Button></Link>
+              <div className="min-w-0 flex-1">
+                {memberInfo ? (
+                  <h2 className="text-sm font-semibold tracking-tight truncate">
+                    {memberInfo.orgName}
+                    {memberInfo.neighborhood && (
+                      <span className="ml-1.5 text-xs text-muted-foreground font-normal">· {memberInfo.neighborhood}</span>
+                    )}
+                  </h2>
+                ) : (
+                  <h2 className="text-sm font-semibold flex items-center gap-1.5">
+                    <Leaf className="w-4 h-4 text-green-600" /> {t('cbo.title')}
+                  </h2>
+                )}
+                <div className="mt-2">
+                  <CboProgress
+                    currentPhase={Math.max(1, Math.min(5, state.phase || 1))}
+                    unlockedPhases={unlockedPhases}
+                    workshops={workshops}
+                    onJumpToPhase={(p) => {
+                      if (isStreaming) return;
+                      const skip = p === 3 ? '3a' : String(p);
+                      sendMessage(`[SKIP TO phase:${skip}]`);
+                    }}
+                  />
                 </div>
               </div>
             </div>
@@ -565,15 +597,16 @@ export default function CboProfilePage() {
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.length === 0 && state.phase === 0 && (
-              <div className="text-center text-muted-foreground py-8">
-                <Leaf className="w-12 h-12 mx-auto mb-3 text-green-500" />
-                <p className="text-lg mb-2">{t('cbo.welcomeTitle')}</p>
-                <p className="text-sm mb-4">{t('cbo.welcomeSubtitle')}</p>
-                <Button className="bg-green-600 hover:bg-green-700" onClick={() => sendMessage(lang === 'pt'
-                  ? "Iniciar o perfil de intervenção comunitária para Porto Alegre. Use o fluxo /cbo-intervention. Sempre use a ferramenta ask_user para perguntas de múltipla escolha. Na primeira mensagem, mencione que o usuário pode enviar documentos existentes (propostas, relatórios, planos, fotos) no chat a qualquer momento — você vai extrair as informações e preencher as seções automaticamente."
-                  : "Start the CBO intervention profile for Porto Alegre. Use the /cbo-intervention skill flow. Always use the ask_user tool for multiple-choice questions. In your first message, mention that the user can drop existing documents (proposals, reports, plans, photos) into the chat at any time — you'll extract info and auto-fill sections.",
-                  true // hide system prompt from chat
-                )}>
+              <div className="text-center text-muted-foreground py-10 max-w-sm mx-auto">
+                <div className="inline-flex w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 items-center justify-center mb-4">
+                  <Leaf className="w-6 h-6 text-emerald-600 dark:text-emerald-300" />
+                </div>
+                <h3 className="text-xl font-semibold tracking-tight text-foreground mb-1.5">{t('cbo.welcomeTitle')}</h3>
+                <p className="text-sm leading-relaxed mb-5">{t('cbo.welcomeSubtitle')}</p>
+                <Button
+                  className="bg-emerald-600 hover:bg-emerald-700 rounded-full px-6 h-10"
+                  onClick={kickoffChat}
+                >
                   {t('cbo.startProfile')}
                 </Button>
               </div>
@@ -693,7 +726,7 @@ export default function CboProfilePage() {
         </div>
 
         {/* RIGHT: Document / Map / Scorecard */}
-        <div className="w-1/2 flex flex-col bg-muted/30">
+        <div className="hidden md:flex w-1/2 flex-col bg-muted/30">
           <div className="border-b bg-background">
             <div className="px-4 pt-3 pb-0">
               <h2 className="text-base font-semibold">{state.orgName || t('cbo.interventionProfile')}</h2>

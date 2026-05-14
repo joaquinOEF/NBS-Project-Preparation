@@ -26,32 +26,48 @@
         "floodParks": {
           "name": "Floodable Parks",
           "description": "Public green spaces designed to store stormwater during heavy rain and return to use afterwards.",
-          "hazards": ["Flood"]
+          "hazards": [
+            "Flood"
+          ]
         },
         "bioswales": {
           "name": "Bioswales & Rain Gardens",
           "description": "Vegetated channels and small depressions that slow runoff, filter pollutants, and recharge groundwater.",
-          "hazards": ["Flood", "Water quality"]
+          "hazards": [
+            "Flood",
+            "Water quality"
+          ]
         },
         "urbanForests": {
           "name": "Urban Forests",
           "description": "Dense tree canopy that cools neighborhoods, improves air quality, and creates habitat for wildlife.",
-          "hazards": ["Heat", "Air quality"]
+          "hazards": [
+            "Heat",
+            "Air quality"
+          ]
         },
         "greenCorridors": {
           "name": "Green Corridors",
           "description": "Connected strips of vegetation that link parks and rivers, giving people and wildlife a cooler, greener path.",
-          "hazards": ["Heat", "Biodiversity"]
+          "hazards": [
+            "Heat",
+            "Biodiversity"
+          ]
         },
         "wetlands": {
           "name": "Wetland Restoration",
           "description": "Rehabilitated wetlands that buffer floods, filter water, sequester carbon, and anchor biodiversity.",
-          "hazards": ["Flood", "Biodiversity"]
+          "hazards": [
+            "Flood",
+            "Biodiversity"
+          ]
         },
         "slopeStabilize": {
           "name": "Slope Stabilization",
           "description": "Living walls, terraces, and deep-rooted plantings that reduce landslide risk on steep urban slopes.",
-          "hazards": ["Landslide"]
+          "hazards": [
+            "Landslide"
+          ]
         }
       }
     }
@@ -82,34 +98,34 @@
       "updatedAgo_one": "Updated {{count}} day ago",
       "updatedAgo_other": "Updated {{count}} days ago",
       "phase": {
-        "who":        "Phase 1 — Who We Are",
-        "where":      "Phase 2 — Where We Work",
-        "building":   "Phase 3a — What We're Building",
-        "impact":     "Phase 3b — Expected Impact",
+        "who": "Phase 1 — Who We Are",
+        "where": "Phase 2 — Where We Work",
+        "building": "Phase 3a — What We're Building",
+        "impact": "Phase 3b — Expected Impact",
         "operations": "Phase 3c — Ops & Sustainability",
-        "needs":      "Phase 4 — What We Need",
-        "results":    "Phase 5 — Results & Evidence"
+        "needs": "Phase 4 — What We Need",
+        "results": "Phase 5 — Results & Evidence"
       },
       "intervention": {
-        "notChosen":             "Intervention not yet chosen",
-        "bioswales":             "Bioswales & Rain Gardens",
-        "flood-parks":           "Floodable Parks",
-        "urban-forests":         "Urban Forests",
-        "green-corridors":       "Green Corridors",
-        "wetlands":              "Wetland Restoration",
-        "slope-stabilization":   "Slope Stabilization"
+        "notChosen": "Intervention not yet chosen",
+        "bioswales": "Bioswales & Rain Gardens",
+        "flood-parks": "Floodable Parks",
+        "urban-forests": "Urban Forests",
+        "green-corridors": "Green Corridors",
+        "wetlands": "Wetland Restoration",
+        "slope-stabilization": "Slope Stabilization"
       },
       "maturityBand": {
-        "emerging":   "Emerging",
+        "emerging": "Emerging",
         "developing": "Developing",
-        "building":   "Building",
-        "mature":     "Mature"
+        "building": "Building",
+        "mature": "Mature"
       },
       "nextAction": {
-        "reviewNeeds":           "Review Phase 4 — What We Need",
-        "completeIntervention":  "Finish choosing an intervention (Phase 3a)",
-        "publishScorecard":      "Publish maturity scorecard to funders",
-        "beginProfile":          "Begin Phase 1 — Who We Are"
+        "reviewNeeds": "Review Phase 4 — What We Need",
+        "completeIntervention": "Finish choosing an intervention (Phase 3a)",
+        "publishScorecard": "Publish maturity scorecard to funders",
+        "beginProfile": "Begin Phase 1 — Who We Are"
       },
       "toastTitle": "Prototype view",
       "toastBody": "In Phase 3, clicking here would open {{project}}'s workspace.",
@@ -628,7 +644,6 @@
     "minorContour": "Minor Contour",
     "selectCategory": "Select Intervention Category",
     "selectedInterventions": "Selected Interventions",
-    "saveInterventions": "Save Interventions",
     "clickToSelect": "Click to select interventions",
     "moreDetails": "More details",
     "scale": "Scale",
@@ -893,11 +908,7 @@
       "VANDALISM": "Vandalism",
       "PESTS_DISEASE": "Pests/Disease"
     },
-    "riskLevel": {
-      "LOW": "Low",
-      "MEDIUM": "Medium",
-      "HIGH": "High"
-    },
+    "riskLevel": "Risk Level",
     "mitigationPlaceholder": "Describe mitigation measures...",
     "noMitigation": "No mitigation defined",
     "readinessGate": "Readiness Gate",
@@ -1052,12 +1063,10 @@
     "miroPromptDesc": "Diagram prompt for Miro",
     "miroPromptCopied": "Miro prompt copied to clipboard",
     "conceptNoteDesc": "Formatted for concept notes",
-    "notAssigned": "Not assigned",
     "operatingModelLabel": "Operating Model",
     "operatorLabel": "Operator",
     "verifierLabel": "Verifier",
-    "communityRoleLabel": "Community Role",
-    "riskLevel": "Risk Level"
+    "communityRoleLabel": "Community Role"
   },
   "bm": {
     "pageTitle": "Business Model",
@@ -1805,7 +1814,41 @@
       "operations_sustain": "3c. Operations & Sustainability",
       "needs_assessment": "4. What We Need",
       "results_evidence": "5. Results & Evidence"
-    }
+    },
+    "welcome": {
+      "brand": "COUGAR · Vila Flores",
+      "greeting": "Hi,",
+      "neighborhood": "from {{n}}",
+      "invitationLead": "You've been invited to the {{cohort}} platform — a quiet space to share what your organization does, where you work, and what you need to move your project forward.",
+      "invitationFraming": "We'll build this together, one part at a time. Each section opens after the workshop where we cover it.",
+      "nextWorkshopLabel": "Next workshop",
+      "whatWeWillDoLabel": "What we'll do together",
+      "step1": "Who you are",
+      "step2": "Where you work",
+      "step3": "What you build",
+      "step4": "What you need",
+      "step5": "Results & evidence",
+      "ctaStart": "Start",
+      "ctaResume": "Continue where I left off",
+      "ctaStartOver": "Or start over",
+      "timeEstimate": "About 20 min total, across the workshops. Saves automatically.",
+      "footer": "Open Earth Foundation · COUGAR pilot"
+    },
+    "progress": {
+      "sectionOf": "Section {{current}} of {{total}}",
+      "phase": {
+        "who": "Who you are",
+        "where": "Where you work",
+        "building": "What you build",
+        "needs": "What you need",
+        "results": "Results & evidence"
+      },
+      "lockedWithWorkshop": "Opens after {{workshop}}{{date}}",
+      "lockedNoWorkshop": "Your coordinator will open this section."
+    },
+    "cohortWelcomePrefix": "Welcome,",
+    "cohortPhasesUnlocked": "Sections open: {{phases}}",
+    "phaseLocked": "Your coordinator will unlock this after the next workshop."
   },
   "mapMicroapp": {
     "layers": "Layers",
