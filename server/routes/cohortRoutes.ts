@@ -121,16 +121,30 @@ export function registerCohortRoutes(app: Express): void {
     res.json({ ok: true, updated: targets.length });
   }));
 
-  // Member-facing read (no auth beyond knowing the slug)
+  // Member-facing read (no auth beyond knowing the slug). Also returns the
+  // cohort's workshop cadence so the CBO welcome page can show *which*
+  // workshop will unlock their next phase, and when.
   app.get('/api/cbo-member/:memberSlug', wrap(async (req, res) => {
     const member = await findMemberBySlug(req.params.memberSlug);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+
+    const [cohort] = await db.select().from(cohorts).where(eq(cohorts.id, member.cohortId)).limit(1);
+    const workshops = (cohort?.settings as CohortSettings | null)?.workshops ?? [];
+
+    const unlocked = (member.unlockedPhases as number[] | null) ?? [1];
+    const maxUnlocked = Math.max(0, ...unlocked);
+    const nextPhase = maxUnlocked + 1;
+    const nextWorkshop = workshops.find(w => w.unlocksPhase === nextPhase) ?? null;
+
     res.json({
       id: member.id,
       orgName: member.orgName,
       neighborhood: member.neighborhood,
-      unlockedPhases: member.unlockedPhases ?? [1],
+      unlockedPhases: unlocked,
       cboStateId: member.cboStateId,
+      cohort: cohort ? { id: cohort.id, name: cohort.name } : null,
+      workshops,
+      nextWorkshop,
     });
   }));
 
