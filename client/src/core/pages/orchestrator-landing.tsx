@@ -149,27 +149,58 @@ const BAND_CHIP: Record<ReturnType<typeof maturityBand>, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Map panel — CartoDB Positron tiles, one marker per CBO with coords.
-// Selected state is driven by `selectedId`; clicks and mouseovers call
-// `onSelect`, which the parent also uses to sync card hover highlighting.
+// Risk layer styling — neighborhood choropleth keyed by priorityScore from
+// `porto-alegre-neighborhood-zones.json`. Bands are derived from the
+// distribution in that file (scores ~0..2.5+); colors progress from green to
+// red so the eye lands first on the urgent recruitment targets.
+// ---------------------------------------------------------------------------
+type RiskLayers = {
+  hotspots: boolean;     // composite_hotspot raster tiles
+  recruitZones: boolean; // bairro choropleth by priorityScore
+};
+
+const PRIORITY_BANDS: Array<{ max: number; fill: string; label: string }> = [
+  { max: 0.5, fill: '#86efac', label: 'low' },        // emerald-300
+  { max: 1.0, fill: '#fde68a', label: 'medium' },     // amber-200
+  { max: 1.5, fill: '#fb923c', label: 'high' },       // orange-400
+  { max: Infinity, fill: '#ef4444', label: 'very high' }, // red-500
+];
+
+function priorityFill(score: number): string {
+  for (const band of PRIORITY_BANDS) if (score <= band.max) return band.fill;
+  return PRIORITY_BANDS[PRIORITY_BANDS.length - 1].fill;
+}
+
+// ---------------------------------------------------------------------------
+// Map panel — CartoDB Positron base + CBO markers + toggleable risk overlays
+// (composite hotspot raster, bairro choropleth). Selected state synced with
+// the right-rail cards via `selectedId` / `onSelect`.
 // ---------------------------------------------------------------------------
 function MapPanel({
   projects,
   selectedId,
   onSelect,
+  layers,
+  onBairroClick,
 }: {
   projects: CboDemoProject[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  layers: RiskLayers;
+  onBairroClick: (info: { name: string; primaryHazard: string; population: number; priorityScore: number }) => void;
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const hotspotsLayerRef = useRef<L.TileLayer | null>(null);
+  const recruitLayerRef = useRef<L.GeoJSON | null>(null);
+  const neighborhoodCacheRef = useRef<any>(null);
 
-  // Keep a ref to the latest onSelect so we don't re-create the map when the
-  // parent's callback identity changes.
+  // Stable refs for callbacks so adding/removing layers doesn't remount the map.
   const onSelectRef = useRef(onSelect);
   useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
+  const onBairroClickRef = useRef(onBairroClick);
+  useEffect(() => { onBairroClickRef.current = onBairroClick; }, [onBairroClick]);
 
   // Mount the map once.
   useEffect(() => {
@@ -221,6 +252,8 @@ function MapPanel({
       map.remove();
       mapInstanceRef.current = null;
       markersRef.current.clear();
+      hotspotsLayerRef.current = null;
+      recruitLayerRef.current = null;
     };
     // Intentionally run once; projects is stable demo data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -235,9 +268,145 @@ function MapPanel({
     });
   }, [selectedId]);
 
+  // Toggle the hotspot raster layer.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (layers.hotspots && !hotspotsLayerRef.current) {
+      hotspotsLayerRef.current = L.tileLayer('/tiles/composite_hotspot/{z}/{x}/{y}.png', {
+        opacity: 0.65,
+        maxNativeZoom: 14,
+        attribution: 'OEF risk grid (250m)',
+      }).addTo(map);
+    } else if (!layers.hotspots && hotspotsLayerRef.current) {
+      map.removeLayer(hotspotsLayerRef.current);
+      hotspotsLayerRef.current = null;
+    }
+  }, [layers.hotspots]);
+
+  // Toggle the bairro choropleth (priorityScore). GeoJSON loaded lazily +
+  // cached in a ref so repeat toggles are instant.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    let cancelled = false;
+
+    if (layers.recruitZones && !recruitLayerRef.current) {
+      const buildLayer = (fc: any) => {
+        if (!mapInstanceRef.current || cancelled) return;
+        const layer = L.geoJSON(fc, {
+          style: (feat: any) => ({
+            color: '#ffffff',
+            weight: 1,
+            opacity: 0.85,
+            fillColor: priorityFill(feat?.properties?.priorityScore ?? 0),
+            fillOpacity: 0.5,
+          }),
+          onEachFeature: (feat: any, lyr: L.Layer) => {
+            const p = feat.properties || {};
+            const name: string = p.neighbourhoodName || 'Unknown';
+            const hazard: string = (p.primaryHazard || '').toString();
+            const pop: number = Math.round(p.populationTotal || 0);
+            const score: number = +p.priorityScore || 0;
+            const tipHtml = `<b>${name}</b><br/>${hazard ? hazard.toLowerCase() + ' risk · ' : ''}${pop.toLocaleString()} people<br/>priority ${score.toFixed(2)}`;
+            (lyr as L.Path).bindTooltip(tipHtml, { direction: 'top', className: 'orch-marker-tip', sticky: true });
+            lyr.on('click', () => onBairroClickRef.current({ name, primaryHazard: hazard, population: pop, priorityScore: score }));
+            lyr.on('mouseover', () => (lyr as L.Path).setStyle({ weight: 2.5, color: '#0f172a' }));
+            lyr.on('mouseout', () => (lyr as L.Path).setStyle({ weight: 1, color: '#ffffff' }));
+          },
+        });
+        layer.addTo(mapInstanceRef.current);
+        // Send the choropleth underneath the CBO markers so cards stay clickable.
+        layer.bringToBack();
+        recruitLayerRef.current = layer;
+      };
+
+      if (neighborhoodCacheRef.current) {
+        buildLayer(neighborhoodCacheRef.current);
+      } else {
+        fetch('/sample-data/porto-alegre-neighborhood-zones.json')
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (cancelled || !data?.geoJson) return;
+            neighborhoodCacheRef.current = data.geoJson;
+            buildLayer(data.geoJson);
+          })
+          .catch(() => {});
+      }
+    } else if (!layers.recruitZones && recruitLayerRef.current) {
+      map.removeLayer(recruitLayerRef.current);
+      recruitLayerRef.current = null;
+    }
+
+    return () => { cancelled = true; };
+  }, [layers.recruitZones]);
+
   return (
     <div className="relative h-[420px] md:h-full w-full overflow-hidden rounded-xl border border-foreground/10 bg-muted">
       <div ref={mapRef} className="absolute inset-0" />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Layer controls — small overlay top-right of the map. Toggles each risk
+// overlay; expands to show a band legend when the choropleth is on.
+// ---------------------------------------------------------------------------
+function MapLayerControls({
+  layers,
+  onChange,
+}: {
+  layers: RiskLayers;
+  onChange: (next: RiskLayers) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="absolute top-3 right-3 z-[400] rounded-lg border border-foreground/10 bg-background/90 backdrop-blur-sm px-3 py-2.5 shadow-md text-xs space-y-1.5 w-[200px]">
+      <div className="font-medium text-foreground/80 uppercase tracking-wide text-[10px]">
+        {t('orchestrator.map.riskOverlays', { defaultValue: 'Risk overlays' })}
+      </div>
+      <label className="flex items-center gap-2 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={layers.recruitZones}
+          onChange={(e) => onChange({ ...layers, recruitZones: e.target.checked })}
+          className="h-3.5 w-3.5 accent-red-500"
+          data-testid="toggle-recruit-zones"
+        />
+        <span className="text-foreground/90">
+          {t('orchestrator.map.recruitZones', { defaultValue: 'Recruit zones (bairros)' })}
+        </span>
+      </label>
+      <label className="flex items-center gap-2 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={layers.hotspots}
+          onChange={(e) => onChange({ ...layers, hotspots: e.target.checked })}
+          className="h-3.5 w-3.5 accent-amber-500"
+          data-testid="toggle-hotspots"
+        />
+        <span className="text-foreground/90">
+          {t('orchestrator.map.hotspots', { defaultValue: 'Hazard hotspots (250m)' })}
+        </span>
+      </label>
+
+      {layers.recruitZones && (
+        <div className="pt-1.5 mt-1 border-t border-foreground/5 space-y-0.5">
+          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">
+            {t('orchestrator.map.priorityScore', { defaultValue: 'Priority score' })}
+          </div>
+          {PRIORITY_BANDS.map((b, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-sm" style={{ background: b.fill }} />
+              <span className="text-[10px] text-muted-foreground">
+                {i === 0 ? `≤ ${b.max.toFixed(1)}` :
+                 i === PRIORITY_BANDS.length - 1 ? `> ${PRIORITY_BANDS[i - 1].max.toFixed(1)}` :
+                 `${PRIORITY_BANDS[i - 1].max.toFixed(1)} – ${b.max.toFixed(1)}`}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -396,6 +565,30 @@ export default function OrchestratorLandingPage() {
   const locale: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [riskLayers, setRiskLayers] = useState<RiskLayers>({ hotspots: false, recruitZones: false });
+
+  const handleBairroClick = (info: { name: string; primaryHazard: string; population: number; priorityScore: number }) => {
+    // For this PR: surface a toast describing the bairro. The follow-up PR
+    // (once #132's invite dialog is on main) wires this into a pre-filled
+    // "Invite a CBO" flow so the recruit zone → invitation step is one click.
+    const hazardLabel = info.primaryHazard
+      ? t(`orchestrator.map.hazard.${info.primaryHazard.toLowerCase()}`, {
+          defaultValue: info.primaryHazard.toLowerCase().replace(/_/g, ' + '),
+        })
+      : '';
+    toast({
+      title: t('orchestrator.map.recruitFrom', {
+        defaultValue: 'Recruit from {{name}}',
+        name: info.name,
+      }),
+      description: t('orchestrator.map.recruitDesc', {
+        defaultValue: '{{hazard}} risk · {{pop}} people · priority {{score}}',
+        hazard: hazardLabel || 'mixed',
+        pop: info.population.toLocaleString(),
+        score: info.priorityScore.toFixed(2),
+      }),
+    });
+  };
 
   const {
     mode, cohort, members, coordinatorSlug,
@@ -679,11 +872,16 @@ export default function OrchestratorLandingPage() {
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 md:items-stretch">
           {/* Map column — ~60% on desktop */}
           <div className="md:flex-[3] md:min-h-[640px]">
-            <MapPanel
-              projects={projects}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-            />
+            <div className="relative h-[420px] md:h-full w-full">
+              <MapPanel
+                projects={projects}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                layers={riskLayers}
+                onBairroClick={handleBairroClick}
+              />
+              <MapLayerControls layers={riskLayers} onChange={setRiskLayers} />
+            </div>
           </div>
 
           {/* Card list column — ~40%, independently scrollable */}
