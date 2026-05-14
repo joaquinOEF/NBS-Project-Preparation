@@ -181,22 +181,22 @@ export default function CboProfilePage() {
   // Cohort membership: if `?cbo=<memberSlug>` is in the URL, this CBO is part
   // of a coordinator-managed cohort and the coordinator gates phase access.
   const [memberSlug, setMemberSlug] = useState<string | null>(null);
+  const [memberInfo, setMemberInfo] = useState<{ orgName: string; neighborhood: string | null } | null>(null);
   const [unlockedPhases, setUnlockedPhases] = useState<number[]>([1, 2, 3, 4, 5]); // ungated by default
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const slug = params.get('cbo');
     if (!slug) return;
     setMemberSlug(slug);
-    fetch(`/api/cbo-member/${slug}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data?.unlockedPhases) setUnlockedPhases(data.unlockedPhases); })
-      .catch(() => {});
+    const applyMember = (data: any) => {
+      if (!data) return;
+      if (data.unlockedPhases) setUnlockedPhases(data.unlockedPhases);
+      if (data.orgName) setMemberInfo({ orgName: data.orgName, neighborhood: data.neighborhood ?? null });
+    };
+    fetch(`/api/cbo-member/${slug}`).then(r => r.ok ? r.json() : null).then(applyMember).catch(() => {});
     // Re-fetch on focus so coordinator unlocks propagate without a hard reload.
     const onFocus = () => {
-      fetch(`/api/cbo-member/${slug}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(data => { if (data?.unlockedPhases) setUnlockedPhases(data.unlockedPhases); })
-        .catch(() => {});
+      fetch(`/api/cbo-member/${slug}`).then(r => r.ok ? r.json() : null).then(applyMember).catch(() => {});
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
@@ -562,6 +562,30 @@ export default function CboProfilePage() {
               <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={handleRestart}><RotateCcw className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>{t('cbo.startOver')}</TooltipContent></Tooltip>
             </div>
           </div>
+
+          {/* Cohort welcome banner — only when arrived via ?cbo=<slug> */}
+          {memberInfo && (
+            <div className="px-3 py-2 border-b bg-emerald-50/60 dark:bg-emerald-950/20">
+              <div className="flex items-center gap-2">
+                <Leaf className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <p className="text-xs leading-tight">
+                  <span className="text-muted-foreground">
+                    {t('cbo.cohortWelcomePrefix', { defaultValue: 'Welcome,' })}
+                  </span>{' '}
+                  <span className="font-semibold">{memberInfo.orgName}</span>
+                  {memberInfo.neighborhood && (
+                    <span className="text-muted-foreground"> · {memberInfo.neighborhood}</span>
+                  )}
+                </p>
+                <span className="ml-auto text-[10px] text-muted-foreground">
+                  {t('cbo.cohortPhasesUnlocked', {
+                    defaultValue: 'Phases unlocked: {{phases}}',
+                    phases: unlockedPhases.join(', '),
+                  })}
+                </span>
+              </div>
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.length === 0 && state.phase === 0 && (

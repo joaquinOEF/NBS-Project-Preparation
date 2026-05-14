@@ -29,6 +29,12 @@ import { useToast } from '@/core/hooks/use-toast';
 import { useResetRole } from '@/core/contexts/role-context';
 import { useCohort } from '@/core/hooks/useCohort';
 import type { CohortMember, WorkshopConfig } from '@shared/cohort-schema';
+import {
+  CreateCohortDialog,
+  LoadCohortDialog,
+  InviteCboDialog,
+  ShareLinkDialog,
+} from '@/core/components/orchestrator/CohortDialogs';
 
 // ---------------------------------------------------------------------------
 // Data model — mirrors shared/cbo-schema.ts fields relevant to a portfolio
@@ -408,15 +414,31 @@ export default function OrchestratorLandingPage() {
     return { sitesMapped, profilesInProgress, profilesComplete, total: projects.length };
   }, [projects]);
 
+  // Dialog state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [loadOpen, setLoadOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string>('');
+  const [shareContext, setShareContext] = useState<
+    | { kind: 'cbo'; orgName: string }
+    | { kind: 'coordinator'; cohortName: string }
+    | null
+  >(null);
+
+  const openShare = (url: string, ctx: typeof shareContext) => {
+    setShareUrl(url);
+    setShareContext(ctx);
+    setShareOpen(true);
+  };
+
   const openProject = (p: CboDemoProject) => {
     const member = memberById.get(p.id);
     if (mode === 'live' && member?.memberSlug) {
-      const url = `${window.location.origin}/cbo-profile?cbo=${member.memberSlug}`;
-      navigator.clipboard?.writeText(url).catch(() => {});
-      toast({
-        title: t('orchestrator.cohort.shareLinkCopied', { defaultValue: 'Share link copied' }),
-        description: url,
-      });
+      openShare(
+        `${window.location.origin}/cbo-profile?cbo=${member.memberSlug}`,
+        { kind: 'cbo', orgName: member.orgName }
+      );
       return;
     }
     toast({
@@ -450,44 +472,43 @@ export default function OrchestratorLandingPage() {
     toast({ title: t('orchestrator.cohort.bulkUnlocked', { defaultValue: `Phase ${phase} unlocked for cohort`, phase }) });
   };
 
-  const handleInvite = async () => {
+  const handleInviteOpen = () => {
     if (mode !== 'live') {
       toast({ title: t('orchestrator.cohort.sampleModeNotice', { defaultValue: 'Create a cohort to invite CBOs' }) });
       return;
     }
-    const orgName = window.prompt(t('orchestrator.cohort.invitePromptName', { defaultValue: 'CBO name?' }));
-    if (!orgName) return;
-    const neighborhood = window.prompt(t('orchestrator.cohort.invitePromptNeighborhood', { defaultValue: 'Neighborhood? (optional)' })) || undefined;
-    const created = await invite({ orgName, neighborhood });
-    if (created) {
-      const url = `${window.location.origin}/cbo-profile?cbo=${created.memberSlug}`;
-      navigator.clipboard?.writeText(url).catch(() => {});
-      toast({
-        title: t('orchestrator.cohort.inviteCreated', { defaultValue: 'Invitation created — link copied' }),
-        description: url,
-      });
-    }
+    setInviteOpen(true);
   };
 
-  const handleCreateCohort = async () => {
-    const name = window.prompt(t('orchestrator.cohort.createPromptName', { defaultValue: 'Cohort name?' }), 'Vila Flores cohort');
-    if (!name) return;
+  const handleInviteSubmit = async (params: { orgName: string; neighborhood?: string; role: 'priority' | 'alternate' }) => {
+    const created = await invite(params);
+    if (!created) {
+      toast({ title: t('orchestrator.cohort.inviteFailed', { defaultValue: 'Could not create invitation' }) });
+      return null;
+    }
+    // Open the share dialog with the new CBO link.
+    openShare(
+      `${window.location.origin}/cbo-profile?cbo=${created.memberSlug}`,
+      { kind: 'cbo', orgName: created.orgName }
+    );
+    return { memberSlug: created.memberSlug, orgName: created.orgName };
+  };
+
+  const handleCreateSubmit = async (name: string) => {
     await createCohort(name);
     toast({ title: t('orchestrator.cohort.created', { defaultValue: 'Cohort created' }) });
   };
 
-  const handleLoadCohort = async () => {
-    const slug = window.prompt(t('orchestrator.cohort.loadPromptSlug', { defaultValue: 'Paste your coordinator link or slug' }));
-    if (!slug) return;
-    const cleaned = slug.includes('/') ? slug.trim().split('/').pop()! : slug.trim();
-    await loadCohort(cleaned);
+  const handleLoadSubmit = async (slug: string) => {
+    await loadCohort(slug);
   };
 
   const handleCopyCoordinatorLink = () => {
-    if (!coordinatorSlug) return;
-    const url = `${window.location.origin}/orchestrator?coord=${coordinatorSlug}`;
-    navigator.clipboard?.writeText(url).catch(() => {});
-    toast({ title: t('orchestrator.cohort.coordLinkCopied', { defaultValue: 'Coordinator link copied' }) });
+    if (!coordinatorSlug || !cohort) return;
+    openShare(
+      `${window.location.origin}/orchestrator?coord=${coordinatorSlug}`,
+      { kind: 'coordinator', cohortName: cohort.name }
+    );
   };
 
   const workshops: WorkshopConfig[] = cohort?.settings?.workshops ?? [];
@@ -540,17 +561,17 @@ export default function OrchestratorLandingPage() {
                     <Copy className="w-3.5 h-3.5 mr-1.5" />
                     {t('orchestrator.cohort.copyCoordLink', { defaultValue: 'My link' })}
                   </Button>
-                  <Button size="sm" onClick={handleInvite} data-testid="button-invite-cbo">
+                  <Button size="sm" onClick={handleInviteOpen} data-testid="button-invite-cbo">
                     <Plus className="w-3.5 h-3.5 mr-1.5" />
                     {t('orchestrator.cohort.invite', { defaultValue: 'Invite CBO' })}
                   </Button>
                 </>
               ) : (
                 <>
-                  <Button size="sm" variant="outline" onClick={handleLoadCohort} data-testid="button-load-cohort">
+                  <Button size="sm" variant="outline" onClick={() => setLoadOpen(true)} data-testid="button-load-cohort">
                     {t('orchestrator.cohort.loadExisting', { defaultValue: 'Load existing' })}
                   </Button>
-                  <Button size="sm" onClick={handleCreateCohort} data-testid="button-create-cohort">
+                  <Button size="sm" onClick={() => setCreateOpen(true)} data-testid="button-create-cohort">
                     <Plus className="w-3.5 h-3.5 mr-1.5" />
                     {t('orchestrator.cohort.create', { defaultValue: 'Create cohort' })}
                   </Button>
@@ -732,6 +753,12 @@ export default function OrchestratorLandingPage() {
           </BodySmall>
         </motion.div>
       </main>
+
+      {/* Cohort flow dialogs */}
+      <CreateCohortDialog open={createOpen} onOpenChange={setCreateOpen} onSubmit={handleCreateSubmit} />
+      <LoadCohortDialog open={loadOpen} onOpenChange={setLoadOpen} onSubmit={handleLoadSubmit} />
+      <InviteCboDialog open={inviteOpen} onOpenChange={setInviteOpen} onSubmit={handleInviteSubmit} />
+      <ShareLinkDialog open={shareOpen} onOpenChange={setShareOpen} url={shareUrl} context={shareContext} />
     </div>
   );
 }
