@@ -34,7 +34,10 @@ import {
   LoadCohortDialog,
   InviteCboDialog,
   ShareLinkDialog,
+  BulkInviteSummaryDialog,
+  type BulkInviteResult,
 } from '@/core/components/orchestrator/CohortDialogs';
+import { WorkshopCadence } from '@/core/components/orchestrator/WorkshopCadence';
 
 // ---------------------------------------------------------------------------
 // Data model — mirrors shared/cbo-schema.ts fields relevant to a portfolio
@@ -592,7 +595,7 @@ export default function OrchestratorLandingPage() {
 
   const {
     mode, cohort, members, coordinatorSlug,
-    createCohort, loadCohort, invite, unlockPhase,
+    createCohort, loadCohort, invite, unlockPhase, saveWorkshops,
   } = useCohort();
 
   const projects = useMemo(() => members.map(memberToView), [members]);
@@ -618,6 +621,8 @@ export default function OrchestratorLandingPage() {
     | { kind: 'coordinator'; cohortName: string }
     | null
   >(null);
+  const [bulkSummaryOpen, setBulkSummaryOpen] = useState(false);
+  const [bulkInvitations, setBulkInvitations] = useState<BulkInviteResult[]>([]);
 
   const openShare = (url: string, ctx: typeof shareContext) => {
     setShareUrl(url);
@@ -665,6 +670,43 @@ export default function OrchestratorLandingPage() {
     toast({ title: t('orchestrator.cohort.bulkUnlocked', { defaultValue: `Phase ${phase} unlocked for cohort`, phase }) });
   };
 
+  // Coordinator clicked "Open for cohort" on a specific workshop. Two things
+  // happen together: (1) bulk-unlock the workshop's phase for every member,
+  // (2) auto-stamp today's date into the workshop's `date` field so the
+  // cadence accumulates a real timeline as it runs. If the workshop already
+  // has a scheduled date, we respect it (no overwrite).
+  const handleOpenWorkshop = async (workshopIndex: number, todayISO: string) => {
+    if (mode !== 'live') {
+      toast({ title: t('orchestrator.cohort.sampleModeNotice', { defaultValue: 'Create a cohort to enable unlocks' }) });
+      return;
+    }
+    const workshop = (cohort?.settings as any)?.workshops?.[workshopIndex] as WorkshopConfig | undefined;
+    if (!workshop) return;
+    await unlockPhase('all', workshop.unlocksPhase);
+    // Stamp openedAt — the source of truth for state. Scheduled `date` is left
+    // alone so the coordinator can still see it (and edit it later if needed).
+    if (!workshop.openedAt) {
+      const updated: WorkshopConfig[] = ((cohort?.settings as any)?.workshops ?? []).map(
+        (w: WorkshopConfig, j: number) => (j === workshopIndex ? { ...w, openedAt: todayISO } : w),
+      );
+      await saveWorkshops(updated);
+    }
+    toast({
+      title: t('orchestrator.cohort.workshopOpened', {
+        defaultValue: `${workshop.name} opened for cohort`,
+        workshop: workshop.name,
+      }),
+    });
+  };
+
+  const handleUpdateWorkshops = async (next: WorkshopConfig[]) => {
+    if (mode !== 'live') {
+      toast({ title: t('orchestrator.cohort.sampleModeNotice', { defaultValue: 'Create a cohort to edit dates' }) });
+      return;
+    }
+    await saveWorkshops(next);
+  };
+
   const handleInviteOpen = () => {
     if (mode !== 'live') {
       toast({ title: t('orchestrator.cohort.sampleModeNotice', { defaultValue: 'Create a cohort to invite CBOs' }) });
@@ -673,18 +715,23 @@ export default function OrchestratorLandingPage() {
     setInviteOpen(true);
   };
 
+  // Pure: just makes the invite. The post-success share dialog is wired
+  // separately via onSingleSuccess so the bulk-invite loop doesn't trigger
+  // N share dialogs (it uses onBulkComplete instead).
   const handleInviteSubmit = async (params: { orgName: string; neighborhood?: string; role: 'priority' | 'alternate' }) => {
     const created = await invite(params);
     if (!created) {
       toast({ title: t('orchestrator.cohort.inviteFailed', { defaultValue: 'Could not create invitation' }) });
       return null;
     }
-    // Open the share dialog with the new CBO link.
-    openShare(
-      `${window.location.origin}/cbo-profile?cbo=${created.memberSlug}`,
-      { kind: 'cbo', orgName: created.orgName }
-    );
     return { memberSlug: created.memberSlug, orgName: created.orgName };
+  };
+
+  const handleSingleInviteSuccess = (result: { memberSlug: string; orgName: string }) => {
+    openShare(
+      `${window.location.origin}/cbo-profile?cbo=${result.memberSlug}`,
+      { kind: 'cbo', orgName: result.orgName },
+    );
   };
 
   const handleCreateSubmit = async (name: string) => {
@@ -773,43 +820,12 @@ export default function OrchestratorLandingPage() {
             </div>
           </div>
 
-          {/* Workshop cadence strip */}
-          {workshops.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-foreground/5">
-              <div className="flex items-center justify-between mb-2">
-                <BodySmall className="text-muted-foreground uppercase tracking-wide text-[10px]">
-                  {t('orchestrator.cohort.workshops', { defaultValue: 'Workshop cadence' })}
-                </BodySmall>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {workshops.map((w, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 rounded-lg border border-foreground/10 bg-background px-2.5 py-1.5"
-                  >
-                    <div className="flex flex-col">
-                      <span className="text-[11px] font-medium leading-tight">{w.name}</span>
-                      <span className="text-[10px] text-muted-foreground leading-tight">
-                        {w.date ?? t('orchestrator.cohort.noDate', { defaultValue: 'no date' })}
-                        {' · '}
-                        {t('orchestrator.cohort.unlocksPhase', { defaultValue: 'unlocks P{{phase}}', phase: w.unlocksPhase })}
-                      </span>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 px-2 text-[10px]"
-                      onClick={() => handleBulkUnlock(w.unlocksPhase)}
-                      data-testid={`button-bulk-unlock-${i}`}
-                    >
-                      <Unlock className="w-3 h-3 mr-1" />
-                      {t('orchestrator.cohort.unlockForCohort', { defaultValue: 'Unlock for cohort' })}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <WorkshopCadence
+            workshops={workshops}
+            disabled={mode !== 'live'}
+            onOpenWorkshop={handleOpenWorkshop}
+            onUpdateWorkshops={handleUpdateWorkshops}
+          />
         </div>
 
         {/* Co-design ribbon */}
@@ -955,8 +971,24 @@ export default function OrchestratorLandingPage() {
       {/* Cohort flow dialogs */}
       <CreateCohortDialog open={createOpen} onOpenChange={setCreateOpen} onSubmit={handleCreateSubmit} />
       <LoadCohortDialog open={loadOpen} onOpenChange={setLoadOpen} onSubmit={handleLoadSubmit} />
-      <InviteCboDialog open={inviteOpen} onOpenChange={setInviteOpen} onSubmit={handleInviteSubmit} />
+      <InviteCboDialog
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        onSubmit={handleInviteSubmit}
+        onSingleSuccess={handleSingleInviteSuccess}
+        onBulkComplete={(results) => {
+          if (results.length === 0) return;
+          setBulkInvitations(results);
+          setBulkSummaryOpen(true);
+        }}
+      />
       <ShareLinkDialog open={shareOpen} onOpenChange={setShareOpen} url={shareUrl} context={shareContext} />
+      <BulkInviteSummaryDialog
+        open={bulkSummaryOpen}
+        onOpenChange={setBulkSummaryOpen}
+        invitations={bulkInvitations}
+        origin={typeof window !== 'undefined' ? window.location.origin : ''}
+      />
     </div>
   );
 }

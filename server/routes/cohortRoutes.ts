@@ -92,6 +92,7 @@ export function registerCohortRoutes(app: Express): void {
       name: String(w.name ?? ''),
       date: w.date ? String(w.date) : null,
       unlocksPhase: Number(w.unlocksPhase) || 1,
+      openedAt: w.openedAt ? String(w.openedAt) : null,
     }));
     const settings: CohortSettings = { ...(cohort.settings as CohortSettings), workshops };
     await db.update(cohorts).set({ settings }).where(eq(cohorts.id, cohort.id));
