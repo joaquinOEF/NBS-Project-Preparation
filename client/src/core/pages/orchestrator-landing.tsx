@@ -19,14 +19,16 @@ import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Check, Clock, Compass, Droplets, Leaf, MapPin, Mountain,
-  Network, Sparkles, Sprout, Trees, Users, Waves,
+  ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, MapPin,
+  Mountain, Network, Plus, Sparkles, Sprout, Trees, Unlock, Users, Waves,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
 import { TitleLarge, BodyMedium, BodySmall } from '@oef/components';
 import { useToast } from '@/core/hooks/use-toast';
 import { useResetRole } from '@/core/contexts/role-context';
+import { useCohort } from '@/core/hooks/useCohort';
+import type { CohortMember, WorkshopConfig } from '@shared/cohort-schema';
 
 // ---------------------------------------------------------------------------
 // Data model — mirrors shared/cbo-schema.ts fields relevant to a portfolio
@@ -71,60 +73,42 @@ const TOTAL_SECTIONS = 7;
 const TOTAL_FLAGS = 6;
 const TOTAL_MATURITY = 27;
 
-const DEMO_PROJECTS: CboDemoProject[] = [
-  {
-    id: 'horta-cascata',
-    name: { en: 'Horta Comunitária Cascata', pt: 'Horta Comunitária Cascata' },
-    neighborhood: 'Cascata',
-    coords: [-30.115, -51.178],
-    currentPhase: 'needs',
-    sectionsComplete: 4,
-    interventionKey: 'bioswales',
-    maturityScore: 15,
-    priorityFlagsMet: 3,
-    updatedDaysAgo: 2,
-    nextActionKey: 'orchestrator.demo.nextAction.reviewNeeds',
-  },
-  {
-    id: 'arquipelago-verde',
-    name: { en: 'Coletivo Arquipélago Verde', pt: 'Coletivo Arquipélago Verde' },
-    neighborhood: 'Arquipélago',
-    coords: [-29.993, -51.263],
-    currentPhase: 'building',
-    sectionsComplete: 2,
-    interventionKey: 'wetlands',
-    maturityScore: 8,
-    priorityFlagsMet: 2,
-    updatedDaysAgo: 7,
-    nextActionKey: 'orchestrator.demo.nextAction.completeIntervention',
-  },
-  {
-    id: 'bosque-humaita',
-    name: { en: 'Agentes do Bosque Humaitá', pt: 'Agentes do Bosque Humaitá' },
-    neighborhood: 'Humaitá',
-    coords: [-29.995, -51.195],
-    currentPhase: 'results',
-    sectionsComplete: 7,
-    interventionKey: 'urban-forests',
-    maturityScore: 22,
-    priorityFlagsMet: 5,
-    updatedDaysAgo: 1,
-    nextActionKey: 'orchestrator.demo.nextAction.publishScorecard',
-  },
-  {
-    id: 'restinga-nova',
-    name: { en: 'Coletivo Restinga Nova', pt: 'Coletivo Restinga Nova' },
-    neighborhood: 'Restinga',
-    coords: null,
-    currentPhase: 'who',
-    sectionsComplete: 0,
-    interventionKey: null,
-    maturityScore: 0,
-    priorityFlagsMet: 0,
-    updatedDaysAgo: 0,
-    nextActionKey: 'orchestrator.demo.nextAction.beginProfile',
-  },
-];
+// Adapter: convert a CohortMember (server or sample) into the view-model the
+// existing card + map render from. Keeps the rendering code path single while
+// data source changes.
+const PHASE_TO_KEY: Record<number, PhaseKey> = {
+  1: 'who', 2: 'where', 3: 'building', 4: 'needs', 5: 'results',
+};
+const NEXT_ACTION_KEY: Record<number, string> = {
+  0: 'orchestrator.demo.nextAction.beginProfile',
+  1: 'orchestrator.demo.nextAction.beginProfile',
+  2: 'orchestrator.demo.nextAction.completeIntervention',
+  3: 'orchestrator.demo.nextAction.completeIntervention',
+  4: 'orchestrator.demo.nextAction.reviewNeeds',
+  5: 'orchestrator.demo.nextAction.publishScorecard',
+};
+
+function memberToView(m: CohortMember): CboDemoProject {
+  const sm = m as CohortMember & { displayName?: { en: string; pt: string }; coords?: [number, number] | null };
+  const updatedAt = m.snapshotUpdatedAt ? new Date(m.snapshotUpdatedAt) : null;
+  const daysAgo = updatedAt
+    ? Math.max(0, Math.floor((Date.now() - updatedAt.getTime()) / 86400000))
+    : 0;
+  const phaseNum = m.snapshotPhase ?? 1;
+  return {
+    id: m.id,
+    name: sm.displayName ?? { en: m.orgName, pt: m.orgName },
+    neighborhood: m.neighborhood ?? '',
+    coords: sm.coords ?? null,
+    currentPhase: PHASE_TO_KEY[phaseNum] ?? 'who',
+    sectionsComplete: m.snapshotSectionsComplete ?? 0,
+    interventionKey: (m.snapshotIntervention as InterventionKey | null) ?? null,
+    maturityScore: m.snapshotMaturityScore ?? 0,
+    priorityFlagsMet: m.snapshotFlagsMet ?? 0,
+    updatedDaysAgo: daysAgo,
+    nextActionKey: NEXT_ACTION_KEY[phaseNum] ?? NEXT_ACTION_KEY[1],
+  };
+}
 
 // Intervention → icon + tone (color family). Mirrors the landing showcase.
 const INTERVENTION_META: Record<InterventionKey, { Icon: typeof Leaf; tone: Tone }> = {
@@ -407,21 +391,106 @@ export default function OrchestratorLandingPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  const {
+    mode, cohort, members, coordinatorSlug,
+    createCohort, loadCohort, invite, unlockPhase,
+  } = useCohort();
+
+  const projects = useMemo(() => members.map(memberToView), [members]);
+  const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
+
   const stats = useMemo(() => {
-    const sitesMapped = DEMO_PROJECTS.filter(p => p.coords).length;
-    const profilesInProgress = DEMO_PROJECTS.filter(
+    const sitesMapped = projects.filter(p => p.coords).length;
+    const profilesInProgress = projects.filter(
       p => p.sectionsComplete > 0 && p.sectionsComplete < TOTAL_SECTIONS
     ).length;
-    const profilesComplete = DEMO_PROJECTS.filter(p => p.sectionsComplete === TOTAL_SECTIONS).length;
-    return { sitesMapped, profilesInProgress, profilesComplete, total: DEMO_PROJECTS.length };
-  }, []);
+    const profilesComplete = projects.filter(p => p.sectionsComplete === TOTAL_SECTIONS).length;
+    return { sitesMapped, profilesInProgress, profilesComplete, total: projects.length };
+  }, [projects]);
 
   const openProject = (p: CboDemoProject) => {
+    const member = memberById.get(p.id);
+    if (mode === 'live' && member?.memberSlug) {
+      const url = `${window.location.origin}/cbo-profile?cbo=${member.memberSlug}`;
+      navigator.clipboard?.writeText(url).catch(() => {});
+      toast({
+        title: t('orchestrator.cohort.shareLinkCopied', { defaultValue: 'Share link copied' }),
+        description: url,
+      });
+      return;
+    }
     toast({
       title: t('orchestrator.demo.toastTitle'),
       description: t('orchestrator.demo.toastBody', { project: p.name[locale] }),
     });
   };
+
+  const handleUnlockNext = async (member: CohortMember) => {
+    if (mode !== 'live') {
+      toast({ title: t('orchestrator.cohort.sampleModeNotice', { defaultValue: 'Create a cohort to enable unlocks' }) });
+      return;
+    }
+    const current = Array.isArray(member.unlockedPhases) ? member.unlockedPhases : [1];
+    const max = Math.max(0, ...current);
+    const next = Math.min(5, max + 1);
+    if (next === max) {
+      toast({ title: t('orchestrator.cohort.allUnlocked', { defaultValue: 'All phases already unlocked' }) });
+      return;
+    }
+    await unlockPhase([member.id], next);
+    toast({ title: t('orchestrator.cohort.phaseUnlocked', { defaultValue: `Phase ${next} unlocked`, phase: next }) });
+  };
+
+  const handleBulkUnlock = async (phase: number) => {
+    if (mode !== 'live') {
+      toast({ title: t('orchestrator.cohort.sampleModeNotice', { defaultValue: 'Create a cohort to enable unlocks' }) });
+      return;
+    }
+    await unlockPhase('all', phase);
+    toast({ title: t('orchestrator.cohort.bulkUnlocked', { defaultValue: `Phase ${phase} unlocked for cohort`, phase }) });
+  };
+
+  const handleInvite = async () => {
+    if (mode !== 'live') {
+      toast({ title: t('orchestrator.cohort.sampleModeNotice', { defaultValue: 'Create a cohort to invite CBOs' }) });
+      return;
+    }
+    const orgName = window.prompt(t('orchestrator.cohort.invitePromptName', { defaultValue: 'CBO name?' }));
+    if (!orgName) return;
+    const neighborhood = window.prompt(t('orchestrator.cohort.invitePromptNeighborhood', { defaultValue: 'Neighborhood? (optional)' })) || undefined;
+    const created = await invite({ orgName, neighborhood });
+    if (created) {
+      const url = `${window.location.origin}/cbo-profile?cbo=${created.memberSlug}`;
+      navigator.clipboard?.writeText(url).catch(() => {});
+      toast({
+        title: t('orchestrator.cohort.inviteCreated', { defaultValue: 'Invitation created — link copied' }),
+        description: url,
+      });
+    }
+  };
+
+  const handleCreateCohort = async () => {
+    const name = window.prompt(t('orchestrator.cohort.createPromptName', { defaultValue: 'Cohort name?' }), 'Vila Flores cohort');
+    if (!name) return;
+    await createCohort(name);
+    toast({ title: t('orchestrator.cohort.created', { defaultValue: 'Cohort created' }) });
+  };
+
+  const handleLoadCohort = async () => {
+    const slug = window.prompt(t('orchestrator.cohort.loadPromptSlug', { defaultValue: 'Paste your coordinator link or slug' }));
+    if (!slug) return;
+    const cleaned = slug.includes('/') ? slug.trim().split('/').pop()! : slug.trim();
+    await loadCohort(cleaned);
+  };
+
+  const handleCopyCoordinatorLink = () => {
+    if (!coordinatorSlug) return;
+    const url = `${window.location.origin}/orchestrator?coord=${coordinatorSlug}`;
+    navigator.clipboard?.writeText(url).catch(() => {});
+    toast({ title: t('orchestrator.cohort.coordLinkCopied', { defaultValue: 'Coordinator link copied' }) });
+  };
+
+  const workshops: WorkshopConfig[] = cohort?.settings?.workshops ?? [];
 
   return (
     <div className="min-h-screen relative bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-background dark:to-slate-950">
@@ -449,6 +518,86 @@ export default function OrchestratorLandingPage() {
       </header>
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+        {/* Cohort header — mode banner + actions */}
+        <div className="mb-6 rounded-xl border border-foreground/10 bg-card/60 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border ${
+                mode === 'live'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300'
+                  : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300'
+              }`}>
+                {mode === 'live'
+                  ? t('orchestrator.cohort.modeLive', { defaultValue: 'Live cohort' })
+                  : t('orchestrator.cohort.modeSample', { defaultValue: 'Sample mode' })}
+              </span>
+              <span className="text-sm font-medium tracking-tight">{cohort?.name ?? '—'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {mode === 'live' ? (
+                <>
+                  <Button size="sm" variant="outline" onClick={handleCopyCoordinatorLink} data-testid="button-copy-coord-link">
+                    <Copy className="w-3.5 h-3.5 mr-1.5" />
+                    {t('orchestrator.cohort.copyCoordLink', { defaultValue: 'My link' })}
+                  </Button>
+                  <Button size="sm" onClick={handleInvite} data-testid="button-invite-cbo">
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />
+                    {t('orchestrator.cohort.invite', { defaultValue: 'Invite CBO' })}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button size="sm" variant="outline" onClick={handleLoadCohort} data-testid="button-load-cohort">
+                    {t('orchestrator.cohort.loadExisting', { defaultValue: 'Load existing' })}
+                  </Button>
+                  <Button size="sm" onClick={handleCreateCohort} data-testid="button-create-cohort">
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />
+                    {t('orchestrator.cohort.create', { defaultValue: 'Create cohort' })}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Workshop cadence strip */}
+          {workshops.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-foreground/5">
+              <div className="flex items-center justify-between mb-2">
+                <BodySmall className="text-muted-foreground uppercase tracking-wide text-[10px]">
+                  {t('orchestrator.cohort.workshops', { defaultValue: 'Workshop cadence' })}
+                </BodySmall>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {workshops.map((w, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 rounded-lg border border-foreground/10 bg-background px-2.5 py-1.5"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-medium leading-tight">{w.name}</span>
+                      <span className="text-[10px] text-muted-foreground leading-tight">
+                        {w.date ?? t('orchestrator.cohort.noDate', { defaultValue: 'no date' })}
+                        {' · '}
+                        {t('orchestrator.cohort.unlocksPhase', { defaultValue: 'unlocks P{{phase}}', phase: w.unlocksPhase })}
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-[10px]"
+                      onClick={() => handleBulkUnlock(w.unlocksPhase)}
+                      data-testid={`button-bulk-unlock-${i}`}
+                    >
+                      <Unlock className="w-3 h-3 mr-1" />
+                      {t('orchestrator.cohort.unlockForCohort', { defaultValue: 'Unlock for cohort' })}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Co-design ribbon */}
         <motion.div
           initial={{ opacity: 0, y: -8 }}
@@ -510,7 +659,7 @@ export default function OrchestratorLandingPage() {
           {/* Map column — ~60% on desktop */}
           <div className="md:flex-[3] md:min-h-[640px]">
             <MapPanel
-              projects={DEMO_PROJECTS}
+              projects={projects}
               selectedId={selectedId}
               onSelect={setSelectedId}
             />
@@ -518,22 +667,49 @@ export default function OrchestratorLandingPage() {
 
           {/* Card list column — ~40%, independently scrollable */}
           <div className="md:flex-[2] md:max-h-[640px] md:overflow-y-auto pr-1 space-y-3">
-            {DEMO_PROJECTS.map((p, i) => (
-              <motion.div
-                key={p.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.15 + i * 0.06 }}
-              >
-                <ProjectCard
-                  project={p}
-                  locale={locale}
-                  selected={selectedId === p.id}
-                  onHover={setSelectedId}
-                  onOpen={openProject}
-                />
-              </motion.div>
-            ))}
+            {projects.map((p, i) => {
+              const member = memberById.get(p.id);
+              const maxUnlocked = Math.max(0, ...(member?.unlockedPhases ?? [1]));
+              const canUnlockNext = maxUnlocked < 5;
+              return (
+                <motion.div
+                  key={p.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.15 + i * 0.06 }}
+                >
+                  <ProjectCard
+                    project={p}
+                    locale={locale}
+                    selected={selectedId === p.id}
+                    onHover={setSelectedId}
+                    onOpen={openProject}
+                  />
+                  {member && (
+                    <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <Unlock className="w-3 h-3" />
+                        {t('orchestrator.cohort.unlockedThrough', {
+                          defaultValue: `Unlocked through Phase ${maxUnlocked}`,
+                          phase: maxUnlocked,
+                        })}
+                      </span>
+                      {canUnlockNext && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-[11px]"
+                          onClick={(e) => { e.stopPropagation(); handleUnlockNext(member); }}
+                          data-testid={`button-unlock-next-${p.id}`}
+                        >
+                          {t('orchestrator.cohort.unlockNext', { defaultValue: 'Unlock next phase' })}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
           </div>
         </div>
 

@@ -1,0 +1,62 @@
+// Cohort schema — orchestrator-managed groups of CBOs (Vila Flores pilot).
+// Slug-as-secret auth: coordinator has one slug, each invited CBO has another.
+// Workshop cadence lives in `cohort.settings` JSON; data layer holds only
+// `unlockedPhases` per member. See knowledge/runs/2026-05-14-cougar-backlog-refresh/
+// foundation-block-plan.md for the full design.
+
+import { sql } from 'drizzle-orm';
+import { pgTable, text, varchar, jsonb, timestamp, integer } from 'drizzle-orm/pg-core';
+
+export type WorkshopConfig = {
+  name: string;       // "Workshop 1"
+  date: string | null; // ISO date or null if unscheduled
+  unlocksPhase: number; // which CBO phase this workshop unlocks (1..5)
+};
+
+export type CohortSettings = {
+  workshops: WorkshopConfig[];
+};
+
+export const cohorts = pgTable('cohorts', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  coordinatorSlug: text('coordinator_slug').notNull().unique(),
+  name: text('name').notNull(),
+  settings: jsonb('settings').$type<CohortSettings>().default({ workshops: [] }),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const cohortMembers = pgTable('cohort_members', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  cohortId: varchar('cohort_id').notNull(),
+  memberSlug: text('member_slug').notNull().unique(),
+  // CBO state ID — links to the file-backed CBO profile (`knowledge/runs/cbo-<id>/`)
+  cboStateId: text('cbo_state_id'),
+  orgName: text('org_name').notNull(),
+  neighborhood: text('neighborhood'),
+  role: text('role').$type<'priority' | 'alternate'>().default('priority'),
+  origin: text('origin').$type<'cohort' | 'external'>().default('cohort'),
+  unlockedPhases: jsonb('unlocked_phases').$type<number[]>().default([1]),
+  invitedAt: timestamp('invited_at').defaultNow(),
+  startedAt: timestamp('started_at'),
+  // Inlined snapshot — orchestrator reads from these; CBO page pushes updates.
+  snapshotPhase: integer('snapshot_phase'),
+  snapshotSectionsComplete: integer('snapshot_sections_complete'),
+  snapshotMaturityScore: integer('snapshot_maturity_score'),
+  snapshotFlagsMet: integer('snapshot_flags_met'),
+  snapshotIntervention: text('snapshot_intervention'),
+  snapshotUpdatedAt: timestamp('snapshot_updated_at'),
+});
+
+export type Cohort = typeof cohorts.$inferSelect;
+export type CohortMember = typeof cohortMembers.$inferSelect;
+
+// Default workshops seed — Vila Flores 6-meeting convening series.
+// W6 is the wrap-up; doesn't unlock new content (unlocksPhase = 5 = no-op).
+export const DEFAULT_WORKSHOPS: WorkshopConfig[] = [
+  { name: 'Workshop 1 — Who We Are', date: null, unlocksPhase: 1 },
+  { name: 'Workshop 2 — Where We Work', date: null, unlocksPhase: 2 },
+  { name: 'Workshop 3 — What We Build', date: null, unlocksPhase: 3 },
+  { name: 'Workshop 4 — What We Need', date: null, unlocksPhase: 4 },
+  { name: 'Workshop 5 — Results & Evidence', date: null, unlocksPhase: 5 },
+  { name: 'Workshop 6 — Wrap-up & Review', date: null, unlocksPhase: 5 },
+];
