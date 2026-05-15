@@ -41,18 +41,24 @@ The `photoCredit` field on `caseStudies[]` in `shared/cbo-schema.ts` should be a
 
 ## Audit of existing intervention case-study photos
 
-Six photos already shipping in `client/public/assets/interventions/`. Verdicts based on the schema labels in `shared/cbo-schema.ts:87-142` (full visual audit requires opening each JPG; this doc flags what's verified by label-vs-source-search).
+Visual audit completed 2026-05-15 by reading each JPG directly. **Three are wrong, three plausibly correct.**
 
-| File | Labeled as | Verdict | Action |
-|---|---|---|---|
-| `bioswales.jpg` | "Bioretention Rain Garden, Portland USA" | ❌ **Not Brazilian.** Schema says Portland — this is the single clearest miss. The whole intervention library is supposed to read as Brazilian. | **Replace** with a Brazilian case. Recife UFPE pilot project documented at [scielo.br](http://www.scielo.br/j/ac/a/3mKRyFjSkPdBkhdvyVGZZLL/?lang=pt); São Paulo has multiple municipal projects. Need a verified-source photo. |
-| `flood-parks.jpg` | "Parque Barigui, Curitiba" | ⚠️ **Verify against Wikimedia.** Multiple high-quality Wikimedia photos exist for this park. | **Verify or replace** with `Parque_Barigui_-_Curitiba_DSC04494.JPG` (CC-BY-SA, photographer Agrinaldo Caires Fonseca). |
-| `green-corridors.jpg` | "Parque Capibaribe, Recife" | ⚠️ **Wikimedia category exists but no canonical photo found for Capibaribe specifically.** | **Verify** — if the existing JPG looks like the Recife Capibaribe project (linear riverside park, palms, walking paths), keep + attribute. Otherwise pull from [Prefeitura do Recife photo gallery](http://meioambiente.recife.pe.gov.br/parque-capibaribe) with permission. |
-| `green-roofs.jpg` | "Fundação Cásper Líbero, São Paulo" | ⚠️ **Specific project — Av. Paulista 900, Edifício Gazeta, 700 m² Mata Atlântica green roof by botanist Ricardo Cardim.** | **Verify** — the photo should show the rooftop forest with 130 native plant species, urban Av. Paulista context. If it's a generic green roof, replace. |
-| `urban-forests.jpg` | "Rua Gonçalo de Carvalho, Porto Alegre" | ⚠️ **Very recognizable place — 500m tipuana tree tunnel.** Easy to verify visually. | **Verify** — if the JPG isn't unmistakably the green-tunnel street with cobblestones + 19th-century buildings, replace. [Wikipedia article](https://pt.wikipedia.org/wiki/Rua_Gon%C3%A7alo_de_Carvalho) has source photos. |
-| `wetland-restoration.jpg` | "DRENURBS Parque Primeiro de Maio, Belo Horizonte" | ⚠️ **Verify against Wikimedia.** | **Verify or replace** with [`Parque_Primeiro_de_Maio_01.JPG`](https://commons.wikimedia.org/wiki/File:Parque_Primeiro_de_Maio_01.JPG) (Wikimedia Commons). |
+| File | What the photo actually shows | Verdict |
+|---|---|---|
+| `bioswales.jpg` | Single-story brick building with white-trimmed windows, sidewalk, lawn, mixed grasses + shrubs, metal drainage grate. **North American suburban institutional landscaping** (school or community-center grounds). Matches the schema's "Portland USA" label. | ❌ **Replace** — not Brazilian. Breaks the premise that our library shows Brazilian community-scale NBS. |
+| `flood-parks.jpg` | Park with palms, small pond, and a prominent **industrial brick chimney** in the background. The chimney is the giveaway — Parque Barigui is dominated by the Barigui river/lake and has no chimney landmark. The photo looks like **Parque Tanguá** or **Parque das Pedreiras** (former quarry/industrial sites Curitiba reclaimed). | ❌ **Replace** — wrong project. Photo is genuinely Brazilian, just mislabeled. |
+| `green-corridors.jpg` | Recife skyline across the Capibaribe river, with dense mangrove forest along the riverbank. Distinctively Recife — the mangrove + the specific high-rise cluster + the river width all match the Parque Capibaribe corridor. | ✅ **Looks correct.** Verify Wikimedia source for proper attribution. |
+| `green-roofs.jpg` | Rooftop garden viewed from above: pergola, lawn patches, benches, manicured paths. Surrounded by São Paulo residential buildings. **Not** the Fundação Cásper Líbero green roof — that's a famously dense 700m² Mata Atlântica forest with 130 native trees (designed by botanist Ricardo Cardim). This is a generic ornamental rooftop garden. | ❌ **Replace** — wrong project. Generic São Paulo rooftop, not the iconic Cásper Líbero forest. |
+| `urban-forests.jpg` | Tree-canopied cobblestone street with dense tipuana canopy forming a tunnel overhead, hanging epiphytes/bromeliads on the trunks, parked cars in the characteristic angled arrangement. Recognizably the famous "túnel verde." | ✅ **Correct.** Verify Wikimedia source for attribution. |
+| `wetland-restoration.jpg` | Modern engineered park with concrete retaining walls, an oval retention pond, paved walkways. Background shows peripheral urban housing. Matches the DRENURBS engineered-urban-park pattern in peripheral neighborhoods. | ✅ **Plausibly correct.** Compare with [`Parque_Primeiro_de_Maio_01.JPG`](https://commons.wikimedia.org/wiki/File:Parque_Primeiro_de_Maio_01.JPG) on Wikimedia for confirmation. |
 
-**One definite replacement (`bioswales.jpg`) + five visual verifications needed before pilot launch.**
+**Summary**: 3 must replace (`bioswales`, `flood-parks`, `green-roofs`), 3 keep + attribute (`green-corridors`, `urban-forests`, `wetland-restoration`).
+
+### Replacement sourcing notes
+
+- **`bioswales.jpg`** → Brazilian rain-garden case. Candidates: Recife UFPE pilot ([scielo.br](http://www.scielo.br/j/ac/a/3mKRyFjSkPdBkhdvyVGZZLL/?lang=pt)) · São Paulo municipal jardins de chuva program · Fortaleza tropical rain garden pilot. All academic-published — outreach needed for usable photo with permission.
+- **`flood-parks.jpg`** → Two options: (a) keep the photo but rename the case to match what it actually shows (Parque Tanguá / Pedreiras — both are valid Curitiba NBS examples), or (b) replace with verified Parque Barigui photo from [Wikimedia Commons DSC04494](https://commons.wikimedia.org/wiki/File:Parque_Barigui_-_Curitiba_DSC04494.JPG) (CC-BY-SA, Agrinaldo Caires Fonseca). Option (a) is faster + truthful.
+- **`green-roofs.jpg`** → Need a verified photo of the Av. Paulista 900 / Cásper Líbero Mata Atlântica forest. Direct outreach to [Eccaplan](https://eccaplan.com.br/conheca-o-primeiro-telhado-verde-da-avenida-paulista-em-sao-paulo/) (the source article) or to Ricardo Cardim's Sky Garden company.
 
 ## New photos to source for E2 NbsShowcaseCard
 
@@ -203,11 +209,13 @@ nbs_showcase_e2:
 
 Before pilot launch (June 11):
 
-1. **Visually audit** the 5 "needs_visual_check" interventions JPGs. Anything that doesn't clearly represent the named project gets replaced.
-2. **Replace** `bioswales.jpg` with a Brazilian rain-garden case.
-3. **Source the 3 E2 showcase cards** — Wikimedia for #1-2 is straightforward; reach out to Vila Flores for #3.
-4. **Outreach** for Prefeitura do Recife (Parque Capibaribe) + Eccaplan/Cásper Líbero (telhado verde) reuse permissions.
-5. **Add `photoSource`, `photoLicense`, `photoVerifiedAt` fields** to the case-study schema for machine-readable provenance, if not already present.
+1. ~~**Visually audit** the 6 existing JPGs~~ → ✅ done 2026-05-15 (see audit table above)
+2. **Replace `bioswales.jpg`** with a Brazilian rain-garden case (outreach to UFPE / São Paulo prefeitura)
+3. **Decide on `flood-parks.jpg`**: rename the case to match what's shown (Parque Tanguá), or replace with a verified Parque Barigui photo from Wikimedia
+4. **Replace `green-roofs.jpg`** with a verified Cásper Líbero Mata Atlântica forest photo (outreach to Eccaplan / Sky Garden)
+5. **Attribute the 3 keepers** (`green-corridors`, `urban-forests`, `wetland-restoration`) — find their actual source URLs, fill `photoCredit` properly
+6. **Source the 3 E2 showcase cards** — Wikimedia for #1-2 is straightforward; reach out to Vila Flores for #3
+7. **Add `photoSource`, `photoLicense`, `photoVerifiedAt` fields** to the case-study schema for machine-readable provenance, if not already present
 
 ## A word on tooling
 
