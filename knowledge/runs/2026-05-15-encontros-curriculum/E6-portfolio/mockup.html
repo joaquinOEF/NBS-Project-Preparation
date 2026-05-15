@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E6 — Portfólio · apresentação · mockup</title>
+<style>
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --ink: #18181b; --muted: #71717a;
+    --line: rgba(0,0,0,0.08); --accent: #059669; --accent-soft: #ecfdf5;
+    --accent-deep: #047857; --warm: #f59e0b; --warm-soft: #fef3c7;
+    --info: #0284c7; --info-soft: #e0f2fe;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; line-height: 1.5; font-size: 14px; }
+  .doc { max-width: 1280px; margin: 0 auto; padding: 48px 28px 96px; }
+  h1 { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 4px; }
+  h1 .small { font-size: 13px; font-weight: 400; color: var(--muted); }
+  h2.screen { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin: 56px 0 12px; }
+  .lede { color: var(--muted); margin: 8px 0 24px; max-width: 64ch; line-height: 1.6; }
+  .anno { font-size: 12px; color: var(--muted); margin: 8px 0 18px; padding-left: 14px; border-left: 2px solid var(--accent); max-width: 64ch; }
+  .scene { display: grid; grid-template-columns: 380px 1fr; gap: 36px; align-items: start; }
+  .scene .note h4 { font-size: 14px; margin: 0 0 6px; }
+  .scene .note p { font-size: 13px; color: var(--muted); margin: 0 0 10px; line-height: 1.6; }
+  .scene .note .kv { font-family: ui-monospace, monospace; font-size: 11px; background: #f4f4f5; padding: 10px 12px; border-radius: 8px; margin-top: 12px; white-space: pre-wrap; }
+  .scene-full { display: block; }
+  .phone { width: 380px; background: var(--surface); border: 1px solid var(--line); border-radius: 28px; overflow: hidden; box-shadow: 0 12px 36px -16px rgba(0,0,0,0.18); }
+  .phone .top-chrome { padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; }
+  .phone .frame-body { min-height: 640px; display: flex; flex-direction: column; }
+  .app-header { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .app-header .leaf { width: 28px; height: 28px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-deep); display:flex; align-items:center; justify-content:center; font-size: 13px; }
+  .app-header .id { flex: 1; min-width: 0; }
+  .app-header .org-name { font-size: 13px; font-weight: 600; line-height: 1.2; }
+  .app-header .meta { font-size: 10px; color: var(--muted); }
+  .progress-strip { padding: 8px 16px; border-bottom: 1px solid var(--line); }
+  .progress-strip .label { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+  .progress-strip .label .active { color: var(--ink); font-weight: 600; }
+  .segments { display: flex; gap: 3px; }
+  .seg { height: 3px; flex: 1; border-radius: 2px; }
+  .seg.past { background: var(--accent); }
+  .seg.curr { background: var(--accent); opacity: 0.5; }
+  .seg.locked { background: rgba(0,0,0,0.08); }
+  .tab-content { flex: 1; padding: 12px 16px; overflow-y: auto; }
+  .chat-msgs { display: flex; flex-direction: column; gap: 6px; }
+  .msg { padding: 8px 12px; border-radius: 14px; font-size: 13px; line-height: 1.45; max-width: 92%; }
+  .msg.agent { background: #f4f4f5; align-self: flex-start; }
+  .msg.user { background: var(--accent); color: white; align-self: flex-end; }
+  .msg .lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+  /* Project card preview */
+  .card-preview {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px -2px rgba(0,0,0,0.08);
+  }
+  .card-section { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .card-section:last-child { border-bottom: 0; }
+  .card-header { background: var(--accent-soft); }
+  .card-header .org-name { font-size: 16px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
+  .card-header .mission { font-size: 11px; color: var(--ink); margin-top: 3px; line-height: 1.4; }
+  .card-header .meta { font-size: 9px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+  .card-section .ttl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-bottom: 6px; }
+  .card-row { font-size: 11px; padding: 2px 0; line-height: 1.4; }
+  .card-row .k { color: var(--muted); }
+  .card-row .v { color: var(--ink); font-weight: 500; }
+  .card-impact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 4px; }
+  .card-impact-cell { font-size: 10px; padding: 4px 6px; background: var(--accent-soft); border-radius: 4px; }
+  .card-impact-cell .lbl { color: var(--muted); }
+  .card-impact-cell .val { font-weight: 600; color: var(--ink); display: block; }
+  .card-thumbnail {
+    height: 80px; border-radius: 6px; background: linear-gradient(135deg, #d4e8d4, #6ee7b7);
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+    position: relative; overflow: hidden; margin-bottom: 6px;
+  }
+  .card-thumbnail .mini-polygon {
+    position: absolute; left: 40%; top: 35%; width: 30px; height: 25px;
+    background: rgba(5, 150, 105, 0.4); border: 2px solid var(--accent); border-radius: 4px;
+  }
+  .card-thumbnail .mini-pin {
+    position: absolute; left: 47%; top: 45%; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--accent-deep); border: 2px solid white;
+  }
+  .card-footer { background: #fafafa; }
+  .card-footer .small { font-size: 9px; color: var(--muted); }
+  .card-footer .score-chip { font-size: 9px; padding: 2px 6px; border-radius: 999px; background: var(--accent); color: white; font-weight: 600; display: inline-block; margin-top: 3px; }
+  /* Pitch composer */
+  .pitch-composer { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--surface); margin-top: 8px; }
+  .pitch-row { margin-bottom: 8px; }
+  .pitch-row .label { font-size: 10px; color: var(--muted); margin-bottom: 3px; display: flex; justify-content: space-between; }
+  .pitch-row textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; font-size: 12px; resize: vertical; min-height: 38px; line-height: 1.4; }
+  .pitch-row .charcount { font-size: 9px; color: var(--muted); }
+  .ex-link { font-size: 10px; color: var(--info); text-decoration: underline; cursor: pointer; }
+  /* Chat input */
+  .chat-input { padding: 8px 12px; border-top: 1px solid var(--line); display: flex; gap: 6px; }
+  .chat-input .ipt { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font-size: 12px; color: var(--muted); background: var(--surface); }
+  .chat-input .send { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; }
+  /* Tab bar */
+  .tab-bar { border-top: 1px solid var(--line); background: var(--surface); display: flex; padding: 4px 0 8px; }
+  .tab { flex: 1; text-align: center; padding: 6px 4px; font-size: 10px; color: var(--muted); position: relative; cursor: pointer; }
+  .tab .icon { font-size: 18px; line-height: 1; }
+  .tab .label { display: block; margin-top: 2px; font-weight: 500; }
+  .tab.active { color: var(--accent-deep); }
+  .tab.active::after { content:""; position:absolute; bottom:-4px; left:50%; transform:translateX(-50%); width:24px; height:2px; background:var(--accent); border-radius:2px; }
+  /* Aggregate portfolio (desktop) */
+  .desktop-frame {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+  }
+  .desktop-frame .top-chrome {
+    padding: 8px 14px; background: #f4f4f5; border-bottom: 1px solid var(--line);
+    font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace;
+  }
+  .desktop-frame .content { padding: 20px; min-height: 500px; }
+  .agg-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .agg-title { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+  .agg-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px;
+    background: var(--accent-soft); border-radius: 10px; padding: 12px;
+  }
+  .agg-stat .lbl { font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+  .agg-stat .val { font-size: 18px; font-weight: 700; margin-top: 2px; }
+  .agg-body { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+  .agg-map {
+    height: 280px; border-radius: 10px; position: relative; overflow: hidden;
+    background:
+      radial-gradient(circle at 30% 40%, rgba(245,158,11,0.2) 0%, transparent 30%),
+      radial-gradient(circle at 65% 55%, rgba(239,68,68,0.25) 0%, transparent 25%),
+      linear-gradient(135deg, #e5f3e0 0%, #d4e8d4 100%);
+  }
+  .agg-pin {
+    position: absolute; width: 14px; height: 14px; border-radius: 50%;
+    border: 2.5px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .agg-pin.water { background: #0284c7; }
+  .agg-pin.heat { background: #ea580c; }
+  .agg-pin.land { background: #84cc16; }
+  .agg-side { display: flex; flex-direction: column; gap: 10px; }
+  .agg-card { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface); }
+  .agg-card .ttl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-bottom: 6px; }
+  .agg-pie { width: 80px; height: 80px; border-radius: 50%; margin: 0 auto;
+    background: conic-gradient(
+      var(--info) 0deg 110deg,
+      #84cc16 110deg 180deg,
+      #ea580c 180deg 240deg,
+      #f59e0b 240deg 280deg,
+      #6366f1 280deg 320deg,
+      #ec4899 320deg 360deg
+    );
+  }
+  .agg-legend { font-size: 10px; margin-top: 8px; }
+  .agg-legend-row { display: flex; align-items: center; gap: 5px; padding: 1px 0; }
+  .agg-legend-row::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--swatch); }
+  .agg-mini-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 14px; }
+  .mini-card { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 10px; background: var(--surface); }
+  .mini-card .org { font-weight: 600; }
+  .mini-card .meta { color: var(--muted); font-size: 9px; margin-top: 1px; }
+  .mini-card .score { font-size: 9px; padding: 1px 5px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-deep); font-weight: 600; display: inline-block; margin-top: 4px; }
+  /* Next steps */
+  .next-card { background: var(--info-soft); border: 1px solid #93c5fd; border-radius: 10px; padding: 12px 14px; }
+  .next-card .ttl { font-size: 11px; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; margin-bottom: 8px; }
+  .next-row { font-size: 11px; padding: 3px 0; line-height: 1.5; }
+  .next-row .k { color: #1e3a8a; opacity: 0.7; min-width: 110px; display: inline-block; }
+  .next-row .v { color: var(--ink); font-weight: 500; }
+
+  .legend { background: #eff6ff; border-left: 3px solid #3b82f6; padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 12px; color: #1e3a8a; margin: 16px 0 24px; max-width: 64ch; }
+  .flow-arrow { display: flex; align-items: center; gap: 8px; color: var(--accent-deep); font-size: 12px; font-weight: 600; margin: 14px 0 4px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .flow-arrow::before, .flow-arrow::after { content: ""; flex: 1; height: 1px; background: var(--accent-soft); }
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>E6 — Portfólio · apresentação <span class="small">· mockup walkthrough · 2026-05-15</span></h1>
+  <p class="lede">
+    The celebration + handoff. Communal first (the cohort sees itself), then per-CBO (project card + pitch + next steps). The platform's job is to <strong>render deliverables</strong> — the actual workshop happens in the room.
+  </p>
+  <div class="legend">
+    <strong>Structurally different from E1-E5</strong> — E6 is communal, not individual. The Aggregate Portfolio view is projected to the whole cohort during Beat 1; each CBO gets their 1-page card in Beat 2.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 1 — AggregatePortfolioView (orchestrator-side, projected to cohort)</h2>
+  <p class="anno">Beat 1 · communal · ~30 min. Coordinator projects this view. "Together, you 10 represent..."</p>
+
+  <div class="scene-full">
+    <div class="desktop-frame">
+      <div class="top-chrome">🖥️ Orchestrator · /portfolio · Cohort Vila Flores</div>
+      <div class="content">
+        <div class="agg-header">
+          <div class="agg-title">Cohort Vila Flores · Portfólio</div>
+          <div>
+            <span style="font-size: 11px; color: var(--muted);">Atualizado 16 jul 2026</span>
+            <span style="background: var(--accent); color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; margin-left: 10px;">📥 Baixar portfólio (PDF)</span>
+          </div>
+        </div>
+
+        <div class="agg-stats">
+          <div class="agg-stat"><div class="lbl">Projetos</div><div class="val">10</div></div>
+          <div class="agg-stat"><div class="lbl">Área total</div><div class="val">4.200 m²</div></div>
+          <div class="agg-stat"><div class="lbl">Pedido total</div><div class="val">R$ 750k – 1.2M</div></div>
+          <div class="agg-stat"><div class="lbl">Pessoas atendidas</div><div class="val">~3.500</div></div>
+        </div>
+
+        <div class="agg-body">
+          <div class="agg-map">
+            <div style="position: absolute; top: 8px; left: 12px; background: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">Porto Alegre</div>
+            <div class="agg-pin water" style="left: 30%; top: 35%;"></div>
+            <div class="agg-pin water" style="left: 35%; top: 45%;"></div>
+            <div class="agg-pin heat" style="left: 45%; top: 30%;"></div>
+            <div class="agg-pin water" style="left: 50%; top: 50%;"></div>
+            <div class="agg-pin water" style="left: 55%; top: 60%;"></div>
+            <div class="agg-pin land" style="left: 65%; top: 40%;"></div>
+            <div class="agg-pin heat" style="left: 70%; top: 55%;"></div>
+            <div class="agg-pin water" style="left: 25%; top: 65%;"></div>
+            <div class="agg-pin water" style="left: 40%; top: 70%;"></div>
+            <div class="agg-pin land" style="left: 60%; top: 25%;"></div>
+            <div style="position: absolute; bottom: 8px; left: 12px; background: rgba(255,255,255,0.95); padding: 6px 9px; border-radius: 6px; font-size: 10px;">
+              <div style="font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px;">10 sites · 5 bairros</div>
+              <div style="display: flex; gap: 10px;">
+                <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #0284c7;"></span> Enchente (6)</span>
+                <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #ea580c;"></span> Calor (2)</span>
+                <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #84cc16;"></span> Misto (2)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="agg-side">
+            <div class="agg-card">
+              <div class="ttl">Tipos de intervenção</div>
+              <div class="agg-pie"></div>
+              <div class="agg-legend">
+                <div class="agg-legend-row" style="--swatch:#0284c7;">Jardim de chuva · 3</div>
+                <div class="agg-legend-row" style="--swatch:#84cc16;">Floresta urbana · 2</div>
+                <div class="agg-legend-row" style="--swatch:#ea580c;">Corredor verde · 2</div>
+                <div class="agg-legend-row" style="--swatch:#f59e0b;">Telhado verde · 1</div>
+                <div class="agg-legend-row" style="--swatch:#6366f1;">Parque inundável · 1</div>
+                <div class="agg-legend-row" style="--swatch:#ec4899;">Restauração úmida · 1</div>
+              </div>
+            </div>
+            <div class="agg-card">
+              <div class="ttl">Co-financiamento</div>
+              <div style="font-size: 16px; font-weight: 700; color: var(--accent-deep);">R$ 82k</div>
+              <div style="font-size: 10px; color: var(--muted); margin-top: 2px;">9% do pedido total já coberto</div>
+            </div>
+            <div class="agg-card">
+              <div class="ttl">Prontidão</div>
+              <div style="display: flex; gap: 4px; margin-top: 4px;">
+                <div style="flex: 4; background: var(--accent); height: 16px; border-radius: 3px;"></div>
+                <div style="flex: 5; background: var(--warm); height: 16px; border-radius: 3px;"></div>
+                <div style="flex: 1; background: var(--muted); height: 16px; border-radius: 3px; opacity: 0.5;"></div>
+              </div>
+              <div style="font-size: 10px; color: var(--muted); margin-top: 4px;">4 ready · 5 building · 1 emerging</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="agg-mini-cards">
+          <div class="mini-card"><div class="org">Horta Cascata</div><div class="meta">Cascata · Jardim</div><span class="score">17/27</span></div>
+          <div class="mini-card"><div class="org">Coletivo Arquipélago</div><div class="meta">Arquipélago · Inundável</div><span class="score">22/27</span></div>
+          <div class="mini-card"><div class="org">Bosque Humaitá</div><div class="meta">Humaitá · Floresta</div><span class="score">22/27</span></div>
+          <div class="mini-card"><div class="org">Restinga Nova</div><div class="meta">Restinga · Corredor</div><span class="score">14/27</span></div>
+          <div class="mini-card"><div class="org">São Geraldo Verde</div><div class="meta">São Geraldo · Telhado</div><span class="score">18/27</span></div>
+          <div class="mini-card"><div class="org">Lomba Adapta</div><div class="meta">Lomba · Jardim</div><span class="score">16/27</span></div>
+          <div class="mini-card"><div class="org">Floresta Urbana POA</div><div class="meta">Floresta · Floresta</div><span class="score">15/27</span></div>
+          <div class="mini-card"><div class="org">Sarandi Resiliente</div><div class="meta">Sarandi · Corredor</div><span class="score">12/27</span></div>
+          <div class="mini-card"><div class="org">Mato Sampaio</div><div class="meta">Mato Sampaio · Jardim</div><span class="score">19/27</span></div>
+          <div class="mini-card"><div class="org">Banhado Verde</div><div class="meta">Belém Velho · Úmida</div><span class="score">21/27</span></div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size: 13px; color: var(--muted); margin-top: 14px; line-height: 1.6;">
+      <strong>Aggregate framing.</strong> 10 small projects become 1 portfolio for BWB. The stats strip is the "funder one-liner" — *"10 projetos · R$ 1M · 3.500 pessoas · 9% co-financiamento"* is the kind of summary a portfolio manager at QCF or BNDES can pitch internally in 15 seconds. The intervention donut + prontidão mix tell the rest of the story.
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="flow-arrow">Beat 2 · per-CBO · ~15 min platform + 2-min pitch in room</div>
+
+  <h2 class="screen">SCREEN 2 — Project card preview · CBO sees their own 1-page card</h2>
+  <p class="anno">Agent renders the card pulling from all phases. Editable inline before generation. "Baixar PDF" button at the bottom.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 6 · meu cartão</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 6</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 5 de 5 · ✓ COUGAR completo · 17/27</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg past"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="msg agent" style="margin-bottom: 10px;">
+            <div class="lbl">Agente</div>
+            Aqui está seu <strong>cartão de 1 página</strong>. Pulei de todas as fases anteriores. Olha se está como você quer e me fala se quer ajustar algo — depois eu gero o PDF.
+          </div>
+
+          <div class="card-preview">
+            <div class="card-section card-header">
+              <div class="meta">Vila Flores · COUGAR pilot</div>
+              <div class="org-name">Horta Comunitária Cascata</div>
+              <div class="mission">Cultivamos hortas urbanas com famílias em Cascata + oficinas de compostagem.</div>
+              <div class="meta" style="margin-top: 6px;">📍 Cascata · POA · contato@hortacascata.org</div>
+            </div>
+
+            <div class="card-section">
+              <div class="ttl">Sítio · Onde</div>
+              <div class="card-thumbnail">
+                <div style="position: absolute; top: 4px; left: 6px; font-size: 8px; background: white; padding: 1px 5px; border-radius: 3px; color: var(--muted); font-weight: 600;">Cascata</div>
+                <div class="mini-polygon"></div>
+                <div class="mini-pin"></div>
+              </div>
+              <div class="card-row"><span class="k">Local:</span> <span class="v">Pracinha do bairro, ~320 m²</span></div>
+              <div class="card-row"><span class="k">Risco:</span> <span class="v">Enchente (alto) · Calor (médio)</span></div>
+            </div>
+
+            <div class="card-section">
+              <div class="ttl">Intervenção · O que</div>
+              <div class="card-row"><span class="k">Tipo:</span> <span class="v">Jardim de chuva / biorretenção</span></div>
+              <div class="card-row"><span class="k">Escala:</span> <span class="v">320 m² (médio)</span></div>
+              <div class="card-row" style="margin-top: 4px;"><span class="v">"A rua alaga todo verão. Solo permeável já existe — dá pra ampliar e captar mais água antes de descer pra parte baixa."</span></div>
+            </div>
+
+            <div class="card-section">
+              <div class="ttl">Impacto · Pra quê</div>
+              <div class="card-impact-grid">
+                <div class="card-impact-cell"><div class="lbl">🌊 Água/ano</div><span class="val">1.8–3.2k m³</span></div>
+                <div class="card-impact-cell"><div class="lbl">🌡️ Resfriam.</div><span class="val">0.3–0.8 °C</span></div>
+                <div class="card-impact-cell"><div class="lbl">🌱 CO₂/ano</div><span class="val">0.4–1.2 t</span></div>
+                <div class="card-impact-cell"><div class="lbl">👥 Pessoas</div><span class="val">~120 + 500</span></div>
+              </div>
+            </div>
+
+            <div class="card-section">
+              <div class="ttl">Operação + Pedido</div>
+              <div class="card-row"><span class="k">Equipe Y1:</span> <span class="v">8 voluntárias + 1 coord. · UFRGS</span></div>
+              <div class="card-row"><span class="k">OPEX 5 anos:</span> <span class="v">~R$ 39k (R$ 15→7→5/ano)</span></div>
+              <div class="card-row"><span class="k">Pedido:</span> <span class="v" style="color: var(--accent-deep); font-weight: 700;">R$ 73 – 120k</span></div>
+              <div class="card-row"><span class="k">Co-financ.:</span> <span class="v">R$ 8k (Cásper Líbero + voluntariado)</span></div>
+            </div>
+
+            <div class="card-section card-footer">
+              <div class="small">Vila Flores · COUGAR · 16 jul 2026 · BWB-ready</div>
+              <span class="score-chip">COUGAR scorecard 17/27</span>
+            </div>
+          </div>
+
+          <div style="margin-top: 12px; display: flex; gap: 8px;">
+            <button style="flex: 1; background: var(--accent); color: white; padding: 9px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 0; cursor: pointer;">📥 Baixar PDF</button>
+            <button style="flex: 1; background: var(--surface); color: var(--ink); padding: 9px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid var(--line); cursor: pointer;">✏️ Editar</button>
+          </div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>ProjectCardPDF · NEW · 1-page funder-grade</h4>
+      <p>
+        Pulls from every phase. 5 visible sections + footer. Renders in the doc panel as a live preview; "Baixar PDF" calls server-side render.
+      </p>
+      <p>
+        Designed to map cleanly to the 2-min pitch — each section is one talking point. Funders who see lots of these will recognize the structure (similar to BPJP/C40 concept-note compressed onto 1 page).
+      </p>
+      <p>
+        Footer carries the maturity scorecard (17/27 · Building) — funders' shortcut for "what stage is this project at."
+      </p>
+      <div class="kv">component: ProjectCardPDF
+mode: 'preview' | 'download'
+data: all phases of CBO profile + computed
+sections: header · site · intervention ·
+          impact · operations+ask · footer
+PDF: server-side via existing concept-note
+     PDF infrastructure (reuse, don't rebuild)</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 3 — PitchComposer · 1 line + 3 talking points with smart defaults</h2>
+  <p class="anno">Inline composer. Pre-filled smart defaults from earlier phases. CBO edits/confirms.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 6 · pitch</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 6</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 5 de 5 · ✓</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg past"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="chat-msgs">
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              Agora vamos preparar seu <strong>pitch de 2 minutos</strong>. Eu já preenchei com sugestões — você edita o que quiser. <span class="ex-link">Ver 2 exemplos de pitches reais →</span>
+              <div class="pitch-composer">
+                <div class="pitch-row">
+                  <div class="label">
+                    <span>1 frase · sua "elevator pitch"</span>
+                    <span class="charcount">94/140</span>
+                  </div>
+                  <textarea>Cultivamos jardins de chuva em Cascata pra acabar com enchente que afeta 12 famílias toda chuva forte.</textarea>
+                </div>
+                <div class="pitch-row">
+                  <div class="label"><span>3 pontos pra falar</span></div>
+                  <textarea style="min-height: 90px;">1. Rua das Flores alaga todo verão — 12 famílias afetadas, móveis perdidos.
+2. 320m² de jardim de chuva + biorretenção, captura ~80% da chuva da rua.
+3. Pedimos R$73-120k pra implementação + Y1 ops. Já temos R$8k de co-financiamento.</textarea>
+                </div>
+                <div style="font-size: 11px; color: var(--muted); line-height: 1.5; padding: 6px 0;">
+                  Dica de estrutura: <strong>60s</strong> sobre o problema + solução · <strong>60s</strong> sobre o time + pedido.
+                </div>
+                <div style="margin-top: 8px; text-align: right;">
+                  <a href="#" style="font-size: 12px; color: var(--accent-deep); font-weight: 500;">Salvar pitch →</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Algo mais?">
+          <div class="send">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>PitchComposer · NEW · inline composer</h4>
+      <p>
+        Smart defaults pre-filled from earlier phases (mission · justification · ask). User edits or accepts. Char count on the pitch line forces brevity (140 chars).
+      </p>
+      <p>
+        "Ver 2 exemplos de pitches reais" — inline rendering of Vila Flores Várzea Lab + Translab + CEA Bom Jesus pitches for inspiration. Shows how similar Brazilian projects framed their work.
+      </p>
+      <div class="kv">component: PitchComposer
+inputs: smart defaults from
+  E1 mission_summary,
+  E3 justification_what_changes,
+  E5 funding_total_brl, co_financing
+output:
+  pitch_line: string (≤140 chars)
+  pitch_talking_points: string[3]</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 4 — NextStepsCard + closing</h2>
+  <p class="anno">After the pitch is saved, agent renders the per-CBO next-steps card and sets status to "ready-for-review".</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 6 · próximos passos</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 6 ✓</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">✓ Cohort completed · Pronto pra BWB</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg past"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div style="background: var(--accent-soft); border: 1px solid #6ee7b7; padding: 16px; border-radius: 12px; text-align: center; color: var(--accent-deep); margin-bottom: 14px;">
+            <div style="font-size: 28px; margin-bottom: 4px;">🌱</div>
+            <div style="font-weight: 700; font-size: 16px;">Você fez!</div>
+            <div style="font-size: 13px; color: var(--ink); opacity: 0.7; margin-top: 4px;">6 encontros, 1 projeto pronto pra apresentar.</div>
+          </div>
+
+          <div class="next-card">
+            <div class="ttl">→ Seus próximos passos</div>
+            <div class="next-row"><span class="k">Sua scorecard:</span> <span class="v">17/27 · Building band</span></div>
+            <div class="next-row"><span class="k">Funders sugeridos:</span> <span class="v">Periferias Verdes Resilientes (julho), Fundo Casa Reconstruir RS, QCF €50k</span></div>
+            <div class="next-row"><span class="k">Próxima conversa:</span> <span class="v">com Julia (Vila Flores) · 23 jul 2026</span></div>
+            <div class="next-row"><span class="k">BWB review:</span> <span class="v">setembro 2026 (depois do piloto)</span></div>
+            <div class="next-row"><span class="k">QCF €50k:</span> <span class="v">deploy projetado nov 2026</span></div>
+            <div class="next-row"><span class="k">Pra fortalecer:</span> <span class="v">conversa SMOV · fotos baseline · monitoramento</span></div>
+          </div>
+
+          <div class="msg agent" style="margin-top: 14px;">
+            <div class="lbl">Agente</div>
+            Foi um prazer caminhar com vocês esses 6 encontros, Sandra. Seu projeto está <strong>pronto pra apresentar</strong>. As próximas conversas vão ser com a Julia e com os parceiros de financiamento.
+            <br><br>
+            Pode voltar aqui sempre que quiser ver o cartão, atualizar fotos, ou refinar o pitch. 🌱
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Aguardando piloto encerrar…" disabled style="opacity:0.6;">
+          <div class="send" style="opacity:0.4;">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>NextStepsCard · NEW · inline</h4>
+      <p>
+        Personalized per CBO. Pulls from E5's GapReport (funders sugeridos, pra fortalecer) + the cohort's calendar (próxima conversa) + the global next-steps doc (BWB review, QCF deploy).
+      </p>
+      <p>
+        Sets <code>status = 'ready-for-review'</code> — the project enters the BWB queue. The platform stays accessible after the pilot; the CBO can return to update photos or refine the pitch.
+      </p>
+      <div class="kv">component: NextStepsCard
+inputs:
+  member.maturity_total
+  member.gap_report.funders_suggested
+  cohort.next_conversation_date
+  global_next_steps (BWB, QCF, partner intros)
+side effect:
+  member.status = 'ready-for-review'</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">Summary · what's new in E6</h2>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW · the deliverable</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">ProjectCardPDF</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        1-page A4 PDF. Pulls from all 5 phases. Funder-grade. Maps cleanly to a 2-min pitch.
+        <br><br>
+        <strong>Effort:</strong> ~200 lines + reuse existing PDF infra.
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW · the framing piece</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">AggregatePortfolioView</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        Orchestrator-side. Whole cohort as 1 investable portfolio. Map + stats + donut + readiness mix + per-project mini-cards.
+        <br><br>
+        <strong>Effort:</strong> ~250 lines + PDF bundling.
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW · inline</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">PitchComposer</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        1-line pitch + 3 talking points with smart defaults from earlier phases. Char count enforces brevity.
+        <br><br>
+        <strong>Effort:</strong> ~70 lines + 1 KB file (pitch examples).
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW · the closing</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">NextStepsCard</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        Personalized per-CBO summary. Sets <code>status = 'ready-for-review'</code>.
+        <br><br>
+        <strong>Effort:</strong> ~50 lines + 1 KB file (next-steps content).
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size: 11px; color: var(--muted); margin-top: 48px; border-top: 1px solid var(--line); padding-top: 16px;">
+    Companion files: <code>research.md</code> · <code>spec.md</code> · <code>skill.md</code> · all in <code>knowledge/runs/2026-05-15-encontros-curriculum/E6-portfolio/</code>
+  </p>
+</div>
+</body>
+</html>
