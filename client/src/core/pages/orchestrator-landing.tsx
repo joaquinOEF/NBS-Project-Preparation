@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, MapPin,
-  Mountain, Network, Plus, Sparkles, Sprout, Trees, Unlock, Users, Waves,
+  Mountain, Network, Plus, RotateCcw, Sparkles, Sprout, Trees, Unlock, Users, Waves,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
@@ -30,11 +30,10 @@ import { useResetRole } from '@/core/contexts/role-context';
 import { useCohort } from '@/core/hooks/useCohort';
 import type { CohortMember, WorkshopConfig } from '@shared/cohort-schema';
 import {
-  CreateCohortDialog,
-  LoadCohortDialog,
   InviteCboDialog,
   ShareLinkDialog,
   BulkInviteSummaryDialog,
+  ResetConfirmDialog,
   type BulkInviteResult,
 } from '@/core/components/orchestrator/CohortDialogs';
 import { WorkshopCadence } from '@/core/components/orchestrator/WorkshopCadence';
@@ -594,8 +593,8 @@ export default function OrchestratorLandingPage() {
   };
 
   const {
-    mode, cohort, members, coordinatorSlug,
-    createCohort, loadCohort, invite, unlockPhase, saveWorkshops,
+    cohort, members,
+    invite, unlockPhase, saveWorkshops, resetCohort,
   } = useCohort();
 
   const projects = useMemo(() => members.map(memberToView), [members]);
@@ -611,18 +610,16 @@ export default function OrchestratorLandingPage() {
   }, [projects]);
 
   // Dialog state
-  const [createOpen, setCreateOpen] = useState(false);
-  const [loadOpen, setLoadOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState<string>('');
   const [shareContext, setShareContext] = useState<
     | { kind: 'cbo'; orgName: string }
-    | { kind: 'coordinator'; cohortName: string }
     | null
   >(null);
   const [bulkSummaryOpen, setBulkSummaryOpen] = useState(false);
   const [bulkInvitations, setBulkInvitations] = useState<BulkInviteResult[]>([]);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   const openShare = (url: string, ctx: typeof shareContext) => {
     setShareUrl(url);
@@ -632,24 +629,15 @@ export default function OrchestratorLandingPage() {
 
   const openProject = (p: CboDemoProject) => {
     const member = memberById.get(p.id);
-    if (mode === 'live' && member?.memberSlug) {
+    if (member?.memberSlug) {
       openShare(
         `${window.location.origin}/cbo-profile?cbo=${member.memberSlug}`,
         { kind: 'cbo', orgName: member.orgName }
       );
-      return;
     }
-    toast({
-      title: t('orchestrator.demo.toastTitle'),
-      description: t('orchestrator.demo.toastBody', { project: p.name[locale] }),
-    });
   };
 
   const handleUnlockNext = async (member: CohortMember) => {
-    if (mode !== 'live') {
-      toast({ title: t('orchestrator.cohort.sampleModeNotice', { defaultValue: 'Create a cohort to enable unlocks' }) });
-      return;
-    }
     const current = Array.isArray(member.unlockedPhases) ? member.unlockedPhases : [1];
     const max = Math.max(0, ...current);
     const next = Math.min(5, max + 1);
@@ -661,30 +649,14 @@ export default function OrchestratorLandingPage() {
     toast({ title: t('orchestrator.cohort.phaseUnlocked', { defaultValue: `Phase ${next} unlocked`, phase: next }) });
   };
 
-  const handleBulkUnlock = async (phase: number) => {
-    if (mode !== 'live') {
-      toast({ title: t('orchestrator.cohort.sampleModeNotice', { defaultValue: 'Create a cohort to enable unlocks' }) });
-      return;
-    }
-    await unlockPhase('all', phase);
-    toast({ title: t('orchestrator.cohort.bulkUnlocked', { defaultValue: `Phase ${phase} unlocked for cohort`, phase }) });
-  };
-
   // Coordinator clicked "Open for cohort" on a specific workshop. Two things
   // happen together: (1) bulk-unlock the workshop's phase for every member,
-  // (2) auto-stamp today's date into the workshop's `date` field so the
-  // cadence accumulates a real timeline as it runs. If the workshop already
-  // has a scheduled date, we respect it (no overwrite).
+  // (2) auto-stamp today's date into the workshop's `openedAt` so the cadence
+  // accumulates a real timeline as it runs. Scheduled `date` is left alone.
   const handleOpenWorkshop = async (workshopIndex: number, todayISO: string) => {
-    if (mode !== 'live') {
-      toast({ title: t('orchestrator.cohort.sampleModeNotice', { defaultValue: 'Create a cohort to enable unlocks' }) });
-      return;
-    }
     const workshop = (cohort?.settings as any)?.workshops?.[workshopIndex] as WorkshopConfig | undefined;
     if (!workshop) return;
     await unlockPhase('all', workshop.unlocksPhase);
-    // Stamp openedAt — the source of truth for state. Scheduled `date` is left
-    // alone so the coordinator can still see it (and edit it later if needed).
     if (!workshop.openedAt) {
       const updated: WorkshopConfig[] = ((cohort?.settings as any)?.workshops ?? []).map(
         (w: WorkshopConfig, j: number) => (j === workshopIndex ? { ...w, openedAt: todayISO } : w),
@@ -700,20 +672,16 @@ export default function OrchestratorLandingPage() {
   };
 
   const handleUpdateWorkshops = async (next: WorkshopConfig[]) => {
-    if (mode !== 'live') {
-      toast({ title: t('orchestrator.cohort.sampleModeNotice', { defaultValue: 'Create a cohort to edit dates' }) });
-      return;
-    }
     await saveWorkshops(next);
   };
 
-  const handleInviteOpen = () => {
-    if (mode !== 'live') {
-      toast({ title: t('orchestrator.cohort.sampleModeNotice', { defaultValue: 'Create a cohort to invite CBOs' }) });
-      return;
-    }
-    setInviteOpen(true);
+  const handleResetConfirm = async () => {
+    setResetConfirmOpen(false);
+    await resetCohort();
+    toast({ title: t('orchestrator.cohort.resetDone', { defaultValue: 'Cohort reset' }) });
   };
+
+  const handleInviteOpen = () => setInviteOpen(true);
 
   // Pure: just makes the invite. The post-success share dialog is wired
   // separately via onSingleSuccess so the bulk-invite loop doesn't trigger
@@ -731,23 +699,6 @@ export default function OrchestratorLandingPage() {
     openShare(
       `${window.location.origin}/cbo-profile?cbo=${result.memberSlug}`,
       { kind: 'cbo', orgName: result.orgName },
-    );
-  };
-
-  const handleCreateSubmit = async (name: string) => {
-    await createCohort(name);
-    toast({ title: t('orchestrator.cohort.created', { defaultValue: 'Cohort created' }) });
-  };
-
-  const handleLoadSubmit = async (slug: string) => {
-    await loadCohort(slug);
-  };
-
-  const handleCopyCoordinatorLink = () => {
-    if (!coordinatorSlug || !cohort) return;
-    openShare(
-      `${window.location.origin}/orchestrator?coord=${coordinatorSlug}`,
-      { kind: 'coordinator', cohortName: cohort.name }
     );
   };
 
@@ -779,50 +730,46 @@ export default function OrchestratorLandingPage() {
       </header>
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-        {/* Cohort header — mode banner + actions */}
+        {/* Cohort header — singleton model. One cohort for the pilot,
+            no slug to manage. Reset (with confirmation) wipes members and
+            restores the default workshop cadence. */}
         <div className="mb-6 rounded-xl border border-foreground/10 bg-card/60 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border ${
-                mode === 'live'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300'
-                  : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300'
-              }`}>
-                {mode === 'live'
-                  ? t('orchestrator.cohort.modeLive', { defaultValue: 'Live cohort' })
-                  : t('orchestrator.cohort.modeSample', { defaultValue: 'Sample mode' })}
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                {t('orchestrator.cohort.modePilot', { defaultValue: 'Pilot' })}
               </span>
-              <span className="text-sm font-medium tracking-tight">{cohort?.name ?? '—'}</span>
+              <span className="text-sm font-medium tracking-tight truncate">{cohort?.name ?? 'Vila Flores'}</span>
+              {members.length > 0 && (
+                <span className="text-[11px] text-muted-foreground">
+                  {t('orchestrator.cohort.memberCount', {
+                    defaultValue: '{{n}} CBOs',
+                    n: members.length,
+                  })}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
-              {mode === 'live' ? (
-                <>
-                  <Button size="sm" variant="outline" onClick={handleCopyCoordinatorLink} data-testid="button-copy-coord-link">
-                    <Copy className="w-3.5 h-3.5 mr-1.5" />
-                    {t('orchestrator.cohort.copyCoordLink', { defaultValue: 'My link' })}
-                  </Button>
-                  <Button size="sm" onClick={handleInviteOpen} data-testid="button-invite-cbo">
-                    <Plus className="w-3.5 h-3.5 mr-1.5" />
-                    {t('orchestrator.cohort.invite', { defaultValue: 'Invite CBO' })}
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button size="sm" variant="outline" onClick={() => setLoadOpen(true)} data-testid="button-load-cohort">
-                    {t('orchestrator.cohort.loadExisting', { defaultValue: 'Load existing' })}
-                  </Button>
-                  <Button size="sm" onClick={() => setCreateOpen(true)} data-testid="button-create-cohort">
-                    <Plus className="w-3.5 h-3.5 mr-1.5" />
-                    {t('orchestrator.cohort.create', { defaultValue: 'Create cohort' })}
-                  </Button>
-                </>
-              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setResetConfirmOpen(true)}
+                className="text-muted-foreground hover:text-foreground/80"
+                data-testid="button-reset-cohort"
+                title={t('orchestrator.cohort.resetTooltip', { defaultValue: 'Wipe members and restart' })}
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                {t('orchestrator.cohort.reset', { defaultValue: 'Reset' })}
+              </Button>
+              <Button size="sm" onClick={handleInviteOpen} data-testid="button-invite-cbo">
+                <Plus className="w-3.5 h-3.5 mr-1.5" />
+                {t('orchestrator.cohort.invite', { defaultValue: 'Invite CBO' })}
+              </Button>
             </div>
           </div>
 
           <WorkshopCadence
             workshops={workshops}
-            disabled={mode !== 'live'}
             onOpenWorkshop={handleOpenWorkshop}
             onUpdateWorkshops={handleUpdateWorkshops}
           />
@@ -969,8 +916,11 @@ export default function OrchestratorLandingPage() {
       </main>
 
       {/* Cohort flow dialogs */}
-      <CreateCohortDialog open={createOpen} onOpenChange={setCreateOpen} onSubmit={handleCreateSubmit} />
-      <LoadCohortDialog open={loadOpen} onOpenChange={setLoadOpen} onSubmit={handleLoadSubmit} />
+      <ResetConfirmDialog
+        open={resetConfirmOpen}
+        onOpenChange={setResetConfirmOpen}
+        onConfirm={handleResetConfirm}
+      />
       <InviteCboDialog
         open={inviteOpen}
         onOpenChange={setInviteOpen}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, Copy, ExternalLink, Link as LinkIcon, MessageCircle, Plus, Send, Users } from 'lucide-react';
+import { AlertTriangle, Check, Copy, ExternalLink, Link as LinkIcon, MessageCircle, Plus, RotateCcw, Send, Users } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
@@ -680,6 +680,53 @@ export function ShareLinkDialog({
         <DialogFooter>
           <Button onClick={() => onOpenChange(false)}>
             {t('common.done', { defaultValue: 'Done' })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ResetConfirmDialog — wipes members + restores default workshops. Used in
+// the pilot's singleton-cohort model where there's only one cohort and the
+// orchestrator needs a quick "start fresh" for demo dry runs.
+// ---------------------------------------------------------------------------
+export function ResetConfirmDialog({
+  open, onOpenChange, onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => Promise<void> | void;
+}) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[440px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            {t('orchestrator.cohort.resetTitle', { defaultValue: 'Reset cohort?' })}
+          </DialogTitle>
+          <DialogDescription>
+            {t('orchestrator.cohort.resetDesc', {
+              defaultValue: 'Removes every invited CBO and clears workshop progress. The cohort itself stays. This can\'t be undone.',
+            })}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
+            {t('common.cancel', { defaultValue: 'Cancel' })}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }}
+            disabled={busy}
+            data-testid="button-confirm-reset"
+          >
+            <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+            {busy ? t('common.working', { defaultValue: 'Working…' }) : t('orchestrator.cohort.confirmReset', { defaultValue: 'Yes, reset' })}
           </Button>
         </DialogFooter>
       </DialogContent>
