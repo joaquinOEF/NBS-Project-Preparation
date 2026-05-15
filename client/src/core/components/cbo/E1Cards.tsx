@@ -1,0 +1,173 @@
+// E1 — "Quem somos" 4-card layout for the right-rail doc panel.
+//
+// Per knowledge/runs/2026-05-15-encontros-curriculum/E1-quem-somos/spec.md, the
+// flat field table is replaced by 4 grouped cards so the CBO sees their
+// profile take shape thematically rather than as a flat survey.
+//
+// Pulls named fields from state.sections.org_profile + path from the cohort
+// member. Any field the agent writes that isn't in our 4 groups falls into
+// the "Outros" card so nothing is hidden.
+
+import { useTranslation } from 'react-i18next';
+import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
+import { AlertTriangle, Lightbulb, Compass } from 'lucide-react';
+import type { CboSectionState, CboGapEntry } from '@shared/cbo-schema';
+
+type GroupKey = 'quem-somos' | 'equipe' | 'historico' | 'caminho' | 'outros';
+
+const FIELD_GROUPS: Record<Exclude<GroupKey, 'outros'>, string[]> = {
+  // Identity — what + who
+  'quem-somos': ['org_name', 'contact_name', 'contact_role', 'mission_summary', 'legal_form', 'year_founded'],
+  // Team — size + composition
+  equipe: ['team_size', 'paid_vs_volunteer'],
+  // History — prior work + NBS experience
+  historico: ['prior_project_scale', 'nbs_experience', 'proud_moment'],
+  // Path — the triage answer + community served + bairro
+  caminho: ['bairro_of_operation', 'groups_served'],
+};
+
+const ALL_KNOWN_FIELDS = new Set<string>([
+  ...FIELD_GROUPS['quem-somos'],
+  ...FIELD_GROUPS.equipe,
+  ...FIELD_GROUPS.historico,
+  ...FIELD_GROUPS.caminho,
+]);
+
+export function E1Cards({
+  section,
+  gaps,
+  path,
+  onFieldEdit,
+  EditableField,
+}: {
+  section: CboSectionState;
+  gaps: CboGapEntry[];
+  /** Two-path triage answer captured at E1 — drives the Caminho card chip. */
+  path: 'has-idea' | 'needs-help' | null;
+  onFieldEdit: (sectionId: string, field: string, value: string) => void;
+  /** Injected from the parent — same EditableField used elsewhere on this page,
+   *  so we don't duplicate the markdown + textarea behavior. */
+  EditableField: React.ComponentType<{ value: string; userEdited?: boolean; onSave: (v: string) => void }>;
+}) {
+  const { t, i18n } = useTranslation();
+  const isPt = i18n.language?.startsWith('pt');
+  const fields = section.fields;
+
+  // Anything the agent wrote that isn't in our 4 groups → Outros so it's
+  // visible. (Defensive: future agent versions may add fields we don't yet
+  // know how to bucket.)
+  const otrosKeys = Object.keys(fields).filter(k => !ALL_KNOWN_FIELDS.has(k));
+
+  const renderGroup = (key: Exclude<GroupKey, 'outros'>, title: string, icon?: React.ReactNode, footer?: React.ReactNode) => {
+    const keys = FIELD_GROUPS[key].filter(k => fields[k]);
+    if (keys.length === 0 && !footer) return null;
+    const hasGroupGap = gaps.some(g => g.sectionId === section.id && FIELD_GROUPS[key].includes(g.field));
+    return (
+      <Card className={`${hasGroupGap ? 'border-orange-300' : ''} transition-all`}>
+        <CardHeader className="py-2.5 px-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              {icon}
+              <span>{title}</span>
+            </CardTitle>
+            {hasGroupGap && <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />}
+          </div>
+        </CardHeader>
+        {(keys.length > 0 || footer) && (
+          <CardContent className="pt-0 px-4 pb-4 space-y-2">
+            {keys.length > 0 && (
+              <div className="rounded-md border overflow-hidden">
+                <table className="w-full text-sm">
+                  <tbody>
+                    {keys.map(k => {
+                      const v = fields[k];
+                      return (
+                        <tr key={k} className="border-b last:border-b-0">
+                          <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">
+                            {t(`cbo.fields.${k}`, k.replace(/_/g, ' '))}
+                          </td>
+                          <td className="px-3 py-1.5 text-sm">
+                            <EditableField
+                              value={String(v.value || '')}
+                              userEdited={v.userEdited}
+                              onSave={(newVal) => onFieldEdit(section.id, k, newVal)}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {footer}
+          </CardContent>
+        )}
+      </Card>
+    );
+  };
+
+  // Caminho card has a special pre-table chip showing the triage answer
+  const pathChip = path ? (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40">
+      {path === 'has-idea' ? <Lightbulb className="w-4 h-4 text-emerald-700 dark:text-emerald-400" /> : <Compass className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />}
+      <span className="text-sm text-emerald-900 dark:text-emerald-200 font-medium">
+        {path === 'has-idea'
+          ? (isPt ? 'Já tem uma ideia de projeto NBS' : 'Has an NBS project idea')
+          : (isPt ? 'Quer descobrir uma ideia de projeto' : 'Wants to discover a project idea')}
+      </span>
+    </div>
+  ) : (
+    <div className="text-xs text-muted-foreground italic px-3 py-2">
+      {isPt ? 'Caminho ainda não escolhido' : 'Path not yet chosen'}
+    </div>
+  );
+
+  const renderOutros = () => {
+    if (otrosKeys.length === 0) return null;
+    return (
+      <Card>
+        <CardHeader className="py-2.5 px-4">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            {isPt ? 'Outros' : 'Other'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 px-4 pb-4">
+          <div className="rounded-md border overflow-hidden">
+            <table className="w-full text-sm">
+              <tbody>
+                {otrosKeys.map(k => {
+                  const v = fields[k];
+                  return (
+                    <tr key={k} className="border-b last:border-b-0">
+                      <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">
+                        {t(`cbo.fields.${k}`, k.replace(/_/g, ' '))}
+                      </td>
+                      <td className="px-3 py-1.5 text-sm">
+                        <EditableField
+                          value={String(v.value || '')}
+                          userEdited={v.userEdited}
+                          onSave={(newVal) => onFieldEdit(section.id, k, newVal)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  return (
+    <div className="space-y-2">
+      {renderGroup('quem-somos', isPt ? 'Quem somos' : 'Who we are')}
+      {renderGroup('equipe', isPt ? 'Equipe' : 'Team')}
+      {renderGroup('historico', isPt ? 'Histórico' : 'History')}
+      {renderGroup('caminho', isPt ? 'Caminho' : 'Path', undefined, pathChip)}
+      {renderOutros()}
+    </div>
+  );
+}

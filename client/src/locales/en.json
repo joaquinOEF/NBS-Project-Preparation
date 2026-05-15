@@ -1804,7 +1804,16 @@
       "team_technical_experience": "Technical Experience",
       "financial_thinking": "Financial Thinking",
       "community_anchoring": "Community Anchoring",
-      "regulatory_awareness": "Regulatory Awareness"
+      "regulatory_awareness": "Regulatory Awareness",
+      "mission_summary": "Mission",
+      "legal_form": "Legal form",
+      "year_founded": "Founded",
+      "paid_vs_volunteer": "Composition",
+      "prior_project_scale": "Prior project scale",
+      "nbs_experience": "NBS experience",
+      "bairro_of_operation": "Neighborhood",
+      "groups_served": "Groups served",
+      "proud_moment": "Proud moment"
     },
     "sections": {
       "org_profile": "1. Who We Are",
