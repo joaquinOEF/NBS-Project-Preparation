@@ -20,6 +20,8 @@ Two paths converge into the same outcome:
 
 By Encontro 4, both paths sit on the same curriculum. The triage is set at Encontro 1 (explicit question, stored on the member), surfaced on the orchestrator card so VF/OEF know who needs more hand-holding mid-pilot.
 
+> **Path divergence in detail**: see [`_paths/two-path-triage.md`](_paths/two-path-triage.md) for the cross-cutting authority — flow per encontro, the `RequestSupport` affordance, and path-switching mechanics.
+
 ---
 
 ## The 6 encontros at a glance

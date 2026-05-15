@@ -8,15 +8,32 @@ In ~45 min of platform time, the CBO learns what NBS *is* through Brazilian exam
 
 ## Path-aware flow
 
-E2 is the first encontro where the two paths diverge meaningfully (re-converge at beat 3).
+E2 is where the two paths diverge most. See [`_paths/two-path-triage.md`](../_paths/two-path-triage.md) for the cross-cutting design — this section spells out the E2-specific implementation.
 
-| Beat | `has-idea` path | `needs-help` path | Time |
+### `has-idea` flow (~25 min, linear)
+
+| Beat | What happens | Time | Microapp |
 |---|---|---|---|
-| 1. Educational anchor | NbsShowcaseCard rendered inline at start; CBO can skim while reading agent's opening message | Same showcase, but agent explicitly says *"Vamos olhar exemplos antes de abrir o mapa"* and pauses for the user to tap through | ~5 min |
-| 2. Map + site | Agent: *"Conta sobre seu projeto atual"* → upload offer → opens Map (`selectionMode: 'site'`) → CBO drops pin → agent overlays risk for that site | Agent: *"Conta o que você vive nesse bairro"* → opens Map (`selectionMode: 'browse-only'`) with 3 hazard layers → agent narrates the colors → then reopens Map (`selectionMode: 'site'`) → CBO picks site | ~25 min |
-| 3. Priority + tenure + anchoring | RiskPriorityChips → land tenure chip → community anchoring composer | Identical | ~10 min |
+| 1. Educational anchor | NbsShowcaseCard inline, horizontal scroll. CBO can skim or skip. Agent: *"Antes do mapa, dois exemplos rápidos."* | ~3 min | `NbsShowcaseCard` |
+| 2. Site selection | Agent: *"Conta sobre seu projeto — onde fica?"* → upload offer → opens Map (`selectionMode: 'site'`) centered on E1 bairro → CBO drops pin or draws polygon → agent overlays risk for that site | ~12 min | `MapMicroapp` |
+| 3. Priority + tenure + anchoring | RiskPriorityChips → land tenure chip → `CommunityAnchoringComposer` | ~10 min | inline composers |
 
-Both paths end with the same "Próximo encontro" closing pattern from E1.
+### `needs-help` flow (~30-45 min, discovery — may pause and resume)
+
+| Beat | What happens | Time | Microapp |
+|---|---|---|---|
+| 1. Extended educational anchor | NbsShowcaseCards as the *first action*, not skimmable. Agent: *"Vamos criar repertório antes do mapa."* User taps through 3-5 cards, picks 1-2 that resonate → saved as `inspiration_picks[]` (used by E3 to pre-filter) | ~10 min | `NbsShowcaseCard` (favoriting added) |
+| 2a. Hazard browse | Agent: *"Vamos ver onde os perigos estão no seu bairro."* Opens Map (`selectionMode: 'browse-only'`) with 3 hazard layers visible. **No site commitment.** Agent narrates colors. User asks questions. | ~10 min | `MapMicroapp` browse-only |
+| 2b. Save-the-spot prompt | Agent: *"Algum lugar te chama atenção?"* → 3 options:<br>· **Já sei onde** → transitions to `selectionMode: 'site'` (joins has-idea Beat 2)<br>· **Quero ver mais** → continues browse (loop back to 2a)<br>· **Quero conversar com a coordenadora** → triggers `RequestSupport` and pauses E2 in state `awaiting-support` | ~5 min | `MapMicroapp` site mode OR `RequestSupport` |
+| 3. Priority + tenure + anchoring | Identical to has-idea Beat 3 — runs once a site is selected. If user paused at 2b without site, Beat 3 doesn't run this session. | ~10 min | inline composers |
+
+**Key design choice (needs-help)**: E2 **must allow exit without a site selection**. A `needs-help` CBO can leave the encontro in state `path: 'needs-help' · awaiting-support` after Beat 2b and resume next session with the same accumulated context (inspiration picks, hazard awareness, pending support request).
+
+Both paths end with the same "Próximo encontro" closing pattern from E1, modulo the paused-state branch above.
+
+### Cross-cutting: `RequestSupport` button
+
+Visible in chat header on both paths. More prominent for `needs-help` (header sticky, has a subtle pulse). On tap, opens the form defined in [`_paths/two-path-triage.md`](../_paths/two-path-triage.md). Submission writes `support_requests[]` to `member_state` and notifies the orchestrator dashboard.
 
 ## Data captured — every field justified
 
@@ -35,8 +52,10 @@ Both paths end with the same "Próximo encontro" closing pattern from E1.
 | `secondary_hazard` | enum (same), optional | E3 secondary recommendations | Medium |
 | `hazard_priority_rationale` | string (1 sentence, optional) | Qualitative why-it-matters | Optional |
 | `nbs_familiarity` | enum: `none`/`some`/`a lot`, inferred | Calibrates agent's depth of explanation in E3 | Optional |
+| `inspiration_picks` | `NbsShowcaseCardId[]` (0-3, needs-help path only) | E3 pre-filters InterventionSelector with these | Optional but accelerates E3 |
+| `support_requests` | `SupportRequest[]` | Async coordinator escalation across both paths | Optional |
 
-**Total: 13 fields** (12 substantive + 1 inferred). Most are chip-driven or auto-derived from map clicks. Site name + community anchoring lead are the only required free-text fields.
+**Total: 13 fields** (12 substantive + 1 inferred) plus 2 path/support fields. Most are chip-driven or auto-derived from map clicks. Site name + community anchoring lead are the only required free-text fields.
 
 ## Maturity scoring (silent, written to `state.maturityScores`)
 
@@ -57,7 +76,9 @@ COMMUNITY_ANCHORING (0-3)
 ## Microapps & improvements proposed by this research
 
 ### NEW · `NbsShowcaseCard` (inline in chat)
-Horizontal scroll of 3 photographed Brazilian NBS cases. Card shape: 220px wide, photo on top, 1-line story below, tap-to-expand for a 4-line detail. Data from `knowledge/_success-cases/_cards.yaml` (new — to be authored).
+Horizontal scroll of 3-5 photographed Brazilian NBS cases. Card shape: 220px wide, photo on top, 1-line story below, tap-to-expand for a 4-line detail. Data from `knowledge/_success-cases/_cards.yaml` (new — to be authored).
+
+**Favorites mode (needs-help path)**: each card has a "Salvar" toggle. The agent's chat message above the cards changes from *"Olha esses exemplos"* (has-idea) to *"Salve os que te chamam atenção — 1 ou 2 que parecem que poderiam funcionar no seu bairro"* (needs-help). Saved cards persist as `inspiration_picks[]` and E3's InterventionSelector pre-filters by them.
 
 Default seed (3 cards):
 - **Curitiba · Parques do Barigui** · 1996 · enchente · "Parques que viram retenção de água quando chove forte"
@@ -79,12 +100,16 @@ Three labeled free-text fields (Líderes / Voluntários / Moradores diretamente)
 ### IMPROVEMENT · `MapMicroapp` simplification modes
 Existing component, new params:
 - `selectionMode: 'site'` — single-pin or small-polygon draw, no zone stepper
-- `selectionMode: 'browse-only'` — read-only, exploration mode
+- `selectionMode: 'browse-only'` — read-only, exploration mode (needs-help Beat 2a). No bottom CTA forcing a selection — only a "voltar ao chat" link.
 - `hazardFilter: ('flood' | 'heat' | 'landslide')[]` — visible hazard layers
 - `showLegendSimple: boolean` — collapsed 3-chip legend instead of 48-layer toolkit
 - `centerBairro: string` — opens centered on a named POA bairro polygon
+- `narrationOverlay: string` — agent-supplied caption rendered as a translucent banner over the map ("Os tons mais escuros são onde a água acumula mais"). Needs-help path only.
 
 These all default to backwards-compatible behavior. The cboAgent passes them when invoking `open_map` for E2.
+
+### NEW · `RequestSupport` (cross-cutting, but lives in E2's surface for the first time)
+Form + dialog defined in [`_paths/two-path-triage.md`](../_paths/two-path-triage.md). Surfaces as a button in the chat header. On the needs-help path, the agent can also offer it inline at Beat 2b. Both paths can invoke at any time.
 
 ### IMPROVEMENT · Persist drafts on map exit
 Currently if a CBO opens the map, drops a pin, and switches tabs without confirming, the pin is lost. Persist `openMapParams.draftSelection` to localStorage so resuming the encontro keeps their pin.
@@ -144,10 +169,11 @@ Tempo estimado: 30–45 min · Salva sozinho
 ## What ships when we build E2
 
 **New components:**
-- `NbsShowcaseCard.tsx` (inline chat card) + companion `_cards.yaml` data
+- `NbsShowcaseCard.tsx` (inline chat card with optional favoriting) + companion `_cards.yaml` data
 - `RiskPriorityChips.tsx` (inline chat composer)
 - `CommunityAnchoringComposer.tsx` (inline chat form)
-- `encontro-2-seu-territorio.md` agent skill (path-aware)
+- `RequestSupport.tsx` (cross-cutting; header button + dialog form)
+- `encontro-2-seu-territorio.md` agent skill (explicit two-path branching)
 
 **Modified components:**
 - `MapMicroapp.tsx` — add the new selection modes + simplified legend
