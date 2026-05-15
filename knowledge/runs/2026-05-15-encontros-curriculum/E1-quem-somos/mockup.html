@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E1 — Quem somos · mockup walkthrough</title>
+<style>
+  :root {
+    --bg: #fafaf9;
+    --surface: #ffffff;
+    --ink: #18181b;
+    --muted: #71717a;
+    --line: rgba(0,0,0,0.08);
+    --accent: #059669;
+    --accent-soft: #ecfdf5;
+    --accent-deep: #047857;
+    --warm: #f59e0b;
+    --warm-soft: #fef3c7;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; line-height: 1.5; font-size: 14px; }
+  .doc { max-width: 1080px; margin: 0 auto; padding: 48px 28px 96px; }
+  h1 { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 4px; }
+  h1 .small { font-size: 13px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
+  h2.screen { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin: 56px 0 12px; }
+  .lede { color: var(--muted); margin: 8px 0 32px; max-width: 60ch; }
+  .anno { font-size: 12px; color: var(--muted); margin: 8px 0 24px; padding-left: 14px; border-left: 2px solid var(--accent); }
+
+  /* Phone-style frame for the CBO surface */
+  .phone {
+    width: 380px;
+    margin: 0 auto;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 12px 36px -16px rgba(0,0,0,0.18);
+  }
+  .phone .header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .phone .body { padding: 24px 20px; min-height: 540px; }
+
+  /* Desktop-style frame (for the orchestrator) */
+  .desktop {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .desktop .chrome {
+    padding: 8px 14px;
+    background: #f4f4f5;
+    border-bottom: 1px solid var(--line);
+    font-size: 11px;
+    color: var(--muted);
+    font-family: ui-monospace, "JetBrains Mono", monospace;
+  }
+  .desktop .body { padding: 24px; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; min-height: 480px; }
+  .split .left { padding: 20px; border-right: 1px solid var(--line); }
+  .split .right { padding: 20px; background: #fafafa; }
+
+  /* Premium welcome / preamble screen */
+  .preamble-bg {
+    background: linear-gradient(to bottom, var(--accent-soft) 0%, #ffffff 40%, var(--accent-soft) 100%);
+    padding: 32px 24px;
+    border-radius: 0;
+  }
+  .brand-mark { color: var(--accent-deep); font-weight: 600; font-size: 11px; letter-spacing: 0.16em; margin-bottom: 32px; display: flex; align-items: center; gap: 6px; }
+  .display { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+  .display .subtle { color: var(--muted); display: block; font-size: 12px; font-weight: 500; margin-bottom: 6px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .body-lead { font-size: 14px; color: var(--ink); margin-top: 18px; line-height: 1.6; }
+  .body-sub { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .agenda { margin: 20px 0; padding-left: 0; list-style: none; }
+  .agenda li { padding: 6px 0; font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 10px; }
+  .agenda li::before { content: "·"; color: var(--accent); font-weight: 700; font-size: 18px; }
+  .time-hint { font-size: 11px; color: var(--muted); margin-top: 24px; display: flex; align-items: center; gap: 6px; }
+  .btn-primary {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--accent); color: white;
+    padding: 10px 24px; border-radius: 999px; font-weight: 500; font-size: 14px;
+    text-decoration: none;
+    margin-top: 18px;
+  }
+  .btn-primary:hover { background: var(--accent-deep); }
+
+  /* Chat */
+  .chat-shell { display: flex; flex-direction: column; height: 100%; }
+  .chat-progress {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 11px;
+  }
+  .chat-progress .label { color: var(--muted); }
+  .chat-progress .active { color: var(--ink); font-weight: 600; }
+  .segments { display: flex; gap: 4px; margin-top: 4px; }
+  .seg { height: 4px; flex: 1; border-radius: 2px; }
+  .seg.past { background: var(--accent); }
+  .seg.curr { background: var(--accent); opacity: 0.5; }
+  .seg.locked { background: rgba(0,0,0,0.08); }
+
+  .chat-messages { padding: 14px; flex: 1; }
+  .msg { padding: 9px 12px; border-radius: 14px; margin-bottom: 8px; font-size: 13px; line-height: 1.5; max-width: 86%; }
+  .msg.agent { background: #f4f4f5; }
+  .msg.user { background: var(--accent); color: white; margin-left: auto; text-align: right; }
+  .msg .label { font-size: 10px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .msg.user .label { display: none; }
+
+  .quick-options { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    border: 1px solid var(--line); padding: 6px 10px; border-radius: 999px; font-size: 12px;
+    background: var(--surface); cursor: pointer;
+  }
+  .chip.selected { background: var(--accent-soft); border-color: #6ee7b7; color: var(--accent-deep); }
+  .chip.option-letter::before { content: attr(data-letter) " · "; color: var(--muted); font-weight: 600; }
+
+  .chat-input {
+    padding: 10px 14px; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: center;
+  }
+  .chat-input .ipt { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-size: 13px; color: var(--muted); }
+  .chat-input .send { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
+
+  /* Doc panel */
+  .doc-panel { padding: 16px; background: #fafafa; }
+  .doc-panel h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+  .doc-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .doc-card.empty { opacity: 0.5; }
+  .doc-card .row { display: flex; padding: 4px 0; font-size: 12px; gap: 8px; align-items: baseline; }
+  .doc-card .row .key { color: var(--muted); min-width: 86px; }
+  .doc-card .row .val { color: var(--ink); }
+  .doc-card .row .val.empty { color: var(--muted); opacity: 0.6; font-style: italic; }
+  .doc-card .placeholder { font-size: 12px; color: var(--muted); font-style: italic; }
+  .doc-section-title { font-size: 12px; color: var(--ink); font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
+  .complete-tag { font-size: 10px; padding: 2px 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-deep); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .pending-tag { font-size: 10px; color: var(--muted); }
+
+  /* Final state */
+  .completion {
+    background: var(--accent-soft);
+    border: 1px solid #6ee7b7;
+    padding: 14px;
+    border-radius: 10px;
+    text-align: center;
+    color: var(--accent-deep);
+    margin-bottom: 12px;
+  }
+  .completion .check { font-size: 22px; margin-bottom: 4px; }
+  .completion .ttl { font-weight: 600; font-size: 14px; }
+  .completion .sub { font-size: 12px; color: var(--ink); opacity: 0.7; margin-top: 4px; }
+
+  /* Orchestrator card */
+  .orch-card {
+    border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--surface); max-width: 380px;
+  }
+  .orch-row { display: flex; gap: 8px; align-items: center; }
+  .orch-row + .orch-row { margin-top: 8px; }
+  .orch-name { font-size: 14px; font-weight: 600; tracking: -0.01em; }
+  .orch-meta { font-size: 11px; color: var(--muted); }
+  .path-chip { font-size: 10px; padding: 2px 7px; border-radius: 999px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .path-idea { background: #dbeafe; color: #1e40af; }
+  .path-help { background: #fef3c7; color: #92400e; }
+  .maturity { font-size: 11px; color: var(--accent-deep); background: var(--accent-soft); padding: 2px 7px; border-radius: 999px; }
+
+  /* Annotations */
+  .legend {
+    background: #eff6ff; border-left: 3px solid #3b82f6; padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 12px; color: #1e3a8a;
+    margin: 16px 0 24px;
+  }
+  .legend strong { color: #1e40af; }
+
+  /* Side-by-side scenes */
+  .scene { display: grid; grid-template-columns: 380px 1fr; gap: 32px; align-items: start; }
+  .scene .note h3 { font-size: 14px; margin: 0 0 6px; }
+  .scene .note p { font-size: 13px; color: var(--muted); margin: 0 0 8px; line-height: 1.6; }
+  .scene .note .kv { font-family: ui-monospace, monospace; font-size: 11px; background: #f4f4f5; padding: 8px 10px; border-radius: 6px; color: var(--ink); margin-top: 12px; white-space: pre; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <h1>E1 — Quem somos <span class="small">· mockup walkthrough · 2026-05-15</span></h1>
+  <p class="lede">
+    Five screens that take a CBO from the WhatsApp invite tap to a completed organizational diagnostic.
+    Phone-sized frames on the left, agent + state explanation on the right.
+    No new microapps — chat + doc panel + file drop is enough.
+  </p>
+
+  <div class="legend">
+    <strong>Reading the mockup:</strong> green chips = answers the user picked · grey chips = options still available · the doc panel on the right of each frame shows the CBO profile filling in live. Last screen shows the orchestrator's view of the same CBO.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 1 — Preamble (first entry to E1)</h2>
+  <p class="anno">After tapping the WhatsApp invite, the CBO sees the existing welcome screen, then this E1-specific preamble. Calm, framed. Dismissible.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="header">📱 cbo.poa-nbs.app/cbo-profile?cbo=horta-cascata</div>
+      <div class="body preamble-bg" style="padding-top: 40px;">
+        <div class="brand-mark">🌿 COUGAR · VILA FLORES</div>
+        <div class="display">
+          <span class="subtle">Encontro 1</span>
+          Quem somos
+        </div>
+        <p class="body-lead">
+          Hoje queremos conhecer sua organização. A gente vai conversar sobre:
+        </p>
+        <ul class="agenda">
+          <li>Quem vocês são e o que vocês fazem</li>
+          <li>Sua equipe e suas experiências</li>
+          <li>Se você já tem uma ideia, ou se quer descobrir uma com a gente</li>
+        </ul>
+        <p class="time-hint">⏱ 20–30 min · Salva sozinho</p>
+        <a href="#" class="btn-primary">Começar →</a>
+      </div>
+    </div>
+    <div class="note">
+      <h3>Why this screen</h3>
+      <p>
+        The chat alone drops the CBO straight into a question — too cold for a stranger they just got a WhatsApp link from.
+        This preamble sets expectations (what we'll cover, how long, that it auto-saves) and gives them one obvious thing to do.
+      </p>
+      <p>Reused pattern across all 6 encontros, content per-workshop.</p>
+      <div class="kv">component: PreambleScreen
+props:
+  encontroNumber: 1
+  title: "Quem somos"
+  agenda: string[3]
+  timeEstimateMin: [20, 30]
+  onStart: () => void</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 2 — Chat early (after “Começar”, first 2-3 turns)</h2>
+  <p class="anno">Agent opens warmly, asks the identity questions, doc panel begins to fill.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="header">📱 Horta Comunitária Cascata · ENCONTRO 1</div>
+      <div class="chat-shell">
+        <div class="chat-progress">
+          <div><span class="label">Seção 1 de 5 · </span><span class="active">Quem somos</span></div>
+          <div class="segments">
+            <div class="seg curr"></div><div class="seg locked"></div><div class="seg locked"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="chat-messages">
+          <div class="msg agent">
+            <div class="label">Agente</div>
+            Olá! Que bom ter você aqui. Antes de qualquer coisa — <strong>como se chama a sua organização</strong> e com quem a gente está falando hoje?
+          </div>
+          <div class="msg user">Horta Comunitária Cascata. Sou a Sandra, coordenadora.</div>
+          <div class="msg agent">
+            <div class="label">Agente</div>
+            Prazer, Sandra. Em <strong>uma frase</strong>, o que a Horta Comunitária Cascata faz?
+          </div>
+          <div class="msg user">Cultivamos hortas urbanas com famílias do bairro Cascata, e também damos oficinas de compostagem.</div>
+          <div class="msg agent">
+            <div class="label">Agente</div>
+            Adorei. <strong>Há quanto tempo vocês existem e como são organizados?</strong>
+            <div class="quick-options">
+              <span class="chip option-letter" data-letter="A">ONG / Associação</span>
+              <span class="chip option-letter" data-letter="B">Cooperativa</span>
+              <span class="chip option-letter" data-letter="C">Grupo informal</span>
+              <span class="chip option-letter" data-letter="D">Outro</span>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Escreva ou escolha acima…">
+          <div class="send">↑</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h3>Why this turn order</h3>
+      <p>
+        Identity first → trust-building (one fact she's <em>proud</em> of without asking yet, by responding with "Adorei") → organizational form via chips so we capture the <code>legal_form</code> enum in one tap.
+      </p>
+      <p>
+        Every substantive question has multiple-choice chips <em>plus</em> free-text. This is the existing <code>ask_user</code> pattern. Letter prefixes (A/B/C/D) let keyboard users pick.
+      </p>
+      <p style="color:var(--accent-deep);"><strong>Doc panel state at this moment</strong> →</p>
+      <div class="doc-panel" style="background: white; margin-top: 12px;">
+        <div class="doc-card">
+          <div class="doc-section-title">Quem somos <span class="complete-tag">Em andamento</span></div>
+          <div class="row"><div class="key">Nome</div><div class="val">Horta Comunitária Cascata</div></div>
+          <div class="row"><div class="key">Contato</div><div class="val">Sandra (coordenadora)</div></div>
+          <div class="row"><div class="key">O que faz</div><div class="val">Cultivamos hortas urbanas com famílias do bairro Cascata…</div></div>
+          <div class="row"><div class="key">Forma</div><div class="val empty">— pendente</div></div>
+          <div class="row"><div class="key">Fundação</div><div class="val empty">— pendente</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 3 — Mid-chat (team + prior projects + file drop)</h2>
+  <p class="anno">Now the capacity-scoring questions. Chips do the heavy lifting; uploaded docs auto-fill nuance the agent can read.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="header">📱 Horta Comunitária Cascata · ENCONTRO 1</div>
+      <div class="chat-shell">
+        <div class="chat-progress">
+          <div><span class="label">Seção 1 de 5 · </span><span class="active">Quem somos</span></div>
+          <div class="segments">
+            <div class="seg curr"></div><div class="seg locked"></div><div class="seg locked"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="chat-messages">
+          <div class="msg agent">
+            <div class="label">Agente</div>
+            Que tipo de projetos vocês já realizaram?
+            <div class="quick-options">
+              <span class="chip option-letter" data-letter="A">Nenhum ainda</span>
+              <span class="chip option-letter" data-letter="B">Atividades pontuais</span>
+              <span class="chip option-letter selected" data-letter="C">Projetos com financiamento ✓</span>
+              <span class="chip option-letter" data-letter="D">Parceria pública</span>
+            </div>
+          </div>
+          <div class="msg user">C — Projetos com financiamento</div>
+          <div class="msg agent">
+            <div class="label">Agente</div>
+            Ótimo. Se quiser, <strong>arraste algum documento</strong> de um projeto anterior (proposta, relatório, fotos) — me ajuda a entender melhor sua experiência. Senão, segue tudo bem.
+            <div style="margin-top: 8px; padding: 14px; border: 2px dashed var(--line); border-radius: 8px; text-align: center; color: var(--muted); font-size: 12px;">
+              📄 Arraste arquivos aqui<br>
+              <span style="font-size:10px;">PDF, DOCX, fotos · até 10 MB</span>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Escreva ou anexe…">
+          <div class="send">↑</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h3>Capacity scoring inputs</h3>
+      <p>
+        The "Projetos com financiamento" answer + team_size ≥ 3-5 + at least 2 years existence puts the agent at <strong>Org Delivery Capacity = 2</strong> by default. An uploaded grant-approval document or a partnership letter is what pushes to 3.
+      </p>
+      <p>The file-drop framing is gentle: "se quiser… senão tudo bem." Optional, not required.</p>
+      <p style="color:var(--accent-deep);"><strong>Doc panel state</strong> →</p>
+      <div class="doc-panel" style="background: white; margin-top: 12px;">
+        <div class="doc-card">
+          <div class="doc-section-title">Quem somos <span class="complete-tag">✓</span></div>
+          <div class="row"><div class="key">Nome</div><div class="val">Horta Comunitária Cascata</div></div>
+          <div class="row"><div class="key">Forma</div><div class="val">Associação</div></div>
+          <div class="row"><div class="key">Fundação</div><div class="val">2018</div></div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-section-title">Equipe <span class="complete-tag">✓</span></div>
+          <div class="row"><div class="key">Tamanho</div><div class="val">6–15 pessoas</div></div>
+          <div class="row"><div class="key">Composição</div><div class="val">2 pagas · 8 voluntárias</div></div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-section-title">Histórico <span class="complete-tag">Em andamento</span></div>
+          <div class="row"><div class="key">Escala</div><div class="val">Projetos com financiamento</div></div>
+          <div class="row"><div class="key">Experiência NBS</div><div class="val empty">— pendente</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 4 — Path triage</h2>
+  <p class="anno">The branching question. Stored on the cohort_member; E2's skill reads it to decide the opening flow.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="header">📱 Horta Comunitária Cascata · ENCONTRO 1</div>
+      <div class="chat-shell">
+        <div class="chat-progress">
+          <div><span class="label">Seção 1 de 5 · </span><span class="active">Quem somos</span></div>
+          <div class="segments">
+            <div class="seg curr"></div><div class="seg locked"></div><div class="seg locked"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="chat-messages">
+          <div class="msg agent">
+            <div class="label">Agente</div>
+            Última pergunta importante: <strong>você já tem uma ideia de projeto NBS</strong> (solução baseada na natureza) que quer levar adiante, <strong>ou quer ajuda</strong> da gente para encontrar uma?
+            <div class="quick-options" style="margin-top: 12px;">
+              <span class="chip option-letter" data-letter="A" style="background: #dbeafe; border-color: #93c5fd; color: #1e40af;">💡 Já tenho uma ideia</span>
+              <span class="chip option-letter" data-letter="B" style="background: #fef3c7; border-color: #fcd34d; color: #92400e;">🤝 Quero ajuda</span>
+            </div>
+            <div style="font-size: 11px; color: var(--muted); margin-top: 14px; line-height: 1.5;">
+              Não há resposta certa — só muda como a gente segue no próximo encontro.
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Escolha acima…">
+          <div class="send">↑</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h3>Why the framing matters</h3>
+      <p>
+        From Julia (Apr 16): communities aren't familiar with the NBS concept formally. Calling out NBS in parens, plus "não há resposta certa," lowers the stakes.
+      </p>
+      <p>The two chips use distinct color codes that carry through to the orchestrator card so JVP and Julia know at a glance which path each org is on.</p>
+      <div class="kv">cohort_members.path = 'has-idea' | 'needs-help'
+
+E2's skill reads this:
+  if path === 'has-idea':
+    "Conta sobre seu projeto atual…"
+  else:
+    "Vamos descobrir juntos…"</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 5 — Encontro complete</h2>
+  <p class="anno">Friendly completion + the full doc panel populated. No score shown to the CBO.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="header">📱 Horta Comunitária Cascata · ENCONTRO 1</div>
+      <div class="chat-shell">
+        <div class="chat-progress">
+          <div><span class="label">Seção 1 de 5 · </span><span class="active">Quem somos · ✓</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg curr" style="opacity:0.3;"></div><div class="seg locked"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="chat-messages">
+          <div class="completion">
+            <div class="check">✓</div>
+            <div class="ttl">Diagnóstico concluído</div>
+            <div class="sub">Obrigado pelas respostas, Sandra. Esse perfil já está salvo.</div>
+          </div>
+          <div class="msg agent">
+            <div class="label">Agente</div>
+            <strong>Próximo encontro: 18 de junho — Seu território.</strong>
+            <br><br>
+            Vamos olhar juntos o mapa de Cascata, ver os riscos climáticos do bairro, e — como você já tem uma ideia — começar a conversa pelo seu projeto atual.
+            <br><br>
+            Até lá! 🌱
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Aguardando próximo encontro…" disabled style="opacity:0.6;">
+          <div class="send" style="opacity:0.4;">↑</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h3>Closing the loop</h3>
+      <p>
+        The CBO sees: ✓ done, your work is saved, here's when we meet again, here's what we'll do.
+        No score, no maturity number — that's a coordinator-side artifact.
+      </p>
+      <p>
+        The next-encontro date is pulled from the workshop cadence config. If the next encontro hasn't been scheduled yet, the message degrades gracefully to "Sua coordenadora vai te avisar quando o próximo encontro abrir."
+      </p>
+      <p style="color:var(--accent-deep);"><strong>Final doc panel</strong> →</p>
+      <div class="doc-panel" style="background: white; margin-top: 12px;">
+        <div class="doc-card">
+          <div class="doc-section-title">Quem somos <span class="complete-tag">✓</span></div>
+          <div class="row"><div class="key">Nome</div><div class="val">Horta Comunitária Cascata</div></div>
+          <div class="row"><div class="key">Forma</div><div class="val">Associação</div></div>
+          <div class="row"><div class="key">Fundação</div><div class="val">2018</div></div>
+          <div class="row"><div class="key">O que faz</div><div class="val">Hortas urbanas + oficinas de compostagem em Cascata</div></div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-section-title">Equipe <span class="complete-tag">✓</span></div>
+          <div class="row"><div class="key">Tamanho</div><div class="val">6–15 pessoas</div></div>
+          <div class="row"><div class="key">Composição</div><div class="val">2 pagas · 8 voluntárias</div></div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-section-title">Histórico <span class="complete-tag">✓</span></div>
+          <div class="row"><div class="key">Escala</div><div class="val">Projetos com financiamento</div></div>
+          <div class="row"><div class="key">Experiência NBS</div><div class="val">Hortas e jardins</div></div>
+          <div class="row"><div class="key">Documentos</div><div class="val">proposta-2023.pdf · relatório-2024.pdf</div></div>
+        </div>
+        <div class="doc-card">
+          <div class="doc-section-title">Caminho <span class="complete-tag">✓</span></div>
+          <div class="row"><div class="key">→</div><div class="val">💡 Já tenho uma ideia</div></div>
+          <div class="row"><div class="key">Atende</div><div class="val">Mulheres · Jovens · Pessoas negras · Comunidade do bairro</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 6 — What Julia (orchestrator) sees</h2>
+  <p class="anno">The coordinator's view of the same CBO after E1 completes. Maturity scores surface here, not on the CBO side.</p>
+
+  <div class="scene" style="grid-template-columns: 1fr 1fr;">
+    <div class="orch-card">
+      <div class="orch-row">
+        <div style="width:36px;height:36px;border-radius:8px;background:var(--accent-soft);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;">🌱</div>
+        <div style="flex:1;">
+          <div class="orch-name">Horta Comunitária Cascata</div>
+          <div class="orch-meta">Cascata · atualizado hoje</div>
+        </div>
+        <span class="path-chip path-idea">💡 Idea</span>
+      </div>
+      <div class="orch-row" style="margin-top: 14px;">
+        <span class="maturity">Capacidade: 2/3</span>
+        <span class="maturity" style="background: #fef9c3; color: #854d0e;">NBS: 2/3</span>
+      </div>
+      <div class="orch-row">
+        <div style="flex:1; font-size: 11px; color: var(--muted);">Seção 1 de 5 completada</div>
+      </div>
+      <div style="margin-top: 12px; height: 1px; background: var(--line);"></div>
+      <div class="orch-row" style="margin-top: 12px;">
+        <div style="flex:1;font-size: 11px; color: var(--ink);">
+          <strong>Atende:</strong> Mulheres · Jovens · Pessoas negras · Comunidade
+        </div>
+      </div>
+      <div class="orch-row">
+        <button class="chip" style="font-size: 11px;">Ver perfil completo</button>
+        <button class="chip" style="font-size: 11px;">Notas internas</button>
+      </div>
+    </div>
+    <div class="note">
+      <h3>What the coordinator gains</h3>
+      <p>
+        Three quick reads: (1) <span class="path-chip path-idea" style="display:inline;padding:1px 6px;">💡 Idea</span> means E2 should open with "tell us about your project", not the educational intro. (2) <span class="maturity" style="display:inline;padding:1px 6px;">Capacidade: 2/3</span> means this org likely needs less hand-holding on operations than a score-1 org. (3) "atende: mulheres · jovens · pessoas negras" pre-fills equity narrative for the project card.
+      </p>
+      <p>
+        New filter on the cohort list: <strong>Show all / Has idea / Needs help</strong>. Lets Julia plan E2 facilitation by group.
+      </p>
+      <p>
+        The "Notas internas" button (deferred to a later block) is where Julia can leave private notes per CBO ("Sandra mentioned conflict with the building owner — check before W3").
+      </p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">What this mockup is <strong>not</strong> showing</h2>
+  <p style="font-size: 13px; color: var(--muted); margin-top: 12px; max-width: 60ch;">
+    The desktop split-screen layout (chat-left / doc-right) on a 1024px+ viewport — we already shipped that.
+    The peer-review surface ("see how others did this") — out of scope for E1.
+    Coordinator's bulk-invite flow — covered in PR #137.
+    The "needs-help" path's variant of screen 5 — same structure, different message ("Vamos descobrir juntos no próximo encontro").
+  </p>
+
+  <p style="font-size: 11px; color: var(--muted); margin-top: 48px; border-top: 1px solid var(--line); padding-top: 16px;">
+    Companion files: <code>research.md</code> · <code>spec.md</code> · <code>skill.md</code> · all in <code>knowledge/runs/2026-05-15-encontros-curriculum/E1-quem-somos/</code>
+  </p>
+</div>
+</body>
+</html>

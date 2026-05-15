@@ -1,0 +1,897 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E2 — Seu território · mockup walkthrough</title>
+<style>
+  :root {
+    --bg: #fafaf9;
+    --surface: #ffffff;
+    --ink: #18181b;
+    --muted: #71717a;
+    --line: rgba(0,0,0,0.08);
+    --accent: #059669;
+    --accent-soft: #ecfdf5;
+    --accent-deep: #047857;
+    --warm: #f59e0b;
+    --warm-soft: #fef3c7;
+    --info: #0284c7;
+    --info-soft: #e0f2fe;
+    --danger: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; line-height: 1.5; font-size: 14px; }
+  .doc { max-width: 1280px; margin: 0 auto; padding: 48px 28px 96px; }
+  h1 { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 4px; }
+  h1 .small { font-size: 13px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
+  h2.screen { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin: 56px 0 12px; }
+  h3.section-heading { font-size: 16px; letter-spacing: -0.01em; margin: 64px 0 16px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .lede { color: var(--muted); margin: 8px 0 24px; max-width: 64ch; line-height: 1.6; }
+  .anno { font-size: 12px; color: var(--muted); margin: 8px 0 18px; padding-left: 14px; border-left: 2px solid var(--accent); max-width: 64ch; }
+
+  /* Path banner */
+  .path-banner { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-right: 8px; }
+  .path-banner.idea { background: #dbeafe; color: #1e40af; }
+  .path-banner.help { background: var(--warm-soft); color: #92400e; }
+
+  /* Two-up grid: phone + note */
+  .scene { display: grid; grid-template-columns: 380px 1fr; gap: 36px; align-items: start; }
+  .scene .note h4 { font-size: 14px; margin: 0 0 6px; }
+  .scene .note p { font-size: 13px; color: var(--muted); margin: 0 0 10px; line-height: 1.6; }
+  .scene .note .kv { font-family: ui-monospace, "JetBrains Mono", monospace; font-size: 11px; background: #f4f4f5; padding: 10px 12px; border-radius: 8px; color: var(--ink); margin-top: 12px; white-space: pre-wrap; line-height: 1.5; }
+
+  /* Phone frame */
+  .phone {
+    width: 380px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 12px 36px -16px rgba(0,0,0,0.18);
+  }
+  .phone .top-chrome {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+    font-size: 10px;
+    color: var(--muted);
+    font-family: ui-monospace, monospace;
+  }
+  .phone .frame-body { min-height: 640px; display: flex; flex-direction: column; }
+
+  .app-header {
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .app-header .leaf { width: 28px; height: 28px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-deep); display:flex; align-items:center; justify-content:center; font-size: 13px; }
+  .app-header .id { flex: 1; min-width: 0; }
+  .app-header .org-name { font-size: 13px; font-weight: 600; line-height: 1.2; }
+  .app-header .meta { font-size: 10px; color: var(--muted); line-height: 1.2; }
+
+  .progress-strip { padding: 8px 16px; border-bottom: 1px solid var(--line); }
+  .progress-strip .label { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+  .progress-strip .label .active { color: var(--ink); font-weight: 600; }
+  .segments { display: flex; gap: 3px; }
+  .seg { height: 3px; flex: 1; border-radius: 2px; }
+  .seg.past { background: var(--accent); }
+  .seg.curr { background: var(--accent); opacity: 0.5; }
+  .seg.locked { background: rgba(0,0,0,0.08); }
+
+  .tab-content { flex: 1; padding: 12px 16px; overflow-y: auto; }
+  .tab-content.with-banner { padding-top: 0; }
+
+  /* Chat */
+  .chat-msgs { display: flex; flex-direction: column; gap: 6px; }
+  .msg { padding: 8px 12px; border-radius: 14px; font-size: 13px; line-height: 1.45; max-width: 92%; }
+  .msg.agent { background: #f4f4f5; align-self: flex-start; }
+  .msg.user { background: var(--accent); color: white; align-self: flex-end; }
+  .msg .lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+  .msg.user .lbl { display: none; }
+
+  /* NEW · Showcase cards inline in chat */
+  .showcase-strip { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px; margin: 6px 0; }
+  .showcase-card {
+    flex: 0 0 200px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--surface);
+    cursor: pointer;
+  }
+  .showcase-photo {
+    height: 90px;
+    background: linear-gradient(135deg, var(--from, #a7f3d0), var(--to, #6ee7b7));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+  }
+  .showcase-card.expanded .showcase-photo { height: 110px; }
+  .showcase-body { padding: 8px 10px; }
+  .showcase-place { font-size: 9px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-bottom: 2px; }
+  .showcase-title { font-size: 11px; font-weight: 600; line-height: 1.3; margin-bottom: 3px; }
+  .showcase-tagline { font-size: 10px; color: var(--muted); line-height: 1.4; }
+  .showcase-detail { font-size: 11px; color: var(--ink); line-height: 1.5; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+
+  /* NEW · Risk priority chips */
+  .priority-chips { margin-top: 8px; }
+  .priority-chip {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 8px 12px; border-radius: 10px;
+    margin-bottom: 6px; cursor: pointer;
+  }
+  .priority-chip.ranked { background: var(--accent-soft); border-color: #6ee7b7; }
+  .priority-chip .rank-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--accent); color: white; font-size: 11px; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .priority-chip:not(.ranked) .rank-num { background: rgba(0,0,0,0.06); color: var(--muted); border: 1px dashed var(--muted); }
+  .priority-chip .hazard-icon { font-size: 18px; }
+  .priority-chip .hazard-name { flex: 1; font-size: 12px; }
+  .priority-chip .drag-handle { color: var(--muted); font-size: 14px; }
+
+  /* NEW · Community anchoring composer */
+  .ca-composer {
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px;
+    background: var(--surface); margin-top: 8px;
+  }
+  .ca-row { margin-bottom: 8px; }
+  .ca-row .label { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+  .ca-row input { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font-size: 12px; }
+  .ca-chip-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .ca-chip {
+    border: 1px solid var(--line); padding: 3px 8px; border-radius: 999px; font-size: 10px;
+    background: var(--surface); cursor: pointer;
+  }
+  .ca-chip.selected { background: var(--accent-soft); border-color: #6ee7b7; color: var(--accent-deep); }
+
+  /* Chat input */
+  .chat-input { padding: 8px 12px; border-top: 1px solid var(--line); display: flex; gap: 6px; }
+  .chat-input .ipt { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font-size: 12px; color: var(--muted); background: var(--surface); }
+  .chat-input .send { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; }
+
+  /* Tab bar */
+  .tab-bar { border-top: 1px solid var(--line); background: var(--surface); display: flex; padding: 4px 0 8px; }
+  .tab { flex: 1; text-align: center; padding: 6px 4px; font-size: 10px; color: var(--muted); position: relative; cursor: pointer; }
+  .tab .icon { font-size: 18px; line-height: 1; }
+  .tab .label { display: block; margin-top: 2px; font-weight: 500; }
+  .tab.active { color: var(--accent-deep); }
+  .tab.active::after { content:""; position:absolute; bottom:-4px; left:50%; transform:translateX(-50%); width:24px; height:2px; background:var(--accent); border-radius:2px; }
+  .tab .badge { position: absolute; top: 0; right: 50%; transform: translate(14px, 4px); width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+
+  /* Map banner + map */
+  .ma-banner {
+    background: var(--accent-soft); border-bottom: 1px solid #a7f3d0; padding: 10px 16px;
+  }
+  .ma-banner .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-deep); font-size: 11px; font-weight: 500; margin-bottom: 4px; }
+  .ma-banner .by-agent { font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  .ma-banner .prompt { font-size: 13px; color: var(--ink); font-weight: 500; line-height: 1.4; }
+  .ma-body { flex: 1; display: flex; flex-direction: column; }
+
+  .pretend-map {
+    flex: 1; position: relative; min-height: 320px;
+    background:
+      radial-gradient(circle at 30% 40%, rgba(245, 158, 11, 0.25) 0%, transparent 30%),
+      radial-gradient(circle at 65% 55%, rgba(239, 68, 68, 0.3) 0%, transparent 25%),
+      radial-gradient(circle at 50% 80%, rgba(245, 158, 11, 0.2) 0%, transparent 25%),
+      linear-gradient(135deg, #e5f3e0 0%, #d4e8d4 100%);
+  }
+  .pretend-map.simple {
+    background:
+      linear-gradient(135deg, #e5f3e0 0%, #d4e8d4 100%);
+  }
+  .pretend-map.flood-only {
+    background:
+      radial-gradient(circle at 65% 55%, rgba(239, 68, 68, 0.45) 0%, rgba(239, 68, 68, 0.1) 35%, transparent 50%),
+      radial-gradient(circle at 30% 70%, rgba(239, 68, 68, 0.25) 0%, transparent 30%),
+      linear-gradient(135deg, #e5f3e0 0%, #d4e8d4 100%);
+  }
+  .map-pin { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+  .map-pulse { position: absolute; width: 30px; height: 30px; border-radius: 50%; background: rgba(5, 150, 105, 0.3); animation: pulse 2s ease-out infinite; }
+  @keyframes pulse { 0% { transform: scale(0.7); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
+  .neighborhood-outline { position: absolute; border: 2px solid var(--accent); background: rgba(5, 150, 105, 0.08); border-radius: 8px; }
+  .map-overlay-label { position: absolute; font-size: 10px; background: white; padding: 2px 6px; border-radius: 4px; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: 600; }
+  .map-legend {
+    position: absolute; bottom: 12px; left: 12px; right: 12px;
+    background: rgba(255,255,255,0.96); border-radius: 8px; padding: 8px 10px;
+    font-size: 10px; color: var(--ink);
+  }
+  .map-legend .title { font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-size: 9px; margin-bottom: 4px; }
+  .map-legend .swatches { display: flex; gap: 12px; }
+  .map-legend .swatch { display: inline-flex; align-items: center; gap: 4px; }
+  .map-legend .swatch::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--swatch); }
+
+  .ma-action-bar { padding: 12px 16px; border-top: 1px solid var(--line); background: var(--surface); display: flex; gap: 8px; align-items: center; }
+  .ma-action-bar .clear-link { font-size: 11px; color: var(--muted); text-decoration: underline; }
+  .btn-confirm {
+    background: var(--accent); color: white; padding: 9px 16px; border-radius: 10px;
+    font-weight: 500; font-size: 13px; flex: 1; text-align: center;
+  }
+  .btn-confirm.disabled { background: var(--line); color: var(--muted); }
+  .btn-pivot {
+    border: 1px solid var(--accent);
+    color: var(--accent-deep);
+    background: transparent;
+    padding: 9px 16px; border-radius: 10px; font-size: 12px; flex: 1; text-align: center;
+  }
+
+  /* Doc panel */
+  .doc-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  .doc-card.empty { opacity: 0.5; }
+  .doc-card .ttl { font-size: 11px; font-weight: 600; color: var(--ink); margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
+  .doc-card .row { display: flex; padding: 3px 0; font-size: 11px; gap: 6px; }
+  .doc-card .row .key { color: var(--muted); min-width: 80px; }
+  .doc-card .row .val { color: var(--ink); flex: 1; }
+  .doc-card .row .val.empty { color: var(--muted); opacity: 0.6; font-style: italic; }
+  .complete-tag { font-size: 9px; padding: 1px 5px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-deep); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .in-progress-tag { font-size: 9px; padding: 1px 5px; border-radius: 999px; background: var(--warm-soft); color: #92400e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .legend {
+    background: #eff6ff; border-left: 3px solid #3b82f6; padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 12px; color: #1e3a8a;
+    margin: 16px 0 24px; max-width: 64ch;
+  }
+  .flow-arrow {
+    display: flex; align-items: center; gap: 8px; color: var(--accent-deep); font-size: 12px; font-weight: 600;
+    margin: 14px 0 4px; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .flow-arrow::before, .flow-arrow::after { content: ""; flex: 1; height: 1px; background: var(--accent-soft); }
+
+  /* Premium preamble */
+  .preamble-bg {
+    background: linear-gradient(to bottom, var(--accent-soft) 0%, #ffffff 40%, var(--accent-soft) 100%);
+    padding: 32px 24px; min-height: 600px;
+  }
+  .brand-mark { color: var(--accent-deep); font-weight: 600; font-size: 11px; letter-spacing: 0.16em; margin-bottom: 32px; display: flex; align-items: center; gap: 6px; }
+  .display { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+  .display .subtle { color: var(--muted); display: block; font-size: 12px; font-weight: 500; margin-bottom: 6px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .agenda { margin: 20px 0; padding-left: 0; list-style: none; }
+  .agenda li { padding: 6px 0; font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 10px; }
+  .agenda li::before { content: "·"; color: var(--accent); font-weight: 700; font-size: 18px; }
+  .time-hint { font-size: 11px; color: var(--muted); margin-top: 24px; display: flex; align-items: center; gap: 6px; }
+  .btn-primary { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: white; padding: 10px 24px; border-radius: 999px; font-weight: 500; font-size: 14px; margin-top: 18px; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <h1>E2 — Seu território · o que é NBS <span class="small">· mockup walkthrough · 2026-05-15</span></h1>
+  <p class="lede">
+    Two-path walkthrough (👁️ <code>has-idea</code> in blue, 🤝 <code>needs-help</code> in amber).
+    First the shared preamble + NBS showcase, then each path's map experience, then both paths converge on hazard priority + community anchoring.
+    Every new UI element appearing in this encontro is annotated.
+  </p>
+
+  <div class="legend">
+    <strong>What's new in E2 visually:</strong> 3 new inline microapp surfaces (<code>NbsShowcaseCard</code>, <code>RiskPriorityChips</code>, <code>CommunityAnchoringComposer</code>) + 2 improvements to <code>MapMicroapp</code> (simplified legend, single-pin mode, browse-only mode for the <code>needs-help</code> path).
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 1 — Preamble (shared, both paths)</h2>
+  <p class="anno">User taps the locked Workshop-2 phase from Chat tab → preamble appears. Dismissible. Same pattern as E1.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 cbo.poa-nbs.app/cbo-profile?cbo=horta-cascata</div>
+      <div class="frame-body">
+        <div class="preamble-bg">
+          <div class="brand-mark">🌿 COUGAR · VILA FLORES</div>
+          <div class="display">
+            <span class="subtle">Encontro 2</span>
+            Seu território
+          </div>
+          <p style="font-size: 14px; margin-top: 18px; line-height: 1.6;">
+            Hoje a gente vai conhecer o seu lugar de atuação e os riscos do bairro.
+          </p>
+          <ul class="agenda">
+            <li>Ver exemplos de SbN no Brasil</li>
+            <li>Olhar o mapa do seu bairro</li>
+            <li>Marcar onde você quer atuar</li>
+            <li>Falar dos riscos que mais importam</li>
+          </ul>
+          <p class="time-hint">⏱ 30–45 min · Salva sozinho</p>
+          <a href="#" class="btn-primary">Começar →</a>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>Why "seu território" not "seu site"</h4>
+      <p>
+        Per the Sustainable Favela Network's ABCD framing, we lead with the territory the community knows — not a technical "site." The educational moment (NBS examples) comes first, the technical moment (map) comes second.
+      </p>
+      <p>The preamble is path-agnostic. The agent's first message after "Começar" differs based on path.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h3 class="section-heading">🪴 Beat 1 · NBS examples (shared, both paths)</h3>
+
+  <h2 class="screen">SCREEN 2 — NbsShowcaseCard (NEW · inline in chat)</h2>
+  <p class="anno">First agent turn. Inline showcase strip with 3 Brazilian cases. Tap a card to expand. Optional reference for the whole encontro.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 2 · Início</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 2</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 2 de 5 · Seu território</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg curr"></div><div class="seg locked"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="chat-msgs">
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              Oi Sandra. Antes de a gente abrir o mapa, deixa eu te mostrar <strong>como SbN se parece no Brasil</strong>. Toca em qualquer um pra ver mais.
+              <div class="showcase-strip">
+                <div class="showcase-card">
+                  <div class="showcase-photo" style="--from:#a7d5f5; --to:#67b9ec;">🌊</div>
+                  <div class="showcase-body">
+                    <div class="showcase-place">Curitiba · 1996</div>
+                    <div class="showcase-title">Parques do Barigui</div>
+                    <div class="showcase-tagline">Parques que viram retenção de água</div>
+                  </div>
+                </div>
+                <div class="showcase-card expanded">
+                  <div class="showcase-photo" style="--from:#d1fae5; --to:#6ee7b7;">🌳</div>
+                  <div class="showcase-body">
+                    <div class="showcase-place">São Paulo · 1976</div>
+                    <div class="showcase-title">Parque do Tietê</div>
+                    <div class="showcase-tagline">1.400 ha com função ecológica</div>
+                    <div class="showcase-detail">Após décadas de degradação, o Tietê voltou a ter parque, mata e função de drenagem. Hoje recebe US$3.4 bi em restauração contínua.</div>
+                  </div>
+                </div>
+                <div class="showcase-card">
+                  <div class="showcase-photo" style="--from:#fde68a; --to:#f59e0b;">🪴</div>
+                  <div class="showcase-body">
+                    <div class="showcase-place">Porto Alegre · 2026</div>
+                    <div class="showcase-title">Várzea Lab · Vila Flores</div>
+                    <div class="showcase-tagline">Hortas + jardins de chuva no 4º Distrito</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              Esses são só exemplos — pra ter ideia do que cabe no conceito. <strong>Pronta pra olhar o seu lugar?</strong>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Sim, vamos lá…">
+          <div class="send">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>NbsShowcaseCard · NEW microapp (inline)</h4>
+      <p>
+        Why this exists: per the WRI Brasil + Ekos Brasil framing, NBS is best understood through concrete examples, not the abstract category. Without this surface the educational moment depends entirely on the facilitator's in-room delivery.
+      </p>
+      <p>
+        Horizontal scroller of 3 cards. Tap to expand inline (one card at a time). Photo placeholder gradient + emoji until we source real photos.
+      </p>
+      <div class="kv">component: NbsShowcaseCard
+agent event: show_examples
+params: { tag: 'nbs-intro' }
+data: knowledge/_success-cases/_cards.yaml
+  - curitiba-barigui
+  - sao-paulo-tiete
+  - vila-flores-varzea
+~80 lines of React + 1 YAML file</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h3 class="section-heading">🗺️ Beat 2A · The <span class="path-banner idea">💡 has-idea</span> path</h3>
+
+  <h2 class="screen">SCREEN 3 — has-idea · Agent asks about the project, then opens map (single-pin mode)</h2>
+  <p class="anno">The user already has a project in mind. Agent invites the description first, then opens map filtered to their bairro with just the relevant hazard layer.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 2 · path: 💡 has-idea</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 2</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 2 de 5 · Seu território</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg curr"></div><div class="seg locked"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="ma-banner">
+          <a href="#" class="back-link">← Voltar ao chat</a>
+          <div class="by-agent">Pergunta do agente</div>
+          <div class="prompt">Marca o lugar onde você quer atuar. As cores mostram o risco de enchente em Cascata.</div>
+        </div>
+        <div class="ma-body">
+          <div class="pretend-map flood-only">
+            <div class="neighborhood-outline" style="left:18%; top:25%; width:55%; height:45%;"></div>
+            <div class="map-overlay-label" style="left:23%; top:21%;">Cascata</div>
+            <div class="map-pulse" style="left:38%; top:46%;"></div>
+            <div class="map-pin" style="left:42%; top:48%;"></div>
+            <div class="map-legend">
+              <div class="title">Risco de enchente</div>
+              <div class="swatches">
+                <span class="swatch" style="--swatch:#e9d5ff;">baixo</span>
+                <span class="swatch" style="--swatch:#fb923c;">médio</span>
+                <span class="swatch" style="--swatch:#ef4444;">alto</span>
+              </div>
+            </div>
+          </div>
+          <div class="ma-action-bar">
+            <span class="clear-link">Limpar</span>
+            <a href="#" class="btn-confirm">Confirmar local</a>
+          </div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab active"><div class="icon">🗺️</div><span class="label">Mapa</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>MapMicroapp · IMPROVEMENT — simplified legend + single hazard filter</h4>
+      <p>
+        Today the map shows all 48 layers with a busy legend. For E2 mobile, the agent passes <code>selectionMode: 'site'</code> + <code>hazardFilter: ['flood']</code> + <code>showLegendSimple: true</code>. Map shows only Cascata polygon + flood gradient + 3-chip legend. Single-pin draw mode.
+      </p>
+      <p>
+        For the <code>has-idea</code> path the agent <em>already knows</em> the bairro's primary hazard from the bairro polygon's <code>primaryHazard</code> property — so we filter to just that hazard. Reduces cognitive load.
+      </p>
+      <div class="kv">open_map params for has-idea:
+{
+  selectionMode: 'site',
+  centerBairro: 'cascata',
+  hazardFilter: ['flood'],
+  showLegendSimple: true,
+}</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h3 class="section-heading">🗺️ Beat 2B · The <span class="path-banner help">🤝 needs-help</span> path</h3>
+
+  <h2 class="screen">SCREEN 4 — needs-help · browse-only map (NEW mode — exploration without commitment)</h2>
+  <p class="anno">Path opens with the map in read-only browse mode. All 3 hazards visible. Agent narrates the colors. User explores without pressure to commit.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 2 · path: 🤝 needs-help</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Coletivo Restinga Nova</div>
+            <div class="meta">Restinga · Encontro 2</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 2 de 5 · Seu território</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg curr"></div><div class="seg locked"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="ma-banner">
+          <a href="#" class="back-link">← Voltar ao chat</a>
+          <div class="by-agent">Olhe sem pressa</div>
+          <div class="prompt">As cores mostram o que mais afeta Restinga: vermelho = enchente, laranja = calor extremo, amarelo = deslizamento.</div>
+        </div>
+        <div class="ma-body">
+          <div class="pretend-map">
+            <div class="neighborhood-outline" style="left:15%; top:25%; width:60%; height:50%;"></div>
+            <div class="map-overlay-label" style="left:20%; top:21%;">Restinga</div>
+            <div class="map-legend">
+              <div class="title">Riscos visíveis</div>
+              <div class="swatches">
+                <span class="swatch" style="--swatch:#ef4444;">enchente</span>
+                <span class="swatch" style="--swatch:#fb923c;">calor</span>
+                <span class="swatch" style="--swatch:#fbbf24;">deslizamento</span>
+              </div>
+            </div>
+          </div>
+          <div class="ma-action-bar">
+            <a href="#" class="btn-pivot">Pronto, vamos escolher um local →</a>
+          </div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab"><div class="icon">💬</div><span class="label">Chat</span><div class="badge"></div></div>
+          <div class="tab active"><div class="icon">🗺️</div><span class="label">Mapa</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>MapMicroapp · IMPROVEMENT — browse-only mode (NEW)</h4>
+      <p>
+        No "Confirmar local" button — instead, a "Pronto, vamos escolher um local" pivot that switches the map into <code>selectionMode: 'site'</code> when the user is ready. They aren't being asked to commit; they're being invited to explore.
+      </p>
+      <p>
+        Per the LEED-UP + ABCD methodology: community knowledge first, technical decision second. The agent's banner explains what the colors mean instead of asking a question.
+      </p>
+      <p>
+        Note the red dot on 💬 — the agent has already sent a follow-up message ("Olha sem pressa, me conta o que você vê") that the user will read when they return to Chat.
+      </p>
+      <div class="kv">open_map params for needs-help (initial):
+{
+  selectionMode: 'browse-only',
+  centerBairro: 'restinga',
+  hazardFilter: ['flood', 'heat', 'landslide'],
+  showLegendSimple: true,
+  pivotCta: 'Pronto, vamos escolher um local →',
+  pivotTo: { selectionMode: 'site' }
+}</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h3 class="section-heading">🎯 Beat 3 · Convergence (shared by both paths)</h3>
+
+  <h2 class="screen">SCREEN 5 — RiskPriorityChips (NEW · inline in chat)</h2>
+  <p class="anno">After site is plotted, both paths see the same drag-rankable hazard chips. Output: ordered primary / secondary / tertiary hazards.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 2 · Beat 3 (qualquer path)</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 2</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 2 de 5 · Seu território</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg curr"></div><div class="seg locked"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="chat-msgs">
+            <div class="msg user">📍 Local marcado · Pracinha do bairro (~320 m²)</div>
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              Bom, anotado. Esse ponto está em zona de risco <strong>alto de enchente</strong>. Antes da gente falar de intervenção, deixa eu te perguntar: <strong>desses três riscos, qual mais te preocupa no dia a dia?</strong>
+              <div class="priority-chips">
+                <div class="priority-chip ranked">
+                  <span class="rank-num">1</span>
+                  <span class="hazard-icon">🌊</span>
+                  <span class="hazard-name">Enchente</span>
+                  <span class="drag-handle">⋮⋮</span>
+                </div>
+                <div class="priority-chip ranked">
+                  <span class="rank-num">2</span>
+                  <span class="hazard-icon">🌡️</span>
+                  <span class="hazard-name">Calor extremo</span>
+                  <span class="drag-handle">⋮⋮</span>
+                </div>
+                <div class="priority-chip">
+                  <span class="rank-num">3</span>
+                  <span class="hazard-icon">⛰️</span>
+                  <span class="hazard-name">Deslizamento</span>
+                  <span class="drag-handle">⋮⋮</span>
+                </div>
+              </div>
+              <div style="margin-top: 10px;">
+                <a href="#" style="font-size: 12px; color: var(--accent-deep); font-weight: 500;">Confirmar ordem →</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Ou escreva sua resposta…">
+          <div class="send">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab"><div class="icon">🗺️</div><span class="label">Mapa</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>RiskPriorityChips · NEW microapp (inline)</h4>
+      <p>
+        3 hazards, ordered by user concern. Drag handles for desktop; tap-in-order for mobile (1st tap = 1, 2nd = 2, 3rd = 3). The first 2 are required (primary + secondary); the 3rd is optional.
+      </p>
+      <p>
+        Per the US Climate Resilience Toolkit + UN-Habitat, qualitative ranking is the right rigor at the community level. We're not asking the user to assign quantitative scores — just to order them.
+      </p>
+      <div class="kv">component: RiskPriorityChips
+agent event: ask_priority_rank
+params: {
+  question: "...",
+  items: ['flood', 'heat', 'landslide'],
+  minRanked: 2,
+}
+output:
+  { primary_hazard: 'flood',
+    secondary_hazard: 'heat',
+    tertiary_hazard: 'landslide' }</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 6 — CommunityAnchoringComposer (NEW · inline)</h2>
+  <p class="anno">Light-touch structured form scaffolded by labels. Captures who's anchored in the place + how they engage. Maps to the Community Anchoring maturity score.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 2 · Beat 3 · anchoring</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 2</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 2 de 5 · Seu território</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg curr"></div><div class="seg locked"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="chat-msgs">
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              Última coisa por hoje: <strong>quem da comunidade está envolvida nesse trabalho?</strong> Pode ser bem rápido.
+              <div class="ca-composer">
+                <div class="ca-row">
+                  <div class="label">Lideranças</div>
+                  <input value="Sandra, D. Maria" />
+                </div>
+                <div class="ca-row">
+                  <div class="label">Voluntários (quantos / quem)</div>
+                  <input value="8 pessoas regulares" />
+                </div>
+                <div class="ca-row">
+                  <div class="label">Moradores diretamente envolvidos</div>
+                  <input placeholder="ex: 12 famílias atendidas pela horta" />
+                </div>
+                <div class="ca-row">
+                  <div class="label">Como vocês se reúnem? (escolha 1 ou mais)</div>
+                  <div class="ca-chip-row">
+                    <span class="ca-chip selected">Assembleias</span>
+                    <span class="ca-chip selected">Oficinas</span>
+                    <span class="ca-chip">Mutirões</span>
+                    <span class="ca-chip">Conversas no dia a dia</span>
+                    <span class="ca-chip">Outras</span>
+                  </div>
+                </div>
+                <div style="margin-top: 8px; text-align: right;">
+                  <a href="#" style="font-size: 11px; color: var(--accent-deep); font-weight: 500;">Salvar →</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Ou escreva livre…">
+          <div class="send">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab"><div class="icon">🗺️</div><span class="label">Mapa</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>CommunityAnchoringComposer · NEW microapp (inline)</h4>
+      <p>
+        Three labeled free-text fields + a multi-select chip row. Lighter than a full form, more structured than a single free-text. Captures the texture of community engagement (per BPJP/C40 inclusive-action criteria) without forcing demographic-survey framing.
+      </p>
+      <p>
+        Each field is optional — they can leave any blank. The chip-row engagement methods feed the Community Anchoring maturity score: ≥1 active method (oficinas/mutirões) → score 2; assembleias regulares (governance) → score 3.
+      </p>
+      <div class="kv">component: CommunityAnchoringComposer
+output:
+  community_anchoring_lead: "Sandra, D. Maria"
+  community_volunteers: "8 pessoas regulares"
+  community_beneficiaries: ""
+  community_engagement_methods:
+    ['assembleias', 'oficinas']</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 7 — Perfil tab updated · two new cards filled</h2>
+  <p class="anno">Doc panel state after Beat 3. User taps 📋 Perfil to glance at what got captured.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Tab: 📋 Perfil</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 2</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 2 de 5 · Seu território</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg curr"></div><div class="seg locked"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="doc-card">
+            <div class="ttl">Quem somos <span class="complete-tag">✓</span></div>
+            <div class="row"><div class="key">Nome</div><div class="val">Horta Comunitária Cascata</div></div>
+            <div class="row"><div class="key">Forma</div><div class="val">Associação · 2018</div></div>
+          </div>
+          <div class="doc-card">
+            <div class="ttl">Equipe · Histórico · Caminho <span class="complete-tag">✓</span></div>
+            <div class="row"><div class="key">Equipe</div><div class="val">6–15 · 2 pagas · 8 voluntárias</div></div>
+            <div class="row"><div class="key">Escala</div><div class="val">Projetos com financiamento</div></div>
+            <div class="row"><div class="key">Caminho</div><div class="val">💡 Já tem uma ideia</div></div>
+          </div>
+          <div class="doc-card" style="border-color: #6ee7b7;">
+            <div class="ttl">Seu território <span class="complete-tag">✓</span></div>
+            <div class="row"><div class="key">Bairro</div><div class="val">Cascata</div></div>
+            <div class="row"><div class="key">Local</div><div class="val">Pracinha do bairro · ~320 m²</div></div>
+            <div class="row"><div class="key">Uso atual</div><div class="val">Misto (calçada + canteiros)</div></div>
+            <div class="row"><div class="key">Domínio</div><div class="val">Público (informal)</div></div>
+            <div class="row"><div class="key">Riscos</div><div class="val">🌊 Enchente · 🌡️ Calor</div></div>
+          </div>
+          <div class="doc-card" style="border-color: #6ee7b7;">
+            <div class="ttl">Comunidade envolvida <span class="complete-tag">✓</span></div>
+            <div class="row"><div class="key">Lideranças</div><div class="val">Sandra, D. Maria</div></div>
+            <div class="row"><div class="key">Voluntários</div><div class="val">8 pessoas regulares</div></div>
+            <div class="row"><div class="key">Forma</div><div class="val">Assembleias · Oficinas</div></div>
+          </div>
+          <div class="doc-card empty">
+            <div class="ttl">Sua intervenção <span style="font-size:9px;color:var(--muted);">— próximo encontro</span></div>
+            <div style="font-size: 11px; color: var(--muted); font-style: italic;">Vamos preencher juntos no Encontro 3.</div>
+          </div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab"><div class="icon">🗺️</div><span class="label">Mapa</span></div>
+          <div class="tab active"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>Two new cards land in the Perfil tab</h4>
+      <p>
+        <strong>Seu território</strong> + <strong>Comunidade envolvida</strong> join the E1 cards. Each editable on hover. Mature future encontros stay greyed with the "próximo encontro" hint.
+      </p>
+      <p>
+        Both new cards have a green border treatment to highlight they were just completed. After the user navigates away and back, the green border fades to neutral.
+      </p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 8 — Closing message</h2>
+  <p class="anno">Same closing-message pattern as E1. Path-aware messaging about what E3 will cover.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 2 · fim</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 2</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 2 de 5 · Seu território · ✓</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg curr" style="opacity:0.3;"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="chat-msgs">
+            <div style="background: var(--accent-soft); border: 1px solid #6ee7b7; padding: 14px; border-radius: 10px; text-align: center; color: var(--accent-deep); margin-bottom: 12px;">
+              <div style="font-size: 22px; margin-bottom: 4px;">✓</div>
+              <div style="font-weight: 600; font-size: 14px;">Encontro 2 concluído</div>
+              <div style="font-size: 12px; color: var(--ink); opacity: 0.7; margin-top: 4px;">Obrigado, Sandra. Seu território está marcado.</div>
+            </div>
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              <strong>Próximo encontro: 25 de junho — Desenhando sua intervenção.</strong>
+              <br><br>
+              Você marcou <strong>Pracinha do bairro</strong>, e o que mais te preocupa é <strong>enchente</strong>. No próximo encontro vamos escolher juntos o tipo de SbN que faz mais sentido pra isso — provavelmente alguma coisa com infiltração e biorretenção. Mas isso a gente vê na hora.
+              <br><br>
+              Até lá! 🌱
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Aguardando próximo encontro…" disabled style="opacity:0.6;">
+          <div class="send" style="opacity:0.4;">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab"><div class="icon">🗺️</div><span class="label">Mapa</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>Closing reuses E1's pattern</h4>
+      <p>
+        Friendly completion banner + next-encontro setup. The agent uses what was just captured — bairro + primary hazard — to set expectations for E3 ("vamos escolher SbN que faz sentido pra enchente"). Doesn't commit to a specific intervention type yet.
+      </p>
+      <p>The Mapa tab stays in the tab bar — Sandra can revisit her site anytime between encontros.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">Summary · new microapps & improvements proposed in this encontro</h2>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW · inline</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">NbsShowcaseCard</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        3-card horizontal showcase of photographed Brazilian NBS cases. Reusable in E3 + E6.
+        <br><br>
+        <strong>Effort:</strong> ~80 lines React + YAML data.
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW · inline</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">RiskPriorityChips</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        Drag/tap-rankable hazard chips. Output: primary, secondary, tertiary.
+        <br><br>
+        <strong>Effort:</strong> ~50 lines React + new agent event.
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW · inline</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">CommunityAnchoringComposer</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        Lightweight structured form for who's anchored + how they engage.
+        <br><br>
+        <strong>Effort:</strong> ~60 lines React.
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--accent-soft);">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">IMPROVEMENT · MapMicroapp</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">Simpler modes for E2</div>
+      <div style="font-size: 12px; color: var(--ink); line-height: 1.5;">
+        New params: <code>selectionMode: 'site' | 'browse-only'</code>, <code>hazardFilter</code>, <code>showLegendSimple</code>, <code>centerBairro</code>.
+        <br><br>
+        <strong>Effort:</strong> ~120 lines added to existing component.
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size: 11px; color: var(--muted); margin-top: 48px; border-top: 1px solid var(--line); padding-top: 16px;">
+    Companion files: <code>research.md</code> · <code>spec.md</code> · <code>skill.md</code> · all in <code>knowledge/runs/2026-05-15-encontros-curriculum/E2-seu-territorio/</code>
+  </p>
+</div>
+</body>
+</html>
