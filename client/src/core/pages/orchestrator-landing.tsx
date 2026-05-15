@@ -19,7 +19,7 @@ import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, MapPin,
+  ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, Lightbulb, MapPin,
   Mountain, Network, Plus, RotateCcw, Sparkles, Sprout, Trees, Unlock, Users, Waves,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
@@ -75,6 +75,10 @@ type CboDemoProject = {
   updatedDaysAgo: number;
   /** i18n key for the 'next action' line on the card. */
   nextActionKey: string;
+  /** Two-path triage answer from E1 — drives a chip on the card so the
+   *  coordinator sees who needs more hand-holding (needs-help) vs who has
+   *  a concrete idea (has-idea). Null until E1's set_path tool fires. */
+  path: 'has-idea' | 'needs-help' | null;
 };
 
 const TOTAL_SECTIONS = 7;
@@ -115,6 +119,7 @@ function memberToView(m: CohortMember): CboDemoProject {
     priorityFlagsMet: m.snapshotFlagsMet ?? 0,
     updatedDaysAgo: daysAgo,
     nextActionKey: NEXT_ACTION_KEY[phaseNum] ?? NEXT_ACTION_KEY[1],
+    path: (m.path as 'has-idea' | 'needs-help' | null | undefined) ?? null,
   };
 }
 
@@ -480,11 +485,26 @@ function ProjectCard({
             </div>
           </div>
 
-          {/* Phase + Intervention row */}
+          {/* Phase + Path + Intervention row */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full border border-foreground/10 bg-foreground/5 text-foreground/75">
               {t(`orchestrator.demo.phase.${project.currentPhase}`)}
             </span>
+            {project.path && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-900/40"
+                title={project.path === 'has-idea'
+                  ? t('orchestrator.demo.path.hasIdeaFull', { defaultValue: 'CBO arrived with a specific NBS project in mind' })
+                  : t('orchestrator.demo.path.needsHelpFull', { defaultValue: 'CBO wants help discovering a project — needs more hand-holding' })}
+              >
+                {project.path === 'has-idea'
+                  ? <Lightbulb className="w-3 h-3" strokeWidth={2} />
+                  : <Compass className="w-3 h-3" strokeWidth={2} />}
+                {project.path === 'has-idea'
+                  ? t('orchestrator.demo.path.hasIdea', { defaultValue: 'Tem ideia' })
+                  : t('orchestrator.demo.path.needsHelp', { defaultValue: 'Quer descobrir' })}
+              </span>
+            )}
             {hasIntervention ? (
               <span
                 className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${toneStyle.bubble} ${toneStyle.fg} border-foreground/10`}
