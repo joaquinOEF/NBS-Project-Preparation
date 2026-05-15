@@ -219,6 +219,8 @@ export function registerCohortRoutes(app: Express): void {
   }));
 
   // CBO pushes a snapshot of its current progress so the orchestrator can show it.
+  // Workshop-phased unlock (P-8): clamp `phase` to the member's `unlockedPhases`.
+  // Phase 6+ (export/wrap) is always allowed.
   app.patch('/api/cbo-member/:memberSlug/snapshot', wrap(async (req, res) => {
     const member = await findMemberBySlug(req.params.memberSlug);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
@@ -227,10 +229,26 @@ export function registerCohortRoutes(app: Express): void {
       phase, sectionsComplete, maturityScore, flagsMet, intervention, cboStateId,
     } = req.body ?? {};
 
+    let nextPhase = typeof phase === 'number' ? phase : member.snapshotPhase;
+    if (typeof phase === 'number' && phase >= 1 && phase <= 5) {
+      const unlocked = Array.isArray(member.unlockedPhases) ? (member.unlockedPhases as number[]) : [1];
+      if (!unlocked.includes(phase)) {
+        const maxAllowed = Math.max(...unlocked);
+        nextPhase = maxAllowed;
+        res.status(409).json({
+          error: 'phase_locked',
+          requestedPhase: phase,
+          maxAllowedPhase: maxAllowed,
+          unlockedPhases: unlocked,
+        });
+        return;
+      }
+    }
+
     await db.update(cohortMembers).set({
       cboStateId: cboStateId ?? member.cboStateId ?? null,
       startedAt: member.startedAt ?? new Date(),
-      snapshotPhase: typeof phase === 'number' ? phase : member.snapshotPhase,
+      snapshotPhase: nextPhase,
       snapshotSectionsComplete: typeof sectionsComplete === 'number' ? sectionsComplete : member.snapshotSectionsComplete,
       snapshotMaturityScore: typeof maturityScore === 'number' ? maturityScore : member.snapshotMaturityScore,
       snapshotFlagsMet: typeof flagsMet === 'number' ? flagsMet : member.snapshotFlagsMet,

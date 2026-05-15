@@ -237,6 +237,18 @@ export default function CboProfilePage() {
     [unlockedPhases]
   );
 
+  // Link cboStateId to the cohort member as soon as both are known so the
+  // server-side phase gate (P-8) can identify this CBO from turn 1, before
+  // any phase-change or maturity-update snapshot fires.
+  useEffect(() => {
+    if (!memberSlug || !cboId) return;
+    fetch(`/api/cbo-member/${memberSlug}/snapshot`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cboStateId: cboId }),
+    }).catch(() => {});
+  }, [memberSlug, cboId]);
+
   // Hide Replit chat widget on this page
   useEffect(() => {
     const style = document.createElement('style');
