@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E4 — Impacto · operações · sustentabilidade · mockup</title>
+<style>
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --ink: #18181b; --muted: #71717a;
+    --line: rgba(0,0,0,0.08); --accent: #059669; --accent-soft: #ecfdf5;
+    --accent-deep: #047857; --warm: #f59e0b; --warm-soft: #fef3c7;
+    --info: #0284c7; --info-soft: #e0f2fe; --danger: #ef4444;
+    --bluegreen-soft: #cffafe; --bluegreen: #06b6d4;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; line-height: 1.5; font-size: 14px; }
+  .doc { max-width: 1280px; margin: 0 auto; padding: 48px 28px 96px; }
+  h1 { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 4px; }
+  h1 .small { font-size: 13px; font-weight: 400; color: var(--muted); }
+  h2.screen { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin: 56px 0 12px; }
+  .lede { color: var(--muted); margin: 8px 0 24px; max-width: 64ch; line-height: 1.6; }
+  .anno { font-size: 12px; color: var(--muted); margin: 8px 0 18px; padding-left: 14px; border-left: 2px solid var(--accent); max-width: 64ch; }
+  .scene { display: grid; grid-template-columns: 380px 1fr; gap: 36px; align-items: start; }
+  .scene .note h4 { font-size: 14px; margin: 0 0 6px; }
+  .scene .note p { font-size: 13px; color: var(--muted); margin: 0 0 10px; line-height: 1.6; }
+  .scene .note .kv { font-family: ui-monospace, monospace; font-size: 11px; background: #f4f4f5; padding: 10px 12px; border-radius: 8px; color: var(--ink); margin-top: 12px; white-space: pre-wrap; line-height: 1.5; }
+  .phone { width: 380px; background: var(--surface); border: 1px solid var(--line); border-radius: 28px; overflow: hidden; box-shadow: 0 12px 36px -16px rgba(0,0,0,0.18); }
+  .phone .top-chrome { padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; }
+  .phone .frame-body { min-height: 660px; display: flex; flex-direction: column; }
+  .app-header { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .app-header .leaf { width: 28px; height: 28px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-deep); display:flex; align-items:center; justify-content:center; font-size: 13px; }
+  .app-header .id { flex: 1; min-width: 0; }
+  .app-header .org-name { font-size: 13px; font-weight: 600; line-height: 1.2; }
+  .app-header .meta { font-size: 10px; color: var(--muted); line-height: 1.2; }
+  .progress-strip { padding: 8px 16px; border-bottom: 1px solid var(--line); }
+  .progress-strip .label { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+  .progress-strip .label .active { color: var(--ink); font-weight: 600; }
+  .segments { display: flex; gap: 3px; }
+  .seg { height: 3px; flex: 1; border-radius: 2px; }
+  .seg.past { background: var(--accent); }
+  .seg.curr { background: var(--accent); opacity: 0.5; }
+  .seg.locked { background: rgba(0,0,0,0.08); }
+  .tab-content { flex: 1; padding: 12px 16px; overflow-y: auto; }
+  .chat-msgs { display: flex; flex-direction: column; gap: 6px; }
+  .msg { padding: 8px 12px; border-radius: 14px; font-size: 13px; line-height: 1.45; max-width: 92%; }
+  .msg.agent { background: #f4f4f5; align-self: flex-start; }
+  .msg.user { background: var(--accent); color: white; align-self: flex-end; }
+  .msg .lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+  .msg.user .lbl { display: none; }
+  /* Impact calculator cards */
+  .impact-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px;
+  }
+  .impact-card .row { display: flex; align-items: flex-start; gap: 10px; }
+  .impact-icon { font-size: 22px; line-height: 1.1; flex-shrink: 0; }
+  .impact-body { flex: 1; min-width: 0; }
+  .impact-name { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+  .impact-value { font-size: 16px; font-weight: 600; color: var(--ink); margin-top: 1px; }
+  .impact-value .unit { font-size: 11px; color: var(--muted); font-weight: 500; margin-left: 2px; }
+  .impact-assumptions { font-size: 10px; color: var(--accent-deep); margin-top: 6px; cursor: pointer; }
+  .impact-detail {
+    margin-top: 8px; padding: 8px 10px; background: var(--accent-soft);
+    border-radius: 6px; font-size: 11px; color: var(--ink); line-height: 1.5;
+  }
+  .impact-detail .lbl { font-weight: 600; color: var(--accent-deep); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .impact-detail code { font-family: ui-monospace, monospace; font-size: 10px; background: white; padding: 1px 4px; border-radius: 3px; }
+  /* Operations form */
+  .ops-section {
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+    background: var(--surface); margin-bottom: 8px;
+  }
+  .ops-section.expanded { border-color: var(--accent); }
+  .ops-section .title { font-size: 13px; font-weight: 600; color: var(--ink); display: flex; align-items: center; justify-content: space-between; }
+  .ops-section .phase-cost { font-size: 11px; color: var(--accent-deep); font-weight: 600; }
+  .ops-section .subtle { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .ops-row { margin-top: 8px; }
+  .ops-row .label { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip {
+    border: 1px solid var(--line); padding: 3px 9px; border-radius: 999px; font-size: 10px;
+    background: var(--surface); cursor: pointer;
+  }
+  .chip.selected { background: var(--accent-soft); border-color: #6ee7b7; color: var(--accent-deep); }
+  .ops-total {
+    background: var(--accent-soft); border: 1px solid #6ee7b7; border-radius: 10px;
+    padding: 12px; margin-top: 4px; text-align: center;
+  }
+  .ops-total .label { font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+  .ops-total .amount { font-size: 18px; font-weight: 700; color: var(--ink); margin-top: 2px; }
+  .ops-total .small { font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+  /* Sustainability picker */
+  .sust-chip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+  .sust-chip {
+    border: 1px solid var(--line); padding: 8px 10px; border-radius: 8px;
+    background: var(--surface); cursor: pointer; font-size: 11px; line-height: 1.3;
+  }
+  .sust-chip.selected { background: var(--accent-soft); border-color: var(--accent); }
+  .sust-chip.primary { background: var(--accent); color: white; border-color: var(--accent-deep); }
+  .sust-chip .icon { font-size: 16px; display: block; margin-bottom: 3px; }
+  .sust-chip .name { font-weight: 600; }
+  /* Chat input */
+  .chat-input { padding: 8px 12px; border-top: 1px solid var(--line); display: flex; gap: 6px; }
+  .chat-input .ipt { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font-size: 12px; color: var(--muted); background: var(--surface); }
+  .chat-input .send { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; }
+  /* Tab bar */
+  .tab-bar { border-top: 1px solid var(--line); background: var(--surface); display: flex; padding: 4px 0 8px; }
+  .tab { flex: 1; text-align: center; padding: 6px 4px; font-size: 10px; color: var(--muted); position: relative; cursor: pointer; }
+  .tab .icon { font-size: 18px; line-height: 1; }
+  .tab .label { display: block; margin-top: 2px; font-weight: 500; }
+  .tab.active { color: var(--accent-deep); }
+  .tab.active::after { content:""; position:absolute; bottom:-4px; left:50%; transform:translateX(-50%); width:24px; height:2px; background:var(--accent); border-radius:2px; }
+
+  .legend { background: #eff6ff; border-left: 3px solid #3b82f6; padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 12px; color: #1e3a8a; margin: 16px 0 24px; max-width: 64ch; }
+  .flow-arrow { display: flex; align-items: center; gap: 8px; color: var(--accent-deep); font-size: 12px; font-weight: 600; margin: 14px 0 4px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .flow-arrow::before, .flow-arrow::after { content: ""; flex: 1; height: 1px; background: var(--accent-soft); }
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>E4 — Impacto · operações · sustentabilidade <span class="small">· mockup walkthrough · 2026-05-15</span></h1>
+  <p class="lede">
+    The encontro where an idea becomes a serious project. Three beats over ~50 min:
+    <strong>computed impact</strong> (ranges, with assumptions visible) →
+    <strong>3-phase operations</strong> (Year 1 / Year 2-3 / Year 3+) →
+    <strong>sustainability model</strong> (5-pattern picker).
+  </p>
+  <div class="legend">
+    <strong>Core design call:</strong> "Show what's computable, ask what's not." The ImpactCalculator is a deterministic computation over a YAML — not an LLM call — so outputs are reproducible. Operations data only the CBO knows is asked. That separation is why this fits in 50 min.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 1 — ImpactCalculator opens with 4 indicator cards</h2>
+  <p class="anno">Agent invokes <code>show_impact</code>. Calculator reads intervention type, area, bairro hazard, climate context. Renders 3-4 indicators as <strong>ranges</strong> with "Ver assumptions →" expandable per card.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 4 · impacto</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 4</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 4 de 5 · Impacto · operações · sustentabilidade</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg curr"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="chat-msgs">
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              No último encontro você desenhou <strong>320 m² de jardim de chuva</strong> em Cascata. Aqui está o impacto esperado pro seu projeto.
+            </div>
+
+            <div class="impact-card">
+              <div class="row">
+                <div class="impact-icon">🌊</div>
+                <div class="impact-body">
+                  <div class="impact-name">Captação de água da chuva</div>
+                  <div class="impact-value">1.800–3.200 <span class="unit">m³/ano</span></div>
+                  <div class="impact-assumptions">Ver detalhes →</div>
+                </div>
+              </div>
+              <div class="impact-detail">
+                <div class="lbl">Como calculamos</div>
+                Pra <code>320 m²</code> de jardim de chuva em zona urbana com chuva concentrada (Porto Alegre): <code>5.6–10.0 m³/m²/ano</code> (faixa baseada em densidade de chuva + área de captação contribuinte). POA fica na faixa de cima da literatura.
+                <br><br>
+                <div class="lbl">Fonte</div>
+                CNT Green Values Calculator · _evidence/impact-benchmarks.md
+              </div>
+            </div>
+
+            <div class="impact-card">
+              <div class="row">
+                <div class="impact-icon">🌡️</div>
+                <div class="impact-body">
+                  <div class="impact-name">Resfriamento local</div>
+                  <div class="impact-value">0.3–0.8 <span class="unit">°C</span></div>
+                  <div class="impact-assumptions">Ver detalhes →</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="impact-card">
+              <div class="row">
+                <div class="impact-icon">🌱</div>
+                <div class="impact-body">
+                  <div class="impact-name">Sequestro de carbono</div>
+                  <div class="impact-value">0.4–1.2 <span class="unit">tCO₂e/ano</span></div>
+                  <div class="impact-assumptions">Ver detalhes →</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="impact-card">
+              <div class="row">
+                <div class="impact-icon">👥</div>
+                <div class="impact-body">
+                  <div class="impact-name">Pessoas atendidas</div>
+                  <div class="impact-value">~120 <span class="unit">diretas</span> · ~500 <span class="unit">indiretas (200m)</span></div>
+                  <div class="impact-assumptions">Ver detalhes →</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="msg agent" style="margin-top: 6px;">
+              <div class="lbl">Agente</div>
+              Faixas, não pontos — porque depende da chuva, do clima do ano, do que vocês plantam. <strong>Você tem alguma ideia de como medir o impacto enquanto o projeto vai rolando?</strong> (Ex: fotos, registro de chuvas, contagem)
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Conta como você imaginaria…">
+          <div class="send">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>ImpactCalculator · NEW (the biggest new component)</h4>
+      <p>
+        Deterministic computation, not an LLM call. Reads from <code>_impact-coefficients/by-intervention.yaml</code> (new data file — every coefficient cited).
+      </p>
+      <p>
+        4 cards filtered by hazard: water (flood), cooling (heat), carbon (all veg), pessoas (all). Each card renders a <strong>range with units</strong>; "Ver detalhes →" expands to show site characteristics used + literature source.
+      </p>
+      <p>
+        After the cards, agent invites a 1-sentence monitoring plan (feeds Climate NBS Impact maturity scoring).
+      </p>
+      <div class="kv">component: ImpactCalculator
+inputs:
+  intervention_type, area_m2,
+  bairro, primary_hazard, secondary_hazard
+data: _impact-coefficients/by-intervention.yaml
+  (~150 lines YAML, every value cited)
+output:
+  impact_indicators: Array&lt;{
+    indicator, value_range, units,
+    assumptions, source
+  }&gt;</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="flow-arrow">User describes monitoring plan · agent moves to operations</div>
+
+  <h2 class="screen">SCREEN 2 — OperationsDesigner · 3-phase team form</h2>
+  <p class="anno">Three collapsible sections: Year 1 (implementation), Year 2-3 (stabilization), Year 3+ (steady state). Each captures team composition + time commitment + auto-computed cost. Bottom: 5-year total OPEX.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 4 · operações</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 4</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 4 de 5 · Impacto · operações · sustentabilidade</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg curr"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="chat-msgs">
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              Agora a parte que mais quebra projeto comunitário: <strong>quem cuida disso depois de pronto?</strong> Vamos pensar em 3 fases.
+            </div>
+
+            <div class="ops-section expanded">
+              <div class="title">
+                Ano 1 · Implementação
+                <span class="phase-cost">~R$ 15k</span>
+              </div>
+              <div class="subtle">A fase mais pesada — instalação + plantas pegando + erva-daninha</div>
+              <div class="ops-row">
+                <div class="label">Time</div>
+                <div class="chip-row">
+                  <span class="chip selected">Voluntários</span>
+                  <span class="chip selected">Coordenador pago</span>
+                  <span class="chip">Parceiros externos</span>
+                  <span class="chip">Prefeitura</span>
+                  <span class="chip selected">Universidade</span>
+                </div>
+              </div>
+              <div class="ops-row">
+                <div class="label">Horas/semana total</div>
+                <div class="chip-row">
+                  <span class="chip">&lt;5h</span>
+                  <span class="chip selected">5-15h</span>
+                  <span class="chip">15-40h</span>
+                  <span class="chip">40h+</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="ops-section">
+              <div class="title">
+                Ano 2-3 · Estabilização
+                <span class="phase-cost">~R$ 7k</span>
+              </div>
+              <div class="subtle">Onde muito projeto morre. Quem fica?</div>
+              <div class="ops-row">
+                <div class="label">Time</div>
+                <div class="chip-row">
+                  <span class="chip selected">Núcleo menor (5)</span>
+                  <span class="chip">Mesmo time</span>
+                  <span class="chip">Pessoas novas</span>
+                  <span class="chip">Ainda incerto</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="ops-section">
+              <div class="title">
+                Ano 3+ · Estado estável
+                <span class="phase-cost">~R$ 5k</span>
+              </div>
+              <div class="subtle">Modelo de governança permanente</div>
+              <div class="ops-row">
+                <div class="label">Modelo</div>
+                <div class="chip-row">
+                  <span class="chip selected">Rotação de voluntários</span>
+                  <span class="chip selected">Parceria UFRGS</span>
+                  <span class="chip">Coordenação remunerada</span>
+                  <span class="chip">Cuidado da prefeitura</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="ops-total">
+              <div class="label">Total estimado em 5 anos</div>
+              <div class="amount">~R$ 39.000</div>
+              <div class="small">É bastante? Tudo bem ajustar a equipe. Esses números são pra te dar referência.</div>
+            </div>
+
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Quer ajustar algo?">
+          <div class="send">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>OperationsDesigner · NEW</h4>
+      <p>
+        3 collapsible sections — Year 1, Year 2-3, Year 3+. Cost auto-computed per phase using <code>_operations-templates/&lt;intervention&gt;.yaml</code> (intervention's per-phase R$/m²/yr range × area).
+      </p>
+      <p>
+        Per-phase questions are deliberately different — Year 1 asks about team composition, Year 2-3 asks "who stays" (the death-of-projects moment per community-garden lit), Year 3+ asks about governance model.
+      </p>
+      <p>
+        Bottom: live 5-year OPEX total. Framed as a sanity check, not a judgment.
+      </p>
+      <div class="kv">component: OperationsDesigner
+inputs:
+  intervention_type, area_m2
+data: _operations-templates/&lt;type&gt;.yaml
+  (one per intervention, 6 files)
+output:
+  ops_y1_team, ops_y1_cost_brl,
+  ops_y2_3_team, ops_y2_3_cost_brl,
+  ops_y3plus_team + governance_model,
+  ops_5yr_total_brl</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="flow-arrow">User confirms operations · agent moves to sustainability</div>
+
+  <h2 class="screen">SCREEN 3 — SustainabilityModelPicker · 5 patterns + primary</h2>
+  <p class="anno">Multi-select chip grid for 5 sustainability models + a primary designation + monthly target band + short revenue rationale.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 4 · sustentabilidade</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 4</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 4 de 5 · Impacto · operações · sustentabilidade</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg curr"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="chat-msgs">
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              Última parte: <strong>como o projeto se sustenta financeiramente?</strong> Pode marcar mais de um. Depois escolhe qual seria o principal.
+              <div class="sust-chip-grid">
+                <div class="sust-chip primary">
+                  <span class="icon">🤝</span>
+                  <span class="name">Fundo da comunidade</span>
+                  <span style="font-size: 9px; opacity: 0.9;">★ principal</span>
+                </div>
+                <div class="sust-chip selected">
+                  <span class="icon">🏛️</span>
+                  <span class="name">Apoio prefeitura</span>
+                </div>
+                <div class="sust-chip">
+                  <span class="icon">💰</span>
+                  <span class="name">Receita do projeto</span>
+                  <span style="font-size: 9px; color: var(--muted);">venda · eventos</span>
+                </div>
+                <div class="sust-chip selected">
+                  <span class="icon">📅</span>
+                  <span class="name">Ciclos de grant</span>
+                  <span style="font-size: 9px; color: var(--muted);">BPJP · QCF</span>
+                </div>
+                <div class="sust-chip">
+                  <span class="icon">🌱</span>
+                  <span class="name">PSA</span>
+                  <span style="font-size: 9px; color: var(--muted);">pagto serviços</span>
+                </div>
+                <div class="sust-chip">
+                  <span class="icon">✏️</span>
+                  <span class="name">Outro</span>
+                </div>
+              </div>
+
+              <div style="margin-top: 12px;">
+                <div style="font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px;">Quanto por mês pra sustentar?</div>
+                <div class="chip-row">
+                  <span class="chip">&lt; R$ 500</span>
+                  <span class="chip selected">R$ 500-2.000</span>
+                  <span class="chip">R$ 2k-10k</span>
+                  <span class="chip">&gt; R$ 10k</span>
+                </div>
+              </div>
+
+              <div style="margin-top: 12px;">
+                <div style="font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px;">De onde imagina vir a maior parte?</div>
+                <textarea style="width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; font-size: 12px; min-height: 50px;">Pretendemos manter o fundo da comunidade com mensalidades simbólicas (R$10/família) + buscar apoio da prefeitura via SMAMUS depois de 1 ano funcionando, pra mostrar resultado.</textarea>
+              </div>
+
+              <div style="margin-top: 8px; text-align: right;">
+                <a href="#" style="font-size: 12px; color: var(--accent-deep); font-weight: 500;">Salvar →</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Ou pergunte algo…">
+          <div class="send">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>SustainabilityModelPicker · NEW</h4>
+      <p>
+        5 patterns based on what we found in the Brazilian community NBS literature: community-fund, municipal-cost-share, fee-based, grant-cycles, PES. Plus "outro" as escape hatch.
+      </p>
+      <p>
+        Multi-select with a single "primary" designation (the star). Most successful projects end up mixed — the literature confirms.
+      </p>
+      <p>
+        Monthly target uses band chips (not exact R$) to keep it low-friction and honest about uncertainty. Free-text revenue rationale captures the texture — feeds the E6 pitch.
+      </p>
+      <div class="kv">component: SustainabilityModelPicker
+output:
+  sustainability_models: ['community-fund',
+                          'municipal-cost-share',
+                          'grant-cycles'],
+  sustainability_primary: 'community-fund',
+  monthly_target_brl_band: '500-2000',
+  revenue_rationale: "..."</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 4 — Perfil tab · two new cards filled</h2>
+  <p class="anno">Doc panel after E4. <strong>Impacto esperado</strong> + <strong>Operações e sustentabilidade</strong> join the existing 5 cards.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Tab: 📋 Perfil · após E4</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Encontro 4 ✓</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 4 de 5 · ✓</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg curr" style="opacity: 0.3;"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px;">
+            <div style="font-size: 11px; font-weight: 600; margin-bottom: 4px;">E1–E3 ✓</div>
+            <div style="font-size: 11px; color: var(--muted);">Horta Cascata · Pracinha · 320 m² Jardim de chuva</div>
+          </div>
+
+          <div style="background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px;">
+            <div style="font-size: 11px; font-weight: 600; margin-bottom: 6px; display: flex; justify-content: space-between;">
+              <span>Impacto esperado</span>
+              <span style="font-size: 9px; padding: 1px 5px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-deep); font-weight: 600; text-transform: uppercase;">✓ novo</span>
+            </div>
+            <div style="font-size: 11px; padding: 2px 0;">🌊 Captação: <strong>1.800–3.200 m³/ano</strong></div>
+            <div style="font-size: 11px; padding: 2px 0;">🌡️ Resfriamento: <strong>0.3–0.8 °C</strong></div>
+            <div style="font-size: 11px; padding: 2px 0;">🌱 Carbono: <strong>0.4–1.2 tCO₂/ano</strong></div>
+            <div style="font-size: 11px; padding: 2px 0;">👥 Pessoas: <strong>~120 diretas · ~500 indiretas</strong></div>
+            <div style="font-size: 11px; padding: 4px 0 0; color: var(--muted);">Monitoramento: "Fotos mensais + registro de chuvas com grupo de jovens"</div>
+          </div>
+
+          <div style="background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px;">
+            <div style="font-size: 11px; font-weight: 600; margin-bottom: 6px; display: flex; justify-content: space-between;">
+              <span>Operações e sustentabilidade</span>
+              <span style="font-size: 9px; padding: 1px 5px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-deep); font-weight: 600; text-transform: uppercase;">✓ novo</span>
+            </div>
+            <div style="font-size: 11px; padding: 2px 0;"><span style="color: var(--muted); min-width: 80px; display: inline-block;">Ano 1</span> 8 voluntárias + 1 pago · ~R$ 15k</div>
+            <div style="font-size: 11px; padding: 2px 0;"><span style="color: var(--muted); min-width: 80px; display: inline-block;">Ano 2-3</span> Núcleo menor · ~R$ 7k</div>
+            <div style="font-size: 11px; padding: 2px 0;"><span style="color: var(--muted); min-width: 80px; display: inline-block;">Ano 3+</span> Rotação + UFRGS · ~R$ 5k</div>
+            <div style="font-size: 11px; padding: 4px 0; border-top: 1px dashed var(--line); margin-top: 4px;"><strong>Total 5 anos:</strong> ~R$ 39k</div>
+            <div style="font-size: 11px; padding: 2px 0; color: var(--muted);">Modelo: Fundo comunidade ★ + Prefeitura + Grants</div>
+            <div style="font-size: 11px; padding: 2px 0; color: var(--muted);">Alvo: R$ 500-2.000/mês</div>
+          </div>
+
+          <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; opacity: 0.5;">
+            <div style="font-size: 11px; font-weight: 600;">Necessidades e prontidão <span style="font-size: 9px; color: var(--muted);">— próximo encontro</span></div>
+            <div style="font-size: 11px; color: var(--muted); font-style: italic; margin-top: 4px;">Vamos preencher no Encontro 5.</div>
+          </div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab active"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>Two cards land at once</h4>
+      <p>
+        <strong>Impacto esperado</strong> shows the 4 computed indicators with ranges + the user's monitoring plan.
+      </p>
+      <p>
+        <strong>Operações e sustentabilidade</strong> shows the 3 phases of OPEX + total 5-year + selected sustainability models with the primary starred.
+      </p>
+      <p>By the end of E4, the CBO has a fundable-looking project. E5 is about the "what do you need to make it happen" — funding ask + permits.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">Summary · what's new in E4</h2>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW · the biggest one</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">ImpactCalculator</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        Deterministic computation engine. 3-4 indicator cards as ranges + assumptions + sources. Reads from <code>_impact-coefficients/by-intervention.yaml</code>.
+        <br><br>
+        <strong>Effort:</strong> ~200 lines React + ~150 lines YAML.
+        <strong>Critical:</strong> every coefficient cited.
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">OperationsDesigner</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        3-phase form (Year 1 / 2-3 / 3+). Team composition + time + auto-computed cost. 5-year total at bottom.
+        <br><br>
+        <strong>Effort:</strong> ~150 lines + 6 YAML files (1 per intervention type).
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">SustainabilityModelPicker</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        5-pattern multi-select + primary designation + monthly target band + revenue rationale.
+        <br><br>
+        <strong>Effort:</strong> ~70 lines.
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--warm-soft);">
+      <div style="font-size: 10px; color: #92400e; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">CRITICAL · KB work</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">Impact coefficients YAML</div>
+      <div style="font-size: 12px; color: #78350f; line-height: 1.5;">
+        Every coefficient sourced. ~150 lines of carefully-cited literature values. <strong>JVP or external NBS specialist must review before pilot.</strong>
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size: 11px; color: var(--muted); margin-top: 48px; border-top: 1px solid var(--line); padding-top: 16px;">
+    Companion files: <code>research.md</code> · <code>spec.md</code> · <code>skill.md</code> · all in <code>knowledge/runs/2026-05-15-encontros-curriculum/E4-impacto-operacoes/</code>
+  </p>
+</div>
+</body>
+</html>
