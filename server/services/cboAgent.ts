@@ -232,6 +232,24 @@ function createCboMcpTools(cboId: string) {
     { annotations: { readOnlyHint: true } }
   );
 
+  // E2 Beat 3a — risk priority ranking. Renders 3 tap-in-order chips for
+  // flood / heat / landslide. User taps in priority order, then confirms.
+  // Result comes back as a chat message: "Priority ranking: flood (1), heat (2)..."
+  // which the agent parses to fill primary_hazard, secondary_hazard fields.
+  const askPriorityRank = sdkTool(
+    "ask_priority_rank",
+    "Render the RiskPriorityChips composer for the user to rank flood/heat/landslide in order of concern. minRanked is the minimum number of chips they must rank (default 2). STOP and wait for the user's confirmation.",
+    {
+      prompt: z.string().describe("The question shown above the chips, e.g. 'Desses três riscos, qual mais te preocupa?'"),
+      minRanked: z.number().min(1).max(3).optional().default(2),
+    },
+    async (args: any) => {
+      pushEvent({ type: 'ask_priority_rank', prompt: args.prompt, minRanked: args.minRanked ?? 2 });
+      return { content: [{ type: "text" as const, text: `RiskPriorityChips opened. STOP and wait for the user's ranking.` }] };
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
   const askUser = sdkTool(
     "ask_user",
     "Present questions to the user. The UI renders interactive buttons. Include showMap: true for site selection.",
@@ -417,7 +435,7 @@ STOP and wait for the user's selection after calling this tool.`,
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, flagGap, setPhase, setPath, showExamples, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, openInterventionSelector],
+    tools: [updateSection, flagGap, setPhase, setPath, showExamples, askPriorityRank, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, openInterventionSelector],
   });
 }
 
@@ -597,6 +615,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           "mcp__cbo__set_phase",
           "mcp__cbo__set_path",
           "mcp__cbo__show_examples",
+          "mcp__cbo__ask_priority_rank",
           "mcp__cbo__ask_user",
           "mcp__cbo__open_map",
           "mcp__cbo__open_intervention_selector",

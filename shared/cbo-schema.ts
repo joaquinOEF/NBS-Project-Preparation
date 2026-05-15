@@ -202,6 +202,7 @@ export type CboEvent =
   | { type: 'open_map'; params: OpenMapParams }
   | { type: 'open_intervention_selector'; params: OpenInterventionSelectorParams }
   | { type: 'show_examples'; cardIds: string[]; mode: 'browse' | 'favorites'; intro?: string }
+  | { type: 'ask_priority_rank'; prompt: string; minRanked: number }
   | { type: 'done'; summary: string }
   | { type: 'error'; message: string };
 

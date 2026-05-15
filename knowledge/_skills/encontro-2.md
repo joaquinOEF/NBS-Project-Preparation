@@ -106,20 +106,19 @@ Map answer to `current_use` enum: `vegetated` | `paved` | `mixed` | `abandoned` 
 
 ### 3a · Risk priority
 
+Use the `ask_priority_rank` tool — renders the RiskPriorityChips composer inline. Tap-in-order: first tap = primary, second = secondary, third = tertiary.
+
 ```
-ask_user({
-  question: 'Desses três riscos, qual mais te preocupa no dia a dia?',
-  options: [
-    { label: '🌊 Enchente / inundação', description: 'Água acumulando, chuva forte, rio subindo' },
-    { label: '🌡️ Calor extremo', description: 'Ondas de calor, falta de sombra, ilha de calor urbano' },
-    { label: '⛰️ Deslizamento', description: 'Encostas, morros, terreno instável' },
-  ]
+ask_priority_rank({
+  prompt: 'Desses três riscos, qual mais te preocupa no dia a dia?',
+  minRanked: 2
 })
 ```
 
-Save the answer as `primary_hazard` (`flood` | `heat` | `landslide`).
-
-Optionally follow up: *"E segundo lugar, qual te preocupa também?"* — same options minus the first pick — and save as `secondary_hazard`.
+The user's confirmation comes back as a chat message like *"Priority ranking: flood (1), heat (2)"*. Parse it and fill:
+- `primary_hazard` = first ranked
+- `secondary_hazard` = second ranked
+- `tertiary_hazard` = third ranked (if any)
 
 ### 3b · Land tenure
 
@@ -228,11 +227,11 @@ You may reference the showcase card photos in conversation, but never describe p
 
 Already wired in cboAgent.ts:
 - `show_examples({mode, hazardFilter?, intro?, cardIds?})` — NEW, E2-specific
+- `ask_priority_rank({prompt, minRanked?})` — NEW, E2 Beat 3a
 - `open_map({selectionMode, zoneSource, layers, tileLayers, prompt, ...})` — existing
 - `update_section`, `score_maturity`, `ask_user`, `set_phase`, `set_path`, `flag_gap`, `read_knowledge`
 
 NOT yet wired (DO NOT call):
-- `ask_priority_rank` → use `ask_user` instead
 - `ask_community_anchoring` → use `ask_user` + free-text instead
 - `set_phase_complete` → no separate complete tool; just don't call `set_phase(3)` (P-8 gate refuses it anyway)
 
