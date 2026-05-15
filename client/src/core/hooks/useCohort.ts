@@ -1,65 +1,41 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { Cohort, CohortMember, WorkshopConfig } from '@shared/cohort-schema';
-import { SAMPLE_COHORT, SAMPLE_MEMBERS } from '@/core/contexts/sample-cohort';
 
-const STORAGE_KEY = 'oef.cohortSlug';
-
-export type CohortMode = 'sample' | 'live';
+// ---------------------------------------------------------------------------
+// useCohort — singleton-cohort model for the Vila Flores pilot.
+//
+// There is exactly one cohort for the entire deployment, served from
+// GET /api/cohort/default. The orchestrator opens straight to it — no slug
+// to remember, no auth, no "Create" / "Load existing" dance. A Reset action
+// wipes members and restores the default workshop cadence for demo dry runs.
+//
+// When auth lands in a later phase, this hook becomes the place that swaps
+// `default` for a real coordinator session.
+// ---------------------------------------------------------------------------
 
 export interface UseCohortResult {
-  mode: CohortMode;
   loading: boolean;
   cohort: Cohort | null;
   members: CohortMember[];
-  coordinatorSlug: string | null;
   refresh: () => Promise<void>;
-  createCohort: (name: string) => Promise<void>;
-  loadCohort: (slug: string) => Promise<void>;
+  resetCohort: () => Promise<void>;
   invite: (params: { orgName: string; neighborhood?: string; role?: 'priority' | 'alternate' }) => Promise<CohortMember | null>;
   unlockPhase: (memberIds: string[] | 'all', phase: number) => Promise<void>;
   saveWorkshops: (workshops: WorkshopConfig[]) => Promise<void>;
 }
 
-function readSlug(): string | null {
-  try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
-}
-function writeSlug(slug: string | null) {
-  try {
-    if (slug) localStorage.setItem(STORAGE_KEY, slug);
-    else localStorage.removeItem(STORAGE_KEY);
-  } catch {}
-}
+const COORDINATOR_SLUG = 'default';
 
 export function useCohort(): UseCohortResult {
-  // URL param `?coord=<slug>` overrides whatever's in localStorage so a
-  // coordinator can switch devices by pasting their link.
-  const [coordinatorSlug, setCoordinatorSlug] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null;
-    const fromUrl = new URLSearchParams(window.location.search).get('coord');
-    if (fromUrl) {
-      writeSlug(fromUrl);
-      return fromUrl;
-    }
-    return readSlug();
-  });
   const [cohort, setCohort] = useState<Cohort | null>(null);
   const [members, setMembers] = useState<CohortMember[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const mode: CohortMode = coordinatorSlug ? 'live' : 'sample';
-
-  const fetchCohort = useCallback(async (slug: string) => {
+  const fetchCohort = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch(`/api/cohort/${slug}`);
-      if (!r.ok) {
-        if (r.status === 404) {
-          // Slug is dead — reset to sample mode.
-          writeSlug(null);
-          setCoordinatorSlug(null);
-        }
-        return;
-      }
+      const r = await fetch('/api/cohort/default');
+      if (!r.ok) return;
       const data = await r.json();
       setCohort(data.cohort);
       setMembers(data.members ?? []);
@@ -68,39 +44,25 @@ export function useCohort(): UseCohortResult {
     }
   }, []);
 
-  useEffect(() => {
-    if (coordinatorSlug) {
-      fetchCohort(coordinatorSlug);
-    } else {
-      setCohort(SAMPLE_COHORT);
-      setMembers(SAMPLE_MEMBERS as unknown as CohortMember[]);
+  useEffect(() => { fetchCohort(); }, [fetchCohort]);
+
+  const refresh = useCallback(async () => { await fetchCohort(); }, [fetchCohort]);
+
+  const resetCohort = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch('/api/cohort/default/reset', { method: 'POST' });
+      if (!r.ok) return;
+      const data = await r.json();
+      setCohort(data.cohort);
+      setMembers(data.members ?? []);
+    } finally {
+      setLoading(false);
     }
-  }, [coordinatorSlug, fetchCohort]);
-
-  const refresh = useCallback(async () => {
-    if (coordinatorSlug) await fetchCohort(coordinatorSlug);
-  }, [coordinatorSlug, fetchCohort]);
-
-  const createCohort = useCallback(async (name: string) => {
-    const r = await fetch('/api/cohort', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
-    if (!r.ok) throw new Error('failed to create cohort');
-    const { cohort } = await r.json();
-    writeSlug(cohort.coordinatorSlug);
-    setCoordinatorSlug(cohort.coordinatorSlug);
-  }, []);
-
-  const loadCohort = useCallback(async (slug: string) => {
-    writeSlug(slug);
-    setCoordinatorSlug(slug);
   }, []);
 
   const invite: UseCohortResult['invite'] = useCallback(async ({ orgName, neighborhood, role }) => {
-    if (!coordinatorSlug) return null;
-    const r = await fetch(`/api/cohort/${coordinatorSlug}/invite`, {
+    const r = await fetch(`/api/cohort/${COORDINATOR_SLUG}/invite`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orgName, neighborhood, role }),
@@ -109,30 +71,25 @@ export function useCohort(): UseCohortResult {
     const { member } = await r.json();
     await refresh();
     return member;
-  }, [coordinatorSlug, refresh]);
+  }, [refresh]);
 
   const unlockPhase = useCallback(async (memberIds: string[] | 'all', phase: number) => {
-    if (!coordinatorSlug) return;
-    await fetch(`/api/cohort/${coordinatorSlug}/unlock`, {
+    await fetch(`/api/cohort/${COORDINATOR_SLUG}/unlock`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ memberIds, phase }),
     });
     await refresh();
-  }, [coordinatorSlug, refresh]);
+  }, [refresh]);
 
   const saveWorkshops = useCallback(async (workshops: WorkshopConfig[]) => {
-    if (!coordinatorSlug) return;
-    await fetch(`/api/cohort/${coordinatorSlug}/workshops`, {
+    await fetch(`/api/cohort/${COORDINATOR_SLUG}/workshops`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workshops }),
     });
     await refresh();
-  }, [coordinatorSlug, refresh]);
+  }, [refresh]);
 
-  return {
-    mode, loading, cohort, members, coordinatorSlug,
-    refresh, createCohort, loadCohort, invite, unlockPhase, saveWorkshops,
-  };
+  return { loading, cohort, members, refresh, resetCohort, invite, unlockPhase, saveWorkshops };
 }

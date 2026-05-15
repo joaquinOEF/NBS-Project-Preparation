@@ -10,9 +10,52 @@ import {
   type WorkshopConfig,
 } from '@shared/cohort-schema';
 
-// Slug-as-secret: 24 chars of url-safe nanoid. ~143 bits of entropy; fine for
-// a 10-CBO pilot where the only attacker is a coordinator's WhatsApp typo.
+// Slug-as-secret: 24 chars of url-safe nanoid. Used as a fallback when the
+// human-readable slug derivation collides too many times.
 const slug = () => nanoid(24);
+
+// Singleton coordinator slug — for the Vila Flores pilot there's exactly one
+// cohort, so the orchestrator doesn't need to remember any auth/recovery key.
+// /api/cohort/default returns (and creates on first request) this cohort.
+const DEFAULT_COORDINATOR_SLUG = 'default';
+const DEFAULT_COHORT_NAME = 'Vila Flores';
+
+// Human-readable slug. "Horta Comunitária Cascata" → "horta-comunitaria-cascata".
+// Falls back to a short random suffix only on collisions.
+function slugify(input: string): string {
+  return input
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // strip combining diacritical marks
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .slice(0, 60) // keep URLs sensible
+    || 'cbo';
+}
+
+async function uniqueMemberSlug(base: string): Promise<string> {
+  let candidate = base;
+  let n = 2;
+  // Cap attempts so a pathological collision storm doesn't loop forever.
+  while (n < 100) {
+    const [existing] = await db.select().from(cohortMembers).where(eq(cohortMembers.memberSlug, candidate)).limit(1);
+    if (!existing) return candidate;
+    candidate = `${base}-${n}`;
+    n += 1;
+  }
+  return `${base}-${nanoid(6).toLowerCase()}`;
+}
+
+async function getOrCreateDefaultCohort() {
+  const existing = await findCohortByCoordinatorSlug(DEFAULT_COORDINATOR_SLUG);
+  if (existing) return existing;
+  const [created] = await db.insert(cohorts).values({
+    coordinatorSlug: DEFAULT_COORDINATOR_SLUG,
+    name: DEFAULT_COHORT_NAME,
+    settings: { workshops: DEFAULT_WORKSHOPS },
+  }).returning();
+  return created;
+}
 
 // Wrap async handlers so a thrown DB error becomes a 500 response instead of
 // an unhandled promise rejection that crashes the Node process. (Node 20
@@ -39,7 +82,32 @@ async function findMemberBySlug(memberSlug: string) {
 }
 
 export function registerCohortRoutes(app: Express): void {
-  // Create cohort
+  // ──────────────────────────────────────────────────────────────────────
+  // Singleton cohort — for the Vila Flores pilot, the orchestrator opens
+  // straight to the one-and-only cohort. No coord slug to remember.
+  // ──────────────────────────────────────────────────────────────────────
+  app.get('/api/cohort/default', wrap(async (_req, res) => {
+    const cohort = await getOrCreateDefaultCohort();
+    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    res.json({ cohort, members });
+  }));
+
+  app.post('/api/cohort/default/reset', wrap(async (_req, res) => {
+    const cohort = await getOrCreateDefaultCohort();
+    // Wipe members, restore default workshop cadence. The cohort row itself
+    // stays — same singleton, fresh state.
+    await db.delete(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    await db.update(cohorts)
+      .set({ settings: { workshops: DEFAULT_WORKSHOPS } })
+      .where(eq(cohorts.id, cohort.id));
+    const refreshed = await getOrCreateDefaultCohort();
+    res.json({ cohort: refreshed, members: [] });
+  }));
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Create cohort — kept for backward-compat with anything that still calls
+  // it. The pilot's UI no longer surfaces this.
+  // ──────────────────────────────────────────────────────────────────────
   app.post('/api/cohort', wrap(async (req, res) => {
     const { name } = req.body ?? {};
     const coordinatorSlug = slug();
@@ -59,7 +127,8 @@ export function registerCohortRoutes(app: Express): void {
     res.json({ cohort, members });
   }));
 
-  // Invite a CBO
+  // Invite a CBO — slugs are human-readable, derived from the org name.
+  // "Horta Comunitária Cascata" → /cbo-profile?cbo=horta-comunitaria-cascata
   app.post('/api/cohort/:coordinatorSlug/invite', wrap(async (req, res) => {
     const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
     if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
@@ -67,7 +136,7 @@ export function registerCohortRoutes(app: Express): void {
     const { orgName, neighborhood, role, origin } = req.body ?? {};
     if (!orgName) { res.status(400).json({ error: 'orgName required' }); return; }
 
-    const memberSlug = slug();
+    const memberSlug = await uniqueMemberSlug(slugify(orgName));
     const [member] = await db.insert(cohortMembers).values({
       cohortId: cohort.id,
       memberSlug,
