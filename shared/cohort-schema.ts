@@ -19,6 +19,26 @@ export type CohortSettings = {
   workshops: WorkshopConfig[];
 };
 
+// RequestSupport — async escalation queue. CBO submits via chat-header button;
+// coordinator resolves from orchestrator dashboard. See
+// knowledge/runs/2026-05-15-encontros-curriculum/_paths/two-path-triage.md
+export const SUPPORT_REQUEST_TYPES = [
+  'coordinator-chat',  // Conversa com a coordenadora
+  'oef-technical',     // Pergunta técnica pra equipe OEF
+  'cbo-connection',    // Conexão com outro CBO que já fez algo parecido
+  'finance-partners',  // Algo sobre finanças / parceiros
+] as const;
+export type SupportRequestType = typeof SUPPORT_REQUEST_TYPES[number];
+
+export type SupportRequest = {
+  id: string;
+  type: SupportRequestType;
+  message: string | null;
+  createdAt: string;          // ISO timestamp
+  resolvedAt: string | null;  // null while pending
+  resolvedNote: string | null;
+};
+
 export const cohorts = pgTable('cohorts', {
   id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
   coordinatorSlug: text('coordinator_slug').notNull().unique(),
@@ -41,6 +61,10 @@ export const cohortMembers = pgTable('cohort_members', {
   // mind; 'needs-help' = CBO wants help discovering one. Null until E1 asks.
   // See knowledge/runs/2026-05-15-encontros-curriculum/_paths/two-path-triage.md
   path: text('path').$type<'has-idea' | 'needs-help'>(),
+  // Cross-cutting RequestSupport queue. CBO submits via the chat-header button;
+  // coordinator resolves from the orchestrator dashboard. JSONB so we don't need
+  // a separate table for what is effectively a small per-member queue.
+  supportRequests: jsonb('support_requests').$type<SupportRequest[]>().default([]),
   unlockedPhases: jsonb('unlocked_phases').$type<number[]>().default([1]),
   invitedAt: timestamp('invited_at').defaultNow(),
   startedAt: timestamp('started_at'),
