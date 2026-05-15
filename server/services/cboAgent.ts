@@ -201,6 +201,37 @@ function createCboMcpTools(cboId: string) {
     { annotations: { readOnlyHint: false } }
   );
 
+  // E2 educational anchor: render the NbsShowcaseCard strip inline. Two modes:
+  //   browse (has-idea) - read-only horizontal scroll
+  //   favorites (needs-help) - per-card save toggle → inspiration_picks[]
+  // Optional hazardFilter narrows the strip (e.g. flood-only when bairro
+  // hazard is known). Cards available from shared/nbs-showcase-cards.ts.
+  const showExamples = sdkTool(
+    "show_examples",
+    "Render the NbsShowcaseCard strip inline in chat. Use at the start of E2 to build NBS vocabulary. mode='favorites' for needs-help path. Optional hazardFilter to narrow the cards.",
+    {
+      mode: z.enum(["browse", "favorites"]).default("browse"),
+      hazardFilter: z.enum(["flood", "heat", "biodiversity"]).optional(),
+      intro: z.string().optional().describe("Optional 1-line lead text rendered above the strip"),
+      cardIds: z.array(z.string()).optional().describe("Explicit card IDs to show (overrides hazardFilter)"),
+    },
+    async (args: any) => {
+      const showcase = await import("@shared/nbs-showcase-cards");
+      let cards: { id: string }[];
+      if (Array.isArray(args.cardIds) && args.cardIds.length > 0) {
+        cards = args.cardIds
+          .map((id: string) => showcase.getShowcaseCard(id))
+          .filter(Boolean) as { id: string }[];
+      } else {
+        cards = showcase.filterShowcaseCards(args.hazardFilter ? { hazard: args.hazardFilter } : undefined);
+      }
+      const ids = cards.map(c => c.id);
+      pushEvent({ type: 'show_examples', cardIds: ids, mode: args.mode ?? 'browse', intro: args.intro });
+      return { content: [{ type: "text" as const, text: `Showed ${ids.length} example(s) in ${args.mode ?? 'browse'} mode. STOP and wait for the user's reaction.` }] };
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
   const askUser = sdkTool(
     "ask_user",
     "Present questions to the user. The UI renders interactive buttons. Include showMap: true for site selection.",
@@ -386,7 +417,7 @@ STOP and wait for the user's selection after calling this tool.`,
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, flagGap, setPhase, setPath, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, openInterventionSelector],
+    tools: [updateSection, flagGap, setPhase, setPath, showExamples, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, openInterventionSelector],
   });
 }
 
@@ -565,6 +596,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           "mcp__cbo__flag_gap",
           "mcp__cbo__set_phase",
           "mcp__cbo__set_path",
+          "mcp__cbo__show_examples",
           "mcp__cbo__ask_user",
           "mcp__cbo__open_map",
           "mcp__cbo__open_intervention_selector",
