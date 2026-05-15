@@ -167,6 +167,17 @@ export default function CboProfilePage() {
   const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
   const [multiSelectedOptions, setMultiSelectedOptions] = useState<Set<string>>(new Set());
   const [rightTab, setRightTab] = useState<'document' | 'map' | 'scorecard' | 'interventions'>(getSavedMapParams() ? 'map' : 'document');
+  // Mobile-only: which top-level pane is visible. On `md+` both panels render
+  // side-by-side and this state is ignored.
+  const [mobileActiveTab, setMobileActiveTab] = useState<'chat' | 'panel'>(getSavedMapParams() ? 'panel' : 'chat');
+  // Unread indicator on the Chat tab when the agent posts while the user is on
+  // another mobile tab. Cleared on switch-to-chat.
+  const [mobileChatUnread, setMobileChatUnread] = useState(false);
+  const mobileActiveTabRef = useRef(mobileActiveTab);
+  useEffect(() => {
+    mobileActiveTabRef.current = mobileActiveTab;
+    if (mobileActiveTab === 'chat') setMobileChatUnread(false);
+  }, [mobileActiveTab]);
   const [mapRelevant, setMapRelevant] = useState(!!getSavedMapParams());
   const [openMapParams, _setOpenMapParams] = useState<OpenMapParams | null>(getSavedMapParams);
   const [interventionSelectorParams, setInterventionSelectorParams] = useState<OpenInterventionSelectorParams | null>(null);
@@ -341,6 +352,11 @@ export default function CboProfilePage() {
         const isNarration = /^(Let me |Good|Now |Starting |I'll |I can |Reading |Loading |Setting |Phase )/i.test(event.content.trim())
           || (event.content.length < 300 && !event.content.includes('##') && !event.content.includes('**'));
         const msgType = isNarration ? 'thinking' : 'content';
+        // Mobile-only: flag unread on the Chat tab if the user is currently
+        // looking at the right panel (map / selector / perfil).
+        if (!isNarration && mobileActiveTabRef.current !== 'chat') {
+          setMobileChatUnread(true);
+        }
         setMessages(prev => {
           const last = prev[prev.length - 1];
           if (isNarration && last?.messageType === 'thinking') {
@@ -399,18 +415,20 @@ export default function CboProfilePage() {
         });
         setSelectedOptionIdx(0);
         setIsStreaming(false);
-        if (hasMap) { setMapRelevant(true); setRightTab('map'); }
+        if (hasMap) { setMapRelevant(true); setRightTab('map'); setMobileActiveTab('panel'); }
         break;
       }
       case 'open_map':
         setOpenMapParams(event.params);
         setRightTab('map');
         setMapRelevant(true);
+        setMobileActiveTab('panel');
         setIsStreaming(false);
         break;
       case 'open_intervention_selector':
         setInterventionSelectorParams((event as any).params);
         setRightTab('interventions');
+        setMobileActiveTab('panel');
         setIsStreaming(false);
         break;
       case 'done': setIsStreaming(false); break;
@@ -493,7 +511,7 @@ export default function CboProfilePage() {
 
   const handleRestart = useCallback(async () => {
     if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
-    clearId(); saveMapParams(null); setOpenMapParams(null); setInterventionSelectorParams(null); setRightTab('document'); setMapRelevant(false);
+    clearId(); saveMapParams(null); setOpenMapParams(null); setInterventionSelectorParams(null); setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
     setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
     const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
     const data = await res.json();
@@ -548,8 +566,13 @@ export default function CboProfilePage() {
     <div className="h-screen flex flex-col bg-background">
       <Header />
       <div className="flex flex-1 min-h-0">
-        {/* LEFT: Chat — full width on mobile, half on md+ */}
-        <div className="w-full md:w-1/2 md:border-r flex flex-col relative" {...dragHandlers}>
+        {/* LEFT: Chat — full width on mobile (when Chat tab active), half on md+ */}
+        <div
+          className={`w-full md:w-1/2 md:border-r md:flex flex-col relative ${
+            mobileActiveTab === 'chat' ? 'flex' : 'hidden'
+          }`}
+          {...dragHandlers}
+        >
           {isDragging && (
             <div className="absolute inset-0 z-50 bg-green-500/10 border-2 border-dashed border-green-500 rounded-lg flex items-center justify-center backdrop-blur-sm">
               <div className="text-center">
@@ -725,8 +748,14 @@ export default function CboProfilePage() {
           </div>
         </div>
 
-        {/* RIGHT: Document / Map / Scorecard */}
-        <div className="hidden md:flex w-1/2 flex-col bg-muted/30">
+        {/* RIGHT: Document / Map / Scorecard / Interventions
+            On mobile: visible only when mobileActiveTab === 'panel' (the user
+            tapped a non-Chat tab, or the agent invoked a microapp). */}
+        <div
+          className={`w-full md:w-1/2 md:flex flex-col bg-muted/30 ${
+            mobileActiveTab === 'panel' ? 'flex' : 'hidden'
+          }`}
+        >
           <div className="border-b bg-background">
             <div className="px-4 pt-3 pb-0">
               <h2 className="text-base font-semibold">{state.orgName || t('cbo.interventionProfile')}</h2>
@@ -823,17 +852,17 @@ export default function CboProfilePage() {
                       const message = formatMapResult(result);
                       if (currentQuestion) handleSelectOption(message); else sendMessage(message);
                       setOpenMapParams(null);
-                      setRightTab('document'); setMapRelevant(false);
+                      setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
                     }}
                     onCancel={() => {
                       setOpenMapParams(null);
-                      setRightTab('document'); setMapRelevant(false);
+                      setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
                     }}
                   />
                 ) : (
                   <ConceptNoteMap isActive={rightTab === 'map'} onConfirm={(_summary, description) => {
                     if (currentQuestion) handleSelectOption(description); else sendMessage(description);
-                    setRightTab('document'); setMapRelevant(false);
+                    setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
                   }} />
                 )}
               </Suspense>
@@ -852,11 +881,11 @@ export default function CboProfilePage() {
                         : result.label; // "I don't know — help me decide"
                       if (currentQuestion) handleSelectOption(message); else sendMessage(message);
                       setInterventionSelectorParams(null);
-                      setRightTab('document');
+                      setRightTab('document'); setMobileActiveTab('chat');
                     }}
                     onCancel={() => {
                       setInterventionSelectorParams(null);
-                      setRightTab('document');
+                      setRightTab('document'); setMobileActiveTab('chat');
                     }}
                   />
                 ) : (
@@ -911,6 +940,80 @@ export default function CboProfilePage() {
           )}
         </div>
       </div>
+
+      {/* MOBILE TAB BAR — visible only below md. Drives `mobileActiveTab` +
+          (when on a non-Chat tab) `rightTab` so the right panel shows the
+          right content. Hidden on desktop, where both panels render side-by-side. */}
+      <nav className="md:hidden shrink-0 border-t bg-background flex items-stretch">
+        {(() => {
+          // Compose the tabs available right now. Chat + Perfil are permanent.
+          // Mapa / Intervenções appear only while the agent has those microapps active.
+          const showMap = openMapParams != null || mapRelevant;
+          const showInterv = interventionSelectorParams != null;
+          const tabs: Array<{
+            id: 'chat' | 'map' | 'interventions' | 'perfil';
+            label: string;
+            icon: string;
+            isActive: boolean;
+            badge?: boolean;
+            onClick: () => void;
+          }> = [
+            {
+              id: 'chat',
+              label: t('cbo.mobileTab.chat', { defaultValue: 'Chat' }),
+              icon: '💬',
+              isActive: mobileActiveTab === 'chat',
+              badge: mobileChatUnread,
+              onClick: () => setMobileActiveTab('chat'),
+            },
+            ...(showMap
+              ? [{
+                  id: 'map' as const,
+                  label: t('cbo.mobileTab.map', { defaultValue: 'Mapa' }),
+                  icon: '🗺️',
+                  isActive: mobileActiveTab === 'panel' && rightTab === 'map',
+                  onClick: () => { setMobileActiveTab('panel'); setRightTab('map'); },
+                }]
+              : []),
+            ...(showInterv
+              ? [{
+                  id: 'interventions' as const,
+                  label: t('cbo.mobileTab.interventions', { defaultValue: 'Intervenções' }),
+                  icon: '🌿',
+                  isActive: mobileActiveTab === 'panel' && rightTab === 'interventions',
+                  onClick: () => { setMobileActiveTab('panel'); setRightTab('interventions'); },
+                }]
+              : []),
+            {
+              id: 'perfil',
+              label: t('cbo.mobileTab.perfil', { defaultValue: 'Perfil' }),
+              icon: '📋',
+              isActive: mobileActiveTab === 'panel' && rightTab === 'document',
+              onClick: () => { setMobileActiveTab('panel'); setRightTab('document'); },
+            },
+          ];
+          return tabs.map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={tab.onClick}
+              className={`relative flex-1 flex flex-col items-center py-1.5 text-[10px] font-medium transition-colors ${
+                tab.isActive ? 'text-emerald-700' : 'text-muted-foreground'
+              }`}
+              data-testid={`mobile-tab-${tab.id}`}
+            >
+              <span className="text-lg leading-none" aria-hidden>{tab.icon}</span>
+              <span className="mt-0.5">{tab.label}</span>
+              {tab.badge && (
+                <span className="absolute top-1 right-[calc(50%-12px)] w-2 h-2 rounded-full bg-red-500" />
+              )}
+              {tab.isActive && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-emerald-500" />
+              )}
+            </button>
+          ));
+        })()}
+      </nav>
     </div>
   );
 }
