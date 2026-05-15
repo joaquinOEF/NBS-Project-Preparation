@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NBS Orchestrator + CBO — Build Rundown · 2026-05-14</title>
+<style>
+  :root {
+    --bg: #fafaf9;
+    --surface: #ffffff;
+    --ink: #18181b;
+    --muted: #71717a;
+    --line: rgba(0,0,0,0.08);
+    --accent: #059669;
+    --accent-soft: #ecfdf5;
+    --warn: #d97706;
+    --warn-soft: #fef3c7;
+    --info: #0284c7;
+    --info-soft: #e0f2fe;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; line-height: 1.55; }
+  .page { max-width: 880px; margin: 0 auto; padding: 56px 32px 96px; }
+  h1 { font-size: 32px; letter-spacing: -0.02em; margin: 0 0 8px; }
+  h2 { font-size: 22px; letter-spacing: -0.01em; margin: 56px 0 18px; padding-top: 24px; border-top: 1px solid var(--line); }
+  h3 { font-size: 16px; margin: 28px 0 8px; }
+  p { margin: 0 0 12px; }
+  .lede { color: var(--muted); font-size: 16px; margin-bottom: 24px; }
+  .meta { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-bottom: 32px; }
+  .meta span { display: inline-flex; align-items: center; gap: 4px; }
+  ul { margin: 0 0 16px; padding-left: 20px; }
+  li { margin-bottom: 6px; }
+  code { background: var(--accent-soft); color: #047857; padding: 1px 6px; border-radius: 4px; font-family: ui-monospace, "JetBrains Mono", monospace; font-size: 0.88em; }
+  .pr-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 24px; }
+  @media (min-width: 720px) { .pr-grid { grid-template-columns: repeat(2, 1fr); } }
+  .pr { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .pr .num { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+  .pr h4 { font-size: 14px; margin: 4px 0 6px; letter-spacing: -0.01em; }
+  .pr p { font-size: 13px; color: var(--muted); margin: 0; }
+  .pill { display: inline-block; font-size: 10px; padding: 3px 8px; border-radius: 999px; background: var(--accent-soft); color: #047857; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; vertical-align: middle; }
+  .pill.warn { background: var(--warn-soft); color: #92400e; }
+  .pill.info { background: var(--info-soft); color: #075985; }
+  /* Flow steps */
+  .flow { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 8px; margin: 16px 0 32px; }
+  .step { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 16px; border-bottom: 1px solid var(--line); align-items: start; }
+  .step:last-child { border-bottom: 0; }
+  .step .n { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: #047857; font-weight: 600; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+  .step .body h4 { margin: 0 0 4px; font-size: 14px; letter-spacing: -0.01em; }
+  .step .body p { font-size: 13px; color: var(--muted); margin: 0; }
+  .step .body p + p { margin-top: 6px; }
+  .step .body code { font-size: 11px; }
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+  th, td { padding: 12px 14px; text-align: left; font-size: 13px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #fafafa; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  /* Wireframe-ish boxes */
+  .wire { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin: 12px 0; font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); white-space: pre-wrap; line-height: 1.7; }
+  .wire .ink { color: var(--ink); }
+  .wire .accent { color: var(--accent); font-weight: 600; }
+  .wire .muted { color: var(--muted); opacity: 0.7; }
+  /* Callouts */
+  .callout { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; font-size: 13px; color: #047857; }
+  .callout.warn { background: var(--warn-soft); border-color: var(--warn); color: #92400e; }
+  .small { font-size: 12px; color: var(--muted); }
+  .kbd { font-family: ui-monospace, monospace; font-size: 11px; background: #f4f4f5; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>NBS Platform — Build Rundown</h1>
+  <p class="lede">Five PRs over one day. Foundation + UX polish for the Vila Flores COUGAR pilot, June 8 convening.</p>
+  <p class="meta">
+    <span>📅 2026-05-14</span>
+    <span>🏷️ Branch stack on <code>main</code></span>
+    <span>👥 Audience: Julia (coordinator), 10 Vila Flores CBOs (community leaders)</span>
+  </p>
+
+  <h2>What landed</h2>
+
+  <div class="pr-grid">
+    <div class="pr"><div class="num">#130 · feat</div>
+      <h4>Orchestrator foundation</h4>
+      <p>Server-backed cohorts (Drizzle/Postgres), slug-secret auth, invite flow, per-phase unlocks, workshop cadence.</p>
+    </div>
+    <div class="pr"><div class="num">#131 · fix</div>
+      <h4>Handler error-wrap</h4>
+      <p>Wraps cohort routes so a DB error becomes a 500 — not an unhandled rejection that kills the Node process.</p>
+    </div>
+    <div class="pr"><div class="num">#132 · feat</div>
+      <h4>Dialog-based UX</h4>
+      <p>Replaces <code>window.prompt()</code> with proper Dialogs for Create / Load / Invite / Share. WhatsApp message template.</p>
+    </div>
+    <div class="pr"><div class="num">#133 · feat</div>
+      <h4>Risk-overlay layers</h4>
+      <p>Two map toggles on /orchestrator: recruit zones (bairro choropleth) + composite hotspot tiles.</p>
+    </div>
+    <div class="pr"><div class="num">#134 · polish</div>
+      <h4>CBO premium experience</h4>
+      <p>Welcome screen, friendly progress, mobile-first chat, Portuguese-first defaults.</p>
+    </div>
+  </div>
+
+  <p class="small">Merge <strong>#130 first</strong>; the rest auto-retarget to <code>main</code> from there.</p>
+
+  <h2>The two journeys</h2>
+
+  <h3>Julia (coordinator)</h3>
+  <div class="flow">
+    <div class="step"><div class="n">1</div><div class="body">
+      <h4>Opens <code>/orchestrator</code></h4>
+      <p>If no coordinator slug in localStorage → sample mode (Vila Flores demo cohort, 4 fake CBOs). For her real cohort: clicks <strong>Create cohort</strong>.</p>
+    </div></div>
+    <div class="step"><div class="n">2</div><div class="body">
+      <h4>Names the cohort</h4>
+      <p>Single-field Dialog, default "Vila Flores cohort", <span class="kbd">Enter</span> submits. Server creates <code>cohorts</code> row + seeds 6 workshops. Slug stored to localStorage.</p>
+    </div></div>
+    <div class="step"><div class="n">3</div><div class="body">
+      <h4>Copies "My link"</h4>
+      <p>Recovery key. Share dialog with two buttons: <strong>Copy link</strong> and <strong>Copy WhatsApp message</strong> (PT-formatted for the BR audience).</p>
+    </div></div>
+    <div class="step"><div class="n">4</div><div class="body">
+      <h4>Invites 10 CBOs</h4>
+      <p>Per CBO: name + bairro + role (priority/alternate) in one form. Server creates <code>cohort_members</code> row. Share dialog opens with the CBO link + a Portuguese WhatsApp greeting:</p>
+      <p><em>"Olá! 👋 Este é o link da plataforma do COUGAR/Vila Flores para Horta Cascata…"</em></p>
+    </div></div>
+    <div class="step"><div class="n">5</div><div class="body">
+      <h4>Tracks the cohort on the map</h4>
+      <p>Right rail = CBO cards with phase, sections done, maturity, last activity. Hover a card → marker highlights. Toggle <strong>Recruit zones</strong> → 94 bairros colored by priority score; click → toast with recruit context.</p>
+    </div></div>
+    <div class="step"><div class="n">6</div><div class="body">
+      <h4>After Workshop 2 ends</h4>
+      <p>Clicks <strong>Unlock for cohort</strong> on the Workshop 2 row. Server appends phase 2 to every member's <code>unlockedPhases</code>. CBOs see phase 2 open on next focus.</p>
+    </div></div>
+  </div>
+
+  <h3>Sandra (composite CBO leader, on her phone)</h3>
+  <div class="flow">
+    <div class="step"><div class="n">1</div><div class="body">
+      <h4>WhatsApp message lands</h4>
+      <p>Julia's pre-formatted greeting + a link. Sandra taps.</p>
+    </div></div>
+    <div class="step"><div class="n">2</div><div class="body">
+      <h4>Premium welcome screen <span class="pill">#134</span></h4>
+      <p>Org name in display type, soft emerald gradient, single CTA. Next-workshop card surfaces the date pulled from cohort settings. 5-step preview tells her what's coming.</p>
+      <p>One tap on <strong>Começar</strong> → chat begins.</p>
+    </div></div>
+    <div class="step"><div class="n">3</div><div class="body">
+      <h4>Chat flow (single-column on mobile)</h4>
+      <p>Agent guides her through Phase 1: who they are, sector, scale. Multi-choice + free-text. Profile saves automatically; she can leave and come back.</p>
+      <p>Friendly progress strip at the top: <em>"Section 1 of 5 · Who you are"</em> with 5 segments. Locked segments show 🔒.</p>
+    </div></div>
+    <div class="step"><div class="n">4</div><div class="body">
+      <h4>Tries to skip to Phase 2</h4>
+      <p>Taps the locked segment → Popover (works on touch): <em>"Opens after Workshop 2 · quarta, 11 de junho."</em></p>
+    </div></div>
+    <div class="step"><div class="n">5</div><div class="body">
+      <h4>Coordinator unlocks Phase 2</h4>
+      <p>Sandra returns to the page later (window focus) → page re-fetches; Phase 2 segment is now tappable; the popover dies. Chat continues with new questions.</p>
+    </div></div>
+    <div class="step"><div class="n">6</div><div class="body">
+      <h4>Profile state syncs back</h4>
+      <p>Every <code>phase_change</code> or <code>maturity_update</code> event pushes a snapshot to <code>PATCH /api/cbo-member/:slug/snapshot</code>. Julia's orchestrator view reflects it on her next refresh.</p>
+    </div></div>
+  </div>
+
+  <h2>The premium CBO welcome — what it looks like</h2>
+
+  <div class="wire">┌─────────────────────────────────────────┐
+│ <span class="muted">🌿  COUGAR · VILA FLORES</span>                   │
+│                                         │
+│  <span class="muted">Olá,</span>                                   │
+│  <span class="ink"><strong>Horta Comunitária Cascata</strong></span>             │
+│  <span class="muted">de Cascata</span>                              │
+│                                         │
+│  <span class="ink">Você foi convidado(a) para a plataforma</span>   │
+│  <span class="ink">do Vila Flores cohort — um espaço</span>         │
+│  <span class="ink">tranquilo para contar o que a sua</span>         │
+│  <span class="ink">organização faz, onde trabalha…</span>           │
+│                                         │
+│  ┌─ <span class="accent">PRÓXIMO ENCONTRO</span> ───────────────┐    │
+│  │ <span class="ink">Workshop 2 — Where We Work</span>           │    │
+│  │ <span class="muted">📅 quarta, 11 de junho</span>             │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  <span class="muted">O QUE VAMOS FAZER JUNTOS</span>                │
+│  <span class="accent">●</span> <span class="ink">Quem somos</span>                          │
+│  <span class="muted">○ Onde trabalhamos</span>                     │
+│  <span class="muted">○ O que construímos</span>                    │
+│  <span class="muted">○ O que precisamos</span>                     │
+│  <span class="muted">○ Resultados e evidências</span>              │
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │ <span class="accent"><strong>Começar</strong></span>                     │    │
+│  └─────────────────────────────────┘    │
+│  <span class="muted">⏱ Cerca de 20 min no total, salva sozinho</span>│
+└─────────────────────────────────────────┘</div>
+
+  <h2>The friendly progress strip — replaces the developer one</h2>
+
+  <p class="small">Before — the schema, useful to engineers, gibberish to a community leader:</p>
+  <div class="wire"><span class="muted">[1] [2] [3a] [3b] [3c] [4] [5]  0/7  0/27</span></div>
+
+  <p class="small">After — a calm 5-segment bar with caption + locked-state popovers that work on touch:</p>
+  <div class="wire"><span class="muted">Section 2 of 5 · </span><span class="ink"><strong>Where you work</strong></span>
+
+<span class="accent">━━━━</span> <span class="accent">━━━━</span> <span class="muted">━━━━</span> <span class="muted">🔒 ━━━━</span> <span class="muted">🔒 ━━━━</span>
+                ▲ tap any locked
+                  segment → popover
+                  "Opens after Workshop 4 ·
+                   Wednesday, July 2"</div>
+
+  <h2>Under the hood</h2>
+
+  <h3>Data model</h3>
+  <table>
+    <thead><tr><th>Table</th><th>Key fields</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>cohorts</code></td><td>id, coordinatorSlug (unique), name, settings.workshops</td><td>One row per coordinator-managed cohort. Slug = recovery key + auth.</td></tr>
+      <tr><td><code>cohort_members</code></td><td>id, cohortId, memberSlug (unique), orgName, neighborhood, role, unlockedPhases, snapshot*</td><td>One per invited CBO. Inlined snapshot keeps the orchestrator card fresh without polling.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Endpoints</h3>
+  <table>
+    <thead><tr><th>Method · Path</th><th>What</th></tr></thead>
+    <tbody>
+      <tr><td><code>POST /api/cohort</code></td><td>Create cohort, seed 6 workshops</td></tr>
+      <tr><td><code>GET /api/cohort/:slug</code></td><td>Coordinator view: cohort + members</td></tr>
+      <tr><td><code>POST /api/cohort/:slug/invite</code></td><td>Add a member, return their slug</td></tr>
+      <tr><td><code>PATCH /api/cohort/:slug/workshops</code></td><td>Edit cadence (deferred UI)</td></tr>
+      <tr><td><code>PATCH /api/cohort/:slug/unlock</code></td><td>Per-member or bulk phase unlock</td></tr>
+      <tr><td><code>GET /api/cbo-member/:slug</code></td><td>CBO view: identity + unlockedPhases + workshops + nextWorkshop</td></tr>
+      <tr><td><code>PATCH /api/cbo-member/:slug/snapshot</code></td><td>CBO pushes profile summary on agent events</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Key components</h3>
+  <table>
+    <thead><tr><th>Path</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td><code>shared/cohort-schema.ts</code></td><td>Drizzle tables + default workshops seed</td></tr>
+      <tr><td><code>server/routes/cohortRoutes.ts</code></td><td>7 endpoints, wrapped in try/catch <span class="pill info">#131</span></td></tr>
+      <tr><td><code>client/src/core/hooks/useCohort.ts</code></td><td>One hook, sample-mode fallback, <code>?coord=</code> URL param</td></tr>
+      <tr><td><code>client/src/core/components/orchestrator/CohortDialogs.tsx</code></td><td>Create / Load / Invite / Share dialogs <span class="pill info">#132</span></td></tr>
+      <tr><td><code>client/src/core/components/cbo/CboWelcome.tsx</code></td><td>Premium full-screen welcome <span class="pill info">#134</span></td></tr>
+      <tr><td><code>client/src/core/components/cbo/CboProgress.tsx</code></td><td>5-segment progress + Popover locks <span class="pill info">#134</span></td></tr>
+      <tr><td><code>client/src/core/pages/orchestrator-landing.tsx</code></td><td>Cohort header + cadence strip + map + risk layers</td></tr>
+      <tr><td><code>client/src/core/pages/cbo-profile.tsx</code></td><td>Welcome → chat handoff, mobile-first layout</td></tr>
+    </tbody>
+  </table>
+
+  <h2>What's next</h2>
+
+  <p>Two halves of the May 14 → June 8 window remaining:</p>
+  <ul>
+    <li><strong>This week:</strong> <code>wa.me</code> deep-link + bulk invite (10-CBO invite loop is the next friction), next-workshop hint in chat header on mobile.</li>
+    <li><strong>Before May 25 stakeholder tour:</strong> richer sample mode (10 CBOs distributed across phases, so SMAMUS/Innovation Office sees the mature state), orchestrator chrome cleanup (the amber "co-design ribbon" screams demo).</li>
+    <li><strong>Before June 8:</strong> click-bairro → prefilled invite (after #132 lands), QR-code workshop entry, "Encontro" labels instead of "Phase".</li>
+  </ul>
+
+  <p class="small" style="margin-top:48px; border-top: 1px solid var(--line); padding-top: 16px;">
+    Generated from <code>knowledge/runs/2026-05-14-cougar-backlog-refresh/</code> · Open Earth Foundation
+  </p>
+</div>
+</body>
+</html>
