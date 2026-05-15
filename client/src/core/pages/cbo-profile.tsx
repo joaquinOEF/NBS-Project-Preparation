@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 import { CboWelcome } from '@/core/components/cbo/CboWelcome';
 import { CboProgress } from '@/core/components/cbo/CboProgress';
+import { EncontroPreamble, hasPreambleBeenSeen, markPreambleSeen } from '@/core/components/cbo/EncontroPreamble';
+import { getEncontroPreambleConfig, encontroForPhase } from '@/core/components/cbo/encontroConfig';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 
 const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
@@ -203,6 +205,9 @@ export default function CboProfilePage() {
   // When arriving via ?cbo=<slug>, render the premium welcome screen until
   // the user taps Start / Continue. Flipped to true once member-fetch lands.
   const [welcomeMode, setWelcomeMode] = useState(false);
+  // Per-encontro preamble — once dismissed, the encontro's first session reveals
+  // the chat. State is encontro number 1-6 OR null (no preamble showing).
+  const [preambleEncontro, setPreambleEncontro] = useState<number | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -557,9 +562,23 @@ export default function CboProfilePage() {
   // Cohort welcome screen — only when the user arrived via an invite and
   // hasn't dismissed the welcome. Replaces the entire chrome with a calm,
   // single-CTA first-impression. Tapping Start (or Continue) flips
-  // welcomeMode off and reveals the chat.
+  // welcomeMode off and reveals either the encontro preamble or the chat.
   if (welcomeMode && memberInfo) {
     const hasExistingProgress = messages.length > 0 || (state?.phase ?? 0) > 0;
+    // Show preamble for current phase if not yet seen. Fires for both
+    // first-time Start and Resume — the seen flag handles dedup so the same
+    // CBO doesn't see E1's preamble twice, but they DO see E2's the first
+    // time they come back after the coordinator unlocked Workshop 2.
+    const tryShowPreamble = () => {
+      const encontro = encontroForPhase(Math.max(1, state?.phase ?? 1));
+      if (encontro == null) return false;
+      const cfg = getEncontroPreambleConfig(encontro, lang as 'pt' | 'en');
+      if (!cfg) return false;
+      const seenKey = memberSlug ?? cboId ?? '';
+      if (!seenKey || hasPreambleBeenSeen(seenKey, encontro)) return false;
+      setPreambleEncontro(encontro);
+      return true;
+    };
     return (
       <CboWelcome
         orgName={memberInfo.orgName}
@@ -568,10 +587,37 @@ export default function CboProfilePage() {
         nextWorkshop={nextWorkshop}
         unlockedPhases={unlockedPhases}
         hasExistingProgress={hasExistingProgress}
-        onStart={() => { setWelcomeMode(false); if (!hasExistingProgress) kickoffChat(); }}
-        onResume={() => setWelcomeMode(false)}
+        onStart={() => {
+          setWelcomeMode(false);
+          if (!tryShowPreamble() && !hasExistingProgress) kickoffChat();
+        }}
+        onResume={() => {
+          setWelcomeMode(false);
+          tryShowPreamble();
+        }}
       />
     );
+  }
+
+  // Encontro preamble — covers the chat surface until dismissed. One-shot per
+  // encontro per CBO (localStorage). Tapping the CTA marks it seen and either
+  // kicks off the chat (first session) or just reveals it (later sessions).
+  if (preambleEncontro != null) {
+    const cfg = getEncontroPreambleConfig(preambleEncontro, lang as 'pt' | 'en');
+    if (cfg) {
+      const seenKey = memberSlug ?? cboId ?? '';
+      return (
+        <EncontroPreamble
+          config={cfg}
+          onContinue={() => {
+            if (seenKey) markPreambleSeen(seenKey, preambleEncontro);
+            const wasFirstSession = messages.length === 0;
+            setPreambleEncontro(null);
+            if (wasFirstSession) kickoffChat();
+          }}
+        />
+      );
+    }
   }
 
   return (
