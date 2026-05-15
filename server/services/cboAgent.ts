@@ -12,6 +12,7 @@ import {
   MATURITY_METRICS,
   PRIORITY_FLAG_DEFINITIONS,
 } from "@shared/cbo-schema";
+import { getPhasePolicyForCbo, isPhaseAllowed, buildAccessPolicyPrompt, type PhasePolicy } from "./phaseGating";
 
 // ============================================================================
 // SDK LOADING — shared with conceptNoteAgent (lazy load)
@@ -147,11 +148,23 @@ function createCboMcpTools(cboId: string) {
 
   const setPhase = sdkTool(
     "set_phase",
-    "Advance to next phase (1-6).",
+    "Advance to next phase (1-6). Refuses to advance past phases the coordinator has unlocked.",
     { phase: z.number().min(0).max(6) },
     async (args: any) => {
       const state = getCboState(cboId);
       if (!state) return { content: [{ type: "text" as const, text: "Error: not found" }], isError: true };
+      // Workshop-phased unlock gate. Standalone CBOs are ungated.
+      // Phase 6 = export/wrap; not part of unlocks (always allowed once Phase 5 is unlocked).
+      const policy = await getPhasePolicyForCbo(cboId);
+      if (policy.gated && args.phase >= 1 && args.phase <= 5 && !isPhaseAllowed(policy, args.phase)) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Phase ${args.phase} is locked. The coordinator has only opened phases ${policy.unlockedPhases.join(', ')}. Stay at Phase ${state.phase} and tell the user warmly that the next workshop will open this section.`,
+          }],
+          isError: true,
+        };
+      }
       state.phase = args.phase;
       setCboState(cboId, state);
       pushEvent({ type: 'phase_change', phase: args.phase });
@@ -506,8 +519,10 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   const sysCtx = await buildSystemContext(state, lang);
   const stateSummary = buildStateSummary(state);
   const decisionLog = buildDecisionLog(cboId);
+  const policy = await getPhasePolicyForCbo(cboId);
+  const accessPolicy = buildAccessPolicyPrompt(policy);
 
-  const prompt = `${sysCtx}\n\n## CURRENT STATE\n${stateSummary}\n\n## USER DECISIONS\n${decisionLog}\n\nUser message: ${userMessage}`;
+  const prompt = `${sysCtx}\n\n## CURRENT STATE\n${stateSummary}\n\n## USER DECISIONS\n${decisionLog}${accessPolicy}\n\nUser message: ${userMessage}`;
 
   console.log(`[cbo] Turn for ${cboId} (phase ${state.phase}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length}/7 sections)`);
 
