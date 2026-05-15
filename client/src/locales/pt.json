@@ -1783,7 +1783,16 @@
       "team_technical_experience": "Experiência Técnica",
       "financial_thinking": "Planejamento Financeiro",
       "community_anchoring": "Ancoragem Comunitária",
-      "regulatory_awareness": "Consciência Regulatória"
+      "regulatory_awareness": "Consciência Regulatória",
+      "mission_summary": "Missão",
+      "legal_form": "Forma legal",
+      "year_founded": "Fundação",
+      "paid_vs_volunteer": "Composição",
+      "prior_project_scale": "Escala anterior",
+      "nbs_experience": "Experiência SbN",
+      "bairro_of_operation": "Bairro de atuação",
+      "groups_served": "Comunidades servidas",
+      "proud_moment": "Momento de orgulho"
     },
     "sections": {
       "org_profile": "1. Quem Somos",

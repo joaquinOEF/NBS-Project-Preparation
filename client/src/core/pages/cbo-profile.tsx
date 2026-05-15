@@ -33,6 +33,7 @@ import { CboWelcome } from '@/core/components/cbo/CboWelcome';
 import { CboProgress } from '@/core/components/cbo/CboProgress';
 import { EncontroPreamble, hasPreambleBeenSeen, markPreambleSeen } from '@/core/components/cbo/EncontroPreamble';
 import { getEncontroPreambleConfig, encontroForPhase } from '@/core/components/cbo/encontroConfig';
+import { E1Cards } from '@/core/components/cbo/E1Cards';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 
 const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
@@ -198,6 +199,10 @@ export default function CboProfilePage() {
   // of a coordinator-managed cohort and the coordinator gates phase access.
   const [memberSlug, setMemberSlug] = useState<string | null>(null);
   const [memberInfo, setMemberInfo] = useState<{ orgName: string; neighborhood: string | null } | null>(null);
+  // Two-path triage from E1: 'has-idea' | 'needs-help' | null (until triaged).
+  // Sourced from cohort_members.path via /api/cbo-member/:slug. Drives the
+  // Caminho card chip in E1Cards.
+  const [memberPath, setMemberPath] = useState<'has-idea' | 'needs-help' | null>(null);
   const [cohortName, setCohortName] = useState<string | null>(null);
   const [workshops, setWorkshops] = useState<WorkshopConfig[]>([]);
   const [nextWorkshop, setNextWorkshop] = useState<WorkshopConfig | null>(null);
@@ -218,6 +223,8 @@ export default function CboProfilePage() {
       if (!data) return;
       if (data.unlockedPhases) setUnlockedPhases(data.unlockedPhases);
       if (data.orgName) setMemberInfo({ orgName: data.orgName, neighborhood: data.neighborhood ?? null });
+      if (data.path === 'has-idea' || data.path === 'needs-help') setMemberPath(data.path);
+      else if (data.path === null) setMemberPath(null);
       if (data.cohort?.name) setCohortName(data.cohort.name);
       if (Array.isArray(data.workshops)) setWorkshops(data.workshops);
       setNextWorkshop(data.nextWorkshop ?? null);
@@ -855,6 +862,23 @@ export default function CboProfilePage() {
               {CBO_SECTIONS.map(sec => {
                 const section = state.sections[sec.id];
                 if (!section) return null;
+                // E1 "Quem somos" 4-card layout — replaces the flat field table
+                // for org_profile when the user is still in the early encontros
+                // (phase 1 or 2). After phase 2, we revert to the flat table so
+                // the user can see all fields together when reviewing later.
+                if (sec.id === 'org_profile' && (state.phase <= 2 || state.phase === 0)) {
+                  return (
+                    <div key={sec.id} ref={(el) => { sectionRefs.current[sec.id] = el; }}>
+                      <E1Cards
+                        section={section}
+                        gaps={state.gaps}
+                        path={memberPath}
+                        onFieldEdit={handleFieldEdit}
+                        EditableField={EditableField}
+                      />
+                    </div>
+                  );
+                }
                 const fields = Object.entries(section.fields);
                 const hasGaps = state.gaps.some(g => g.sectionId === sec.id);
                 const isHL = highlightedSections.includes(sec.id);
