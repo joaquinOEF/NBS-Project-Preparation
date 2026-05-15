@@ -210,6 +210,7 @@ export function registerCohortRoutes(app: Express): void {
       id: member.id,
       orgName: member.orgName,
       neighborhood: member.neighborhood,
+      path: member.path ?? null,
       unlockedPhases: unlocked,
       cboStateId: member.cboStateId,
       cohort: cohort ? { id: cohort.id, name: cohort.name } : null,

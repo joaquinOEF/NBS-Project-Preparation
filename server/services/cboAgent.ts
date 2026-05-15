@@ -13,6 +13,10 @@ import {
   PRIORITY_FLAG_DEFINITIONS,
 } from "@shared/cbo-schema";
 import { getPhasePolicyForCbo, isPhaseAllowed, buildAccessPolicyPrompt, type PhasePolicy } from "./phaseGating";
+import { loadEncontroSkill } from "./encontroSkills";
+import { db } from "../db";
+import { cohortMembers } from "@shared/cohort-schema";
+import { eq } from "drizzle-orm";
 
 // ============================================================================
 // SDK LOADING — shared with conceptNoteAgent (lazy load)
@@ -169,6 +173,30 @@ function createCboMcpTools(cboId: string) {
       setCboState(cboId, state);
       pushEvent({ type: 'phase_change', phase: args.phase });
       return { content: [{ type: "text" as const, text: `Phase ${args.phase}` }] };
+    },
+    { annotations: { readOnlyHint: false } }
+  );
+
+  // E1 two-path triage: stores 'has-idea' or 'needs-help' on the cohort member.
+  // Branches E2-E3 flows. No-op if the CBO isn't part of a cohort.
+  const setPath = sdkTool(
+    "set_path",
+    "Record the user's path choice from the E1 triage. 'has-idea' = they have a specific NBS project in mind; 'needs-help' = they want to discover one.",
+    { path: z.enum(["has-idea", "needs-help"]) },
+    async (args: any) => {
+      try {
+        const result = await db
+          .update(cohortMembers)
+          .set({ path: args.path })
+          .where(eq(cohortMembers.cboStateId, cboId))
+          .returning();
+        if (result.length === 0) {
+          return { content: [{ type: "text" as const, text: `No cohort member linked to this CBO; path '${args.path}' not persisted (standalone session).` }] };
+        }
+        return { content: [{ type: "text" as const, text: `Path set to '${args.path}' for ${result[0].orgName}.` }] };
+      } catch (err: any) {
+        return { content: [{ type: "text" as const, text: `Error setting path: ${err.message}` }], isError: true };
+      }
     },
     { annotations: { readOnlyHint: false } }
   );
@@ -358,7 +386,7 @@ STOP and wait for the user's selection after calling this tool.`,
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, flagGap, setPhase, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, openInterventionSelector],
+    tools: [updateSection, flagGap, setPhase, setPath, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, openInterventionSelector],
   });
 }
 
@@ -536,6 +564,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           "mcp__cbo__update_section",
           "mcp__cbo__flag_gap",
           "mcp__cbo__set_phase",
+          "mcp__cbo__set_path",
           "mcp__cbo__ask_user",
           "mcp__cbo__open_map",
           "mcp__cbo__open_intervention_selector",
@@ -623,7 +652,11 @@ async function buildSystemContext(state: CboState, lang: string = 'en'): Promise
   }
 
   // ── Phase-specific instructions (only load current phase) ──
-  const phaseInstructions = buildPhaseInstructions(state.phase, isPt);
+  // Prefer encontro skill markdown from knowledge/_skills/encontro-{N}.md when
+  // present (E1-E6 curriculum); fall back to the hardcoded block for phases
+  // that haven't been migrated yet. Phase 0 = pre-onboarding, no encontro.
+  const encontroSkillMd = state.phase >= 1 ? await loadEncontroSkill(state.phase) : null;
+  const phaseInstructions = encontroSkillMd ?? buildPhaseInstructions(state.phase, isPt);
 
   // ── City summary (condensed, always loaded) ──
   const citySummary = isPt
