@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E3 — Desenhando sua intervenção · mockup walkthrough</title>
+<style>
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --ink: #18181b; --muted: #71717a;
+    --line: rgba(0,0,0,0.08); --accent: #059669; --accent-soft: #ecfdf5;
+    --accent-deep: #047857; --warm: #f59e0b; --warm-soft: #fef3c7;
+    --info: #0284c7; --danger: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; line-height: 1.5; font-size: 14px; }
+  .doc { max-width: 1280px; margin: 0 auto; padding: 48px 28px 96px; }
+  h1 { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 4px; }
+  h1 .small { font-size: 13px; font-weight: 400; color: var(--muted); }
+  h2.screen { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin: 56px 0 12px; }
+  .lede { color: var(--muted); margin: 8px 0 24px; max-width: 64ch; line-height: 1.6; }
+  .anno { font-size: 12px; color: var(--muted); margin: 8px 0 18px; padding-left: 14px; border-left: 2px solid var(--accent); max-width: 64ch; }
+  .scene { display: grid; grid-template-columns: 380px 1fr; gap: 36px; align-items: start; }
+  .scene .note h4 { font-size: 14px; margin: 0 0 6px; }
+  .scene .note p { font-size: 13px; color: var(--muted); margin: 0 0 10px; line-height: 1.6; }
+  .scene .note .kv { font-family: ui-monospace, monospace; font-size: 11px; background: #f4f4f5; padding: 10px 12px; border-radius: 8px; color: var(--ink); margin-top: 12px; white-space: pre-wrap; line-height: 1.5; }
+  .phone {
+    width: 380px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 28px; overflow: hidden; box-shadow: 0 12px 36px -16px rgba(0,0,0,0.18);
+  }
+  .phone .top-chrome { padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; }
+  .phone .frame-body { min-height: 640px; display: flex; flex-direction: column; }
+  .app-header { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .app-header .leaf { width: 28px; height: 28px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-deep); display:flex; align-items:center; justify-content:center; font-size: 13px; }
+  .app-header .id { flex: 1; min-width: 0; }
+  .app-header .org-name { font-size: 13px; font-weight: 600; line-height: 1.2; }
+  .app-header .meta { font-size: 10px; color: var(--muted); line-height: 1.2; }
+  .progress-strip { padding: 8px 16px; border-bottom: 1px solid var(--line); }
+  .progress-strip .label { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+  .progress-strip .label .active { color: var(--ink); font-weight: 600; }
+  .segments { display: flex; gap: 3px; }
+  .seg { height: 3px; flex: 1; border-radius: 2px; }
+  .seg.past { background: var(--accent); }
+  .seg.curr { background: var(--accent); opacity: 0.5; }
+  .seg.locked { background: rgba(0,0,0,0.08); }
+  .tab-content { flex: 1; padding: 12px 16px; overflow-y: auto; }
+  .chat-msgs { display: flex; flex-direction: column; gap: 6px; }
+  .msg { padding: 8px 12px; border-radius: 14px; font-size: 13px; line-height: 1.45; max-width: 92%; }
+  .msg.agent { background: #f4f4f5; align-self: flex-start; }
+  .msg.user { background: var(--accent); color: white; align-self: flex-end; }
+  .msg .lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+  .msg.user .lbl { display: none; }
+  /* InterventionSelector cards (already exist, just mocked here) */
+  .int-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .int-card { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: var(--surface); cursor: pointer; }
+  .int-card.recommended { border-color: var(--accent); background: var(--accent-soft); }
+  .int-card.selected { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .int-thumb { height: 56px; border-radius: 6px; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .int-thumb.placeholder { background: linear-gradient(135deg, #d1fae5, #6ee7b7); }
+  .int-name { font-size: 10px; font-weight: 600; line-height: 1.2; }
+  .int-tag { font-size: 9px; padding: 1px 5px; border-radius: 999px; background: var(--accent-deep); color: white; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; display: inline-block; margin-top: 4px; }
+  .int-tag.secondary { background: var(--warm); }
+  /* Sizing helper bands */
+  .sizing-bands { margin-top: 8px; }
+  .band { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 4px; background: var(--surface); display: flex; align-items: center; gap: 8px; }
+  .band.current { border-color: var(--accent); background: var(--accent-soft); }
+  .band .name { font-size: 11px; font-weight: 600; min-width: 60px; }
+  .band .range { font-size: 10px; color: var(--muted); flex: 1; }
+  .band .cost { font-size: 10px; color: var(--ink); font-weight: 500; }
+  .band-detail { background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; margin-top: 6px; font-size: 11px; color: var(--ink); }
+  .band-detail strong { color: var(--accent-deep); }
+  /* Justification composer */
+  .ca-composer { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--surface); margin-top: 8px; }
+  .ca-row { margin-bottom: 8px; }
+  .ca-row .label { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+  .ca-row input, .ca-row textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font-size: 12px; }
+  .ca-row textarea { resize: vertical; min-height: 38px; }
+  .ca-chip-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .ca-chip { border: 1px solid var(--line); padding: 3px 8px; border-radius: 999px; font-size: 10px; background: var(--surface); cursor: pointer; }
+  .ca-chip.selected { background: var(--accent-soft); border-color: #6ee7b7; color: var(--accent-deep); }
+  /* Chat input */
+  .chat-input { padding: 8px 12px; border-top: 1px solid var(--line); display: flex; gap: 6px; }
+  .chat-input .ipt { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font-size: 12px; color: var(--muted); background: var(--surface); }
+  .chat-input .send { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; }
+  /* Tab bar */
+  .tab-bar { border-top: 1px solid var(--line); background: var(--surface); display: flex; padding: 4px 0 8px; }
+  .tab { flex: 1; text-align: center; padding: 6px 4px; font-size: 10px; color: var(--muted); position: relative; cursor: pointer; }
+  .tab .icon { font-size: 18px; line-height: 1; }
+  .tab .label { display: block; margin-top: 2px; font-weight: 500; }
+  .tab.active { color: var(--accent-deep); }
+  .tab.active::after { content:""; position:absolute; bottom:-4px; left:50%; transform:translateX(-50%); width:24px; height:2px; background:var(--accent); border-radius:2px; }
+  /* Sketch map */
+  .ma-banner { background: var(--accent-soft); border-bottom: 1px solid #a7f3d0; padding: 10px 16px; }
+  .ma-banner .by-agent { font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  .ma-banner .prompt { font-size: 13px; color: var(--ink); font-weight: 500; line-height: 1.4; }
+  .ma-banner .area-display { display: inline-block; font-size: 12px; font-weight: 600; color: var(--accent-deep); margin-top: 6px; padding: 3px 9px; border-radius: 999px; background: white; border: 1px solid var(--accent); }
+  .pretend-map {
+    flex: 1; position: relative; min-height: 320px;
+    background: radial-gradient(circle at 65% 55%, rgba(239, 68, 68, 0.25) 0%, transparent 30%), linear-gradient(135deg, #e5f3e0 0%, #d4e8d4 100%);
+  }
+  .map-pin { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+  .sketch-polygon { position: absolute; background: rgba(5, 150, 105, 0.25); border: 2px solid var(--accent); border-radius: 4px; }
+  .sketch-corner { position: absolute; width: 14px; height: 14px; background: var(--accent); border: 2px solid white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: move; }
+  .ma-action-bar { padding: 12px 16px; border-top: 1px solid var(--line); background: var(--surface); display: flex; gap: 8px; align-items: center; }
+  .btn-confirm { background: var(--accent); color: white; padding: 9px 16px; border-radius: 10px; font-weight: 500; font-size: 13px; flex: 1; text-align: center; }
+  .legend { background: #eff6ff; border-left: 3px solid #3b82f6; padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 12px; color: #1e3a8a; margin: 16px 0 24px; max-width: 64ch; }
+  .flow-arrow { display: flex; align-items: center; gap: 8px; color: var(--accent-deep); font-size: 12px; font-weight: 600; margin: 14px 0 4px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .flow-arrow::before, .flow-arrow::after { content: ""; flex: 1; height: 1px; background: var(--accent-soft); }
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>E3 — Desenhando sua intervenção <span class="small">· mockup walkthrough · 2026-05-15</span></h1>
+  <p class="lede">
+    Three beats over ~50 min: pick the intervention type (selector pre-filtered by E2's hazard) → sketch the area on the map → articulate why. Both paths converge here. New microapps shown: <strong>SiteSketcher</strong>, <strong>InterventionSizingHelper</strong>, <strong>JustificationComposer</strong>. The existing <code>InterventionSelector</code> gets community-tone content + pre-filtered recommendations.
+  </p>
+  <div class="legend">
+    <strong>Photo placeholders:</strong> intervention cards render gradient + emoji until the photo curation work in PRs #140/#141 lands verified images.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 1 — Selector opens with pre-filtered recommendations</h2>
+  <p class="anno">Agent invokes InterventionSelector with <code>recommendedTypes</code> derived from E2's primary_hazard. ★ badges on the 3 most relevant types.</p>
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 3 · escolha</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 3</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 3 de 5 · Desenhando sua intervenção</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg curr"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="chat-msgs">
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              No último encontro você marcou <strong>Pracinha do bairro · Cascata · risco alto de enchente</strong>. Vou abrir a biblioteca de intervenções — as recomendadas pra enchente estão marcadas com ★. Toca em qualquer uma pra ler mais.
+              <div class="int-grid">
+                <div class="int-card recommended selected">
+                  <div class="int-thumb placeholder">💧</div>
+                  <div class="int-name">Jardim de chuva / Bioswale</div>
+                  <div class="int-tag">★ recomendado</div>
+                </div>
+                <div class="int-card recommended">
+                  <div class="int-thumb placeholder" style="background: linear-gradient(135deg, #bae6fd, #67b9ec);">🌊</div>
+                  <div class="int-name">Parque inundável</div>
+                  <div class="int-tag">★ recomendado</div>
+                </div>
+                <div class="int-card recommended">
+                  <div class="int-thumb placeholder" style="background: linear-gradient(135deg, #fbcfe8, #e9d5ff);">🪷</div>
+                  <div class="int-name">Restauração de áreas úmidas</div>
+                  <div class="int-tag">★ recomendado</div>
+                </div>
+                <div class="int-card">
+                  <div class="int-thumb placeholder" style="background: linear-gradient(135deg, #d9f99d, #84cc16);">🌳</div>
+                  <div class="int-name">Florestas urbanas</div>
+                  <div class="int-tag secondary">útil pra calor</div>
+                </div>
+                <div class="int-card">
+                  <div class="int-thumb placeholder" style="background: linear-gradient(135deg, #fde68a, #f59e0b);">🌿</div>
+                  <div class="int-name">Corredores verdes</div>
+                </div>
+                <div class="int-card">
+                  <div class="int-thumb placeholder" style="background: linear-gradient(135deg, #c7d2fe, #818cf8);">🏠</div>
+                  <div class="int-name">Telhados / paredes verdes</div>
+                </div>
+              </div>
+              <div style="margin-top: 10px; font-size: 11px; color: var(--muted);">
+                Selecionou: <strong>Jardim de chuva</strong>. Pode escolher mais uma se quiser combinar.
+              </div>
+              <div style="margin-top: 8px;">
+                <a href="#" style="font-size: 12px; color: var(--accent-deep); font-weight: 500;">Confirmar escolha →</a>
+                · <a href="#" style="font-size: 11px; color: var(--muted);">Me ajude a decidir</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Ou pergunte algo…">
+          <div class="send">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab active"><div class="icon">🌿</div><span class="label">Intervenções</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>InterventionSelector · IMPROVEMENT — recommended pre-filter + community tone</h4>
+      <p>The component already exists. Two improvements:</p>
+      <ol style="font-size: 13px; color: var(--ink); padding-left: 18px;">
+        <li><strong>★ recomendado</strong> badges come from the existing <code>HAZARD_WEIGHTS</code> + the user's primary_hazard from E2. The agent passes <code>recommendedTypes</code> when invoking.</li>
+        <li>Card content reads from <strong>community-tone</strong> docs (<code>_interventions/_community/*.md</code>) instead of the funder-grade originals. New <code>tone</code> param defaults to <code>community</code>.</li>
+      </ol>
+      <p>Photos are gradient + emoji placeholders until the verified-photo work lands.</p>
+      <div class="kv">params: {
+  recommendedTypes: ['bioswales-rain-gardens', 'flood-parks', 'wetland-restoration'],
+  tone: 'community',
+  multiSelect: true,
+  maxRecommendations: 3,
+}</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="flow-arrow">User confirms · agent suggests a combo</div>
+
+  <h2 class="screen">SCREEN 2 — Agent suggests a complementary intervention</h2>
+  <p class="anno">After single-type confirm, agent surfaces a combinable recommendation based on E2's secondary hazard (calor). Not pushy — a teaching moment.</p>
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 3 · combinação?</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 3</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 3 de 5 · Desenhando sua intervenção</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg curr"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="chat-msgs">
+            <div class="msg user">Escolho jardim de chuva.</div>
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              Boa escolha — combina muito com o seu site.
+              <br><br>
+              No último encontro você também mencionou <strong>calor</strong> como segundo risco. Jardim de chuva ajuda mais com enchente; pra calor, <strong>florestas urbanas</strong> (sombra + evapotranspiração) seriam um complemento natural.
+              <br><br>
+              Quer pensar em <strong>combinar as duas</strong>? Não precisa decidir agora — pode também seguir só com o jardim de chuva.
+              <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px;">
+                <span style="border: 1px solid var(--accent); padding: 5px 11px; border-radius: 999px; font-size: 11px; background: var(--accent-soft); color: var(--accent-deep); font-weight: 500;">Sim, combinar com florestas urbanas</span>
+                <span style="border: 1px solid var(--line); padding: 5px 11px; border-radius: 999px; font-size: 11px;">Só o jardim de chuva por enquanto</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Ou escreva sua resposta…">
+          <div class="send">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab"><div class="icon">🌿</div><span class="label">Intervenções</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>Combinable interventions surfaced as a teaching moment</h4>
+      <p>
+        Per Springer 2025 + Nature npj review, most community NBS projects are 2-3 combined types, not single. But the user shouldn't feel pushed. The agent frames it as <em>"want to think about combining"</em> — not <em>"you should add this."</em>
+      </p>
+      <p>If user picks "Sim, combinar," the selector reopens with the second hazard's recommendations pre-filtered. If "Só o jardim de chuva," we capture <code>secondary_intervention_consideration</code> as "declined" and move on.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="flow-arrow">User declines combo · agent moves to sketch</div>
+
+  <h2 class="screen">SCREEN 3 — SiteSketcher (NEW · extends MapMicroapp)</h2>
+  <p class="anno">Map opens centered on E2's site pin. A small editable rectangle is pre-seeded. User drags corners to fit their actual area. Live m² readout.</p>
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 3 · desenho</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 3</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 3 de 5 · Desenhando sua intervenção</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg curr"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="ma-banner">
+          <div class="by-agent">Pergunta do agente</div>
+          <div class="prompt">Arraste os cantos pra desenhar a área da intervenção. Use o pin como referência do local que você marcou antes.</div>
+          <span class="area-display">Sua área: <strong>320 m²</strong></span>
+        </div>
+        <div class="pretend-map">
+          <div class="map-pin" style="left:43%; top:52%;"></div>
+          <div class="sketch-polygon" style="left:34%; top:42%; width:30%; height:30%;"></div>
+          <div class="sketch-corner" style="left:31%; top:39%;"></div>
+          <div class="sketch-corner" style="left:62%; top:39%;"></div>
+          <div class="sketch-corner" style="left:31%; top:69%;"></div>
+          <div class="sketch-corner" style="left:62%; top:69%;"></div>
+        </div>
+        <div class="ma-action-bar">
+          <span style="font-size: 11px; color: var(--muted); text-decoration: underline;">Resetar</span>
+          <a href="#" class="btn-confirm">Confirmar área</a>
+        </div>
+        <div class="tab-bar">
+          <div class="tab"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab active"><div class="icon">🗺️</div><span class="label">Mapa</span></div>
+          <div class="tab"><div class="icon">🌿</div><span class="label">Intervenções</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>SiteSketcher · NEW (extends MapMicroapp)</h4>
+      <p>
+        Reuses existing custom-draw infrastructure. New <code>selectionMode: 'sketch-intervention-area'</code>. Pre-seeds a 50×30m rectangle centered on the E2 site pin. 4 draggable corners. Live area readout at the top.
+      </p>
+      <p>
+        On mobile, drag-corner is fiddly on a small touchscreen — per the spec's open decision #2, may switch to a simpler "drag the circle's radius" model after Antônia tests.
+      </p>
+      <div class="kv">open_map params for sketch:
+{
+  selectionMode: 'sketch-intervention-area',
+  centerOn: { lat: site_lat, lng: site_lng },
+  centerBairro: 'cascata',
+  initialShape: { type: 'rectangle', w_m: 50, h_m: 30 },
+  showSitePin: true,    // reference, not editable
+  lockBairroBounds: true,
+}
+→ result: { polygon_geojson, area_m2 }</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 4 — InterventionSizingHelper (NEW · inline)</h2>
+  <p class="anno">After polygon confirm, inline card shows the 3 sizing bands with user's polygon highlighted in whichever band it falls.</p>
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 3 · sizing</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 3</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 3 de 5 · Desenhando sua intervenção</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg curr"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="chat-msgs">
+            <div class="msg user">📐 Área desenhada · 320 m²</div>
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              Você desenhou <strong>320 m²</strong>. Pra um jardim de chuva, isso é escala <strong>média</strong>.
+              <div class="sizing-bands">
+                <div class="band">
+                  <span class="name">Pequeno</span>
+                  <span class="range">50–200 m²</span>
+                  <span class="cost">R$ 10–40k</span>
+                </div>
+                <div class="band current">
+                  <span class="name">✦ Médio</span>
+                  <span class="range">200–1.000 m²</span>
+                  <span class="cost">R$ 40–300k</span>
+                </div>
+                <div class="band">
+                  <span class="name">Grande</span>
+                  <span class="range">1.000+ m²</span>
+                  <span class="cost">R$ 300k+</span>
+                </div>
+                <div class="band-detail">
+                  Pra sua área: típico <strong>R$ 50–110k</strong> de implementação, capta cerca de <strong>2.500 m² de chuva</strong> (rua + telhados próximos).
+                </div>
+              </div>
+              <p style="font-size: 12px; margin-top: 10px;">Faz sentido essa escala, ou quer ajustar?</p>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
+                <span style="border: 1px solid var(--accent); padding: 5px 11px; border-radius: 999px; font-size: 11px; background: var(--accent-soft); color: var(--accent-deep);">Faz sentido</span>
+                <span style="border: 1px solid var(--line); padding: 5px 11px; border-radius: 999px; font-size: 11px;">Quero ajustar →</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Ou escreva…">
+          <div class="send">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab"><div class="icon">🗺️</div><span class="label">Mapa</span></div>
+          <div class="tab"><div class="icon">🌿</div><span class="label">Intervenções</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>InterventionSizingHelper · NEW (inline)</h4>
+      <p>
+        Three bands with the user's polygon highlighted in whichever band it lands. Cost ranges + impact estimates come from <code>_sizing/intervention-rules.yaml</code> (new — to be authored).
+      </p>
+      <p>
+        Per US/CNT benchmarks: a rain garden should be ~5-10% of contributing impervious area. The "captures ~2,500 m² of rain" calculation reverse-engineers from 320 m² × 8 (typical capture ratio for medium-scale).
+      </p>
+      <p>If user clicks "Quero ajustar," they go back to the SiteSketcher with their polygon preserved.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 5 — JustificationComposer (NEW · inline)</h2>
+  <p class="anno">3 short labeled fields + chip multi-select for construction model. Same pattern as E2's CommunityAnchoringComposer.</p>
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 3 · justificativa</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 3</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 3 de 5 · Desenhando sua intervenção</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg curr"></div><div class="seg locked"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="chat-msgs">
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              Última coisa por hoje: <strong>conta o "por quê"</strong>. Isso vai ajudar a defender o projeto pra parceiros e financiadores. Pode ser curto.
+              <div class="ca-composer">
+                <div class="ca-row">
+                  <div class="label">Por que jardim de chuva, aqui em Cascata?</div>
+                  <textarea>Porque a rua alaga todo verão. Esse pedaço da praça já tem solo permeável — dá pra ampliar e fazer captar mais água antes de descer pra parte baixa.</textarea>
+                </div>
+                <div class="ca-row">
+                  <div class="label">O que muda pra comunidade?</div>
+                  <textarea>Menos enchente nas casas da Rua das Flores, espaço bonito que dá vontade de cuidar. Pode ter uma horta de ervas junto.</textarea>
+                </div>
+                <div class="ca-row">
+                  <div class="label">Como vocês imaginam construir?</div>
+                  <div class="ca-chip-row">
+                    <span class="ca-chip selected">Mutirão comunitário</span>
+                    <span class="ca-chip selected">Parceria universidade</span>
+                    <span class="ca-chip">Contratar empreiteira</span>
+                    <span class="ca-chip">Assistência da prefeitura</span>
+                    <span class="ca-chip">Outro</span>
+                  </div>
+                </div>
+                <div style="margin-top: 8px; text-align: right;">
+                  <a href="#" style="font-size: 11px; color: var(--accent-deep); font-weight: 500;">Salvar →</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Ou escreva livre…">
+          <div class="send">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab"><div class="icon">🗺️</div><span class="label">Mapa</span></div>
+          <div class="tab"><div class="icon">🌿</div><span class="label">Intervenções</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>JustificationComposer · NEW (inline)</h4>
+      <p>3 short text fields + 1 chip-row. Same pattern as E2's CommunityAnchoringComposer. The answers feed Solution Clarity scoring + the E6 pitch.</p>
+      <p><strong>Why these specific questions:</strong> "por que aqui" → Solution Clarity. "o que muda" → Problem Clarity. "como construir" → E4 ops planning.</p>
+      <div class="kv">component: JustificationComposer
+output:
+  justification_why_here: "..."
+  justification_what_changes: "..."
+  construction_model: ['mutirao',
+                       'parceria-universidade']</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 6 — Perfil tab · "Sua intervenção" card filled</h2>
+  <p class="anno">Doc panel state at the end of E3. The new card joins the existing 4.</p>
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Tab: 📋 Perfil · após E3</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 3 ✓</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 3 de 5 · ✓</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg curr" style="opacity:0.3;"></div><div class="seg locked"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;">
+            <div style="font-size: 11px; font-weight: 600; margin-bottom: 6px;">Quem somos · Equipe · Caminho ✓</div>
+            <div style="font-size: 11px; color: var(--muted);">… (de E1)</div>
+          </div>
+          <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;">
+            <div style="font-size: 11px; font-weight: 600; margin-bottom: 6px;">Seu território · Comunidade ✓</div>
+            <div style="font-size: 11px; color: var(--muted);">Pracinha do bairro · 320 m² · Enchente + Calor (de E2)</div>
+          </div>
+          <div style="background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;">
+            <div style="font-size: 11px; font-weight: 600; margin-bottom: 6px; display: flex; justify-content: space-between;">
+              <span>Sua intervenção</span>
+              <span style="font-size: 9px; padding: 1px 5px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-deep); font-weight: 600; text-transform: uppercase;">✓ novo</span>
+            </div>
+            <div style="font-size: 11px; padding: 2px 0;"><span style="color: var(--muted); min-width: 70px; display: inline-block;">Tipo</span> Jardim de chuva</div>
+            <div style="font-size: 11px; padding: 2px 0;"><span style="color: var(--muted); min-width: 70px; display: inline-block;">Combina?</span> Considerou florestas urbanas, segue só com jardim</div>
+            <div style="font-size: 11px; padding: 2px 0;"><span style="color: var(--muted); min-width: 70px; display: inline-block;">Área</span> 320 m² (escala média)</div>
+            <div style="font-size: 11px; padding: 2px 0;"><span style="color: var(--muted); min-width: 70px; display: inline-block;">Por quê</span> "Rua alaga todo verão; solo permeável já existe"</div>
+            <div style="font-size: 11px; padding: 2px 0;"><span style="color: var(--muted); min-width: 70px; display: inline-block;">Como</span> Mutirão + parceria UFRGS</div>
+          </div>
+          <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; opacity: 0.5;">
+            <div style="font-size: 11px; font-weight: 600;">Impacto · operações <span style="font-size: 9px; color: var(--muted);">— próximo encontro</span></div>
+            <div style="font-size: 11px; color: var(--muted); font-style: italic; margin-top: 4px;">Vamos preencher juntos no Encontro 4.</div>
+          </div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab active"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>One new card lands</h4>
+      <p>
+        <strong>Sua intervenção</strong> joins the existing 4 cards. Editable on hover. Green border highlights it as just-completed; fades after navigation.
+      </p>
+      <p>The closing chat message follows the same pattern as E1/E2 — "✓ Encontro 3 concluído · próximo encontro: 2 de julho — Impacto, operações, sustentabilidade."</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">Summary · what's new in E3</h2>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW · extends MapMicroapp</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">SiteSketcher</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        Drag-corner polygon over the E2 site pin. Auto-computes m². Reuses existing custom-draw infrastructure.
+        <br><br>
+        <strong>Effort:</strong> ~80 lines added.
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW · inline</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">InterventionSizingHelper</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        3-band sizing card showing where the user's polygon lands + typical cost + impact.
+        <br><br>
+        <strong>Effort:</strong> ~60 lines + sizing rules YAML.
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW · inline</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">JustificationComposer</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        3 short fields + chip multi-select for construction model. Feeds Solution Clarity scoring.
+        <br><br>
+        <strong>Effort:</strong> ~50 lines.
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--accent-soft);">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">IMPROVEMENT · InterventionSelector</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">Recommended pre-filter + community tone</div>
+      <div style="font-size: 12px; color: var(--ink); line-height: 1.5;">
+        Pre-filter by E2's primary_hazard, render community-tone card content. Photos blocked on curation work.
+        <br><br>
+        <strong>Effort:</strong> ~30 lines + 6 community-version KB docs.
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size: 11px; color: var(--muted); margin-top: 48px; border-top: 1px solid var(--line); padding-top: 16px;">
+    Companion files: <code>research.md</code> · <code>spec.md</code> · <code>skill.md</code> · all in <code>knowledge/runs/2026-05-15-encontros-curriculum/E3-desenhando/</code>
+  </p>
+</div>
+</body>
+</html>
