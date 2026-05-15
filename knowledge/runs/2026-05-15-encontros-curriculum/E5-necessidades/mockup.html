@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E5 — Necessidades · prontidão · mockup</title>
+<style>
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --ink: #18181b; --muted: #71717a;
+    --line: rgba(0,0,0,0.08); --accent: #059669; --accent-soft: #ecfdf5;
+    --accent-deep: #047857; --warm: #f59e0b; --warm-soft: #fef3c7;
+    --info: #0284c7; --info-soft: #e0f2fe; --danger: #ef4444; --danger-soft: #fee2e2;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; line-height: 1.5; font-size: 14px; }
+  .doc { max-width: 1280px; margin: 0 auto; padding: 48px 28px 96px; }
+  h1 { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 4px; }
+  h1 .small { font-size: 13px; font-weight: 400; color: var(--muted); }
+  h2.screen { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin: 56px 0 12px; }
+  .lede { color: var(--muted); margin: 8px 0 24px; max-width: 64ch; line-height: 1.6; }
+  .anno { font-size: 12px; color: var(--muted); margin: 8px 0 18px; padding-left: 14px; border-left: 2px solid var(--accent); max-width: 64ch; }
+  .scene { display: grid; grid-template-columns: 380px 1fr; gap: 36px; align-items: start; }
+  .scene .note h4 { font-size: 14px; margin: 0 0 6px; }
+  .scene .note p { font-size: 13px; color: var(--muted); margin: 0 0 10px; line-height: 1.6; }
+  .scene .note .kv { font-family: ui-monospace, monospace; font-size: 11px; background: #f4f4f5; padding: 10px 12px; border-radius: 8px; margin-top: 12px; white-space: pre-wrap; }
+  .phone { width: 380px; background: var(--surface); border: 1px solid var(--line); border-radius: 28px; overflow: hidden; box-shadow: 0 12px 36px -16px rgba(0,0,0,0.18); }
+  .phone .top-chrome { padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; }
+  .phone .frame-body { min-height: 660px; display: flex; flex-direction: column; }
+  .app-header { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .app-header .leaf { width: 28px; height: 28px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-deep); display:flex; align-items:center; justify-content:center; font-size: 13px; }
+  .app-header .id { flex: 1; min-width: 0; }
+  .app-header .org-name { font-size: 13px; font-weight: 600; line-height: 1.2; }
+  .app-header .meta { font-size: 10px; color: var(--muted); }
+  .progress-strip { padding: 8px 16px; border-bottom: 1px solid var(--line); }
+  .progress-strip .label { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+  .progress-strip .label .active { color: var(--ink); font-weight: 600; }
+  .segments { display: flex; gap: 3px; }
+  .seg { height: 3px; flex: 1; border-radius: 2px; }
+  .seg.past { background: var(--accent); }
+  .seg.curr { background: var(--accent); opacity: 0.5; }
+  .seg.locked { background: rgba(0,0,0,0.08); }
+  .tab-content { flex: 1; padding: 12px 16px; overflow-y: auto; }
+  .chat-msgs { display: flex; flex-direction: column; gap: 6px; }
+  .msg { padding: 8px 12px; border-radius: 14px; font-size: 13px; line-height: 1.45; max-width: 92%; }
+  .msg.agent { background: #f4f4f5; align-self: flex-start; }
+  .msg.user { background: var(--accent); color: white; align-self: flex-end; }
+  .msg .lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+  .msg.user .lbl { display: none; }
+  /* Funding breakdown */
+  .funding-cat { border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-bottom: 6px; background: var(--surface); }
+  .funding-cat .ttl { font-size: 12px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  .funding-cat .ttl .amt { color: var(--accent-deep); font-size: 11px; }
+  .funding-cat .subtitle { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .band-row { display: flex; gap: 4px; margin-top: 6px; }
+  .band-chip { flex: 1; text-align: center; border: 1px solid var(--line); padding: 4px 6px; border-radius: 6px; font-size: 10px; background: var(--surface); cursor: pointer; }
+  .band-chip.selected { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); font-weight: 600; }
+  .band-chip .range { display: block; font-size: 9px; color: var(--muted); font-weight: normal; margin-top: 1px; }
+  .band-chip.selected .range { color: var(--accent-deep); opacity: 0.8; }
+  .funding-total { background: var(--accent-soft); border: 1px solid #6ee7b7; border-radius: 8px; padding: 12px; text-align: center; margin-top: 8px; }
+  .funding-total .label { font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+  .funding-total .amount { font-size: 20px; font-weight: 700; color: var(--ink); margin-top: 2px; }
+  /* Permit checklist */
+  .permit-item { border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-bottom: 6px; background: var(--surface); }
+  .permit-item .ttl { font-size: 12px; font-weight: 600; display: flex; justify-content: space-between; align-items: flex-start; }
+  .permit-item .note { font-size: 10px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+  .permit-item .contact { font-size: 10px; color: var(--info); margin-top: 4px; font-family: ui-monospace, monospace; }
+  .status-pill { font-size: 9px; padding: 2px 7px; border-radius: 999px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+  .status-pill.nao-iniciado { background: rgba(0,0,0,0.05); color: var(--muted); }
+  .status-pill.em-conversa { background: var(--warm-soft); color: #92400e; }
+  .status-pill.em-processo { background: var(--info-soft); color: #075985; }
+  .status-pill.pronto { background: var(--accent-soft); color: var(--accent-deep); }
+  /* Gap report */
+  .gap-section { border-left: 3px solid var(--line); padding: 8px 12px; margin-bottom: 10px; }
+  .gap-section.strong { border-left-color: var(--accent); background: var(--accent-soft); border-radius: 0 6px 6px 0; }
+  .gap-section.improve { border-left-color: var(--warm); background: var(--warm-soft); border-radius: 0 6px 6px 0; }
+  .gap-section.next { border-left-color: var(--info); background: var(--info-soft); border-radius: 0 6px 6px 0; }
+  .gap-section .ttl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+  .gap-section.strong .ttl { color: var(--accent-deep); }
+  .gap-section.improve .ttl { color: #92400e; }
+  .gap-section.next .ttl { color: #075985; }
+  .gap-item { font-size: 11px; padding: 4px 0; line-height: 1.5; }
+  .gap-item .what { font-weight: 600; }
+  .gap-item .how { color: var(--muted); margin-left: 6px; }
+  /* Chat input */
+  .chat-input { padding: 8px 12px; border-top: 1px solid var(--line); display: flex; gap: 6px; }
+  .chat-input .ipt { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font-size: 12px; color: var(--muted); background: var(--surface); }
+  .chat-input .send { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; }
+  /* Tab bar */
+  .tab-bar { border-top: 1px solid var(--line); background: var(--surface); display: flex; padding: 4px 0 8px; }
+  .tab { flex: 1; text-align: center; padding: 6px 4px; font-size: 10px; color: var(--muted); position: relative; cursor: pointer; }
+  .tab .icon { font-size: 18px; line-height: 1; }
+  .tab .label { display: block; margin-top: 2px; font-weight: 500; }
+  .tab.active { color: var(--accent-deep); }
+  .tab.active::after { content:""; position:absolute; bottom:-4px; left:50%; transform:translateX(-50%); width:24px; height:2px; background:var(--accent); border-radius:2px; }
+
+  .legend { background: #eff6ff; border-left: 3px solid #3b82f6; padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 12px; color: #1e3a8a; margin: 16px 0 24px; max-width: 64ch; }
+  .flow-arrow { display: flex; align-items: center; gap: 8px; color: var(--accent-deep); font-size: 12px; font-weight: 600; margin: 14px 0 4px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .flow-arrow::before, .flow-arrow::after { content: ""; flex: 1; height: 1px; background: var(--accent-soft); }
+  /* Maturity grid (coordinator view) */
+  .mat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+  .mat-cell { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: var(--surface); }
+  .mat-cell .lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .mat-cell .score { font-size: 14px; font-weight: 700; margin-top: 2px; }
+  .mat-cell.s3 { background: var(--accent-soft); border-color: var(--accent); }
+  .mat-cell.s3 .score { color: var(--accent-deep); }
+  .mat-cell.s2 .score { color: var(--accent-deep); }
+  .mat-cell.s1 { background: var(--warm-soft); border-color: var(--warm); }
+  .mat-cell.s1 .score { color: #92400e; }
+  .mat-cell.s0 { background: var(--danger-soft); border-color: var(--danger); }
+  .mat-cell.s0 .score { color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>E5 — Necessidades · prontidão <span class="small">· mockup walkthrough · 2026-05-15</span></h1>
+  <p class="lede">
+    The encontro where the project becomes a <strong>fundable ask</strong>. Three beats: funding breakdown → permit checklist → gap report. By the end, every COUGAR maturity metric (9) and priority flag (6) is set — the BWB handoff content is complete.
+  </p>
+  <div class="legend">
+    <strong>Key UX call:</strong> R$ amounts are <strong>band-based</strong>, not exact. Most CBOs don't have line-item quotes at this stage; bands keep momentum without forcing precision the user can't supply honestly.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 1 — FundingNeedBreakdown · 4 categories with band-chip amounts</h2>
+  <p class="anno">Agent invokes the funding breakdown. Four collapsible categories with low/mid/high/very-high bands per category. Year-1 operating pre-filled from E4.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 5 · necessidades</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 5</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 5 de 5 · Necessidades · prontidão</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg curr"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="chat-msgs">
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              Você desenhou o projeto, sabe o impacto, sabe quem cuida. Agora a gente traduz isso em <strong>pedido</strong> — quanto precisa pra fazer acontecer. Não precisa ter orçamento detalhado — escolhe uma faixa.
+            </div>
+
+            <div class="funding-cat">
+              <div class="ttl">Implementação <span class="amt">R$ 45-80k</span></div>
+              <div class="subtitle">Instalação, materiais, mão de obra inicial</div>
+              <div class="band-row">
+                <div class="band-chip">Baixo<span class="range">&lt;R$30k</span></div>
+                <div class="band-chip">Médio<span class="range">R$30-60k</span></div>
+                <div class="band-chip selected">Alto<span class="range">R$60-150k</span></div>
+                <div class="band-chip">Muito alto<span class="range">&gt;R$150k</span></div>
+              </div>
+            </div>
+
+            <div class="funding-cat">
+              <div class="ttl">Operação ano 1 <span class="amt">R$ 15k (de E4)</span></div>
+              <div class="subtitle">Pré-preenchido pelo plano de operações</div>
+            </div>
+
+            <div class="funding-cat">
+              <div class="ttl">Assistência técnica <span class="amt">R$ 8-15k</span></div>
+              <div class="subtitle">Consultoria, projetos, monitoramento</div>
+              <div class="band-row">
+                <div class="band-chip selected">Baixo<span class="range">&lt;R$15k</span></div>
+                <div class="band-chip">Médio<span class="range">R$15-40k</span></div>
+                <div class="band-chip">Alto<span class="range">R$40-100k</span></div>
+                <div class="band-chip">Muito alto<span class="range">&gt;R$100k</span></div>
+              </div>
+            </div>
+
+            <div class="funding-cat">
+              <div class="ttl">Engajamento comunitário <span class="amt">R$ 5-10k</span></div>
+              <div class="subtitle">Oficinas, comunicação, capacitação</div>
+              <div class="band-row">
+                <div class="band-chip selected">Baixo<span class="range">&lt;R$10k</span></div>
+                <div class="band-chip">Médio<span class="range">R$10-25k</span></div>
+                <div class="band-chip">Alto<span class="range">R$25-60k</span></div>
+                <div class="band-chip">Muito alto<span class="range">&gt;R$60k</span></div>
+              </div>
+            </div>
+
+            <div class="funding-total">
+              <div class="label">Total do pedido</div>
+              <div class="amount">R$ 73 – 120k</div>
+              <div style="font-size: 10px; color: var(--muted); margin-top: 6px;">Faixa razoável pra projetos de jardim de chuva comunitário.</div>
+            </div>
+
+            <div class="msg agent" style="margin-top: 8px;">
+              <div class="lbl">Agente</div>
+              <strong>Tem alguma parte que você já consegue cobrir?</strong> Co-financiamento conta muito.
+              <div style="margin-top: 6px; display: flex; gap: 5px; flex-wrap: wrap;">
+                <span class="band-chip selected">Sim, ~R$8k de voluntariado + Cásper Líbero</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Detalhar algo?">
+          <div class="send">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>FundingNeedBreakdown · NEW</h4>
+      <p>
+        Four categories, band-based amounts per category. Bands are <strong>intervention-type aware</strong> — a rain garden's "high" is different from an urban forest's "high." Year-1 OPEX pre-filled from E4.
+      </p>
+      <p>
+        Auto-total at the bottom, shown as a <em>range</em> (the user picked a band, so the total is also a band). Sanity-check note at the bottom contextualizes against typical projects.
+      </p>
+      <p>
+        Co-financing question follows — feeds the "Co-financing possibility identified" priority flag.
+      </p>
+      <div class="kv">component: FundingNeedBreakdown
+output:
+  funding_capex_brl: [60000, 150000]
+  funding_opex_y1_brl: 15000
+  funding_ta_brl: [0, 15000]
+  funding_engagement_brl: [0, 10000]
+  funding_total_brl: [75000, 190000]
+  co_financing_amount_brl: 8000
+  co_financing_sources:
+    ['organização-própria','parceiro-local']
+  co_financing_named_partners: 'Cásper Líbero · voluntariado'</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 2 — PermitChecklist · POA-specific list filtered by site type</h2>
+  <p class="anno">Agent invokes the checklist. KB-driven items based on bairro × intervention type. Status dropdown + contact field + notes per item. 2 priority-flag questions at the bottom.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 5 · prontidão</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 5</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 5 de 5 · Necessidades · prontidão</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg curr"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="chat-msgs">
+            <div class="msg agent">
+              <div class="lbl">Agente</div>
+              Agora a parte chata mas importante: <strong>autorizações</strong>. Pra projeto comunitário em Cascata num espaço público, essas são as portas que costumam aparecer:
+            </div>
+
+            <div class="permit-item">
+              <div class="ttl">
+                <div>
+                  <span>SMAMUS</span>
+                  <div class="note">Licença ambiental · provavelmente isenta pra &lt;500m², verificar</div>
+                </div>
+                <span class="status-pill em-conversa">Em conversa</span>
+              </div>
+              <div class="contact">📧 licenciamentoambiental@portoalegre.rs.gov.br</div>
+              <div style="margin-top: 6px; font-size: 11px; color: var(--ink);">
+                <span style="color: var(--muted);">Falou com:</span> Clayton (via Pyxera)
+              </div>
+            </div>
+
+            <div class="permit-item">
+              <div class="ttl">
+                <div>
+                  <span>SMOV</span>
+                  <div class="note">Autorização pra obra em via pública</div>
+                </div>
+                <span class="status-pill nao-iniciado">Não iniciado</span>
+              </div>
+              <div class="contact">📧 smov.atendimento@portoalegre.rs.gov.br</div>
+            </div>
+
+            <div class="permit-item">
+              <div class="ttl">
+                <div>
+                  <span>DMAE</span>
+                  <div class="note">Anuência sobre impacto em drenagem</div>
+                </div>
+                <span class="status-pill nao-iniciado">Não se aplica</span>
+              </div>
+            </div>
+
+            <div class="permit-item">
+              <div class="ttl">
+                <div>
+                  <span>Gabinete de Inovação</span>
+                  <div class="note">Coordenação cross-departamento</div>
+                </div>
+                <span class="status-pill em-conversa">Conversa marcada</span>
+              </div>
+              <div class="contact">👤 Luis Carlos / Clayton — via Pyxera Global</div>
+            </div>
+
+            <div class="msg agent" style="margin-top: 8px;">
+              <div class="lbl">Agente</div>
+              Mais 2 perguntinhas:
+              <div style="margin-top: 6px;">
+                <div style="font-size: 11px; margin-bottom: 4px;">Já conversou com prefeitura sobre o projeto?</div>
+                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                  <span class="band-chip selected">Sim, informal</span>
+                  <span class="band-chip">Sim, formal</span>
+                  <span class="band-chip">Apoio por escrito</span>
+                  <span class="band-chip">Não ainda</span>
+                </div>
+              </div>
+              <div style="margin-top: 8px;">
+                <div style="font-size: 11px; margin-bottom: 4px;">Esse modelo daria pra repetir em outros bairros?</div>
+                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                  <span class="band-chip">Sim, fácil</span>
+                  <span class="band-chip selected">Sim, com ajustes</span>
+                  <span class="band-chip">Talvez</span>
+                  <span class="band-chip">Esse é único</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Algo mais?">
+          <div class="send">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>PermitChecklist · NEW · KB-driven</h4>
+      <p>
+        List rendered from <code>_permits/porto-alegre-map.md</code> (new KB content needed) filtered by bairro + intervention type. Each item: name + department + note + contact + status dropdown + "falou com" field.
+      </p>
+      <p>
+        For a public-space rain garden in Cascata: SMAMUS + SMOV + (optional DMAE) + Gabinete de Inovação. For a green roof on private CBO building: likely just SMAMUS.
+      </p>
+      <p>
+        Two priority-flag questions at the bottom: government interest + scalability. These complete the priority-flag matrix.
+      </p>
+      <div class="kv">component: PermitChecklist
+data: _permits/porto-alegre-map.md
+params:
+  bairro: 'cascata'
+  intervention_type: 'bioswales-rain-gardens'
+  site_use: 'public'
+output:
+  permits: Array&lt;{
+    permit_id, status, contact_name, notes
+  }&gt;
+  gov_interest_status: 'informal'
+  scalability_assessment: 'replicable-with-adjust'</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 3 — GapReport (CBO view) · 3 sections, encouraging tone</h2>
+  <p class="anno">Auto-generated from all maturity scores + priority flags + missing fields. CBO sees Pontos fortes / Pra fortalecer / Próximos passos with concrete actions.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 5 · gap report</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 5</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 5 de 5 · Necessidades · prontidão</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg curr"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div class="msg agent" style="margin-bottom: 12px;">
+            <div class="lbl">Agente</div>
+            Aqui está o <strong>diagnóstico de prontidão</strong>. Sem nota — só pra você ver o que está forte e o que ainda dá pra crescer.
+          </div>
+
+          <div class="gap-section strong">
+            <div class="ttl">✓ Pontos fortes</div>
+            <div class="gap-item">
+              <span class="what">Time tem experiência prévia</span>
+              <span class="how">— projetos financiados, experiência com hortas</span>
+            </div>
+            <div class="gap-item">
+              <span class="what">Site bem identificado</span>
+              <span class="how">— público com permissão informal</span>
+            </div>
+            <div class="gap-item">
+              <span class="what">Plano financeiro com 3 fases</span>
+              <span class="how">— ano 1, 2-3, 3+ com custos estimados</span>
+            </div>
+            <div class="gap-item">
+              <span class="what">Co-financiamento identificado</span>
+              <span class="how">— Cásper Líbero + voluntariado (~R$ 8k)</span>
+            </div>
+          </div>
+
+          <div class="gap-section improve">
+            <div class="ttl">↑ Pra fortalecer</div>
+            <div class="gap-item">
+              <span class="what">Plano de monitoramento (1 → 2)</span>
+              <span class="how">— Adicionar 2-3 métricas concretas (ex: contagem mensal de chuvas registradas, # famílias atendidas)</span>
+            </div>
+            <div class="gap-item">
+              <span class="what">Autorizações iniciadas (2 → 3)</span>
+              <span class="how">— Marcar reunião com SMOV antes de junho</span>
+            </div>
+            <div class="gap-item">
+              <span class="what">Dados ambientais de base</span>
+              <span class="how">— Fotos antes do projeto + medições simples de drenagem</span>
+            </div>
+          </div>
+
+          <div class="gap-section next">
+            <div class="ttl">→ Próximos passos sugeridos</div>
+            <div class="gap-item">
+              <span class="what">1. Conversar com SMOV nas próximas 2 semanas</span>
+            </div>
+            <div class="gap-item">
+              <span class="what">2. Tirar fotos do site antes da implementação</span>
+            </div>
+            <div class="gap-item">
+              <span class="what">3. Aplicar pro Edital Periferias Verdes Resilientes</span>
+              <span class="how">(janela aberta até agosto, perfil bate)</span>
+            </div>
+          </div>
+
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Tem alguma dúvida?">
+          <div class="send">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab" style="opacity:0.4;"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>GapReport · NEW · CBO view</h4>
+      <p>
+        Auto-generated from all maturity scores + priority flags + missing fields. Three sections: <strong>Pontos fortes</strong> (green) · <strong>Pra fortalecer</strong> (amber) · <strong>Próximos passos sugeridos</strong> (blue).
+      </p>
+      <p>
+        Each "fortalecer" item maps to a specific concrete action from <code>_gap-recommendations/rubric-to-action.yaml</code>. Each "próximos passos" item is prioritized by impact-vs-effort.
+      </p>
+      <p>
+        Tone: encouraging, never judgmental. *"Plano de monitoramento (1 → 2)"* — explicit score + actionable next step.
+      </p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 4 — GapReport (Coordinator view) · funder-eligibility overlay</h2>
+  <p class="anno">Different view of the same data, on the orchestrator. Adds maturity-score grid + per-funder readiness flags.</p>
+
+  <div class="scene" style="grid-template-columns: 380px 1fr;">
+    <div class="phone">
+      <div class="top-chrome">🖥️ Orchestrator · Horta Cascata · Gap Report (coordinator)</div>
+      <div class="frame-body">
+        <div class="tab-content" style="background: #fafafa;">
+          <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+            <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 6px;">Maturidade geral</div>
+            <div style="font-size: 24px; font-weight: 700; color: var(--ink);">17/27</div>
+            <div style="font-size: 10px; color: var(--accent-deep); margin-top: 2px;">Building band · funder-ready com ajustes</div>
+            <div class="mat-grid">
+              <div class="mat-cell s2"><div class="lbl">Org delivery</div><div class="score">2</div></div>
+              <div class="mat-cell s2"><div class="lbl">Team tech</div><div class="score">2</div></div>
+              <div class="mat-cell s2"><div class="lbl">Site control</div><div class="score">2</div></div>
+              <div class="mat-cell s2"><div class="lbl">Community</div><div class="score">2</div></div>
+              <div class="mat-cell s2"><div class="lbl">Problem</div><div class="score">2</div></div>
+              <div class="mat-cell s3"><div class="lbl">Solution</div><div class="score">3</div></div>
+              <div class="mat-cell s1"><div class="lbl">Impact</div><div class="score">1</div></div>
+              <div class="mat-cell s2"><div class="lbl">Financial</div><div class="score">2</div></div>
+              <div class="mat-cell s1"><div class="lbl">Regulatory</div><div class="score">1</div></div>
+            </div>
+          </div>
+
+          <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+            <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 6px;">Priority flags · 4 of 6</div>
+            <div style="font-size: 11px; padding: 2px 0;">✓ Land tenure</div>
+            <div style="font-size: 11px; padding: 2px 0; color: var(--muted);">○ Baseline data</div>
+            <div style="font-size: 11px; padding: 2px 0;">✓ Gov interest</div>
+            <div style="font-size: 11px; padding: 2px 0;">✓ Buyers/payors</div>
+            <div style="font-size: 11px; padding: 2px 0;">✓ Co-financing</div>
+            <div style="font-size: 11px; padding: 2px 0; color: var(--muted);">○ Scalability (with adjust → partial)</div>
+          </div>
+
+          <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px;">
+            <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 6px;">Funder eligibility</div>
+            <div style="font-size: 11px; padding: 3px 0; color: var(--accent-deep);">✓ <strong>Periferias Verdes Resilientes</strong> — pode aplicar agora</div>
+            <div style="font-size: 11px; padding: 3px 0; color: var(--accent-deep);">✓ <strong>Fundo Casa Reconstruir RS</strong> — pode aplicar agora</div>
+            <div style="font-size: 11px; padding: 3px 0; color: #92400e;">⚠ <strong>Teia da Sociobiodiversidade</strong> — falta orçamento detalhado</div>
+            <div style="font-size: 11px; padding: 3px 0; color: #92400e;">⚠ <strong>QCF €50k catalytic</strong> — pronto, mas precisa BWB review</div>
+            <div style="font-size: 11px; padding: 3px 0; color: var(--muted);">○ <strong>GEF SGP</strong> — track record curto demais ainda</div>
+            <div style="font-size: 11px; padding: 3px 0; color: var(--muted);">○ <strong>BNDES Fundo Clima</strong> — escala muito pequena pra esse fund</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>GapReport · Coordinator view</h4>
+      <p>
+        Same data, different framing. Three blocks:
+      </p>
+      <ol style="font-size: 13px; color: var(--ink); padding-left: 18px;">
+        <li><strong>Maturidade geral</strong> — total /27 + band (Emerging / Developing / Building / Mature) + the 9-cell grid colored by score (red 0, amber 1, green 2-3)</li>
+        <li><strong>Priority flags</strong> — checked/unchecked × 6</li>
+        <li><strong>Funder eligibility</strong> — which funders the project qualifies for now, which are blocked by gaps, with the specific gap noted</li>
+      </ol>
+      <p>
+        Lives on the orchestrator's member-detail view (not the CBO surface). Julia/JVP use this to prioritize follow-up across the 10-CBO cohort.
+      </p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 5 — Closing message · COUGAR scorecard complete</h2>
+  <p class="anno">After all 3 beats, the COUGAR scorecard is complete. Closing sets up E6 (the pitch + portfolio reveal).</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Encontro 5 · fim</div>
+      <div class="frame-body">
+        <div class="app-header">
+          <div class="leaf">🌱</div>
+          <div class="id">
+            <div class="org-name">Horta Comunitária Cascata</div>
+            <div class="meta">Cascata · Encontro 5 ✓</div>
+          </div>
+        </div>
+        <div class="progress-strip">
+          <div class="label"><span class="active">Seção 5 de 5 · ✓ COUGAR scorecard completo</span></div>
+          <div class="segments">
+            <div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg past"></div><div class="seg past"></div>
+          </div>
+        </div>
+        <div class="tab-content">
+          <div style="background: var(--accent-soft); border: 1px solid #6ee7b7; padding: 14px; border-radius: 10px; text-align: center; color: var(--accent-deep); margin-bottom: 12px;">
+            <div style="font-size: 22px; margin-bottom: 4px;">✓</div>
+            <div style="font-weight: 600; font-size: 14px;">Encontro 5 concluído</div>
+            <div style="font-size: 12px; color: var(--ink); opacity: 0.7; margin-top: 4px;">Você tem agora o pedido, o plano regulatório, e o diagnóstico.</div>
+          </div>
+          <div class="msg agent">
+            <div class="lbl">Agente</div>
+            <strong>Próximo encontro: 16 de julho — Portfólio · apresentação.</strong>
+            <br><br>
+            É o último — onde a gente junta tudo, vê seu projeto ao lado dos outros do grupo, e pratica como apresentar pra parceiros e financiadores. Vai ter um <strong>cartão de uma página</strong> pronto pra cada um levar.
+            <br><br>
+            Tudo bem se algumas coisas estão pra fortalecer — o relatório que você acabou de ver é o que a gente trabalha entre encontros. Até lá! 🌱
+          </div>
+        </div>
+        <div class="chat-input">
+          <input class="ipt" placeholder="Aguardando próximo encontro…" disabled style="opacity:0.6;">
+          <div class="send" style="opacity:0.4;">↑</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active"><div class="icon">💬</div><span class="label">Chat</span></div>
+          <div class="tab"><div class="icon">📋</div><span class="label">Perfil</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>COUGAR scorecard complete after E5</h4>
+      <p>
+        9 maturity metrics + 6 priority flags = the full BWB handoff content. The pilot uses these to triage which projects move to bankability review.
+      </p>
+      <p>
+        E6 closing sets up the "portfolio reveal" framing — the encontro where each CBO sees their project in the context of the cohort's collective work.
+      </p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">Summary · what's new in E5</h2>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">FundingNeedBreakdown</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        4-category form with band-based amounts. Year 1 OPEX pre-filled from E4. Auto-total + co-financing capture.
+        <br><br>
+        <strong>Effort:</strong> ~80 lines.
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW · KB-driven</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">PermitChecklist</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        POA-specific list filtered by bairro × intervention. Status + contact + notes per item. + 2 priority-flag questions.
+        <br><br>
+        <strong>Effort:</strong> ~100 lines + new KB authoring.
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">NEW · the synthesis piece</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">GapReport</div>
+      <div style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+        Auto-generated. CBO view (encouraging, action-oriented) + Coordinator view (funder-eligibility overlay).
+        <br><br>
+        <strong>Effort:</strong> ~120 lines + 2 KB files.
+      </div>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--warm-soft);">
+      <div style="font-size: 10px; color: #92400e; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">CRITICAL · KB work</div>
+      <div style="font-size: 15px; font-weight: 600; margin: 4px 0 8px;">POA permits map</div>
+      <div style="font-size: 12px; color: #78350f; line-height: 1.5;">
+        Department × permit type × bairro applicability. Foundation for PermitChecklist. POA-specific for pilot; city-pluggable later.
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size: 11px; color: var(--muted); margin-top: 48px; border-top: 1px solid var(--line); padding-top: 16px;">
+    Companion files: <code>research.md</code> · <code>spec.md</code> · <code>skill.md</code> · all in <code>knowledge/runs/2026-05-15-encontros-curriculum/E5-necessidades/</code>
+  </p>
+</div>
+</body>
+</html>
