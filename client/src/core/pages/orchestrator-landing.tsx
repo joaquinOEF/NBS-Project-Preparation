@@ -37,6 +37,7 @@ import {
   type BulkInviteResult,
 } from '@/core/components/orchestrator/CohortDialogs';
 import { WorkshopCadence } from '@/core/components/orchestrator/WorkshopCadence';
+import { SupportInbox } from '@/core/components/orchestrator/SupportInbox';
 
 // ---------------------------------------------------------------------------
 // Data model — mirrors shared/cbo-schema.ts fields relevant to a portfolio
@@ -641,6 +642,12 @@ export default function OrchestratorLandingPage() {
   const projects = useMemo(() => members.map(memberToView), [members]);
   const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
 
+  // Initialize the inbox badge from already-loaded members so it lights up
+  // before the user opens the drawer. SupportInbox re-counts on open.
+  useEffect(() => {
+    setSupportInboxPendingCount(projects.reduce((sum, p) => sum + p.supportPendingCount, 0));
+  }, [projects]);
+
   const stats = useMemo(() => {
     const sitesMapped = projects.filter(p => p.coords).length;
     const profilesInProgress = projects.filter(
@@ -661,6 +668,11 @@ export default function OrchestratorLandingPage() {
   const [bulkSummaryOpen, setBulkSummaryOpen] = useState(false);
   const [bulkInvitations, setBulkInvitations] = useState<BulkInviteResult[]>([]);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [supportInboxOpen, setSupportInboxOpen] = useState(false);
+  // Mirrored from /support-requests?status=pending — drives the badge on
+  // the inbox trigger. Initialized from member.supportRequests when the
+  // cohort loads (below).
+  const [supportInboxPendingCount, setSupportInboxPendingCount] = useState(0);
 
   const openShare = (url: string, ctx: typeof shareContext) => {
     setShareUrl(url);
@@ -763,12 +775,40 @@ export default function OrchestratorLandingPage() {
               </TitleLarge>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={switchRole} data-testid="button-orchestrator-switch-role">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            {t('orchestrator.switchRole')}
-          </Button>
+          <div className="flex items-center gap-1.5">
+            {cohort && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSupportInboxOpen(true)}
+                className="relative"
+                data-testid="button-orchestrator-support-inbox"
+                title={t('orchestrator.support.openInbox', { defaultValue: 'Pedidos de apoio' }) as string}
+              >
+                <LifeBuoy className="w-4 h-4 mr-1.5" />
+                <span className="hidden sm:inline">{t('orchestrator.support.inboxLabel', { defaultValue: 'Apoio' })}</span>
+                {supportInboxPendingCount > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200">
+                    {supportInboxPendingCount}
+                  </span>
+                )}
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={switchRole} data-testid="button-orchestrator-switch-role">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              {t('orchestrator.switchRole')}
+            </Button>
+          </div>
         </div>
       </header>
+      {cohort && (
+        <SupportInbox
+          open={supportInboxOpen}
+          onOpenChange={setSupportInboxOpen}
+          coordinatorSlug={cohort.coordinatorSlug}
+          onCountChange={setSupportInboxPendingCount}
+        />
+      )}
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
         {/* Cohort header — singleton model. One cohort for the pilot,
