@@ -37,6 +37,7 @@ import { E1Cards } from '@/core/components/cbo/E1Cards';
 import { RequestSupportDialog } from '@/core/components/cbo/RequestSupportDialog';
 import { NbsShowcaseCardStrip } from '@/core/components/cbo/NbsShowcaseCard';
 import { RiskPriorityChips, type HazardId } from '@/core/components/cbo/RiskPriorityChips';
+import { CommunityAnchoringComposer, type CommunityAnchoringResult } from '@/core/components/cbo/CommunityAnchoringComposer';
 import { LifeBuoy } from 'lucide-react';
 import { NBS_SHOWCASE_CARDS, getShowcaseCard } from '@shared/nbs-showcase-cards';
 import type { WorkshopConfig } from '@shared/cohort-schema';
@@ -219,6 +220,7 @@ export default function CboProfilePage() {
   // E2 Beat 3a — agent's pending RiskPriorityChips invocation. Null after the
   // user confirms a ranking; the ranking goes back as a chat message.
   const [priorityRankPrompt, setPriorityRankPrompt] = useState<{ prompt: string; minRanked: number } | null>(null);
+  const [anchoringPrompt, setAnchoringPrompt] = useState<{ prompt: string } | null>(null);
   // CBO's saved cards across sessions. Server is source of truth; we mirror it
   // here for snappy toggle UX. Persisted via inspiration-pick endpoint.
   const [inspirationPicks, setInspirationPicks] = useState<string[]>([]);
@@ -484,6 +486,10 @@ export default function CboProfilePage() {
         break;
       case 'ask_priority_rank':
         setPriorityRankPrompt({ prompt: event.prompt, minRanked: event.minRanked });
+        setIsStreaming(false);
+        break;
+      case 'ask_community_anchoring':
+        setAnchoringPrompt({ prompt: event.prompt });
         setIsStreaming(false);
         break;
       case 'done': setIsStreaming(false); break;
@@ -826,6 +832,23 @@ export default function CboProfilePage() {
                   const human = ranking.map((h, i) => `${h} (${i + 1})`).join(', ');
                   setPriorityRankPrompt(null);
                   sendMessage(`Priority ranking: ${human}`);
+                }}
+              />
+            )}
+
+            {/* E2 Beat 3c — community anchoring. Posts a structured message
+                back to the agent so it can parse into the right fields. */}
+            {anchoringPrompt && (
+              <CommunityAnchoringComposer
+                prompt={anchoringPrompt.prompt}
+                onConfirm={(r: CommunityAnchoringResult) => {
+                  setAnchoringPrompt(null);
+                  const parts: string[] = [];
+                  if (r.lead) parts.push(`Lead: ${r.lead}`);
+                  if (r.volunteers) parts.push(`Volunteers: ${r.volunteers}`);
+                  if (r.beneficiaries) parts.push(`Beneficiaries: ${r.beneficiaries}`);
+                  if (r.methods.length) parts.push(`Methods: ${r.methods.join(', ')}`);
+                  sendMessage(`Community anchoring — ${parts.join(' | ')}`);
                 }}
               />
             )}

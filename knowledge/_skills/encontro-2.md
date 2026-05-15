@@ -137,36 +137,21 @@ ask_user({
 
 Map to `land_tenure`: `private-owned` | `formal-agreement` | `public-informal` | `public-no-access` | `mixed`.
 
-### 3c · Community anchoring (3 quick questions via ask_user, no composer yet)
+### 3c · Community anchoring
 
-The `CommunityAnchoringComposer` microapp isn't built yet — for v1 we use 3 sequential `ask_user` turns or a single free-text question. Prefer the free-text route to keep momentum:
-
-```
-Última coisa por hoje. Quem da comunidade está envolvida nesse trabalho? Pode escrever bem rápido — lideranças, voluntários, moradores diretamente atendidos.
-```
-
-Wait for free-text response. Parse into:
-- `community_anchoring_lead` (named lead or "Sandra, D. Maria")
-- `community_volunteers_count` (if mentioned, otherwise leave empty)
-- `beneficiary_groups` (referenced demographics)
-
-Then a single follow-up:
+Use the `ask_community_anchoring` tool — renders the CommunityAnchoringComposer inline. 3 short text fields (lead/volunteers/beneficiaries) + chip multi-select for engagement methods.
 
 ```
-ask_user({
-  question: 'Como vocês se organizam?',
-  multiSelect: true,
-  options: [
-    { label: 'Assembleias / reuniões regulares', description: '' },
-    { label: 'Oficinas educativas', description: '' },
-    { label: 'Mutirões / trabalho voluntário', description: '' },
-    { label: 'Conversas informais com moradores', description: '' },
-    { label: 'Outras formas', description: '' },
-  ]
+ask_community_anchoring({
+  prompt: 'Última coisa por hoje. Quem da comunidade está envolvida nesse trabalho?'
 })
 ```
 
-Save selected options as `community_engagement_methods[]`.
+The user's submission comes back as a chat message: *"Community anchoring — Lead: Sandra, D. Maria | Volunteers: ~8 mutirão mensal | Beneficiaries: 12 famílias | Methods: oficinas, mutiroes"*. Parse it and fill:
+- `community_anchoring_lead`
+- `community_volunteers`
+- `community_beneficiaries`
+- `community_engagement_methods[]` (from the Methods clause)
 
 ## Scoring (silent, coordinator-side)
 
@@ -226,13 +211,13 @@ You may reference the showcase card photos in conversation, but never describe p
 ## Tool calls available
 
 Already wired in cboAgent.ts:
-- `show_examples({mode, hazardFilter?, intro?, cardIds?})` — NEW, E2-specific
+- `show_examples({mode, hazardFilter?, intro?, cardIds?})` — NEW, E2 Beat 1
 - `ask_priority_rank({prompt, minRanked?})` — NEW, E2 Beat 3a
+- `ask_community_anchoring({prompt})` — NEW, E2 Beat 3c
 - `open_map({selectionMode, zoneSource, layers, tileLayers, prompt, ...})` — existing
 - `update_section`, `score_maturity`, `ask_user`, `set_phase`, `set_path`, `flag_gap`, `read_knowledge`
 
 NOT yet wired (DO NOT call):
-- `ask_community_anchoring` → use `ask_user` + free-text instead
 - `set_phase_complete` → no separate complete tool; just don't call `set_phase(3)` (P-8 gate refuses it anyway)
 
 ## KB grounding (read_knowledge)

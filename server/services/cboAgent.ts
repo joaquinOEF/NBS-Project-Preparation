@@ -250,6 +250,20 @@ function createCboMcpTools(cboId: string) {
     { annotations: { readOnlyHint: true } }
   );
 
+  // E2 Beat 3c — community anchoring composer. Renders a structured form with
+  // 3 short text fields (lead/volunteers/beneficiaries) + chip multi-select
+  // for engagement methods. Result comes back as a parseable chat message.
+  const askCommunityAnchoring = sdkTool(
+    "ask_community_anchoring",
+    "Render the CommunityAnchoringComposer inline. Used at E2 Beat 3c to capture who from the community is anchored to the work. STOP and wait for the user's confirmation.",
+    { prompt: z.string().describe("Lead text shown above the form") },
+    async (args: any) => {
+      pushEvent({ type: 'ask_community_anchoring', prompt: args.prompt });
+      return { content: [{ type: "text" as const, text: `CommunityAnchoringComposer opened. STOP and wait.` }] };
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
   const askUser = sdkTool(
     "ask_user",
     "Present questions to the user. The UI renders interactive buttons. Include showMap: true for site selection.",
@@ -435,7 +449,7 @@ STOP and wait for the user's selection after calling this tool.`,
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, flagGap, setPhase, setPath, showExamples, askPriorityRank, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, openInterventionSelector],
+    tools: [updateSection, flagGap, setPhase, setPath, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, openInterventionSelector],
   });
 }
 
@@ -616,6 +630,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           "mcp__cbo__set_path",
           "mcp__cbo__show_examples",
           "mcp__cbo__ask_priority_rank",
+          "mcp__cbo__ask_community_anchoring",
           "mcp__cbo__ask_user",
           "mcp__cbo__open_map",
           "mcp__cbo__open_intervention_selector",
