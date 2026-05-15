@@ -37,6 +37,10 @@ export const cohortMembers = pgTable('cohort_members', {
   neighborhood: text('neighborhood'),
   role: text('role').$type<'priority' | 'alternate'>().default('priority'),
   origin: text('origin').$type<'cohort' | 'external'>().default('cohort'),
+  // Two-path triage captured at E1: 'has-idea' = CBO has a specific project in
+  // mind; 'needs-help' = CBO wants help discovering one. Null until E1 asks.
+  // See knowledge/runs/2026-05-15-encontros-curriculum/_paths/two-path-triage.md
+  path: text('path').$type<'has-idea' | 'needs-help'>(),
   unlockedPhases: jsonb('unlocked_phases').$type<number[]>().default([1]),
   invitedAt: timestamp('invited_at').defaultNow(),
   startedAt: timestamp('started_at'),
