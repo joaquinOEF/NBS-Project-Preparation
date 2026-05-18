@@ -258,6 +258,8 @@ export default function CboProfilePage() {
       setFocusWorkshop(data.focusWorkshop ?? null);
       setFocusWorkshopIsCurrent(!!data.focusWorkshopIsCurrent);
     };
+    const refetch = () => fetch(`/api/cbo-member/${slug}`).then(r => r.ok ? r.json() : null).then(applyMember).catch(() => {});
+
     fetch(`/api/cbo-member/${slug}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
@@ -265,12 +267,19 @@ export default function CboProfilePage() {
         if (data) setWelcomeMode(true);
       })
       .catch(() => {});
-    // Re-fetch on focus so coordinator unlocks propagate without a hard reload.
-    const onFocus = () => {
-      fetch(`/api/cbo-member/${slug}`).then(r => r.ok ? r.json() : null).then(applyMember).catch(() => {});
+
+    // Re-fetch on tab focus so coordinator unlocks propagate without a manual reload.
+    window.addEventListener('focus', refetch);
+    // Also poll every 30s while the page is visible — catches the case where
+    // the CBO is sitting in the tab waiting for the coordinator to open the
+    // next workshop. Pause when the tab is hidden to be polite.
+    const poll = setInterval(() => {
+      if (document.visibilityState === 'visible') refetch();
+    }, 30000);
+    return () => {
+      window.removeEventListener('focus', refetch);
+      clearInterval(poll);
     };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
   }, []);
 
   const isPhaseUnlocked = useCallback(
@@ -967,6 +976,47 @@ export default function CboProfilePage() {
             )}
 
             {isStreaming && <div className="flex items-center gap-2 py-2"><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} /><span className="text-xs text-muted-foreground ml-1">{t('cbo.working')}</span></div>}
+
+            {/* Start Next Workshop banner.
+                When the coordinator opens a workshop higher than the user's
+                current phase, this card appears so the CBO knows the next
+                encontro is available + has a clear CTA to enter it. Without
+                this, the user has no signal that anything changed. */}
+            {(() => {
+              if (isStreaming || messages.length === 0 || state.phase === 0) return null;
+              const nextUnlockedPhase = unlockedPhases.find(p => p > state.phase);
+              if (nextUnlockedPhase == null) return null;
+              const ws = workshops.find(w => w.unlocksPhase === nextUnlockedPhase);
+              const wsName = ws?.name ?? `Workshop ${nextUnlockedPhase}`;
+              return (
+                <div className="text-center py-4">
+                  <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-700 max-w-md">
+                    <span className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300 font-semibold">
+                      {lang === 'pt' ? '🌱 Próximo encontro liberado' : '🌱 Next workshop unlocked'}
+                    </span>
+                    <p className="text-sm font-medium text-emerald-900 dark:text-emerald-100">{wsName}</p>
+                    <p className="text-xs text-emerald-800/80 dark:text-emerald-200/80 leading-snug">
+                      {lang === 'pt'
+                        ? 'Sua coordenadora abriu esse encontro. Quando estiver pronta, podemos começar.'
+                        : 'Your coordinator opened this workshop. When you\'re ready, we can begin.'}
+                    </p>
+                    <Button
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 mt-1"
+                      onClick={() => sendMessage(
+                        lang === 'pt'
+                          ? `Vamos começar o Encontro ${nextUnlockedPhase}.`
+                          : `Let's start Encontro ${nextUnlockedPhase}.`,
+                        true,
+                      )}
+                      data-testid={`button-start-encontro-${nextUnlockedPhase}`}
+                    >
+                      {lang === 'pt' ? `Começar Encontro ${nextUnlockedPhase}` : `Start Encontro ${nextUnlockedPhase}`}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Resume / Completion.
                 Structural rule: only show this block when the agent owes the
