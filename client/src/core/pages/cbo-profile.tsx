@@ -968,8 +968,22 @@ export default function CboProfilePage() {
 
             {isStreaming && <div className="flex items-center gap-2 py-2"><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} /><span className="text-xs text-muted-foreground ml-1">{t('cbo.working')}</span></div>}
 
-            {/* Resume / Completion */}
-            {!isStreaming && state.phase > 0 && !currentQuestion && messages.length > 0 && (
+            {/* Resume / Completion.
+                Structural rule: only show this block when the agent owes the
+                next message — i.e. the last content-type chat message is
+                from the user, OR phase 6 is reached (completion).
+                Previously this fired whenever there was no ask_user chip
+                active, which broke free-text questions: the agent asks
+                "how many paid vs volunteers?" → no currentQuestion (free
+                text expected) → "Continue from Phase X" button appears
+                competing with the typing input → user confused, clicks it,
+                sends a directive that derails the agent. */}
+            {(() => {
+              if (isStreaming || state.phase === 0 || currentQuestion || messages.length === 0) return null;
+              const lastContent = [...messages].reverse().find(m => m.messageType === 'content');
+              const agentOwesResponse = !lastContent || lastContent.role === 'user';
+              if (state.phase < 6 && !agentOwesResponse) return null;
+              return (
               <div className="text-center py-4">
                 {state.phase >= 6 ? (
                   <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-green-400 bg-green-50">
@@ -998,7 +1012,8 @@ export default function CboProfilePage() {
                   </div>
                 )}
               </div>
-            )}
+              );
+            })()}
 
             <div ref={chatEndRef} />
           </div>
