@@ -34,6 +34,8 @@ import { CboProgress } from '@/core/components/cbo/CboProgress';
 import { EncontroPreamble, hasPreambleBeenSeen, markPreambleSeen } from '@/core/components/cbo/EncontroPreamble';
 import { getEncontroPreambleConfig, encontroForPhase } from '@/core/components/cbo/encontroConfig';
 import { E1Cards } from '@/core/components/cbo/E1Cards';
+import { RequestSupportDialog } from '@/core/components/cbo/RequestSupportDialog';
+import { LifeBuoy } from 'lucide-react';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 
 const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
@@ -203,6 +205,11 @@ export default function CboProfilePage() {
   // Sourced from cohort_members.path via /api/cbo-member/:slug. Drives the
   // Caminho card chip in E1Cards.
   const [memberPath, setMemberPath] = useState<'has-idea' | 'needs-help' | null>(null);
+  // RequestSupport — async escalation. Available across all encontros via the
+  // chat header. Pending count comes from /api/cbo-member/:slug; agent or
+  // coordinator-side flows can also nudge the user to open this.
+  const [supportDialogOpen, setSupportDialogOpen] = useState(false);
+  const [supportPendingCount, setSupportPendingCount] = useState(0);
   const [cohortName, setCohortName] = useState<string | null>(null);
   const [workshops, setWorkshops] = useState<WorkshopConfig[]>([]);
   const [nextWorkshop, setNextWorkshop] = useState<WorkshopConfig | null>(null);
@@ -225,6 +232,7 @@ export default function CboProfilePage() {
       if (data.orgName) setMemberInfo({ orgName: data.orgName, neighborhood: data.neighborhood ?? null });
       if (data.path === 'has-idea' || data.path === 'needs-help') setMemberPath(data.path);
       else if (data.path === null) setMemberPath(null);
+      if (typeof data.supportPendingCount === 'number') setSupportPendingCount(data.supportPendingCount);
       if (data.cohort?.name) setCohortName(data.cohort.name);
       if (Array.isArray(data.workshops)) setWorkshops(data.workshops);
       setNextWorkshop(data.nextWorkshop ?? null);
@@ -630,6 +638,14 @@ export default function CboProfilePage() {
   return (
     <div className="h-screen flex flex-col bg-background">
       <Header />
+      {memberSlug && (
+        <RequestSupportDialog
+          open={supportDialogOpen}
+          onOpenChange={setSupportDialogOpen}
+          memberSlug={memberSlug}
+          onSubmitted={() => setSupportPendingCount(c => c + 1)}
+        />
+      )}
       <div className="flex flex-1 min-h-0">
         {/* LEFT: Chat — full width on mobile (when Chat tab active), half on md+ */}
         <div
@@ -678,6 +694,31 @@ export default function CboProfilePage() {
               </div>
             </div>
             <div className="flex gap-1">
+              {memberSlug && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={memberPath === 'needs-help' && supportPendingCount === 0 ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setSupportDialogOpen(true)}
+                      className={memberPath === 'needs-help' && supportPendingCount === 0 ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}
+                      data-testid="button-request-support"
+                    >
+                      <LifeBuoy className="w-4 h-4" />
+                      {supportPendingCount > 0 && (
+                        <span className="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+                          {supportPendingCount}
+                        </span>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {supportPendingCount > 0
+                      ? t('cbo.support.tooltipPending', { defaultValue: '{{n}} pedido(s) aguardando resposta', n: supportPendingCount })
+                      : t('cbo.support.tooltip', { defaultValue: 'Pedir apoio à coordenadora' })}
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <Tooltip><TooltipTrigger asChild><Button variant={state.phase >= 6 ? 'default' : 'outline'} size="sm" className={state.phase >= 6 ? 'bg-green-600 hover:bg-green-700 animate-pulse' : ''} onClick={() => cboId && window.open(`/api/cbo/${cboId}/export`, '_blank')}><Download className="w-4 h-4" />{state.phase >= 6 && <span className="ml-1 text-xs">{t('cbo.export')}</span>}</Button></TooltipTrigger><TooltipContent>{t('cbo.export')}</TooltipContent></Tooltip>
               <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={handleRestart}><RotateCcw className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>{t('cbo.startOver')}</TooltipContent></Tooltip>
             </div>

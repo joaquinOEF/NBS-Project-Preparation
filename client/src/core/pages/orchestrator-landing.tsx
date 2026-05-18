@@ -19,7 +19,7 @@ import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, Lightbulb, MapPin,
+  ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, LifeBuoy, Lightbulb, MapPin,
   Mountain, Network, Plus, RotateCcw, Sparkles, Sprout, Trees, Unlock, Users, Waves,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
@@ -79,6 +79,9 @@ type CboDemoProject = {
    *  coordinator sees who needs more hand-holding (needs-help) vs who has
    *  a concrete idea (has-idea). Null until E1's set_path tool fires. */
   path: 'has-idea' | 'needs-help' | null;
+  /** Count of unresolved RequestSupport entries — surfaces an amber chip
+   *  on the card so the coordinator can sweep pendencies daily. */
+  supportPendingCount: number;
 };
 
 const TOTAL_SECTIONS = 7;
@@ -120,6 +123,9 @@ function memberToView(m: CohortMember): CboDemoProject {
     updatedDaysAgo: daysAgo,
     nextActionKey: NEXT_ACTION_KEY[phaseNum] ?? NEXT_ACTION_KEY[1],
     path: (m.path as 'has-idea' | 'needs-help' | null | undefined) ?? null,
+    supportPendingCount: Array.isArray((m as any).supportRequests)
+      ? ((m as any).supportRequests as { resolvedAt: string | null }[]).filter(r => !r.resolvedAt).length
+      : 0,
   };
 }
 
@@ -503,6 +509,21 @@ function ProjectCard({
                 {project.path === 'has-idea'
                   ? t('orchestrator.demo.path.hasIdea', { defaultValue: 'Tem ideia' })
                   : t('orchestrator.demo.path.needsHelp', { defaultValue: 'Quer descobrir' })}
+              </span>
+            )}
+            {project.supportPendingCount > 0 && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-900/40"
+                title={t('orchestrator.demo.support.pendingTooltip', {
+                  defaultValue: '{{n}} pedido(s) de apoio aguardando',
+                  n: project.supportPendingCount,
+                })}
+              >
+                <LifeBuoy className="w-3 h-3" strokeWidth={2} />
+                {t('orchestrator.demo.support.pendingChip', {
+                  defaultValue: '{{n}} pedência(s)',
+                  n: project.supportPendingCount,
+                })}
               </span>
             )}
             {hasIntervention ? (

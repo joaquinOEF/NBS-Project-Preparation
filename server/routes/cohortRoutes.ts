@@ -6,7 +6,10 @@ import {
   cohorts,
   cohortMembers,
   DEFAULT_WORKSHOPS,
+  SUPPORT_REQUEST_TYPES,
   type CohortSettings,
+  type SupportRequest,
+  type SupportRequestType,
   type WorkshopConfig,
 } from '@shared/cohort-schema';
 
@@ -206,6 +209,9 @@ export function registerCohortRoutes(app: Express): void {
     const nextPhase = maxUnlocked + 1;
     const nextWorkshop = workshops.find(w => w.unlocksPhase === nextPhase) ?? null;
 
+    const supportRequests = Array.isArray(member.supportRequests) ? (member.supportRequests as SupportRequest[]) : [];
+    const supportPending = supportRequests.filter(r => !r.resolvedAt);
+
     res.json({
       id: member.id,
       orgName: member.orgName,
@@ -216,7 +222,63 @@ export function registerCohortRoutes(app: Express): void {
       cohort: cohort ? { id: cohort.id, name: cohort.name } : null,
       workshops,
       nextWorkshop,
+      supportRequests,
+      supportPendingCount: supportPending.length,
     });
+  }));
+
+  // CBO submits a support request. Returns the created entry (with id).
+  app.post('/api/cbo-member/:memberSlug/support-request', wrap(async (req, res) => {
+    const member = await findMemberBySlug(req.params.memberSlug);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+
+    const { type, message } = req.body ?? {};
+    if (!SUPPORT_REQUEST_TYPES.includes(type as SupportRequestType)) {
+      res.status(400).json({ error: 'invalid support request type', allowed: SUPPORT_REQUEST_TYPES });
+      return;
+    }
+
+    const entry: SupportRequest = {
+      id: nanoid(12),
+      type: type as SupportRequestType,
+      message: typeof message === 'string' && message.trim() ? message.trim().slice(0, 2000) : null,
+      createdAt: new Date().toISOString(),
+      resolvedAt: null,
+      resolvedNote: null,
+    };
+    const existing = Array.isArray(member.supportRequests) ? (member.supportRequests as SupportRequest[]) : [];
+    // Soft rate limit: cap a member's queue at 20. New requests drop the oldest
+    // resolved entry first; if no resolved entries, drop the oldest pending.
+    let next = [...existing, entry];
+    if (next.length > 20) {
+      const resolvedIdx = next.findIndex(r => !!r.resolvedAt);
+      next.splice(resolvedIdx >= 0 ? resolvedIdx : 0, 1);
+    }
+    await db.update(cohortMembers).set({ supportRequests: next }).where(eq(cohortMembers.id, member.id));
+    res.json({ entry });
+  }));
+
+  // Coordinator marks a request resolved. Optional resolvedNote.
+  app.patch('/api/cohort/:coordinatorSlug/support-request/:requestId/resolve', wrap(async (req, res) => {
+    const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
+    if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
+
+    const { resolvedNote } = req.body ?? {};
+    const note = typeof resolvedNote === 'string' && resolvedNote.trim() ? resolvedNote.trim().slice(0, 1000) : null;
+
+    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    for (const m of members) {
+      const arr = Array.isArray(m.supportRequests) ? (m.supportRequests as SupportRequest[]) : [];
+      const idx = arr.findIndex(r => r.id === req.params.requestId);
+      if (idx === -1) continue;
+      if (arr[idx].resolvedAt) { res.json({ ok: true, alreadyResolved: true }); return; }
+      const next = [...arr];
+      next[idx] = { ...next[idx], resolvedAt: new Date().toISOString(), resolvedNote: note };
+      await db.update(cohortMembers).set({ supportRequests: next }).where(eq(cohortMembers.id, m.id));
+      res.json({ ok: true, request: next[idx] });
+      return;
+    }
+    res.status(404).json({ error: 'request not found' });
   }));
 
   // CBO pushes a snapshot of its current progress so the orchestrator can show it.
