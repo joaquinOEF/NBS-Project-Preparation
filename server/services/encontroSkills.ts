@@ -40,25 +40,43 @@ const DEFAULT_CONFIG: SkillConfig = {
   thinkingBudget: 0,
 };
 
-const skillCache = new Map<number, LoadedSkill | null>();
+interface CacheEntry {
+  loaded: LoadedSkill | null;
+  mtimeMs: number;
+}
+
+const skillCache = new Map<number, CacheEntry>();
 
 /**
  * Returns the loaded skill (markdown + parsed config) for a given phase, or
  * null if no skill file exists yet. Caller falls back to hardcoded
  * instructions when null.
  *
- * Cached for the lifetime of the process; restart to pick up edits.
+ * Cache strategy: stat the file each call and compare mtime. If the file has
+ * been modified since the cached read, re-parse. This avoids the previous
+ * "cached forever, need process restart to see edits" footgun — every skill
+ * PR shipped today edited the file but the running process kept serving the
+ * stale copy because Node's HMR didn't restart Node, just the route handlers.
+ * Stat is ~50µs and skill files are small enough that re-reading on change
+ * is free.
  */
 export async function loadEncontroSkill(phase: number): Promise<LoadedSkill | null> {
-  if (skillCache.has(phase)) return skillCache.get(phase) ?? null;
+  const filePath = path.join(process.cwd(), 'knowledge', '_skills', `encontro-${phase}.md`);
   try {
-    const filePath = path.join(process.cwd(), 'knowledge', '_skills', `encontro-${phase}.md`);
+    const stat = await fs.stat(filePath);
+    const cached = skillCache.get(phase);
+    if (cached && cached.mtimeMs === stat.mtimeMs) {
+      return cached.loaded;
+    }
     const raw = await fs.readFile(filePath, 'utf-8');
     const loaded = parseSkillFile(raw);
-    skillCache.set(phase, loaded);
+    skillCache.set(phase, { loaded, mtimeMs: stat.mtimeMs });
+    if (cached) {
+      console.log(`[cbo] encontro-${phase}.md changed on disk, re-parsed (was ${new Date(cached.mtimeMs).toISOString()}, now ${new Date(stat.mtimeMs).toISOString()})`);
+    }
     return loaded;
   } catch {
-    skillCache.set(phase, null);
+    skillCache.set(phase, { loaded: null, mtimeMs: 0 });
     return null;
   }
 }
