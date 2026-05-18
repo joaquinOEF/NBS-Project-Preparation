@@ -379,24 +379,49 @@ export function InviteCboDialog({
                 ? t('orchestrator.cohort.roleAll', { defaultValue: 'Role (applies to all)' })
                 : t('orchestrator.cohort.role', { defaultValue: 'Role in cohort' })}
             </label>
-            <div className="flex gap-1.5">
-              {(['priority', 'alternate'] as const).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRole(r)}
-                  className={`flex-1 text-xs px-3 py-1.5 rounded-md border transition-colors ${
-                    role === r
-                      ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
-                      : 'border-foreground/10 bg-background text-foreground/70 hover:bg-foreground/5'
-                  }`}
-                  data-testid={`button-role-${r}`}
-                >
-                  {r === 'priority'
-                    ? t('orchestrator.cohort.rolePriority', { defaultValue: 'Priority' })
-                    : t('orchestrator.cohort.roleAlternate', { defaultValue: 'Alternate' })}
-                </button>
-              ))}
+            {/* Radio cards — both descriptions always visible so the coordinator
+                sees the operational consequence of each role at selection time.
+                Mirrors RequestSupportDialog's option-card pattern. */}
+            <div className="space-y-1.5">
+              {(['priority', 'alternate'] as const).map((r) => {
+                const isActive = role === r;
+                const label = r === 'priority'
+                  ? t('orchestrator.cohort.rolePriority', { defaultValue: 'Priority' })
+                  : t('orchestrator.cohort.roleAlternate', { defaultValue: 'Alternate' });
+                const hint = r === 'priority'
+                  ? t('orchestrator.cohort.rolePriorityHint', { defaultValue: 'Rodando o piloto. Uma das 10 vagas ativas.' })
+                  : t('orchestrator.cohort.roleAlternateHint', { defaultValue: 'Lista de espera. Promovida se uma OBC priority desistir.' });
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setRole(r)}
+                    className={`w-full text-left p-3 rounded-lg border transition-colors flex items-start gap-3 ${
+                      isActive
+                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 ring-1 ring-emerald-500'
+                        : 'border-foreground/10 hover:border-foreground/20 hover:bg-muted/50'
+                    }`}
+                    data-testid={`button-role-${r}`}
+                  >
+                    <span
+                      className={`shrink-0 mt-0.5 w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                        isActive ? 'border-emerald-600' : 'border-foreground/30'
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {isActive && <span className="w-2 h-2 rounded-full bg-emerald-600" />}
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className={`block text-sm font-medium leading-tight ${isActive ? 'text-foreground' : 'text-foreground/85'}`}>
+                        {label}
+                      </span>
+                      <span className="block text-xs text-muted-foreground mt-0.5 leading-snug">
+                        {hint}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
