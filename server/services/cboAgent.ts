@@ -227,11 +227,25 @@ function createCboMcpTools(cboId: string) {
 
   const setPhase = sdkTool(
     "set_phase",
-    "Advance to next phase (1-6). Refuses to advance past phases the coordinator has unlocked.",
+    "Advance to next phase (1-6). Refuses to advance past phases the coordinator has unlocked. Forward-only — calls that would roll the phase backward are silently ignored.",
     { phase: z.number().min(0).max(6) },
     async (args: any) => {
       const state = getCboState(cboId);
       if (!state) return { content: [{ type: "text" as const, text: "Error: not found" }], isError: true };
+
+      // Forward-only guard. Three independent writers can change state.phase:
+      // (1) this tool when the agent decides to advance, (2) /advance-phase
+      // when the Start-Next-Workshop banner is clicked, (3) the chat handler
+      // regex on "vamos começar o encontro N". They generally agree, but a
+      // mid-stream SDK turn can race with /advance-phase — if the coordinator
+      // unlocked W4 and the client advanced state.phase to 4 while the agent
+      // was finishing E3, an agent set_phase(3) "stay here" call would
+      // silently roll the user back to E3. Block the rollback at the tool.
+      if (args.phase < state.phase) {
+        console.warn(`[cbo] set_phase(${args.phase}) blocked — state.phase is already ${state.phase} (no-op, possible /advance-phase race)`);
+        return { content: [{ type: "text" as const, text: `No-op: already at Phase ${state.phase} (cannot go backward).` }] };
+      }
+
       // Workshop-phased unlock gate. Standalone CBOs are ungated.
       // Phase 6 = export/wrap; not part of unlocks (always allowed once Phase 5 is unlocked).
       const policy = await getPhasePolicyForCbo(cboId);
@@ -686,23 +700,6 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
 
 async function streamWithSdk(cboId: string, userMessage: string, state: CboState, pushEvent: EventPusher, lang: string = 'en') {
   const mcpServer = getMcpServer(cboId);
-  const systemPrompt = await buildSystemContext(state, lang);
-  const stateSummary = buildStateSummary(state);
-  const decisionLog = buildDecisionLog(cboId);
-  const policy = await getPhasePolicyForCbo(cboId);
-  const accessPolicy = buildAccessPolicyPrompt(policy);
-
-  // Split static vs dynamic for the SDK:
-  //   systemPrompt  →  identity, tool list, phase instructions (skill markdown),
-  //                    rules, COUGAR criteria, knowledge listing. ~5K tokens.
-  //                    Stable across turns within a phase, so it's a cache target.
-  //   prompt        →  current section snapshot, last-8 decision log, access
-  //                    policy, and the user's actual message. Changes every turn.
-  //
-  // The static block lives in options.systemPrompt so the SDK's internal prompt
-  // caching machinery can hit it. See knowledge/_skills/README.md for compute
-  // budget context.
-  const prompt = `## CURRENT STATE\n${stateSummary}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\nUser message: ${userMessage}`;
 
   // Compute budget — read from skill frontmatter (cached). Chip-heavy encontros
   // declare Haiku + 0 thinking for ~3× faster turns; synthesis-heavy ones
@@ -721,10 +718,34 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
     thinkingBudget = 4000;
   }
 
+  // Decision-log window: synthesis turns (Sonnet+thinking) get 30 messages so
+  // the agent can reason about E1-E4 history when scoring maturity in E5.
+  // Chip turns (Haiku, no thinking) get 8 — enough to know what was just
+  // asked, no need to drag the whole session through every turn.
+  const decisionLogWindow = thinkingBudget > 0 ? 30 : 8;
+
+  const systemPrompt = await buildSystemContext(state, lang);
+  const stateSummary = buildStateSummary(state);
+  const decisionLog = buildDecisionLog(cboId, decisionLogWindow);
+  const policy = await getPhasePolicyForCbo(cboId);
+  const accessPolicy = buildAccessPolicyPrompt(policy);
+
+  // Split static vs dynamic for the SDK:
+  //   systemPrompt  →  identity, tool list, phase instructions (skill markdown),
+  //                    rules, COUGAR criteria, knowledge listing. ~5K tokens.
+  //                    Stable across turns within a phase, so it's a cache target.
+  //   prompt        →  current section snapshot, tiered decision log, access
+  //                    policy, and the user's actual message. Changes every turn.
+  //
+  // The static block lives in options.systemPrompt so the SDK's internal prompt
+  // caching machinery can hit it. See knowledge/_skills/README.md for compute
+  // budget context.
+  const prompt = `## CURRENT STATE\n${stateSummary}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\nUser message: ${userMessage}`;
+
   const sectionsFilled = Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length;
   const sysTokens = Math.round(systemPrompt.length / 4);
   const userTokens = Math.round(prompt.length / 4);
-  console.log(`[cbo] Turn for ${cboId} phase=${state.phase} sections=${sectionsFilled}/7 model=${model ?? 'sdk-default'} thinking=${thinkingBudget} sys~${sysTokens}t user~${userTokens}t${isFileUpload ? ' (file-upload escalation)' : ''}`);
+  console.log(`[cbo] Turn for ${cboId} phase=${state.phase} sections=${sectionsFilled}/7 model=${model ?? 'sdk-default'} thinking=${thinkingBudget} log-window=${decisionLogWindow} sys~${sysTokens}t user~${userTokens}t${isFileUpload ? ' (file-upload escalation)' : ''}`);
 
   try {
     for await (const message of sdkQuery({
@@ -790,24 +811,35 @@ function buildStateSummary(state: CboState): string {
   return lines.join('\n');
 }
 
-function buildDecisionLog(cboId: string): string {
+function buildDecisionLog(cboId: string, windowSize: number = 8): string {
   // The SDK is called per-turn with no session continuity, so the agent has
   // no native memory of its own previous responses. Without that context,
   // the agent reads a user message like "Test Huerta" with no idea it was
   // a reply to "what's your org name?" — and starts re-introducing itself
   // every turn. Interleave user + assistant messages so the agent sees the
   // recent conversation as a coherent thread.
+  //
+  // windowSize is tiered by streamWithSdk: chip-heavy Haiku turns get 8
+  // (~4 user replies, enough to remember the current question); synthesis
+  // turns on Sonnet+thinking get 30 (~15 user replies, enough for E5 to
+  // score maturity across everything captured in E1-E4). Messages beyond
+  // the window get summarized as a one-liner count so the agent knows the
+  // conversation is longer than what's shown.
   const msgs = getCboMessages(cboId).filter(m =>
     m.messageType === 'content' &&
     !!m.content?.trim()
   );
   if (msgs.length === 0) return 'No prior conversation. This is the first turn — introduce yourself and start the flow.';
-  // Last 8 messages (≈ 4 turns each direction). Truncate each to keep prompt small.
-  const recent = msgs.slice(-8);
-  return recent.map(m => {
+  const recent = msgs.slice(-windowSize);
+  const olderCount = msgs.length - recent.length;
+  const lines = recent.map(m => {
     const who = m.role === 'user' ? 'User' : 'You (agent)';
     return `- ${who}: ${m.content.slice(0, 300)}`;
-  }).join('\n');
+  });
+  if (olderCount > 0) {
+    lines.unshift(`(${olderCount} earlier message${olderCount === 1 ? '' : 's'} omitted — captured answers are in CURRENT STATE above.)`);
+  }
+  return lines.join('\n');
 }
 
 // Knowledge cache (cleared on server restart)
