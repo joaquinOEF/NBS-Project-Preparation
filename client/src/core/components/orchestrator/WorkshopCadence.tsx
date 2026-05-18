@@ -179,56 +179,66 @@ function WorkshopRow({
 
   // Visual treatment per state — premium, not loud.
   const stateMeta = {
+    // Past: very subtle green tint + small green icon — "completed but
+    // not the focus". Content still visible, just muted.
     past: {
-      ring: 'border-foreground/8',
-      bg: 'bg-background',
-      iconBg: 'bg-emerald-100 dark:bg-emerald-950/40',
-      iconColor: 'text-emerald-700 dark:text-emerald-300',
+      ring: 'border-emerald-200/40 dark:border-emerald-900/30',
+      bg: 'bg-emerald-50/20 dark:bg-emerald-950/10',
+      iconBg: 'bg-emerald-100/60 dark:bg-emerald-950/40',
+      iconColor: 'text-emerald-700/80 dark:text-emerald-300/80',
       Icon: Check,
-      titleClass: 'text-foreground/75',
+      titleClass: 'text-foreground/70',
       pill: t('orchestrator.cohort.statePast', { defaultValue: 'Held' }),
       pillClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300 border-emerald-200/50 dark:border-emerald-900/40',
+      contentOpacity: 'opacity-60',
     },
+    // Open / live: the strongest green treatment. Solid green wash on
+    // the background + bold green border. No action button (it's
+    // already open). This is the "what is happening RIGHT NOW" card.
     open: {
-      ring: 'border-emerald-300/60 dark:border-emerald-800/60 ring-2 ring-emerald-200/40 dark:ring-emerald-950/40',
-      bg: 'bg-emerald-50/50 dark:bg-emerald-950/20',
+      ring: 'border-emerald-400 dark:border-emerald-700 ring-2 ring-emerald-200/50 dark:ring-emerald-950/40',
+      bg: 'bg-emerald-50/70 dark:bg-emerald-950/30',
       iconBg: 'bg-emerald-500 dark:bg-emerald-500',
       iconColor: 'text-white',
       Icon: Check,
       titleClass: 'text-foreground font-semibold',
-      // Neutral chip with a live emerald dot — distinct from the
-      // emerald CTA on Next-up rows. Status indicator, not action.
       pill: t('orchestrator.cohort.stateOpen', { defaultValue: 'Live now' }),
-      pillClass: 'bg-foreground/5 text-foreground/70 border-foreground/10 dark:bg-foreground/10',
+      pillClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-300/60 dark:border-emerald-900/60',
+      contentOpacity: '',
     },
+    // Next up: NEUTRAL bg so it doesn't compete with OPEN. The emerald
+    // CTA at the bottom is the visual anchor — the only solid-emerald
+    // action on the screen.
     nextUp: {
-      ring: 'border-emerald-300 dark:border-emerald-800',
-      bg: 'bg-emerald-50/30 dark:bg-emerald-950/10',
-      iconBg: 'bg-emerald-100 dark:bg-emerald-950/40',
-      iconColor: 'text-emerald-700 dark:text-emerald-300',
+      ring: 'border-foreground/15 dark:border-foreground/20',
+      bg: 'bg-background',
+      iconBg: 'bg-foreground/[0.04] dark:bg-foreground/10',
+      iconColor: 'text-foreground/60',
       Icon: ChevronRight,
       titleClass: 'text-foreground font-semibold',
       pill: t('orchestrator.cohort.stateNextUp', { defaultValue: 'Next up' }),
-      pillClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300/60 dark:border-emerald-900/60',
+      pillClass: 'bg-foreground/5 text-foreground/70 border-foreground/10 dark:bg-foreground/10',
+      contentOpacity: '',
     },
+    // Locked: lightest neutral, dimmer content, lock icon overlay on
+    // the topic-icon tile.
     locked: {
       ring: 'border-foreground/8',
       bg: 'bg-background',
-      iconBg: 'bg-foreground/5',
-      iconColor: 'text-foreground/40',
+      iconBg: 'bg-foreground/[0.03] dark:bg-foreground/5',
+      iconColor: 'text-foreground/35',
       Icon: Lock,
-      titleClass: 'text-foreground/60',
+      titleClass: 'text-foreground/55',
       pill: t('orchestrator.cohort.stateLocked', { defaultValue: 'Locked' }),
       pillClass: 'bg-transparent text-muted-foreground border-foreground/10',
+      contentOpacity: 'opacity-50',
     },
   }[state];
 
   const StateIcon = stateMeta.Icon;
   const TopicIcon = TOPIC_ICONS[index] ?? Calendar;
-  const isActive = state === 'open' || state === 'nextUp';
 
-  // Split expectedOutput into bullets on sentence boundaries. Gives the
-  // active cards a structured visual list instead of one wall of text.
+  // Split expectedOutput into bullets on sentence boundaries.
   const outputBullets = expectedOutput
     ? expectedOutput
         .split(/(?<=[.!?])\s+/)
@@ -238,46 +248,22 @@ function WorkshopRow({
 
   return (
     <div
-      className={`relative rounded-xl border ${stateMeta.ring} ${stateMeta.bg} transition-all ${
-        isActive ? 'p-3.5' : 'px-3 py-2.5'
-      }`}
+      className={`relative rounded-xl border ${stateMeta.ring} ${stateMeta.bg} transition-all p-3.5`}
       data-testid={`workshop-row-${index}-${state}`}
     >
       {/* Header row — topic icon, name, state pill */}
       <div className="flex items-start gap-3">
-        {/* Topic icon — workshop-specific identity. For active cards it's
-            larger and prominent; for inactive it's smaller and muted. The
-            state (past/locked) is communicated via the small state-icon
-            overlay in the bottom-right of the topic-icon circle. */}
+        {/* Topic icon tile — workshop-specific identity. State overlay
+            (✓ / lock) in the bottom-right corner for past + locked. */}
         <div className="relative shrink-0">
           <div
-            className={`rounded-xl flex items-center justify-center ${
-              isActive
-                ? state === 'open'
-                  ? 'w-11 h-11 bg-emerald-500/10 dark:bg-emerald-500/20 ring-1 ring-emerald-500/30'
-                  : 'w-11 h-11 bg-emerald-50 dark:bg-emerald-950/30 ring-1 ring-emerald-200 dark:ring-emerald-900/60'
-                : state === 'past'
-                  ? 'w-8 h-8 bg-emerald-50 dark:bg-emerald-950/30'
-                  : 'w-8 h-8 bg-foreground/5'
-            }`}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center ${stateMeta.iconBg} ${
+              state === 'open' ? 'ring-1 ring-emerald-500/30' : ''
+            } ${state === 'past' ? 'ring-1 ring-emerald-200 dark:ring-emerald-900/60' : ''}`}
           >
-            <TopicIcon
-              className={`${isActive ? 'w-5 h-5' : 'w-4 h-4'} ${
-                state === 'open'
-                  ? 'text-emerald-700 dark:text-emerald-300'
-                  : state === 'nextUp'
-                    ? 'text-emerald-700 dark:text-emerald-300'
-                    : state === 'past'
-                      ? 'text-emerald-700/70 dark:text-emerald-300/70'
-                      : 'text-foreground/40'
-              }`}
-              strokeWidth={2}
-            />
+            <TopicIcon className={`w-5 h-5 ${stateMeta.iconColor}`} strokeWidth={2} />
           </div>
-          {/* State icon overlay — small check for past, lock for locked.
-              Skipped for active cards (their topic icon is the focus and
-              the state is communicated by the pill + border). */}
-          {!isActive && (
+          {(state === 'past' || state === 'locked') && (
             <div
               className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-background ${
                 state === 'past' ? 'bg-emerald-600' : 'bg-foreground/40'
@@ -288,10 +274,10 @@ function WorkshopRow({
           )}
         </div>
 
-        {/* Title + state pill — flexes to take remaining width */}
+        {/* Title + state pill */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`${isActive ? 'text-sm' : 'text-xs'} tracking-tight ${stateMeta.titleClass}`}>
+            <span className={`text-sm tracking-tight ${stateMeta.titleClass}`}>
               {workshop.name}
             </span>
             <span
@@ -306,113 +292,81 @@ function WorkshopRow({
               {stateMeta.pill}
             </span>
           </div>
-
-          {/* Compact meta row for inactive cards: held date or lock message
-              + phase label. No description, no output — coordinator's eye
-              flows past these to the active cards. */}
-          {!isActive && (
-            <div className="mt-1 flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground">
-              {workshop.openedAt ? (
-                <span className="inline-flex items-center gap-1 text-emerald-700/80 dark:text-emerald-300/80">
-                  <Check className="w-2.5 h-2.5" />
-                  <span>
-                    {t('orchestrator.cohort.heldOn', {
-                      defaultValue: 'Held {{date}}',
-                      date: formatShortDate(workshop.openedAt, locale),
-                    })}
-                  </span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1">
-                  <Lock className="w-2.5 h-2.5" />
-                  <span>{t('orchestrator.cohort.willUnlock', { defaultValue: 'Unlocks in sequence' })}</span>
-                </span>
-              )}
-              <span>·</span>
-              <span>
-                {t('orchestrator.cohort.unlocksPhaseLabel', {
-                  defaultValue: 'Opens Phase {{phase}}',
-                  phase: workshop.unlocksPhase,
-                })}
-              </span>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Active-card body — full description + expected output bullets +
-          action row. Only renders for open + nextUp; past + locked stay
-          compact. */}
-      {isActive && (
-        <>
-          {description && (
-            <p className="mt-3 text-[12px] leading-relaxed text-foreground/80">
-              {description}
-            </p>
-          )}
+      {/* Body — description + expected output. Always rendered, but
+          state-driven opacity dims past + locked so the eye still flows
+          to the active workshops. */}
+      <div className={stateMeta.contentOpacity}>
+        {description && (
+          <p className="mt-3 text-[12px] leading-relaxed text-foreground/80">
+            {description}
+          </p>
+        )}
 
-          {outputBullets.length > 0 && (
-            <div className="mt-3 rounded-lg bg-background/60 dark:bg-background/40 border border-foreground/5 p-2.5">
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <ClipboardCheck className="w-3 h-3 text-emerald-700/80 dark:text-emerald-300/80" />
-                <span className="text-[9px] font-semibold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">
-                  {t('orchestrator.cohort.expectedOutput', { defaultValue: 'Expected output' })}
-                </span>
-              </div>
-              <ul className="space-y-1">
-                {outputBullets.map((bullet, i) => (
-                  <li key={i} className="flex items-start gap-2 text-[11px] leading-snug text-foreground/75">
-                    <span className="mt-1 shrink-0 w-1 h-1 rounded-full bg-emerald-500/60" />
-                    <span>{bullet}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2 flex-wrap">
-              {workshop.openedAt ? (
-                <HeldOnPill openedAt={workshop.openedAt} />
-              ) : (
-                <DatePill
-                  value={workshop.date}
-                  placeholder={
-                    state === 'nextUp'
-                      ? t('orchestrator.cohort.scheduleDate', { defaultValue: 'Schedule date' })
-                      : t('orchestrator.cohort.addDate', { defaultValue: 'Add date' })
-                  }
-                  emphasis={state === 'nextUp' ? 'accent' : 'muted'}
-                  disabled={disabled}
-                  onSave={onUpdateDate}
-                />
-              )}
-              <span className="text-[10px] text-muted-foreground">
-                {t('orchestrator.cohort.unlocksPhaseLabel', {
-                  defaultValue: 'Opens Phase {{phase}}',
-                  phase: workshop.unlocksPhase,
-                })}
+        {outputBullets.length > 0 && (
+          <div className="mt-3 rounded-lg bg-background/60 dark:bg-background/40 border border-foreground/5 p-2.5">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <ClipboardCheck className="w-3 h-3 text-emerald-700/80 dark:text-emerald-300/80" />
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80">
+                {t('orchestrator.cohort.expectedOutput', { defaultValue: 'Expected output' })}
               </span>
             </div>
-
-            {/* Action — only next-up has it; lives at the right end of the
-                active card's footer row so it doesn't compete with the
-                live-now status pill on the OPEN card. */}
-            {state === 'nextUp' && (
-              <Button
-                size="sm"
-                disabled={disabled}
-                className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold whitespace-nowrap shadow-sm"
-                onClick={onOpenForCohort}
-                data-testid={`button-open-workshop-${index}`}
-              >
-                <Unlock className="w-3.5 h-3.5 mr-1.5" />
-                {t('orchestrator.cohort.openForCohort', { defaultValue: 'Open for cohort' })}
-              </Button>
-            )}
+            <ul className="space-y-1">
+              {outputBullets.map((bullet, i) => (
+                <li key={i} className="flex items-start gap-2 text-[11px] leading-snug text-foreground/75">
+                  <span className="mt-1 shrink-0 w-1 h-1 rounded-full bg-emerald-500/60" />
+                  <span>{bullet}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-        </>
-      )}
+        )}
+      </div>
+
+      {/* Footer — date pill / held pill + phase label, plus the CTA on
+          Next-up. The "Open for cohort" emerald button is the only solid
+          emerald action on the screen, so it stands alone as the
+          coordinator's primary call to action. */}
+      <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {workshop.openedAt ? (
+            <HeldOnPill openedAt={workshop.openedAt} />
+          ) : (
+            <DatePill
+              value={workshop.date}
+              placeholder={
+                state === 'nextUp'
+                  ? t('orchestrator.cohort.scheduleDate', { defaultValue: 'Schedule date' })
+                  : t('orchestrator.cohort.addDate', { defaultValue: 'Add date' })
+              }
+              emphasis={state === 'nextUp' ? 'accent' : 'muted'}
+              disabled={disabled || state === 'locked'}
+              onSave={onUpdateDate}
+            />
+          )}
+          <span className="text-[10px] text-muted-foreground">
+            {t('orchestrator.cohort.unlocksPhaseLabel', {
+              defaultValue: 'Opens Phase {{phase}}',
+              phase: workshop.unlocksPhase,
+            })}
+          </span>
+        </div>
+
+        {state === 'nextUp' && (
+          <Button
+            size="sm"
+            disabled={disabled}
+            className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold whitespace-nowrap shadow-sm"
+            onClick={onOpenForCohort}
+            data-testid={`button-open-workshop-${index}`}
+          >
+            <Unlock className="w-3.5 h-3.5 mr-1.5" />
+            {t('orchestrator.cohort.openForCohort', { defaultValue: 'Open for cohort' })}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
