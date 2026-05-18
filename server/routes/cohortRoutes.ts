@@ -259,6 +259,49 @@ export function registerCohortRoutes(app: Express): void {
     res.json({ entry });
   }));
 
+  // Coordinator support inbox — list all support requests across the cohort,
+  // newest first. Returns flattened entries with member context so the UI
+  // doesn't need to re-correlate. `status=pending` filters to unresolved.
+  app.get('/api/cohort/:coordinatorSlug/support-requests', wrap(async (req, res) => {
+    const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
+    if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
+    const filter = String(req.query.status ?? 'all');
+    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    const items: Array<{
+      requestId: string;
+      memberId: string;
+      memberSlug: string;
+      orgName: string;
+      neighborhood: string | null;
+      type: SupportRequestType;
+      message: string | null;
+      createdAt: string;
+      resolvedAt: string | null;
+      resolvedNote: string | null;
+    }> = [];
+    for (const m of members) {
+      const arr = Array.isArray(m.supportRequests) ? (m.supportRequests as SupportRequest[]) : [];
+      for (const r of arr) {
+        if (filter === 'pending' && r.resolvedAt) continue;
+        if (filter === 'resolved' && !r.resolvedAt) continue;
+        items.push({
+          requestId: r.id,
+          memberId: m.id,
+          memberSlug: m.memberSlug,
+          orgName: m.orgName,
+          neighborhood: m.neighborhood,
+          type: r.type,
+          message: r.message,
+          createdAt: r.createdAt,
+          resolvedAt: r.resolvedAt,
+          resolvedNote: r.resolvedNote,
+        });
+      }
+    }
+    items.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
+    res.json({ items, total: items.length });
+  }));
+
   // CBO toggles a NbsShowcaseCard favorite during E2. POST /toggle-on,
   // DELETE /toggle-off. Body: { cardId }. Returns the updated picks array.
   // Soft cap at 5 picks per spec — over that, oldest pick drops.
