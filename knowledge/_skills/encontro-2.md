@@ -1,3 +1,8 @@
+---
+model: claude-haiku-4-5
+thinking_budget: 0
+---
+
 # /encontro-2-seu-territorio — Agent skill
 
 Loaded by `cboAgent.ts` (via `loadEncontroSkill(2)`) when state.phase == 2.
