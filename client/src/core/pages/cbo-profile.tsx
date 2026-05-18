@@ -3,7 +3,6 @@ import { Link } from 'wouter';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from 'react-i18next';
-import { Header } from '@/core/components/layout/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -674,7 +673,10 @@ export default function CboProfilePage() {
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      <Header />
+      {/* No global Header on /cbo-profile — CBOs are in a focused flow and the
+          CityCatalyst-branded header eats ~64px of vertical space that's
+          critical on mobile. The per-CBO chat header below carries the
+          identity (org name + workshop progress) the user actually needs. */}
       {memberSlug && (
         <RequestSupportDialog
           open={supportDialogOpen}
@@ -700,74 +702,99 @@ export default function CboProfilePage() {
               </div>
             </div>
           )}
-          <div className="px-4 py-3 border-b bg-background flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <Link href="/sample/project/sample-ada-1"><Button variant="ghost" size="sm" className="h-7 px-2 shrink-0"><ArrowLeft className="w-4 h-4" /></Button></Link>
+          {/* Chat header — two-row layout. Row 1: back + org name + actions.
+              Row 2: workshop progress strip, full width. Icon-only action
+              buttons keep the right side narrow even on small viewports. */}
+          <div className="px-3 sm:px-4 pt-2.5 pb-2 border-b bg-background space-y-2">
+            <div className="flex items-center gap-1.5">
+              <Link href="/sample/project/sample-ada-1">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0">
+                  <ArrowLeft className="w-4 h-4" />
+                </Button>
+              </Link>
               <div className="min-w-0 flex-1">
                 {memberInfo ? (
-                  <h2 className="text-sm font-semibold tracking-tight truncate">
+                  <h2 className="text-sm font-semibold tracking-tight truncate leading-tight">
                     {memberInfo.orgName}
                     {memberInfo.neighborhood && (
                       <span className="ml-1.5 text-xs text-muted-foreground font-normal">· {memberInfo.neighborhood}</span>
                     )}
                   </h2>
                 ) : (
-                  <h2 className="text-sm font-semibold flex items-center gap-1.5">
-                    <Leaf className="w-4 h-4 text-green-600" /> {t('cbo.title')}
+                  <h2 className="text-sm font-semibold flex items-center gap-1.5 truncate">
+                    <Leaf className="w-4 h-4 text-green-600 shrink-0" />
+                    <span className="truncate">{t('cbo.title')}</span>
                   </h2>
                 )}
-                <div className="mt-2">
-                  <CboProgress
-                    currentPhase={Math.max(1, Math.min(5, state.phase || 1))}
-                    unlockedPhases={unlockedPhases}
-                    workshops={workshops}
-                    onJumpToPhase={(p) => {
-                      if (isStreaming) return;
-                      const skip = p === 3 ? '3a' : String(p);
-                      sendMessage(`[SKIP TO phase:${skip}]`);
-                    }}
-                  />
-                </div>
               </div>
-            </div>
-            <div className="flex gap-1">
-              {memberSlug && (
+              <div className="flex gap-0.5 shrink-0">
+                {memberSlug && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={memberPath === 'needs-help' && supportPendingCount === 0 ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSupportDialogOpen(true)}
+                        className={`relative h-8 w-8 p-0 ${memberPath === 'needs-help' && supportPendingCount === 0 ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
+                        data-testid="button-request-support"
+                      >
+                        <LifeBuoy className="w-4 h-4" />
+                        {supportPendingCount > 0 && (
+                          <span className="absolute -top-1 -right-1 text-[9px] font-bold px-1 min-w-[14px] h-[14px] flex items-center justify-center rounded-full bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200 border border-background">
+                            {supportPendingCount}
+                          </span>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {supportPendingCount > 0
+                        ? t('cbo.support.tooltipPending', { defaultValue: '{{n}} pedido(s) aguardando resposta', n: supportPendingCount })
+                        : t('cbo.support.tooltip', { defaultValue: 'Pedir apoio à coordenadora' })}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      variant={memberPath === 'needs-help' && supportPendingCount === 0 ? 'default' : 'outline'}
+                      variant={state.phase >= 6 ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setSupportDialogOpen(true)}
-                      className={memberPath === 'needs-help' && supportPendingCount === 0 ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}
-                      data-testid="button-request-support"
+                      className={`h-8 w-8 p-0 ${state.phase >= 6 ? 'bg-green-600 hover:bg-green-700 animate-pulse' : ''}`}
+                      onClick={() => cboId && window.open(`/api/cbo/${cboId}/export`, '_blank')}
                     >
-                      <LifeBuoy className="w-4 h-4" />
-                      {supportPendingCount > 0 && (
-                        <span className="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
-                          {supportPendingCount}
-                        </span>
-                      )}
+                      <Download className="w-4 h-4" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>
-                    {supportPendingCount > 0
-                      ? t('cbo.support.tooltipPending', { defaultValue: '{{n}} pedido(s) aguardando resposta', n: supportPendingCount })
-                      : t('cbo.support.tooltip', { defaultValue: 'Pedir apoio à coordenadora' })}
-                  </TooltipContent>
+                  <TooltipContent>{t('cbo.export')}</TooltipContent>
                 </Tooltip>
-              )}
-              <Tooltip><TooltipTrigger asChild><Button variant={state.phase >= 6 ? 'default' : 'outline'} size="sm" className={state.phase >= 6 ? 'bg-green-600 hover:bg-green-700 animate-pulse' : ''} onClick={() => cboId && window.open(`/api/cbo/${cboId}/export`, '_blank')}><Download className="w-4 h-4" />{state.phase >= 6 && <span className="ml-1 text-xs">{t('cbo.export')}</span>}</Button></TooltipTrigger><TooltipContent>{t('cbo.export')}</TooltipContent></Tooltip>
-              <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={handleRestart}><RotateCcw className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>{t('cbo.startOver')}</TooltipContent></Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={handleRestart}>
+                      <RotateCcw className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('cbo.startOver')}</TooltipContent>
+                </Tooltip>
+              </div>
             </div>
+            <CboProgress
+              currentPhase={Math.max(1, Math.min(5, state.phase || 1))}
+              unlockedPhases={unlockedPhases}
+              workshops={workshops}
+              onJumpToPhase={(p) => {
+                if (isStreaming) return;
+                const skip = p === 3 ? '3a' : String(p);
+                sendMessage(`[SKIP TO phase:${skip}]`);
+              }}
+            />
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.length === 0 && state.phase === 0 && (
-              <div className="text-center text-muted-foreground py-10 max-w-sm mx-auto">
-                <div className="inline-flex w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 items-center justify-center mb-4">
-                  <Leaf className="w-6 h-6 text-emerald-600 dark:text-emerald-300" />
+              <div className="text-center text-muted-foreground py-8 sm:py-10 max-w-xs sm:max-w-sm mx-auto px-2">
+                <div className="inline-flex w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 items-center justify-center mb-3 sm:mb-4">
+                  <Leaf className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 dark:text-emerald-300" />
                 </div>
-                <h3 className="text-xl font-semibold tracking-tight text-foreground mb-1.5">{t('cbo.welcomeTitle')}</h3>
+                <h3 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground mb-1.5 leading-tight">{t('cbo.welcomeTitle')}</h3>
                 <p className="text-sm leading-relaxed mb-5">{t('cbo.welcomeSubtitle')}</p>
                 <Button
                   className="bg-emerald-600 hover:bg-emerald-700 rounded-full px-6 h-10"
