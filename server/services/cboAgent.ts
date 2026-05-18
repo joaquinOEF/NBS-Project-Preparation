@@ -617,7 +617,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   const policy = await getPhasePolicyForCbo(cboId);
   const accessPolicy = buildAccessPolicyPrompt(policy);
 
-  const prompt = `${sysCtx}\n\n## CURRENT STATE\n${stateSummary}\n\n## USER DECISIONS\n${decisionLog}${accessPolicy}\n\nUser message: ${userMessage}`;
+  const prompt = `${sysCtx}\n\n## CURRENT STATE\n${stateSummary}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\nUser message: ${userMessage}`;
 
   console.log(`[cbo] Turn for ${cboId} (phase ${state.phase}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length}/7 sections)`);
 
@@ -683,9 +683,23 @@ function buildStateSummary(state: CboState): string {
 }
 
 function buildDecisionLog(cboId: string): string {
-  const msgs = getCboMessages(cboId).filter(m => m.role === 'user' && m.messageType === 'content');
-  if (msgs.length === 0) return 'No prior conversation.';
-  return msgs.slice(-5).map(m => `- User: ${m.content.slice(0, 200)}`).join('\n');
+  // The SDK is called per-turn with no session continuity, so the agent has
+  // no native memory of its own previous responses. Without that context,
+  // the agent reads a user message like "Test Huerta" with no idea it was
+  // a reply to "what's your org name?" — and starts re-introducing itself
+  // every turn. Interleave user + assistant messages so the agent sees the
+  // recent conversation as a coherent thread.
+  const msgs = getCboMessages(cboId).filter(m =>
+    m.messageType === 'content' &&
+    !!m.content?.trim()
+  );
+  if (msgs.length === 0) return 'No prior conversation. This is the first turn — introduce yourself and start the flow.';
+  // Last 8 messages (≈ 4 turns each direction). Truncate each to keep prompt small.
+  const recent = msgs.slice(-8);
+  return recent.map(m => {
+    const who = m.role === 'user' ? 'User' : 'You (agent)';
+    return `- ${who}: ${m.content.slice(0, 300)}`;
+  }).join('\n');
 }
 
 // Knowledge cache (cleared on server restart)
@@ -763,7 +777,9 @@ ${phaseInstructions}
 ## RULES
 ${isPt
   ? `- Ser caloroso, encorajador e consultivo. Linguagem simples, sem jargão.
-- Começar IMEDIATAMENTE com set_phase(1) e ask_user. Na PRIMEIRA mensagem: mencionar upload de documentos.
+- **SE phase = 0 E RECENT CONVERSATION está vazio**: introduza-se brevemente, mencione upload de documentos, chame set_phase(1), e faça a primeira pergunta. NÃO repita a introdução em turnos subsequentes.
+- **SE phase ≥ 1 OU já há mensagens em RECENT CONVERSATION**: você está NO MEIO da conversa. NÃO se reintroduza. Continue de onde parou. Antes de qualquer pergunta nova, **persista a resposta anterior do usuário** via update_section() — sem isso, o estado fica vazio e tudo se perde.
+- **Após CADA resposta livre do usuário** (texto digitado): chame update_section('<sectionId>', { <campo>: '<valor>' }) ANTES de fazer a próxima pergunta. Isso é OBRIGATÓRIO.
 - Pontuar métricas conforme coleta (não esperar). Fase 2: open_map composite. Fase 3a: open_intervention_selector.
 - TODA pergunta substantiva DEVE ter opção "Não sei / Me ajude". Quando selecionada: read_knowledge, dar exemplos brasileiros, recomendar.
 - NÃO repetir perguntas já respondidas. Checar ESTADO ATUAL antes de perguntar. Referenciar respostas anteriores.
@@ -771,7 +787,9 @@ ${isPt
 - Pedir evidências em 3 momentos: após Fase 2 (fotos), após Fase 3a (documentos), Fase 5 (links).
 - Após Fase 5: placar completo + set_phase(6). Pedir revisão do documento antes de exportar.`
   : `- Be warm, encouraging, consultative. Simple language, no jargon.
-- Start IMMEDIATELY with set_phase(1) and ask_user. FIRST message: mention document upload.
+- **IF phase = 0 AND RECENT CONVERSATION is empty**: introduce yourself briefly, mention document upload, call set_phase(1), ask the first question. Do NOT repeat the intro on subsequent turns.
+- **IF phase ≥ 1 OR RECENT CONVERSATION has messages**: you are MID-conversation. Do NOT re-introduce. Continue from where you left off. Before any new question, **persist the user's previous answer** via update_section() — without that, state stays empty and progress is lost.
+- **After EVERY free-text user answer**: call update_section('<sectionId>', { <field>: '<value>' }) BEFORE the next question. This is MANDATORY.
 - Score metrics as you go (don't wait). Phase 2: open_map composite. Phase 3a: open_intervention_selector.
 - EVERY substantive question MUST have "I don't know / Help me" option. When selected: read_knowledge, give Brazilian examples, recommend.
 - DO NOT repeat questions already answered. Check CURRENT STATE before asking. Reference earlier answers.
