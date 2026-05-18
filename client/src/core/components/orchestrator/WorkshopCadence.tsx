@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Calendar, Check, ChevronRight, Lock, Pencil, Unlock } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import { formatCalendarDate } from '@/lib/dateHelpers';
-import type { WorkshopConfig } from '@shared/cohort-schema';
+import { DEFAULT_WORKSHOPS, type WorkshopConfig } from '@shared/cohort-schema';
 
 // ---------------------------------------------------------------------------
 // WorkshopCadence — the rail of workshops on /orchestrator. Visually
@@ -148,6 +148,18 @@ function WorkshopRow({
 }) {
   const { t } = useTranslation();
 
+  // Curriculum context fallback — existing cohorts in the DB may have
+  // workshops without description/expectedOutput (created before these
+  // fields existed). Look up by unlocksPhase + index in DEFAULT_WORKSHOPS
+  // so the orchestrator sees the curriculum context immediately, without
+  // requiring a DB migration of every cohort.
+  const defaultForThisWorkshop =
+    DEFAULT_WORKSHOPS[index] && DEFAULT_WORKSHOPS[index].unlocksPhase === workshop.unlocksPhase
+      ? DEFAULT_WORKSHOPS[index]
+      : DEFAULT_WORKSHOPS.find(w => w.unlocksPhase === workshop.unlocksPhase);
+  const description = workshop.description ?? defaultForThisWorkshop?.description;
+  const expectedOutput = workshop.expectedOutput ?? defaultForThisWorkshop?.expectedOutput;
+
   // Visual treatment per state — premium, not loud.
   const stateMeta = {
     past: {
@@ -212,7 +224,29 @@ function WorkshopRow({
             {stateMeta.pill}
           </span>
         </div>
-        <div className="mt-1 flex items-center gap-2 flex-wrap">
+
+        {/* Curriculum context — description + expected output. Muted but
+            readable so coordinator knows at a glance what this workshop
+            covers and what the CBO should have done by the end. */}
+        {(description || expectedOutput) && (
+          <div className={`mt-1.5 space-y-1 ${state === 'locked' ? 'opacity-60' : ''}`}>
+            {description && (
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                {description}
+              </p>
+            )}
+            {expectedOutput && (
+              <p className="text-[11px] leading-snug">
+                <span className="text-[9px] font-semibold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-300/80 mr-1">
+                  {t('orchestrator.cohort.expectedOutput', { defaultValue: 'Expected output' })}:
+                </span>
+                <span className="text-foreground/70">{expectedOutput}</span>
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
           {/* For Past / Open: show the held-on date inline; the scheduled date
               is secondary. For Next-up / Locked: show the schedule pill so
               coordinator can plan ahead. */}
@@ -300,7 +334,7 @@ export function WorkshopCadence({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
         {workshops.map((w, i) => (
           <WorkshopRow
             key={i}
