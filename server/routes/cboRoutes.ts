@@ -138,6 +138,48 @@ export function registerCboRoutes(app: Express): void {
     res.json({ ok: true, changed, state });
   });
 
+  // Advance phase server-side (called by the Start-Next-Workshop banner).
+  //
+  // The CBO can't rely on the agent to call set_phase() when entering a new
+  // encontro — without explicit instruction, the agent generated E2-flavored
+  // text but left state.phase at 1, leaving the banner in a re-trigger loop.
+  //
+  // This endpoint advances state authoritatively, checking the P-8 gate so
+  // CBOs can't skip past workshops the coordinator hasn't opened.
+  app.post("/api/cbo/:id/advance-phase", async (req: Request, res: Response) => {
+    const { getPhasePolicyForCbo, isPhaseAllowed } = await import("../services/phaseGating");
+    let state = getCboState(req.params.id);
+    if (!state) {
+      const persisted = await loadPersistedCboState(req.params.id);
+      if (persisted) { setCboState(req.params.id, persisted.state); state = persisted.state; }
+    }
+    if (!state) return res.status(404).json({ error: "Not found" });
+
+    const target = Number(req.body?.phase);
+    if (!Number.isInteger(target) || target < 0 || target > 6) {
+      return res.status(400).json({ error: "phase must be an integer 0-6" });
+    }
+
+    // P-8 gate — same rule the agent's set_phase tool enforces. Phase 6
+    // (wrap/export) is always allowed; phases 1-5 must be in unlockedPhases
+    // for cohort members.
+    if (target >= 1 && target <= 5) {
+      const policy = await getPhasePolicyForCbo(req.params.id);
+      if (policy.gated && !isPhaseAllowed(policy, target)) {
+        return res.status(409).json({
+          error: "phase_locked",
+          requestedPhase: target,
+          unlockedPhases: policy.unlockedPhases,
+        });
+      }
+    }
+
+    state.phase = target;
+    setCboState(req.params.id, state);
+    debouncedPersist(req.params.id);
+    res.json({ ok: true, phase: target, state });
+  });
+
   // User edit
   app.post("/api/cbo/:id/edit", async (req: Request, res: Response) => {
     const { sectionId, field, value } = req.body;
