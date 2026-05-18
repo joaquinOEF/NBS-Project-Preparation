@@ -37,7 +37,7 @@ export function EncontroPreamble({
   const { t } = useTranslation();
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-emerald-50/60 via-white to-emerald-50/40 dark:from-emerald-950/30 dark:via-background dark:to-emerald-950/20 safe-top safe-bottom safe-x">
+    <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-emerald-50/60 via-white to-emerald-50/40 dark:from-emerald-950/30 dark:via-background dark:to-emerald-950/20">
       <main className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full px-5 sm:px-8 py-8">
         <motion.div
           initial={{ opacity: 0, y: 12 }}

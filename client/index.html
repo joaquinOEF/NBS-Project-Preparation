@@ -2,12 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- viewport-fit=cover enables env(safe-area-inset-*) for notch/home-indicator
-         handling. maximum-scale removed so accessibility zoom works; inputs are
-         sized ≥16px in CSS to prevent iOS auto-zoom on focus. -->
+    <!-- maximum-scale removed so accessibility zoom works; inputs are sized
+         ≥16px in CSS to prevent iOS auto-zoom on focus.
+         Note: NOT using viewport-fit=cover — the system handles safe areas
+         automatically (page is constrained above the URL bar / below the
+         notch). Adding viewport-fit=cover would require us to manage all
+         safe-area-inset offsets, which created empty space below the mobile
+         tab bar where Safari's URL bar was overlaying. -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+      content="width=device-width, initial-scale=1.0"
     />
     <!-- Brand tint for Safari/Chrome toolbar. Light + dark variants match the
          emerald-50 page bg the CBO flow uses; falls back to single value for
