@@ -67,16 +67,22 @@ thinking_budget: 8000
 
 Expect ~10-15s turn latency. **Use for E5.**
 
-### Per-encontro recommendation (May 2026)
+### Per-encontro recommendation (May 2026, revised post-pilot test)
 
-| Encontro | Profile | Suggested config |
-|---|---|---|
-| E1 — Who we are | Chips + a few free-text confirmations | `haiku-4-5`, `0` |
-| E2 — Where we work | Chips + map UI + small risk-rank synthesis | `haiku-4-5`, `0` |
-| E3 — What we build | Selector reasoning, hazard→NBS mapping | `sonnet-4-6`, `4000` |
-| E4 — What we need | Chips + free-text needs list | `haiku-4-5`, `0` |
-| E5 — Results | Full maturity scorecard synthesis | `sonnet-4-6`, `8000` |
-| E6 — Portfolio | Pitch composition, narrative weaving | `sonnet-4-6`, `4000` |
+| Encontro | Profile | Config | Notes |
+|---|---|---|---|
+| E1 — Who we are | Chips + free-text confirmations + 3 question bundles | `sonnet-4-6`, `0` | Haiku was tested and failed: it would not reliably parse `'; '`-joined bundle answers nor call `update_section` for them, causing repeat-question loops. Sonnet handles bundle parse + persist without thinking. |
+| E2 — Where we work | Chips + map UI + ranking composer + 1 question bundle | `sonnet-4-6`, `0` | Same Haiku issue as E1 on bundle answers. |
+| E3 — What we build | Selector reasoning, hazard→NBS mapping | `sonnet-4-6`, `4000` | Real synthesis — thinking helps. |
+| E4 — What we need | Chips + free-text needs list | `sonnet-4-6`, `0` | Will inherit bundle pattern from E1; same Sonnet rationale. |
+| E5 — Results | Full maturity scorecard synthesis | `sonnet-4-6`, `8000` | Heavy synthesis across E1-E4 answers. |
+| E6 — Portfolio | Pitch composition, narrative weaving | `sonnet-4-6`, `4000` | Narrative synthesis. |
+
+**Why we're not using Haiku anywhere right now:** the per-skill compute budget feature shipped in PR #183 was supposed to give E1/E2 a 2-3× speed win via Haiku. In practice, two things broke that:
+1. SDK prompt caching didn't engage despite the systemPrompt split in PR #184, so Haiku turns ran at ~8-9s (same as Sonnet without caching), not the expected 2-3s.
+2. Haiku failed to parse the `'; '`-joined bundle answer format introduced in PR #193 and call `update_section` for the parsed fields. The agent would ask a bundled question, receive the joined answer, ack, and then ask the FIRST bundled question again — losing the user in a loop.
+
+When prompt caching is verified working AND bundle-answer parsing is moved server-side (so the agent doesn't have to do it), Haiku can come back for E1/E2/E4. Until then: Sonnet across the board.
 
 ## Automatic escalation
 
