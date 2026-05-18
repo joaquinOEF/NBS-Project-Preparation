@@ -1,0 +1,14 @@
+[
+  {
+    "role": "user",
+    "content": "Start the CBO intervention profile for Porto Alegre. Use the /cbo-intervention skill flow. Always use the ask_user tool for multiple-choice questions. In your first message, mention that the user can drop existing documents (proposals, reports, plans, photos) into the chat at any time — you'll extract info and auto-fill sections.",
+    "messageType": "content",
+    "timestamp": "2026-05-18T13:50:30.772Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Welcome! I'm here to help you prepare your NBS (Nature-based Solutions) project profile for Porto Alegre. 🌱\n\n**Before we begin:** You can drop existing documents into the chat at any time — proposals, reports, organizational plans, site photos, anything you have. I'll extract the information and auto-fill sections to save you time.\n\nLet's start by getting to know your organization. I'll ask you a few questions about who you are, your experience, and what drives your work in Porto Alegre.",
+    "messageType": "content",
+    "timestamp": "2026-05-18T13:50:40.680Z"
+  }
+]
