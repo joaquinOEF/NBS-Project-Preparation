@@ -207,7 +207,11 @@ After all 9 substantive questions are answered:
 >
 > [if path = 'needs-help']: Vamos descobrir juntos onde e como atuar — sem pressa, com calma.
 >
+> Quando sua coordenadora abrir o próximo encontro, vai aparecer um cartão verde aqui (*Próximo encontro liberado*) com o botão pra começar. Pode fechar essa página enquanto isso — quando voltar, é só clicar.
+>
 > Até lá! 🌱"
+
+**Important**: do NOT promise a push notification, email, or SMS. The only signal the CBO will see is the green banner that appears in this chat when they refresh / the page polls. Set that expectation accurately.
 
 ## Things this skill does NOT do
 
