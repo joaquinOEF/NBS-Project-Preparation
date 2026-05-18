@@ -389,8 +389,8 @@ export function InviteCboDialog({
                   ? t('orchestrator.cohort.rolePriority', { defaultValue: 'Priority' })
                   : t('orchestrator.cohort.roleAlternate', { defaultValue: 'Alternate' });
                 const hint = r === 'priority'
-                  ? t('orchestrator.cohort.rolePriorityHint', { defaultValue: 'Rodando o piloto. Uma das 10 vagas ativas.' })
-                  : t('orchestrator.cohort.roleAlternateHint', { defaultValue: 'Lista de espera. Promovida se uma OBC priority desistir.' });
+                  ? t('orchestrator.cohort.rolePriorityHint', { defaultValue: 'Running the pilot. One of the 10 active seats.' })
+                  : t('orchestrator.cohort.roleAlternateHint', { defaultValue: 'Waitlist. Promotes to cohort if a priority CBO drops out.' });
                 return (
                   <button
                     key={r}

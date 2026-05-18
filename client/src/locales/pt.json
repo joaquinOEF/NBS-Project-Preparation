@@ -77,6 +77,14 @@
     "subtitle": "Você poderá coordenar um portfólio de projetos comunitários aqui: acompanhar o status, ver o impacto agregado e orientá-los nos ciclos de financiamento.",
     "status": "Estamos desenhando isso junto com parceiros. Quer acesso antecipado? Entre em contato com a equipe.",
     "switchRole": "Voltar para seleção de perfil",
+    "cohort": {
+      "role": "Papel no grupo",
+      "roleAll": "Papel (aplica-se a todas)",
+      "rolePriority": "Prioridade",
+      "roleAlternate": "Suplente",
+      "rolePriorityHint": "Rodando o piloto. Uma das 10 vagas ativas.",
+      "roleAlternateHint": "Lista de espera. Promovida se uma OBC prioritária desistir."
+    },
     "demo": {
       "headerEyebrow": "Visão da articuladora",
       "headerTitle": "Portfólio de projetos comunitários",
