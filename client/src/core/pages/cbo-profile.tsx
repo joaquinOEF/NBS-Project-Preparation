@@ -981,9 +981,41 @@ export default function CboProfilePage() {
                 When the coordinator opens a workshop higher than the user's
                 current phase, this card appears so the CBO knows the next
                 encontro is available + has a clear CTA to enter it. Without
-                this, the user has no signal that anything changed. */}
+                this, the user has no signal that anything changed.
+
+                Gates (in order):
+                1. Not streaming, has messages, phase > 0 — basic readiness.
+                2. No active ask_user — answer the current question first.
+                3. Current phase complete — defined as: every maturity metric
+                   the agent is supposed to score during this phase has a
+                   score recorded. The explicit completion signal matches
+                   the user's mental model ("I haven't finished E1, why is
+                   E2 being offered?"). Mapping below mirrors the per-phase
+                   scoring instructions in the skill markdown +
+                   buildPhaseInstructions fallback. */}
             {(() => {
               if (isStreaming || messages.length === 0 || state.phase === 0) return null;
+              if (currentQuestion) return null;
+
+              // Phase → required maturity metrics. Source of truth: the
+              // "Score: …" lines in each phase's instruction block in
+              // server/services/cboAgent.ts:buildPhaseInstructions and the
+              // matching skill markdown. Keep in sync when scoring rules
+              // change in either place.
+              const PHASE_COMPLETION_METRICS: Record<number, string[]> = {
+                1: ['org_delivery_capacity', 'team_technical_experience'],
+                2: ['site_control', 'community_anchoring'],
+                3: ['problem_clarity', 'solution_clarity', 'climate_nbs_impact', 'financial_thinking'],
+                4: ['regulatory_awareness'],
+                5: [], // E5 produces the full scorecard then advances to phase 6 — no banner needed
+              };
+              const required = PHASE_COMPLETION_METRICS[state.phase] ?? [];
+              if (required.length > 0) {
+                const scored = new Set((state.maturityScores ?? []).map(s => s.metric));
+                const allScored = required.every(m => scored.has(m));
+                if (!allScored) return null;
+              }
+
               const nextUnlockedPhase = unlockedPhases.find(p => p > state.phase);
               if (nextUnlockedPhase == null) return null;
               const ws = workshops.find(w => w.unlocksPhase === nextUnlockedPhase);
