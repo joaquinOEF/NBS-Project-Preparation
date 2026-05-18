@@ -1040,18 +1040,38 @@ export default function CboProfilePage() {
 
                 Gates (in order):
                 1. Not streaming, has messages, phase > 0 — basic readiness.
-                2. No active ask_user — the user has a pending question and
-                   the banner would compete for attention. Answer first.
-                3. ≥3 user replies in the conversation — keeps the banner from
-                   appearing immediately after a restart (or a fresh start
-                   where the coordinator already had W2+ open). The user
-                   should engage with the current encontro before being
-                   nudged out of it. */}
+                2. No active ask_user — answer the current question first.
+                3. Current phase complete — defined as: every maturity metric
+                   the agent is supposed to score during this phase has a
+                   score recorded. This replaces an earlier "≥3 user replies"
+                   heuristic; the explicit completion signal is much stronger
+                   and matches the user's mental model ("I haven't finished
+                   E1, why is E2 being offered?"). Mapping below mirrors the
+                   per-phase scoring instructions in the skill markdown +
+                   buildPhaseInstructions fallback. */}
             {(() => {
               if (isStreaming || messages.length === 0 || state.phase === 0) return null;
               if (currentQuestion) return null;
-              const userReplies = messages.filter(m => m.role === 'user' && m.messageType === 'content').length;
-              if (userReplies < 3) return null;
+
+              // Phase → required maturity metrics. Source of truth: the
+              // "Score: …" lines in each phase's instruction block in
+              // server/services/cboAgent.ts:buildPhaseInstructions and the
+              // matching skill markdown. Keep in sync when scoring rules
+              // change in either place.
+              const PHASE_COMPLETION_METRICS: Record<number, string[]> = {
+                1: ['org_delivery_capacity', 'team_technical_experience'],
+                2: ['site_control', 'community_anchoring'],
+                3: ['problem_clarity', 'solution_clarity', 'climate_nbs_impact', 'financial_thinking'],
+                4: ['regulatory_awareness'],
+                5: [], // E5 produces the full scorecard then advances to phase 6 — no banner needed
+              };
+              const required = PHASE_COMPLETION_METRICS[state.phase] ?? [];
+              if (required.length > 0) {
+                const scored = new Set((state.maturityScores ?? []).map(s => s.metric));
+                const allScored = required.every(m => scored.has(m));
+                if (!allScored) return null;
+              }
+
               const nextUnlockedPhase = unlockedPhases.find(p => p > state.phase);
               if (nextUnlockedPhase == null) return null;
               const ws = workshops.find(w => w.unlocksPhase === nextUnlockedPhase);
