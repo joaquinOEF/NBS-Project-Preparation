@@ -662,7 +662,14 @@ export default function CboProfilePage() {
   // single-CTA first-impression. Tapping Start (or Continue) flips
   // welcomeMode off and reveals either the encontro preamble or the chat.
   if (welcomeMode && memberInfo) {
-    const hasExistingProgress = messages.length > 0 || (state?.phase ?? 0) > 0;
+    // hasExistingProgress = the user has actually engaged. Previously we also
+    // checked (state?.phase ?? 0) > 0, but PR #191 changed the initial CBO
+    // state phase from 0 to 1 (to skip the slow phase-0 turn). After that
+    // change, every freshly-created CBO has phase=1 from the moment the row
+    // exists — so the phase check fired for brand-new invitees and they saw
+    // "Continue where I left off" on their first visit. messages.length is
+    // the only signal that actually means "they typed/clicked something."
+    const hasExistingProgress = messages.length > 0;
     // Show preamble for current phase if not yet seen. Fires for both
     // first-time Start and Resume — the seen flag handles dedup so the same
     // CBO doesn't see E1's preamble twice, but they DO see E2's the first
