@@ -601,7 +601,7 @@ export default function CboProfilePage() {
 
   const filledCount = useMemo(() => state ? Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length : 0, [state]);
 
-  if (!state) return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
+  if (!state) return <div className="flex items-center justify-center h-[100dvh]"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
 
   // Cohort welcome screen — only when the user arrived via an invite and
   // hasn't dismissed the welcome. Replaces the entire chrome with a calm,
@@ -665,7 +665,7 @@ export default function CboProfilePage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="h-[100dvh] flex flex-col bg-background">
       <Header />
       {memberSlug && (
         <RequestSupportDialog
@@ -692,7 +692,7 @@ export default function CboProfilePage() {
               </div>
             </div>
           )}
-          <div className="px-4 py-3 border-b bg-background flex items-start justify-between gap-3">
+          <div className="safe-top px-4 py-3 border-b bg-background flex items-start justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <Link href="/sample/project/sample-ada-1"><Button variant="ghost" size="sm" className="h-7 px-2 shrink-0"><ArrowLeft className="w-4 h-4" /></Button></Link>
               <div className="min-w-0 flex-1">
@@ -1166,7 +1166,7 @@ export default function CboProfilePage() {
       {/* MOBILE TAB BAR — visible only below md. Drives `mobileActiveTab` +
           (when on a non-Chat tab) `rightTab` so the right panel shows the
           right content. Hidden on desktop, where both panels render side-by-side. */}
-      <nav className="md:hidden shrink-0 border-t bg-background flex items-stretch">
+      <nav className="md:hidden shrink-0 border-t bg-background flex items-stretch safe-bottom">
         {(() => {
           // Compose the tabs available right now. Chat + Perfil are permanent.
           // Mapa / Intervenções appear only while the agent has those microapps active.
