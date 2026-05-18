@@ -73,6 +73,30 @@ export function registerCboRoutes(app: Express): void {
     }
     if (!state) return res.status(404).json({ error: "Not found" });
 
+    // Detect "start encontro N" / "vamos começar o encontro N" — the message
+    // the Start-Next-Workshop banner sends. Advance state.phase BEFORE the
+    // SDK turn fires so the right encontro-N.md skill loads. This is the
+    // server-side belt to the client's /advance-phase endpoint suspenders —
+    // even if the client doesn't call advance-phase, the chat handler does
+    // the right thing.
+    const startEncontroMatch = message.match(/(?:vamos\s+(?:começar|comecar)\s+(?:o\s+)?encontro|let'?s\s+start\s+encontro)\s+(\d+)/i);
+    if (startEncontroMatch) {
+      const target = parseInt(startEncontroMatch[1], 10);
+      if (target >= 1 && target <= 6 && target > (state.phase ?? 0)) {
+        const { getPhasePolicyForCbo, isPhaseAllowed } = await import("../services/phaseGating");
+        let allowed = true;
+        if (target <= 5) {
+          const policy = await getPhasePolicyForCbo(req.params.id);
+          if (policy.gated && !isPhaseAllowed(policy, target)) allowed = false;
+        }
+        if (allowed) {
+          state.phase = target;
+          setCboState(req.params.id, state);
+          console.log(`[cbo] chat handler advanced ${req.params.id} to phase ${target} via "start Encontro" pattern`);
+        }
+      }
+    }
+
     // Language: prefer explicit lang from UI picker, fall back to auto-detection
     const isPt = lang === 'pt' || (!lang && (
       /[àáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ]/.test(message) ||
