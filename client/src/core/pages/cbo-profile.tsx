@@ -36,6 +36,7 @@ import { getEncontroPreambleConfig, encontroForPhase } from '@/core/components/c
 import { E1Cards } from '@/core/components/cbo/E1Cards';
 import { RequestSupportDialog } from '@/core/components/cbo/RequestSupportDialog';
 import { NbsShowcaseCardStrip } from '@/core/components/cbo/NbsShowcaseCard';
+import { RiskPriorityChips, type HazardId } from '@/core/components/cbo/RiskPriorityChips';
 import { LifeBuoy } from 'lucide-react';
 import { NBS_SHOWCASE_CARDS, getShowcaseCard } from '@shared/nbs-showcase-cards';
 import type { WorkshopConfig } from '@shared/cohort-schema';
@@ -215,6 +216,9 @@ export default function CboProfilePage() {
   // E2 showcase strip — current set rendered inline in chat (mode + cardIds
   // from the agent's show_examples event). Null until the agent invokes it.
   const [showcase, setShowcase] = useState<{ cardIds: string[]; mode: 'browse' | 'favorites'; intro?: string } | null>(null);
+  // E2 Beat 3a — agent's pending RiskPriorityChips invocation. Null after the
+  // user confirms a ranking; the ranking goes back as a chat message.
+  const [priorityRankPrompt, setPriorityRankPrompt] = useState<{ prompt: string; minRanked: number } | null>(null);
   // CBO's saved cards across sessions. Server is source of truth; we mirror it
   // here for snappy toggle UX. Persisted via inspiration-pick endpoint.
   const [inspirationPicks, setInspirationPicks] = useState<string[]>([]);
@@ -476,6 +480,10 @@ export default function CboProfilePage() {
         // Inline strip in chat — no tab switch. Replace any existing strip so
         // the agent can refine the example set within a turn.
         setShowcase({ cardIds: event.cardIds, mode: event.mode, intro: event.intro });
+        setIsStreaming(false);
+        break;
+      case 'ask_priority_rank':
+        setPriorityRankPrompt({ prompt: event.prompt, minRanked: event.minRanked });
         setIsStreaming(false);
         break;
       case 'done': setIsStreaming(false); break;
@@ -806,6 +814,21 @@ export default function CboProfilePage() {
                 </div>
               );
             })()}
+
+            {/* E2 Beat 3a — risk priority chips. Rendered inline in chat.
+                On confirm, posts a parseable message ("Priority ranking: ...")
+                back to the agent. */}
+            {priorityRankPrompt && (
+              <RiskPriorityChips
+                prompt={priorityRankPrompt.prompt}
+                minRanked={priorityRankPrompt.minRanked}
+                onConfirm={(ranking: HazardId[]) => {
+                  const human = ranking.map((h, i) => `${h} (${i + 1})`).join(', ');
+                  setPriorityRankPrompt(null);
+                  sendMessage(`Priority ranking: ${human}`);
+                }}
+              />
+            )}
 
             {/* MC Questions — with navigation, multi-select, answered state */}
             {currentQuestion && (
