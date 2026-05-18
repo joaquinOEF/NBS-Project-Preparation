@@ -107,6 +107,56 @@ export function registerCboRoutes(app: Express): void {
     debouncedPersist(req.params.id);
   });
 
+  // Seed from invite — when a CBO is part of a cohort, the orchestrator
+  // already collected org name (and sometimes neighborhood) at invite time.
+  // Re-asking on E1 is bad UX. This endpoint pre-fills those values into
+  // the state so the agent confirms instead of asking. Idempotent: won't
+  // overwrite fields the user has already edited.
+  app.post("/api/cbo/:id/prefill", async (req: Request, res: Response) => {
+    let state = getCboState(req.params.id);
+    if (!state) {
+      const persisted = await loadPersistedCboState(req.params.id);
+      if (persisted) { setCboState(req.params.id, persisted.state); state = persisted.state; }
+    }
+    if (!state) return res.status(404).json({ error: "Not found" });
+
+    const { orgName, neighborhood } = req.body ?? {};
+    const orgProfile: any = state.sections.org_profile;
+    if (!orgProfile) return res.status(500).json({ error: "org_profile section missing" });
+
+    let changed = false;
+
+    if (typeof orgName === 'string' && orgName.trim()) {
+      const existing = orgProfile.fields?.org_name;
+      // Don't overwrite if the user has already edited the name in chat or
+      // inline. Source 'invite' lets the agent know the value came from the
+      // orchestrator, not the user themselves — so it'll confirm.
+      if (!existing || (!existing.userEdited && (!existing.value || existing.source === 'invite'))) {
+        orgProfile.fields = orgProfile.fields || {};
+        orgProfile.fields.org_name = { value: orgName.trim(), confidence: 'high', source: 'invite', userEdited: false };
+        if (!state.orgName) state.orgName = orgName.trim();
+        changed = true;
+      }
+    }
+
+    if (typeof neighborhood === 'string' && neighborhood.trim()) {
+      const existing = orgProfile.fields?.bairro_of_operation;
+      if (!existing || (!existing.userEdited && (!existing.value || existing.source === 'invite'))) {
+        orgProfile.fields = orgProfile.fields || {};
+        orgProfile.fields.bairro_of_operation = { value: neighborhood.trim(), confidence: 'medium', source: 'invite', userEdited: false };
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      orgProfile.lastUpdatedBy = 'agent';
+      setCboState(req.params.id, state);
+      debouncedPersist(req.params.id);
+    }
+
+    res.json({ ok: true, changed, state });
+  });
+
   // User edit
   app.post("/api/cbo/:id/edit", async (req: Request, res: Response) => {
     const { sectionId, field, value } = req.body;

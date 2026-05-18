@@ -290,6 +290,30 @@ export default function CboProfilePage() {
     }).catch(() => {});
   }, [memberSlug, cboId]);
 
+  // Seed E1 fields from the invite. The orchestrator already collected
+  // orgName + neighborhood at invite time — re-asking on the first chat
+  // turn is bad UX. The server-side prefill is idempotent (won't overwrite
+  // userEdited fields), so firing it repeatedly is safe.
+  const prefillSentRef = useRef(false);
+  useEffect(() => {
+    if (prefillSentRef.current) return;
+    if (!cboId || !memberInfo) return;
+    prefillSentRef.current = true;
+    fetch(`/api/cbo/${cboId}/prefill`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orgName: memberInfo.orgName,
+        neighborhood: memberInfo.neighborhood ?? undefined,
+      }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.state) setState(migrateCboState(data.state));
+      })
+      .catch(() => {});
+  }, [cboId, memberInfo]);
+
   // Hide Replit chat widget on this page
   useEffect(() => {
     const style = document.createElement('style');
