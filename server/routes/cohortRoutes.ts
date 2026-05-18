@@ -224,6 +224,7 @@ export function registerCohortRoutes(app: Express): void {
       nextWorkshop,
       supportRequests,
       supportPendingCount: supportPending.length,
+      inspirationPicks: Array.isArray(member.inspirationPicks) ? member.inspirationPicks : [],
     });
   }));
 
@@ -256,6 +257,31 @@ export function registerCohortRoutes(app: Express): void {
     }
     await db.update(cohortMembers).set({ supportRequests: next }).where(eq(cohortMembers.id, member.id));
     res.json({ entry });
+  }));
+
+  // CBO toggles a NbsShowcaseCard favorite during E2. POST /toggle-on,
+  // DELETE /toggle-off. Body: { cardId }. Returns the updated picks array.
+  // Soft cap at 5 picks per spec — over that, oldest pick drops.
+  app.post('/api/cbo-member/:memberSlug/inspiration-pick', wrap(async (req, res) => {
+    const member = await findMemberBySlug(req.params.memberSlug);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const { cardId, action } = req.body ?? {};
+    if (!cardId || typeof cardId !== 'string') { res.status(400).json({ error: 'cardId required' }); return; }
+    const current = Array.isArray(member.inspirationPicks) ? (member.inspirationPicks as string[]) : [];
+    let next: string[];
+    if (action === 'remove') {
+      next = current.filter(id => id !== cardId);
+    } else {
+      // Default = add. Idempotent — already-present is a no-op.
+      if (current.includes(cardId)) {
+        next = current;
+      } else {
+        next = [...current, cardId];
+        if (next.length > 5) next = next.slice(next.length - 5);
+      }
+    }
+    await db.update(cohortMembers).set({ inspirationPicks: next }).where(eq(cohortMembers.id, member.id));
+    res.json({ inspirationPicks: next });
   }));
 
   // Coordinator marks a request resolved. Optional resolvedNote.

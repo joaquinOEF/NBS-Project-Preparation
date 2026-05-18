@@ -201,6 +201,7 @@ export type CboEvent =
   | { type: 'ask_user'; question: string; options: Array<{ label: string; description: string; recommended?: boolean; imageUrl?: string; location?: string }>; relatedSections?: string[]; showMap?: boolean; multiSelect?: boolean }
   | { type: 'open_map'; params: OpenMapParams }
   | { type: 'open_intervention_selector'; params: OpenInterventionSelectorParams }
+  | { type: 'show_examples'; cardIds: string[]; mode: 'browse' | 'favorites'; intro?: string }
   | { type: 'done'; summary: string }
   | { type: 'error'; message: string };
 

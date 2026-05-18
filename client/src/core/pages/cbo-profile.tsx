@@ -35,7 +35,9 @@ import { EncontroPreamble, hasPreambleBeenSeen, markPreambleSeen } from '@/core/
 import { getEncontroPreambleConfig, encontroForPhase } from '@/core/components/cbo/encontroConfig';
 import { E1Cards } from '@/core/components/cbo/E1Cards';
 import { RequestSupportDialog } from '@/core/components/cbo/RequestSupportDialog';
+import { NbsShowcaseCardStrip } from '@/core/components/cbo/NbsShowcaseCard';
 import { LifeBuoy } from 'lucide-react';
+import { NBS_SHOWCASE_CARDS, getShowcaseCard } from '@shared/nbs-showcase-cards';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 
 const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
@@ -210,6 +212,12 @@ export default function CboProfilePage() {
   // coordinator-side flows can also nudge the user to open this.
   const [supportDialogOpen, setSupportDialogOpen] = useState(false);
   const [supportPendingCount, setSupportPendingCount] = useState(0);
+  // E2 showcase strip — current set rendered inline in chat (mode + cardIds
+  // from the agent's show_examples event). Null until the agent invokes it.
+  const [showcase, setShowcase] = useState<{ cardIds: string[]; mode: 'browse' | 'favorites'; intro?: string } | null>(null);
+  // CBO's saved cards across sessions. Server is source of truth; we mirror it
+  // here for snappy toggle UX. Persisted via inspiration-pick endpoint.
+  const [inspirationPicks, setInspirationPicks] = useState<string[]>([]);
   const [cohortName, setCohortName] = useState<string | null>(null);
   const [workshops, setWorkshops] = useState<WorkshopConfig[]>([]);
   const [nextWorkshop, setNextWorkshop] = useState<WorkshopConfig | null>(null);
@@ -233,6 +241,7 @@ export default function CboProfilePage() {
       if (data.path === 'has-idea' || data.path === 'needs-help') setMemberPath(data.path);
       else if (data.path === null) setMemberPath(null);
       if (typeof data.supportPendingCount === 'number') setSupportPendingCount(data.supportPendingCount);
+      if (Array.isArray(data.inspirationPicks)) setInspirationPicks(data.inspirationPicks);
       if (data.cohort?.name) setCohortName(data.cohort.name);
       if (Array.isArray(data.workshops)) setWorkshops(data.workshops);
       setNextWorkshop(data.nextWorkshop ?? null);
@@ -461,6 +470,12 @@ export default function CboProfilePage() {
         setInterventionSelectorParams((event as any).params);
         setRightTab('interventions');
         setMobileActiveTab('panel');
+        setIsStreaming(false);
+        break;
+      case 'show_examples':
+        // Inline strip in chat — no tab switch. Replace any existing strip so
+        // the agent can refine the example set within a turn.
+        setShowcase({ cardIds: event.cardIds, mode: event.mode, intro: event.intro });
         setIsStreaming(false);
         break;
       case 'done': setIsStreaming(false); break;
@@ -753,6 +768,44 @@ export default function CboProfilePage() {
                 </div>
               </div>
             ))}
+
+            {/* E2 NbsShowcaseCard strip — agent-invoked via show_examples.
+                Rendered inline in chat (not in the right rail) since it's
+                an educational anchor for the conversation, not a microapp. */}
+            {showcase && (() => {
+              const cards = showcase.cardIds.map(getShowcaseCard).filter(Boolean) as typeof NBS_SHOWCASE_CARDS;
+              if (cards.length === 0) return null;
+              const handleToggle = async (cardId: string, next: boolean) => {
+                const before = inspirationPicks;
+                const optimistic = next
+                  ? Array.from(new Set([...before, cardId]))
+                  : before.filter(id => id !== cardId);
+                setInspirationPicks(optimistic);
+                if (!memberSlug) return;
+                try {
+                  const r = await fetch(`/api/cbo-member/${memberSlug}/inspiration-pick`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cardId, action: next ? 'add' : 'remove' }),
+                  });
+                  if (r.ok) {
+                    const data = await r.json();
+                    if (Array.isArray(data.inspirationPicks)) setInspirationPicks(data.inspirationPicks);
+                  } else { setInspirationPicks(before); }
+                } catch { setInspirationPicks(before); }
+              };
+              return (
+                <div className="rounded-lg bg-muted/30 p-3 -mx-1">
+                  <NbsShowcaseCardStrip
+                    cards={cards}
+                    mode={showcase.mode}
+                    savedIds={inspirationPicks}
+                    onToggleSave={handleToggle}
+                    intro={showcase.intro}
+                  />
+                </div>
+              );
+            })()}
 
             {/* MC Questions — with navigation, multi-select, answered state */}
             {currentQuestion && (

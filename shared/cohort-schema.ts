@@ -65,6 +65,10 @@ export const cohortMembers = pgTable('cohort_members', {
   // coordinator resolves from the orchestrator dashboard. JSONB so we don't need
   // a separate table for what is effectively a small per-member queue.
   supportRequests: jsonb('support_requests').$type<SupportRequest[]>().default([]),
+  // E2 favorites: ShowcaseCard IDs the CBO saved during the educational anchor
+  // (needs-help path). E3's InterventionSelector pre-filters by typeRefs of
+  // these picks. Empty array for has-idea CBOs who skipped saving.
+  inspirationPicks: jsonb('inspiration_picks').$type<string[]>().default([]),
   unlockedPhases: jsonb('unlocked_phases').$type<number[]>().default([1]),
   invitedAt: timestamp('invited_at').defaultNow(),
   startedAt: timestamp('started_at'),
