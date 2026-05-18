@@ -694,13 +694,33 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
 
   const prompt = `${sysCtx}\n\n## CURRENT STATE\n${stateSummary}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\nUser message: ${userMessage}`;
 
-  console.log(`[cbo] Turn for ${cboId} (phase ${state.phase}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length}/7 sections)`);
+  // Compute budget — read from skill frontmatter (cached). Chip-heavy encontros
+  // declare Haiku + 0 thinking for ~3× faster turns; synthesis-heavy ones
+  // declare Sonnet + 4-8k thinking. See knowledge/_skills/README.md.
+  const skill = state.phase >= 1 ? await loadEncontroSkill(state.phase) : null;
+  let model = skill?.config.model;
+  let thinkingBudget = skill?.config.thinkingBudget ?? 0;
+
+  // Escalation hatch: file uploads contain parsed document content and need
+  // real reasoning to map into sections. Override the skill default to Sonnet
+  // + thinking regardless of which encontro we're in. Detected by the upload
+  // prompt prefix used by the file-drop handler (see cbo-profile.tsx).
+  const isFileUpload = /^(I'm uploading:|Estou enviando:|Uploaded ")/.test(userMessage);
+  if (isFileUpload) {
+    model = 'claude-sonnet-4-6';
+    thinkingBudget = 4000;
+  }
+
+  const sectionsFilled = Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length;
+  console.log(`[cbo] Turn for ${cboId} phase=${state.phase} sections=${sectionsFilled}/7 model=${model ?? 'sdk-default'} thinking=${thinkingBudget}${isFileUpload ? ' (file-upload escalation)' : ''}`);
 
   try {
     for await (const message of sdkQuery({
       prompt,
       options: {
         cwd: process.cwd(),
+        ...(model ? { model } : {}),
+        ...(thinkingBudget > 0 ? { maxThinkingTokens: thinkingBudget } : {}),
         allowedTools: [
           "Read", "Glob", "Grep",
           "mcp__cbo__update_section",
@@ -814,8 +834,10 @@ async function buildSystemContext(state: CboState, lang: string = 'en'): Promise
   // Prefer encontro skill markdown from knowledge/_skills/encontro-{N}.md when
   // present (E1-E6 curriculum); fall back to the hardcoded block for phases
   // that haven't been migrated yet. Phase 0 = pre-onboarding, no encontro.
-  const encontroSkillMd = state.phase >= 1 ? await loadEncontroSkill(state.phase) : null;
-  const phaseInstructions = encontroSkillMd ?? buildPhaseInstructions(state.phase, isPt);
+  // Compute budget (model + thinking) is read from skill frontmatter in
+  // streamWithSdk via the same loader (cached, so no double fs read).
+  const encontroSkill = state.phase >= 1 ? await loadEncontroSkill(state.phase) : null;
+  const phaseInstructions = encontroSkill?.content ?? buildPhaseInstructions(state.phase, isPt);
 
   // ── City summary (condensed, always loaded) ──
   const citySummary = isPt
