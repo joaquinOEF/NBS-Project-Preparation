@@ -14,3 +14,7 @@ scripts/output/
 # the JSON state/messages files are no longer the source of truth and must
 # never be committed (they contain PII from real CBO conversations).
 knowledge/runs/cbo-*/
+
+# OSM disk cache — runtime data fetched from Overpass mirrors. Re-fetched
+# automatically when missing. Don't commit (regenerable, can be large).
+knowledge/osm-cache/
