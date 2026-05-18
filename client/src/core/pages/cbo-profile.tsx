@@ -607,7 +607,7 @@ export default function CboProfilePage() {
 
   const filledCount = useMemo(() => state ? Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length : 0, [state]);
 
-  if (!state) return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
+  if (!state) return <div className="flex items-center justify-center h-[100dvh]"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
 
   // Cohort welcome screen — only when the user arrived via an invite and
   // hasn't dismissed the welcome. Replaces the entire chrome with a calm,
@@ -672,11 +672,13 @@ export default function CboProfilePage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="h-[100dvh] flex flex-col bg-background">
       {/* No global Header on /cbo-profile — CBOs are in a focused flow and the
-          CityCatalyst-branded header eats ~64px of vertical space that's
-          critical on mobile. The per-CBO chat header below carries the
-          identity (org name + workshop progress) the user actually needs. */}
+          CityCatalyst-branded header eats vertical space that's critical on
+          mobile. The per-CBO chat header below carries the identity (org name
+          + workshop progress) the user actually needs. h-[100dvh] keeps the
+          shell sized to the dynamic viewport so Safari's URL bar can't clip
+          content. */}
       {memberSlug && (
         <RequestSupportDialog
           open={supportDialogOpen}
@@ -704,8 +706,9 @@ export default function CboProfilePage() {
           )}
           {/* Chat header — two-row layout. Row 1: back + org name + actions.
               Row 2: workshop progress strip, full width. Icon-only action
-              buttons keep the right side narrow even on small viewports. */}
-          <div className="px-3 sm:px-4 pt-2.5 pb-2 border-b bg-background space-y-2">
+              buttons keep the right side narrow even on small viewports.
+              safe-top pushes the row below the iPhone notch. */}
+          <div className="safe-top px-3 sm:px-4 pt-2.5 pb-2 border-b bg-background space-y-2">
             <div className="flex items-center gap-1.5">
               <Link href="/sample/project/sample-ada-1">
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0">
@@ -1201,7 +1204,7 @@ export default function CboProfilePage() {
       {/* MOBILE TAB BAR — visible only below md. Drives `mobileActiveTab` +
           (when on a non-Chat tab) `rightTab` so the right panel shows the
           right content. Hidden on desktop, where both panels render side-by-side. */}
-      <nav className="md:hidden shrink-0 border-t bg-background flex items-stretch">
+      <nav className="md:hidden shrink-0 border-t bg-background flex items-stretch safe-bottom">
         {(() => {
           // Compose the tabs available right now. Chat + Perfil are permanent.
           // Mapa / Intervenções appear only while the agent has those microapps active.
