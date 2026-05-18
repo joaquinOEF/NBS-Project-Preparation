@@ -1818,6 +1818,7 @@
       "invitationLead": "Você foi convidado(a) para a plataforma do {{cohort}} — um espaço tranquilo para contar o que a sua organização faz, onde trabalha, e do que precisa para tirar o seu projeto do papel.",
       "invitationFraming": "Vamos construir isso juntos, uma parte de cada vez. Cada seção abre depois do encontro em que tratamos do tema.",
       "nextWorkshopLabel": "Próximo encontro",
+      "currentWorkshopLabel": "Encontro atual",
       "whatWeWillDoLabel": "O que vamos fazer juntos",
       "step1": "Quem somos",
       "step2": "Onde trabalhamos",

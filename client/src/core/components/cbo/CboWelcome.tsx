@@ -15,7 +15,8 @@ export function CboWelcome({
   orgName,
   neighborhood,
   cohortName,
-  nextWorkshop,
+  focusWorkshop,
+  focusWorkshopIsCurrent,
   unlockedPhases,
   onStart,
   onResume,
@@ -24,7 +25,11 @@ export function CboWelcome({
   orgName: string;
   neighborhood: string | null;
   cohortName: string | null;
-  nextWorkshop: WorkshopConfig | null;
+  /** The workshop to feature on the welcome card. Either the currently-active
+   *  one (if the coordinator has opened any) or the first upcoming one. */
+  focusWorkshop: WorkshopConfig | null;
+  /** When true, label as "current workshop"; when false, label as "next". */
+  focusWorkshopIsCurrent: boolean;
   unlockedPhases: number[];
   onStart: () => void;
   onResume: () => void;
@@ -34,8 +39,8 @@ export function CboWelcome({
   const isPt = i18n.language?.startsWith('pt');
   const phasesUnlockedCount = unlockedPhases.length;
 
-  const workshopDateLabel = nextWorkshop?.date
-    ? formatCalendarDate(nextWorkshop.date, isPt ? 'pt-BR' : 'en-US', {
+  const workshopDateLabel = focusWorkshop?.date
+    ? formatCalendarDate(focusWorkshop.date, isPt ? 'pt-BR' : 'en-US', {
         weekday: 'long', day: 'numeric', month: 'long',
       })
     : null;
@@ -90,8 +95,8 @@ export function CboWelcome({
             </p>
           </div>
 
-          {/* Next workshop card */}
-          {nextWorkshop && (
+          {/* Focus workshop card — current (active) or next (upcoming). */}
+          {focusWorkshop && (
             <motion.div
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
@@ -99,9 +104,11 @@ export function CboWelcome({
               className="rounded-xl border border-emerald-200/60 bg-white/70 dark:border-emerald-900/40 dark:bg-emerald-950/30 px-4 py-3 backdrop-blur-sm"
             >
               <p className="text-[10px] uppercase tracking-wider text-emerald-700/70 dark:text-emerald-400/70 font-semibold mb-1.5">
-                {t('cbo.welcome.nextWorkshopLabel', { defaultValue: 'Next workshop' })}
+                {focusWorkshopIsCurrent
+                  ? t('cbo.welcome.currentWorkshopLabel', { defaultValue: 'Current workshop' })
+                  : t('cbo.welcome.nextWorkshopLabel', { defaultValue: 'Next workshop' })}
               </p>
-              <p className="text-sm font-medium text-foreground/90">{nextWorkshop.name}</p>
+              <p className="text-sm font-medium text-foreground/90">{focusWorkshop.name}</p>
               {workshopDateLabel && (
                 <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Calendar className="w-3 h-3" />
