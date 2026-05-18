@@ -4,6 +4,7 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/core/components/ui/popover';
 import type { WorkshopConfig } from '@shared/cohort-schema';
+import { formatCalendarDate } from '@/lib/dateHelpers';
 
 // ---------------------------------------------------------------------------
 // CboProgress — friendly progress display that replaces the
@@ -89,7 +90,7 @@ export function CboProgress({
           if (!isUnlocked) {
             const workshop = workshops.find(w => w.unlocksPhase === p.num);
             const workshopDate = workshop?.date
-              ? new Date(workshop.date).toLocaleDateString(isPt ? 'pt-BR' : 'en-US', { weekday: 'long', day: 'numeric', month: 'short' })
+              ? formatCalendarDate(workshop.date, isPt ? 'pt-BR' : 'en-US', { weekday: 'long', day: 'numeric', month: 'short' })
               : null;
             return (
               <Popover key={p.num}>

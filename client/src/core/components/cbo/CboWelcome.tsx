@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Calendar, Clock, Leaf, Sprout } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import type { WorkshopConfig } from '@shared/cohort-schema';
+import { formatCalendarDate } from '@/lib/dateHelpers';
 
 // ---------------------------------------------------------------------------
 // CBO welcome screen — the first thing a community leader sees after tapping
@@ -34,7 +35,7 @@ export function CboWelcome({
   const phasesUnlockedCount = unlockedPhases.length;
 
   const workshopDateLabel = nextWorkshop?.date
-    ? new Date(nextWorkshop.date).toLocaleDateString(isPt ? 'pt-BR' : 'en-US', {
+    ? formatCalendarDate(nextWorkshop.date, isPt ? 'pt-BR' : 'en-US', {
         weekday: 'long', day: 'numeric', month: 'long',
       })
     : null;

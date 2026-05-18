@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar, Check, ChevronRight, Lock, Pencil, Unlock } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
+import { formatCalendarDate } from '@/lib/dateHelpers';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 
 // ---------------------------------------------------------------------------
@@ -35,12 +36,7 @@ function computeState(workshops: WorkshopConfig[]): WorkshopState[] {
 }
 
 function formatShortDate(iso: string, locale: string): string {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
-  } catch {
-    return iso;
-  }
+  return formatCalendarDate(iso, locale);
 }
 
 // ---------------------------------------------------------------------------
