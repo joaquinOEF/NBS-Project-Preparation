@@ -14,6 +14,12 @@ import {
 } from "@shared/cbo-schema";
 import { getPhasePolicyForCbo, isPhaseAllowed, buildAccessPolicyPrompt, type PhasePolicy } from "./phaseGating";
 import { loadEncontroSkill } from "./encontroSkills";
+import {
+  loadCboState as dbLoadCboState,
+  loadCboMessages as dbLoadCboMessages,
+  upsertCboState,
+  appendCboMessages,
+} from "./cboPersistence";
 import { db } from "../db";
 import { cohortMembers } from "@shared/cohort-schema";
 import { eq } from "drizzle-orm";
@@ -77,7 +83,12 @@ export function getCboState(id: string): CboState | undefined {
   return state;
 }
 export function setCboState(id: string, state: CboState): void {
-  if (!state) { cboStates.delete(id); cboMessages.delete(id); return; }
+  if (!state) {
+    cboStates.delete(id);
+    cboMessages.delete(id);
+    flushedMessageCount.delete(id);
+    return;
+  }
   state.metadata.updatedAt = new Date().toISOString();
   migrateSections(state);
   cboStates.set(id, state);
@@ -89,6 +100,60 @@ export function addCboMessage(id: string, msg: CboChatMessage): void {
   if (last && last.role === msg.role && last.content === msg.content) return; // dedupe
   msgs.push(msg);
   cboMessages.set(id, msgs);
+}
+
+// ============================================================================
+// PERSISTENCE — DB-backed (was file-based, see cboPersistence.ts for rationale)
+// ============================================================================
+
+// Per-CBO count of messages already persisted to DB. Used by the flusher to
+// avoid re-inserting the same messages on every flush.
+const flushedMessageCount = new Map<string, number>();
+
+// Hydrate the in-memory cache from DB on cold lookup. Used by the route
+// layer when a session reconnects to a CBO state created in a previous
+// process lifetime.
+export async function loadCboFromDb(id: string): Promise<{ state: CboState; messages: CboChatMessage[] } | null> {
+  const state = await dbLoadCboState(id);
+  if (!state) return null;
+  const messages = await dbLoadCboMessages(id);
+  flushedMessageCount.set(id, messages.length);
+  return { state, messages };
+}
+
+// Debounced flush — UPSERT cbo_states + INSERT any new cbo_messages since
+// last flush. Single transaction would be nicer but Drizzle's transaction
+// API is awkward across two tables; the worst case is a half-flush (state
+// upserted but messages not appended) which is recoverable on next chat turn.
+const saveTimers = new Map<string, NodeJS.Timeout>();
+const SAVE_DEBOUNCE_MS = 2000;
+
+async function persistCbo(id: string) {
+  const state = cboStates.get(id);
+  if (!state) return;
+  await upsertCboState(state);
+  const allMessages = cboMessages.get(id) ?? [];
+  const flushed = flushedMessageCount.get(id) ?? 0;
+  if (allMessages.length > flushed) {
+    const newMessages = allMessages.slice(flushed);
+    await appendCboMessages(id, flushed, newMessages);
+    flushedMessageCount.set(id, allMessages.length);
+  }
+}
+
+export function debouncedPersist(id: string) {
+  const existing = saveTimers.get(id);
+  if (existing) clearTimeout(existing);
+  saveTimers.set(id, setTimeout(() => {
+    persistCbo(id).catch(e => console.error(`[cbo] persist(${id}) failed`, e));
+    saveTimers.delete(id);
+  }, SAVE_DEBOUNCE_MS));
+}
+
+// Reset the flush pointer when a CBO is deleted so a fresh re-creation
+// with the same id wouldn't skip its first messages.
+export function clearFlushedMessageCount(id: string) {
+  flushedMessageCount.delete(id);
 }
 
 // ============================================================================

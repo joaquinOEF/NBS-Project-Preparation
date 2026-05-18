@@ -1,6 +1,4 @@
 import type { Express, Request, Response } from "express";
-import fs from "fs/promises";
-import path from "path";
 import {
   streamCboChat,
   handleCboEdit,
@@ -8,38 +6,15 @@ import {
   setCboState,
   getCboMessages,
   addCboMessage,
+  debouncedPersist,
+  loadCboFromDb,
 } from "../services/cboAgent";
+import { deleteCboState as dbDeleteCboState } from "../services/cboPersistence";
 import { createEmptyCboState, CBO_SECTIONS, type CboState } from "@shared/cbo-schema";
 
-const RUNS_DIR = path.join(process.cwd(), 'knowledge', 'runs');
-
-async function persistCboState(id: string) {
-  const state = getCboState(id);
-  const messages = getCboMessages(id);
-  if (!state) return;
-  const dir = path.join(RUNS_DIR, `cbo-${id}`);
-  try {
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(path.join(dir, 'state.json'), JSON.stringify(state, null, 2));
-    if (messages.length > 0) await fs.writeFile(path.join(dir, 'messages.json'), JSON.stringify(messages, null, 2));
-  } catch {}
-}
-
+// Shim — pre-DB code called this synchronous-style. Routes now await DB.
 async function loadPersistedCboState(id: string): Promise<{ state: CboState; messages: any[] } | null> {
-  const dir = path.join(RUNS_DIR, `cbo-${id}`);
-  try {
-    const state = JSON.parse(await fs.readFile(path.join(dir, 'state.json'), 'utf-8'));
-    let messages: any[] = [];
-    try { messages = JSON.parse(await fs.readFile(path.join(dir, 'messages.json'), 'utf-8')); } catch {}
-    return { state, messages };
-  } catch { return null; }
-}
-
-const saveTimers = new Map<string, NodeJS.Timeout>();
-function debouncedPersist(id: string) {
-  const existing = saveTimers.get(id);
-  if (existing) clearTimeout(existing);
-  saveTimers.set(id, setTimeout(() => { persistCboState(id); saveTimers.delete(id); }, 2000));
+  return loadCboFromDb(id);
 }
 
 export function registerCboRoutes(app: Express): void {
@@ -167,7 +142,7 @@ export function registerCboRoutes(app: Express): void {
 
   // Delete / restart
   app.delete("/api/cbo/:id", async (req: Request, res: Response) => {
-    try { await fs.rm(path.join(RUNS_DIR, `cbo-${req.params.id}`), { recursive: true, force: true }); } catch {}
+    await dbDeleteCboState(req.params.id);
     setCboState(req.params.id, undefined as any);
     res.json({ deleted: true });
   });

@@ -8,3 +8,9 @@ vite.config.ts.*
 # Generated 250m grid (run generate-grid-250m.ts to create)
 client/public/sample-data/porto-alegre-grid-250m.json
 scripts/output/
+
+# CBO runtime state — moved to the database (cbo_states + cbo_messages tables).
+# These folders may still exist on the Replit volume for uploaded files, but
+# the JSON state/messages files are no longer the source of truth and must
+# never be committed (they contain PII from real CBO conversations).
+knowledge/runs/cbo-*/
