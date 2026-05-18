@@ -335,8 +335,18 @@ export default function CboProfilePage() {
     return () => clearTimeout(timer);
   }, [currentQuestionIdx, activeQuestions]);
 
-  // Init session
+  // Init session.
+  // Critical guard: React 18 StrictMode (and dev HMR remounts) fire useEffect
+  // twice. Without the ref, the second invocation races the first and creates
+  // a second CBO state via POST /api/cbo before localStorage is written from
+  // the first — producing duplicate sessions, one with prefill and one without.
+  // The active id ends up being the second (no-prefill) CBO and the prefilled
+  // one orphans. Symptoms: agent re-asks org_name despite the doc panel showing
+  // it, "starting fresh" messages, language flipping, etc.
+  const initRef = useRef(false);
   useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
     async function init() {
       const saved = getSavedId();
       if (saved) {
@@ -350,6 +360,11 @@ export default function CboProfilePage() {
             if (msgRes.ok) { const msgs = await msgRes.json(); if (msgs.length) setMessages(msgs); }
             return;
           }
+          // 404 means the cached id points at a CBO that no longer exists on the
+          // server (DB wiped, container recycled, etc). Clear the stale id so
+          // we don't keep pointing at a phantom across reloads — fall through
+          // to creating a fresh session.
+          if (res.status === 404) clearId();
         } catch {}
       }
       const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });

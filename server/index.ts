@@ -72,7 +72,16 @@ app.use((req, res, next) => {
     },
     async () => {
       log(`serving on port ${port}`);
-      
+
+      // Probe for CBO tables — logs a loud message if `npm run db:push`
+      // hasn't been run yet so the dev catches it on boot, not on first chat.
+      try {
+        const { checkCboTablesExist } = await import('./services/cboPersistence');
+        await checkCboTablesExist();
+      } catch (error) {
+        console.error('[cbo] table check failed', error);
+      }
+
       // Auto-seed knowledge base on startup (seeds only missing documents)
       try {
         await autoSeedKnowledgeBase();
