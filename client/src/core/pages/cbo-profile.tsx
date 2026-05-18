@@ -303,11 +303,15 @@ export default function CboProfilePage() {
   // orgName + neighborhood at invite time — re-asking on the first chat
   // turn is bad UX. The server-side prefill is idempotent (won't overwrite
   // userEdited fields), so firing it repeatedly is safe.
-  const prefillSentRef = useRef(false);
+  //
+  // Track the cboId that was prefilled (not just a boolean) so that
+  // handleRestart's new cboId triggers a fresh prefill instead of being
+  // skipped by a sticky guard.
+  const prefilledCboIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (prefillSentRef.current) return;
     if (!cboId || !memberInfo) return;
-    prefillSentRef.current = true;
+    if (prefilledCboIdRef.current === cboId) return;
+    prefilledCboIdRef.current = cboId;
     fetch(`/api/cbo/${cboId}/prefill`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -686,9 +690,31 @@ export default function CboProfilePage() {
         focusWorkshopIsCurrent={focusWorkshopIsCurrent}
         unlockedPhases={unlockedPhases}
         hasExistingProgress={hasExistingProgress}
-        onStart={() => {
+        onStart={async () => {
+          // CboWelcome fires onStart from two places:
+          //   1. The primary CTA when there is no existing progress (first
+          //      visit) — kick off the chat fresh.
+          //   2. The secondary "Or start over" link when there IS existing
+          //      progress — the user wants to wipe and begin from zero.
+          // The two cases need different side effects, so branch here.
+          if (hasExistingProgress) {
+            const confirmMsg = lang === 'pt'
+              ? 'Começar de novo apaga toda sua conversa e respostas anteriores. Tem certeza?'
+              : 'Starting over will erase your current conversation and answers. Are you sure?';
+            if (!window.confirm(confirmMsg)) return;
+            setWelcomeMode(false);
+            await handleRestart();
+            // After restart: new cboId, state.phase = 0, empty messages.
+            // The prefill effect re-fires on the new cboId, and we kick off
+            // the chat the same way a first-time visitor would. Skip the
+            // preamble — the user already saw it before they decided to
+            // restart, and the localStorage seen-flag would suppress it
+            // anyway. Going straight to chat is the cleaner intent.
+            kickoffChat();
+            return;
+          }
           setWelcomeMode(false);
-          if (!tryShowPreamble() && !hasExistingProgress) kickoffChat();
+          if (!tryShowPreamble()) kickoffChat();
         }}
         onResume={() => {
           setWelcomeMode(false);
