@@ -60,7 +60,9 @@ When they're ready, transition: *"Beleza. Agora vamos olhar o seu bairro no mapa
 
 ## Beat 2 — Map + site (25 min)
 
-Use the existing `open_map` composite mode (the new `browse-only` mode isn't wired yet — that lands in a follow-up PR). For now both paths converge on composite, with hazard layers driven by Porto Alegre defaults:
+Path-aware Beat 2. `has-idea` goes straight to site selection (composite mode). `needs-help` first explores without commitment (browse-only mode), then transitions to site selection when ready.
+
+### `has-idea` flow
 
 ```
 open_map({
@@ -68,14 +70,39 @@ open_map({
   zoneSource: 'neighborhoods',
   layers: ['osm_parks', 'osm_schools', 'osm_wetlands'],
   tileLayers: ['oef_fri_2024', 'oef_hwm_2024'],
-  prompt: 'Escolha primeiro o bairro onde você atua, depois marque o lugar específico.'
+  prompt: 'Marca onde vocês querem atuar — primeiro o bairro, depois o lugar específico.'
 })
 ```
 
-**Path-aware framing before invoking:**
+### `needs-help` flow — Beat 2a (browse-only)
 
-- has-idea: *"Marca exatamente onde vocês querem atuar."*
-- needs-help: *"Sem pressa. Olha primeiro. Depois marca um lugar — pode mudar depois."*
+First, exploration mode with a narration banner. The user can scroll the map, toggle layers, and read your overlay — but doesn't have to commit to a site yet.
+
+```
+open_map({
+  selectionMode: 'browse-only',
+  tileLayers: ['oef_fri_2024', 'oef_hwm_2024'],
+  prompt: 'Olha o seu bairro. As cores mostram os riscos.',
+  narrationOverlay: 'Azul = áreas de enchente. Laranja = ilhas de calor. Toque "Voltar ao chat" quando quiser.'
+})
+```
+
+When the user clicks "Voltar ao chat", you receive an `onCancel`-equivalent (no map result message). Ask:
+
+> O que você viu aí parece com o que vocês vivem no dia a dia? Algum lugar te chama atenção?
+
+Listen for cues. If they name a spot, transition to Beat 2b. If they're still uncertain, offer the `RequestSupport` button as an escape hatch.
+
+### `needs-help` flow — Beat 2b (site selection)
+
+```
+open_map({
+  selectionMode: 'composite',
+  zoneSource: 'neighborhoods',
+  tileLayers: ['oef_fri_2024', 'oef_hwm_2024'],
+  prompt: 'Agora marca o lugar específico onde vocês querem atuar.'
+})
+```
 
 After the user confirms a selection, you'll receive a message starting with `Map selection (composite mode):`. Parse it:
 

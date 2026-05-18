@@ -311,10 +311,12 @@ STOP and wait for the user's map selection after calling this tool.`,
       layers: z.array(z.string()).optional().describe("OSM layer IDs to show: osm_parks, osm_schools, osm_hospitals, osm_wetlands"),
       tileLayers: z.array(z.string()).optional().describe("Tile layer IDs as toggleable overlays (not auto-shown): oef_fri_2024, oef_hwm_2024, etc."),
       spatialQueries: z.array(z.string()).optional().describe("Pre-filter features: sq_parks_flood, sq_schools_heatwave, etc."),
-      selectionMode: z.enum(["zones", "assets", "sample", "composite"]).describe("composite = zone first, then sites. assets = sites only. zones = zones only. sample = click-to-read-values."),
+      selectionMode: z.enum(["zones", "assets", "sample", "composite", "browse-only"]).describe("composite = zone first, then sites. assets = sites only. zones = zones only. sample = click-to-read-values. browse-only = exploration; no commitment (E2 needs-help)."),
       prompt: z.string().describe("Clear instruction for the user, e.g. 'Select the zone where you work, then pick the parks and schools you are targeting'"),
       sampleLayers: z.array(z.string()).optional().describe("For sample mode: which tile layers to sample on click"),
       zoneSource: z.enum(["neighborhood_zones", "intervention_zones", "neighborhoods"]).optional().describe("For composite mode step 1: 'neighborhood_zones' (default) shows bairros with risk scores + vulnerability-weighted priority. 'neighborhoods' shows raw IBGE census data. 'intervention_zones' uses legacy synthetic zones."),
+      narrationOverlay: z.string().optional().describe("Translucent banner over the map for browse-only mode — agent narrates what colors mean. ~80 chars ideal."),
+      showLegendSimple: z.boolean().optional().describe("Collapse the full toolkit into a simple 3-chip hazard legend. Useful for first-time CBO users."),
     },
     async (args: any) => {
       pushEvent({
@@ -327,6 +329,8 @@ STOP and wait for the user's map selection after calling this tool.`,
           prompt: args.prompt,
           sampleLayers: args.sampleLayers,
           zoneSource: args.zoneSource,
+          narrationOverlay: args.narrationOverlay,
+          showLegendSimple: args.showLegendSimple,
         },
       });
       return { content: [{ type: "text" as const, text: `Map opened in "${args.selectionMode}" mode. STOP and wait for selection.` }] };
