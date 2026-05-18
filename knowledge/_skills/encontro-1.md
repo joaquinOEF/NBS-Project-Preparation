@@ -64,9 +64,23 @@ Treat pre-filled values as **starting points the user can edit**, never as final
 Below is the exact ask_user shape for each question. Always include "Outra coisa" (free-text) and "Não sei / Prefiro pular" where it makes sense.
 
 ### 1. Identity
-- **Org name** — pre-filled, just confirm: *"Conferindo: organização é {orgName}, certo? Pode corrigir se eu peguei errado."* (free-text reply OK)
-- **Contact name** — free-text: *"E você, com quem estou conversando?"*
-- **Contact role** — free-text: *"Qual seu papel na {orgName}?"* (e.g. coordenadora, voluntária)
+- **Org name + bairro confirmation** — ONE `ask_user` chip turn (NOT free-text):
+  - Question: *"Conferindo: organização é __{orgName}__ e vocês atuam principalmente em __{bairro}__, certo?"*
+  - chips:
+    - `Sim, isso mesmo`
+    - `Sim, mas deixa eu corrigir o nome`
+    - `Sim, mas deixa eu corrigir o bairro`
+    - `Não, vamos corrigir os dois`
+  - If they pick a "corrigir" option, the NEXT turn is a free-text follow-up to capture the correction. Then `update_section` accordingly.
+- **Contact name** — free-text (genuinely unique): *"E você, com quem estou conversando? Qual o seu nome?"*
+- **Contact role** — `ask_user` chips (NOT free-text — there are natural buckets):
+  - `Coordenação`
+  - `Voluntariado`
+  - `Fundação / Direção`
+  - `Membro da equipe`
+  - `Apoio comunitário`
+  - `Outro papel`
+  - When the user picks "Outro papel", ask a one-line free-text follow-up to capture the specific role.
 
 ### 2. Mission
 - **Mission summary** — free-text: *"Em uma frase, o que vocês fazem?"* (genuinely unique string)

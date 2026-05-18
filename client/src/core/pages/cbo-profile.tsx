@@ -640,18 +640,26 @@ export default function CboProfilePage() {
     // supportRequests, snapshot fields). Wiping only the first leaves the
     // second leaking into the fresh session — the agent's earlier set_path
     // call sticks, the saved NBS showcase cards re-appear, etc. Reset both.
-    if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
-    if (memberSlug) { try { await fetch(`/api/cbo-member/${memberSlug}/reset-session`, { method: 'POST' }); } catch {} }
-
+    //
+    // ORDER MATTERS: clear local React state BEFORE any await. Otherwise
+    // the pendingKickoff effect (which watches `cboId`) sees the OLD truthy
+    // cboId during the await and fires kickoffChat() against the soon-to-be-
+    // deleted CBO → 404. By the time React batches in the next render,
+    // cboId is null and the effect waits for the new id.
+    const oldCboId = cboId;
     clearId(); saveMapParams(null); setOpenMapParams(null); setInterventionSelectorParams(null); setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
     setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
-    // Cohort-member-derived React state — server is wiped above; mirror that
+    // Cohort-member-derived React state — server is wiped below; mirror that
     // locally so the UI doesn't keep rendering the stale path / picks / count
     // until the next polling refresh.
     setMemberPath(null);
     setInspirationPicks([]);
     setSupportPendingCount(0);
     setShowcase(null);
+
+    // Now do the server-side cleanup with the captured old id.
+    if (oldCboId) { try { await fetch(`/api/cbo/${oldCboId}`, { method: 'DELETE' }); } catch {} }
+    if (memberSlug) { try { await fetch(`/api/cbo-member/${memberSlug}/reset-session`, { method: 'POST' }); } catch {} }
 
     const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
     const data = await res.json();
