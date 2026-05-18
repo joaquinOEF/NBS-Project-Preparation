@@ -686,13 +686,23 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
 
 async function streamWithSdk(cboId: string, userMessage: string, state: CboState, pushEvent: EventPusher, lang: string = 'en') {
   const mcpServer = getMcpServer(cboId);
-  const sysCtx = await buildSystemContext(state, lang);
+  const systemPrompt = await buildSystemContext(state, lang);
   const stateSummary = buildStateSummary(state);
   const decisionLog = buildDecisionLog(cboId);
   const policy = await getPhasePolicyForCbo(cboId);
   const accessPolicy = buildAccessPolicyPrompt(policy);
 
-  const prompt = `${sysCtx}\n\n## CURRENT STATE\n${stateSummary}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\nUser message: ${userMessage}`;
+  // Split static vs dynamic for the SDK:
+  //   systemPrompt  →  identity, tool list, phase instructions (skill markdown),
+  //                    rules, COUGAR criteria, knowledge listing. ~5K tokens.
+  //                    Stable across turns within a phase, so it's a cache target.
+  //   prompt        →  current section snapshot, last-8 decision log, access
+  //                    policy, and the user's actual message. Changes every turn.
+  //
+  // The static block lives in options.systemPrompt so the SDK's internal prompt
+  // caching machinery can hit it. See knowledge/_skills/README.md for compute
+  // budget context.
+  const prompt = `## CURRENT STATE\n${stateSummary}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\nUser message: ${userMessage}`;
 
   // Compute budget — read from skill frontmatter (cached). Chip-heavy encontros
   // declare Haiku + 0 thinking for ~3× faster turns; synthesis-heavy ones
@@ -712,13 +722,16 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   }
 
   const sectionsFilled = Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length;
-  console.log(`[cbo] Turn for ${cboId} phase=${state.phase} sections=${sectionsFilled}/7 model=${model ?? 'sdk-default'} thinking=${thinkingBudget}${isFileUpload ? ' (file-upload escalation)' : ''}`);
+  const sysTokens = Math.round(systemPrompt.length / 4);
+  const userTokens = Math.round(prompt.length / 4);
+  console.log(`[cbo] Turn for ${cboId} phase=${state.phase} sections=${sectionsFilled}/7 model=${model ?? 'sdk-default'} thinking=${thinkingBudget} sys~${sysTokens}t user~${userTokens}t${isFileUpload ? ' (file-upload escalation)' : ''}`);
 
   try {
     for await (const message of sdkQuery({
       prompt,
       options: {
         cwd: process.cwd(),
+        systemPrompt,
         ...(model ? { model } : {}),
         ...(thinkingBudget > 0 ? { maxThinkingTokens: thinkingBudget } : {}),
         allowedTools: [
@@ -910,7 +923,6 @@ ${cougarCriteriaCache}
 ## KNOWLEDGE FILES (use read_knowledge to access)
 ${knowledgeListingCache}`;
 
-  console.log(`[cbo] Prompt size: ~${Math.round(prompt.length / 4)} tokens (${prompt.length} chars) for phase ${state.phase}`);
   return prompt;
 }
 
