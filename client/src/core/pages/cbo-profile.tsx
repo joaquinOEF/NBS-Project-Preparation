@@ -706,9 +706,8 @@ export default function CboProfilePage() {
           )}
           {/* Chat header — two-row layout. Row 1: back + org name + actions.
               Row 2: workshop progress strip, full width. Icon-only action
-              buttons keep the right side narrow even on small viewports.
-              safe-top pushes the row below the iPhone notch. */}
-          <div className="safe-top px-3 sm:px-4 pt-2.5 pb-2 border-b bg-background space-y-2">
+              buttons keep the right side narrow even on small viewports. */}
+          <div className="px-3 sm:px-4 pt-2.5 pb-2 border-b bg-background space-y-2">
             <div className="flex items-center gap-1.5">
               <Link href="/sample/project/sample-ada-1">
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0">
@@ -1204,7 +1203,7 @@ export default function CboProfilePage() {
       {/* MOBILE TAB BAR — visible only below md. Drives `mobileActiveTab` +
           (when on a non-Chat tab) `rightTab` so the right panel shows the
           right content. Hidden on desktop, where both panels render side-by-side. */}
-      <nav className="md:hidden shrink-0 border-t bg-background flex items-stretch safe-bottom">
+      <nav className="md:hidden shrink-0 border-t bg-background flex items-stretch">
         {(() => {
           // Compose the tabs available right now. Chat + Perfil are permanent.
           // Mapa / Intervenções appear only while the agent has those microapps active.
