@@ -235,6 +235,12 @@ export default function CboProfilePage() {
   // When arriving via ?cbo=<slug>, render the premium welcome screen until
   // the user taps Start / Continue. Flipped to true once member-fetch lands.
   const [welcomeMode, setWelcomeMode] = useState(false);
+  // Flag set by handleRestart so the kickoff fires AFTER the new cboId has
+  // flushed into state. Calling kickoffChat inline right after handleRestart
+  // races with React's batching — the kickoffChat closure captures the old
+  // (deleted) cboId and POSTs /api/cbo/<old>/chat → 404. The effect below
+  // watches [pendingKickoff, cboId] and only fires when both are true.
+  const [pendingKickoff, setPendingKickoff] = useState(false);
   // Per-encontro preamble — once dismissed, the encontro's first session reveals
   // the chat. State is encontro number 1-6 OR null (no preamble showing).
   const [preambleEncontro, setPreambleEncontro] = useState<number | null>(null);
@@ -629,13 +635,28 @@ export default function CboProfilePage() {
   }, [cboId, processEvent]);
 
   const handleRestart = useCallback(async () => {
+    // Two stores hold the user's session: the CBO state row (sections,
+    // maturity, messages) and the cohort-member row (path, inspirationPicks,
+    // supportRequests, snapshot fields). Wiping only the first leaves the
+    // second leaking into the fresh session — the agent's earlier set_path
+    // call sticks, the saved NBS showcase cards re-appear, etc. Reset both.
     if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
+    if (memberSlug) { try { await fetch(`/api/cbo-member/${memberSlug}/reset-session`, { method: 'POST' }); } catch {} }
+
     clearId(); saveMapParams(null); setOpenMapParams(null); setInterventionSelectorParams(null); setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
     setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
+    // Cohort-member-derived React state — server is wiped above; mirror that
+    // locally so the UI doesn't keep rendering the stale path / picks / count
+    // until the next polling refresh.
+    setMemberPath(null);
+    setInspirationPicks([]);
+    setSupportPendingCount(0);
+    setShowcase(null);
+
     const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
     const data = await res.json();
     setCboId(data.cboId); setState(data.state); saveId(data.cboId);
-  }, [cboId]);
+  }, [cboId, memberSlug]);
 
   // Kick off the agent chat with the standard intake prompt. Hidden from the
   // visible message stream — the agent's first response is what the user sees.
@@ -647,6 +668,14 @@ export default function CboProfilePage() {
       : "Start the CBO intervention profile for Porto Alegre. Use the /cbo-intervention skill flow. Always use the ask_user tool for multiple-choice questions. In your first message, mention that the user can drop existing documents (proposals, reports, plans, photos) into the chat at any time — you'll extract info and auto-fill sections.";
     sendMessage(text, true);
   }, [lang, sendMessage]);
+
+  // Fire a pending kickoff once the new cboId has flushed into state and
+  // kickoffChat has been re-built with the fresh closure. Set by handleRestart.
+  useEffect(() => {
+    if (!pendingKickoff || !cboId) return;
+    setPendingKickoff(false);
+    kickoffChat();
+  }, [pendingKickoff, cboId, kickoffChat]);
 
   // File drop handler
   const { isDragging, isUploading, dragHandlers } = useFileDrop({
@@ -703,14 +732,14 @@ export default function CboProfilePage() {
               : 'Starting over will erase your current conversation and answers. Are you sure?';
             if (!window.confirm(confirmMsg)) return;
             setWelcomeMode(false);
+            // Defer kickoff to the effect — calling kickoffChat() inline here
+            // would race with React's batching: the closure has captured the
+            // old (now-deleted) cboId. The effect fires once cboId has
+            // flushed to the new value, kickoffChat re-built with the fresh
+            // closure. Skip the preamble — user already saw it before
+            // restarting, and localStorage's seen-flag would suppress it.
+            setPendingKickoff(true);
             await handleRestart();
-            // After restart: new cboId, state.phase = 0, empty messages.
-            // The prefill effect re-fires on the new cboId, and we kick off
-            // the chat the same way a first-time visitor would. Skip the
-            // preamble — the user already saw it before they decided to
-            // restart, and the localStorage seen-flag would suppress it
-            // anyway. Going straight to chat is the cleaner intent.
-            kickoffChat();
             return;
           }
           setWelcomeMode(false);
@@ -1007,9 +1036,22 @@ export default function CboProfilePage() {
                 When the coordinator opens a workshop higher than the user's
                 current phase, this card appears so the CBO knows the next
                 encontro is available + has a clear CTA to enter it. Without
-                this, the user has no signal that anything changed. */}
+                this, the user has no signal that anything changed.
+
+                Gates (in order):
+                1. Not streaming, has messages, phase > 0 — basic readiness.
+                2. No active ask_user — the user has a pending question and
+                   the banner would compete for attention. Answer first.
+                3. ≥3 user replies in the conversation — keeps the banner from
+                   appearing immediately after a restart (or a fresh start
+                   where the coordinator already had W2+ open). The user
+                   should engage with the current encontro before being
+                   nudged out of it. */}
             {(() => {
               if (isStreaming || messages.length === 0 || state.phase === 0) return null;
+              if (currentQuestion) return null;
+              const userReplies = messages.filter(m => m.role === 'user' && m.messageType === 'content').length;
+              if (userReplies < 3) return null;
               const nextUnlockedPhase = unlockedPhases.find(p => p > state.phase);
               if (nextUnlockedPhase == null) return null;
               const ws = workshops.find(w => w.unlocksPhase === nextUnlockedPhase);
