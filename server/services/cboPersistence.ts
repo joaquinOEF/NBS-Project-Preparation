@@ -16,6 +16,22 @@ import { cboStates, cboMessages } from '@shared/cbo-db-schema';
 import { eq, asc } from 'drizzle-orm';
 import type { CboState, CboChatMessage } from '@shared/cbo-schema';
 
+// Detect "relation does not exist" and log a clear, actionable message.
+// Postgres error code 42P01 means the table is missing — almost always
+// because `npm run db:push` hasn't been run after schema changes.
+function logDbError(op: string, id: string, e: any) {
+  if (e?.code === '42P01') {
+    console.error(
+      `[cbo] ${op}(${id}) — DB TABLE MISSING (code 42P01).\n` +
+      `      The cbo_states / cbo_messages tables don't exist yet.\n` +
+      `      Run \`npm run db:push\` on Replit shell to create them.\n` +
+      `      Until then, state is in-memory only and will be lost on restart.`
+    );
+  } else {
+    console.error(`[cbo] ${op}(${id}) error`, e);
+  }
+}
+
 function rowToState(row: any): CboState {
   return {
     id: row.id,
@@ -41,7 +57,7 @@ export async function loadCboState(id: string): Promise<CboState | null> {
     const [row] = await db.select().from(cboStates).where(eq(cboStates.id, id)).limit(1);
     return row ? rowToState(row) : null;
   } catch (e) {
-    console.error(`[cbo] loadCboState(${id}) error`, e);
+    logDbError('loadCboState', id, e);
     return null;
   }
 }
@@ -60,7 +76,7 @@ export async function loadCboMessages(id: string): Promise<CboChatMessage[]> {
       timestamp: r.timestamp?.toISOString?.() ?? new Date().toISOString(),
     }));
   } catch (e) {
-    console.error(`[cbo] loadCboMessages(${id}) error`, e);
+    logDbError('loadCboMessages', id, e);
     return [];
   }
 }
@@ -92,7 +108,7 @@ export async function upsertCboState(state: CboState): Promise<void> {
       set: values,
     });
   } catch (e) {
-    console.error(`[cbo] upsertCboState(${state.id}) error`, e);
+    logDbError('upsertCboState', state.id, e);
   }
 }
 
@@ -117,7 +133,37 @@ export async function appendCboMessages(
       timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
     })));
   } catch (e) {
-    console.error(`[cbo] appendCboMessages(${cboStateId}, ${msgs.length} msgs) error`, e);
+    logDbError(`appendCboMessages[${msgs.length} msgs]`, cboStateId, e);
+  }
+}
+
+/**
+ * Self-check at boot — probes for the cbo_states table. If it doesn't exist,
+ * log a single LOUD line so the dev sees the fix immediately instead of
+ * chasing the symptom (re-introducing agent, 404s on cold load, etc).
+ */
+export async function checkCboTablesExist(): Promise<boolean> {
+  try {
+    await db.select().from(cboStates).limit(1);
+    return true;
+  } catch (e: any) {
+    if (e?.code === '42P01') {
+      console.error('\n' +
+        '╔══════════════════════════════════════════════════════════════════════╗\n' +
+        '║  ⚠️  CBO DB TABLES MISSING                                           ║\n' +
+        '║                                                                      ║\n' +
+        '║  The cbo_states and cbo_messages tables do not exist yet.            ║\n' +
+        '║  Run `npm run db:push` on the Replit shell to create them.           ║\n' +
+        '║                                                                      ║\n' +
+        '║  Until then, CBO state survives only in process memory and will be   ║\n' +
+        '║  lost on restart. The agent will see empty state every cold load     ║\n' +
+        '║  and may re-ask questions it already asked.                          ║\n' +
+        '╚══════════════════════════════════════════════════════════════════════╝\n'
+      );
+    } else {
+      console.error('[cbo] checkCboTablesExist unexpected error', e);
+    }
+    return false;
   }
 }
 
@@ -129,6 +175,6 @@ export async function deleteCboState(id: string): Promise<void> {
     await db.delete(cboMessages).where(eq(cboMessages.cboStateId, id));
     await db.delete(cboStates).where(eq(cboStates.id, id));
   } catch (e) {
-    console.error(`[cbo] deleteCboState(${id}) error`, e);
+    logDbError('deleteCboState', id, e);
   }
 }
