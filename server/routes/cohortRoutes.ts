@@ -402,4 +402,37 @@ export function registerCohortRoutes(app: Express): void {
     }).where(eq(cohortMembers.id, member.id));
     res.json({ ok: true });
   }));
+
+  // CBO resets its session — clears everything the user/agent accumulated
+  // during the run, but keeps coordinator-owned and invite-time data so the
+  // restart lands cleanly back at E1 with the same seed.
+  //
+  // Cleared:        path, inspirationPicks, supportRequests, all snapshot
+  //                 fields, startedAt, cboStateId pointer.
+  // Preserved:      orgName, neighborhood, memberSlug, cohortId, unlockedPhases
+  //                 (coordinator-driven), contact info.
+  //
+  // Called from cbo-profile.tsx's handleRestart so the cohort-member row
+  // doesn't leak path/picks/support requests across a fresh start.
+  app.post('/api/cbo-member/:memberSlug/reset-session', wrap(async (req, res) => {
+    const member = await findMemberBySlug(req.params.memberSlug);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+
+    await db.update(cohortMembers).set({
+      path: null,
+      inspirationPicks: [],
+      supportRequests: [],
+      cboStateId: null,
+      startedAt: null,
+      snapshotPhase: 0,
+      snapshotSectionsComplete: 0,
+      snapshotMaturityScore: 0,
+      snapshotFlagsMet: 0,
+      snapshotIntervention: null,
+      snapshotUpdatedAt: new Date(),
+    }).where(eq(cohortMembers.id, member.id));
+
+    console.log(`[cohort] Reset session for member ${member.memberSlug} (${member.orgName})`);
+    res.json({ ok: true });
+  }));
 }
