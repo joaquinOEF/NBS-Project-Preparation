@@ -221,9 +221,11 @@ Call `score_maturity` for both metrics with 1-sentence Portuguese justifications
 
 After all Beat-3 fields are populated and both metrics scored:
 
-1. Call `update_section('intervention_site', { bairro, site_lat, site_lng, site_name, current_use, land_tenure, primary_hazard, secondary_hazard, community_anchoring_lead, community_engagement_methods })`
-2. Call `score_maturity` for `site_control` and `community_anchoring`
-3. Render the closing message (DO NOT call `set_phase(3)` yet — the coordinator gates that via P-8):
+1. Make sure every captured field has been persisted via `update_section('intervention_site', ...)` along the way (this should already be done after each beat).
+2. Call `score_maturity('site_control', score, justification_pt)` — REQUIRED. The next-encontro banner is gated on this metric existing in state.
+3. Call `score_maturity('community_anchoring', score, justification_pt)` — REQUIRED. Same gate.
+4. **Do NOT call `set_phase(3)`** — phase advancement is gated by the coordinator (P-8). The banner triggers the advance when Workshop 3 is opened. There is no `set_phase_complete` tool; ignore any old references to it.
+5. Render the closing message:
 
 > ✓ **Encontro 2 concluído** — obrigada, {nome}. Seu território está marcado.
 >

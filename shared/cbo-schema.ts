@@ -233,7 +233,14 @@ export function createEmptyCboState(city: string): CboState {
     id: crypto.randomUUID(),
     orgName: '',
     city,
-    phase: 0,
+    // Start at phase 1 — Encontro 1 begins on first chat turn. The previous
+    // phase 0 was a "pre-introduction" state that required the agent to call
+    // set_phase(1) on its first response; if the agent forgot (more likely
+    // on Haiku), the encontro-1.md skill never loaded (gated on phase >= 1)
+    // and the first turn ran on the unconfigured SDK default. Skipping
+    // phase 0 makes the skill engage from turn 1 and removes a class of
+    // race/forget bugs entirely.
+    phase: 1,
     sections: sections as Record<CboSectionId, CboSectionState>,
     gaps: [],
     maturityScores: [],
