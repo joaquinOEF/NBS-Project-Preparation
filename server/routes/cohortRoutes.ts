@@ -209,27 +209,16 @@ export function registerCohortRoutes(app: Express): void {
     const nextPhase = maxUnlocked + 1;
     const nextWorkshop = workshops.find(w => w.unlocksPhase === nextPhase) ?? null;
 
-    // The "focus workshop" is what the CBO welcome card should highlight —
-    // it must reflect THIS member's progress, not the cohort's global state.
-    // Workshops are cohort-wide (one `openedAt` per workshop shared by all
-    // members), so a late-joining member inherited the most-recently-opened
-    // workshop as their "current" — pushing Test Farm to W2 before they'd
-    // done W1. Fix: pick the earliest workshop the member hasn't completed
-    // (= the workshop whose `unlocksPhase` equals their current snapshot
-    // phase). Fall back to the first workshop in the sequence for brand-new
-    // members with no snapshot yet.
-    const memberPhase = typeof member.snapshotPhase === 'number' && member.snapshotPhase > 0
-      ? member.snapshotPhase
-      : 1; // brand-new member → start at W1 (unlocks phase 1)
-    const focusWorkshop =
-      workshops.find(w => w.unlocksPhase === memberPhase) ??
-      workshops[0] ??
-      null;
-    // "Current" if the member has actually started (any opened workshop AND
-    // the member has at least passed the welcome screen, i.e. snapshotPhase
-    // moved past null). For brand-new invitees, the workshop is "upcoming."
-    const focusWorkshopIsCurrent =
-      !!focusWorkshop?.openedAt && typeof member.snapshotPhase === 'number' && member.snapshotPhase > 0;
+    // The "focus workshop" is what the CBO welcome card should highlight.
+    // If the coordinator has opened any workshop, the most-recently opened one
+    // is the *current* workshop (the user is actively in it). Otherwise the
+    // first one in the sequence is the *next* (upcoming) workshop. This
+    // matches the CBO's mental model: "which workshop am I in/about to do?"
+    const openedWorkshops = workshops.filter(w => w.openedAt);
+    const focusWorkshop = openedWorkshops.length > 0
+      ? openedWorkshops[openedWorkshops.length - 1]
+      : (workshops[0] ?? null);
+    const focusWorkshopIsCurrent = openedWorkshops.length > 0;
 
     const supportRequests = Array.isArray(member.supportRequests) ? (member.supportRequests as SupportRequest[]) : [];
     const supportPending = supportRequests.filter(r => !r.resolvedAt);
@@ -411,39 +400,6 @@ export function registerCohortRoutes(app: Express): void {
       snapshotIntervention: typeof intervention === 'string' ? intervention : member.snapshotIntervention,
       snapshotUpdatedAt: new Date(),
     }).where(eq(cohortMembers.id, member.id));
-    res.json({ ok: true });
-  }));
-
-  // CBO resets its session — clears everything the user/agent accumulated
-  // during the run, but keeps coordinator-owned and invite-time data so the
-  // restart lands cleanly back at E1 with the same seed.
-  //
-  // Cleared:        path, inspirationPicks, supportRequests, all snapshot
-  //                 fields, startedAt, cboStateId pointer.
-  // Preserved:      orgName, neighborhood, memberSlug, cohortId, unlockedPhases
-  //                 (coordinator-driven), contact info.
-  //
-  // Called from cbo-profile.tsx's handleRestart so the cohort-member row
-  // doesn't leak path/picks/support requests across a fresh start.
-  app.post('/api/cbo-member/:memberSlug/reset-session', wrap(async (req, res) => {
-    const member = await findMemberBySlug(req.params.memberSlug);
-    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
-
-    await db.update(cohortMembers).set({
-      path: null,
-      inspirationPicks: [],
-      supportRequests: [],
-      cboStateId: null,
-      startedAt: null,
-      snapshotPhase: 0,
-      snapshotSectionsComplete: 0,
-      snapshotMaturityScore: 0,
-      snapshotFlagsMet: 0,
-      snapshotIntervention: null,
-      snapshotUpdatedAt: new Date(),
-    }).where(eq(cohortMembers.id, member.id));
-
-    console.log(`[cohort] Reset session for member ${member.memberSlug} (${member.orgName})`);
     res.json({ ok: true });
   }));
 }
