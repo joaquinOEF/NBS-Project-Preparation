@@ -1,12 +1,17 @@
 // Per-encontro preamble content. Configs are language-aware (PT default, EN fallback).
+// Path-aware where the framing genuinely differs (E2-E3). E1 + E4-E6 use a
+// single config because their content is the same regardless of path.
+//
 // Each encontro's spec lives at knowledge/runs/2026-05-15-encontros-curriculum/E{N}-*/spec.md.
-// Only E1 is wired in v1 — E2-E6 land alongside their respective skill markdown.
 
 import type { EncontroPreambleConfig } from './EncontroPreamble';
 
 type Lang = 'pt' | 'en';
+type Path = 'has-idea' | 'needs-help';
 type EncontroBase = Omit<EncontroPreambleConfig, 'encontroNumber'>;
 
+// E1 — same for both paths (path triage happens AT the end of E1, so the
+// opening framing is identical).
 const E1: Record<Lang, EncontroBase> = {
   pt: {
     title: 'Quem somos',
@@ -32,48 +37,100 @@ const E1: Record<Lang, EncontroBase> = {
   },
 };
 
-const E2: Record<Lang, EncontroBase> = {
-  pt: {
-    title: 'Seu território',
-    lead: 'Hoje a gente vai olhar o mapa do seu bairro e os riscos que mais importam.',
-    bullets: [
-      'Ver exemplos de SbN no Brasil',
-      'Olhar o mapa do seu bairro',
-      'Marcar onde você quer atuar',
-      'Falar dos riscos que mais importam',
-    ],
-    toolsTheyWillUse: ['Exemplos visuais', 'O mapa do bairro'],
-    timeEstimate: '30–45 min · Salva sozinho',
-    cta: 'Começar',
+// E2 — path-aware. has-idea gets forward-leaning framing; needs-help gets
+// discovery-mode framing with mention of saving favorites + pausable.
+const E2: Record<Path, Record<Lang, EncontroBase>> = {
+  'has-idea': {
+    pt: {
+      title: 'Seu território',
+      lead: 'Vamos abrir o mapa do seu bairro e marcar onde seu projeto vai.',
+      bullets: [
+        'Ver 2 exemplos rápidos de SbN no Brasil',
+        'Marcar o local exato do seu projeto',
+        'Falar dos riscos que mais importam',
+        'Quem da comunidade está envolvida',
+      ],
+      toolsTheyWillUse: ['Exemplos visuais', 'O mapa do bairro'],
+      timeEstimate: '25 min · Salva sozinho',
+      cta: 'Começar',
+    },
+    en: {
+      title: 'Your territory',
+      lead: "We'll open your neighborhood map and mark where your project goes.",
+      bullets: [
+        'See 2 quick NBS examples from Brazil',
+        "Mark your project's specific location",
+        'Talk about the risks that matter most',
+        'Who from the community is involved',
+      ],
+      toolsTheyWillUse: ['Visual examples', 'Neighborhood map'],
+      timeEstimate: '25 min · Saves automatically',
+      cta: 'Start',
+    },
   },
-  en: {
-    title: 'Your territory',
-    lead: "Today we'll look at your neighborhood map and the risks that matter most.",
-    bullets: [
-      'See NBS examples from Brazil',
-      'Look at your neighborhood map',
-      'Mark where you want to work',
-      'Talk about the risks that matter most',
-    ],
-    toolsTheyWillUse: ['Visual examples', 'Neighborhood map'],
-    timeEstimate: '30–45 min · Saves automatically',
-    cta: 'Start',
+  'needs-help': {
+    pt: {
+      title: 'Seu território',
+      lead: 'Hoje vamos descobrir juntas o que faz sentido pro seu bairro — sem pressa, sem decisão final.',
+      bullets: [
+        'Ver exemplos de SbN no Brasil — salve 1 ou 2 que te chamam atenção',
+        'Olhar o mapa do bairro e ver os riscos',
+        'Conversar sobre o que vocês vivem ali',
+        'Marcar um lugar quando estiver claro (ou deixar pra depois)',
+      ],
+      toolsTheyWillUse: ['Exemplos pra salvar', 'Mapa do bairro com riscos'],
+      timeEstimate: '30–45 min · Salva sozinho · Pode pausar e voltar',
+      cta: 'Começar',
+    },
+    en: {
+      title: 'Your territory',
+      lead: "Today we'll discover together what makes sense for your neighborhood — no rush, no final decisions.",
+      bullets: [
+        'See Brazilian NBS examples — save 1 or 2 that catch your eye',
+        "Look at the neighborhood map and see the risks",
+        'Talk about what you live there',
+        "Mark a place when it's clear (or leave it for later)",
+      ],
+      toolsTheyWillUse: ['Examples to save', 'Neighborhood map with risks'],
+      timeEstimate: '30–45 min · Saves automatically · Can pause and resume',
+      cta: 'Start',
+    },
   },
 };
 
-const ENCONTRO_CONFIGS: Partial<Record<number, Record<Lang, EncontroBase>>> = {
+// Config registry. Single-path encontros are stored as plain Record<Lang>;
+// path-aware ones are stored as Record<Path, Record<Lang>>. Helper below
+// disambiguates.
+type SinglePathConfig = Record<Lang, EncontroBase>;
+type PathAwareConfig = Record<Path, Record<Lang, EncontroBase>>;
+
+const ENCONTRO_CONFIGS: Partial<Record<number, SinglePathConfig | PathAwareConfig>> = {
   1: E1,
   2: E2,
   // 3, 4, 5, 6 — to be added with their respective skill PRs
 };
 
+function isPathAware(cfg: SinglePathConfig | PathAwareConfig): cfg is PathAwareConfig {
+  return 'has-idea' in cfg && 'needs-help' in cfg;
+}
+
 export function getEncontroPreambleConfig(
   encontroNumber: number,
   lang: 'pt' | 'en',
+  path?: 'has-idea' | 'needs-help' | null,
 ): EncontroPreambleConfig | null {
   const base = ENCONTRO_CONFIGS[encontroNumber];
   if (!base) return null;
-  const langBase = base[lang] ?? base.pt;
+  let langBase: EncontroBase;
+  if (isPathAware(base)) {
+    // Default to has-idea when path is null (CBO hasn't been triaged yet).
+    // Most pre-triage cases are E1, which isn't path-aware anyway.
+    const resolvedPath: Path = path === 'needs-help' ? 'needs-help' : 'has-idea';
+    const variant = base[resolvedPath];
+    langBase = variant[lang] ?? variant.pt;
+  } else {
+    langBase = base[lang] ?? base.pt;
+  }
   return { encontroNumber, ...langBase };
 }
 
