@@ -315,3 +315,40 @@
   image-rendering: auto;
   filter: blur(0.5px);
 }
+
+/* ─── Mobile-native polish ──────────────────────────────────────────────────
+   Applied app-wide. Critical for the WhatsApp-link CBO flow where users open
+   the platform in Safari/Chrome on iPhone and Android. */
+
+html {
+  /* No gray flash on tap. iOS-native pattern; web defaults to a 5% gray overlay
+     which feels old-school next to native apps. */
+  -webkit-tap-highlight-color: transparent;
+  /* Prevent iOS from auto-resizing text when rotating to landscape. */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  /* Kill iOS pull-to-refresh on the app shell. Chat threads have their own
+     scrollers; pull-to-refresh in chat re-loaded the page mid-conversation. */
+  overscroll-behavior-y: none;
+}
+
+/* Prevent iOS auto-zoom on input focus. iOS Safari zooms into any input with
+   computed font-size < 16px. Bumping to 16px keeps the viewport stable. */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Safe-area utilities — apply to elements that sit at the edge of the viewport
+   (chat header below the notch, mobile tab bar above the home indicator). */
+.safe-top    { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+.safe-x      {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}

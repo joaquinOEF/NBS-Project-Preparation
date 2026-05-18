@@ -2,10 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- viewport-fit=cover enables env(safe-area-inset-*) for notch/home-indicator
+         handling. maximum-scale removed so accessibility zoom works; inputs are
+         sized ≥16px in CSS to prevent iOS auto-zoom on focus. -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
+    <!-- Brand tint for Safari/Chrome toolbar. Light + dark variants match the
+         emerald-50 page bg the CBO flow uses; falls back to single value for
+         browsers that don't support media queries on theme-color. -->
+    <meta name="theme-color" content="#ecfdf5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#022c22" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ecfdf5" />
+    <!-- iOS PWA cosmetics — even without a manifest, these tighten up the
+         add-to-home-screen experience if a CBO chooses to do it. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="COUGAR" />
+    <meta name="format-detection" content="telephone=no" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
