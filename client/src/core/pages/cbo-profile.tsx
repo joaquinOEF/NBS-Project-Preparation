@@ -1003,12 +1003,30 @@ export default function CboProfilePage() {
                     <Button
                       size="sm"
                       className="bg-emerald-600 hover:bg-emerald-700 mt-1"
-                      onClick={() => sendMessage(
-                        lang === 'pt'
-                          ? `Vamos começar o Encontro ${nextUnlockedPhase}.`
-                          : `Let's start Encontro ${nextUnlockedPhase}.`,
-                        true,
-                      )}
+                      onClick={async () => {
+                        if (!cboId) return;
+                        // Advance the phase SERVER-SIDE first. Without this,
+                        // the agent's next turn loads encontro-1.md (skill
+                        // is keyed on state.phase) and the banner re-fires
+                        // because nextUnlockedPhase stays > state.phase.
+                        try {
+                          const r = await fetch(`/api/cbo/${cboId}/advance-phase`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ phase: nextUnlockedPhase }),
+                          });
+                          if (r.ok) {
+                            const data = await r.json();
+                            if (data?.state) setState(migrateCboState(data.state));
+                          }
+                        } catch {}
+                        sendMessage(
+                          lang === 'pt'
+                            ? `Vamos começar o Encontro ${nextUnlockedPhase}.`
+                            : `Let's start Encontro ${nextUnlockedPhase}.`,
+                          true,
+                        );
+                      }}
                       data-testid={`button-start-encontro-${nextUnlockedPhase}`}
                     >
                       {lang === 'pt' ? `Começar Encontro ${nextUnlockedPhase}` : `Start Encontro ${nextUnlockedPhase}`}
