@@ -616,7 +616,7 @@ export default function CboProfilePage() {
     const tryShowPreamble = () => {
       const encontro = encontroForPhase(Math.max(1, state?.phase ?? 1));
       if (encontro == null) return false;
-      const cfg = getEncontroPreambleConfig(encontro, lang as 'pt' | 'en');
+      const cfg = getEncontroPreambleConfig(encontro, lang as 'pt' | 'en', memberPath);
       if (!cfg) return false;
       const seenKey = memberSlug ?? cboId ?? '';
       if (!seenKey || hasPreambleBeenSeen(seenKey, encontro)) return false;
@@ -647,7 +647,7 @@ export default function CboProfilePage() {
   // encontro per CBO (localStorage). Tapping the CTA marks it seen and either
   // kicks off the chat (first session) or just reveals it (later sessions).
   if (preambleEncontro != null) {
-    const cfg = getEncontroPreambleConfig(preambleEncontro, lang as 'pt' | 'en');
+    const cfg = getEncontroPreambleConfig(preambleEncontro, lang as 'pt' | 'en', memberPath);
     if (cfg) {
       const seenKey = memberSlug ?? cboId ?? '';
       return (
