@@ -227,6 +227,11 @@ export default function CboProfilePage() {
   const [cohortName, setCohortName] = useState<string | null>(null);
   const [workshops, setWorkshops] = useState<WorkshopConfig[]>([]);
   const [nextWorkshop, setNextWorkshop] = useState<WorkshopConfig | null>(null);
+  // CboWelcome's "focus workshop" — the one to highlight on the welcome card.
+  // Either the currently-active workshop (most-recently opened) or the first
+  // upcoming one. focusWorkshopIsCurrent picks which label to show.
+  const [focusWorkshop, setFocusWorkshop] = useState<WorkshopConfig | null>(null);
+  const [focusWorkshopIsCurrent, setFocusWorkshopIsCurrent] = useState(false);
   const [unlockedPhases, setUnlockedPhases] = useState<number[]>([1, 2, 3, 4, 5]); // ungated by default
   // When arriving via ?cbo=<slug>, render the premium welcome screen until
   // the user taps Start / Continue. Flipped to true once member-fetch lands.
@@ -251,6 +256,8 @@ export default function CboProfilePage() {
       if (data.cohort?.name) setCohortName(data.cohort.name);
       if (Array.isArray(data.workshops)) setWorkshops(data.workshops);
       setNextWorkshop(data.nextWorkshop ?? null);
+      setFocusWorkshop(data.focusWorkshop ?? null);
+      setFocusWorkshopIsCurrent(!!data.focusWorkshopIsCurrent);
     };
     fetch(`/api/cbo-member/${slug}`)
       .then(r => r.ok ? r.json() : null)
@@ -628,7 +635,8 @@ export default function CboProfilePage() {
         orgName={memberInfo.orgName}
         neighborhood={memberInfo.neighborhood}
         cohortName={cohortName}
-        nextWorkshop={nextWorkshop}
+        focusWorkshop={focusWorkshop ?? nextWorkshop}
+        focusWorkshopIsCurrent={focusWorkshopIsCurrent}
         unlockedPhases={unlockedPhases}
         hasExistingProgress={hasExistingProgress}
         onStart={() => {

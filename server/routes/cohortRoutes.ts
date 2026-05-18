@@ -209,6 +209,17 @@ export function registerCohortRoutes(app: Express): void {
     const nextPhase = maxUnlocked + 1;
     const nextWorkshop = workshops.find(w => w.unlocksPhase === nextPhase) ?? null;
 
+    // The "focus workshop" is what the CBO welcome card should highlight.
+    // If the coordinator has opened any workshop, the most-recently opened one
+    // is the *current* workshop (the user is actively in it). Otherwise the
+    // first one in the sequence is the *next* (upcoming) workshop. This
+    // matches the CBO's mental model: "which workshop am I in/about to do?"
+    const openedWorkshops = workshops.filter(w => w.openedAt);
+    const focusWorkshop = openedWorkshops.length > 0
+      ? openedWorkshops[openedWorkshops.length - 1]
+      : (workshops[0] ?? null);
+    const focusWorkshopIsCurrent = openedWorkshops.length > 0;
+
     const supportRequests = Array.isArray(member.supportRequests) ? (member.supportRequests as SupportRequest[]) : [];
     const supportPending = supportRequests.filter(r => !r.resolvedAt);
 
@@ -222,6 +233,8 @@ export function registerCohortRoutes(app: Express): void {
       cohort: cohort ? { id: cohort.id, name: cohort.name } : null,
       workshops,
       nextWorkshop,
+      focusWorkshop,
+      focusWorkshopIsCurrent,
       supportRequests,
       supportPendingCount: supportPending.length,
       inspirationPicks: Array.isArray(member.inspirationPicks) ? member.inspirationPicks : [],
