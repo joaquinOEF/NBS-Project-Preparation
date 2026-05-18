@@ -156,6 +156,16 @@ export function clearFlushedMessageCount(id: string) {
   flushedMessageCount.delete(id);
 }
 
+// Read the per-CBO flush pointer — diagnostic only.
+export function getFlushedMessageCount(id: string): number {
+  return flushedMessageCount.get(id) ?? 0;
+}
+
+// Read pending-flush state — diagnostic only.
+export function hasPendingFlush(id: string): boolean {
+  return saveTimers.has(id);
+}
+
 // ============================================================================
 // MCP TOOLS
 // ============================================================================

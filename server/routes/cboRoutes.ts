@@ -8,8 +8,14 @@ import {
   addCboMessage,
   debouncedPersist,
   loadCboFromDb,
+  getFlushedMessageCount,
+  hasPendingFlush,
 } from "../services/cboAgent";
-import { deleteCboState as dbDeleteCboState } from "../services/cboPersistence";
+import {
+  deleteCboState as dbDeleteCboState,
+  loadCboState as dbLoadCboState,
+  loadCboMessages as dbLoadCboMessages,
+} from "../services/cboPersistence";
 import { createEmptyCboState, CBO_SECTIONS, type CboState } from "@shared/cbo-schema";
 
 // Shim — pre-DB code called this synchronous-style. Routes now await DB.
@@ -145,6 +151,72 @@ export function registerCboRoutes(app: Express): void {
     await dbDeleteCboState(req.params.id);
     setCboState(req.params.id, undefined as any);
     res.json({ deleted: true });
+  });
+
+  // Diagnostic — compares the in-memory cache with the DB to verify the
+  // persistence layer is healthy. Returns a JSON snapshot of both layers
+  // plus a small consistency summary. Safe to leave in place (read-only,
+  // no PII exposure beyond what the user already authored).
+  app.get("/api/cbo/:id/_inspect", async (req: Request, res: Response) => {
+    const id = req.params.id;
+
+    // In-memory snapshot
+    const memState = getCboState(id);
+    const memMessages = getCboMessages(id);
+
+    // DB snapshot
+    const dbState = await dbLoadCboState(id);
+    const dbMessages = await dbLoadCboMessages(id);
+
+    // Section-fill summary — easier to scan than the full sections blob
+    const summarizeFields = (state: any) => {
+      if (!state?.sections) return {};
+      const out: Record<string, string[]> = {};
+      for (const [sid, sec] of Object.entries<any>(state.sections)) {
+        const fields = Object.keys(sec.fields ?? {});
+        if (fields.length > 0) out[sid] = fields;
+      }
+      return out;
+    };
+
+    const lastMsgs = (msgs: typeof memMessages, n = 5) => msgs.slice(-n).map(m => ({
+      role: m.role,
+      type: m.messageType,
+      content: (m.content ?? '').slice(0, 160),
+    }));
+
+    res.json({
+      id,
+      memory: {
+        hasState: !!memState,
+        phase: memState?.phase ?? null,
+        orgName: memState?.orgName ?? null,
+        sectionsWithFields: summarizeFields(memState),
+        maturityScoreCount: memState?.maturityScores?.length ?? 0,
+        messageCount: memMessages.length,
+        flushedSoFar: getFlushedMessageCount(id),
+        unflushedDelta: Math.max(0, memMessages.length - getFlushedMessageCount(id)),
+        hasPendingFlush: hasPendingFlush(id),
+        lastMessages: lastMsgs(memMessages),
+      },
+      db: {
+        hasState: !!dbState,
+        phase: dbState?.phase ?? null,
+        orgName: dbState?.orgName ?? null,
+        sectionsWithFields: summarizeFields(dbState),
+        maturityScoreCount: dbState?.maturityScores?.length ?? 0,
+        messageCount: dbMessages.length,
+        lastMessages: lastMsgs(dbMessages),
+      },
+      consistency: {
+        statesMatch: memState && dbState
+          ? memState.phase === dbState.phase && memState.orgName === dbState.orgName
+          : !memState && !dbState,
+        messagesMatch: memMessages.length === dbMessages.length,
+        flushedPointerAligned: getFlushedMessageCount(id) === dbMessages.length,
+      },
+      timestamp: new Date().toISOString(),
+    });
   });
 
   // Export
