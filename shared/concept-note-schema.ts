@@ -161,7 +161,7 @@ export interface ThinkingStep {
 
 // ── Map Microapp types ────────────────────────────────────────────────────────
 
-export type MapSelectionMode = 'zones' | 'assets' | 'sample' | 'composite';
+export type MapSelectionMode = 'zones' | 'assets' | 'sample' | 'composite' | 'browse-only';
 
 export interface OpenMapParams {
   layers?: string[];          // OSM layer IDs to enable (e.g., 'osm_parks')
@@ -171,6 +171,14 @@ export interface OpenMapParams {
   prompt: string;             // Instruction shown on the map
   sampleLayers?: string[];    // For 'sample' mode: which tile layers to sample on click
   zoneSource?: 'neighborhood_zones' | 'intervention_zones' | 'neighborhoods'; // Step 1 source for composite mode (default: neighborhood_zones)
+  // E2 needs-help additions — used in `browse-only` mode but available across modes.
+  // Translucent banner rendered over the map (top): used by the E2 needs-help
+  // path to narrate what colors mean while the user explores. ~80 char ideal.
+  narrationOverlay?: string;
+  // Simplified legend: collapses the full 48-layer toolkit into a 3-chip
+  // hazard legend (flood/heat/landslide) when only those hazards are active.
+  // Used by E2 to reduce visual noise for first-time CBO users.
+  showLegendSimple?: boolean;
 }
 
 export interface SelectedAsset {

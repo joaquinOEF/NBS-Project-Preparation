@@ -60,9 +60,18 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
   const selectionMode = params.selectionMode;
   const isComposite = selectionMode === 'composite';
+  const isBrowseOnly = selectionMode === 'browse-only';
   const showZones = !isComposite || compositeStep === 'zone';
   const showAssets = !isComposite || compositeStep === 'assets';
   const polygonHelp = drawMode === 'polygon' ? t('mapMicroapp.polygonHelp') : '';
+
+  // E2 needs-help: auto-enable requested tile layers on mount so the user
+  // immediately sees the hazard colors. They can still toggle them off.
+  useEffect(() => {
+    if (!isBrowseOnly) return;
+    if (!params.tileLayers || params.tileLayers.length === 0) return;
+    setEnabledTiles(new Set(params.tileLayers));
+  }, [isBrowseOnly, params.tileLayers]);
 
   const enabledTileLayerDefs = Array.from(enabledTiles)
     .map(id => TILE_LAYERS.find(l => l.id === id))
@@ -615,6 +624,16 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         <div ref={mapContainerRef} className="absolute inset-0">
           <ValueTooltip mapRef={mapRef} enabledLayers={enabledTileLayerDefs} mapReady={mapReady} />
         </div>
+        {/* Narration overlay (E2 needs-help). Translucent banner pinned to
+            the top of the map so the agent can explain colors as the user
+            scrolls. Pointer-events disabled so it doesn't block the map. */}
+        {params.narrationOverlay && (
+          <div className="absolute top-2 left-2 right-2 z-[900] pointer-events-none">
+            <div className="bg-background/85 backdrop-blur-sm border border-foreground/10 rounded-lg px-3 py-2 shadow-sm">
+              <p className="text-[11px] text-foreground/85 leading-snug">{params.narrationOverlay}</p>
+            </div>
+          </div>
+        )}
         {loading && (
           <div className="absolute inset-0 bg-background/70 flex items-center justify-center z-[1000]">
             <div className="bg-background border rounded-lg px-4 py-3 shadow-lg flex items-center gap-2 text-xs text-muted-foreground">
@@ -647,6 +666,14 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
       {/* Action bar */}
       <div className="flex items-center gap-2 px-3 py-2 border-t bg-background shrink-0">
+        {/* Browse-only mode (E2 needs-help): single CTA back to chat. No
+            confirm because the user isn't committing to anything. */}
+        {isBrowseOnly ? (
+          <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={onCancel} data-testid="map-back-to-chat">
+            ← {t('mapMicroapp.backToChat', { defaultValue: 'Voltar ao chat' })}
+          </Button>
+        ) : (
+          <>
         <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={isComposite && compositeStep === 'assets' ? backToZones : onCancel}>
           {isComposite && compositeStep === 'assets' ? '← ' + (isNeighborhoods ? t('mapMicroapp.neighborhood') : t('mapMicroapp.zone')) : t('mapMicroapp.cancel')}
         </Button>
@@ -658,6 +685,8 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
           <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={handleConfirm} disabled={totalSelections === 0}>
             <Check className="w-3 h-3" /> {t('mapMicroapp.confirm', { count: totalSelections })}
           </Button>
+        )}
+          </>
         )}
       </div>
     </div>
