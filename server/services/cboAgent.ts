@@ -925,34 +925,60 @@ Ask for site photos. Score: Site Control (0-3), Community Anchoring (0-3).`;
     case 3:
       return isPt
         ? `**Fase 3a: O Que Construímos** (intervention_type)
-Abrir open_intervention_selector com siteHazards da Fase 2. Usuário navega 6 tipos com fotos. Se "Não sei": orientar com perguntas sobre problema + condições → recomendar.
-Após seleção: read_knowledge para detalhes. Perguntar design (espécies, materiais, escala).
+Abrir open_intervention_selector com siteHazards da Fase 2. Se "Não sei": orientar via read_knowledge + exemplos.
+Após seleção, PERGUNTAS PRESCRITIVAS (cada uma é UMA chamada ask_user com chips):
+  • intervention_scale → chips: ['Pequeno (<200 m²)', 'Médio (200-1000 m²)', 'Grande (1000+ m²)', 'Não sei ainda']
+  • construction_model → chips: ['Mutirão comunitário', 'Empreiteira contratada', 'Parceria universidade/ONG', 'Misto', 'Ainda não decidido']
+  • Para florestas urbanas: species_preference → chips ['Espécies nativas POA', 'Frutíferas', 'Sombra (porte grande)', 'Misto', 'Equipe técnica decide']
+  • Para jardins de chuva/biovaletas: substrate_type → chips ['Solo permeável existente', 'Substrato modificado', 'Cascalho + plantas', 'Ainda não sabemos']
+  • justification_why_here → texto livre (1-2 frases): "Por que esse tipo nesse lugar?"
 Avaliar: Clareza do Problema (0-3), Clareza da Solução (0-3).
 
 **Fase 3b: Impacto Esperado** (impact_monitoring) — APROFUNDAR, NÃO REPETIR
-NÃO perguntar de novo sobre riscos/população (já sabe da Fase 2). Reconhecer dados existentes.
-Perguntar APENAS: condição ANTES, frequência de manutenção, prazo do projeto.
+NÃO perguntar sobre riscos/população (já sabe da Fase 2).
+PERGUNTAS PRESCRITIVAS (cada uma uma ask_user com chips, exceto onde indicado):
+  • baseline_condition → texto livre: "Como está o lugar HOJE, antes da intervenção?"
+  • maintenance_frequency → chips: ['Semanal', 'Mensal', 'Trimestral', 'Anual', 'Sob demanda']
+  • project_timeframe → chips: ['6 meses', '1 ano', '2 anos', '3+ anos', 'Faseado em etapas']
+  • monitoring_capacity → chips: ['Nós medimos sozinhos', 'Parceria universidade', 'Sem capacidade', 'Aprender no caminho']
 read_knowledge(_co-benefits/ + _evidence/impact-benchmarks.md). Apresentar COM vs SEM com faixas + confiança.
 Avaliar: Impacto Climático/SbN (0-3).
 
-**Fase 3c: Operação e Sustentabilidade** (operations_sustain) — CONSTRUIR SOBRE RESPOSTAS
-NÃO perguntar sobre equipe de novo (Fase 1). Referenciar: "Na Fase 1, vocês mencionaram X membros..."
-read_knowledge para OPEX do tipo de SbN. Modelo de sustentabilidade: orçamento municipal, cooperativa, uso produtivo, editais. Créditos de carbono NÃO são práticos.
+**Fase 3c: Operação e Sustentabilidade** (operations_sustain) — REFERENCIAR FASE 1
+NÃO perguntar sobre equipe de novo (Fase 1). Referenciar: "Na Fase 1, vocês mencionaram X..."
+PERGUNTAS PRESCRITIVAS (ask_user com chips):
+  • sustainability_model → chips: ['Orçamento municipal', 'Cooperativa/uso produtivo', 'Editais recorrentes', 'Misto', 'Não planejado ainda']
+  • opex_estimate_year1 → chips: ['<R$ 5k/ano', 'R$ 5-20k/ano', 'R$ 20-50k/ano', 'R$ 50k+/ano', 'Não estimei ainda']
+  • who_maintains → chips: ['Nossa organização', 'Comunidade voluntária', 'Parceria com prefeitura', 'Contratado externo', 'A definir']
+read_knowledge para OPEX do tipo de SbN. Créditos de carbono NÃO são práticos pra escala comunitária.
 Avaliar: Planejamento Financeiro (0-3).`
         : `**Phase 3a: What We're Building** (intervention_type)
-Open open_intervention_selector with siteHazards from Phase 2. User browses 6 types with photos. If "I don't know": guide with problem + conditions questions → recommend.
-After selection: read_knowledge for details. Ask design questions (species, materials, scale).
+Open open_intervention_selector with siteHazards from Phase 2. If "I don't know": guide via read_knowledge + examples.
+After selection, PRESCRIPTIVE QUESTIONS (each is ONE ask_user call with chips):
+  • intervention_scale → chips: ['Small (<200 m²)', 'Medium (200-1000 m²)', 'Large (1000+ m²)', 'Not sure yet']
+  • construction_model → chips: ['Community mutirão', 'Hired contractor', 'University/NGO partnership', 'Mixed', 'Undecided']
+  • For urban forests: species_preference → chips ['Native POA species', 'Fruit trees', 'Shade trees', 'Mixed', 'Technical team decides']
+  • For rain gardens/bioswales: substrate_type → chips ['Existing permeable soil', 'Modified substrate', 'Gravel + plants', 'Not sure']
+  • justification_why_here → free-text (1-2 sentences): "Why this type in this place?"
 Score: Problem Clarity (0-3), Solution Clarity (0-3).
 
 **Phase 3b: Expected Impact** (impact_monitoring) — GO DEEPER, DON'T REPEAT
-DO NOT re-ask about hazards/population (already from Phase 2). Acknowledge existing data.
-Ask ONLY: baseline condition BEFORE, maintenance frequency, project timeframe.
+DO NOT re-ask about hazards/population (already from Phase 2).
+PRESCRIPTIVE QUESTIONS (each one ask_user with chips, unless noted):
+  • baseline_condition → free-text: "How is the place TODAY, before the intervention?"
+  • maintenance_frequency → chips: ['Weekly', 'Monthly', 'Quarterly', 'Annual', 'On demand']
+  • project_timeframe → chips: ['6 months', '1 year', '2 years', '3+ years', 'Phased']
+  • monitoring_capacity → chips: ['We measure ourselves', 'University partnership', 'No capacity', 'Learn as we go']
 read_knowledge(_co-benefits/ + _evidence/impact-benchmarks.md). Present WITH vs WITHOUT with ranges + confidence.
 Score: Climate NBS Impact (0-3).
 
-**Phase 3c: Operations & Sustainability** (operations_sustain) — BUILD ON EARLIER ANSWERS
-DO NOT re-ask about team (Phase 1). Reference: "In Phase 1, you mentioned X members..."
-read_knowledge for OPEX of chosen NBS type. Sustainability model: municipal budget, cooperative, productive use, grants. Carbon credits NOT practical.
+**Phase 3c: Operations & Sustainability** (operations_sustain) — REFERENCE PHASE 1
+DO NOT re-ask about team (Phase 1). Reference: "In Phase 1, you mentioned X..."
+PRESCRIPTIVE QUESTIONS (ask_user with chips):
+  • sustainability_model → chips: ['Municipal budget', 'Cooperative/productive use', 'Recurring grants', 'Mixed', 'Not planned yet']
+  • opex_estimate_year1 → chips: ['<R$ 5k/yr', 'R$ 5-20k/yr', 'R$ 20-50k/yr', 'R$ 50k+/yr', 'Not estimated yet']
+  • who_maintains → chips: ['Our organization', 'Community volunteers', 'Municipal partnership', 'External contractor', 'TBD']
+read_knowledge for OPEX of chosen NBS type. Carbon credits NOT practical at community scale.
 Score: Financial Thinking (0-3).`;
 
     case 4:
@@ -962,26 +988,54 @@ NÃO perguntar sobre orçamento de novo (Fase 3c). read_knowledge(_financing-sou
 Nível 1 (direto): Teia (R$100K), Fundo Casa RS (R$40K), Periferias Verdes, GEF SGP (US$50K).
 Nível 2 (parceria): Petrobras SbN Urbano, World Bank P178072. Monitor: capta.org.br.
 NÃO apresentar BNDES ou GCF como opções diretas para OBCs.
-Perguntar: necessidades técnicas, situação regulatória, capacitação, links (site, redes sociais).
+
+PERGUNTAS PRESCRITIVAS (ask_user com chips, exceto onde indicado):
+  • technical_needs → multi-select chips: ['Apoio em design', 'Engenharia', 'Monitoramento', 'Capacitação técnica', 'Múltiplos', 'Nenhum']
+  • regulatory_status → chips: ['Temos licenças', 'Em processo', 'Não iniciamos', 'Não sei se preciso']
+  • training_needs → multi-select chips: ['Design SbN', 'Gestão de projeto', 'Engajamento comunitário', 'Monitoramento', 'Financeiro', 'Captação', 'Nenhum']
+  • financial_gap → chips: ['<R$ 10k', 'R$ 10-50k', 'R$ 50-200k', 'R$ 200k+', 'Ainda não estimei']
+  • equipment_needed → texto livre (lista específica, ex: "ferramentas de jardinagem, mudas, viveiro")
+  • partnerships → texto livre: "Tem parcerias atuais ou potenciais? (universidades, prefeitura, ONGs, padrinhos)"
+  • online_presence → texto livre: site / Instagram / Facebook (URLs)
 Avaliar: Consciência Regulatória (0-3).`
         : `**Phase 4: What We Need** (needs_assessment) — REAL FUNDING SOURCES
 DO NOT re-ask about budget (Phase 3c). read_knowledge(_financing-sources/cbo-grants.md).
 Tier 1 (direct): Teia (R$100K), Fundo Casa RS (R$40K), Periferias Verdes, GEF SGP (US$50K).
 Tier 2 (partnership): Petrobras NBS Urbano, World Bank P178072. Monitor: capta.org.br.
 DO NOT present BNDES or GCF as direct CBO options.
-Ask: technical needs, regulatory status, training, links (website, social media).
+
+PRESCRIPTIVE QUESTIONS (ask_user with chips, unless noted):
+  • technical_needs → multi-select chips: ['Design support', 'Engineering', 'Monitoring', 'Technical capacity-building', 'Multiple', 'None']
+  • regulatory_status → chips: ['Have permits', 'In process', 'Not started', 'Not sure if needed']
+  • training_needs → multi-select chips: ['NBS design', 'Project management', 'Community engagement', 'Monitoring', 'Financial mgmt', 'Fundraising', 'None']
+  • financial_gap → chips: ['<R$ 10k', 'R$ 10-50k', 'R$ 50-200k', 'R$ 200k+', 'Not estimated yet']
+  • equipment_needed → free-text (specific list, e.g. "garden tools, seedlings, nursery")
+  • partnerships → free-text: "Any current or potential partnerships? (universities, city, NGOs, sponsors)"
+  • online_presence → free-text: website / Instagram / Facebook (URLs)
 Score: Regulatory Awareness (0-3).`;
 
     case 5:
       return isPt
         ? `**Fase 5: Resultados e Evidências** (results_evidence)
-Pedir: documentos (arrastar no chat), fotos antes/depois, dados de monitoramento, feedback comunitário, links.
-Avaliar flags: posse do terreno, dados de baseline, interesse do governo, co-financiamento, escalabilidade.
+PERGUNTAS PRESCRITIVAS:
+  • documents → pedir DRAG AND DROP: "Arraste no chat: propostas, relatórios, fotos antes/depois, plantas, orçamentos."
+  • data_collected → chips: ['Sim, temos dados quantitativos', 'Apenas dados qualitativos', 'Não medimos ainda', 'Estamos começando agora']
+  • community_feedback → chips: ['Forte apoio comunitário (com evidência)', 'Apoio moderado', 'Misto', 'Ainda construindo apoio']
+  • government_interest → chips: ['Apoio formal escrito', 'Interesse verbal', 'Em conversa', 'Sem contato ainda']
+  • co_financing → chips: ['Sim, já temos co-financiamento', 'Em negociação', 'Buscando ativamente', 'Ainda não']
+  • scalability → chips: ['Pode replicar em outros bairros já', 'Modelo testado, pronto pra escalar', 'Piloto único por enquanto', 'Não pensamos em escala ainda']
+Avaliar flags: posse do terreno (Fase 2), dados de baseline (Fase 3b), interesse do governo, co-financiamento, escalabilidade.
 Após completar: gerar placar de maturidade completo (todas 9 métricas + 6 flags) e chamar set_phase(6).
 Dizer: "Seu perfil está completo! Revise na aba Documento e clique Exportar."`
         : `**Phase 5: Results & Evidence** (results_evidence)
-Ask for: documents (drag into chat), before/after photos, monitoring data, community feedback, links.
-Assess flags: land tenure, baseline data, gov interest, co-financing, scalability.
+PRESCRIPTIVE QUESTIONS:
+  • documents → ask for DRAG AND DROP: "Drop into chat: proposals, reports, before/after photos, plans, budgets."
+  • data_collected → chips: ['Yes, we have quantitative data', 'Only qualitative data', 'Not measured yet', 'Just starting now']
+  • community_feedback → chips: ['Strong community support (with evidence)', 'Moderate support', 'Mixed', 'Still building support']
+  • government_interest → chips: ['Formal written support', 'Verbal interest', 'In conversation', 'No contact yet']
+  • co_financing → chips: ['Yes, already secured', 'In negotiation', 'Actively seeking', 'Not yet']
+  • scalability → chips: ['Can replicate in other neighborhoods now', 'Model tested, ready to scale', 'Single pilot for now', 'Have not thought about scale']
+Assess flags: land tenure (Phase 2), baseline data (Phase 3b), gov interest, co-financing, scalability.
 After completing: generate full maturity scorecard (all 9 metrics + 6 flags) and call set_phase(6).
 Say: "Your profile is complete! Review in the Document tab and click Export."`;
 
