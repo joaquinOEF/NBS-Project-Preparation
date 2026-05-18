@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NbsShowcaseCard · mockup</title>
+<style>
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --ink: #18181b; --muted: #71717a;
+    --line: rgba(0,0,0,0.08); --accent: #059669; --accent-soft: #ecfdf5;
+    --accent-deep: #047857;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; line-height: 1.5; font-size: 14px; }
+  .doc { max-width: 1280px; margin: 0 auto; padding: 48px 28px 96px; }
+  h1 { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 4px; }
+  h1 .small { font-size: 13px; font-weight: 400; color: var(--muted); }
+  h2.screen { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin: 56px 0 12px; }
+  .lede { color: var(--muted); margin: 8px 0 24px; max-width: 64ch; line-height: 1.6; }
+  .anno { font-size: 12px; color: var(--muted); margin: 8px 0 18px; padding-left: 14px; border-left: 2px solid var(--accent); max-width: 64ch; }
+  .scene { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 8px; }
+  .agent-msg {
+    background: #f4f4f5; border-radius: 14px; padding: 10px 14px;
+    font-size: 13px; line-height: 1.5; max-width: 600px; margin-bottom: 12px;
+  }
+  .strip-intro { font-size: 12px; color: var(--muted); padding-left: 4px; margin-bottom: 8px; }
+  .strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; }
+  .card {
+    flex-shrink: 0; width: 240px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    overflow: hidden; transition: all 0.15s;
+  }
+  .card.saved {
+    border-color: var(--accent); box-shadow: 0 0 0 2px rgba(5,150,105,0.2);
+  }
+  .thumb {
+    height: 128px; position: relative;
+    background-size: cover; background-position: center;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .thumb.placeholder { font-size: 48px; }
+  .thumb.barigui { background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 128"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="%23bfdbfe"/><stop offset="1" stop-color="%2334d399"/></linearGradient></defs><rect width="240" height="128" fill="url(%23g)"/><ellipse cx="120" cy="100" rx="80" ry="22" fill="%2306b6d4" opacity="0.4"/><circle cx="60" cy="60" r="18" fill="%2316a34a" opacity="0.7"/><circle cx="180" cy="55" r="22" fill="%2316a34a" opacity="0.8"/><circle cx="120" cy="50" r="20" fill="%2316a34a" opacity="0.75"/></svg>') center/cover;
+  }
+  .thumb.goncalo { background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 128"><defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="%23166534"/><stop offset="0.5" stop-color="%2316a34a"/><stop offset="1" stop-color="%2386efac"/></linearGradient></defs><rect width="240" height="128" fill="url(%23g)"/><rect x="60" y="80" width="120" height="48" fill="%2354382d" opacity="0.5"/><ellipse cx="40" cy="30" rx="32" ry="40" fill="%23166534"/><ellipse cx="120" cy="20" rx="40" ry="45" fill="%2315803d"/><ellipse cx="200" cy="35" rx="34" ry="42" fill="%23166534"/></svg>') center/cover; }
+  .thumb.drenurbs { background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 128"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="%23dcfce7"/><stop offset="1" stop-color="%2306b6d4"/></linearGradient></defs><rect width="240" height="128" fill="url(%23g)"/><path d="M0 100 Q60 80 120 95 T240 90 L240 128 L0 128 Z" fill="%2306b6d4" opacity="0.6"/><circle cx="40" cy="70" r="12" fill="%2316a34a"/><circle cx="170" cy="65" r="14" fill="%2316a34a"/><circle cx="210" cy="78" r="10" fill="%2316a34a"/></svg>') center/cover; }
+  .thumb.placeholder.biodiversity { background: linear-gradient(135deg, #d1fae5 0%, #6ee7b7 100%); }
+  .credit {
+    position: absolute; bottom: 0; right: 0;
+    padding: 2px 6px; background: rgba(0,0,0,0.5); color: white;
+    font-size: 8px; font-weight: 500;
+  }
+  .card-body { padding: 12px; }
+  .card-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .card-title h4 { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.25; }
+  .save-btn {
+    flex-shrink: 0; width: 24px; height: 24px; border-radius: 6px;
+    background: transparent; border: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); transition: all 0.15s;
+  }
+  .save-btn:hover { background: #f4f4f5; color: var(--ink); }
+  .save-btn.active { color: var(--accent); }
+  .meta {
+    font-size: 10px; color: var(--muted); margin-top: 5px;
+    display: flex; gap: 6px;
+  }
+  .summary { font-size: 11px; color: var(--ink); opacity: 0.85; line-height: 1.4; margin-top: 6px; }
+  .more {
+    font-size: 10px; font-weight: 500; color: var(--accent-deep);
+    margin-top: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 2px;
+  }
+
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px; }
+  .compare-cell { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .compare-cell .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-bottom: 8px; }
+  .compare-cell p { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 8px 0 0; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>NbsShowcaseCard <span class="small">· inline chat card · 4 verified examples</span></h1>
+  <p class="lede">
+    Shown at the start of E2 to build NBS vocabulary before the CBO touches the map. Renders horizontal-scroll inside the chat thread. Two modes: <strong>browse</strong> (has-idea path) and <strong>favorites</strong> (needs-help path, with per-card save toggle).
+  </p>
+
+  <h2 class="screen">browse mode · has-idea path</h2>
+  <p class="anno">Agent introduces the cards briefly, then the strip renders inline. No save buttons; user can scroll and tap "Saber mais" to expand any card.</p>
+
+  <div class="scene">
+    <div class="agent-msg">
+      Antes de abrir o mapa, dois exemplos rápidos pra você ter referência:
+    </div>
+
+    <div class="strip">
+      <div class="card">
+        <div class="thumb barigui">
+          <div class="credit">A. C. Fonseca · CC-BY-SA</div>
+        </div>
+        <div class="card-body">
+          <div class="card-title"><h4>Parques do Barigui</h4></div>
+          <div class="meta">📍 Curitiba, PR · 📅 1996 · enchente</div>
+          <p class="summary">Parques que viram retenção de água quando chove forte</p>
+          <span class="more">▼ Saber mais</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="thumb goncalo">
+          <div class="credit">Amigos da Rua · CC-BY-SA</div>
+        </div>
+        <div class="card-body">
+          <div class="card-title"><h4>Rua Gonçalo de Carvalho</h4></div>
+          <div class="meta">📍 Porto Alegre, RS · 📅 1930 · calor</div>
+          <p class="summary">Túnel de copa formado por 100+ Tipuanas em 3 quarteirões</p>
+          <span class="more">▼ Saber mais</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="thumb drenurbs">
+          <div class="credit">M. A. Dutra · CC-BY</div>
+        </div>
+        <div class="card-body">
+          <div class="card-title"><h4>DRENURBS — Primeiro de Maio</h4></div>
+          <div class="meta">📍 Belo Horizonte, MG · 📅 2003 · enchente</div>
+          <p class="summary">Recuperação de áreas úmidas + parque que aguenta a chuva</p>
+          <span class="more">▼ Saber mais</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="thumb placeholder biodiversity">🌱</div>
+        <div class="card-body">
+          <div class="card-title"><h4>Várzea Lab · Vila Flores</h4></div>
+          <div class="meta">📍 Porto Alegre, RS · 📅 2024 · misto</div>
+          <p class="summary">Hortas + jardins de chuva no 4º Distrito pós-enchente</p>
+          <span class="more">▼ Saber mais</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="screen">favorites mode · needs-help path</h2>
+  <p class="anno">Agent invites the user to save 1-2 examples. Saved cards get a green ring + filled bookmark. Saved IDs persist as <code>inspiration_picks[]</code> → E3's InterventionSelector pre-filters by them.</p>
+
+  <div class="scene">
+    <div class="agent-msg">
+      Vamos criar repertório antes do mapa. <strong>Salve 1 ou 2 que te chamam atenção</strong> — algum que parece que poderia funcionar no seu bairro.
+    </div>
+
+    <div class="strip">
+      <div class="card">
+        <div class="thumb barigui">
+          <div class="credit">A. C. Fonseca · CC-BY-SA</div>
+        </div>
+        <div class="card-body">
+          <div class="card-title">
+            <h4>Parques do Barigui</h4>
+            <button class="save-btn" title="Salvar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            </button>
+          </div>
+          <div class="meta">📍 Curitiba, PR · 📅 1996 · enchente</div>
+          <p class="summary">Parques que viram retenção de água quando chove forte</p>
+          <span class="more">▼ Saber mais</span>
+        </div>
+      </div>
+
+      <div class="card saved">
+        <div class="thumb goncalo">
+          <div class="credit">Amigos da Rua · CC-BY-SA</div>
+        </div>
+        <div class="card-body">
+          <div class="card-title">
+            <h4>Rua Gonçalo de Carvalho</h4>
+            <button class="save-btn active" title="Remover">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            </button>
+          </div>
+          <div class="meta">📍 Porto Alegre, RS · 📅 1930 · calor</div>
+          <p class="summary">Túnel de copa formado por 100+ Tipuanas em 3 quarteirões</p>
+          <span class="more">▼ Saber mais</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="thumb drenurbs">
+          <div class="credit">M. A. Dutra · CC-BY</div>
+        </div>
+        <div class="card-body">
+          <div class="card-title">
+            <h4>DRENURBS — Primeiro de Maio</h4>
+            <button class="save-btn" title="Salvar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            </button>
+          </div>
+          <div class="meta">📍 Belo Horizonte, MG · 📅 2003 · enchente</div>
+          <p class="summary">Recuperação de áreas úmidas + parque que aguenta a chuva</p>
+          <span class="more">▼ Saber mais</span>
+        </div>
+      </div>
+
+      <div class="card saved">
+        <div class="thumb placeholder biodiversity">🌱</div>
+        <div class="card-body">
+          <div class="card-title">
+            <h4>Várzea Lab · Vila Flores</h4>
+            <button class="save-btn active" title="Remover">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            </button>
+          </div>
+          <div class="meta">📍 Porto Alegre, RS · 📅 2024 · misto</div>
+          <p class="summary">Hortas + jardins de chuva no 4º Distrito pós-enchente</p>
+          <span class="more">▼ Saber mais</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="screen">Photo curation</h2>
+  <div class="compare-grid">
+    <div class="compare-cell">
+      <p class="lbl">Verified photo</p>
+      <p>3 of 4 cards use verified-source photos from the manifest at <code>docs/photo-curation.md</code>. Photographer + license badge in the bottom-right corner — non-intrusive but always visible.</p>
+      <p>The cards above use SVG approximations because the live photos aren't embedded in this static HTML. In the app they render the real <code>/assets/interventions/*.jpg</code> files.</p>
+    </div>
+    <div class="compare-cell">
+      <p class="lbl">Placeholder (Vila Flores)</p>
+      <p>Vila Flores Várzea Lab doesn't yet have a verified photo, so it ships with a gradient + emoji placeholder. The card is still useful (text describes the case) — it just doesn't claim to show a specific image.</p>
+      <p>When a photo is sourced and verified, the manifest entry switches from <code>placeholder</code> to <code>photo</code> and the card flips automatically.</p>
+    </div>
+  </div>
+
+  <p style="font-size: 11px; color: var(--muted); margin-top: 36px; border-top: 1px solid var(--line); padding-top: 16px;">
+    Component: <code>client/src/core/components/cbo/NbsShowcaseCard.tsx</code> · Data: <code>shared/nbs-showcase-cards.ts</code> · Manifest: <code>docs/photo-curation.md</code>. Agent tool (<code>show_examples</code>) lands in a follow-up PR.
+  </p>
+</div>
+</body>
+</html>
