@@ -460,24 +460,40 @@ export default function CboProfilePage() {
   const processEvent = useCallback((event: CboEvent) => {
     switch (event.type) {
       case 'chat': {
-        const isNarration = /^(Let me |Good|Now |Starting |I'll |I can |Reading |Loading |Setting |Phase )/i.test(event.content.trim())
-          || (event.content.length < 300 && !event.content.includes('##') && !event.content.includes('**'));
-        const msgType = isNarration ? 'thinking' : 'content';
+        // All 'chat' events render as regular chat bubbles. The old
+        // isNarration heuristic (regex + length<300 fallback) hid brief
+        // agent responses behind the WORKING preview after PR #196 made
+        // the agent ≤8-word acks. Thinking content (extended-thinking
+        // output) arrives via a separate 'chat_thinking' event handled
+        // below — that's the only path that should produce a WORKING
+        // preview now.
+        //
         // Mobile-only: flag unread on the Chat tab if the user is currently
         // looking at the right panel (map / selector / perfil).
-        if (!isNarration && mobileActiveTabRef.current !== 'chat') {
+        if (mobileActiveTabRef.current !== 'chat') {
           setMobileChatUnread(true);
         }
         setMessages(prev => {
           const last = prev[prev.length - 1];
-          if (isNarration && last?.messageType === 'thinking') {
-            const bullets = event.content.split(/(?<=\.)\s*/).filter(s => s.trim()).map(s => `- ${s.trim()}`).join('\n');
-            return [...prev.slice(0, -1), { ...last, content: last.content + '\n' + bullets }];
-          }
-          if (!isNarration && last?.role === 'assistant' && last.messageType === 'content') {
+          // Concatenate consecutive assistant chat chunks into one bubble
+          // (the SSE stream emits the response in pieces as the model
+          // generates it).
+          if (last?.role === 'assistant' && last.messageType === 'content') {
             return [...prev.slice(0, -1), { ...last, content: last.content + event.content }];
           }
-          return [...prev, { role: 'assistant' as const, content: isNarration ? event.content.split(/(?<=\.)\s*/).filter(s => s.trim()).map(s => `- ${s.trim()}`).join('\n') : event.content, messageType: msgType as any, timestamp: new Date().toISOString() }];
+          return [...prev, { role: 'assistant' as const, content: event.content, messageType: 'content', timestamp: new Date().toISOString() }];
+        });
+        break;
+      }
+      case 'chat_thinking': {
+        // Legitimate extended-thinking output from the SDK. Renders as
+        // the dashed WORKING preview block, separate from chat bubbles.
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last?.role === 'assistant' && last.messageType === 'thinking') {
+            return [...prev.slice(0, -1), { ...last, content: last.content + event.content }];
+          }
+          return [...prev, { role: 'assistant' as const, content: event.content, messageType: 'thinking', timestamp: new Date().toISOString() }];
         });
         break;
       }
