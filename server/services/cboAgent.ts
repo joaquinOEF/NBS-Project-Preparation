@@ -227,25 +227,11 @@ function createCboMcpTools(cboId: string) {
 
   const setPhase = sdkTool(
     "set_phase",
-    "Advance to next phase (1-6). Refuses to advance past phases the coordinator has unlocked. Forward-only — calls that would roll the phase backward are silently ignored.",
+    "Advance to next phase (1-6). Refuses to advance past phases the coordinator has unlocked.",
     { phase: z.number().min(0).max(6) },
     async (args: any) => {
       const state = getCboState(cboId);
       if (!state) return { content: [{ type: "text" as const, text: "Error: not found" }], isError: true };
-
-      // Forward-only guard. Three independent writers can change state.phase:
-      // (1) this tool when the agent decides to advance, (2) /advance-phase
-      // when the Start-Next-Workshop banner is clicked, (3) the chat handler
-      // regex on "vamos começar o encontro N". They generally agree, but a
-      // mid-stream SDK turn can race with /advance-phase — if the coordinator
-      // unlocked W4 and the client advanced state.phase to 4 while the agent
-      // was finishing E3, an agent set_phase(3) "stay here" call would
-      // silently roll the user back to E3. Block the rollback at the tool.
-      if (args.phase < state.phase) {
-        console.warn(`[cbo] set_phase(${args.phase}) blocked — state.phase is already ${state.phase} (no-op, possible /advance-phase race)`);
-        return { content: [{ type: "text" as const, text: `No-op: already at Phase ${state.phase} (cannot go backward).` }] };
-      }
-
       // Workshop-phased unlock gate. Standalone CBOs are ungated.
       // Phase 6 = export/wrap; not part of unlocks (always allowed once Phase 5 is unlocked).
       const policy = await getPhasePolicyForCbo(cboId);
@@ -661,19 +647,9 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   const pushEvent = (event: CboEvent) => {
     res.write(`data: ${JSON.stringify(event)}\n\n`);
     if (event.type === 'chat') {
-      // ALL chat events store as messageType: 'content'. The previous
-      // heuristic (regex + length<300 fallback) was catastrophically
-      // over-aggressive after PR #196 made the agent brief: any agent
-      // response under 300 chars without markdown headers/bold was
-      // misclassified as 'thinking' and hidden behind the WORKING
-      // preview UI. This nuked acks ("Got it."), short questions
-      // ("And who am I speaking with — what's your name?"), and any
-      // closing message that followed the new ≤6-line cap.
-      //
-      // Real thinking content comes via the SDK's `chat_thinking`
-      // event (handled below) when extended thinking is enabled — that's
-      // the only path that should produce messageType: 'thinking' now.
-      addCboMessage(cboId, { role: 'assistant', content: event.content, messageType: 'content', timestamp: new Date().toISOString() });
+      const isNarration = /^(Let me |Good[,. —]|Now |Starting |I'll |I can |I've |Reading |Loading |Setting |Creating |Phase )/i.test(event.content.trim())
+        || (event.content.length < 300 && !event.content.includes('##') && !event.content.includes('**'));
+      addCboMessage(cboId, { role: 'assistant', content: event.content, messageType: isNarration ? 'thinking' : 'content', timestamp: new Date().toISOString() });
     } else if (event.type === 'chat_thinking') {
       addCboMessage(cboId, { role: 'assistant', content: event.content, messageType: 'thinking', timestamp: new Date().toISOString() });
     }
@@ -710,61 +686,21 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
 
 async function streamWithSdk(cboId: string, userMessage: string, state: CboState, pushEvent: EventPusher, lang: string = 'en') {
   const mcpServer = getMcpServer(cboId);
-
-  // Compute budget — read from skill frontmatter (cached). Chip-heavy encontros
-  // declare Haiku + 0 thinking for ~3× faster turns; synthesis-heavy ones
-  // declare Sonnet + 4-8k thinking. See knowledge/_skills/README.md.
-  const skill = state.phase >= 1 ? await loadEncontroSkill(state.phase) : null;
-  let model = skill?.config.model;
-  let thinkingBudget = skill?.config.thinkingBudget ?? 0;
-
-  // Escalation hatch: file uploads contain parsed document content and need
-  // real reasoning to map into sections. Override the skill default to Sonnet
-  // + thinking regardless of which encontro we're in. Detected by the upload
-  // prompt prefix used by the file-drop handler (see cbo-profile.tsx).
-  const isFileUpload = /^(I'm uploading:|Estou enviando:|Uploaded ")/.test(userMessage);
-  if (isFileUpload) {
-    model = 'claude-sonnet-4-6';
-    thinkingBudget = 4000;
-  }
-
-  // Decision-log window: synthesis turns (Sonnet+thinking) get 30 messages so
-  // the agent can reason about E1-E4 history when scoring maturity in E5.
-  // Chip turns (Haiku, no thinking) get 8 — enough to know what was just
-  // asked, no need to drag the whole session through every turn.
-  const decisionLogWindow = thinkingBudget > 0 ? 30 : 8;
-
-  const systemPrompt = await buildSystemContext(state, lang);
+  const sysCtx = await buildSystemContext(state, lang);
   const stateSummary = buildStateSummary(state);
-  const decisionLog = buildDecisionLog(cboId, decisionLogWindow);
+  const decisionLog = buildDecisionLog(cboId);
   const policy = await getPhasePolicyForCbo(cboId);
   const accessPolicy = buildAccessPolicyPrompt(policy);
 
-  // Split static vs dynamic for the SDK:
-  //   systemPrompt  →  identity, tool list, phase instructions (skill markdown),
-  //                    rules, COUGAR criteria, knowledge listing. ~5K tokens.
-  //                    Stable across turns within a phase, so it's a cache target.
-  //   prompt        →  current section snapshot, tiered decision log, access
-  //                    policy, and the user's actual message. Changes every turn.
-  //
-  // The static block lives in options.systemPrompt so the SDK's internal prompt
-  // caching machinery can hit it. See knowledge/_skills/README.md for compute
-  // budget context.
-  const prompt = `## CURRENT STATE\n${stateSummary}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\nUser message: ${userMessage}`;
+  const prompt = `${sysCtx}\n\n## CURRENT STATE\n${stateSummary}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\nUser message: ${userMessage}`;
 
-  const sectionsFilled = Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length;
-  const sysTokens = Math.round(systemPrompt.length / 4);
-  const userTokens = Math.round(prompt.length / 4);
-  console.log(`[cbo] Turn for ${cboId} phase=${state.phase} sections=${sectionsFilled}/7 model=${model ?? 'sdk-default'} thinking=${thinkingBudget} log-window=${decisionLogWindow} sys~${sysTokens}t user~${userTokens}t${isFileUpload ? ' (file-upload escalation)' : ''}`);
+  console.log(`[cbo] Turn for ${cboId} (phase ${state.phase}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length}/7 sections)`);
 
   try {
     for await (const message of sdkQuery({
       prompt,
       options: {
         cwd: process.cwd(),
-        systemPrompt,
-        ...(model ? { model } : {}),
-        ...(thinkingBudget > 0 ? { maxThinkingTokens: thinkingBudget } : {}),
         allowedTools: [
           "Read", "Glob", "Grep",
           "mcp__cbo__update_section",
@@ -821,35 +757,24 @@ function buildStateSummary(state: CboState): string {
   return lines.join('\n');
 }
 
-function buildDecisionLog(cboId: string, windowSize: number = 8): string {
+function buildDecisionLog(cboId: string): string {
   // The SDK is called per-turn with no session continuity, so the agent has
   // no native memory of its own previous responses. Without that context,
   // the agent reads a user message like "Test Huerta" with no idea it was
   // a reply to "what's your org name?" — and starts re-introducing itself
   // every turn. Interleave user + assistant messages so the agent sees the
   // recent conversation as a coherent thread.
-  //
-  // windowSize is tiered by streamWithSdk: chip-heavy Haiku turns get 8
-  // (~4 user replies, enough to remember the current question); synthesis
-  // turns on Sonnet+thinking get 30 (~15 user replies, enough for E5 to
-  // score maturity across everything captured in E1-E4). Messages beyond
-  // the window get summarized as a one-liner count so the agent knows the
-  // conversation is longer than what's shown.
   const msgs = getCboMessages(cboId).filter(m =>
     m.messageType === 'content' &&
     !!m.content?.trim()
   );
   if (msgs.length === 0) return 'No prior conversation. This is the first turn — introduce yourself and start the flow.';
-  const recent = msgs.slice(-windowSize);
-  const olderCount = msgs.length - recent.length;
-  const lines = recent.map(m => {
+  // Last 8 messages (≈ 4 turns each direction). Truncate each to keep prompt small.
+  const recent = msgs.slice(-8);
+  return recent.map(m => {
     const who = m.role === 'user' ? 'User' : 'You (agent)';
     return `- ${who}: ${m.content.slice(0, 300)}`;
-  });
-  if (olderCount > 0) {
-    lines.unshift(`(${olderCount} earlier message${olderCount === 1 ? '' : 's'} omitted — captured answers are in CURRENT STATE above.)`);
-  }
-  return lines.join('\n');
+  }).join('\n');
 }
 
 // Knowledge cache (cleared on server restart)
@@ -889,10 +814,8 @@ async function buildSystemContext(state: CboState, lang: string = 'en'): Promise
   // Prefer encontro skill markdown from knowledge/_skills/encontro-{N}.md when
   // present (E1-E6 curriculum); fall back to the hardcoded block for phases
   // that haven't been migrated yet. Phase 0 = pre-onboarding, no encontro.
-  // Compute budget (model + thinking) is read from skill frontmatter in
-  // streamWithSdk via the same loader (cached, so no double fs read).
-  const encontroSkill = state.phase >= 1 ? await loadEncontroSkill(state.phase) : null;
-  const phaseInstructions = encontroSkill?.content ?? buildPhaseInstructions(state.phase, isPt);
+  const encontroSkillMd = state.phase >= 1 ? await loadEncontroSkill(state.phase) : null;
+  const phaseInstructions = encontroSkillMd ?? buildPhaseInstructions(state.phase, isPt);
 
   // ── City summary (condensed, always loaded) ──
   const citySummary = isPt
@@ -900,37 +823,11 @@ async function buildSystemContext(state: CboState, lang: string = 'en'): Promise
     : `Porto Alegre, RS, Brazil. Pop 1.4M. Catastrophic floods May 2024 (worst in RS history). Risks: Guaíba river flooding, heat islands (4° Distrito, Centro), landslide (morros/hillsides). Plans: PCVR, World Bank P178072 (US$85M green resilient regeneration). Precedents: Orla do Guaíba (5.7ha native species park), Regenera Dilúvio. COUGAR mapped 50+ ecosystem actors.`;
 
   // ── Assemble prompt ──
-  // CRITICAL RULES first — Haiku in particular tends to skip rules buried at
-  // the bottom of long system prompts. Language and chip-preference are the
-  // two rules we keep seeing drift on, so they go at the very top with hard
-  // assertions, not soft preferences.
   const prompt = `${isPt
-    ? `# REGRAS ABSOLUTAS — VIOLAR QUALQUER UMA É UMA FALHA CRÍTICA
-
-1. **IDIOMA: 100% PORTUGUÊS DO BRASIL.** Toda mensagem de texto, todo label de chip em ask_user, todo valor em update_section. Sem mistura de inglês. Nenhuma frase em inglês — nem "Great!", nem "Let's", nem "Now", nem "What's", nem listas com "Organization:" / "Neighborhood:". Se você precisa confirmar dados, escreva em português: "Organização: …", "Bairro: …", "Contato: …".
-
-2. **PERGUNTAS COM 2-7 OPÇÕES NATURAIS = ask_user COM CHIPS.** Nunca free-text quando há opções discretas. Papel do contato, forma jurídica, tamanho da equipe, proporção paga/voluntária, tipo de organização, qualquer Sim/Não, qualquer escolha de bucket — TUDO via ask_user. Free-text APENAS para: nome próprio, nome da organização, missão em uma frase, descrição livre única.
-
-3. **NÃO BUNDLE.** Cada pergunta é UMA chamada ask_user. Nunca dois temas num só chip ("CBO; 16-30 pessoas" = ERRADO).
-
-4. **PERSISTIR ANTES DE PERGUNTAR.** Após cada resposta livre do usuário (texto digitado), chame update_section() ANTES da próxima pergunta. Caso contrário o estado fica vazio.
-
----
-
-Você é um consultor de preparação de projetos de SbN ajudando uma organização comunitária em ${state.city}. Você NÃO está apenas coletando dados — está ajudando-os a PENSAR como um consultor.`
-    : `# ABSOLUTE RULES — VIOLATING ANY IS A CRITICAL FAILURE
-
-1. **LANGUAGE: respond in English** (when the user picker is English) — but update_section content stays in Portuguese for Brazilian orgs.
-
-2. **QUESTIONS WITH 2-7 NATURAL BUCKETS = ask_user WITH CHIPS.** Never free-text when discrete options exist. Contact role, legal form, team size, paid/volunteer split, org type, any yes/no, any bucket choice — ALL via ask_user. Free-text ONLY for: contact name, org name, one-sentence mission, unique freeform description.
-
-3. **NO BUNDLING.** One ask_user per question. Never two topics in one chip ("CBO; 16-30 people" = WRONG).
-
-4. **PERSIST BEFORE ASKING.** After any free-text user reply, call update_section() BEFORE the next question. Otherwise state stays empty.
-
----
-
-You are an NBS project preparation consultant helping a community organization in ${state.city}. You are NOT just collecting data — you are helping them THINK through their project like a consultant.`}
+    ? `Você é um consultor de preparação de projetos de SbN ajudando uma organização comunitária em ${state.city}. Você NÃO está apenas coletando dados — está ajudando-os a PENSAR como um consultor.
+IDIOMA: TUDO em português do Brasil. Todas as mensagens, opções de ask_user e valores de update_section. Sem exceções.`
+    : `You are an NBS project preparation consultant helping a community organization in ${state.city}. You are NOT just collecting data — you are helping them THINK through their project like a consultant.
+LANGUAGE: Respond in English. update_section content in Portuguese for Brazilian orgs.`}
 
 Phase: ${state.phase}. Org: ${state.orgName || '(not set)'}.
 
@@ -955,8 +852,8 @@ ${phaseInstructions}
 ## RULES
 ${isPt
   ? `- Ser caloroso, encorajador e consultivo. Linguagem simples, sem jargão.
-- **SE RECENT CONVERSATION está vazio**: este é o primeiro turno do encontro atual. Abra com a introdução prevista no skill da fase atual e faça a primeira pergunta. NÃO chame set_phase — a fase já está definida.
-- **SE há mensagens em RECENT CONVERSATION**: você está NO MEIO da conversa. NÃO se reintroduza. Continue de onde parou. Antes de qualquer pergunta nova, **persista a resposta anterior do usuário** via update_section() — sem isso, o estado fica vazio e tudo se perde.
+- **SE phase = 0 E RECENT CONVERSATION está vazio**: introduza-se brevemente, mencione upload de documentos, chame set_phase(1), e faça a primeira pergunta. NÃO repita a introdução em turnos subsequentes.
+- **SE phase ≥ 1 OU já há mensagens em RECENT CONVERSATION**: você está NO MEIO da conversa. NÃO se reintroduza. Continue de onde parou. Antes de qualquer pergunta nova, **persista a resposta anterior do usuário** via update_section() — sem isso, o estado fica vazio e tudo se perde.
 - **Após CADA resposta livre do usuário** (texto digitado): chame update_section('<sectionId>', { <campo>: '<valor>' }) ANTES de fazer a próxima pergunta. Isso é OBRIGATÓRIO.
 - Pontuar métricas conforme coleta (não esperar). Fase 2: open_map composite. Fase 3a: open_intervention_selector.
 - **PADRÃO: SEMPRE usar ask_user com chips** para qualquer pergunta com 2-7 buckets naturais (tipo de org, tamanho de equipe, proporção paga/voluntária, escala de projeto, experiência SbN, etc). Texto livre SOMENTE para inputs genuinamente únicos: nome da org, missão em uma frase, momento de orgulho. Proporções e "splits" SEMPRE viram chips ("Todas voluntárias", "Maioria voluntárias", "Metade e metade", etc) — NUNCA pedir números exatos via texto livre.
@@ -967,8 +864,8 @@ ${isPt
 - Pedir evidências em 3 momentos: após Fase 2 (fotos), após Fase 3a (documentos), Fase 5 (links).
 - Após Fase 5: placar completo + set_phase(6). Pedir revisão do documento antes de exportar.`
   : `- Be warm, encouraging, consultative. Simple language, no jargon.
-- **IF RECENT CONVERSATION is empty**: this is the first turn of the current encontro. Open with the introduction prescribed in the current phase's skill and ask the first question. Do NOT call set_phase — the phase is already set.
-- **IF RECENT CONVERSATION has messages**: you are MID-conversation. Do NOT re-introduce. Continue from where you left off. Before any new question, **persist the user's previous answer** via update_section() — without that, state stays empty and progress is lost.
+- **IF phase = 0 AND RECENT CONVERSATION is empty**: introduce yourself briefly, mention document upload, call set_phase(1), ask the first question. Do NOT repeat the intro on subsequent turns.
+- **IF phase ≥ 1 OR RECENT CONVERSATION has messages**: you are MID-conversation. Do NOT re-introduce. Continue from where you left off. Before any new question, **persist the user's previous answer** via update_section() — without that, state stays empty and progress is lost.
 - **After EVERY free-text user answer**: call update_section('<sectionId>', { <field>: '<value>' }) BEFORE the next question. This is MANDATORY.
 - Score metrics as you go (don't wait). Phase 2: open_map composite. Phase 3a: open_intervention_selector.
 - **DEFAULT: ALWAYS use ask_user with chips** for any question with 2-7 natural buckets (org type, team size, paid/volunteer split, project scale, NBS experience, etc). Free-text ONLY for genuinely unique inputs: org name, one-sentence mission, proud-moment story. Ratios and splits ALWAYS become chips ("All volunteers", "Mostly volunteers", "Half and half", etc) — NEVER ask for exact numbers via free-text.
@@ -991,6 +888,7 @@ ${cougarCriteriaCache}
 ## KNOWLEDGE FILES (use read_knowledge to access)
 ${knowledgeListingCache}`;
 
+  console.log(`[cbo] Prompt size: ~${Math.round(prompt.length / 4)} tokens (${prompt.length} chars) for phase ${state.phase}`);
   return prompt;
 }
 

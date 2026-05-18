@@ -235,12 +235,6 @@ export default function CboProfilePage() {
   // When arriving via ?cbo=<slug>, render the premium welcome screen until
   // the user taps Start / Continue. Flipped to true once member-fetch lands.
   const [welcomeMode, setWelcomeMode] = useState(false);
-  // Flag set by handleRestart so the kickoff fires AFTER the new cboId has
-  // flushed into state. Calling kickoffChat inline right after handleRestart
-  // races with React's batching — the kickoffChat closure captures the old
-  // (deleted) cboId and POSTs /api/cbo/<old>/chat → 404. The effect below
-  // watches [pendingKickoff, cboId] and only fires when both are true.
-  const [pendingKickoff, setPendingKickoff] = useState(false);
   // Per-encontro preamble — once dismissed, the encontro's first session reveals
   // the chat. State is encontro number 1-6 OR null (no preamble showing).
   const [preambleEncontro, setPreambleEncontro] = useState<number | null>(null);
@@ -309,15 +303,11 @@ export default function CboProfilePage() {
   // orgName + neighborhood at invite time — re-asking on the first chat
   // turn is bad UX. The server-side prefill is idempotent (won't overwrite
   // userEdited fields), so firing it repeatedly is safe.
-  //
-  // Track the cboId that was prefilled (not just a boolean) so that
-  // handleRestart's new cboId triggers a fresh prefill instead of being
-  // skipped by a sticky guard.
-  const prefilledCboIdRef = useRef<string | null>(null);
+  const prefillSentRef = useRef(false);
   useEffect(() => {
+    if (prefillSentRef.current) return;
     if (!cboId || !memberInfo) return;
-    if (prefilledCboIdRef.current === cboId) return;
-    prefilledCboIdRef.current = cboId;
+    prefillSentRef.current = true;
     fetch(`/api/cbo/${cboId}/prefill`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -460,40 +450,24 @@ export default function CboProfilePage() {
   const processEvent = useCallback((event: CboEvent) => {
     switch (event.type) {
       case 'chat': {
-        // All 'chat' events render as regular chat bubbles. The old
-        // isNarration heuristic (regex + length<300 fallback) hid brief
-        // agent responses behind the WORKING preview after PR #196 made
-        // the agent ≤8-word acks. Thinking content (extended-thinking
-        // output) arrives via a separate 'chat_thinking' event handled
-        // below — that's the only path that should produce a WORKING
-        // preview now.
-        //
+        const isNarration = /^(Let me |Good|Now |Starting |I'll |I can |Reading |Loading |Setting |Phase )/i.test(event.content.trim())
+          || (event.content.length < 300 && !event.content.includes('##') && !event.content.includes('**'));
+        const msgType = isNarration ? 'thinking' : 'content';
         // Mobile-only: flag unread on the Chat tab if the user is currently
         // looking at the right panel (map / selector / perfil).
-        if (mobileActiveTabRef.current !== 'chat') {
+        if (!isNarration && mobileActiveTabRef.current !== 'chat') {
           setMobileChatUnread(true);
         }
         setMessages(prev => {
           const last = prev[prev.length - 1];
-          // Concatenate consecutive assistant chat chunks into one bubble
-          // (the SSE stream emits the response in pieces as the model
-          // generates it).
-          if (last?.role === 'assistant' && last.messageType === 'content') {
+          if (isNarration && last?.messageType === 'thinking') {
+            const bullets = event.content.split(/(?<=\.)\s*/).filter(s => s.trim()).map(s => `- ${s.trim()}`).join('\n');
+            return [...prev.slice(0, -1), { ...last, content: last.content + '\n' + bullets }];
+          }
+          if (!isNarration && last?.role === 'assistant' && last.messageType === 'content') {
             return [...prev.slice(0, -1), { ...last, content: last.content + event.content }];
           }
-          return [...prev, { role: 'assistant' as const, content: event.content, messageType: 'content', timestamp: new Date().toISOString() }];
-        });
-        break;
-      }
-      case 'chat_thinking': {
-        // Legitimate extended-thinking output from the SDK. Renders as
-        // the dashed WORKING preview block, separate from chat bubbles.
-        setMessages(prev => {
-          const last = prev[prev.length - 1];
-          if (last?.role === 'assistant' && last.messageType === 'thinking') {
-            return [...prev.slice(0, -1), { ...last, content: last.content + event.content }];
-          }
-          return [...prev, { role: 'assistant' as const, content: event.content, messageType: 'thinking', timestamp: new Date().toISOString() }];
+          return [...prev, { role: 'assistant' as const, content: isNarration ? event.content.split(/(?<=\.)\s*/).filter(s => s.trim()).map(s => `- ${s.trim()}`).join('\n') : event.content, messageType: msgType as any, timestamp: new Date().toISOString() }];
         });
         break;
       }
@@ -651,36 +625,13 @@ export default function CboProfilePage() {
   }, [cboId, processEvent]);
 
   const handleRestart = useCallback(async () => {
-    // Two stores hold the user's session: the CBO state row (sections,
-    // maturity, messages) and the cohort-member row (path, inspirationPicks,
-    // supportRequests, snapshot fields). Wiping only the first leaves the
-    // second leaking into the fresh session — the agent's earlier set_path
-    // call sticks, the saved NBS showcase cards re-appear, etc. Reset both.
-    //
-    // ORDER MATTERS: clear local React state BEFORE any await. Otherwise
-    // the pendingKickoff effect (which watches `cboId`) sees the OLD truthy
-    // cboId during the await and fires kickoffChat() against the soon-to-be-
-    // deleted CBO → 404. By the time React batches in the next render,
-    // cboId is null and the effect waits for the new id.
-    const oldCboId = cboId;
+    if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
     clearId(); saveMapParams(null); setOpenMapParams(null); setInterventionSelectorParams(null); setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
     setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
-    // Cohort-member-derived React state — server is wiped below; mirror that
-    // locally so the UI doesn't keep rendering the stale path / picks / count
-    // until the next polling refresh.
-    setMemberPath(null);
-    setInspirationPicks([]);
-    setSupportPendingCount(0);
-    setShowcase(null);
-
-    // Now do the server-side cleanup with the captured old id.
-    if (oldCboId) { try { await fetch(`/api/cbo/${oldCboId}`, { method: 'DELETE' }); } catch {} }
-    if (memberSlug) { try { await fetch(`/api/cbo-member/${memberSlug}/reset-session`, { method: 'POST' }); } catch {} }
-
     const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
     const data = await res.json();
     setCboId(data.cboId); setState(data.state); saveId(data.cboId);
-  }, [cboId, memberSlug]);
+  }, [cboId]);
 
   // Kick off the agent chat with the standard intake prompt. Hidden from the
   // visible message stream — the agent's first response is what the user sees.
@@ -692,14 +643,6 @@ export default function CboProfilePage() {
       : "Start the CBO intervention profile for Porto Alegre. Use the /cbo-intervention skill flow. Always use the ask_user tool for multiple-choice questions. In your first message, mention that the user can drop existing documents (proposals, reports, plans, photos) into the chat at any time — you'll extract info and auto-fill sections.";
     sendMessage(text, true);
   }, [lang, sendMessage]);
-
-  // Fire a pending kickoff once the new cboId has flushed into state and
-  // kickoffChat has been re-built with the fresh closure. Set by handleRestart.
-  useEffect(() => {
-    if (!pendingKickoff || !cboId) return;
-    setPendingKickoff(false);
-    kickoffChat();
-  }, [pendingKickoff, cboId, kickoffChat]);
 
   // File drop handler
   const { isDragging, isUploading, dragHandlers } = useFileDrop({
@@ -719,14 +662,7 @@ export default function CboProfilePage() {
   // single-CTA first-impression. Tapping Start (or Continue) flips
   // welcomeMode off and reveals either the encontro preamble or the chat.
   if (welcomeMode && memberInfo) {
-    // hasExistingProgress = the user has actually engaged. Previously we also
-    // checked (state?.phase ?? 0) > 0, but PR #191 changed the initial CBO
-    // state phase from 0 to 1 (to skip the slow phase-0 turn). After that
-    // change, every freshly-created CBO has phase=1 from the moment the row
-    // exists — so the phase check fired for brand-new invitees and they saw
-    // "Continue where I left off" on their first visit. messages.length is
-    // the only signal that actually means "they typed/clicked something."
-    const hasExistingProgress = messages.length > 0;
+    const hasExistingProgress = messages.length > 0 || (state?.phase ?? 0) > 0;
     // Show preamble for current phase if not yet seen. Fires for both
     // first-time Start and Resume — the seen flag handles dedup so the same
     // CBO doesn't see E1's preamble twice, but they DO see E2's the first
@@ -750,31 +686,9 @@ export default function CboProfilePage() {
         focusWorkshopIsCurrent={focusWorkshopIsCurrent}
         unlockedPhases={unlockedPhases}
         hasExistingProgress={hasExistingProgress}
-        onStart={async () => {
-          // CboWelcome fires onStart from two places:
-          //   1. The primary CTA when there is no existing progress (first
-          //      visit) — kick off the chat fresh.
-          //   2. The secondary "Or start over" link when there IS existing
-          //      progress — the user wants to wipe and begin from zero.
-          // The two cases need different side effects, so branch here.
-          if (hasExistingProgress) {
-            const confirmMsg = lang === 'pt'
-              ? 'Começar de novo apaga toda sua conversa e respostas anteriores. Tem certeza?'
-              : 'Starting over will erase your current conversation and answers. Are you sure?';
-            if (!window.confirm(confirmMsg)) return;
-            setWelcomeMode(false);
-            // Defer kickoff to the effect — calling kickoffChat() inline here
-            // would race with React's batching: the closure has captured the
-            // old (now-deleted) cboId. The effect fires once cboId has
-            // flushed to the new value, kickoffChat re-built with the fresh
-            // closure. Skip the preamble — user already saw it before
-            // restarting, and localStorage's seen-flag would suppress it.
-            setPendingKickoff(true);
-            await handleRestart();
-            return;
-          }
+        onStart={() => {
           setWelcomeMode(false);
-          if (!tryShowPreamble()) kickoffChat();
+          if (!tryShowPreamble() && !hasExistingProgress) kickoffChat();
         }}
         onResume={() => {
           setWelcomeMode(false);
@@ -1067,42 +981,9 @@ export default function CboProfilePage() {
                 When the coordinator opens a workshop higher than the user's
                 current phase, this card appears so the CBO knows the next
                 encontro is available + has a clear CTA to enter it. Without
-                this, the user has no signal that anything changed.
-
-                Gates (in order):
-                1. Not streaming, has messages, phase > 0 — basic readiness.
-                2. No active ask_user — answer the current question first.
-                3. Current phase complete — defined as: every maturity metric
-                   the agent is supposed to score during this phase has a
-                   score recorded. This replaces an earlier "≥3 user replies"
-                   heuristic; the explicit completion signal is much stronger
-                   and matches the user's mental model ("I haven't finished
-                   E1, why is E2 being offered?"). Mapping below mirrors the
-                   per-phase scoring instructions in the skill markdown +
-                   buildPhaseInstructions fallback. */}
+                this, the user has no signal that anything changed. */}
             {(() => {
               if (isStreaming || messages.length === 0 || state.phase === 0) return null;
-              if (currentQuestion) return null;
-
-              // Phase → required maturity metrics. Source of truth: the
-              // "Score: …" lines in each phase's instruction block in
-              // server/services/cboAgent.ts:buildPhaseInstructions and the
-              // matching skill markdown. Keep in sync when scoring rules
-              // change in either place.
-              const PHASE_COMPLETION_METRICS: Record<number, string[]> = {
-                1: ['org_delivery_capacity', 'team_technical_experience'],
-                2: ['site_control', 'community_anchoring'],
-                3: ['problem_clarity', 'solution_clarity', 'climate_nbs_impact', 'financial_thinking'],
-                4: ['regulatory_awareness'],
-                5: [], // E5 produces the full scorecard then advances to phase 6 — no banner needed
-              };
-              const required = PHASE_COMPLETION_METRICS[state.phase] ?? [];
-              if (required.length > 0) {
-                const scored = new Set((state.maturityScores ?? []).map(s => s.metric));
-                const allScored = required.every(m => scored.has(m));
-                if (!allScored) return null;
-              }
-
               const nextUnlockedPhase = unlockedPhases.find(p => p > state.phase);
               if (nextUnlockedPhase == null) return null;
               const ws = workshops.find(w => w.unlocksPhase === nextUnlockedPhase);

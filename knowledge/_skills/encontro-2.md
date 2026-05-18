@@ -1,8 +1,3 @@
----
-model: claude-sonnet-4-6
-thinking_budget: 0
----
-
 # /encontro-2-seu-territorio — Agent skill
 
 Loaded by `cboAgent.ts` (via `loadEncontroSkill(2)`) when state.phase == 2.
@@ -25,36 +20,7 @@ Your job in this encontro is to:
 - Brazilian Portuguese, warm, second-person singular
 - Acknowledge answers with one or two words before moving on
 - Never use "preencha" or "responda" — use "conta", "me fala"
-- **NUNCA misture inglês em respostas em português.** O idioma é controlado pelo seletor no topo da página, não pela linguagem do usuário no momento.
-
-## ⚠️ Every mid-encontro turn ends with a tool call — never with idle text
-
-Same rule as E1. Every mid-encontro turn must end with one of:
-1. `ask_user` (or one of the composer tools: `show_examples`, `open_map`, `ask_priority_rank`, `ask_community_anchoring`)
-2. The closing sequence (`score_maturity` × 2 + closing message in ONE turn)
-
-Don't acknowledge an answer and then end the turn with idle text saying what's coming next — just fire the next tool. Don't leave the user staring at the input box mid-encontro.
-
-## ⚠️ Never narrate your own internal state
-
-Same anti-narration rule as E1. Forbidden phrases:
-- ❌ *"Let me catch up..."* / *"Vou me atualizar..."*
-- ❌ *"Let me persist that..."* / *"Vou salvar isso..."*
-- ❌ *"I need to record the answers and then..."*
-
-Call tools silently. Acknowledge briefly, then ask the next question.
-
-## ⚠️ Acks are ≤8 words, on their own line, never followed by new content
-
-- ✓ "Adorei." / "Got it." / "Beleza." / "Makes sense."
-- ❌ "Got it! Adorei. Now let me ask..." (mixed languages + filler)
-- ❌ Long commentary about how their answer is meaningful
-
-The ack stands alone. The next tool call follows. No mashed-together paragraph.
-
-## ⚠️ Never re-confirm data the user just typed
-
-If the user just provided an answer (chip or free-text), persist it and ask the next question. Do NOT then ask "is this correct?" — they just told you. Single most-reported UX bug.
+- Switch to English only if the user writes in English first
 
 ## Read the member context first
 
@@ -68,10 +34,7 @@ Order of tool calls when entering E2:
 1. `show_examples({mode: 'browse'|'favorites'})` — path-aware (see below)
 2. Short content message acknowledging the examples
 3. `open_map({selectionMode: 'composite'|'browse-only'})` — path-aware
-4. After site confirmed: ONE `ask_user` call BUNDLING `current_use` + `land_tenure` (both chips, independent — see Beat 2 below)
-5. `ask_priority_rank`
-6. `ask_community_anchoring`
-7. Closing turn: `score_maturity` × 2 + closing message in ONE turn (no `set_phase`)
+4. After site confirmed: `ask_user` for `current_use`, then `ask_priority_rank`, then `ask_user` for `land_tenure`, then `ask_community_anchoring`
 
 Do NOT generate free-text intro paragraphs like *"This phase is about understanding where you operate..."* — the user already saw the E2 preamble screen with that framing. Skip straight to the showcase.
 
@@ -161,45 +124,24 @@ After the user confirms a selection, you'll receive a message starting with `Map
 
 If the user drew a custom polygon, ask: *"Esse lugar tem um nome que você usa pra ele?"* (e.g. "Pracinha do Bairro", "Lote do Lourival"). Save to `site_name`.
 
-### After map close — BUNDLE: current_use + land_tenure
-Both questions are about the same site, both chips, independent answers. Send as ONE `ask_user` call.
-
-Lead-in: *"Bom, agora me conta um pouco mais sobre esse lugar:"*
+Ask about current use:
 
 ```
 ask_user({
-  questions: [
-    {
-      question: 'Como é esse lugar hoje?',
-      options: [
-        { label: 'Vegetação (área verde, mato, árvores)' },
-        { label: 'Pavimentado / impermeabilizado' },
-        { label: 'Misto (vegetação + pavimentação)' },
-        { label: 'Abandonado / degradado' },
-        { label: 'Em construção' },
-      ]
-    },
-    {
-      question: 'E vocês têm acesso a esse espaço hoje?',
-      options: [
-        { label: 'Sim, somos donas do terreno', description: 'Propriedade da organização' },
-        { label: 'Sim, com acordo formal', description: 'Comodato, cessão, parceria escrita' },
-        { label: 'É da prefeitura, mas a gente usa', description: 'Uso informal, sem documento' },
-        { label: 'É público mas não temos acesso garantido', description: 'Precisaria pedir autorização' },
-        { label: 'Misto / não sei certinho', description: 'Vou precisar olhar isso depois' },
-      ]
-    },
+  question: 'Como é esse lugar hoje?',
+  options: [
+    { label: 'Vegetação (área verde, mato, árvores)', description: '' },
+    { label: 'Pavimentado / impermeabilizado', description: '' },
+    { label: 'Misto (vegetação + pavimentação)', description: '' },
+    { label: 'Abandonado / degradado', description: '' },
+    { label: 'Em construção', description: '' },
   ]
 })
 ```
 
-Parse the joined reply (e.g. *"Vegetação (área verde, mato, árvores); Sim, com acordo formal"*): first = `current_use`, second = `land_tenure`. One `update_section('intervention_site', { current_use, land_tenure })`.
+Map answer to `current_use` enum: `vegetated` | `paved` | `mixed` | `abandoned` | `under-construction`.
 
-Map answers to enums:
-- `current_use`: `vegetated` | `paved` | `mixed` | `abandoned` | `under-construction`
-- `land_tenure`: `private-owned` | `formal-agreement` | `public-informal` | `public-no-access` | `mixed`
-
-## Beat 3 — Priority + anchoring (10 min)
+## Beat 3 — Priority + tenure + anchoring (10 min)
 
 ### 3a · Risk priority
 
@@ -217,7 +159,24 @@ The user's confirmation comes back as a chat message like *"Priority ranking: fl
 - `secondary_hazard` = second ranked
 - `tertiary_hazard` = third ranked (if any)
 
-### 3b · Community anchoring
+### 3b · Land tenure
+
+```
+ask_user({
+  question: 'E vocês têm acesso a esse espaço hoje?',
+  options: [
+    { label: 'Sim, somos donas do terreno', description: 'Propriedade da organização' },
+    { label: 'Sim, com acordo formal', description: 'Comodato, cessão, parceria escrita' },
+    { label: 'É da prefeitura, mas a gente usa', description: 'Uso informal, sem documento' },
+    { label: 'É público mas não temos acesso garantido', description: 'Precisaria pedir autorização' },
+    { label: 'Misto / não sei certinho', description: 'Vou precisar olhar isso depois' },
+  ]
+})
+```
+
+Map to `land_tenure`: `private-owned` | `formal-agreement` | `public-informal` | `public-no-access` | `mixed`.
+
+### 3c · Community anchoring
 
 Use the `ask_community_anchoring` tool — renders the CommunityAnchoringComposer inline. 3 short text fields (lead/volunteers/beneficiaries) + chip multi-select for engagement methods.
 
@@ -257,11 +216,9 @@ Call `score_maturity` for both metrics with 1-sentence Portuguese justifications
 
 After all Beat-3 fields are populated and both metrics scored:
 
-1. Make sure every captured field has been persisted via `update_section('intervention_site', ...)` along the way (this should already be done after each beat).
-2. Call `score_maturity('site_control', score, justification_pt)` — REQUIRED. The next-encontro banner is gated on this metric existing in state.
-3. Call `score_maturity('community_anchoring', score, justification_pt)` — REQUIRED. Same gate.
-4. **Do NOT call `set_phase(3)`** — phase advancement is gated by the coordinator (P-8). The banner triggers the advance when Workshop 3 is opened. There is no `set_phase_complete` tool; ignore any old references to it.
-5. Render the closing message:
+1. Call `update_section('intervention_site', { bairro, site_lat, site_lng, site_name, current_use, land_tenure, primary_hazard, secondary_hazard, community_anchoring_lead, community_engagement_methods })`
+2. Call `score_maturity` for `site_control` and `community_anchoring`
+3. Render the closing message (DO NOT call `set_phase(3)` yet — the coordinator gates that via P-8):
 
 > ✓ **Encontro 2 concluído** — obrigada, {nome}. Seu território está marcado.
 >
