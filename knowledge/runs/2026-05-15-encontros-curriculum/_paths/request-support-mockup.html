@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RequestSupport · mockup walkthrough</title>
+<style>
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --ink: #18181b; --muted: #71717a;
+    --line: rgba(0,0,0,0.08); --accent: #059669; --accent-soft: #ecfdf5;
+    --accent-deep: #047857; --amber: #f59e0b; --amber-soft: #fef3c7;
+    --amber-deep: #b45309; --info: #0284c7;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; line-height: 1.5; font-size: 14px; }
+  .doc { max-width: 1280px; margin: 0 auto; padding: 48px 28px 96px; }
+  h1 { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 4px; }
+  h1 .small { font-size: 13px; font-weight: 400; color: var(--muted); }
+  h2.screen { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin: 56px 0 12px; }
+  .lede { color: var(--muted); margin: 8px 0 24px; max-width: 64ch; line-height: 1.6; }
+  .anno { font-size: 12px; color: var(--muted); margin: 8px 0 18px; padding-left: 14px; border-left: 2px solid var(--accent); max-width: 64ch; }
+  .scene { display: grid; grid-template-columns: 380px 1fr; gap: 36px; align-items: start; }
+  .scene .note h4 { font-size: 14px; margin: 0 0 6px; }
+  .scene .note p { font-size: 13px; color: var(--muted); margin: 0 0 10px; line-height: 1.6; }
+  .scene .note .kv { font-family: ui-monospace, monospace; font-size: 11px; background: #f4f4f5; padding: 10px 12px; border-radius: 8px; margin-top: 12px; white-space: pre-wrap; }
+  .phone { width: 380px; background: var(--surface); border: 1px solid var(--line); border-radius: 28px; overflow: hidden; box-shadow: 0 12px 36px -16px rgba(0,0,0,0.18); }
+  .phone .top-chrome { padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 10px; color: var(--muted); font-family: ui-monospace, monospace; }
+  .frame-body { min-height: 640px; display: flex; flex-direction: column; }
+  .app-header { padding: 10px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .app-header .leaf { width: 28px; height: 28px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-deep); display:flex; align-items:center; justify-content:center; font-size: 13px; }
+  .app-header .id { flex: 1; min-width: 0; }
+  .app-header .org-name { font-size: 13px; font-weight: 600; line-height: 1.2; }
+  .app-header .meta { font-size: 10px; color: var(--muted); }
+  .header-actions { display: flex; gap: 4px; }
+  .hdr-btn {
+    width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--surface); display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; position: relative; transition: background 0.15s; padding: 0;
+  }
+  .hdr-btn:hover { background: #f4f4f5; }
+  .hdr-btn.filled { background: var(--accent); color: white; border-color: var(--accent); }
+  .hdr-btn.filled:hover { background: var(--accent-deep); }
+  .hdr-btn .badge {
+    position: absolute; top: -4px; right: -4px;
+    background: var(--amber-soft); color: var(--amber-deep);
+    font-size: 9px; font-weight: 700;
+    padding: 1px 5px; border-radius: 999px;
+    border: 1.5px solid var(--surface);
+  }
+  .hdr-btn svg { width: 16px; height: 16px; }
+
+  .chat-area { flex: 1; padding: 14px 14px 8px; overflow-y: auto; }
+  .msg { padding: 8px 12px; border-radius: 14px; font-size: 13px; line-height: 1.5; max-width: 88%; margin-bottom: 8px; }
+  .msg.agent { background: #f4f4f5; }
+  .msg.user { background: var(--accent); color: white; margin-left: auto; }
+  .chat-input { padding: 8px 12px; border-top: 1px solid var(--line); display: flex; gap: 6px; }
+  .chat-input .ipt { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font-size: 12px; color: var(--muted); background: var(--surface); }
+  .chat-input .send { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; }
+
+  /* Dialog overlay */
+  .overlay {
+    position: relative; height: 640px; padding: 14px;
+    background: rgba(0,0,0,0.5);
+  }
+  .dialog {
+    background: var(--surface); border-radius: 14px; padding: 18px 18px 14px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+    margin-top: 30px;
+  }
+  .dialog h3 { margin: 0 0 4px; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+  .dialog .desc { font-size: 12px; color: var(--muted); margin: 0 0 14px; line-height: 1.5; }
+  .dlg-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; margin: 12px 0 6px; }
+  .opt {
+    width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--surface);
+    display: flex; align-items: flex-start; gap: 10px;
+    cursor: pointer; margin-bottom: 5px; transition: all 0.15s;
+  }
+  .opt:hover { background: #f4f4f5; }
+  .opt.active { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
+  .opt .icon { width: 16px; height: 16px; color: var(--muted); margin-top: 1px; flex-shrink: 0; }
+  .opt.active .icon { color: var(--accent-deep); }
+  .opt .opt-body { flex: 1; min-width: 0; }
+  .opt .opt-label { font-size: 13px; font-weight: 500; line-height: 1.3; }
+  .opt .opt-hint { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+  .ta { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; font-family: inherit; resize: none; }
+  .dlg-footer { margin-top: 14px; display: flex; gap: 6px; justify-content: flex-end; }
+  .btn { padding: 7px 14px; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; border: 0; }
+  .btn.ghost { background: transparent; color: var(--ink); }
+  .btn.primary { background: var(--accent); color: white; }
+  .btn.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Success */
+  .success-icon {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent-deep);
+    display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;
+    font-size: 24px;
+  }
+
+  /* Orchestrator card (desktop preview) */
+  .orch-frame {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+  }
+  .orch-frame .top-chrome {
+    padding: 8px 14px; background: #f4f4f5; border-bottom: 1px solid var(--line);
+    font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace;
+  }
+  .orch-frame .content { padding: 24px; }
+  .orch-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .orch-card {
+    border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--surface);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .orch-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .orch-card .header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+  .orch-card .icon-bubble {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--accent-soft); color: var(--accent-deep);
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+  }
+  .orch-card .org-name { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+  .orch-card .neighborhood { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 500; padding: 3px 8px; border-radius: 999px;
+    border: 1px solid var(--line);
+  }
+  .chip.phase { background: #f4f4f5; color: var(--ink); text-transform: uppercase; letter-spacing: 0.04em; font-size: 9px; font-weight: 600; }
+  .chip.path-idea { background: var(--accent-soft); color: var(--accent-deep); border-color: rgba(5,150,105,0.2); }
+  .chip.path-help { background: var(--accent-soft); color: var(--accent-deep); border-color: rgba(5,150,105,0.2); }
+  .chip.pending { background: var(--amber-soft); color: var(--amber-deep); border-color: rgba(245,158,11,0.3); }
+  .chip.intervention { background: #ecfeff; color: #0e7490; border-color: rgba(8,145,178,0.2); }
+  .progress { height: 4px; background: #f4f4f5; border-radius: 2px; overflow: hidden; margin-top: 4px; }
+  .progress .fill { height: 100%; background: var(--accent); }
+  .row-label { display: flex; justify-content: space-between; font-size: 11px; }
+  .row-label .lbl { color: var(--muted); }
+
+  .flow-arrow { display: flex; align-items: center; gap: 8px; color: var(--accent-deep); font-size: 12px; font-weight: 600; margin: 28px 0 4px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .flow-arrow::before, .flow-arrow::after { content: ""; flex: 1; height: 1px; background: var(--accent-soft); }
+
+  /* Path-aware button comparison */
+  .compare-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
+  .compare-cell {
+    border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--surface);
+  }
+  .compare-cell .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-bottom: 8px; }
+  .compare-cell .preview { display: flex; gap: 4px; padding: 6px 8px; background: #f4f4f5; border-radius: 6px; margin-bottom: 8px; }
+  .compare-cell p { font-size: 11px; color: var(--muted); margin: 0; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>RequestSupport <span class="small">· cross-cutting · CBO surface + orchestrator surface</span></h1>
+  <p class="lede">
+    The "Pedir apoio" affordance is available across every encontro. CBOs hit it when they get stuck; coordinator (Julia/Antônia) sweeps the pendency queue. This walkthrough shows the 4 user-facing states.
+  </p>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 1 — Chat header · button states across both paths</h2>
+  <p class="anno">The button lives in the chat header next to Export and Restart. Tooltip explains. Three states: idle (has-idea), idle (needs-help, more prominent), pending count.</p>
+
+  <div class="compare-grid">
+    <div class="compare-cell">
+      <p class="lbl">has-idea · idle</p>
+      <div class="preview" style="justify-content: flex-end;">
+        <button class="hdr-btn" title="Pedir apoio">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="M4.93 4.93l4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/></svg>
+        </button>
+      </div>
+      <p>Outlined, subtle. Available but doesn't compete with the main flow.</p>
+    </div>
+    <div class="compare-cell">
+      <p class="lbl">needs-help · idle</p>
+      <div class="preview" style="justify-content: flex-end;">
+        <button class="hdr-btn filled" title="Pedir apoio">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="M4.93 4.93l4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/></svg>
+        </button>
+      </div>
+      <p>Filled emerald. CBOs who arrived "wanting to discover" get a clearer affordance to escalate.</p>
+    </div>
+    <div class="compare-cell">
+      <p class="lbl">2 pendências</p>
+      <div class="preview" style="justify-content: flex-end;">
+        <button class="hdr-btn" title="2 pedidos aguardando resposta">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="M4.93 4.93l4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/></svg>
+          <span class="badge">2</span>
+        </button>
+      </div>
+      <p>Amber count badge. Once the CBO has any open request, the count replaces the prominent style — they already know to ask.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="flow-arrow">CBO taps the button → dialog opens</div>
+
+  <h2 class="screen">SCREEN 2 — Dialog · select type + optional message</h2>
+  <p class="anno">4 option cards, mutually exclusive. Active option gets the emerald ring. Submit disabled until a type is picked.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Pedir apoio · dialog</div>
+      <div class="overlay">
+        <div class="dialog">
+          <h3>Pedir apoio</h3>
+          <p class="desc">Sem pressa. Conta o que você precisa — a coordenadora responde em até 2 dias úteis.</p>
+
+          <p class="dlg-label">Tipo de apoio</p>
+
+          <button class="opt active" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <div class="opt-body">
+              <p class="opt-label">Conversa com a coordenadora</p>
+              <p class="opt-hint">Falar com Julia/Antônia sobre dúvidas, decisões ou bloqueios.</p>
+            </div>
+          </button>
+
+          <button class="opt" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div class="opt-body">
+              <p class="opt-label">Pergunta técnica pra equipe OEF</p>
+              <p class="opt-hint">Algo técnico sobre SbN, impacto, dimensionamento.</p>
+            </div>
+          </button>
+
+          <button class="opt" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12h2M3 12h2M12 19v2M12 3v2M5.6 18.4l1.4-1.4M17 7l1.4-1.4M5.6 5.6L7 7M17 17l1.4 1.4"/></svg>
+            <div class="opt-body">
+              <p class="opt-label">Conexão com outro CBO</p>
+              <p class="opt-hint">Conhecer alguém que já fez algo parecido no Brasil.</p>
+            </div>
+          </button>
+
+          <button class="opt" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="14" rx="2"/><circle cx="12" cy="13" r="2"/></svg>
+            <div class="opt-body">
+              <p class="opt-label">Finanças / parceiros</p>
+              <p class="opt-hint">Dúvidas sobre financiamento, editais, parceiros locais.</p>
+            </div>
+          </button>
+
+          <p class="dlg-label">Mensagem (opcional)</p>
+          <textarea class="ta" rows="2" placeholder="Conta um pouco mais se quiser…">A rua alaga toda chuva forte. Não sei se um jardim de chuva é o melhor — pode pedir uma ligação rápida pra Julia me orientar?</textarea>
+
+          <div class="dlg-footer">
+            <button class="btn ghost">Cancelar</button>
+            <button class="btn primary">Enviar pedido</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>Dialog · core surface</h4>
+      <p>4 option cards keep the choice explicit — coordinators get useful signal from <em>which kind</em> of help is being asked, not just <em>that</em> help is needed.</p>
+      <p>The optional message tops out at 2000 chars. Most submissions are 1-2 sentences.</p>
+      <p>Submit button is disabled until a type is picked — message remains optional.</p>
+      <div class="kv">component: RequestSupportDialog
+endpoint: POST /api/cbo-member/{slug}
+          /support-request
+body: { type, message? }
+returns: { entry: SupportRequest }</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="flow-arrow">Submit → success state</div>
+
+  <h2 class="screen">SCREEN 3 — Success · pedido enviado</h2>
+  <p class="anno">Single-CTA success state. Sets expectation: 2 business days, you can keep working in the meantime.</p>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="top-chrome">📱 Pedir apoio · sucesso</div>
+      <div class="overlay">
+        <div class="dialog" style="text-align: center; padding-top: 28px;">
+          <div class="success-icon">✓</div>
+          <h3 style="text-align: center;">Pedido enviado</h3>
+          <p class="desc" style="text-align: center;">A coordenadora vai entrar em contato em até 2 dias úteis. Você pode continuar trabalhando aqui — quando ela responder, você vai ver no chat.</p>
+          <div class="dlg-footer" style="justify-content: center;">
+            <button class="btn primary">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <h4>Success state · sets expectation</h4>
+      <p>Two pieces of information: <strong>when</strong> they'll hear back (2 business days) and <strong>what to do meanwhile</strong> (keep working — the response lands in chat).</p>
+      <p>The pending count badge on the chat header increments. Next time they open the dialog, they can see their request history (future PR).</p>
+      <p><strong>What we don't tell them:</strong> exactly when/how the coordinator will respond. That's intentional — the coordinator may respond async via the platform, or schedule a call, or message on WhatsApp. The CBO doesn't need to know the channel.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="flow-arrow">Meanwhile · on the orchestrator dashboard</div>
+
+  <h2 class="screen">SCREEN 4 — Orchestrator card · amber pendency chip</h2>
+  <p class="anno">Within seconds, the coordinator's ProjectCard for that CBO shows an amber pendency chip. They can see at-a-glance who needs attention this morning.</p>
+
+  <div class="orch-frame">
+    <div class="top-chrome">🖥️ Orchestrator · Cohort Vila Flores · 16 jul 2026, 09:15</div>
+    <div class="content">
+      <div class="orch-row">
+
+        <!-- Card 1: Cascata with pending support -->
+        <div class="orch-card" style="ring: 1px solid var(--amber);">
+          <div class="header">
+            <div class="icon-bubble">🌿</div>
+            <div>
+              <div class="org-name">Horta Comunitária Cascata</div>
+              <div class="neighborhood">📍 Cascata</div>
+            </div>
+          </div>
+          <div class="chip-row">
+            <span class="chip phase">WHO</span>
+            <span class="chip path-idea">💡 Tem ideia</span>
+            <span class="chip pending">🛟 1 pendência</span>
+            <span class="chip intervention">🌿 Bioswales</span>
+          </div>
+          <div>
+            <div class="row-label"><span class="lbl">Sections</span><span>3/7</span></div>
+            <div class="progress"><div class="fill" style="width: 43%;"></div></div>
+          </div>
+          <div style="margin-top: 8px;">
+            <div class="row-label"><span class="lbl">Maturity</span><span>17/27</span></div>
+            <div class="progress"><div class="fill" style="width: 63%;"></div></div>
+          </div>
+        </div>
+
+        <!-- Card 2: Translab with no pending -->
+        <div class="orch-card">
+          <div class="header">
+            <div class="icon-bubble">🌊</div>
+            <div>
+              <div class="org-name">Translab Vila Flores</div>
+              <div class="neighborhood">📍 4º Distrito</div>
+            </div>
+          </div>
+          <div class="chip-row">
+            <span class="chip phase">WHERE</span>
+            <span class="chip path-idea">💡 Tem ideia</span>
+            <span class="chip intervention">🌊 Wetlands</span>
+          </div>
+          <div>
+            <div class="row-label"><span class="lbl">Sections</span><span>4/7</span></div>
+            <div class="progress"><div class="fill" style="width: 57%;"></div></div>
+          </div>
+          <div style="margin-top: 8px;">
+            <div class="row-label"><span class="lbl">Maturity</span><span>22/27</span></div>
+            <div class="progress"><div class="fill" style="width: 81%;"></div></div>
+          </div>
+        </div>
+
+        <!-- Card 3: Lomba with needs-help + pending -->
+        <div class="orch-card">
+          <div class="header">
+            <div class="icon-bubble" style="background: #fef3c7; color: var(--amber-deep);">🧭</div>
+            <div>
+              <div class="org-name">Lomba Adapta</div>
+              <div class="neighborhood">📍 Lomba do Pinheiro</div>
+            </div>
+          </div>
+          <div class="chip-row">
+            <span class="chip phase">WHO</span>
+            <span class="chip path-help">🧭 Quer descobrir</span>
+            <span class="chip pending">🛟 2 pendências</span>
+          </div>
+          <div>
+            <div class="row-label"><span class="lbl">Sections</span><span>1/7</span></div>
+            <div class="progress"><div class="fill" style="width: 14%;"></div></div>
+          </div>
+          <div style="margin-top: 8px;">
+            <div class="row-label"><span class="lbl">Maturity</span><span>8/27</span></div>
+            <div class="progress"><div class="fill" style="width: 30%;"></div></div>
+          </div>
+        </div>
+
+        <!-- Card 4: Sarandi no pending no path yet -->
+        <div class="orch-card">
+          <div class="header">
+            <div class="icon-bubble">🌳</div>
+            <div>
+              <div class="org-name">Sarandi Resiliente</div>
+              <div class="neighborhood">📍 Sarandi</div>
+            </div>
+          </div>
+          <div class="chip-row">
+            <span class="chip phase">WHO</span>
+          </div>
+          <div>
+            <div class="row-label"><span class="lbl">Sections</span><span>0/7</span></div>
+            <div class="progress"><div class="fill" style="width: 0%;"></div></div>
+          </div>
+          <div style="margin-top: 8px;">
+            <div class="row-label"><span class="lbl">Maturity</span><span>0/27</span></div>
+            <div class="progress"><div class="fill" style="width: 0%;"></div></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <p style="font-size: 13px; color: var(--muted); margin-top: 14px; line-height: 1.6;">
+    <strong>The morning sweep.</strong> Julia opens the dashboard. Cascata + Lomba both have amber chips. She can prioritize Lomba (needs-help path, 2 pendências, only Phase 1) for a check-in call today, and reply to Cascata async. <strong>Sarandi</strong> hasn't even done the triage yet — different problem, but visible in the same view.
+  </p>
+
+  <!-- ============================================================ -->
+  <h2 class="screen">SCREEN 5 — Data model + API</h2>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 14px;">
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">SCHEMA</div>
+      <div style="font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.5; margin-top: 8px;">
+cohort_members.support_requests:<br>
+&nbsp;&nbsp;jsonb · SupportRequest[]<br>
+<br>
+type SupportRequest = {<br>
+&nbsp;&nbsp;id: string<br>
+&nbsp;&nbsp;type: 'coordinator-chat'<br>
+&nbsp;&nbsp;&nbsp;&nbsp;| 'oef-technical'<br>
+&nbsp;&nbsp;&nbsp;&nbsp;| 'cbo-connection'<br>
+&nbsp;&nbsp;&nbsp;&nbsp;| 'finance-partners'<br>
+&nbsp;&nbsp;message: string | null<br>
+&nbsp;&nbsp;createdAt: string (ISO)<br>
+&nbsp;&nbsp;resolvedAt: string | null<br>
+&nbsp;&nbsp;resolvedNote: string | null<br>
+}
+      </div>
+      <p style="font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5;">
+        Soft cap at 20 per member. Overflow drops oldest resolved first.
+      </p>
+    </div>
+    <div style="border: 1px solid var(--line); border-radius: 10px; padding: 16px;">
+      <div style="font-size: 10px; color: var(--accent-deep); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">ENDPOINTS</div>
+      <div style="font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.6; margin-top: 8px;">
+<strong>POST</strong>&nbsp;&nbsp;/api/cbo-member/:slug<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/support-request<br>
+&nbsp;&nbsp;&nbsp;&nbsp;CBO submits<br>
+<br>
+<strong>PATCH</strong>&nbsp;/api/cohort/:slug<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/support-request/:id<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/resolve<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Coordinator marks done<br>
+<br>
+<strong>GET</strong>&nbsp;&nbsp;&nbsp;/api/cbo-member/:slug<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Returns supportRequests<br>
+&nbsp;&nbsp;&nbsp;&nbsp;+ supportPendingCount
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size: 11px; color: var(--muted); margin-top: 36px; border-top: 1px solid var(--line); padding-top: 16px;">
+    Cross-cutting spec: <code>knowledge/runs/2026-05-15-encontros-curriculum/_paths/two-path-triage.md</code> · PR #152.
+  </p>
+</div>
+</body>
+</html>
