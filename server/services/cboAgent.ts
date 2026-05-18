@@ -647,9 +647,19 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   const pushEvent = (event: CboEvent) => {
     res.write(`data: ${JSON.stringify(event)}\n\n`);
     if (event.type === 'chat') {
-      const isNarration = /^(Let me |Good[,. —]|Now |Starting |I'll |I can |I've |Reading |Loading |Setting |Creating |Phase )/i.test(event.content.trim())
-        || (event.content.length < 300 && !event.content.includes('##') && !event.content.includes('**'));
-      addCboMessage(cboId, { role: 'assistant', content: event.content, messageType: isNarration ? 'thinking' : 'content', timestamp: new Date().toISOString() });
+      // ALL chat events store as messageType: 'content'. The previous
+      // heuristic (regex + length<300 fallback) was catastrophically
+      // over-aggressive after PR #196 made the agent brief: any agent
+      // response under 300 chars without markdown headers/bold was
+      // misclassified as 'thinking' and hidden behind the WORKING
+      // preview UI. This nuked acks ("Got it."), short questions
+      // ("And who am I speaking with — what's your name?"), and any
+      // closing message that followed the new ≤6-line cap.
+      //
+      // Real thinking content comes via the SDK's `chat_thinking`
+      // event (handled below) when extended thinking is enabled — that's
+      // the only path that should produce messageType: 'thinking' now.
+      addCboMessage(cboId, { role: 'assistant', content: event.content, messageType: 'content', timestamp: new Date().toISOString() });
     } else if (event.type === 'chat_thinking') {
       addCboMessage(cboId, { role: 'assistant', content: event.content, messageType: 'thinking', timestamp: new Date().toISOString() });
     }
