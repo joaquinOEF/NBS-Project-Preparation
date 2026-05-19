@@ -1,3 +1,7 @@
+---
+model: claude-sonnet-4-6
+---
+
 # /encontro-1-quem-somos — Agent skill (first draft)
 
 > Loaded by `cboAgent.ts` when `member.unlockedPhases` includes 1 and the user hasn't completed Phase 1 yet. Replaces the Phase-1 section of the current monolithic `cbo-intervention.md` skill. Other phases keep loading the existing skill until they're split too.
