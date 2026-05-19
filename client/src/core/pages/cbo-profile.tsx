@@ -653,10 +653,16 @@ export default function CboProfilePage() {
   // visible message stream — the agent's first response is what the user sees.
   // Called from the welcome screen's "Start" button (cohort CBOs) and from
   // the inline empty-state button (standalone visitors).
+  //
+  // The agent's actual instructions live in the system prompt (the loaded
+  // encontro skill + CURRENT STATE block). This kickoff message is just the
+  // user-side trigger — keep it minimal so it doesn't compete with or
+  // contradict the system prompt. In particular: do NOT name a specific
+  // skill or restate per-turn rules here; let the system prompt drive.
   const kickoffChat = useCallback(() => {
     const text = lang === 'pt'
-      ? "Iniciar o perfil de intervenção comunitária para Porto Alegre. Use o fluxo /cbo-intervention. Sempre use a ferramenta ask_user para perguntas de múltipla escolha. Na primeira mensagem, mencione que o usuário pode enviar documentos existentes (propostas, relatórios, planos, fotos) no chat a qualquer momento — você vai extrair as informações e preencher as seções automaticamente."
-      : "Start the CBO intervention profile for Porto Alegre. Use the /cbo-intervention skill flow. Always use the ask_user tool for multiple-choice questions. In your first message, mention that the user can drop existing documents (proposals, reports, plans, photos) into the chat at any time — you'll extract info and auto-fill sections.";
+      ? "Vamos começar."
+      : "Let's begin.";
     sendMessage(text, true);
   }, [lang, sendMessage]);
 
