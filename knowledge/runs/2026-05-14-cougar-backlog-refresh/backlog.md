@@ -67,6 +67,48 @@ Lightweight v1: a "submit external project" entry point (for the NBS expert, pos
 
 ---
 
+## New items (added 2026-05-19 — surfaced during live E1/E2 testing)
+
+### P-28. Preserve ask_user question text in chat scrollback
+**Source**: 2026-05-19 live testing (JVP). After PR #208 cut agent ack text on chip turns, the chat scrollback now shows a column of user-side chip answers (`Joaquin`, `Coordinator/Director`, `Huertas comunitárias`, `Coletivo informal`, `2010-2015`, `6-15 pessoas`, `Maioria pagas`, …) with NO record of what each was answering. Each `ask_user` event renders the question in the chip composer area only; when the user answers, the composer is replaced by the next question, and the previous Q+A pair leaves no trace in the message history.
+
+The skill's strict-ack rule is correct (speed > warmth), but the UI assumed the agent's chat text would carry the question context. Now that text is intentionally absent, the chip composer needs to drop a compact Q+A record into the message stream when answered — something like a single-line bubble: `Forma jurídica: Coletivo informal`.
+
+**Acceptance**:
+- After every chip selection, the chat scrollback contains a compact bubble showing question label + user's chosen answer (or typed free-text)
+- The bubble is visually distinct from full chat messages (smaller, no avatar, perhaps a subtle "Q:" prefix)
+- Scrollback at end of E1 shows the full record: 14 Q+A pairs in order
+
+### P-29. set_path not called when user picks "I'd like help finding one"
+**Source**: 2026-05-19 live testing (JVP). At E1 closing, the user clicked the path-triage chip `🤝 I'd like help finding one` → the closing message rendered ("Profile complete — thank you Joaquin, …") but the right-panel `Path` field still showed *"Path not yet chosen"*. The `set_path` tool was never invoked.
+
+The chip label *"I'd like help finding one"* maps to the `needs-help` enum value per `cboAgent.ts:257-260` (`set_path` tool: `path: z.enum(["has-idea", "needs-help"])`). The skill at `encontro-1.md:143-148` describes the path triage but does not explicitly tell the agent to call `set_path(<value>)` when the user selects either chip — the rule lives only in the Closing section.
+
+Likely root cause: when the user selects the path chip mid-flow (it's one of the substantive E1 questions, not the closing), the agent doesn't always call `set_path` because the rule is filed under Closing.
+
+**Acceptance**:
+- Move the `set_path(<value>)` instruction from Closing to right next to the path-triage question itself (Question 13)
+- After this fix: invite a CBO, walk E1, pick `needs-help` → `member.path` in DB is `'needs-help'`, right panel shows `Path: Help finding one`
+- Same for `has-idea` selection
+
+### P-30. E2 show_examples — user saves favorites but no clear "I'm ready" CTA
+**Source**: 2026-05-19 live testing (JVP). On entering E2 (needs-help path), the agent invoked `show_examples({mode: 'favorites', intro: 'Salve 1 ou 2 que te chamam atenção.'})`. The user saved 2 examples (Parques do Barigui, Rua Gonçalo de Carvalho — marked with the bookmark icon), then waited. Nothing happened. No CTA to "continue", no auto-transition to the next step, no chip to confirm the selection.
+
+Skill at `encontro-2.md:69-79` ("needs-help opening") says *"Wait for them to engage. Don't rush. If they save nothing after a couple of turns, gently nudge…"*. But the skill doesn't define the affordance the user uses to signal *"I'm done picking, what's next?"*. The showcase strip is decorative once saved.
+
+Two ways to fix:
+- **Option A (UI)**: add a "Pronto, vamos seguir" button to the showcase strip when ≥1 favorite is saved → sends a hidden message to the agent like `Favoritos salvos: [example_ids]` → triggers the next tool call (`open_map`)
+- **Option B (skill)**: after the showcase renders, the agent's NEXT turn should be an `ask_user` chip turn ("Salvou? Vamos pro mapa?") instead of waiting indefinitely. The agent currently has no signal to wait *for*
+
+Option A is the cleaner UX (no extra chip turn). Option B is the smaller change. Either way the dead-end has to go.
+
+**Acceptance**:
+- On the needs-help E2 path: user saves favorites → ≤5 seconds later sees an unambiguous next step (button or chip)
+- Clicking that next step transitions to `open_map` (Beat 2a — browse-only mode)
+- Has-idea path is unaffected (it goes straight to map without dwelling on favorites)
+
+---
+
 ## Status of April 16 items (re-prioritized for June convening)
 
 ### Must-ship for June 8 convening
