@@ -169,6 +169,17 @@ export default function CboProfilePage() {
   const [messages, setMessages] = useState<CboChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  // `stableStreamEnded` flips true only ~250ms after `isStreaming` becomes
+  // false. The Continue-from-Phase-X button gate consults this instead of
+  // `isStreaming` directly, to absorb the race where the SSE `done` event
+  // arrives in a different network packet than the `ask_user` event. Without
+  // this debounce, the gate evaluates between the two packets and briefly
+  // shows the Continue button before `currentQuestion` is set (the user
+  // perceives a flicker: "Continue button appeared then was replaced by the
+  // question"). EventSource onmessage callbacks are not batched by React 18
+  // when they arrive in separate ticks, so this debounce is the cleanest
+  // client-side cover.
+  const [stableStreamEnded, setStableStreamEnded] = useState(false);
   const [activeQuestions, setActiveQuestions] = useState<Array<{ id: string; question: string; options: any[]; multiSelect?: boolean }>>([]);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({});
@@ -566,6 +577,19 @@ export default function CboProfilePage() {
       case 'error': setIsStreaming(false); setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${event.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); break;
     }
   }, []);
+
+  // Debounce the "agent fully finished" signal so the Continue button gate
+  // doesn't flicker between the `done` and `ask_user` SSE events when they
+  // arrive in different network packets. See the comment on
+  // `stableStreamEnded` for why this is needed.
+  useEffect(() => {
+    if (isStreaming) {
+      setStableStreamEnded(false);
+      return;
+    }
+    const t = setTimeout(() => setStableStreamEnded(true), 250);
+    return () => clearTimeout(t);
+  }, [isStreaming]);
 
   // Send message
   const sendMessage = useCallback(async (text: string, hidden = false) => {
@@ -1108,7 +1132,10 @@ export default function CboProfilePage() {
                 competing with the typing input → user confused, clicks it,
                 sends a directive that derails the agent. */}
             {(() => {
-              if (isStreaming || state.phase === 0 || currentQuestion || messages.length === 0) return null;
+              // `stableStreamEnded` guards against the SSE-batch race where
+              // `done` arrives before `ask_user` and the gate briefly thinks
+              // the agent is finished but stranded. See state declaration.
+              if (isStreaming || !stableStreamEnded || state.phase === 0 || currentQuestion || messages.length === 0) return null;
               const lastContent = [...messages].reverse().find(m => m.messageType === 'content');
               const agentOwesResponse = !lastContent || lastContent.role === 'user';
               if (state.phase < 6 && !agentOwesResponse) return null;
