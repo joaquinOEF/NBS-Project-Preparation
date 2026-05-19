@@ -717,8 +717,12 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
 
   // Pull the per-phase model from skill frontmatter, fall back to default.
   // loadEncontroSkill is cached so this is free when buildSystemContext also
-  // called it. Phase 0 (pre-onboarding) has no skill — use default.
-  const skill = state.phase >= 1 ? await loadEncontroSkill(state.phase) : null;
+  // called it. Phase 0 (pre-onboarding, before the agent fires set_phase(1)
+  // on its first turn) still uses E1's skill — otherwise the first chat turn
+  // has no "check CURRENT STATE first" rule and the agent asks for the org
+  // name even when the invite already prefilled it.
+  const skillPhase = Math.max(1, state.phase);
+  const skill = await loadEncontroSkill(skillPhase);
   const model = skill?.model ?? DEFAULT_CBO_MODEL;
 
   // System prompt = the durable facts the agent needs (persona, tools, skill,
@@ -895,8 +899,11 @@ async function buildSystemContext(state: CboState, lang: string = 'en'): Promise
   // ── Phase-specific instructions (only load current phase) ──
   // Prefer encontro skill markdown from knowledge/_skills/encontro-{N}.md when
   // present (E1-E6 curriculum); fall back to the hardcoded block for phases
-  // that haven't been migrated yet. Phase 0 = pre-onboarding, no encontro.
-  const encontroSkill = state.phase >= 1 ? await loadEncontroSkill(state.phase) : null;
+  // that haven't been migrated yet. Phase 0 (pre-onboarding, before the agent
+  // calls set_phase(1) on its first turn) maps to E1 — otherwise the first
+  // turn ignores the skill's "check CURRENT STATE first" rule.
+  const skillPhase = Math.max(1, state.phase);
+  const encontroSkill = await loadEncontroSkill(skillPhase);
   const phaseInstructions = encontroSkill?.markdown ?? buildPhaseInstructions(state.phase, isPt);
 
   // ── City summary (condensed, always loaded) ──
