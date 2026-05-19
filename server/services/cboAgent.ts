@@ -341,7 +341,15 @@ function createCboMcpTools(cboId: string) {
 
   const askUser = sdkTool(
     "ask_user",
-    "Present questions to the user. The UI renders interactive buttons. Include showMap: true for site selection.",
+    `Present one or more multiple-choice questions to the user. The UI renders each as chip buttons (or a free-text input when the user picks "Outra coisa").
+
+ALWAYS use this tool for any question with 2-7 natural buckets — legal form, team size, paid/volunteer split, project scale, NBS experience, hazard ranking, land tenure, current site use, etc. Never ask such questions as free-text chat. Free-text is allowed ONLY for genuinely unique values: org name, one-sentence mission, year, proud-moment story.
+
+Every turn that calls update_section MUST also call ask_user (or another user-prompting tool: open_map, ask_priority_rank, ask_community_anchoring, show_examples, open_intervention_selector) in the SAME turn. Pairing is non-negotiable — if you persist a value and end the turn without prompting the next question, the user sees a blank screen and is stranded.
+
+You may batch multiple questions in one call (pass an array). Use sparingly: batch only when the questions are tightly related and the user can answer them in any order. For a sequential question-by-question flow (the E1 default), one question per call is correct.
+
+Include showMap: true on a question only when the user genuinely needs the map to pick an answer.`,
     {
       questions: z.array(z.object({
         question: z.string(),
@@ -722,6 +730,12 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
 
   console.log(`[cbo] Turn for ${cboId} (phase ${state.phase}, model ${model}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length}/7 sections)`);
 
+  // Track what the agent actually did this turn, so we can detect the
+  // skill-violation pattern where it ends without prompting the next question
+  // (the "silent turn" that strands the user behind a Continue button).
+  const calledTools = new Set<string>();
+  let emittedText = false;
+
   try {
     for await (const message of sdkQuery({
       prompt: userMessage,
@@ -752,7 +766,12 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
       if (message.type === "assistant" && message.message?.content) {
         for (const block of message.message.content) {
           if (block.type === "text" && block.text) {
+            emittedText = true;
             pushEvent({ type: 'chat', content: block.text, role: 'assistant' });
+          } else if (block.type === "tool_use" && block.name) {
+            // MCP tools come through namespaced as "mcp__cbo__<name>"; strip
+            // the prefix so the guard below can match against canonical names.
+            calledTools.add(String(block.name).replace(/^mcp__cbo__/, ''));
           }
         }
       }
@@ -762,6 +781,41 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
     }
   } catch (error: any) {
     pushEvent({ type: 'error', message: error.message || 'Agent error' });
+  }
+
+  // Post-turn guard. The skill (encontro-*.md) requires every mid-encontro
+  // turn to end with a user-prompting tool (ask_user / a composer / a closing
+  // tool). When the model violates this — emits update_section and nothing
+  // else, for example — the user is stranded: no chip to click, no text to
+  // reply to. The cbo-profile.tsx "Continue from Phase X" button is a backstop
+  // for that case but pressing it sends a directive that derails the agent.
+  //
+  // This guard logs the violation (for measurement) and, when the turn was
+  // both tool-less AND text-less, emits a small recoverable message so the
+  // user can re-prompt instead of facing a blank screen.
+  const TURN_ENDERS = new Set([
+    'ask_user',
+    'open_map',
+    'open_intervention_selector',
+    'ask_priority_rank',
+    'ask_community_anchoring',
+    'show_examples',
+    'score_maturity', // closing
+    'set_phase',      // closing / cross-phase advance
+  ]);
+  const hadTurnEnder = Array.from(calledTools).some(name => TURN_ENDERS.has(name));
+  if (!hadTurnEnder && state.phase < 6) {
+    const toolsList = Array.from(calledTools).join(',') || 'none';
+    console.warn(`[cbo] silent_turn_fallback for ${cboId} phase=${state.phase} tools=${toolsList} text=${emittedText}`);
+    // Only emit a fallback chat message when there was ALSO no text — if the
+    // agent at least said something, the user can reply to that. Emitting an
+    // extra message in that case would produce a confusing double-response.
+    if (!emittedText) {
+      const fallbackText = lang === 'pt'
+        ? 'Tive um problema técnico no meio desse passo. Pode digitar "continuar" pra eu retomar de onde estávamos?'
+        : 'I hit a snag mid-step. Type "continue" so I can pick up where we were.';
+      pushEvent({ type: 'chat', content: fallbackText, role: 'assistant' });
+    }
   }
 }
 
