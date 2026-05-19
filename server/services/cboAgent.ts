@@ -694,6 +694,11 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   res.end();
 }
 
+// Default model for the CBO chat. Mirrors the conceptNoteAgent (CT) choice that
+// proved reliable at sequential chip-first ask_user turns. Per-phase overrides
+// live in the encontro skill's YAML frontmatter (`model:` field).
+const DEFAULT_CBO_MODEL = 'claude-sonnet-4-6';
+
 async function streamWithSdk(cboId: string, userMessage: string, state: CboState, pushEvent: EventPusher, lang: string = 'en') {
   const mcpServer = getMcpServer(cboId);
   const sysCtx = await buildSystemContext(state, lang);
@@ -702,15 +707,28 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   const policy = await getPhasePolicyForCbo(cboId);
   const accessPolicy = buildAccessPolicyPrompt(policy);
 
-  const prompt = `${sysCtx}\n\n## CURRENT STATE\n${stateSummary}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\nUser message: ${userMessage}`;
+  // Pull the per-phase model from skill frontmatter, fall back to default.
+  // loadEncontroSkill is cached so this is free when buildSystemContext also
+  // called it. Phase 0 (pre-onboarding) has no skill — use default.
+  const skill = state.phase >= 1 ? await loadEncontroSkill(state.phase) : null;
+  const model = skill?.model ?? DEFAULT_CBO_MODEL;
 
-  console.log(`[cbo] Turn for ${cboId} (phase ${state.phase}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length}/7 sections)`);
+  // System prompt = the durable facts the agent needs (persona, tools, skill,
+  // state, recent conversation, access policy). User prompt = just the new
+  // turn. This mirrors conceptNoteAgent and is the SDK's expected shape;
+  // tool-use rules placed in the system prompt are followed more reliably
+  // than rules concatenated into the user message string.
+  const systemPrompt = `${sysCtx}\n\n## CURRENT STATE\n${stateSummary}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}`;
+
+  console.log(`[cbo] Turn for ${cboId} (phase ${state.phase}, model ${model}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length}/7 sections)`);
 
   try {
     for await (const message of sdkQuery({
-      prompt,
+      prompt: userMessage,
       options: {
         cwd: process.cwd(),
+        model,
+        systemPrompt,
         allowedTools: [
           "Read", "Glob", "Grep",
           "mcp__cbo__update_section",
@@ -824,8 +842,8 @@ async function buildSystemContext(state: CboState, lang: string = 'en'): Promise
   // Prefer encontro skill markdown from knowledge/_skills/encontro-{N}.md when
   // present (E1-E6 curriculum); fall back to the hardcoded block for phases
   // that haven't been migrated yet. Phase 0 = pre-onboarding, no encontro.
-  const encontroSkillMd = state.phase >= 1 ? await loadEncontroSkill(state.phase) : null;
-  const phaseInstructions = encontroSkillMd ?? buildPhaseInstructions(state.phase, isPt);
+  const encontroSkill = state.phase >= 1 ? await loadEncontroSkill(state.phase) : null;
+  const phaseInstructions = encontroSkill?.markdown ?? buildPhaseInstructions(state.phase, isPt);
 
   // ── City summary (condensed, always loaded) ──
   const citySummary = isPt

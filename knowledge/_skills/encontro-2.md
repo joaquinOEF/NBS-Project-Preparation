@@ -1,3 +1,7 @@
+---
+model: claude-sonnet-4-6
+---
+
 # /encontro-2-seu-territorio — Agent skill
 
 Loaded by `cboAgent.ts` (via `loadEncontroSkill(2)`) when state.phase == 2.
