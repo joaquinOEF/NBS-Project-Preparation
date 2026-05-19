@@ -111,7 +111,20 @@ Below is the exact ask_user shape for each question. Always include "Outra coisa
 - **Contact role** — free-text: *"Qual seu papel na {orgName}?"* (e.g. coordenadora, voluntária)
 
 ### 2. Mission
-- **Mission summary** — free-text: *"Em uma frase, o que vocês fazem?"* (genuinely unique string)
+- **Mission summary** — `ask_user` chips (the free-text input is always available below the chips for any user who prefers to type their own one-sentence description):
+  - Hortas e segurança alimentar
+  - Arborização e áreas verdes
+  - Resiliência climática (enchentes, calor)
+  - Educação ambiental
+  - Cultura e organização comunitária
+  - Prefiro pular
+
+  Question text: *"Em uma frase, o que vocês fazem? (Pode escolher uma das opções abaixo ou digitar sua própria descrição.)"*
+
+  Behavior:
+  - If the user clicks a chip → save that chip label as `mission_summary`. Do NOT ask a follow-up "Quer adicionar detalhe?" — keep the pace.
+  - If the user types in the free-text input → save their typed text as `mission_summary` (it overrides any chip selection).
+  - If the user clicks "Prefiro pular" → leave `mission_summary` blank and move on. Do not flag a gap; the field is non-critical for E1's two maturity scores.
 
 ### 3. Form + age (TWO separate turns, NOT bundled)
 - **Legal form** — `ask_user` chips:
