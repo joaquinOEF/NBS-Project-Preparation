@@ -140,6 +140,22 @@ export function registerCohortRoutes(app: Express): void {
     if (!orgName) { res.status(400).json({ error: 'orgName required' }); return; }
 
     const memberSlug = await uniqueMemberSlug(slugify(orgName));
+
+    // Inherit the cohort's already-opened workshops. Previously every new
+    // invitee got `[1]` regardless of cohort state — which broke the case
+    // where the coordinator had already opened W2 (or beyond) and then
+    // invited a new member: the member's CBO page would never show the
+    // green "next workshop unlocked" banner because their unlockedPhases
+    // didn't include the opened phase. Phase 1 is always included so
+    // brand-new cohorts (no openedAt anywhere) still let the first encontro
+    // start.
+    const workshops = (cohort.settings as CohortSettings | null)?.workshops ?? [];
+    const openedPhases = workshops
+      .filter(w => !!w.openedAt)
+      .map(w => Number(w.unlocksPhase))
+      .filter(n => Number.isFinite(n) && n >= 1);
+    const unlockedPhases = Array.from(new Set([1, ...openedPhases])).sort((a, b) => a - b);
+
     const [member] = await db.insert(cohortMembers).values({
       cohortId: cohort.id,
       memberSlug,
@@ -147,7 +163,7 @@ export function registerCohortRoutes(app: Express): void {
       neighborhood: neighborhood || null,
       role: role === 'alternate' ? 'alternate' : 'priority',
       origin: origin === 'external' ? 'external' : 'cohort',
-      unlockedPhases: [1],
+      unlockedPhases,
     }).returning();
     res.json({ member });
   }));
