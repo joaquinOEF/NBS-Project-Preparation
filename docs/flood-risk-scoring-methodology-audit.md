@@ -21,11 +21,14 @@
 | **Metric lineage (inventory)** | [`data-risk-audit.md` §2.2](data-risk-audit.md#22-per-cell-metrics-split-from-grid_metrics_) |
 | **Live API path** | `server/services/gridService.ts` `computeCompositeScores` (~L429–445) — **different formula**; Site Explorer sample mode uses offline JSON |
 | **Offline vs live diff** | [`data-risk-audit.md` §5](data-risk-audit.md#5-offline-sample-pipeline-vs-live-gridservice--diff-and-recommendation) |
-| **F1 validation** | **§7** |
+| **Event portability note (`floodEvidence`)** | **§2.4** |
+| **Appropriate use today (screening vs formal decisions)** | **§2.5** |
+| **Hazard vs IPCC risk terminology** | **§2.6** |
+| **Validation critique (F1 context + leakage risks)** | **§7** |
 | **Maturity / official-use bar** | **§8** |
-| **Pre-presentation experiments** | **§9** |
-| **Validation benchmarks (independent sources)** | **§9.0** |
-| **Strengthening & reference data** | **§10** |
+| **Minimum pre-presentation experiments** | **§9** |
+| **Independent validation benchmarks** | **§9.0** |
+| **Recommended path: external hazard products + local validation** | **§10** |
 | **Validation threshold** | `FLOOD_THRESHOLD = 0.45` in `recalc-scores-v3.ts` L52 (F1 console only) |
 
 **Audit legend:** **Justified (POC)** = stated intent in code/comments; **No source** = tuning without citation; **Doc drift** = mismatch vs `flood-risk-scoring-methodology.md`. Severity: **L** / **M** / **H** (impact on decisions if unmitigated).
