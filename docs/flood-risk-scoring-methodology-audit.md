@@ -397,6 +397,12 @@ Even with external products, local validation remains mandatory. The recommendat
    - EMSN194 depth strata (severity consistency).
 4. Report sensitivity by product and return period (where available), not a single tuned score.
 5. Keep city-facing language as **hazard screening** unless exposure/vulnerability are explicitly integrated.
+6. If a composite/ensemble flood score is created from §10.1 products, treat initial weights as **priors only** (not fixed constants).
+7. Re-estimate and stress-test ensemble weights using a **multi-event validation set** (at minimum: one event for tuning, one independent event for hold-out evaluation; preferred: multiple years/events).
+8. Publish the weight-calibration method (objective function, constraints, class-balance handling, uncertainty bands) and compare against equal-weight and single-product baselines.
+9. Re-run calibration when porting to a new city or hazard regime; do not transfer POA-calibrated weights unchanged.
+
+**Weight-governance rule (ON-5680):** any assigned weight vector must be justified by out-of-sample evidence, not by expert preference alone. If sufficient independent events are unavailable, keep product-level reporting (no weighted composite claim) until that evidence exists.
 
 ### 10.5 Audit position on this redesign choice
 
@@ -405,6 +411,7 @@ Even with external products, local validation remains mandatory. The recommendat
 | Redesign custom `flood_score` weights first? | **Not preferred** for this phase |
 | Use precomputed, externally documented flood-hazard products? | **Preferred** |
 | Keep local validation with SkySat + EMSN194? | **Required** |
+| If ensemble weights are used, can they stay fixed without re-validation? | **No** — recalibrate/verify with independent flood events and publish uncertainty |
 | Keep `floodEvidence` as predictor in validated score? | **No** — use as validation reference only |
 | Communication label | **Flood hazard screening**, not full IPCC-style risk |
 
