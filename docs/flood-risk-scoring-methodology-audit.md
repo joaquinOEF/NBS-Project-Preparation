@@ -367,6 +367,36 @@ This audit recommends a **strategy shift**: for city-facing flood mapping, prior
 
 **Design principle:** do not spend ON-5680 effort on inventing a new in-app flood formula first. Instead, use validated hazard products as the primary flood susceptibility signal, and keep any OEF composite logic as optional secondary analytics.
 
+#### 10.1.1 How to combine them (without custom-physics redesign)
+
+If ON-5680 chooses to publish one operational `flood_score` from the products in §10.1, use a transparent **ensemble of externally produced hazard layers**, not a new in-house physical model.
+
+| Ensemble term | Source product | Practical normalization to 0-1 | Interpretation |
+|---------------|----------------|---------------------------------|----------------|
+| `jrc_norm` | JRC Global River Flood Hazard v2.1 | Convert selected return-period hazard class/depth to `[0,1]` on the analysis grid | Fluvial hazard severity |
+| `gfplain_norm` | GFPLAIN250m | Binary floodplain mask (0/1) or distance-decay from floodplain edge, then clamp to `[0,1]` | Floodplain susceptibility |
+| `gfd_norm` | Global Flood Database v1 | Event frequency or flooded-years frequency in the pixel/window, min-max to `[0,1]` | Historical observed flood occurrence |
+| `aqueduct_norm` | WRI Aqueduct Floods v2 | Rescale selected hazard layer/class to `[0,1]` | External multi-context hazard screening |
+
+**Score base (MVP):**
+
+```text
+flood_score_base = clamp01(
+    0.40 * jrc_norm +
+    0.25 * gfplain_norm +
+    0.20 * gfd_norm +
+    0.15 * aqueduct_norm
+)
+```
+
+**Implementation notes (MVP):**
+
+1. Harmonize CRS, extent, and resolution first (target grid: 250 m or declared alternative).
+2. Apply one documented normalization rule per product and freeze it by `methodology_version`.
+3. Compute `flood_score_base` and publish both continuous score (`0-1`) and classes (e.g., low/medium/high/very high).
+4. Treat the weights above as **starting priors only**; final operational weights must follow the calibration/validation rules in §10.4.
+5. If evidence is insufficient for stable weighting, publish product-level hazard layers and withhold weighted-composite claims.
+
 ### 10.2 What changes in the platform workflow
 
 | Current pattern | Proposed pattern |
