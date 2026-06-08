@@ -38,6 +38,8 @@ import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
 import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS } from '@shared/geospatial-layers';
 import { riskBand, pct100, dominantPercentile, hazardPercentile, riskAnchor, type HazardKey } from '@shared/risk-display';
+import { LayerLegend } from '@/core/components/map/LayerLegend';
+import type { LegendIndex } from '@shared/legend-types';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
 import ValueTooltip from '@/core/components/concept-note/ValueTooltip';
 
@@ -274,6 +276,14 @@ export default function SiteExplorerPage() {
   const layerRefs = useRef<Map<string, L.Layer>>(new Map());
   const layerDataCache = useRef<Map<string, any>>(new Map());
   const [loadingLayers, setLoadingLayers] = useState<Set<string>>(new Set());
+  // Per-layer legend specs (generate-legends.ts → layer-legends.json), loaded once.
+  const [legends, setLegends] = useState<LegendIndex>({});
+  useEffect(() => {
+    fetch('/sample-data/layer-legends.json')
+      .then(r => (r.ok ? r.json() : {}))
+      .then(setLegends)
+      .catch(() => {});
+  }, []);
 
   const isSampleModeActive = isSampleMode || isSampleRoute;
 
@@ -2090,6 +2100,17 @@ export default function SiteExplorerPage() {
                           );
                         })}
                       </div>
+                      {/* Inline legends for the enabled layers in this group (color scale + bounds) */}
+                      {groupLayers.some(l => l.enabled && legends[l.id]) && (
+                        <div className="mt-1.5 space-y-1.5 px-0.5">
+                          {groupLayers.filter(l => l.enabled && legends[l.id]).map(l => (
+                            <div key={l.id}>
+                              <div className="text-[9px] text-zinc-400 mb-0.5 truncate">{l.name}</div>
+                              <LayerLegend spec={legends[l.id]} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
