@@ -177,7 +177,12 @@ export function registerOverpassRoutes(app: Express): void {
         const response = await fetch(mirror, {
           method: "POST",
           body: `data=${encodeURIComponent(queryDef.query)}`,
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          // Overpass mirrors (Apache) return 406 without a descriptive User-Agent.
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "NBSProjectBuilder/1.0 (nbs-project@openearth.org)",
+            "Accept": "application/json",
+          },
           signal: controller.signal,
         });
 
