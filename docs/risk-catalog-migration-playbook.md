@@ -13,9 +13,27 @@ which is presentation, not modeling.
 **Status (2026-06-08):**
 - ✅ **Phase 1 — Flood map layers** (PR #213): flood risk card repointed to catalog
   `poa_flood_risk` (H×E×V), new "Flood Indices" row (hazard / exposure / vulnerability).
-- ⏳ **Phase 2 — Flood downstream** (this doc, §3): zones, hotspots, agents, CBO, docs.
+- ✅ **Phase 2 — Flood downstream**: ingestion (`scripts/sample-catalog-risk.ts`), rank-based
+  zone priority, schemas, spatial-query thresholds, agent/microapp breakdown, hotspots.
+  Deferred follow-ups: swap the agent `open_map` flood overlay (`oef_fri_2024` → catalog) and
+  the CBO E2 ranking prompt text; i18n component labels.
 - 🔜 **Heat & landslide**: drop-in via the §4 checklist once `poa_heat_*` / `poa_landslide_*`
   datasets are published.
+
+### Two findings that shaped the flood implementation (read before migrating heat/landslide)
+1. **Coverage is sparse and that's correct.** The catalog hazard (and therefore risk, which
+   needs all three components) is masked to fluvial-prone areas — **~14% of cells** for flood
+   (covered cells have HAND≈3.4 m vs ≈16.5 m for null cells). We **coalesce null→0** (non-fluvial
+   = 0 risk, not missing data) in the grid `*_score`, keeping raw components for tooltips. The
+   map's risk *card* still shows only the true ~14% footprint (it renders S3 tiles directly).
+   Expect heat/landslide to be similarly masked — landslide already is.
+2. **Percentile-rank, not raw magnitude (resolves §5).** Sparse 14% coverage collapses a bairro's
+   *mean* flood, and the catalog scale (avg≈0.03) is far below old-scale heat (avg≈0.55), so a raw
+   `max()` ranked flood primary in **0/94** zones. We now **percentile-rank each hazard across
+   zones** and classify/prioritize on ranks → flood primary in ~31/94, balanced interventions.
+   This is the normalization §5 anticipated; it is now implemented (not deferred). Side effect:
+   `multi_benefit`/LOW → 0 (every bairro has a relatively-dominant hazard); tune rank `T_ACTIVE`
+   to reintroduce a LOW band if desired.
 
 ---
 
@@ -202,20 +220,27 @@ Run this verbatim each time a new `poa_<hazard>_*` dataset is published. `<hazar
 
 ---
 
-## 5. Cross-hazard dominance / normalization (surface only, for now)
+## 5. Cross-hazard dominance / normalization (IMPLEMENTED — percentile-rank)
 
-`priorityScore = max(flood, heat, landslide)` and `classifyHazards()` compare **raw means across
-hazards** against absolute thresholds (`T_ACTIVE`, `T_COMBO`). When flood is on the catalog
-H×E×V scale (geometric means trend lower) while heat/landslide are still on the old hazard scale,
-the comparison is apples-to-oranges and one hazard can dominate artificially.
+The naive `priorityScore = max(flood, heat, landslide)` over **raw means** is apples-to-oranges:
+flood on the catalog H×E×V scale (avg≈0.03, sparse) vs heat on the old hazard scale (avg≈0.55)
+ranked flood primary in **0/94** zones.
 
-**Decision: surface it, do not normalize yet.**
-- Store and display all of `{hazard, exposure, vulnerability, risk}` per hazard per zone, plus a
-  `dominantHazard` flag. Let tooltips and the agent show the split.
-- Add `// TODO: normalize across hazards (percentile/rank) once all three are catalog` at the
-  `priorityScore` / `classifyHazards` sites.
-- The hotspot layer already percentile-normalizes per hazard (§3G) — reuse that approach
-  (per-hazard percentile rank) when we do tackle zone-level normalization.
+**Resolution (implemented in `generate-neighborhood-zones.ts`):** percentile-rank each hazard
+across all zones (`pctRanker`), then **classify and prioritize on the ranks**, not raw means:
+- `floodRank/heatRank/landslideRank` = fraction of zones strictly below this zone's mean (zeros→0).
+- `classifyHazards(floodRank, heatRank, landslideRank)` — scale-free, so flood can be primary
+  where it's relatively extreme. Flood primary ≈ 31/94.
+- Priority: flood = `floodRank`; heat/landslide = `rank × (1+vulnerabilityFactor)` [INTERIM].
+- All `{hazard, exposure, vulnerability, risk}` components + the three ranks are stored per zone
+  and surfaced in tooltips and agent context.
+
+Ranks are also dilution-robust — flood's sparse 14% coverage collapses its raw mean, but the
+relative ordering across bairros survives. Same approach the hotspot layer uses per-hazard (§3G).
+
+**When all three are catalog:** drop the heat/landslide `vulnerabilityFactor` multiplier and
+re-rank uniformly. **Side effect today:** `multi_benefit`/LOW → 0 (rank-based, every bairro has a
+relatively-dominant hazard); raise the rank `T_ACTIVE` to reintroduce a LOW band if wanted.
 
 ---
 
@@ -234,15 +259,18 @@ priorityScore            = dominantScore × (1 + vulnerabilityFactor)
 interventionType         = typology → sponge_network | cooling_network | slope_stabilization | multi_benefit
 ```
 
-**Target (catalog-led):**
+**Implemented (catalog-led, rank-based — see §5):**
 ```
-effective<H>   = mean<H>Risk            for migrated hazards (E,V already inside)
-effective<H>   = mean<H> × (1+vulnFactor)   for not-yet-migrated hazards   [INTERIM bridge]
-dominantScore  = effective value of the primary hazard
-priorityScore  = dominantScore           (vulnerabilityFactor folded into the catalog risk)
+mean<H>          = average of cell <haz>_score within the bairro (null→0)
+rank<H>          = pctRank(mean<H>) across all zones        (scale-free, dilution-robust)
+classifyHazards(rankFlood, rankHeat, rankLandslide) → typology + primary  (T_ACTIVE/T_COMBO on ranks)
+effectiveFlood       = floodRank                            (E,V already inside catalog risk)
+effectiveHeat/Lndsl  = rank × (1 + vulnerabilityFactor)     [INTERIM until migrated]
+priorityScore        = effective value of the primary hazard (or max if none dominant)
+interventionType     = typology → sponge_network | cooling_network | slope_stabilization | multi_benefit
 ```
-`interventionType` / typology logic is unchanged — it's hazard-type-driven, not score-magnitude-driven
-(though `classifyHazards` thresholds need the §5 normalization once scales diverge).
+`interventionType` / typology logic is unchanged in shape — it just consumes ranks now. When
+heat/landslide migrate, drop their `vulnerabilityFactor` term so all three are pure ranks.
 
 ---
 

@@ -1145,6 +1145,20 @@ export async function executeAgentTool(
                     heat: props.meanHeat,
                     landslide: props.meanLandslide,
                   },
+                  // Catalog flood breakdown (poa_flood_* H×E×V) so the agent can explain WHY a
+                  // zone is prioritized (e.g. high exposure, moderate hazard). Flood risk is the
+                  // validated H×E×V composite; ranks are scale-free across zones. See playbook.
+                  floodBreakdown: {
+                    hazard: props.meanFloodHazard,
+                    exposure: props.meanFloodExposure,
+                    vulnerability: props.meanFloodVulnerability,
+                    risk: props.meanFloodRisk ?? props.meanFlood,
+                  },
+                  riskRanks: {
+                    flood: props.floodRank,
+                    heat: props.heatRank,
+                    landslide: props.landslideRank,
+                  },
                   compatibleCategories,
                   message: `Location is in ${props.neighbourhoodName || props.zoneId} (${props.typologyLabel}). Compatible intervention types: ${compatibleCategories.map(c => c.name).join(', ')}. Use add_intervention_site to propose adding this site with your chosen intervention type.`,
                 },

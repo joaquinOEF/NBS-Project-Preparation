@@ -126,9 +126,15 @@ interface NeighborhoodZone {
   primaryHazard: HazardType | null;
   secondaryHazard: HazardType | null;
   interventionType: InterventionType;
-  meanFlood: number;
+  meanFlood: number;                 // = meanFloodRisk (catalog H×E×V); kept for back-compat
   meanHeat: number;
   meanLandslide: number;
+  // Flood component breakdown from the catalog (poa_flood_*). Heat/landslide get theirs
+  // when migrated. See docs/risk-catalog-migration-playbook.md.
+  meanFloodHazard: number;
+  meanFloodExposure: number;
+  meanFloodVulnerability: number;
+  meanFloodRisk: number;
   maxFlood: number;
   maxHeat: number;
   maxLandslide: number;
@@ -140,7 +146,12 @@ interface NeighborhoodZone {
   popDensityKm2: number;
   cellCount: number;
   vulnerabilityFactor: number;       // 0-1 composite vulnerability score
-  priorityScore: number;             // hazard × (1 + vulnerability)
+  // Per-hazard percentile rank across all zones (0-1). Scale-free comparison so the
+  // catalog-scale flood competes fairly with old-scale heat/landslide. See playbook §5.
+  floodRank: number;
+  heatRank: number;
+  landslideRank: number;
+  priorityScore: number;             // rank-based: flood=rank; heat/landslide=rank×(1+vuln) [INTERIM]
   geometry: any;
 }
 
@@ -341,7 +352,17 @@ async function main() {
   // ── Aggregate per neighborhood ─────────────────────────────────────────────
   console.log('Aggregating risk scores per neighborhood...');
 
-  const zones: NeighborhoodZone[] = [];
+  // ── Pass 1: aggregate per neighborhood ──────────────────────────────────────
+  interface ZoneAgg {
+    props: NeighborhoodFeature['properties'];
+    geometry: any;
+    cellCount: number;
+    meanFlood: number; meanHeat: number; meanLandslide: number;
+    meanFloodHazard: number; meanFloodExposure: number; meanFloodVulnerability: number;
+    maxFlood: number; maxHeat: number; maxLandslide: number;
+    vulnerabilityFactor: number;
+  }
+  const aggs: ZoneAgg[] = [];
 
   for (const n of neighborhoods) {
     const props = n.properties;
@@ -353,9 +374,11 @@ async function main() {
       continue;
     }
 
-    // Aggregate risk scores from grid cells
+    // Aggregate risk scores from grid cells (null→0; for flood, absence = non-fluvial = 0)
     let sumFlood = 0, sumHeat = 0, sumLandslide = 0;
     let maxFlood = 0, maxHeat = 0, maxLandslide = 0;
+    // Flood component sums (catalog poa_flood_* breakdown)
+    let sumFHaz = 0, sumFExp = 0, sumFVul = 0;
 
     for (const cell of cells) {
       const m = cell.properties.metrics;
@@ -366,33 +389,72 @@ async function main() {
       maxFlood = Math.max(maxFlood, f);
       maxHeat = Math.max(maxHeat, h);
       maxLandslide = Math.max(maxLandslide, l);
+      sumFHaz += m.flood_hazard ?? 0;
+      sumFExp += m.flood_exposure ?? 0;
+      sumFVul += m.flood_vulnerability ?? 0;
     }
 
-    const meanFlood = round3(sumFlood / cells.length);
-    const meanHeat = round3(sumHeat / cells.length);
-    const meanLandslide = round3(sumLandslide / cells.length);
-
-    // Classify hazard profile
-    const { typology, primary, secondary } = classifyHazards(meanFlood, meanHeat, meanLandslide);
-
-    // Determine dominant hazard score (for priority calculation)
-    const dominantScore = primary === 'FLOOD' ? meanFlood
-      : primary === 'HEAT' ? meanHeat
-      : primary === 'LANDSLIDE' ? meanLandslide
-      : Math.max(meanFlood, meanHeat, meanLandslide);
-
-    // ── Vulnerability factor ───────────────────────────────────────────────
-    // See header comment for rationale on weights
+    // ── Vulnerability factor (app-side, climate-justice weighted) ──────────────
+    // Only applied to NOT-yet-migrated hazards (heat/landslide); flood's exposure &
+    // vulnerability already live inside the catalog risk.
     const vulnerabilityFactor = round3(clamp01(
       VULN_W_POVERTY * (props.poverty_rate ?? 0) +
       VULN_W_INFRASTRUCTURE * (1 - (props.pct_formal_sewage ?? 1)) +
       VULN_W_EXPOSURE * clamp01((props.pop_density_km2 ?? 0) / maxPopDensity)
     ));
 
-    // Priority = hazard exposure × (1 + vulnerability)
-    // This boosts high-poverty neighborhoods in priority ranking
-    // while keeping the intervention TYPE purely hazard-driven
-    const priorityScore = round3(dominantScore * (1 + vulnerabilityFactor));
+    aggs.push({
+      props, geometry: n.geometry, cellCount: cells.length,
+      meanFlood: round3(sumFlood / cells.length),  // = meanFloodRisk
+      meanHeat: round3(sumHeat / cells.length),
+      meanLandslide: round3(sumLandslide / cells.length),
+      meanFloodHazard: round3(sumFHaz / cells.length),
+      meanFloodExposure: round3(sumFExp / cells.length),
+      meanFloodVulnerability: round3(sumFVul / cells.length),
+      maxFlood, maxHeat, maxLandslide,
+      vulnerabilityFactor,
+    });
+  }
+
+  // ── Percentile-rank each hazard across zones (scale-free; see playbook §5) ────
+  // INTERIM: lets catalog-scale flood (avg≈0.03) compete fairly with old-scale heat
+  // (avg≈0.55), and is dilution-robust — flood's sparse 14% coverage collapses its raw
+  // mean, but relative ordering across bairros survives, so riverine bairros still rank high.
+  // This is the same normalization heat/landslide will use once they become catalog datasets.
+  const pctRanker = (vals: number[]) => {
+    const sorted = [...vals].sort((a, b) => a - b);
+    return (v: number) => {
+      // fraction of zones strictly less than v → zeros map to 0, the top maps to ~1
+      let lo = 0, hi = sorted.length;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (sorted[mid] < v) lo = mid + 1; else hi = mid; }
+      return sorted.length > 1 ? round3(lo / (sorted.length - 1)) : 0;
+    };
+  };
+  const rankFlood = pctRanker(aggs.map(a => a.meanFlood));
+  const rankHeat = pctRanker(aggs.map(a => a.meanHeat));
+  const rankLandslide = pctRanker(aggs.map(a => a.meanLandslide));
+
+  // ── Pass 2: classify + prioritize on ranks ──────────────────────────────────
+  const zones: NeighborhoodZone[] = [];
+  for (const a of aggs) {
+    const props = a.props;
+    const floodRank = rankFlood(a.meanFlood);
+    const heatRank = rankHeat(a.meanHeat);
+    const landslideRank = rankLandslide(a.meanLandslide);
+
+    // Classify on ranks (scale-free) so flood can be primary where it's relatively extreme.
+    const { typology, primary, secondary } = classifyHazards(floodRank, heatRank, landslideRank);
+
+    // Priority on ranks:
+    //   - flood: rank directly (E & V already inside the catalog risk → NO vulnerabilityFactor)
+    //   - heat/landslide: rank × (1 + vulnerabilityFactor)  [INTERIM bridge until migrated]
+    const effectiveFlood = floodRank;
+    const effectiveHeat = round3(heatRank * (1 + a.vulnerabilityFactor));
+    const effectiveLandslide = round3(landslideRank * (1 + a.vulnerabilityFactor));
+    const priorityScore = primary === 'FLOOD' ? effectiveFlood
+      : primary === 'HEAT' ? effectiveHeat
+      : primary === 'LANDSLIDE' ? effectiveLandslide
+      : round3(Math.max(effectiveFlood, effectiveHeat, effectiveLandslide));
 
     zones.push({
       zoneId: slugify(props.neighbourhood_name),
@@ -402,27 +464,45 @@ async function main() {
       primaryHazard: primary,
       secondaryHazard: secondary,
       interventionType: getInterventionType(typology),
-      meanFlood,
-      meanHeat,
-      meanLandslide,
-      maxFlood: round3(maxFlood),
-      maxHeat: round3(maxHeat),
-      maxLandslide: round3(maxLandslide),
+      meanFlood: a.meanFlood,
+      meanHeat: a.meanHeat,
+      meanLandslide: a.meanLandslide,
+      meanFloodHazard: a.meanFloodHazard,
+      meanFloodExposure: a.meanFloodExposure,
+      meanFloodVulnerability: a.meanFloodVulnerability,
+      meanFloodRisk: a.meanFlood,
+      maxFlood: round3(a.maxFlood),
+      maxHeat: round3(a.maxHeat),
+      maxLandslide: round3(a.maxLandslide),
       populationTotal: props.population_total,
       povertyRate: round3(props.poverty_rate ?? 0),
       pctFormalSewage: round3(props.pct_formal_sewage ?? 0),
       pctLowIncome: round3(props.pct_low_income ?? 0),
       areaKm2: round3(props.area_km2),
       popDensityKm2: round3(props.pop_density_km2 ?? 0),
-      cellCount: cells.length,
-      vulnerabilityFactor,
+      cellCount: a.cellCount,
+      vulnerabilityFactor: a.vulnerabilityFactor,
+      floodRank,
+      heatRank,
+      landslideRank,
       priorityScore,
-      geometry: n.geometry,
+      geometry: a.geometry,
     });
   }
 
   // Sort by priority score descending (most critical neighborhoods first)
   zones.sort((a, b) => b.priorityScore - a.priorityScore);
+
+  // ── INTERIM scale-mismatch surfacing (catalog migration) ────────────────────
+  const floodPrimary = zones.filter(z => z.primaryHazard === 'FLOOD').length;
+  const meanFloodOverall = round3(zones.reduce((s, z) => s + z.meanFlood, 0) / zones.length);
+  const meanHeatOverall = round3(zones.reduce((s, z) => s + z.meanHeat, 0) / zones.length);
+  console.log('\n⚠ INTERIM cross-hazard handling (see playbook §5):');
+  console.log(`  flood is on the catalog H×E×V scale (avg meanFlood ${meanFloodOverall}); heat/landslide are`);
+  console.log(`  still old app hazard scores (avg meanHeat ${meanHeatOverall}). Classification + priority use`);
+  console.log(`  PERCENTILE RANKS per hazard (scale-free) so flood competes despite its sparse 14% coverage.`);
+  console.log(`  Flood is primary in ${floodPrimary}/${zones.length} zones. Heat/landslide keep the app vulnerability`);
+  console.log(`  multiplier until they too become catalog datasets; then drop it and re-rank uniformly.`);
 
   // ── Summary statistics ─────────────────────────────────────────────────────
   const interventionCounts = { sponge_network: 0, cooling_network: 0, slope_stabilization: 0, multi_benefit: 0 };

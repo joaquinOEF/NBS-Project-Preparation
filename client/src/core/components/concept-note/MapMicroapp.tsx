@@ -162,9 +162,13 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
               const heatPct = p.meanHeat != null ? `Heat: <strong>${(p.meanHeat * 100).toFixed(0)}%</strong>` : '';
               const lsPct = p.meanLandslide != null ? `Landslide: <strong>${(p.meanLandslide * 100).toFixed(0)}%</strong>` : '';
               const riskLine = [floodPct, heatPct, lsPct].filter(Boolean).join(' · ');
+              // Catalog flood H×E×V breakdown (hazard·exposure·vulnerability)
+              const fhxv = p.meanFloodHazard != null
+                ? `<span style="color:#888">Flood H·E·V: ${(p.meanFloodHazard * 100).toFixed(0)}·${((p.meanFloodExposure ?? 0) * 100).toFixed(0)}·${((p.meanFloodVulnerability ?? 0) * 100).toFixed(0)}</span><br/>`
+                : '';
               featureLayer.bindTooltip(
                 `<div style="font-size:11px"><strong>${name}</strong><br/>` +
-                hazardLine + (riskLine ? riskLine + '<br/>' : '') + priorityLine +
+                hazardLine + (riskLine ? riskLine + '<br/>' : '') + fhxv + priorityLine +
                 `${pop} hab. · ${(p.areaKm2 || p.area_km2)?.toFixed(1) || '?'} km²<br/>` +
                 `<span style="color:#888">Poverty: ${poverty}</span></div>`,
                 { sticky: true }
