@@ -306,6 +306,7 @@ export const selectedZoneSchema = z.object({
   meanFloodExposure: z.number().optional(),
   meanFloodVulnerability: z.number().optional(),
   meanFloodRisk: z.number().optional(),
+  floodExtentPct: z.number().optional(),
   floodRank: z.number().optional(),
   heatRank: z.number().optional(),
   landslideRank: z.number().optional(),

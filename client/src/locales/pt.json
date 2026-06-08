@@ -615,6 +615,13 @@
       "agentMessage": "Quero atualizar algumas informações sobre a minha preparação para financiamento"
     }
   },
+  "riskBands": {
+    "very_low": "Muito Baixo",
+    "low": "Baixo",
+    "moderate": "Moderado",
+    "high": "Alto",
+    "very_high": "Muito Alto"
+  },
   "siteExplorer": {
     "saveInterventions": "Salvar Intervenções",
     "saved": "Salvo!",
@@ -626,6 +633,7 @@
     "noAssetsError": "Nenhum ativo compatível encontrado",
     "noAssetsErrorDescription": "Tente selecionar uma categoria ou zona diferente.",
     "zonePriority": "Prioridade das Zonas",
+    "relativeToCity": "relativo aos bairros de Porto Alegre",
     "noZonesLoaded": "As zonas aparecerão aqui após carregamento",
     "evidenceLayers": "Camadas de Evidência",
     "title": "Explorador de Terreno",
