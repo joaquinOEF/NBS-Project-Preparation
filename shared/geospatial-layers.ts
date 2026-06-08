@@ -6,6 +6,7 @@
 export type LayerSource = 'geojson' | 'tiles';
 export type LayerGroup =
   | 'risk_analysis'    // Existing: flood/heat/landslide from grid
+  | 'flood_indices'    // Catalog poa_flood_* components: hazard / exposure / vulnerability
   | 'environment'      // Existing: elevation, landcover, water, rivers, forest
   | 'urban_land'       // New: Dynamic World, GHSL, VIIRS
   | 'ecology'          // New: NDVI, Hansen, Solar
@@ -43,10 +44,12 @@ export interface TileLayerDef {
 // Decode: value = (R + 256*G) / 1000 (scale=1000, offset=0, unit="index 0–1")
 export const LOCAL_RISK_LAYERS: TileLayerDef[] = [
   {
-    id: 'risk_flood_250m', name: 'Flood Risk (250m)', group: 'risk_analysis', color: '#1d4ed8',
-    tileLayerId: '_local_flood_risk', available: true, hasValueTiles: true,
-    valueEncoding: { type: 'numeric', scale: 1000, offset: 0, unit: 'index 0–1',
-      urlTemplate: '/tiles_values/flood_risk/{z}/{x}/{y}.png' },
+    // Catalog poa_flood_risk — validated H×E×V composite (S3, 24-bit, scale 10000).
+    // Replaces the old locally-computed flood_score (_local_flood_risk).
+    id: 'risk_flood_250m', name: 'Flood Risk (H×E×V)', group: 'risk_analysis', color: '#1d4ed8',
+    tileLayerId: 'poa_flood_risk', available: true, hasValueTiles: true,
+    valueEncoding: { type: 'numeric', scale: 10000, offset: 0, unit: 'index 0–1',
+      urlTemplate: 'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods/risk/tiles_values/{z}/{x}/{y}.png' },
   },
   {
     id: 'risk_heat_250m', name: 'Heat Risk (250m)', group: 'risk_analysis', color: '#dc2626',
@@ -63,6 +66,34 @@ export const LOCAL_RISK_LAYERS: TileLayerDef[] = [
   {
     id: 'risk_composite_hotspot', name: 'Risk Hotspots (all)', group: 'risk_analysis', color: '#8b5cf6',
     tileLayerId: '_local_composite_hotspot', available: true,
+  },
+];
+
+// Flood component indices from the catalog (poa_flood_* H/E/V), S3-backed.
+// Rendered as their own "Flood Indices" row. Heat/landslide get parallel arrays later.
+// Value tiles: 24-bit RGB, scale 10000 → value = (R + 256*G + 65536*B) / 10000.
+const FLOOD_INDEX_BASE =
+  'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods';
+const floodIndexEncoding = (component: string): ValueTileEncoding => ({
+  type: 'numeric', scale: 10000, offset: 0, unit: 'index 0–1',
+  urlTemplate: `${FLOOD_INDEX_BASE}/${component}/tiles_values/{z}/{x}/{y}.png`,
+});
+
+export const FLOOD_INDEX_LAYERS: TileLayerDef[] = [
+  {
+    id: 'poa_flood_hazard', name: 'Flood Hazard', group: 'flood_indices', color: '#2563eb',
+    tileLayerId: 'poa_flood_hazard', available: true, hasValueTiles: true,
+    valueEncoding: floodIndexEncoding('hazard'),
+  },
+  {
+    id: 'poa_flood_exposure', name: 'Flood Exposure', group: 'flood_indices', color: '#7c3aed',
+    tileLayerId: 'poa_flood_exposure', available: true, hasValueTiles: true,
+    valueEncoding: floodIndexEncoding('exposure'),
+  },
+  {
+    id: 'poa_flood_vulnerability', name: 'Flood Vulnerability', group: 'flood_indices', color: '#db2777',
+    tileLayerId: 'poa_flood_vulnerability', available: true, hasValueTiles: true,
+    valueEncoding: floodIndexEncoding('vulnerability'),
   },
 ];
 
