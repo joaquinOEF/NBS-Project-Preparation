@@ -574,33 +574,14 @@ async function main() {
     },
     geoJson: {
       type: 'FeatureCollection' as const,
-      features: zones.map(z => ({
+      // Spread the full zone object into properties (minus geometry) so the map features
+      // always carry every field — including ranks + the catalog flood breakdown. Previously
+      // this hand-picked a subset and silently dropped floodRank/meanFloodRisk/etc., so the
+      // map showed "Very Low (0)" everywhere while zones[] had the real values.
+      features: zones.map(({ geometry, ...props }) => ({
         type: 'Feature' as const,
-        geometry: z.geometry,
-        properties: {
-          zoneId: z.zoneId,
-          neighbourhoodName: z.neighbourhoodName,
-          neighbourhoodNumber: z.neighbourhoodNumber,
-          typologyLabel: z.typologyLabel,
-          primaryHazard: z.primaryHazard,
-          secondaryHazard: z.secondaryHazard,
-          interventionType: z.interventionType,
-          meanFlood: z.meanFlood,
-          meanHeat: z.meanHeat,
-          meanLandslide: z.meanLandslide,
-          maxFlood: z.maxFlood,
-          maxHeat: z.maxHeat,
-          maxLandslide: z.maxLandslide,
-          populationTotal: z.populationTotal,
-          povertyRate: z.povertyRate,
-          pctFormalSewage: z.pctFormalSewage,
-          pctLowIncome: z.pctLowIncome,
-          areaKm2: z.areaKm2,
-          popDensityKm2: z.popDensityKm2,
-          cellCount: z.cellCount,
-          vulnerabilityFactor: z.vulnerabilityFactor,
-          priorityScore: z.priorityScore,
-        },
+        geometry,
+        properties: props,
       })),
     },
     zones: zones.map(({ geometry, ...rest }) => rest), // zones array without geometry (for easy consumption)
