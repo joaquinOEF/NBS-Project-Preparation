@@ -264,6 +264,23 @@ percentile, or band). We follow FEMA / the Climate Vulnerability Index:
 - **Honesty:** percentile hides absolute severity and is reference-population-dependent → the absolute
   anchor line is **required**, and every surface says "relative to PoA neighborhoods".
 
+## 5c. Layer legends (raster color scales)
+
+Each evidence layer shows an inline legend (color ramp + low/mid/high bounds + unit, or class
+swatches) under its group in the site-explorer drawer when toggled on. Colors are sourced hybrid
+by `scripts/generate-legends.ts` → `client/public/sample-data/layer-legends.json`:
+
+- **file** — 17 authoritative GDAL color-relief files in `geospatial-data` (`transformation/*/data/*_colors.txt`), exact breakpoints + unit. Map in `COLOR_FILES`.
+- **classes** — categorical layers (Dynamic World) from `valueEncoding.classes` + `CLASS_COLORS`.
+- **code** — local heat/landslide ramps mirrored from `generate-risk-tiles.ts` `colorFn`s.
+- **sampled** — OEF indices with no colormap (poa_flood_*, CHIRPS, HWM, FRI): colors recovered by
+  pairing value-tile decode × visual-tile RGB over central-POA z=13 tiles.
+
+When a new catalog layer lands: if it has a color file, add it to `COLOR_FILES`; if it's a baked
+OEF index with value tiles, sampling picks it up automatically; re-run the generator. Layers with
+no colormap/value-tile fall back to no legend (graceful). Legend bounds are the **raw tile value**
+(e.g. flood risk 0–0.33, HAND 0–100 m) — distinct from the zone percentile bands (§5b).
+
 ## 6. Reference — exact zone-priority formula
 
 **Current** (`scripts/generate-neighborhood-zones.ts`):

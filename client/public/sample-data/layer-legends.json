@@ -1,0 +1,1285 @@
+{
+  "risk_flood_250m": {
+    "layerId": "risk_flood_250m",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.12,
+        "color": "#3b3470"
+      },
+      {
+        "value": 0.155,
+        "color": "#37457b"
+      },
+      {
+        "value": 0.19,
+        "color": "#364c7e"
+      },
+      {
+        "value": 0.224,
+        "color": "#335e89"
+      },
+      {
+        "value": 0.259,
+        "color": "#316a8e"
+      },
+      {
+        "value": 0.294,
+        "color": "#327a89"
+      },
+      {
+        "value": 0.329,
+        "color": "#327b89"
+      }
+    ],
+    "min": 0.12,
+    "max": 0.329,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "risk_heat_250m": {
+    "layerId": "risk_heat_250m",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.15,
+        "color": "#fecdcd"
+      },
+      {
+        "value": 0.3,
+        "color": "#fca5a5"
+      },
+      {
+        "value": 0.5,
+        "color": "#dc2626"
+      },
+      {
+        "value": 0.7,
+        "color": "#991b1b"
+      }
+    ],
+    "min": 0.15,
+    "max": 0.7,
+    "source": "code",
+    "note": "screening index 0–1"
+  },
+  "risk_landslide_250m": {
+    "layerId": "risk_landslide_250m",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.15,
+        "color": "#eab308"
+      },
+      {
+        "value": 0.3,
+        "color": "#ca8a04"
+      },
+      {
+        "value": 0.5,
+        "color": "#a16207"
+      },
+      {
+        "value": 0.7,
+        "color": "#78350f"
+      }
+    ],
+    "min": 0.15,
+    "max": 0.7,
+    "source": "code",
+    "note": "screening index 0–1"
+  },
+  "poa_flood_hazard": {
+    "layerId": "poa_flood_hazard",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.119,
+        "color": "#3c2f6e"
+      },
+      {
+        "value": 0.203,
+        "color": "#355080"
+      },
+      {
+        "value": 0.286,
+        "color": "#32768a"
+      },
+      {
+        "value": 0.37,
+        "color": "#339482"
+      },
+      {
+        "value": 0.453,
+        "color": "#34aa7c"
+      },
+      {
+        "value": 0.537,
+        "color": "#3cba75"
+      },
+      {
+        "value": 0.62,
+        "color": "#4ec16a"
+      }
+    ],
+    "min": 0.119,
+    "max": 0.62,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "poa_flood_exposure": {
+    "layerId": "poa_flood_exposure",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.025,
+        "color": "#420b5a"
+      },
+      {
+        "value": 0.108,
+        "color": "#3d286a"
+      },
+      {
+        "value": 0.191,
+        "color": "#37477b"
+      },
+      {
+        "value": 0.274,
+        "color": "#316c8d"
+      },
+      {
+        "value": 0.357,
+        "color": "#338786"
+      },
+      {
+        "value": 0.44,
+        "color": "#34a67d"
+      },
+      {
+        "value": 0.523,
+        "color": "#3ab976"
+      }
+    ],
+    "min": 0.025,
+    "max": 0.523,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "poa_flood_vulnerability": {
+    "layerId": "poa_flood_vulnerability",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.091,
+        "color": "#3d2669"
+      },
+      {
+        "value": 0.176,
+        "color": "#37467b"
+      },
+      {
+        "value": 0.262,
+        "color": "#316e8c"
+      },
+      {
+        "value": 0.348,
+        "color": "#328387"
+      },
+      {
+        "value": 0.433,
+        "color": "#34a17f"
+      },
+      {
+        "value": 0.519,
+        "color": "#35b779"
+      },
+      {
+        "value": 0.605,
+        "color": "#4dc16b"
+      }
+    ],
+    "min": 0.091,
+    "max": 0.605,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "oef_dynamic_world": {
+    "layerId": "oef_dynamic_world",
+    "kind": "classes",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#62B0CC",
+        "label": "Water"
+      },
+      {
+        "value": 1,
+        "color": "#488C5F",
+        "label": "Trees"
+      },
+      {
+        "value": 2,
+        "color": "#98B982",
+        "label": "Grass"
+      },
+      {
+        "value": 3,
+        "color": "#A0AAC3",
+        "label": "Flooded veg"
+      },
+      {
+        "value": 4,
+        "color": "#D7A55F",
+        "label": "Crops"
+      },
+      {
+        "value": 5,
+        "color": "#CDB982",
+        "label": "Shrub"
+      },
+      {
+        "value": 6,
+        "color": "#B45F55",
+        "label": "Built"
+      },
+      {
+        "value": 7,
+        "color": "#AFA89E",
+        "label": "Bare"
+      },
+      {
+        "value": 8,
+        "color": "#B9CDE1",
+        "label": "Snow"
+      }
+    ],
+    "source": "classes"
+  },
+  "oef_ghsl_built_up": {
+    "layerId": "oef_ghsl_built_up",
+    "kind": "gradient",
+    "unit": "m²",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#fffaf0"
+      },
+      {
+        "value": 1000,
+        "color": "#ffe6c8"
+      },
+      {
+        "value": 2000,
+        "color": "#fac8a0"
+      },
+      {
+        "value": 4000,
+        "color": "#e6966e"
+      },
+      {
+        "value": 6000,
+        "color": "#be6450"
+      },
+      {
+        "value": 8000,
+        "color": "#8c3c32"
+      }
+    ],
+    "min": 0,
+    "max": 8000,
+    "source": "file"
+  },
+  "oef_ghsl_urbanization": {
+    "layerId": "oef_ghsl_urbanization",
+    "kind": "gradient",
+    "stops": [
+      {
+        "value": -200,
+        "color": "#000000"
+      },
+      {
+        "value": 10,
+        "color": "#7ab6f5"
+      },
+      {
+        "value": 11,
+        "color": "#cdf57a"
+      },
+      {
+        "value": 12,
+        "color": "#abcd66"
+      },
+      {
+        "value": 13,
+        "color": "#375623"
+      },
+      {
+        "value": 21,
+        "color": "#ffff00"
+      },
+      {
+        "value": 22,
+        "color": "#a87000"
+      },
+      {
+        "value": 23,
+        "color": "#732600"
+      },
+      {
+        "value": 30,
+        "color": "#ff0000"
+      }
+    ],
+    "min": -200,
+    "max": 30,
+    "source": "file"
+  },
+  "oef_viirs_nightlights": {
+    "layerId": "oef_viirs_nightlights",
+    "kind": "gradient",
+    "unit": "nW/cm²/sr",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#080818"
+      },
+      {
+        "value": 5,
+        "color": "#0f1937"
+      },
+      {
+        "value": 10,
+        "color": "#142d5a"
+      },
+      {
+        "value": 25,
+        "color": "#194682"
+      },
+      {
+        "value": 50,
+        "color": "#3278b4"
+      },
+      {
+        "value": 75,
+        "color": "#50b4dc"
+      },
+      {
+        "value": 100,
+        "color": "#8cdcff"
+      },
+      {
+        "value": 150,
+        "color": "#e6f5c8"
+      },
+      {
+        "value": 200,
+        "color": "#ffffe6"
+      },
+      {
+        "value": 300,
+        "color": "#ffffff"
+      }
+    ],
+    "min": 0,
+    "max": 300,
+    "source": "file"
+  },
+  "oef_solar_tiles": {
+    "layerId": "oef_solar_tiles",
+    "kind": "gradient",
+    "unit": "kWh/kWp",
+    "stops": [
+      {
+        "value": 3,
+        "color": "#2166ac"
+      },
+      {
+        "value": 3.5,
+        "color": "#3b82f6"
+      },
+      {
+        "value": 3.75,
+        "color": "#22c55e"
+      },
+      {
+        "value": 4,
+        "color": "#facc15"
+      },
+      {
+        "value": 4.25,
+        "color": "#f97316"
+      },
+      {
+        "value": 4.5,
+        "color": "#ef4444"
+      },
+      {
+        "value": 5,
+        "color": "#b71c1c"
+      }
+    ],
+    "min": 3,
+    "max": 5,
+    "source": "file"
+  },
+  "oef_modis_ndvi": {
+    "layerId": "oef_modis_ndvi",
+    "kind": "gradient",
+    "unit": "NDVI",
+    "stops": [
+      {
+        "value": -0.2,
+        "color": "#8b5a2b"
+      },
+      {
+        "value": 0,
+        "color": "#d2b48c"
+      },
+      {
+        "value": 0.2,
+        "color": "#ffff99"
+      },
+      {
+        "value": 0.4,
+        "color": "#addd8e"
+      },
+      {
+        "value": 0.6,
+        "color": "#78c679"
+      },
+      {
+        "value": 0.8,
+        "color": "#31a354"
+      },
+      {
+        "value": 1,
+        "color": "#006837"
+      }
+    ],
+    "min": -0.2,
+    "max": 1,
+    "source": "file"
+  },
+  "oef_hansen_forest": {
+    "layerId": "oef_hansen_forest",
+    "kind": "gradient",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#f0f0f0"
+      },
+      {
+        "value": 1,
+        "color": "#ff0000"
+      }
+    ],
+    "min": 0,
+    "max": 1,
+    "source": "file"
+  },
+  "oef_ghsl_population": {
+    "layerId": "oef_ghsl_population",
+    "kind": "gradient",
+    "unit": "people",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#fffcf0"
+      },
+      {
+        "value": 16,
+        "color": "#fff5dc"
+      },
+      {
+        "value": 33,
+        "color": "#ffe4b5"
+      },
+      {
+        "value": 50,
+        "color": "#ffc87c"
+      },
+      {
+        "value": 66,
+        "color": "#ffa500"
+      },
+      {
+        "value": 83,
+        "color": "#ff6347"
+      },
+      {
+        "value": 100,
+        "color": "#b22222"
+      }
+    ],
+    "min": 0,
+    "max": 100,
+    "source": "file"
+  },
+  "oef_copernicus_dem": {
+    "layerId": "oef_copernicus_dem",
+    "kind": "gradient",
+    "unit": "m",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#0000ff"
+      },
+      {
+        "value": 250,
+        "color": "#00ffff"
+      },
+      {
+        "value": 500,
+        "color": "#ffff00"
+      },
+      {
+        "value": 750,
+        "color": "#ff0000"
+      },
+      {
+        "value": 1000,
+        "color": "#ffffff"
+      }
+    ],
+    "min": 0,
+    "max": 1000,
+    "source": "file"
+  },
+  "oef_merit_elv": {
+    "layerId": "oef_merit_elv",
+    "kind": "gradient",
+    "unit": "m",
+    "stops": [
+      {
+        "value": -50,
+        "color": "#0000b4"
+      },
+      {
+        "value": 0,
+        "color": "#0078ff"
+      },
+      {
+        "value": 100,
+        "color": "#00ffff"
+      },
+      {
+        "value": 300,
+        "color": "#ffff00"
+      },
+      {
+        "value": 700,
+        "color": "#ff8c00"
+      },
+      {
+        "value": 1200,
+        "color": "#ffffff"
+      }
+    ],
+    "min": -50,
+    "max": 1200,
+    "source": "file"
+  },
+  "oef_merit_upa": {
+    "layerId": "oef_merit_upa",
+    "kind": "gradient",
+    "unit": "cells",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#ffffff"
+      },
+      {
+        "value": 10,
+        "color": "#add8e6"
+      },
+      {
+        "value": 100,
+        "color": "#0078ff"
+      },
+      {
+        "value": 1000,
+        "color": "#00008b"
+      }
+    ],
+    "min": 0,
+    "max": 1000,
+    "source": "file"
+  },
+  "oef_merit_hydro": {
+    "layerId": "oef_merit_hydro",
+    "kind": "gradient",
+    "unit": "m",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#ffffff"
+      },
+      {
+        "value": 5,
+        "color": "#ffff99"
+      },
+      {
+        "value": 20,
+        "color": "#ffcc66"
+      },
+      {
+        "value": 50,
+        "color": "#ff8000"
+      },
+      {
+        "value": 100,
+        "color": "#cc0000"
+      }
+    ],
+    "min": 0,
+    "max": 100,
+    "source": "file"
+  },
+  "oef_emsn194": {
+    "layerId": "oef_emsn194",
+    "kind": "gradient",
+    "unit": "m",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#ffffff"
+      },
+      {
+        "value": 0.5,
+        "color": "#add8e6"
+      },
+      {
+        "value": 1,
+        "color": "#87cefa"
+      },
+      {
+        "value": 2,
+        "color": "#4682b4"
+      },
+      {
+        "value": 3,
+        "color": "#6495ed"
+      },
+      {
+        "value": 4,
+        "color": "#ffd700"
+      },
+      {
+        "value": 5,
+        "color": "#ffa500"
+      },
+      {
+        "value": 6,
+        "color": "#ff8c00"
+      },
+      {
+        "value": 7,
+        "color": "#ff6347"
+      },
+      {
+        "value": 8,
+        "color": "#dc143c"
+      },
+      {
+        "value": 10,
+        "color": "#8b0000"
+      }
+    ],
+    "min": 0,
+    "max": 10,
+    "source": "file"
+  },
+  "oef_jrc_occurrence": {
+    "layerId": "oef_jrc_occurrence",
+    "kind": "gradient",
+    "unit": "%",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#ffffff"
+      },
+      {
+        "value": 50,
+        "color": "#ffbbbb"
+      },
+      {
+        "value": 100,
+        "color": "#0000ff"
+      }
+    ],
+    "min": 0,
+    "max": 100,
+    "source": "file"
+  },
+  "oef_jrc_seasonality": {
+    "layerId": "oef_jrc_seasonality",
+    "kind": "gradient",
+    "unit": "months",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#ffffff"
+      },
+      {
+        "value": 6,
+        "color": "#add8e6"
+      },
+      {
+        "value": 12,
+        "color": "#0000ff"
+      }
+    ],
+    "min": 0,
+    "max": 12,
+    "source": "file"
+  },
+  "oef_jrc_change": {
+    "layerId": "oef_jrc_change",
+    "kind": "gradient",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#ffffff"
+      },
+      {
+        "value": 1,
+        "color": "#0000ff"
+      },
+      {
+        "value": 2,
+        "color": "#22b14c"
+      },
+      {
+        "value": 3,
+        "color": "#d1102d"
+      },
+      {
+        "value": 4,
+        "color": "#99d9ea"
+      },
+      {
+        "value": 5,
+        "color": "#b5e61d"
+      },
+      {
+        "value": 6,
+        "color": "#e6a1aa"
+      },
+      {
+        "value": 7,
+        "color": "#ff7f27"
+      },
+      {
+        "value": 8,
+        "color": "#ffc90e"
+      },
+      {
+        "value": 9,
+        "color": "#7f7f7f"
+      },
+      {
+        "value": 10,
+        "color": "#c3c3c3"
+      }
+    ],
+    "min": 0,
+    "max": 10,
+    "source": "file"
+  },
+  "oef_hansen_treecover": {
+    "layerId": "oef_hansen_treecover",
+    "kind": "gradient",
+    "unit": "%",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#ffffff"
+      },
+      {
+        "value": 50,
+        "color": "#90ee90"
+      },
+      {
+        "value": 100,
+        "color": "#006400"
+      }
+    ],
+    "min": 0,
+    "max": 100,
+    "source": "file"
+  },
+  "oef_chirps_r90p_2024": {
+    "layerId": "oef_chirps_r90p_2024",
+    "kind": "gradient",
+    "unit": "mm",
+    "stops": [
+      {
+        "value": 525.34,
+        "color": "#065497"
+      },
+      {
+        "value": 560.97,
+        "color": "#019aec"
+      },
+      {
+        "value": 596.6,
+        "color": "#15b1f4"
+      },
+      {
+        "value": 632.23,
+        "color": "#69cdc8"
+      },
+      {
+        "value": 667.86,
+        "color": "#15b1f4"
+      },
+      {
+        "value": 703.49,
+        "color": "#2bb8e8"
+      },
+      {
+        "value": 739.12,
+        "color": "#ffaa1f"
+      }
+    ],
+    "min": 525.34,
+    "max": 739.12,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "oef_chirps_r90p_clim": {
+    "layerId": "oef_chirps_r90p_clim",
+    "kind": "gradient",
+    "unit": "mm",
+    "stops": [
+      {
+        "value": 377.37,
+        "color": "#0290df"
+      },
+      {
+        "value": 379.612,
+        "color": "#27b7ea"
+      },
+      {
+        "value": 381.853,
+        "color": "#2bb8e8"
+      },
+      {
+        "value": 384.095,
+        "color": "#96dcb0"
+      },
+      {
+        "value": 386.337,
+        "color": "#ace3a4"
+      },
+      {
+        "value": 388.578,
+        "color": "#ffdb52"
+      },
+      {
+        "value": 390.82,
+        "color": "#ffdb52"
+      }
+    ],
+    "min": 377.37,
+    "max": 390.82,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "oef_chirps_r95p_2024": {
+    "layerId": "oef_chirps_r95p_2024",
+    "kind": "gradient",
+    "unit": "mm",
+    "stops": [
+      {
+        "value": 422.7,
+        "color": "#99ddae"
+      },
+      {
+        "value": 437.502,
+        "color": "#cbee93"
+      },
+      {
+        "value": 452.303,
+        "color": "#fffa73"
+      },
+      {
+        "value": 467.105,
+        "color": "#fffa73"
+      },
+      {
+        "value": 481.907,
+        "color": "#ffd84f"
+      },
+      {
+        "value": 496.708,
+        "color": "#ffab20"
+      },
+      {
+        "value": 511.51,
+        "color": "#ffab20"
+      }
+    ],
+    "min": 422.7,
+    "max": 511.51,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "oef_chirps_r95p_clim": {
+    "layerId": "oef_chirps_r95p_clim",
+    "kind": "gradient",
+    "unit": "mm",
+    "stops": [
+      {
+        "value": 223.35,
+        "color": "#00a4f7"
+      },
+      {
+        "value": 224.91,
+        "color": "#00a7fb"
+      },
+      {
+        "value": 226.47,
+        "color": "#33bbe4"
+      },
+      {
+        "value": 228.03,
+        "color": "#18b2f2"
+      },
+      {
+        "value": 229.59,
+        "color": "#33bbe4"
+      },
+      {
+        "value": 231.15,
+        "color": "#f9fd7b"
+      },
+      {
+        "value": 232.71,
+        "color": "#ffda51"
+      }
+    ],
+    "min": 223.35,
+    "max": 232.71,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "oef_chirps_r99p_2024": {
+    "layerId": "oef_chirps_r99p_2024",
+    "kind": "gradient",
+    "unit": "mm",
+    "stops": [
+      {
+        "value": 134.38,
+        "color": "#064d8e"
+      },
+      {
+        "value": 156.823,
+        "color": "#055fa4"
+      },
+      {
+        "value": 179.267,
+        "color": "#00a6fa"
+      },
+      {
+        "value": 201.71,
+        "color": "#00a6fa"
+      },
+      {
+        "value": 224.153,
+        "color": "#00a6fa"
+      },
+      {
+        "value": 246.597,
+        "color": "#fff26a"
+      },
+      {
+        "value": 269.04,
+        "color": "#ffbe34"
+      }
+    ],
+    "min": 134.38,
+    "max": 269.04,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "oef_chirps_r99p_clim": {
+    "layerId": "oef_chirps_r99p_clim",
+    "kind": "gradient",
+    "unit": "mm",
+    "stops": [
+      {
+        "value": 93.82,
+        "color": "#0faff7"
+      },
+      {
+        "value": 98.262,
+        "color": "#53c6d3"
+      },
+      {
+        "value": 102.703,
+        "color": "#e1f588"
+      },
+      {
+        "value": 107.145,
+        "color": "#53c6d3"
+      },
+      {
+        "value": 111.587,
+        "color": "#e1f588"
+      },
+      {
+        "value": 116.028,
+        "color": "#df5100"
+      },
+      {
+        "value": 120.47,
+        "color": "#df5100"
+      }
+    ],
+    "min": 93.82,
+    "max": 120.47,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "oef_chirps_rx1day_2024": {
+    "layerId": "oef_chirps_rx1day_2024",
+    "kind": "gradient",
+    "unit": "mm",
+    "stops": [
+      {
+        "value": 66.01,
+        "color": "#074382"
+      },
+      {
+        "value": 68.132,
+        "color": "#055da1"
+      },
+      {
+        "value": 70.253,
+        "color": "#05589c"
+      },
+      {
+        "value": 72.375,
+        "color": "#0467ad"
+      },
+      {
+        "value": 74.497,
+        "color": "#65ccca"
+      },
+      {
+        "value": 76.618,
+        "color": "#65ccca"
+      },
+      {
+        "value": 78.74,
+        "color": "#8fdab3"
+      }
+    ],
+    "min": 66.01,
+    "max": 78.74,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "oef_chirps_rx1day_clim": {
+    "layerId": "oef_chirps_rx1day_clim",
+    "kind": "gradient",
+    "unit": "mm",
+    "stops": [
+      {
+        "value": 58.36,
+        "color": "#037ac5"
+      },
+      {
+        "value": 58.868,
+        "color": "#028bda"
+      },
+      {
+        "value": 59.377,
+        "color": "#037ac5"
+      },
+      {
+        "value": 59.885,
+        "color": "#028bda"
+      },
+      {
+        "value": 60.393,
+        "color": "#71d0c3"
+      },
+      {
+        "value": 60.902,
+        "color": "#71d0c3"
+      },
+      {
+        "value": 61.41,
+        "color": "#f1fa7f"
+      }
+    ],
+    "min": 58.36,
+    "max": 61.41,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "oef_chirps_rx5day_2024": {
+    "layerId": "oef_chirps_rx5day_2024",
+    "kind": "gradient",
+    "unit": "mm",
+    "stops": [
+      {
+        "value": 178.37,
+        "color": "#064d8e"
+      },
+      {
+        "value": 180.45,
+        "color": "#046bb2"
+      },
+      {
+        "value": 182.53,
+        "color": "#0473bc"
+      },
+      {
+        "value": 184.61,
+        "color": "#0196e6"
+      },
+      {
+        "value": 186.69,
+        "color": "#00a5f9"
+      },
+      {
+        "value": 188.77,
+        "color": "#00a5f9"
+      },
+      {
+        "value": 190.85,
+        "color": "#36bce2"
+      }
+    ],
+    "min": 178.37,
+    "max": 190.85,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "oef_chirps_rx5day_clim": {
+    "layerId": "oef_chirps_rx5day_clim",
+    "kind": "gradient",
+    "unit": "mm",
+    "stops": [
+      {
+        "value": 111.05,
+        "color": "#055ea3"
+      },
+      {
+        "value": 111.432,
+        "color": "#046ab1"
+      },
+      {
+        "value": 111.813,
+        "color": "#037fcb"
+      },
+      {
+        "value": 112.195,
+        "color": "#3bbee0"
+      },
+      {
+        "value": 112.577,
+        "color": "#0daef8"
+      },
+      {
+        "value": 112.958,
+        "color": "#3bbee0"
+      },
+      {
+        "value": 113.34,
+        "color": "#52c5d4"
+      }
+    ],
+    "min": 111.05,
+    "max": 113.34,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "oef_fri_2024": {
+    "layerId": "oef_fri_2024",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.14,
+        "color": "#05579a"
+      },
+      {
+        "value": 0.19,
+        "color": "#0378c2"
+      },
+      {
+        "value": 0.24,
+        "color": "#0288d6"
+      },
+      {
+        "value": 0.29,
+        "color": "#14b1f4"
+      },
+      {
+        "value": 0.34,
+        "color": "#0288d6"
+      },
+      {
+        "value": 0.39,
+        "color": "#15b1f4"
+      },
+      {
+        "value": 0.44,
+        "color": "#b4e6a0"
+      }
+    ],
+    "min": 0.14,
+    "max": 0.44,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "oef_fri_2030s_245": {
+    "layerId": "oef_fri_2030s_245",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.05,
+        "color": "#055fa4"
+      },
+      {
+        "value": 0.208,
+        "color": "#0474bd"
+      },
+      {
+        "value": 0.367,
+        "color": "#0473bc"
+      },
+      {
+        "value": 0.525,
+        "color": "#0473bc"
+      },
+      {
+        "value": 0.683,
+        "color": "#ffbb32"
+      },
+      {
+        "value": 0.842,
+        "color": "#c92700"
+      },
+      {
+        "value": 1,
+        "color": "#b40000"
+      }
+    ],
+    "min": 0.05,
+    "max": 1,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  }
+}
