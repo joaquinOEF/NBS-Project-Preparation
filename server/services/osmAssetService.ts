@@ -144,6 +144,13 @@ export async function fetchOsmAssets(request: FetchOsmAssetsRequest): Promise<Fe
     const response = await fetch(OVERPASS_API_URL, {
       method: 'POST',
       body: query,
+      // Overpass (Apache) returns 406 Not Acceptable to requests without a descriptive
+      // User-Agent. A real UA + explicit Accept fixes the 406 that broke OSM asset loading.
+      headers: {
+        'User-Agent': 'NBSProjectBuilder/1.0 (nbs-project@openearth.org)',
+        'Content-Type': 'text/plain',
+        'Accept': 'application/json',
+      },
       signal: controller.signal,
     });
     
