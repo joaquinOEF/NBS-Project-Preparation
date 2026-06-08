@@ -5,6 +5,7 @@ import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Check, MapPin, Layers, X, BarChart3, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, REFERENCE_LAYERS, type TileLayerDef } from '@shared/geospatial-layers';
+import { riskBand, hazardPercentile, type HazardKey } from '@shared/risk-display';
 import ValueTooltip from './ValueTooltip';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
 
@@ -22,11 +23,15 @@ interface ZoneProperties {
   meanFlood: number;
   meanHeat: number;
   meanLandslide: number;
-  // Catalog flood breakdown (poa_flood_* H×E×V)
+  // Catalog flood breakdown (poa_flood_* H×E×V) + within-city percentile ranks
   meanFloodHazard?: number;
   meanFloodExposure?: number;
   meanFloodVulnerability?: number;
   meanFloodRisk?: number;
+  floodExtentPct?: number;
+  floodRank?: number;
+  heatRank?: number;
+  landslideRank?: number;
   maxFlood: number;
   maxHeat: number;
   maxLandslide: number;
@@ -733,9 +738,14 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
               </span>
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-muted-foreground">
-              <div>Flood: <span className="text-foreground">{(hoveredZone.meanFlood * 100).toFixed(0)}%</span></div>
-              <div>Heat: <span className="text-foreground">{(hoveredZone.meanHeat * 100).toFixed(0)}%</span></div>
-              <div>Landslide: <span className="text-foreground">{(hoveredZone.meanLandslide * 100).toFixed(0)}%</span></div>
+              {(['flood', 'heat', 'landslide'] as HazardKey[]).map((hz) => {
+                const pct = hazardPercentile(hoveredZone, hz);
+                const band = riskBand(pct);
+                const label = hz.charAt(0).toUpperCase() + hz.slice(1);
+                return (
+                  <div key={hz}>{label}: <span className="font-medium" style={{ color: band.color }}>{band.label} ({pct})</span></div>
+                );
+              })}
               {hoveredZone.meanFloodHazard != null && (
                 <div className="col-span-2 text-[10px] opacity-80">
                   Flood H×E×V: <span className="text-foreground">{(hoveredZone.meanFloodHazard * 100).toFixed(0)}</span>
@@ -748,9 +758,7 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
               {hoveredZone.povertyRate != null && (
                 <div>Poverty: <span className="text-foreground">{(hoveredZone.povertyRate * 100).toFixed(1)}%</span></div>
               )}
-              {hoveredZone.priorityScore != null && (
-                <div>Priority: <span className="text-foreground">{hoveredZone.priorityScore.toFixed(2)}</span></div>
-              )}
+              <div className="col-span-2 text-[9px] opacity-60">relative to Porto Alegre neighborhoods</div>
             </div>
             <div className="text-muted-foreground mt-0.5">
               {hoveredZone.interventionType.replace(/_/g, ' ')}

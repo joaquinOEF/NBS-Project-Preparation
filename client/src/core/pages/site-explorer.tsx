@@ -37,6 +37,7 @@ import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
 import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS } from '@shared/geospatial-layers';
+import { riskBand, pct100, dominantPercentile, hazardPercentile, riskAnchor, type HazardKey } from '@shared/risk-display';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
 import ValueTooltip from '@/core/components/concept-note/ValueTooltip';
 
@@ -1000,9 +1001,11 @@ export default function SiteExplorerPage() {
       .map((f: any) => ({
         ...f.properties,
         geometry: f.geometry,
-        maxRisk: Math.max(f.properties?.meanFlood || 0, f.properties?.meanHeat || 0, f.properties?.meanLandslide || 0),
+        // Display + sort on the dominant-hazard within-city percentile (0–100), so flood
+        // is comparable to heat/landslide instead of its compressed absolute %. See risk-display.ts.
+        dominantPct: dominantPercentile(f.properties),
       }))
-      .sort((a: any, b: any) => b.maxRisk - a.maxRisk);
+      .sort((a: any, b: any) => b.dominantPct - a.dominantPct);
   }, [layers]);
 
   const evidenceLayers = useMemo(() => {
@@ -1355,18 +1358,25 @@ export default function SiteExplorerPage() {
               
               const displayName = p.neighbourhoodName || formatZoneName(p.zoneId);
               const povertyLine = p.povertyRate != null ? `${t('interventionZones.metrics.poverty') || 'Poverty'}: ${(p.povertyRate * 100).toFixed(1)}%<br/>` : '';
-              const priorityLine = p.priorityScore != null ? `${t('interventionZones.metrics.priority') || 'Priority'}: ${p.priorityScore.toFixed(2)}<br/>` : '';
               const popLine = p.populationTotal ? `${t('interventionZones.metrics.population') || 'Population'}: ${p.populationTotal.toLocaleString()}<br/>` : '';
+              // Per-hazard within-city percentile band + score + absolute anchor (see risk-display.ts)
+              const riskLine = (hz: HazardKey, labelKey: string) => {
+                const pct = hazardPercentile(p, hz);
+                const band = riskBand(pct);
+                const anchor = riskAnchor(p, hz);
+                return `<span style="color:${band.color}">●</span> ${t(labelKey)}: <strong>${t(`riskBands.${band.key}`) || band.label} (${pct})</strong>` +
+                  (anchor ? ` <span style="opacity:0.65;font-size:10px">${anchor}</span>` : '') + `<br/>`;
+              };
               let tooltip = `<div style="min-width: 200px;">` +
                 `<strong style="font-size: 14px;">${displayName}: ${typologyLabel}</strong><br/>` +
                 `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
                 `<strong>${t('interventionZones.metrics.intervention')}:</strong> ${interventionLabel}<br/>` +
                 `<em style="font-size: 11px;">${interventionDesc}</em><br/>` +
                 `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
-                priorityLine +
-                `${t('interventionZones.metrics.meanFlood')}: ${((p.meanFlood || 0) * 100).toFixed(0)}%<br/>` +
-                `${t('interventionZones.metrics.meanHeat')}: ${((p.meanHeat || 0) * 100).toFixed(0)}%<br/>` +
-                `${t('interventionZones.metrics.meanLandslide')}: ${((p.meanLandslide || 0) * 100).toFixed(0)}%<br/>` +
+                riskLine('flood', 'interventionZones.metrics.meanFlood') +
+                riskLine('heat', 'interventionZones.metrics.meanHeat') +
+                riskLine('landslide', 'interventionZones.metrics.meanLandslide') +
+                `<span style="opacity:0.55;font-size:10px">${t('siteExplorer.relativeToCity') || 'relative to PoA neighborhoods'}</span><br/>` +
                 `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
                 popLine + povertyLine +
                 `${t('interventionZones.metrics.area')}: ${(p.areaKm2 || 0).toFixed(1)} km²<br/>` +
@@ -1929,9 +1939,18 @@ export default function SiteExplorerPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-sm truncate text-white">{formatZoneName(zone.zoneId)}</span>
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-white/10 text-zinc-300">
-                              {(zone.maxRisk * 100).toFixed(0)}%
-                            </span>
+                            {(() => {
+                              const band = riskBand(zone.dominantPct);
+                              return (
+                                <span
+                                  className="text-xs px-1.5 py-0.5 rounded flex-shrink-0 font-medium"
+                                  style={{ backgroundColor: `${band.color}26`, color: band.color }}
+                                  title={t('siteExplorer.relativeToCity') || 'relative to PoA neighborhoods'}
+                                >
+                                  {t(`riskBands.${band.key}`) || band.label} · {zone.dominantPct}
+                                </span>
+                              );
+                            })()}
                           </div>
                           <div className="text-xs text-zinc-400">
                             {t(`interventionZones.typologies.${zone.typologyLabel}`)}
@@ -2114,18 +2133,23 @@ export default function SiteExplorerPage() {
                 </div>
                 
                 <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                  <div className="p-2 rounded bg-blue-50 dark:bg-blue-950">
-                    <div className="text-lg font-semibold text-blue-600">{((selectedZone.meanFlood || 0) * 100).toFixed(0)}%</div>
-                    <div className="text-xs text-muted-foreground">{t('interventionZones.metrics.meanFlood')}</div>
-                  </div>
-                  <div className="p-2 rounded bg-red-50 dark:bg-red-950">
-                    <div className="text-lg font-semibold text-red-600">{((selectedZone.meanHeat || 0) * 100).toFixed(0)}%</div>
-                    <div className="text-xs text-muted-foreground">{t('interventionZones.metrics.meanHeat')}</div>
-                  </div>
-                  <div className="p-2 rounded bg-amber-50 dark:bg-amber-950">
-                    <div className="text-lg font-semibold text-amber-600">{((selectedZone.meanLandslide || 0) * 100).toFixed(0)}%</div>
-                    <div className="text-xs text-muted-foreground">{t('interventionZones.metrics.meanLandslide')}</div>
-                  </div>
+                  {([
+                    ['flood', 'interventionZones.metrics.meanFlood'],
+                    ['heat', 'interventionZones.metrics.meanHeat'],
+                    ['landslide', 'interventionZones.metrics.meanLandslide'],
+                  ] as [HazardKey, string][]).map(([hz, labelKey]) => {
+                    const pct = hazardPercentile(selectedZone, hz);
+                    const band = riskBand(pct);
+                    const anchor = riskAnchor(selectedZone, hz);
+                    return (
+                      <div key={hz} className="p-2 rounded" style={{ backgroundColor: `${band.color}1f` }}>
+                        <div className="text-lg font-semibold" style={{ color: band.color }}>{pct}</div>
+                        <div className="text-xs text-muted-foreground">{t(labelKey)}</div>
+                        <div className="text-[10px] font-medium" style={{ color: band.color }}>{t(`riskBands.${band.key}`) || band.label}</div>
+                        {anchor && <div className="text-[9px] text-muted-foreground/70 mt-0.5 leading-tight">{anchor}</div>}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">

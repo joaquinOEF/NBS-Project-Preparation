@@ -244,6 +244,26 @@ relatively-dominant hazard); raise the rank `T_ACTIVE` to reintroduce a LOW band
 
 ---
 
+## 5b. Display convention — percentile bands (don't show raw H×E×V %)
+
+A catalog risk = (H×E×V)^(1/3) on [0,1] is structurally compressed (rarely > ~0.2), so its raw %
+reads as trivially low next to a single-factor score (flood "4%" vs heat "90%"). **No major
+framework displays the raw product** (FEMA NRI, INFORM, WRI Aqueduct, First Street all rescale,
+percentile, or band). We follow FEMA / the Climate Vulnerability Index:
+
+- **Display = within-hazard percentile (0–100)** across the city's zones (the `floodRank`/`heatRank`/
+  `landslideRank` already stored, ×100), shown as a **5-band rating** (Very Low→Very High, identical
+  quintile cuts for every hazard → "High flood" ≡ "High heat") + the score + an **absolute anchor**
+  (`riskAnchor`: catalog `% risk · % of area in flood zone`) + a "relative to PoA" label.
+- **Single source of truth:** `shared/risk-display.ts` (`riskBand`, `pct100`, `hazardPercentile`,
+  `dominantPercentile`, `riskAnchor`). Reused by site-explorer (Zone Priority list, tooltip, detail
+  panel), the concept-note + CBO microapps, and the agent context.
+- **Ranking = display:** the priority list sorts on `dominantPercentile`, the same number it shows.
+- **Heat/landslide inherit this for free** when they migrate — they already have ranks; the display
+  reads `<hazard>Rank`. Just add a `floodExtentPct`-style anchor per hazard if wanted.
+- **Honesty:** percentile hides absolute severity and is reference-population-dependent → the absolute
+  anchor line is **required**, and every surface says "relative to PoA neighborhoods".
+
 ## 6. Reference — exact zone-priority formula
 
 **Current** (`scripts/generate-neighborhood-zones.ts`):

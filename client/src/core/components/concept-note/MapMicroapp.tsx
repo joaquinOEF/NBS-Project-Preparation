@@ -6,6 +6,7 @@ import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Check, X, MapPin, Pencil, Loader2, Trash2, Eye, EyeOff, ChevronRight } from 'lucide-react';
 import { TILE_LAYERS, OSM_LAYERS, SPATIAL_QUERIES } from '@shared/geospatial-layers';
+import { riskBand, hazardPercentile, type HazardKey } from '@shared/risk-display';
 import type { OpenMapParams, SelectedAsset, SampledPoint, MapSelectionResult } from '@shared/concept-note-schema';
 import { sampleRasterAtPoint, geometryCentroid } from '@/lib/valueTileUtils';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
@@ -158,10 +159,13 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
               const hc = p.primaryHazard === 'FLOOD' ? '#3b82f6' : p.primaryHazard === 'HEAT' ? '#ef4444' : p.primaryHazard === 'LANDSLIDE' ? '#a16207' : '#888';
               const hazardLine = p.primaryHazard ? `<span style="color:${hc}">${p.typologyLabel}</span> — ${(p.interventionType || '').replace(/_/g, ' ')}<br/>` : '';
               const priorityLine = p.priorityScore != null ? `Priority: <strong>${p.priorityScore.toFixed(2)}</strong><br/>` : '';
-              const floodPct = p.meanFlood != null ? `Flood: <strong>${(p.meanFlood * 100).toFixed(0)}%</strong>` : '';
-              const heatPct = p.meanHeat != null ? `Heat: <strong>${(p.meanHeat * 100).toFixed(0)}%</strong>` : '';
-              const lsPct = p.meanLandslide != null ? `Landslide: <strong>${(p.meanLandslide * 100).toFixed(0)}%</strong>` : '';
-              const riskLine = [floodPct, heatPct, lsPct].filter(Boolean).join(' · ');
+              // Within-city percentile band per hazard (comparable across hazards; see risk-display.ts)
+              const bandSpan = (hz: HazardKey, label: string) => {
+                const pct = hazardPercentile(p, hz);
+                const band = riskBand(pct);
+                return `${label}: <strong style="color:${band.color}">${band.label} (${pct})</strong>`;
+              };
+              const riskLine = [bandSpan('flood', 'Flood'), bandSpan('heat', 'Heat'), bandSpan('landslide', 'Landslide')].join(' · ');
               // Catalog flood H×E×V breakdown (hazard·exposure·vulnerability)
               const fhxv = p.meanFloodHazard != null
                 ? `<span style="color:#888">Flood H·E·V: ${(p.meanFloodHazard * 100).toFixed(0)}·${((p.meanFloodExposure ?? 0) * 100).toFixed(0)}·${((p.meanFloodVulnerability ?? 0) * 100).toFixed(0)}</span><br/>`

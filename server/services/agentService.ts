@@ -1,6 +1,7 @@
 import { openai, type Message, type ReasoningEffort } from "./openaiClient";
 import { storage } from "../storage";
 import { semanticSearch, getKnowledgeStats } from "./knowledgeService";
+import { riskBand, hazardPercentile, riskAnchor, type HazardKey } from "@shared/risk-display";
 import { generateQuantifiedImpacts, generateNarrativeFromKPIs, regenerateBlock, regenerateAffectedBlocks, detectAffectedBlocks } from "./impactModelService";
 import { 
   type InfoBlock, 
@@ -1159,6 +1160,15 @@ export async function executeAgentTool(
                     heat: props.heatRank,
                     landslide: props.landslideRank,
                   },
+                  // Comparable cross-hazard display: within-city percentile (0–100) + band per
+                  // hazard. Use these for narrative ("High flood, 78th pct vs PoA") instead of the
+                  // raw catalog % (flood H×E×V reads trivially low). See shared/risk-display.ts.
+                  riskPercentiles: (['flood', 'heat', 'landslide'] as HazardKey[]).reduce((acc, hz) => {
+                    const pct = hazardPercentile(props, hz);
+                    acc[hz] = { percentile: pct, band: riskBand(pct).label, anchor: riskAnchor(props, hz) };
+                    return acc;
+                  }, {} as Record<HazardKey, { percentile: number; band: string; anchor: string }>),
+                  riskScale: 'Percentiles are relative to other Porto Alegre neighborhoods (0–100), comparable across hazards. The anchor gives absolute severity.',
                   compatibleCategories,
                   message: `Location is in ${props.neighbourhoodName || props.zoneId} (${props.typologyLabel}). Compatible intervention types: ${compatibleCategories.map(c => c.name).join(', ')}. Use add_intervention_site to propose adding this site with your chosen intervention type.`,
                 },

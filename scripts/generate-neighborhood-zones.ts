@@ -135,6 +135,7 @@ interface NeighborhoodZone {
   meanFloodExposure: number;
   meanFloodVulnerability: number;
   meanFloodRisk: number;
+  floodExtentPct: number;            // fraction of bairro cells with catalog flood_risk > 0 (absolute anchor)
   maxFlood: number;
   maxHeat: number;
   maxLandslide: number;
@@ -359,6 +360,7 @@ async function main() {
     cellCount: number;
     meanFlood: number; meanHeat: number; meanLandslide: number;
     meanFloodHazard: number; meanFloodExposure: number; meanFloodVulnerability: number;
+    floodExtentPct: number;
     maxFlood: number; maxHeat: number; maxLandslide: number;
     vulnerabilityFactor: number;
   }
@@ -379,6 +381,7 @@ async function main() {
     let maxFlood = 0, maxHeat = 0, maxLandslide = 0;
     // Flood component sums (catalog poa_flood_* breakdown)
     let sumFHaz = 0, sumFExp = 0, sumFVul = 0;
+    let floodLitCells = 0;  // cells with catalog flood_risk > 0 (the modeled fluvial footprint)
 
     for (const cell of cells) {
       const m = cell.properties.metrics;
@@ -392,6 +395,7 @@ async function main() {
       sumFHaz += m.flood_hazard ?? 0;
       sumFExp += m.flood_exposure ?? 0;
       sumFVul += m.flood_vulnerability ?? 0;
+      if ((m.flood_risk ?? 0) > 0) floodLitCells++;
     }
 
     // ── Vulnerability factor (app-side, climate-justice weighted) ──────────────
@@ -411,6 +415,7 @@ async function main() {
       meanFloodHazard: round3(sumFHaz / cells.length),
       meanFloodExposure: round3(sumFExp / cells.length),
       meanFloodVulnerability: round3(sumFVul / cells.length),
+      floodExtentPct: round3(floodLitCells / cells.length),
       maxFlood, maxHeat, maxLandslide,
       vulnerabilityFactor,
     });
@@ -471,6 +476,7 @@ async function main() {
       meanFloodExposure: a.meanFloodExposure,
       meanFloodVulnerability: a.meanFloodVulnerability,
       meanFloodRisk: a.meanFlood,
+      floodExtentPct: a.floodExtentPct,
       maxFlood: round3(a.maxFlood),
       maxHeat: round3(a.maxHeat),
       maxLandslide: round3(a.maxLandslide),

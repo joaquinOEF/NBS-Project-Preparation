@@ -614,6 +614,13 @@
       "agentMessage": "I want to update some information about my funding preparedness"
     }
   },
+  "riskBands": {
+    "very_low": "Very Low",
+    "low": "Low",
+    "moderate": "Moderate",
+    "high": "High",
+    "very_high": "Very High"
+  },
   "siteExplorer": {
     "saveInterventions": "Save Interventions",
     "saved": "Saved!",
@@ -625,6 +632,7 @@
     "noAssetsError": "No compatible assets found",
     "noAssetsErrorDescription": "Try selecting a different category or zone.",
     "zonePriority": "Zone Priority",
+    "relativeToCity": "relative to Porto Alegre neighborhoods",
     "noZonesLoaded": "Zones will appear here once loaded",
     "evidenceLayers": "Evidence Layers",
     "title": "Site Explorer",
