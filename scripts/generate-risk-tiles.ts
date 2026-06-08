@@ -77,7 +77,9 @@ interface RiskLayer {
 }
 
 const layers: RiskLayer[] = [
-  { name: 'flood_risk', scoreKey: 'flood_score', colorFn: floodColor },
+  // Flood now renders from the catalog poa_flood_risk S3 tiles (see geospatial-layers.ts),
+  // so we no longer pre-render local flood tiles here. Heat/landslide stay local until they
+  // migrate to catalog datasets. The composite hotspot below still reads flood_score directly.
   { name: 'heat_risk', scoreKey: 'heat_score', colorFn: heatColor },
   { name: 'landslide_risk', scoreKey: 'landslide_score', colorFn: landslideColor },
 ];

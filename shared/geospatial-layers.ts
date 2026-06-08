@@ -342,14 +342,16 @@ export const SPATIAL_QUERIES: SpatialQueryDef[] = [
   // ── Spatial queries using local 250m risk scores (more accurate than FRI) ──
   {
     id: 'sq_parks_flood_250m',
-    name: 'Parks in Flood Risk > 0.4 (250m)',
+    // Catalog poa_flood_risk (H×E×V). Threshold recalibrated 0.4→0.3: catalog risk maxes
+    // ~0.585 (p95≈0.55), so 0.4 was ~p90; 0.3 captures the meaningfully at-risk band.
+    name: 'Parks in Flood Risk > 0.3',
     color: '#b91c1c',
     vectorSource: '/api/osm/parks',
     rasterLayerId: 'risk_flood_250m',
-    threshold: 0.4,
+    threshold: 0.3,
     comparator: '>',
     valueKey: 'flood_risk_250m',
-    tooltipLabel: 'High flood risk (250m)',
+    tooltipLabel: 'High flood risk',
     tooltipIcon: '🌊',
   },
   {
@@ -366,14 +368,14 @@ export const SPATIAL_QUERIES: SpatialQueryDef[] = [
   },
   {
     id: 'sq_hospitals_flood_250m',
-    name: 'Hospitals in Flood Risk > 0.4 (250m)',
+    name: 'Hospitals in Flood Risk > 0.3',
     color: '#7f1d1d',
     vectorSource: '/api/osm/hospitals',
     rasterLayerId: 'risk_flood_250m',
-    threshold: 0.4,
+    threshold: 0.3,
     comparator: '>',
     valueKey: 'flood_risk_250m',
-    tooltipLabel: 'High flood risk (250m)',
+    tooltipLabel: 'High flood risk',
     tooltipIcon: '🌊',
   },
 ];

@@ -22,6 +22,11 @@ interface ZoneProperties {
   meanFlood: number;
   meanHeat: number;
   meanLandslide: number;
+  // Catalog flood breakdown (poa_flood_* H×E×V)
+  meanFloodHazard?: number;
+  meanFloodExposure?: number;
+  meanFloodVulnerability?: number;
+  meanFloodRisk?: number;
   maxFlood: number;
   maxHeat: number;
   maxLandslide: number;
@@ -731,6 +736,13 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
               <div>Flood: <span className="text-foreground">{(hoveredZone.meanFlood * 100).toFixed(0)}%</span></div>
               <div>Heat: <span className="text-foreground">{(hoveredZone.meanHeat * 100).toFixed(0)}%</span></div>
               <div>Landslide: <span className="text-foreground">{(hoveredZone.meanLandslide * 100).toFixed(0)}%</span></div>
+              {hoveredZone.meanFloodHazard != null && (
+                <div className="col-span-2 text-[10px] opacity-80">
+                  Flood H×E×V: <span className="text-foreground">{(hoveredZone.meanFloodHazard * 100).toFixed(0)}</span>
+                  ·<span className="text-foreground">{((hoveredZone.meanFloodExposure ?? 0) * 100).toFixed(0)}</span>
+                  ·<span className="text-foreground">{((hoveredZone.meanFloodVulnerability ?? 0) * 100).toFixed(0)}</span>
+                </div>
+              )}
               <div>Area: <span className="text-foreground">{hoveredZone.areaKm2.toFixed(1)} km²</span></div>
               <div>Pop: <span className="text-foreground">{(hoveredZone.populationTotal ?? hoveredZone.populationSum ?? 0).toLocaleString()}</span></div>
               {hoveredZone.povertyRate != null && (
