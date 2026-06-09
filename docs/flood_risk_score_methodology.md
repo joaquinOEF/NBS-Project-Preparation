@@ -322,3 +322,5 @@ Hazard validation (SkySat footprint, EMSN194 depth) is documented in `flood_haza
 4. Burn E and V to hazard grid.  
 5. Compute `R = (H*E*V)^(1/3)` on valid pixels.  
 6. Aggregate to barrio statistics and export.
+
+---
