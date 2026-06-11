@@ -138,6 +138,58 @@ export async function appendCboMessages(
 }
 
 /**
+ * Transactional flush — UPSERT the state row AND append any new messages in a
+ * single DB transaction. Replaces the prior two separate awaits whose worst
+ * case was a "half-flush" (state saved, messages lost), which left a cold load
+ * with a short decision log and an agent that lost conversational context.
+ * The node-postgres Pool supports interactive transactions, so this is safe.
+ * Returns the new flushed-message count so the caller can advance its pointer
+ * only when the whole transaction committed.
+ */
+export async function flushCbo(
+  state: CboState,
+  newMessages: CboChatMessage[],
+  startPosition: number,
+): Promise<{ committed: boolean; flushedCount: number }> {
+  const values = {
+    id: state.id,
+    orgName: state.orgName ?? '',
+    city: state.city ?? '',
+    phase: state.phase ?? 0,
+    totalMaturityScore: state.totalMaturityScore ?? 0,
+    sections: state.sections ?? {},
+    gaps: state.gaps ?? [],
+    maturityScores: state.maturityScores ?? [],
+    priorityFlags: state.priorityFlags ?? [],
+    editLog: state.editLog ?? [],
+    uploadedFiles: state.uploadedFiles ?? [],
+    metadata: state.metadata ?? { createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    updatedAt: new Date(),
+  };
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(cboStates).values(values).onConflictDoUpdate({ target: cboStates.id, set: values });
+      if (newMessages.length > 0) {
+        await tx.insert(cboMessages).values(newMessages.map((m, i) => ({
+          cboStateId: state.id,
+          position: startPosition + i,
+          role: m.role,
+          content: m.content,
+          messageType: m.messageType,
+          timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+        })));
+      }
+    });
+    return { committed: true, flushedCount: startPosition + newMessages.length };
+  } catch (e) {
+    logDbError('flushCbo', state.id, e);
+    // Pointer is NOT advanced on failure — the same messages retry next flush,
+    // and the state row will be re-upserted (idempotent), so nothing is lost.
+    return { committed: false, flushedCount: startPosition };
+  }
+}
+
+/**
  * Self-check at boot — probes for the cbo_states table. If it doesn't exist,
  * log a single LOUD line so the dev sees the fix immediately instead of
  * chasing the symptom (re-introducing agent, 404s on cold load, etc).

@@ -20,8 +20,7 @@ import { loadEncontroSkill } from "./encontroSkills";
 import {
   loadCboState as dbLoadCboState,
   loadCboMessages as dbLoadCboMessages,
-  upsertCboState,
-  appendCboMessages,
+  flushCbo,
 } from "./cboPersistence";
 import { db } from "../db";
 import { cohortMembers } from "@shared/cohort-schema";
@@ -124,24 +123,21 @@ export async function loadCboFromDb(id: string): Promise<{ state: CboState; mess
   return { state, messages };
 }
 
-// Debounced flush — UPSERT cbo_states + INSERT any new cbo_messages since
-// last flush. Single transaction would be nicer but Drizzle's transaction
-// API is awkward across two tables; the worst case is a half-flush (state
-// upserted but messages not appended) which is recoverable on next chat turn.
+// Flush = UPSERT cbo_states + INSERT any new cbo_messages since last flush, in
+// a single transaction (see cboPersistence.flushCbo). The flush pointer only
+// advances when the whole transaction commits, so a failure can't strand state
+// without its messages.
 const saveTimers = new Map<string, NodeJS.Timeout>();
 const SAVE_DEBOUNCE_MS = 2000;
 
 async function persistCbo(id: string) {
   const state = cboStates.get(id);
   if (!state) return;
-  await upsertCboState(state);
   const allMessages = cboMessages.get(id) ?? [];
   const flushed = flushedMessageCount.get(id) ?? 0;
-  if (allMessages.length > flushed) {
-    const newMessages = allMessages.slice(flushed);
-    await appendCboMessages(id, flushed, newMessages);
-    flushedMessageCount.set(id, allMessages.length);
-  }
+  const newMessages = allMessages.length > flushed ? allMessages.slice(flushed) : [];
+  const { flushedCount } = await flushCbo(state, newMessages, flushed);
+  flushedMessageCount.set(id, flushedCount);
 }
 
 export function debouncedPersist(id: string) {
@@ -151,6 +147,16 @@ export function debouncedPersist(id: string) {
     persistCbo(id).catch(e => console.error(`[cbo] persist(${id}) failed`, e));
     saveTimers.delete(id);
   }, SAVE_DEBOUNCE_MS));
+}
+
+// Immediate, durable flush — cancels any pending debounce and persists now.
+// Use on phase boundaries (set_phase, /advance-phase) so a completed session
+// (e.g. a finished Session-1 org profile) is never lost to the 2s debounce
+// window if the process restarts right after the user finishes.
+export async function flushNow(id: string) {
+  const existing = saveTimers.get(id);
+  if (existing) { clearTimeout(existing); saveTimers.delete(id); }
+  await persistCbo(id).catch(e => console.error(`[cbo] flushNow(${id}) failed`, e));
 }
 
 // Reset the flush pointer when a CBO is deleted so a fresh re-creation
@@ -204,8 +210,10 @@ function createCboMcpTools(cboId: string) {
       }
       const section = state.sections[args.sectionId as keyof typeof state.sections];
       if (!section) return { content: [{ type: "text" as const, text: `Unknown section: ${args.sectionId}` }], isError: true };
+      const oldValue = section.fields[args.field]?.value ?? null;
       section.fields[args.field] = { value: args.value, confidence: args.confidence as Confidence, source: args.source, userEdited: false };
       section.lastUpdatedBy = 'agent';
+      state.editLog.push({ timestamp: new Date().toISOString(), sectionId: args.sectionId, field: args.field, oldValue, newValue: args.value, source: 'agent' });
       section.confidence = args.confidence as Confidence;
       if (args.source && !section.sources.includes(args.source)) section.sources.push(args.source);
       state.gaps = state.gaps.filter(g => !(g.sectionId === args.sectionId && g.field === args.field));
@@ -253,6 +261,9 @@ function createCboMcpTools(cboId: string) {
       state.phase = args.phase;
       setCboState(cboId, state);
       pushEvent({ type: 'phase_change', phase: args.phase });
+      // Phase boundary — persist immediately so the transition (and everything
+      // that led to it) survives a restart, instead of riding the 2s debounce.
+      await flushNow(cboId);
       return { content: [{ type: "text" as const, text: `Phase ${args.phase}` }] };
     },
     { annotations: { readOnlyHint: false } }
@@ -1195,8 +1206,10 @@ export async function handleCboEdit(cboId: string, sectionId: string, field: str
   if (!state) { res.status(404).json({ error: "Not found" }); return; }
   const section = state.sections[sectionId as keyof typeof state.sections];
   if (!section) { res.status(400).json({ error: `Unknown section: ${sectionId}` }); return; }
+  const oldValue = section.fields[field]?.value ?? null;
   section.fields[field] = { ...section.fields[field], value: newValue, userEdited: true };
   section.lastUpdatedBy = 'user';
+  state.editLog.push({ timestamp: new Date().toISOString(), sectionId, field, oldValue, newValue, source: 'user' });
   setCboState(cboId, state);
   await streamCboChat(cboId, `User edited ${sectionId}.${field} to: "${newValue}". Update related fields if needed.`, res, state);
 }

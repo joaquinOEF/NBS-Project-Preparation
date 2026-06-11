@@ -7,6 +7,7 @@ import {
   getCboMessages,
   addCboMessage,
   debouncedPersist,
+  flushNow,
   loadCboFromDb,
   getFlushedMessageCount,
   hasPendingFlush,
@@ -200,7 +201,9 @@ export function registerCboRoutes(app: Express): void {
 
     state.phase = target;
     setCboState(req.params.id, state);
-    debouncedPersist(req.params.id);
+    // Phase boundary — flush synchronously so the unlock is durable before we
+    // ack the client (this is the path the "Start Encontro" green card hits).
+    await flushNow(req.params.id);
     res.json({ ok: true, phase: target, state });
   });
 
