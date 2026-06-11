@@ -652,7 +652,16 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
+  // Dead-socket guard. On a phone-first audience over patchy mobile data the
+  // client frequently drops mid-stream. Without this the SDK loop keeps calling
+  // res.write() on a closed socket (throwing / spewing EPIPE) and the per-CBO
+  // push registry is never cleaned up. We flip a flag on 'close' and make every
+  // push a no-op afterwards — in-flight tool calls still mutate in-memory state
+  // (persisted on phase boundaries); we just stop writing to nobody.
+  let clientGone = false;
+
   const pushEvent = (event: CboEvent) => {
+    if (clientGone || res.writableEnded) return;
     res.write(`data: ${JSON.stringify(event)}\n\n`);
     if (event.type === 'chat') {
       // ALL chat events store as messageType: 'content'. The previous
@@ -672,6 +681,13 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       addCboMessage(cboId, { role: 'assistant', content: event.content, messageType: 'thinking', timestamp: new Date().toISOString() });
     }
   };
+
+  res.on('close', () => {
+    if (clientGone) return;
+    clientGone = true;
+    if (pushEventRegistry.get(cboId) === pushEvent) pushEventRegistry.delete(cboId);
+    console.log(`[cbo] client disconnected mid-stream for ${cboId} (phase ${state.phase})`);
+  });
 
   // Handle [SKIP TO phase:X] magic prefix
   const skipMatch = userMessage.match(SKIP_PATTERN);
@@ -811,14 +827,23 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   if (!hadTurnEnder && state.phase < 6) {
     const toolsList = Array.from(calledTools).join(',') || 'none';
     console.warn(`[cbo] silent_turn_fallback for ${cboId} phase=${state.phase} tools=${toolsList} text=${emittedText}`);
-    // Only emit a fallback chat message when there was ALSO no text — if the
-    // agent at least said something, the user can reply to that. Emitting an
-    // extra message in that case would produce a confusing double-response.
+    // Recovery affordance ONLY when the agent emitted no text either — that's
+    // the unambiguous stranded case (a tool ran, e.g. update_section, but no
+    // question followed). When the agent DID emit text we leave it alone: the
+    // skill asks free-text questions (org name, mission, year) as plain prose
+    // with no tool call, so emitted-text-without-a-turn-ender is usually a
+    // legitimate question, and injecting a fallback there would double-respond.
+    //
+    // Replaces the old "type \"continuar\"" instruction with a single clickable
+    // chip — on mobile, tapping beats typing, and a chip can't be fat-fingered
+    // into a derailing free-text reply.
     if (!emittedText) {
-      const fallbackText = lang === 'pt'
-        ? 'Tive um problema técnico no meio desse passo. Pode digitar "continuar" pra eu retomar de onde estávamos?'
-        : 'I hit a snag mid-step. Type "continue" so I can pick up where we were.';
-      pushEvent({ type: 'chat', content: fallbackText, role: 'assistant' });
+      const question = lang === 'pt'
+        ? 'Tive um problema técnico no meio desse passo. Vamos retomar de onde paramos?'
+        : 'I hit a snag mid-step. Want to pick up where we left off?';
+      const label = lang === 'pt' ? 'Continuar' : 'Continue';
+      const description = lang === 'pt' ? 'Retomar de onde paramos' : 'Pick up where we left off';
+      pushEvent({ type: 'ask_user', question, options: [{ label, description }] });
     }
   }
 }
