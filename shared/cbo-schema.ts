@@ -18,6 +18,22 @@ export const CBO_SECTIONS = [
 export type CboSectionId = typeof CBO_SECTIONS[number]['id'];
 export const ALL_CBO_SECTION_IDS = CBO_SECTIONS.map(s => s.id);
 
+// Phase → the maturity metrics the agent must score before that phase is
+// "complete" (and the next-workshop banner may appear). Derived ONCE from
+// CBO_SECTIONS so the server validation, the phase-advance gate, and the
+// client banner can never drift. Previously this lived as a hand-maintained
+// literal in cbo-profile.tsx with a "keep in sync" comment — it didn't.
+export const PHASE_COMPLETION_METRICS: Record<number, string[]> = (() => {
+  const map: Record<number, string[]> = {};
+  for (const sec of CBO_SECTIONS) {
+    const bucket = (map[sec.phase] ??= []);
+    for (const m of sec.maturityMetrics) {
+      if (!bucket.includes(m)) bucket.push(m);
+    }
+  }
+  return map;
+})();
+
 // Maturity scores (0-3 per COUGAR NBS Mapping Criteria)
 export interface MaturityScore {
   metric: string;
@@ -269,3 +285,32 @@ export const PRIORITY_FLAG_DEFINITIONS = [
   'Co-financing possibility identified',
   'Scalable beyond one site',
 ] as const;
+
+// ----------------------------------------------------------------------------
+// Tool-arg validators — the agent passes free strings for metric / section /
+// flag. A misspelled metric used to be stored silently and then the phase
+// never registered as complete (dead-end at the end of a session). These
+// guards let the tool handlers reject bad args with a corrective message the
+// agent must retry, instead of writing garbage.
+// ----------------------------------------------------------------------------
+
+const MATURITY_METRIC_SET = new Set<string>(MATURITY_METRICS);
+export function isValidMaturityMetric(metric: string): metric is typeof MATURITY_METRICS[number] {
+  return MATURITY_METRIC_SET.has(metric);
+}
+
+const SECTION_ID_SET = new Set<string>(ALL_CBO_SECTION_IDS);
+export function isValidSectionId(sectionId: string): sectionId is CboSectionId {
+  return SECTION_ID_SET.has(sectionId);
+}
+
+// Priority flags are matched on a normalized key so trivial casing/whitespace
+// differences from the agent still resolve to the canonical definition.
+const normalizeFlag = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+const PRIORITY_FLAG_BY_KEY = new Map<string, string>(
+  PRIORITY_FLAG_DEFINITIONS.map(f => [normalizeFlag(f), f]),
+);
+/** Returns the canonical flag string if `flag` matches a known definition, else null. */
+export function canonicalPriorityFlag(flag: string): string | null {
+  return PRIORITY_FLAG_BY_KEY.get(normalizeFlag(flag)) ?? null;
+}

@@ -11,6 +11,9 @@ import {
   CBO_SECTIONS,
   MATURITY_METRICS,
   PRIORITY_FLAG_DEFINITIONS,
+  isValidMaturityMetric,
+  isValidSectionId,
+  canonicalPriorityFlag,
 } from "@shared/cbo-schema";
 import { getPhasePolicyForCbo, isPhaseAllowed, buildAccessPolicyPrompt, type PhasePolicy } from "./phaseGating";
 import { loadEncontroSkill } from "./encontroSkills";
@@ -196,6 +199,9 @@ function createCboMcpTools(cboId: string) {
     async (args: any) => {
       const state = getCboState(cboId);
       if (!state) return { content: [{ type: "text" as const, text: "Error: not found" }], isError: true };
+      if (!isValidSectionId(args.sectionId)) {
+        return { content: [{ type: "text" as const, text: `Unknown section "${args.sectionId}". Use one of exactly: ${ALL_CBO_SECTION_IDS.join(', ')}.` }], isError: true };
+      }
       const section = state.sections[args.sectionId as keyof typeof state.sections];
       if (!section) return { content: [{ type: "text" as const, text: `Unknown section: ${args.sectionId}` }], isError: true };
       section.fields[args.field] = { value: args.value, confidence: args.confidence as Confidence, source: args.source, userEdited: false };
@@ -432,6 +438,15 @@ STOP and wait for the user's map selection after calling this tool.`,
     async (args: any) => {
       const state = getCboState(cboId);
       if (!state) return { content: [{ type: "text" as const, text: "Error: not found" }], isError: true };
+      if (!isValidMaturityMetric(args.metric)) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Invalid metric "${args.metric}". Use one of exactly: ${MATURITY_METRICS.join(', ')}. Re-call score_maturity with the correct metric name — the next-workshop banner only appears when the phase's metrics are scored with these exact ids.`,
+          }],
+          isError: true,
+        };
+      }
       state.maturityScores = state.maturityScores.filter(s => s.metric !== args.metric);
       state.maturityScores.push({ metric: args.metric, score: args.score, justification: args.justification });
       state.totalMaturityScore = state.maturityScores.reduce((sum, s) => sum + s.score, 0);
@@ -453,11 +468,22 @@ STOP and wait for the user's map selection after calling this tool.`,
     async (args: any) => {
       const state = getCboState(cboId);
       if (!state) return { content: [{ type: "text" as const, text: "Error: not found" }], isError: true };
-      state.priorityFlags = state.priorityFlags.filter(f => f.flag !== args.flag);
-      state.priorityFlags.push({ flag: args.flag, met: args.met, notes: args.notes });
+      const flag = canonicalPriorityFlag(args.flag);
+      if (!flag) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: `Invalid priority flag "${args.flag}". Use one of exactly: ${PRIORITY_FLAG_DEFINITIONS.join(' | ')}.`,
+          }],
+          isError: true,
+        };
+      }
+      // Store the canonical flag string so the orchestrator's flag set stays consistent.
+      state.priorityFlags = state.priorityFlags.filter(f => f.flag !== flag);
+      state.priorityFlags.push({ flag, met: args.met, notes: args.notes });
       setCboState(cboId, state);
       pushEvent({ type: 'maturity_update', scores: state.maturityScores, total: state.totalMaturityScore, flags: state.priorityFlags });
-      return { content: [{ type: "text" as const, text: `Flag: ${args.flag} = ${args.met ? 'met' : 'not met'}` }] };
+      return { content: [{ type: "text" as const, text: `Flag: ${flag} = ${args.met ? 'met' : 'not met'}` }] };
     },
     { annotations: { readOnlyHint: false } }
   );
