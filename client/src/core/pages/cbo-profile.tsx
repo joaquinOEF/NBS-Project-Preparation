@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/core/components/ui/to
 import { useFileDrop } from '@/core/hooks/useFileDrop';
 import {
   CBO_SECTIONS,
+  PHASE_COMPLETION_METRICS,
   type CboState,
   type CboEvent,
   type CboChatMessage,
@@ -1050,18 +1051,12 @@ export default function CboProfilePage() {
               if (isStreaming || messages.length === 0 || state.phase === 0) return null;
               if (currentQuestion) return null;
 
-              // Phase → required maturity metrics. Source of truth: the
-              // "Score: …" lines in each phase's instruction block in
-              // server/services/cboAgent.ts:buildPhaseInstructions and the
-              // matching skill markdown. Keep in sync when scoring rules
-              // change in either place.
-              const PHASE_COMPLETION_METRICS: Record<number, string[]> = {
-                1: ['org_delivery_capacity', 'team_technical_experience'],
-                2: ['site_control', 'community_anchoring'],
-                3: ['problem_clarity', 'solution_clarity', 'climate_nbs_impact', 'financial_thinking'],
-                4: ['regulatory_awareness'],
-                5: [], // E5 produces the full scorecard then advances to phase 6 — no banner needed
-              };
+              // Phase → required maturity metrics. Single source of truth:
+              // PHASE_COMPLETION_METRICS in shared/cbo-schema.ts, derived from
+              // CBO_SECTIONS[].maturityMetrics. The server validates scores
+              // against the same metric ids, so the banner can no longer be
+              // held back by a misspelled metric, and this map can't drift
+              // from the schema.
               const required = PHASE_COMPLETION_METRICS[state.phase] ?? [];
               if (required.length > 0) {
                 const scored = new Set((state.maturityScores ?? []).map(s => s.metric));
