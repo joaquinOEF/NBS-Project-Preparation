@@ -25,6 +25,9 @@ import type {
 
 export const cboStates = pgTable('cbo_states', {
   id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  // FK to organizations.id (see shared/org-schema.ts). Nullable during the
+  // Phase-1 migration; backfilled, then later phases scope access by it.
+  orgId: varchar('org_id'),
   orgName: text('org_name').default(''),
   city: text('city').default(''),
   phase: integer('phase').default(0),

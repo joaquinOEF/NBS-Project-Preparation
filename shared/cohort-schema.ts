@@ -56,6 +56,9 @@ export const cohorts = pgTable('cohorts', {
 export const cohortMembers = pgTable('cohort_members', {
   id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
   cohortId: varchar('cohort_id').notNull(),
+  // FK to organizations.id (see shared/org-schema.ts). Nullable during the
+  // Phase-1 migration; set at invite time for new members, backfilled for old.
+  orgId: varchar('org_id'),
   memberSlug: text('member_slug').notNull().unique(),
   // CBO state ID — links to the file-backed CBO profile (`knowledge/runs/cbo-<id>/`)
   cboStateId: text('cbo_state_id'),
