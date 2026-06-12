@@ -159,6 +159,37 @@ export async function flushNow(id: string) {
   await persistCbo(id).catch(e => console.error(`[cbo] flushNow(${id}) failed`, e));
 }
 
+// ── Single source of truth for advancing a CBO's phase ──
+// The agent's set_phase tool and the /advance-phase route (the green
+// "Start Encontro" card) both used to inline the same gate + set + flush logic,
+// which could drift. Both now delegate here: validate range, apply the P-8
+// unlock gate (phases 1-5 must be opened by the coordinator; 0 and 6 are
+// always allowed), set the phase, and persist immediately (phase boundary).
+// Callers own their own UX (SSE event vs HTTP response). The chat-handler
+// "vamos começar o encontro N" regex stays as a separate belt-and-suspenders
+// fallback and does its own thing.
+export type AdvancePhaseResult =
+  | { ok: true; phase: number }
+  | { ok: false; reason: 'not_found' | 'range' | 'locked'; currentPhase?: number; unlockedPhases?: number[] };
+
+export async function advanceCboPhase(cboId: string, target: number): Promise<AdvancePhaseResult> {
+  const state = getCboState(cboId);
+  if (!state) return { ok: false, reason: 'not_found' };
+  if (!Number.isInteger(target) || target < 0 || target > 6) {
+    return { ok: false, reason: 'range', currentPhase: state.phase };
+  }
+  if (target >= 1 && target <= 5) {
+    const policy = await getPhasePolicyForCbo(cboId);
+    if (policy.gated && !isPhaseAllowed(policy, target)) {
+      return { ok: false, reason: 'locked', currentPhase: state.phase, unlockedPhases: policy.unlockedPhases };
+    }
+  }
+  state.phase = target;
+  setCboState(cboId, state);
+  await flushNow(cboId);
+  return { ok: true, phase: target };
+}
+
 // Reset the flush pointer when a CBO is deleted so a fresh re-creation
 // with the same id wouldn't skip its first messages.
 export function clearFlushedMessageCount(id: string) {
@@ -244,27 +275,22 @@ function createCboMcpTools(cboId: string) {
     "Advance to next phase (1-6). Refuses to advance past phases the coordinator has unlocked.",
     { phase: z.number().min(0).max(6) },
     async (args: any) => {
-      const state = getCboState(cboId);
-      if (!state) return { content: [{ type: "text" as const, text: "Error: not found" }], isError: true };
-      // Workshop-phased unlock gate. Standalone CBOs are ungated.
-      // Phase 6 = export/wrap; not part of unlocks (always allowed once Phase 5 is unlocked).
-      const policy = await getPhasePolicyForCbo(cboId);
-      if (policy.gated && args.phase >= 1 && args.phase <= 5 && !isPhaseAllowed(policy, args.phase)) {
-        return {
-          content: [{
-            type: "text" as const,
-            text: `Phase ${args.phase} is locked. The coordinator has only opened phases ${policy.unlockedPhases.join(', ')}. Stay at Phase ${state.phase} and tell the user warmly that the next workshop will open this section.`,
-          }],
-          isError: true,
-        };
+      const result = await advanceCboPhase(cboId, args.phase);
+      if (!result.ok) {
+        if (result.reason === 'not_found') return { content: [{ type: "text" as const, text: "Error: not found" }], isError: true };
+        if (result.reason === 'locked') {
+          return {
+            content: [{
+              type: "text" as const,
+              text: `Phase ${args.phase} is locked. The coordinator has only opened phases ${result.unlockedPhases?.join(', ')}. Stay at Phase ${result.currentPhase} and tell the user warmly that the next workshop will open this section.`,
+            }],
+            isError: true,
+          };
+        }
+        return { content: [{ type: "text" as const, text: `Invalid phase ${args.phase}.` }], isError: true };
       }
-      state.phase = args.phase;
-      setCboState(cboId, state);
-      pushEvent({ type: 'phase_change', phase: args.phase });
-      // Phase boundary — persist immediately so the transition (and everything
-      // that led to it) survives a restart, instead of riding the 2s debounce.
-      await flushNow(cboId);
-      return { content: [{ type: "text" as const, text: `Phase ${args.phase}` }] };
+      pushEvent({ type: 'phase_change', phase: result.phase });
+      return { content: [{ type: "text" as const, text: `Phase ${result.phase}` }] };
     },
     { annotations: { readOnlyHint: false } }
   );

@@ -7,7 +7,7 @@ import {
   getCboMessages,
   addCboMessage,
   debouncedPersist,
-  flushNow,
+  advanceCboPhase,
   loadCboFromDb,
   getFlushedMessageCount,
   hasPendingFlush,
@@ -172,39 +172,21 @@ export function registerCboRoutes(app: Express): void {
   // This endpoint advances state authoritatively, checking the P-8 gate so
   // CBOs can't skip past workshops the coordinator hasn't opened.
   app.post("/api/cbo/:id/advance-phase", async (req: Request, res: Response) => {
-    const { getPhasePolicyForCbo, isPhaseAllowed } = await import("../services/phaseGating");
-    let state = getCboState(req.params.id);
-    if (!state) {
+    // Ensure the state is in memory (hydrate from DB on a cold reconnect), then
+    // delegate to the single phase-advance path (gate + set + durable flush)
+    // shared with the agent's set_phase tool.
+    if (!getCboState(req.params.id)) {
       const persisted = await loadPersistedCboState(req.params.id);
-      if (persisted) { setCboState(req.params.id, persisted.state); state = persisted.state; }
+      if (persisted) setCboState(req.params.id, persisted.state);
     }
-    if (!state) return res.status(404).json({ error: "Not found" });
-
     const target = Number(req.body?.phase);
-    if (!Number.isInteger(target) || target < 0 || target > 6) {
-      return res.status(400).json({ error: "phase must be an integer 0-6" });
+    const result = await advanceCboPhase(req.params.id, target);
+    if (!result.ok) {
+      if (result.reason === 'not_found') return res.status(404).json({ error: "Not found" });
+      if (result.reason === 'range') return res.status(400).json({ error: "phase must be an integer 0-6" });
+      return res.status(409).json({ error: "phase_locked", requestedPhase: target, unlockedPhases: result.unlockedPhases });
     }
-
-    // P-8 gate — same rule the agent's set_phase tool enforces. Phase 6
-    // (wrap/export) is always allowed; phases 1-5 must be in unlockedPhases
-    // for cohort members.
-    if (target >= 1 && target <= 5) {
-      const policy = await getPhasePolicyForCbo(req.params.id);
-      if (policy.gated && !isPhaseAllowed(policy, target)) {
-        return res.status(409).json({
-          error: "phase_locked",
-          requestedPhase: target,
-          unlockedPhases: policy.unlockedPhases,
-        });
-      }
-    }
-
-    state.phase = target;
-    setCboState(req.params.id, state);
-    // Phase boundary — flush synchronously so the unlock is durable before we
-    // ack the client (this is the path the "Start Encontro" green card hits).
-    await flushNow(req.params.id);
-    res.json({ ok: true, phase: target, state });
+    res.json({ ok: true, phase: result.phase, state: getCboState(req.params.id) });
   });
 
   // User edit
