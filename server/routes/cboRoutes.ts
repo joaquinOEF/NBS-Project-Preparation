@@ -98,16 +98,32 @@ export function registerCboRoutes(app: Express): void {
       }
     }
 
-    // Language: prefer explicit lang from UI picker, fall back to auto-detection
-    const isPt = lang === 'pt' || (!lang && (
-      /[àáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ]/.test(message) ||
-      /\b(sim|não|qual|como|quero|projeto|nossa|organização|comunidade)\b/i.test(message)
-    ));
+    // Sticky session language — set ONCE, never auto-flipped mid-session. The
+    // old per-turn accent/keyword regex flipped EN↔PT on a short reply, which
+    // produced half-English/half-Portuguese documents. Now: an explicit UI pick
+    // (the language picker) always wins and updates the sticky value; otherwise
+    // use the stored language; otherwise detect once from this first message.
+    let sessionLang: 'pt' | 'en';
+    if (lang === 'pt' || lang === 'en') {
+      sessionLang = lang;
+    } else if (state.metadata.language) {
+      sessionLang = state.metadata.language;
+    } else {
+      sessionLang = (
+        /[àáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ]/.test(message) ||
+        /\b(sim|não|qual|como|quero|projeto|nossa|organização|comunidade)\b/i.test(message)
+      ) ? 'pt' : 'en';
+    }
+    if (state.metadata.language !== sessionLang) {
+      state.metadata.language = sessionLang;
+      setCboState(req.params.id, state);
+    }
+    const isPt = sessionLang === 'pt';
     const langDirective = isPt
-      ? '\n[LANGUAGE: Respond in Portuguese. ask_user option labels in Portuguese. update_section content in Portuguese.]'
-      : '\n[LANGUAGE: Respond in English. update_section content in Portuguese for Brazilian orgs.]';
+      ? '\n[LANGUAGE: Respond in Portuguese. ask_user option labels in Portuguese. update_section content in Portuguese. One language only.]'
+      : '\n[LANGUAGE: Respond in English. ask_user option labels in English. update_section content in English. One language only.]';
 
-    const resolvedLang = isPt ? 'pt' : 'en';
+    const resolvedLang = sessionLang;
     addCboMessage(req.params.id, { role: 'user', content: message, messageType: 'content', timestamp: new Date().toISOString() });
     await streamCboChat(req.params.id, message + langDirective, res, state, resolvedLang);
     debouncedPersist(req.params.id);
