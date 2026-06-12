@@ -3,6 +3,21 @@ import multer from "multer";
 import path from "path";
 import { saveAndParseUpload } from "../services/fileParser";
 import { getCboState, setCboState, debouncedPersist } from "../services/cboAgent";
+import { createDocument, getOrgIdForCboState } from "../services/documentPersistence";
+import type { DocumentKind } from "@shared/document-schema";
+
+// Map an upload to the document kind (mirrors fileExtract's routing).
+function kindFromUpload(filename: string, mime?: string): DocumentKind {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  const m = (mime || '').toLowerCase();
+  if (m.startsWith('audio/') || ['mp3','wav','m4a','webm','ogg','oga','opus','aac','flac'].includes(ext)) return 'audio';
+  if (m.startsWith('image/') || ['png','jpg','jpeg','gif','webp'].includes(ext)) return 'image';
+  if (ext === 'pdf' || m === 'application/pdf') return 'pdf';
+  if (ext === 'docx' || m.includes('wordprocessingml')) return 'docx';
+  if (ext === 'xlsx' || m.includes('spreadsheetml')) return 'xlsx';
+  if (['txt','md','csv','tsv','json','xml','yaml','yml'].includes(ext) || m.startsWith('text/')) return 'text';
+  return 'other';
+}
 
 const RUNS_DIR = path.join(process.cwd(), 'knowledge', 'runs');
 
@@ -50,10 +65,12 @@ export function registerUploadRoutes(app: Express): void {
         file.mimetype,
       );
 
-      // Record the upload on the CBO state so it survives a cold reload (the
-      // parsed content the agent acted on is otherwise untraceable, and a
-      // re-hydrated session loses all upload history). uploadedFiles was in the
-      // schema but never written until now.
+      // Record the upload two ways:
+      //  - cbo_states.uploadedFiles: lightweight manifest for the live session
+      //    UI (kept for backward-compat; will be deprecated once the doc store
+      //    fully replaces it).
+      //  - documents table: the durable, org-scoped evidence locker holding the
+      //    FULL extracted text, referenceable across every future session.
       if (type === 'cbo') {
         const state = getCboState(sessionId);
         if (state) {
@@ -65,6 +82,24 @@ export function registerUploadRoutes(app: Express): void {
           });
           setCboState(sessionId, state);
           debouncedPersist(sessionId);
+        }
+        // Best-effort: a doc-store failure must not fail the upload.
+        try {
+          const orgId = await getOrgIdForCboState(sessionId);
+          await createDocument({
+            orgId,
+            cboStateId: sessionId,
+            filename: file.originalname,
+            mimeType: file.mimetype,
+            kind: kindFromUpload(file.originalname, file.mimetype),
+            sizeBytes: file.size,
+            fullText: content,
+            summary: content.slice(0, 280),
+            droppedInPhase: state?.phase ?? null,
+            source: 'upload',
+          });
+        } catch (e: any) {
+          console.error('[upload] doc-store write failed (continuing):', e?.message || e);
         }
       }
 

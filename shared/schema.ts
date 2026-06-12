@@ -10,3 +10,4 @@ export * from './knowledge-schema';
 export * from './org-schema';
 export * from './cohort-schema';
 export * from './cbo-db-schema';
+export * from './document-schema';
