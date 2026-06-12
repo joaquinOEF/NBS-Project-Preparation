@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import multer from "multer";
 import path from "path";
 import { saveAndParseUpload } from "../services/fileParser";
+import { getCboState, setCboState, debouncedPersist } from "../services/cboAgent";
 
 const RUNS_DIR = path.join(process.cwd(), 'knowledge', 'runs');
 
@@ -41,6 +42,24 @@ export function registerUploadRoutes(app: Express): void {
         file.originalname,
         runDir,
       );
+
+      // Record the upload on the CBO state so it survives a cold reload (the
+      // parsed content the agent acted on is otherwise untraceable, and a
+      // re-hydrated session loses all upload history). uploadedFiles was in the
+      // schema but never written until now.
+      if (type === 'cbo') {
+        const state = getCboState(sessionId);
+        if (state) {
+          state.uploadedFiles.push({
+            name: file.originalname,
+            path: savedPath,
+            parsedAt: new Date().toISOString(),
+            summary: content.slice(0, 280),
+          });
+          setCboState(sessionId, state);
+          debouncedPersist(sessionId);
+        }
+      }
 
       res.json({
         filename: file.originalname,
