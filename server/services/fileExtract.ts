@@ -79,8 +79,15 @@ export async function extractUpload(
   return { ok: false, reason: `Unsupported file type: .${ext || "?"}`, fix: "Try a PDF, Word doc, image, spreadsheet, or audio recording." };
 }
 
+const MAX_PDF_VISION_BYTES = 25 * 1024 * 1024;
+const PDF_VISION_PROMPT =
+  "This PDF's text layer was empty or sparse — it's likely a scan, a photo, or an image-heavy " +
+  "one-pager. Read it visually: transcribe all legible text verbatim (preserve headings, tables, " +
+  "lists), and briefly describe any diagrams, plans, or photos. Be faithful and literal — only " +
+  "report what is actually visible. Respond in the language of the document.";
+
 async function extractPdf(buf: Buffer): Promise<string> {
-  // pdf-parse v2 exports a PDFParse class (not the old default fn).
+  // Text-first: pdf-parse v2 exports a PDFParse class (not the old default fn).
   const { createRequire } = (await import("module")) as any;
   const req = createRequire(import.meta.url);
   const { PDFParse } = req("pdf-parse");
@@ -88,8 +95,53 @@ async function extractPdf(buf: Buffer): Promise<string> {
   await parser.load();
   const result = await parser.getText();
   const pages: any[] = result.pages || [];
+  const pageCount = pages.length || 1;
   const text = pages.map((p: any) => p.text).join("\n\n").trim();
+
+  // Most proposals/reports are real text PDFs — return the cheap, exact text.
+  // Only fall back to a (pricier) vision pass when the text layer is empty or
+  // suspiciously thin (avg < ~100 chars/page), which means a scan / photo /
+  // image-only deck where pdf-parse gets nothing useful.
+  const thin = text.length < Math.max(200, pageCount * 100);
+  if (!thin) return text;
+
+  const visioned = await pdfVisionFallback(buf).catch((e) => {
+    console.error("[fileExtract] PDF vision fallback failed:", e?.message || e);
+    return "";
+  });
+  if (visioned.trim()) {
+    return text ? `${text}\n\n[Vision pass over scanned/visual pages]\n${visioned}` : visioned;
+  }
   return text || "[No selectable text in this PDF — it may be a scan. Describe it in chat or upload a photo of the key page.]";
+}
+
+// Send the whole PDF to a vision-capable model via the Responses API (the same
+// endpoint openaiClient uses). The model renders the pages internally, so we
+// avoid a heavy local PDF→image render dependency. Best-effort: the caller
+// treats any throw / empty return as "no vision available" and keeps the text.
+async function pdfVisionFallback(buf: Buffer): Promise<string> {
+  if (buf.length > MAX_PDF_VISION_BYTES) return "";
+  const dataUrl = `data:application/pdf;base64,${buf.toString("base64")}`;
+  const resp: any = await openai.responses.create({
+    model: VISION_MODEL,
+    max_output_tokens: 4096,
+    input: [{
+      role: "user",
+      content: [
+        { type: "input_text", text: PDF_VISION_PROMPT },
+        { type: "input_file", filename: "document.pdf", file_data: dataUrl },
+      ],
+    }],
+  } as any);
+  // Pull text out of the Responses output (mirrors openaiClient's extractor).
+  const out: any[] = resp?.output || [];
+  return out
+    .filter((i: any) => i.type === "message")
+    .flatMap((i: any) => i.content || [])
+    .filter((p: any) => p.type === "output_text")
+    .map((p: any) => p.text)
+    .join("")
+    .trim();
 }
 
 async function extractDocx(buf: Buffer): Promise<string> {
