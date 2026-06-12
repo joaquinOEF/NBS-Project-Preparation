@@ -6,14 +6,20 @@ import { getCboState, setCboState, debouncedPersist } from "../services/cboAgent
 
 const RUNS_DIR = path.join(process.cwd(), 'knowledge', 'runs');
 
-// Multer config — store in memory, then save to run folder
+// Multer config — store in memory, then save to run folder. The allow-list
+// mirrors what fileExtract.ts can actually turn into grounding text:
+// documents, spreadsheets, images (vision), and audio (transcription).
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB — audio recordings run larger than docs
   fileFilter: (_req, file, cb) => {
-    const allowed = ['.pdf', '.docx', '.xlsx', '.txt', '.md', '.csv', '.png', '.jpg', '.jpeg'];
+    const allowed = [
+      '.pdf', '.docx', '.xlsx', '.txt', '.md', '.csv', '.tsv', '.json',      // docs
+      '.png', '.jpg', '.jpeg', '.gif', '.webp',                              // images
+      '.mp3', '.wav', '.m4a', '.webm', '.ogg', '.oga', '.opus', '.aac', '.flac', // audio
+    ];
     const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(ext)) {
+    if (allowed.includes(ext) || (file.mimetype || '').startsWith('audio/') || (file.mimetype || '').startsWith('image/')) {
       cb(null, true);
     } else {
       cb(new Error(`File type ${ext} not supported`));
@@ -41,6 +47,7 @@ export function registerUploadRoutes(app: Express): void {
         file.buffer,
         file.originalname,
         runDir,
+        file.mimetype,
       );
 
       // Record the upload on the CBO state so it survives a cold reload (the
