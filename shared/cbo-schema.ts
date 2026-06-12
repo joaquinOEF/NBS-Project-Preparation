@@ -89,6 +89,10 @@ export interface CboState {
     createdAt: string;
     updatedAt: string;
     sessionId?: string;
+    // Sticky session language, set once (first explicit pick / first-message
+    // detection) and never auto-flipped mid-session. Drives BOTH chat and
+    // update_section content so the document isn't half-EN/half-PT.
+    language?: 'pt' | 'en';
   };
 }
 
