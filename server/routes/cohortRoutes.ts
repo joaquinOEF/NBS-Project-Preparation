@@ -12,6 +12,7 @@ import {
   type SupportRequestType,
   type WorkshopConfig,
 } from '@shared/cohort-schema';
+import { createOrganization } from '../services/orgPersistence';
 
 // Slug-as-secret: 24 chars of url-safe nanoid. Used as a fallback when the
 // human-readable slug derivation collides too many times.
@@ -156,8 +157,21 @@ export function registerCohortRoutes(app: Express): void {
       .filter(n => Number.isFinite(n) && n >= 1);
     const unlockedPhases = Array.from(new Set([1, ...openedPhases])).sort((a, b) => a - b);
 
+    // Every invited org now gets a real organization entity (the platform
+    // spine). Default type 'community' for cohort invites; the coordinator can
+    // reclassify an implementer later. Best-effort — a failure here must not
+    // block the invite, so org_id just stays null and the backfill picks it up.
+    let orgId: string | null = null;
+    try {
+      const org = await createOrganization({ name: orgName, city: 'porto-alegre', type: 'community', cohortId: cohort.id });
+      orgId = org.id;
+    } catch (e: any) {
+      console.error('[cohort] org creation failed on invite (continuing, backfill will link):', e?.message || e);
+    }
+
     const [member] = await db.insert(cohortMembers).values({
       cohortId: cohort.id,
+      orgId,
       memberSlug,
       orgName,
       neighborhood: neighborhood || null,
