@@ -8,5 +8,6 @@ export * from './sample-constants';
 export * from './models/chat';
 export * from './knowledge-schema';
 export * from './org-schema';
+export * from './coordinator-schema';
 export * from './cohort-schema';
 export * from './cbo-db-schema';
