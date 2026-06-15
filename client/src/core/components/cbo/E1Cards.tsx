@@ -10,7 +10,7 @@
 
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
-import { AlertTriangle, Lightbulb, Compass } from 'lucide-react';
+import { AlertTriangle, Lightbulb, Compass, Target } from 'lucide-react';
 import type { CboSectionState, CboGapEntry } from '@shared/cbo-schema';
 
 type GroupKey = 'quem-somos' | 'equipe' | 'historico' | 'caminho' | 'outros';
@@ -42,8 +42,8 @@ export function E1Cards({
 }: {
   section: CboSectionState;
   gaps: CboGapEntry[];
-  /** Two-path triage answer captured at E1 — drives the Caminho card chip. */
-  path: 'has-idea' | 'needs-help' | null;
+  /** Project-readiness triage answer captured at E1 — drives the Caminho chip. */
+  path: 'has-project' | 'has-idea' | 'needs-help' | null;
   onFieldEdit: (sectionId: string, field: string, value: string) => void;
   /** Injected from the parent — same EditableField used elsewhere on this page,
    *  so we don't duplicate the markdown + textarea behavior. */
@@ -110,11 +110,17 @@ export function E1Cards({
   // Caminho card has a special pre-table chip showing the triage answer
   const pathChip = path ? (
     <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40">
-      {path === 'has-idea' ? <Lightbulb className="w-4 h-4 text-emerald-700 dark:text-emerald-400" /> : <Compass className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />}
+      {path === 'has-project'
+        ? <Target className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+        : path === 'has-idea'
+          ? <Lightbulb className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+          : <Compass className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />}
       <span className="text-sm text-emerald-900 dark:text-emerald-200 font-medium">
-        {path === 'has-idea'
-          ? (isPt ? 'Já tem uma ideia de projeto NBS' : 'Has an NBS project idea')
-          : (isPt ? 'Quer descobrir uma ideia de projeto' : 'Wants to discover a project idea')}
+        {path === 'has-project'
+          ? (isPt ? 'Já tem um projeto NBS definido' : 'Has a selected NBS project')
+          : path === 'has-idea'
+            ? (isPt ? 'Já tem uma ideia de projeto NBS' : 'Has an NBS project idea')
+            : (isPt ? 'Quer descobrir uma ideia de projeto' : 'Wants to discover a project idea')}
       </span>
     </div>
   ) : (

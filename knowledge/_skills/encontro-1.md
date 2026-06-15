@@ -100,7 +100,7 @@ Per the spec, these fields land in the CBO profile (`state.sections.org_profile`
 11. `bairro_of_operation` — where they primarily work (suggests from a POA bairro list)
 12. `groups_served` — multi-select: mulheres, idosos, pessoas com deficiência, comunidades tradicionais, jovens, pessoas negras, povos indígenas, comunidade do bairro
 13. `proud_moment` — optional free-text
-14. (cohort-level) `path` — enum on `cohort_members`: has-idea | needs-help
+14. (cohort-level) `path` — enum on `cohort_members`: has-project | has-idea | needs-help
 
 Plus on `state.maturityScores`:
 
@@ -242,18 +242,25 @@ You don't announce the tier or show it to the org. Use it to calibrate, and let 
 
 ## Path triage — the most important question
 
-Ask after the capacity questions, not before — the rest of the diagnostic builds trust that makes either answer feel acceptable.
+Ask after the capacity questions, not before — the rest of the diagnostic builds trust that makes any answer feel acceptable.
+
+Three buckets. They double as a maturity signal — a *selected, scoped* project reads as a more mature / implementer org; an idea or a request for help is the community-first norm. Don't say any of that to the user; just let them pick honestly.
 
 Frame:
-> "Última pergunta importante: você já tem uma ideia de projeto NBS (solução baseada na natureza) que quer levar adiante, ou quer ajuda da gente para encontrar uma?"
+> "Última pergunta importante: onde vocês estão com o projeto NBS (solução baseada na natureza)?"
 >
-> Chips: [💡 Já tenho uma ideia] [🤝 Quero ajuda]
+> Chips: [🎯 Já temos um projeto definido] [💡 Temos uma ideia] [🤝 Queremos ajuda pra encontrar]
 >
 > Note (small, after the chips): "Não há resposta certa — só muda como a gente segue no próximo encontro."
 
-Call `set_path(value)` to write the answer to `cohort_members.path`.
+Distinguish the first two if the user hesitates:
+- **Já temos um projeto definido** → they can name the project AND roughly where/what (site + scope) — a committed project, not just a wish. → `set_path('has-project')`
+- **Temos uma ideia** → a direction in mind, but the site or scope isn't locked. → `set_path('has-idea')`
+- **Queremos ajuda pra encontrar** → no project yet. → `set_path('needs-help')`
 
-**Advanced / NbS-first orgs:** a fast-track implementer is usually sourced *because* it already has a concrete project. If everything so far points to an existing project (an uploaded brief, a funded NbS project, "we're doing a rain garden at X"), don't ask the triage cold — confirm it warmly instead: *"Pelo que você contou, vocês já têm um projeto em mãos, certo?"* and set `path = 'has-idea'`. Only fall back to the open triage if it's genuinely unclear.
+Call `set_path(value)` to write the answer to `cohort_members.path`. (Downstream, `has-project` and `has-idea` follow the same project-forward flow in E2; `needs-help` goes to discovery — so don't agonize over the project/idea line, but do capture it: the coordinator sees it and it corroborates the maturity tier.)
+
+**Advanced / NbS-first orgs:** a fast-track implementer is usually sourced *because* it already has a concrete project. If everything so far points to a selected project (an uploaded brief, a funded NbS project, "we're doing a rain garden at X"), don't ask the triage cold — confirm it warmly instead: *"Pelo que você contou, vocês já têm um projeto definido, certo?"* and set `path = 'has-project'`. Only fall back to the open triage if it's genuinely unclear.
 
 ## File drops — invite at the open, accept anytime, never require
 
@@ -274,7 +281,9 @@ After both batches are answered (Step 2) and the path triage is done:
 
 > "✓ **Diagnóstico concluído** — obrigado pelas respostas, [contact_name]. Esse perfil já está salvo.
 >
-> [if path = 'has-idea']: No próximo encontro vamos olhar juntos o mapa de [bairro], ver os riscos climáticos, e começar pelo seu projeto.
+> [if path = 'has-project']: No próximo encontro vamos olhar o mapa de [bairro] e já posicionar o projeto de vocês no território — ver os riscos e onde ele se encaixa.
+>
+> [if path = 'has-idea']: No próximo encontro vamos olhar juntos o mapa de [bairro], ver os riscos climáticos, e começar pela sua ideia de projeto.
 >
 > [if path = 'needs-help']: No próximo encontro vamos descobrir juntos onde e como atuar — sem pressa.
 >
@@ -321,7 +330,7 @@ Common stuck patterns + responses:
 - `ask_user(questions[])` — pass an **array** of questions to batch them onto one screen (Step 2). Each entry has its own `question`, `options`, and optional `multiSelect`. One `ask_user` call = one batch = one turn.
 - `update_section('org_profile', { field: value })` — after each answer
 - `score_maturity(metric, score, justification)` — after capacity questions
-- `set_path('has-idea' | 'needs-help')` — after triage answer (NEW tool, needs to be added)
+- `set_path('has-project' | 'has-idea' | 'needs-help')` — after triage answer. has-project = a selected/scoped project; has-idea = a direction not yet locked; needs-help = no project yet
 - `score_maturity` — both metrics at end (no separate phase-complete tool exists; scoring + closing message is the signal that E1 is done)
 - `read_knowledge(path)` — silently, to inform scoring
 - `flag_gap(section, field, reason, severity)` — if the user skips something important; not exposed to user

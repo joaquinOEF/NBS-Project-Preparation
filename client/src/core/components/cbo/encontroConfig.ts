@@ -117,14 +117,15 @@ function isPathAware(cfg: SinglePathConfig | PathAwareConfig): cfg is PathAwareC
 export function getEncontroPreambleConfig(
   encontroNumber: number,
   lang: 'pt' | 'en',
-  path?: 'has-idea' | 'needs-help' | null,
+  path?: 'has-project' | 'has-idea' | 'needs-help' | null,
 ): EncontroPreambleConfig | null {
   const base = ENCONTRO_CONFIGS[encontroNumber];
   if (!base) return null;
   let langBase: EncontroBase;
   if (isPathAware(base)) {
-    // Default to has-idea when path is null (CBO hasn't been triaged yet).
-    // Most pre-triage cases are E1, which isn't path-aware anyway.
+    // Two preamble variants only: needs-help (discovery) vs project-forward.
+    // has-project + has-idea both collapse to the has-idea (project-forward)
+    // copy; null defaults there too (pre-triage cases are E1, not path-aware).
     const resolvedPath: Path = path === 'needs-help' ? 'needs-help' : 'has-idea';
     const variant = base[resolvedPath];
     langBase = variant[lang] ?? variant.pt;

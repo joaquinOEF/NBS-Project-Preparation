@@ -221,10 +221,11 @@ export default function CboProfilePage() {
   // of a coordinator-managed cohort and the coordinator gates phase access.
   const [memberSlug, setMemberSlug] = useState<string | null>(null);
   const [memberInfo, setMemberInfo] = useState<{ orgName: string; neighborhood: string | null } | null>(null);
-  // Two-path triage from E1: 'has-idea' | 'needs-help' | null (until triaged).
+  // Project-readiness triage from E1: 'has-project' | 'has-idea' | 'needs-help'
+  // | null (until triaged). has-project + has-idea are project-forward.
   // Sourced from cohort_members.path via /api/cbo-member/:slug. Drives the
   // Caminho card chip in E1Cards.
-  const [memberPath, setMemberPath] = useState<'has-idea' | 'needs-help' | null>(null);
+  const [memberPath, setMemberPath] = useState<'has-project' | 'has-idea' | 'needs-help' | null>(null);
   // RequestSupport — async escalation. Available across all encontros via the
   // chat header. Pending count comes from /api/cbo-member/:slug; agent or
   // coordinator-side flows can also nudge the user to open this.
@@ -277,7 +278,7 @@ export default function CboProfilePage() {
       if (data.memberSlug) setMemberSlug(data.memberSlug);
       if (data.unlockedPhases) setUnlockedPhases(data.unlockedPhases);
       if (data.orgName) setMemberInfo({ orgName: data.orgName, neighborhood: data.neighborhood ?? null });
-      if (data.path === 'has-idea' || data.path === 'needs-help') setMemberPath(data.path);
+      if (data.path === 'has-project' || data.path === 'has-idea' || data.path === 'needs-help') setMemberPath(data.path);
       else if (data.path === null) setMemberPath(null);
       if (typeof data.supportPendingCount === 'number') setSupportPendingCount(data.supportPendingCount);
       if (Array.isArray(data.inspirationPicks)) setInspirationPicks(data.inspirationPicks);

@@ -297,12 +297,13 @@ function createCboMcpTools(cboId: string) {
     { annotations: { readOnlyHint: false } }
   );
 
-  // E1 two-path triage: stores 'has-idea' or 'needs-help' on the cohort member.
-  // Branches E2-E3 flows. No-op if the CBO isn't part of a cohort.
+  // E1 triage: stores the project-readiness path on the cohort member. Branches
+  // E2-E3 flows (has-project + has-idea are project-forward; needs-help is
+  // discovery). No-op if the CBO isn't part of a cohort.
   const setPath = sdkTool(
     "set_path",
-    "Record the user's path choice from the E1 triage. 'has-idea' = they have a specific NBS project in mind; 'needs-help' = they want to discover one.",
-    { path: z.enum(["has-idea", "needs-help"]) },
+    "Record the user's path choice from the E1 triage. 'has-project' = they already have a SELECTED, scoped NBS project (site + scope — typically a more mature / implementer org); 'has-idea' = they have a project direction in mind but it's not locked; 'needs-help' = they want help discovering one. Downstream, has-project is handled like has-idea (project-forward).",
+    { path: z.enum(["has-project", "has-idea", "needs-help"]) },
     async (args: any) => {
       try {
         const result = await db
