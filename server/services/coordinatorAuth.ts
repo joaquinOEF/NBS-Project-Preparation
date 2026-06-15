@@ -42,6 +42,11 @@ export async function createCoordinator(input: {
   return c;
 }
 
+export async function getCoordinatorByEmail(email: string): Promise<Coordinator | null> {
+  const [c] = await db.select().from(coordinators).where(eq(coordinators.email, email.trim().toLowerCase())).limit(1);
+  return c ?? null;
+}
+
 /** Verify credentials and mint a session. Returns null on bad email/password. */
 export async function login(email: string, password: string): Promise<{ token: string; coordinator: Coordinator } | null> {
   const [c] = await db.select().from(coordinators).where(eq(coordinators.email, email.trim().toLowerCase())).limit(1);
