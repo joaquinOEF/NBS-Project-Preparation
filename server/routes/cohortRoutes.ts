@@ -13,7 +13,7 @@ import {
   type WorkshopConfig,
 } from '@shared/cohort-schema';
 import { createOrganization, linkCboStateToOrg } from '../services/orgPersistence';
-import { requireCoordinator } from '../services/coordinatorAuth';
+import { requireCoordinator, type CoordinatorRequest } from '../services/coordinatorAuth';
 
 // Slug-as-secret: 24 chars of url-safe nanoid. Used as a fallback when the
 // human-readable slug derivation collides too many times.
@@ -54,12 +54,17 @@ async function uniqueMemberSlug(base: string): Promise<string> {
 async function getOrCreateDefaultCohort() {
   const existing = await findCohortByCoordinatorSlug(DEFAULT_COORDINATOR_SLUG);
   if (existing) return existing;
-  const [created] = await db.insert(cohorts).values({
+  // Race-safe create: concurrent first-callers (cold start, or parallel
+  // requests) would otherwise both INSERT and one would hit the unique
+  // coordinator_slug constraint → 500. onConflictDoNothing + read-back makes it
+  // idempotent.
+  const inserted = await db.insert(cohorts).values({
     coordinatorSlug: DEFAULT_COORDINATOR_SLUG,
     name: DEFAULT_COHORT_NAME,
     settings: { workshops: DEFAULT_WORKSHOPS },
-  }).returning();
-  return created;
+  }).onConflictDoNothing().returning();
+  if (inserted.length) return inserted[0];
+  return (await findCohortByCoordinatorSlug(DEFAULT_COORDINATOR_SLUG))!;
 }
 
 // Wrap async handlers so a thrown DB error becomes a 500 response instead of
@@ -79,6 +84,20 @@ const wrap = (fn: (req: Request, res: Response) => Promise<unknown>): RequestHan
 async function findCohortByCoordinatorSlug(coordinatorSlug: string) {
   const [c] = await db.select().from(cohorts).where(eq(cohorts.coordinatorSlug, coordinatorSlug)).limit(1);
   return c;
+}
+
+// The coordinator attached by requireCoordinator(). Carries `cohortId`:
+// null/undefined ⇒ admin (all cohorts), a value ⇒ scoped to that one cohort.
+function reqCoordinator(req: Request) {
+  return (req as CoordinatorRequest).coordinator;
+}
+
+// Tenancy check: admins may act on any cohort; a scoped coordinator only on
+// their own. Used by the literal /default routes (the :coordinatorSlug routes
+// are covered by the app.param guard instead).
+function mayAccessCohort(req: Request, cohortId: string): boolean {
+  const c = reqCoordinator(req);
+  return !c?.cohortId || c.cohortId === cohortId;
 }
 
 async function findMemberBySlug(memberSlug: string) {
@@ -143,17 +162,54 @@ export function registerCohortRoutes(app: Express): void {
   app.use('/api/cohort', requireCoordinator());
 
   // ──────────────────────────────────────────────────────────────────────
-  // Singleton cohort — for the Vila Flores pilot, the orchestrator opens
-  // straight to the one-and-only cohort. No coord slug to remember.
+  // Per-account ownership guard — the multi-tenant isolation boundary. Runs
+  // for every cohort route keyed by :coordinatorSlug. A scoped coordinator
+  // (cohortId set) may only touch their own cohort; an admin (cohortId null)
+  // may touch any. 404 for an unknown slug, 403 for someone else's cohort.
+  // Without this the auth gate proves only "a coordinator", not "this
+  // coordinator's cohort", so any logged-in coordinator could read any cohort
+  // by slug.
   // ──────────────────────────────────────────────────────────────────────
-  app.get('/api/cohort/default', wrap(async (_req, res) => {
+  app.param('coordinatorSlug', async (req, res, next, slugValue) => {
+    try {
+      const cohort = await findCohortByCoordinatorSlug(String(slugValue));
+      if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
+      if (!mayAccessCohort(req, cohort.id)) { res.status(403).json({ error: 'forbidden' }); return; }
+      (req as any).cohort = cohort;
+      next();
+    } catch (err) { next(err as any); }
+  });
+
+  // Account-resolved cohort — what the orchestrator loads on boot (replacing
+  // the hardcoded /default). A scoped coordinator gets their own cohort; an
+  // admin opens the default singleton. `isAdmin` lets the UI decide whether to
+  // ever show a cohort switcher (deferred until a 2nd cohort exists).
+  app.get('/api/cohort/mine', wrap(async (req, res) => {
+    const coordinator = reqCoordinator(req);
+    let cohort: Awaited<ReturnType<typeof getOrCreateDefaultCohort>> | undefined;
+    if (coordinator?.cohortId) {
+      const [c] = await db.select().from(cohorts).where(eq(cohorts.id, coordinator.cohortId)).limit(1);
+      cohort = c;
+    }
+    if (!cohort) cohort = await getOrCreateDefaultCohort();
+    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    res.json({ cohort, members, isAdmin: !coordinator?.cohortId });
+  }));
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Singleton cohort — legacy entry point. Still serves the default cohort,
+  // but now ownership-checked so a scoped coordinator can't read/wipe it.
+  // ──────────────────────────────────────────────────────────────────────
+  app.get('/api/cohort/default', wrap(async (req, res) => {
     const cohort = await getOrCreateDefaultCohort();
+    if (!mayAccessCohort(req, cohort.id)) { res.status(403).json({ error: 'forbidden' }); return; }
     const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
     res.json({ cohort, members });
   }));
 
-  app.post('/api/cohort/default/reset', wrap(async (_req, res) => {
+  app.post('/api/cohort/default/reset', wrap(async (req, res) => {
     const cohort = await getOrCreateDefaultCohort();
+    if (!mayAccessCohort(req, cohort.id)) { res.status(403).json({ error: 'forbidden' }); return; }
     // Wipe members, restore default workshop cadence. The cohort row itself
     // stays — same singleton, fresh state.
     await db.delete(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
@@ -164,11 +220,26 @@ export function registerCohortRoutes(app: Express): void {
     res.json({ cohort: refreshed, members: [] });
   }));
 
+  // Generic reset for a scoped cohort (the :coordinatorSlug app.param guard
+  // already enforced ownership). Mirrors /default/reset.
+  app.post('/api/cohort/:coordinatorSlug/reset', wrap(async (req, res) => {
+    const cohort = (req as any).cohort ?? await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
+    if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
+    await db.delete(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    await db.update(cohorts)
+      .set({ settings: { workshops: DEFAULT_WORKSHOPS } })
+      .where(eq(cohorts.id, cohort.id));
+    const [refreshed] = await db.select().from(cohorts).where(eq(cohorts.id, cohort.id)).limit(1);
+    res.json({ cohort: refreshed, members: [] });
+  }));
+
   // ──────────────────────────────────────────────────────────────────────
   // Create cohort — kept for backward-compat with anything that still calls
   // it. The pilot's UI no longer surfaces this.
   // ──────────────────────────────────────────────────────────────────────
   app.post('/api/cohort', wrap(async (req, res) => {
+    // Only an admin (unscoped coordinator) may spin up new cohorts.
+    if (reqCoordinator(req)?.cohortId) { res.status(403).json({ error: 'only an admin can create cohorts' }); return; }
     const { name } = req.body ?? {};
     const coordinatorSlug = slug();
     const [created] = await db.insert(cohorts).values({
