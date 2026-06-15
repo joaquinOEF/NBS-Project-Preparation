@@ -2001,6 +2001,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerTileProxyRoutes(app);
   registerOverpassRoutes(app);
 
+  // Test-only seeding API — CONDITIONALLY registered so the routes literally do
+  // not exist in production (the gate is registration, not a runtime check).
+  // Never set ENABLE_TEST_ROUTES on the production Deployment. See testRoutes.ts.
+  if (process.env.ENABLE_TEST_ROUTES === '1') {
+    const { registerTestRoutes } = await import('./routes/testRoutes');
+    registerTestRoutes(app);
+  }
+
   const httpServer = createServer(app);
   return httpServer;
 }
