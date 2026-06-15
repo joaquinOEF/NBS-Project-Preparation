@@ -212,9 +212,10 @@ export default function CboProfilePage() {
   const [highlightedSections, setHighlightedSections] = useState<string[]>([]);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // Cohort membership: if `?cbo=<memberSlug>` is in the URL, this CBO is part
-  // of a coordinator-managed cohort and the coordinator gates phase access.
-  const [memberSlug, setMemberSlug] = useState<string | null>(null);
+  // Cohort membership: if `?t=<capabilityToken>` is in the URL, this CBO is part
+  // of a coordinator-managed cohort. The token is the CBO's only credential —
+  // unguessable, no login — and addresses the member on every server call.
+  const [memberToken, setMemberToken] = useState<string | null>(null);
   const [memberInfo, setMemberInfo] = useState<{ orgName: string; neighborhood: string | null } | null>(null);
   // Two-path triage from E1: 'has-idea' | 'needs-help' | null (until triaged).
   // Sourced from cohort_members.path via /api/cbo-member/:slug. Drives the
@@ -253,23 +254,16 @@ export default function CboProfilePage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    // Preferred: unguessable capability token (?t=). Legacy: org-name slug
-    // (?cbo=) for already-issued links. The token path resolves once via
-    // /by-token; both then drive the same slug-based snapshot/support calls
-    // (the resolved payload carries memberSlug), so the rest of the flow is
-    // unchanged during the Phase-3a transition.
+    // Token-only entry. The unguessable capability token (?t=) is the CBO's
+    // sole credential — it resolves the member and addresses every subsequent
+    // call. The old guessable ?cbo=<org-name-slug> path has been retired.
     const token = params.get('t');
-    const slugParam = params.get('cbo');
-    if (!token && !slugParam) return;
-    const memberUrl = token
-      ? `/api/cbo-member/by-token/${token}`
-      : `/api/cbo-member/${slugParam}`;
-    if (slugParam) setMemberSlug(slugParam);
+    if (!token) return;
+    setMemberToken(token);
+    const memberUrl = `/api/cbo-member/by-token/${token}`;
 
     const applyMember = (data: any) => {
       if (!data) return;
-      // Token path: adopt the resolved slug so subsequent calls work.
-      if (data.memberSlug) setMemberSlug(data.memberSlug);
       if (data.unlockedPhases) setUnlockedPhases(data.unlockedPhases);
       if (data.orgName) setMemberInfo({ orgName: data.orgName, neighborhood: data.neighborhood ?? null });
       if (data.path === 'has-idea' || data.path === 'needs-help') setMemberPath(data.path);
@@ -315,13 +309,13 @@ export default function CboProfilePage() {
   // server-side phase gate (P-8) can identify this CBO from turn 1, before
   // any phase-change or maturity-update snapshot fires.
   useEffect(() => {
-    if (!memberSlug || !cboId) return;
-    fetch(`/api/cbo-member/${memberSlug}/snapshot`, {
+    if (!memberToken || !cboId) return;
+    fetch(`/api/cbo-member/by-token/${memberToken}/snapshot`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cboStateId: cboId }),
     }).catch(() => {});
-  }, [memberSlug, cboId]);
+  }, [memberToken, cboId]);
 
   // Seed E1 fields from the invite. The orchestrator already collected
   // orgName + neighborhood at invite time — re-asking on the first chat
@@ -524,8 +518,8 @@ export default function CboProfilePage() {
         break;
       case 'phase_change':
         setState(prev => prev ? { ...prev, phase: event.phase } : prev);
-        if (memberSlug) {
-          fetch(`/api/cbo-member/${memberSlug}/snapshot`, {
+        if (memberToken) {
+          fetch(`/api/cbo-member/by-token/${memberToken}/snapshot`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phase: event.phase, cboStateId: cboId }),
@@ -534,9 +528,9 @@ export default function CboProfilePage() {
         break;
       case 'maturity_update':
         setState(prev => prev ? { ...prev, maturityScores: event.scores, totalMaturityScore: event.total, priorityFlags: event.flags } : prev);
-        if (memberSlug) {
+        if (memberToken) {
           // Count filled sections from current state for the snapshot.
-          fetch(`/api/cbo-member/${memberSlug}/snapshot`, {
+          fetch(`/api/cbo-member/by-token/${memberToken}/snapshot`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -738,7 +732,7 @@ export default function CboProfilePage() {
       if (encontro == null) return false;
       const cfg = getEncontroPreambleConfig(encontro, lang as 'pt' | 'en', memberPath);
       if (!cfg) return false;
-      const seenKey = memberSlug ?? cboId ?? '';
+      const seenKey = memberToken ?? cboId ?? '';
       if (!seenKey || hasPreambleBeenSeen(seenKey, encontro)) return false;
       setPreambleEncontro(encontro);
       return true;
@@ -770,7 +764,7 @@ export default function CboProfilePage() {
   if (preambleEncontro != null) {
     const cfg = getEncontroPreambleConfig(preambleEncontro, lang as 'pt' | 'en', memberPath);
     if (cfg) {
-      const seenKey = memberSlug ?? cboId ?? '';
+      const seenKey = memberToken ?? cboId ?? '';
       return (
         <EncontroPreamble
           config={cfg}
@@ -793,11 +787,11 @@ export default function CboProfilePage() {
           + workshop progress) the user actually needs. h-[100dvh] keeps the
           shell sized to the dynamic viewport so Safari's URL bar can't clip
           content. */}
-      {memberSlug && (
+      {memberToken && (
         <RequestSupportDialog
           open={supportDialogOpen}
           onOpenChange={setSupportDialogOpen}
-          memberSlug={memberSlug}
+          memberToken={memberToken}
           onSubmitted={() => setSupportPendingCount(c => c + 1)}
         />
       )}
@@ -844,7 +838,7 @@ export default function CboProfilePage() {
                 )}
               </div>
               <div className="flex gap-0.5 shrink-0">
-                {memberSlug && (
+                {memberToken && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -946,9 +940,9 @@ export default function CboProfilePage() {
                   ? Array.from(new Set([...before, cardId]))
                   : before.filter(id => id !== cardId);
                 setInspirationPicks(optimistic);
-                if (!memberSlug) return;
+                if (!memberToken) return;
                 try {
-                  const r = await fetch(`/api/cbo-member/${memberSlug}/inspiration-pick`, {
+                  const r = await fetch(`/api/cbo-member/by-token/${memberToken}/inspiration-pick`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ cardId, action: next ? 'add' : 'remove' }),

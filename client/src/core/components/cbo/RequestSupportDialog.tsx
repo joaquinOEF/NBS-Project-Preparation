@@ -50,13 +50,14 @@ const OPTIONS: OptionDef[] = [
 export function RequestSupportDialog({
   open,
   onOpenChange,
-  memberSlug,
+  memberToken,
   onSubmitted,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The CBO's slug — submit endpoint is /api/cbo-member/:slug/support-request */
-  memberSlug: string;
+  /** The CBO's capability token — submit endpoint is
+   *  /api/cbo-member/by-token/:token/support-request */
+  memberToken: string;
   /** Called after a successful POST so the parent can refresh state / toast. */
   onSubmitted?: (req: { id: string; type: SupportRequestType }) => void;
 }) {
@@ -83,7 +84,7 @@ export function RequestSupportDialog({
     if (!selectedType) return;
     setSubmitting(true);
     try {
-      const r = await fetch(`/api/cbo-member/${memberSlug}/support-request`, {
+      const r = await fetch(`/api/cbo-member/by-token/${memberToken}/support-request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: selectedType, message: message.trim() || undefined }),

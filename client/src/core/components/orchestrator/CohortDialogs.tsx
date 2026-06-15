@@ -162,6 +162,7 @@ export function LoadCohortDialog({
 
 export type BulkInviteResult = {
   memberSlug: string;
+  capabilityToken?: string | null;
   orgName: string;
   neighborhood?: string;
 };
@@ -187,10 +188,10 @@ export function InviteCboDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Pure invite — no side effects. Called once per CBO in either mode. */
-  onSubmit: (params: { orgName: string; neighborhood?: string; role: 'priority' | 'alternate' }) => Promise<{ memberSlug: string; orgName: string } | null>;
+  onSubmit: (params: { orgName: string; neighborhood?: string; role: 'priority' | 'alternate' }) => Promise<{ memberSlug: string; capabilityToken?: string | null; orgName: string } | null>;
   /** Called after a successful single-mode invite — parent typically opens
       the ShareLinkDialog for that CBO. NOT called in bulk mode. */
-  onSingleSuccess?: (result: { memberSlug: string; orgName: string }) => void;
+  onSingleSuccess?: (result: { memberSlug: string; capabilityToken?: string | null; orgName: string }) => void;
   /** Called once after a Bulk submission completes — parent typically opens
       the BulkInviteSummaryDialog with these results. */
   onBulkComplete?: (results: BulkInviteResult[]) => void;
@@ -248,7 +249,7 @@ export function InviteCboDialog({
       for (let i = 0; i < parsed.length; i++) {
         const p = parsed[i];
         const r = await onSubmit({ orgName: p.orgName, neighborhood: p.neighborhood, role });
-        if (r) results.push({ memberSlug: r.memberSlug, orgName: r.orgName, neighborhood: p.neighborhood });
+        if (r) results.push({ memberSlug: r.memberSlug, capabilityToken: r.capabilityToken, orgName: r.orgName, neighborhood: p.neighborhood });
         setBulkProgress({ done: i + 1, total: parsed.length });
       }
       onBulkComplete?.(results);
@@ -475,9 +476,13 @@ export function BulkInviteSummaryDialog({
 
   if (!open) return null;
 
-  const buildUrl = (slug: string) => `${origin}/cbo-profile?cbo=${slug}`;
-  const buildMessage = (orgName: string, slug: string) =>
-    cboGreetingMessage(orgName, buildUrl(slug), isPt);
+  // Prefer the unguessable capability token (the slug entry is retired).
+  const buildUrl = (inv: BulkInviteResult) =>
+    inv.capabilityToken
+      ? `${origin}/cbo-profile?t=${inv.capabilityToken}`
+      : `${origin}/cbo-profile?cbo=${inv.memberSlug}`;
+  const buildMessage = (inv: BulkInviteResult) =>
+    cboGreetingMessage(inv.orgName, buildUrl(inv), isPt);
 
   const copy = async (text: string, after: () => void) => {
     try { await navigator.clipboard.writeText(text); after(); } catch {}
@@ -485,7 +490,7 @@ export function BulkInviteSummaryDialog({
 
   const copyAllMessages = () => {
     const block = invitations
-      .map(inv => `— ${inv.orgName}${inv.neighborhood ? ` (${inv.neighborhood})` : ''}\n${buildMessage(inv.orgName, inv.memberSlug)}`)
+      .map(inv => `— ${inv.orgName}${inv.neighborhood ? ` (${inv.neighborhood})` : ''}\n${buildMessage(inv)}`)
       .join('\n\n──────────\n\n');
     copy(block, () => { setCopiedAll(true); setTimeout(() => setCopiedAll(false), 2000); });
   };
@@ -523,8 +528,8 @@ export function BulkInviteSummaryDialog({
 
           <div className="max-h-[420px] overflow-y-auto -mx-1 px-1 space-y-1.5">
             {invitations.map((inv, i) => {
-              const url = buildUrl(inv.memberSlug);
-              const msg = buildMessage(inv.orgName, inv.memberSlug);
+              const url = buildUrl(inv);
+              const msg = buildMessage(inv);
               return (
                 <div
                   key={inv.memberSlug}

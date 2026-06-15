@@ -17,7 +17,7 @@ import type { SupportRequestType } from '@shared/cohort-schema';
 type InboxItem = {
   requestId: string;
   memberId: string;
-  memberSlug: string;
+  capabilityToken: string | null;
   orgName: string;
   neighborhood: string | null;
   type: SupportRequestType;
@@ -198,15 +198,17 @@ export function SupportInbox({
                               )}
                             </p>
                           </div>
-                          <a
-                            href={`/cbo-profile?cbo=${item.memberSlug}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="shrink-0 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
-                            title={t('orchestrator.support.openProfile', { defaultValue: 'Ver perfil' }) as string}
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
+                          {item.capabilityToken && (
+                            <a
+                              href={`/cbo-profile?t=${item.capabilityToken}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+                              title={t('orchestrator.support.openProfile', { defaultValue: 'Ver perfil' }) as string}
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
                         </div>
 
                         {item.message && (

@@ -97,11 +97,6 @@ async function findCohortByCoordinatorSlug(coordinatorSlug: string) {
   return c;
 }
 
-async function findMemberBySlug(memberSlug: string) {
-  const [m] = await db.select().from(cohortMembers).where(eq(cohortMembers.memberSlug, memberSlug)).limit(1);
-  return m;
-}
-
 async function findMemberByToken(token: string) {
   if (!token) return undefined;
   const [m] = await db.select().from(cohortMembers).where(eq(cohortMembers.capabilityToken, token)).limit(1);
@@ -332,28 +327,18 @@ export function registerCohortRoutes(app: Express): void {
     res.json({ ok: true, updated: targets.length });
   }));
 
-  // Member-facing read by unguessable capability token (the new invite-link
-  // credential). Preferred over the legacy by-slug path. Returns memberSlug so
-  // the client can keep making slug-based snapshot/support calls during the
-  // backward-compatible transition (Phase 3a).
+  // Member-facing read by unguessable capability token — the CBO's SOLE
+  // credential (no login). The old guessable by-slug read has been retired
+  // (Phase 3b): the org-name slug is no longer a way to reach a member.
   app.get('/api/cbo-member/by-token/:token', wrap(async (req, res) => {
     const member = await findMemberByToken(req.params.token);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
     res.json(await buildMemberPayload(member));
   }));
 
-  // Member-facing read (legacy: no auth beyond knowing the slug). Kept for
-  // backward compat with already-issued links; retired in Phase 3b once links
-  // are re-issued as capability-token URLs.
-  app.get('/api/cbo-member/:memberSlug', wrap(async (req, res) => {
-    const member = await findMemberBySlug(req.params.memberSlug);
-    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
-    res.json(await buildMemberPayload(member));
-  }));
-
   // CBO submits a support request. Returns the created entry (with id).
-  app.post('/api/cbo-member/:memberSlug/support-request', wrap(async (req, res) => {
-    const member = await findMemberBySlug(req.params.memberSlug);
+  app.post('/api/cbo-member/by-token/:token/support-request', wrap(async (req, res) => {
+    const member = await findMemberByToken(req.params.token);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
 
     const { type, message } = req.body ?? {};
@@ -393,7 +378,7 @@ export function registerCohortRoutes(app: Express): void {
     const items: Array<{
       requestId: string;
       memberId: string;
-      memberSlug: string;
+      capabilityToken: string | null;
       orgName: string;
       neighborhood: string | null;
       type: SupportRequestType;
@@ -410,7 +395,9 @@ export function registerCohortRoutes(app: Express): void {
         items.push({
           requestId: r.id,
           memberId: m.id,
-          memberSlug: m.memberSlug,
+          // Token, so the inbox deep-link opens the member via ?t= (the slug
+          // entry is retired). memberId still keys the resolve action below.
+          capabilityToken: m.capabilityToken,
           orgName: m.orgName,
           neighborhood: m.neighborhood,
           type: r.type,
@@ -428,8 +415,8 @@ export function registerCohortRoutes(app: Express): void {
   // CBO toggles a NbsShowcaseCard favorite during E2. POST /toggle-on,
   // DELETE /toggle-off. Body: { cardId }. Returns the updated picks array.
   // Soft cap at 5 picks per spec — over that, oldest pick drops.
-  app.post('/api/cbo-member/:memberSlug/inspiration-pick', wrap(async (req, res) => {
-    const member = await findMemberBySlug(req.params.memberSlug);
+  app.post('/api/cbo-member/by-token/:token/inspiration-pick', wrap(async (req, res) => {
+    const member = await findMemberByToken(req.params.token);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
     const { cardId, action } = req.body ?? {};
     if (!cardId || typeof cardId !== 'string') { res.status(400).json({ error: 'cardId required' }); return; }
@@ -476,8 +463,8 @@ export function registerCohortRoutes(app: Express): void {
   // CBO pushes a snapshot of its current progress so the orchestrator can show it.
   // Workshop-phased unlock (P-8): clamp `phase` to the member's `unlockedPhases`.
   // Phase 6+ (export/wrap) is always allowed.
-  app.patch('/api/cbo-member/:memberSlug/snapshot', wrap(async (req, res) => {
-    const member = await findMemberBySlug(req.params.memberSlug);
+  app.patch('/api/cbo-member/by-token/:token/snapshot', wrap(async (req, res) => {
+    const member = await findMemberByToken(req.params.token);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
 
     const {

@@ -13,13 +13,13 @@
  *
  * See docs/ROLE-ARCHITECTURE.md.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, LifeBuoy, Lightbulb, MapPin,
+  ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, LifeBuoy, Lightbulb, LogOut, MapPin,
   Mountain, Network, Plus, RotateCcw, Sparkles, Sprout, Trees, Unlock, Users, Waves,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
@@ -634,6 +634,11 @@ export default function OrchestratorLandingPage() {
     return () => { cancelled = true; };
   }, [navigate]);
 
+  const logout = useCallback(async () => {
+    try { await fetch('/api/coordinator/logout', { method: 'POST', credentials: 'include' }); } catch { /* ignore */ }
+    navigate('/coordinator-login');
+  }, [navigate]);
+
   const handleBairroClick = (info: { name: string; primaryHazard: string; population: number; priorityScore: number }) => {
     // For this PR: surface a toast describing the bairro. The follow-up PR
     // (once #132's invite dialog is on main) wires this into a pre-filled
@@ -830,6 +835,10 @@ export default function OrchestratorLandingPage() {
             <Button variant="ghost" size="sm" onClick={switchRole} data-testid="button-orchestrator-switch-role">
               <ArrowLeft className="w-4 h-4 mr-2" />
               {t('orchestrator.switchRole')}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={logout} data-testid="button-orchestrator-logout" title={t('orchestrator.signOut', { defaultValue: 'Sign out' })}>
+              <LogOut className="w-4 h-4 mr-2" />
+              {t('orchestrator.signOut', { defaultValue: 'Sign out' })}
             </Button>
           </div>
         </div>
