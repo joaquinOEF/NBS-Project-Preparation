@@ -26,6 +26,9 @@ const PROFILE_DONE = /profile complete|perfil completo|encontro 1 (is )?(complet
 
 test.describe('CBO live walkthrough (real agent + simulated user) @live', () => {
   test.skip(!RUN, 'Set RUN_LIVE_WALKTHROUGH=1 + E2E_BASE_URL + ANTHROPIC_API_KEY to run.');
+  // Run as a Brazilian browser so the page detects Portuguese (like a real CBO)
+  // instead of Playwright's en-US default, which forced the agent into English.
+  test.use({ locale: 'pt-BR' });
   // Real LLMs on both sides — give it room.
   test.setTimeout(10 * 60 * 1000);
 
@@ -52,6 +55,17 @@ test.describe('CBO live walkthrough (real agent + simulated user) @live', () => 
       const agent = (Array.isArray(msgs) ? msgs : []).filter((m: any) => m.role === 'assistant' && m.messageType === 'content');
       return agent.length ? agent[agent.length - 1].content : '';
     };
+    // What the user is actually being asked RIGHT NOW. `ask_user` questions
+    // render in the on-screen card but are NOT chat messages — so reading only
+    // /messages gives a stale question. Prefer the live card, fall back to chat.
+    const currentQuestion = async (): Promise<string> => {
+      const card = page.getByTestId('cbo-question-card');
+      if (await card.isVisible().catch(() => false)) {
+        const t = (await card.innerText().catch(() => '')).trim();
+        if (t) return t;
+      }
+      return lastAgentMessage();
+    };
 
     // The human opens the chat.
     let turns = 0;
@@ -70,9 +84,10 @@ test.describe('CBO live walkthrough (real agent + simulated user) @live', () => 
       const phase = await marker.getAttribute('data-phase');
       if (phase && Number(phase) >= 2) { reachedPhase2 = true; break; }
 
-      const agentMsg = await lastAgentMessage();
-      if (PROFILE_DONE.test(agentMsg)) break;
+      // Completion is signalled in a chat message; the live question is on-screen.
+      if (PROFILE_DONE.test(await lastAgentMessage())) break;
 
+      const agentMsg = await currentQuestion();
       const chips = await visibleChips();
       const reply = await sim.reply(agentMsg, chips);
       const chip = matchChip(reply, chips);
