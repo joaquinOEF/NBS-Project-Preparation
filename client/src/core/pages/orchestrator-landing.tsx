@@ -28,6 +28,7 @@ import { TitleLarge, BodyMedium, BodySmall } from '@oef/components';
 import { useToast } from '@/core/hooks/use-toast';
 import { useResetRole } from '@/core/contexts/role-context';
 import { useCohort } from '@/core/hooks/useCohort';
+import { useLocation } from 'wouter';
 import type { CohortMember, WorkshopConfig } from '@shared/cohort-schema';
 import {
   InviteCboDialog,
@@ -621,6 +622,18 @@ export default function OrchestratorLandingPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [riskLayers, setRiskLayers] = useState<RiskLayers>({ hotspots: false, recruitZones: false });
 
+  // Phase 3c-ii — require a coordinator session. On 401, bounce to login.
+  // `authed`: null = checking, false = redirecting, true = render the dashboard.
+  const [, navigate] = useLocation();
+  const [authed, setAuthed] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/coordinator/me', { credentials: 'include' })
+      .then(r => { if (!cancelled) { if (r.ok) setAuthed(true); else { setAuthed(false); navigate('/coordinator-login'); } } })
+      .catch(() => { if (!cancelled) { setAuthed(false); navigate('/coordinator-login'); } });
+    return () => { cancelled = true; };
+  }, [navigate]);
+
   const handleBairroClick = (info: { name: string; primaryHazard: string; population: number; priorityScore: number }) => {
     // For this PR: surface a toast describing the bairro. The follow-up PR
     // (once #132's invite dialog is on main) wires this into a pre-filled
@@ -766,6 +779,16 @@ export default function OrchestratorLandingPage() {
   };
 
   const workshops: WorkshopConfig[] = cohort?.settings?.workshops ?? [];
+
+  // Hold the dashboard until the coordinator session is confirmed — avoids a
+  // flash of (now-empty, 401'd) cohort data before the redirect to login.
+  if (authed !== true) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-background">
+        <Compass className="w-5 h-5 text-muted-foreground animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-background dark:to-slate-950">

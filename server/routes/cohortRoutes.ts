@@ -13,6 +13,7 @@ import {
   type WorkshopConfig,
 } from '@shared/cohort-schema';
 import { createOrganization, linkCboStateToOrg } from '../services/orgPersistence';
+import { requireCoordinator } from '../services/coordinatorAuth';
 
 // Slug-as-secret: 24 chars of url-safe nanoid. Used as a fallback when the
 // human-readable slug derivation collides too many times.
@@ -134,6 +135,13 @@ async function buildMemberPayload(member: typeof cohortMembers.$inferSelect) {
 }
 
 export function registerCohortRoutes(app: Express): void {
+  // Phase 3c-ii — gate the entire coordinator surface behind a coordinator
+  // session. Every /api/cohort/* route is coordinator-facing (the CBO-facing
+  // routes live under /api/cbo-member and /api/cbo, which are NOT matched here),
+  // so one prefix mount closes the open roster + invite/unlock controls in a
+  // single place. Requires a provisioned coordinator (scripts/create-coordinator).
+  app.use('/api/cohort', requireCoordinator());
+
   // ──────────────────────────────────────────────────────────────────────
   // Singleton cohort — for the Vila Flores pilot, the orchestrator opens
   // straight to the one-and-only cohort. No coord slug to remember.
