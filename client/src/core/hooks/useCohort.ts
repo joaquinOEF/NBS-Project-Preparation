@@ -1,22 +1,24 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import type { Cohort, CohortMember, WorkshopConfig } from '@shared/cohort-schema';
 
 // ---------------------------------------------------------------------------
-// useCohort — singleton-cohort model for the Vila Flores pilot.
+// useCohort — loads the cohort THIS coordinator manages.
 //
-// There is exactly one cohort for the entire deployment, served from
-// GET /api/cohort/default. The orchestrator opens straight to it — no slug
-// to remember, no auth, no "Create" / "Load existing" dance. A Reset action
-// wipes members and restores the default workshop cadence for demo dry runs.
+// GET /api/cohort/mine resolves the cohort from the logged-in coordinator's
+// account (scoped coordinator → their cohort; admin → the default landing
+// cohort). Every mutation then targets that cohort's own slug, and the server
+// enforces ownership — so two coordinators see and act on different cohorts.
 //
-// When auth lands in a later phase, this hook becomes the place that swaps
-// `default` for a real coordinator session.
+// All requests are same-origin, so the coordinator session cookie rides along
+// automatically. A 401 means the session lapsed; the orchestrator page's auth
+// guard handles the redirect to /coordinator-login.
 // ---------------------------------------------------------------------------
 
 export interface UseCohortResult {
   loading: boolean;
   cohort: Cohort | null;
   members: CohortMember[];
+  isAdmin: boolean;
   refresh: () => Promise<void>;
   resetCohort: () => Promise<void>;
   invite: (params: { orgName: string; neighborhood?: string; role?: 'priority' | 'alternate' }) => Promise<CohortMember | null>;
@@ -24,21 +26,25 @@ export interface UseCohortResult {
   saveWorkshops: (workshops: WorkshopConfig[]) => Promise<void>;
 }
 
-const COORDINATOR_SLUG = 'default';
-
 export function useCohort(): UseCohortResult {
   const [cohort, setCohort] = useState<Cohort | null>(null);
   const [members, setMembers] = useState<CohortMember[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  // The coordinator's own cohort slug, used for every mutation. Held in a ref
+  // so the mutation callbacks stay referentially stable across reloads.
+  const slugRef = useRef<string | null>(null);
 
   const fetchCohort = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch('/api/cohort/default');
+      const r = await fetch('/api/cohort/mine');
       if (!r.ok) return;
       const data = await r.json();
-      setCohort(data.cohort);
+      setCohort(data.cohort ?? null);
       setMembers(data.members ?? []);
+      setIsAdmin(!!data.isAdmin);
+      slugRef.current = data.cohort?.coordinatorSlug ?? null;
     } finally {
       setLoading(false);
     }
@@ -49,9 +55,11 @@ export function useCohort(): UseCohortResult {
   const refresh = useCallback(async () => { await fetchCohort(); }, [fetchCohort]);
 
   const resetCohort = useCallback(async () => {
+    const slug = slugRef.current;
+    if (!slug) return;
     setLoading(true);
     try {
-      const r = await fetch('/api/cohort/default/reset', { method: 'POST' });
+      const r = await fetch(`/api/cohort/${slug}/reset`, { method: 'POST' });
       if (!r.ok) return;
       const data = await r.json();
       setCohort(data.cohort);
@@ -62,7 +70,9 @@ export function useCohort(): UseCohortResult {
   }, []);
 
   const invite: UseCohortResult['invite'] = useCallback(async ({ orgName, neighborhood, role }) => {
-    const r = await fetch(`/api/cohort/${COORDINATOR_SLUG}/invite`, {
+    const slug = slugRef.current;
+    if (!slug) return null;
+    const r = await fetch(`/api/cohort/${slug}/invite`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orgName, neighborhood, role }),
@@ -74,7 +84,9 @@ export function useCohort(): UseCohortResult {
   }, [refresh]);
 
   const unlockPhase = useCallback(async (memberIds: string[] | 'all', phase: number) => {
-    await fetch(`/api/cohort/${COORDINATOR_SLUG}/unlock`, {
+    const slug = slugRef.current;
+    if (!slug) return;
+    await fetch(`/api/cohort/${slug}/unlock`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ memberIds, phase }),
@@ -83,7 +95,9 @@ export function useCohort(): UseCohortResult {
   }, [refresh]);
 
   const saveWorkshops = useCallback(async (workshops: WorkshopConfig[]) => {
-    await fetch(`/api/cohort/${COORDINATOR_SLUG}/workshops`, {
+    const slug = slugRef.current;
+    if (!slug) return;
+    await fetch(`/api/cohort/${slug}/workshops`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workshops }),
@@ -91,5 +105,5 @@ export function useCohort(): UseCohortResult {
     await refresh();
   }, [refresh]);
 
-  return { loading, cohort, members, refresh, resetCohort, invite, unlockPhase, saveWorkshops };
+  return { loading, cohort, members, isAdmin, refresh, resetCohort, invite, unlockPhase, saveWorkshops };
 }

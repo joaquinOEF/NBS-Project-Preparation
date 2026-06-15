@@ -13,7 +13,23 @@ import {
   type WorkshopConfig,
 } from '@shared/cohort-schema';
 import { createOrganization, linkCboStateToOrg } from '../services/orgPersistence';
-import { requireCoordinator } from '../services/coordinatorAuth';
+import { requireCoordinator, type CoordinatorRequest } from '../services/coordinatorAuth';
+import type { Coordinator } from '@shared/coordinator-schema';
+
+// ── Multi-cohort scoping (Phase 3c, per-account) ──
+// A coordinator manages exactly one cohort (coordinator.cohortId), OR is an
+// admin (cohortId === null) who can reach any cohort. These helpers decide
+// "which cohort does this account see" and "may this account touch this cohort".
+function reqCoordinator(req: any): Coordinator | undefined {
+  return (req as CoordinatorRequest).coordinator;
+}
+function isAdmin(coordinator: Coordinator | undefined): boolean {
+  return !!coordinator && coordinator.cohortId == null;
+}
+function ownsCohort(coordinator: Coordinator | undefined, cohort: { id: string } | null | undefined): boolean {
+  if (!coordinator || !cohort) return false;
+  return isAdmin(coordinator) || coordinator.cohortId === cohort.id;
+}
 
 // Slug-as-secret: 24 chars of url-safe nanoid. Used as a fallback when the
 // human-readable slug derivation collides too many times.
@@ -142,33 +158,66 @@ export function registerCohortRoutes(app: Express): void {
   // single place. Requires a provisioned coordinator (scripts/create-coordinator).
   app.use('/api/cohort', requireCoordinator());
 
+  // Ownership guard for EVERY :coordinatorSlug route — resolves the cohort and
+  // 404s if missing, 403s if the logged-in coordinator doesn't own it (admins
+  // pass). Using app.param means no individual route can forget the check.
+  app.param('coordinatorSlug', async (req: any, res: any, next: any, coordinatorSlug: string) => {
+    try {
+      const cohort = await findCohortByCoordinatorSlug(coordinatorSlug);
+      if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
+      if (!ownsCohort(reqCoordinator(req), cohort)) { res.status(403).json({ error: 'not your cohort' }); return; }
+      (req as any).cohort = cohort;
+      next();
+    } catch (err: any) {
+      console.error('[cohort] param guard error', err);
+      res.status(500).json({ error: 'internal error' });
+    }
+  });
+
   // ──────────────────────────────────────────────────────────────────────
-  // Singleton cohort — for the Vila Flores pilot, the orchestrator opens
-  // straight to the one-and-only cohort. No coord slug to remember.
+  // The cohort THIS coordinator manages. Scoped coordinator → their cohort;
+  // admin (cohortId null) → the default landing cohort. This replaces the old
+  // hardcoded /api/cohort/default that every login shared.
   // ──────────────────────────────────────────────────────────────────────
-  app.get('/api/cohort/default', wrap(async (_req, res) => {
+  app.get('/api/cohort/mine', wrap(async (req, res) => {
+    const coordinator = reqCoordinator(req);
+    let cohort = null as Awaited<ReturnType<typeof getOrCreateDefaultCohort>> | null;
+    if (coordinator?.cohortId) {
+      const [c] = await db.select().from(cohorts).where(eq(cohorts.id, coordinator.cohortId)).limit(1);
+      cohort = c ?? null;
+    } else {
+      cohort = await getOrCreateDefaultCohort(); // admin lands on the default cohort
+    }
+    if (!cohort) { res.status(404).json({ error: 'no cohort assigned to this coordinator' }); return; }
+    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    res.json({ cohort, members, isAdmin: isAdmin(coordinator) });
+  }));
+
+  // Legacy singleton read — kept for backward-compat, now ownership-checked so
+  // it can't be used to peek at the default cohort from a foreign account.
+  app.get('/api/cohort/default', wrap(async (req, res) => {
     const cohort = await getOrCreateDefaultCohort();
+    if (!ownsCohort(reqCoordinator(req), cohort)) { res.status(403).json({ error: 'not your cohort' }); return; }
     const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
     res.json({ cohort, members });
   }));
 
-  app.post('/api/cohort/default/reset', wrap(async (_req, res) => {
-    const cohort = await getOrCreateDefaultCohort();
-    // Wipe members, restore default workshop cadence. The cohort row itself
-    // stays — same singleton, fresh state.
+  // Reset a cohort (demo dry-run): wipe members, restore default workshops.
+  // :coordinatorSlug → ownership enforced by the app.param guard above.
+  app.post('/api/cohort/:coordinatorSlug/reset', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
     await db.delete(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
-    await db.update(cohorts)
-      .set({ settings: { workshops: DEFAULT_WORKSHOPS } })
-      .where(eq(cohorts.id, cohort.id));
-    const refreshed = await getOrCreateDefaultCohort();
-    res.json({ cohort: refreshed, members: [] });
+    await db.update(cohorts).set({ settings: { workshops: DEFAULT_WORKSHOPS } }).where(eq(cohorts.id, cohort.id));
+    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    res.json({ cohort: { ...cohort, settings: { workshops: DEFAULT_WORKSHOPS } }, members });
   }));
 
   // ──────────────────────────────────────────────────────────────────────
-  // Create cohort — kept for backward-compat with anything that still calls
-  // it. The pilot's UI no longer surfaces this.
+  // Create cohort — admin only (a scoped coordinator would create a cohort it
+  // can't reach). Used when standing up a second cohort, e.g. the fast-track.
   // ──────────────────────────────────────────────────────────────────────
   app.post('/api/cohort', wrap(async (req, res) => {
+    if (!isAdmin(reqCoordinator(req))) { res.status(403).json({ error: 'only an admin coordinator can create cohorts' }); return; }
     const { name } = req.body ?? {};
     const coordinatorSlug = slug();
     const [created] = await db.insert(cohorts).values({
