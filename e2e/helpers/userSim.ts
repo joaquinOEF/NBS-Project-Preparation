@@ -59,20 +59,28 @@ export class UserSim {
       : '';
     this.history.push({ role: 'user', content: (agentMessage || '(no text — continue)') + optionsBlock });
 
-    const res = await fetch(ANTHROPIC_URL, {
-      method: 'POST',
-      headers: {
-        'x-api-key': this.apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 200,
-        system: PERSONA,
-        messages: this.history.map(t => ({ role: t.role, content: t.content })),
-      }),
+    const body = JSON.stringify({
+      model: MODEL,
+      max_tokens: 200,
+      system: PERSONA,
+      messages: this.history.map(t => ({ role: t.role, content: t.content })),
     });
+    // Resilient call — the persona LLM is over the network; a single blip
+    // shouldn't fail a multi-minute walkthrough. 30s timeout, a couple retries.
+    let res: Response | undefined;
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        res = await fetch(ANTHROPIC_URL, {
+          method: 'POST',
+          headers: { 'x-api-key': this.apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+          body,
+          signal: AbortSignal.timeout(30_000),
+        });
+        break;
+      } catch (e) { lastErr = e; }
+    }
+    if (!res) throw new Error(`UserSim model call failed after retries: ${String(lastErr)}`);
     if (!res.ok) throw new Error(`UserSim model call failed: ${res.status} ${await res.text()}`);
     const data = await res.json();
     const text = (data.content?.[0]?.text ?? '').trim();
