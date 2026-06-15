@@ -60,6 +60,12 @@ export const cohortMembers = pgTable('cohort_members', {
   // Phase-1 migration; set at invite time for new members, backfilled for old.
   orgId: varchar('org_id'),
   memberSlug: text('member_slug').notNull().unique(),
+  // Opaque, unguessable capability token (the invite link credential — see
+  // docs/cbo-platform-architecture.md Phase 3). Replaces the org-name-derived,
+  // guessable memberSlug as the shared-URL secret. Nullable during the Phase-3a
+  // migration (backfilled), then becomes the only resolution path once slug
+  // access is retired (Phase 3b).
+  capabilityToken: text('capability_token').unique(),
   // CBO state ID — links to the file-backed CBO profile (`knowledge/runs/cbo-<id>/`)
   cboStateId: text('cbo_state_id'),
   orgName: text('org_name').notNull(),

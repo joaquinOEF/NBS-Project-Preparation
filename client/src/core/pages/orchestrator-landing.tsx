@@ -89,6 +89,16 @@ const TOTAL_SECTIONS = 7;
 const TOTAL_FLAGS = 6;
 const TOTAL_MATURITY = 27;
 
+// Build a member's invite/profile URL, preferring the unguessable capability
+// token over the legacy org-name slug (Phase 3a). Falls back to the slug for
+// any member that predates the token backfill.
+function memberInviteUrl(m: { capabilityToken?: string | null; memberSlug?: string | null }): string {
+  const base = window.location.origin;
+  return m.capabilityToken
+    ? `${base}/cbo-profile?t=${m.capabilityToken}`
+    : `${base}/cbo-profile?cbo=${m.memberSlug}`;
+}
+
 // Adapter: convert a CohortMember (server or sample) into the view-model the
 // existing card + map render from. Keeps the rendering code path single while
 // data source changes.
@@ -682,9 +692,9 @@ export default function OrchestratorLandingPage() {
 
   const openProject = (p: CboDemoProject) => {
     const member = memberById.get(p.id);
-    if (member?.memberSlug) {
+    if (member?.capabilityToken || member?.memberSlug) {
       openShare(
-        `${window.location.origin}/cbo-profile?cbo=${member.memberSlug}`,
+        memberInviteUrl(member),
         { kind: 'cbo', orgName: member.orgName }
       );
     }
@@ -745,12 +755,12 @@ export default function OrchestratorLandingPage() {
       toast({ title: t('orchestrator.cohort.inviteFailed', { defaultValue: 'Could not create invitation' }) });
       return null;
     }
-    return { memberSlug: created.memberSlug, orgName: created.orgName };
+    return { memberSlug: created.memberSlug, capabilityToken: created.capabilityToken, orgName: created.orgName };
   };
 
-  const handleSingleInviteSuccess = (result: { memberSlug: string; orgName: string }) => {
+  const handleSingleInviteSuccess = (result: { memberSlug: string; capabilityToken?: string | null; orgName: string }) => {
     openShare(
-      `${window.location.origin}/cbo-profile?cbo=${result.memberSlug}`,
+      memberInviteUrl(result),
       { kind: 'cbo', orgName: result.orgName },
     );
   };

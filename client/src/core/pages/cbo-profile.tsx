@@ -253,11 +253,23 @@ export default function CboProfilePage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const slug = params.get('cbo');
-    if (!slug) return;
-    setMemberSlug(slug);
+    // Preferred: unguessable capability token (?t=). Legacy: org-name slug
+    // (?cbo=) for already-issued links. The token path resolves once via
+    // /by-token; both then drive the same slug-based snapshot/support calls
+    // (the resolved payload carries memberSlug), so the rest of the flow is
+    // unchanged during the Phase-3a transition.
+    const token = params.get('t');
+    const slugParam = params.get('cbo');
+    if (!token && !slugParam) return;
+    const memberUrl = token
+      ? `/api/cbo-member/by-token/${token}`
+      : `/api/cbo-member/${slugParam}`;
+    if (slugParam) setMemberSlug(slugParam);
+
     const applyMember = (data: any) => {
       if (!data) return;
+      // Token path: adopt the resolved slug so subsequent calls work.
+      if (data.memberSlug) setMemberSlug(data.memberSlug);
       if (data.unlockedPhases) setUnlockedPhases(data.unlockedPhases);
       if (data.orgName) setMemberInfo({ orgName: data.orgName, neighborhood: data.neighborhood ?? null });
       if (data.path === 'has-idea' || data.path === 'needs-help') setMemberPath(data.path);
@@ -270,9 +282,9 @@ export default function CboProfilePage() {
       setFocusWorkshop(data.focusWorkshop ?? null);
       setFocusWorkshopIsCurrent(!!data.focusWorkshopIsCurrent);
     };
-    const refetch = () => fetch(`/api/cbo-member/${slug}`).then(r => r.ok ? r.json() : null).then(applyMember).catch(() => {});
+    const refetch = () => fetch(memberUrl).then(r => r.ok ? r.json() : null).then(applyMember).catch(() => {});
 
-    fetch(`/api/cbo-member/${slug}`)
+    fetch(memberUrl)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         applyMember(data);
