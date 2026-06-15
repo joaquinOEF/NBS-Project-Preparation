@@ -120,8 +120,8 @@ export function registerCboRoutes(app: Express): void {
     }
     const isPt = sessionLang === 'pt';
     const langDirective = isPt
-      ? '\n[LANGUAGE: Respond in Portuguese. ask_user option labels in Portuguese. update_section content in Portuguese. One language only.]'
-      : '\n[LANGUAGE: Respond in English. ask_user option labels in English. update_section content in English. One language only.]';
+      ? '\n[LANGUAGE: Respond ONLY in Portuguese — every single word, including ask_user option labels and update_section content. Do NOT mix in any English words or phrases, even if the user writes some English back. One language, Portuguese, with no exceptions.]'
+      : '\n[LANGUAGE: Respond ONLY in English — every single word, including ask_user option labels and update_section content. Do NOT mix in any Portuguese words or phrases, even if the user writes some Portuguese back. One language, English, with no exceptions.]';
 
     const resolvedLang = sessionLang;
     addCboMessage(req.params.id, { role: 'user', content: message, messageType: 'content', timestamp: new Date().toISOString() });
