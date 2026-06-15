@@ -26,6 +26,7 @@ import { db } from "../db";
 import { cohortMembers } from "@shared/cohort-schema";
 import { eq } from "drizzle-orm";
 import { getOrgIdForCboState, listDocumentsByOrg, getDocumentForOrg } from "./documentPersistence";
+import { isFakeModelEnabled, streamWithFakeModel } from "./fakeCboModel";
 
 // ============================================================================
 // SDK LOADING — shared with conceptNoteAgent (lazy load)
@@ -805,6 +806,17 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   }
 
   setActivePushEvent(cboId, pushEvent);
+
+  // Test-only deterministic seam. When CBO_FAKE_MODEL=1 (set ONLY in the
+  // test/preview env, never the prod Deployment), drive the turn from a scripted
+  // fake instead of the live SDK — fast, free, and reproducible. The real path
+  // below is byte-for-byte untouched. See server/services/fakeCboModel.ts.
+  if (isFakeModelEnabled()) {
+    await streamWithFakeModel(cboId, userMessage, state, pushEvent, lang, { setCboState });
+    res.end();
+    return;
+  }
+
   const isSdkReady = await loadSdk();
 
   if (isSdkReady) {
