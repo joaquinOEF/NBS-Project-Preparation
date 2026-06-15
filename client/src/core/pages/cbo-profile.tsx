@@ -170,6 +170,11 @@ export default function CboProfilePage() {
   const [messages, setMessages] = useState<CboChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  // Monotonic count of completed agent turns. Drives the e2e stream-complete
+  // contract (see the hidden #cbo-stream-status marker near the root) so tests
+  // can wait on "turn N finished" deterministically — networkidle never fires
+  // for SSE. Incremented once per send when the reader loop ends.
+  const [completedTurns, setCompletedTurns] = useState(0);
   // `stableStreamEnded` flips true only ~250ms after `isStreaming` becomes
   // false. The Continue-from-Phase-X button gate consults this instead of
   // `isStreaming` directly, to absorb the race where the SSE `done` event
@@ -628,6 +633,7 @@ export default function CboProfilePage() {
       }
     } catch (e: any) { setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); }
     setIsStreaming(false);
+    setCompletedTurns(n => n + 1);
   }, [cboId, isStreaming, processEvent]);
 
   // MC selection
@@ -787,6 +793,23 @@ export default function CboProfilePage() {
 
   return (
     <div className="h-[100dvh] flex flex-col bg-background">
+      {/* E2E stream-complete contract. SSE never goes network-idle, so Playwright
+          waits on this hidden marker's attributes instead: data-streaming flips
+          to 'false' when a turn ends, data-turns counts completed turns, and
+          data-cbo-id / data-phase let a spec read state without intercepting the
+          network. display:none is fine — attribute assertions don't need
+          visibility. Inert in production; just a few data attributes. */}
+      <div
+        data-testid="cbo-stream-status"
+        data-streaming={isStreaming ? 'true' : 'false'}
+        data-settled={stableStreamEnded ? 'true' : 'false'}
+        data-turns={completedTurns}
+        data-cbo-id={cboId ?? ''}
+        data-phase={state?.phase ?? ''}
+        data-org-name={state?.sections?.org_profile?.fields?.org_name?.value ?? ''}
+        style={{ display: 'none' }}
+        aria-hidden="true"
+      />
       {/* No global Header on /cbo-profile — CBOs are in a focused flow and the
           CityCatalyst-branded header eats vertical space that's critical on
           mobile. The per-CBO chat header below carries the identity (org name
@@ -1201,7 +1224,7 @@ export default function CboProfilePage() {
               <Tooltip><TooltipTrigger asChild>
                 <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="shrink-0"><Paperclip className="w-4 h-4" /></Button>
               </TooltipTrigger><TooltipContent>{t('cbo.uploadDoc')}</TooltipContent></Tooltip>
-              <Input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} placeholder={isStreaming ? t('cbo.working') : currentQuestion ? t('cbo.typeCustom') : t('cbo.typePlaceholder')} disabled={isStreaming} className="flex-1" />
+              <Input ref={inputRef} data-testid="cbo-chat-input" value={input} onChange={e => setInput(e.target.value)} placeholder={isStreaming ? t('cbo.working') : currentQuestion ? t('cbo.typeCustom') : t('cbo.typePlaceholder')} disabled={isStreaming} className="flex-1" />
               <Button type="submit" disabled={isStreaming || !input.trim()} size="sm" className="bg-green-600 hover:bg-green-700"><Send className="w-4 h-4" /></Button>
             </form>
           </div>
@@ -1532,7 +1555,7 @@ function CboQuestionCard({
   };
 
   return (
-    <div className={`rounded-lg border bg-background p-3 space-y-2 transition-all ${answeredValue ? 'border-green-200 bg-green-50/30' : ''}`}>
+    <div data-testid="cbo-question-card" className={`rounded-lg border bg-background p-3 space-y-2 transition-all ${answeredValue ? 'border-green-200 bg-green-50/30' : ''}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="text-sm font-medium prose prose-sm max-w-none flex-1">
           {questionNumber && <span className="text-muted-foreground mr-1">{questionNumber}.</span>}
@@ -1553,6 +1576,8 @@ function CboQuestionCard({
           const isHighlighted = isMulti ? isChecked : isFocused;
           return (
             <button key={i} onClick={() => handleClick(opt.label)}
+              data-testid={`cbo-option-${i}`}
+              data-option-label={opt.label}
               className={`w-full text-left px-3 py-2 rounded-md border text-sm transition-all flex items-start gap-2 ${
                 isHighlighted ? 'border-green-600 bg-green-50 ring-1 ring-green-600' : isFocused ? 'border-green-400 bg-green-50/50 ring-1 ring-green-400' : 'border-muted hover:border-green-400'
               } ${disabled ? 'opacity-50' : 'cursor-pointer'}`}>
