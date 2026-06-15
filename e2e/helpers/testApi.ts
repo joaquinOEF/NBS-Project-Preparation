@@ -33,6 +33,13 @@ export class TestApi {
     return this.post(`/cbo/${cboId}/script`, { turns });
   }
 
+  /** The per-org KB documents for the org this session is linked to. */
+  async listDocs(cboId: string): Promise<{ orgId: string | null; documents: any[] }> {
+    const r = await this.request.get(`/__test/cbo/${cboId}/documents`);
+    if (!r.ok()) throw new Error(`GET /__test/cbo/${cboId}/documents → ${r.status()} ${await r.text()}`);
+    return r.json();
+  }
+
   createCohort(name?: string) {
     return this.post('/cohort', { name });
   }
