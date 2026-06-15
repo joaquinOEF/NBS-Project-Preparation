@@ -1711,6 +1711,12 @@
     "typePlaceholder": "Digite sua resposta...",
     "typeCustom": "Digite uma resposta personalizada...",
     "uploadDoc": "Enviar documento",
+    "voice": {
+      "record": "Falar a resposta",
+      "stop": "Parar gravação",
+      "recording": "Gravando… toque para parar",
+      "transcribing": "Transcrevendo…"
+    },
     "interventionProfile": "Perfil de Intervenção",
     "scorecard": {
       "investmentReady": "Pronto para Investimento",

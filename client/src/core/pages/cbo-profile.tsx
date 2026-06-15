@@ -27,8 +27,9 @@ import type { OpenMapParams, MapSelectionResult, SelectedAsset } from '@shared/c
 import {
   Send, Download, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft, Paperclip,
   FileText, Loader2, RotateCcw, Star, Leaf,
-  Check, Circle, AlertCircle, Pencil,
+  Check, Circle, AlertCircle, Pencil, Mic, Square,
 } from 'lucide-react';
+import { useVoiceRecorder, type RecorderError } from '@/core/hooks/useVoiceRecorder';
 import { CboWelcome } from '@/core/components/cbo/CboWelcome';
 import { CboProgress } from '@/core/components/cbo/CboProgress';
 import { EncontroPreamble, hasPreambleBeenSeen, markPreambleSeen } from '@/core/components/cbo/EncontroPreamble';
@@ -718,6 +719,44 @@ export default function CboProfilePage() {
     },
   });
 
+  // Voice input — tap the mic to record a spoken answer, tap again to stop. The
+  // transcript lands in the input box for the user to review/edit before
+  // sending (we never auto-send). Complements the chips + keyboard; doesn't
+  // replace them. Reuses the existing transcription endpoint — no new keys.
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const handleVoiceError = useCallback((kind: RecorderError, message?: string) => {
+    const msg = lang === 'pt'
+      ? {
+          permission: 'Não consegui acessar o microfone. Permita o acesso nas configurações do navegador.',
+          unsupported: 'Seu navegador não suporta gravação de áudio. Tente digitar ou anexar um arquivo.',
+          transcribe: message || 'Não consegui transcrever o áudio. Tente de novo ou digite.',
+          empty: 'Não captei nenhuma fala. Tente falar um pouco mais perto do microfone.',
+          mic: 'Houve um problema com o microfone. Tente de novo.',
+        }[kind]
+      : {
+          permission: "I couldn't access the microphone. Allow access in your browser settings.",
+          unsupported: "Your browser doesn't support audio recording. Try typing or attaching a file.",
+          transcribe: message || "I couldn't transcribe that. Try again or type it instead.",
+          empty: "I didn't catch any speech. Try speaking a little closer to the mic.",
+          mic: 'There was a problem with the microphone. Try again.',
+        }[kind];
+    setVoiceError(msg);
+  }, [lang]);
+  const voice = useVoiceRecorder({
+    cboId,
+    lang,
+    onTranscript: (text) => {
+      setVoiceError(null);
+      // Append to whatever's already typed so dictation builds on it, then
+      // focus the box so the user can edit before hitting send.
+      setInput(prev => (prev.trim() ? `${prev.trim()} ${text}` : text));
+      setTimeout(() => inputRef.current?.focus(), 0);
+    },
+    onError: handleVoiceError,
+  });
+  // Clear a stale voice error once the user starts a new recording or types.
+  useEffect(() => { if (voice.status === 'recording') setVoiceError(null); }, [voice.status]);
+
   const filledCount = useMemo(() => state ? Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length : 0, [state]);
 
   if (!state) return <div className="flex items-center justify-center h-[100dvh]"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
@@ -1206,6 +1245,24 @@ export default function CboProfilePage() {
 
           <div className={`p-3 border-t transition-colors ${isStreaming ? 'bg-muted/50' : currentQuestion ? 'bg-green-50 border-t-green-200' : ''}`}>
             {!isStreaming && currentQuestion && <p className="text-[10px] text-green-700 mb-1 font-medium">{t('cbo.yourTurn')}</p>}
+            {voice.status === 'recording' && (
+              <div className="flex items-center gap-2 mb-1.5 text-[11px] font-medium text-red-600">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                {t('cbo.voice.recording', { defaultValue: lang === 'pt' ? 'Gravando… toque para parar' : 'Recording… tap to stop' })}
+              </div>
+            )}
+            {voice.status === 'transcribing' && (
+              <div className="flex items-center gap-2 mb-1.5 text-[11px] font-medium text-muted-foreground">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                {t('cbo.voice.transcribing', { defaultValue: lang === 'pt' ? 'Transcrevendo…' : 'Transcribing…' })}
+              </div>
+            )}
+            {voiceError && (
+              <div className="flex items-start gap-1.5 mb-1.5 text-[11px] text-amber-700">
+                <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                <span>{voiceError}</span>
+              </div>
+            )}
             <form onSubmit={(e) => { e.preventDefault(); if (currentQuestion && input.trim()) { handleSelectOption(input.trim()); setInput(''); } else sendMessage(input); }} className="flex gap-2">
               <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.xlsx,.txt,.md,.csv,.tsv,.json,.png,.jpg,.jpeg,.gif,.webp,.mp3,.wav,.m4a,.webm,.ogg,.opus,.aac,.flac,audio/*,image/*"
                 onChange={(e) => {
@@ -1224,7 +1281,33 @@ export default function CboProfilePage() {
               <Tooltip><TooltipTrigger asChild>
                 <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="shrink-0"><Paperclip className="w-4 h-4" /></Button>
               </TooltipTrigger><TooltipContent>{t('cbo.uploadDoc')}</TooltipContent></Tooltip>
-              <Input ref={inputRef} data-testid="cbo-chat-input" value={input} onChange={e => setInput(e.target.value)} placeholder={isStreaming ? t('cbo.working') : currentQuestion ? t('cbo.typeCustom') : t('cbo.typePlaceholder')} disabled={isStreaming} className="flex-1" />
+              {voice.supported && (
+                <Tooltip><TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={voice.status === 'recording' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={voice.toggle}
+                    disabled={isStreaming || voice.status === 'transcribing'}
+                    className={`shrink-0 ${voice.status === 'recording' ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' : ''}`}
+                    data-testid="button-cbo-voice"
+                    aria-label={voice.status === 'recording'
+                      ? (lang === 'pt' ? 'Parar gravação' : 'Stop recording')
+                      : (lang === 'pt' ? 'Gravar resposta por voz' : 'Record a voice answer')}
+                  >
+                    {voice.status === 'transcribing'
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : voice.status === 'recording'
+                        ? <Square className="w-4 h-4" />
+                        : <Mic className="w-4 h-4" />}
+                  </Button>
+                </TooltipTrigger><TooltipContent>
+                  {voice.status === 'recording'
+                    ? t('cbo.voice.stop', { defaultValue: lang === 'pt' ? 'Parar gravação' : 'Stop recording' })
+                    : t('cbo.voice.record', { defaultValue: lang === 'pt' ? 'Falar a resposta' : 'Speak your answer' })}
+                </TooltipContent></Tooltip>
+              )}
+              <Input ref={inputRef} data-testid="cbo-chat-input" value={input} onChange={e => setInput(e.target.value)} placeholder={isStreaming ? t('cbo.working') : voice.status === 'recording' ? (lang === 'pt' ? 'Ouvindo…' : 'Listening…') : currentQuestion ? t('cbo.typeCustom') : t('cbo.typePlaceholder')} disabled={isStreaming} className="flex-1" />
               <Button type="submit" disabled={isStreaming || !input.trim()} size="sm" className="bg-green-600 hover:bg-green-700"><Send className="w-4 h-4" /></Button>
             </form>
           </div>

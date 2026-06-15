@@ -1724,6 +1724,12 @@
     "typePlaceholder": "Type your response...",
     "typeCustom": "Type a custom answer...",
     "uploadDoc": "Upload a document",
+    "voice": {
+      "record": "Speak your answer",
+      "stop": "Stop recording",
+      "recording": "Recording… tap to stop",
+      "transcribing": "Transcribing…"
+    },
     "interventionProfile": "Intervention Profile",
     "scorecard": {
       "investmentReady": "Investment Ready",
