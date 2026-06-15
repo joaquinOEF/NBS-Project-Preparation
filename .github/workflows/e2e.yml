@@ -1,0 +1,74 @@
+name: e2e
+
+# Deterministic CBO e2e suite — the regression gate. Runs the fake-model suite
+# (no live API calls) against a Postgres service container on every PR and on
+# pushes to main. The live-model quality smoke is NOT run here (it self-skips
+# without RUN_LIVE_QUALITY); run that on-demand against a real preview.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nbs_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # db:push (drizzle) reads this; the Playwright webServer inherits it for
+      # the app process. The test flags + dummy API keys are set by the
+      # webServer.env in playwright.config.ts, so they don't belong here.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nbs_e2e
+      CI: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Push schema to the test database
+        run: npx drizzle-kit push
+
+      - name: Install Playwright Chromium (+ OS deps)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run deterministic e2e suite
+        run: npm run test:e2e
+
+      - name: Upload HTML report (trace + video)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload raw test results (screenshots/videos/traces)
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: test-results/
+          retention-days: 14
