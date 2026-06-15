@@ -12,6 +12,12 @@ i18n
   .init({
     fallbackLng: 'en',
     supportedLngs: ['en', 'pt'],
+    // Map region locales to the base language — without this, a `pt-BR` browser
+    // (every Brazilian user + Playwright's pt-BR locale) doesn't match the
+    // supported `pt` and silently falls back to English. This is why the CBO
+    // agent kept answering in English to Portuguese-speaking users.
+    load: 'languageOnly',
+    nonExplicitSupportedLngs: true,
     debug: false,
 
     interpolation: {
