@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import Login from '@/core/pages/login';
 import RoleSelectionPage from '@/core/pages/role-selection';
 import OrchestratorLandingPage from '@/core/pages/orchestrator-landing';
+import CoordinatorLoginPage from '@/core/pages/coordinator-login';
 import CitySelection from '@/core/pages/city-selection';
 import ProjectPage from '@/core/pages/project';
 import SiteExplorerPage from '@/core/pages/site-explorer';
@@ -35,6 +36,7 @@ function Router() {
     <Switch>
       <Route path='/' component={RoleSelectionPage} />
       <Route path='/login' component={Login} />
+      <Route path='/coordinator-login' component={CoordinatorLoginPage} />
       <Route path='/orchestrator' component={OrchestratorLandingPage} />
       <Route path='/auth/callback' component={OAuthCallback} />
       <Route path='/cities' component={CitySelection} />
