@@ -18,3 +18,9 @@ knowledge/runs/cbo-*/
 # OSM disk cache — runtime data fetched from Overpass mirrors. Re-fetched
 # automatically when missing. Don't commit (regenerable, can be large).
 knowledge/osm-cache/
+
+# Playwright e2e — generated artifacts (regenerable, can be large)
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
