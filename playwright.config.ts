@@ -11,6 +11,9 @@ const isRemote = !!process.env.E2E_BASE_URL;
 
 export default defineConfig({
   testDir: './e2e',
+  // One-shot purge of namespaced e2e data after the whole run (not per-describe,
+  // which would race parallel tests). Runs while the webServer is still up.
+  globalTeardown: './e2e/global-teardown.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
