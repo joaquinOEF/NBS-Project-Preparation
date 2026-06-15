@@ -118,12 +118,36 @@ curl -s -XPOST localhost:5000/__test/cbo/$ID/seed-state -H 'content-type: applic
   -d '{"phase":1,"language":"pt","orgName":"Horta Cascata"}'
 ```
 
-## Status / next
+## Running the suites
 
-- **PR 1 (this):** fake-model seam + gated `/__test` API + docs. No Playwright yet.
-- **PR 2:** `@playwright/test`, config (local `vite preview` + Replit preview URL projects),
-  a `data-testid="stream-complete"` SSE-close contract, and one golden-path spec.
-- **PR 3:** Phase-1 scenario coverage (two cohorts, PT/EN, uploads, coordinator login,
-  cross-cohort isolation).
-- **PR 4:** GitHub Actions gate + a separate non-gating live-model quality smoke. HTML
-  report + trace + video artifacts.
+```bash
+# Deterministic gate (fake model). Needs a DATABASE_URL; the config boots a local
+# dev server on :5050 with the test flags, or set E2E_BASE_URL for a remote target.
+npm run test:e2e
+npm run test:e2e:ui        # interactive runner
+npm run test:e2e:report    # open the HTML report (trace + video)
+
+# Non-gating live-model quality smoke — real agent, loose assertions. Point at a
+# real (non-fake) deployment; self-skips otherwise.
+E2E_BASE_URL=https://<preview> TEST_API_SECRET=<secret> npm run test:quality
+```
+
+CI: `.github/workflows/e2e.yml` runs the deterministic suite on every PR + push to
+main against a Postgres service container, and uploads the HTML report (trace +
+video) as an artifact. The live smoke self-skips in CI (no API key needed).
+
+## Status
+
+- ✅ **PR 1 (#235):** fake-model seam + gated `/__test` API + docs.
+- ✅ **PR 2 (#236):** `@playwright/test`, config (local server / remote `E2E_BASE_URL`),
+  the `cbo-stream-status` SSE-complete contract, golden-path spec.
+- ✅ **PR 3 (#237):** coordinator auth-gate specs + one-shot global teardown.
+- ✅ **PR 4 (this):** GitHub Actions gate + non-gating live-model quality smoke.
+
+### Known follow-up
+Cross-cohort **isolation** is not yet enforced on `main` — the per-account ownership
+guard (`/api/cohort/mine` + `app.param` owner check) described in the architecture
+work isn't present; `useCohort` hits the singleton `/api/cohort/default`. Any
+logged-in coordinator can read any cohort by slug. Low risk with one pilot cohort
+(unguessable slugs), but the guard + its isolation spec should land before a second
+cohort exists.
