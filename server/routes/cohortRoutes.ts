@@ -85,6 +85,54 @@ async function findMemberBySlug(memberSlug: string) {
   return m;
 }
 
+async function findMemberByToken(token: string) {
+  if (!token) return undefined;
+  const [m] = await db.select().from(cohortMembers).where(eq(cohortMembers.capabilityToken, token)).limit(1);
+  return m;
+}
+
+// Shared member-facing payload builder — used by both the legacy by-slug read
+// and the new by-token read so they can't drift. Includes memberSlug + (for the
+// token path) the token, so the client can keep making slug-based snapshot /
+// support calls after resolving via an unguessable token URL.
+async function buildMemberPayload(member: typeof cohortMembers.$inferSelect) {
+  const [cohort] = await db.select().from(cohorts).where(eq(cohorts.id, member.cohortId)).limit(1);
+  const workshops = (cohort?.settings as CohortSettings | null)?.workshops ?? [];
+
+  const unlocked = (member.unlockedPhases as number[] | null) ?? [1];
+  const maxUnlocked = Math.max(0, ...unlocked);
+  const nextPhase = maxUnlocked + 1;
+  const nextWorkshop = workshops.find(w => w.unlocksPhase === nextPhase) ?? null;
+
+  const memberPhase = typeof member.snapshotPhase === 'number' && member.snapshotPhase > 0
+    ? member.snapshotPhase
+    : 1;
+  const focusWorkshop = workshops.find(w => w.unlocksPhase === memberPhase) ?? workshops[0] ?? null;
+  const focusWorkshopIsCurrent =
+    !!focusWorkshop?.openedAt && typeof member.snapshotPhase === 'number' && member.snapshotPhase > 0;
+
+  const supportRequests = Array.isArray(member.supportRequests) ? (member.supportRequests as SupportRequest[]) : [];
+  const supportPending = supportRequests.filter(r => !r.resolvedAt);
+
+  return {
+    id: member.id,
+    memberSlug: member.memberSlug,
+    orgName: member.orgName,
+    neighborhood: member.neighborhood,
+    path: member.path ?? null,
+    unlockedPhases: unlocked,
+    cboStateId: member.cboStateId,
+    cohort: cohort ? { id: cohort.id, name: cohort.name } : null,
+    workshops,
+    nextWorkshop,
+    focusWorkshop,
+    focusWorkshopIsCurrent,
+    supportRequests,
+    supportPendingCount: supportPending.length,
+    inspirationPicks: Array.isArray(member.inspirationPicks) ? member.inspirationPicks : [],
+  };
+}
+
 export function registerCohortRoutes(app: Express): void {
   // ──────────────────────────────────────────────────────────────────────
   // Singleton cohort — for the Vila Flores pilot, the orchestrator opens
@@ -173,6 +221,9 @@ export function registerCohortRoutes(app: Express): void {
       cohortId: cohort.id,
       orgId,
       memberSlug,
+      // Unguessable invite-link credential (nanoid 24). The link shared via
+      // WhatsApp carries this, not the org-name-derived slug.
+      capabilityToken: slug(),
       orgName,
       neighborhood: neighborhood || null,
       role: role === 'alternate' ? 'alternate' : 'priority',
@@ -224,62 +275,23 @@ export function registerCohortRoutes(app: Express): void {
     res.json({ ok: true, updated: targets.length });
   }));
 
-  // Member-facing read (no auth beyond knowing the slug). Also returns the
-  // cohort's workshop cadence so the CBO welcome page can show *which*
-  // workshop will unlock their next phase, and when.
+  // Member-facing read by unguessable capability token (the new invite-link
+  // credential). Preferred over the legacy by-slug path. Returns memberSlug so
+  // the client can keep making slug-based snapshot/support calls during the
+  // backward-compatible transition (Phase 3a).
+  app.get('/api/cbo-member/by-token/:token', wrap(async (req, res) => {
+    const member = await findMemberByToken(req.params.token);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    res.json(await buildMemberPayload(member));
+  }));
+
+  // Member-facing read (legacy: no auth beyond knowing the slug). Kept for
+  // backward compat with already-issued links; retired in Phase 3b once links
+  // are re-issued as capability-token URLs.
   app.get('/api/cbo-member/:memberSlug', wrap(async (req, res) => {
     const member = await findMemberBySlug(req.params.memberSlug);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
-
-    const [cohort] = await db.select().from(cohorts).where(eq(cohorts.id, member.cohortId)).limit(1);
-    const workshops = (cohort?.settings as CohortSettings | null)?.workshops ?? [];
-
-    const unlocked = (member.unlockedPhases as number[] | null) ?? [1];
-    const maxUnlocked = Math.max(0, ...unlocked);
-    const nextPhase = maxUnlocked + 1;
-    const nextWorkshop = workshops.find(w => w.unlocksPhase === nextPhase) ?? null;
-
-    // The "focus workshop" is what the CBO welcome card should highlight —
-    // it must reflect THIS member's progress, not the cohort's global state.
-    // Workshops are cohort-wide (one `openedAt` per workshop shared by all
-    // members), so a late-joining member inherited the most-recently-opened
-    // workshop as their "current" — pushing Test Farm to W2 before they'd
-    // done W1. Fix: pick the earliest workshop the member hasn't completed
-    // (= the workshop whose `unlocksPhase` equals their current snapshot
-    // phase). Fall back to the first workshop in the sequence for brand-new
-    // members with no snapshot yet.
-    const memberPhase = typeof member.snapshotPhase === 'number' && member.snapshotPhase > 0
-      ? member.snapshotPhase
-      : 1; // brand-new member → start at W1 (unlocks phase 1)
-    const focusWorkshop =
-      workshops.find(w => w.unlocksPhase === memberPhase) ??
-      workshops[0] ??
-      null;
-    // "Current" if the member has actually started (any opened workshop AND
-    // the member has at least passed the welcome screen, i.e. snapshotPhase
-    // moved past null). For brand-new invitees, the workshop is "upcoming."
-    const focusWorkshopIsCurrent =
-      !!focusWorkshop?.openedAt && typeof member.snapshotPhase === 'number' && member.snapshotPhase > 0;
-
-    const supportRequests = Array.isArray(member.supportRequests) ? (member.supportRequests as SupportRequest[]) : [];
-    const supportPending = supportRequests.filter(r => !r.resolvedAt);
-
-    res.json({
-      id: member.id,
-      orgName: member.orgName,
-      neighborhood: member.neighborhood,
-      path: member.path ?? null,
-      unlockedPhases: unlocked,
-      cboStateId: member.cboStateId,
-      cohort: cohort ? { id: cohort.id, name: cohort.name } : null,
-      workshops,
-      nextWorkshop,
-      focusWorkshop,
-      focusWorkshopIsCurrent,
-      supportRequests,
-      supportPendingCount: supportPending.length,
-      inspirationPicks: Array.isArray(member.inspirationPicks) ? member.inspirationPicks : [],
-    });
+    res.json(await buildMemberPayload(member));
   }));
 
   // CBO submits a support request. Returns the created entry (with id).
