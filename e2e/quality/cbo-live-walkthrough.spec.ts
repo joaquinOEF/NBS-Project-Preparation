@@ -22,7 +22,7 @@ const START_PATH = process.env.E2E_CBO_PATH || '/cbo-profile';
 // The agent's "Phase-1 profile is complete" signal (PT/EN). Detecting this is
 // how we stop — the real flow saves the profile and waits for the coordinator
 // rather than auto-advancing to Phase 2.
-const PROFILE_DONE = /profile complete|perfil completo|encontro 1 (is )?(complete|conclu)|all sections.*(complete|filled)|todas as seções/i;
+const PROFILE_DONE = /profile complete|perfil completo|diagn[óo]stico conclu|encontro 1 (is )?(complete|conclu)|all sections.*(complete|filled)|todas as seções/i;
 
 test.describe('CBO live walkthrough (real agent + simulated user) @live', () => {
   test.skip(!RUN, 'Set RUN_LIVE_WALKTHROUGH=1 + E2E_BASE_URL + ANTHROPIC_API_KEY to run.');
@@ -36,6 +36,17 @@ test.describe('CBO live walkthrough (real agent + simulated user) @live', () => 
     const sim = new UserSim();
 
     await page.goto(START_PATH);
+
+    // Invite-link flow (?t=token) shows a welcome screen (rendered after the
+    // member resolves — so WAIT for it, don't race), then a one-time encontro
+    // preamble, before the chat. The standalone /cbo-profile flow has neither.
+    const isInvite = /[?&]t=/.test(START_PATH);
+    if (isInvite) {
+      await page.getByTestId('button-cbo-welcome-cta').click({ timeout: 30_000 });
+      const preambleCta = page.getByTestId('button-encontro-1-start');
+      if (await preambleCta.isVisible({ timeout: 8_000 }).catch(() => false)) await preambleCta.click();
+    }
+
     const marker = page.getByTestId('cbo-stream-status');
     await expect(marker).toHaveAttribute('data-cbo-id', /.+/, { timeout: 30_000 });
     const cboId = (await marker.getAttribute('data-cbo-id'))!;
@@ -43,7 +54,9 @@ test.describe('CBO live walkthrough (real agent + simulated user) @live', () => 
 
     const waitTurn = async (n: number) => {
       await expect(marker).toHaveAttribute('data-turns', String(n), { timeout: 120_000 });
-      await expect(marker).toHaveAttribute('data-streaming', 'false');
+      // The final turn (scoring 2 metrics + the completion message) is slow; give
+      // the settle check room rather than the default 10s.
+      await expect(marker).toHaveAttribute('data-streaming', 'false', { timeout: 60_000 });
     };
     const visibleChips = async (): Promise<string[]> => {
       if (!(await page.getByTestId('cbo-question-card').isVisible().catch(() => false))) return [];
@@ -67,11 +80,18 @@ test.describe('CBO live walkthrough (real agent + simulated user) @live', () => 
       return lastAgentMessage();
     };
 
-    // The human opens the chat.
-    let turns = 0;
-    await input.fill(sim.opener());
-    await input.press('Enter');
-    await waitTurn(++turns);
+    // Who speaks first? The invite flow auto-opens (kickoff) — the agent greets
+    // on its own. The standalone flow doesn't, so the human opens. Wait briefly
+    // for an agent-initiated turn; if none comes, send the opener ourselves.
+    let turns = 1;
+    try {
+      await expect(marker).toHaveAttribute('data-turns', '1', { timeout: 60_000 });
+      await expect(marker).toHaveAttribute('data-streaming', 'false');
+    } catch {
+      await input.fill(sim.opener());
+      await input.press('Enter');
+      await waitTurn(1);
+    }
 
     let reachedPhase2 = false;
     for (let i = 0; i < MAX_TURNS; i++) {
@@ -87,24 +107,42 @@ test.describe('CBO live walkthrough (real agent + simulated user) @live', () => 
       // Completion is signalled in a chat message; the live question is on-screen.
       if (PROFILE_DONE.test(await lastAgentMessage())) break;
 
-      const agentMsg = await currentQuestion();
-      const chips = await visibleChips();
-      const reply = await sim.reply(agentMsg, chips);
-      const chip = matchChip(reply, chips);
-      // eslint-disable-next-line no-console
-      console.log(`  turn ${turns} · agent: ${agentMsg.slice(0, 70).replace(/\n/g, ' ')}… · user${chip ? ` [chip] ${chip}` : `: ${reply.slice(0, 50)}`}`);
+      // A single model turn may be a BATCH of several questions (the redesign):
+      // answering one chip just advances to the next sub-question — the message
+      // is sent (and the turn completes) only after the whole batch is answered.
+      // So keep answering sub-questions until data-turns actually increments.
+      const before = Number(await marker.getAttribute('data-turns'));
+      let answers = 0, lastAnswered = '';
+      for (let iter = 0; iter < 40 && Number(await marker.getAttribute('data-turns')) === before; iter++) {
+        const cardVisible = await page.getByTestId('cbo-question-card').isVisible().catch(() => false);
+        const streaming = (await marker.getAttribute('data-streaming')) === 'true';
+        // While the agent is still composing and no question card is up yet, wait.
+        if (!cardVisible && streaming) { await page.waitForTimeout(1200); continue; }
 
-      if (chip) {
-        await page.locator(`[data-option-label="${chip}"]`).first().click();
-        // Multi-select questions ("select all that apply") don't send on click —
-        // they need an explicit Confirm. Single-select already submitted.
-        const confirm = page.getByRole('button', { name: /confirm/i });
-        if (await confirm.isVisible().catch(() => false)) await confirm.click();
-      } else {
-        await input.fill(reply);
-        await input.press('Enter');
+        const chips = await visibleChips();
+        const q = cardVisible ? (await page.getByTestId('cbo-question-card').innerText().catch(() => '')).trim() : await lastAgentMessage();
+        // Don't re-answer the same thing (stale message lingering between batches);
+        // wait for a genuinely new question/card instead.
+        const freeTextReady = !cardVisible && (await input.isEnabled().catch(() => false));
+        if (!cardVisible && (q === lastAnswered || !freeTextReady)) { await page.waitForTimeout(1200); continue; }
+
+        const reply = await sim.reply(q, chips);
+        const chip = matchChip(reply, chips);
+        // eslint-disable-next-line no-console
+        console.log(`  turn ${before}.${++answers} · ${q.slice(0, 60).replace(/\n/g, ' ')}… · ${chip ? `[chip] ${chip}` : reply.slice(0, 40)}`);
+        if (chip) {
+          await page.locator(`[data-option-label="${chip}"]`).first().click();
+          const confirm = page.getByRole('button', { name: /confirm/i });
+          if (await confirm.isVisible({ timeout: 1500 }).catch(() => false)) await confirm.click();
+        } else {
+          await page.fill('[data-testid="cbo-chat-input"]', reply);
+          await page.press('[data-testid="cbo-chat-input"]', 'Enter');
+        }
+        lastAnswered = q;
+        await page.waitForTimeout(1000);
       }
-      await waitTurn(++turns);
+      await waitTurn(before + 1);
+      turns = before + 1;
     }
 
     // Authoritative check on what the real agent actually persisted (public
