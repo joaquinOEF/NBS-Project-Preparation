@@ -25,6 +25,7 @@ import {
 import { db } from "../db";
 import { cohortMembers } from "@shared/cohort-schema";
 import { eq } from "drizzle-orm";
+import { getOrgIdForCboState, listDocumentsByOrg, getDocumentForOrg } from "./documentPersistence";
 
 // ============================================================================
 // SDK LOADING — shared with conceptNoteAgent (lazy load)
@@ -554,6 +555,40 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
     { annotations: { readOnlyHint: true } }
   );
 
+  // ── Per-org knowledge base (the evidence locker) ──
+  // These read the org's accumulated documents across ALL sessions, scoped to
+  // the org that owns this CBO profile, so Encontro 4 can reference the budget
+  // dropped in Encontro 1. See docs/cbo-platform-architecture.md.
+  const listOrgDocuments = sdkTool(
+    "list_org_documents",
+    "List the documents this organization has shared so far (across all sessions) — proposals, budgets, photos, voice memos, prior-project docs. Use this to recall what evidence already exists before asking the user to re-explain something. Returns an id, filename, kind, and short summary for each.",
+    {},
+    async () => {
+      const orgId = await getOrgIdForCboState(cboId);
+      if (!orgId) return { content: [{ type: "text" as const, text: "No documents on file yet." }] };
+      const docs = await listDocumentsByOrg(orgId);
+      if (docs.length === 0) return { content: [{ type: "text" as const, text: "No documents on file yet." }] };
+      const lines = docs.map(d => `- [${d.id}] ${d.filename} (${d.kind ?? 'file'}${d.droppedInPhase ? `, Encontro ${d.droppedInPhase}` : ''}) — ${(d.summary || '').slice(0, 160)}`);
+      return { content: [{ type: "text" as const, text: `Documents on file (${docs.length}):\n${lines.join('\n')}\n\nUse read_org_document with an [id] to read the full text.` }] };
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
+  const readOrgDocument = sdkTool(
+    "read_org_document",
+    "Read the full extracted text of one of this organization's documents (by id from list_org_documents). Use to pull details from a budget, proposal, or prior-project doc the org shared earlier — including in a previous session.",
+    { id: z.string().describe("Document id from list_org_documents") },
+    async (args: any) => {
+      const orgId = await getOrgIdForCboState(cboId);
+      if (!orgId) return { content: [{ type: "text" as const, text: "No documents available." }], isError: true };
+      const doc = await getDocumentForOrg(args.id, orgId);
+      if (!doc) return { content: [{ type: "text" as const, text: `Document ${args.id} not found for this organization.` }], isError: true };
+      const text = doc.fullText || doc.summary || '(no extracted text)';
+      return { content: [{ type: "text" as const, text: `# ${doc.filename}\n\n${text.length > 6000 ? text.slice(0, 6000) + '\n...(truncated)' : text}` }] };
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
   const openInterventionSelector = sdkTool(
     "open_intervention_selector",
     `Open the NBS Intervention Type Selector micro-app. Shows 6 NBS types as visual cards with REAL PHOTOS from Brazilian case studies, cost data, outcomes, and timelines. The user browses and selects one or more intervention types.
@@ -599,7 +634,7 @@ STOP and wait for the user's selection after calling this tool.`,
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, flagGap, setPhase, setPath, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, openInterventionSelector],
+    tools: [updateSection, flagGap, setPhase, setPath, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, listOrgDocuments, readOrgDocument, openInterventionSelector],
   });
 }
 
@@ -790,6 +825,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   const mcpServer = getMcpServer(cboId);
   const sysCtx = await buildSystemContext(state, lang);
   const stateSummary = buildStateSummary(state);
+  const documentsBlock = await buildDocumentsBlock(cboId);
   const decisionLog = buildDecisionLog(cboId);
   const policy = await getPhasePolicyForCbo(cboId);
   const accessPolicy = buildAccessPolicyPrompt(policy);
@@ -809,7 +845,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   // turn. This mirrors conceptNoteAgent and is the SDK's expected shape;
   // tool-use rules placed in the system prompt are followed more reliably
   // than rules concatenated into the user message string.
-  const systemPrompt = `${sysCtx}\n\n## CURRENT STATE\n${stateSummary}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}`;
+  const systemPrompt = `${sysCtx}\n\n## CURRENT STATE\n${stateSummary}${documentsBlock}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}`;
 
   console.log(`[cbo] Turn for ${cboId} (phase ${state.phase}, model ${model}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length}/7 sections)`);
 
@@ -841,6 +877,8 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           "mcp__cbo__score_maturity",
           "mcp__cbo__set_priority_flag",
           "mcp__cbo__read_knowledge",
+          "mcp__cbo__list_org_documents",
+          "mcp__cbo__read_org_document",
         ],
         mcpServers: mcpServer ? { cbo: mcpServer } : {},
         permissionMode: "bypassPermissions",
@@ -929,6 +967,25 @@ function buildStateSummary(state: CboState): string {
     lines.push(`Flags: ${state.priorityFlags.map(f => `${f.met ? '✅' : '⬜'} ${f.flag}`).join(', ')}`);
   }
   return lines.join('\n');
+}
+
+// A compact "documents on file" list for the org that owns this profile —
+// injected into the system prompt so the agent always knows what evidence the
+// org has shared (across every session) and can read_org_document([id]) instead
+// of re-asking. Best-effort; never blocks a turn.
+async function buildDocumentsBlock(cboId: string): Promise<string> {
+  try {
+    const orgId = await getOrgIdForCboState(cboId);
+    if (!orgId) return '';
+    const docs = await listDocumentsByOrg(orgId);
+    if (docs.length === 0) return '';
+    const lines = docs.slice(0, 20).map(d =>
+      `- [${d.id}] ${d.filename} (${d.kind ?? 'file'}${d.droppedInPhase ? `, Encontro ${d.droppedInPhase}` : ''}) — ${(d.summary || '').slice(0, 120)}`);
+    return `\n\n## DOCUMENTS ON FILE (${docs.length})\nThis org has already shared these. Read the full text with read_org_document([id]) before re-asking for information that's likely in them:\n${lines.join('\n')}`;
+  } catch (e: any) {
+    console.error('[cbo] buildDocumentsBlock failed:', e?.message || e);
+    return '';
+  }
 }
 
 function buildDecisionLog(cboId: string): string {

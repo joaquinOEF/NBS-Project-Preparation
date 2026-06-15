@@ -12,7 +12,7 @@ import {
   type SupportRequestType,
   type WorkshopConfig,
 } from '@shared/cohort-schema';
-import { createOrganization } from '../services/orgPersistence';
+import { createOrganization, linkCboStateToOrg } from '../services/orgPersistence';
 
 // Slug-as-secret: 24 chars of url-safe nanoid. Used as a fallback when the
 // human-readable slug derivation collides too many times.
@@ -431,8 +431,10 @@ export function registerCohortRoutes(app: Express): void {
       }
     }
 
+    const linkedStateId = cboStateId ?? member.cboStateId ?? null;
+
     await db.update(cohortMembers).set({
-      cboStateId: cboStateId ?? member.cboStateId ?? null,
+      cboStateId: linkedStateId,
       startedAt: member.startedAt ?? new Date(),
       snapshotPhase: nextPhase,
       snapshotSectionsComplete: typeof sectionsComplete === 'number' ? sectionsComplete : member.snapshotSectionsComplete,
@@ -441,6 +443,15 @@ export function registerCohortRoutes(app: Express): void {
       snapshotIntervention: typeof intervention === 'string' ? intervention : member.snapshotIntervention,
       snapshotUpdatedAt: new Date(),
     }).where(eq(cohortMembers.id, member.id));
+
+    // Propagate the org link onto the working profile so the per-org document
+    // store (and anything else scoped by org) works for this CBO. The member
+    // got its org_id at invite time; the cbo_state↔org link is established here,
+    // when the browser first reports which cboStateId it created.
+    if (linkedStateId && member.orgId) {
+      await linkCboStateToOrg(linkedStateId, member.orgId).catch(
+        (e: any) => console.error('[cohort] link cbo_state→org failed:', e?.message || e));
+    }
     res.json({ ok: true });
   }));
 }
