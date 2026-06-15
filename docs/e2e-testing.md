@@ -147,6 +147,30 @@ bash scripts/e2e-local.sh cbo-golden-path  # one spec
 E2E_BASE_URL=https://<preview> TEST_API_SECRET=<secret> npm run test:quality
 ```
 
+## Test tiers (fast vs full)
+
+| Tier | Agent | User | Speed | Use |
+|---|---|---|---|---|
+| **fast** (`test:e2e:fast`) | fake (scripted) | scripted | ~seconds, deterministic | the PR gate — runs in CI |
+| **full** (`test:e2e:full`) | **real Claude agent** | **LLM-simulated** | minutes, non-deterministic | on-demand health check |
+
+The **full** tier is agent *self-play*: the real agent generates its own questions
+and maturity reasoning, and a small Claude (haiku) plays a community-org member
+from a fixed persona (`e2e/helpers/userSim.ts`) — reading the agent's questions
+(from the public `/api/cbo/:id/messages`) and picking chips / typing answers until
+the agent advances to Phase 2. It drives only public endpoints + already-shipped
+testids, so it needs no `/__test` hooks and no redeploy.
+
+```bash
+# Full walkthrough against your deployment. Needs ANTHROPIC_API_KEY for the
+# simulated user (separate from the deployment's own agent). Records video.
+E2E_BASE_URL=https://<your-app> ANTHROPIC_API_KEY=sk-ant-… npm run test:e2e:full
+npm run test:e2e:report   # watch the real agent + simulated user
+```
+
+> Live tiers are tagged `@live`; `test:e2e:fast` excludes them. Both self-skip
+> without their `RUN_LIVE_*` env flag, so they never run (or need a key) in CI.
+
 CI: `.github/workflows/e2e.yml` runs the deterministic suite on every PR + push to
 main against a Postgres service container, and uploads the HTML report (trace +
 video) as an artifact. The live smoke self-skips in CI (no API key needed).

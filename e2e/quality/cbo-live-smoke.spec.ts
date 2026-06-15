@@ -12,7 +12,7 @@ import { test, expect } from '@playwright/test';
 
 const RUN = process.env.RUN_LIVE_QUALITY === '1';
 
-test.describe('CBO live quality smoke (real model)', () => {
+test.describe('CBO live quality smoke (real model) @live', () => {
   test.skip(!RUN, 'Set RUN_LIVE_QUALITY=1 and point E2E_BASE_URL at a real (non-fake-model) deployment to run.');
 
   test('the agent completes a coherent first turn', async ({ page }) => {
