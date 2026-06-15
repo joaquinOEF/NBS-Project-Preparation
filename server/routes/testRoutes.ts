@@ -35,6 +35,7 @@ import {
 import { setFakeScript, clearFakeScript, peekFakeScript, type FakeTurn } from '../services/fakeCboModel';
 import { createCoordinator, login, COORD_COOKIE } from '../services/coordinatorAuth';
 import { createOrganization, linkCboStateToOrg } from '../services/orgPersistence';
+import { getOrgIdForCboState, listDocumentsByOrg } from '../services/documentPersistence';
 import { cohorts, cohortMembers, DEFAULT_WORKSHOPS } from '@shared/cohort-schema';
 import { coordinators, coordinatorSessions } from '@shared/coordinator-schema';
 
@@ -161,6 +162,15 @@ export function registerTestRoutes(app: Express): void {
 
   app.get('/__test/cbo/:id/script', wrap(async (req, res) => {
     res.json(peekFakeScript(req.params.id));
+  }));
+
+  // Per-org KB inspection — the documents filed for the org this session is
+  // linked to. Lets a spec assert that an upload landed in the durable store.
+  app.get('/__test/cbo/:id/documents', wrap(async (req, res) => {
+    const orgId = await getOrgIdForCboState(req.params.id);
+    if (!orgId) { res.json({ orgId: null, documents: [] }); return; }
+    const documents = await listDocumentsByOrg(orgId);
+    res.json({ orgId, documents });
   }));
 
   // ── Coordinators ──────────────────────────────────────────────────────────
