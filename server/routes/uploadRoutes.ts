@@ -3,7 +3,8 @@ import multer from "multer";
 import path from "path";
 import { saveAndParseUpload } from "../services/fileParser";
 import { getCboState, setCboState, debouncedPersist } from "../services/cboAgent";
-import { createDocument, getOrgIdForCboState } from "../services/documentPersistence";
+import { createDocument, getOrgIdForCboState, updateDocumentStorageKey, getDocumentById } from "../services/documentPersistence";
+import { putObject, getObject, blobKey } from "../services/blobStorage";
 import type { DocumentKind } from "@shared/document-schema";
 
 // Map an upload to the document kind (mirrors fileExtract's routing).
@@ -86,7 +87,7 @@ export function registerUploadRoutes(app: Express): void {
         // Best-effort: a doc-store failure must not fail the upload.
         try {
           const orgId = await getOrgIdForCboState(sessionId);
-          await createDocument({
+          const doc = await createDocument({
             orgId,
             cboStateId: sessionId,
             filename: file.originalname,
@@ -98,6 +99,11 @@ export function registerUploadRoutes(app: Express): void {
             droppedInPhase: state?.phase ?? null,
             source: 'upload',
           });
+          // Phase 2b: persist the ORIGINAL file durably (object storage) so it
+          // survives container recycle and can be re-opened/re-processed.
+          // Best-effort — a blob failure leaves the full text intact.
+          const key = await putObject(blobKey(orgId, doc.id, file.originalname), file.buffer);
+          if (key) await updateDocumentStorageKey(doc.id, key);
         } catch (e: any) {
           console.error('[upload] doc-store write failed (continuing):', e?.message || e);
         }
@@ -114,6 +120,24 @@ export function registerUploadRoutes(app: Express): void {
       });
     } catch (error: any) {
       console.error('[upload] Error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Download the durable ORIGINAL of a document (Phase 2b). The id is an
+  // unguessable UUID; org-capability scoping will tighten this in Phase 3
+  // enforcement. Streams the blob with its original filename + mime type.
+  app.get("/api/documents/:id/original", async (req: Request, res: Response) => {
+    try {
+      const doc = await getDocumentById(req.params.id);
+      if (!doc || !doc.storageKey) { res.status(404).json({ error: "original not available" }); return; }
+      const buf = await getObject(doc.storageKey);
+      if (!buf) { res.status(404).json({ error: "original not available" }); return; }
+      res.setHeader("Content-Type", doc.mimeType || "application/octet-stream");
+      res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(doc.filename)}"`);
+      res.send(buf);
+    } catch (error: any) {
+      console.error('[upload] original download error:', error.message);
       res.status(500).json({ error: error.message });
     }
   });

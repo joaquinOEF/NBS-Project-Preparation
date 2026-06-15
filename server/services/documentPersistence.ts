@@ -50,3 +50,14 @@ export async function getDocumentForOrg(id: string, orgId: string): Promise<Docu
     .limit(1);
   return doc ?? null;
 }
+
+/** A single document by id (UUID). Used by the original-file download route. */
+export async function getDocumentById(id: string): Promise<DocumentRow | null> {
+  const [doc] = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
+  return doc ?? null;
+}
+
+/** Record the durable-storage key for a document's original blob (Phase 2b). */
+export async function updateDocumentStorageKey(id: string, storageKey: string): Promise<void> {
+  await db.update(documents).set({ storageKey }).where(eq(documents.id, id));
+}
