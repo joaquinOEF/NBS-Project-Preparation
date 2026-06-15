@@ -25,10 +25,13 @@ export default defineConfig({
   use: {
     baseURL,
     // trace = a scrubbable DOM/network timeline of the run; viewable in the
-    // HTML report. Kept on first retry to stay cheap on green runs.
-    trace: 'on-first-retry',
+    // HTML report. Cheap default (first retry only); E2E_TRACE=on records every
+    // test. Video likewise: failures only by default, every test with
+    // E2E_VIDEO=on (the `test:e2e:video` script / scripts/e2e-local.sh). There
+    // is no Playwright CLI flag for these, so we toggle via env.
+    trace: process.env.E2E_TRACE === 'on' ? 'on' : 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: process.env.E2E_VIDEO === 'on' ? 'on' : 'retain-on-failure',
     // If the target enforces TEST_API_SECRET, send it on every request
     // (harmless on app routes; required by /__test/*). The `request` fixture
     // inherits these headers too, so the test-API helper needs no extra wiring.

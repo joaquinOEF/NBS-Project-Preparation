@@ -124,9 +124,24 @@ curl -s -XPOST localhost:5000/__test/cbo/$ID/seed-state -H 'content-type: applic
 # Deterministic gate (fake model). Needs a DATABASE_URL; the config boots a local
 # dev server on :5050 with the test flags, or set E2E_BASE_URL for a remote target.
 npm run test:e2e
-npm run test:e2e:ui        # interactive runner
-npm run test:e2e:report    # open the HTML report (trace + video)
+npm run test:e2e:ui        # interactive runner (watch it run live, time-travel)
+npm run test:e2e:video     # record a video + full trace for EVERY test
+npm run test:e2e:report    # open the HTML report (videos + traces)
 
+# One-command "test it and share the video": sets up a throwaway Postgres DB,
+# pushes the schema, runs the whole suite with video + trace, leaves the report
+# ready. Then `npm run test:e2e:report` to watch.
+bash scripts/e2e-local.sh                  # whole suite
+bash scripts/e2e-local.sh cbo-golden-path  # one spec
+```
+
+> Video is captured only for tests that drive a **browser page** (golden path,
+> login UI, orchestrator redirect, live smoke). The HTTP-layer tests (auth-API
+> boundary, cross-cohort isolation, sticky language) have nothing visual to
+> film, but they still record a **trace** you can scrub in the report. Toggles:
+> `E2E_VIDEO=on` / `E2E_TRACE=on` (default: failures only).
+
+```bash
 # Non-gating live-model quality smoke — real agent, loose assertions. Point at a
 # real (non-fake) deployment; self-skips otherwise.
 E2E_BASE_URL=https://<preview> TEST_API_SECRET=<secret> npm run test:quality
@@ -142,12 +157,16 @@ video) as an artifact. The live smoke self-skips in CI (no API key needed).
 - ✅ **PR 2 (#236):** `@playwright/test`, config (local server / remote `E2E_BASE_URL`),
   the `cbo-stream-status` SSE-complete contract, golden-path spec.
 - ✅ **PR 3 (#237):** coordinator auth-gate specs + one-shot global teardown.
-- ✅ **PR 4 (this):** GitHub Actions gate + non-gating live-model quality smoke.
+- ✅ **PR 4 (#238):** GitHub Actions gate + non-gating live-model quality smoke.
+- ✅ **PR 5 (#239):** cross-cohort ownership guard (`/api/cohort/mine` + `app.param`
+  owner check) + isolation spec. **Closes the isolation gap below.**
+- ✅ **PR 6 (#240):** sticky-language (#226) + upload/per-org-KB (#230) specs.
+- ✅ **PR 7 (this):** video/trace toggles + `scripts/e2e-local.sh` one-command runner.
 
-### Known follow-up
-Cross-cohort **isolation** is not yet enforced on `main` — the per-account ownership
-guard (`/api/cohort/mine` + `app.param` owner check) described in the architecture
-work isn't present; `useCohort` hits the singleton `/api/cohort/default`. Any
-logged-in coordinator can read any cohort by slug. Low risk with one pilot cohort
-(unguessable slugs), but the guard + its isolation spec should land before a second
-cohort exists.
+Coverage of the deterministic gate: golden path · stream-complete contract · auth
+gate boundary · cross-cohort isolation · sticky language · upload + per-org KB.
+
+### Deferred (by decision / live-only)
+- Admin cohort-switcher UI — `isAdmin` is surfaced; build when a 2nd cohort exists.
+- Stream A vs B *behavioural* differences + photo/voice/scanned-PDF vision — live
+  quality smoke, not the deterministic gate.

@@ -13,6 +13,7 @@
     "format:check": "prettier --check .",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:e2e:video": "E2E_VIDEO=on E2E_TRACE=on playwright test",
     "test:e2e:report": "playwright show-report",
     "test:quality": "RUN_LIVE_QUALITY=1 playwright test e2e/quality"
   },
