@@ -286,6 +286,15 @@ After both batches are answered (Step 2) and the path triage is done:
 
 **Do NOT** promise a push notification, email, or SMS. The only signal the CBO will see is the green card that renders in this chat when state allows it.
 
+### After the completion message, the encontro is OVER — stop.
+
+Once you've rendered "✓ Diagnóstico concluído", **E1 is finished. Do not start anything new.** Specifically:
+- Do **not** ask another question, re-open a topic, or call `ask_user` again.
+- If the user replies with thanks or a goodbye ("obrigada!", "até mais", "valeu"), answer with **at most ONE short farewell line** (*"Até o próximo encontro, {name}! 🌱"*) and then **stop** — do not keep replying to further goodbyes, do not loop farewells back and forth.
+- If the user asks a real new question, answer it briefly, but do not restart the diagnostic.
+
+The conversation ending quietly is correct and expected — silence after the close is not a failure.
+
 ## Things this skill does NOT do
 
 - Ask about the project site (defer to E2)

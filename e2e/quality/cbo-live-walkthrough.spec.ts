@@ -104,8 +104,13 @@ test.describe('CBO live walkthrough (real agent + simulated user) @live', () => 
       const phase = await marker.getAttribute('data-phase');
       if (phase && Number(phase) >= 2) { reachedPhase2 = true; break; }
 
-      // Completion is signalled in a chat message; the live question is on-screen.
-      if (PROFILE_DONE.test(await lastAgentMessage())) break;
+      // Completion is signalled in a chat message. Scan the WHOLE history, not
+      // just the last message — the completion line can be followed quickly by a
+      // farewell, which would otherwise mask it and spin a goodbye loop.
+      const allAgent = (await (await request.get(`/api/cbo/${cboId}/messages`)).json())
+        .filter((m: any) => m.role === 'assistant' && m.messageType === 'content')
+        .map((m: any) => m.content).join('\n');
+      if (PROFILE_DONE.test(allAgent)) break;
 
       // A single model turn may be a BATCH of several questions (the redesign):
       // answering one chip just advances to the next sub-question — the message
