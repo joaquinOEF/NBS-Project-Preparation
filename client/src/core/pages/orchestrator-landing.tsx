@@ -1169,12 +1169,13 @@ export default function OrchestratorLandingPage() {
           setBulkSummaryOpen(true);
         }}
       />
-      <ShareLinkDialog open={shareOpen} onOpenChange={setShareOpen} url={shareUrl} context={shareContext} />
+      <ShareLinkDialog open={shareOpen} onOpenChange={setShareOpen} url={shareUrl} context={shareContext} cohortLanguage={cohortLanguage} />
       <BulkInviteSummaryDialog
         open={bulkSummaryOpen}
         onOpenChange={setBulkSummaryOpen}
         invitations={bulkInvitations}
         origin={typeof window !== 'undefined' ? window.location.origin : ''}
+        cohortLanguage={cohortLanguage}
       />
     </div>
   );

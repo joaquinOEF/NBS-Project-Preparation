@@ -21,6 +21,15 @@ export function cboGreetingMessage(orgName: string, url: string, isPt: boolean):
     : `Hi!\n\nHere's the COUGAR / Vila Flores platform link for *${orgName}*. You'll build your organization profile and your NBS project here alongside the workshops:\n\n${url}\n\nReach out anytime.`;
 }
 
+// Language of the CBO-facing invite message: a FORCED cohort language wins, so
+// the message matches the page the org will see. Falls back to the coordinator's
+// own browser language when the cohort is on Auto.
+export function inviteIsPt(cohortLanguage: 'pt' | 'en' | null | undefined, browserLang?: string): boolean {
+  if (cohortLanguage === 'pt') return true;
+  if (cohortLanguage === 'en') return false;
+  return !!browserLang?.startsWith('pt');
+}
+
 export function whatsappDeepLink(message: string, phone?: string): string {
   const text = encodeURIComponent(message);
   return phone ? `https://wa.me/${phone}?text=${text}` : `https://wa.me/?text=${text}`;
@@ -461,16 +470,18 @@ export function InviteCboDialog({
 // action at the top stuffs every link into a single clipboard block.
 // ---------------------------------------------------------------------------
 export function BulkInviteSummaryDialog({
-  open, onOpenChange, invitations, origin,
+  open, onOpenChange, invitations, origin, cohortLanguage,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   invitations: BulkInviteResult[];
   /** window.location.origin from the caller — kept as a prop so this component is testable. */
   origin: string;
+  /** Forced cohort language — the message matches the page the org will see. */
+  cohortLanguage?: 'pt' | 'en' | null;
 }) {
   const { t, i18n } = useTranslation();
-  const isPt = i18n.language?.startsWith('pt');
+  const isPt = inviteIsPt(cohortLanguage, i18n.language);
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
@@ -583,14 +594,19 @@ type ShareLinkContext =
   | { kind: 'coordinator'; cohortName: string };
 
 export function ShareLinkDialog({
-  open, onOpenChange, url, context,
+  open, onOpenChange, url, context, cohortLanguage,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   url: string;
   context: ShareLinkContext | null;
+  /** Forced cohort language — the CBO invite message matches the org's page. */
+  cohortLanguage?: 'pt' | 'en' | null;
 }) {
   const { t, i18n } = useTranslation();
+  // The CBO greeting follows the cohort language; the coordinator's own link
+  // message stays in the coordinator's browser language (it's for them).
+  const cboIsPt = inviteIsPt(cohortLanguage, i18n.language);
   const isPt = i18n.language?.startsWith('pt');
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
@@ -603,7 +619,7 @@ export function ShareLinkDialog({
   const whatsappMessage = (() => {
     if (!context) return url;
     if (context.kind === 'cbo') {
-      return cboGreetingMessage(context.orgName, url, isPt);
+      return cboGreetingMessage(context.orgName, url, cboIsPt);
     }
     // Coordinator-facing — short, just for their own notes
     return isPt
