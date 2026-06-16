@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import multer from "multer";
 import path from "path";
 import { saveAndParseUpload } from "../services/fileParser";
+import { transcribeAudio } from "../services/fileExtract";
 import { getCboState, setCboState, debouncedPersist } from "../services/cboAgent";
 import { createDocument, getOrgIdForCboState, updateDocumentStorageKey, getDocumentById } from "../services/documentPersistence";
 import { putObject, getObject, blobKey } from "../services/blobStorage";
@@ -39,6 +40,22 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error(`File type ${ext} not supported`));
+    }
+  },
+});
+
+// Voice-note recorder uploads — audio only, smaller ceiling. A spoken answer
+// is short; cap well under the transcription endpoint's ~25MB limit.
+const audioUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const audioExts = ['.webm', '.mp4', '.m4a', '.ogg', '.oga', '.opus', '.mp3', '.wav', '.aac', '.flac'];
+    if ((file.mimetype || '').startsWith('audio/') || (file.mimetype || '').startsWith('video/webm') || audioExts.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Audio type ${file.mimetype || ext} not supported`));
     }
   },
 });
@@ -120,6 +137,30 @@ export function registerUploadRoutes(app: Express): void {
       });
     } catch (error: any) {
       console.error('[upload] Error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Voice-note transcription for the chat composer. Unlike /api/upload/cbo/:id
+  // (which stores a durable evidence document), this is a throwaway: the user
+  // taps the mic, speaks an answer, and gets the transcript back to REVIEW and
+  // edit in the input box before sending. Nothing is persisted — no doc row, no
+  // blob, no manifest entry. The mic feeds the same composer the keyboard does,
+  // so the agent never sees audio, only the (user-confirmed) text.
+  // Reuses the existing Replit AI transcription path — no new API keys.
+  app.post("/api/cbo/:id/transcribe", audioUpload.single('audio'), async (req: Request, res: Response) => {
+    try {
+      const file = (req as any).file;
+      if (!file) { res.status(400).json({ error: "No audio uploaded" }); return; }
+      // MediaRecorder names the blob by mime (webm/mp4/ogg); fall back to webm.
+      const ext = (path.extname(file.originalname).replace('.', '').toLowerCase())
+        || ((file.mimetype || '').split('/')[1] || 'webm').split(';')[0];
+      const lang = typeof req.body?.lang === 'string' ? req.body.lang.slice(0, 5) : undefined;
+      const r = await transcribeAudio(file.buffer, ext, lang);
+      if (!r.ok) { res.status(422).json({ error: r.reason, fix: r.fix }); return; }
+      res.json({ text: r.text });
+    } catch (error: any) {
+      console.error('[transcribe] Error:', error.message);
       res.status(500).json({ error: error.message });
     }
   });

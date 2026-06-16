@@ -214,14 +214,36 @@ async function extractImage(buf: Buffer, ext: string, mime: string): Promise<Ext
 }
 
 async function extractAudio(buf: Buffer, filename: string, ext: string): Promise<ExtractResult> {
+  const r = await transcribeAudio(buf, ext);
+  if (!r.ok) return r;
+  // Document-grounding context wants the filename header; an empty transcript
+  // is annotated so the agent knows audio came through but had no speech.
+  return { ok: true, kind: "audio", text: r.text ? `[Transcription of ${filename}]\n${r.text}` : "[Audio uploaded — no speech detected.]" };
+}
+
+/**
+ * Transcribe an audio buffer to RAW text (no filename header, no placeholder).
+ * Shared by the document upload path (extractAudio) and the voice-note input
+ * route, which drops the raw transcript straight into the chat composer for the
+ * user to review before sending. `lang` is an optional ISO-639-1 hint
+ * (e.g. "pt") that nudges the model toward the right language.
+ */
+export async function transcribeAudio(
+  buf: Buffer,
+  ext: string,
+  lang?: string,
+): Promise<{ ok: true; text: string } | { ok: false; reason: string; fix?: string }> {
   if (buf.length > MAX_AUDIO_BYTES) {
     return { ok: false, reason: "That recording is too long to transcribe.", fix: "Send a clip under ~20MB, or split it into parts." };
   }
-  // Pass the real filename so the transcription endpoint detects the format.
+  // Pass the real extension so the transcription endpoint detects the format.
   const file = await toFile(buf, `audio.${ext || "mp3"}`);
-  const resp = await openai.audio.transcriptions.create({ file, model: TRANSCRIBE_MODEL });
-  const text = (resp as any).text?.trim() || "";
-  return { ok: true, kind: "audio", text: text ? `[Transcription of ${filename}]\n${text}` : "[Audio uploaded — no speech detected.]" };
+  const resp = await openai.audio.transcriptions.create({
+    file,
+    model: TRANSCRIBE_MODEL,
+    ...(lang ? { language: lang } : {}),
+  });
+  return { ok: true, text: (resp as any).text?.trim() || "" };
 }
 
 /**
