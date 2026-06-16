@@ -34,14 +34,27 @@ interface Hazard {
   base: string; // S3 path under <S3_BASE> up to the component folder
 }
 
-const HAZARDS: Hazard[] = [
+const ALL_HAZARDS: Hazard[] = [
   {
     key: 'flood',
     base: 'oef_calculation/release/v1/porto_alegre/climate_hazards/floods',
   },
-  // { key: 'heat',      base: 'oef_calculation/release/v1/porto_alegre/climate_hazards/heat' },
+  {
+    key: 'heat',
+    base: 'oef_calculation/release/v1/porto_alegre/climate_hazards/heat',
+  },
   // { key: 'landslide', base: 'oef_calculation/release/v1/porto_alegre/climate_hazards/landslide' },
 ];
+
+// Optional single-hazard run: `HAZARD_ONLY=heat npx tsx scripts/sample-catalog-risk.ts`.
+// Useful when re-sampling ONE hazard without re-fetching the others — e.g. some
+// component tiles (exposure/vulnerability) are 403 from certain networks, so a
+// full re-run from there would overwrite already-good values with null. Scoping
+// to the hazard you can fully fetch protects the rest.
+const HAZARD_ONLY = process.env.HAZARD_ONLY;
+const HAZARDS: Hazard[] = HAZARD_ONLY
+  ? ALL_HAZARDS.filter(h => h.key === HAZARD_ONLY)
+  : ALL_HAZARDS;
 
 const tileUrl = (h: Hazard, c: Component, z: number, x: number, y: number) =>
   `${S3_BASE}/${h.base}/${c}/tiles_values/${z}/${x}/${y}.png`;

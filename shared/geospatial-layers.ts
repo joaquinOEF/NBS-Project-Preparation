@@ -7,6 +7,7 @@ export type LayerSource = 'geojson' | 'tiles';
 export type LayerGroup =
   | 'risk_analysis'    // Existing: flood/heat/landslide from grid
   | 'flood_indices'    // Catalog poa_flood_* components: hazard / exposure / vulnerability
+  | 'heat_indices'     // Catalog poa_heat_* components: hazard / exposure / vulnerability
   | 'environment'      // Existing: elevation, landcover, water, rivers, forest
   | 'urban_land'       // New: Dynamic World, GHSL, VIIRS
   | 'ecology'          // New: NDVI, Hansen, Solar
@@ -52,10 +53,12 @@ export const LOCAL_RISK_LAYERS: TileLayerDef[] = [
       urlTemplate: 'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods/risk/tiles_values/{z}/{x}/{y}.png' },
   },
   {
-    id: 'risk_heat_250m', name: 'Heat Risk (250m)', group: 'risk_analysis', color: '#dc2626',
-    tileLayerId: '_local_heat_risk', available: true, hasValueTiles: true,
-    valueEncoding: { type: 'numeric', scale: 1000, offset: 0, unit: 'index 0–1',
-      urlTemplate: '/tiles_values/heat_risk/{z}/{x}/{y}.png' },
+    // Catalog poa_heat_risk — validated H×E×V composite (S3, 24-bit, scale 10000).
+    // Replaces the old locally-computed heat_score (_local_heat_risk).
+    id: 'risk_heat_250m', name: 'Heat Risk (H×E×V)', group: 'risk_analysis', color: '#dc2626',
+    tileLayerId: 'poa_heat_risk', available: true, hasValueTiles: true,
+    valueEncoding: { type: 'numeric', scale: 10000, offset: 0, unit: 'index 0–1',
+      urlTemplate: 'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat/risk/tiles_values/{z}/{x}/{y}.png' },
   },
   {
     id: 'risk_landslide_250m', name: 'Landslide Risk (250m)', group: 'risk_analysis', color: '#a16207',
@@ -94,6 +97,34 @@ export const FLOOD_INDEX_LAYERS: TileLayerDef[] = [
     id: 'poa_flood_vulnerability', name: 'Flood Vulnerability', group: 'flood_indices', color: '#db2777',
     tileLayerId: 'poa_flood_vulnerability', available: true, hasValueTiles: true,
     valueEncoding: floodIndexEncoding('vulnerability'),
+  },
+];
+
+// Heat component indices from the catalog (poa_heat_* H/E/V), S3-backed — the
+// parallel to FLOOD_INDEX_LAYERS. Rendered as their own "Heat Indices" row.
+// Value tiles: 24-bit RGB, scale 10000 → value = (R + 256*G + 65536*B) / 10000.
+const HEAT_INDEX_BASE =
+  'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat';
+const heatIndexEncoding = (component: string): ValueTileEncoding => ({
+  type: 'numeric', scale: 10000, offset: 0, unit: 'index 0–1',
+  urlTemplate: `${HEAT_INDEX_BASE}/${component}/tiles_values/{z}/{x}/{y}.png`,
+});
+
+export const HEAT_INDEX_LAYERS: TileLayerDef[] = [
+  {
+    id: 'poa_heat_hazard', name: 'Heat Hazard', group: 'heat_indices', color: '#ea580c',
+    tileLayerId: 'poa_heat_hazard', available: true, hasValueTiles: true,
+    valueEncoding: heatIndexEncoding('hazard'),
+  },
+  {
+    id: 'poa_heat_exposure', name: 'Heat Exposure', group: 'heat_indices', color: '#dc2626',
+    tileLayerId: 'poa_heat_exposure', available: true, hasValueTiles: true,
+    valueEncoding: heatIndexEncoding('exposure'),
+  },
+  {
+    id: 'poa_heat_vulnerability', name: 'Heat Vulnerability', group: 'heat_indices', color: '#db2777',
+    tileLayerId: 'poa_heat_vulnerability', available: true, hasValueTiles: true,
+    valueEncoding: heatIndexEncoding('vulnerability'),
   },
 ];
 
@@ -356,14 +387,17 @@ export const SPATIAL_QUERIES: SpatialQueryDef[] = [
   },
   {
     id: 'sq_schools_heat_250m',
-    name: 'Schools in Heat Risk > 0.4 (250m)',
+    // Catalog poa_heat_risk (H×E×V). Threshold recalibrated 0.4→0.3 to match the
+    // flood card: an H×E×V geometric mean sits lower than the old single-factor
+    // heat score, so 0.3 captures the meaningfully at-risk band.
+    name: 'Schools in Heat Risk > 0.3',
     color: '#991b1b',
     vectorSource: '/api/osm/schools',
     rasterLayerId: 'risk_heat_250m',
-    threshold: 0.4,
+    threshold: 0.3,
     comparator: '>',
     valueKey: 'heat_risk_250m',
-    tooltipLabel: 'High heat risk (250m)',
+    tooltipLabel: 'High heat risk',
     tooltipIcon: '🔥',
   },
   {

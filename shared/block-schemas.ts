@@ -301,11 +301,15 @@ export const selectedZoneSchema = z.object({
   meanFlood: z.number().optional(),
   meanHeat: z.number().optional(),
   meanLandslide: z.number().optional(),
-  // Catalog flood component breakdown (poa_flood_*) + scale-free per-hazard ranks.
+  // Catalog flood + heat component breakdown (poa_<haz>_*) + scale-free per-hazard ranks.
   meanFloodHazard: z.number().optional(),
   meanFloodExposure: z.number().optional(),
   meanFloodVulnerability: z.number().optional(),
   meanFloodRisk: z.number().optional(),
+  meanHeatHazard: z.number().optional(),
+  meanHeatExposure: z.number().optional(),
+  meanHeatVulnerability: z.number().optional(),
+  meanHeatRisk: z.number().optional(),
   floodExtentPct: z.number().optional(),
   floodRank: z.number().optional(),
   heatRank: z.number().optional(),

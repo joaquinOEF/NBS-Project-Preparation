@@ -1146,14 +1146,20 @@ export async function executeAgentTool(
                     heat: props.meanHeat,
                     landslide: props.meanLandslide,
                   },
-                  // Catalog flood breakdown (poa_flood_* H×E×V) so the agent can explain WHY a
-                  // zone is prioritized (e.g. high exposure, moderate hazard). Flood risk is the
+                  // Catalog flood + heat breakdown (poa_<haz>_* H×E×V) so the agent can explain WHY
+                  // a zone is prioritized (e.g. high exposure, moderate hazard). Risk is the
                   // validated H×E×V composite; ranks are scale-free across zones. See playbook.
                   floodBreakdown: {
                     hazard: props.meanFloodHazard,
                     exposure: props.meanFloodExposure,
                     vulnerability: props.meanFloodVulnerability,
                     risk: props.meanFloodRisk ?? props.meanFlood,
+                  },
+                  heatBreakdown: {
+                    hazard: props.meanHeatHazard,
+                    exposure: props.meanHeatExposure,
+                    vulnerability: props.meanHeatVulnerability,
+                    risk: props.meanHeatRisk ?? props.meanHeat,
                   },
                   riskRanks: {
                     flood: props.floodRank,
