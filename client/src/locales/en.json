@@ -128,9 +128,7 @@
         "beginProfile": "Begin Phase 1 — Who We Are"
       },
       "toastTitle": "Prototype view",
-      "toastBody": "In Phase 3, clicking here would open {{project}}'s workspace.",
-      "feedbackTitle": "What would you want to see here?",
-      "feedbackBody": "This view is deliberately sparse. Tell us which metrics, alerts, or actions a coordinator would actually use day to day — that's what we'll build next."
+      "toastBody": "In Phase 3, clicking here would open {{project}}'s workspace."
     }
   },
   "citySelection": {

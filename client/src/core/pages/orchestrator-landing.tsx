@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
-  Mountain, Network, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Users, Waves,
+  Mountain, Network, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Waves,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
@@ -1202,25 +1202,6 @@ export default function OrchestratorLandingPage() {
             })}
           </div>
         </div>
-
-        {/* Feedback prompt */}
-        <motion.div
-          className="mt-10 rounded-xl border border-dashed border-foreground/15 bg-card/40 p-6 text-center"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-foreground/5 mb-3">
-            <Users className="w-4 h-4 text-foreground/60" />
-          </div>
-          <TitleLarge className="!text-base tracking-tight mb-1">
-            {t('orchestrator.demo.feedbackTitle')}
-          </TitleLarge>
-          <BodySmall className="text-muted-foreground max-w-xl mx-auto">
-            {t('orchestrator.demo.feedbackBody')}
-          </BodySmall>
-        </motion.div>
       </main>
 
       {/* Cohort flow dialogs */}

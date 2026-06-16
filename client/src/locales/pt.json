@@ -136,9 +136,7 @@
         "beginProfile": "Começar a Fase 1 — Quem Somos"
       },
       "toastTitle": "Visão protótipo",
-      "toastBody": "Na Fase 3, clicar aqui abriria o espaço de {{project}}.",
-      "feedbackTitle": "O que você gostaria de ver aqui?",
-      "feedbackBody": "Essa visão é propositalmente enxuta. Nos conte quais métricas, alertas ou ações uma articuladora realmente usaria no dia a dia — é isso que vamos construir a seguir."
+      "toastBody": "Na Fase 3, clicar aqui abriria o espaço de {{project}}."
     }
   },
   "citySelection": {
