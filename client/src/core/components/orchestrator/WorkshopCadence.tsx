@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Calendar, Check, ChevronRight, Lock, Pencil, Unlock,
+  Calendar, Check, ChevronDown, ChevronRight, Lock, Pencil, Unlock,
   Users, MapPin, Sprout, HandCoins, ClipboardCheck, Send,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -246,13 +246,24 @@ function WorkshopRow({
         .filter(s => s.length > 0)
     : [];
 
+  // Collapsible: minimized by default to keep the cadence compact, with the
+  // active (open) + next-up workshops expanded so their detail + CTA are
+  // immediately visible. The whole header toggles; a chevron signals state.
+  const [collapsed, setCollapsed] = useState(state !== 'open' && state !== 'nextUp');
+
   return (
     <div
-      className={`relative rounded-xl border ${stateMeta.ring} ${stateMeta.bg} transition-all p-3.5`}
+      className={`relative rounded-xl border ${stateMeta.ring} ${stateMeta.bg} transition-all ${collapsed ? 'p-2.5' : 'p-3.5'}`}
       data-testid={`workshop-row-${index}-${state}`}
     >
-      {/* Header row — topic icon, name, state pill */}
-      <div className="flex items-start gap-3">
+      {/* Header row — topic icon, name, state pill. Click to expand/collapse. */}
+      <button
+        type="button"
+        onClick={() => setCollapsed(c => !c)}
+        aria-expanded={!collapsed}
+        className="w-full flex items-start gap-3 text-left"
+        data-testid={`workshop-toggle-${index}`}
+      >
         {/* Topic icon tile — workshop-specific identity. State overlay
             (✓ / lock) in the bottom-right corner for past + locked. */}
         <div className="relative shrink-0">
@@ -293,11 +304,17 @@ function WorkshopRow({
             </span>
           </div>
         </div>
-      </div>
 
-      {/* Body — description + expected output. Always rendered, but
-          state-driven opacity dims past + locked so the eye still flows
-          to the active workshops. */}
+        {/* Expand/collapse affordance */}
+        <ChevronDown
+          className={`shrink-0 mt-1 w-4 h-4 text-muted-foreground transition-transform ${collapsed ? '-rotate-90' : ''}`}
+          strokeWidth={2}
+        />
+      </button>
+
+      {!collapsed && (<>
+      {/* Body + footer — shown only when the row is expanded. State-driven
+          opacity dims past + locked so the eye still flows to active ones. */}
       <div className={stateMeta.contentOpacity}>
         {description && (
           <p className="mt-3 text-[12px] leading-relaxed text-foreground/80">
@@ -367,6 +384,7 @@ function WorkshopRow({
           </Button>
         )}
       </div>
+      </>)}
     </div>
   );
 }
@@ -414,7 +432,7 @@ export function WorkshopCadence({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+      <div className="flex flex-col gap-2">
         {workshops.map((w, i) => (
           <WorkshopRow
             key={i}
