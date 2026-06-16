@@ -1877,6 +1877,12 @@
     "phaseLocked": "Your coordinator will unlock this after the next workshop."
   },
   "mapMicroapp": {
+    "addSite": "Add a site by name or coordinate",
+    "searchPlaceholder": "Search a place name…",
+    "search": "Search",
+    "coordPlaceholder": "lat, lng (e.g. -30.03, -51.22)",
+    "addPin": "Add",
+    "coordInvalid": "Enter as: latitude, longitude",
     "layers": "Layers",
     "point": "Point",
     "area": "Area",
