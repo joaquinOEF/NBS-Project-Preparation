@@ -2,50 +2,62 @@ import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { TestApi } from './helpers/testApi';
 
-// Task #1 — the coordinator map shows the neighborhoods always, with FOUR
-// exclusive risk views: Flood / Heat / Landslide hazard rasters + the composite
-// Risk-by-neighborhood choropleth. One at a time. Recorded as a demo video.
+// Coordinator risk map (v2). Full-width map on top with the participant list
+// below; always-on neighborhoods; four exclusive views — Flood/Heat/Landslide
+// (raster, flood = interpolated gap-free hazard) + Risk-by-neighborhood, now
+// colored like the site explorer (typology hue + risk-scaled intensity).
 
-test.describe('COUGAR #1 — coordinator risk map (exclusive views)', () => {
-  test('four exclusive risk-view buttons drive the map; neighborhoods always shown', async ({ page }) => {
+test.describe('COUGAR #1 — coordinator risk map (v2)', () => {
+  test('full-width map + participants below; four exclusive views; zone-priority coloring', async ({ page, request }) => {
     const api = new TestApi(page.request);
-    await api.createCoordinator({ email: `map-${randomUUID()}@e2e.test`, password: 'map-pass-123', name: 'Map' });
+    await api.createCoordinator({ email: `map-${randomUUID()}@e2e.test`, password: 'map-pass-123', name: 'Map' }); // admin
+
+    // A participant so the list-below-the-map renders (#3).
+    const mine = await (await page.request.get('/api/cohort/mine')).json();
+    const member = (await new TestApi(request).inviteMember(mine.cohort.id, { orgName: 'Org Mapa', withSession: true })).member;
 
     await page.goto('/orchestrator');
-
-    // The map renders with the always-on neighborhood outlines.
-    await expect(page.locator('.leaflet-container').first()).toBeVisible({ timeout: 20_000 });
+    const mapBox = page.locator('.leaflet-container').first();
+    await expect(mapBox).toBeVisible({ timeout: 20_000 });
 
     const flood = page.getByTestId('risk-view-flood');
     const heat = page.getByTestId('risk-view-heat');
     const landslide = page.getByTestId('risk-view-landslide');
     const risk = page.getByTestId('risk-view-risk');
-    await expect(flood).toBeVisible();
+    const card = page.getByTestId(`card-orchestrator-project-${member.id}`);
 
-    // Defaults to flood.
+    // #3 — map is full-width on top; the participant card sits BELOW it.
+    await expect(card).toBeVisible();
+    const mb = (await mapBox.boundingBox())!;
+    const cb = (await card.boundingBox())!;
+    expect(cb.y, 'participant card is below the map').toBeGreaterThan(mb.y + mb.height - 4);
+    expect(mb.width, 'map spans most of the page width').toBeGreaterThan(900);
+    await page.waitForTimeout(1200);
+
+    // Defaults to flood (now the interpolated hazard raster).
     await expect(flood).toHaveAttribute('aria-pressed', 'true');
-    await page.waitForTimeout(1500); // hold on flood raster
+    await page.waitForTimeout(1200);
 
-    // Exclusive switching: each view turns the others off.
+    // Exclusive switching.
     await heat.click();
     await expect(heat).toHaveAttribute('aria-pressed', 'true');
     await expect(flood).toHaveAttribute('aria-pressed', 'false');
-    await page.waitForTimeout(1300);
+    await page.waitForTimeout(1000);
 
     await landslide.click();
     await expect(landslide).toHaveAttribute('aria-pressed', 'true');
-    await expect(heat).toHaveAttribute('aria-pressed', 'false');
-    await page.waitForTimeout(1300);
+    await page.waitForTimeout(1000);
 
-    // Risk-by-neighborhood → choropleth + priority legend.
+    // #4 — Risk by neighborhood: zone-priority coloring (typology hue + intensity).
     await risk.click();
     await expect(risk).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByText('Priority score', { exact: false })).toBeVisible();
-    await page.waitForTimeout(1500);
+    await expect(page.getByText('Zone priority', { exact: false })).toBeVisible();
+    await expect(page.getByText('Stronger fill = higher risk', { exact: false })).toBeVisible();
+    await page.waitForTimeout(1600);
 
-    // Clicking the active view turns it off (just outlines + markers remain).
+    // Click the active view off → just outlines + markers.
     await risk.click();
     await expect(risk).toHaveAttribute('aria-pressed', 'false');
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(1000);
   });
 });

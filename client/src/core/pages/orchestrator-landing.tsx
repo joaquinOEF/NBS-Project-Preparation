@@ -30,6 +30,7 @@ import { useResetRole } from '@/core/contexts/role-context';
 import { useCohort } from '@/core/hooks/useCohort';
 import { useLocation } from 'wouter';
 import type { CohortMember, WorkshopConfig } from '@shared/cohort-schema';
+import { TYPOLOGY_COLORS, zoneRiskOpacity } from '@shared/risk-display';
 import {
   InviteCboDialog,
   ShareLinkDialog,
@@ -187,32 +188,39 @@ const BAND_CHIP: Record<ReturnType<typeof maturityBand>, string> = {
 // clicking the active one turns it off (just the outlines + CBO markers remain).
 type RiskView = 'flood' | 'heat' | 'landslide' | 'risk';
 
-// Hazard raster overlays, fed LIVE from the data catalog: flood = catalog
-// poa_flood_risk (H×E×V) via the tile proxy; heat / landslide = the local 250m
-// risk tiles. So a catalog update flows straight through to this map.
+// Hazard raster overlays, fed LIVE from the data catalog via the tile proxy.
+// Flood = the catalog poa_flood_HAZARD (the IDW-interpolated, gap-free build —
+// the hazard layer covers the whole territory, unlike the sparse H×E×V risk
+// composite). Heat / landslide = the local 250m risk tiles.
 const HAZARD_RASTER: Record<'flood' | 'heat' | 'landslide', { url: string; attribution: string }> = {
-  flood:     { url: '/api/geospatial/tiles/poa_flood_risk/{z}/{x}/{y}.png', attribution: 'OEF catalog · flood risk (H×E×V)' },
-  heat:      { url: '/tiles/heat_risk/{z}/{x}/{y}.png',                     attribution: 'OEF risk grid (250m)' },
-  landslide: { url: '/tiles/landslide_risk/{z}/{x}/{y}.png',               attribution: 'OEF risk grid (250m)' },
+  flood:     { url: '/api/geospatial/tiles/poa_flood_hazard/{z}/{x}/{y}.png', attribution: 'OEF catalog · flood hazard (interpolated)' },
+  heat:      { url: '/tiles/heat_risk/{z}/{x}/{y}.png',                       attribution: 'OEF risk grid (250m)' },
+  landslide: { url: '/tiles/landslide_risk/{z}/{x}/{y}.png',                 attribution: 'OEF risk grid (250m)' },
 };
 
-const PRIORITY_BANDS: Array<{ max: number; fill: string; label: string }> = [
-  { max: 0.5, fill: '#86efac', label: 'low' },        // emerald-300
-  { max: 1.0, fill: '#fde68a', label: 'medium' },     // amber-200
-  { max: 1.5, fill: '#fb923c', label: 'high' },       // orange-400
-  { max: Infinity, fill: '#ef4444', label: 'very high' }, // red-500
-];
-
-function priorityFill(score: number): string {
-  for (const band of PRIORITY_BANDS) if (score <= band.max) return band.fill;
-  return PRIORITY_BANDS[PRIORITY_BANDS.length - 1].fill;
+// City-wide min/max of the per-zone max-hazard mean, for normalizing the 'risk'
+// choropleth opacity (same approach as the site-explorer). Filled when the
+// bairro layer is built.
+type RiskRange = { min: number; max: number };
+function zoneMaxRisk(p: any): number {
+  return Math.max(p?.meanFlood || 0, p?.meanHeat || 0, p?.meanLandslide || 0);
 }
 
-// Bairro polygon style: always outlined; filled by composite priority only in
-// the 'risk' view, otherwise transparent so the hazard raster reads underneath.
-function bairroStyle(feat: any, view: RiskView | null): L.PathOptions {
+// Bairro polygon style. Always outlined. In the 'risk' view it fills with the
+// site-explorer encoding — HUE = typology (which risk), OPACITY = how risky
+// (normalized to the city's range) — so the most at-risk bairros read strongest.
+// In a hazard view it's outline-only so the raster reads underneath.
+function bairroStyle(feat: any, view: RiskView | null, range: RiskRange): L.PathOptions {
   if (view === 'risk') {
-    return { color: '#ffffff', weight: 1, opacity: 0.9, fillColor: priorityFill(feat?.properties?.priorityScore ?? 0), fillOpacity: 0.55 };
+    const p = feat?.properties || {};
+    const norm = (zoneMaxRisk(p) - range.min) / ((range.max - range.min) || 0.01);
+    return {
+      color: '#ffffff',
+      weight: 1 + Math.max(0, Math.min(1, norm)) * 1.5,
+      opacity: 0.85,
+      fillColor: TYPOLOGY_COLORS[p.typologyLabel] || TYPOLOGY_COLORS.LOW,
+      fillOpacity: zoneRiskOpacity(norm),
+    };
   }
   return { color: '#475569', weight: 1, opacity: 0.85, fillOpacity: 0 };
 }
@@ -241,6 +249,8 @@ function MapPanel({
   const rasterLayerRef = useRef<L.TileLayer | null>(null);
   const recruitLayerRef = useRef<L.GeoJSON | null>(null);
   const neighborhoodCacheRef = useRef<any>(null);
+  // City-wide risk range for the 'risk' choropleth opacity normalization.
+  const riskRangeRef = useRef<RiskRange>({ min: 0, max: 1 });
   // Latest activeRisk for the async layer-build closure (the bairro GeoJSON
   // loads once; this lets the first build style itself for the current view).
   const activeRiskRef = useRef(activeRisk);
@@ -328,8 +338,11 @@ function MapPanel({
 
     const buildLayer = (fc: any) => {
       if (!mapInstanceRef.current || cancelled || recruitLayerRef.current) return;
+      // City-wide risk range, for the 'risk' choropleth opacity (site-explorer parity).
+      const risks = (fc.features ?? []).map((f: any) => zoneMaxRisk(f?.properties));
+      riskRangeRef.current = { min: Math.min(...risks, 0), max: Math.max(...risks, 0.01) };
       const layer = L.geoJSON(fc, {
-        style: (feat: any) => bairroStyle(feat, activeRiskRef.current),
+        style: (feat: any) => bairroStyle(feat, activeRiskRef.current, riskRangeRef.current),
         onEachFeature: (feat: any, lyr: L.Layer) => {
           const p = feat.properties || {};
           const name: string = p.neighbourhoodName || 'Unknown';
@@ -340,7 +353,7 @@ function MapPanel({
           (lyr as L.Path).bindTooltip(tipHtml, { direction: 'top', className: 'orch-marker-tip', sticky: true });
           lyr.on('click', () => onBairroClickRef.current({ name, primaryHazard: hazard, population: pop, priorityScore: score }));
           lyr.on('mouseover', () => (lyr as L.Path).setStyle({ weight: 2.5, color: '#0f172a' }));
-          lyr.on('mouseout', () => (lyr as L.Path).setStyle(bairroStyle(feat, activeRiskRef.current)));
+          lyr.on('mouseout', () => (lyr as L.Path).setStyle(bairroStyle(feat, activeRiskRef.current, riskRangeRef.current)));
         },
       });
       layer.addTo(mapInstanceRef.current);
@@ -369,7 +382,7 @@ function MapPanel({
   useEffect(() => {
     const layer = recruitLayerRef.current;
     if (!layer) return;
-    layer.setStyle((feat: any) => bairroStyle(feat, activeRisk));
+    layer.setStyle((feat: any) => bairroStyle(feat, activeRisk, riskRangeRef.current));
     layer.bringToBack();
   }, [activeRisk]);
 
@@ -393,7 +406,7 @@ function MapPanel({
   }, [activeRisk]);
 
   return (
-    <div className="relative h-[420px] md:h-full w-full overflow-hidden rounded-xl border border-foreground/10 bg-muted">
+    <div className="relative h-full w-full overflow-hidden rounded-xl border border-foreground/10 bg-muted">
       <div ref={mapRef} className="absolute inset-0" />
     </div>
   );
@@ -450,18 +463,22 @@ function MapLayerControls({
       {active === 'risk' && (
         <div className="pt-1.5 mt-1.5 border-t border-foreground/5 space-y-0.5">
           <div className="text-[9px] uppercase tracking-wide text-muted-foreground">
-            {t('orchestrator.map.priorityScore', { defaultValue: 'Priority score' })}
+            {t('orchestrator.map.zonePriority', { defaultValue: 'Zone priority' })}
           </div>
-          {PRIORITY_BANDS.map((b, i) => (
-            <div key={i} className="flex items-center gap-1.5">
-              <span className="inline-block w-3 h-3 rounded-sm" style={{ background: b.fill }} />
-              <span className="text-[10px] text-muted-foreground">
-                {i === 0 ? `≤ ${b.max.toFixed(1)}` :
-                 i === PRIORITY_BANDS.length - 1 ? `> ${PRIORITY_BANDS[i - 1].max.toFixed(1)}` :
-                 `${PRIORITY_BANDS[i - 1].max.toFixed(1)} – ${b.max.toFixed(1)}`}
-              </span>
+          {([
+            ['FLOOD', t('orchestrator.map.flood', { defaultValue: 'Flood' })],
+            ['HEAT', t('orchestrator.map.heat', { defaultValue: 'Heat' })],
+            ['LANDSLIDE', t('orchestrator.map.landslide', { defaultValue: 'Landslide' })],
+            ['FLOOD_HEAT', t('orchestrator.map.multiHazard', { defaultValue: 'Multi-hazard' })],
+          ] as const).map(([key, label]) => (
+            <div key={key} className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-sm" style={{ background: TYPOLOGY_COLORS[key] }} />
+              <span className="text-[10px] text-muted-foreground">{label}</span>
             </div>
           ))}
+          <div className="text-[9px] text-muted-foreground/80 pt-0.5">
+            {t('orchestrator.map.intensityNote', { defaultValue: 'Stronger fill = higher risk' })}
+          </div>
         </div>
       )}
       {active && active !== 'risk' && (
@@ -1045,11 +1062,12 @@ export default function OrchestratorLandingPage() {
           </BodySmall>
         </div>
 
-        {/* Map + cards */}
-        <div className="flex flex-col md:flex-row gap-4 md:gap-6 md:items-stretch">
-          {/* Map column — ~60% on desktop */}
-          <div className="md:flex-[3] md:min-h-[640px]">
-            <div className="relative h-[420px] md:h-full w-full">
+        {/* Map (full width) on top, participants list below. Presenting the map
+            this way keeps the orgs' states off-screen (below the fold). */}
+        <div className="flex flex-col gap-5">
+          {/* Map — full width */}
+          <div className="w-full">
+            <div className="relative h-[56vh] md:h-[64vh] w-full">
               <MapPanel
                 projects={projects}
                 selectedId={selectedId}
@@ -1061,8 +1079,8 @@ export default function OrchestratorLandingPage() {
             </div>
           </div>
 
-          {/* Card list column — ~40%, independently scrollable */}
-          <div className="md:flex-[2] md:max-h-[640px] md:overflow-y-auto pr-1 space-y-3">
+          {/* Participants — full-width list/grid below the map */}
+          <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {projects.map((p, i) => {
               const member = memberById.get(p.id);
               const maxUnlocked = Math.max(0, ...(member?.unlockedPhases ?? [1]));
