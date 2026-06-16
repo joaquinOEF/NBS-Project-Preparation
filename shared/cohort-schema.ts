@@ -72,10 +72,15 @@ export const cohortMembers = pgTable('cohort_members', {
   neighborhood: text('neighborhood'),
   role: text('role').$type<'priority' | 'alternate'>().default('priority'),
   origin: text('origin').$type<'cohort' | 'external'>().default('cohort'),
-  // Two-path triage captured at E1: 'has-idea' = CBO has a specific project in
-  // mind; 'needs-help' = CBO wants help discovering one. Null until E1 asks.
-  // See knowledge/runs/2026-05-15-encontros-curriculum/_paths/two-path-triage.md
-  path: text('path').$type<'has-idea' | 'needs-help'>(),
+  // Project-readiness triage captured at E1. Three self-reported buckets that
+  // double as a maturity signal:
+  //   'has-project' = a selected, scoped project (site + scope) — implementer /
+  //                   advanced-tier read; treated downstream like 'has-idea'.
+  //   'has-idea'    = a project direction in mind, not yet locked.
+  //   'needs-help'  = no project yet; wants help discovering one.
+  // Downstream (E2) collapses to two flows: has-project + has-idea are
+  // project-forward; needs-help goes to discovery. Null until E1 asks.
+  path: text('path').$type<'has-project' | 'has-idea' | 'needs-help'>(),
   // Cross-cutting RequestSupport queue. CBO submits via the chat-header button;
   // coordinator resolves from the orchestrator dashboard. JSONB so we don't need
   // a separate table for what is effectively a small per-member queue.
@@ -107,7 +112,7 @@ export const DEFAULT_WORKSHOPS: WorkshopConfig[] = [
     date: null,
     unlocksPhase: 1,
     description: 'The CBO introduces itself: mission, team, structure, prior projects, and the community groups it serves. The agent captures the core organizational identity and scores delivery capacity + technical experience.',
-    expectedOutput: 'A complete organizational profile (10 fields) with two maturity scores recorded. The CBO also declares their path — they either have a specific NBS project idea in mind, or they want help discovering one.',
+    expectedOutput: 'A complete organizational profile (10 fields) with two maturity scores recorded. The CBO also declares their path — they have a selected NBS project, an idea in mind, or want help discovering one.',
   },
   {
     name: 'Workshop 2 — Where We Work',

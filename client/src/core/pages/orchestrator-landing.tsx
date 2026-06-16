@@ -19,7 +19,7 @@ import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, LifeBuoy, Lightbulb, MapPin,
+  ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
   Mountain, Network, Plus, RotateCcw, Sparkles, Sprout, Trees, Unlock, Users, Waves,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
@@ -77,10 +77,11 @@ type CboDemoProject = {
   updatedDaysAgo: number;
   /** i18n key for the 'next action' line on the card. */
   nextActionKey: string;
-  /** Two-path triage answer from E1 — drives a chip on the card so the
-   *  coordinator sees who needs more hand-holding (needs-help) vs who has
-   *  a concrete idea (has-idea). Null until E1's set_path tool fires. */
-  path: 'has-idea' | 'needs-help' | null;
+  /** Project-readiness triage from E1 — drives a chip on the card so the
+   *  coordinator sees who has a selected project (has-project) vs an idea
+   *  (has-idea) vs who needs more hand-holding (needs-help). Null until E1's
+   *  set_path tool fires. */
+  path: 'has-project' | 'has-idea' | 'needs-help' | null;
   /** Count of unresolved RequestSupport entries — surfaces an amber chip
    *  on the card so the coordinator can sweep pendencies daily. */
   supportPendingCount: number;
@@ -134,7 +135,7 @@ function memberToView(m: CohortMember): CboDemoProject {
     priorityFlagsMet: m.snapshotFlagsMet ?? 0,
     updatedDaysAgo: daysAgo,
     nextActionKey: NEXT_ACTION_KEY[phaseNum] ?? NEXT_ACTION_KEY[1],
-    path: (m.path as 'has-idea' | 'needs-help' | null | undefined) ?? null,
+    path: (m.path as 'has-project' | 'has-idea' | 'needs-help' | null | undefined) ?? null,
     supportPendingCount: Array.isArray((m as any).supportRequests)
       ? ((m as any).supportRequests as { resolvedAt: string | null }[]).filter(r => !r.resolvedAt).length
       : 0,
@@ -511,16 +512,22 @@ function ProjectCard({
             {project.path && (
               <span
                 className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-900/40"
-                title={project.path === 'has-idea'
-                  ? t('orchestrator.demo.path.hasIdeaFull', { defaultValue: 'CBO arrived with a specific NBS project in mind' })
-                  : t('orchestrator.demo.path.needsHelpFull', { defaultValue: 'CBO wants help discovering a project — needs more hand-holding' })}
+                title={project.path === 'has-project'
+                  ? t('orchestrator.demo.path.hasProjectFull', { defaultValue: 'CBO arrived with a selected, scoped NBS project — more mature / implementer-ready' })
+                  : project.path === 'has-idea'
+                    ? t('orchestrator.demo.path.hasIdeaFull', { defaultValue: 'CBO arrived with a specific NBS project idea in mind' })
+                    : t('orchestrator.demo.path.needsHelpFull', { defaultValue: 'CBO wants help discovering a project — needs more hand-holding' })}
               >
-                {project.path === 'has-idea'
-                  ? <Lightbulb className="w-3 h-3" strokeWidth={2} />
-                  : <Compass className="w-3 h-3" strokeWidth={2} />}
-                {project.path === 'has-idea'
-                  ? t('orchestrator.demo.path.hasIdea', { defaultValue: 'Tem ideia' })
-                  : t('orchestrator.demo.path.needsHelp', { defaultValue: 'Quer descobrir' })}
+                {project.path === 'has-project'
+                  ? <Target className="w-3 h-3" strokeWidth={2} />
+                  : project.path === 'has-idea'
+                    ? <Lightbulb className="w-3 h-3" strokeWidth={2} />
+                    : <Compass className="w-3 h-3" strokeWidth={2} />}
+                {project.path === 'has-project'
+                  ? t('orchestrator.demo.path.hasProject', { defaultValue: 'Projeto definido' })
+                  : project.path === 'has-idea'
+                    ? t('orchestrator.demo.path.hasIdea', { defaultValue: 'Tem ideia' })
+                    : t('orchestrator.demo.path.needsHelp', { defaultValue: 'Quer descobrir' })}
               </span>
             )}
             {project.supportPendingCount > 0 && (
