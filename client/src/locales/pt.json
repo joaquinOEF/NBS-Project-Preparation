@@ -1715,7 +1715,9 @@
       "record": "Falar a resposta",
       "stop": "Parar gravação",
       "recording": "Gravando… toque para parar",
-      "transcribing": "Transcrevendo…"
+      "transcribing": "Transcrevendo…",
+      "sending": "enviando…",
+      "cancel": "Cancelar"
     },
     "interventionProfile": "Perfil de Intervenção",
     "scorecard": {
