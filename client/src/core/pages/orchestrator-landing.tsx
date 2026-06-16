@@ -710,8 +710,9 @@ export default function OrchestratorLandingPage() {
 
   const {
     cohort, members,
-    invite, unlockPhase, saveWorkshops, resetCohort,
+    invite, unlockPhase, saveWorkshops, resetCohort, saveLanguage,
   } = useCohort();
+  const cohortLanguage = (cohort?.settings as { language?: 'pt' | 'en' } | null)?.language ?? null;
 
   const projects = useMemo(() => members.map(memberToView), [members]);
   const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
@@ -915,6 +916,33 @@ export default function OrchestratorLandingPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              {/* Forced cohort language — overrides each org's browser detection.
+                  Auto = fall back to detection. */}
+              <div
+                className="inline-flex items-center rounded-md border border-foreground/10 overflow-hidden"
+                title={t('orchestrator.cohort.languageTooltip', { defaultValue: 'Force the language for every org in this cohort (overrides their phone language)' })}
+              >
+                <span className="pl-2 pr-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {t('orchestrator.cohort.language', { defaultValue: 'Lang' })}
+                </span>
+                {([['auto', null], ['pt', 'pt'], ['en', 'en']] as const).map(([label, val]) => {
+                  const on = cohortLanguage === val;
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => saveLanguage(val)}
+                      data-testid={`button-cohort-lang-${label}`}
+                      aria-pressed={on}
+                      className={`px-2 py-1 text-[11px] font-medium transition-colors ${
+                        on ? 'bg-foreground/[0.08] text-foreground' : 'text-muted-foreground hover:bg-foreground/[0.04]'
+                      }`}
+                    >
+                      {label === 'auto' ? t('orchestrator.cohort.langAuto', { defaultValue: 'Auto' }) : label.toUpperCase()}
+                    </button>
+                  );
+                })}
+              </div>
               <Button
                 size="sm"
                 variant="ghost"

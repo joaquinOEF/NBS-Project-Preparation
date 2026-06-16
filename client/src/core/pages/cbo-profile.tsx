@@ -302,6 +302,11 @@ export default function CboProfilePage() {
       if (typeof data.supportPendingCount === 'number') setSupportPendingCount(data.supportPendingCount);
       if (Array.isArray(data.inspirationPicks)) setInspirationPicks(data.inspirationPicks);
       if (data.cohort?.name) setCohortName(data.cohort.name);
+      // Coordinator-forced cohort language overrides browser detection.
+      const cohortLang = data.cohort?.language;
+      if ((cohortLang === 'pt' || cohortLang === 'en') && i18n.resolvedLanguage !== cohortLang) {
+        i18n.changeLanguage(cohortLang);
+      }
       if (Array.isArray(data.workshops)) setWorkshops(data.workshops);
       setNextWorkshop(data.nextWorkshop ?? null);
       setFocusWorkshop(data.focusWorkshop ?? null);

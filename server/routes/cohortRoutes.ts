@@ -142,7 +142,7 @@ async function buildMemberPayload(member: typeof cohortMembers.$inferSelect) {
     path: member.path ?? null,
     unlockedPhases: unlocked,
     cboStateId: member.cboStateId,
-    cohort: cohort ? { id: cohort.id, name: cohort.name } : null,
+    cohort: cohort ? { id: cohort.id, name: cohort.name, language: (cohort.settings as CohortSettings | null)?.language ?? null } : null,
     workshops,
     nextWorkshop,
     focusWorkshop,
@@ -240,12 +240,13 @@ export function registerCohortRoutes(app: Express): void {
   app.post('/api/cohort', wrap(async (req, res) => {
     // Only an admin (unscoped coordinator) may spin up new cohorts.
     if (reqCoordinator(req)?.cohortId) { res.status(403).json({ error: 'only an admin can create cohorts' }); return; }
-    const { name } = req.body ?? {};
+    const { name, language: rawLang } = req.body ?? {};
+    const language = rawLang === 'pt' || rawLang === 'en' ? rawLang : undefined;
     const coordinatorSlug = slug();
     const [created] = await db.insert(cohorts).values({
       coordinatorSlug,
       name: name || 'Untitled cohort',
-      settings: { workshops: DEFAULT_WORKSHOPS },
+      settings: { workshops: DEFAULT_WORKSHOPS, language },
     }).returning();
     res.json({ cohort: created });
   }));
@@ -329,6 +330,19 @@ export function registerCohortRoutes(app: Express): void {
     const settings: CohortSettings = { ...(cohort.settings as CohortSettings), workshops };
     await db.update(cohorts).set({ settings }).where(eq(cohorts.id, cohort.id));
     res.json({ ok: true });
+  }));
+
+  // Set the cohort's forced UI language ('pt' | 'en' | null to clear). Forces
+  // that language for every org in the cohort, overriding browser detection.
+  app.patch('/api/cohort/:coordinatorSlug/language', wrap(async (req, res) => {
+    const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
+    if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
+
+    const raw = req.body?.language;
+    const language = raw === 'pt' || raw === 'en' ? raw : undefined;
+    const settings: CohortSettings = { ...(cohort.settings as CohortSettings), language };
+    await db.update(cohorts).set({ settings }).where(eq(cohorts.id, cohort.id));
+    res.json({ ok: true, language: language ?? null });
   }));
 
   // Unlock a phase — for one member, multiple members, or 'all'
