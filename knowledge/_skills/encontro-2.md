@@ -108,7 +108,7 @@ open_map({
   selectionMode: 'composite',
   zoneSource: 'neighborhoods',
   layers: ['osm_parks', 'osm_schools', 'osm_wetlands'],
-  tileLayers: ['oef_fri_2024', 'oef_hwm_2024'],
+  tileLayers: ['poa_flood_risk', 'oef_hwm_2024'],
   prompt: 'Marca onde vocês querem atuar — primeiro o bairro, depois o lugar específico.'
 })
 ```
@@ -120,7 +120,7 @@ First, exploration mode with a narration banner. The user can scroll the map, to
 ```
 open_map({
   selectionMode: 'browse-only',
-  tileLayers: ['oef_fri_2024', 'oef_hwm_2024'],
+  tileLayers: ['poa_flood_risk', 'oef_hwm_2024'],
   prompt: 'Olha o seu bairro. As cores mostram os riscos.',
   narrationOverlay: 'Azul = áreas de enchente. Laranja = ilhas de calor. Toque "Voltar ao chat" quando quiser.'
 })
@@ -138,7 +138,7 @@ Listen for cues. If they name a spot, transition to Beat 2b. If they're still un
 open_map({
   selectionMode: 'composite',
   zoneSource: 'neighborhoods',
-  tileLayers: ['oef_fri_2024', 'oef_hwm_2024'],
+  tileLayers: ['poa_flood_risk', 'oef_hwm_2024'],
   prompt: 'Agora marca o lugar específico onde vocês querem atuar.'
 })
 ```
