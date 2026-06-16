@@ -167,6 +167,175 @@ export function LoadCohortDialog({
 }
 
 // ---------------------------------------------------------------------------
+// ProvisionCohortDialog — admin-only. Creates a coordinator account AND their
+// cohort in one form (replaces the create-coordinator shell script + UUID
+// dance). The admin stays logged in as themselves; the new coordinator gets the
+// email + password entered here to log in, scoped to the new cohort.
+// ---------------------------------------------------------------------------
+export function ProvisionCohortDialog({
+  open, onOpenChange, onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (input: {
+    coordinatorName?: string;
+    email: string;
+    password: string;
+    cohortName: string;
+    language?: 'pt' | 'en' | null;
+  }) => Promise<{ ok: boolean; error?: string; coordinatorEmail?: string }>;
+}) {
+  const { t } = useTranslation();
+  const [coordinatorName, setCoordinatorName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [cohortName, setCohortName] = useState('');
+  const [language, setLanguage] = useState<'pt' | 'en' | null>('pt');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Reset the form whenever the dialog re-opens, so a previous error/values
+  // don't bleed into the next provisioning.
+  useEffect(() => {
+    if (open) {
+      setCoordinatorName(''); setEmail(''); setPassword('');
+      setCohortName(''); setLanguage('pt'); setError(null); setBusy(false);
+    }
+  }, [open]);
+
+  const canSubmit = !!email.trim() && password.length >= 6 && !!cohortName.trim();
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setBusy(true); setError(null);
+    try {
+      const res = await onSubmit({
+        coordinatorName: coordinatorName.trim() || undefined,
+        email: email.trim(),
+        password,
+        cohortName: cohortName.trim(),
+        language,
+      });
+      if (res.ok) onOpenChange(false);
+      else setError(res.error ?? 'Could not create cohort');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[460px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            {t('orchestrator.cohort.provisionTitle', { defaultValue: 'New cohort + coordinator' })}
+          </DialogTitle>
+          <DialogDescription>
+            {t('orchestrator.cohort.provisionDesc', {
+              defaultValue: 'Create a cohort and the coordinator who runs it. They log in with this email + password and see only this cohort.',
+            })}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground/80">
+              {t('orchestrator.cohort.cohortName', { defaultValue: 'Cohort name' })}
+            </label>
+            <Input
+              value={cohortName}
+              onChange={(e) => setCohortName(e.target.value)}
+              placeholder="Vila Flores"
+              autoFocus
+              data-testid="input-provision-cohort-name"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground/80">
+              {t('orchestrator.cohort.coordinatorName', { defaultValue: 'Coordinator name' })}
+            </label>
+            <Input
+              value={coordinatorName}
+              onChange={(e) => setCoordinatorName(e.target.value)}
+              placeholder="Julia"
+              data-testid="input-provision-coordinator-name"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground/80">
+                {t('orchestrator.cohort.coordinatorEmail', { defaultValue: 'Login email' })}
+              </label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="julia@example.com"
+                data-testid="input-provision-email"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground/80">
+                {t('orchestrator.cohort.coordinatorPassword', { defaultValue: 'Password' })}
+              </label>
+              <Input
+                type="text"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="min. 6 chars"
+                data-testid="input-provision-password"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground/80">
+              {t('orchestrator.cohort.language', { defaultValue: 'Language' })}
+            </label>
+            <div className="inline-flex items-center rounded-md border border-foreground/10 overflow-hidden">
+              {([['auto', null], ['pt', 'pt'], ['en', 'en']] as const).map(([label, val]) => {
+                const on = language === val;
+                const labelText = label === 'auto'
+                  ? t('orchestrator.cohort.langAuto', { defaultValue: 'Auto' })
+                  : label.toUpperCase();
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setLanguage(val)}
+                    aria-pressed={on}
+                    data-testid={`button-provision-lang-${label}`}
+                    className={`px-3 py-1 text-[11px] font-semibold transition-colors ${
+                      on ? 'bg-emerald-600 text-white' : 'text-muted-foreground hover:bg-foreground/[0.06]'
+                    }`}
+                  >
+                    {labelText}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {error && (
+            <p className="text-xs text-red-600 dark:text-red-400" data-testid="text-provision-error">
+              {error}
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
+            {t('common.cancel', { defaultValue: 'Cancel' })}
+          </Button>
+          <Button onClick={submit} disabled={busy || !canSubmit} data-testid="button-confirm-provision-cohort">
+            {busy
+              ? t('common.working', { defaultValue: 'Working…' })
+              : t('orchestrator.cohort.provisionCreate', { defaultValue: 'Create cohort' })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // InviteCboDialog — Single (one CBO at a time) or Bulk (paste a list) modes.
 // Bulk is the typical workshop-day flow: Julia comes in with a list of 10
 // orgs, pastes them, hits invite, gets a summary of links to send out.

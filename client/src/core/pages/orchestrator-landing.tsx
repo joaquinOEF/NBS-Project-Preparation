@@ -37,8 +37,12 @@ import {
   BulkInviteSummaryDialog,
   ResetConfirmDialog,
   DeleteCohortConfirmDialog,
+  ProvisionCohortDialog,
   type BulkInviteResult,
 } from '@/core/components/orchestrator/CohortDialogs';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/core/components/ui/select';
 import { WorkshopCadence } from '@/core/components/orchestrator/WorkshopCadence';
 import { SupportInbox } from '@/core/components/orchestrator/SupportInbox';
 
@@ -734,8 +738,9 @@ export default function OrchestratorLandingPage() {
   };
 
   const {
-    cohort, members, isAdmin,
+    cohort, members, isAdmin, allCohorts,
     invite, unlockPhase, saveWorkshops, resetCohort, saveLanguage, deleteCohort,
+    switchCohort, provisionCohort,
   } = useCohort();
   const cohortLanguage = (cohort?.settings as { language?: 'pt' | 'en' } | null)?.language ?? null;
 
@@ -769,6 +774,7 @@ export default function OrchestratorLandingPage() {
   const [bulkInvitations, setBulkInvitations] = useState<BulkInviteResult[]>([]);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [provisionOpen, setProvisionOpen] = useState(false);
   const [supportInboxOpen, setSupportInboxOpen] = useState(false);
   // Mirrored from /support-requests?status=pending — drives the badge on
   // the inbox trigger. Initialized from member.supportRequests when the
@@ -839,6 +845,38 @@ export default function OrchestratorLandingPage() {
     setDeleteConfirmOpen(false);
     await deleteCohort();
     toast({ title: t('orchestrator.cohort.deleteDone', { defaultValue: 'Cohort deleted' }) });
+  };
+
+  // Admin picked a different cohort from the switcher — load it into the board.
+  const handleSwitchCohort = async (coordinatorSlug: string) => {
+    if (!coordinatorSlug || coordinatorSlug === cohort?.coordinatorSlug) return;
+    await switchCohort(coordinatorSlug);
+    const picked = allCohorts.find(c => c.coordinatorSlug === coordinatorSlug);
+    toast({
+      title: t('orchestrator.cohort.switched', {
+        defaultValue: 'Viewing {{name}}',
+        name: picked?.name ?? '',
+      }),
+    });
+  };
+
+  // Admin created a coordinator + cohort. On success the hook already switched
+  // the board to the new cohort; surface the login email so credentials can be
+  // handed off immediately.
+  const handleProvision = async (input: {
+    coordinatorName?: string; email: string; password: string;
+    cohortName: string; language?: 'pt' | 'en' | null;
+  }) => {
+    const res = await provisionCohort(input);
+    if (res.ok) {
+      toast({
+        title: t('orchestrator.cohort.provisionDone', {
+          defaultValue: 'Cohort created — {{email}} can log in now',
+          email: res.coordinatorEmail ?? input.email,
+        }),
+      });
+    }
+    return res;
   };
 
   const handleInviteOpen = () => setInviteOpen(true);
@@ -937,7 +975,33 @@ export default function OrchestratorLandingPage() {
               <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
                 {t('orchestrator.cohort.modePilot', { defaultValue: 'Pilot' })}
               </span>
-              <span className="text-sm font-medium tracking-tight truncate">{cohort?.name ?? 'Vila Flores'}</span>
+              {/* Admin sees a switcher over every cohort; a scoped coordinator
+                  just sees their own cohort's name. */}
+              {isAdmin && allCohorts.length > 0 ? (
+                <Select value={cohort?.coordinatorSlug ?? ''} onValueChange={handleSwitchCohort}>
+                  <SelectTrigger
+                    className="h-7 w-auto min-w-[150px] gap-1 border-foreground/10 text-sm font-medium"
+                    data-testid="select-cohort-switcher"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allCohorts.map(c => (
+                      <SelectItem
+                        key={c.coordinatorSlug}
+                        value={c.coordinatorSlug}
+                        data-testid={`option-cohort-${c.coordinatorSlug}`}
+                      >
+                        {c.name}
+                        {c.coordinatorName ? ` · ${c.coordinatorName}` : ''}
+                        {` (${c.memberCount})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="text-sm font-medium tracking-tight truncate">{cohort?.name ?? 'Vila Flores'}</span>
+              )}
               {members.length > 0 && (
                 <span className="text-[11px] text-muted-foreground">
                   {t('orchestrator.cohort.memberCount', {
@@ -1007,6 +1071,18 @@ export default function OrchestratorLandingPage() {
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-1.5" />
                   {t('orchestrator.cohort.delete', { defaultValue: 'Delete cohort' })}
+                </Button>
+              )}
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setProvisionOpen(true)}
+                  data-testid="button-new-cohort"
+                  title={t('orchestrator.cohort.newTooltip', { defaultValue: 'Create a new cohort and its coordinator' })}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1.5" />
+                  {t('orchestrator.cohort.new', { defaultValue: 'New cohort' })}
                 </Button>
               )}
               <Button size="sm" onClick={handleInviteOpen} data-testid="button-invite-cbo">
@@ -1157,6 +1233,11 @@ export default function OrchestratorLandingPage() {
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
         onConfirm={handleDeleteConfirm}
+      />
+      <ProvisionCohortDialog
+        open={provisionOpen}
+        onOpenChange={setProvisionOpen}
+        onSubmit={handleProvision}
       />
       <InviteCboDialog
         open={inviteOpen}
