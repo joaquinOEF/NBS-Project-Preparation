@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
-  Mountain, Network, Plus, RotateCcw, Sparkles, Sprout, Trash2, Trees, Unlock, Users, Waves,
+  Mountain, Network, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Users, Waves,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
@@ -959,18 +959,28 @@ export default function OrchestratorLandingPage() {
                 </span>
                 {([['auto', null], ['pt', 'pt'], ['en', 'en']] as const).map(([label, val]) => {
                   const on = cohortLanguage === val;
+                  const labelText = label === 'auto' ? t('orchestrator.cohort.langAuto', { defaultValue: 'Auto' }) : label.toUpperCase();
                   return (
                     <button
                       key={label}
                       type="button"
-                      onClick={() => saveLanguage(val)}
+                      onClick={async () => {
+                        await saveLanguage(val);
+                        toast({
+                          title: val
+                            ? t('orchestrator.cohort.languageSet', { defaultValue: 'Cohort language: {{lang}}', lang: labelText })
+                            : t('orchestrator.cohort.languageAutoSet', { defaultValue: 'Cohort language: auto (phone language)' }),
+                        });
+                      }}
                       data-testid={`button-cohort-lang-${label}`}
                       aria-pressed={on}
-                      className={`px-2 py-1 text-[11px] font-medium transition-colors ${
-                        on ? 'bg-foreground/[0.08] text-foreground' : 'text-muted-foreground hover:bg-foreground/[0.04]'
+                      // Active = solid emerald + white so the selected language is
+                      // unmistakable (the faint highlight read as "nothing happened").
+                      className={`px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                        on ? 'bg-emerald-600 text-white' : 'text-muted-foreground hover:bg-foreground/[0.06]'
                       }`}
                     >
-                      {label === 'auto' ? t('orchestrator.cohort.langAuto', { defaultValue: 'Auto' }) : label.toUpperCase()}
+                      {labelText}
                     </button>
                   );
                 })}
@@ -1013,23 +1023,6 @@ export default function OrchestratorLandingPage() {
           />
         </div>
 
-        {/* Co-design ribbon */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-6 flex items-start gap-3 rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3"
-        >
-          <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-300 mt-0.5 shrink-0" />
-          <div className="flex-1">
-            <BodySmall className="text-amber-900 dark:text-amber-200 font-medium">
-              {t('orchestrator.demo.codesignBannerTitle')}
-            </BodySmall>
-            <BodySmall className="text-amber-900/80 dark:text-amber-200/80 mt-0.5 text-xs">
-              {t('orchestrator.demo.codesignBannerBody')}
-            </BodySmall>
-          </div>
-        </motion.div>
 
         {/* Aggregate stats — diagnostic pipeline */}
         <motion.div

@@ -12,14 +12,13 @@ import { Input } from '@/core/components/ui/input';
 // Greeting templates — shared between ShareLinkDialog and bulk summary so the
 // CBO-facing message is consistent everywhere.
 // ---------------------------------------------------------------------------
-// The wave is written as an explicit code-point escape (\u{1F44B}) rather than a
-// raw literal so it survives any non-UTF-8 re-save of this file in the toolchain
-// — a raw 👋 had been showing up as a replacement char (�) in the sent preview.
-const WAVE = '\u{1F44B}';
+// No emoji in the greeting: the wave (👋) kept rendering as a replacement char
+// (�) in the actual WhatsApp delivery despite the source code-point being
+// correct, so it's removed entirely rather than ship a broken glyph.
 export function cboGreetingMessage(orgName: string, url: string, isPt: boolean): string {
   return isPt
-    ? `Olá! ${WAVE}\n\nEste é o link da plataforma do COUGAR/Vila Flores para *${orgName}*. Aqui você vai construir o perfil da organização e o seu projeto NBS junto com os workshops:\n\n${url}\n\nQualquer dúvida, me chama!`
-    : `Hi! ${WAVE}\n\nHere's the COUGAR / Vila Flores platform link for *${orgName}*. You'll build your organization profile and your NBS project here alongside the workshops:\n\n${url}\n\nReach out anytime.`;
+    ? `Olá!\n\nEste é o link da plataforma do COUGAR/Vila Flores para *${orgName}*. Aqui você vai construir o perfil da organização e o seu projeto NBS junto com os workshops:\n\n${url}\n\nQualquer dúvida, me chama!`
+    : `Hi!\n\nHere's the COUGAR / Vila Flores platform link for *${orgName}*. You'll build your organization profile and your NBS project here alongside the workshops:\n\n${url}\n\nReach out anytime.`;
 }
 
 export function whatsappDeepLink(message: string, phone?: string): string {
