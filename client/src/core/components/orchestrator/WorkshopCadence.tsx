@@ -230,7 +230,8 @@ function WorkshopRow({
       Icon: Lock,
       titleClass: 'text-foreground/55',
       pill: t('orchestrator.cohort.stateLocked', { defaultValue: 'Locked' }),
-      pillClass: 'bg-transparent text-muted-foreground border-foreground/10',
+      // Darker, readable gray (the old near-white pill had almost no contrast).
+      pillClass: 'bg-foreground/10 text-foreground/75 border-foreground/15 dark:bg-foreground/15 dark:text-foreground/80',
       contentOpacity: 'opacity-50',
     },
   }[state];
@@ -256,61 +257,106 @@ function WorkshopRow({
       className={`relative rounded-xl border ${stateMeta.ring} ${stateMeta.bg} transition-all ${collapsed ? 'p-2.5' : 'p-3.5'}`}
       data-testid={`workshop-row-${index}-${state}`}
     >
-      {/* Header row — topic icon, name, state pill. Click to expand/collapse. */}
-      <button
-        type="button"
-        onClick={() => setCollapsed(c => !c)}
-        aria-expanded={!collapsed}
-        className="w-full flex items-start gap-3 text-left"
-        data-testid={`workshop-toggle-${index}`}
-      >
-        {/* Topic icon tile — workshop-specific identity. State overlay
-            (✓ / lock) in the bottom-right corner for past + locked. */}
-        <div className="relative shrink-0">
-          <div
-            className={`w-10 h-10 rounded-xl flex items-center justify-center ${stateMeta.iconBg} ${
-              state === 'open' ? 'ring-1 ring-emerald-500/30' : ''
-            } ${state === 'past' ? 'ring-1 ring-emerald-200 dark:ring-emerald-900/60' : ''}`}
-          >
-            <TopicIcon className={`w-5 h-5 ${stateMeta.iconColor}`} strokeWidth={2} />
-          </div>
-          {(state === 'past' || state === 'locked') && (
+      {/* Header row. The toggle (icon + title) and the chevron expand/collapse;
+          when minimized, the schedule date + "Open for cohort" stay reachable so
+          the coordinator can act without expanding. */}
+      <div className="flex items-start gap-2">
+        <button
+          type="button"
+          onClick={() => setCollapsed(c => !c)}
+          aria-expanded={!collapsed}
+          className="min-w-0 flex-1 flex items-start gap-3 text-left"
+          data-testid={`workshop-toggle-${index}`}
+        >
+          {/* Topic icon tile — workshop-specific identity. State overlay
+              (✓ / lock) in the bottom-right corner for past + locked. */}
+          <div className="relative shrink-0">
             <div
-              className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-background ${
-                state === 'past' ? 'bg-emerald-600' : 'bg-foreground/40'
-              }`}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center ${stateMeta.iconBg} ${
+                state === 'open' ? 'ring-1 ring-emerald-500/30' : ''
+              } ${state === 'past' ? 'ring-1 ring-emerald-200 dark:ring-emerald-900/60' : ''}`}
             >
-              <StateIcon className="w-2.5 h-2.5 text-white" strokeWidth={3} />
+              <TopicIcon className={`w-5 h-5 ${stateMeta.iconColor}`} strokeWidth={2} />
             </div>
-          )}
-        </div>
-
-        {/* Title + state pill */}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-sm tracking-tight ${stateMeta.titleClass}`}>
-              {workshop.name}
-            </span>
-            <span
-              className={`inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${stateMeta.pillClass}`}
-            >
-              {state === 'open' && (
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                </span>
-              )}
-              {stateMeta.pill}
-            </span>
+            {(state === 'past' || state === 'locked') && (
+              <div
+                className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-background ${
+                  state === 'past' ? 'bg-emerald-600' : 'bg-foreground/40'
+                }`}
+              >
+                <StateIcon className="w-2.5 h-2.5 text-white" strokeWidth={3} />
+              </div>
+            )}
           </div>
-        </div>
 
-        {/* Expand/collapse affordance */}
-        <ChevronDown
-          className={`shrink-0 mt-1 w-4 h-4 text-muted-foreground transition-transform ${collapsed ? '-rotate-90' : ''}`}
-          strokeWidth={2}
-        />
-      </button>
+          {/* Title + state pill */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-sm tracking-tight ${stateMeta.titleClass}`}>
+                {workshop.name}
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${stateMeta.pillClass}`}
+              >
+                {state === 'open' && (
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  </span>
+                )}
+                {stateMeta.pill}
+              </span>
+            </div>
+          </div>
+        </button>
+
+        {/* Minimized quick-actions — schedule date + the next-up CTA, without
+            expanding the row. (Expanded rows show these in the footer.) */}
+        {collapsed && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            {workshop.openedAt ? (
+              <HeldOnPill openedAt={workshop.openedAt} />
+            ) : (
+              <DatePill
+                value={workshop.date}
+                placeholder={
+                  state === 'nextUp'
+                    ? t('orchestrator.cohort.scheduleDate', { defaultValue: 'Schedule date' })
+                    : t('orchestrator.cohort.addDate', { defaultValue: 'Add date' })
+                }
+                emphasis={state === 'nextUp' ? 'accent' : 'muted'}
+                disabled={disabled || state === 'locked'}
+                onSave={onUpdateDate}
+              />
+            )}
+            {state === 'nextUp' && (
+              <Button
+                size="sm"
+                disabled={disabled}
+                className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold whitespace-nowrap shadow-sm"
+                onClick={onOpenForCohort}
+                data-testid={`button-open-workshop-${index}`}
+              >
+                <Unlock className="w-3.5 h-3.5 mr-1" />
+                {t('orchestrator.cohort.openForCohort', { defaultValue: 'Open for cohort' })}
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Expand/collapse chevron */}
+        <button
+          type="button"
+          onClick={() => setCollapsed(c => !c)}
+          aria-label={collapsed ? 'Expand' : 'Collapse'}
+          className="shrink-0 mt-1 p-0.5"
+        >
+          <ChevronDown
+            className={`w-4 h-4 text-muted-foreground transition-transform ${collapsed ? '-rotate-90' : ''}`}
+            strokeWidth={2}
+          />
+        </button>
+      </div>
 
       {!collapsed && (<>
       {/* Body + footer — shown only when the row is expanded. State-driven
