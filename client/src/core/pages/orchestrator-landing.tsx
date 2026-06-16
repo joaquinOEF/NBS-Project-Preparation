@@ -180,9 +180,19 @@ const BAND_CHIP: Record<ReturnType<typeof maturityBand>, string> = {
 // distribution in that file (scores ~0..2.5+); colors progress from green to
 // red so the eye lands first on the urgent recruitment targets.
 // ---------------------------------------------------------------------------
-type RiskLayers = {
-  hotspots: boolean;     // composite_hotspot raster tiles
-  recruitZones: boolean; // bairro choropleth by priorityScore
+// The coordinator risk map shows ONE view at a time over the always-on bairro
+// outlines: a hazard RASTER overlay (flood / heat / landslide) or the
+// neighborhood RISK choropleth (composite priority). Exclusive — one at a time,
+// clicking the active one turns it off (just the outlines + CBO markers remain).
+type RiskView = 'flood' | 'heat' | 'landslide' | 'risk';
+
+// Hazard raster overlays, fed LIVE from the data catalog: flood = catalog
+// poa_flood_risk (H×E×V) via the tile proxy; heat / landslide = the local 250m
+// risk tiles. So a catalog update flows straight through to this map.
+const HAZARD_RASTER: Record<'flood' | 'heat' | 'landslide', { url: string; attribution: string }> = {
+  flood:     { url: '/api/geospatial/tiles/poa_flood_risk/{z}/{x}/{y}.png', attribution: 'OEF catalog · flood risk (H×E×V)' },
+  heat:      { url: '/tiles/heat_risk/{z}/{x}/{y}.png',                     attribution: 'OEF risk grid (250m)' },
+  landslide: { url: '/tiles/landslide_risk/{z}/{x}/{y}.png',               attribution: 'OEF risk grid (250m)' },
 };
 
 const PRIORITY_BANDS: Array<{ max: number; fill: string; label: string }> = [
@@ -197,6 +207,15 @@ function priorityFill(score: number): string {
   return PRIORITY_BANDS[PRIORITY_BANDS.length - 1].fill;
 }
 
+// Bairro polygon style: always outlined; filled by composite priority only in
+// the 'risk' view, otherwise transparent so the hazard raster reads underneath.
+function bairroStyle(feat: any, view: RiskView | null): L.PathOptions {
+  if (view === 'risk') {
+    return { color: '#ffffff', weight: 1, opacity: 0.9, fillColor: priorityFill(feat?.properties?.priorityScore ?? 0), fillOpacity: 0.55 };
+  }
+  return { color: '#475569', weight: 1, opacity: 0.85, fillOpacity: 0 };
+}
+
 // ---------------------------------------------------------------------------
 // Map panel — CartoDB Positron base + CBO markers + toggleable risk overlays
 // (composite hotspot raster, bairro choropleth). Selected state synced with
@@ -206,21 +225,25 @@ function MapPanel({
   projects,
   selectedId,
   onSelect,
-  layers,
+  activeRisk,
   onBairroClick,
 }: {
   projects: CboDemoProject[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
-  layers: RiskLayers;
+  activeRisk: RiskView | null;
   onBairroClick: (info: { name: string; primaryHazard: string; population: number; priorityScore: number }) => void;
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
-  const hotspotsLayerRef = useRef<L.TileLayer | null>(null);
+  const rasterLayerRef = useRef<L.TileLayer | null>(null);
   const recruitLayerRef = useRef<L.GeoJSON | null>(null);
   const neighborhoodCacheRef = useRef<any>(null);
+  // Latest activeRisk for the async layer-build closure (the bairro GeoJSON
+  // loads once; this lets the first build style itself for the current view).
+  const activeRiskRef = useRef(activeRisk);
+  useEffect(() => { activeRiskRef.current = activeRisk; }, [activeRisk]);
 
   // Stable refs for callbacks so adding/removing layers doesn't remount the map.
   const onSelectRef = useRef(onSelect);
@@ -278,7 +301,7 @@ function MapPanel({
       map.remove();
       mapInstanceRef.current = null;
       markersRef.current.clear();
-      hotspotsLayerRef.current = null;
+      rasterLayerRef.current = null;
       recruitLayerRef.current = null;
     };
     // Intentionally run once; projects is stable demo data.
@@ -294,78 +317,79 @@ function MapPanel({
     });
   }, [selectedId]);
 
-  // Toggle the hotspot raster layer.
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
-    if (layers.hotspots && !hotspotsLayerRef.current) {
-      hotspotsLayerRef.current = L.tileLayer('/tiles/composite_hotspot/{z}/{x}/{y}.png', {
-        opacity: 0.65,
-        maxNativeZoom: 14,
-        attribution: 'OEF risk grid (250m)',
-      }).addTo(map);
-    } else if (!layers.hotspots && hotspotsLayerRef.current) {
-      map.removeLayer(hotspotsLayerRef.current);
-      hotspotsLayerRef.current = null;
-    }
-  }, [layers.hotspots]);
-
-  // Toggle the bairro choropleth (priorityScore). GeoJSON loaded lazily +
-  // cached in a ref so repeat toggles are instant.
+  // Neighborhoods are ALWAYS shown — outlined bairro polygons under the markers.
+  // Built once from the zones JSON (cached). Styling reacts to activeRisk in a
+  // separate effect below (outline-only for a hazard raster; filled for 'risk').
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
     let cancelled = false;
 
-    if (layers.recruitZones && !recruitLayerRef.current) {
-      const buildLayer = (fc: any) => {
-        if (!mapInstanceRef.current || cancelled) return;
-        const layer = L.geoJSON(fc, {
-          style: (feat: any) => ({
-            color: '#ffffff',
-            weight: 1,
-            opacity: 0.85,
-            fillColor: priorityFill(feat?.properties?.priorityScore ?? 0),
-            fillOpacity: 0.5,
-          }),
-          onEachFeature: (feat: any, lyr: L.Layer) => {
-            const p = feat.properties || {};
-            const name: string = p.neighbourhoodName || 'Unknown';
-            const hazard: string = (p.primaryHazard || '').toString();
-            const pop: number = Math.round(p.populationTotal || 0);
-            const score: number = +p.priorityScore || 0;
-            const tipHtml = `<b>${name}</b><br/>${hazard ? hazard.toLowerCase() + ' risk · ' : ''}${pop.toLocaleString()} people<br/>priority ${score.toFixed(2)}`;
-            (lyr as L.Path).bindTooltip(tipHtml, { direction: 'top', className: 'orch-marker-tip', sticky: true });
-            lyr.on('click', () => onBairroClickRef.current({ name, primaryHazard: hazard, population: pop, priorityScore: score }));
-            lyr.on('mouseover', () => (lyr as L.Path).setStyle({ weight: 2.5, color: '#0f172a' }));
-            lyr.on('mouseout', () => (lyr as L.Path).setStyle({ weight: 1, color: '#ffffff' }));
-          },
-        });
-        layer.addTo(mapInstanceRef.current);
-        // Send the choropleth underneath the CBO markers so cards stay clickable.
-        layer.bringToBack();
-        recruitLayerRef.current = layer;
-      };
+    const buildLayer = (fc: any) => {
+      if (!mapInstanceRef.current || cancelled || recruitLayerRef.current) return;
+      const layer = L.geoJSON(fc, {
+        style: (feat: any) => bairroStyle(feat, activeRiskRef.current),
+        onEachFeature: (feat: any, lyr: L.Layer) => {
+          const p = feat.properties || {};
+          const name: string = p.neighbourhoodName || 'Unknown';
+          const hazard: string = (p.primaryHazard || '').toString();
+          const pop: number = Math.round(p.populationTotal || 0);
+          const score: number = +p.priorityScore || 0;
+          const tipHtml = `<b>${name}</b><br/>${hazard ? hazard.toLowerCase() + ' risk · ' : ''}${pop.toLocaleString()} people<br/>priority ${score.toFixed(2)}`;
+          (lyr as L.Path).bindTooltip(tipHtml, { direction: 'top', className: 'orch-marker-tip', sticky: true });
+          lyr.on('click', () => onBairroClickRef.current({ name, primaryHazard: hazard, population: pop, priorityScore: score }));
+          lyr.on('mouseover', () => (lyr as L.Path).setStyle({ weight: 2.5, color: '#0f172a' }));
+          lyr.on('mouseout', () => (lyr as L.Path).setStyle(bairroStyle(feat, activeRiskRef.current)));
+        },
+      });
+      layer.addTo(mapInstanceRef.current);
+      layer.bringToBack(); // under the CBO markers so cards stay clickable
+      recruitLayerRef.current = layer;
+    };
 
-      if (neighborhoodCacheRef.current) {
-        buildLayer(neighborhoodCacheRef.current);
-      } else {
-        fetch('/sample-data/porto-alegre-neighborhood-zones.json')
-          .then(r => r.ok ? r.json() : null)
-          .then(data => {
-            if (cancelled || !data?.geoJson) return;
-            neighborhoodCacheRef.current = data.geoJson;
-            buildLayer(data.geoJson);
-          })
-          .catch(() => {});
-      }
-    } else if (!layers.recruitZones && recruitLayerRef.current) {
-      map.removeLayer(recruitLayerRef.current);
-      recruitLayerRef.current = null;
+    if (neighborhoodCacheRef.current) {
+      buildLayer(neighborhoodCacheRef.current);
+    } else {
+      fetch('/sample-data/porto-alegre-neighborhood-zones.json')
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (cancelled || !data?.geoJson) return;
+          neighborhoodCacheRef.current = data.geoJson;
+          buildLayer(data.geoJson);
+        })
+        .catch(() => {});
     }
 
     return () => { cancelled = true; };
-  }, [layers.recruitZones]);
+  }, []);
+
+  // Restyle the always-on bairro layer when the view changes (fill on 'risk',
+  // outline-only otherwise). bringToBack keeps the raster/markers ordering right.
+  useEffect(() => {
+    const layer = recruitLayerRef.current;
+    if (!layer) return;
+    layer.setStyle((feat: any) => bairroStyle(feat, activeRisk));
+    layer.bringToBack();
+  }, [activeRisk]);
+
+  // Exclusive hazard raster overlay (flood / heat / landslide). Swaps on change;
+  // removed entirely for the 'risk' choropleth view or when nothing is active.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (rasterLayerRef.current) {
+      map.removeLayer(rasterLayerRef.current);
+      rasterLayerRef.current = null;
+    }
+    if (activeRisk && activeRisk !== 'risk') {
+      const cfg = HAZARD_RASTER[activeRisk];
+      rasterLayerRef.current = L.tileLayer(cfg.url, {
+        opacity: 0.6,
+        maxNativeZoom: 14,
+        attribution: cfg.attribution,
+      }).addTo(map);
+    }
+  }, [activeRisk]);
 
   return (
     <div className="relative h-[420px] md:h-full w-full overflow-hidden rounded-xl border border-foreground/10 bg-muted">
@@ -375,49 +399,55 @@ function MapPanel({
 }
 
 // ---------------------------------------------------------------------------
-// Layer controls — small overlay top-right of the map. Toggles each risk
-// overlay; expands to show a band legend when the choropleth is on.
+// Risk view controls — overlay top-right of the map. FOUR exclusive views over
+// the always-on neighborhoods: Flood / Heat / Landslide hazard rasters + the
+// composite Risk-by-neighborhood choropleth. One at a time; click the active to
+// turn it off. Legend adapts to the active view.
 // ---------------------------------------------------------------------------
 function MapLayerControls({
-  layers,
+  active,
   onChange,
 }: {
-  layers: RiskLayers;
-  onChange: (next: RiskLayers) => void;
+  active: RiskView | null;
+  onChange: (next: RiskView | null) => void;
 }) {
   const { t } = useTranslation();
+  const VIEWS: Array<{ id: RiskView; label: string; dot: string }> = [
+    { id: 'flood',     label: t('orchestrator.map.flood', { defaultValue: 'Flood hazard' }),         dot: '#2563eb' },
+    { id: 'heat',      label: t('orchestrator.map.heat', { defaultValue: 'Heat hazard' }),           dot: '#dc2626' },
+    { id: 'landslide', label: t('orchestrator.map.landslide', { defaultValue: 'Landslide hazard' }), dot: '#a16207' },
+    { id: 'risk',      label: t('orchestrator.map.riskByBairro', { defaultValue: 'Risk by neighborhood' }), dot: '#8b5cf6' },
+  ];
   return (
-    <div className="absolute top-3 right-3 z-[400] rounded-lg border border-foreground/10 bg-background/90 backdrop-blur-sm px-3 py-2.5 shadow-md text-xs space-y-1.5 w-[200px]">
-      <div className="font-medium text-foreground/80 uppercase tracking-wide text-[10px]">
-        {t('orchestrator.map.riskOverlays', { defaultValue: 'Risk overlays' })}
+    <div className="absolute top-3 right-3 z-[400] rounded-lg border border-foreground/10 bg-background/90 backdrop-blur-sm px-2.5 py-2 shadow-md text-xs w-[196px]">
+      <div className="font-medium text-foreground/80 uppercase tracking-wide text-[10px] px-0.5 pb-1.5">
+        {t('orchestrator.map.riskView', { defaultValue: 'Risk view' })}
       </div>
-      <label className="flex items-center gap-2 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={layers.recruitZones}
-          onChange={(e) => onChange({ ...layers, recruitZones: e.target.checked })}
-          className="h-3.5 w-3.5 accent-red-500"
-          data-testid="toggle-recruit-zones"
-        />
-        <span className="text-foreground/90">
-          {t('orchestrator.map.recruitZones', { defaultValue: 'Recruit zones (bairros)' })}
-        </span>
-      </label>
-      <label className="flex items-center gap-2 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={layers.hotspots}
-          onChange={(e) => onChange({ ...layers, hotspots: e.target.checked })}
-          className="h-3.5 w-3.5 accent-amber-500"
-          data-testid="toggle-hotspots"
-        />
-        <span className="text-foreground/90">
-          {t('orchestrator.map.hotspots', { defaultValue: 'Hazard hotspots (250m)' })}
-        </span>
-      </label>
+      <div className="space-y-1">
+        {VIEWS.map(v => {
+          const on = active === v.id;
+          return (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => onChange(on ? null : v.id)}
+              aria-pressed={on}
+              data-testid={`risk-view-${v.id}`}
+              className={`w-full flex items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors ${
+                on
+                  ? 'border-foreground/30 bg-foreground/[0.06] text-foreground font-medium shadow-sm'
+                  : 'border-foreground/10 text-foreground/70 hover:bg-foreground/[0.04]'
+              }`}
+            >
+              <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: v.dot }} />
+              <span className="leading-tight">{v.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
-      {layers.recruitZones && (
-        <div className="pt-1.5 mt-1 border-t border-foreground/5 space-y-0.5">
+      {active === 'risk' && (
+        <div className="pt-1.5 mt-1.5 border-t border-foreground/5 space-y-0.5">
           <div className="text-[9px] uppercase tracking-wide text-muted-foreground">
             {t('orchestrator.map.priorityScore', { defaultValue: 'Priority score' })}
           </div>
@@ -431,6 +461,18 @@ function MapLayerControls({
               </span>
             </div>
           ))}
+        </div>
+      )}
+      {active && active !== 'risk' && (
+        <div className="pt-1.5 mt-1.5 border-t border-foreground/5">
+          <div className="text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
+            {t('orchestrator.map.intensity', { defaultValue: 'Risk intensity' })}
+          </div>
+          <div className="h-2 rounded-full" style={{ background: 'linear-gradient(to right, #fef3c7, #fb923c, #b91c1c)' }} />
+          <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5">
+            <span>{t('orchestrator.map.low', { defaultValue: 'low' })}</span>
+            <span>{t('orchestrator.map.high', { defaultValue: 'high' })}</span>
+          </div>
         </div>
       )}
     </div>
@@ -627,7 +669,9 @@ export default function OrchestratorLandingPage() {
   const locale: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [riskLayers, setRiskLayers] = useState<RiskLayers>({ hotspots: false, recruitZones: false });
+  // Active risk view on the coordinator map (one at a time). Defaults to flood —
+  // the primary POA hazard — so the map lands on something meaningful.
+  const [activeRisk, setActiveRisk] = useState<RiskView | null>('flood');
 
   // Phase 3c-ii — require a coordinator session. On 401, bounce to login.
   // `authed`: null = checking, false = redirecting, true = render the dashboard.
@@ -961,10 +1005,10 @@ export default function OrchestratorLandingPage() {
                 projects={projects}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
-                layers={riskLayers}
+                activeRisk={activeRisk}
                 onBairroClick={handleBairroClick}
               />
-              <MapLayerControls layers={riskLayers} onChange={setRiskLayers} />
+              <MapLayerControls active={activeRisk} onChange={setActiveRisk} />
             </div>
           </div>
 
