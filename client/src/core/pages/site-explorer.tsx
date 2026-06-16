@@ -37,7 +37,7 @@ import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
 import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS } from '@shared/geospatial-layers';
-import { riskBand, pct100, dominantPercentile, hazardPercentile, riskAnchor, type HazardKey } from '@shared/risk-display';
+import { riskBand, pct100, dominantPercentile, hazardPercentile, riskAnchor, TYPOLOGY_COLORS, type HazardKey } from '@shared/risk-display';
 import { LayerLegend } from '@/core/components/map/LayerLegend';
 import type { LegendIndex } from '@shared/legend-types';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
@@ -191,15 +191,8 @@ const INTERVENTION_COLORS: Record<string, string> = {
   multi_benefit: '#10b981',
 };
 
-const TYPOLOGY_COLORS: Record<string, string> = {
-  FLOOD: '#3b82f6',
-  HEAT: '#ef4444',
-  LANDSLIDE: '#a16207',
-  FLOOD_HEAT: '#8b5cf6',
-  FLOOD_LANDSLIDE: '#0891b2',
-  HEAT_LANDSLIDE: '#db2777',
-  LOW: '#10b981',
-};
+// TYPOLOGY_COLORS now lives in shared/risk-display.ts (imported above) so the
+// coordinator risk map renders zones identically. Values unchanged.
 
 interface InterventionCategory {
   id: string;

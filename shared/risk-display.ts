@@ -16,6 +16,25 @@
 
 export type HazardKey = 'flood' | 'heat' | 'landslide';
 
+// Zone-typology hue, keyed by a zone's `typologyLabel` (the dominant hazard or
+// hazard-combo). Shared by the site-explorer map + the coordinator risk map so
+// the "zone priority" coloring can't drift between them. Pair the hue (which
+// risk) with `zoneRiskOpacity` (how intense) for the full encoding.
+export const TYPOLOGY_COLORS: Record<string, string> = {
+  FLOOD: '#3b82f6',
+  HEAT: '#ef4444',
+  LANDSLIDE: '#a16207',
+  FLOOD_HEAT: '#8b5cf6',
+  FLOOD_LANDSLIDE: '#0891b2',
+  HEAT_LANDSLIDE: '#db2777',
+  LOW: '#10b981',
+};
+
+/** Zone fill opacity from a 0..1 normalized risk: faint (low) → solid (high). */
+export function zoneRiskOpacity(normalizedRisk: number): number {
+  return 0.08 + Math.max(0, Math.min(1, normalizedRisk)) * 0.57;
+}
+
 export interface RiskBand {
   key: 'very_low' | 'low' | 'moderate' | 'high' | 'very_high';
   label: string;   // English fallback; UI should translate via `riskBands.${key}`
