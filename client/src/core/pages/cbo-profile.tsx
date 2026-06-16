@@ -1362,7 +1362,18 @@ export default function CboProfilePage() {
                     formData.append('file', file);
                     fetch(`/api/upload/cbo/${cboId}`, { method: 'POST', body: formData })
                       .then(r => r.json())
-                      .then(data => sendMessage(`I'm uploading: "${file.name}".\n\nParsed content:\n${(data.content || '').slice(0, 8000)}\n\nPlease extract info, auto-fill sections, and score maturity.`))
+                      .then(data => {
+                        // Gap 4 — link a site photo to the chosen site (best-effort;
+                        // the server no-ops until a site exists). Images only.
+                        if (file.type.startsWith('image/') && data.savedPath && memberSlug) {
+                          fetch(`/api/cbo-member/${memberSlug}/site/photo`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ path: data.savedPath }),
+                          }).catch(() => {});
+                        }
+                        sendMessage(`I'm uploading: "${file.name}".\n\nParsed content:\n${(data.content || '').slice(0, 8000)}\n\nPlease extract info, auto-fill sections, and score maturity.`);
+                      })
                       .catch(() => sendMessage(`Uploaded "${file.name}" but could not parse.`));
                   }
                   e.target.value = '';
@@ -1522,6 +1533,26 @@ export default function CboProfilePage() {
                     params={openMapParams}
                     onConfirm={(result: MapSelectionResult) => {
                       const message = formatMapResult(result);
+                      // Gap 1 — persist the chosen site as STRUCTURED data, not just
+                      // a chat string. The intervention site is the last non-zone
+                      // asset; the zone (if any) gives the neighborhood.
+                      const siteAsset = [...result.selectedAssets].reverse().find(a => a.type !== 'zone');
+                      const zoneAsset = result.selectedAssets.find(a => a.type === 'zone');
+                      if (siteAsset && memberSlug) {
+                        const poly = siteAsset.geometry?.type === 'Polygon' ? siteAsset.geometry : null;
+                        fetch(`/api/cbo-member/${memberSlug}/site`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            name: siteAsset.name,
+                            kind: siteAsset.type,
+                            coordinates: siteAsset.coordinates,
+                            geometry: siteAsset.geometry ?? null,
+                            source: (siteAsset.properties as any)?.source ?? siteAsset.source ?? null,
+                            neighborhood: zoneAsset?.name ?? null,
+                          }),
+                        }).catch(() => {});
+                      }
                       if (currentQuestion) handleSelectOption(message); else sendMessage(message);
                       setOpenMapParams(null);
                       setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');

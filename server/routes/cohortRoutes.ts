@@ -11,6 +11,7 @@ import {
   type SupportRequest,
   type SupportRequestType,
   type WorkshopConfig,
+  type MemberSite,
 } from '@shared/cohort-schema';
 import { createOrganization, linkCboStateToOrg } from '../services/orgPersistence';
 import {
@@ -150,6 +151,7 @@ async function buildMemberPayload(member: typeof cohortMembers.$inferSelect) {
     unlockedPhases: unlocked,
     cboStateId: member.cboStateId,
     cohort: cohort ? { id: cohort.id, name: cohort.name, language: (cohort.settings as CohortSettings | null)?.language ?? null } : null,
+    site: (member.site as MemberSite | null) ?? null,
     workshops,
     nextWorkshop,
     focusWorkshop,
@@ -639,5 +641,53 @@ export function registerCohortRoutes(app: Express): void {
         (e: any) => console.error('[cohort] link cbo_state→org failed:', e?.message || e));
     }
     res.json({ ok: true });
+  }));
+
+  // CBO commits its chosen intervention site (E2). Stores the STRUCTURED site —
+  // GeoJSON geometry + coordinates + name — instead of letting the drawn shape
+  // dissolve into a chat string. Preserves any already-attached photos.
+  app.put('/api/cbo-member/:memberSlug/site', wrap(async (req, res) => {
+    const member = await findMemberBySlug(req.params.memberSlug);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+
+    const b = req.body ?? {};
+    const coords = Array.isArray(b.coordinates) && b.coordinates.length === 2
+      ? [Number(b.coordinates[0]), Number(b.coordinates[1])] as [number, number]
+      : null;
+    if (!b.name || !coords || coords.some((n: number) => !Number.isFinite(n))) {
+      res.status(400).json({ error: 'name and [lat,lng] coordinates required' });
+      return;
+    }
+    const prev = (member.site as MemberSite | null) ?? null;
+    const site: MemberSite = {
+      name: String(b.name),
+      kind: b.kind === 'osm' || b.kind === 'zone' ? b.kind : 'custom',
+      coordinates: coords,
+      geometry: b.geometry && (b.geometry.type === 'Point' || b.geometry.type === 'Polygon')
+        ? { type: b.geometry.type, coordinates: b.geometry.coordinates } : null,
+      source: typeof b.source === 'string' ? b.source : null,
+      areaM2: typeof b.areaM2 === 'number' ? b.areaM2 : null,
+      neighborhood: typeof b.neighborhood === 'string' ? b.neighborhood : (member.neighborhood ?? null),
+      photos: prev?.photos ?? [], // keep photos attached before the site was (re)saved
+      savedAt: new Date().toISOString(),
+    };
+    await db.update(cohortMembers).set({ site }).where(eq(cohortMembers.id, member.id));
+    res.json({ site });
+  }));
+
+  // Link an uploaded photo to the chosen site (E2). Appends a file path to
+  // member.site.photos so site photos are associated, not just dumped in the
+  // flat per-CBO upload list. No-op (409) until a site exists.
+  app.post('/api/cbo-member/:memberSlug/site/photo', wrap(async (req, res) => {
+    const member = await findMemberBySlug(req.params.memberSlug);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const path = req.body?.path;
+    if (!path || typeof path !== 'string') { res.status(400).json({ error: 'path required' }); return; }
+    const site = (member.site as MemberSite | null);
+    if (!site) { res.status(409).json({ error: 'no site selected yet' }); return; }
+    if (site.photos.includes(path)) { res.json({ site }); return; } // idempotent
+    const next: MemberSite = { ...site, photos: [...site.photos, path].slice(-20) };
+    await db.update(cohortMembers).set({ site: next }).where(eq(cohortMembers.id, member.id));
+    res.json({ site: next });
   }));
 }

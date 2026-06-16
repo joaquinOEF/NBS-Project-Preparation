@@ -49,6 +49,23 @@ export type SupportRequest = {
   resolvedNote: string | null;
 };
 
+// The CBO's chosen intervention site (E2 / Workshop 2). Persisted as STRUCTURED
+// data — previously the map selection was flattened into a chat string and the
+// drawn geometry was lost. `geometry` is the GeoJSON point/polygon; `photos`
+// are file paths of site photos the CBO uploaded (linked here, not just dumped
+// in the flat upload list).
+export type MemberSite = {
+  name: string;
+  kind: 'osm' | 'custom' | 'zone';           // how it was chosen
+  coordinates: [number, number];             // [lat, lng] centroid
+  geometry: { type: 'Point' | 'Polygon'; coordinates: any } | null;
+  source?: string | null;                    // e.g. 'osm_parks', 'user-added'
+  areaM2?: number | null;                    // for drawn polygons
+  neighborhood?: string | null;
+  photos: string[];                          // uploaded site-photo file paths
+  savedAt: string;                           // ISO timestamp
+};
+
 export const cohorts = pgTable('cohorts', {
   id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
   coordinatorSlug: text('coordinator_slug').notNull().unique(),
@@ -103,6 +120,10 @@ export const cohortMembers = pgTable('cohort_members', {
   snapshotFlagsMet: integer('snapshot_flags_met'),
   snapshotIntervention: text('snapshot_intervention'),
   snapshotUpdatedAt: timestamp('snapshot_updated_at'),
+
+  // The chosen intervention site (E2). Structured GeoJSON + photos, so the
+  // geometry the CBO drew/picked survives instead of being lost to a chat string.
+  site: jsonb('site').$type<MemberSite | null>(),
 });
 
 export type Cohort = typeof cohorts.$inferSelect;
