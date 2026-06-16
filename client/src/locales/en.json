@@ -1728,7 +1728,9 @@
       "record": "Speak your answer",
       "stop": "Stop recording",
       "recording": "Recording… tap to stop",
-      "transcribing": "Transcribing…"
+      "transcribing": "Transcribing…",
+      "sending": "sending…",
+      "cancel": "Cancel"
     },
     "interventionProfile": "Intervention Profile",
     "scorecard": {

@@ -6,12 +6,13 @@ import { test, expect } from '@playwright/test';
 // risk surface, which has no key dependency:
 //   • the mic button renders and toggles (tap-to-start / tap-to-stop),
 //   • MediaRecorder actually records and POSTs an audio blob to /transcribe,
-//   • the returned transcript lands in the input box for REVIEW,
-//   • it is NOT auto-sent (no turn fires, no user bubble appears).
+//   • on stop the transcript AUTO-SENDS after a short undo window,
+//   • cancelling the undo window keeps the text in the box instead (recovery).
 //
 // Chromium gets a synthetic mic via --use-fake-device-for-media-stream, and we
 // stub the /transcribe response in the browser (route interception) so no model
-// key is needed and the assertion is deterministic.
+// key is needed and the assertion is deterministic. The chat turn itself runs
+// against the deterministic fake model (CBO_FAKE_MODEL=1).
 
 const STUB_TRANSCRIPT = 'Somos a Horta Comunitária Cascata, do bairro Cascata.';
 
@@ -23,64 +24,68 @@ test.use({
   permissions: ['microphone'],
 });
 
-test.describe('CBO voice input (fake mic + stubbed transcription)', () => {
-  test('record → stop → transcript fills the input for review, not auto-sent', async ({ page }) => {
-    // Stub the transcription endpoint IN THE BROWSER so we never need a real key.
-    // Capture the request to prove the client actually uploaded recorded audio.
-    let postedAudioBytes = 0;
-    let transcribeHits = 0;
-    await page.route('**/api/cbo/*/transcribe', async (route) => {
-      transcribeHits++;
-      postedAudioBytes = route.request().postDataBuffer()?.length ?? 0;
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ text: STUB_TRANSCRIPT }),
-      });
-    });
+async function stubTranscribe(page: import('@playwright/test').Page) {
+  const probe = { hits: 0, bytes: 0 };
+  await page.route('**/api/cbo/*/transcribe', async (route) => {
+    probe.hits++;
+    probe.bytes = route.request().postDataBuffer()?.length ?? 0;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: STUB_TRANSCRIPT }) });
+  });
+  return probe;
+}
 
+async function recordOnce(page: import('@playwright/test').Page) {
+  const mic = page.getByTestId('button-cbo-voice');
+  await expect(mic).toBeVisible();
+  await mic.click();                                   // tap to start
+  await expect(mic).toHaveAttribute('aria-label', /stop|parar/i);
+  await page.waitForTimeout(2000);                     // record enough to clear the silence guard
+  await mic.click();                                   // tap to stop → transcribe → undo window
+}
+
+test.describe('CBO voice input (fake mic + stubbed transcription)', () => {
+  test('record → stop → auto-sends after the undo window (marked as voice)', async ({ page }) => {
+    const probe = await stubTranscribe(page);
     await page.goto('/cbo-profile');
     const marker = page.getByTestId('cbo-stream-status');
     await expect(marker).toHaveAttribute('data-cbo-id', /.+/);
-
-    const mic = page.getByTestId('button-cbo-voice');
-    const input = page.getByTestId('cbo-chat-input');
-    // The button only renders when the browser supports MediaRecorder — which
-    // Chromium does, so it must be here.
-    await expect(mic).toBeVisible();
-    await expect(input).toHaveValue('');
     await expect(marker).toHaveAttribute('data-turns', '0');
 
-    // Tap to start. getUserMedia resolves against the fake device, MediaRecorder
-    // starts → the button flips to its "stop" affordance.
-    await mic.click();
-    await expect(mic).toHaveAttribute('aria-label', /stop|parar/i);
+    await recordOnce(page);
 
-    // Record long enough to clear the client's tiny-blob (silence) guard.
-    await page.waitForTimeout(2000);
+    // The undo window appears with the transcript + a cancel button.
+    await expect(page.getByTestId('cbo-voice-pending')).toBeVisible();
+    await expect(page.getByTestId('cbo-voice-pending')).toContainText(STUB_TRANSCRIPT);
 
-    // Tap to stop → onstop builds the blob and POSTs it to /transcribe (stubbed),
-    // then the transcript is appended to the input. Wait for that to land.
-    await mic.click();
-    await expect(input).toHaveValue(STUB_TRANSCRIPT, { timeout: 15_000 });
-
-    // It went into the box for REVIEW — it was NOT sent. No turn fired, and no
-    // user message bubble with the transcript exists.
-    await expect(marker).toHaveAttribute('data-turns', '0');
-    await expect(page.locator('.bg-green-600', { hasText: STUB_TRANSCRIPT })).toHaveCount(0);
+    // Left untouched, it auto-sends: the transcript shows as a sent user bubble
+    // and a turn fires (the fake model answers). The undo bar goes away.
+    await expect(page.locator('.bg-green-600', { hasText: STUB_TRANSCRIPT })).toBeVisible({ timeout: 15_000 });
+    await expect(marker).toHaveAttribute('data-turns', '1', { timeout: 30_000 });
+    await expect(page.getByTestId('cbo-voice-pending')).toHaveCount(0);
 
     // The client genuinely uploaded recorded audio (not an empty/sham blob).
-    expect(transcribeHits).toBe(1);
-    expect(postedAudioBytes, 'recorded audio should be a non-trivial multipart upload').toBeGreaterThan(1200);
+    expect(probe.hits).toBe(1);
+    expect(probe.bytes, 'recorded audio should be a non-trivial multipart upload').toBeGreaterThan(1200);
+  });
 
-    // The mic returned to idle (ready to record again).
-    await expect(mic).toHaveAttribute('aria-label', /record|gravar/i);
+  test('cancel during the undo window keeps the text in the box, does not send', async ({ page }) => {
+    await stubTranscribe(page);
+    await page.goto('/cbo-profile');
+    const marker = page.getByTestId('cbo-stream-status');
+    await expect(marker).toHaveAttribute('data-cbo-id', /.+/);
+    await expect(marker).toHaveAttribute('data-turns', '0');
 
-    // And the user can still edit + send normally from here: the transcript is
-    // just prefilled text. Append a word and confirm the composer accepts it.
-    await input.click();
-    await input.press('End');
-    await input.type(' Obrigada!');
-    await expect(input).toHaveValue(`${STUB_TRANSCRIPT} Obrigada!`);
+    await recordOnce(page);
+
+    // Cancel before the countdown elapses → transcript drops into the input,
+    // nothing is sent.
+    await expect(page.getByTestId('cbo-voice-pending')).toBeVisible();
+    await page.getByTestId('button-cbo-voice-cancel').click();
+
+    await expect(page.getByTestId('cbo-chat-input')).toHaveValue(STUB_TRANSCRIPT);
+    await expect(page.getByTestId('cbo-voice-pending')).toHaveCount(0);
+    await expect(marker).toHaveAttribute('data-turns', '0');
+    // Not sent as a bubble either.
+    await expect(page.locator('.bg-green-600', { hasText: STUB_TRANSCRIPT })).toHaveCount(0);
   });
 });
