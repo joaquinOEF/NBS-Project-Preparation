@@ -153,9 +153,23 @@ function migrateCboState(state: CboState): CboState {
   return state;
 }
 
-function getSavedId(): string | null { try { return localStorage.getItem(STORAGE_KEY); } catch { return null; } }
-function saveId(id: string) { try { localStorage.setItem(STORAGE_KEY, id); } catch {} }
-function clearId() { try { localStorage.removeItem(STORAGE_KEY); } catch {} }
+// Cached-session key is SCOPED to the invite token. Otherwise a single global
+// 'cbo-session-id' key collides across invites on the same device: open a new
+// invite (?t=tokenB) on a phone that already has org A's session cached and the
+// chat resumes A's conversation instead of starting B's. Per-token keys keep
+// each invited org's session separate; the standalone /cbo-profile flow (no
+// token) keeps the plain key. (The member's server-side cboStateId remains the
+// cross-device source of truth via the snapshot binding.)
+function sessionStorageKey(): string {
+  try {
+    const p = new URLSearchParams(window.location.search);
+    const ref = p.get('t') || p.get('cbo');
+    return ref ? `${STORAGE_KEY}:${ref}` : STORAGE_KEY;
+  } catch { return STORAGE_KEY; }
+}
+function getSavedId(): string | null { try { return localStorage.getItem(sessionStorageKey()); } catch { return null; } }
+function saveId(id: string) { try { localStorage.setItem(sessionStorageKey(), id); } catch {} }
+function clearId() { try { localStorage.removeItem(sessionStorageKey()); } catch {} }
 function getSavedMapParams(): OpenMapParams | null { try { const s = sessionStorage.getItem(MAP_PARAMS_KEY); return s ? JSON.parse(s) : null; } catch { return null; } }
 function saveMapParams(p: OpenMapParams | null) { try { if (p) sessionStorage.setItem(MAP_PARAMS_KEY, JSON.stringify(p)); else sessionStorage.removeItem(MAP_PARAMS_KEY); } catch {} }
 
