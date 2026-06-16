@@ -110,21 +110,15 @@ const heatIndexEncoding = (component: string): ValueTileEncoding => ({
   urlTemplate: `${HEAT_INDEX_BASE}/${component}/tiles_values/{z}/{x}/{y}.png`,
 });
 
+// Only HAZARD (the gap-free overlay) is shipped + RISK (the H×E×V card in
+// LOCAL_RISK_LAYERS). The exposure/vulnerability component tiles are intentionally
+// NOT exposed — risk already folds E and V in, and the standalone E/V tiles add
+// no decision value (and 403 outside the deploy network).
 export const HEAT_INDEX_LAYERS: TileLayerDef[] = [
   {
     id: 'poa_heat_hazard', name: 'Heat Hazard', group: 'heat_indices', color: '#ea580c',
     tileLayerId: 'poa_heat_hazard', available: true, hasValueTiles: true,
     valueEncoding: heatIndexEncoding('hazard'),
-  },
-  {
-    id: 'poa_heat_exposure', name: 'Heat Exposure', group: 'heat_indices', color: '#dc2626',
-    tileLayerId: 'poa_heat_exposure', available: true, hasValueTiles: true,
-    valueEncoding: heatIndexEncoding('exposure'),
-  },
-  {
-    id: 'poa_heat_vulnerability', name: 'Heat Vulnerability', group: 'heat_indices', color: '#db2777',
-    tileLayerId: 'poa_heat_vulnerability', available: true, hasValueTiles: true,
-    valueEncoding: heatIndexEncoding('vulnerability'),
   },
 ];
 
