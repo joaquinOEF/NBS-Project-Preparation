@@ -38,7 +38,15 @@ export default defineConfig({
     extraHTTPHeaders: process.env.TEST_API_SECRET ? { 'x-test-secret': process.env.TEST_API_SECRET } : {},
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Default deterministic suite — desktop Chromium. Skips the mobile-layout
+    // spec (which needs the WebKit/iPhone project below).
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /cbo-mobile-layout/ },
+    // Mobile layout harness — WebKit (Safari's engine) at an iPhone viewport, the
+    // closest headless approximation of the real iOS Safari the CBOs use. Only
+    // runs the mobile-layout spec. Catches structural breakage (doubled bars,
+    // horizontal overflow, unpinned bottom bar, page-level scroll); the purely
+    // dynamic iOS chrome (address-bar collapse) still needs a real device.
+    { name: 'webkit-mobile', use: { ...devices['iPhone 14 Pro'] }, testMatch: /cbo-mobile-layout/ },
   ],
   // Manage a local server ONLY when not pointed at a remote preview. The flags
   // turn on the test API + deterministic fake model for this process; a

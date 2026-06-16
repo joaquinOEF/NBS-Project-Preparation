@@ -384,6 +384,7 @@ export default function CboProfilePage() {
   useEffect(() => {
     const root = document.documentElement;
     const body = document.body;
+    const mount = document.getElementById('root');
     const setVH = () => {
       const h = window.visualViewport?.height ?? window.innerHeight;
       root.style.setProperty('--cbo-vh', `${Math.round(h)}px`);
@@ -395,18 +396,24 @@ export default function CboProfilePage() {
     window.addEventListener('orientationchange', setVH);
     window.addEventListener('resize', setVH);
 
-    // Lock document scroll (the chat shell + its inner scrollers own scrolling).
+    // Lock document scroll the GENTLE way — overflow:hidden + full height on the
+    // scroll chain (html → body → #root). NOT `position: fixed` on body: that
+    // makes iOS Safari leave ghost copies of fixed elements during momentum
+    // scroll (doubled composer/tab bar) and paint black where body falls short.
+    // With the page unable to scroll, the chrome can't move and the shell's
+    // inner message list owns all scrolling.
     const prev = {
       htmlOverflow: root.style.overflow, htmlHeight: root.style.height,
       bodyOverflow: body.style.overflow, bodyHeight: body.style.height,
-      bodyPosition: body.style.position, bodyWidth: body.style.width,
+      bodyOverscroll: body.style.overscrollBehavior,
+      mountHeight: mount?.style.height ?? '', mountOverflow: mount?.style.overflow ?? '',
     };
     root.style.overflow = 'hidden';
     root.style.height = '100%';
     body.style.overflow = 'hidden';
     body.style.height = '100%';
-    body.style.position = 'fixed';
-    body.style.width = '100%';
+    body.style.overscrollBehavior = 'none';
+    if (mount) { mount.style.height = '100%'; mount.style.overflow = 'hidden'; }
 
     return () => {
       vv?.removeEventListener('resize', setVH);
@@ -418,8 +425,8 @@ export default function CboProfilePage() {
       root.style.height = prev.htmlHeight;
       body.style.overflow = prev.bodyOverflow;
       body.style.height = prev.bodyHeight;
-      body.style.position = prev.bodyPosition;
-      body.style.width = prev.bodyWidth;
+      body.style.overscrollBehavior = prev.bodyOverscroll;
+      if (mount) { mount.style.height = prev.mountHeight; mount.style.overflow = prev.mountOverflow; }
     };
   }, []);
 
