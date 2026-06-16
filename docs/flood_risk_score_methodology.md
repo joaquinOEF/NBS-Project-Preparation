@@ -122,10 +122,17 @@ If `min == max`, the normalized series is set to 0.
 ### 4.1 Exposure (`exposure_score`)
 
 ```text
-exposure_score = minmax_norm(total_population)
+population_density = total_population / area_km²   (SIRGAS 2000 / UTM 22S polygon area)
+exposure_score     = minmax_norm(population_density)
 ```
 
-Higher score = more population relative to other POA neighborhoods with census rows.
+**Population density is used instead of total population** to avoid a systematic size bias: larger bairros tend to have more absolute inhabitants simply because they cover more area, not because they are more intensely occupied. Density better reflects the number of people present per unit of hazard area — which is what matters when each 250 m hazard pixel is paired with a bairro exposure value.
+
+Higher score = higher population density relative to other POA neighborhoods.
+
+**Known limitation — area denominator:** The polygon area used in the denominator includes **all land use types**: parks, water bodies, industrial zones, and uninhabited green belts. This can underestimate real residential density in bairros with large non-residential areas (e.g., a bairro containing a major park will appear less dense than its actual residential fabric would suggest).
+
+**Planned improvement:** Replace total polygon area with **built-up or residential footprint area** (e.g., Global Human Settlement Layer, OpenStreetMap building footprints, or IBGE urban area polygons) to obtain a net residential density that excludes non-inhabited land from the denominator. This would provide a more accurate representation of where people actually live within each bairro.
 
 ### 4.2 Vulnerability (`vulnerability_score`)
 
@@ -237,10 +244,18 @@ Barrios with **no** valid hazard pixels in the grid receive **no** row in the ag
 
 | File | Description |
 |------|-------------|
-| `data/output/flood_exposure_poa.tif` | `E` on hazard grid |
-| `data/output/flood_vulnerability_poa.tif` | `V` on hazard grid |
 | `data/output/flood_risk_score_poa.tif` | `R` on hazard grid |
-| `data/output/flood_risk_by_neighbourhood.csv` | Barrio-level summary statistics |
+| `data/output/flood_risk_score_poa.gpkg` | Barrio-level summary (H mean, E, V, R) |
+
+**Shared E/V outputs** (generated once by `shared/compute_ev.ipynb`, not per-hazard):
+
+| File | Description |
+|------|-------------|
+| `shared/output/poa_ev_normalized.gpkg` | Canonical bairro-level E (density) and V scores |
+| `shared/output/poa_exposure_250m.tif` | E rasterized on canonical 250 m grid |
+| `shared/output/poa_vulnerability_250m.tif` | V rasterized on canonical 250 m grid |
+| `shared/output/exposure/` | COG + XYZ tiles for E |
+| `shared/output/vulnerability/` | COG + XYZ tiles for V |
 
 ---
 
@@ -262,6 +277,7 @@ Barrios with **no** valid hazard pixels in the grid receive **no** row in the ag
 
 1. **Not full IPCC risk:** no separate adaptive capacity term; vulnerability is a simplified **age-only** social index.
 2. **Poverty omitted from V:** household poverty is not available in Censo 2022 bairro aggregates; reintroducing it would require a different IBGE table, SIDRA micro-aggregation, or an external socioeconomic layer — and would reintroduce coverage gaps for newer barrios if 2010 poverty were used.
+3. **Area denominator in E:** Population density uses total polygon area, which includes parks, water bodies, and industrial zones. Bairros with large non-residential areas may have underestimated density scores. Planned improvement: use built-up or residential footprint area as denominator.
 3. **Hazard limits spatial extent of R:** where `H` is nodata (outside partial hazard mask), `R` is undefined even if E/V exist on land cells.
 4. **Fluvial hazard bias:** `H` emphasizes river flood products; pluvial-only or drainage-driven flooding is not explicitly modeled (see hazard methodology §9.6).
 5. **Expected mismatch with event footprints:** May 2024 observed inundation can extend beyond fluvial hazard corridors; 100% agreement with event maps is not expected.
@@ -316,11 +332,27 @@ Hazard validation (SkySat footprint, EMSN194 depth) is documented in `flood_haza
 
 ## 15) Workflow summary (implementation order)
 
-1. Load Censo 2022 population and age CSVs; **do not** join income for V.  
-2. Normalize E (population) and V (vulnerable age %) at neighborhood level.  
-3. Join to polygons; filter complete cases (`dropna` on E and V).  
-4. Burn E and V to hazard grid.  
-5. Compute `R = (H*E*V)^(1/3)` on valid pixels.  
-6. Aggregate to barrio statistics and export.
+1. Run `shared/compute_ev.ipynb` *(once, or when CSVs/boundaries change)*:
+   - Compute polygon area (km²) from IBGE 2022 boundaries
+   - Compute population density = total_population / area_km²
+   - Normalize E (density) and V (vulnerable age %) across POA
+   - Save `poa_ev_normalized.gpkg`, canonical rasters, and tiles
+2. Run `flood_hazard_score_v2.ipynb` → `flood_hazard_score_idw_poa.tif`
+3. Run `flood_risk_score.ipynb`:
+   - Load E/V from `poa_ev_normalized.gpkg`
+   - Rasterize onto flood hazard grid (in memory)
+   - Compute `R = (H×E×V)^(1/3)` on valid pixels
+   - Save risk raster and bairro GeoPackage
+   - Publish COG + tiles for risk score
+
+---
+
+## 16) Planned improvements
+
+| Component | Current approach | Planned improvement |
+|-----------|-----------------|---------------------|
+| Exposure (E) | Population density using total polygon area | Replace area denominator with built-up / residential footprint (GHSL, OSM buildings, IBGE urban area) to get net residential density |
+| Vulnerability (V) | Age-only (0–4 and 60+) | Add socioeconomic dimension when household-level poverty data becomes available at bairro level from IBGE |
+| Hazard (H) | Fluvial ensemble (global products) | Incorporate local hydrological modeling and pluvial flood data |
 
 ---
