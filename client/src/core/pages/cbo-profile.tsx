@@ -366,15 +366,24 @@ export default function CboProfilePage() {
     return () => { document.head.removeChild(style); };
   }, []);
 
-  // iOS Safari's `100dvh`/`100vh` can disagree with the actually-visible area as
-  // the address bar + bottom toolbar show/hide, leaving the chat shell SHORTER
-  // than the screen — a big empty gap below the composer + mobile tab bar (the
-  // chips/buttons get pushed up off the fold). Drive the shell height from the
-  // real visual viewport so it always fills exactly what's visible, and shrinks
-  // to sit above the keyboard when an input is focused. Falls back to 100dvh
-  // (the CSS var is unset) on browsers without visualViewport.
+  // Lock the chat to the viewport so the bottom bar STAYS at the bottom on mobile.
+  //
+  // Two problems this solves together:
+  //  1. iOS Safari's `100dvh`/`100vh` disagree with the actually-visible area as
+  //     the address bar + bottom toolbar show/hide → the shell renders shorter
+  //     than the screen, leaving an empty gap below the composer + tab bar.
+  //  2. If the document itself can scroll, dragging it rubber-bands the whole
+  //     shell (the bottom bar slides up/down as you scroll) — the address bar
+  //     collapses/expands and the gap grows/shrinks.
+  //
+  // Fix: (a) drive the shell height from the real visual viewport (so it fills
+  // exactly what's visible and shrinks above the keyboard on focus), and (b)
+  // LOCK the document so only the inner message list scrolls — the page can't
+  // scroll, so the chrome can't move and the bottom bar is pinned. Both are
+  // scoped to this page and restored on unmount.
   useEffect(() => {
     const root = document.documentElement;
+    const body = document.body;
     const setVH = () => {
       const h = window.visualViewport?.height ?? window.innerHeight;
       root.style.setProperty('--cbo-vh', `${Math.round(h)}px`);
@@ -385,12 +394,32 @@ export default function CboProfilePage() {
     vv?.addEventListener('scroll', setVH);
     window.addEventListener('orientationchange', setVH);
     window.addEventListener('resize', setVH);
+
+    // Lock document scroll (the chat shell + its inner scrollers own scrolling).
+    const prev = {
+      htmlOverflow: root.style.overflow, htmlHeight: root.style.height,
+      bodyOverflow: body.style.overflow, bodyHeight: body.style.height,
+      bodyPosition: body.style.position, bodyWidth: body.style.width,
+    };
+    root.style.overflow = 'hidden';
+    root.style.height = '100%';
+    body.style.overflow = 'hidden';
+    body.style.height = '100%';
+    body.style.position = 'fixed';
+    body.style.width = '100%';
+
     return () => {
       vv?.removeEventListener('resize', setVH);
       vv?.removeEventListener('scroll', setVH);
       window.removeEventListener('orientationchange', setVH);
       window.removeEventListener('resize', setVH);
       root.style.removeProperty('--cbo-vh');
+      root.style.overflow = prev.htmlOverflow;
+      root.style.height = prev.htmlHeight;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.height = prev.bodyHeight;
+      body.style.position = prev.bodyPosition;
+      body.style.width = prev.bodyWidth;
     };
   }, []);
 
@@ -753,21 +782,12 @@ export default function CboProfilePage() {
   });
 
   // Voice input — tap the mic to record a spoken answer, tap again to stop. On
-  // stop the clip is transcribed and then AUTO-SENDS after a short countdown
-  // (WhatsApp-style) — but with a 3s "enviando… [cancelar]" undo window so a
-  // misrecognized PT-BR transcript is recoverable: cancel drops the text into
-  // the input box to edit instead of sending. Complements chips + keyboard.
-  // Reuses the existing transcription endpoint — no new keys.
-  const VOICE_SEND_COUNTDOWN = 3;
+  // stop the clip is transcribed and the text SENDS immediately (WhatsApp-style,
+  // marked 🎤 in the bubble). No intermediate undo step — if a word came out
+  // wrong, the user just corrects it with a quick follow-up message, which is
+  // simpler than a countdown bar that flickered in and out. Reuses the existing
+  // transcription endpoint — no new keys.
   const [voiceError, setVoiceError] = useState<string | null>(null);
-  // Pending auto-send: the transcript is held for `secondsLeft` before it fires.
-  const [pendingVoice, setPendingVoice] = useState<{ text: string; secondsLeft: number } | null>(null);
-  const pendingTickRef = useRef<number | null>(null);
-  const pendingSendRef = useRef<number | null>(null);
-  const clearPendingVoice = useCallback(() => {
-    if (pendingTickRef.current) { clearInterval(pendingTickRef.current); pendingTickRef.current = null; }
-    if (pendingSendRef.current) { clearTimeout(pendingSendRef.current); pendingSendRef.current = null; }
-  }, []);
   const handleVoiceError = useCallback((kind: RecorderError, message?: string) => {
     const msg = lang === 'pt'
       ? {
@@ -786,43 +806,15 @@ export default function CboProfilePage() {
         }[kind];
     setVoiceError(msg);
   }, [lang]);
-  // Start the auto-send countdown for a fresh transcript: a ticking display +
-  // a timeout that actually sends. Untouched → sends (marked viaVoice).
-  const startPendingVoiceSend = useCallback((text: string) => {
-    clearPendingVoice();
-    setVoiceError(null);
-    setPendingVoice({ text, secondsLeft: VOICE_SEND_COUNTDOWN });
-    pendingTickRef.current = window.setInterval(() => {
-      setPendingVoice(prev => prev ? { ...prev, secondsLeft: Math.max(0, prev.secondsLeft - 1) } : prev);
-    }, 1000);
-    pendingSendRef.current = window.setTimeout(() => {
-      clearPendingVoice();
-      setPendingVoice(null);
-      sendMessage(text, false, true);
-    }, VOICE_SEND_COUNTDOWN * 1000);
-  }, [clearPendingVoice, sendMessage]);
-  // Cancel the auto-send: keep the transcript by dropping it into the input box
-  // for the user to edit, then focus it.
-  const cancelPendingVoice = useCallback(() => {
-    const text = pendingVoice?.text;
-    clearPendingVoice();
-    setPendingVoice(null);
-    if (text) {
-      setInput(prev => (prev.trim() ? `${prev.trim()} ${text}` : text));
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
-  }, [pendingVoice, clearPendingVoice]);
-
   const voice = useVoiceRecorder({
     cboId,
     lang,
-    onTranscript: (text) => startPendingVoiceSend(text),
+    // Send the transcript straight away, marked as a voice message.
+    onTranscript: (text) => { setVoiceError(null); sendMessage(text, false, true); },
     onError: handleVoiceError,
   });
   // Clear a stale voice error once the user starts a new recording.
   useEffect(() => { if (voice.status === 'recording') setVoiceError(null); }, [voice.status]);
-  // Clean up any pending-send timers on unmount.
-  useEffect(() => () => clearPendingVoice(), [clearPendingVoice]);
 
   const filledCount = useMemo(() => state ? Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length : 0, [state]);
 
@@ -1335,23 +1327,6 @@ export default function CboProfilePage() {
                 <span>{voiceError}</span>
               </div>
             )}
-            {/* Auto-send undo window: the transcript shows here and fires after a
-                short countdown unless the user cancels (→ drops into the box to
-                edit). Replaces the composer for the ~3s window. */}
-            {pendingVoice ? (
-              <div className="flex items-center gap-2" data-testid="cbo-voice-pending">
-                <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-md bg-green-50 border border-green-200 min-w-0">
-                  <Mic className="w-4 h-4 text-green-700 shrink-0" />
-                  <span className="text-sm text-green-900 truncate flex-1">{pendingVoice.text}</span>
-                  <span className="text-[11px] font-medium text-green-700 tabular-nums shrink-0">
-                    {lang === 'pt' ? 'enviando…' : 'sending…'} {pendingVoice.secondsLeft}
-                  </span>
-                </div>
-                <Button type="button" variant="outline" size="sm" onClick={cancelPendingVoice} data-testid="button-cbo-voice-cancel" className="shrink-0">
-                  {t('cbo.voice.cancel', { defaultValue: lang === 'pt' ? 'Cancelar' : 'Cancel' })}
-                </Button>
-              </div>
-            ) : (
             <form onSubmit={(e) => { e.preventDefault(); if (currentQuestion && input.trim()) { handleSelectOption(input.trim()); setInput(''); } else sendMessage(input); }} className="flex gap-2">
               <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.xlsx,.txt,.md,.csv,.tsv,.json,.png,.jpg,.jpeg,.gif,.webp,.mp3,.wav,.m4a,.webm,.ogg,.opus,.aac,.flac,audio/*,image/*"
                 onChange={(e) => {
@@ -1399,7 +1374,6 @@ export default function CboProfilePage() {
               <Input ref={inputRef} data-testid="cbo-chat-input" value={input} onChange={e => setInput(e.target.value)} placeholder={isStreaming ? t('cbo.working') : voice.status === 'recording' ? (lang === 'pt' ? 'Ouvindo…' : 'Listening…') : currentQuestion ? t('cbo.typeCustom') : t('cbo.typePlaceholder')} disabled={isStreaming} className="flex-1" />
               <Button type="submit" disabled={isStreaming || !input.trim()} size="sm" className="bg-green-600 hover:bg-green-700"><Send className="w-4 h-4" /></Button>
             </form>
-            )}
           </div>
         </div>
 
