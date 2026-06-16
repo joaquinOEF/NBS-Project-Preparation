@@ -22,6 +22,7 @@ export interface UseCohortResult {
   invite: (params: { orgName: string; neighborhood?: string; role?: 'priority' | 'alternate' }) => Promise<CohortMember | null>;
   unlockPhase: (memberIds: string[] | 'all', phase: number) => Promise<void>;
   saveWorkshops: (workshops: WorkshopConfig[]) => Promise<void>;
+  saveLanguage: (language: 'pt' | 'en' | null) => Promise<void>;
 }
 
 export function useCohort(): UseCohortResult {
@@ -95,5 +96,14 @@ export function useCohort(): UseCohortResult {
     await refresh();
   }, [refresh]);
 
-  return { loading, cohort, members, isAdmin, refresh, resetCohort, invite, unlockPhase, saveWorkshops };
+  const saveLanguage = useCallback(async (language: 'pt' | 'en' | null) => {
+    await fetch(`/api/cohort/${slugRef.current}/language`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ language }),
+    });
+    await refresh();
+  }, [refresh]);
+
+  return { loading, cohort, members, isAdmin, refresh, resetCohort, invite, unlockPhase, saveWorkshops, saveLanguage };
 }

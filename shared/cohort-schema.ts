@@ -23,6 +23,10 @@ export type WorkshopConfig = {
 
 export type CohortSettings = {
   workshops: WorkshopConfig[];
+  // Coordinator-forced UI language for every org in this cohort. When set, it
+  // OVERRIDES the org's browser language detection (so a PT phone in an EN
+  // cohort still gets EN, and vice-versa). Undefined = fall back to detection.
+  language?: 'pt' | 'en';
 };
 
 // RequestSupport — async escalation queue. CBO submits via chat-header button;
