@@ -105,19 +105,10 @@ const TONE_STYLES: Record<NbsTypology['tone'], { bubble: string; fg: string; chi
   biodiversity: { bubble: 'bg-emerald-50 dark:bg-emerald-950/40', fg: 'text-emerald-600 dark:text-emerald-300', chip: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800' },
 };
 
+// NOTE: the 'city' role is intentionally NOT presented here — the city view is
+// hidden from the landing and reachable only by direct URL (/city). See App.tsx.
+// ROLE_CONFIGS.city still exists so the route/flow works if visited directly.
 const PRESENTATIONS: RolePresentation[] = [
-  {
-    id: 'city',
-    Icon: Building2,
-    accent: {
-      bubble: 'bg-blue-50 dark:bg-blue-950/40',
-      iconFg: 'text-blue-600 dark:text-blue-300',
-      ringHover: 'group-hover:ring-blue-300/60 dark:group-hover:ring-blue-700/60',
-      glowFrom: 'from-blue-400/20',
-      glowVia: 'via-sky-300/15',
-      corner: 'from-blue-400/15',
-    },
-  },
   {
     id: 'cbo',
     Icon: Users,

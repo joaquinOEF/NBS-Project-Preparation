@@ -39,6 +39,9 @@ function Router() {
       <Route path='/coordinator-login' component={CoordinatorLoginPage} />
       <Route path='/orchestrator' component={OrchestratorLandingPage} />
       <Route path='/auth/callback' component={OAuthCallback} />
+      {/* City view is hidden from the landing (no role card) but stays reachable
+          by direct URL. /city is the memorable entry; /cities kept for existing links. */}
+      <Route path='/city' component={CitySelection} />
       <Route path='/cities' component={CitySelection} />
       <Route path='/project/:projectId' component={ProjectPage} />
       
