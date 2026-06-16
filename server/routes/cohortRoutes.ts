@@ -13,7 +13,14 @@ import {
   type WorkshopConfig,
 } from '@shared/cohort-schema';
 import { createOrganization, linkCboStateToOrg } from '../services/orgPersistence';
-import { requireCoordinator, type CoordinatorRequest } from '../services/coordinatorAuth';
+import {
+  requireCoordinator,
+  createCoordinator,
+  getCoordinatorByEmail,
+  publicCoordinator,
+  type CoordinatorRequest,
+} from '../services/coordinatorAuth';
+import { coordinators } from '@shared/coordinator-schema';
 
 // Slug-as-secret: 24 chars of url-safe nanoid. Used as a fallback when the
 // human-readable slug derivation collides too many times.
@@ -194,6 +201,68 @@ export function registerCohortRoutes(app: Express): void {
     if (!cohort) cohort = await getOrCreateDefaultCohort();
     const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
     res.json({ cohort, members, isAdmin: !coordinator?.cohortId });
+  }));
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Admin cohort directory — every cohort with its coordinator + member count,
+  // for the admin's cohort switcher. Admin-only (a scoped coordinator only ever
+  // sees their own cohort via /mine). MUST be registered before the
+  // `/:coordinatorSlug` param route below, or 'all' is read as a slug.
+  // ──────────────────────────────────────────────────────────────────────
+  app.get('/api/cohort/all', wrap(async (req, res) => {
+    if (reqCoordinator(req)?.cohortId) { res.status(403).json({ error: 'admin only' }); return; }
+    const allCohorts = await db.select().from(cohorts);
+    const coords = await db.select().from(coordinators);
+    const coordByCohort = new Map(coords.filter(c => c.cohortId).map(c => [c.cohortId as string, c]));
+    const memberRows = await db.select({ cohortId: cohortMembers.cohortId }).from(cohortMembers);
+    const countByCohort = new Map<string, number>();
+    for (const m of memberRows) countByCohort.set(m.cohortId, (countByCohort.get(m.cohortId) ?? 0) + 1);
+    const items = allCohorts.map(c => ({
+      id: c.id,
+      name: c.name,
+      coordinatorSlug: c.coordinatorSlug,
+      language: (c.settings as CohortSettings | null)?.language ?? null,
+      memberCount: countByCohort.get(c.id) ?? 0,
+      coordinatorName: coordByCohort.get(c.id)?.name ?? null,
+      coordinatorEmail: coordByCohort.get(c.id)?.email ?? null,
+      isDefault: c.coordinatorSlug === DEFAULT_COORDINATOR_SLUG,
+    }));
+    // Default cohort first, then alphabetical — a stable order for the switcher.
+    items.sort((a, b) =>
+      a.isDefault ? -1 : b.isDefault ? 1 : a.name.localeCompare(b.name));
+    res.json({ cohorts: items });
+  }));
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Provision a coordinator AND their cohort in one admin-authed call — the
+  // primary creation path (replaces the create-coordinator shell script + the
+  // cohort-UUID dance). Admin stays logged in as themselves; the new coordinator
+  // gets email + password to log in and is scoped to the freshly-created cohort.
+  // MUST be registered before the `/:coordinatorSlug` param routes.
+  // ──────────────────────────────────────────────────────────────────────
+  app.post('/api/cohort/create-with-coordinator', wrap(async (req, res) => {
+    if (reqCoordinator(req)?.cohortId) { res.status(403).json({ error: 'only an admin can create cohorts' }); return; }
+    const { coordinatorName, email, password, cohortName, language: rawLang } = req.body ?? {};
+    if (!email || !password) { res.status(400).json({ error: 'coordinator email and password are required' }); return; }
+    if (!cohortName || !String(cohortName).trim()) { res.status(400).json({ error: 'cohort name is required' }); return; }
+    if (String(password).length < 6) { res.status(400).json({ error: 'password must be at least 6 characters' }); return; }
+
+    const existing = await getCoordinatorByEmail(String(email));
+    if (existing) { res.status(409).json({ error: 'a coordinator with that email already exists' }); return; }
+
+    const language = rawLang === 'pt' || rawLang === 'en' ? rawLang : undefined;
+    const [cohort] = await db.insert(cohorts).values({
+      coordinatorSlug: slug(),
+      name: String(cohortName).trim(),
+      settings: { workshops: DEFAULT_WORKSHOPS, language },
+    }).returning();
+    const coordinator = await createCoordinator({
+      email: String(email),
+      password: String(password),
+      name: coordinatorName ? String(coordinatorName).trim() : undefined,
+      cohortId: cohort.id,
+    });
+    res.status(201).json({ cohort, coordinator: publicCoordinator(coordinator) });
   }));
 
   // ──────────────────────────────────────────────────────────────────────
