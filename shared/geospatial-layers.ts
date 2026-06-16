@@ -37,6 +37,10 @@ export interface TileLayerDef {
   available: boolean;
   hasValueTiles?: boolean;
   valueEncoding?: ValueTileEncoding;
+  // Visual (RGB) tile URL override for layers NOT served by the catalog tile
+  // proxy — e.g. the local pre-rendered risk tiles under client/public/tiles/.
+  // When absent, the proxy path `/api/geospatial/tiles/{tileLayerId}/…` is used.
+  visualUrlTemplate?: string;
 }
 
 // Pre-rendered risk analysis layers (250m grid, generated locally)
@@ -63,12 +67,14 @@ export const LOCAL_RISK_LAYERS: TileLayerDef[] = [
   {
     id: 'risk_landslide_250m', name: 'Landslide Risk (250m)', group: 'risk_analysis', color: '#a16207',
     tileLayerId: '_local_landslide_risk', available: true, hasValueTiles: true,
+    visualUrlTemplate: '/tiles/landslide_risk/{z}/{x}/{y}.png',
     valueEncoding: { type: 'numeric', scale: 1000, offset: 0, unit: 'index 0–1',
       urlTemplate: '/tiles_values/landslide_risk/{z}/{x}/{y}.png' },
   },
   {
     id: 'risk_composite_hotspot', name: 'Risk Hotspots (all)', group: 'risk_analysis', color: '#8b5cf6',
     tileLayerId: '_local_composite_hotspot', available: true,
+    visualUrlTemplate: '/tiles/composite_hotspot/{z}/{x}/{y}.png',
   },
 ];
 
@@ -244,6 +250,24 @@ export const TILE_LAYERS: TileLayerDef[] = [
 
 // Total count
 export const TOTAL_TILE_LAYERS = TILE_LAYERS.length;
+
+// Every renderable tile layer in one lookup — the ~48 catalog layers PLUS the
+// risk-analysis cards (flood/heat risk, landslide, hotspot) and the flood/heat
+// component indices. The map microapps resolve a requested `tileLayers` id
+// against THIS, not just TILE_LAYERS, so hazard overlays (poa_flood_hazard,
+// poa_heat_hazard, risk_landslide_250m) actually render in the CBO/E2 flow.
+export const ALL_TILE_LAYERS: TileLayerDef[] = [
+  ...TILE_LAYERS,
+  ...LOCAL_RISK_LAYERS,
+  ...FLOOD_INDEX_LAYERS,
+  ...HEAT_INDEX_LAYERS,
+];
+
+/** The visual (RGB) tile URL template for a layer — its local override when set,
+ *  else the catalog tile-proxy path. `{z}/{x}/{y}` still need substituting. */
+export function tileVisualUrl(layer: TileLayerDef): string {
+  return layer.visualUrlTemplate ?? `/api/geospatial/tiles/${layer.tileLayerId}/{z}/{x}/{y}.png`;
+}
 
 // ── OSM Reference Layers (fetched from Overpass API) ──────────────────────────
 
