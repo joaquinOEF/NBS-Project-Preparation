@@ -10,9 +10,23 @@ re-issue links, and clean up. For the platform at `https://nbs-project-preparati
 
 ## 1. Provision a coordinator
 
-Coordinators are **admin-provisioned** (no self-signup). Two ways:
+Coordinators are **admin-provisioned** (no self-signup).
 
-### a) Bootstrap endpoint (works against prod without shell access)
+### a) In-app admin panel (the normal way) ⭐
+Once you have **one admin coordinator** (use the bootstrap endpoint below for the
+very first one), everything else is in-app. Log in as the admin → `/orchestrator`:
+
+- **"New cohort"** (header button) → one form: **cohort name, coordinator name,
+  login email, password, language**. Submitting creates the coordinator **and**
+  their cohort, linked, and switches the board to it. Hand the coordinator their
+  email + password — they log in scoped to that cohort.
+- **Cohort switcher** (top-left dropdown): every cohort with its coordinator and
+  member count. Click to load any of them. Scoped coordinators only ever see
+  their own.
+
+No shell, no cohort UUID. The admin stays logged in as themselves throughout.
+
+### b) Bootstrap endpoint (first admin / prod without shell access)
 A secret-gated endpoint creates + (optionally) scopes a coordinator. Set
 `BOOTSTRAP_COORDINATOR_SECRET` in **both** the Replit Workspace and Deployment
 secrets, republish, then:
@@ -33,10 +47,12 @@ curl -sS -X POST "$BASE/api/coordinator/bootstrap" \
 > deployment has its own. The bootstrap call hits whichever URL you point at —
 > use the **prod** URL to create a prod coordinator.
 
-### b) Shell script (local / dev)
+### c) Shell script (local / dev fallback)
 ```bash
-npx tsx scripts/create-coordinator.ts <email> <password> "<Name>" [cohortSlug]
+npx tsx scripts/create-coordinator.ts <email> <password> "<Name>" [cohortId]
 ```
+The 4th arg is the **cohort UUID** (not a slug); omit it for an admin. Prefer the
+in-app panel (a) for everyday work.
 
 Log in at **`/coordinator-login`** → lands on **`/orchestrator`**.
 
@@ -44,8 +60,11 @@ Log in at **`/coordinator-login`** → lands on **`/orchestrator`**.
 
 ## 2. Create / configure a cohort
 
-- The pilot uses **one default cohort** ("Vila Flores"); an admin coordinator
-  sees it automatically on `/orchestrator` (created on first load).
+- A **default cohort** ("Vila Flores") exists out of the box; an admin sees it
+  automatically on `/orchestrator` (created on first load).
+- **More cohorts:** use **"New cohort"** (§1a) to add a coordinator + cohort, then
+  hop between them with the cohort switcher. Each scoped coordinator manages only
+  their own.
 - **Language:** set the cohort's forced UI language with the **Auto / PT / EN**
   toggle in the cohort header. PT/EN *overrides* each org's phone language
   (Auto = let the phone decide).
