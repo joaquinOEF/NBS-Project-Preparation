@@ -447,14 +447,21 @@ function MapLayerControls({
               onClick={() => onChange(on ? null : v.id)}
               aria-pressed={on}
               data-testid={`risk-view-${v.id}`}
-              className={`w-full flex items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors ${
+              // Active view fills with its own accent color + white text so the
+              // selection is unmistakable (bold alone wasn't enough).
+              style={on ? { backgroundColor: v.dot, borderColor: v.dot } : undefined}
+              className={`w-full flex items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-all ${
                 on
-                  ? 'border-foreground/30 bg-foreground/[0.06] text-foreground font-medium shadow-sm'
-                  : 'border-foreground/10 text-foreground/70 hover:bg-foreground/[0.04]'
+                  ? 'text-white font-semibold shadow-md'
+                  : 'border-foreground/10 text-foreground/75 hover:bg-foreground/[0.05]'
               }`}
             >
-              <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: v.dot }} />
+              <span
+                className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${on ? 'ring-2 ring-white/70' : ''}`}
+                style={{ background: on ? '#ffffff' : v.dot }}
+              />
               <span className="leading-tight">{v.label}</span>
+              {on && <Check className="w-3.5 h-3.5 ml-auto shrink-0" strokeWidth={3} />}
             </button>
           );
         })}
