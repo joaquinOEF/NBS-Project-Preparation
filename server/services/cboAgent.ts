@@ -426,19 +426,19 @@ Include showMap: true on a question only when the user genuinely needs the map t
 
 ## Available layers
 OSM (vector): osm_parks, osm_schools, osm_hospitals, osm_wetlands
-Tiles (raster): oef_fri_2024 (Flood Risk), oef_hwm_2024 (Heatwave), oef_dynamic_world (Land Use), oef_chirps_r90p_2024, oef_copernicus_dem, oef_ghsl_population, oef_merit_elv, +40 more
+Tiles (raster): poa_flood_risk (Flood Risk), oef_hwm_2024 (Heatwave), oef_dynamic_world (Land Use), oef_chirps_r90p_2024, oef_copernicus_dem, oef_ghsl_population, oef_merit_elv, +40 more
 Spatial queries: sq_parks_flood, sq_schools_flood, sq_hospitals_flood, sq_wetlands_flood, sq_parks_heatwave, sq_schools_heatwave
 
 ## Recipes
-- CBO Phase 2 (Where We Work): composite + zoneSource:"neighborhoods" + [osm_parks, osm_schools, osm_wetlands] + [oef_fri_2024, oef_hwm_2024]
-- CBO Phase 3 (What We're Doing): assets + [osm_parks, osm_wetlands] + [oef_dynamic_world, oef_fri_2024]
-- Concept Note Phase 2 (Territorial Scope): zones + [] + [oef_fri_2024, oef_hwm_2024]
-- Environmental analysis: sample + [] + [oef_fri_2024, oef_hwm_2024, oef_copernicus_dem]
+- CBO Phase 2 (Where We Work): composite + zoneSource:"neighborhoods" + [osm_parks, osm_schools, osm_wetlands] + [poa_flood_risk, oef_hwm_2024]
+- CBO Phase 3 (What We're Doing): assets + [osm_parks, osm_wetlands] + [oef_dynamic_world, poa_flood_risk]
+- Concept Note Phase 2 (Territorial Scope): zones + [] + [poa_flood_risk, oef_hwm_2024]
+- Environmental analysis: sample + [] + [poa_flood_risk, oef_hwm_2024, oef_copernicus_dem]
 
 STOP and wait for the user's map selection after calling this tool.`,
     {
       layers: z.array(z.string()).optional().describe("OSM layer IDs to show: osm_parks, osm_schools, osm_hospitals, osm_wetlands"),
-      tileLayers: z.array(z.string()).optional().describe("Tile layer IDs as toggleable overlays (not auto-shown): oef_fri_2024, oef_hwm_2024, etc."),
+      tileLayers: z.array(z.string()).optional().describe("Tile layer IDs as toggleable overlays (not auto-shown): poa_flood_risk, oef_hwm_2024, etc."),
       spatialQueries: z.array(z.string()).optional().describe("Pre-filter features: sq_parks_flood, sq_schools_heatwave, etc."),
       selectionMode: z.enum(["zones", "assets", "sample", "composite", "browse-only"]).describe("composite = zone first, then sites. assets = sites only. zones = zones only. sample = click-to-read-values. browse-only = exploration; no commitment (E2 needs-help)."),
       prompt: z.string().describe("Clear instruction for the user, e.g. 'Select the zone where you work, then pick the parks and schools you are targeting'"),
@@ -1159,12 +1159,12 @@ Score: Org Delivery Capacity (0-3), Team Technical Experience (0-3).`;
     case 2:
       return isPt
         ? `**Fase 2: Onde Atuamos** (intervention_site)
-Abrir open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks","osm_schools","osm_wetlands"], tileLayers: ["oef_fri_2024","oef_hwm_2024"], prompt: "Selecione seu bairro, depois escolha os locais" }).
+Abrir open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks","osm_schools","osm_wetlands"], tileLayers: ["poa_flood_risk","oef_hwm_2024"], prompt: "Selecione seu bairro, depois escolha os locais" }).
 Após seleção: perguntar condições atuais, população, posse do terreno, engajamento comunitário.
 Se desenharem ponto/área customizada: perguntar "Esse local tem um nome?"
 Pedir fotos do local. Avaliar: Controle do Local (0-3), Ancoragem Comunitária (0-3).`
         : `**Phase 2: Where We Work** (intervention_site)
-Open open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks","osm_schools","osm_wetlands"], tileLayers: ["oef_fri_2024","oef_hwm_2024"], prompt: "Select your neighborhood, then pick sites" }).
+Open open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks","osm_schools","osm_wetlands"], tileLayers: ["poa_flood_risk","oef_hwm_2024"], prompt: "Select your neighborhood, then pick sites" }).
 After selection: ask current conditions, population, land tenure, community engagement.
 If they draw custom point/area: ask "Does this site have a name?"
 Ask for site photos. Score: Site Control (0-3), Community Anchoring (0-3).`;
