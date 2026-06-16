@@ -762,3 +762,48 @@ export function ResetConfirmDialog({
     </Dialog>
   );
 }
+
+// ---------------------------------------------------------------------------
+// DeleteCohortConfirmDialog — admin cleanup. Unlike Reset (keeps the cohort),
+// this removes the cohort and its members entirely.
+// ---------------------------------------------------------------------------
+export function DeleteCohortConfirmDialog({
+  open, onOpenChange, onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => Promise<void> | void;
+}) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[440px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-600" />
+            {t('orchestrator.cohort.deleteTitle', { defaultValue: 'Delete cohort?' })}
+          </DialogTitle>
+          <DialogDescription>
+            {t('orchestrator.cohort.deleteDesc', {
+              defaultValue: 'Permanently removes this cohort and every invited CBO. The default cohort is re-created empty. This can\'t be undone.',
+            })}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
+            {t('common.cancel', { defaultValue: 'Cancel' })}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }}
+            disabled={busy}
+            data-testid="button-confirm-delete-cohort"
+          >
+            {busy ? t('common.working', { defaultValue: 'Working…' }) : t('orchestrator.cohort.confirmDelete', { defaultValue: 'Yes, delete' })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

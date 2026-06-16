@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
-  Mountain, Network, Plus, RotateCcw, Sparkles, Sprout, Trees, Unlock, Users, Waves,
+  Mountain, Network, Plus, RotateCcw, Sparkles, Sprout, Trash2, Trees, Unlock, Users, Waves,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
@@ -35,6 +35,7 @@ import {
   ShareLinkDialog,
   BulkInviteSummaryDialog,
   ResetConfirmDialog,
+  DeleteCohortConfirmDialog,
   type BulkInviteResult,
 } from '@/core/components/orchestrator/CohortDialogs';
 import { WorkshopCadence } from '@/core/components/orchestrator/WorkshopCadence';
@@ -709,8 +710,8 @@ export default function OrchestratorLandingPage() {
   };
 
   const {
-    cohort, members,
-    invite, unlockPhase, saveWorkshops, resetCohort, saveLanguage,
+    cohort, members, isAdmin,
+    invite, unlockPhase, saveWorkshops, resetCohort, saveLanguage, deleteCohort,
   } = useCohort();
   const cohortLanguage = (cohort?.settings as { language?: 'pt' | 'en' } | null)?.language ?? null;
 
@@ -743,6 +744,7 @@ export default function OrchestratorLandingPage() {
   const [bulkSummaryOpen, setBulkSummaryOpen] = useState(false);
   const [bulkInvitations, setBulkInvitations] = useState<BulkInviteResult[]>([]);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [supportInboxOpen, setSupportInboxOpen] = useState(false);
   // Mirrored from /support-requests?status=pending — drives the badge on
   // the inbox trigger. Initialized from member.supportRequests when the
@@ -807,6 +809,12 @@ export default function OrchestratorLandingPage() {
     setResetConfirmOpen(false);
     await resetCohort();
     toast({ title: t('orchestrator.cohort.resetDone', { defaultValue: 'Cohort reset' }) });
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleteConfirmOpen(false);
+    await deleteCohort();
+    toast({ title: t('orchestrator.cohort.deleteDone', { defaultValue: 'Cohort deleted' }) });
   };
 
   const handleInviteOpen = () => setInviteOpen(true);
@@ -954,6 +962,19 @@ export default function OrchestratorLandingPage() {
                 <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
                 {t('orchestrator.cohort.reset', { defaultValue: 'Reset' })}
               </Button>
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="text-muted-foreground hover:text-red-600"
+                  data-testid="button-delete-cohort"
+                  title={t('orchestrator.cohort.deleteTooltip', { defaultValue: 'Delete this cohort entirely' })}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                  {t('orchestrator.cohort.delete', { defaultValue: 'Delete cohort' })}
+                </Button>
+              )}
               <Button size="sm" onClick={handleInviteOpen} data-testid="button-invite-cbo">
                 <Plus className="w-3.5 h-3.5 mr-1.5" />
                 {t('orchestrator.cohort.invite', { defaultValue: 'Invite CBO' })}
@@ -1113,6 +1134,11 @@ export default function OrchestratorLandingPage() {
         open={resetConfirmOpen}
         onOpenChange={setResetConfirmOpen}
         onConfirm={handleResetConfirm}
+      />
+      <DeleteCohortConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        onConfirm={handleDeleteConfirm}
       />
       <InviteCboDialog
         open={inviteOpen}

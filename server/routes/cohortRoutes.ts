@@ -233,6 +233,18 @@ export function registerCohortRoutes(app: Express): void {
     res.json({ cohort: refreshed, members: [] });
   }));
 
+  // Delete a cohort ENTIRELY — its members + the cohort row (unlike reset, which
+  // keeps the cohort). The :coordinatorSlug app.param guard enforces ownership;
+  // the default cohort is re-created empty on the next /mine. Cleanup for
+  // throwaway/test cohorts.
+  app.delete('/api/cohort/:coordinatorSlug', wrap(async (req, res) => {
+    const cohort = (req as any).cohort ?? await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
+    if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
+    await db.delete(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    await db.delete(cohorts).where(eq(cohorts.id, cohort.id));
+    res.json({ ok: true, deleted: cohort.id });
+  }));
+
   // ──────────────────────────────────────────────────────────────────────
   // Create cohort — kept for backward-compat with anything that still calls
   // it. The pilot's UI no longer surfaces this.

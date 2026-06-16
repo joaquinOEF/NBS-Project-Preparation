@@ -23,6 +23,7 @@ export interface UseCohortResult {
   unlockPhase: (memberIds: string[] | 'all', phase: number) => Promise<void>;
   saveWorkshops: (workshops: WorkshopConfig[]) => Promise<void>;
   saveLanguage: (language: 'pt' | 'en' | null) => Promise<void>;
+  deleteCohort: () => Promise<void>;
 }
 
 export function useCohort(): UseCohortResult {
@@ -105,5 +106,17 @@ export function useCohort(): UseCohortResult {
     await refresh();
   }, [refresh]);
 
-  return { loading, cohort, members, isAdmin, refresh, resetCohort, invite, unlockPhase, saveWorkshops, saveLanguage };
+  const deleteCohort = useCallback(async () => {
+    setLoading(true);
+    try {
+      await fetch(`/api/cohort/${slugRef.current}`, { method: 'DELETE' });
+      // Re-resolve: the default cohort is re-created empty; a deleted scoped
+      // cohort falls back to whatever /mine now returns.
+      await fetchCohort();
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchCohort]);
+
+  return { loading, cohort, members, isAdmin, refresh, resetCohort, invite, unlockPhase, saveWorkshops, saveLanguage, deleteCohort };
 }
