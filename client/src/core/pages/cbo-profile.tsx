@@ -362,6 +362,34 @@ export default function CboProfilePage() {
     return () => { document.head.removeChild(style); };
   }, []);
 
+  // iOS Safari's `100dvh`/`100vh` can disagree with the actually-visible area as
+  // the address bar + bottom toolbar show/hide, leaving the chat shell SHORTER
+  // than the screen — a big empty gap below the composer + mobile tab bar (the
+  // chips/buttons get pushed up off the fold). Drive the shell height from the
+  // real visual viewport so it always fills exactly what's visible, and shrinks
+  // to sit above the keyboard when an input is focused. Falls back to 100dvh
+  // (the CSS var is unset) on browsers without visualViewport.
+  useEffect(() => {
+    const root = document.documentElement;
+    const setVH = () => {
+      const h = window.visualViewport?.height ?? window.innerHeight;
+      root.style.setProperty('--cbo-vh', `${Math.round(h)}px`);
+    };
+    setVH();
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', setVH);
+    vv?.addEventListener('scroll', setVH);
+    window.addEventListener('orientationchange', setVH);
+    window.addEventListener('resize', setVH);
+    return () => {
+      vv?.removeEventListener('resize', setVH);
+      vv?.removeEventListener('scroll', setVH);
+      window.removeEventListener('orientationchange', setVH);
+      window.removeEventListener('resize', setVH);
+      root.style.removeProperty('--cbo-vh');
+    };
+  }, []);
+
   // Auto-scroll to related sections when question changes
   useEffect(() => {
     // Check if current question has relatedSections (from ask_user event)
@@ -832,7 +860,7 @@ export default function CboProfilePage() {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-background">
+    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden" style={{ height: 'var(--cbo-vh, 100dvh)' }}>
       {/* E2E stream-complete contract. SSE never goes network-idle, so Playwright
           waits on this hidden marker's attributes instead: data-streaming flips
           to 'false' when a turn ends, data-turns counts completed turns, and
@@ -1527,7 +1555,7 @@ export default function CboProfilePage() {
       {/* MOBILE TAB BAR — visible only below md. Drives `mobileActiveTab` +
           (when on a non-Chat tab) `rightTab` so the right panel shows the
           right content. Hidden on desktop, where both panels render side-by-side. */}
-      <nav className="md:hidden shrink-0 border-t bg-background flex items-stretch">
+      <nav className="md:hidden shrink-0 border-t bg-background flex items-stretch safe-bottom">
         {(() => {
           // Compose the tabs available right now. Chat + Perfil are permanent.
           // Mapa / Intervenções appear only while the agent has those microapps active.
