@@ -1862,6 +1862,12 @@
     "phaseLocked": "Seu coordenador vai abrir esta seção depois do próximo encontro."
   },
   "mapMicroapp": {
+    "addSite": "Adicionar um local por nome ou coordenada",
+    "searchPlaceholder": "Buscar um nome de lugar…",
+    "search": "Buscar",
+    "coordPlaceholder": "lat, lng (ex.: -30,03, -51,22)",
+    "addPin": "Adicionar",
+    "coordInvalid": "Informe assim: latitude, longitude",
     "layers": "Camadas",
     "point": "Ponto",
     "area": "Área",

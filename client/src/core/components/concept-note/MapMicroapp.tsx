@@ -4,7 +4,8 @@ import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
-import { Check, X, MapPin, Pencil, Loader2, Trash2, Eye, EyeOff, ChevronRight } from 'lucide-react';
+import { Check, X, MapPin, Pencil, Loader2, Trash2, Eye, EyeOff, ChevronRight, Search, Plus, Crosshair } from 'lucide-react';
+import { Input } from '@/core/components/ui/input';
 import { TILE_LAYERS, OSM_LAYERS, SPATIAL_QUERIES } from '@shared/geospatial-layers';
 import { riskBand, hazardPercentile, type HazardKey } from '@shared/risk-display';
 import type { OpenMapParams, SelectedAsset, SampledPoint, MapSelectionResult } from '@shared/concept-note-schema';
@@ -58,6 +59,17 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   // Composite stepper: step 1 = pick zone, step 2 = pick assets
   const [compositeStep, setCompositeStep] = useState<CompositeStep>('zone');
   const [selectedZone, setSelectedZone] = useState<SelectedAsset | null>(null);
+
+  // "Add your own site" panel (E2 gap): the CBO can add an intervention site the
+  // OSM suggestions miss — by name (Nominatim search, biased to the chosen
+  // neighborhood) or by pasting a coordinate. Mirrors site-explorer's capability
+  // for the mobile CBO flow.
+  const [addSiteOpen, setAddSiteOpen] = useState(false);
+  const [siteQuery, setSiteQuery] = useState('');
+  const [siteSearching, setSiteSearching] = useState(false);
+  const [siteResults, setSiteResults] = useState<Array<{ name: string; centroid: [number, number] }>>([]);
+  const [coordInput, setCoordInput] = useState('');
+  const [coordError, setCoordError] = useState(false);
 
   const selectionMode = params.selectionMode;
   const isComposite = selectionMode === 'composite';
@@ -519,6 +531,83 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     };
   }, [mapReady, drawMode, enabledTiles]);
 
+  // ── Add-your-own-site (search by name / paste coordinate) ────────────────────
+  // Shared add: drop a marker, sample the active rasters at the point, push it
+  // into the selection (type 'custom' so it flows through confirm like a drawn
+  // point), and pan the map there.
+  const addCustomSite = useCallback(async (lat: number, lng: number, name: string) => {
+    const map = mapRef.current;
+    const rasterValues: Record<string, number> = {};
+    for (const tileId of Array.from(enabledTiles)) {
+      const tileDef = TILE_LAYERS.find(l => l.id === tileId);
+      if (!tileDef?.valueEncoding?.urlTemplate) continue;
+      const val = await sampleRasterAtPoint(lat, lng, tileDef.valueEncoding, 11);
+      if (val !== null) rasterValues[tileDef.name] = val;
+    }
+    if (map) {
+      const marker = L.circleMarker([lat, lng], { radius: 8, color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.8, weight: 2 });
+      marker.bindTooltip(name, { permanent: false });
+      marker.addTo(map);
+      customMarkersRef.current.push(marker);
+      map.setView([lat, lng], Math.max(map.getZoom(), 15));
+    }
+    setSelectedAssets(prev => [...prev, {
+      type: 'custom', name, coordinates: [lat, lng], properties: { source: 'user-added' }, rasterValues,
+    }]);
+  }, [enabledTiles]);
+
+  // Bounding box [minLng, minLat, maxLng, maxLat] (turf.bbox order) of the chosen
+  // zone, to bias the name search to the CBO's neighborhood.
+  const zoneBbox = useCallback((): [number, number, number, number] | null => {
+    const geom = selectedZone?.geometry;
+    if (!geom?.coordinates) return null;
+    let minLat = 90, minLng = 180, maxLat = -90, maxLng = -180;
+    const walk = (c: any) => {
+      if (typeof c[0] === 'number') {
+        const [lng, lat] = c;
+        minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+        minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+      } else c.forEach(walk);
+    };
+    walk(geom.coordinates);
+    return [minLng, minLat, maxLng, maxLat];
+  }, [selectedZone]);
+
+  const searchSites = useCallback(async () => {
+    if (!siteQuery.trim()) return;
+    setSiteSearching(true);
+    setSiteResults([]);
+    try {
+      const res = await fetch('/api/geospatial/osm-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: siteQuery.trim(), bbox: zoneBbox() }),
+      });
+      const data = await res.json();
+      setSiteResults((data.assets || [])
+        .filter((a: any) => Array.isArray(a.centroid) && a.centroid.length === 2)
+        .slice(0, 8)
+        .map((a: any) => ({ name: a.name as string, centroid: a.centroid as [number, number] })));
+    } catch {
+      setSiteResults([]);
+    } finally {
+      setSiteSearching(false);
+    }
+  }, [siteQuery, zoneBbox]);
+
+  const addByCoordinate = useCallback(async () => {
+    const parts = coordInput.trim().split(/[,\s]+/).filter(Boolean);
+    const lat = parseFloat(parts[0]); const lng = parseFloat(parts[1]);
+    if (parts.length < 2 || isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      setCoordError(true);
+      return;
+    }
+    setCoordError(false);
+    await addCustomSite(lat, lng, `Site (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+    setCoordInput('');
+    setAddSiteOpen(false);
+  }, [coordInput, addCustomSite]);
+
   // ── Confirm ─────────────────────────────────────────────────────────────────
   const handleConfirm = useCallback(() => {
     onConfirm({
@@ -626,6 +715,76 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
           <Button variant="ghost" size="sm" className="h-5 px-1" onClick={clearAll}><Trash2 className="w-3 h-3" /></Button>
         )}
       </div>
+
+      {/* Add-your-own-site panel (assets step) — search by name or coordinate
+          for sites the OSM suggestions miss. Mobile-friendly: collapsed to a
+          single chip until tapped. */}
+      {canDraw && (
+        <div className="border-b bg-muted/10 shrink-0">
+          {!addSiteOpen ? (
+            <button
+              onClick={() => setAddSiteOpen(true)}
+              data-testid="map-add-site-toggle"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-medium text-primary hover:bg-muted/40 w-full"
+            >
+              <Plus className="w-3 h-3" /> {t('mapMicroapp.addSite', { defaultValue: 'Add a site by name or coordinate' })}
+            </button>
+          ) : (
+            <div className="px-3 py-2 space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Search className="w-3 h-3 text-muted-foreground shrink-0" />
+                <Input
+                  value={siteQuery}
+                  onChange={(e) => setSiteQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') searchSites(); }}
+                  placeholder={t('mapMicroapp.searchPlaceholder', { defaultValue: 'Search a place name…' }) as string}
+                  className="h-7 text-xs"
+                  data-testid="map-site-search-input"
+                  autoFocus
+                />
+                <Button size="sm" className="h-7 text-[10px] px-2" onClick={searchSites} disabled={siteSearching || !siteQuery.trim()} data-testid="map-site-search-btn">
+                  {siteSearching ? <Loader2 className="w-3 h-3 animate-spin" /> : t('mapMicroapp.search', { defaultValue: 'Search' })}
+                </Button>
+                <button onClick={() => { setAddSiteOpen(false); setSiteResults([]); setCoordError(false); }} className="shrink-0 text-muted-foreground">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              {siteResults.length > 0 && (
+                <div className="max-h-24 overflow-y-auto space-y-0.5" data-testid="map-site-results">
+                  {siteResults.map((r, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { addCustomSite(r.centroid[0], r.centroid[1], r.name); setSiteResults([]); setSiteQuery(''); setAddSiteOpen(false); }}
+                      data-testid={`map-site-result-${i}`}
+                      className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded text-[11px] hover:bg-muted/60"
+                    >
+                      <MapPin className="w-3 h-3 text-primary shrink-0" />
+                      <span className="truncate">{r.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center gap-1.5">
+                <Crosshair className="w-3 h-3 text-muted-foreground shrink-0" />
+                <Input
+                  value={coordInput}
+                  onChange={(e) => { setCoordInput(e.target.value); setCoordError(false); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') addByCoordinate(); }}
+                  placeholder={t('mapMicroapp.coordPlaceholder', { defaultValue: 'lat, lng (e.g. -30.03, -51.22)' }) as string}
+                  className={`h-7 text-xs ${coordError ? 'border-red-500' : ''}`}
+                  data-testid="map-site-coord-input"
+                />
+                <Button size="sm" variant="outline" className="h-7 text-[10px] px-2" onClick={addByCoordinate} disabled={!coordInput.trim()} data-testid="map-site-coord-btn">
+                  {t('mapMicroapp.addPin', { defaultValue: 'Add' })}
+                </Button>
+              </div>
+              {coordError && (
+                <p className="text-[10px] text-red-500">{t('mapMicroapp.coordInvalid', { defaultValue: 'Enter as: latitude, longitude' })}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Map */}
       <div className="flex-1 relative min-h-0 overflow-hidden">
