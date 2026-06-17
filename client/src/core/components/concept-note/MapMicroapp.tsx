@@ -572,7 +572,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     const map = mapRef.current;
     const rasterValues: Record<string, number> = {};
     for (const tileId of Array.from(enabledTiles)) {
-      const tileDef = TILE_LAYERS.find(l => l.id === tileId);
+      const tileDef = ALL_TILE_LAYERS.find(l => l.id === tileId);
       if (!tileDef?.valueEncoding?.urlTemplate) continue;
       const val = await sampleRasterAtPoint(lat, lng, tileDef.valueEncoding, 11);
       if (val !== null) rasterValues[tileDef.name] = val;
