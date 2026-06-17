@@ -224,18 +224,18 @@ function createConceptNoteToolsForSdk(noteId: string) {
 
 ## Available layers
 OSM: osm_parks, osm_schools, osm_hospitals, osm_wetlands
-Tiles: poa_flood_hazard, oef_hwm_2024, oef_dynamic_world, oef_copernicus_dem, oef_ghsl_population, +40 more
+Tiles: poa_flood_hazard, poa_heat_hazard, oef_dynamic_world, oef_copernicus_dem, oef_ghsl_population, +40 more
 Spatial queries: sq_parks_flood, sq_schools_flood, sq_hospitals_flood, sq_wetlands_flood, sq_parks_heatwave, sq_schools_heatwave
 
 ## Recipes
-- Territorial scope (Phase 2): zones + [] + [poa_flood_hazard, oef_hwm_2024]
+- Territorial scope (Phase 2): zones + [] + [poa_flood_hazard, poa_heat_hazard]
 - Intervention sites (Phase 3): composite + [osm_parks, osm_wetlands] + [poa_flood_hazard]
-- Environmental evidence: sample + [] + [poa_flood_hazard, oef_hwm_2024, oef_copernicus_dem]
+- Environmental evidence: sample + [] + [poa_flood_hazard, poa_heat_hazard, oef_copernicus_dem]
 
 STOP and wait for the user's map selection after calling this tool.`,
     {
       layers: z.array(z.string()).optional().describe("OSM layer IDs: osm_parks, osm_schools, osm_hospitals, osm_wetlands"),
-      tileLayers: z.array(z.string()).optional().describe("Tile layer IDs as toggleable overlays: poa_flood_hazard, oef_hwm_2024, etc."),
+      tileLayers: z.array(z.string()).optional().describe("Tile layer IDs as toggleable overlays: poa_flood_hazard, poa_heat_hazard, etc."),
       spatialQueries: z.array(z.string()).optional().describe("Pre-filter features: sq_parks_flood, sq_schools_heatwave, etc."),
       selectionMode: z.enum(["zones", "assets", "sample", "composite"]).describe("composite = zone→sites. assets = sites only. zones = zones only. sample = click-to-read."),
       prompt: z.string().describe("Clear instruction for the user"),
@@ -809,7 +809,7 @@ The user may be:
 3. **open_map({selectionMode, layers, tileLayers, prompt, ...})** — open an interactive map microapp. The user can select OSM features (parks, schools, hospitals), draw custom sites, or sample raster values. Use for spatial questions instead of ask_user with showMap.
    - selectionMode: "zones" (zone boundaries), "assets" (individual features), "sample" (click-to-sample), "composite" (zones + assets)
    - layers: OSM layer IDs like ["osm_parks", "osm_schools", "osm_hospitals", "osm_wetlands"]
-   - tileLayers: tile layer IDs like ["poa_flood_hazard", "oef_hwm_2024"] for evidence overlays
+   - tileLayers: tile layer IDs like ["poa_flood_hazard", "poa_heat_hazard"] for evidence overlays
    - spatialQueries: spatial query IDs like ["sq_parks_flood"] to pre-filter features
    - prompt: instruction for the user, e.g. "Select the parks you want to target for NBS interventions"
 4. **set_phase(phase)** — advance to next phase (0-10).

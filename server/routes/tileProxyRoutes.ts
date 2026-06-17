@@ -115,6 +115,12 @@ const OEF_TILE_LAYERS: Record<string, TileLayerConfig> = {
   poa_flood_hazard:        { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods/hazard/tiles_visual/{z}/{x}/{y}.png" },
   poa_flood_exposure:      { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods/exposure/tiles_visual/{z}/{x}/{y}.png" },
   poa_flood_vulnerability: { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods/vulnerability/tiles_visual/{z}/{x}/{y}.png" },
+
+  // ── Heat Risk (H×E×V) + hazard overlay — catalog poa_heat_* (validated). Only
+  // risk + hazard are exposed; the exposure/vulnerability component tiles are
+  // intentionally omitted (risk already folds E and V in). ──
+  poa_heat_risk:          { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat/risk/tiles_visual/{z}/{x}/{y}.png" },
+  poa_heat_hazard:        { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat/hazard/tiles_visual/{z}/{x}/{y}.png" },
 };
 
 // Track failed tile URLs to avoid repeated 404s (cache for 1 hour)

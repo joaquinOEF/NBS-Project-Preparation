@@ -36,7 +36,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
-import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS } from '@shared/geospatial-layers';
+import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS } from '@shared/geospatial-layers';
 import { riskBand, pct100, dominantPercentile, hazardPercentile, riskAnchor, TYPOLOGY_COLORS, type HazardKey } from '@shared/risk-display';
 import { LayerLegend } from '@/core/components/map/LayerLegend';
 import type { LegendIndex } from '@shared/legend-types';
@@ -81,7 +81,7 @@ interface CityInfo {
 }
 
 type LayerSource = 'geojson' | 'tiles';
-type LayerGroupId = 'analysis' | 'environment' | 'reference_data' | 'osm_reference' | 'spatial_queries' | 'risk_250m' | 'flood_indices' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections';
+type LayerGroupId = 'analysis' | 'environment' | 'reference_data' | 'osm_reference' | 'spatial_queries' | 'risk_250m' | 'flood_indices' | 'heat_indices' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections';
 
 interface LayerState {
   id: string;
@@ -158,6 +158,19 @@ const LAYER_CONFIGS: LayerConfig[] = [
     hasValueTiles: l.hasValueTiles,
     valueEncoding: l.valueEncoding,
   })),
+  // Heat component indices (catalog poa_heat_* — hazard / exposure / vulnerability)
+  ...HEAT_INDEX_LAYERS.map(l => ({
+    id: l.id,
+    name: l.name,
+    icon: AlertTriangle,
+    color: l.color,
+    source: 'tiles' as LayerSource,
+    group: 'heat_indices' as LayerGroupId,
+    available: true,
+    tileLayerId: l.tileLayerId,
+    hasValueTiles: l.hasValueTiles,
+    valueEncoding: l.valueEncoding,
+  })),
   // OEF tile layers — generated from shared catalog (48 layers)
   ...TILE_LAYERS.filter(l => l.available).map(l => ({
     id: l.id,
@@ -176,6 +189,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
 const LAYER_GROUPS: readonly { id: LayerGroupId; label: string }[] = [
   { id: 'risk_250m', label: 'Risk Analysis (250m)' },
   { id: 'flood_indices', label: 'Flood Indices' },
+  { id: 'heat_indices', label: 'Heat Indices' },
   { id: 'reference_data', label: 'Reference Data' },
   { id: 'analysis', label: 'Intervention Zones' },
   { id: 'environment', label: 'Environment' },
