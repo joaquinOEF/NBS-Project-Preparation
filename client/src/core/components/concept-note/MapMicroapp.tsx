@@ -6,8 +6,8 @@ import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Check, X, MapPin, Pencil, Loader2, Trash2, Eye, EyeOff, ChevronRight, Search, Plus, Crosshair } from 'lucide-react';
 import { Input } from '@/core/components/ui/input';
-import { TILE_LAYERS, OSM_LAYERS, SPATIAL_QUERIES } from '@shared/geospatial-layers';
-import { riskBand, hazardPercentile, type HazardKey } from '@shared/risk-display';
+import { TILE_LAYERS, ALL_TILE_LAYERS, tileVisualUrl, OSM_LAYERS, SPATIAL_QUERIES } from '@shared/geospatial-layers';
+import { riskBand, hazardPercentile, TYPOLOGY_COLORS, type HazardKey } from '@shared/risk-display';
 import type { OpenMapParams, SelectedAsset, SampledPoint, MapSelectionResult } from '@shared/concept-note-schema';
 import { sampleRasterAtPoint, geometryCentroid } from '@/lib/valueTileUtils';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
@@ -36,6 +36,21 @@ interface Props {
 
 // Composite mode has two steps: 1) pick zone, 2) pick assets within it
 type CompositeStep = 'zone' | 'assets';
+
+// Classify an evidence-layer id into its hazard family, for the simplified E2
+// legend (flood / heat / landslide). Returns null for non-hazard layers.
+type HazardFamily = 'flood' | 'heat' | 'landslide';
+function hazardFamilyOf(id: string): HazardFamily | null {
+  if (id.includes('flood')) return 'flood';
+  if (id.includes('heat')) return 'heat';
+  if (id.includes('landslide')) return 'landslide';
+  return null;
+}
+const HAZARD_LEGEND: Record<HazardFamily, { color: string; labelKey: string; defaultLabel: string }> = {
+  flood:     { color: TYPOLOGY_COLORS.FLOOD,     labelKey: 'mapMicroapp.hazardFlood',     defaultLabel: 'Flood' },
+  heat:      { color: TYPOLOGY_COLORS.HEAT,      labelKey: 'mapMicroapp.hazardHeat',      defaultLabel: 'Heat' },
+  landslide: { color: TYPOLOGY_COLORS.LANDSLIDE, labelKey: 'mapMicroapp.hazardLandslide', defaultLabel: 'Landslide' },
+};
 
 export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const { t } = useTranslation();
@@ -78,16 +93,17 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const showAssets = !isComposite || compositeStep === 'assets';
   const polygonHelp = drawMode === 'polygon' ? t('mapMicroapp.polygonHelp') : '';
 
-  // E2 needs-help: auto-enable requested tile layers on mount so the user
-  // immediately sees the hazard colors. They can still toggle them off.
+  // E2: auto-enable requested tile layers on mount so the user immediately sees
+  // the hazard colors (browse-only exploration, and any flow asking for the
+  // simplified hazard legend). They can still toggle them off.
   useEffect(() => {
-    if (!isBrowseOnly) return;
+    if (!isBrowseOnly && !params.showLegendSimple) return;
     if (!params.tileLayers || params.tileLayers.length === 0) return;
     setEnabledTiles(new Set(params.tileLayers));
-  }, [isBrowseOnly, params.tileLayers]);
+  }, [isBrowseOnly, params.showLegendSimple, params.tileLayers]);
 
   const enabledTileLayerDefs = Array.from(enabledTiles)
-    .map(id => TILE_LAYERS.find(l => l.id === id))
+    .map(id => ALL_TILE_LAYERS.find(l => l.id === id))
     .filter(Boolean) as typeof TILE_LAYERS;
 
   // ── Init map ────────────────────────────────────────────────────────────────
@@ -294,7 +310,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
                 const rasterValues: Record<string, number> = {};
                 for (const tileId of Array.from(enabledTiles)) {
-                  const tileDef = TILE_LAYERS.find(l => l.id === tileId);
+                  const tileDef = ALL_TILE_LAYERS.find(l => l.id === tileId);
                   if (!tileDef?.valueEncoding?.urlTemplate) continue;
                   const val = await sampleRasterAtPoint(centroid[0], centroid[1], tileDef.valueEncoding, 11);
                   if (val !== null) rasterValues[tileDef.name] = val;
@@ -397,25 +413,42 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   }, []);
 
   // ── Toggle tile layer ───────────────────────────────────────────────────────
+  // State-only: just flip membership in enabledTiles. The reconcile effect below
+  // is the single place that adds/removes the actual Leaflet layers, so an
+  // auto-enabled overlay (browse-only / showLegendSimple) renders too — not only
+  // ones toggled by a click.
   const toggleTileLayer = useCallback((tileId: string) => {
+    setEnabledTiles(prev => {
+      const n = new Set(prev);
+      n.has(tileId) ? n.delete(tileId) : n.add(tileId);
+      return n;
+    });
+  }, []);
+
+  // Reconcile the Leaflet tile layers with enabledTiles (add missing, remove
+  // gone). Runs for both click-toggles and auto-enabled overlays.
+  useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    const existing = tileLayerRefs.current[tileId];
-    if (existing) {
-      map.removeLayer(existing);
-      delete tileLayerRefs.current[tileId];
-      setEnabledTiles(prev => { const n = new Set(prev); n.delete(tileId); return n; });
-    } else {
-      const layerDef = TILE_LAYERS.find(l => l.id === tileId);
-      if (!layerDef) return;
-      const tl = L.tileLayer(`/api/geospatial/tiles/${layerDef.tileLayerId}/{z}/{x}/{y}.png`, {
+    if (!map || !mapReady) return;
+    // Remove layers no longer enabled.
+    for (const id of Object.keys(tileLayerRefs.current)) {
+      if (!enabledTiles.has(id)) {
+        map.removeLayer(tileLayerRefs.current[id]);
+        delete tileLayerRefs.current[id];
+      }
+    }
+    // Add newly enabled layers.
+    for (const id of Array.from(enabledTiles)) {
+      if (tileLayerRefs.current[id]) continue;
+      const layerDef = ALL_TILE_LAYERS.find(l => l.id === id);
+      if (!layerDef) continue;
+      const tl = L.tileLayer(tileVisualUrl(layerDef), {
         opacity: 0.6, maxNativeZoom: 15, maxZoom: 19, minZoom: 8, errorTileUrl: '',
       });
       tl.addTo(map);
-      tileLayerRefs.current[tileId] = tl;
-      setEnabledTiles(prev => new Set(prev).add(tileId));
+      tileLayerRefs.current[id] = tl;
     }
-  }, []);
+  }, [enabledTiles, mapReady]);
 
   // ── Sample mode ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -425,7 +458,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       const { lat, lng } = e.latlng;
       const values: Record<string, number> = {};
       for (const tileId of (params.sampleLayers || params.tileLayers || [])) {
-        const tileDef = TILE_LAYERS.find(l => l.id === tileId);
+        const tileDef = ALL_TILE_LAYERS.find(l => l.id === tileId);
         if (!tileDef?.valueEncoding?.urlTemplate) continue;
         const val = await sampleRasterAtPoint(lat, lng, tileDef.valueEncoding, 11);
         if (val !== null) values[tileDef.name] = val;
@@ -456,7 +489,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       if (drawMode === 'point') {
         const rasterValues: Record<string, number> = {};
         for (const tileId of Array.from(enabledTiles)) {
-          const tileDef = TILE_LAYERS.find(l => l.id === tileId);
+          const tileDef = ALL_TILE_LAYERS.find(l => l.id === tileId);
           if (!tileDef?.valueEncoding?.urlTemplate) continue;
           const val = await sampleRasterAtPoint(lat, lng, tileDef.valueEncoding, 11);
           if (val !== null) rasterValues[tileDef.name] = val;
@@ -500,7 +533,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       const rasterValues: Record<string, number> = {};
       if (centroid) {
         for (const tileId of Array.from(enabledTiles)) {
-          const tileDef = TILE_LAYERS.find(l => l.id === tileId);
+          const tileDef = ALL_TILE_LAYERS.find(l => l.id === tileId);
           if (!tileDef?.valueEncoding?.urlTemplate) continue;
           const val = await sampleRasterAtPoint(centroid[0], centroid[1], tileDef.valueEncoding, 11);
           if (val !== null) rasterValues[tileDef.name] = val;
@@ -539,7 +572,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     const map = mapRef.current;
     const rasterValues: Record<string, number> = {};
     for (const tileId of Array.from(enabledTiles)) {
-      const tileDef = TILE_LAYERS.find(l => l.id === tileId);
+      const tileDef = ALL_TILE_LAYERS.find(l => l.id === tileId);
       if (!tileDef?.valueEncoding?.urlTemplate) continue;
       const val = await sampleRasterAtPoint(lat, lng, tileDef.valueEncoding, 11);
       if (val !== null) rasterValues[tileDef.name] = val;
@@ -629,7 +662,14 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   };
 
   const totalSelections = selectedAssets.length + sampledPoints.length;
-  const availableTileLayers = (params.tileLayers || []).map(id => TILE_LAYERS.find(l => l.id === id)).filter(Boolean) as typeof TILE_LAYERS;
+  const availableTileLayers = (params.tileLayers || []).map(id => ALL_TILE_LAYERS.find(l => l.id === id)).filter(Boolean) as typeof TILE_LAYERS;
+
+  // Simplified E2 legend: collapse the layer toolkit into ≤3 hazard chips
+  // (flood/heat/landslide), each tied to the first matching available layer.
+  const simpleLegend = (params.showLegendSimple ? availableTileLayers : [])
+    .map(l => ({ layer: l, fam: hazardFamilyOf(l.id) }))
+    .filter((x): x is { layer: typeof availableTileLayers[number]; fam: HazardFamily } => x.fam !== null)
+    .filter((x, i, arr) => arr.findIndex(y => y.fam === x.fam) === i); // one chip per hazard
   const canDraw = showAssets && (selectionMode === 'assets' || selectionMode === 'composite');
 
   // Step instructions
@@ -681,8 +721,28 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
       {/* Tools bar */}
       <div className="flex items-center gap-1.5 px-3 py-1 border-b bg-muted/10 shrink-0">
-        {/* Tile layer toggles */}
-        {availableTileLayers.length > 0 && (
+        {/* Simplified hazard legend (E2): ≤3 colored chips standing in for the
+            full layer toolkit, so first-time CBO users see only flood / heat /
+            landslide. Each chip toggles its hazard overlay. */}
+        {simpleLegend.length > 0 ? (
+          <div className="flex items-center gap-1.5" data-testid="map-simple-legend">
+            <span className="text-[9px] text-muted-foreground shrink-0">{t('mapMicroapp.risks', { defaultValue: 'Riscos' })}:</span>
+            {simpleLegend.map(({ layer, fam }) => {
+              const isOn = enabledTiles.has(layer.id);
+              const meta = HAZARD_LEGEND[fam];
+              return (
+                <button key={layer.id} onClick={() => toggleTileLayer(layer.id)}
+                  data-testid={`map-hazard-chip-${fam}`}
+                  aria-pressed={isOn}
+                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] shrink-0 border ${isOn ? 'font-semibold' : 'text-muted-foreground border-transparent hover:bg-muted/50'}`}
+                  style={isOn ? { backgroundColor: `${meta.color}22`, borderColor: meta.color, color: meta.color } : undefined}>
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
+                  {t(meta.labelKey, { defaultValue: meta.defaultLabel })}
+                </button>
+              );
+            })}
+          </div>
+        ) : availableTileLayers.length > 0 && (
           <>
             <span className="text-[9px] text-muted-foreground shrink-0">{t('mapMicroapp.layers')}:</span>
             {availableTileLayers.map(layer => {
