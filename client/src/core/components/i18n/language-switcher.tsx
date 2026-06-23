@@ -14,7 +14,10 @@ const languages = [
   { code: 'pt', name: 'PT', flag: '🇧🇷' },
 ];
 
-export function LanguageSwitcher() {
+// `header` = white-on-transparent, for the dark shared layout header.
+// `plain` = neutral foreground colors, for light surfaces like the
+// orchestrator console header.
+export function LanguageSwitcher({ variant = 'header' }: { variant?: 'header' | 'plain' } = {}) {
   const { i18n } = useTranslation();
 
   const handleLanguageChange = (languageCode: string) => {
@@ -26,6 +29,11 @@ export function LanguageSwitcher() {
   const currentLanguage =
     languages.find(lang => lang.code === i18n.resolvedLanguage) || languages[0];
 
+  const triggerClass =
+    variant === 'plain'
+      ? 'w-auto min-w-[70px] h-8 rounded-full border-foreground/15 text-foreground hover:bg-foreground/5 transition-colors'
+      : 'w-auto min-w-[70px] h-8 rounded-full bg-white/10 border-white/20 text-white hover:bg-white/20 transition-colors';
+
   return (
     <div data-testid='language-switcher'>
       <Select
@@ -33,7 +41,7 @@ export function LanguageSwitcher() {
         onValueChange={handleLanguageChange}
       >
         <SelectTrigger
-          className='w-auto min-w-[70px] h-8 rounded-full bg-white/10 border-white/20 text-white hover:bg-white/20 transition-colors'
+          className={triggerClass}
           data-testid='select-language'
         >
           <SelectValue>

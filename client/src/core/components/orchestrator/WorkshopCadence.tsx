@@ -174,8 +174,18 @@ function WorkshopRow({
     DEFAULT_WORKSHOPS[index] && DEFAULT_WORKSHOPS[index].unlocksPhase === workshop.unlocksPhase
       ? DEFAULT_WORKSHOPS[index]
       : DEFAULT_WORKSHOPS.find(w => w.unlocksPhase === workshop.unlocksPhase);
-  const description = workshop.description ?? defaultForThisWorkshop?.description;
-  const expectedOutput = workshop.expectedOutput ?? defaultForThisWorkshop?.expectedOutput;
+  // Localized curriculum copy: render name/description/output via i18n (keyed by
+  // position) so a PT cohort shows Portuguese encontro titles, falling back to
+  // the stored English text when no translation exists — no DB migration of
+  // persisted workshop text required.
+  const fallbackDescription = workshop.description ?? defaultForThisWorkshop?.description;
+  const fallbackExpectedOutput = workshop.expectedOutput ?? defaultForThisWorkshop?.expectedOutput;
+  const description = fallbackDescription
+    ? t(`orchestrator.workshops.w${index + 1}.description`, { defaultValue: fallbackDescription })
+    : undefined;
+  const expectedOutput = fallbackExpectedOutput
+    ? t(`orchestrator.workshops.w${index + 1}.expectedOutput`, { defaultValue: fallbackExpectedOutput })
+    : undefined;
 
   // Visual treatment per state — premium, not loud.
   const stateMeta = {
@@ -293,7 +303,7 @@ function WorkshopRow({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-sm tracking-tight ${stateMeta.titleClass}`}>
-                {workshop.name}
+                {t(`orchestrator.workshops.w${index + 1}.name`, { defaultValue: workshop.name })}
               </span>
               <span
                 className={`inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${stateMeta.pillClass}`}
