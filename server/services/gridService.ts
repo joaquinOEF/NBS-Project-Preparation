@@ -426,26 +426,12 @@ export function computePopulationMetrics(
   return grid;
 }
 
-export function computeCompositeScores(grid: any): any {
-  for (const cell of grid.features) {
-    const m = cell.properties.metrics;
-
-    const A = m.river_prox_pct ?? 0;
-    const E = m.low_lying_pct ?? 0;
-    const I = m.imperv_pct ?? 0;
-    const R = m.river_prox_pct ?? 0;
-    const C = m.canopy_pct ?? 0;
-    const P = m.pop_density ?? 0;
-    const S = 0;
-    const U = 0;
-
-    m.flood_score = 0.45 * A + 0.20 * E + 0.20 * I + 0.15 * R;
-    m.heat_score = 0.45 * I + 0.35 * P + 0.20 * (1 - C);
-    m.landslide_score = 0.55 * S + 0.30 * U + 0.15 * (1 - C);
-  }
-
-  return grid;
-}
+// computeCompositeScores REMOVED (2026-06): the app no longer computes any risk
+// scores from raw indicators. All flood/heat/landslide scores come from the
+// validated catalog composites (poa_<haz>_risk), sampled offline by
+// scripts/sample-catalog-risk.ts. "Catalog leads, app shows" — see
+// docs/risk-catalog-migration-playbook.md. The old formula also had a known bug
+// (flood used river_prox_pct for both A and R) and zeroed landslide's S/U inputs.
 
 export function calculateCoverageSummary(grid: any): { [key: string]: number } {
   const totalCells = grid.features.length;

@@ -1,8 +1,8 @@
 /**
  * Server-side tile value sampler.
  * Fetches PNG value tiles from S3, decodes RGB→numeric values.
- * Used by recalc-scores-v2.ts to sample FRI, HWM, CHIRPS, Dynamic World
- * at grid cell centroids.
+ * Used by scripts/sample-catalog-risk.ts to sample the catalog poa_<haz>_*
+ * composites at grid cell centroids.
  */
 
 import { PNG } from 'pngjs';

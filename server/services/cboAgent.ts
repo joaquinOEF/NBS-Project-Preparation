@@ -426,11 +426,11 @@ Include showMap: true on a question only when the user genuinely needs the map t
 
 ## Available layers
 OSM (vector): osm_parks, osm_schools, osm_hospitals, osm_wetlands
-Tiles (raster): poa_flood_hazard (Flood Hazard), poa_heat_hazard (Heat Hazard), oef_dynamic_world (Land Use), oef_chirps_r90p_2024, oef_copernicus_dem, oef_ghsl_population, oef_merit_elv, +40 more
-Spatial queries: sq_parks_flood, sq_schools_flood, sq_hospitals_flood, sq_wetlands_flood, sq_parks_heatwave, sq_schools_heatwave
+Tiles (raster): poa_flood_hazard (Flood Hazard), poa_heat_hazard (Heat Hazard), poa_landslide_hazard (Landslide Hazard), oef_dynamic_world (Land Use), oef_chirps_r90p_2024, oef_copernicus_dem, oef_ghsl_population, oef_merit_elv, +40 more
+Spatial queries: sq_parks_flood, sq_schools_flood, sq_hospitals_flood, sq_wetlands_flood, sq_schools_heat_250m, sq_schools_landslide_250m
 
 ## Recipes
-- CBO Phase 2 (Where We Work): composite + zoneSource:"neighborhoods" + [osm_parks, osm_schools, osm_wetlands] + [poa_flood_hazard, poa_heat_hazard]
+- CBO Phase 2 (Where We Work): composite + zoneSource:"neighborhoods" + [osm_parks, osm_schools, osm_wetlands] + [poa_flood_hazard, poa_heat_hazard, poa_landslide_hazard]
 - CBO Phase 3 (What We're Doing): assets + [osm_parks, osm_wetlands] + [oef_dynamic_world, poa_flood_hazard]
 - Concept Note Phase 2 (Territorial Scope): zones + [] + [poa_flood_hazard, poa_heat_hazard]
 - Environmental analysis: sample + [] + [poa_flood_hazard, poa_heat_hazard, oef_copernicus_dem]

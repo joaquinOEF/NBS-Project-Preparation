@@ -6,8 +6,9 @@
 export type LayerSource = 'geojson' | 'tiles';
 export type LayerGroup =
   | 'risk_analysis'    // Existing: flood/heat/landslide from grid
-  | 'flood_indices'    // Catalog poa_flood_* components: hazard / exposure / vulnerability
-  | 'heat_indices'     // Catalog poa_heat_* components: hazard / exposure / vulnerability
+  | 'flood_indices'    // Catalog poa_flood_hazard overlay
+  | 'heat_indices'     // Catalog poa_heat_hazard overlay
+  | 'landslide_indices' // Catalog poa_landslide_hazard overlay
   | 'environment'      // Existing: elevation, landcover, water, rivers, forest
   | 'urban_land'       // New: Dynamic World, GHSL, VIIRS
   | 'ecology'          // New: NDVI, Hansen, Solar
@@ -65,11 +66,13 @@ export const LOCAL_RISK_LAYERS: TileLayerDef[] = [
       urlTemplate: 'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat/risk/tiles_values/{z}/{x}/{y}.png' },
   },
   {
-    id: 'risk_landslide_250m', name: 'Landslide Risk (250m)', group: 'risk_analysis', color: '#a16207',
-    tileLayerId: '_local_landslide_risk', available: true, hasValueTiles: true,
-    visualUrlTemplate: '/tiles/landslide_risk/{z}/{x}/{y}.png',
-    valueEncoding: { type: 'numeric', scale: 1000, offset: 0, unit: 'index 0–1',
-      urlTemplate: '/tiles_values/landslide_risk/{z}/{x}/{y}.png' },
+    // Catalog poa_landslide_risk — validated H×E×V composite (S3, 24-bit, scale 10000).
+    // Replaces the old locally-computed landslide_score (_local_landslide_risk).
+    // NOTE the catalog path is `landslides` (PLURAL, like `floods`).
+    id: 'risk_landslide_250m', name: 'Landslide Risk (H×E×V)', group: 'risk_analysis', color: '#a16207',
+    tileLayerId: 'poa_landslide_risk', available: true, hasValueTiles: true,
+    valueEncoding: { type: 'numeric', scale: 10000, offset: 0, unit: 'index 0–1',
+      urlTemplate: 'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/landslides/risk/tiles_values/{z}/{x}/{y}.png' },
   },
   {
     id: 'risk_composite_hotspot', name: 'Risk Hotspots (all)', group: 'risk_analysis', color: '#8b5cf6',
@@ -78,53 +81,41 @@ export const LOCAL_RISK_LAYERS: TileLayerDef[] = [
   },
 ];
 
-// Flood component indices from the catalog (poa_flood_* H/E/V), S3-backed.
-// Rendered as their own "Flood Indices" row. Heat/landslide get parallel arrays later.
+// Catalog hazard overlays (poa_<haz>_hazard), S3-backed. CONSISTENT across all
+// three hazards: each ships only the gap-free HAZARD overlay here + the H×E×V
+// RISK card in LOCAL_RISK_LAYERS. The exposure/vulnerability component tiles are
+// intentionally NOT exposed — risk already folds E and V in, and the standalone
+// E/V tiles add no decision value (and 403 outside the deploy network).
 // Value tiles: 24-bit RGB, scale 10000 → value = (R + 256*G + 65536*B) / 10000.
-const FLOOD_INDEX_BASE =
-  'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods';
-const floodIndexEncoding = (component: string): ValueTileEncoding => ({
+const CLIMATE_HAZARDS_BASE =
+  'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards';
+const hazardIndexEncoding = (hazardPath: string, component: string): ValueTileEncoding => ({
   type: 'numeric', scale: 10000, offset: 0, unit: 'index 0–1',
-  urlTemplate: `${FLOOD_INDEX_BASE}/${component}/tiles_values/{z}/{x}/{y}.png`,
+  urlTemplate: `${CLIMATE_HAZARDS_BASE}/${hazardPath}/${component}/tiles_values/{z}/{x}/{y}.png`,
 });
 
 export const FLOOD_INDEX_LAYERS: TileLayerDef[] = [
   {
     id: 'poa_flood_hazard', name: 'Flood Hazard', group: 'flood_indices', color: '#2563eb',
     tileLayerId: 'poa_flood_hazard', available: true, hasValueTiles: true,
-    valueEncoding: floodIndexEncoding('hazard'),
-  },
-  {
-    id: 'poa_flood_exposure', name: 'Flood Exposure', group: 'flood_indices', color: '#7c3aed',
-    tileLayerId: 'poa_flood_exposure', available: true, hasValueTiles: true,
-    valueEncoding: floodIndexEncoding('exposure'),
-  },
-  {
-    id: 'poa_flood_vulnerability', name: 'Flood Vulnerability', group: 'flood_indices', color: '#db2777',
-    tileLayerId: 'poa_flood_vulnerability', available: true, hasValueTiles: true,
-    valueEncoding: floodIndexEncoding('vulnerability'),
+    valueEncoding: hazardIndexEncoding('floods', 'hazard'),
   },
 ];
 
-// Heat component indices from the catalog (poa_heat_* H/E/V), S3-backed — the
-// parallel to FLOOD_INDEX_LAYERS. Rendered as their own "Heat Indices" row.
-// Value tiles: 24-bit RGB, scale 10000 → value = (R + 256*G + 65536*B) / 10000.
-const HEAT_INDEX_BASE =
-  'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat';
-const heatIndexEncoding = (component: string): ValueTileEncoding => ({
-  type: 'numeric', scale: 10000, offset: 0, unit: 'index 0–1',
-  urlTemplate: `${HEAT_INDEX_BASE}/${component}/tiles_values/{z}/{x}/{y}.png`,
-});
-
-// Only HAZARD (the gap-free overlay) is shipped + RISK (the H×E×V card in
-// LOCAL_RISK_LAYERS). The exposure/vulnerability component tiles are intentionally
-// NOT exposed — risk already folds E and V in, and the standalone E/V tiles add
-// no decision value (and 403 outside the deploy network).
 export const HEAT_INDEX_LAYERS: TileLayerDef[] = [
   {
     id: 'poa_heat_hazard', name: 'Heat Hazard', group: 'heat_indices', color: '#ea580c',
     tileLayerId: 'poa_heat_hazard', available: true, hasValueTiles: true,
-    valueEncoding: heatIndexEncoding('hazard'),
+    valueEncoding: hazardIndexEncoding('heat', 'hazard'),
+  },
+];
+
+// Landslide — catalog path is `landslides` (PLURAL, like `floods`).
+export const LANDSLIDE_INDEX_LAYERS: TileLayerDef[] = [
+  {
+    id: 'poa_landslide_hazard', name: 'Landslide Hazard', group: 'landslide_indices', color: '#a16207',
+    tileLayerId: 'poa_landslide_hazard', available: true, hasValueTiles: true,
+    valueEncoding: hazardIndexEncoding('landslides', 'hazard'),
   },
 ];
 
@@ -261,6 +252,7 @@ export const ALL_TILE_LAYERS: TileLayerDef[] = [
   ...LOCAL_RISK_LAYERS,
   ...FLOOD_INDEX_LAYERS,
   ...HEAT_INDEX_LAYERS,
+  ...LANDSLIDE_INDEX_LAYERS,
 ];
 
 /** The visual (RGB) tile URL template for a layer — its local override when set,
@@ -429,5 +421,18 @@ export const SPATIAL_QUERIES: SpatialQueryDef[] = [
     valueKey: 'flood_risk_250m',
     tooltipLabel: 'High flood risk',
     tooltipIcon: '🌊',
+  },
+  {
+    // Landslide parity (catalog poa_landslide_risk). Same 0.3 cutoff as flood/heat.
+    id: 'sq_schools_landslide_250m',
+    name: 'Schools in Landslide Risk > 0.3',
+    color: '#92400e',
+    vectorSource: '/api/osm/schools',
+    rasterLayerId: 'risk_landslide_250m',
+    threshold: 0.3,
+    comparator: '>',
+    valueKey: 'landslide_risk_250m',
+    tooltipLabel: 'High landslide risk',
+    tooltipIcon: '⛰️',
   },
 ];

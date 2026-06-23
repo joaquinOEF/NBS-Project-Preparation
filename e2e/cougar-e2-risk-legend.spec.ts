@@ -15,10 +15,11 @@ test.describe('COUGAR — E2 simplified flood/heat/landslide risk legend', () =>
     test.skip(!ping.fakeModel, 'needs the fake model');
 
     // Catch the local landslide visual tile request — proves the non-proxy
-    // (visualUrlTemplate) render path works.
+    // render path works (landslide now serves from the catalog tile proxy, like
+    // flood + heat — the old local /tiles/landslide_risk/ is gone).
     let landslideTileRequested = false;
     page.on('request', (r) => {
-      if (r.url().includes('/tiles/landslide_risk/')) landslideTileRequested = true;
+      if (r.url().includes('/api/geospatial/tiles/poa_landslide_hazard/')) landslideTileRequested = true;
     });
 
     await page.goto('/cbo-profile');
@@ -30,7 +31,7 @@ test.describe('COUGAR — E2 simplified flood/heat/landslide risk legend', () =>
       { op: 'say', text: 'Olha os riscos do seu bairro.' },
       { op: 'open_map', params: {
         selectionMode: 'browse-only',
-        tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'risk_landslide_250m'],
+        tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],
         showLegendSimple: true,
         prompt: 'As cores mostram os riscos.',
         narrationOverlay: 'Azul = enchente · Vermelho = calor · Marrom = deslizamento.',
@@ -54,7 +55,7 @@ test.describe('COUGAR — E2 simplified flood/heat/landslide risk legend', () =>
     // Overlays auto-enable in this mode (chips are "on").
     await expect(landslide).toHaveAttribute('aria-pressed', 'true');
 
-    // The landslide overlay actually fetched its (local, static) tiles.
+    // The landslide overlay actually fetched its catalog tiles via the proxy.
     await expect.poll(() => landslideTileRequested, { timeout: 15_000 }).toBe(true);
 
     // Toggling a chip turns the overlay off.

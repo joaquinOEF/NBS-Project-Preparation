@@ -110,17 +110,17 @@ const OEF_TILE_LAYERS: Record<string, TileLayerConfig> = {
   fri_2100s_245: { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/nbs/porto_alegre/climate_hazards/floods/flood_risk_index/oef_calculation/2100s_ssp245/tiles_visual/{z}/{x}/{y}.png" },
   fri_2100s_585: { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/nbs/porto_alegre/climate_hazards/floods/flood_risk_index/oef_calculation/2100s_ssp585/tiles_visual/{z}/{x}/{y}.png" },
 
-  // ── Flood Risk (H×E×V) + component indices — catalog poa_flood_* (validated) ──
-  poa_flood_risk:          { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods/risk/tiles_visual/{z}/{x}/{y}.png" },
-  poa_flood_hazard:        { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods/hazard/tiles_visual/{z}/{x}/{y}.png" },
-  poa_flood_exposure:      { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods/exposure/tiles_visual/{z}/{x}/{y}.png" },
-  poa_flood_vulnerability: { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods/vulnerability/tiles_visual/{z}/{x}/{y}.png" },
-
-  // ── Heat Risk (H×E×V) + hazard overlay — catalog poa_heat_* (validated). Only
-  // risk + hazard are exposed; the exposure/vulnerability component tiles are
-  // intentionally omitted (risk already folds E and V in). ──
-  poa_heat_risk:          { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat/risk/tiles_visual/{z}/{x}/{y}.png" },
-  poa_heat_hazard:        { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat/hazard/tiles_visual/{z}/{x}/{y}.png" },
+  // ── Catalog hazard composites poa_<haz>_* (validated H×E×V). CONSISTENT across
+  // flood / heat / landslide: each exposes only RISK (the card) + HAZARD (the
+  // gap-free overlay). The exposure/vulnerability component tiles are intentionally
+  // omitted — risk already folds E and V in. NOTE landslide path is `landslides`
+  // (plural, like `floods`). ──
+  poa_flood_risk:        { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods/risk/tiles_visual/{z}/{x}/{y}.png" },
+  poa_flood_hazard:      { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods/hazard/tiles_visual/{z}/{x}/{y}.png" },
+  poa_heat_risk:         { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat/risk/tiles_visual/{z}/{x}/{y}.png" },
+  poa_heat_hazard:       { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat/hazard/tiles_visual/{z}/{x}/{y}.png" },
+  poa_landslide_risk:    { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/landslides/risk/tiles_visual/{z}/{x}/{y}.png" },
+  poa_landslide_hazard:  { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/landslides/hazard/tiles_visual/{z}/{x}/{y}.png" },
 };
 
 // Track failed tile URLs to avoid repeated 404s (cache for 1 hour)

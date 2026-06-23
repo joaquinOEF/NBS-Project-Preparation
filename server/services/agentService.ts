@@ -1161,6 +1161,12 @@ export async function executeAgentTool(
                     vulnerability: props.meanHeatVulnerability,
                     risk: props.meanHeatRisk ?? props.meanHeat,
                   },
+                  landslideBreakdown: {
+                    hazard: props.meanLandslideHazard,
+                    exposure: props.meanLandslideExposure,
+                    vulnerability: props.meanLandslideVulnerability,
+                    risk: props.meanLandslideRisk ?? props.meanLandslide,
+                  },
                   riskRanks: {
                     flood: props.floodRank,
                     heat: props.heatRank,
