@@ -120,7 +120,8 @@ const OEF_TILE_LAYERS: Record<string, TileLayerConfig> = {
   poa_heat_risk:         { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat/risk/tiles_visual/{z}/{x}/{y}.png" },
   poa_heat_hazard:       { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat/hazard/tiles_visual/{z}/{x}/{y}.png" },
   poa_landslide_risk:    { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/landslides/risk/tiles_visual/{z}/{x}/{y}.png" },
-  poa_landslide_hazard:  { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/landslides/hazard/tiles_visual/{z}/{x}/{y}.png" },
+  // NOTE: landslide HAZARD is intentionally absent — the catalog only publishes
+  // landslide risk (the hazard tile 403s for everyone). Landslide uses risk.
 };
 
 // Track failed tile URLs to avoid repeated 404s (cache for 1 hour)

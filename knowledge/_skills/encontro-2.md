@@ -108,7 +108,7 @@ open_map({
   selectionMode: 'composite',
   zoneSource: 'neighborhoods',
   layers: ['osm_parks', 'osm_schools', 'osm_wetlands'],
-  tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],
+  tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'risk_landslide_250m'],
   showLegendSimple: true,
   prompt: 'Marca onde vocês querem atuar — primeiro o bairro, depois o lugar específico.'
 })
@@ -121,7 +121,7 @@ First, exploration mode with a narration banner. The user can scroll the map, to
 ```
 open_map({
   selectionMode: 'browse-only',
-  tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],
+  tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'risk_landslide_250m'],
   showLegendSimple: true,
   prompt: 'Olha o seu bairro. As cores mostram os riscos.',
   narrationOverlay: 'Azul = enchente. Vermelho = calor. Marrom = deslizamento. Toque "Voltar ao chat" quando quiser.'
@@ -140,7 +140,7 @@ Listen for cues. If they name a spot, transition to Beat 2b. If they're still un
 open_map({
   selectionMode: 'composite',
   zoneSource: 'neighborhoods',
-  tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],
+  tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'risk_landslide_250m'],
   showLegendSimple: true,
   prompt: 'Agora marca o lugar específico onde vocês querem atuar.'
 })

@@ -193,12 +193,24 @@ const BAND_CHIP: Record<ReturnType<typeof maturityBand>, string> = {
 type RiskView = 'flood' | 'heat' | 'landslide' | 'risk';
 
 // Hazard raster overlays, fed LIVE from the data catalog via the tile proxy.
-// All three = the catalog poa_<haz>_HAZARD (the gap-free hazard layer covers the
-// whole territory, unlike the sparse H×E×V risk composite).
+// Flood + heat = the catalog poa_<haz>_HAZARD (gap-free, covers the whole
+// territory). Landslide uses poa_landslide_RISK — the catalog only publishes
+// landslide RISK (the hazard tile 403s for everyone), so risk is the only
+// available landslide layer. It's the validated H×E×V composite, masked to the
+// hillside/morro footprint (the rest reads as low/green).
 const HAZARD_RASTER: Record<'flood' | 'heat' | 'landslide', { url: string; attribution: string }> = {
-  flood:     { url: '/api/geospatial/tiles/poa_flood_hazard/{z}/{x}/{y}.png',     attribution: 'OEF catalog · flood hazard (interpolated)' },
-  heat:      { url: '/api/geospatial/tiles/poa_heat_hazard/{z}/{x}/{y}.png',      attribution: 'OEF catalog · heat hazard' },
-  landslide: { url: '/api/geospatial/tiles/poa_landslide_hazard/{z}/{x}/{y}.png', attribution: 'OEF catalog · landslide hazard' },
+  flood:     { url: '/api/geospatial/tiles/poa_flood_hazard/{z}/{x}/{y}.png',   attribution: 'OEF catalog · flood hazard (interpolated)' },
+  heat:      { url: '/api/geospatial/tiles/poa_heat_hazard/{z}/{x}/{y}.png',    attribution: 'OEF catalog · heat hazard' },
+  landslide: { url: '/api/geospatial/tiles/poa_landslide_risk/{z}/{x}/{y}.png', attribution: 'OEF catalog · landslide risk (H×E×V)' },
+};
+
+// Legend color ramps that MATCH each catalog overlay's actual colormap (sampled
+// from the tiles), so the intensity bar reflects what's painted on the map:
+// flood = viridis (purple→yellow); heat + landslide = green→yellow→red (RdYlGn).
+const HAZARD_RAMPS: Record<'flood' | 'heat' | 'landslide', string[]> = {
+  flood:     ['#440154', '#414487', '#2a788e', '#22a884', '#7ad151', '#fde725'],
+  heat:      ['#1a9850', '#a6d96a', '#ffffbf', '#fdae61', '#d73027'],
+  landslide: ['#1a9641', '#a6d96a', '#ffffbf', '#fdae61', '#d7191c'],
 };
 
 // City-wide min/max of the per-zone max-hazard mean, for normalizing the 'risk'
@@ -494,9 +506,14 @@ function MapLayerControls({
       {active && active !== 'risk' && (
         <div className="pt-1.5 mt-1.5 border-t border-foreground/5">
           <div className="text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
-            {t('orchestrator.map.intensity', { defaultValue: 'Risk intensity' })}
+            {t('orchestrator.map.hazardIntensity', { defaultValue: 'Hazard intensity' })}
           </div>
-          <div className="h-2 rounded-full" style={{ background: 'linear-gradient(to right, #fef3c7, #fb923c, #b91c1c)' }} />
+          {/* Gradient mirrors the selected overlay's actual colormap (flood = viridis,
+              heat/landslide = green→red) so the legend matches the map. */}
+          <div
+            className="h-2 rounded-full"
+            style={{ background: `linear-gradient(to right, ${HAZARD_RAMPS[active].join(', ')})` }}
+          />
           <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5">
             <span>{t('orchestrator.map.low', { defaultValue: 'low' })}</span>
             <span>{t('orchestrator.map.high', { defaultValue: 'high' })}</span>
