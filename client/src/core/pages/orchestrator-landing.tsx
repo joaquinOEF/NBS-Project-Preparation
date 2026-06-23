@@ -193,13 +193,12 @@ const BAND_CHIP: Record<ReturnType<typeof maturityBand>, string> = {
 type RiskView = 'flood' | 'heat' | 'landslide' | 'risk';
 
 // Hazard raster overlays, fed LIVE from the data catalog via the tile proxy.
-// Flood + heat = the catalog poa_<haz>_HAZARD (the gap-free hazard layer covers
-// the whole territory, unlike the sparse H×E×V risk composite). Landslide is
-// still the local 250m risk tiles until its catalog dataset migrates.
+// All three = the catalog poa_<haz>_HAZARD (the gap-free hazard layer covers the
+// whole territory, unlike the sparse H×E×V risk composite).
 const HAZARD_RASTER: Record<'flood' | 'heat' | 'landslide', { url: string; attribution: string }> = {
-  flood:     { url: '/api/geospatial/tiles/poa_flood_hazard/{z}/{x}/{y}.png', attribution: 'OEF catalog · flood hazard (interpolated)' },
-  heat:      { url: '/api/geospatial/tiles/poa_heat_hazard/{z}/{x}/{y}.png',  attribution: 'OEF catalog · heat hazard' },
-  landslide: { url: '/tiles/landslide_risk/{z}/{x}/{y}.png',                 attribution: 'OEF risk grid (250m)' },
+  flood:     { url: '/api/geospatial/tiles/poa_flood_hazard/{z}/{x}/{y}.png',     attribution: 'OEF catalog · flood hazard (interpolated)' },
+  heat:      { url: '/api/geospatial/tiles/poa_heat_hazard/{z}/{x}/{y}.png',      attribution: 'OEF catalog · heat hazard' },
+  landslide: { url: '/api/geospatial/tiles/poa_landslide_hazard/{z}/{x}/{y}.png', attribution: 'OEF catalog · landslide hazard' },
 };
 
 // City-wide min/max of the per-zone max-hazard mean, for normalizing the 'risk'

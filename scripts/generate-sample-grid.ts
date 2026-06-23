@@ -576,27 +576,17 @@ function computeBuildingDensityMetrics(grid: any, builtUpData: any): any {
   return grid;
 }
 
-function computeCompositeScores(grid: any): any {
+// computeCompositeScores REMOVED (2026-06) — risk scores are no longer computed
+// from raw indicators anywhere. flood/heat/landslide come from the catalog
+// composites via scripts/sample-catalog-risk.ts. Kept as a thin no-op so the
+// grid still carries the `vegetation_pct` / `water_cooling` derived metrics that
+// downstream readers expect; the *_score fields are left for the catalog to fill.
+function computeDerivedMetrics(grid: any): any {
   for (const cell of grid.features) {
     const m = cell.properties.metrics;
-
-    const flowAccumPct = m.flow_accum_pct ?? 0;
-    const depressionPct = m.depression_pct ?? 0;
-    const riverProx = m.river_prox_pct ?? 0;
-    const waterProx = m.floodplain_adj_pct ?? 0;
-    const lowLying = m.low_lying_pct ?? 0;
-    const imperv = m.imperv_pct ?? m.building_density ?? m.built_pct ?? 0;
-    const slope = m.slope_mean ?? 0;
-    const flatness = slope > 0 ? Math.max(0, 1 - slope / 50) : 0.5;
-    
     const canopy = m.canopy_pct ?? 0;
     const green = m.green_pct ?? 0;
-    const vegetation = Math.max(canopy, green);
-    m.vegetation_pct = vegetation;
-    
-    const popDensity = m.pop_density ?? 0;
-    const buildingDensity = m.building_density ?? imperv;
-    
+    m.vegetation_pct = Math.max(canopy, green);
     let waterCooling = 0;
     if (m.dist_water_m !== null && m.dist_water_m !== undefined) {
       waterCooling = Math.max(0, 1 - m.dist_water_m / 5000);
@@ -604,32 +594,6 @@ function computeCompositeScores(grid: any): any {
       waterCooling = Math.max(m.floodplain_adj_pct || 0, m.river_prox_pct || 0);
     }
     m.water_cooling = waterCooling;
-
-    m.flood_score = Math.round((
-      0.25 * flowAccumPct +
-      0.15 * depressionPct +
-      0.20 * riverProx +
-      0.10 * waterProx +
-      0.15 * lowLying +
-      0.10 * imperv +
-      0.05 * flatness
-    ) * 100) / 100;
-
-    m.heat_score = Math.round((
-      0.35 * buildingDensity +
-      0.25 * popDensity +
-      0.25 * (1 - vegetation) +
-      0.15 * (1 - waterCooling)
-    ) * 100) / 100;
-
-    const slopeRisk = Math.min(1, slope / 20);
-    const lackOfVeg = 1 - vegetation;
-    const elevated = 1 - lowLying;
-    m.landslide_score = Math.round((
-      0.55 * slopeRisk +
-      0.25 * lackOfVeg +
-      0.20 * elevated
-    ) * 100) / 100;
   }
 
   return grid;
@@ -693,8 +657,11 @@ async function main() {
   if (worldPopData) grid = computeWorldPopMetrics(grid, worldPopData);
   if (builtUpData) grid = computeBuildingDensityMetrics(grid, builtUpData);
 
-  console.log('\n📈 Computing composite scores...');
-  grid = computeCompositeScores(grid);
+  // Risk scores are NOT computed here — "catalog leads, app shows". This builds
+  // the grid + raw indicator + derived metrics only; flood/heat/landslide scores
+  // are added afterwards by scripts/sample-catalog-risk.ts from the catalog.
+  console.log('\n📈 Computing derived metrics (scores are catalog-sourced; run sample-catalog-risk.ts next)');
+  grid = computeDerivedMetrics(grid);
 
   const coverage = calculateCoverageSummary(grid);
   console.log(`\n📊 Coverage summary:`);

@@ -224,13 +224,13 @@ function createConceptNoteToolsForSdk(noteId: string) {
 
 ## Available layers
 OSM: osm_parks, osm_schools, osm_hospitals, osm_wetlands
-Tiles: poa_flood_hazard, poa_heat_hazard, oef_dynamic_world, oef_copernicus_dem, oef_ghsl_population, +40 more
-Spatial queries: sq_parks_flood, sq_schools_flood, sq_hospitals_flood, sq_wetlands_flood, sq_parks_heatwave, sq_schools_heatwave
+Tiles: poa_flood_hazard, poa_heat_hazard, poa_landslide_hazard, oef_dynamic_world, oef_copernicus_dem, oef_ghsl_population, +40 more
+Spatial queries: sq_parks_flood, sq_schools_flood, sq_hospitals_flood, sq_wetlands_flood, sq_schools_heat_250m, sq_schools_landslide_250m
 
 ## Recipes
-- Territorial scope (Phase 2): zones + [] + [poa_flood_hazard, poa_heat_hazard]
-- Intervention sites (Phase 3): composite + [osm_parks, osm_wetlands] + [poa_flood_hazard]
-- Environmental evidence: sample + [] + [poa_flood_hazard, poa_heat_hazard, oef_copernicus_dem]
+- Territorial scope (Phase 2): zones + [] + [poa_flood_hazard, poa_heat_hazard, poa_landslide_hazard]
+- Intervention sites (Phase 3): composite + [osm_parks, osm_wetlands] + [poa_flood_hazard, poa_heat_hazard, poa_landslide_hazard]
+- Environmental evidence: sample + [] + [poa_flood_hazard, poa_heat_hazard, poa_landslide_hazard, oef_copernicus_dem]
 
 STOP and wait for the user's map selection after calling this tool.`,
     {

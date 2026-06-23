@@ -43,7 +43,11 @@ const ALL_HAZARDS: Hazard[] = [
     key: 'heat',
     base: 'oef_calculation/release/v1/porto_alegre/climate_hazards/heat',
   },
-  // { key: 'landslide', base: 'oef_calculation/release/v1/porto_alegre/climate_hazards/landslide' },
+  {
+    // NOTE: catalog path is `landslides` (PLURAL, like `floods`), not `landslide`.
+    key: 'landslide',
+    base: 'oef_calculation/release/v1/porto_alegre/climate_hazards/landslides',
+  },
 ];
 
 // Optional single-hazard run: `HAZARD_ONLY=heat npx tsx scripts/sample-catalog-risk.ts`.

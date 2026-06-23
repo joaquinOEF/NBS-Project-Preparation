@@ -54,7 +54,6 @@ import {
   computeWaterMetrics,
   computeForestMetrics,
   computePopulationMetrics,
-  computeCompositeScores,
   calculateCoverageSummary,
 } from './services/gridService';
 import { generateImpactNarrative, regenerateBlock, generateQuantifiedImpacts, generateNarrativeFromKPIs, detectAffectedBlocks, regenerateAffectedBlocks } from './services/impactModelService';
@@ -894,7 +893,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (forestData) grid = computeForestMetrics(grid, forestData);
       if (populationData) grid = computePopulationMetrics(grid, populationData);
 
-      grid = computeCompositeScores(grid);
+      // Risk scores are NOT computed here anymore — "catalog leads, app shows".
+      // The grid carries raw indicator metrics only; flood/heat/landslide scores
+      // come exclusively from the validated catalog composites
+      // (scripts/sample-catalog-risk.ts, run offline for cities with catalog data).
       const coverage = calculateCoverageSummary(grid);
 
       console.log(`   Coverage: elevation=${coverage.elevation}%, rivers=${coverage.rivers}%, forest=${coverage.forest}%`);
