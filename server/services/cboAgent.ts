@@ -431,8 +431,8 @@ Spatial queries: sq_parks_flood, sq_schools_flood, sq_hospitals_flood, sq_wetlan
 
 ## Recipes
 - CBO Phase 2 (Where We Work): composite + zoneSource:"neighborhoods" + [osm_parks, osm_schools, osm_wetlands] + [poa_flood_hazard, poa_heat_hazard, poa_landslide_hazard]
-- CBO Phase 3 (What We're Doing): assets + [osm_parks, osm_wetlands] + [oef_dynamic_world, poa_flood_hazard]
-- Concept Note Phase 2 (Territorial Scope): zones + [] + [poa_flood_hazard, poa_heat_hazard]
+- CBO Phase 3 (What We're Doing): assets + [osm_parks, osm_wetlands] + [oef_dynamic_world, poa_flood_hazard, poa_heat_hazard, poa_landslide_hazard]
+- Concept Note Phase 2 (Territorial Scope): zones + [] + [poa_flood_hazard, poa_heat_hazard, poa_landslide_hazard]
 - Environmental analysis: sample + [] + [poa_flood_hazard, poa_heat_hazard, oef_copernicus_dem]
 
 STOP and wait for the user's map selection after calling this tool.`,
@@ -1159,12 +1159,12 @@ Score: Org Delivery Capacity (0-3), Team Technical Experience (0-3).`;
     case 2:
       return isPt
         ? `**Fase 2: Onde Atuamos** (intervention_site)
-Abrir open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks","osm_schools","osm_wetlands"], tileLayers: ["poa_flood_hazard","poa_heat_hazard"], prompt: "Selecione seu bairro, depois escolha os locais" }).
+Abrir open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks","osm_schools","osm_wetlands"], tileLayers: ["poa_flood_hazard","poa_heat_hazard","poa_landslide_hazard"], showLegendSimple: true, prompt: "Selecione seu bairro, depois escolha os locais" }).
 Após seleção: perguntar condições atuais, população, posse do terreno, engajamento comunitário.
 Se desenharem ponto/área customizada: perguntar "Esse local tem um nome?"
 Pedir fotos do local. Avaliar: Controle do Local (0-3), Ancoragem Comunitária (0-3).`
         : `**Phase 2: Where We Work** (intervention_site)
-Open open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks","osm_schools","osm_wetlands"], tileLayers: ["poa_flood_hazard","poa_heat_hazard"], prompt: "Select your neighborhood, then pick sites" }).
+Open open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks","osm_schools","osm_wetlands"], tileLayers: ["poa_flood_hazard","poa_heat_hazard","poa_landslide_hazard"], showLegendSimple: true, prompt: "Select your neighborhood, then pick sites" }).
 After selection: ask current conditions, population, land tenure, community engagement.
 If they draw custom point/area: ask "Does this site have a name?"
 Ask for site photos. Score: Site Control (0-3), Community Anchoring (0-3).`;
