@@ -45,6 +45,7 @@ import {
 } from '@/core/components/ui/select';
 import { WorkshopCadence } from '@/core/components/orchestrator/WorkshopCadence';
 import { SupportInbox } from '@/core/components/orchestrator/SupportInbox';
+import { LanguageSwitcher } from '@/core/components/i18n/language-switcher';
 
 // ---------------------------------------------------------------------------
 // Data model — mirrors shared/cbo-schema.ts fields relevant to a portfolio
@@ -752,6 +753,20 @@ export default function OrchestratorLandingPage() {
     setSupportInboxPendingCount(projects.reduce((sum, p) => sum + p.supportPendingCount, 0));
   }, [projects]);
 
+  // Default the coordinator console to the cohort's forced language. When a PT
+  // cohort loads, the orchestrator UI shows in Portuguese (matching what the
+  // CBOs see) without the coordinator having to flip the header switcher. We
+  // apply this ONCE per cohort id, so a manual switch afterwards wins; switching
+  // to another cohort re-applies that cohort's language.
+  const appliedLangForCohort = useRef<string | null>(null);
+  useEffect(() => {
+    if (!cohort?.id || !cohortLanguage) return;
+    if (appliedLangForCohort.current === cohort.id) return;
+    appliedLangForCohort.current = cohort.id;
+    if (i18n.language?.startsWith(cohortLanguage)) return;
+    i18n.changeLanguage(cohortLanguage);
+  }, [cohort?.id, cohortLanguage, i18n]);
+
   const stats = useMemo(() => {
     const sitesMapped = projects.filter(p => p.coords).length;
     const profilesInProgress = projects.filter(
@@ -930,6 +945,10 @@ export default function OrchestratorLandingPage() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
+            {/* Coordinator's own console language. Defaults to the cohort's
+                forced language (see effect above) but the coordinator can flip
+                it here — independent of the cohort/CBO language toggle below. */}
+            <LanguageSwitcher variant="plain" />
             {cohort && (
               <Button
                 variant="ghost"
