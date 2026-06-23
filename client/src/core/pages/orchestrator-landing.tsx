@@ -204,6 +204,15 @@ const HAZARD_RASTER: Record<'flood' | 'heat' | 'landslide', { url: string; attri
   landslide: { url: '/api/geospatial/tiles/poa_landslide_risk/{z}/{x}/{y}.png', attribution: 'OEF catalog · landslide risk (H×E×V)' },
 };
 
+// Legend color ramps that MATCH each catalog overlay's actual colormap (sampled
+// from the tiles), so the intensity bar reflects what's painted on the map:
+// flood = viridis (purple→yellow); heat + landslide = green→yellow→red (RdYlGn).
+const HAZARD_RAMPS: Record<'flood' | 'heat' | 'landslide', string[]> = {
+  flood:     ['#440154', '#414487', '#2a788e', '#22a884', '#7ad151', '#fde725'],
+  heat:      ['#1a9850', '#a6d96a', '#ffffbf', '#fdae61', '#d73027'],
+  landslide: ['#1a9641', '#a6d96a', '#ffffbf', '#fdae61', '#d7191c'],
+};
+
 // City-wide min/max of the per-zone max-hazard mean, for normalizing the 'risk'
 // choropleth opacity (same approach as the site-explorer). Filled when the
 // bairro layer is built.
@@ -497,9 +506,14 @@ function MapLayerControls({
       {active && active !== 'risk' && (
         <div className="pt-1.5 mt-1.5 border-t border-foreground/5">
           <div className="text-[9px] uppercase tracking-wide text-muted-foreground mb-1">
-            {t('orchestrator.map.intensity', { defaultValue: 'Risk intensity' })}
+            {t('orchestrator.map.hazardIntensity', { defaultValue: 'Hazard intensity' })}
           </div>
-          <div className="h-2 rounded-full" style={{ background: 'linear-gradient(to right, #fef3c7, #fb923c, #b91c1c)' }} />
+          {/* Gradient mirrors the selected overlay's actual colormap (flood = viridis,
+              heat/landslide = green→red) so the legend matches the map. */}
+          <div
+            className="h-2 rounded-full"
+            style={{ background: `linear-gradient(to right, ${HAZARD_RAMPS[active].join(', ')})` }}
+          />
           <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5">
             <span>{t('orchestrator.map.low', { defaultValue: 'low' })}</span>
             <span>{t('orchestrator.map.high', { defaultValue: 'high' })}</span>
