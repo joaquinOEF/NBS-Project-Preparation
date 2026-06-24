@@ -26,7 +26,7 @@ import {
 import type { OpenMapParams, MapSelectionResult, SelectedAsset } from '@shared/concept-note-schema';
 import {
   Send, Download, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft, Paperclip,
-  FileText, Loader2, RotateCcw, Star, Leaf,
+  FileText, Files, Loader2, RotateCcw, Star, Leaf,
   Check, Circle, AlertCircle, Pencil, Mic, Square,
 } from 'lucide-react';
 import { useVoiceRecorder, type RecorderError } from '@/core/hooks/useVoiceRecorder';
@@ -39,6 +39,7 @@ import { RequestSupportDialog } from '@/core/components/cbo/RequestSupportDialog
 import { NbsShowcaseCardStrip } from '@/core/components/cbo/NbsShowcaseCard';
 import { RiskPriorityChips, type HazardId } from '@/core/components/cbo/RiskPriorityChips';
 import { CommunityAnchoringComposer, type CommunityAnchoringResult } from '@/core/components/cbo/CommunityAnchoringComposer';
+import { CboFilesSheet } from '@/core/components/cbo/CboFilesSheet';
 import { LifeBuoy } from 'lucide-react';
 import { NBS_SHOWCASE_CARDS, getShowcaseCard } from '@shared/nbs-showcase-cards';
 import type { WorkshopConfig } from '@shared/cohort-schema';
@@ -210,6 +211,9 @@ export default function CboProfilePage() {
   const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({});
   const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
   const [multiSelectedOptions, setMultiSelectedOptions] = useState<Set<string>>(new Set());
+  // "Seus arquivos" bottom sheet — lets the CBO review what they've shared.
+  const [filesSheetOpen, setFilesSheetOpen] = useState(false);
+  const [fileCount, setFileCount] = useState(0);
   const [rightTab, setRightTab] = useState<'document' | 'map' | 'scorecard' | 'interventions'>(getSavedMapParams() ? 'map' : 'document');
   // Mobile-only: which top-level pane is visible. On `md+` both panels render
   // side-by-side and this state is ignored.
@@ -222,6 +226,16 @@ export default function CboProfilePage() {
     mobileActiveTabRef.current = mobileActiveTab;
     if (mobileActiveTab === 'chat') setMobileChatUnread(false);
   }, [mobileActiveTab]);
+
+  // Keep the "Seus arquivos" chip count in sync (on load + after each upload).
+  const refreshFileCount = useCallback(() => {
+    if (!cboId) return;
+    fetch(`/api/cbo/${cboId}/documents`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => { if (data) setFileCount((data.documents ?? []).length); })
+      .catch(() => {});
+  }, [cboId]);
+  useEffect(() => { refreshFileCount(); }, [refreshFileCount]);
   const [mapRelevant, setMapRelevant] = useState(!!getSavedMapParams());
   const [openMapParams, _setOpenMapParams] = useState<OpenMapParams | null>(getSavedMapParams);
   const [interventionSelectorParams, setInterventionSelectorParams] = useState<OpenInterventionSelectorParams | null>(null);
@@ -804,6 +818,7 @@ export default function CboProfilePage() {
     sessionType: 'cbo',
     onFileProcessed: (filename, content) => {
       sendMessage(`I'm uploading: "${filename}".\n\nParsed content:\n${content.slice(0, 8000)}\n\nPlease extract relevant information, auto-fill sections with update_section, and score maturity metrics based on what you find.`);
+      setTimeout(refreshFileCount, 600);
     },
   });
 
@@ -948,6 +963,7 @@ export default function CboProfilePage() {
           onSubmitted={() => setSupportPendingCount(c => c + 1)}
         />
       )}
+      <CboFilesSheet cboId={cboId} open={filesSheetOpen} onOpenChange={setFilesSheetOpen} />
       <div className="flex flex-1 min-h-0">
         {/* LEFT: Chat — full width on mobile (when Chat tab active), half on md+ */}
         <div
@@ -1373,6 +1389,7 @@ export default function CboProfilePage() {
                           }).catch(() => {});
                         }
                         sendMessage(`I'm uploading: "${file.name}".\n\nParsed content:\n${(data.content || '').slice(0, 8000)}\n\nPlease extract info, auto-fill sections, and score maturity.`);
+                        setTimeout(refreshFileCount, 600);
                       })
                       .catch(() => sendMessage(`Uploaded "${file.name}" but could not parse.`));
                   }
@@ -1382,6 +1399,21 @@ export default function CboProfilePage() {
               <Tooltip><TooltipTrigger asChild>
                 <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="shrink-0"><Paperclip className="w-4 h-4" /></Button>
               </TooltipTrigger><TooltipContent>{t('cbo.uploadDoc')}</TooltipContent></Tooltip>
+              {fileCount > 0 && (
+                <Tooltip><TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFilesSheetOpen(true)}
+                    className="shrink-0 gap-1 text-xs"
+                    data-testid="button-cbo-files"
+                  >
+                    <Files className="w-4 h-4" />
+                    {fileCount}
+                  </Button>
+                </TooltipTrigger><TooltipContent>{t('files.mine', { defaultValue: 'Your files' })}</TooltipContent></Tooltip>
+              )}
               {voice.supported && (
                 <Tooltip><TooltipTrigger asChild>
                   <Button

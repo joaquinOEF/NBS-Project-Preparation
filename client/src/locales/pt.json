@@ -2064,6 +2064,7 @@
     "download": "Baixar",
     "noPreview": "Sem pré-visualização.",
     "noOriginalNote": "Original não armazenado — mostrando o texto extraído.",
-    "loadError": "Não foi possível carregar os arquivos."
+    "loadError": "Não foi possível carregar os arquivos.",
+    "mine": "Seus arquivos"
   }
 }
