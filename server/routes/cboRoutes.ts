@@ -18,6 +18,12 @@ import {
   loadCboMessages as dbLoadCboMessages,
 } from "../services/cboPersistence";
 import { createEmptyCboState, CBO_SECTIONS, type CboState } from "@shared/cbo-schema";
+import {
+  listDocumentsByOrg,
+  getDocumentForOrg,
+  getOrgIdForCboState,
+  toDocumentMeta,
+} from "../services/documentPersistence";
 
 // Shim — pre-DB code called this synchronous-style. Routes now await DB.
 async function loadPersistedCboState(id: string): Promise<{ state: CboState; messages: any[] } | null> {
@@ -60,6 +66,24 @@ export function registerCboRoutes(app: Express): void {
       }
     }
     res.json(messages);
+  });
+
+  // The CBO's own uploaded files (evidence locker) — powers the mobile
+  // "Seus arquivos" bottom sheet. Open-by-UUID, consistent with the other
+  // /api/cbo/:id/* routes (the client resolves the session from its token).
+  app.get("/api/cbo/:id/documents", async (req: Request, res: Response) => {
+    const orgId = await getOrgIdForCboState(req.params.id);
+    if (!orgId) return res.json({ documents: [] });
+    const docs = await listDocumentsByOrg(orgId);
+    res.json({ documents: docs.map(toDocumentMeta) });
+  });
+
+  app.get("/api/cbo/:id/documents/:docId/text", async (req: Request, res: Response) => {
+    const orgId = await getOrgIdForCboState(req.params.id);
+    if (!orgId) return res.status(404).json({ error: "not found" });
+    const doc = await getDocumentForOrg(req.params.docId, orgId);
+    if (!doc) return res.status(404).json({ error: "not found" });
+    res.json({ fullText: doc.fullText ?? "", summary: doc.summary ?? null });
   });
 
   // Chat (SSE)
