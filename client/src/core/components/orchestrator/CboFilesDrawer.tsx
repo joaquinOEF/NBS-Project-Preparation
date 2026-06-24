@@ -1,75 +1,111 @@
 /**
- * Coordinator-side evidence drawer — the files a single CBO has uploaded.
- * Opens from the 📎 file-count chip on an orchestrator card; renders the shared
- * <CboFilesView> inside a right-hand Sheet. Reads are scoped + ownership-gated
- * server-side (/api/cohort/:slug/member/:id/documents).
+ * Coordinator-side per-CBO drawer — everything about one CBO in three tabs:
+ *   Arquivos (uploaded files) · Conversa (chat transcript) · Perfil (profile doc).
+ * Opens from an orchestrator card; all reads are ownership-gated server-side
+ * (/api/cohort/:slug/member/:id/...). Snapshot on open + a manual refresh.
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { RefreshCw } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/core/components/ui/sheet';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/core/components/ui/tabs';
+import { Button } from '@/core/components/ui/button';
 import { CboFilesView } from '@/core/components/cbo-files/CboFilesView';
+import { CboChatTranscript } from '@/core/components/orchestrator/CboChatTranscript';
+import { CboProfileSummary } from '@/core/components/orchestrator/CboProfileSummary';
 import type { DocumentMeta } from '@shared/document-schema';
 
+export type CboDrawerTab = 'arquivos' | 'conversa' | 'perfil';
 export type FilesDrawerMember = { id: string; orgName: string };
 
 export function CboFilesDrawer({
   cohortSlug,
   member,
+  initialTab = 'arquivos',
   onClose,
 }: {
   cohortSlug: string | null;
   member: FilesDrawerMember | null;
+  initialTab?: CboDrawerTab;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const [tab, setTab] = useState<CboDrawerTab>(initialTab);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Files tab data (lives here so the refresh button can re-pull it too).
   const [docs, setDocs] = useState<DocumentMeta[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docsError, setDocsError] = useState<string | null>(null);
+
+  // Reset to the requested tab each time the drawer opens for a member.
+  useEffect(() => { if (member) setTab(initialTab); }, [member, initialTab]);
 
   useEffect(() => {
     if (!member || !cohortSlug) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
+    setDocsLoading(true);
+    setDocsError(null);
     fetch(`/api/cohort/${cohortSlug}/member/${member.id}/documents`, { credentials: 'include' })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(data => { if (!cancelled) setDocs(data.documents ?? []); })
-      .catch(() => { if (!cancelled) setError(t('files.loadError', { defaultValue: 'Could not load files.' })); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .catch(() => { if (!cancelled) setDocsError(t('files.loadError', { defaultValue: 'Could not load files.' })); })
+      .finally(() => { if (!cancelled) setDocsLoading(false); });
     return () => { cancelled = true; };
-  }, [member, cohortSlug, t]);
+  }, [member, cohortSlug, reloadKey, t]);
 
   const fetchText = async (docId: string): Promise<string> => {
     if (!member || !cohortSlug) return '';
-    const r = await fetch(
-      `/api/cohort/${cohortSlug}/member/${member.id}/documents/${docId}/text`,
-      { credentials: 'include' },
-    );
+    const r = await fetch(`/api/cohort/${cohortSlug}/member/${member.id}/documents/${docId}/text`, { credentials: 'include' });
     if (!r.ok) return '';
-    const data = await r.json();
-    return data.fullText ?? '';
+    return (await r.json()).fullText ?? '';
   };
 
   return (
     <Sheet open={!!member} onOpenChange={open => { if (!open) onClose(); }}>
       <SheetContent side="right" className="w-full sm:max-w-md flex flex-col" data-testid="cbo-files-drawer">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            {t('files.title', { defaultValue: 'Files' })}
-            {member && <span className="text-muted-foreground font-normal">· {member.orgName}</span>}
+          <SheetTitle className="flex items-center gap-2 pr-8">
+            <span className="truncate">{member?.orgName}</span>
+            <Button
+              variant="ghost" size="sm"
+              className="ml-auto shrink-0 h-7 px-2"
+              onClick={() => setReloadKey(k => k + 1)}
+              title={t('cboView.refresh', { defaultValue: 'Refresh' }) as string}
+              data-testid="cbo-drawer-refresh"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </Button>
           </SheetTitle>
         </SheetHeader>
-        <div className="flex-1 min-h-0 overflow-auto mt-2">
-          <CboFilesView
-            documents={docs}
-            loading={loading}
-            error={error}
-            originalUrl={docId => `/api/documents/${docId}/original`}
-            fetchText={fetchText}
-          />
-        </div>
+
+        {member && cohortSlug && (
+          <Tabs value={tab} onValueChange={v => setTab(v as CboDrawerTab)} className="flex-1 min-h-0 flex flex-col mt-2">
+            <TabsList className="grid grid-cols-3">
+              <TabsTrigger value="arquivos" data-testid="cbo-tab-arquivos">{t('cboView.tabFiles', { defaultValue: 'Files' })}</TabsTrigger>
+              <TabsTrigger value="conversa" data-testid="cbo-tab-conversa">{t('cboView.tabChat', { defaultValue: 'Chat' })}</TabsTrigger>
+              <TabsTrigger value="perfil" data-testid="cbo-tab-perfil">{t('cboView.tabProfile', { defaultValue: 'Profile' })}</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="arquivos" className="flex-1 min-h-0 overflow-auto mt-2">
+              <CboFilesView
+                documents={docs}
+                loading={docsLoading}
+                error={docsError}
+                originalUrl={docId => `/api/documents/${docId}/original`}
+                fetchText={fetchText}
+              />
+            </TabsContent>
+            <TabsContent value="conversa" className="flex-1 min-h-0 overflow-auto mt-2">
+              <CboChatTranscript cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} />
+            </TabsContent>
+            <TabsContent value="perfil" className="flex-1 min-h-0 overflow-auto mt-2">
+              <CboProfileSummary cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} />
+            </TabsContent>
+          </Tabs>
+        )}
       </SheetContent>
     </Sheet>
   );

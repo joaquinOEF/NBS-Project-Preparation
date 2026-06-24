@@ -19,7 +19,7 @@ import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
+  ArrowLeft, Check, Clock, Compass, Copy, Droplets, Eye, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
   Mountain, Network, Paperclip, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Waves,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
@@ -46,7 +46,7 @@ import {
 import { WorkshopCadence } from '@/core/components/orchestrator/WorkshopCadence';
 import { SupportInbox } from '@/core/components/orchestrator/SupportInbox';
 import { LanguageSwitcher } from '@/core/components/i18n/language-switcher';
-import { CboFilesDrawer, type FilesDrawerMember } from '@/core/components/orchestrator/CboFilesDrawer';
+import { CboFilesDrawer, type FilesDrawerMember, type CboDrawerTab } from '@/core/components/orchestrator/CboFilesDrawer';
 
 // ---------------------------------------------------------------------------
 // Data model — mirrors shared/cbo-schema.ts fields relevant to a portfolio
@@ -551,14 +551,14 @@ function ProjectCard({
   selected,
   onHover,
   onOpen,
-  onOpenFiles,
+  onOpenCbo,
 }: {
   project: CboDemoProject;
   locale: 'en' | 'pt';
   selected: boolean;
   onHover: (id: string | null) => void;
   onOpen: (p: CboDemoProject) => void;
-  onOpenFiles: (p: CboDemoProject) => void;
+  onOpenCbo: (p: CboDemoProject, tab: 'arquivos' | 'conversa' | 'perfil') => void;
 }) {
   const { t } = useTranslation();
   const hasIntervention = project.interventionKey !== null;
@@ -657,7 +657,7 @@ function ProjectCard({
             {project.documentCount > 0 && (
               <button
                 type="button"
-                onClick={e => { e.stopPropagation(); onOpenFiles(project); }}
+                onClick={e => { e.stopPropagation(); onOpenCbo(project, 'arquivos'); }}
                 className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-900/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
                 title={t('orchestrator.files.chipTooltip', { defaultValue: '{{n}} file(s) shared — tap to view', n: project.documentCount })}
                 data-testid={`button-cbo-files-${project.id}`}
@@ -666,6 +666,16 @@ function ProjectCard({
                 {project.documentCount}
               </button>
             )}
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); onOpenCbo(project, 'perfil'); }}
+              className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border border-foreground/15 text-foreground/70 hover:bg-foreground/5 transition-colors"
+              title={t('orchestrator.cboView.openTooltip', { defaultValue: 'View conversation + profile' })}
+              data-testid={`button-cbo-view-${project.id}`}
+            >
+              <Eye className="w-3 h-3" strokeWidth={2} />
+              {t('orchestrator.cboView.open', { defaultValue: 'View' })}
+            </button>
             {hasIntervention ? (
               <span
                 className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${toneStyle.bubble} ${toneStyle.fg} border-foreground/10`}
@@ -844,8 +854,9 @@ export default function OrchestratorLandingPage() {
   // the inbox trigger. Initialized from member.supportRequests when the
   // cohort loads (below).
   const [supportInboxPendingCount, setSupportInboxPendingCount] = useState(0);
-  // Which CBO's uploaded files the coordinator is viewing (null = drawer closed).
+  // Which CBO the coordinator is inspecting (null = drawer closed) + which tab.
   const [filesMember, setFilesMember] = useState<FilesDrawerMember | null>(null);
+  const [filesTab, setFilesTab] = useState<CboDrawerTab>('arquivos');
 
   const openShare = (url: string, ctx: typeof shareContext) => {
     setShareUrl(url);
@@ -863,8 +874,9 @@ export default function OrchestratorLandingPage() {
     }
   };
 
-  const openFiles = (p: CboDemoProject) => {
+  const openCbo = (p: CboDemoProject, tab: CboDrawerTab) => {
     setFilesMember({ id: p.id, orgName: p.name[locale] });
+    setFilesTab(tab);
   };
 
   const handleUnlockNext = async (member: CohortMember) => {
@@ -1041,6 +1053,7 @@ export default function OrchestratorLandingPage() {
       <CboFilesDrawer
         cohortSlug={cohort?.coordinatorSlug ?? null}
         member={filesMember}
+        initialTab={filesTab}
         onClose={() => setFilesMember(null)}
       />
 
@@ -1253,7 +1266,7 @@ export default function OrchestratorLandingPage() {
                     selected={selectedId === p.id}
                     onHover={setSelectedId}
                     onOpen={openProject}
-                    onOpenFiles={openFiles}
+                    onOpenCbo={openCbo}
                   />
                   {member && (
                     <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
