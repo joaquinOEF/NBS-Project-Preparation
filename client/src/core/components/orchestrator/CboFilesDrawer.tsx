@@ -1,8 +1,8 @@
 /**
- * Coordinator-side per-CBO drawer — everything about one CBO in three tabs:
- *   Arquivos (uploaded files) · Conversa (chat transcript) · Perfil (profile doc).
- * Opens from an orchestrator card; all reads are ownership-gated server-side
- * (/api/cohort/:slug/member/:id/...). Snapshot on open + a manual refresh.
+ * Coordinator-side per-CBO drawer — everything about one CBO in four tabs:
+ *   Convite (invite link + WhatsApp message) · Arquivos (files) · Conversa
+ *   (chat transcript) · Perfil (profile doc). Opens from an orchestrator card;
+ *   reads are ownership-gated server-side. Snapshot on open + a manual refresh.
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,21 +13,24 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/core/components/ui/tabs';
 import { Button } from '@/core/components/ui/button';
 import { CboFilesView } from '@/core/components/cbo-files/CboFilesView';
+import { CboInviteView } from '@/core/components/orchestrator/CboInviteView';
 import { CboChatTranscript } from '@/core/components/orchestrator/CboChatTranscript';
 import { CboProfileSummary } from '@/core/components/orchestrator/CboProfileSummary';
 import type { DocumentMeta } from '@shared/document-schema';
 
-export type CboDrawerTab = 'arquivos' | 'conversa' | 'perfil';
-export type FilesDrawerMember = { id: string; orgName: string };
+export type CboDrawerTab = 'convite' | 'arquivos' | 'conversa' | 'perfil';
+export type FilesDrawerMember = { id: string; orgName: string; inviteUrl: string };
 
 export function CboFilesDrawer({
   cohortSlug,
   member,
-  initialTab = 'arquivos',
+  cohortLanguage,
+  initialTab = 'convite',
   onClose,
 }: {
   cohortSlug: string | null;
   member: FilesDrawerMember | null;
+  cohortLanguage?: 'pt' | 'en' | null;
   initialTab?: CboDrawerTab;
   onClose: () => void;
 }) {
@@ -83,12 +86,16 @@ export function CboFilesDrawer({
 
         {member && cohortSlug && (
           <Tabs value={tab} onValueChange={v => setTab(v as CboDrawerTab)} className="flex-1 min-h-0 flex flex-col mt-2">
-            <TabsList className="grid grid-cols-3">
+            <TabsList className="grid grid-cols-4">
+              <TabsTrigger value="convite" data-testid="cbo-tab-convite">{t('cboView.tabInvite', { defaultValue: 'Invite' })}</TabsTrigger>
               <TabsTrigger value="arquivos" data-testid="cbo-tab-arquivos">{t('cboView.tabFiles', { defaultValue: 'Files' })}</TabsTrigger>
               <TabsTrigger value="conversa" data-testid="cbo-tab-conversa">{t('cboView.tabChat', { defaultValue: 'Chat' })}</TabsTrigger>
               <TabsTrigger value="perfil" data-testid="cbo-tab-perfil">{t('cboView.tabProfile', { defaultValue: 'Profile' })}</TabsTrigger>
             </TabsList>
 
+            <TabsContent value="convite" className="flex-1 min-h-0 overflow-auto mt-2">
+              <CboInviteView url={member.inviteUrl} orgName={member.orgName} cohortLanguage={cohortLanguage} />
+            </TabsContent>
             <TabsContent value="arquivos" className="flex-1 min-h-0 overflow-auto mt-2">
               <CboFilesView
                 documents={docs}

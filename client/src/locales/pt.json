@@ -2081,6 +2081,7 @@
     "refresh": "Atualizar",
     "tabFiles": "Arquivos",
     "tabChat": "Conversa",
-    "tabProfile": "Perfil"
+    "tabProfile": "Perfil",
+    "tabInvite": "Convite"
   }
 }
