@@ -24,8 +24,8 @@ const OPTIONS: OptionDef[] = [
   {
     value: 'coordinator-chat',
     icon: Users,
-    pt: { label: 'Conversa com a coordenadora', hint: 'Falar com Julia/Antônia sobre dúvidas, decisões ou bloqueios.' },
-    en: { label: 'Chat with the coordinator', hint: 'Talk to Julia/Antônia about questions, decisions, or blockers.' },
+    pt: { label: 'Conversa com a coordenadora', hint: 'Falar com a coordenadora sobre dúvidas, decisões ou bloqueios.' },
+    en: { label: 'Chat with the coordinator', hint: 'Talk to your coordinator about questions, decisions, or blockers.' },
   },
   {
     value: 'oef-technical',
