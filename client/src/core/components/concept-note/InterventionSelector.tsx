@@ -278,9 +278,9 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
               🔥 {isPt ? 'Calor' : 'Heat'}: {(params.siteHazards.heat * 100).toFixed(0)}%
             </Badge>
           )}
-          {params.siteHazards && params.siteHazards.landslide > 0.3 && (
+          {params.siteHazards && params.siteHazards.landslide > 0.2 && (
             <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700">
-              ⛰️ {isPt ? 'Deslizamento' : 'Landslide'}: {(params.siteHazards.landslide * 100).toFixed(0)}%
+              ⛰️ {isPt ? 'Terreno em encosta' : 'Slope-prone terrain'}: {(params.siteHazards.landslide * 100).toFixed(0)}%
             </Badge>
           )}
           {multiSelect && (

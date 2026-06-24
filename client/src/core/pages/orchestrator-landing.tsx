@@ -372,7 +372,12 @@ function MapPanel({
           const hazard: string = (p.primaryHazard || '').toString();
           const pop: number = Math.round(p.populationTotal || 0);
           const score: number = +p.priorityScore || 0;
-          const tipHtml = `<b>${name}</b><br/>${hazard ? hazard.toLowerCase() + ' risk · ' : ''}${pop.toLocaleString()} people<br/>priority ${score.toFixed(2)}`;
+          // Landslide-prone terrain → also recommend slope stabilization (additive to
+          // the dominant-risk intervention). Surfaced even when heat is the primary risk.
+          const proneHtml = p.landslideSusceptible
+            ? `<br/><span style="color:${TYPOLOGY_COLORS.LANDSLIDE}">▨ landslide-prone · slope stabilization</span>`
+            : '';
+          const tipHtml = `<b>${name}</b><br/>${hazard ? hazard.toLowerCase() + ' risk · ' : ''}${pop.toLocaleString()} people<br/>priority ${score.toFixed(2)}${proneHtml}`;
           (lyr as L.Path).bindTooltip(tipHtml, { direction: 'top', className: 'orch-marker-tip', sticky: true });
           lyr.on('click', () => onBairroClickRef.current({ name, primaryHazard: hazard, population: pop, priorityScore: score }));
           lyr.on('mouseover', () => (lyr as L.Path).setStyle({ weight: 2.5, color: '#0f172a' }));

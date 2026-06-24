@@ -126,6 +126,7 @@ interface NeighborhoodZone {
   primaryHazard: HazardType | null;
   secondaryHazard: HazardType | null;
   interventionType: InterventionType;
+  secondaryInterventions: InterventionType[]; // "also recommended" (e.g. slope_stabilization on prone terrain)
   meanFlood: number;                 // = meanFloodRisk (catalog H×E×V); kept for back-compat
   meanHeat: number;
   meanLandslide: number;
@@ -513,6 +514,16 @@ async function main() {
     // (the prone area under-samples at 250 m, so the mean/extent would miss morros).
     const landslideSusceptible = a.maxLandslideHazard >= T_SUSCEPT_ZONE_MAX;
 
+    // Secondary "also recommended" interventions — additive to the primary (which
+    // follows the dominant RISK). Slope stabilization is recommended wherever the
+    // terrain is landslide-prone, even when heat is the dominant risk, so a CBO on
+    // a morro can choose it. (IUCN-style co-benefit planning, not winner-take-all.)
+    const primaryIntervention = getInterventionType(typology);
+    const secondaryInterventions: InterventionType[] =
+      landslideSusceptible && primaryIntervention !== 'slope_stabilization'
+        ? ['slope_stabilization']
+        : [];
+
     zones.push({
       zoneId: slugify(props.neighbourhood_name),
       neighbourhoodName: props.neighbourhood_name,
@@ -520,7 +531,8 @@ async function main() {
       typologyLabel: typology,
       primaryHazard: primary,
       secondaryHazard: secondary,
-      interventionType: getInterventionType(typology),
+      interventionType: primaryIntervention,
+      secondaryInterventions,
       meanFlood: a.meanFlood,
       meanHeat: a.meanHeat,
       meanLandslide: a.meanLandslide,

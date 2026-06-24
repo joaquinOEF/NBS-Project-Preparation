@@ -597,6 +597,8 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
 
 Use this in Phase 3a after collecting site information. Pass siteHazards from Phase 2 data to highlight the most relevant types. Only the top 2 types get the "Recommended" badge.
 
+⚠️ siteHazards.landslide MUST be the site's landslide HAZARD (terrain susceptibility, 0–1) sampled on the E2 map (the poa_landslide_hazard layer value at the chosen point), NOT the landslide RISK. Landslide RISK is structurally tiny in POA (low exposure on the slopes ≈ 0), but the HAZARD is high on the morros — and it's what should drive slope-stabilizing NbS (urban forests, green corridors, whose roots stabilize slopes). If the E2 site sits on landslide-prone terrain (landslide hazard ≳ 0.2), pass that hazard value so those types surface as Recommended; a near-zero value would wrongly hide them.
+
 If the user went through guidance mode first (asked about problems, site conditions), pass recommendedTypes with your recommended order — the selector will sort and badge accordingly.
 
 The user can select MULTIPLE types (e.g., wetland restoration + bioswales combo).
@@ -611,7 +613,7 @@ STOP and wait for the user's selection after calling this tool.`,
         flood: z.number().min(0).max(1),
         heat: z.number().min(0).max(1),
         landslide: z.number().min(0).max(1),
-      }).optional().describe("Hazard scores from Phase 2 to rank types by relevance"),
+      }).optional().describe("Hazard scores from Phase 2 to rank types by relevance. landslide = the site's landslide HAZARD (terrain susceptibility), NOT the risk — so slope-stabilizing NbS surface on the morros."),
       recommendedTypes: z.array(z.string()).optional().describe("Ordered list of recommended type IDs from guidance mode, e.g. ['wetland-restoration', 'bioswales-rain-gardens', 'flood-parks']. First 2 get 'Recommended' badge."),
       maxRecommendations: z.number().optional().default(2).describe("How many types to badge as Recommended (default 2)"),
     },
@@ -1172,7 +1174,7 @@ Ask for site photos. Score: Site Control (0-3), Community Anchoring (0-3).`;
     case 3:
       return isPt
         ? `**Fase 3a: O Que Construímos** (intervention_type)
-Abrir open_intervention_selector com siteHazards da Fase 2. Se "Não sei": orientar via read_knowledge + exemplos.
+Abrir open_intervention_selector com siteHazards da Fase 2 (landslide = o HAZARD/suscetibilidade do terreno do local, não o risco — assim SbN que estabilizam encostas aparecem em encostas/morros). Se "Não sei": orientar via read_knowledge + exemplos.
 Após seleção, PERGUNTAS PRESCRITIVAS (cada uma é UMA chamada ask_user com chips):
   • intervention_scale → chips: ['Pequeno (<200 m²)', 'Médio (200-1000 m²)', 'Grande (1000+ m²)', 'Não sei ainda']
   • construction_model → chips: ['Mutirão comunitário', 'Empreiteira contratada', 'Parceria universidade/ONG', 'Misto', 'Ainda não decidido']
@@ -1200,7 +1202,7 @@ PERGUNTAS PRESCRITIVAS (ask_user com chips):
 read_knowledge para OPEX do tipo de SbN. Créditos de carbono NÃO são práticos pra escala comunitária.
 Avaliar: Planejamento Financeiro (0-3).`
         : `**Phase 3a: What We're Building** (intervention_type)
-Open open_intervention_selector with siteHazards from Phase 2. If "I don't know": guide via read_knowledge + examples.
+Open open_intervention_selector with siteHazards from Phase 2 (landslide = the site's terrain HAZARD/susceptibility, not the risk — so slope-stabilizing NbS surface on the morros). If "I don't know": guide via read_knowledge + examples.
 After selection, PRESCRIPTIVE QUESTIONS (each is ONE ask_user call with chips):
   • intervention_scale → chips: ['Small (<200 m²)', 'Medium (200-1000 m²)', 'Large (1000+ m²)', 'Not sure yet']
   • construction_model → chips: ['Community mutirão', 'Hired contractor', 'University/NGO partnership', 'Mixed', 'Undecided']
