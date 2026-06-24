@@ -13,7 +13,7 @@ import { sql } from 'drizzle-orm';
 import { pgTable, text, varchar, integer, timestamp, index } from 'drizzle-orm/pg-core';
 
 // Mirrors fileExtract's ExtractKind.
-export type DocumentKind = 'pdf' | 'docx' | 'xlsx' | 'text' | 'image' | 'audio' | 'other';
+export type DocumentKind = 'pdf' | 'pptx' | 'docx' | 'xlsx' | 'text' | 'image' | 'audio' | 'other';
 
 export const documents = pgTable('documents', {
   id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
