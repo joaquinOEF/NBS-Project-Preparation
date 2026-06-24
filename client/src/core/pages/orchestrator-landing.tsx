@@ -194,15 +194,13 @@ const BAND_CHIP: Record<ReturnType<typeof maturityBand>, string> = {
 type RiskView = 'flood' | 'heat' | 'landslide' | 'risk';
 
 // Hazard raster overlays, fed LIVE from the data catalog via the tile proxy.
-// Flood + heat = the catalog poa_<haz>_HAZARD (gap-free, covers the whole
-// territory). Landslide uses poa_landslide_RISK — the catalog only publishes
-// landslide RISK (the hazard tile 403s for everyone), so risk is the only
-// available landslide layer. It's the validated H×E×V composite, masked to the
-// hillside/morro footprint (the rest reads as low/green).
+// All three = the catalog poa_<haz>_HAZARD (gap-free, covers the whole territory,
+// unlike the sparse H×E×V risk composite). The landslide hazard tiles are now
+// published publicly (they were briefly 403 — fixed on the catalog side).
 const HAZARD_RASTER: Record<'flood' | 'heat' | 'landslide', { url: string; attribution: string }> = {
-  flood:     { url: '/api/geospatial/tiles/poa_flood_hazard/{z}/{x}/{y}.png',   attribution: 'OEF catalog · flood hazard (interpolated)' },
-  heat:      { url: '/api/geospatial/tiles/poa_heat_hazard/{z}/{x}/{y}.png',    attribution: 'OEF catalog · heat hazard' },
-  landslide: { url: '/api/geospatial/tiles/poa_landslide_risk/{z}/{x}/{y}.png', attribution: 'OEF catalog · landslide risk (H×E×V)' },
+  flood:     { url: '/api/geospatial/tiles/poa_flood_hazard/{z}/{x}/{y}.png',     attribution: 'OEF catalog · flood hazard (interpolated)' },
+  heat:      { url: '/api/geospatial/tiles/poa_heat_hazard/{z}/{x}/{y}.png',      attribution: 'OEF catalog · heat hazard' },
+  landslide: { url: '/api/geospatial/tiles/poa_landslide_hazard/{z}/{x}/{y}.png', attribution: 'OEF catalog · landslide hazard' },
 };
 
 // Legend color ramps that MATCH each catalog overlay's actual colormap (sampled
