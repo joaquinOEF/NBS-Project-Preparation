@@ -1,4 +1,5 @@
 ---
+whenToUse: "Real funded NBS-relevant projects in Brazil (GCF, World Bank, GEF) — precedents and funding benchmarks."
 last_updated: 2026-03-26
 source: "Project Evidence spreadsheet (1LuFTd9rJSX099bHNU4G6ehNUyN8px-4fnO6Aeq_DPyg)"
 ---

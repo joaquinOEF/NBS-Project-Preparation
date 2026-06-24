@@ -1,4 +1,5 @@
 ---
+whenToUse: "COUGAR Year-2 plan and program context (Porto Alegre resilience accelerator)."
 last_updated: 2026-03-31
 source: "COUGAR.Y2_CommunityEngagement_October25.docx"
 ---

@@ -1,4 +1,5 @@
 ---
+whenToUse: "Porto Alegre climate-resilience innovation ecosystem and actors — benchmarking org maturity."
 last_updated: 2026-03-31
 source: "COUGAR_Pyxera Global Ecosystem Assessment (Sept 2025)"
 ---

@@ -1,4 +1,5 @@
 ---
+whenToUse: "Flood-risk-reduction benefits of NBS — runoff, infiltration, damage avoided."
 co_benefit: "flood risk reduction"
 last_updated: 2026-03-26
 source: "web research - peer reviewed literature"

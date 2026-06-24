@@ -1,4 +1,5 @@
 ---
+whenToUse: "Choosing or sizing bioswales, rain gardens, or bioretention for stormwater and flooding — design, cost, maintenance."
 intervention_type: "bioswales-rain-gardens"
 primary_benefit: "adaptation"
 last_updated: 2026-03-26

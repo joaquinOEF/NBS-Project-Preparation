@@ -1,4 +1,5 @@
 ---
+whenToUse: "Green corridors, ecological connectivity, linear parks — biodiversity, heat, mobility."
 intervention_type: "green-corridors"
 primary_benefit: "both"
 last_updated: 2026-03-26

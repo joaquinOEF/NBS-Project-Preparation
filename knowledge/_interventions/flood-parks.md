@@ -1,4 +1,5 @@
 ---
+whenToUse: "Flood retention parks, water plazas, detention basins for flood control — design, cost, expected impact."
 intervention_type: "flood-parks"
 primary_benefit: "adaptation"
 last_updated: 2026-03-26

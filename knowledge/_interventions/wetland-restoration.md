@@ -1,4 +1,5 @@
 ---
+whenToUse: "Wetland restoration or constructed wetlands — flooding, water quality, biodiversity."
 intervention_type: "wetland-restoration"
 primary_benefit: "both"
 last_updated: 2026-03-26

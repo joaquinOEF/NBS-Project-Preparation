@@ -1,4 +1,5 @@
 ---
+whenToUse: "International financing for NBS/urban climate in Brazil — GCF, World Bank, IDB, GEF."
 last_updated: 2026-03-26
 source: "Project Evidence spreadsheet + web research"
 ---

@@ -1,4 +1,5 @@
 ---
+whenToUse: "Biodiversity co-benefits of NBS — habitat, species, pollinators."
 co_benefit: "biodiversity"
 last_updated: 2026-03-26
 source: "web research - peer reviewed literature"

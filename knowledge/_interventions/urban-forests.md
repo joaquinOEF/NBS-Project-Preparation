@@ -1,4 +1,5 @@
 ---
+whenToUse: "Urban forests and tree planting — heat-island, shade, slope stabilization, carbon."
 intervention_type: "urban-forests"
 primary_benefit: "both"
 last_updated: 2026-03-26

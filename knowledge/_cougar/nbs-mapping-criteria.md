@@ -1,4 +1,5 @@
 ---
+whenToUse: "COUGAR NBS project mapping/scoring criteria and maturity rubric — eligibility and scoring."
 last_updated: 2026-03-31
 source: "COUGAR 2.0 NBS Mapping Criteria.xlsx"
 ---

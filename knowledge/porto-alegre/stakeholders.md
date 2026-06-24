@@ -1,4 +1,5 @@
 ---
+whenToUse: "Porto Alegre stakeholders, partners, and institutions for NBS projects."
 city: "Porto Alegre"
 state: "Rio Grande do Sul"
 locode: "BR POA"
