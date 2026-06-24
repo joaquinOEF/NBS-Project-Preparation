@@ -26,6 +26,7 @@ import { db } from "../db";
 import { cohortMembers } from "@shared/cohort-schema";
 import { eq } from "drizzle-orm";
 import { getOrgIdForCboState, listDocumentsByOrg, getDocumentForOrg } from "./documentPersistence";
+import { queryTerms, scoreText, extractExcerpt } from "./textSearch";
 import { isFakeModelEnabled, streamWithFakeModel } from "./fakeCboModel";
 
 // ============================================================================
@@ -557,6 +558,30 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
     { annotations: { readOnlyHint: true } }
   );
 
+  // Lexical search over the static knowledge base — find the right file(s) by
+  // topic and get an excerpt, instead of guessing a path. Mirrors Funga.
+  const searchKnowledge = sdkTool(
+    "search_knowledge",
+    "Search the knowledge base (interventions, co-benefits, financing sources, evidence, Brazilian case studies, Porto Alegre context) by topic/keyword and get the most relevant files with an excerpt. Use this to find the right file before read_knowledge, and especially to answer an 'I don't know / help me' question.",
+    { query: z.string().describe("Topic to look up, e.g. 'rain garden cost' or 'funding for community gardens'") },
+    async (args: any) => {
+      const files = await getKnowledgeFiles();
+      const terms = queryTerms(args.query);
+      const scored = files
+        .map(f => ({ f, score: scoreText(`${f.path} ${f.whenToUse} ${f.content}`, terms) }))
+        .filter(x => x.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 6);
+      if (scored.length === 0) {
+        return { content: [{ type: "text" as const, text: `No knowledge files matched "${args.query}".` }] };
+      }
+      const lines = scored.map(({ f, score }) =>
+        `### ${f.path} (score ${score})${f.whenToUse ? `\n_${f.whenToUse}_` : ''}\n${extractExcerpt(f.content, terms)}`);
+      return { content: [{ type: "text" as const, text: `Top knowledge matches for "${args.query}":\n\n${lines.join('\n\n')}\n\nThe path is folder/file — use read_knowledge(folder, file) for the full file.` }] };
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
   // ── Per-org knowledge base (the evidence locker) ──
   // These read the org's accumulated documents across ALL sessions, scoped to
   // the org that owns this CBO profile, so Encontro 4 can reference the budget
@@ -586,7 +611,34 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
       const doc = await getDocumentForOrg(args.id, orgId);
       if (!doc) return { content: [{ type: "text" as const, text: `Document ${args.id} not found for this organization.` }], isError: true };
       const text = doc.fullText || doc.summary || '(no extracted text)';
-      return { content: [{ type: "text" as const, text: `# ${doc.filename}\n\n${text.length > 6000 ? text.slice(0, 6000) + '\n...(truncated)' : text}` }] };
+      return { content: [{ type: "text" as const, text: `# ${doc.filename}\n\n${text.length > 6000 ? text.slice(0, 6000) + '\n...(truncated — use search_org_documents to find a specific passage further in)' : text}` }] };
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
+  // Lexical search across the org's documents — returns the relevant passage
+  // from anywhere in a (possibly large) doc, so the agent doesn't have to dump
+  // or blind-truncate the whole file. Mirrors Funga's search_knowledge pattern.
+  const searchOrgDocuments = sdkTool(
+    "search_org_documents",
+    "Search across ALL of this org's uploaded documents for a topic/keyword (e.g. 'annual budget', 'families served', 'partnership letter') and get the most relevant passages with their document id. PREFER this over read_org_document when you need a specific detail from large docs — it finds the relevant excerpt anywhere in the file, not just the first page.",
+    { query: z.string().describe("What to look for, e.g. 'budget' or 'number of beneficiaries'") },
+    async (args: any) => {
+      const orgId = await getOrgIdForCboState(cboId);
+      if (!orgId) return { content: [{ type: "text" as const, text: "No documents on file yet." }] };
+      const docs = await listDocumentsByOrg(orgId);
+      const terms = queryTerms(args.query);
+      const scored = docs
+        .map(d => ({ d, score: scoreText(`${d.filename} ${d.fullText || d.summary || ''}`, terms) }))
+        .filter(x => x.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5);
+      if (scored.length === 0) {
+        return { content: [{ type: "text" as const, text: `No matches for "${args.query}" in the org's documents. Use list_org_documents to see what's on file.` }] };
+      }
+      const lines = scored.map(({ d, score }) =>
+        `### [${d.id}] ${d.filename} (score ${score})\n${extractExcerpt(d.fullText || d.summary || '', terms)}`);
+      return { content: [{ type: "text" as const, text: `Top matches for "${args.query}":\n\n${lines.join('\n\n')}\n\nUse read_org_document([id]) for a document's full text.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
@@ -638,7 +690,7 @@ STOP and wait for the user's selection after calling this tool.`,
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, flagGap, setPhase, setPath, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, listOrgDocuments, readOrgDocument, openInterventionSelector],
+    tools: [updateSection, flagGap, setPhase, setPath, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector],
   });
 }
 
@@ -892,8 +944,10 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           "mcp__cbo__score_maturity",
           "mcp__cbo__set_priority_flag",
           "mcp__cbo__read_knowledge",
+          "mcp__cbo__search_knowledge",
           "mcp__cbo__list_org_documents",
           "mcp__cbo__read_org_document",
+          "mcp__cbo__search_org_documents",
         ],
         mcpServers: mcpServer ? { cbo: mcpServer } : {},
         permissionMode: "bypassPermissions",
@@ -1027,8 +1081,34 @@ function buildDecisionLog(cboId: string): string {
 let cougarCriteriaCache: string | null = null;
 let knowledgeListingCache: string | null = null;
 
+// Cached, parsed knowledge files for search_knowledge (path + body + whenToUse).
+// Built once per restart; mirrors the read-folders used for the listing.
+const KNOWLEDGE_FOLDERS = ['_interventions', '_co-benefits', '_financing-sources', '_evidence', '_success-cases', 'porto-alegre', '_cougar'];
+let knowledgeFilesCache: { path: string; content: string; whenToUse: string }[] | null = null;
+
+async function getKnowledgeFiles(): Promise<{ path: string; content: string; whenToUse: string }[]> {
+  if (knowledgeFilesCache) return knowledgeFilesCache;
+  const fs = await import('fs/promises');
+  const path = await import('path');
+  const out: { path: string; content: string; whenToUse: string }[] = [];
+  for (const folder of KNOWLEDGE_FOLDERS) {
+    try {
+      const dir = path.join(process.cwd(), 'knowledge', folder);
+      for (const f of await fs.readdir(dir)) {
+        if (!f.endsWith('.md')) continue;
+        const raw = await fs.readFile(path.join(dir, f), 'utf-8');
+        const fm = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+        const whenToUse = fm ? (fm[1].match(/when[_-]?to[_-]?use:\s*(.+)/i)?.[1]?.trim().replace(/^["']|["']$/g, '') || '') : '';
+        out.push({ path: `${folder}/${f}`, content: raw.replace(/^---[\s\S]*?---\s*/, ''), whenToUse });
+      }
+    } catch { /* folder may not exist */ }
+  }
+  knowledgeFilesCache = out;
+  return out;
+}
+
 // Invalidate caches so updated knowledge files take effect
-export function invalidateCboCache() { cougarCriteriaCache = null; knowledgeListingCache = null; }
+export function invalidateCboCache() { cougarCriteriaCache = null; knowledgeListingCache = null; knowledgeFilesCache = null; }
 
 async function buildSystemContext(state: CboState, lang: string = 'en'): Promise<string> {
   const isPt = lang === 'pt';
@@ -1087,8 +1167,9 @@ Phase: ${state.phase}. Org: ${state.orgName || '(not set)'}.
 4. **open_intervention_selector** — ${isPt ? 'seletor visual de tipos de SbN (Fase 3a)' : 'NBS type selector micro-app (Phase 3a)'}
 5. **set_phase** — ${isPt ? 'avançar fase (1-5, Fase 3 tem 3a/3b/3c). Fase 6 = completo.' : 'advance phase (1-5, Phase 3 has 3a/3b/3c). Phase 6 = complete.'}
 6. **score_maturity** / **set_priority_flag** — ${isPt ? 'pontuar métricas COUGAR (0-3) e flags' : 'score COUGAR metrics (0-3) and flags'}
-7. **read_knowledge** — ${isPt ? 'ler arquivos de conhecimento. USE PROATIVAMENTE.' : 'read knowledge files. USE PROACTIVELY.'}
-8. **flag_gap** — ${isPt ? 'marcar lacunas (prefira orientar)' : 'mark gaps (prefer guiding)'}
+7. **search_knowledge** / **read_knowledge** — ${isPt ? 'buscar por tópico (retorna trechos) e ler o arquivo. USE PROATIVAMENTE — busque antes de adivinhar o caminho.' : 'search by topic (returns excerpts) then read the file. USE PROACTIVELY — search before guessing a path.'}
+8. **search_org_documents** / **read_org_document** — ${isPt ? 'buscar um detalhe (orçamento, nº de famílias) nos documentos que a org enviou; prefira a busca a ler o arquivo inteiro.' : "search a detail (budget, # families) across the org's uploaded docs; prefer search over reading a whole file."}
+9. **flag_gap** — ${isPt ? 'marcar lacunas (prefira orientar)' : 'mark gaps (prefer guiding)'}
 
 ## PHASE ROADMAP
 ${isPt
