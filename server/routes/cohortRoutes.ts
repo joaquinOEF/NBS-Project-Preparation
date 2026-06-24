@@ -3,10 +3,9 @@ import { eq, and } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '../db';
 import {
-  listDocumentsByOrg,
-  getDocumentForOrg,
-  getOrgIdForCboState,
-  countDocumentsByOrgIds,
+  listDocumentsForScope,
+  getDocumentForScope,
+  countDocumentsForMembers,
   toDocumentMeta,
 } from '../services/documentPersistence';
 import {
@@ -171,20 +170,13 @@ async function buildMemberPayload(member: typeof cohortMembers.$inferSelect) {
 
 // Attach each CBO's uploaded-document count to roster rows (one grouped query,
 // no N+1) so the orchestrator cards can show a 📎 file-count chip.
-async function attachDocCounts<T extends { orgId: string | null }>(
+async function attachDocCounts<T extends { id: string; orgId: string | null; cboStateId: string | null }>(
   members: T[],
 ): Promise<(T & { documentCount: number })[]> {
-  const counts = await countDocumentsByOrgIds(
-    members.map(m => m.orgId).filter((x): x is string => !!x),
+  const counts = await countDocumentsForMembers(
+    members.map(m => ({ id: m.id, orgId: m.orgId, cboStateId: m.cboStateId })),
   );
-  return members.map(m => ({ ...m, documentCount: m.orgId ? counts.get(m.orgId) ?? 0 : 0 }));
-}
-
-// Resolve the owning org for a roster member — prefers the member's own org_id
-// (set at invite), falling back to the linked working profile's org.
-async function resolveMemberOrgId(member: typeof cohortMembers.$inferSelect): Promise<string | null> {
-  if (member.orgId) return member.orgId;
-  return member.cboStateId ? getOrgIdForCboState(member.cboStateId) : null;
+  return members.map(m => ({ ...m, documentCount: counts.get(m.id) ?? 0 }));
 }
 
 export function registerCohortRoutes(app: Express): void {
@@ -385,18 +377,14 @@ export function registerCohortRoutes(app: Express): void {
   app.get('/api/cohort/:coordinatorSlug/member/:memberId/documents', wrap(async (req, res) => {
     const member = await memberInCohort(req);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
-    const orgId = await resolveMemberOrgId(member);
-    if (!orgId) { res.json({ documents: [] }); return; }
-    const docs = await listDocumentsByOrg(orgId);
+    const docs = await listDocumentsForScope({ orgId: member.orgId, cboStateId: member.cboStateId });
     res.json({ documents: docs.map(toDocumentMeta) });
   }));
 
   app.get('/api/cohort/:coordinatorSlug/member/:memberId/documents/:docId/text', wrap(async (req, res) => {
     const member = await memberInCohort(req);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
-    const orgId = await resolveMemberOrgId(member);
-    if (!orgId) { res.status(404).json({ error: 'not found' }); return; }
-    const doc = await getDocumentForOrg(req.params.docId, orgId);
+    const doc = await getDocumentForScope(req.params.docId, { orgId: member.orgId, cboStateId: member.cboStateId });
     if (!doc) { res.status(404).json({ error: 'not found' }); return; }
     res.json({ fullText: doc.fullText ?? '', summary: doc.summary ?? null });
   }));
