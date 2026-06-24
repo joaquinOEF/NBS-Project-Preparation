@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Check, Clock, Compass, Copy, Droplets, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
-  Mountain, Network, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Waves,
+  Mountain, Network, Paperclip, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Waves,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
@@ -46,6 +46,7 @@ import {
 import { WorkshopCadence } from '@/core/components/orchestrator/WorkshopCadence';
 import { SupportInbox } from '@/core/components/orchestrator/SupportInbox';
 import { LanguageSwitcher } from '@/core/components/i18n/language-switcher';
+import { CboFilesDrawer, type FilesDrawerMember } from '@/core/components/orchestrator/CboFilesDrawer';
 
 // ---------------------------------------------------------------------------
 // Data model — mirrors shared/cbo-schema.ts fields relevant to a portfolio
@@ -92,6 +93,8 @@ type CboDemoProject = {
   /** Count of unresolved RequestSupport entries — surfaces an amber chip
    *  on the card so the coordinator can sweep pendencies daily. */
   supportPendingCount: number;
+  /** How many files this CBO has uploaded — drives the 📎 chip + files drawer. */
+  documentCount: number;
 };
 
 const TOTAL_SECTIONS = 7;
@@ -146,6 +149,7 @@ function memberToView(m: CohortMember): CboDemoProject {
     supportPendingCount: Array.isArray((m as any).supportRequests)
       ? ((m as any).supportRequests as { resolvedAt: string | null }[]).filter(r => !r.resolvedAt).length
       : 0,
+    documentCount: (m as any).documentCount ?? 0,
   };
 }
 
@@ -532,12 +536,14 @@ function ProjectCard({
   selected,
   onHover,
   onOpen,
+  onOpenFiles,
 }: {
   project: CboDemoProject;
   locale: 'en' | 'pt';
   selected: boolean;
   onHover: (id: string | null) => void;
   onOpen: (p: CboDemoProject) => void;
+  onOpenFiles: (p: CboDemoProject) => void;
 }) {
   const { t } = useTranslation();
   const hasIntervention = project.interventionKey !== null;
@@ -552,13 +558,15 @@ function ProjectCard({
   const sectionsPct = Math.round((project.sectionsComplete / TOTAL_SECTIONS) * 100);
 
   return (
-    <button
-      type="button"
-      className="group text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30 rounded-xl"
+    <div
+      role="button"
+      tabIndex={0}
+      className="group text-left w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30 rounded-xl"
       onMouseEnter={() => onHover(project.id)}
       onMouseLeave={() => onHover(null)}
       onFocus={() => onHover(project.id)}
       onClick={() => onOpen(project)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(project); } }}
       data-testid={`card-orchestrator-project-${project.id}`}
     >
       <Card
@@ -631,6 +639,18 @@ function ProjectCard({
                 })}
               </span>
             )}
+            {project.documentCount > 0 && (
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); onOpenFiles(project); }}
+                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-900/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
+                title={t('orchestrator.files.chipTooltip', { defaultValue: '{{n}} file(s) shared — tap to view', n: project.documentCount })}
+                data-testid={`button-cbo-files-${project.id}`}
+              >
+                <Paperclip className="w-3 h-3" strokeWidth={2} />
+                {project.documentCount}
+              </button>
+            )}
             {hasIntervention ? (
               <span
                 className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${toneStyle.bubble} ${toneStyle.fg} border-foreground/10`}
@@ -699,7 +719,7 @@ function ProjectCard({
           </div>
         </CardContent>
       </Card>
-    </button>
+    </div>
   );
 }
 
@@ -809,6 +829,8 @@ export default function OrchestratorLandingPage() {
   // the inbox trigger. Initialized from member.supportRequests when the
   // cohort loads (below).
   const [supportInboxPendingCount, setSupportInboxPendingCount] = useState(0);
+  // Which CBO's uploaded files the coordinator is viewing (null = drawer closed).
+  const [filesMember, setFilesMember] = useState<FilesDrawerMember | null>(null);
 
   const openShare = (url: string, ctx: typeof shareContext) => {
     setShareUrl(url);
@@ -824,6 +846,10 @@ export default function OrchestratorLandingPage() {
         { kind: 'cbo', orgName: member.orgName }
       );
     }
+  };
+
+  const openFiles = (p: CboDemoProject) => {
+    setFilesMember({ id: p.id, orgName: p.name[locale] });
   };
 
   const handleUnlockNext = async (member: CohortMember) => {
@@ -997,6 +1023,11 @@ export default function OrchestratorLandingPage() {
           onCountChange={setSupportInboxPendingCount}
         />
       )}
+      <CboFilesDrawer
+        cohortSlug={cohort?.coordinatorSlug ?? null}
+        member={filesMember}
+        onClose={() => setFilesMember(null)}
+      />
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
         {/* Cohort header — singleton model. One cohort for the pilot,
@@ -1207,6 +1238,7 @@ export default function OrchestratorLandingPage() {
                     selected={selectedId === p.id}
                     onHover={setSelectedId}
                     onOpen={openProject}
+                    onOpenFiles={openFiles}
                   />
                   {member && (
                     <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
