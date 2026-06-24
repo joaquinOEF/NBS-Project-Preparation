@@ -4,6 +4,7 @@ import { Calendar, Clock, Leaf, Sprout } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 import { formatCalendarDate } from '@/lib/dateHelpers';
+import { localizedWorkshopName } from '@/lib/workshopHelpers';
 
 // ---------------------------------------------------------------------------
 // CBO welcome screen — the first thing a community leader sees after tapping
@@ -15,6 +16,7 @@ export function CboWelcome({
   orgName,
   neighborhood,
   cohortName,
+  workshops,
   focusWorkshop,
   focusWorkshopIsCurrent,
   unlockedPhases,
@@ -25,6 +27,9 @@ export function CboWelcome({
   orgName: string;
   neighborhood: string | null;
   cohortName: string | null;
+  /** The cohort's full workshop list — used to localize the focus workshop's
+   *  name by position (the stored name is English regardless of cohort lang). */
+  workshops: WorkshopConfig[];
   /** The workshop to feature on the welcome card. Either the currently-active
    *  one (if the coordinator has opened any) or the first upcoming one. */
   focusWorkshop: WorkshopConfig | null;
@@ -108,7 +113,9 @@ export function CboWelcome({
                   ? t('cbo.welcome.currentWorkshopLabel', { defaultValue: 'Current workshop' })
                   : t('cbo.welcome.nextWorkshopLabel', { defaultValue: 'Next workshop' })}
               </p>
-              <p className="text-sm font-medium text-foreground/90">{focusWorkshop.name}</p>
+              <p className="text-sm font-medium text-foreground/90">
+                {localizedWorkshopName(t, workshops, focusWorkshop)}
+              </p>
               {workshopDateLabel && (
                 <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Calendar className="w-3 h-3" />

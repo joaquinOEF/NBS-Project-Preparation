@@ -52,6 +52,7 @@ function parseUploadFilename(content: string): string | null {
 import { LifeBuoy } from 'lucide-react';
 import { NBS_SHOWCASE_CARDS, getShowcaseCard } from '@shared/nbs-showcase-cards';
 import type { WorkshopConfig } from '@shared/cohort-schema';
+import { localizedWorkshopName } from '@/lib/workshopHelpers';
 
 const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
 const MapMicroapp = lazy(() => import('@/core/components/concept-note/MapMicroapp'));
@@ -906,6 +907,7 @@ export default function CboProfilePage() {
         orgName={memberInfo.orgName}
         neighborhood={memberInfo.neighborhood}
         cohortName={cohortName}
+        workshops={workshops}
         focusWorkshop={focusWorkshop ?? nextWorkshop}
         focusWorkshopIsCurrent={focusWorkshopIsCurrent}
         unlockedPhases={unlockedPhases}
@@ -1291,7 +1293,9 @@ export default function CboProfilePage() {
               const nextUnlockedPhase = unlockedPhases.find(p => p > state.phase);
               if (nextUnlockedPhase == null) return null;
               const ws = workshops.find(w => w.unlocksPhase === nextUnlockedPhase);
-              const wsName = ws?.name ?? `Workshop ${nextUnlockedPhase}`;
+              const wsName = ws
+                ? localizedWorkshopName(t, workshops, ws)
+                : `Workshop ${nextUnlockedPhase}`;
               return (
                 <div className="text-center py-4">
                   <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-700 max-w-md">

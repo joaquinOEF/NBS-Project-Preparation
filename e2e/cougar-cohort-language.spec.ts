@@ -30,6 +30,9 @@ test.describe('COUGAR #4 — cohort-level forced language', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'en', { timeout: 20_000 });
     await page.waitForTimeout(1500);
 
+    // The focus-workshop card shows the English (stored) name in an EN cohort.
+    await expect(page.getByText('Workshop 1 — Who We Are')).toBeVisible({ timeout: 10_000 });
+
     // Switch the cohort to PORTUGUESE.
     await page.goto('/orchestrator');
     await page.getByTestId('button-cohort-lang-pt').click();
@@ -40,5 +43,11 @@ test.describe('COUGAR #4 — cohort-level forced language', () => {
     await page.goto(invite);
     await expect(page.locator('html')).toHaveAttribute('lang', 'pt', { timeout: 20_000 });
     await page.waitForTimeout(1500);
+
+    // The focus-workshop card must localize the workshop name by position — the
+    // stored name is English regardless of cohort language. In a PT cohort it
+    // shows "Encontro 1 — Quem somos" and the English name must NOT leak.
+    await expect(page.getByText('Encontro 1 — Quem somos')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Workshop 1 — Who We Are')).toHaveCount(0);
   });
 });
