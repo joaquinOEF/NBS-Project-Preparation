@@ -20,6 +20,7 @@ import {
   type MemberSite,
 } from '@shared/cohort-schema';
 import { createOrganization, linkCboStateToOrg } from '../services/orgPersistence';
+import { getCboMessages, getCboState, loadCboFromDb } from '../services/cboAgent';
 import {
   requireCoordinator,
   createCoordinator,
@@ -387,6 +388,39 @@ export function registerCohortRoutes(app: Express): void {
     const doc = await getDocumentForScope(req.params.docId, { orgId: member.orgId, cboStateId: member.cboStateId });
     if (!doc) { res.status(404).json({ error: 'not found' }); return; }
     res.json({ fullText: doc.fullText ?? '', summary: doc.summary ?? null });
+  }));
+
+  // The CBO's encontro chat transcript (read-only, coordinator side).
+  app.get('/api/cohort/:coordinatorSlug/member/:memberId/chat', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    if (!member.cboStateId) { res.json({ messages: [] }); return; }
+    let messages = getCboMessages(member.cboStateId);
+    if (messages.length === 0) {
+      const persisted = await loadCboFromDb(member.cboStateId);
+      if (persisted?.messages?.length) messages = persisted.messages;
+    }
+    res.json({ messages });
+  }));
+
+  // The CBO's profile document being built — sections + maturity scores. Compact
+  // read-only snapshot for the coordinator (they see scores; the CBO doesn't).
+  app.get('/api/cohort/:coordinatorSlug/member/:memberId/profile', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    if (!member.cboStateId) { res.json({ profile: null }); return; }
+    let state = getCboState(member.cboStateId);
+    if (!state) state = (await loadCboFromDb(member.cboStateId))?.state;
+    if (!state) { res.json({ profile: null }); return; }
+    res.json({
+      profile: {
+        phase: state.phase,
+        sections: state.sections,
+        maturityScores: state.maturityScores,
+        totalMaturityScore: state.totalMaturityScore,
+        gaps: state.gaps,
+      },
+    });
   }));
 
   // Invite a CBO — slugs are human-readable, derived from the org name.

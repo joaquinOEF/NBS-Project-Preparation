@@ -296,6 +296,10 @@
     },
     "files": {
       "chipTooltip": "{{n}} arquivo(s) compartilhado(s) — toque para ver"
+    },
+    "cboView": {
+      "open": "Ver",
+      "openTooltip": "Ver conversa + perfil"
     }
   },
   "citySelection": {
@@ -2066,5 +2070,17 @@
     "noOriginalNote": "Original não armazenado — mostrando o texto extraído.",
     "loadError": "Não foi possível carregar os arquivos.",
     "mine": "Seus arquivos"
+  },
+  "cboView": {
+    "loadError": "Não foi possível carregar.",
+    "noChat": "Nenhuma conversa ainda.",
+    "noProfile": "Nada preenchido ainda.",
+    "maturity": "Maturidade",
+    "empty": "—",
+    "scorecard": "Quadro de maturidade",
+    "refresh": "Atualizar",
+    "tabFiles": "Arquivos",
+    "tabChat": "Conversa",
+    "tabProfile": "Perfil"
   }
 }
