@@ -42,3 +42,19 @@ export const documents = pgTable('documents', {
 
 export type DocumentRow = typeof documents.$inferSelect;
 export type NewDocument = typeof documents.$inferInsert;
+
+// Lightweight, client-facing view of a document — what the evidence viewers
+// (coordinator drawer + CBO bottom sheet) list. Deliberately omits `fullText`
+// (fetched on demand) and `storageKey` (surfaced only as `hasOriginal`).
+export type DocumentMeta = {
+  id: string;
+  filename: string;
+  mimeType: string | null;
+  kind: DocumentKind | null;
+  sizeBytes: number | null;
+  droppedInPhase: number | null;
+  summary: string | null;
+  createdAt: string | null;
+  /** Whether a durable original blob exists to preview/open (Phase 2b). */
+  hasOriginal: boolean;
+};

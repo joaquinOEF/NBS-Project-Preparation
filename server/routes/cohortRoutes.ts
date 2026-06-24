@@ -1,7 +1,14 @@
 import type { Express, Request, Response, RequestHandler } from 'express';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '../db';
+import {
+  listDocumentsByOrg,
+  getDocumentForOrg,
+  getOrgIdForCboState,
+  countDocumentsByOrgIds,
+  toDocumentMeta,
+} from '../services/documentPersistence';
 import {
   cohorts,
   cohortMembers,
@@ -162,6 +169,24 @@ async function buildMemberPayload(member: typeof cohortMembers.$inferSelect) {
   };
 }
 
+// Attach each CBO's uploaded-document count to roster rows (one grouped query,
+// no N+1) so the orchestrator cards can show a 📎 file-count chip.
+async function attachDocCounts<T extends { orgId: string | null }>(
+  members: T[],
+): Promise<(T & { documentCount: number })[]> {
+  const counts = await countDocumentsByOrgIds(
+    members.map(m => m.orgId).filter((x): x is string => !!x),
+  );
+  return members.map(m => ({ ...m, documentCount: m.orgId ? counts.get(m.orgId) ?? 0 : 0 }));
+}
+
+// Resolve the owning org for a roster member — prefers the member's own org_id
+// (set at invite), falling back to the linked working profile's org.
+async function resolveMemberOrgId(member: typeof cohortMembers.$inferSelect): Promise<string | null> {
+  if (member.orgId) return member.orgId;
+  return member.cboStateId ? getOrgIdForCboState(member.cboStateId) : null;
+}
+
 export function registerCohortRoutes(app: Express): void {
   // Phase 3c-ii — gate the entire coordinator surface behind a coordinator
   // session. Every /api/cohort/* route is coordinator-facing (the CBO-facing
@@ -201,7 +226,7 @@ export function registerCohortRoutes(app: Express): void {
       cohort = c;
     }
     if (!cohort) cohort = await getOrCreateDefaultCohort();
-    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    const members = await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)));
     res.json({ cohort, members, isAdmin: !coordinator?.cohortId });
   }));
 
@@ -274,7 +299,7 @@ export function registerCohortRoutes(app: Express): void {
   app.get('/api/cohort/default', wrap(async (req, res) => {
     const cohort = await getOrCreateDefaultCohort();
     if (!mayAccessCohort(req, cohort.id)) { res.status(403).json({ error: 'forbidden' }); return; }
-    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    const members = await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)));
     res.json({ cohort, members });
   }));
 
@@ -338,8 +363,42 @@ export function registerCohortRoutes(app: Express): void {
   app.get('/api/cohort/:coordinatorSlug', wrap(async (req, res) => {
     const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
     if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
-    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    const members = await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)));
     res.json({ cohort, members });
+  }));
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Evidence locker (coordinator side) — list / read a CBO's uploaded files.
+  // Ownership-enforced by the :coordinatorSlug app.param guard above; we also
+  // confirm the member belongs to THIS cohort, then scope documents to the
+  // member's org so one cohort can't read another's files.
+  // ──────────────────────────────────────────────────────────────────────
+  async function memberInCohort(req: Request): Promise<typeof cohortMembers.$inferSelect | null> {
+    const cohort = (req as any).cohort as { id: string } | undefined;
+    if (!cohort) return null;
+    const [member] = await db.select().from(cohortMembers)
+      .where(and(eq(cohortMembers.id, req.params.memberId), eq(cohortMembers.cohortId, cohort.id)))
+      .limit(1);
+    return member ?? null;
+  }
+
+  app.get('/api/cohort/:coordinatorSlug/member/:memberId/documents', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const orgId = await resolveMemberOrgId(member);
+    if (!orgId) { res.json({ documents: [] }); return; }
+    const docs = await listDocumentsByOrg(orgId);
+    res.json({ documents: docs.map(toDocumentMeta) });
+  }));
+
+  app.get('/api/cohort/:coordinatorSlug/member/:memberId/documents/:docId/text', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const orgId = await resolveMemberOrgId(member);
+    if (!orgId) { res.status(404).json({ error: 'not found' }); return; }
+    const doc = await getDocumentForOrg(req.params.docId, orgId);
+    if (!doc) { res.status(404).json({ error: 'not found' }); return; }
+    res.json({ fullText: doc.fullText ?? '', summary: doc.summary ?? null });
   }));
 
   // Invite a CBO — slugs are human-readable, derived from the org name.
@@ -437,7 +496,7 @@ export function registerCohortRoutes(app: Express): void {
     const phaseNum = Number(phase);
     if (!phaseNum || phaseNum < 1 || phaseNum > 7) { res.status(400).json({ error: 'invalid phase' }); return; }
 
-    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    const members = await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)));
     const targets = memberIds === 'all'
       ? members
       : members.filter(m => Array.isArray(memberIds) && memberIds.includes(m.id));
@@ -508,7 +567,7 @@ export function registerCohortRoutes(app: Express): void {
     const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
     if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
     const filter = String(req.query.status ?? 'all');
-    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    const members = await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)));
     const items: Array<{
       requestId: string;
       memberId: string;
@@ -577,7 +636,7 @@ export function registerCohortRoutes(app: Express): void {
     const { resolvedNote } = req.body ?? {};
     const note = typeof resolvedNote === 'string' && resolvedNote.trim() ? resolvedNote.trim().slice(0, 1000) : null;
 
-    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    const members = await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)));
     for (const m of members) {
       const arr = Array.isArray(m.supportRequests) ? (m.supportRequests as SupportRequest[]) : [];
       const idx = arr.findIndex(r => r.id === req.params.requestId);
