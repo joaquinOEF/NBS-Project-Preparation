@@ -318,6 +318,7 @@ export const selectedZoneSchema = z.object({
   maxLandslideHazard: z.number().optional(),
   landslideSusceptiblePct: z.number().optional(),
   landslideSusceptible: z.boolean().optional(),
+  secondaryInterventions: z.array(z.string()).optional(),
   floodExtentPct: z.number().optional(),
   floodRank: z.number().optional(),
   heatRank: z.number().optional(),

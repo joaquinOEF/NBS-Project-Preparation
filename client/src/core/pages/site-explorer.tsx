@@ -1388,7 +1388,12 @@ export default function SiteExplorerPage() {
               const typologyLabel = t(`interventionZones.typologies.${p.typologyLabel}`) || p.typologyLabel;
               const interventionLabel = t(`interventionZones.interventions.${p.interventionType}`) || p.interventionType;
               const interventionDesc = t(`interventionZones.interventions.${p.interventionType}_desc`) || '';
-              
+              // "Also recommended" secondaries (e.g. slope stabilization on landslide-prone terrain).
+              const secondaryLine = Array.isArray(p.secondaryInterventions) && p.secondaryInterventions.length
+                ? `<span style="color:${TYPOLOGY_COLORS.LANDSLIDE}">▨</span> <strong>${t('interventionZones.metrics.alsoRecommended') || 'Also recommended'}:</strong> ` +
+                  p.secondaryInterventions.map((s: string) => t(`interventionZones.interventions.${s}`) || s).join(', ') + `<br/>`
+                : '';
+
               const displayName = p.neighbourhoodName || formatZoneName(p.zoneId);
               const povertyLine = p.povertyRate != null ? `${t('interventionZones.metrics.poverty') || 'Poverty'}: ${(p.povertyRate * 100).toFixed(1)}%<br/>` : '';
               const popLine = p.populationTotal ? `${t('interventionZones.metrics.population') || 'Population'}: ${p.populationTotal.toLocaleString()}<br/>` : '';
@@ -1405,6 +1410,7 @@ export default function SiteExplorerPage() {
                 `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
                 `<strong>${t('interventionZones.metrics.intervention')}:</strong> ${interventionLabel}<br/>` +
                 `<em style="font-size: 11px;">${interventionDesc}</em><br/>` +
+                secondaryLine +
                 `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
                 riskLine('flood', 'interventionZones.metrics.meanFlood') +
                 riskLine('heat', 'interventionZones.metrics.meanHeat') +

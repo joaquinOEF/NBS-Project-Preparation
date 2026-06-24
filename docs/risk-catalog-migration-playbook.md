@@ -220,27 +220,56 @@ Run this verbatim each time a new `poa_<hazard>_*` dataset is published. `<hazar
 
 ---
 
-## 5. Cross-hazard dominance / normalization (IMPLEMENTED — percentile-rank)
+## 5. Cross-hazard classification (CURRENT — ABSOLUTE catalog risk + susceptibility)
 
-The naive `priorityScore = max(flood, heat, landslide)` over **raw means** is apples-to-oranges:
-flood on the catalog H×E×V scale (avg≈0.03, sparse) vs heat on the old hazard scale (avg≈0.55)
-ranked flood primary in **0/94** zones.
+> **This is the live methodology** (`scripts/generate-neighborhood-zones.ts`). It supersedes the
+> percentile-rank approach in §5-OLD below. If you touch how neighborhoods are colored/prioritized,
+> read this first.
 
-**Resolution (implemented in `generate-neighborhood-zones.ts`):** percentile-rank each hazard
-across all zones (`pctRanker`), then **classify and prioritize on the ranks**, not raw means:
-- `floodRank/heatRank/landslideRank` = fraction of zones strictly below this zone's mean (zeros→0).
-- `classifyHazards(floodRank, heatRank, landslideRank)` — scale-free, so flood can be primary
-  where it's relatively extreme. Flood primary ≈ 31/94.
-- Priority: flood = `floodRank`; heat/landslide = `rank × (1+vulnerabilityFactor)` [INTERIM].
-- All `{hazard, exposure, vulnerability, risk}` components + the three ranks are stored per zone
-  and surfaced in tooltips and agent context.
+**Why absolute, not rank.** Once all three hazards became catalog H×E×V composites on the **same
+0–1 scale**, percentile-ranking them became *wrong*: landslide RISK is structurally tiny (max ≈0.077,
+median 0 — low exposure on the slopes), so ranking inflated near-zero values and **27/27 "landslide"
+bairros were actually heat-dominant** (Partenon: heat 0.430 vs landslide 0.008, yet ranked LANDSLIDE).
+Ranking was a fix for the *old* scale mismatch (old heat ~0.55 vs catalog flood ~0.03); that mismatch
+is gone, so we compare absolute risk directly (FEMA NRI / INFORM do the same).
 
-Ranks are also dilution-robust — flood's sparse 14% coverage collapses its raw mean, but the
-relative ordering across bairros survives. Same approach the hotspot layer uses per-hazard (§3G).
+**Classification (`classifyHazards`, on absolute means):**
+- A hazard is **active** when its mean catalog risk ≥ `T_ACTIVE` (0.10). Calibrated to the city:
+  heat median ≈0.34, flood tops ≈0.24 (riverside), landslide risk maxes ≈0.077 — so **landslide is
+  never a primary RISK**.
+- 0 active → `LOW`; 1 active → that hazard; **2+ active → a combo** of the top two (FEMA "independently
+  high" multi-hazard, not a tie-gap). Result: ~67 HEAT / 8 FLOOD_HEAT / 1 FLOOD / 18 LOW.
+- `priorityScore` = the primary hazard's **absolute** risk (0 for LOW). Drives the choropleth opacity
+  and the priority-list ordering **in both views** (see §5b).
+- Percentile ranks (`floodRank/heatRank/landslideRank`) are still computed but are **DISPLAY-ONLY**
+  now (the tooltip "relative-to-PoA" bands, §5b) — never classification/priority. The
+  `vulnerabilityFactor` multiplier is **retired**.
 
-**When all three are catalog:** drop the heat/landslide `vulnerabilityFactor` multiplier and
-re-rank uniformly. **Side effect today:** `multi_benefit`/LOW → 0 (rank-based, every bairro has a
-relatively-dominant hazard); raise the rank `T_ACTIVE` to reintroduce a LOW band if wanted.
+**Landslide = SUSCEPTIBILITY, not risk.** Landslide risk is low (exposure), but the *terrain* is real
+on the morros. So we surface it separately, from the catalog landslide **hazard** (slope-gated):
+- `maxLandslideHazard` per bairro (the mean/extent under-sample at 250 m, so use the **peak**).
+- `landslideSusceptible = maxLandslideHazard ≥ T_SUSCEPT_ZONE_MAX` (0.20) → flags ~28 morro bairros.
+- Rendered as a **dashed brown outline** (orchestrator) / **chip + tooltip line** (site-explorer),
+  distinct from the primary-risk fill. Never a primary color.
+
+**Secondary "also recommended" interventions.** Co-benefit planning (IUCN), not winner-take-all:
+- `secondaryInterventions: ['slope_stabilization']` is added wherever `landslideSusceptible` and it
+  isn't already the primary. So a heat-dominant morro reads **primary = cooling · also = slope
+  stabilization**. Surfaced in both views; in the CBO E3 picker, `siteHazards.landslide` is fed the
+  site's landslide **hazard** so the slope-stabilizing NbS (urban forests, green corridors) surface.
+
+**Calibration is data-driven, not hand-tuned:** `T_ACTIVE`, `T_SUSCEPT_ZONE_MAX` are set against the
+city distributions (and documented in-code). Re-check them if the catalog data is re-published.
+
+---
+
+## 5-OLD. (superseded) Percentile-rank normalization
+
+*Kept for history — replaced by §5. Do not reintroduce ranking for classification.* The interim
+approach percentile-ranked each hazard across zones and classified on the ranks, because flood
+(catalog ~0.03) and heat (old scale ~0.55) weren't comparable. Once all three were catalog H×E×V on
+one scale, ranking inflated the spatially-concentrated landslide and is no longer used for the
+dominant hazard — see §5.
 
 ---
 
@@ -256,11 +285,14 @@ percentile, or band). We follow FEMA / the Climate Vulnerability Index:
   quintile cuts for every hazard → "High flood" ≡ "High heat") + the score + an **absolute anchor**
   (`riskAnchor`: catalog `% risk · % of area in flood zone`) + a "relative to PoA" label.
 - **Single source of truth:** `shared/risk-display.ts` (`riskBand`, `pct100`, `hazardPercentile`,
-  `dominantPercentile`, `riskAnchor`). Reused by site-explorer (Zone Priority list, tooltip, detail
-  panel), the concept-note + CBO microapps, and the agent context.
-- **Ranking = display:** the priority list sorts on `dominantPercentile`, the same number it shows.
-- **Heat/landslide inherit this for free** when they migrate — they already have ranks; the display
-  reads `<hazard>Rank`. Just add a `floodExtentPct`-style anchor per hazard if wanted.
+  `dominantHazard`, `dominantPercentile`, `riskAnchor`, `isLandslideProne`). Reused by site-explorer
+  (Zone Priority list, tooltip, detail panel), the concept-note + CBO microapps, and the agent context
+  — so the orchestrator and site-explorer **can't drift**.
+- **Display ≠ ordering (changed):** the percentile **band** is display; the priority list **orders by
+  the absolute `priorityScore`** (§5), the same basis the orchestrator choropleth uses. `dominantHazard`
+  follows the absolute primary, NOT `max(rank)`, so the badge names the same hazard as the color.
+- **Landslide is shown as susceptibility**, not a risk band — its risk percentile would mislead (a
+  near-zero value can sit at a high percentile). See §5.
 - **Honesty:** percentile hides absolute severity and is reference-population-dependent → the absolute
   anchor line is **required**, and every surface says "relative to PoA neighborhoods".
 
