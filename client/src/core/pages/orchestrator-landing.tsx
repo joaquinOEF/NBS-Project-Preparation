@@ -232,10 +232,15 @@ function bairroStyle(feat: any, view: RiskView | null, range: RiskRange): L.Path
   if (view === 'risk') {
     const p = feat?.properties || {};
     const norm = (zoneMaxRisk(p) - range.min) / ((range.max - range.min) || 0.01);
+    // Landslide-prone TERRAIN (susceptibility) is shown as a brown dashed outline
+    // ON TOP of the primary-risk fill — so a heat-dominant morro reads "heat +
+    // landslide-prone", not "landslide". (Landslide risk is too low to be primary.)
+    const prone = !!p.landslideSusceptible;
     return {
-      color: '#ffffff',
-      weight: 1 + Math.max(0, Math.min(1, norm)) * 1.5,
-      opacity: 0.85,
+      color: prone ? TYPOLOGY_COLORS.LANDSLIDE : '#ffffff',
+      weight: prone ? 2 : 1 + Math.max(0, Math.min(1, norm)) * 1.5,
+      dashArray: prone ? '4 3' : undefined,
+      opacity: 0.9,
       fillColor: TYPOLOGY_COLORS[p.typologyLabel] || TYPOLOGY_COLORS.LOW,
       fillOpacity: zoneRiskOpacity(norm),
     };
@@ -493,7 +498,6 @@ function MapLayerControls({
           {([
             ['FLOOD', t('orchestrator.map.flood', { defaultValue: 'Flood' })],
             ['HEAT', t('orchestrator.map.heat', { defaultValue: 'Heat' })],
-            ['LANDSLIDE', t('orchestrator.map.landslide', { defaultValue: 'Landslide' })],
             ['FLOOD_HEAT', t('orchestrator.map.multiHazard', { defaultValue: 'Multi-hazard' })],
           ] as const).map(([key, label]) => (
             <div key={key} className="flex items-center gap-1.5">
@@ -501,6 +505,12 @@ function MapLayerControls({
               <span className="text-[10px] text-muted-foreground">{label}</span>
             </div>
           ))}
+          {/* Landslide is a SUSCEPTIBILITY (terrain) flag, not a primary risk —
+              shown as a dashed brown outline on the morros, distinct from the fill. */}
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm border-2 border-dashed" style={{ borderColor: TYPOLOGY_COLORS.LANDSLIDE }} />
+            <span className="text-[10px] text-muted-foreground">{t('orchestrator.map.landslideProne', { defaultValue: 'Landslide-prone terrain' })}</span>
+          </div>
           <div className="text-[9px] text-muted-foreground/80 pt-0.5">
             {t('orchestrator.map.intensityNote', { defaultValue: 'Stronger fill = higher risk' })}
           </div>

@@ -73,15 +73,32 @@ export function hazardPercentile(zone: any, hazard: HazardKey): number {
 }
 
 /**
- * Dominant-hazard percentile (0–100) for a zone — used for the priority-list
- * badge and for sorting. Max across hazards so combos/LOW resolve sensibly.
+ * The zone's dominant hazard — the PRIMARY from the absolute-risk classification
+ * (`generate-neighborhood-zones.ts`), NOT a max over ranks. Returns null for LOW.
+ */
+export function dominantHazard(zone: any): HazardKey | null {
+  switch (zone?.primaryHazard) {
+    case 'FLOOD': return 'flood';
+    case 'HEAT': return 'heat';
+    case 'LANDSLIDE': return 'landslide';
+    default: return null;
+  }
+}
+
+/**
+ * Dominant-hazard percentile (0–100) for the priority-list badge — the display
+ * percentile of the absolute-chosen primary hazard. (For ordering, sort on the
+ * zone's absolute `priorityScore`, which both views use, so they can't drift.)
  */
 export function dominantPercentile(zone: any): number {
-  return Math.max(
-    pct100(zone?.floodRank),
-    pct100(zone?.heatRank),
-    pct100(zone?.landslideRank),
-  );
+  const h = dominantHazard(zone);
+  return h ? hazardPercentile(zone, h) : 0;
+}
+
+/** Landslide-prone terrain (SUSCEPTIBILITY, from the catalog landslide hazard) —
+ *  distinct from landslide RISK. Surfaced as a flag/badge, not a primary color. */
+export function isLandslideProne(zone: any): boolean {
+  return !!zone?.landslideSusceptible;
 }
 
 /**

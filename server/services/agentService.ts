@@ -1167,6 +1167,9 @@ export async function executeAgentTool(
                     vulnerability: props.meanLandslideVulnerability,
                     risk: props.meanLandslideRisk ?? props.meanLandslide,
                   },
+                  // Landslide-prone TERRAIN (susceptibility), distinct from the low
+                  // landslide risk — flags the morros even when heat is the dominant risk.
+                  landslideProne: !!props.landslideSusceptible,
                   riskRanks: {
                     flood: props.floodRank,
                     heat: props.heatRank,

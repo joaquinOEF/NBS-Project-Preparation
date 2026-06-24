@@ -1032,11 +1032,13 @@ export default function SiteExplorerPage() {
       .map((f: any) => ({
         ...f.properties,
         geometry: f.geometry,
-        // Display + sort on the dominant-hazard within-city percentile (0–100), so flood
-        // is comparable to heat/landslide instead of its compressed absolute %. See risk-display.ts.
+        // Badge shows the dominant hazard's within-city percentile band (display).
         dominantPct: dominantPercentile(f.properties),
       }))
-      .sort((a: any, b: any) => b.dominantPct - a.dominantPct);
+      // ORDER by the absolute priorityScore — the same basis the orchestrator uses,
+      // so the two priority views can't drift. (Was max-of-ranks, which inflated
+      // spatially-concentrated landslide; see risk-display.ts.)
+      .sort((a: any, b: any) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0));
   }, [layers]);
 
   const evidenceLayers = useMemo(() => {
@@ -1406,7 +1408,12 @@ export default function SiteExplorerPage() {
                 `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
                 riskLine('flood', 'interventionZones.metrics.meanFlood') +
                 riskLine('heat', 'interventionZones.metrics.meanHeat') +
-                riskLine('landslide', 'interventionZones.metrics.meanLandslide') +
+                // Landslide is shown as SUSCEPTIBILITY (terrain), not a risk band — its
+                // risk is structurally tiny (low exposure), so a percentile band would
+                // mislead. Flag the morros from the catalog landslide hazard.
+                (p.landslideSusceptible
+                  ? `<span style="color:${TYPOLOGY_COLORS.LANDSLIDE}">▨</span> ${t('interventionZones.metrics.meanLandslide')}: <strong>${t('siteExplorer.landslideProne') || 'landslide-prone terrain'}</strong><br/>`
+                  : '') +
                 `<span style="opacity:0.55;font-size:10px">${t('siteExplorer.relativeToCity') || 'relative to PoA neighborhoods'}</span><br/>` +
                 `<hr style="margin: 4px 0; border-color: rgba(255,255,255,0.3);"/>` +
                 popLine + povertyLine +
@@ -1982,6 +1989,15 @@ export default function SiteExplorerPage() {
                                 </span>
                               );
                             })()}
+                            {zone.landslideSusceptible && (
+                              <span
+                                className="text-xs px-1.5 py-0.5 rounded flex-shrink-0 font-medium border border-dashed"
+                                style={{ borderColor: TYPOLOGY_COLORS.LANDSLIDE, color: TYPOLOGY_COLORS.LANDSLIDE }}
+                                title={t('siteExplorer.landslideProne') || 'landslide-prone terrain'}
+                              >
+                                ▨ {t('siteExplorer.landslideProneShort') || 'slope'}
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-zinc-400">
                             {t(`interventionZones.typologies.${zone.typologyLabel}`)}

@@ -314,6 +314,10 @@ export const selectedZoneSchema = z.object({
   meanLandslideExposure: z.number().optional(),
   meanLandslideVulnerability: z.number().optional(),
   meanLandslideRisk: z.number().optional(),
+  // Landslide susceptibility (terrain) — distinct from risk.
+  maxLandslideHazard: z.number().optional(),
+  landslideSusceptiblePct: z.number().optional(),
+  landslideSusceptible: z.boolean().optional(),
   floodExtentPct: z.number().optional(),
   floodRank: z.number().optional(),
   heatRank: z.number().optional(),

@@ -143,6 +143,11 @@ interface NeighborhoodZone {
   meanLandslideExposure: number;
   meanLandslideVulnerability: number;
   meanLandslideRisk: number;
+  // Landslide SUSCEPTIBILITY (terrain, from the catalog landslide HAZARD) — kept
+  // distinct from risk. landslideSusceptible flags bairros on landslide-prone slopes.
+  maxLandslideHazard: number;
+  landslideSusceptiblePct: number;   // fraction of bairro cells on landslide-prone terrain
+  landslideSusceptible: boolean;
   floodExtentPct: number;            // fraction of bairro cells with catalog flood_risk > 0 (absolute anchor)
   maxFlood: number;
   maxHeat: number;
@@ -159,8 +164,8 @@ interface NeighborhoodZone {
   // catalog-scale flood competes fairly with old-scale heat/landslide. See playbook §5.
   floodRank: number;
   heatRank: number;
-  landslideRank: number;
-  priorityScore: number;             // = the primary hazard's percentile rank (all three catalog, uniform)
+  landslideRank: number;             // (display only — tooltip percentile bands; not classification)
+  priorityScore: number;             // = the primary hazard's ABSOLUTE catalog risk (0 for LOW)
   geometry: any;
 }
 
@@ -168,9 +173,22 @@ interface NeighborhoodZone {
 // CONSTANTS
 // ============================================================================
 
-// Hazard thresholds (same as generate-intervention-zones.ts for consistency)
-const T_ACTIVE = 0.30;  // Below this, hazard is "inactive"
-const T_COMBO = 0.10;   // If top two hazards are within this gap, it's a combo zone
+// Hazard classification thresholds — on the ABSOLUTE catalog H×E×V risk scale
+// (0–1, comparable across flood/heat/landslide now they share the same catalog
+// scale). A hazard is "active" (counts toward the bairro's typology) when its
+// mean risk ≥ T_ACTIVE. Calibrated to the city distribution: heat median ≈0.34,
+// flood maxes ≈0.24 (riverside), landslide risk maxes ≈0.077 — so landslide is
+// never a primary RISK (it's surfaced as a susceptibility flag instead).
+const T_ACTIVE = 0.10;
+
+// Landslide SUSCEPTIBILITY (terrain) — separate from risk. The catalog landslide
+// HAZARD gates slope<15°→0, so any non-trivial value means genuinely steep,
+// landslide-prone terrain. At 250 m the prone *area* under-samples (the 90 m
+// hazard is concentrated on ~3% of cells), so a bairro is flagged on its PEAK
+// hazard, not the diluted mean/extent. T_SUSCEPT_ZONE_MAX ≥ 0.20 flags the ~28
+// south-eastern morro bairros and excludes the flat ones (peak ≈ 0).
+const T_SUSCEPT_CELL = 0.30;       // cell on prone terrain (for the informational extent %)
+const T_SUSCEPT_ZONE_MAX = 0.20;   // bairro flagged landslide-prone if peak hazard ≥ this
 
 // Vulnerability weights — informed by BPJP/C40 climate justice criteria
 // Poverty gets highest weight because income deprivation is the strongest
@@ -205,37 +223,35 @@ function getInterventionType(typology: TypologyLabel): InterventionType {
   return 'multi_benefit';
 }
 
-/** Classify hazard profile into typology label + primary/secondary hazards */
+/**
+ * Classify a bairro's hazard profile from its ABSOLUTE catalog risk means.
+ * "Catalog leads, app shows": since flood/heat/landslide share the same 0–1
+ * H×E×V scale, we compare them directly — NO percentile ranking (which used to
+ * distort, inflating spatially-concentrated hazards like landslide).
+ *   - A hazard is ACTIVE when its mean risk ≥ T_ACTIVE.
+ *   - 0 active → LOW; 1 active → that single hazard; 2+ active → a combo of the
+ *     top two (FEMA/INFORM "independently high" multi-hazard, not a tie-gap).
+ * Landslide RISK is structurally tiny here (low exposure on the slopes) so it's
+ * rarely/never active — landslide-prone terrain is surfaced via the separate
+ * SUSCEPTIBILITY flag, not by faking that it outranks heat.
+ */
 function classifyHazards(
   meanFlood: number, meanHeat: number, meanLandslide: number
 ): { typology: TypologyLabel; primary: HazardType | null; secondary: HazardType | null } {
-  const scores: [HazardType, number][] = [
+  const active = ([
     ['FLOOD', meanFlood],
     ['HEAT', meanHeat],
     ['LANDSLIDE', meanLandslide],
-  ];
-  scores.sort((a, b) => b[1] - a[1]);
+  ] as [HazardType, number][])
+    .filter(([, v]) => v >= T_ACTIVE)
+    .sort((a, b) => b[1] - a[1]);
 
-  const [h1, v1] = scores[0];
-  const [h2, v2] = scores[1];
-  const gap = v1 - v2;
-
-  if (v1 < T_ACTIVE) {
-    return { typology: 'LOW', primary: null, secondary: null };
-  }
-
-  if (gap <= T_COMBO && v2 >= T_ACTIVE) {
-    // Multi-hazard: both are active and close in magnitude
-    const combo = [h1, h2].sort().join('_') as TypologyLabel;
-    return { typology: combo, primary: h1, secondary: h2 };
-  }
-
-  // Single dominant hazard
-  return {
-    typology: h1 as TypologyLabel,
-    primary: h1,
-    secondary: v2 >= T_ACTIVE * 0.7 ? h2 : null,
-  };
+  if (active.length === 0) return { typology: 'LOW', primary: null, secondary: null };
+  const h1 = active[0][0];
+  if (active.length === 1) return { typology: h1 as TypologyLabel, primary: h1, secondary: null };
+  const h2 = active[1][0];
+  const combo = [h1, h2].sort().join('_') as TypologyLabel;
+  return { typology: combo, primary: h1, secondary: h2 };
 }
 
 // ============================================================================
@@ -370,6 +386,7 @@ async function main() {
     meanFloodHazard: number; meanFloodExposure: number; meanFloodVulnerability: number;
     meanHeatHazard: number; meanHeatExposure: number; meanHeatVulnerability: number;
     meanLandslideHazard: number; meanLandslideExposure: number; meanLandslideVulnerability: number;
+    maxLandslideHazard: number; landslideSusceptiblePct: number;
     floodExtentPct: number;
     maxFlood: number; maxHeat: number; maxLandslide: number;
     vulnerabilityFactor: number;
@@ -393,6 +410,8 @@ async function main() {
     let sumFHaz = 0, sumFExp = 0, sumFVul = 0;
     let sumHHaz = 0, sumHExp = 0, sumHVul = 0;
     let sumLHaz = 0, sumLExp = 0, sumLVul = 0;
+    let maxLHaz = 0;             // peak landslide HAZARD (susceptibility) in the bairro
+    let landslideSusceptibleCells = 0; // cells on landslide-prone terrain (hazard ≥ T_SUSCEPT_CELL)
     let floodLitCells = 0;  // cells with catalog flood_risk > 0 (the modeled fluvial footprint)
 
     for (const cell of cells) {
@@ -410,7 +429,10 @@ async function main() {
       sumHHaz += m.heat_hazard ?? 0;
       sumHExp += m.heat_exposure ?? 0;
       sumHVul += m.heat_vulnerability ?? 0;
-      sumLHaz += m.landslide_hazard ?? 0;
+      const lh = m.landslide_hazard ?? 0;
+      sumLHaz += lh;
+      maxLHaz = Math.max(maxLHaz, lh);
+      if (lh >= T_SUSCEPT_CELL) landslideSusceptibleCells++;
       sumLExp += m.landslide_exposure ?? 0;
       sumLVul += m.landslide_vulnerability ?? 0;
       if ((m.flood_risk ?? 0) > 0) floodLitCells++;
@@ -440,17 +462,20 @@ async function main() {
       meanLandslideHazard: round3(sumLHaz / cells.length),
       meanLandslideExposure: round3(sumLExp / cells.length),
       meanLandslideVulnerability: round3(sumLVul / cells.length),
+      maxLandslideHazard: round3(maxLHaz),
+      landslideSusceptiblePct: round3(landslideSusceptibleCells / cells.length),
       floodExtentPct: round3(floodLitCells / cells.length),
       maxFlood, maxHeat, maxLandslide,
       vulnerabilityFactor,
     });
   }
 
-  // ── Percentile-rank each hazard across zones (scale-free; see playbook §5) ────
-  // INTERIM: lets catalog-scale flood (avg≈0.03) compete fairly with old-scale heat
-  // (avg≈0.55), and is dilution-robust — flood's sparse 14% coverage collapses its raw
-  // mean, but relative ordering across bairros survives, so riverine bairros still rank high.
-  // This is the same normalization heat/landslide will use once they become catalog datasets.
+  // ── Percentile-rank each hazard across zones — for the DISPLAY ONLY ───────────
+  // The ranks feed the tooltip "relative-to-PoA percentile bands" (risk-display.ts
+  // §5b). They are NO LONGER used to pick the dominant hazard / priority — that now
+  // uses absolute catalog risk (all three share the same 0–1 H×E×V scale), because
+  // ranking a spatially-concentrated hazard (landslide: max 0.077, mostly 0) inflated
+  // it and falsely outranked genuinely-high heat. See classifyHazards above.
   const pctRanker = (vals: number[]) => {
     const sorted = [...vals].sort((a, b) => a - b);
     return (v: number) => {
@@ -464,27 +489,29 @@ async function main() {
   const rankHeat = pctRanker(aggs.map(a => a.meanHeat));
   const rankLandslide = pctRanker(aggs.map(a => a.meanLandslide));
 
-  // ── Pass 2: classify + prioritize on ranks ──────────────────────────────────
+  // ── Pass 2: classify + prioritize on ABSOLUTE risk ───────────────────────────
   const zones: NeighborhoodZone[] = [];
   for (const a of aggs) {
     const props = a.props;
+    // Ranks kept for the tooltip percentile-band display only (not classification).
     const floodRank = rankFlood(a.meanFlood);
     const heatRank = rankHeat(a.meanHeat);
     const landslideRank = rankLandslide(a.meanLandslide);
 
-    // Classify on ranks (scale-free) so flood can be primary where it's relatively extreme.
-    const { typology, primary, secondary } = classifyHazards(floodRank, heatRank, landslideRank);
+    // Dominant hazard + combo from ABSOLUTE catalog risk (same-scale comparison).
+    const { typology, primary, secondary } = classifyHazards(a.meanFlood, a.meanHeat, a.meanLandslide);
 
-    // Priority = the primary hazard's percentile RANK directly. All three hazards
-    // are now catalog H×E×V (E & V already inside the risk), so the app-side
-    // vulnerabilityFactor multiplier is GONE — uniform, scale-free ranks.
-    const effectiveFlood = floodRank;
-    const effectiveHeat = heatRank;
-    const effectiveLandslide = landslideRank;
-    const priorityScore = primary === 'FLOOD' ? effectiveFlood
-      : primary === 'HEAT' ? effectiveHeat
-      : primary === 'LANDSLIDE' ? effectiveLandslide
-      : round3(Math.max(effectiveFlood, effectiveHeat, effectiveLandslide));
+    // Priority = the primary hazard's absolute risk (0 for LOW). Drives the
+    // choropleth opacity + the priority-list ordering, in both views.
+    const priorityScore = primary === 'FLOOD' ? a.meanFlood
+      : primary === 'HEAT' ? a.meanHeat
+      : primary === 'LANDSLIDE' ? a.meanLandslide
+      : 0;
+
+    // Landslide-prone terrain flag — SUSCEPTIBILITY (catalog hazard), independent
+    // of the risk classification. Flagged on the bairro's PEAK landslide hazard
+    // (the prone area under-samples at 250 m, so the mean/extent would miss morros).
+    const landslideSusceptible = a.maxLandslideHazard >= T_SUSCEPT_ZONE_MAX;
 
     zones.push({
       zoneId: slugify(props.neighbourhood_name),
@@ -509,6 +536,9 @@ async function main() {
       meanLandslideExposure: a.meanLandslideExposure,
       meanLandslideVulnerability: a.meanLandslideVulnerability,
       meanLandslideRisk: a.meanLandslide,
+      maxLandslideHazard: a.maxLandslideHazard,
+      landslideSusceptiblePct: a.landslideSusceptiblePct,
+      landslideSusceptible,
       floodExtentPct: a.floodExtentPct,
       maxFlood: round3(a.maxFlood),
       maxHeat: round3(a.maxHeat),
@@ -537,11 +567,12 @@ async function main() {
   const meanFloodOverall = round3(zones.reduce((s, z) => s + z.meanFlood, 0) / zones.length);
   const meanHeatOverall = round3(zones.reduce((s, z) => s + z.meanHeat, 0) / zones.length);
   const meanLandslideOverall = round3(zones.reduce((s, z) => s + z.meanLandslide, 0) / zones.length);
-  console.log('\n✓ Cross-hazard handling (see playbook §5):');
-  console.log(`  ALL THREE hazards now on the catalog H×E×V scale (avg meanFlood ${meanFloodOverall}, meanHeat ${meanHeatOverall}, meanLandslide ${meanLandslideOverall}).`);
-  console.log(`  Classification + priority use PERCENTILE RANKS per hazard (scale-free) so each competes fairly`);
-  console.log(`  despite different coverage. Flood is primary in ${floodPrimary}/${zones.length} zones. The app-side`);
-  console.log(`  vulnerabilityFactor multiplier is RETIRED — uniform ranks across all three.`);
+  const susc = zones.filter(z => z.landslideSusceptible).length;
+  console.log('\n✓ Absolute-risk classification (all three catalog-backed):');
+  console.log(`  Dominant hazard + priority from ABSOLUTE catalog risk (avg meanFlood ${meanFloodOverall}, meanHeat ${meanHeatOverall}, meanLandslide ${meanLandslideOverall}).`);
+  console.log(`  Percentile ranks are now display-only (tooltip bands). Flood primary in ${floodPrimary}/${zones.length}.`);
+  console.log(`  Landslide RISK is structurally tiny (low exposure) → surfaced as a SUSCEPTIBILITY flag instead:`);
+  console.log(`  ${susc}/${zones.length} bairros flagged landslide-prone terrain (catalog landslide hazard).`);
 
   // ── Summary statistics ─────────────────────────────────────────────────────
   const interventionCounts = { sponge_network: 0, cooling_network: 0, slope_stabilization: 0, multi_benefit: 0 };
@@ -574,8 +605,9 @@ async function main() {
       spatialJoin: 'Point-in-polygon (grid cell centroid → neighborhood boundary), nearest-centroid fallback for edge cells',
       hazardClassification: {
         T_ACTIVE,
-        T_COMBO,
-        description: 'Same thresholds as synthetic zones for consistency',
+        T_SUSCEPT_CELL,
+        T_SUSCEPT_ZONE_MAX,
+        description: 'Primary hazard from ABSOLUTE catalog risk (≥ T_ACTIVE); ranks are display-only. Landslide surfaced as a susceptibility flag (peak hazard ≥ T_SUSCEPT_ZONE_MAX).',
       },
       vulnerabilityWeights: {
         poverty: VULN_W_POVERTY,
