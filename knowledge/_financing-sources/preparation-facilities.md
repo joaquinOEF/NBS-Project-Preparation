@@ -1,4 +1,5 @@
 ---
+whenToUse: "Project preparation facilities and technical assistance for NBS/climate projects."
 last_updated: 2026-03-26
 source: "Project Evidence spreadsheet + web research"
 ---

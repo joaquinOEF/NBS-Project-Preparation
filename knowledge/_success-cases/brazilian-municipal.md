@@ -1,4 +1,5 @@
 ---
+whenToUse: "Brazilian municipal NBS success stories (Curitiba, Recife, BH, São Paulo, Salvador) — inspiration and examples."
 last_updated: 2026-03-26
 source: "web research"
 ---

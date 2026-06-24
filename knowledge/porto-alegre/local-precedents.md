@@ -1,4 +1,5 @@
 ---
+whenToUse: "Porto Alegre local NBS precedents and green infrastructure (Orla do Guaíba, Regenera Dilúvio)."
 city: "Porto Alegre"
 state: "Rio Grande do Sul"
 locode: "BR POA"

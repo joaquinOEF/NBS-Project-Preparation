@@ -1,4 +1,5 @@
 ---
+whenToUse: "Green roofs, living walls, vertical gardens — heat, stormwater, building-scale NBS."
 intervention_type: "green-roofs-walls"
 primary_benefit: "both"
 last_updated: 2026-03-26

@@ -1,4 +1,5 @@
 ---
+whenToUse: "Vila Flores / COUGAR cohort participant org profiles — the 9 community organizations."
 last_updated: 2026-06-15
 source: "Web research (public sources) — grounding for test personas + light invite pre-fill"
 status: draft — real public info only; gaps marked "(não encontrado)", never invented

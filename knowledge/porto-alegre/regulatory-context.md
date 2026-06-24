@@ -1,4 +1,5 @@
 ---
+whenToUse: "Porto Alegre regulatory context — permits, land use, tenure for NBS."
 city: "Porto Alegre"
 state: "Rio Grande do Sul"
 locode: "BR POA"

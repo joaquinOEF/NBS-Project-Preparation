@@ -1,4 +1,5 @@
 ---
+whenToUse: "Funding for community/CBO-scale NBS in Brazil — small grants (Teia, Fundo Casa RS, GEF SGP, Periferias Verdes)."
 last_updated: 2026-04-07
 source: "web research — verified funding sources for small CBOs"
 audience: "Community-based organizations (5-50 people, budgets R$50K-2M)"

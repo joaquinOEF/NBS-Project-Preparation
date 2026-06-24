@@ -1,4 +1,5 @@
 ---
+whenToUse: "Urban heat-island mitigation — temperature, shade, cooling."
 co_benefit: "heat island mitigation"
 last_updated: 2026-03-26
 source: "web research - peer reviewed literature"

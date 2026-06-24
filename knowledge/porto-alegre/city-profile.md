@@ -1,4 +1,5 @@
 ---
+whenToUse: "Porto Alegre city profile and general context."
 city: Porto Alegre
 state: Rio Grande do Sul
 country: Brazil

@@ -1,4 +1,5 @@
 ---
+whenToUse: "Sample/calibration CBO profile (Vila Flores) — reference example."
 organization: Associação Cultural Vila Flores
 type: sample_cbo_profile
 last_updated: 2026-03-31

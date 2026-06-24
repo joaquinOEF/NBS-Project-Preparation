@@ -1,4 +1,5 @@
 ---
+whenToUse: "Porto Alegre baseline data (population, land, environment) for NBS planning."
 city: "Porto Alegre"
 state: "Rio Grande do Sul"
 locode: "BR POA"

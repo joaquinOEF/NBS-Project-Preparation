@@ -1,4 +1,5 @@
 ---
+whenToUse: "Carbon sequestration and climate-mitigation co-benefits of NBS."
 co_benefit: "carbon sequestration"
 last_updated: 2026-03-26
 source: "web research - peer reviewed literature"

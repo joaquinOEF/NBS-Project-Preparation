@@ -1,4 +1,5 @@
 ---
+whenToUse: "Porto Alegre existing plans and commitments (PCVR, World Bank, municipal)."
 city: "Porto Alegre"
 state: "Rio Grande do Sul"
 locode: "BR POA"

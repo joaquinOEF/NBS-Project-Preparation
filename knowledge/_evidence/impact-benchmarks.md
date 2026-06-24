@@ -1,4 +1,5 @@
 ---
+whenToUse: "Quantitative NBS impact benchmarks and ranges (with vs without) for expected-impact estimates."
 last_updated: 2026-03-26
 source: "literature review + Project Evidence spreadsheet"
 ---

@@ -1,4 +1,5 @@
 ---
+whenToUse: "Public-health co-benefits — air quality, mental health, heat-related illness."
 co_benefit: "public health"
 last_updated: 2026-03-26
 source: "web research - peer reviewed literature"

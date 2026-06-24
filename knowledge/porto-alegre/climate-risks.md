@@ -1,4 +1,5 @@
 ---
+whenToUse: "Porto Alegre climate risks — Guaíba flooding, heat islands, landslides on the morros."
 city: Porto Alegre
 state: Rio Grande do Sul
 country: Brazil

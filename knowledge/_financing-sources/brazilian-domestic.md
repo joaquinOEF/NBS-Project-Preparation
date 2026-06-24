@@ -1,4 +1,5 @@
 ---
+whenToUse: "Brazilian domestic funding for municipal NBS/climate — federal/state programs, BNDES, FNMC."
 last_updated: 2026-03-26
 source: "Project Evidence spreadsheet + web research"
 ---
