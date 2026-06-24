@@ -1394,7 +1394,7 @@ export default function CboProfilePage() {
               </div>
             )}
             <form onSubmit={(e) => { e.preventDefault(); if (currentQuestion && input.trim()) { handleSelectOption(input.trim()); setInput(''); } else sendMessage(input); }} className="flex gap-2">
-              <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.docx,.xlsx,.txt,.md,.csv,.tsv,.json,.png,.jpg,.jpeg,.gif,.webp,.mp3,.wav,.m4a,.webm,.ogg,.opus,.aac,.flac,audio/*,image/*"
+              <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.pptx,.docx,.xlsx,.txt,.md,.csv,.tsv,.json,.png,.jpg,.jpeg,.gif,.webp,.heic,.heif,.mp3,.wav,.m4a,.webm,.ogg,.opus,.aac,.flac,audio/*,image/*"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file && cboId) {

@@ -13,8 +13,9 @@ function kindFromUpload(filename: string, mime?: string): DocumentKind {
   const ext = (filename.split('.').pop() || '').toLowerCase();
   const m = (mime || '').toLowerCase();
   if (m.startsWith('audio/') || ['mp3','wav','m4a','webm','ogg','oga','opus','aac','flac'].includes(ext)) return 'audio';
-  if (m.startsWith('image/') || ['png','jpg','jpeg','gif','webp'].includes(ext)) return 'image';
+  if (m.startsWith('image/') || ['png','jpg','jpeg','gif','webp','heic','heif'].includes(ext)) return 'image';
   if (ext === 'pdf' || m === 'application/pdf') return 'pdf';
+  if (ext === 'pptx' || m.includes('presentationml')) return 'pptx';
   if (ext === 'docx' || m.includes('wordprocessingml')) return 'docx';
   if (ext === 'xlsx' || m.includes('spreadsheetml')) return 'xlsx';
   if (['txt','md','csv','tsv','json','xml','yaml','yml'].includes(ext) || m.startsWith('text/')) return 'text';

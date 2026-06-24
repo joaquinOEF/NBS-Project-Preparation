@@ -6,8 +6,9 @@
 // client that's already configured here (server/services/openaiClient.ts) for
 // BOTH image vision and audio transcription — so no new API keys are needed.
 //
-// Coverage: pdf · docx · xlsx · csv/tsv/txt/md/json/xml/yaml · images (vision)
-//           · audio (transcription).
+// Coverage: pdf (text + embedded-image vision) · pptx (slide text + embedded-
+//           image vision) · docx · xlsx · csv/tsv/txt/md/json/xml/yaml ·
+//           images incl. HEIC/HEIF (vision) · audio (transcription).
 //
 // Contract: parser failures THROW (caller can distinguish transient errors);
 // "unsupported / too big / bad format" return { ok:false, reason, fix } with an
@@ -18,7 +19,7 @@ import path from "path";
 import { toFile } from "openai";
 import { openai } from "./openaiClient";
 
-export type ExtractKind = "pdf" | "docx" | "xlsx" | "text" | "image" | "audio";
+export type ExtractKind = "pdf" | "pptx" | "docx" | "xlsx" | "text" | "image" | "audio";
 export type ExtractResult =
   | { ok: true; kind: ExtractKind; text: string }
   | { ok: false; reason: string; fix?: string };
@@ -32,7 +33,8 @@ const MAX_IMAGE_BYTES = 18 * 1024 * 1024; // generous; data-url base64 inflates 
 const MAX_AUDIO_BYTES = 24 * 1024 * 1024; // transcription endpoint ceiling is ~25MB
 
 const AUDIO_EXT = new Set(["mp3", "wav", "m4a", "webm", "ogg", "oga", "opus", "aac", "flac", "mp4", "mpeg", "mpga"]);
-const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp"]);
+// heic/heif are iPhone's default photo format — converted to JPEG before vision.
+const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "heic", "heif"]);
 const TEXT_EXT = new Set(["txt", "md", "markdown", "csv", "tsv", "json", "xml", "yaml", "yml", "log", "html", "htm"]);
 
 function extOf(filename: string): string {
@@ -52,9 +54,12 @@ function imageMediaType(ext: string): string | null {
 
 const IMAGE_PROMPT =
   "Transcribe and describe this image so it can be used as grounding context for a project profile. " +
-  "Transcribe any visible text verbatim and preserve its structure (headings, tables, lists). " +
+  "If it is a scan, screenshot, or photo of a document — including HANDWRITING or a faint/low-quality scan — " +
+  "transcribe ALL legible text verbatim and preserve its structure (headings, tables, lists). " +
+  "If it is a chart or diagram, describe its structure, labels, axes, and any data values shown. " +
   "Then briefly describe what is shown (e.g. a site photo, a hand-drawn plan, a budget table). " +
   "Be faithful and literal — only report what is actually visible; never infer or invent. " +
+  "Output only the transcription/description, no preamble. " +
   "Respond in the language of the document, or English if there is no text.";
 
 /**
@@ -70,13 +75,14 @@ export async function extractUpload(
   if (AUDIO_EXT.has(ext) || mime.startsWith("audio/")) return extractAudio(buf, opts.filename, ext);
   if (IMAGE_EXT.has(ext) || mime.startsWith("image/")) return extractImage(buf, ext, mime);
   if (ext === "pdf" || mime === "application/pdf") return { ok: true, kind: "pdf", text: await extractPdf(buf) };
+  if (ext === "pptx" || mime.includes("presentationml")) return { ok: true, kind: "pptx", text: await extractPptx(buf) };
   if (ext === "docx" || mime.includes("wordprocessingml")) return { ok: true, kind: "docx", text: await extractDocx(buf) };
   if (ext === "xlsx" || mime.includes("spreadsheetml")) return { ok: true, kind: "xlsx", text: await extractXlsx(buf) };
   if (TEXT_EXT.has(ext) || mime.startsWith("text/")) return { ok: true, kind: "text", text: buf.toString("utf-8") };
 
   if (ext === "doc") return { ok: false, reason: "Legacy .doc isn't supported.", fix: "Save as .docx or PDF and re-upload." };
-  if (ext === "pptx" || ext === "ppt") return { ok: false, reason: "Slides aren't supported here yet.", fix: "Export the slides as PDF and re-upload." };
-  return { ok: false, reason: `Unsupported file type: .${ext || "?"}`, fix: "Try a PDF, Word doc, image, spreadsheet, or audio recording." };
+  if (ext === "ppt") return { ok: false, reason: "Legacy .ppt isn't supported.", fix: "Save as .pptx or PDF and re-upload." };
+  return { ok: false, reason: `Unsupported file type: .${ext || "?"}`, fix: "Try a PDF, slides, Word doc, image, spreadsheet, or audio recording." };
 }
 
 const MAX_PDF_VISION_BYTES = 25 * 1024 * 1024;
@@ -92,27 +98,74 @@ async function extractPdf(buf: Buffer): Promise<string> {
   const req = createRequire(import.meta.url);
   const { PDFParse } = req("pdf-parse");
   const parser = new PDFParse(new Uint8Array(buf));
-  await parser.load();
-  const result = await parser.getText();
-  const pages: any[] = result.pages || [];
-  const pageCount = pages.length || 1;
-  const text = pages.map((p: any) => p.text).join("\n\n").trim();
+  try {
+    await parser.load();
+    const result = await parser.getText();
+    const pages: any[] = result.pages || [];
+    const pageCount = pages.length || 1;
+    const text = pages.map((p: any) => p.text).join("\n\n").trim();
 
-  // Most proposals/reports are real text PDFs — return the cheap, exact text.
-  // Only fall back to a (pricier) vision pass when the text layer is empty or
-  // suspiciously thin (avg < ~100 chars/page), which means a scan / photo /
-  // image-only deck where pdf-parse gets nothing useful.
-  const thin = text.length < Math.max(200, pageCount * 100);
-  if (!thin) return text;
+    // Hybrid: vision-describe the raster images embedded in the PDF (charts,
+    // photos, figures, maps) so the visuals become grounding context the text
+    // layer misses. Best-effort; never blocks the text capture. A scanned page
+    // is itself one big embedded image, so this also OCRs scans.
+    let visuals = "";
+    try {
+      visuals = await describePdfMedia(parser);
+    } catch (e: any) {
+      console.error("[fileExtract] PDF embedded-image vision failed:", e?.message || e);
+    }
 
-  const visioned = await pdfVisionFallback(buf).catch((e) => {
-    console.error("[fileExtract] PDF vision fallback failed:", e?.message || e);
-    return "";
-  });
-  if (visioned.trim()) {
-    return text ? `${text}\n\n[Vision pass over scanned/visual pages]\n${visioned}` : visioned;
+    // For empty/sparse text layers (scan / photo / image-only deck) where
+    // pdf-parse gets nothing AND no embedded rasters were found, fall back to a
+    // whole-PDF vision pass.
+    const thin = text.length < Math.max(250, pageCount * 100);
+    let base = text;
+    if (thin && !visuals) {
+      const visioned = await pdfVisionFallback(buf).catch((e) => {
+        console.error("[fileExtract] PDF vision fallback failed:", e?.message || e);
+        return "";
+      });
+      if (visioned.trim()) {
+        base = text ? `${text}\n\n[Vision pass over scanned/visual pages]\n${visioned}` : visioned;
+      } else if (!text) {
+        base = "[No selectable text in this PDF — it may be a scan. Describe it in chat or upload a photo of the key page.]";
+      }
+    }
+
+    return visuals ? `${base}\n\n---\n\n## Embedded visuals\n\n${visuals}` : base;
+  } finally {
+    try { await (parser as any).destroy?.(); } catch { /* ignore teardown errors */ }
   }
-  return text || "[No selectable text in this PDF — it may be a scan. Describe it in chat or upload a photo of the key page.]";
+}
+
+/**
+ * Describe the raster images embedded in a PDF (cover art, charts, figures,
+ * maps) via vision, so they add grounding context the text layer misses. Uses
+ * pdf-parse's getImage (PNG buffers). Caps the count + skips tiny/oversize
+ * images to bound cost; best-effort, a failed image is skipped. Limited to the
+ * first pages so a huge PDF can't hang extraction.
+ */
+async function describePdfMedia(parser: any, max = 6, firstPages = 25): Promise<string> {
+  const result = await parser.getImage({ imageBuffer: true, imageDataUrl: false, imageThreshold: 64, first: firstPages });
+  const out: string[] = [];
+  let done = 0;
+  let skipped = 0;
+  for (const page of result?.pages || []) {
+    for (const img of page?.images || []) {
+      const data: Uint8Array | undefined = img?.data;
+      if (!data || !data.length) continue;
+      const imgBuf = Buffer.from(data);
+      if (imgBuf.length < 3000 || imgBuf.length > MAX_IMAGE_BYTES) { skipped++; continue; }
+      if (done >= max) { skipped++; continue; }
+      try {
+        const desc = await describeImageBuffer(imgBuf, "image/png");
+        if (desc) { out.push(`### Page ${page.pageNumber}${img.name ? ` — ${img.name}` : ""}\n\n${desc}`); done++; }
+      } catch { skipped++; }
+    }
+  }
+  if (skipped > 0 && done > 0) out.push(`_(+${skipped} more embedded image(s) not described)_`);
+  return out.join("\n\n");
 }
 
 // Send the whole PDF to a vision-capable model via the Responses API (the same
@@ -142,6 +195,80 @@ async function pdfVisionFallback(buf: Buffer): Promise<string> {
     .map((p: any) => p.text)
     .join("")
     .trim();
+}
+
+// .pptx = a zip of per-slide XML. Slide text lives in <a:t> runs inside
+// ppt/slides/slideN.xml; speaker notes in ppt/notesSlides/notesSlideN.xml.
+// Hybrid: exact slide text + vision over the embedded images (diagrams, charts,
+// photos). Vector/SmartArt diagrams aren't rasters, so they aren't captured.
+async function extractPptx(buf: Buffer): Promise<string> {
+  const JSZip: any = (await import("jszip")).default;
+  const zip = await JSZip.loadAsync(buf);
+  const slideNum = (name: string): number => {
+    const m = name.match(/slide(\d+)\.xml$/);
+    return m ? parseInt(m[1], 10) : 0;
+  };
+  const drawingText = (xml: string): string =>
+    (xml.match(/<a:t>([\s\S]*?)<\/a:t>/g) || [])
+      .map(r => r.replace(/<a:t>([\s\S]*?)<\/a:t>/, "$1"))
+      .map(decodeXmlEntities)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const slideFiles = Object.keys(zip.files)
+    .filter((n: string) => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+    .sort((a: string, b: string) => slideNum(a) - slideNum(b));
+
+  const out: string[] = [];
+  for (let i = 0; i < slideFiles.length; i++) {
+    const n = slideNum(slideFiles[i]);
+    const text = drawingText(await zip.files[slideFiles[i]].async("string"));
+    const notesFile = zip.files[`ppt/notesSlides/notesSlide${n}.xml`];
+    const notes = notesFile ? drawingText(await notesFile.async("string")) : "";
+    if (!text && !notes) continue;
+    out.push(`## Slide ${i + 1}\n\n${text || "_(no text)_"}${notes ? `\n\n_Notes:_ ${notes}` : ""}`);
+  }
+  const slideText = out.join("\n\n").trim();
+
+  let visuals = "";
+  try {
+    visuals = await describePptxMedia(zip);
+  } catch (e: any) {
+    console.error("[fileExtract] PPTX embedded-image vision failed:", e?.message || e);
+  }
+  return visuals ? `${slideText}\n\n---\n\n## Embedded visuals\n\n${visuals}` : slideText;
+}
+
+// Describe the images embedded in a .pptx (ppt/media/*) — diagrams, charts,
+// photos baked into the slides. Capped + best-effort like the PDF path.
+async function describePptxMedia(zip: any, max = 6): Promise<string> {
+  const names = Object.keys(zip.files)
+    .filter((n: string) => /^ppt\/media\/.*\.(png|jpe?g|gif|webp)$/i.test(n))
+    .sort();
+  const out: string[] = [];
+  let done = 0;
+  for (const n of names) {
+    if (done >= max) { out.push(`_(+${names.length - done} more embedded image(s) not described)_`); break; }
+    try {
+      const imgBuf: Buffer = await zip.files[n].async("nodebuffer");
+      if (imgBuf.length < 3000 || imgBuf.length > MAX_IMAGE_BYTES) continue;
+      const ext = (n.split(".").pop() || "").toLowerCase();
+      const mt = imageMediaType(ext);
+      if (!mt) continue;
+      const desc = await describeImageBuffer(imgBuf, mt);
+      if (desc) { out.push(`### ${n.split("/").pop()}\n\n${desc}`); done++; }
+    } catch { /* skip this image */ }
+  }
+  return out.join("\n\n");
+}
+
+function decodeXmlEntities(s: string): string {
+  return s
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&amp;/g, "&");
 }
 
 async function extractDocx(buf: Buffer): Promise<string> {
@@ -189,14 +316,10 @@ function cellToText(v: any): string {
   return String(v);
 }
 
-async function extractImage(buf: Buffer, ext: string, mime: string): Promise<ExtractResult> {
-  if (buf.length > MAX_IMAGE_BYTES) {
-    return { ok: false, reason: "That image is too large to read.", fix: "Re-export it under 18MB (a phone photo is usually fine)." };
-  }
-  const mediaType = imageMediaType(ext) || (mime.startsWith("image/") ? mime : null);
-  if (!mediaType) {
-    return { ok: false, reason: `Can't read .${ext} images.`, fix: "Convert to PNG or JPG and re-upload." };
-  }
+// Shared vision call — send an image buffer to the vision model and return a
+// faithful transcription/description. Reused by direct image uploads + the
+// embedded-image describers (PDF / PPTX). Throws on API error.
+async function describeImageBuffer(buf: Buffer, mediaType: string, prompt = IMAGE_PROMPT): Promise<string> {
   const dataUrl = `data:${mediaType};base64,${buf.toString("base64")}`;
   const resp = await openai.chat.completions.create({
     model: VISION_MODEL,
@@ -204,12 +327,42 @@ async function extractImage(buf: Buffer, ext: string, mime: string): Promise<Ext
     messages: [{
       role: "user",
       content: [
-        { type: "text", text: IMAGE_PROMPT },
+        { type: "text", text: prompt },
         { type: "image_url", image_url: { url: dataUrl } } as any,
       ] as any,
     }],
   });
-  const text = resp.choices[0]?.message?.content?.toString().trim() || "";
+  return resp.choices[0]?.message?.content?.toString().trim() || "";
+}
+
+async function extractImage(buf: Buffer, ext: string, mime: string): Promise<ExtractResult> {
+  if (buf.length > MAX_IMAGE_BYTES) {
+    return { ok: false, reason: "That image is too large to read.", fix: "Re-export it under 18MB (a phone photo is usually fine)." };
+  }
+  let imgBuf = buf;
+  let mediaType = imageMediaType(ext);
+
+  // iPhone photos default to HEIC/HEIF, which vision models don't accept —
+  // convert to JPEG first (pure-JS, no native libs). Best-effort: a convert
+  // failure returns an actionable fix rather than a broken upload.
+  const isHeic = ext === "heic" || ext === "heif" || mime.includes("heic") || mime.includes("heif");
+  if (isHeic) {
+    try {
+      const heicConvert: any = (await import("heic-convert")).default;
+      const out = await heicConvert({ buffer: imgBuf, format: "JPEG", quality: 0.9 });
+      imgBuf = Buffer.from(out);
+      mediaType = "image/jpeg";
+    } catch (e: any) {
+      console.error("[fileExtract] HEIC convert failed:", e?.message || e);
+      return { ok: false, reason: "Couldn't read that HEIC photo.", fix: "On iPhone set Camera → Formats → Most Compatible, or share it as JPG." };
+    }
+  }
+
+  if (!mediaType && mime.startsWith("image/") && !isHeic) mediaType = mime;
+  if (!mediaType) {
+    return { ok: false, reason: `Can't read .${ext} images.`, fix: "Convert to PNG or JPG and re-upload." };
+  }
+  const text = await describeImageBuffer(imgBuf, mediaType);
   return { ok: true, kind: "image", text: text || "[Image uploaded — no readable content detected.]" };
 }
 
