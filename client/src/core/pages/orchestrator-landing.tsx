@@ -864,18 +864,13 @@ export default function OrchestratorLandingPage() {
     setShareOpen(true);
   };
 
-  const openProject = (p: CboDemoProject) => {
-    const member = memberById.get(p.id);
-    if (member?.capabilityToken || member?.memberSlug) {
-      openShare(
-        memberInviteUrl(member),
-        { kind: 'cbo', orgName: member.orgName }
-      );
-    }
-  };
-
+  // Open the unified per-CBO panel. The invite link/message now lives in the
+  // panel's Convite tab, so clicking a CBO card opens here (not the share modal).
+  // The share modal is kept only for the just-created new-invite moment.
   const openCbo = (p: CboDemoProject, tab: CboDrawerTab) => {
-    setFilesMember({ id: p.id, orgName: p.name[locale] });
+    const member = memberById.get(p.id);
+    const inviteUrl = member ? memberInviteUrl(member) : '';
+    setFilesMember({ id: p.id, orgName: p.name[locale], inviteUrl });
     setFilesTab(tab);
   };
 
@@ -1053,6 +1048,7 @@ export default function OrchestratorLandingPage() {
       <CboFilesDrawer
         cohortSlug={cohort?.coordinatorSlug ?? null}
         member={filesMember}
+        cohortLanguage={cohortLanguage}
         initialTab={filesTab}
         onClose={() => setFilesMember(null)}
       />
@@ -1265,7 +1261,7 @@ export default function OrchestratorLandingPage() {
                     locale={locale}
                     selected={selectedId === p.id}
                     onHover={setSelectedId}
-                    onOpen={openProject}
+                    onOpen={(p) => openCbo(p, 'convite')}
                     onOpenCbo={openCbo}
                   />
                   {member && (
