@@ -40,6 +40,15 @@ import { NbsShowcaseCardStrip } from '@/core/components/cbo/NbsShowcaseCard';
 import { RiskPriorityChips, type HazardId } from '@/core/components/cbo/RiskPriorityChips';
 import { CommunityAnchoringComposer, type CommunityAnchoringResult } from '@/core/components/cbo/CommunityAnchoringComposer';
 import { CboFilesSheet } from '@/core/components/cbo/CboFilesSheet';
+
+// Upload messages carry the parsed file content inline (so the agent can read
+// it), but in the chat we render them as a tidy file card instead of dumping the
+// raw text. Matches the two prompts the upload handlers send.
+const UPLOAD_MSG_RE = /^(?:I'm uploading: |Uploaded )"(.+?)"/;
+function parseUploadFilename(content: string): string | null {
+  const m = content.match(UPLOAD_MSG_RE);
+  return m ? m[1] : null;
+}
 import { LifeBuoy } from 'lucide-react';
 import { NBS_SHOWCASE_CARDS, getShowcaseCard } from '@shared/nbs-showcase-cards';
 import type { WorkshopConfig } from '@shared/cohort-schema';
@@ -1084,15 +1093,29 @@ export default function CboProfilePage() {
               </div>
             )}
 
-            {messages.map((msg, i) => (
+            {messages.map((msg, i) => {
+              const uploadName = msg.role === 'user' ? parseUploadFilename(msg.content) : null;
+              return (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[90%] rounded-lg px-4 py-2.5 ${msg.role === 'user' ? 'bg-green-600 text-white' : msg.messageType === 'thinking' ? 'bg-muted/50 border border-dashed border-muted-foreground/20' : 'bg-muted'}`}>
                   {msg.messageType === 'thinking' && <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('cbo.working')}</p>}
                   {msg.role === 'user' ? (
+                    uploadName ? (
+                      <button
+                        type="button"
+                        onClick={() => setFilesSheetOpen(true)}
+                        className="flex items-center gap-2 text-left"
+                        data-testid="chat-file-card"
+                      >
+                        <FileText className="w-4 h-4 shrink-0 opacity-90" />
+                        <span className="text-sm font-medium underline decoration-white/40 underline-offset-2">{uploadName}</span>
+                      </button>
+                    ) : (
                     <p className="text-sm">
                       {msg.viaVoice && <Mic className="w-3 h-3 inline-block mr-1 -mt-0.5 opacity-80" aria-label={lang === 'pt' ? 'mensagem de voz' : 'voice message'} />}
                       {msg.content}
                     </p>
+                    )
                   ) : (
                     <div className={`text-sm prose prose-sm max-w-none ${msg.messageType === 'thinking' ? 'text-muted-foreground italic text-xs' : ''}`}>
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{fixMarkdownTables(msg.content)}</ReactMarkdown>
@@ -1100,7 +1123,8 @@ export default function CboProfilePage() {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {/* E2 NbsShowcaseCard strip — agent-invoked via show_examples.
                 Rendered inline in chat (not in the right rail) since it's

@@ -3,7 +3,40 @@
 import { db } from '../db';
 import { documents, type DocumentRow, type DocumentKind, type DocumentMeta } from '@shared/document-schema';
 import { cboStates } from '@shared/cbo-db-schema';
-import { eq, desc, and, inArray, sql } from 'drizzle-orm';
+import { eq, desc, and, or, inArray, sql } from 'drizzle-orm';
+
+// A document "belongs" to a CBO if it matches the member's org (cross-session
+// evidence locker) OR the specific working-profile/session it was uploaded in.
+// The session match is the reliable one — org_id is linked lazily (at snapshot
+// time) so an upload made before that link, or in a standalone session, lands
+// with org_id = null and would otherwise be invisible.
+export type DocumentScope = { orgId?: string | null; cboStateId?: string | null };
+
+function scopeConds(scope: DocumentScope) {
+  const conds = [];
+  if (scope.orgId) conds.push(eq(documents.orgId, scope.orgId));
+  if (scope.cboStateId) conds.push(eq(documents.cboStateId, scope.cboStateId));
+  return conds;
+}
+
+/** Documents for a CBO scope (org OR session), newest first. */
+export async function listDocumentsForScope(scope: DocumentScope): Promise<DocumentRow[]> {
+  const conds = scopeConds(scope);
+  if (conds.length === 0) return [];
+  return db.select().from(documents)
+    .where(conds.length === 1 ? conds[0] : or(...conds))
+    .orderBy(desc(documents.createdAt));
+}
+
+/** A single document, accepted only if it falls within the given scope. */
+export async function getDocumentForScope(id: string, scope: DocumentScope): Promise<DocumentRow | null> {
+  const doc = await getDocumentById(id);
+  if (!doc) return null;
+  const ok =
+    (!!scope.orgId && doc.orgId === scope.orgId) ||
+    (!!scope.cboStateId && doc.cboStateId === scope.cboStateId);
+  return ok ? doc : null;
+}
 
 /** Strip a document row down to the client-facing metadata (no fullText/blob key). */
 export function toDocumentMeta(d: DocumentRow): DocumentMeta {
@@ -71,6 +104,35 @@ export async function countDocumentsByOrgIds(orgIds: string[]): Promise<Map<stri
   const counts = new Map<string, number>();
   for (const r of rows) if (r.orgId) counts.set(r.orgId, Number(r.n));
   return counts;
+}
+
+/** Per-member document counts, matching by org OR session (one query, no N+1).
+ *  Returns a Map keyed by the member's id. A document that matches a member on
+ *  both org and session is counted once. */
+export async function countDocumentsForMembers(
+  members: { id: string; orgId: string | null; cboStateId: string | null }[],
+): Promise<Map<string, number>> {
+  const orgIds = Array.from(new Set(members.map(m => m.orgId).filter((x): x is string => !!x)));
+  const stateIds = Array.from(new Set(members.map(m => m.cboStateId).filter((x): x is string => !!x)));
+  const result = new Map<string, number>();
+  if (orgIds.length === 0 && stateIds.length === 0) return result;
+  const conds = [];
+  if (orgIds.length) conds.push(inArray(documents.orgId, orgIds));
+  if (stateIds.length) conds.push(inArray(documents.cboStateId, stateIds));
+  const rows = await db
+    .select({ id: documents.id, orgId: documents.orgId, cboStateId: documents.cboStateId })
+    .from(documents)
+    .where(conds.length === 1 ? conds[0] : or(...conds));
+  for (const m of members) {
+    const seen = new Set<string>();
+    for (const r of rows) {
+      if ((m.orgId && r.orgId === m.orgId) || (m.cboStateId && r.cboStateId === m.cboStateId)) {
+        seen.add(r.id);
+      }
+    }
+    result.set(m.id, seen.size);
+  }
+  return result;
 }
 
 /** A single document, scoped to its org so one org can't read another's files. */

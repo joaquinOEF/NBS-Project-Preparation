@@ -19,8 +19,8 @@ import {
 } from "../services/cboPersistence";
 import { createEmptyCboState, CBO_SECTIONS, type CboState } from "@shared/cbo-schema";
 import {
-  listDocumentsByOrg,
-  getDocumentForOrg,
+  listDocumentsForScope,
+  getDocumentForScope,
   getOrgIdForCboState,
   toDocumentMeta,
 } from "../services/documentPersistence";
@@ -72,16 +72,16 @@ export function registerCboRoutes(app: Express): void {
   // "Seus arquivos" bottom sheet. Open-by-UUID, consistent with the other
   // /api/cbo/:id/* routes (the client resolves the session from its token).
   app.get("/api/cbo/:id/documents", async (req: Request, res: Response) => {
+    // Scope by the session itself (always reliable) + the org if it's linked,
+    // so files show even when org_id hasn't been linked to the session yet.
     const orgId = await getOrgIdForCboState(req.params.id);
-    if (!orgId) return res.json({ documents: [] });
-    const docs = await listDocumentsByOrg(orgId);
+    const docs = await listDocumentsForScope({ cboStateId: req.params.id, orgId });
     res.json({ documents: docs.map(toDocumentMeta) });
   });
 
   app.get("/api/cbo/:id/documents/:docId/text", async (req: Request, res: Response) => {
     const orgId = await getOrgIdForCboState(req.params.id);
-    if (!orgId) return res.status(404).json({ error: "not found" });
-    const doc = await getDocumentForOrg(req.params.docId, orgId);
+    const doc = await getDocumentForScope(req.params.docId, { cboStateId: req.params.id, orgId });
     if (!doc) return res.status(404).json({ error: "not found" });
     res.json({ fullText: doc.fullText ?? "", summary: doc.summary ?? null });
   });
