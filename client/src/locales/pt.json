@@ -102,6 +102,7 @@
       "coordLinkTitle": "Seu link de coordenação",
       "coordinatorEmail": "E-mail de acesso",
       "coordinatorName": "Nome da coordenação",
+      "coordinatorNamePlaceholder": "Ex.: Maria Silva",
       "coordinatorPassword": "Senha",
       "copyAllMessages": "Copiar todas as mensagens",
       "copyLink": "Copiar link",

@@ -257,7 +257,7 @@ export function ProvisionCohortDialog({
             <Input
               value={coordinatorName}
               onChange={(e) => setCoordinatorName(e.target.value)}
-              placeholder="Julia"
+              placeholder={t('orchestrator.cohort.coordinatorNamePlaceholder', { defaultValue: 'Ex.: Maria Silva' }) as string}
               data-testid="input-provision-coordinator-name"
             />
           </div>
@@ -270,7 +270,7 @@ export function ProvisionCohortDialog({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="julia@example.com"
+                placeholder="maria@example.com"
                 data-testid="input-provision-email"
               />
             </div>
