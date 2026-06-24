@@ -8,6 +8,7 @@ export type LayerGroup =
   | 'risk_analysis'    // Existing: flood/heat/landslide from grid
   | 'flood_indices'    // Catalog poa_flood_hazard overlay
   | 'heat_indices'     // Catalog poa_heat_hazard overlay
+  | 'landslide_indices' // Catalog poa_landslide_hazard overlay
   | 'environment'      // Existing: elevation, landcover, water, rivers, forest
   | 'urban_land'       // New: Dynamic World, GHSL, VIIRS
   | 'ecology'          // New: NDVI, Hansen, Solar
@@ -109,10 +110,14 @@ export const HEAT_INDEX_LAYERS: TileLayerDef[] = [
   },
 ];
 
-// Landslide has NO hazard overlay — the catalog only publishes landslide RISK
-// (the hazard tile 403s for everyone). So landslide is represented solely by its
-// risk card (risk_landslide_250m → poa_landslide_risk) in LOCAL_RISK_LAYERS; there
-// is no LANDSLIDE_INDEX_LAYERS. (catalog path is `landslides`, PLURAL like `floods`.)
+// Landslide hazard overlay — catalog path is `landslides` (PLURAL, like `floods`).
+export const LANDSLIDE_INDEX_LAYERS: TileLayerDef[] = [
+  {
+    id: 'poa_landslide_hazard', name: 'Landslide Hazard', group: 'landslide_indices', color: '#a16207',
+    tileLayerId: 'poa_landslide_hazard', available: true, hasValueTiles: true,
+    valueEncoding: hazardIndexEncoding('landslides', 'hazard'),
+  },
+];
 
 // Groups for the layer selector UI
 export const TILE_LAYER_GROUPS: Array<{ id: LayerGroup; label: string }> = [
@@ -247,6 +252,7 @@ export const ALL_TILE_LAYERS: TileLayerDef[] = [
   ...LOCAL_RISK_LAYERS,
   ...FLOOD_INDEX_LAYERS,
   ...HEAT_INDEX_LAYERS,
+  ...LANDSLIDE_INDEX_LAYERS,
 ];
 
 /** The visual (RGB) tile URL template for a layer — its local override when set,

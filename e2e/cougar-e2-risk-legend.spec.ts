@@ -6,7 +6,7 @@ import { TestApi } from './helpers/testApi';
 // silently dropped because the microapp only resolved TILE_LAYERS). With
 // showLegendSimple the full toolkit collapses to a 3-chip hazard legend, each
 // chip toggling its overlay. The three chips only appear if the combined layer
-// registry resolves poa_flood_hazard / poa_heat_hazard / risk_landslide_250m.
+// registry resolves poa_flood_hazard / poa_heat_hazard / poa_landslide_hazard.
 
 test.describe('COUGAR — E2 simplified flood/heat/landslide risk legend', () => {
   test('the 3-risk legend renders, overlays auto-enable, and the landslide tile loads', async ({ page, request }) => {
@@ -19,7 +19,7 @@ test.describe('COUGAR — E2 simplified flood/heat/landslide risk legend', () =>
     // flood + heat — the old local /tiles/landslide_risk/ is gone).
     let landslideTileRequested = false;
     page.on('request', (r) => {
-      if (r.url().includes('/api/geospatial/tiles/poa_landslide_risk/')) landslideTileRequested = true;
+      if (r.url().includes('/api/geospatial/tiles/poa_landslide_hazard/')) landslideTileRequested = true;
     });
 
     await page.goto('/cbo-profile');
@@ -31,7 +31,7 @@ test.describe('COUGAR — E2 simplified flood/heat/landslide risk legend', () =>
       { op: 'say', text: 'Olha os riscos do seu bairro.' },
       { op: 'open_map', params: {
         selectionMode: 'browse-only',
-        tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'risk_landslide_250m'],
+        tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],
         showLegendSimple: true,
         prompt: 'As cores mostram os riscos.',
         narrationOverlay: 'Azul = enchente · Vermelho = calor · Marrom = deslizamento.',
