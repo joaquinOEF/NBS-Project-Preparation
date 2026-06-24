@@ -223,6 +223,10 @@ export default function CboProfilePage() {
   // "Seus arquivos" bottom sheet — lets the CBO review what they've shared.
   const [filesSheetOpen, setFilesSheetOpen] = useState(false);
   const [fileCount, setFileCount] = useState(0);
+  // Name of a file currently being uploaded/analyzed — drives the in-chat
+  // "sending" indicator. Extraction now includes vision, so this can take a few
+  // seconds; the user needs feedback that it's working.
+  const [uploadingName, setUploadingName] = useState<string | null>(null);
   const [rightTab, setRightTab] = useState<'document' | 'map' | 'scorecard' | 'interventions'>(getSavedMapParams() ? 'map' : 'document');
   // Mobile-only: which top-level pane is visible. On `md+` both panels render
   // side-by-side and this state is ignored.
@@ -1126,6 +1130,22 @@ export default function CboProfilePage() {
               );
             })}
 
+            {/* Upload-in-progress indicator — a pending file bubble while the
+                file uploads + is extracted/analyzed (can take a few seconds with
+                vision). Covers the composer paperclip path (uploadingName) and
+                the drag-drop path (isUploading). */}
+            {(uploadingName || isUploading) && (
+              <div className="flex justify-end">
+                <div className="max-w-[90%] rounded-lg px-4 py-2.5 bg-green-600/80 text-white">
+                  <span className="flex items-center gap-2 text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                    <span className="font-medium truncate">{uploadingName || (lang === 'pt' ? 'Arquivo' : 'File')}</span>
+                    <span className="opacity-80">· {lang === 'pt' ? 'enviando…' : 'sending…'}</span>
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* E2 NbsShowcaseCard strip — agent-invoked via show_examples.
                 Rendered inline in chat (not in the right rail) since it's
                 an educational anchor for the conversation, not a microapp. */}
@@ -1398,6 +1418,7 @@ export default function CboProfilePage() {
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file && cboId) {
+                    setUploadingName(file.name);
                     const formData = new FormData();
                     formData.append('file', file);
                     fetch(`/api/upload/cbo/${cboId}`, { method: 'POST', body: formData })
@@ -1415,13 +1436,14 @@ export default function CboProfilePage() {
                         sendMessage(`I'm uploading: "${file.name}".\n\nParsed content:\n${(data.content || '').slice(0, 8000)}\n\nPlease extract info, auto-fill sections, and score maturity.`);
                         setTimeout(refreshFileCount, 600);
                       })
-                      .catch(() => sendMessage(`Uploaded "${file.name}" but could not parse.`));
+                      .catch(() => sendMessage(`Uploaded "${file.name}" but could not parse.`))
+                      .finally(() => setUploadingName(null));
                   }
                   e.target.value = '';
                 }}
               />
               <Tooltip><TooltipTrigger asChild>
-                <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="shrink-0"><Paperclip className="w-4 h-4" /></Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isStreaming || !!uploadingName} className="shrink-0">{uploadingName ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}</Button>
               </TooltipTrigger><TooltipContent>{t('cbo.uploadDoc')}</TooltipContent></Tooltip>
               {fileCount > 0 && (
                 <Tooltip><TooltipTrigger asChild>
