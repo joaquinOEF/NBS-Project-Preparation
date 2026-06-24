@@ -5,6 +5,7 @@ import {
 } from '@/core/components/ui/popover';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 import { formatCalendarDate } from '@/lib/dateHelpers';
+import { localizedWorkshopName } from '@/lib/workshopHelpers';
 
 // ---------------------------------------------------------------------------
 // CboProgress — friendly progress display that replaces the
@@ -89,6 +90,7 @@ export function CboProgress({
 
           if (!isUnlocked) {
             const workshop = workshops.find(w => w.unlocksPhase === p.num);
+            const workshopName = localizedWorkshopName(t, workshops, workshop);
             const workshopDate = workshop?.date
               ? formatCalendarDate(workshop.date, isPt ? 'pt-BR' : 'en-US', { weekday: 'long', day: 'numeric', month: 'short' })
               : null;
@@ -109,8 +111,8 @@ export function CboProgress({
                     <p className="text-muted-foreground">
                       {workshop
                         ? t('cbo.progress.lockedWithWorkshop', {
-                            defaultValue: `Opens after ${workshop.name}${workshopDate ? ` · ${workshopDate}` : ''}`,
-                            workshop: workshop.name,
+                            defaultValue: `Opens after ${workshopName}${workshopDate ? ` · ${workshopDate}` : ''}`,
+                            workshop: workshopName,
                             date: workshopDate ?? '',
                           })
                         : t('cbo.progress.lockedNoWorkshop', { defaultValue: 'Your coordinator will open this section.' })}
