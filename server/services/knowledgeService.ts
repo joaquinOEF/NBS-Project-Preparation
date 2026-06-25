@@ -1,5 +1,6 @@
 import { storage } from "../storage";
-import { generateEmbedding, generateEmbeddings, serializeEmbedding, deserializeEmbedding, cosineSimilarity } from "./embeddingService";
+import { generateEmbeddings, serializeEmbedding } from "./embeddingService";
+import { queryTerms, scoreText } from "./textSearch";
 import { chunkContent, computeContentHash, type ChunkResult } from "./chunkingService";
 import { parsePdfFile } from "./pdfService";
 import type { 
@@ -31,7 +32,14 @@ export interface SearchOptions {
 }
 
 const DEFAULT_SEARCH_LIMIT = 5;
-const DEFAULT_MIN_SCORE = 0.1;
+
+// NOTE: search is lexical (keyword scoring over chunk.content via textSearch.ts),
+// not vector/embedding-based. The prior cosine path used placeholder hash
+// "embeddings" (embeddingService.generateTextBasedEmbedding) that never produced
+// real semantics. Lexical is the proven OEF pattern (Funga / CBO agent) for a
+// curated, modest corpus — zero infra, deterministic, no re-ingest needed.
+// Ingestion still writes embeddings to the chunk column; they're now unused by
+// search and can be dropped later if real vectors aren't wired in.
 
 const globalChunksCache: { chunks: KnowledgeChunk[] | null; fetchedAt: number } = { chunks: null, fetchedAt: 0 };
 const GLOBAL_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -58,7 +66,6 @@ export async function batchSemanticSearch(
   options: SearchOptions & { maxTotalChunks?: number } = {}
 ): Promise<BatchSearchResult> {
   const limit = options.limit || 3;
-  const minScore = options.minScore || DEFAULT_MIN_SCORE;
   const includeGlobal = options.includeGlobalKnowledge !== false;
   const maxTotal = options.maxTotalChunks || 12;
 
@@ -92,25 +99,16 @@ export async function batchSemanticSearch(
     });
   }
 
-  const embeddableCorpus = filteredCorpus.filter(c => c.embedding);
-  const deserializedEmbeddings = embeddableCorpus.map(c => ({
-    chunk: c,
-    embedding: deserializeEmbedding(c.embedding!),
-  }));
-
-  const queryEmbeddings = await generateEmbeddings(queries);
+  const queryTermsList = queries.map(q => queryTerms(q));
 
   const seenChunkIds = new Set<string>();
   const allResults: Array<{ content: string; score: number; sourceTitle?: string; chunkId?: string }> = [];
 
   for (let qi = 0; qi < queries.length; qi++) {
-    const qEmb = queryEmbeddings[qi].embedding;
-    const scored = deserializedEmbeddings
-      .map(({ chunk, embedding }) => ({
-        chunk,
-        score: cosineSimilarity(qEmb, embedding),
-      }))
-      .filter(s => s.score >= minScore)
+    const terms = queryTermsList[qi];
+    const scored = filteredCorpus
+      .map(chunk => ({ chunk, score: scoreText(chunk.content, terms) }))
+      .filter(s => s.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
 
@@ -126,7 +124,7 @@ export async function batchSemanticSearch(
   allResults.sort((a, b) => b.score - a.score);
   const topChunks = allResults.slice(0, maxTotal);
 
-  const sourceIds = new Set(embeddableCorpus.filter(c => {
+  const sourceIds = new Set(filteredCorpus.filter(c => {
     const id = c.id?.toString() || c.content.slice(0, 50);
     return seenChunkIds.has(id);
   }).map(c => c.sourceId));
@@ -134,7 +132,7 @@ export async function batchSemanticSearch(
   const sources = await Promise.all(Array.from(sourceIds).map(id => storage.getKnowledgeSource(id)));
   const sourceMap = new Map(sources.filter(Boolean).map(s => [s!.id, s!]));
 
-  const sourceChunkMap = new Map(embeddableCorpus.map(c => [c.id?.toString() || c.content.slice(0, 50), c.sourceId]));
+  const sourceChunkMap = new Map(filteredCorpus.map(c => [c.id?.toString() || c.content.slice(0, 50), c.sourceId]));
 
   for (const chunk of topChunks) {
     const sourceId = sourceChunkMap.get(chunk.chunkId!);
@@ -443,10 +441,9 @@ export async function semanticSearch(
   options: SearchOptions = {}
 ): Promise<SearchResult> {
   const limit = options.limit || DEFAULT_SEARCH_LIMIT;
-  const minScore = options.minScore || DEFAULT_MIN_SCORE;
   const includeGlobal = options.includeGlobalKnowledge !== false;
 
-  const queryEmbedding = await generateEmbedding(query);
+  const terms = queryTerms(query);
 
   const projectChunks = await storage.getKnowledgeChunksByProject(projectId);
   
@@ -502,13 +499,8 @@ export async function semanticSearch(
   }
 
   const scoredChunks: ChunkWithScore[] = filteredChunks
-    .filter(chunk => chunk.embedding)
-    .map(chunk => {
-      const chunkEmbedding = deserializeEmbedding(chunk.embedding!);
-      const score = cosineSimilarity(queryEmbedding.embedding, chunkEmbedding);
-      return { ...chunk, score };
-    })
-    .filter(chunk => chunk.score >= minScore)
+    .map(chunk => ({ ...chunk, score: scoreText(chunk.content, terms) }))
+    .filter(chunk => chunk.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 
