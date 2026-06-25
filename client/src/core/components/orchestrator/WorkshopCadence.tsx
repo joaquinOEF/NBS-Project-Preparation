@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Calendar, Check, ChevronDown, ChevronRight, Lock, Pencil, Unlock,
+  Calendar, Check, ChevronDown, ChevronRight, Lock, Pencil, PlayCircle, Unlock,
   Users, MapPin, Sprout, HandCoins, ClipboardCheck, Send,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -249,6 +249,25 @@ function WorkshopRow({
   const StateIcon = stateMeta.Icon;
   const TopicIcon = TOPIC_ICONS[index] ?? Calendar;
 
+  // Phase 1 is unlocked for every CBO the moment they're invited (the server
+  // forces phase 1 into unlockedPhases — see cohortRoutes / phaseGating). So
+  // the first workshop is NOT gated like W2–W6: "Open for cohort" doesn't grant
+  // access (CBOs already have it), it just records the session + advances the
+  // cadence. Reflect that in the UI so the coordinator isn't misled into
+  // thinking E1 is locked until they click.
+  const isPhaseOne = workshop.unlocksPhase === 1;
+  const autoOpenPhaseOne = isPhaseOne && !workshop.openedAt && state === 'nextUp';
+  const pillText = autoOpenPhaseOne
+    ? t('orchestrator.cohort.stateOpenOnInvite', { defaultValue: 'Open on invite' })
+    : stateMeta.pill;
+  const pillClass = autoOpenPhaseOne
+    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-300/60 dark:border-emerald-900/60'
+    : stateMeta.pillClass;
+  const ctaLabel = autoOpenPhaseOne
+    ? t('orchestrator.cohort.markStarted', { defaultValue: 'Mark as started' })
+    : t('orchestrator.cohort.openForCohort', { defaultValue: 'Open for cohort' });
+  const CtaIcon = autoOpenPhaseOne ? PlayCircle : Unlock;
+
   // Split expectedOutput into bullets on sentence boundaries.
   const outputBullets = expectedOutput
     ? expectedOutput
@@ -306,7 +325,7 @@ function WorkshopRow({
                 {t(`orchestrator.workshops.w${index + 1}.name`, { defaultValue: workshop.name })}
               </span>
               <span
-                className={`inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${stateMeta.pillClass}`}
+                className={`inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${pillClass}`}
               >
                 {state === 'open' && (
                   <span className="relative flex h-1.5 w-1.5">
@@ -314,7 +333,8 @@ function WorkshopRow({
                     <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   </span>
                 )}
-                {stateMeta.pill}
+                {autoOpenPhaseOne && <Unlock className="w-2.5 h-2.5" strokeWidth={2.5} />}
+                {pillText}
               </span>
             </div>
           </div>
@@ -347,8 +367,8 @@ function WorkshopRow({
                 onClick={onOpenForCohort}
                 data-testid={`button-open-workshop-${index}`}
               >
-                <Unlock className="w-3.5 h-3.5 mr-1" />
-                {t('orchestrator.cohort.openForCohort', { defaultValue: 'Open for cohort' })}
+                <CtaIcon className="w-3.5 h-3.5 mr-1" />
+                {ctaLabel}
               </Button>
             )}
           </div>
@@ -372,6 +392,17 @@ function WorkshopRow({
       {/* Body + footer — shown only when the row is expanded. State-driven
           opacity dims past + locked so the eye still flows to active ones. */}
       <div className={stateMeta.contentOpacity}>
+        {autoOpenPhaseOne && (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-200/60 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5">
+            <Unlock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <p className="text-[11px] leading-snug text-emerald-800 dark:text-emerald-300">
+              {t('orchestrator.cohort.phaseOneHint', {
+                defaultValue:
+                  'Invited CBOs can start Encontro 1 right away — it opens with the invite, so you don’t need to open it. Use “Mark as started” to log the session and move the cohort on to Encontro 2.',
+              })}
+            </p>
+          </div>
+        )}
         {description && (
           <p className="mt-3 text-[12px] leading-relaxed text-foreground/80">
             {description}
@@ -420,10 +451,14 @@ function WorkshopRow({
             />
           )}
           <span className="text-[10px] text-muted-foreground">
-            {t('orchestrator.cohort.unlocksPhaseLabel', {
-              defaultValue: 'Opens Phase {{phase}}',
-              phase: workshop.unlocksPhase,
-            })}
+            {isPhaseOne
+              ? t('orchestrator.cohort.phaseOneLabel', {
+                  defaultValue: 'Phase 1 — open to CBOs on invite',
+                })
+              : t('orchestrator.cohort.unlocksPhaseLabel', {
+                  defaultValue: 'Opens Phase {{phase}}',
+                  phase: workshop.unlocksPhase,
+                })}
           </span>
         </div>
 
@@ -435,8 +470,8 @@ function WorkshopRow({
             onClick={onOpenForCohort}
             data-testid={`button-open-workshop-${index}`}
           >
-            <Unlock className="w-3.5 h-3.5 mr-1.5" />
-            {t('orchestrator.cohort.openForCohort', { defaultValue: 'Open for cohort' })}
+            <CtaIcon className="w-3.5 h-3.5 mr-1.5" />
+            {ctaLabel}
           </Button>
         )}
       </div>
