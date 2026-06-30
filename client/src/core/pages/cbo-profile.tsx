@@ -834,6 +834,10 @@ export default function CboProfilePage() {
       }
       case 'open_map':
         setOpenMapParams(event.params);
+        // Mirror the server-persisted activeTool locally so the chip/pulse/
+        // re-entry reflect it immediately (the client's loaded state predates
+        // this turn; without this they'd only update on reload).
+        setState(prev => prev ? { ...prev, activeTool: { kind: 'map' } } : prev);
         setRightTab('map');
         setMapRelevant(true);
         setMobileActiveTab('panel');
@@ -841,6 +845,7 @@ export default function CboProfilePage() {
         break;
       case 'open_intervention_selector':
         setInterventionSelectorParams((event as any).params);
+        setState(prev => prev ? { ...prev, activeTool: { kind: 'interventions' } } : prev);
         setRightTab('interventions');
         setMobileActiveTab('panel');
         setIsStreaming(false);
@@ -1783,7 +1788,7 @@ export default function CboProfilePage() {
           {rightTab === 'map' && (
             <div className="flex-1 min-h-0 relative">
               <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="w-6 h-6 animate-spin" /></div>}>
-                {toolReached(state, 'map') && (openMapParams ?? (state && RIGHT_PANEL_TOOLS.map.defaultParams(state))) ? (
+                {(openMapParams ?? (toolReached(state, 'map') && state ? RIGHT_PANEL_TOOLS.map.defaultParams(state) : null)) ? (
                   <MapMicroapp
                     params={(openMapParams ?? RIGHT_PANEL_TOOLS.map.defaultParams(state!)) as OpenMapParams}
                     onConfirm={(result: MapSelectionResult) => {
