@@ -352,7 +352,7 @@ function createCboMcpTools(cboId: string) {
       }
       const ids = cards.map(c => c.id);
       pushEvent({ type: 'show_examples', cardIds: ids, mode: args.mode ?? 'browse', intro: args.intro });
-      return { content: [{ type: "text" as const, text: `Showed ${ids.length} example(s) in ${args.mode ?? 'browse'} mode. STOP and wait for the user's reaction.` }] };
+      return { content: [{ type: "text" as const, text: `Showed ${ids.length} example(s) in ${args.mode ?? 'browse'} mode. The strip has NO continue button. In browse mode, follow IN THE SAME TURN with a short message and an \`ask_user\` (e.g. "✓ Entendi" / "Tenho uma dúvida") so the user can continue. In favorites mode, let them save first — your next turn ends with that \`ask_user\`. Never leave the strip as the last thing in a turn.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
@@ -376,7 +376,7 @@ function createCboMcpTools(cboId: string) {
         ? args.typeIds.filter((id: string) => all.includes(id))
         : all;
       pushEvent({ type: 'show_types', typeIds: ids, intro: args.intro });
-      return { content: [{ type: "text" as const, text: `Showed ${ids.length} NBS type(s). STOP and wait for the user to read/react.` }] };
+      return { content: [{ type: "text" as const, text: `Showed ${ids.length} NBS type(s). The strip is read-only and has NO buttons — in this SAME turn you MUST follow with a short message and an \`ask_user\` (e.g. options "Ver exemplos" / "Já conheço, pular") so the user has a way to continue. Do not end the turn on the strip alone.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
