@@ -173,7 +173,7 @@ On **"Abrir o mapa"** open with the guided tour ON; on **"Já conheço os riscos
 open_map({
   selectionMode: 'composite',
   zoneSource: 'neighborhoods',
-  tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],
+  tileLayers: ['risk_flood_250m', 'risk_heat_250m', 'risk_landslide_250m'],  // risk layers — all have legends; the tour shows them one at a time with the real color scale
   showLegendSimple: true,
   hazardTour: true,        // false if they tapped "Já conheço os riscos"
   allowDeferSite: true,    // lets them tap "Usar o bairro todo" if no site yet
