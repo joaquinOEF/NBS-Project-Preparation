@@ -85,6 +85,8 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const tileLayerRefs = useRef<Record<string, L.TileLayer>>({});
   const osmLayerRefs = useRef<Record<string, L.GeoJSON>>({});
   const zonesLayerRef = useRef<L.GeoJSON | null>(null);
+  const politicalBaseRef = useRef<L.TileLayer | null>(null);
+  const satelliteBaseRef = useRef<L.TileLayer | null>(null);
   const customMarkersRef = useRef<L.Layer[]>([]);
   const selectedHighlightsRef = useRef<Map<string, L.Layer>>(new Map());
 
@@ -94,6 +96,10 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const [drawMode, setDrawMode] = useState<'off' | 'point' | 'polygon'>('off');
   const drawModeRef = useRef(drawMode);
   drawModeRef.current = drawMode;
+  // Basemap: light political map (default) ↔ satellite. The CBO site step opens
+  // on satellite so people recognize their actual place; everything else stays
+  // political. Gated to the CBO step (allowDeferSite) so the city flow is unchanged.
+  const [basemap, setBasemap] = useState<'political' | 'satellite'>('political');
   const [loading, setLoading] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState('');
   const [enabledTiles, setEnabledTiles] = useState<Set<string>>(new Set());
@@ -173,14 +179,43 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     if (!mapContainerRef.current || mapRef.current) return;
     const map = L.map(mapContainerRef.current, {
       zoomControl: false, attributionControl: false,
-      center: [-30.03, -51.22], zoom: 11,
+      center: [-30.03, -51.22], zoom: 11, maxZoom: 19,
     });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 17 }).addTo(map);
+    // Two base layers; the swap effect below shows one. Esri World Imagery is
+    // free (no key) and zooms to ~19 for site-level detail.
+    politicalBaseRef.current = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 });
+    satelliteBaseRef.current = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles © Esri' });
+    politicalBaseRef.current.addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     mapRef.current = map;
     setMapReady(true);
     return () => { map.remove(); mapRef.current = null; };
   }, []);
+
+  // Swap the active base layer; bringToBack so it never covers zones/markers.
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
+    const pol = politicalBaseRef.current, sat = satelliteBaseRef.current;
+    if (!pol || !sat) return;
+    const [show, hide] = basemap === 'satellite' ? [sat, pol] : [pol, sat];
+    if (!map.hasLayer(show)) show.addTo(map);
+    if (map.hasLayer(hide)) map.removeLayer(hide);
+    show.bringToBack();
+  }, [basemap, mapReady]);
+
+  // CBO site step opens on satellite; tour + neighborhood steps stay political.
+  // Fires on step change only, so a manual toggle within a step isn't overridden.
+  useEffect(() => {
+    if (!params.allowDeferSite) return;
+    setBasemap(compositeStep === 'assets' ? 'satellite' : 'political');
+  }, [compositeStep, params.allowDeferSite]);
+
+  // CBO site step: default to point-drop so a tap marks their spot (the
+  // prominent draw control lets them switch to drawing an area).
+  useEffect(() => {
+    if (params.allowDeferSite && isComposite && compositeStep === 'assets') setDrawMode('point');
+  }, [compositeStep, params.allowDeferSite, isComposite]);
 
   // ── Load boundary ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -789,6 +824,27 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         </p>
       </div>
 
+      {/* Prominent point-vs-area control — CBO site step. Replaces the tiny draw
+          chips so "draw the area" is clearly available, not just a point. */}
+      {params.allowDeferSite && isComposite && compositeStep === 'assets' && !tourActive && (
+        <div className="px-3 py-2 border-b bg-muted/10 shrink-0">
+          <p className="text-[10px] text-muted-foreground mb-1">{t('mapMicroapp.siteHowToMark', { defaultValue: 'Como marcar seu lugar?' })}</p>
+          <div className="flex gap-1.5">
+            <Button variant={drawMode !== 'polygon' ? 'default' : 'outline'} size="sm" className="h-7 text-[11px] gap-1 flex-1" onClick={() => setDrawMode('point')} data-testid="map-draw-point">
+              <MapPin className="w-3 h-3" /> {t('mapMicroapp.drawPoint', { defaultValue: 'Um ponto' })}
+            </Button>
+            <Button variant={drawMode === 'polygon' ? 'default' : 'outline'} size="sm" className="h-7 text-[11px] gap-1 flex-1" onClick={() => setDrawMode('polygon')} data-testid="map-draw-area">
+              <Pencil className="w-3 h-3" /> {t('mapMicroapp.drawArea', { defaultValue: 'Desenhar a área' })}
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {drawMode === 'polygon'
+              ? t('mapMicroapp.drawHelpArea', { defaultValue: 'Toque nos cantos do lugar; feche no primeiro ponto.' })
+              : t('mapMicroapp.drawHelpPoint', { defaultValue: 'Toque no mapa pra marcar o lugar.' })}
+          </p>
+        </div>
+      )}
+
       {/* Stepper bar (composite mode) — hidden during the hazard tour */}
       {!tourActive && isComposite && (
         <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/20 shrink-0">
@@ -856,8 +912,9 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
           </>
         )}
         <div className="flex-1" />
-        {/* Draw buttons */}
-        {canDraw && (
+        {/* Draw buttons — tiny chips for the city flow; the CBO site step uses
+            the prominent point/area control above instead. */}
+        {canDraw && !params.allowDeferSite && (
           <>
             <Button variant={drawMode === 'point' ? 'default' : 'outline'} size="sm" className="h-5 text-[9px] gap-1 px-1.5"
               onClick={() => setDrawMode(drawMode === 'point' ? 'off' : 'point')}>
@@ -1008,6 +1065,26 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
                 ))}
               </div>
             </div>
+          </div>
+        )}
+        {/* Basemap toggle — CBO site step only (satellite to recognize the place,
+            or back to the political map). */}
+        {params.allowDeferSite && isComposite && compositeStep === 'assets' && !tourActive && (
+          <div className="absolute top-2 right-2 z-[900] flex rounded-md overflow-hidden border border-foreground/15 shadow-sm text-[10px] font-medium">
+            <button
+              onClick={() => setBasemap('satellite')}
+              className={`px-2 py-1 ${basemap === 'satellite' ? 'bg-primary text-primary-foreground' : 'bg-background/90 text-foreground hover:bg-muted'}`}
+              data-testid="map-basemap-satellite"
+            >
+              {t('mapMicroapp.basemapSatellite', { defaultValue: 'Satélite' })}
+            </button>
+            <button
+              onClick={() => setBasemap('political')}
+              className={`px-2 py-1 border-l border-foreground/15 ${basemap === 'political' ? 'bg-primary text-primary-foreground' : 'bg-background/90 text-foreground hover:bg-muted'}`}
+              data-testid="map-basemap-political"
+            >
+              {t('mapMicroapp.basemapPolitical', { defaultValue: 'Mapa' })}
+            </button>
           </div>
         )}
         {loading && (
