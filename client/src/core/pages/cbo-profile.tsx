@@ -282,12 +282,9 @@ export default function CboProfilePage() {
   // coordinator-side flows can also nudge the user to open this.
   const [supportDialogOpen, setSupportDialogOpen] = useState(false);
   const [supportPendingCount, setSupportPendingCount] = useState(0);
-  // E2 showcase strip — current set rendered inline in chat (mode + cardIds
-  // from the agent's show_examples event). Null until the agent invokes it.
-  const [showcase, setShowcase] = useState<{ cardIds: string[]; mode: 'browse' | 'favorites'; intro?: string } | null>(null);
-  // E2 Beat 1 educational TYPE strip — read-only NBS type cards from the agent's
-  // show_types event. Null until invoked. Distinct from `showcase` (real cases).
-  const [typesShowcase, setTypesShowcase] = useState<{ typeIds: string[]; intro?: string } | null>(null);
+  // E2 educational strips (types + examples) are persisted as inline `composer`
+  // messages in the transcript (see processEvent / messages.map) so they survive
+  // reload — no ephemeral strip state to manage here.
   // E2 Beat 3a — agent's pending RiskPriorityChips invocation. Null after the
   // user confirms a ranking; the ranking goes back as a chat message.
   const [priorityRankPrompt, setPriorityRankPrompt] = useState<{ prompt: string; minRanked: number } | null>(null);
@@ -295,6 +292,24 @@ export default function CboProfilePage() {
   // CBO's saved cards across sessions. Server is source of truth; we mirror it
   // here for snappy toggle UX. Persisted via inspiration-pick endpoint.
   const [inspirationPicks, setInspirationPicks] = useState<string[]>([]);
+  // Toggle a showcase card favorite (E2 examples strip, favorites mode).
+  // Optimistic + reconciled with the server. Reusable across each persisted
+  // examples composer message.
+  const handleInspirationToggle = useCallback(async (cardId: string, next: boolean) => {
+    setInspirationPicks(before => (next ? Array.from(new Set([...before, cardId])) : before.filter(id => id !== cardId)));
+    if (!memberSlug) return;
+    try {
+      const r = await fetch(`/api/cbo-member/${memberSlug}/inspiration-pick`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cardId, action: next ? 'add' : 'remove' }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        if (Array.isArray(data.inspirationPicks)) setInspirationPicks(data.inspirationPicks);
+      }
+    } catch { /* keep optimistic value */ }
+  }, [memberSlug]);
   const [cohortName, setCohortName] = useState<string | null>(null);
   const [workshops, setWorkshops] = useState<WorkshopConfig[]>([]);
   const [nextWorkshop, setNextWorkshop] = useState<WorkshopConfig | null>(null);
@@ -763,22 +778,19 @@ export default function CboProfilePage() {
         setIsStreaming(false);
         break;
       case 'show_types':
-        // Educational NBS type strip (E2 Beat 1) — inline, read-only. Shown
-        // before the real examples; no tab switch.
-        // Do NOT end streaming here: this strip is a mid-turn composer always
-        // followed by an `ask_user` in the SAME turn. Setting isStreaming=false
-        // early opens a window (strip rendered, no question yet) where the
-        // "Começar Encontro N" banner flashes. isStreaming resets on `done` /
-        // stream close.
-        setTypesShowcase({ typeIds: (event as any).typeIds, intro: (event as any).intro });
+      case 'show_examples': {
+        // Educational strips render inline AND persist: append a `composer`
+        // message to the transcript (mirrors what the server saves), so it shows
+        // in position now and survives reload. Do NOT end streaming — these are
+        // mid-turn composers followed by an `ask_user` in the SAME turn; ending
+        // early flashes the "Começar Encontro N" banner. isStreaming resets on
+        // `done` / stream close.
+        const payload = event.type === 'show_types'
+          ? { kind: 'types', typeIds: (event as any).typeIds, intro: (event as any).intro }
+          : { kind: 'examples', cardIds: event.cardIds, mode: event.mode, intro: event.intro };
+        setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify(payload), messageType: 'composer', timestamp: new Date().toISOString() }]);
         break;
-      case 'show_examples':
-        // Inline strip in chat — no tab switch. Replace any existing strip so
-        // the agent can refine the example set within a turn. Like show_types,
-        // this is mid-turn (paired with a following ask_user) — don't end
-        // streaming here or the next-workshop banner flickers in between.
-        setShowcase({ cardIds: event.cardIds, mode: event.mode, intro: event.intro });
-        break;
+      }
       case 'ask_priority_rank':
         setPriorityRankPrompt({ prompt: event.prompt, minRanked: event.minRanked });
         setIsStreaming(false);
@@ -882,7 +894,6 @@ export default function CboProfilePage() {
   const handleRestart = useCallback(async () => {
     if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
     clearId(); setOpenMapParams(null); setInterventionSelectorParams(null); setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
-    setShowcase(null); setTypesShowcase(null);
     setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
     const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
     const data = await res.json();
@@ -1180,6 +1191,36 @@ export default function CboProfilePage() {
             )}
 
             {messages.map((msg, i) => {
+              // Inline educational composers (E2): persisted in the transcript so
+              // they re-render on reload, in position.
+              if (msg.role === 'assistant' && msg.messageType === 'composer') {
+                let parsed: any = null;
+                try { parsed = JSON.parse(msg.content); } catch { /* malformed — skip */ }
+                if (!parsed) return null;
+                if (parsed.kind === 'types') {
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <NbsTypeStrip typeIds={parsed.typeIds ?? []} intro={parsed.intro} />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'examples') {
+                  const cards = (parsed.cardIds ?? []).map(getShowcaseCard).filter(Boolean) as typeof NBS_SHOWCASE_CARDS;
+                  if (cards.length === 0) return null;
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <NbsShowcaseCardStrip
+                        cards={cards}
+                        mode={parsed.mode ?? 'browse'}
+                        savedIds={inspirationPicks}
+                        onToggleSave={handleInspirationToggle}
+                        intro={parsed.intro}
+                      />
+                    </div>
+                  );
+                }
+                return null;
+              }
               const uploadName = msg.role === 'user' ? parseUploadFilename(msg.content) : null;
               return (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -1227,53 +1268,6 @@ export default function CboProfilePage() {
                 </div>
               </div>
             )}
-
-            {/* E2 Beat 1 educational NBS TYPE strip — agent-invoked via
-                show_types. Read-only; teaches the categories before any real
-                examples or the map. Rendered inline in chat. */}
-            {typesShowcase && (
-              <div className="rounded-lg bg-muted/30 p-3 -mx-1">
-                <NbsTypeStrip typeIds={typesShowcase.typeIds} intro={typesShowcase.intro} />
-              </div>
-            )}
-
-            {/* E2 NbsShowcaseCard strip — agent-invoked via show_examples.
-                Rendered inline in chat (not in the right rail) since it's
-                an educational anchor for the conversation, not a microapp. */}
-            {showcase && (() => {
-              const cards = showcase.cardIds.map(getShowcaseCard).filter(Boolean) as typeof NBS_SHOWCASE_CARDS;
-              if (cards.length === 0) return null;
-              const handleToggle = async (cardId: string, next: boolean) => {
-                const before = inspirationPicks;
-                const optimistic = next
-                  ? Array.from(new Set([...before, cardId]))
-                  : before.filter(id => id !== cardId);
-                setInspirationPicks(optimistic);
-                if (!memberSlug) return;
-                try {
-                  const r = await fetch(`/api/cbo-member/${memberSlug}/inspiration-pick`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cardId, action: next ? 'add' : 'remove' }),
-                  });
-                  if (r.ok) {
-                    const data = await r.json();
-                    if (Array.isArray(data.inspirationPicks)) setInspirationPicks(data.inspirationPicks);
-                  } else { setInspirationPicks(before); }
-                } catch { setInspirationPicks(before); }
-              };
-              return (
-                <div className="rounded-lg bg-muted/30 p-3 -mx-1">
-                  <NbsShowcaseCardStrip
-                    cards={cards}
-                    mode={showcase.mode}
-                    savedIds={inspirationPicks}
-                    onToggleSave={handleToggle}
-                    intro={showcase.intro}
-                  />
-                </div>
-              );
-            })()}
 
             {/* E2 Beat 3a — risk priority chips. Rendered inline in chat.
                 On confirm, posts a parseable message ("Priority ranking: ...")

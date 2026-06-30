@@ -231,8 +231,10 @@ export type CboEvent =
 // Chat message type (same as concept note — shared)
 export interface CboChatMessage {
   role: 'user' | 'assistant';
+  // For messageType 'composer', `content` is a JSON payload describing an inline
+  // widget to re-render (e.g. {kind:'types',typeIds} / {kind:'examples',cardIds,mode}).
   content: string;
-  messageType: 'content' | 'thinking' | 'tool_status';
+  messageType: 'content' | 'thinking' | 'tool_status' | 'composer';
   timestamp: string;
 }
 
