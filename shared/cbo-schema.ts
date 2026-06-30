@@ -83,6 +83,10 @@ export interface CboState {
   maturityScores: MaturityScore[];
   priorityFlags: PriorityFlag[];
   totalMaturityScore: number; // out of 27
+  // The right-panel tool the agent has opened for this phase (map / type selector).
+  // Persisted so the tool stays reachable across reloads — the panel isn't gated
+  // behind a one-shot agent button. Cleared/superseded as the task completes.
+  activeTool?: { kind: 'map' | 'interventions' } | null;
   editLog: Array<{ timestamp: string; sectionId: string; field: string; oldValue: any; newValue: any; source: 'agent' | 'user' }>;
   uploadedFiles: Array<{ name: string; path: string; parsedAt: string; summary: string }>;
   metadata: {

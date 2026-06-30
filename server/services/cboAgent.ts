@@ -880,6 +880,14 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'types', typeIds: event.typeIds, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_examples') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'examples', cardIds: event.cardIds, mode: event.mode, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'open_map') {
+      // Persist that the map step is active so the right-panel tool stays
+      // reachable across reloads (not gated behind a transient button).
+      state.activeTool = { kind: 'map' };
+      setCboState(cboId, state); debouncedPersist(cboId);
+    } else if (event.type === 'open_intervention_selector') {
+      state.activeTool = { kind: 'interventions' };
+      setCboState(cboId, state); debouncedPersist(cboId);
     }
   };
 

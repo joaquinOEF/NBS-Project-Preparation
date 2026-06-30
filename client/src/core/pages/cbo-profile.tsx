@@ -27,7 +27,8 @@ import type { OpenMapParams, MapSelectionResult, SelectedAsset } from '@shared/c
 import {
   Send, Download, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft, Paperclip,
   FileText, Files, Loader2, RotateCcw, Star, Leaf,
-  Check, Circle, AlertCircle, Pencil, Mic, Square,
+  Check, Circle, AlertCircle, Pencil, Mic, Square, Map as MapIcon, Layers,
+  type LucideIcon,
 } from 'lucide-react';
 import { useVoiceRecorder, type RecorderError } from '@/core/hooks/useVoiceRecorder';
 import { CboWelcome } from '@/core/components/cbo/CboWelcome';
@@ -55,7 +56,6 @@ import { NBS_SHOWCASE_CARDS, getShowcaseCard } from '@shared/nbs-showcase-cards'
 import type { WorkshopConfig } from '@shared/cohort-schema';
 import { localizedWorkshopName } from '@/lib/workshopHelpers';
 
-const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
 const MapMicroapp = lazy(() => import('@/core/components/concept-note/MapMicroapp'));
 const InterventionSelector = lazy(() => import('@/core/components/concept-note/InterventionSelector'));
 
@@ -90,6 +90,71 @@ function formatMapResult(result: MapSelectionResult): string {
 function fixMarkdownTables(text: string): string {
   if (!text.includes('|')) return text;
   return text.replace(/\|\s*\|/g, '|\n|').replace(/\|\s*\n\s*\|/g, '|\n|');
+}
+
+// ── Right-panel tool registry ────────────────────────────────────────────────
+// Agent-driven right-panel tools (the map, the NBS-type selector, future ones)
+// follow ONE structural pattern instead of ad-hoc per-tool conditionals:
+//   • the agent's open_* persists `state.activeTool = { kind }` (server-side), so
+//     the tool survives reload and is never gated behind a one-shot agent button;
+//   • each tool declares a re-entry config + a done-check + a nudge label here;
+//   • the always-on tab render, the chat nudge chip, and the tab pulse are all
+//     GENERIC over this registry (see pendingTool / toolReached below).
+// Adding a tool for a future phase = one declarative entry, not new plumbing.
+type ToolKind = 'map' | 'interventions';
+interface RightPanelToolDef {
+  tab: 'document' | 'map' | 'interventions' | 'scorecard';
+  icon: LucideIcon;
+  // Config to render the tool with no live agent params (reload / re-entry).
+  // null = no default for this phase (the tool only shows on a live agent open).
+  defaultParams: (state: CboState) => any | null;
+  // Task complete → the nudge clears; re-entry is just "revisit".
+  isDone: (state: CboState) => boolean;
+  nudge: { pt: string; en: string };
+}
+
+function fieldVal(state: CboState | null, section: string, ...fields: string[]): boolean {
+  const f = (state?.sections as any)?.[section]?.fields;
+  return !!f && fields.some(k => f?.[k]?.value);
+}
+
+const RIGHT_PANEL_TOOLS: Record<ToolKind, RightPanelToolDef> = {
+  map: {
+    tab: 'map',
+    icon: MapIcon,
+    defaultParams: (s) => s.phase === 2 ? {
+      selectionMode: 'composite',
+      zoneSource: 'neighborhoods',
+      tileLayers: ['risk_flood_250m', 'risk_heat_250m', 'risk_landslide_250m'],
+      showLegendSimple: true,
+      hazardTour: false,        // re-entry skips the guided tour, straight to selection
+      allowDeferSite: true,
+      prompt: 'Marque o bairro e o lugar onde vocês atuam.',
+    } : null,
+    isDone: (s) => fieldVal(s, 'intervention_site', 'bairro', 'site_name'),
+    nudge: { pt: 'Abrir o mapa', en: 'Open the map' },
+  },
+  interventions: {
+    tab: 'interventions',
+    icon: Layers,
+    defaultParams: () => null,  // wired when E3 (NBS-type selection) lands
+    isDone: (s) => fieldVal(s, 'intervention_type', 'intervention_type', 'nbs_type'),
+    nudge: { pt: 'Escolher o tipo de SbN', en: 'Choose the NBS type' },
+  },
+};
+
+// The tool the agent has opened (persisted), if its task isn't done → drives the
+// chat nudge chip + the tab pulse.
+function pendingTool(state: CboState | null): { kind: ToolKind; def: RightPanelToolDef } | null {
+  const kind = (state as any)?.activeTool?.kind as ToolKind | undefined;
+  if (!kind || !RIGHT_PANEL_TOOLS[kind] || !state) return null;
+  const def = RIGHT_PANEL_TOOLS[kind];
+  return def.isDone(state) ? null : { kind, def };
+}
+// Has this tool's step been reached (active now, or already done)? → the tab
+// renders the live tool rather than the "not yet" placeholder.
+function toolReached(state: CboState | null, kind: ToolKind): boolean {
+  return (state as any)?.activeTool?.kind === kind || (!!state && RIGHT_PANEL_TOOLS[kind].isDone(state));
 }
 
 // ── Inline editable field ────────────────────────────────────────────────────
@@ -1480,6 +1545,28 @@ export default function CboProfilePage() {
               );
             })()}
 
+            {/* Persistent tool affordance — while ANY right-panel tool task is
+                pending (agent opened it, not yet done), this chip is always
+                available so the user can (re)enter it without relying on a
+                one-shot agent button. Generic over the tool registry. */}
+            {(() => {
+              const pend = !isStreaming ? pendingTool(state) : null;
+              if (!pend || rightTab === pend.def.tab) return null;
+              const Icon = pend.def.icon;
+              return (
+                <div className="flex justify-center py-2">
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                    onClick={() => { setRightTab(pend.def.tab); setMapRelevant(true); setMobileActiveTab('panel'); }}
+                    data-testid={`cbo-open-tool-${pend.kind}`}
+                  >
+                    <Icon className="w-3.5 h-3.5" /> {lang === 'pt' ? pend.def.nudge.pt : pend.def.nudge.en}
+                  </Button>
+                </div>
+              );
+            })()}
+
             <div ref={chatEndRef} />
           </div>
 
@@ -1603,7 +1690,7 @@ export default function CboProfilePage() {
                 <button key={tab} onClick={() => setRightTab(tab)}
                   className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${rightTab === tab ? 'border-green-600 text-green-700' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
                   {tab === 'interventions' ? (t('cbo.tabs.interventions', 'NBS Types')) : t(`cbo.tabs.${tab}`)}
-                  {tab === 'map' && mapRelevant && rightTab !== 'map' && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-1 inline-block" />}
+                  {rightTab !== tab && ((tab === 'map' && mapRelevant) || pendingTool(state)?.def.tab === tab) && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-1 inline-block" />}
                   {tab === 'interventions' && interventionSelectorParams && rightTab !== 'interventions' && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-1 inline-block" />}
                   {tab === 'scorecard' && state.totalMaturityScore > 0 && <span className="ml-1 text-xs text-muted-foreground">{state.totalMaturityScore}/27</span>}
                 </button>
@@ -1696,9 +1783,9 @@ export default function CboProfilePage() {
           {rightTab === 'map' && (
             <div className="flex-1 min-h-0 relative">
               <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="w-6 h-6 animate-spin" /></div>}>
-                {openMapParams ? (
+                {toolReached(state, 'map') && (openMapParams ?? (state && RIGHT_PANEL_TOOLS.map.defaultParams(state))) ? (
                   <MapMicroapp
-                    params={openMapParams}
+                    params={(openMapParams ?? RIGHT_PANEL_TOOLS.map.defaultParams(state!)) as OpenMapParams}
                     onConfirm={(result: MapSelectionResult) => {
                       const message = formatMapResult(result);
                       // Gap 1 — persist the chosen site as STRUCTURED data, not just
@@ -1747,10 +1834,9 @@ export default function CboProfilePage() {
                     }}
                   />
                 ) : (
-                  <ConceptNoteMap isActive={rightTab === 'map'} onConfirm={(_summary, description) => {
-                    if (currentQuestion) handleSelectOption(description); else sendMessage(description);
-                    setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
-                  }} />
+                  <div className="flex items-center justify-center h-full p-6 text-center text-sm text-muted-foreground">
+                    {lang === 'pt' ? 'O mapa abre quando a gente chegar nessa parte do encontro.' : 'The map opens when we reach that part of the workshop.'}
+                  </div>
                 )}
               </Suspense>
             </div>
