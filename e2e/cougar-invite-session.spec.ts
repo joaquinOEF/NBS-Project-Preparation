@@ -39,3 +39,44 @@ test.describe('COUGAR #7 — new invite never resumes a prior org session', () =
     expect(keys.filter(k => k.includes(':')).length, 'per-token session keys exist').toBeGreaterThanOrEqual(2);
   });
 });
+
+// The token link is a credential to the ORG's working session — opening it on a
+// fresh device (empty localStorage) must resume the SAME conversation, not mint
+// a new empty session. Regression guard: server binding (member.cboStateId) is
+// read back on load (resolveSession), not just written.
+test.describe('COUGAR — token link resumes on a fresh device', () => {
+  test('clean localStorage resolves the same session from the server binding', async ({ page, browser, request }) => {
+    const api = new TestApi(request);
+    const { cohort } = await api.createCohort('e2e cross-device');
+    const a = await api.inviteMember(cohort.id, { orgName: 'Org Cross' });
+
+    const openInvite = async (p: typeof page): Promise<string> => {
+      await p.goto(a.inviteUrl);
+      await p.getByTestId('button-cbo-welcome-cta').click({ timeout: 30_000 });
+      const pre = p.getByTestId('button-encontro-1-start');
+      if (await pre.isVisible({ timeout: 8_000 }).catch(() => false)) await pre.click();
+      const marker = p.getByTestId('cbo-stream-status');
+      await expect(marker).toHaveAttribute('data-cbo-id', /.+/, { timeout: 30_000 });
+      return (await marker.getAttribute('data-cbo-id'))!;
+    };
+
+    // First device establishes the session and the server binding.
+    const idA = await openInvite(page);
+    const token = new URL(a.inviteUrl).searchParams.get('t')!;
+    await expect
+      .poll(async () => (await (await request.get(`/api/cbo-member/by-token/${token}`)).json()).cboStateId, {
+        timeout: 15_000,
+      })
+      .toBe(idA);
+
+    // Second "device": a brand-new context has no localStorage — exactly the
+    // case that used to mint a fresh empty session and orphan the real one.
+    const ctx = await browser.newContext();
+    try {
+      const idA2 = await openInvite(await ctx.newPage());
+      expect(idA2, 'a clean device must resume the same session, not create a new one').toBe(idA);
+    } finally {
+      await ctx.close();
+    }
+  });
+});

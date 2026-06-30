@@ -169,8 +169,10 @@ function migrateCboState(state: CboState): CboState {
 // invite (?t=tokenB) on a phone that already has org A's session cached and the
 // chat resumes A's conversation instead of starting B's. Per-token keys keep
 // each invited org's session separate; the standalone /cbo-profile flow (no
-// token) keeps the plain key. (The member's server-side cboStateId remains the
-// cross-device source of truth via the snapshot binding.)
+// token) keeps the plain key. For token/slug links the member's server-side
+// cboStateId IS read back on load (see resolveSession) and wins over this cache,
+// so the working session is the cross-device source of truth — this localStorage
+// entry is only a same-device fast path that converges onto the server id.
 function sessionStorageKey(): string {
   try {
     const p = new URLSearchParams(window.location.search);
@@ -304,6 +306,47 @@ export default function CboProfilePage() {
   // the chat. State is encontro number 1-6 OR null (no preamble showing).
   const [preambleEncontro, setPreambleEncontro] = useState<number | null>(null);
 
+  // One-time session-resolution latch shared by the standalone init() effect
+  // and the token-driven resolveSession() below — guarantees exactly one
+  // session is loaded/created across StrictMode double-invokes and member
+  // re-fetches (focus/poll).
+  const initRef = useRef(false);
+
+  // Resolve THIS link's working session. The server binding (member.cboStateId)
+  // is the source of truth, so a token link resumes the SAME conversation +
+  // files + progress on any device — not just the browser that created it.
+  // Falls back to a same-device cached id, then to creating a fresh session
+  // (which the snapshot effect binds to the member). Runs once, guarded by
+  // initRef. Used only by the token/slug (cohort) path; standalone /cbo-profile
+  // self-inits in the init() effect below.
+  const resolveSession = useCallback(async (serverStateId: string | null) => {
+    if (initRef.current) return;
+    initRef.current = true;
+    const candidate = serverStateId || getSavedId();
+    if (candidate) {
+      try {
+        const res = await fetch(`/api/cbo/${candidate}`);
+        if (res.ok) {
+          const data = await res.json();
+          setCboId(candidate);
+          setState(migrateCboState(data.state));
+          const msgRes = await fetch(`/api/cbo/${candidate}/messages`);
+          if (msgRes.ok) { const msgs = await msgRes.json(); if (msgs.length) setMessages(msgs); }
+          saveId(candidate); // converge the same-device cache onto the server id
+          return;
+        }
+        // 404 → the binding/cache points at a state that no longer exists
+        // (DB wiped, container recycled). Drop the stale cache and start fresh.
+        if (res.status === 404) clearId();
+      } catch {}
+    }
+    const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
+    const data = await res.json();
+    setCboId(data.cboId);
+    setState(data.state);
+    saveId(data.cboId);
+  }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     // Preferred: unguessable capability token (?t=). Legacy: org-name slug
@@ -340,13 +383,24 @@ export default function CboProfilePage() {
       setFocusWorkshop(data.focusWorkshop ?? null);
       setFocusWorkshopIsCurrent(!!data.focusWorkshopIsCurrent);
     };
-    const refetch = () => fetch(memberUrl).then(r => r.ok ? r.json() : null).then(applyMember).catch(() => {});
+    const refetch = () => fetch(memberUrl).then(r => r.ok ? r.json() : null).then(data => {
+      applyMember(data);
+      // Recover session resolution if the initial fetch failed (transient
+      // network) and left initRef unset; idempotent once resolved.
+      if (data) resolveSession(data.cboStateId ?? null);
+    }).catch(() => {});
 
     fetch(memberUrl)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         applyMember(data);
-        if (data) setWelcomeMode(true);
+        if (data) {
+          setWelcomeMode(true);
+          // Resolve the working session from the server binding — this is what
+          // makes the token link device-independent. Guarded by initRef so the
+          // focus/poll refetch (which also calls applyMember) never re-resolves.
+          resolveSession(data.cboStateId ?? null);
+        }
       })
       .catch(() => {});
 
@@ -498,9 +552,14 @@ export default function CboProfilePage() {
   // The active id ends up being the second (no-prefill) CBO and the prefilled
   // one orphans. Symptoms: agent re-asks org_name despite the doc panel showing
   // it, "starting fresh" messages, language flipping, etc.
-  const initRef = useRef(false);
   useEffect(() => {
     if (initRef.current) return;
+    // Token / cohort links (?t= / ?cbo=) resolve their session from the server
+    // binding via resolveSession() in the member effect above — the server is
+    // the source of truth so the link resumes on any device. Only the
+    // standalone /cbo-profile flow (no token) self-inits from localStorage here.
+    const p = new URLSearchParams(window.location.search);
+    if (p.get('t') || p.get('cbo')) return;
     initRef.current = true;
     async function init() {
       const saved = getSavedId();
