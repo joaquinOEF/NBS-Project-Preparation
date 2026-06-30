@@ -180,6 +180,14 @@ Layer definitions (with value encodings) live in `shared/geospatial-layers.ts`. 
 
 ## Lessons Learned
 
+### CBO chat composers (inline widgets) — see `docs/cbo-chat-composers.md`
+Rules for any interactive widget rendered **inside the CBO chat** (NBS type/example
+strips, priority chips, anchoring): persist it as a `composer` transcript message or
+it vanishes on reload; don't `setIsStreaming(false)` on a mid-turn composer; pair
+read-only strips with an `ask_user`; read phase/session identity from the
+authoritative server state (`cbo_state`, `member.cboStateId`), not a cache or
+localStorage. ⚠️ Priority chips, anchoring, and `openMapParams` are still ephemeral.
+
 ### Persisted-state swap loop (useNavigationPersistence)
 
 **Symptom**: a module page jittering at ~125 renders/sec — two state values (one local, one inside `savedNavState`) alternate true↔false on every React commit.
