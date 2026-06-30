@@ -80,6 +80,9 @@ function formatMapResult(result: MapSelectionResult): string {
     const vals = Object.entries(pt.values).map(([k, v]) => `${k}: ${v.toFixed(3)}`).join(', ');
     lines.push(`- [sample] (${pt.lat.toFixed(4)}, ${pt.lng.toFixed(4)}) | ${vals}`);
   }
+  if (result.siteDeferred) {
+    lines.push(`- [site] DEFERRED — the user has no specific site yet; working with the whole neighborhood for now. Don't push for an exact site; you can revisit it later.`);
+  }
   lines.push(`Total: ${result.selectedAssets.length} assets, ${result.sampledPoints.length} sampled points`);
   return lines.join('\n');
 }
@@ -1704,7 +1707,6 @@ export default function CboProfilePage() {
                       const siteAsset = [...result.selectedAssets].reverse().find(a => a.type !== 'zone');
                       const zoneAsset = result.selectedAssets.find(a => a.type === 'zone');
                       if (siteAsset && memberSlug) {
-                        const poly = siteAsset.geometry?.type === 'Polygon' ? siteAsset.geometry : null;
                         fetch(`/api/cbo-member/${memberSlug}/site`, {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
@@ -1715,6 +1717,23 @@ export default function CboProfilePage() {
                             geometry: siteAsset.geometry ?? null,
                             source: (siteAsset.properties as any)?.source ?? siteAsset.source ?? null,
                             neighborhood: zoneAsset?.name ?? null,
+                          }),
+                        }).catch(() => {});
+                      } else if (result.siteDeferred && zoneAsset && memberSlug) {
+                        // "Usar o bairro todo" — persist the neighborhood as the
+                        // (deferred) site so the org leaves the map with at least
+                        // a bairro; the exact site stays TBD.
+                        fetch(`/api/cbo-member/${memberSlug}/site`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            name: zoneAsset.name,
+                            kind: 'zone',
+                            coordinates: zoneAsset.coordinates,
+                            geometry: null,
+                            source: 'whole-neighborhood',
+                            neighborhood: zoneAsset.name,
+                            deferred: true,
                           }),
                         }).catch(() => {});
                       }

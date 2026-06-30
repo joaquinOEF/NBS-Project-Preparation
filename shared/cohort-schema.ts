@@ -62,6 +62,10 @@ export type MemberSite = {
   source?: string | null;                    // e.g. 'osm_parks', 'user-added'
   areaM2?: number | null;                    // for drawn polygons
   neighborhood?: string | null;
+  // E2 "usar o bairro todo": the org committed a neighborhood but no specific
+  // site yet. When true, kind is 'zone' and coordinates are the bairro centroid;
+  // site-specific UI should treat the exact site as TBD.
+  deferred?: boolean;
   photos: string[];                          // uploaded site-photo file paths
   savedAt: string;                           // ISO timestamp
 };

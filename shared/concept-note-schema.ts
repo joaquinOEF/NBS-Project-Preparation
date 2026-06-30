@@ -179,6 +179,26 @@ export interface OpenMapParams {
   // hazard legend (flood/heat/landslide) when only those hazards are active.
   // Used by E2 to reduce visual noise for first-time CBO users.
   showLegendSimple?: boolean;
+  // E2 map step — allow committing a neighborhood with NO specific site ("usar
+  // o bairro todo"). Gates the site-optional UI so the city/concept-note flow
+  // (which requires a real site in composite mode) is unaffected.
+  allowDeferSite?: boolean;
+  // E2 map step — guided hazard tour. When true, the map opens in a tour that
+  // walks the user through flood → heat → landslide ONE at a time (locked
+  // legend, per-hazard caption + counter) before unlocking neighborhood/site
+  // selection. Opt-in; the city/concept-note flow leaves it off.
+  hazardTour?: boolean;
+  // E2 map step — a site candidate extracted from the org's uploaded docs, to
+  // pre-place for the user to validate ("é aqui?") instead of picking blind.
+  // Tiered: a precise place geocodes to a pin; a bairro-only hint pre-selects
+  // the neighborhood. `quote` is the literal doc excerpt shown as the basis.
+  suggestedSite?: {
+    quote?: string;        // literal passage from the doc (shown to the user)
+    name?: string;         // place/address to geocode (Nominatim) if no coords
+    lat?: number;
+    lng?: number;
+    neighborhood?: string; // bairro-only hint (pre-select the zone)
+  };
 }
 
 export interface SelectedAsset {
@@ -202,6 +222,12 @@ export interface MapSelectionResult {
   selectedAssets: SelectedAsset[];
   sampledPoints: SampledPoint[];
   enabledLayers: string[];
+  // E2: the user committed a neighborhood but no specific site ("usar o bairro
+  // todo"). Consumers should keep the neighborhood and treat the site as TBD.
+  siteDeferred?: boolean;
+  // E2: how the site was arrived at — 'doc' (validated a doc-extracted
+  // candidate) vs 'user' (picked/drew it). Omitted outside the CBO map step.
+  siteSource?: 'doc' | 'user';
 }
 
 // SSE event types pushed to the browser

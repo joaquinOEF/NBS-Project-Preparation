@@ -474,6 +474,15 @@ STOP and wait for the user's map selection after calling this tool.`,
       zoneSource: z.enum(["neighborhood_zones", "intervention_zones", "neighborhoods"]).optional().describe("For composite mode step 1: 'neighborhood_zones' (default) shows bairros with risk scores + vulnerability-weighted priority. 'neighborhoods' shows raw IBGE census data. 'intervention_zones' uses legacy synthetic zones."),
       narrationOverlay: z.string().optional().describe("Translucent banner over the map for browse-only mode — agent narrates what colors mean. ~80 chars ideal."),
       showLegendSimple: z.boolean().optional().describe("Collapse the full toolkit into a simple 3-chip hazard legend. Useful for first-time CBO users."),
+      hazardTour: z.boolean().optional().describe("E2 map step: open into a guided tour that walks the user through flood → heat → landslide ONE at a time before unlocking neighborhood/site selection. Use selectionMode:'composite' with this. Pass the 3 poa_*_hazard tileLayers."),
+      allowDeferSite: z.boolean().optional().describe("E2 map step: let the user commit a neighborhood with no specific site yet ('usar o bairro todo'). Pass true for the CBO map step."),
+      suggestedSite: z.object({
+        quote: z.string().optional().describe("The literal passage from the org's document that names the place (shown to the user as 'na proposta: …')"),
+        name: z.string().optional().describe("Place/address to geocode (e.g. 'Rua Voluntários da Pátria 123, Porto Alegre') when you don't have coordinates"),
+        lat: z.number().optional(),
+        lng: z.number().optional(),
+        neighborhood: z.string().optional().describe("Bairro-only hint when the doc names a neighborhood but no precise site"),
+      }).optional().describe("E2 map step: a site candidate found via search_org_documents, to pre-place for the user to VALIDATE ('é aqui?') instead of picking blind. Only pass what the doc actually says — the quote is the basis the user sees."),
     },
     async (args: any) => {
       pushEvent({
@@ -488,6 +497,9 @@ STOP and wait for the user's map selection after calling this tool.`,
           zoneSource: args.zoneSource,
           narrationOverlay: args.narrationOverlay,
           showLegendSimple: args.showLegendSimple,
+          hazardTour: args.hazardTour,
+          allowDeferSite: args.allowDeferSite,
+          suggestedSite: args.suggestedSite,
         },
       });
       return { content: [{ type: "text" as const, text: `Map opened in "${args.selectionMode}" mode. STOP and wait for selection.` }] };
