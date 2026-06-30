@@ -37,6 +37,7 @@ import { getEncontroPreambleConfig, encontroForPhase } from '@/core/components/c
 import { E1Cards } from '@/core/components/cbo/E1Cards';
 import { RequestSupportDialog } from '@/core/components/cbo/RequestSupportDialog';
 import { NbsShowcaseCardStrip } from '@/core/components/cbo/NbsShowcaseCard';
+import { NbsTypeStrip } from '@/core/components/cbo/NbsTypeStrip';
 import { RiskPriorityChips, type HazardId } from '@/core/components/cbo/RiskPriorityChips';
 import { CommunityAnchoringComposer, type CommunityAnchoringResult } from '@/core/components/cbo/CommunityAnchoringComposer';
 import { CboFilesSheet } from '@/core/components/cbo/CboFilesSheet';
@@ -284,6 +285,9 @@ export default function CboProfilePage() {
   // E2 showcase strip — current set rendered inline in chat (mode + cardIds
   // from the agent's show_examples event). Null until the agent invokes it.
   const [showcase, setShowcase] = useState<{ cardIds: string[]; mode: 'browse' | 'favorites'; intro?: string } | null>(null);
+  // E2 Beat 1 educational TYPE strip — read-only NBS type cards from the agent's
+  // show_types event. Null until invoked. Distinct from `showcase` (real cases).
+  const [typesShowcase, setTypesShowcase] = useState<{ typeIds: string[]; intro?: string } | null>(null);
   // E2 Beat 3a — agent's pending RiskPriorityChips invocation. Null after the
   // user confirms a ranking; the ranking goes back as a chat message.
   const [priorityRankPrompt, setPriorityRankPrompt] = useState<{ prompt: string; minRanked: number } | null>(null);
@@ -758,6 +762,12 @@ export default function CboProfilePage() {
         setMobileActiveTab('panel');
         setIsStreaming(false);
         break;
+      case 'show_types':
+        // Educational NBS type strip (E2 Beat 1) — inline, read-only. Shown
+        // before the real examples; no tab switch.
+        setTypesShowcase({ typeIds: (event as any).typeIds, intro: (event as any).intro });
+        setIsStreaming(false);
+        break;
       case 'show_examples':
         // Inline strip in chat — no tab switch. Replace any existing strip so
         // the agent can refine the example set within a turn.
@@ -867,6 +877,7 @@ export default function CboProfilePage() {
   const handleRestart = useCallback(async () => {
     if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
     clearId(); setOpenMapParams(null); setInterventionSelectorParams(null); setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
+    setShowcase(null); setTypesShowcase(null);
     setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
     const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
     const data = await res.json();
@@ -1209,6 +1220,15 @@ export default function CboProfilePage() {
                     <span className="opacity-80">· {lang === 'pt' ? 'enviando…' : 'sending…'}</span>
                   </span>
                 </div>
+              </div>
+            )}
+
+            {/* E2 Beat 1 educational NBS TYPE strip — agent-invoked via
+                show_types. Read-only; teaches the categories before any real
+                examples or the map. Rendered inline in chat. */}
+            {typesShowcase && (
+              <div className="rounded-lg bg-muted/30 p-3 -mx-1">
+                <NbsTypeStrip typeIds={typesShowcase.typeIds} intro={typesShowcase.intro} />
               </div>
             )}
 

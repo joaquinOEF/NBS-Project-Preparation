@@ -330,12 +330,13 @@ function createCboMcpTools(cboId: string) {
   // hazard is known). Cards available from shared/nbs-showcase-cards.ts.
   const showExamples = sdkTool(
     "show_examples",
-    "Render the NbsShowcaseCard strip inline in chat. Use at the start of E2 to build NBS vocabulary. mode='favorites' for needs-help path. Optional hazardFilter to narrow the cards.",
+    "Render the NbsShowcaseCard strip inline in chat. Use in E2 Beat 1, AFTER show_intervention_types, to show REAL Brazilian/Porto Alegre cases of the NBS types. Pass typeRefs to tie the examples to the types just shown. mode='favorites' for needs-help path. Optional hazardFilter to narrow.",
     {
       mode: z.enum(["browse", "favorites"]).default("browse"),
       hazardFilter: z.enum(["flood", "heat", "biodiversity"]).optional(),
+      typeRefs: z.array(z.string()).optional().describe("NBS type ids (e.g. ['flood-parks','urban-forests']) — show only examples that represent these types"),
       intro: z.string().optional().describe("Optional 1-line lead text rendered above the strip"),
-      cardIds: z.array(z.string()).optional().describe("Explicit card IDs to show (overrides hazardFilter)"),
+      cardIds: z.array(z.string()).optional().describe("Explicit card IDs to show (overrides hazardFilter/typeRefs)"),
     },
     async (args: any) => {
       const showcase = await import("@shared/nbs-showcase-cards");
@@ -344,12 +345,38 @@ function createCboMcpTools(cboId: string) {
         cards = args.cardIds
           .map((id: string) => showcase.getShowcaseCard(id))
           .filter(Boolean) as { id: string }[];
+      } else if (args.hazardFilter || (Array.isArray(args.typeRefs) && args.typeRefs.length > 0)) {
+        cards = showcase.filterShowcaseCards({ hazard: args.hazardFilter, typeRefs: args.typeRefs });
       } else {
-        cards = showcase.filterShowcaseCards(args.hazardFilter ? { hazard: args.hazardFilter } : undefined);
+        cards = showcase.filterShowcaseCards();
       }
       const ids = cards.map(c => c.id);
       pushEvent({ type: 'show_examples', cardIds: ids, mode: args.mode ?? 'browse', intro: args.intro });
       return { content: [{ type: "text" as const, text: `Showed ${ids.length} example(s) in ${args.mode ?? 'browse'} mode. STOP and wait for the user's reaction.` }] };
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
+  // E2 Beat 1 (educational): render the read-only NBS TYPE strip inline. This is
+  // the FIRST thing in E2 — teach the categories of nature-based solutions
+  // before showing real examples. Each card expands ("Saber mais") to the type's
+  // description, example, and a case study. No selection here — purely to learn;
+  // picking a type happens later. Types come from shared/cbo-schema NBS_INTERVENTION_TYPES.
+  const showInterventionTypes = sdkTool(
+    "show_intervention_types",
+    "Render the educational NBS TYPE strip inline in chat. Use as the FIRST action in E2 to teach the kinds of nature-based solutions (read-only, expandable). Optionally pass typeIds to show a subset; omit to show all 6. STOP and wait for the user to read/react.",
+    {
+      typeIds: z.array(z.string()).optional().describe("Subset of NBS type ids to show (e.g. ['flood-parks','wetland-restoration']); omit for all 6"),
+      intro: z.string().optional().describe("Optional 1-line lead text rendered above the strip"),
+    },
+    async (args: any) => {
+      const schema = await import("@shared/cbo-schema");
+      const all = schema.NBS_INTERVENTION_TYPES.map((t: any) => t.id);
+      const ids = Array.isArray(args.typeIds) && args.typeIds.length > 0
+        ? args.typeIds.filter((id: string) => all.includes(id))
+        : all;
+      pushEvent({ type: 'show_types', typeIds: ids, intro: args.intro });
+      return { content: [{ type: "text" as const, text: `Showed ${ids.length} NBS type(s). STOP and wait for the user to read/react.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
@@ -690,7 +717,7 @@ STOP and wait for the user's selection after calling this tool.`,
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, flagGap, setPhase, setPath, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector],
+    tools: [updateSection, flagGap, setPhase, setPath, showInterventionTypes, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector],
   });
 }
 
