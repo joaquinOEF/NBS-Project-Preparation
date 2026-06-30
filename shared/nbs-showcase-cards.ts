@@ -130,17 +130,62 @@ export const NBS_SHOWCASE_CARDS: NbsShowcaseCard[] = [
       emoji: '🌱',
     },
   },
+  {
+    id: 'poa-orla-guaiba',
+    org: 'Orla do Guaíba (Trecho 1)',
+    city: 'Porto Alegre, RS',
+    year: 2018,
+    hazard: 'heat',
+    typeRefs: ['urban-forests', 'green-corridors'],
+    summaryPt: 'Orla revitalizada com espécies nativas à beira do Guaíba',
+    summaryEn: 'Revitalized waterfront with native species along the Guaíba',
+    detailPt:
+      '1,5 km de orla revitalizada (Trecho 1, aberto em 2018), projeto de Jaime Lerner, com 100% de espécies nativas e gestão por PPP. Virou modelo replicável de requalificação da beira-rio — sombra, lazer e biodiversidade reconectando a cidade à água.',
+    detailEn:
+      '1.5 km of revitalized waterfront (Trecho 1, opened 2018), a Jaime Lerner design with 100% native species and PPP management. A replicable model for riverfront requalification — shade, leisure, and biodiversity reconnecting the city to the water.',
+    // Photo pending curation (verified Wikimedia source + attribution) — gradient for now.
+    photo: null,
+    placeholder: {
+      gradient: 'biodiversity',
+      emoji: '🌳',
+    },
+  },
+  {
+    id: 'poa-marinha-do-brasil',
+    org: 'Parque Marinha do Brasil',
+    city: 'Porto Alegre, RS',
+    year: 1978,
+    hazard: 'flood',
+    typeRefs: ['flood-parks', 'urban-forests'],
+    summaryPt: 'Parque de 67 ha que ajuda a absorver água e refrescar o centro',
+    summaryEn: '67 ha park that helps absorb water and cool the city center',
+    detailPt:
+      'Maior parque da área central (67 ha, aberto em 1978), com grande cobertura arbórea, lazer e drenagem natural junto ao Guaíba. Foi parcialmente inundado na cheia de maio de 2024 — hoje peça-chave no debate sobre recuperação verde e convivência com a água.',
+    detailEn:
+      "The central area's largest park (67 ha, opened 1978) — extensive canopy, recreation, and natural drainage along the Guaíba. Partially flooded in the May 2024 flood, it's now central to the conversation on green recovery and living with water.",
+    // Photo pending curation — gradient for now.
+    photo: null,
+    placeholder: {
+      gradient: 'flood',
+      emoji: '🌊',
+    },
+  },
 ];
 
 export function getShowcaseCard(id: string): NbsShowcaseCard | undefined {
   return NBS_SHOWCASE_CARDS.find(c => c.id === id);
 }
 
-/** Filter by tag — currently just hazard. Extend with more dimensions as we add cards. */
-export function filterShowcaseCards(opts?: { hazard?: ShowcaseHazard }): NbsShowcaseCard[] {
+/**
+ * Filter by tag — hazard and/or NBS type. `typeRefs` keeps cards that represent
+ * ANY of the requested types (used by E2 to show examples tied to the NBS types
+ * the user just learned about).
+ */
+export function filterShowcaseCards(opts?: { hazard?: ShowcaseHazard; typeRefs?: string[] }): NbsShowcaseCard[] {
   if (!opts) return NBS_SHOWCASE_CARDS;
   return NBS_SHOWCASE_CARDS.filter(c => {
     if (opts.hazard && c.hazard !== opts.hazard && c.hazard !== 'mixed') return false;
+    if (opts.typeRefs && opts.typeRefs.length > 0 && !c.typeRefs.some(t => opts.typeRefs!.includes(t))) return false;
     return true;
   });
 }

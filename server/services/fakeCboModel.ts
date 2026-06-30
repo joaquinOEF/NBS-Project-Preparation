@@ -28,9 +28,11 @@ import {
   type CboEvent,
   type Confidence,
   MATURITY_METRICS,
+  NBS_INTERVENTION_TYPES,
   isValidMaturityMetric,
   isValidSectionId,
 } from '@shared/cbo-schema';
+import { NBS_SHOWCASE_CARDS } from '@shared/nbs-showcase-cards';
 
 export function isFakeModelEnabled(): boolean {
   return process.env.CBO_FAKE_MODEL === '1';
@@ -46,7 +48,9 @@ export type FakeOp =
   | { op: 'score_maturity'; metric: string; score: number; justification?: string }
   | { op: 'set_phase'; phase: number }
   | { op: 'priority_flag'; flag: string; met: boolean; notes?: string }
-  | { op: 'open_map'; params?: Record<string, unknown> };
+  | { op: 'open_map'; params?: Record<string, unknown> }
+  | { op: 'show_types'; typeIds?: string[]; intro?: string }
+  | { op: 'show_examples'; cardIds?: string[]; mode?: 'browse' | 'favorites'; intro?: string };
 
 export type FakeTurn = FakeOp[];
 
@@ -149,6 +153,20 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
     }
     case 'open_map': {
       pushEvent({ type: 'open_map', params: (op.params ?? {}) as any });
+      break;
+    }
+    case 'show_types': {
+      const ids = op.typeIds && op.typeIds.length > 0
+        ? op.typeIds
+        : NBS_INTERVENTION_TYPES.map(t => t.id);
+      pushEvent({ type: 'show_types', typeIds: ids, intro: op.intro });
+      break;
+    }
+    case 'show_examples': {
+      const ids = op.cardIds && op.cardIds.length > 0
+        ? op.cardIds
+        : NBS_SHOWCASE_CARDS.map(c => c.id);
+      pushEvent({ type: 'show_examples', cardIds: ids, mode: op.mode ?? 'browse', intro: op.intro });
       break;
     }
   }
