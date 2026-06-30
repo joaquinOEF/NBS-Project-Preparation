@@ -142,7 +142,6 @@ function EditableField({ value, onSave, userEdited }: { value: string; onSave: (
 }
 
 const STORAGE_KEY = 'cbo-session-id';
-const MAP_PARAMS_KEY = 'cbo-map-params';
 // Migrate old 5-section states to 7 sections (adds intervention_type, impact_monitoring, operations_sustain)
 function migrateCboState(state: CboState): CboState {
   for (const sec of CBO_SECTIONS) {
@@ -183,8 +182,11 @@ function sessionStorageKey(): string {
 function getSavedId(): string | null { try { return localStorage.getItem(sessionStorageKey()); } catch { return null; } }
 function saveId(id: string) { try { localStorage.setItem(sessionStorageKey(), id); } catch {} }
 function clearId() { try { localStorage.removeItem(sessionStorageKey()); } catch {} }
-function getSavedMapParams(): OpenMapParams | null { try { const s = sessionStorage.getItem(MAP_PARAMS_KEY); return s ? JSON.parse(s) : null; } catch { return null; } }
-function saveMapParams(p: OpenMapParams | null) { try { if (p) sessionStorage.setItem(MAP_PARAMS_KEY, JSON.stringify(p)); else sessionStorage.removeItem(MAP_PARAMS_KEY); } catch {} }
+// NOTE: the map is intentionally NOT persisted across reloads. It opens only
+// when the agent fires `open_map` in the live session (E2). Restoring it from
+// sessionStorage used to leak a previously-opened map into unrelated contexts
+// (e.g. back in E1 / Quem Somos, or another org in the same tab), since the key
+// was neither phase- nor token-scoped.
 
 // ============================================================================
 // MAIN PAGE
@@ -230,10 +232,10 @@ export default function CboProfilePage() {
   // "sending" indicator. Extraction now includes vision, so this can take a few
   // seconds; the user needs feedback that it's working.
   const [uploadingName, setUploadingName] = useState<string | null>(null);
-  const [rightTab, setRightTab] = useState<'document' | 'map' | 'scorecard' | 'interventions'>(getSavedMapParams() ? 'map' : 'document');
+  const [rightTab, setRightTab] = useState<'document' | 'map' | 'scorecard' | 'interventions'>('document');
   // Mobile-only: which top-level pane is visible. On `md+` both panels render
   // side-by-side and this state is ignored.
-  const [mobileActiveTab, setMobileActiveTab] = useState<'chat' | 'panel'>(getSavedMapParams() ? 'panel' : 'chat');
+  const [mobileActiveTab, setMobileActiveTab] = useState<'chat' | 'panel'>('chat');
   // Unread indicator on the Chat tab when the agent posts while the user is on
   // another mobile tab. Cleared on switch-to-chat.
   const [mobileChatUnread, setMobileChatUnread] = useState(false);
@@ -252,10 +254,9 @@ export default function CboProfilePage() {
       .catch(() => {});
   }, [cboId]);
   useEffect(() => { refreshFileCount(); }, [refreshFileCount]);
-  const [mapRelevant, setMapRelevant] = useState(!!getSavedMapParams());
-  const [openMapParams, _setOpenMapParams] = useState<OpenMapParams | null>(getSavedMapParams);
+  const [mapRelevant, setMapRelevant] = useState(false);
+  const [openMapParams, setOpenMapParams] = useState<OpenMapParams | null>(null);
   const [interventionSelectorParams, setInterventionSelectorParams] = useState<OpenInterventionSelectorParams | null>(null);
-  const setOpenMapParams = useCallback((p: OpenMapParams | null) => { _setOpenMapParams(p); saveMapParams(p); }, []);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -861,7 +862,7 @@ export default function CboProfilePage() {
 
   const handleRestart = useCallback(async () => {
     if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
-    clearId(); saveMapParams(null); setOpenMapParams(null); setInterventionSelectorParams(null); setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
+    clearId(); setOpenMapParams(null); setInterventionSelectorParams(null); setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
     setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
     const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
     const data = await res.json();
