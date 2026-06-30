@@ -2033,6 +2033,18 @@
     "phaseLocked": "Seu coordenador vai abrir esta seção depois do próximo encontro."
   },
   "mapMicroapp": {
+    "tourNext": "Próximo risco",
+    "tourToZone": "Escolher meu bairro",
+    "useWholeBairro": "Usar o bairro todo",
+    "tourFloodTitle": "Enchente",
+    "tourFloodBody": "Onde a água tende a se acumular quando chove forte.",
+    "tourHeatTitle": "Calor",
+    "tourHeatBody": "Onde a temperatura sobe mais — o efeito ilha de calor.",
+    "tourLandslideTitle": "Deslizamento",
+    "tourLandslideBody": "As encostas com risco de deslizar.",
+    "lessRisk": "menos risco",
+    "moreRisk": "mais risco",
+    "zoneRiskExplainer": "Cada bairro está colorido pelo risco principal — quanto mais forte a cor, maior o risco. Toque no seu bairro.",
     "addSite": "Adicionar um local por nome ou coordenada",
     "searchPlaceholder": "Buscar um nome de lugar…",
     "search": "Buscar",

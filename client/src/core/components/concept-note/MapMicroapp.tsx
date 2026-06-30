@@ -7,7 +7,8 @@ import { Badge } from '@/core/components/ui/badge';
 import { Check, X, MapPin, Pencil, Loader2, Trash2, Eye, EyeOff, ChevronRight, Search, Plus, Crosshair } from 'lucide-react';
 import { Input } from '@/core/components/ui/input';
 import { TILE_LAYERS, ALL_TILE_LAYERS, tileVisualUrl, OSM_LAYERS, SPATIAL_QUERIES } from '@shared/geospatial-layers';
-import { riskBand, hazardPercentile, TYPOLOGY_COLORS, type HazardKey } from '@shared/risk-display';
+import { riskBand, hazardPercentile, TYPOLOGY_COLORS, zoneRiskOpacity, type HazardKey } from '@shared/risk-display';
+import type { LegendSpec } from '@shared/legend-types';
 import type { OpenMapParams, SelectedAsset, SampledPoint, MapSelectionResult } from '@shared/concept-note-schema';
 import { sampleRasterAtPoint, geometryCentroid } from '@/lib/valueTileUtils';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
@@ -56,11 +57,26 @@ const HAZARD_LEGEND: Record<HazardFamily, { color: string; labelKey: string; def
 // shown while that single layer is visible. Defaults are Portuguese (the CBO
 // cohort is pt-forced); en keys live in the locale files.
 const HAZARD_ORDER: HazardFamily[] = ['flood', 'heat', 'landslide'];
+// Captions describe the HAZARD, not a color — the real color scale is shown by
+// the legend bar (built from the layer's actual legend spec) so it always
+// matches the map.
 const TOUR_COPY: Record<HazardFamily, { emoji: string; titleKey: string; title: string; bodyKey: string; body: string }> = {
-  flood:     { emoji: '🌊', titleKey: 'mapMicroapp.tourFloodTitle',     title: 'Enchente',     bodyKey: 'mapMicroapp.tourFloodBody',     body: 'As áreas em azul são as que mais alagam quando chove forte.' },
-  heat:      { emoji: '🔥', titleKey: 'mapMicroapp.tourHeatTitle',      title: 'Calor',        bodyKey: 'mapMicroapp.tourHeatBody',      body: 'As áreas em vermelho e laranja esquentam mais — o efeito ilha de calor.' },
-  landslide: { emoji: '⛰️', titleKey: 'mapMicroapp.tourLandslideTitle', title: 'Deslizamento', bodyKey: 'mapMicroapp.tourLandslideBody', body: 'As áreas em marrom têm encostas com risco de deslizar.' },
+  flood:     { emoji: '🌊', titleKey: 'mapMicroapp.tourFloodTitle',     title: 'Enchente',     bodyKey: 'mapMicroapp.tourFloodBody',     body: 'Onde a água tende a se acumular quando chove forte.' },
+  heat:      { emoji: '🔥', titleKey: 'mapMicroapp.tourHeatTitle',      title: 'Calor',        bodyKey: 'mapMicroapp.tourHeatBody',      body: 'Onde a temperatura sobe mais — o efeito ilha de calor.' },
+  landslide: { emoji: '⛰️', titleKey: 'mapMicroapp.tourLandslideTitle', title: 'Deslizamento', bodyKey: 'mapMicroapp.tourLandslideBody', body: 'As encostas com risco de deslizar.' },
 };
+
+// Build a CSS gradient from a layer's legend stops (same source as the map's
+// real legends), so the tour shows the actual color→risk scale.
+function legendGradientCss(spec: LegendSpec | undefined): string | null {
+  if (!spec || spec.kind !== 'gradient' || !spec.stops?.length) return null;
+  const min = spec.min ?? spec.stops[0].value;
+  const max = spec.max ?? spec.stops[spec.stops.length - 1].value;
+  const span = (max - min) || 1;
+  return `linear-gradient(to right, ${spec.stops
+    .map(s => `${s.color} ${(((s.value - min) / span) * 100).toFixed(1)}%`)
+    .join(', ')})`;
+}
 
 export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const { t } = useTranslation();
@@ -116,6 +132,13 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const tourFamily = tourActive ? hazardFamilyOf(tourLayers[tourIdx]) : null;
   const advanceTour = useCallback(() => setTourIdx(i => i + 1), []);
 
+  // Real per-layer legend specs (same source as the map's legends) so the tour
+  // shows the ACTUAL color scale, not a hand-written color word.
+  const [legends, setLegends] = useState<Record<string, LegendSpec>>({});
+  useEffect(() => {
+    fetch('/sample-data/layer-legends.json').then(r => (r.ok ? r.json() : {})).then(setLegends).catch(() => {});
+  }, []);
+
   // E2: auto-enable requested tile layers on mount so the user immediately sees
   // the hazard colors (browse-only exploration, and any flow asking for the
   // simplified hazard legend). They can still toggle them off.
@@ -133,7 +156,9 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     if (tourIdx >= 0 && tourIdx < tourLayers.length) {
       setEnabledTiles(new Set([tourLayers[tourIdx]]));
     } else if (tourIdx >= tourLayers.length) {
-      setEnabledTiles(new Set(tourLayers));
+      // Tour done → hide the rasters so the neighborhood choropleth (colored by
+      // risk, like the orchestrator) reads cleanly for selection.
+      setEnabledTiles(new Set());
     }
     // tourLayers is derived from the stable params.tileLayers for this open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -203,8 +228,27 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         const maxPriority = Math.max(...allPriorities, 0.01);
         const minPriority = Math.min(...allPriorities);
         const priorityRange = maxPriority - minPriority || 0.01;
+        // CBO E2: risk range (max hazard per zone) for the orchestrator-style fill.
+        const zoneRisk = (p: any) => Math.max(p?.meanFlood || 0, p?.meanHeat || 0, p?.meanLandslide || 0);
+        const allRisk = geojson.features.map((f: any) => zoneRisk(f.properties));
+        const riskMin = Math.min(...allRisk, 0);
+        const riskSpan = (Math.max(...allRisk, 0.01) - riskMin) || 0.01;
 
         const getDefaultStyle = (p: any) => {
+          // CBO E2 colors neighborhoods exactly like the orchestrator — HUE =
+          // which risk (typology), OPACITY = how risky — so first-time users see
+          // the same map the coordinator does. The city/concept-note flow keeps
+          // the intervention-type coloring.
+          if (params.allowDeferSite) {
+            const norm = (zoneRisk(p) - riskMin) / riskSpan;
+            return {
+              color: '#ffffff',
+              weight: 1 + Math.max(0, Math.min(1, norm)) * 1.5,
+              fillColor: TYPOLOGY_COLORS[p?.typologyLabel] || TYPOLOGY_COLORS.LOW,
+              fillOpacity: zoneRiskOpacity(norm),
+              dashArray: undefined as string | undefined,
+            };
+          }
           const interventionColor = INTERVENTION_COLORS[p?.interventionType] || '#94a3b8';
           const normalizedPriority = ((p?.priorityScore ?? 0) - minPriority) / priorityRange;
           const fillOpacity = p?.priorityScore != null ? 0.05 + normalizedPriority * 0.65 : 0;
@@ -929,6 +973,40 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
               <p className="text-[11px] text-foreground/85 leading-snug mt-0.5">
                 {t(TOUR_COPY[tourFamily].bodyKey, { defaultValue: TOUR_COPY[tourFamily].body })}
               </p>
+              {/* Real color scale for the active hazard layer (from the map's
+                  own legend data), so the colors always match. */}
+              {(() => {
+                const grad = legendGradientCss(legends[tourLayers[tourIdx]]);
+                if (!grad) return null;
+                return (
+                  <div className="mt-1.5">
+                    <div className="h-2 rounded-sm w-full border border-foreground/10" style={{ background: grad }} />
+                    <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5">
+                      <span>{t('mapMicroapp.lessRisk', { defaultValue: 'menos risco' })}</span>
+                      <span>{t('mapMicroapp.moreRisk', { defaultValue: 'mais risco' })}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+        {/* Neighborhood-coloring explainer (CBO zone step) — same encoding as the
+            orchestrator: hue = which risk, stronger color = more risk. */}
+        {!tourActive && params.allowDeferSite && isComposite && compositeStep === 'zone' && (
+          <div className="absolute top-2 left-2 right-2 z-[900] pointer-events-none">
+            <div className="bg-background/90 backdrop-blur-sm border border-foreground/10 rounded-lg px-3 py-2 shadow-sm">
+              <p className="text-[11px] text-foreground/85 leading-snug">
+                {t('mapMicroapp.zoneRiskExplainer', { defaultValue: 'Cada bairro está colorido pelo risco principal — quanto mais forte a cor, maior o risco. Toque no seu bairro.' })}
+              </p>
+              <div className="flex items-center gap-2.5 mt-1 flex-wrap">
+                {([['FLOOD', t('mapMicroapp.hazardFlood', { defaultValue: 'Enchente' })], ['HEAT', t('mapMicroapp.hazardHeat', { defaultValue: 'Calor' })], ['LANDSLIDE', t('mapMicroapp.hazardLandslide', { defaultValue: 'Deslizamento' })]] as [keyof typeof TYPOLOGY_COLORS, string][]).map(([key, label]) => (
+                  <span key={key} className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                    <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: TYPOLOGY_COLORS[key] }} />
+                    {label}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         )}
