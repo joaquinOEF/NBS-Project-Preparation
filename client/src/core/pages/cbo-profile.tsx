@@ -730,8 +730,12 @@ export default function CboProfilePage() {
         }
         break;
       case 'ask_user': {
-        const spatialKeywords = /\b(zone|zona|area|área|site|sítio|where|onde|map|mapa|location|local|bairro)\b/i;
-        const hasMap = !!(event as any).showMap || spatialKeywords.test(event.question);
+        // Open the map only when the agent explicitly signals it via `showMap`
+        // on the question (or the `open_map` tool). A keyword regex on the
+        // question text used to also auto-open it — but that fired for any
+        // mention of "área/onde/local/bairro/…", popping the map open in E1
+        // (Quem Somos) and other non-spatial turns the agent never intended.
+        const hasMap = !!(event as any).showMap;
         setActiveQuestions(prev => {
           if (prev.length === 0) { setCurrentQuestionIdx(0); setQuestionAnswers({}); }
           return [...prev, { id: `q_${Date.now()}`, question: event.question, options: event.options, multiSelect: (event as any).multiSelect, relatedSections: (event as any).relatedSections }];
