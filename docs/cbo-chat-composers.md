@@ -72,6 +72,33 @@ A token link's working session is `member.cboStateId`, resolved server-side
 resumes the same conversation on **any** device; localStorage is only a same-device
 cache (PR #297). Don't key the session on the browser.
 
+## Rule 6 — Right-panel tools go through the registry, not ad-hoc gating
+
+The **right-panel** tools (the Mapa interactive map, the Tipos de SbN selector,
+future ones) are NOT the same as inline chat composers — they live in the panel
+tabs and must be **always reachable**, never gated behind a one-shot agent button
+(a reload would strand the user with no way back into a pending task).
+
+One structural pattern, in `cbo-profile.tsx`:
+
+- **Persist which tool is open.** When the agent calls `open_map` /
+  `open_intervention_selector`, the server sets `cbo_state.activeTool = { kind }`
+  (in `pushEvent`). It survives reload, so the panel is re-enterable. (Don't gate
+  on the ephemeral `openMapParams` event — that's lost on reload.)
+- **Declare each tool in `RIGHT_PANEL_TOOLS`.** Each entry gives its `tab`, a
+  `defaultParams(state)` (the re-entry config when there's no live agent params —
+  e.g. the map's composite/site config with the tour OFF), an `isDone(state)`
+  check (reads the captured section field), a `nudge` label, and an `icon`.
+- **The plumbing is generic over the registry.** `pendingTool(state)` (open +
+  not done) drives a persistent chat **nudge chip** and the **tab pulse**;
+  `toolReached(state, kind)` makes the tab render the live tool (`openMapParams ??
+  defaultParams(state)`) instead of the "not yet" placeholder. The agent's
+  `open_*` just sets the live params + focuses the tab — it never *gates* access.
+
+Adding a tool for a future phase = **one declarative entry** in the registry +
+wiring that tab's component render, not a new pile of conditionals. (PR for the
+map established this; `interventions` is registered as a stub for E3.)
+
 ---
 
 ### TL;DR for a new in-chat widget
@@ -80,3 +107,9 @@ cache (PR #297). Don't key the session on the browser.
 2. Don't end streaming if it's mid-turn. (R2)
 3. If it's read-only, pair it with an `ask_user`. (R3)
 4. Read phase/identity from the authoritative server state, not a cache. (R4, R5)
+
+### TL;DR for a new right-panel tool
+
+5. Persist `activeTool` server-side on `open_*`; add a `RIGHT_PANEL_TOOLS` entry
+   (`tab`, `defaultParams`, `isDone`, `nudge`, `icon`); the nudge/pulse/always-on
+   are generic. Never gate the tool behind a one-shot button. (R6)
