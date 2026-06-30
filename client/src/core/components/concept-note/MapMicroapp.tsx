@@ -52,6 +52,16 @@ const HAZARD_LEGEND: Record<HazardFamily, { color: string; labelKey: string; def
   landslide: { color: TYPOLOGY_COLORS.LANDSLIDE, labelKey: 'mapMicroapp.hazardLandslide', defaultLabel: 'Landslide' },
 };
 
+// E2 guided hazard tour: the order to walk through, and the per-hazard caption
+// shown while that single layer is visible. Defaults are Portuguese (the CBO
+// cohort is pt-forced); en keys live in the locale files.
+const HAZARD_ORDER: HazardFamily[] = ['flood', 'heat', 'landslide'];
+const TOUR_COPY: Record<HazardFamily, { emoji: string; titleKey: string; title: string; bodyKey: string; body: string }> = {
+  flood:     { emoji: '🌊', titleKey: 'mapMicroapp.tourFloodTitle',     title: 'Enchente',     bodyKey: 'mapMicroapp.tourFloodBody',     body: 'As áreas em azul são as que mais alagam quando chove forte.' },
+  heat:      { emoji: '🔥', titleKey: 'mapMicroapp.tourHeatTitle',      title: 'Calor',        bodyKey: 'mapMicroapp.tourHeatBody',      body: 'As áreas em vermelho e laranja esquentam mais — o efeito ilha de calor.' },
+  landslide: { emoji: '⛰️', titleKey: 'mapMicroapp.tourLandslideTitle', title: 'Deslizamento', bodyKey: 'mapMicroapp.tourLandslideBody', body: 'As áreas em marrom têm encostas com risco de deslizar.' },
+};
+
 export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const { t } = useTranslation();
   const mapRef = useRef<L.Map | null>(null);
@@ -89,18 +99,45 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const selectionMode = params.selectionMode;
   const isComposite = selectionMode === 'composite';
   const isBrowseOnly = selectionMode === 'browse-only';
-  const showZones = !isComposite || compositeStep === 'zone';
-  const showAssets = !isComposite || compositeStep === 'assets';
+
+  // E2 guided hazard tour. tourLayers = the hazard tiles present, in flood→heat
+  // →landslide order. tourIdx: 0..n-1 = touring that hazard (only it visible);
+  // n = done (all visible, selection unlocked); -1 = tour off.
+  const tourLayers = HAZARD_ORDER
+    .map(fam => (params.tileLayers || []).find(id => hazardFamilyOf(id) === fam))
+    .filter(Boolean) as string[];
+  const [tourIdx, setTourIdx] = useState(params.hazardTour && tourLayers.length > 0 ? 0 : -1);
+  const tourActive = tourIdx >= 0 && tourIdx < tourLayers.length;
+
+  // During the tour, suppress zone/asset selection — it's hazard education only.
+  const showZones = !tourActive && (!isComposite || compositeStep === 'zone');
+  const showAssets = !tourActive && (!isComposite || compositeStep === 'assets');
   const polygonHelp = drawMode === 'polygon' ? t('mapMicroapp.polygonHelp') : '';
+  const tourFamily = tourActive ? hazardFamilyOf(tourLayers[tourIdx]) : null;
+  const advanceTour = useCallback(() => setTourIdx(i => i + 1), []);
 
   // E2: auto-enable requested tile layers on mount so the user immediately sees
   // the hazard colors (browse-only exploration, and any flow asking for the
   // simplified hazard legend). They can still toggle them off.
   useEffect(() => {
+    if (params.hazardTour) return; // the tour effect below owns tile visibility
     if (!isBrowseOnly && !params.showLegendSimple) return;
     if (!params.tileLayers || params.tileLayers.length === 0) return;
     setEnabledTiles(new Set(params.tileLayers));
-  }, [isBrowseOnly, params.showLegendSimple, params.tileLayers]);
+  }, [isBrowseOnly, params.showLegendSimple, params.tileLayers, params.hazardTour]);
+
+  // Hazard tour: while touring, show ONLY the active hazard; once done, show all
+  // three so the user sees combined risk while picking a neighborhood.
+  useEffect(() => {
+    if (!params.hazardTour || tourLayers.length === 0) return;
+    if (tourIdx >= 0 && tourIdx < tourLayers.length) {
+      setEnabledTiles(new Set([tourLayers[tourIdx]]));
+    } else if (tourIdx >= tourLayers.length) {
+      setEnabledTiles(new Set(tourLayers));
+    }
+    // tourLayers is derived from the stable params.tileLayers for this open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tourIdx, params.hazardTour]);
 
   const enabledTileLayerDefs = Array.from(enabledTiles)
     .map(id => ALL_TILE_LAYERS.find(l => l.id === id))
@@ -642,14 +679,30 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   }, [coordInput, addCustomSite]);
 
   // ── Confirm ─────────────────────────────────────────────────────────────────
+  // A real site = any non-zone asset (OSM/custom) or a sampled point. The zone
+  // alone is not a site (it's the neighborhood).
+  const hasSite = selectedAssets.some(a => a.type !== 'zone') || sampledPoints.length > 0;
   const handleConfirm = useCallback(() => {
     onConfirm({
       selectionMode,
       selectedAssets,
       sampledPoints,
       enabledLayers: [...(params.layers || []), ...Array.from(enabledTiles), ...(params.spatialQueries || [])],
+      siteSource: 'user',
     });
   }, [selectedAssets, sampledPoints, selectionMode, params, onConfirm, enabledTiles]);
+  // No-site path (E2 "usar o bairro todo"): commit the neighborhood, mark the
+  // site deferred. Keeps the zone, drops any site assets.
+  const confirmDeferred = useCallback(() => {
+    onConfirm({
+      selectionMode,
+      selectedAssets: selectedAssets.filter(a => a.type === 'zone'),
+      sampledPoints: [],
+      enabledLayers: [...(params.layers || []), ...Array.from(enabledTiles), ...(params.spatialQueries || [])],
+      siteDeferred: true,
+      siteSource: 'user',
+    });
+  }, [selectedAssets, selectionMode, params, onConfirm, enabledTiles]);
 
   const removeAsset = (index: number) => setSelectedAssets(prev => prev.filter((_, i) => i !== index));
   const clearAll = () => {
@@ -692,8 +745,8 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         </p>
       </div>
 
-      {/* Stepper bar (composite mode) */}
-      {isComposite && (
+      {/* Stepper bar (composite mode) — hidden during the hazard tour */}
+      {!tourActive && isComposite && (
         <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/20 shrink-0">
           <button
             onClick={compositeStep === 'assets' ? backToZones : undefined}
@@ -719,7 +772,8 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         </div>
       )}
 
-      {/* Tools bar */}
+      {/* Tools bar — hidden during the hazard tour (legend is locked) */}
+      {!tourActive && (
       <div className="flex items-center gap-1.5 px-3 py-1 border-b bg-muted/10 shrink-0">
         {/* Simplified hazard legend (E2): ≤3 colored chips standing in for the
             full layer toolkit, so first-time CBO users see only flood / heat /
@@ -775,6 +829,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
           <Button variant="ghost" size="sm" className="h-5 px-1" onClick={clearAll}><Trash2 className="w-3 h-3" /></Button>
         )}
       </div>
+      )}
 
       {/* Add-your-own-site panel (assets step) — search by name or coordinate
           for sites the OSM suggestions miss. Mobile-friendly: collapsed to a
@@ -854,10 +909,26 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         {/* Narration overlay (E2 needs-help). Translucent banner pinned to
             the top of the map so the agent can explain colors as the user
             scrolls. Pointer-events disabled so it doesn't block the map. */}
-        {params.narrationOverlay && (
+        {params.narrationOverlay && !tourActive && (
           <div className="absolute top-2 left-2 right-2 z-[900] pointer-events-none">
             <div className="bg-background/85 backdrop-blur-sm border border-foreground/10 rounded-lg px-3 py-2 shadow-sm">
               <p className="text-[11px] text-foreground/85 leading-snug">{params.narrationOverlay}</p>
+            </div>
+          </div>
+        )}
+        {/* Hazard-tour caption — pinned over the map while a single hazard is
+            shown. Pointer-events disabled so the user can still pan underneath. */}
+        {tourActive && tourFamily && (
+          <div className="absolute top-2 left-2 right-2 z-[900] pointer-events-none">
+            <div className="bg-background/90 backdrop-blur-sm border-2 rounded-lg px-3 py-2 shadow-md" style={{ borderColor: HAZARD_LEGEND[tourFamily].color }}>
+              <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: HAZARD_LEGEND[tourFamily].color }}>
+                <span>{TOUR_COPY[tourFamily].emoji}</span>
+                {t(TOUR_COPY[tourFamily].titleKey, { defaultValue: TOUR_COPY[tourFamily].title })}
+                <span className="ml-auto text-[10px] font-medium text-muted-foreground">{tourIdx + 1}/{tourLayers.length}</span>
+              </p>
+              <p className="text-[11px] text-foreground/85 leading-snug mt-0.5">
+                {t(TOUR_COPY[tourFamily].bodyKey, { defaultValue: TOUR_COPY[tourFamily].body })}
+              </p>
             </div>
           </div>
         )}
@@ -893,9 +964,17 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
       {/* Action bar */}
       <div className="flex items-center gap-2 px-3 py-2 border-t bg-background shrink-0">
-        {/* Browse-only mode (E2 needs-help): single CTA back to chat. No
-            confirm because the user isn't committing to anything. */}
-        {isBrowseOnly ? (
+        {tourActive ? (
+          /* Hazard tour: one CTA that advances flood→heat→landslide, then hands
+             off to neighborhood selection. The only control while touring. */
+          <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={advanceTour} data-testid="map-tour-next">
+            {tourIdx < tourLayers.length - 1
+              ? <>{t('mapMicroapp.tourNext', { defaultValue: 'Próximo risco' })} <ChevronRight className="w-3 h-3" /></>
+              : <>{t('mapMicroapp.tourToZone', { defaultValue: 'Escolher meu bairro' })} <ChevronRight className="w-3 h-3" /></>}
+          </Button>
+        ) : isBrowseOnly ? (
+          /* Browse-only mode (E2 needs-help): single CTA back to chat. No
+             confirm because the user isn't committing to anything. */
           <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={onCancel} data-testid="map-back-to-chat">
             ← {t('mapMicroapp.backToChat', { defaultValue: 'Voltar ao chat' })}
           </Button>
@@ -908,6 +987,19 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
           <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={advanceToAssets} disabled={!selectedAssets.some(a => a.type === 'zone')}>
             {t('mapMicroapp.nextSites')} <ChevronRight className="w-3 h-3" />
           </Button>
+        ) : isComposite && compositeStep === 'assets' && params.allowDeferSite ? (
+          /* E2 site step: a real site → Confirm; no site yet → "usar o bairro
+             todo" (commit the neighborhood, defer the site). Gated to the CBO
+             map step so the city/concept-note composite flow is unaffected. */
+          hasSite ? (
+            <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={handleConfirm} data-testid="map-confirm-site">
+              <Check className="w-3 h-3" /> {t('mapMicroapp.confirm', { count: totalSelections })}
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 flex-1" onClick={confirmDeferred} data-testid="map-use-whole-bairro">
+              {t('mapMicroapp.useWholeBairro', { defaultValue: 'Usar o bairro todo' })}
+            </Button>
+          )
         ) : (
           <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={handleConfirm} disabled={totalSelections === 0}>
             <Check className="w-3 h-3" /> {t('mapMicroapp.confirm', { count: totalSelections })}

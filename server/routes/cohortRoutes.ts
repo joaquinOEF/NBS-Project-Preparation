@@ -763,6 +763,7 @@ export function registerCohortRoutes(app: Express): void {
       source: typeof b.source === 'string' ? b.source : null,
       areaM2: typeof b.areaM2 === 'number' ? b.areaM2 : null,
       neighborhood: typeof b.neighborhood === 'string' ? b.neighborhood : (member.neighborhood ?? null),
+      deferred: b.deferred === true ? true : undefined,
       photos: prev?.photos ?? [], // keep photos attached before the site was (re)saved
       savedAt: new Date().toISOString(),
     };

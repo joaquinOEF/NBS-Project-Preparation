@@ -1875,6 +1875,15 @@
     "phaseLocked": "Your coordinator will unlock this after the next workshop."
   },
   "mapMicroapp": {
+    "tourNext": "Next risk",
+    "tourToZone": "Choose my neighborhood",
+    "useWholeBairro": "Use the whole neighborhood",
+    "tourFloodTitle": "Flood",
+    "tourFloodBody": "The areas in blue are the ones that flood most when it rains hard.",
+    "tourHeatTitle": "Heat",
+    "tourHeatBody": "The areas in red and orange get hotter — the urban heat-island effect.",
+    "tourLandslideTitle": "Landslide",
+    "tourLandslideBody": "The areas in brown have slopes at risk of sliding.",
     "addSite": "Add a site by name or coordinate",
     "searchPlaceholder": "Search a place name…",
     "search": "Search",
