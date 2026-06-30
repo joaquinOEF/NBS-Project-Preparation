@@ -860,6 +860,14 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       addCboMessage(cboId, { role: 'assistant', content: event.content, messageType: 'content', timestamp: new Date().toISOString() });
     } else if (event.type === 'chat_thinking') {
       addCboMessage(cboId, { role: 'assistant', content: event.content, messageType: 'thinking', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_types') {
+      // Persist the educational strip as an inline transcript message so it
+      // re-renders on reload (the event itself is ephemeral). Content is a JSON
+      // payload the client parses; messageType 'composer' keeps it out of text-
+      // based message logic.
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'types', typeIds: event.typeIds, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_examples') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'examples', cardIds: event.cardIds, mode: event.mode, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     }
   };
 
