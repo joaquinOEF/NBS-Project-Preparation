@@ -139,12 +139,26 @@ async function buildMemberPayload(member: typeof cohortMembers.$inferSelect) {
   const nextPhase = maxUnlocked + 1;
   const nextWorkshop = workshops.find(w => w.unlocksPhase === nextPhase) ?? null;
 
-  const memberPhase = typeof member.snapshotPhase === 'number' && member.snapshotPhase > 0
-    ? member.snapshotPhase
-    : 1;
+  // The cbo_state is the source of truth for the working phase. member.snapshotPhase
+  // is a denormalized cache that can lag — it's only refreshed on a `phase_change`
+  // SSE event during a live session, so a phase advanced via /advance-phase or
+  // during a cross-device session swap leaves it stale (the welcome screen then
+  // shows the wrong encontro). Prefer the live state, and self-heal the cache so
+  // the coordinator roster (which reads snapshotPhase directly) stays correct too.
+  let statePhase = 0;
+  if (member.cboStateId) {
+    const live = getCboState(member.cboStateId) ?? (await loadCboFromDb(member.cboStateId))?.state;
+    if (live && typeof live.phase === 'number') statePhase = live.phase;
+  }
+  const snapPhase = typeof member.snapshotPhase === 'number' ? member.snapshotPhase : 0;
+  const effectivePhase = Math.max(statePhase, snapPhase);
+  if (statePhase > snapPhase) {
+    await db.update(cohortMembers).set({ snapshotPhase: statePhase }).where(eq(cohortMembers.id, member.id)).catch(() => {});
+  }
+
+  const memberPhase = effectivePhase > 0 ? effectivePhase : 1;
   const focusWorkshop = workshops.find(w => w.unlocksPhase === memberPhase) ?? workshops[0] ?? null;
-  const focusWorkshopIsCurrent =
-    !!focusWorkshop?.openedAt && typeof member.snapshotPhase === 'number' && member.snapshotPhase > 0;
+  const focusWorkshopIsCurrent = !!focusWorkshop?.openedAt && effectivePhase > 0;
 
   const supportRequests = Array.isArray(member.supportRequests) ? (member.supportRequests as SupportRequest[]) : [];
   const supportPending = supportRequests.filter(r => !r.resolvedAt);
