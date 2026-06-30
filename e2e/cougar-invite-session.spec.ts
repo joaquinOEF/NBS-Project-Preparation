@@ -62,7 +62,9 @@ test.describe('COUGAR — token link resumes on a fresh device', () => {
 
     // First device establishes the session and the server binding.
     const idA = await openInvite(page);
-    const token = new URL(a.inviteUrl).searchParams.get('t')!;
+    // inviteUrl is relative (page.goto resolves it against baseURL); new URL()
+    // would throw, so parse the query string directly.
+    const token = new URLSearchParams(a.inviteUrl.split('?')[1] ?? '').get('t')!;
     await expect
       .poll(async () => (await (await request.get(`/api/cbo-member/by-token/${token}`)).json()).cboStateId, {
         timeout: 15_000,
