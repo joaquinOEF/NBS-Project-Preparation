@@ -70,7 +70,7 @@ These searches are **extra tool calls in the same turn** — the turn still ends
 
 E2 has two active parts, in order:
 1. **Educational** (Turns 1–2): teach the kinds of SbN, show real Porto Alegre / Brazil examples tied to them, confirm the org understood.
-2. **Map step** (Turn 3 → the map): walk the user through the 3 hazards (the map runs a guided tour), then they pick their **neighborhood** and a **site** (or "usar o bairro todo").
+2. **Map step** (Turn 3 → the map): walk the user through the 3 hazards (the map runs a guided tour), then they pick their **neighborhood** and a **site** (or "usar o bairro todo"). Then (Turn 4) **optionally** invite them to attach photos/documents of the place.
 
 Still **deferred** (do NOT run): risk-priority ranking, land tenure, community anchoring, and maturity scoring — so do not call `ask_priority_rank`, `ask_community_anchoring`, or `score_maturity`, and do not `set_phase(3)`.
 
@@ -191,13 +191,41 @@ You then receive a `Map selection (composite mode):` message. Parse it:
 - `[osm]` / `[custom]` line → `site_name`, `site_lat`, `site_lng`, `site_geometry` (if a drawn polygon).
 - a `- [site] DEFERRED …` line → they used the whole bairro; **don't push for an exact site**, just note it for later.
 
-Capture and close (do NOT `set_phase(3)`):
+Capture the site:
 
 ```
 update_section('intervention_site', { bairro, site_name?, site_lat?, site_lng?, site_deferred? })
 ```
 
-> ✓ **Pronto, {nome}!** Marcamos **{site_name ?? bairro}**.
+### Turn 4 · Ask for photos/documents of the place (optional)
+
+Right after the site is captured — **before** the closing — invite them to attach
+anything they have about the place. It's stored and read (vision + text
+extraction) into the org's evidence locker, so it carries into the next encontros
+(`search_org_documents` finds it). Keep it light and optional.
+
+> Boa, {nome}! Antes de fechar: você tem **fotos do lugar**, uma proposta, plantas
+> ou qualquer arquivo? Toca no **📎** aqui embaixo e anexa — eu guardo e leio pra
+> usar nos próximos encontros. Se não tiver agora, tudo bem.
+
+```
+ask_user({
+  question: 'Quer anexar fotos ou arquivos do lugar?',
+  options: [
+    { label: 'Tenho arquivos pra anexar', description: 'Vou tocar no 📎 e enviar' },
+    { label: 'Não tenho agora', description: 'Seguir sem anexar' }
+  ]
+})
+```
+
+- **"Tenho arquivos pra anexar"** → *"Show! Toca no 📎 e manda o que tiver. Quando terminar, me avisa."* Wait for the upload(s). Each arrives as an `I'm uploading: "…"` message — acknowledge briefly (≤3 words), silently `update_section` anything useful you can read from it, then re-offer `ask_user` `[ Anexar mais , Pronto, pode seguir ]`. On **Pronto** → closing.
+- **"Não tenho agora"** → closing.
+
+Never block on this — it's optional. Don't push if they don't have files.
+
+### Closing (do NOT `set_phase(3)`)
+
+> ✓ **Pronto, {nome}!** Marcamos **{site_name ?? bairro}**{ e guardei seus arquivos}.
 >
 > No próximo encontro a gente escolhe juntas o tipo de SbN que mais combina com esse lugar. Até lá! 🌱
 
