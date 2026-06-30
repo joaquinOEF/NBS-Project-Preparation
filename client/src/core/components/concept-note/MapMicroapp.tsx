@@ -277,10 +277,12 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
           if (params.allowDeferSite) {
             const norm = (zoneRisk(p) - riskMin) / riskSpan;
             return {
-              color: '#ffffff',
-              weight: 1 + Math.max(0, Math.min(1, norm)) * 1.5,
+              // Dark border (the CBO zone step is on the LIGHT basemap — a white
+              // border like the orchestrator's dark-map view would be invisible).
+              color: '#334155',
+              weight: 0.8 + Math.max(0, Math.min(1, norm)) * 1.4,
               fillColor: TYPOLOGY_COLORS[p?.typologyLabel] || TYPOLOGY_COLORS.LOW,
-              fillOpacity: zoneRiskOpacity(norm),
+              fillOpacity: Math.max(0.35, zoneRiskOpacity(norm)),
               dashArray: undefined as string | undefined,
             };
           }

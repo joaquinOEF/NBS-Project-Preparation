@@ -172,7 +172,8 @@ On **"Abrir o mapa"** open with the guided tour ON; on **"Já conheço os riscos
 ```
 open_map({
   selectionMode: 'composite',
-  zoneSource: 'neighborhoods',
+  zoneSource: 'neighborhood_zones',  // risk-scored bairros (colored by risk like the orchestrator) — NOT 'neighborhoods' (raw IBGE, no risk colors)
+  layers: ['osm_parks', 'osm_schools', 'osm_wetlands', 'osm_hospitals'],  // OSM sites to pick in step 2
   tileLayers: ['risk_flood_250m', 'risk_heat_250m', 'risk_landslide_250m'],  // risk layers — all have legends; the tour shows them one at a time with the real color scale
   showLegendSimple: true,
   hazardTour: true,        // false if they tapped "Já conheço os riscos"
