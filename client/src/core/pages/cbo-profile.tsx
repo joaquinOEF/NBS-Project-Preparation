@@ -765,14 +765,19 @@ export default function CboProfilePage() {
       case 'show_types':
         // Educational NBS type strip (E2 Beat 1) — inline, read-only. Shown
         // before the real examples; no tab switch.
+        // Do NOT end streaming here: this strip is a mid-turn composer always
+        // followed by an `ask_user` in the SAME turn. Setting isStreaming=false
+        // early opens a window (strip rendered, no question yet) where the
+        // "Começar Encontro N" banner flashes. isStreaming resets on `done` /
+        // stream close.
         setTypesShowcase({ typeIds: (event as any).typeIds, intro: (event as any).intro });
-        setIsStreaming(false);
         break;
       case 'show_examples':
         // Inline strip in chat — no tab switch. Replace any existing strip so
-        // the agent can refine the example set within a turn.
+        // the agent can refine the example set within a turn. Like show_types,
+        // this is mid-turn (paired with a following ask_user) — don't end
+        // streaming here or the next-workshop banner flickers in between.
         setShowcase({ cardIds: event.cardIds, mode: event.mode, intro: event.intro });
-        setIsStreaming(false);
         break;
       case 'ask_priority_rank':
         setPriorityRankPrompt({ prompt: event.prompt, minRanked: event.minRanked });
