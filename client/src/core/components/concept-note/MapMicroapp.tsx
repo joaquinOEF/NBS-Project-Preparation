@@ -92,6 +92,12 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
   const [mapReady, setMapReady] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
+  // Live mirror of selectedAssets for once-bound Leaflet handlers (avoids the
+  // stale-closure that wiped a zone's highlight on mouseout — see MAP-SEL-STALE).
+  const selectedAssetsRef = useRef<SelectedAsset[]>([]);
+  selectedAssetsRef.current = selectedAssets;
+  // Blue "selected zone" style, shared by click-select and the mouseout restore.
+  const SELECTED_ZONE_STYLE = { color: '#1d4ed8', weight: 3, fillColor: '#3b82f6', fillOpacity: 0.25 };
   const [sampledPoints, setSampledPoints] = useState<SampledPoint[]>([]);
   const [drawMode, setDrawMode] = useState<'off' | 'point' | 'polygon'>('off');
   const drawModeRef = useRef(drawMode);
@@ -356,7 +362,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
                   if (isComposite && selectedZone?.name === asset.name) setSelectedZone(null);
                   return prev.filter((_, i) => i !== existing);
                 }
-                (featureLayer as any).setStyle({ color: '#1d4ed8', weight: 3, fillColor: '#3b82f6', fillOpacity: 0.25 });
+                (featureLayer as any).setStyle(SELECTED_ZONE_STYLE);
                 // In composite, track the last selected zone for step 2 zoom
                 if (isComposite) setSelectedZone(asset);
                 return [...prev, asset];
@@ -365,8 +371,11 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
             (featureLayer as any).on('mouseover', () => (featureLayer as any).setStyle({ weight: 3, fillOpacity: Math.max(featureDefaultStyle.fillOpacity + 0.1, 0.15) }));
             (featureLayer as any).on('mouseout', () => {
-              const isSelected = selectedAssets.some(a => a.type === 'zone' && a.name === zoneName);
-              if (!isSelected) (featureLayer as any).setStyle(featureDefaultStyle);
+              // Read the live ref, not the stale closure — otherwise a just-selected
+              // zone loses its highlight the instant the pointer leaves (worst on
+              // touch, where tap fires mouseover→click→mouseout in a burst).
+              const isSelected = selectedAssetsRef.current.some(a => a.type === 'zone' && a.name === zoneName);
+              (featureLayer as any).setStyle(isSelected ? SELECTED_ZONE_STYLE : featureDefaultStyle);
             });
           },
         });
@@ -525,6 +534,10 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     for (const m of customMarkersRef.current) map.removeLayer(m);
     customMarkersRef.current = [];
 
+    // Reset any active draw mode — otherwise it stays 'point'/'polygon' after the
+    // round-trip, which early-returns the zone click handler and keeps map dragging
+    // disabled (MAP-DRAWMODE-STUCK: "can't click or pan a neighborhood").
+    setDrawMode('off');
     setCompositeStep('zone');
     setSelectedZone(null);
     setLoading(false);
