@@ -34,6 +34,46 @@ export const PHASE_COMPLETION_METRICS: Record<number, string[]> = (() => {
   return map;
 })();
 
+/** A field counts as "filled" when it holds a real value (non-null, non-empty). */
+export function cboFieldIsFilled(f?: CboFieldState): boolean {
+  if (!f) return false;
+  const v = f.value;
+  if (v == null) return false;
+  return typeof v === 'string' ? v.trim().length > 0 : true;
+}
+
+/**
+ * Whether a phase's work is done — the single forward-progress predicate used by
+ * the next-workshop advance banner (and available to the server phase gate).
+ * A phase is complete when EITHER signal holds:
+ *   (a) every maturity metric for the phase is scored (the legacy signal — still
+ *       true for phases that DO score), OR
+ *   (b) every section belonging to the phase has at least one filled field.
+ * (b) is what unblocks Encontro 2, whose skill intentionally DEFERS its two
+ * maturity scores (site_control / community_anchoring) — so (a) is never
+ * satisfiable there and the advance banner used to dead-end with no way forward.
+ * Being an OR of the two, this is strictly more permissive than the old
+ * metrics-only gate: it can never hide a banner that previously showed.
+ */
+export function phaseComplete(
+  state: Pick<CboState, 'sections' | 'maturityScores'>,
+  phase: number,
+): boolean {
+  const sections = CBO_SECTIONS.filter(s => s.phase === phase);
+  if (sections.length === 0) return true;
+
+  const required = PHASE_COMPLETION_METRICS[phase] ?? [];
+  if (required.length > 0) {
+    const scored = new Set((state.maturityScores ?? []).map(s => s.metric));
+    if (required.every(m => scored.has(m))) return true;
+  }
+
+  return sections.every(sec => {
+    const fields = state.sections?.[sec.id]?.fields ?? {};
+    return Object.values(fields).some(cboFieldIsFilled);
+  });
+}
+
 // Maturity scores (0-3 per COUGAR NBS Mapping Criteria)
 export interface MaturityScore {
   metric: string;
