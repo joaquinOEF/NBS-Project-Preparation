@@ -9,6 +9,8 @@ import { Input } from '@/core/components/ui/input';
 import { TILE_LAYERS, ALL_TILE_LAYERS, tileVisualUrl, OSM_LAYERS, SPATIAL_QUERIES } from '@shared/geospatial-layers';
 import { riskBand, hazardPercentile, TYPOLOGY_COLORS, zoneRiskOpacity, type HazardKey } from '@shared/risk-display';
 import type { LegendSpec } from '@shared/legend-types';
+import { DataProvenanceDialog } from '@/core/components/maps/DataProvenanceDialog';
+import type { ProvenanceKey } from '@shared/data-provenance';
 import type { OpenMapParams, SelectedAsset, SampledPoint, MapSelectionResult } from '@shared/concept-note-schema';
 import { sampleRasterAtPoint, geometryCentroid } from '@/lib/valueTileUtils';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
@@ -79,7 +81,8 @@ function legendGradientCss(spec: LegendSpec | undefined): string | null {
 }
 
 export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const provLang: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const tileLayerRefs = useRef<Record<string, L.TileLayer>>({});
@@ -832,11 +835,24 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   return (
     <div className="flex flex-col h-full w-full bg-background overflow-hidden">
       {/* Header */}
-      <div className="px-3 py-2 border-b bg-muted/30 shrink-0">
-        <p className="text-xs font-medium leading-tight">{params.prompt}</p>
-        <p className="text-[10px] text-muted-foreground mt-0.5">
-          {polygonHelp || stepInstruction}
-        </p>
+      <div className="px-3 py-2 border-b bg-muted/30 shrink-0 flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium leading-tight">{params.prompt}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            {polygonHelp || stepInstruction}
+          </p>
+        </div>
+        {/* "Where this data comes from" — data-literacy for the hazard/zone layers. */}
+        {(isComposite || simpleLegend.length > 0) && (
+          <DataProvenanceDialog
+            lang={provLang}
+            compact
+            className="shrink-0"
+            entries={(compositeStep === 'assets'
+              ? ['flood', 'heat', 'landslide', 'neighborhoods', 'sites']
+              : ['flood', 'heat', 'landslide', 'neighborhoods']) as ProvenanceKey[]}
+          />
+        )}
       </div>
 
       {/* Prominent point-vs-area control — CBO site step. Replaces the tiny draw

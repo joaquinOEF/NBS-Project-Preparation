@@ -46,6 +46,8 @@ import {
 import { WorkshopCadence } from '@/core/components/orchestrator/WorkshopCadence';
 import { SupportInbox } from '@/core/components/orchestrator/SupportInbox';
 import { LanguageSwitcher } from '@/core/components/i18n/language-switcher';
+import { DataProvenanceDialog } from '@/core/components/maps/DataProvenanceDialog';
+import type { ProvenanceKey } from '@shared/data-provenance';
 import { CboFilesDrawer, type FilesDrawerMember, type CboDrawerTab } from '@/core/components/orchestrator/CboFilesDrawer';
 
 // ---------------------------------------------------------------------------
@@ -453,7 +455,8 @@ function MapLayerControls({
   active: RiskView | null;
   onChange: (next: RiskView | null) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const provLang: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
   const VIEWS: Array<{ id: RiskView; label: string; dot: string }> = [
     { id: 'flood',     label: t('orchestrator.map.flood', { defaultValue: 'Flood hazard' }),         dot: '#2563eb' },
     { id: 'heat',      label: t('orchestrator.map.heat', { defaultValue: 'Heat hazard' }),           dot: '#dc2626' },
@@ -538,6 +541,14 @@ function MapLayerControls({
           </div>
         </div>
       )}
+      {/* "Where this data comes from" — same shared dialog as the CBO map. */}
+      <div className="pt-1.5 mt-1.5 border-t border-foreground/5">
+        <DataProvenanceDialog
+          lang={provLang}
+          className="w-full justify-center"
+          entries={['flood', 'heat', 'landslide', 'neighborhoods'] as ProvenanceKey[]}
+        />
+      </div>
     </div>
   );
 }
