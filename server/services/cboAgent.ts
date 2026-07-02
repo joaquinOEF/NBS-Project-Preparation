@@ -841,7 +841,7 @@ function applySkipData(state: CboState, targetPhase: string): { phase: number; a
   };
 }
 
-export async function streamCboChat(cboId: string, userMessage: string, res: Response, state: CboState, lang: string = 'en') {
+export async function streamCboChat(cboId: string, userMessage: string, res: Response, state: CboState, lang: string = 'en', turnKind?: string) {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -881,6 +881,18 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'types', typeIds: event.typeIds, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_examples') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'examples', cardIds: event.cardIds, mode: event.mode, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'ask_user') {
+      // Persist every user-prompting question (PERSIST-PROMPTS). Before this,
+      // ask_user was SSE-only: a reload mid-question dropped the prompt and the
+      // user faced a dead transcript with only the derailing "Continuar" chip.
+      // Persisting also puts the question into buildDecisionLog, so the agent
+      // remembers what it asked — including questions synthesized by the
+      // inline-options converter, which previously vanished from BOTH places.
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'ask_user', question: event.question, options: event.options, multiSelect: event.multiSelect, showMap: event.showMap, relatedSections: event.relatedSections }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'ask_priority_rank') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'priority', prompt: event.prompt, minRanked: event.minRanked }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'ask_community_anchoring') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'anchoring', prompt: event.prompt }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'open_map') {
       // Persist that the map step is active so the right-panel tool stays
       // reachable across reloads (not gated behind a transient button).
@@ -931,7 +943,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   const isSdkReady = await loadSdk();
 
   if (isSdkReady) {
-    await streamWithSdk(cboId, userMessage, state, pushEvent, lang);
+    await streamWithSdk(cboId, userMessage, state, pushEvent, lang, turnKind);
   } else {
     pushEvent({ type: 'error', message: 'Claude Agent SDK not available.' });
   }
@@ -944,7 +956,50 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
 // live in the encontro skill's YAML frontmatter (`model:` field).
 const DEFAULT_CBO_MODEL = 'claude-sonnet-4-6';
 
-async function streamWithSdk(cboId: string, userMessage: string, state: CboState, pushEvent: EventPusher, lang: string = 'en') {
+// Adaptive turn routing (Ana's "agent too slow on basic questions"). Trivial
+// turns — a chip answer, a short conversational reply in the interview phases —
+// don't need the big model: route them to the fast tier so they feel instant
+// (~3× cheaper, materially lower latency). Everything with real reasoning load
+// (file uploads, map payloads, phase starts, scoring phases) stays on the
+// skill/default model, and HEAVY IS THE DEFAULT — an unclassified turn behaves
+// exactly as before this feature. Only the `model` value changes: same system
+// prompt, same tools, same turn guards, so a light-model slip is caught by the
+// same guardrails (inline-options converter, turn-ender recovery, persisted
+// prompts). Kill switch: CBO_ADAPTIVE_MODEL=0 (no redeploy needed).
+const LIGHT_CBO_MODEL = process.env.CBO_LIGHT_MODEL || 'claude-haiku-4-5';
+
+function resolveTurnModel(
+  cboId: string,
+  state: CboState,
+  userMessage: string,
+  turnKind: string | undefined,
+  heavyModel: string,
+): { model: string; routing: 'light' | 'heavy'; reason: string } {
+  const heavy = (reason: string) => ({ model: heavyModel, routing: 'heavy' as const, reason });
+  const light = (reason: string) => ({ model: LIGHT_CBO_MODEL, routing: 'light' as const, reason });
+
+  if (process.env.CBO_ADAPTIVE_MODEL === '0') return heavy('disabled');
+  // The langDirective is appended server-side — strip it before classifying,
+  // or a 3-char chip answer looks like a 240-char message.
+  const raw = userMessage.split('\n[LANGUAGE:')[0].trim();
+
+  // Reasoning-heavy shapes ALWAYS stay on the big model.
+  if (state.phase > 2) return heavy('phase>2');
+  if (turnKind === 'upload' || raw.startsWith("I'm uploading:") || raw.startsWith('Uploaded "')) return heavy('upload');
+  if (turnKind === 'map' || raw.startsWith('Map selection (')) return heavy('map-result');
+  if (turnKind === 'system') return heavy('system-turn');
+  if (/(?:vamos\s+(?:começar|comecar)|let'?s\s+start)\s+(?:o\s+)?encontro/i.test(raw)) return heavy('phase-start');
+  // First user message of the session = the intro turn (set_phase + framing).
+  if (getCboMessages(cboId).filter(m => m.messageType === 'content').length < 2) return heavy('first-turn');
+
+  // Trivial conversational turns in the interview phases → fast model.
+  if (turnKind === 'chip') return light('chip-answer');
+  if (turnKind === 'text' && raw.length <= 200) return light('short-text');
+
+  return heavy('default');
+}
+
+async function streamWithSdk(cboId: string, userMessage: string, state: CboState, pushEvent: EventPusher, lang: string = 'en', turnKind?: string) {
   const mcpServer = getMcpServer(cboId);
   const sysCtx = await buildSystemContext(state, lang);
   const stateSummary = buildStateSummary(state);
@@ -961,7 +1016,9 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   // name even when the invite already prefilled it.
   const skillPhase = Math.max(1, state.phase);
   const skill = await loadEncontroSkill(skillPhase);
-  const model = skill?.model ?? DEFAULT_CBO_MODEL;
+  const heavyModel = skill?.model ?? DEFAULT_CBO_MODEL;
+  const { model, routing, reason } = resolveTurnModel(cboId, state, userMessage, turnKind, heavyModel);
+  console.log(`[cbo] turn routing for ${cboId}: ${routing} (${reason}) kind=${turnKind ?? 'none'} model=${model}`);
 
   // System prompt = the durable facts the agent needs (persona, tools, skill,
   // state, recent conversation, access policy). User prompt = just the new
@@ -985,8 +1042,16 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
         cwd: process.cwd(),
         model,
         systemPrompt,
+        // Turn cap — a runaway tool loop otherwise burns the full ~10K-token
+        // prompt once per roundtrip while the user watches "Processando…".
+        // Normal turns use 2-5 tool calls; 12 is generous headroom.
+        maxTurns: 12,
+        // NOTE: no generic Read/Glob/Grep here. All knowledge + org-document
+        // access goes through the purpose-built MCP tools below; the generic
+        // file tools only invited stray repo exploration — each stray call is
+        // a whole extra model roundtrip on the slowest path (Ana's "agent too
+        // slow on basic questions").
         allowedTools: [
-          "Read", "Glob", "Grep",
           "mcp__cbo__update_section",
           "mcp__cbo__flag_gap",
           "mcp__cbo__set_phase",
@@ -1128,17 +1193,34 @@ function buildDecisionLog(cboId: string): string {
   // a reply to "what's your org name?" — and starts re-introducing itself
   // every turn. Interleave user + assistant messages so the agent sees the
   // recent conversation as a coherent thread.
+  // Include composer messages (persisted prompts/strips) as readable
+  // annotations — without them the agent has NO memory of questions it asked
+  // via ask_user (the user's "Sim" reads as a reply to nothing), and re-asks.
   const msgs = getCboMessages(cboId).filter(m =>
-    m.messageType === 'content' &&
+    (m.messageType === 'content' || m.messageType === 'composer') &&
     !!m.content?.trim()
   );
   if (msgs.length === 0) return 'No prior conversation. This is the first turn — introduce yourself and start the flow.';
-  // Last 8 messages (≈ 4 turns each direction). Truncate each to keep prompt small.
-  const recent = msgs.slice(-8);
+  // Last 10 messages (composers now occupy slots too). Truncate each to keep prompt small.
+  const recent = msgs.slice(-10);
   return recent.map(m => {
+    if (m.messageType === 'composer') {
+      try {
+        const p = JSON.parse(m.content);
+        if (p.kind === 'ask_user') {
+          const opts = (p.options ?? []).map((o: any) => o.label).join(' / ');
+          return `- You (agent) asked: ${String(p.question).slice(0, 200)}${opts ? ` [options: ${opts.slice(0, 150)}]` : ''}`;
+        }
+        if (p.kind === 'priority') return '- You (agent) asked the user to rank the hazards by priority.';
+        if (p.kind === 'anchoring') return '- You (agent) asked the community-anchoring questions.';
+        if (p.kind === 'types') return '- You (agent) showed the NBS types strip.';
+        if (p.kind === 'examples') return '- You (agent) showed real project examples.';
+      } catch {}
+      return null;
+    }
     const who = m.role === 'user' ? 'User' : 'You (agent)';
     return `- ${who}: ${m.content.slice(0, 300)}`;
-  }).join('\n');
+  }).filter(Boolean).join('\n');
 }
 
 // Knowledge cache (cleared on server restart)

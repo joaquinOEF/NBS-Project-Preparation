@@ -287,3 +287,45 @@ The single structural fix is a **per-turn validate-before-flush normalization la
 - **Root cause:** index.ts awaits registerRoutes(app) (DB wiring) and only then calls server.listen, so until listen fires the port is unbound and the healthcheck on '/' gets connection-refused, surfaced upstream as 500/502. Post-boot '/' is the static index.html catch-all returning 200, so these are cold-start races, not a post-boot root-route failure.
 - **Evidence:** server/index.ts:43 registerRoutes then :67 listen; static catch-all vite.ts:82-84; no '/health' or app.get('/') route exists.
 - **Fix:** Add a lightweight route registered BEFORE the async DB work (app.get('/health',(_,res)=>res.sendStatus(200)) and/or a synchronous '/') and point the Replit healthcheck at /health, decoupling liveness from DB startup. Guard against registerRoutes() hanging (DB unreachable) which would leave the port permanently unbound.
+
+---
+
+# v2 — Integration audit + field-safety wave (2026-07-02)
+
+_After the v1 wave (#312–#320, all merged), a second deep audit ran against the integrated branch: two independent code reviews (agentic seamlessness vs the 12-point spec; phone-first PT-user UX) plus a **documented Playwright walkthrough** at 390×844 with screenshots per beat. Verdict at the time: ~60% to "foolproof" — demo-ready with a facilitator, not yet safe for an org alone on a phone._
+
+## Shipped in the field-safety wave (#321–#326)
+
+| PR | Fix | Was |
+|---|---|---|
+| #321 | Restart requires confirmation (AlertDialog, PT/EN) | one-tap irreversible wipe next to Export |
+| #322 | Invite-link error card (invalid-token vs network + retry, 15s timeout) | infinite spinner |
+| #323 | Brazilian decimal-comma coordinates + POA-region sanity net | PT placeholder input parsed into the ocean, silently persisted |
+| #324 | Invite-prefilled fields don't count as phase progress | premature "Começar Encontro 2" banner at turn 0 |
+| #325 | Site step pans by default; arm-to-drop; tap-first-vertex closes areas; panning stays on while drawing | auto-armed pin-drop + dragging disabled = unusable on phones |
+| #326 | SSE 60s watchdog + localized "Tentar de novo" retry chip | frozen "Processando…" forever, or raw English "Error:" |
+
+## Remaining backlog (next waves, priority order)
+
+### Wave: agent robustness (the structural 40%)
+1. **PERSIST-PROMPTS (P0, M/L)** — persist `ask_user` / `ask_priority_rank` / `ask_community_anchoring` (and #316-converted questions, which today vanish from BOTH the transcript and the agent's decision log) as `messageType:'composer'` transcript messages; rehydrate the trailing composer on load. Single seam that closes: reload-drops-question, converted-question amnesia, resume-overlap, and most of stacked-composers.
+2. **Pending-affordance selector (P1, S)** — one `pendingAffordance` (question ‖ rank ‖ anchoring ‖ map ‖ selector) drives BOTH the Continue gate and the advance banner (today they check only `currentQuestion`).
+3. **Duplicated question prose+ask_user (P1, M)** — needs the turn buffer in `cboAgent.ts` streamWithSdk; drop a trailing text block ≈ the following ask_user question.
+4. **Agent latency (P1, S/M)** — Ana's "too slow": strip `Read/Glob/Grep` + set maxTurns; slim `encontro-*.md` (29KB!) ~60%; per-phase `model:` frontmatter; consider persistent session/prompt caching. System prompt ≈ 9-10K tokens rebuilt per turn + fresh SDK process per message.
+5. **Raw payload persisted server-side (P2, S/M)** — reload swaps the clean risk-summary bubble back for the `formatMapResult` dump (persist a displayText alongside content); InterventionSelector still sends its raw machine string visibly.
+6. **Turn-ender residual holes (P2, S)** — ack-only text turn still strands (recovery gated on `!emittedText`); `show_types/show_examples` count as enders without a paired ask_user.
+7. **Server `set_phase` gate (P2, S)** — require sequential target + `phaseComplete(current)` (reuse the shared predicate).
+
+### Wave: mobile & language polish
+8. **EN leaks that persist into data (P1, S/M)** — 'Custom point/area/site' asset names (echoed in the PT summary + coordinator view → use PT names), zone tooltip labels/riskBand raw EN, "click to select", "(select all that apply)", "Confirm N selected", "Question X of Y · Tab to cycle", EditableField Cancel/Save, drag overlay, "Error:" prefix, OSM loading statuses (`Fetching Parks & Green…` at MapMicroapp:406-493 — hardcoded EN).
+9. **Types-strip horizontal overflow (P2, S)** — drags the whole page sideways at 390px (walkthrough beats 3/7); contain with overflow-x-auto + max-w-full.
+10. **MapMicroapp sticky tooltips (P2, S)** — same fix as orchestrator #319: drop `sticky:true`, close on mouseout; on touch they linger half off-screen and mislead (walkthrough beat 6).
+11. **OSM loading UX (P1→P2, M)** — non-blocking corner chip instead of the full-map overlay; 15s client AbortSignal; "alguns locais não carregaram" notice on silent failure.
+12. **Desktop tab row on mobile (P2, S)** — `hidden md:flex` (4 tabs overflow 390px and duplicate the bottom nav).
+13. **Touch targets (P2, S)** — map chrome h-5/h-6/h-7 → ≥h-9; badge-remove X is 10px.
+14. **Hover-only edit pencil (P2, S)** — `opacity-60 md:opacity-0 md:group-hover:opacity-100` so touch users can discover field editing.
+15. **Zone-step density (P2, M)** — one Next button (not two), merge chips+overlay legend, surface "não tem um lugar exato? pode usar o bairro todo" on the zone step.
+
+### Deferred product decisions (Ana)
+- Site selection E2 → E3 with a "do you have a site idea?" gate (meeting decision, due 07-22).
+- NBS example photos in WS2; clustering mechanism (known platform gap).

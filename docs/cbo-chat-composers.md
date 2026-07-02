@@ -33,10 +33,17 @@ the widget it points at.
 - Keep composer messages **out of text-based message logic** — they're excluded by
   their `messageType` (the "last content message" finders filter on `'content'`).
 
-> ⚠️ **Known gap.** `RiskPriorityChips`, the community-anchoring composer, and the
-> map's `openMapParams` are **still ephemeral** — they will not survive a reload.
-> When you harden them, apply this pattern. (The map was deliberately made
-> session-live-only in PR #298; revisit if reload-resilience is wanted.)
+> ✅ **Hardened (PERSIST-PROMPTS).** `ask_user`, `ask_priority_rank`, and
+> `ask_community_anchoring` are now persisted as composer messages in `pushEvent`
+> (`{kind:'ask_user'|'priority'|'anchoring', ...}`) and **rehydrated on load** by
+> `hydrateMessages()` in `cbo-profile.tsx`: if the *trailing* transcript message
+> is one of these (the user never answered), the live prompt state is rebuilt so
+> a reload lands back on the exact question. Answered `ask_user` composers render
+> as a plain question bubble so the transcript reads Q→A. They also feed
+> `buildDecisionLog` as readable annotations ("You (agent) asked: …") — the agent
+> now *remembers* questions it asked, including ones synthesized by the
+> inline-options converter. The map is covered separately by the persisted
+> `state.activeTool` + right-panel-tool registry (Rule 6).
 
 ## Rule 2 — Only a **terminal** composer may `setIsStreaming(false)`
 
