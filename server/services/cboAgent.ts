@@ -1041,18 +1041,24 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   // This guard logs the violation (for measurement) and, when the turn was
   // both tool-less AND text-less, emits a small recoverable message so the
   // user can re-prompt instead of facing a blank screen.
-  const TURN_ENDERS = new Set([
+  // Only USER-PROMPTING tools make a turn "safe" — ones that actually leave the
+  // user something to do. score_maturity and a mid-flow set_phase are SILENT
+  // (they mutate state but ask nothing); counting them as enders let a turn that
+  // only scored maturity or advanced a phase strand the user with a bare
+  // "Continue" and no question (CBO-TURNENDER-GUARD). set_phase to 6 is the one
+  // legitimate silent close (the flow is complete).
+  const USER_PROMPTING = new Set([
     'ask_user',
     'open_map',
     'open_intervention_selector',
     'ask_priority_rank',
     'ask_community_anchoring',
     'show_examples',
-    'score_maturity', // closing
-    'set_phase',      // closing / cross-phase advance
+    'show_types',
   ]);
-  const hadTurnEnder = Array.from(calledTools).some(name => TURN_ENDERS.has(name));
-  if (!hadTurnEnder && state.phase < 6) {
+  const hadPrompt = Array.from(calledTools).some(name => USER_PROMPTING.has(name));
+  const completedFlow = calledTools.has('set_phase') && state.phase >= 6;
+  if (!hadPrompt && !completedFlow && state.phase < 6) {
     const toolsList = Array.from(calledTools).join(',') || 'none';
     console.warn(`[cbo] silent_turn_fallback for ${cboId} phase=${state.phase} tools=${toolsList} text=${emittedText}`);
     // Recovery affordance ONLY when the agent emitted no text either — that's
