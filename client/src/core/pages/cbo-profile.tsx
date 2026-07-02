@@ -970,7 +970,7 @@ export default function CboProfilePage() {
   }, [isStreaming]);
 
   // Send message. `viaVoice` marks the optimistic user bubble as dictated (🎤).
-  const sendMessage = useCallback(async (text: string, hidden = false, viaVoice = false, displayText?: string) => {
+  const sendMessage = useCallback(async (text: string, hidden = false, viaVoice = false, displayText?: string, turnKind?: 'chip' | 'text' | 'upload' | 'map' | 'system') => {
     if (!cboId || !text.trim() || isStreaming) return;
     setInput('');
     setActiveQuestions([]);
@@ -979,7 +979,7 @@ export default function CboProfilePage() {
     if (!hidden) setMessages(prev => [...prev, { role: 'user', content: displayText ?? text, messageType: 'content', timestamp: new Date().toISOString(), viaVoice }]);
     setIsStreaming(true);
     try {
-      const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang }) });
+      const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang, turnKind }) });
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -1005,7 +1005,7 @@ export default function CboProfilePage() {
       if (Object.keys(updated).length === totalQuestions) {
         const all = activeQuestions.map((_, i) => updated[i]).filter(Boolean);
         setActiveQuestions([]); setCurrentQuestionIdx(0); setSelectedOptionIdx(0);
-        sendMessage(all.join('; '));
+        sendMessage(all.join('; '), false, false, undefined, 'chip');
         return {};
       }
       return updated;
@@ -1068,7 +1068,7 @@ export default function CboProfilePage() {
     const text = lang === 'pt'
       ? "Vamos começar."
       : "Let's begin.";
-    sendMessage(text, true);
+    sendMessage(text, true, false, undefined, 'system');
   }, [lang, sendMessage]);
 
   // File drop handler
@@ -1110,7 +1110,7 @@ export default function CboProfilePage() {
     cboId,
     lang,
     // Send the transcript straight away, marked as a voice message.
-    onTranscript: (text) => { setVoiceError(null); sendMessage(text, false, true); },
+    onTranscript: (text) => { setVoiceError(null); sendMessage(text, false, true, undefined, 'text'); },
     onError: handleVoiceError,
   });
   // Clear a stale voice error once the user starts a new recording.
@@ -1386,7 +1386,7 @@ export default function CboProfilePage() {
               onJumpToPhase={(p) => {
                 if (isStreaming) return;
                 const skip = p === 3 ? '3a' : String(p);
-                sendMessage(`[SKIP TO phase:${skip}]`);
+                sendMessage(`[SKIP TO phase:${skip}]`, false, false, undefined, 'system');
               }}
             />
           </div>
@@ -1708,7 +1708,7 @@ export default function CboProfilePage() {
                 ) : (
                   <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-green-300 bg-green-50">
                     <p className="text-sm text-muted-foreground">{t('cbo.phase', { num: state.phase, count: filledCount })}</p>
-                    <Button variant="outline" onClick={() => sendMessage(lang === 'pt' ? `Continuar da Fase ${state.phase}.` : `Continue from Phase ${state.phase}.`)}>{t('cbo.continue')}</Button>
+                    <Button variant="outline" onClick={() => sendMessage(lang === 'pt' ? `Continuar da Fase ${state.phase}.` : `Continue from Phase ${state.phase}.`, false, false, undefined, 'system')}>{t('cbo.continue')}</Button>
                   </div>
                 )}
               </div>
@@ -1760,7 +1760,7 @@ export default function CboProfilePage() {
                 <span>{voiceError}</span>
               </div>
             )}
-            <form onSubmit={(e) => { e.preventDefault(); if (currentQuestion && input.trim()) { handleSelectOption(input.trim()); setInput(''); } else sendMessage(input); }} className="flex gap-2">
+            <form onSubmit={(e) => { e.preventDefault(); if (currentQuestion && input.trim()) { handleSelectOption(input.trim()); setInput(''); } else sendMessage(input, false, false, undefined, 'text'); }} className="flex gap-2">
               <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.pptx,.docx,.xlsx,.txt,.md,.csv,.tsv,.json,.png,.jpg,.jpeg,.gif,.webp,.heic,.heif,.mp3,.wav,.m4a,.webm,.ogg,.opus,.aac,.flac,audio/*,image/*"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -1998,7 +1998,7 @@ export default function CboProfilePage() {
                       // to the agent as the message body (hidden context).
                       const summary = buildRiskSummary(result, lang);
                       if (currentQuestion) setActiveQuestions([]);
-                      sendMessage(message, false, false, summary);
+                      sendMessage(message, false, false, summary, 'map');
                       setOpenMapParams(null);
                       setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
                     }}

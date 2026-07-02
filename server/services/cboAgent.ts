@@ -841,7 +841,7 @@ function applySkipData(state: CboState, targetPhase: string): { phase: number; a
   };
 }
 
-export async function streamCboChat(cboId: string, userMessage: string, res: Response, state: CboState, lang: string = 'en') {
+export async function streamCboChat(cboId: string, userMessage: string, res: Response, state: CboState, lang: string = 'en', turnKind?: string) {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -943,7 +943,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   const isSdkReady = await loadSdk();
 
   if (isSdkReady) {
-    await streamWithSdk(cboId, userMessage, state, pushEvent, lang);
+    await streamWithSdk(cboId, userMessage, state, pushEvent, lang, turnKind);
   } else {
     pushEvent({ type: 'error', message: 'Claude Agent SDK not available.' });
   }
@@ -956,7 +956,50 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
 // live in the encontro skill's YAML frontmatter (`model:` field).
 const DEFAULT_CBO_MODEL = 'claude-sonnet-4-6';
 
-async function streamWithSdk(cboId: string, userMessage: string, state: CboState, pushEvent: EventPusher, lang: string = 'en') {
+// Adaptive turn routing (Ana's "agent too slow on basic questions"). Trivial
+// turns — a chip answer, a short conversational reply in the interview phases —
+// don't need the big model: route them to the fast tier so they feel instant
+// (~3× cheaper, materially lower latency). Everything with real reasoning load
+// (file uploads, map payloads, phase starts, scoring phases) stays on the
+// skill/default model, and HEAVY IS THE DEFAULT — an unclassified turn behaves
+// exactly as before this feature. Only the `model` value changes: same system
+// prompt, same tools, same turn guards, so a light-model slip is caught by the
+// same guardrails (inline-options converter, turn-ender recovery, persisted
+// prompts). Kill switch: CBO_ADAPTIVE_MODEL=0 (no redeploy needed).
+const LIGHT_CBO_MODEL = process.env.CBO_LIGHT_MODEL || 'claude-haiku-4-5';
+
+function resolveTurnModel(
+  cboId: string,
+  state: CboState,
+  userMessage: string,
+  turnKind: string | undefined,
+  heavyModel: string,
+): { model: string; routing: 'light' | 'heavy'; reason: string } {
+  const heavy = (reason: string) => ({ model: heavyModel, routing: 'heavy' as const, reason });
+  const light = (reason: string) => ({ model: LIGHT_CBO_MODEL, routing: 'light' as const, reason });
+
+  if (process.env.CBO_ADAPTIVE_MODEL === '0') return heavy('disabled');
+  // The langDirective is appended server-side — strip it before classifying,
+  // or a 3-char chip answer looks like a 240-char message.
+  const raw = userMessage.split('\n[LANGUAGE:')[0].trim();
+
+  // Reasoning-heavy shapes ALWAYS stay on the big model.
+  if (state.phase > 2) return heavy('phase>2');
+  if (turnKind === 'upload' || raw.startsWith("I'm uploading:") || raw.startsWith('Uploaded "')) return heavy('upload');
+  if (turnKind === 'map' || raw.startsWith('Map selection (')) return heavy('map-result');
+  if (turnKind === 'system') return heavy('system-turn');
+  if (/(?:vamos\s+(?:começar|comecar)|let'?s\s+start)\s+(?:o\s+)?encontro/i.test(raw)) return heavy('phase-start');
+  // First user message of the session = the intro turn (set_phase + framing).
+  if (getCboMessages(cboId).filter(m => m.messageType === 'content').length < 2) return heavy('first-turn');
+
+  // Trivial conversational turns in the interview phases → fast model.
+  if (turnKind === 'chip') return light('chip-answer');
+  if (turnKind === 'text' && raw.length <= 200) return light('short-text');
+
+  return heavy('default');
+}
+
+async function streamWithSdk(cboId: string, userMessage: string, state: CboState, pushEvent: EventPusher, lang: string = 'en', turnKind?: string) {
   const mcpServer = getMcpServer(cboId);
   const sysCtx = await buildSystemContext(state, lang);
   const stateSummary = buildStateSummary(state);
@@ -973,7 +1016,9 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   // name even when the invite already prefilled it.
   const skillPhase = Math.max(1, state.phase);
   const skill = await loadEncontroSkill(skillPhase);
-  const model = skill?.model ?? DEFAULT_CBO_MODEL;
+  const heavyModel = skill?.model ?? DEFAULT_CBO_MODEL;
+  const { model, routing, reason } = resolveTurnModel(cboId, state, userMessage, turnKind, heavyModel);
+  console.log(`[cbo] turn routing for ${cboId}: ${routing} (${reason}) kind=${turnKind ?? 'none'} model=${model}`);
 
   // System prompt = the durable facts the agent needs (persona, tools, skill,
   // state, recent conversation, access policy). User prompt = just the new

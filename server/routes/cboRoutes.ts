@@ -154,8 +154,12 @@ export function registerCboRoutes(app: Express): void {
       : '\n[LANGUAGE: Respond ONLY in English — every single word, including ask_user option labels and update_section content. Do NOT mix in any Portuguese words or phrases, even if the user writes some Portuguese back. One language, English, with no exceptions.]';
 
     const resolvedLang = sessionLang;
+    // Client-declared turn kind ('chip' | 'text' | 'upload' | 'map' | 'system') —
+    // a HINT for adaptive model routing. The server only ever *downgrades* to the
+    // fast model when its own checks agree; a missing/bogus value routes heavy.
+    const turnKind = typeof req.body.turnKind === 'string' ? req.body.turnKind : undefined;
     addCboMessage(req.params.id, { role: 'user', content: message, messageType: 'content', timestamp: new Date().toISOString() });
-    await streamCboChat(req.params.id, message + langDirective, res, state, resolvedLang);
+    await streamCboChat(req.params.id, message + langDirective, res, state, resolvedLang, turnKind);
     debouncedPersist(req.params.id);
   });
 
