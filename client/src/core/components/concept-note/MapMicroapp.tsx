@@ -335,13 +335,13 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
                 hazardLine + (riskLine ? riskLine + '<br/>' : '') + fhxv + priorityLine +
                 `${pop} hab. · ${(p.areaKm2 || p.area_km2)?.toFixed(1) || '?'} km²<br/>` +
                 `<span style="color:#888">${t('mapMicroapp.tipPoverty', { defaultValue: 'Poverty' })}: ${poverty}</span></div>`,
-                { sticky: true }
+                { direction: 'top' }
               );
             } else if (zoneSource === 'intervention_zones') {
               const hc = p.primaryHazard === 'FLOOD' ? '#3b82f6' : p.primaryHazard === 'HEAT' ? '#ef4444' : '#a16207';
               featureLayer.bindTooltip(
                 `<div style="font-size:11px"><strong>${p.zoneId}</strong><br/><span style="color:${hc}">${p.typologyLabel}</span> — ${(p.interventionType || '').replace(/_/g, ' ')}<br/>${p.areaKm2?.toFixed(1)} km² · ${p.populationSum?.toLocaleString() || '?'} ${t('mapMicroapp.tipPeople', { defaultValue: 'people' })}</div>`,
-                { sticky: true }
+                { direction: 'top' }
               );
             }
 
@@ -384,6 +384,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
               // touch, where tap fires mouseover→click→mouseout in a burst).
               const isSelected = selectedAssetsRef.current.some(a => a.type === 'zone' && a.name === zoneName);
               (featureLayer as any).setStyle(isSelected ? SELECTED_ZONE_STYLE : featureDefaultStyle);
+              (featureLayer as any).closeTooltip();
             });
           },
         });
@@ -434,7 +435,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
               featureLayer.bindTooltip(
                 `<div style="font-size:11px"><strong>${visual.emoji} ${name}</strong><br/><span style="color:#888">${visual.label} — ${t('mapMicroapp.clickToSelect', { defaultValue: 'click to select' })}</span></div>`,
-                { sticky: true }
+                { direction: 'top' }
               );
 
               (featureLayer as any).on('click', async (e: any) => {
@@ -474,7 +475,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
               });
 
               (featureLayer as any).on('mouseover', () => { map.getContainer().style.cursor = 'pointer'; });
-              (featureLayer as any).on('mouseout', () => { map.getContainer().style.cursor = ''; });
+              (featureLayer as any).on('mouseout', () => { map.getContainer().style.cursor = ''; (featureLayer as any).closeTooltip(); });
             },
           });
           layer.addTo(map);
