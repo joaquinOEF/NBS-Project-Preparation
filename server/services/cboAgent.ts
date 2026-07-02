@@ -997,8 +997,16 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
         cwd: process.cwd(),
         model,
         systemPrompt,
+        // Turn cap — a runaway tool loop otherwise burns the full ~10K-token
+        // prompt once per roundtrip while the user watches "Processando…".
+        // Normal turns use 2-5 tool calls; 12 is generous headroom.
+        maxTurns: 12,
+        // NOTE: no generic Read/Glob/Grep here. All knowledge + org-document
+        // access goes through the purpose-built MCP tools below; the generic
+        // file tools only invited stray repo exploration — each stray call is
+        // a whole extra model roundtrip on the slowest path (Ana's "agent too
+        // slow on basic questions").
         allowedTools: [
-          "Read", "Glob", "Grep",
           "mcp__cbo__update_section",
           "mcp__cbo__flag_gap",
           "mcp__cbo__set_phase",
