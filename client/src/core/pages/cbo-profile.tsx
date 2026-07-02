@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/core/components/ui/to
 import { useFileDrop } from '@/core/hooks/useFileDrop';
 import {
   CBO_SECTIONS,
-  PHASE_COMPLETION_METRICS,
+  phaseComplete,
   type CboState,
   type CboEvent,
   type CboChatMessage,
@@ -1431,21 +1431,15 @@ export default function CboProfilePage() {
                    scoring instructions in the skill markdown +
                    buildPhaseInstructions fallback. */}
             {(() => {
-              if (isStreaming || messages.length === 0 || state.phase === 0) return null;
+              if (isStreaming || !stableStreamEnded || messages.length === 0 || state.phase === 0) return null;
               if (currentQuestion) return null;
 
-              // Phase → required maturity metrics. Single source of truth:
-              // PHASE_COMPLETION_METRICS in shared/cbo-schema.ts, derived from
-              // CBO_SECTIONS[].maturityMetrics. The server validates scores
-              // against the same metric ids, so the banner can no longer be
-              // held back by a misspelled metric, and this map can't drift
-              // from the schema.
-              const required = PHASE_COMPLETION_METRICS[state.phase] ?? [];
-              if (required.length > 0) {
-                const scored = new Set((state.maturityScores ?? []).map(s => s.metric));
-                const allScored = required.every(m => scored.has(m));
-                if (!allScored) return null;
-              }
+              // Forward-progress gate — the phase must be complete before we
+              // offer the next workshop. Uses the shared phaseComplete() predicate
+              // (scored metrics OR section-fill), so Encontro 2 — whose maturity
+              // scores are intentionally deferred (site_control / community_
+              // anchoring) — advances instead of dead-ending with no way forward.
+              if (!phaseComplete(state, state.phase)) return null;
 
               const nextUnlockedPhase = unlockedPhases.find(p => p > state.phase);
               if (nextUnlockedPhase == null) return null;
