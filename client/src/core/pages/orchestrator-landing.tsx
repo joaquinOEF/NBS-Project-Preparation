@@ -380,10 +380,17 @@ function MapPanel({
             ? `<br/><span style="color:${TYPOLOGY_COLORS.LANDSLIDE}">▨ landslide-prone · slope stabilization</span>`
             : '';
           const tipHtml = `<b>${name}</b><br/>${hazard ? hazard.toLowerCase() + ' risk · ' : ''}${pop.toLocaleString()} people<br/>priority ${score.toFixed(2)}${proneHtml}`;
-          (lyr as L.Path).bindTooltip(tipHtml, { direction: 'top', className: 'orch-marker-tip', sticky: true });
+          // Anchored (not sticky): a sticky tooltip follows the pointer and its
+          // per-layer mouseout→close doesn't reliably fire when crossing a shared
+          // bairro border, so tooltips pile up unreadably (ORCH-1). Anchor it to
+          // the bairro and close it explicitly on mouseout.
+          (lyr as L.Path).bindTooltip(tipHtml, { direction: 'top', className: 'orch-marker-tip' });
           lyr.on('click', () => onBairroClickRef.current({ name, primaryHazard: hazard, population: pop, priorityScore: score }));
           lyr.on('mouseover', () => (lyr as L.Path).setStyle({ weight: 2.5, color: '#0f172a' }));
-          lyr.on('mouseout', () => (lyr as L.Path).setStyle(bairroStyle(feat, activeRiskRef.current, riskRangeRef.current)));
+          lyr.on('mouseout', () => {
+            (lyr as L.Path).setStyle(bairroStyle(feat, activeRiskRef.current, riskRangeRef.current));
+            (lyr as L.Path).closeTooltip();
+          });
         },
       });
       layer.addTo(mapInstanceRef.current);
