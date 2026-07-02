@@ -9,6 +9,10 @@ import { Badge } from '@/core/components/ui/badge';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Input } from '@/core/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/core/components/ui/tooltip';
+import {
+  AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
+} from '@/core/components/ui/alert-dialog';
 import { useFileDrop } from '@/core/hooks/useFileDrop';
 import {
   CBO_SECTIONS,
@@ -1266,14 +1270,45 @@ export default function CboProfilePage() {
                   </TooltipTrigger>
                   <TooltipContent>{t('cbo.export')}</TooltipContent>
                 </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={handleRestart}>
-                      <RotateCcw className="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{t('cbo.startOver')}</TooltipContent>
-                </Tooltip>
+                {/* Restart is IRREVERSIBLE (deletes the whole session server-side).
+                    It sits one thumb-width from Export on mobile, and the tooltip
+                    label never shows on touch — so it MUST confirm before firing. */}
+                <AlertDialog>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" data-testid="cbo-restart-trigger">
+                          <RotateCcw className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>{t('cbo.startOver')}</TooltipContent>
+                  </Tooltip>
+                  <AlertDialogContent data-testid="cbo-restart-dialog">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        {lang === 'pt' ? 'Recomeçar do zero?' : 'Start over from scratch?'}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {lang === 'pt'
+                          ? 'Isso apaga TODAS as respostas desta organização — o perfil, o placar e a conversa. Não dá pra desfazer.'
+                          : 'This erases ALL of this organization’s answers — the profile, the scorecard, and the conversation. It cannot be undone.'}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel data-testid="cbo-restart-cancel">
+                        {lang === 'pt' ? 'Cancelar' : 'Cancel'}
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleRestart}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        data-testid="cbo-restart-confirm"
+                      >
+                        {lang === 'pt' ? 'Apagar e recomeçar' : 'Erase and start over'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
             <CboProgress
