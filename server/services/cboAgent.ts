@@ -881,6 +881,18 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'types', typeIds: event.typeIds, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_examples') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'examples', cardIds: event.cardIds, mode: event.mode, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'ask_user') {
+      // Persist every user-prompting question (PERSIST-PROMPTS). Before this,
+      // ask_user was SSE-only: a reload mid-question dropped the prompt and the
+      // user faced a dead transcript with only the derailing "Continuar" chip.
+      // Persisting also puts the question into buildDecisionLog, so the agent
+      // remembers what it asked — including questions synthesized by the
+      // inline-options converter, which previously vanished from BOTH places.
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'ask_user', question: event.question, options: event.options, multiSelect: event.multiSelect, showMap: event.showMap, relatedSections: event.relatedSections }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'ask_priority_rank') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'priority', prompt: event.prompt, minRanked: event.minRanked }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'ask_community_anchoring') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'anchoring', prompt: event.prompt }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'open_map') {
       // Persist that the map step is active so the right-panel tool stays
       // reachable across reloads (not gated behind a transient button).
@@ -1128,17 +1140,34 @@ function buildDecisionLog(cboId: string): string {
   // a reply to "what's your org name?" — and starts re-introducing itself
   // every turn. Interleave user + assistant messages so the agent sees the
   // recent conversation as a coherent thread.
+  // Include composer messages (persisted prompts/strips) as readable
+  // annotations — without them the agent has NO memory of questions it asked
+  // via ask_user (the user's "Sim" reads as a reply to nothing), and re-asks.
   const msgs = getCboMessages(cboId).filter(m =>
-    m.messageType === 'content' &&
+    (m.messageType === 'content' || m.messageType === 'composer') &&
     !!m.content?.trim()
   );
   if (msgs.length === 0) return 'No prior conversation. This is the first turn — introduce yourself and start the flow.';
-  // Last 8 messages (≈ 4 turns each direction). Truncate each to keep prompt small.
-  const recent = msgs.slice(-8);
+  // Last 10 messages (composers now occupy slots too). Truncate each to keep prompt small.
+  const recent = msgs.slice(-10);
   return recent.map(m => {
+    if (m.messageType === 'composer') {
+      try {
+        const p = JSON.parse(m.content);
+        if (p.kind === 'ask_user') {
+          const opts = (p.options ?? []).map((o: any) => o.label).join(' / ');
+          return `- You (agent) asked: ${String(p.question).slice(0, 200)}${opts ? ` [options: ${opts.slice(0, 150)}]` : ''}`;
+        }
+        if (p.kind === 'priority') return '- You (agent) asked the user to rank the hazards by priority.';
+        if (p.kind === 'anchoring') return '- You (agent) asked the community-anchoring questions.';
+        if (p.kind === 'types') return '- You (agent) showed the NBS types strip.';
+        if (p.kind === 'examples') return '- You (agent) showed real project examples.';
+      } catch {}
+      return null;
+    }
     const who = m.role === 'user' ? 'User' : 'You (agent)';
     return `- ${who}: ${m.content.slice(0, 300)}`;
-  }).join('\n');
+  }).filter(Boolean).join('\n');
 }
 
 // Knowledge cache (cleared on server restart)
