@@ -24,6 +24,7 @@ import {
   getOrgIdForCboState,
   toDocumentMeta,
 } from "../services/documentPersistence";
+import { getCohortLanguageForCbo } from "../services/cohortLanguage";
 
 // Shim — pre-DB code called this synchronous-style. Routes now await DB.
 async function loadPersistedCboState(id: string): Promise<{ state: CboState; messages: any[] } | null> {
@@ -122,13 +123,18 @@ export function registerCboRoutes(app: Express): void {
       }
     }
 
-    // Sticky session language — set ONCE, never auto-flipped mid-session. The
-    // old per-turn accent/keyword regex flipped EN↔PT on a short reply, which
-    // produced half-English/half-Portuguese documents. Now: an explicit UI pick
-    // (the language picker) always wins and updates the sticky value; otherwise
-    // use the stored language; otherwise detect once from this first message.
+    // Session language authority (CBO-LANG-AUTH). If this CBO belongs to a
+    // cohort with a coordinator-forced language, that ALWAYS wins — it overrides
+    // the client-sent lang and text detection, so an English-looking org name, a
+    // standalone/test fallback, or a pre-fetch race can't flip the agent to
+    // English mid-flow. Only truly standalone CBOs (no cohort) fall through to
+    // the legacy sticky behavior: an explicit UI pick, else the stored language,
+    // else detect once from this first message.
+    const cohortLang = await getCohortLanguageForCbo(req.params.id);
     let sessionLang: 'pt' | 'en';
-    if (lang === 'pt' || lang === 'en') {
+    if (cohortLang) {
+      sessionLang = cohortLang;
+    } else if (lang === 'pt' || lang === 'en') {
       sessionLang = lang;
     } else if (state.metadata.language) {
       sessionLang = state.metadata.language;
