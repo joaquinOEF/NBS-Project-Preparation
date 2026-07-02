@@ -87,6 +87,40 @@ function formatMapResult(result: MapSelectionResult): string {
   return lines.join('\n');
 }
 
+// A clean, human risk summary shown in the chat bubble after a map selection —
+// the actual neighborhood stats, not just a color (Ana's ask), and NOT the raw
+// H×E×V/coordinate dump (CBO-MAP-PAYLOAD). The raw payload still goes to the
+// agent as hidden context; this is only what the user reads back.
+const RISK_WORDS: Record<'pt' | 'en', [string, string, string]> = { pt: ['baixo', 'médio', 'alto'], en: ['low', 'medium', 'high'] };
+const PRIO_WORDS: Record<'pt' | 'en', [string, string, string]> = { pt: ['baixa', 'média', 'alta'], en: ['low', 'medium', 'high'] };
+function level(v?: number): 0 | 1 | 2 { const x = v ?? 0; return x >= 0.66 ? 2 : x >= 0.33 ? 1 : 0; }
+
+function buildRiskSummary(result: MapSelectionResult, langRaw: string): string {
+  const lang: 'pt' | 'en' = langRaw === 'pt' ? 'pt' : 'en';
+  const L = lang === 'pt';
+  const zones = result.selectedAssets.filter(a => a.type === 'zone');
+  const sites = result.selectedAssets.filter(a => a.type !== 'zone');
+  const out: string[] = [L ? 'Selecionei no mapa:' : 'Selected on the map:'];
+  for (const z of zones) {
+    const p: any = z.properties || {};
+    out.push(`${L ? 'Bairro' : 'Neighborhood'} ${z.name}`);
+    out.push(`🔵 ${L ? 'inundação' : 'flood'} ${RISK_WORDS[lang][level(p.meanFlood)]} · 🔴 ${L ? 'calor' : 'heat'} ${RISK_WORDS[lang][level(p.meanHeat)]} · 🟤 ${L ? 'deslizamento' : 'landslide'} ${RISK_WORDS[lang][level(p.meanLandslide)]}`);
+    const pop = p.populationTotal || p.populationSum;
+    const bits: string[] = [];
+    if (pop) bits.push(`👥 ~${Number(pop).toLocaleString(L ? 'pt-BR' : 'en-US')} ${L ? 'moradores' : 'residents'}`);
+    if (p.priorityScore != null) bits.push(`⭐ ${L ? 'prioridade' : 'priority'} ${PRIO_WORDS[lang][level(p.priorityScore)]}`);
+    if (bits.length) out.push(bits.join(' · '));
+  }
+  if (sites.length) {
+    const names = sites.slice(0, 3).map(s => s.name).join(', ');
+    const noun = L ? (sites.length === 1 ? 'local' : 'locais') : (sites.length === 1 ? 'site' : 'sites');
+    out.push(`📍 ${sites.length} ${noun}: ${names}${sites.length > 3 ? ` +${sites.length - 3}` : ''}`);
+  } else if (result.siteDeferred) {
+    out.push(L ? '📍 Sem local específico ainda — vamos trabalhar com o bairro todo por enquanto.' : '📍 No specific site yet — working with the whole neighborhood for now.');
+  }
+  return out.join('\n');
+}
+
 function fixMarkdownTables(text: string): string {
   if (!text.includes('|')) return text;
   return text.replace(/\|\s*\|/g, '|\n|').replace(/\|\s*\n\s*\|/g, '|\n|');
@@ -892,11 +926,13 @@ export default function CboProfilePage() {
   }, [isStreaming]);
 
   // Send message. `viaVoice` marks the optimistic user bubble as dictated (🎤).
-  const sendMessage = useCallback(async (text: string, hidden = false, viaVoice = false) => {
+  const sendMessage = useCallback(async (text: string, hidden = false, viaVoice = false, displayText?: string) => {
     if (!cboId || !text.trim() || isStreaming) return;
     setInput('');
     setActiveQuestions([]);
-    if (!hidden) setMessages(prev => [...prev, { role: 'user', content: text, messageType: 'content', timestamp: new Date().toISOString(), viaVoice }]);
+    // displayText lets the chat bubble show a clean summary while the agent
+    // still receives the full technical `text` (map selection risk summary).
+    if (!hidden) setMessages(prev => [...prev, { role: 'user', content: displayText ?? text, messageType: 'content', timestamp: new Date().toISOString(), viaVoice }]);
     setIsStreaming(true);
     try {
       const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang }) });
@@ -1312,7 +1348,7 @@ export default function CboProfilePage() {
                         <span className="text-sm font-medium underline decoration-white/40 underline-offset-2">{uploadName}</span>
                       </button>
                     ) : (
-                    <p className="text-sm">
+                    <p className="text-sm whitespace-pre-line">
                       {msg.viaVoice && <Mic className="w-3 h-3 inline-block mr-1 -mt-0.5 opacity-80" aria-label={lang === 'pt' ? 'mensagem de voz' : 'voice message'} />}
                       {msg.content}
                     </p>
@@ -1830,7 +1866,11 @@ export default function CboProfilePage() {
                           }),
                         }).catch(() => {});
                       }
-                      if (currentQuestion) handleSelectOption(message); else sendMessage(message);
+                      // Show the user a clean risk summary; send the raw payload
+                      // to the agent as the message body (hidden context).
+                      const summary = buildRiskSummary(result, lang);
+                      if (currentQuestion) setActiveQuestions([]);
+                      sendMessage(message, false, false, summary);
                       setOpenMapParams(null);
                       setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
                     }}
