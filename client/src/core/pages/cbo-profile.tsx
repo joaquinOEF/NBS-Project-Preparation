@@ -9,6 +9,10 @@ import { Badge } from '@/core/components/ui/badge';
 import { Textarea } from '@/core/components/ui/textarea';
 import { Input } from '@/core/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/core/components/ui/tooltip';
+import {
+  AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
+} from '@/core/components/ui/alert-dialog';
 import { useFileDrop } from '@/core/hooks/useFileDrop';
 import {
   CBO_SECTIONS,
@@ -367,6 +371,27 @@ export default function CboProfilePage() {
   const handleSelectRef = useRef<(label: string) => void>(() => {});
 
   const currentQuestion = activeQuestions[currentQuestionIdx] || null;
+
+  // Restore a pending prompt from the transcript (PERSIST-PROMPTS). The server
+  // persists every user-prompting tool as a `composer` message; if the LAST
+  // transcript message is one of those — i.e. the user never answered — rebuild
+  // the live prompt state the SSE event would have set, so a reload lands the
+  // user back on the exact question instead of a dead transcript.
+  const hydrateMessages = useCallback((msgs: CboChatMessage[]) => {
+    setMessages(msgs);
+    const last = msgs[msgs.length - 1];
+    if (!last || last.role !== 'assistant' || last.messageType !== 'composer') return;
+    let parsed: any = null;
+    try { parsed = JSON.parse(last.content); } catch { return; }
+    if (parsed?.kind === 'ask_user' && parsed.question) {
+      setActiveQuestions([{ id: 'q_restored', question: parsed.question, options: parsed.options ?? [], multiSelect: parsed.multiSelect, relatedSections: parsed.relatedSections } as any]);
+      setCurrentQuestionIdx(0); setQuestionAnswers({}); setSelectedOptionIdx(0);
+    } else if (parsed?.kind === 'priority' && parsed.prompt) {
+      setPriorityRankPrompt({ prompt: parsed.prompt, minRanked: parsed.minRanked ?? 2 });
+    } else if (parsed?.kind === 'anchoring' && parsed.prompt) {
+      setAnchoringPrompt({ prompt: parsed.prompt });
+    }
+  }, []);
   const totalQuestions = activeQuestions.length;
   const [highlightedSections, setHighlightedSections] = useState<string[]>([]);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -377,6 +402,11 @@ export default function CboProfilePage() {
   // A turn whose SSE stream dropped/stalled — holds the original message text
   // so a "Tentar de novo" tap can resend it (hidden — no duplicate user bubble).
   const [streamRetry, setStreamRetry] = useState<string | null>(null);
+  // Invite-link resolution failure — 'invalid-token' (404/empty) vs 'network'
+  // (timeout/offline/5xx). Renders a retryable error card instead of the bare
+  // infinite spinner; the 30s poll + focus refetch self-heal it when transient.
+  const [sessionError, setSessionError] = useState<'invalid-token' | 'network' | null>(null);
+  const [viaInviteLink, setViaInviteLink] = useState(false);
   const [memberInfo, setMemberInfo] = useState<{ orgName: string; neighborhood: string | null } | null>(null);
   // Project-readiness triage from E1: 'has-project' | 'has-idea' | 'needs-help'
   // | null (until triaged). has-project + has-idea are project-forward.
@@ -457,7 +487,7 @@ export default function CboProfilePage() {
           setCboId(candidate);
           setState(migrateCboState(data.state));
           const msgRes = await fetch(`/api/cbo/${candidate}/messages`);
-          if (msgRes.ok) { const msgs = await msgRes.json(); if (msgs.length) setMessages(msgs); }
+          if (msgRes.ok) { const msgs = await msgRes.json(); if (msgs.length) hydrateMessages(msgs); }
           saveId(candidate); // converge the same-device cache onto the server id
           return;
         }
@@ -483,6 +513,7 @@ export default function CboProfilePage() {
     const token = params.get('t');
     const slugParam = params.get('cbo');
     if (!token && !slugParam) return;
+    setViaInviteLink(true);
     const memberUrl = token
       ? `/api/cbo-member/by-token/${token}`
       : `/api/cbo-member/${slugParam}`;
@@ -513,22 +544,30 @@ export default function CboProfilePage() {
       applyMember(data);
       // Recover session resolution if the initial fetch failed (transient
       // network) and left initRef unset; idempotent once resolved.
-      if (data) resolveSession(data.cboStateId ?? null);
+      if (data) { setSessionError(null); resolveSession(data.cboStateId ?? null); }
     }).catch(() => {});
 
-    fetch(memberUrl)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        applyMember(data);
-        if (data) {
-          setWelcomeMode(true);
-          // Resolve the working session from the server binding — this is what
-          // makes the token link device-independent. Guarded by initRef so the
-          // focus/poll refetch (which also calls applyMember) never re-resolves.
-          resolveSession(data.cboStateId ?? null);
-        }
+    // First fetch of the invite. Failure must NOT leave the user on a bare
+    // infinite spinner (the field case: WhatsApp link opened on patchy mobile
+    // data, or a mistyped/expired token) — surface a distinct, retryable state.
+    fetch(memberUrl, { signal: AbortSignal.timeout(15_000) })
+      .then(r => {
+        if (r.ok) return r.json();
+        throw new Error(r.status === 404 ? 'invalid-token' : 'network');
       })
-      .catch(() => {});
+      .then(data => {
+        if (!data) throw new Error('invalid-token');
+        setSessionError(null);
+        applyMember(data);
+        setWelcomeMode(true);
+        // Resolve the working session from the server binding — this is what
+        // makes the token link device-independent. Guarded by initRef so the
+        // focus/poll refetch (which also calls applyMember) never re-resolves.
+        resolveSession(data.cboStateId ?? null);
+      })
+      .catch((e: any) => {
+        setSessionError(e?.message === 'invalid-token' ? 'invalid-token' : 'network');
+      });
 
     // Re-fetch on tab focus so coordinator unlocks propagate without a manual reload.
     window.addEventListener('focus', refetch);
@@ -697,7 +736,7 @@ export default function CboProfilePage() {
             setCboId(saved);
             setState(migrateCboState(data.state));
             const msgRes = await fetch(`/api/cbo/${saved}/messages`);
-            if (msgRes.ok) { const msgs = await msgRes.json(); if (msgs.length) setMessages(msgs); }
+            if (msgRes.ok) { const msgs = await msgRes.json(); if (msgs.length) hydrateMessages(msgs); }
             return;
           }
           // 404 means the cached id points at a CBO that no longer exists on the
@@ -916,7 +955,7 @@ export default function CboProfilePage() {
         setIsStreaming(false);
         break;
       case 'done': setIsStreaming(false); break;
-      case 'error': setIsStreaming(false); setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${event.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); break;
+      case 'error': setIsStreaming(false); setMessages(prev => [...prev, { role: 'assistant', content: `${i18n.resolvedLanguage === 'pt' ? 'Erro' : 'Error'}: ${event.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); break;
     }
   }, []);
 
@@ -934,7 +973,7 @@ export default function CboProfilePage() {
   }, [isStreaming]);
 
   // Send message. `viaVoice` marks the optimistic user bubble as dictated (🎤).
-  const sendMessage = useCallback(async (text: string, hidden = false, viaVoice = false, displayText?: string) => {
+  const sendMessage = useCallback(async (text: string, hidden = false, viaVoice = false, displayText?: string, turnKind?: 'chip' | 'text' | 'upload' | 'map' | 'system') => {
     if (!cboId || !text.trim() || isStreaming) return;
     setInput('');
     setActiveQuestions([]);
@@ -956,7 +995,7 @@ export default function CboProfilePage() {
     };
     try {
       armWatchdog();
-      const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang }), signal: ctrl.signal });
+      const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang, turnKind }), signal: ctrl.signal });
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -996,7 +1035,7 @@ export default function CboProfilePage() {
       if (Object.keys(updated).length === totalQuestions) {
         const all = activeQuestions.map((_, i) => updated[i]).filter(Boolean);
         setActiveQuestions([]); setCurrentQuestionIdx(0); setSelectedOptionIdx(0);
-        sendMessage(all.join('; '));
+        sendMessage(all.join('; '), false, false, undefined, 'chip');
         return {};
       }
       return updated;
@@ -1059,7 +1098,7 @@ export default function CboProfilePage() {
     const text = lang === 'pt'
       ? "Vamos começar."
       : "Let's begin.";
-    sendMessage(text, true);
+    sendMessage(text, true, false, undefined, 'system');
   }, [lang, sendMessage]);
 
   // File drop handler
@@ -1101,7 +1140,7 @@ export default function CboProfilePage() {
     cboId,
     lang,
     // Send the transcript straight away, marked as a voice message.
-    onTranscript: (text) => { setVoiceError(null); sendMessage(text, false, true); },
+    onTranscript: (text) => { setVoiceError(null); sendMessage(text, false, true, undefined, 'text'); },
     onError: handleVoiceError,
   });
   // Clear a stale voice error once the user starts a new recording.
@@ -1109,7 +1148,40 @@ export default function CboProfilePage() {
 
   const filledCount = useMemo(() => state ? Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length : 0, [state]);
 
-  if (!state) return <div className="flex items-center justify-center h-[100dvh]"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
+  if (!state) {
+    // Invite link failed to resolve — never leave the user on a bare spinner.
+    if (viaInviteLink && sessionError) {
+      const pt = lang === 'pt';
+      const invalid = sessionError === 'invalid-token';
+      return (
+        <div className="flex items-center justify-center h-[100dvh] px-6">
+          <div className="max-w-sm text-center space-y-3" data-testid="cbo-invite-error">
+            <p className="text-3xl">{invalid ? '🔗' : '📶'}</p>
+            <h2 className="text-lg font-semibold">
+              {invalid
+                ? (pt ? 'Este convite não foi encontrado' : 'This invite was not found')
+                : (pt ? 'Não conseguimos conectar' : 'We couldn’t connect')}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {invalid
+                ? (pt
+                  ? 'O link pode estar incompleto ou ter sido substituído. Confira a mensagem original ou peça um novo link pra quem convidou vocês.'
+                  : 'The link may be incomplete or replaced. Check the original message or ask your coordinator for a new link.')
+                : (pt
+                  ? 'Parece um problema de conexão. Verifique a internet do celular e tente de novo.'
+                  : 'This looks like a connection problem. Check your phone’s internet and try again.')}
+            </p>
+            {!invalid && (
+              <Button onClick={() => window.location.reload()} className="bg-emerald-600 hover:bg-emerald-700" data-testid="cbo-invite-retry">
+                {pt ? 'Tentar de novo' : 'Try again'}
+              </Button>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return <div className="flex items-center justify-center h-[100dvh]"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
+  }
 
   // Cohort welcome screen — only when the user arrived via an invite and
   // hasn't dismissed the welcome. Replaces the entire chrome with a calm,
@@ -1218,7 +1290,7 @@ export default function CboProfilePage() {
       <div className="flex flex-1 min-h-0">
         {/* LEFT: Chat — full width on mobile (when Chat tab active), half on md+ */}
         <div
-          className={`w-full md:w-1/2 md:border-r md:flex flex-col relative ${
+          className={`w-full md:w-1/2 min-w-0 md:border-r md:flex flex-col relative ${
             mobileActiveTab === 'chat' ? 'flex' : 'hidden'
           }`}
           {...dragHandlers}
@@ -1227,8 +1299,8 @@ export default function CboProfilePage() {
             <div className="absolute inset-0 z-50 bg-green-500/10 border-2 border-dashed border-green-500 rounded-lg flex items-center justify-center backdrop-blur-sm">
               <div className="text-center">
                 <Download className="w-10 h-10 text-green-600 mx-auto mb-2" />
-                <p className="text-sm font-medium text-green-700">Drop your document here</p>
-                <p className="text-xs text-muted-foreground">Reports, plans, photos, proposals</p>
+                <p className="text-sm font-medium text-green-700">{lang === 'pt' ? 'Solte seu documento aqui' : 'Drop your document here'}</p>
+                <p className="text-xs text-muted-foreground">{lang === 'pt' ? 'Relatórios, planos, fotos, propostas' : 'Reports, plans, photos, proposals'}</p>
               </div>
             </div>
           )}
@@ -1296,14 +1368,45 @@ export default function CboProfilePage() {
                   </TooltipTrigger>
                   <TooltipContent>{t('cbo.export')}</TooltipContent>
                 </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={handleRestart}>
-                      <RotateCcw className="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{t('cbo.startOver')}</TooltipContent>
-                </Tooltip>
+                {/* Restart is IRREVERSIBLE (deletes the whole session server-side).
+                    It sits one thumb-width from Export on mobile, and the tooltip
+                    label never shows on touch — so it MUST confirm before firing. */}
+                <AlertDialog>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" data-testid="cbo-restart-trigger">
+                          <RotateCcw className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>{t('cbo.startOver')}</TooltipContent>
+                  </Tooltip>
+                  <AlertDialogContent data-testid="cbo-restart-dialog">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        {lang === 'pt' ? 'Recomeçar do zero?' : 'Start over from scratch?'}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {lang === 'pt'
+                          ? 'Isso apaga TODAS as respostas desta organização — o perfil, o placar e a conversa. Não dá pra desfazer.'
+                          : 'This erases ALL of this organization’s answers — the profile, the scorecard, and the conversation. It cannot be undone.'}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel data-testid="cbo-restart-cancel">
+                        {lang === 'pt' ? 'Cancelar' : 'Cancel'}
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleRestart}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        data-testid="cbo-restart-confirm"
+                      >
+                        {lang === 'pt' ? 'Apagar e recomeçar' : 'Erase and start over'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
             <CboProgress
@@ -1313,12 +1416,16 @@ export default function CboProfilePage() {
               onJumpToPhase={(p) => {
                 if (isStreaming) return;
                 const skip = p === 3 ? '3a' : String(p);
-                sendMessage(`[SKIP TO phase:${skip}]`);
+                sendMessage(`[SKIP TO phase:${skip}]`, false, false, undefined, 'system');
               }}
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {/* overflow-x-hidden + the column's min-w-0: without them the NBS
+              type/example strips' min-content width escapes the flex chain and
+              drags the WHOLE page sideways on a phone (header cut off, question
+              card clipped) — the strips scroll internally (overflow-x-auto). */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3">
             {messages.length === 0 && state.phase === 0 && (
               <div className="text-center text-muted-foreground py-8 sm:py-10 max-w-xs sm:max-w-sm mx-auto px-2">
                 <div className="inline-flex w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 items-center justify-center mb-3 sm:mb-4">
@@ -1361,6 +1468,22 @@ export default function CboProfilePage() {
                         onToggleSave={handleInspirationToggle}
                         intro={parsed.intro}
                       />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'ask_user' && parsed.question) {
+                  // A persisted question. While it's PENDING (trailing message,
+                  // live card showing) render nothing — the interactive card is
+                  // the surface. Once ANSWERED (a later message follows), render
+                  // the question as a plain agent bubble so the transcript reads
+                  // as Q→A instead of an answer to nothing (chip turns have no
+                  // other agent text by design).
+                  if (i === messages.length - 1 && currentQuestion) return null;
+                  return (
+                    <div key={i} className="flex justify-start">
+                      <div className="max-w-[90%] rounded-lg px-4 py-2.5 bg-muted">
+                        <p className="text-sm">{parsed.question}</p>
+                      </div>
                     </div>
                   );
                 }
@@ -1464,7 +1587,7 @@ export default function CboProfilePage() {
                         </button>
                       ))}
                     </div>
-                    <span>Question {currentQuestionIdx + 1} of {totalQuestions} · Tab to cycle</span>
+                    <span>{lang === 'pt' ? `Pergunta ${currentQuestionIdx + 1} de ${totalQuestions} · Tab pra alternar` : `Question ${currentQuestionIdx + 1} of ${totalQuestions} · Tab to cycle`}</span>
                   </div>
                 )}
 
@@ -1503,7 +1626,9 @@ export default function CboProfilePage() {
                    buildPhaseInstructions fallback. */}
             {(() => {
               if (isStreaming || !stableStreamEnded || messages.length === 0 || state.phase === 0) return null;
-              if (currentQuestion) return null;
+              // ANY live affordance suppresses the banner — not just ask_user.
+              // Rank/anchoring/map composers previously co-rendered with it.
+              if (currentQuestion || priorityRankPrompt || anchoringPrompt || openMapParams || interventionSelectorParams) return null;
 
               // Forward-progress gate — the phase must be complete before we
               // offer the next workshop. Uses the shared phaseComplete() predicate
@@ -1580,7 +1705,11 @@ export default function CboProfilePage() {
               // `stableStreamEnded` guards against the SSE-batch race where
               // `done` arrives before `ask_user` and the gate briefly thinks
               // the agent is finished but stranded. See state declaration.
-              if (isStreaming || !stableStreamEnded || state.phase === 0 || currentQuestion || messages.length === 0) return null;
+              // ANY pending affordance suppresses the resume block — the old
+              // currentQuestion-only check let "Continuar da Fase X" render
+              // UNDER a live rank/anchoring/map composer (tapping it derails).
+              if (isStreaming || !stableStreamEnded || state.phase === 0 || messages.length === 0) return null;
+              if (currentQuestion || priorityRankPrompt || anchoringPrompt || openMapParams || interventionSelectorParams) return null;
               const lastContent = [...messages].reverse().find(m => m.messageType === 'content');
               const agentOwesResponse = !lastContent || lastContent.role === 'user';
               if (state.phase < 6 && !agentOwesResponse) return null;
@@ -1609,7 +1738,7 @@ export default function CboProfilePage() {
                 ) : (
                   <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-dashed border-green-300 bg-green-50">
                     <p className="text-sm text-muted-foreground">{t('cbo.phase', { num: state.phase, count: filledCount })}</p>
-                    <Button variant="outline" onClick={() => sendMessage(lang === 'pt' ? `Continuar da Fase ${state.phase}.` : `Continue from Phase ${state.phase}.`)}>{t('cbo.continue')}</Button>
+                    <Button variant="outline" onClick={() => sendMessage(lang === 'pt' ? `Continuar da Fase ${state.phase}.` : `Continue from Phase ${state.phase}.`, false, false, undefined, 'system')}>{t('cbo.continue')}</Button>
                   </div>
                 )}
               </div>
@@ -1674,7 +1803,7 @@ export default function CboProfilePage() {
                 </Button>
               </div>
             )}
-            <form onSubmit={(e) => { e.preventDefault(); if (currentQuestion && input.trim()) { handleSelectOption(input.trim()); setInput(''); } else sendMessage(input); }} className="flex gap-2">
+            <form onSubmit={(e) => { e.preventDefault(); if (currentQuestion && input.trim()) { handleSelectOption(input.trim()); setInput(''); } else sendMessage(input, false, false, undefined, 'text'); }} className="flex gap-2">
               <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.pptx,.docx,.xlsx,.txt,.md,.csv,.tsv,.json,.png,.jpg,.jpeg,.gif,.webp,.heic,.heif,.mp3,.wav,.m4a,.webm,.ogg,.opus,.aac,.flac,audio/*,image/*"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -1912,7 +2041,7 @@ export default function CboProfilePage() {
                       // to the agent as the message body (hidden context).
                       const summary = buildRiskSummary(result, lang);
                       if (currentQuestion) setActiveQuestions([]);
-                      sendMessage(message, false, false, summary);
+                      sendMessage(message, false, false, summary, 'map');
                       setOpenMapParams(null);
                       setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
                     }}
@@ -2104,6 +2233,7 @@ function CboQuestionCard({
   onMultiToggle?: (label: string) => void;
   onMultiConfirm?: () => void;
 }) {
+  const { t } = useTranslation();
   const isMulti = question.multiSelect;
   const multiSet = multiSelected || new Set<string>();
 
@@ -2122,7 +2252,7 @@ function CboQuestionCard({
         <div className="text-sm font-medium prose prose-sm max-w-none flex-1">
           {questionNumber && <span className="text-muted-foreground mr-1">{questionNumber}.</span>}
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{question.question}</ReactMarkdown>
-          {isMulti && <span className="text-[10px] text-muted-foreground ml-1">(select all that apply)</span>}
+          {isMulti && <span className="text-[10px] text-muted-foreground ml-1">{t('cbo.selectAllThatApply', { defaultValue: '(select all that apply)' })}</span>}
         </div>
         {answeredValue && (
           <span className="shrink-0 inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded">
@@ -2151,7 +2281,7 @@ function CboQuestionCard({
               <div className="flex-1">
                 <span className="font-medium">{opt.label}</span>
                 {opt.description && <span className="text-muted-foreground ml-1">{opt.description}</span>}
-                {opt.recommended && <span className="ml-1.5 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded"><Star className="w-2.5 h-2.5 inline" /> recommended</span>}
+                {opt.recommended && <span className="ml-1.5 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded"><Star className="w-2.5 h-2.5 inline" /> {t('cbo.recommended', { defaultValue: 'recommended' })}</span>}
               </div>
             </button>
           );
@@ -2159,7 +2289,7 @@ function CboQuestionCard({
       </div>
       {isMulti && multiSet.size > 0 && !answeredValue && (
         <Button size="sm" onClick={onMultiConfirm} disabled={disabled} className="w-full h-8 text-xs gap-1 bg-green-600 hover:bg-green-700">
-          <Check className="w-3 h-3" /> Confirm {multiSet.size} selected
+          <Check className="w-3 h-3" /> {t('cbo.confirmSelected', { defaultValue: 'Confirm {{n}} selected', n: multiSet.size })}
         </Button>
       )}
     </div>

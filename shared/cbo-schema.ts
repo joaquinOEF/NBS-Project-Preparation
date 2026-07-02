@@ -70,7 +70,11 @@ export function phaseComplete(
 
   return sections.every(sec => {
     const fields = state.sections?.[sec.id]?.fields ?? {};
-    return Object.values(fields).some(cboFieldIsFilled);
+    // Invite-prefilled values (org name / neighborhood the ORCHESTRATOR typed at
+    // invite time, source:'invite') are not work the org did — counting them
+    // made phase 1 "complete" at turn 0 for every invited org, so the green
+    // "Começar Encontro 2" banner appeared mid-interview once WS2 was unlocked.
+    return Object.values(fields).some(f => cboFieldIsFilled(f) && f?.source !== 'invite');
   });
 }
 
