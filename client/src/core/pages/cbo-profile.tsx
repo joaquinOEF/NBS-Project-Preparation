@@ -763,7 +763,12 @@ export default function CboProfilePage() {
           // (the SSE stream emits the response in pieces as the model
           // generates it).
           if (last?.role === 'assistant' && last.messageType === 'content') {
-            return [...prev.slice(0, -1), { ...last, content: last.content + event.content }];
+            // Join consecutive whole-block chat chunks with a paragraph break ONLY
+            // at a sentence boundary (prev ends with . ! ? : ; and next starts
+            // non-space), so two distinct sentences can't fuse ("profile:A few…")
+            // while a sub-block token split (mid-word) is never separated.
+            const sep = /[.!?:;]$/.test(last.content) && !/^\s/.test(event.content) ? '\n\n' : '';
+            return [...prev.slice(0, -1), { ...last, content: last.content + sep + event.content }];
           }
           return [...prev, { role: 'assistant' as const, content: event.content, messageType: 'content', timestamp: new Date().toISOString() }];
         });

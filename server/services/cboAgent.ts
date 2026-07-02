@@ -28,6 +28,7 @@ import { eq } from "drizzle-orm";
 import { getOrgIdForCboState, listDocumentsByOrg, getDocumentForOrg } from "./documentPersistence";
 import { queryTerms, scoreText, extractExcerpt } from "./textSearch";
 import { isFakeModelEnabled, streamWithFakeModel } from "./fakeCboModel";
+import { emitAssistantText } from "./agentOutput";
 
 // ============================================================================
 // SDK LOADING — shared with conceptNoteAgent (lazy load)
@@ -1012,7 +1013,9 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
         for (const block of message.message.content) {
           if (block.type === "text" && block.text) {
             emittedText = true;
-            pushEvent({ type: 'chat', content: block.text, role: 'assistant' });
+            // Normalize before flushing: an inline option list becomes a real
+            // ask_user (buttons) instead of inert markdown bullets (CBO-INLINE-OPTIONS).
+            emitAssistantText(block.text, pushEvent);
           } else if (block.type === "tool_use" && block.name) {
             // MCP tools come through namespaced as "mcp__cbo__<name>"; strip
             // the prefix so the guard below can match against canonical names.

@@ -33,6 +33,7 @@ import {
   isValidSectionId,
 } from '@shared/cbo-schema';
 import { NBS_SHOWCASE_CARDS } from '@shared/nbs-showcase-cards';
+import { emitAssistantText } from './agentOutput';
 
 export function isFakeModelEnabled(): boolean {
   return process.env.CBO_FAKE_MODEL === '1';
@@ -100,7 +101,7 @@ export async function streamWithFakeModel(
 function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent, deps: FakeDeps): void {
   switch (op.op) {
     case 'say': {
-      pushEvent({ type: 'chat', content: op.text, role: 'assistant' });
+      emitAssistantText(op.text, pushEvent);
       break;
     }
     case 'update_section': {
