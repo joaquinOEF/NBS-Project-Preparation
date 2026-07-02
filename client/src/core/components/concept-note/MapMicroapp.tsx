@@ -220,11 +220,10 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     setBasemap(compositeStep === 'assets' ? 'satellite' : 'political');
   }, [compositeStep, params.allowDeferSite]);
 
-  // CBO site step: default to point-drop so a tap marks their spot (the
-  // prominent draw control lets them switch to drawing an area).
-  useEffect(() => {
-    if (params.allowDeferSite && isComposite && compositeStep === 'assets') setDrawMode('point');
-  }, [compositeStep, params.allowDeferSite, isComposite]);
+  // CBO site step: draw mode starts OFF — the user arms "Um ponto" / "Desenhar
+  // a área" explicitly. Auto-arming 'point' here meant the first thing every
+  // phone user did (pan the satellite map to find their building) dropped a
+  // wrong pin instead, which then flipped the confirm button (P0 mobile bug).
 
   // ── Load boundary ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -645,6 +644,16 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         setDrawMode('off');
       }
       if (drawMode === 'polygon') {
+        // Close by tapping the FIRST vertex again (what the PT help copy says:
+        // "feche no primeiro ponto") — double-tap still works as a fallback.
+        if (polygonPointsRef.current.length >= 3) {
+          const firstPt = map.latLngToContainerPoint(polygonPointsRef.current[0]);
+          const clickPt = map.latLngToContainerPoint(e.latlng);
+          if (firstPt.distanceTo(clickPt) < 24) {
+            await closePolygon();
+            return;
+          }
+        }
         polygonPointsRef.current.push(e.latlng);
         if (polygonPreviewRef.current) map.removeLayer(polygonPreviewRef.current);
         if (polygonPointsRef.current.length >= 2) {
@@ -659,9 +668,8 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       }
     };
 
-    const handleDblClick = async (e: L.LeafletMouseEvent) => {
-      if (drawMode !== 'polygon' || polygonPointsRef.current.length < 3) return;
-      e.originalEvent.preventDefault();
+    const closePolygon = async () => {
+      if (polygonPointsRef.current.length < 3) return;
       const coords = polygonPointsRef.current.map(p => [p.lng, p.lat] as [number, number]);
       coords.push(coords[0]);
       const geometry = { type: 'Polygon' as const, coordinates: [coords] };
@@ -688,16 +696,25 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       setDrawMode('off');
     };
 
+    const handleDblClick = async (e: L.LeafletMouseEvent) => {
+      if (drawMode !== 'polygon' || polygonPointsRef.current.length < 3) return;
+      e.originalEvent.preventDefault();
+      await closePolygon();
+    };
+
     map.on('click', handleClick);
     map.on('dblclick', handleDblClick);
     map.doubleClickZoom.disable();
-    map.dragging.disable(); // Disable drag so clicks register for drawing
+    // NOTE: map dragging stays ENABLED while drawing. Leaflet already tells a
+    // tap (click) apart from a drag, so vertex/pin placement works fine with
+    // panning on — and phone users MUST be able to pan the satellite view to
+    // find their building. The old dragging.disable() froze one-finger pan for
+    // the whole site step (P0 mobile bug).
     map.getContainer().style.cursor = 'crosshair';
     return () => {
       map.off('click', handleClick);
       map.off('dblclick', handleDblClick);
       map.doubleClickZoom.enable();
-      map.dragging.enable(); // Re-enable drag when draw mode exits
       map.getContainer().style.cursor = '';
       polygonPointsRef.current = [];
       if (polygonPreviewRef.current) { map.removeLayer(polygonPreviewRef.current); polygonPreviewRef.current = null; }
@@ -885,17 +902,23 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         <div className="px-3 py-2 border-b bg-muted/10 shrink-0">
           <p className="text-[10px] text-muted-foreground mb-1">{t('mapMicroapp.siteHowToMark', { defaultValue: 'Como marcar seu lugar?' })}</p>
           <div className="flex gap-1.5">
-            <Button variant={drawMode !== 'polygon' ? 'default' : 'outline'} size="sm" className="h-7 text-[11px] gap-1 flex-1" onClick={() => setDrawMode('point')} data-testid="map-draw-point">
+            {/* True three-state toggles: nothing is armed until the user picks a
+                mode (re-tapping disarms). The old default made "Um ponto" LOOK
+                active while drawMode was off — and pairing that with auto-arm
+                meant panning taps dropped pins. */}
+            <Button variant={drawMode === 'point' ? 'default' : 'outline'} size="sm" className="h-9 text-[11px] gap-1 flex-1" onClick={() => setDrawMode(drawMode === 'point' ? 'off' : 'point')} data-testid="map-draw-point">
               <MapPin className="w-3 h-3" /> {t('mapMicroapp.drawPoint', { defaultValue: 'Um ponto' })}
             </Button>
-            <Button variant={drawMode === 'polygon' ? 'default' : 'outline'} size="sm" className="h-7 text-[11px] gap-1 flex-1" onClick={() => setDrawMode('polygon')} data-testid="map-draw-area">
+            <Button variant={drawMode === 'polygon' ? 'default' : 'outline'} size="sm" className="h-9 text-[11px] gap-1 flex-1" onClick={() => setDrawMode(drawMode === 'polygon' ? 'off' : 'polygon')} data-testid="map-draw-area">
               <Pencil className="w-3 h-3" /> {t('mapMicroapp.drawArea', { defaultValue: 'Desenhar a área' })}
             </Button>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1">
+          <p className="text-[10px] text-muted-foreground mt-1" data-testid="map-draw-help">
             {drawMode === 'polygon'
               ? t('mapMicroapp.drawHelpArea', { defaultValue: 'Toque nos cantos do lugar; feche no primeiro ponto.' })
-              : t('mapMicroapp.drawHelpPoint', { defaultValue: 'Toque no mapa pra marcar o lugar.' })}
+              : drawMode === 'point'
+                ? t('mapMicroapp.drawHelpPoint', { defaultValue: 'Toque no mapa pra marcar o lugar.' })
+                : t('mapMicroapp.drawHelpOff', { defaultValue: 'Arraste pra navegar no mapa. Pra marcar, escolha uma opção acima.' })}
           </p>
         </div>
       )}

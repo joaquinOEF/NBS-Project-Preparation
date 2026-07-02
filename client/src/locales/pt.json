@@ -2061,6 +2061,7 @@
     "coordPlaceholder": "lat, lng (ex.: -30,03, -51,22)",
     "addPin": "Adicionar",
     "coordInvalid": "Informe assim: latitude, longitude",
+    "drawHelpOff": "Arraste pra navegar no mapa. Pra marcar, escolha uma opção acima.",
     "coordOutside": "Esse ponto fica fora da região de Porto Alegre — confira os números.",
     "risks": "Riscos",
     "hazardFlood": "Enchente",
