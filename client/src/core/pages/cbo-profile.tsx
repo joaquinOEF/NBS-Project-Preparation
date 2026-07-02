@@ -399,6 +399,9 @@ export default function CboProfilePage() {
   // Cohort membership: if `?cbo=<memberSlug>` is in the URL, this CBO is part
   // of a coordinator-managed cohort and the coordinator gates phase access.
   const [memberSlug, setMemberSlug] = useState<string | null>(null);
+  // A turn whose SSE stream dropped/stalled — holds the original message text
+  // so a "Tentar de novo" tap can resend it (hidden — no duplicate user bubble).
+  const [streamRetry, setStreamRetry] = useState<string | null>(null);
   // Invite-link resolution failure — 'invalid-token' (404/empty) vs 'network'
   // (timeout/offline/5xx). Renders a retryable error card instead of the bare
   // infinite spinner; the 30s poll + focus refetch self-heal it when transient.
@@ -974,12 +977,25 @@ export default function CboProfilePage() {
     if (!cboId || !text.trim() || isStreaming) return;
     setInput('');
     setActiveQuestions([]);
+    setStreamRetry(null);
     // displayText lets the chat bubble show a clean summary while the agent
     // still receives the full technical `text` (map selection risk summary).
     if (!hidden) setMessages(prev => [...prev, { role: 'user', content: displayText ?? text, messageType: 'content', timestamp: new Date().toISOString(), viaVoice }]);
     setIsStreaming(true);
+    // Inactivity watchdog. On patchy mobile data the SSE socket can stall
+    // silently — reader.read() then hangs forever, isStreaming stays true, and
+    // the user faces a frozen "Processando…" with no way out. If no chunk
+    // arrives for 60s (well beyond the slowest tool roundtrip), abort and offer
+    // a retry instead.
+    const ctrl = new AbortController();
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
+    const armWatchdog = () => {
+      clearTimeout(watchdog);
+      watchdog = setTimeout(() => ctrl.abort(), 60_000);
+    };
     try {
-      const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang, turnKind }) });
+      armWatchdog();
+      const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang, turnKind }), signal: ctrl.signal });
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -987,16 +1003,30 @@ export default function CboProfilePage() {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+          armWatchdog();
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
           buffer = lines.pop() || '';
           for (const line of lines) { if (line.startsWith('data: ')) { try { processEvent(JSON.parse(line.slice(6))); } catch {} } }
         }
       }
-    } catch (e: any) { setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); }
+    } catch {
+      // Dropped/stalled stream — a human, localized message + a self-service
+      // retry (resends the same message hidden, so no duplicate user bubble).
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: lang === 'pt'
+          ? 'A conexão caiu no meio da resposta. Toque em "Tentar de novo" que eu retomo daqui.'
+          : 'The connection dropped mid-response. Tap "Try again" and I\'ll pick it up.',
+        messageType: 'content', timestamp: new Date().toISOString(),
+      }]);
+      setStreamRetry(text);
+    } finally {
+      clearTimeout(watchdog);
+    }
     setIsStreaming(false);
     setCompletedTurns(n => n + 1);
-  }, [cboId, isStreaming, processEvent]);
+  }, [cboId, isStreaming, processEvent, lang]);
 
   // MC selection
   const handleSelectOption = useCallback((label: string) => {
@@ -1758,6 +1788,19 @@ export default function CboProfilePage() {
               <div className="flex items-start gap-1.5 mb-1.5 text-[11px] text-amber-700">
                 <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
                 <span>{voiceError}</span>
+              </div>
+            )}
+            {streamRetry && !isStreaming && (
+              <div className="mb-1.5">
+                <Button
+                  size="sm"
+                  className="w-full h-9 bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                  data-testid="cbo-stream-retry"
+                  onClick={() => { const msg = streamRetry; setStreamRetry(null); sendMessage(msg, true); }}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  {lang === 'pt' ? 'Tentar de novo' : 'Try again'}
+                </Button>
               </div>
             )}
             <form onSubmit={(e) => { e.preventDefault(); if (currentQuestion && input.trim()) { handleSelectOption(input.trim()); setInput(''); } else sendMessage(input, false, false, undefined, 'text'); }} className="flex gap-2">
