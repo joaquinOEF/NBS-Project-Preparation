@@ -367,6 +367,27 @@ export default function CboProfilePage() {
   const handleSelectRef = useRef<(label: string) => void>(() => {});
 
   const currentQuestion = activeQuestions[currentQuestionIdx] || null;
+
+  // Restore a pending prompt from the transcript (PERSIST-PROMPTS). The server
+  // persists every user-prompting tool as a `composer` message; if the LAST
+  // transcript message is one of those — i.e. the user never answered — rebuild
+  // the live prompt state the SSE event would have set, so a reload lands the
+  // user back on the exact question instead of a dead transcript.
+  const hydrateMessages = useCallback((msgs: CboChatMessage[]) => {
+    setMessages(msgs);
+    const last = msgs[msgs.length - 1];
+    if (!last || last.role !== 'assistant' || last.messageType !== 'composer') return;
+    let parsed: any = null;
+    try { parsed = JSON.parse(last.content); } catch { return; }
+    if (parsed?.kind === 'ask_user' && parsed.question) {
+      setActiveQuestions([{ id: 'q_restored', question: parsed.question, options: parsed.options ?? [], multiSelect: parsed.multiSelect, relatedSections: parsed.relatedSections } as any]);
+      setCurrentQuestionIdx(0); setQuestionAnswers({}); setSelectedOptionIdx(0);
+    } else if (parsed?.kind === 'priority' && parsed.prompt) {
+      setPriorityRankPrompt({ prompt: parsed.prompt, minRanked: parsed.minRanked ?? 2 });
+    } else if (parsed?.kind === 'anchoring' && parsed.prompt) {
+      setAnchoringPrompt({ prompt: parsed.prompt });
+    }
+  }, []);
   const totalQuestions = activeQuestions.length;
   const [highlightedSections, setHighlightedSections] = useState<string[]>([]);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -454,7 +475,7 @@ export default function CboProfilePage() {
           setCboId(candidate);
           setState(migrateCboState(data.state));
           const msgRes = await fetch(`/api/cbo/${candidate}/messages`);
-          if (msgRes.ok) { const msgs = await msgRes.json(); if (msgs.length) setMessages(msgs); }
+          if (msgRes.ok) { const msgs = await msgRes.json(); if (msgs.length) hydrateMessages(msgs); }
           saveId(candidate); // converge the same-device cache onto the server id
           return;
         }
@@ -694,7 +715,7 @@ export default function CboProfilePage() {
             setCboId(saved);
             setState(migrateCboState(data.state));
             const msgRes = await fetch(`/api/cbo/${saved}/messages`);
-            if (msgRes.ok) { const msgs = await msgRes.json(); if (msgs.length) setMessages(msgs); }
+            if (msgRes.ok) { const msgs = await msgRes.json(); if (msgs.length) hydrateMessages(msgs); }
             return;
           }
           // 404 means the cached id points at a CBO that no longer exists on the
@@ -1334,6 +1355,22 @@ export default function CboProfilePage() {
                     </div>
                   );
                 }
+                if (parsed.kind === 'ask_user' && parsed.question) {
+                  // A persisted question. While it's PENDING (trailing message,
+                  // live card showing) render nothing — the interactive card is
+                  // the surface. Once ANSWERED (a later message follows), render
+                  // the question as a plain agent bubble so the transcript reads
+                  // as Q→A instead of an answer to nothing (chip turns have no
+                  // other agent text by design).
+                  if (i === messages.length - 1 && currentQuestion) return null;
+                  return (
+                    <div key={i} className="flex justify-start">
+                      <div className="max-w-[90%] rounded-lg px-4 py-2.5 bg-muted">
+                        <p className="text-sm">{parsed.question}</p>
+                      </div>
+                    </div>
+                  );
+                }
                 return null;
               }
               const uploadName = msg.role === 'user' ? parseUploadFilename(msg.content) : null;
@@ -1473,7 +1510,9 @@ export default function CboProfilePage() {
                    buildPhaseInstructions fallback. */}
             {(() => {
               if (isStreaming || !stableStreamEnded || messages.length === 0 || state.phase === 0) return null;
-              if (currentQuestion) return null;
+              // ANY live affordance suppresses the banner — not just ask_user.
+              // Rank/anchoring/map composers previously co-rendered with it.
+              if (currentQuestion || priorityRankPrompt || anchoringPrompt || openMapParams || interventionSelectorParams) return null;
 
               // Forward-progress gate — the phase must be complete before we
               // offer the next workshop. Uses the shared phaseComplete() predicate
@@ -1550,7 +1589,11 @@ export default function CboProfilePage() {
               // `stableStreamEnded` guards against the SSE-batch race where
               // `done` arrives before `ask_user` and the gate briefly thinks
               // the agent is finished but stranded. See state declaration.
-              if (isStreaming || !stableStreamEnded || state.phase === 0 || currentQuestion || messages.length === 0) return null;
+              // ANY pending affordance suppresses the resume block — the old
+              // currentQuestion-only check let "Continuar da Fase X" render
+              // UNDER a live rank/anchoring/map composer (tapping it derails).
+              if (isStreaming || !stableStreamEnded || state.phase === 0 || messages.length === 0) return null;
+              if (currentQuestion || priorityRankPrompt || anchoringPrompt || openMapParams || interventionSelectorParams) return null;
               const lastContent = [...messages].reverse().find(m => m.messageType === 'content');
               const agentOwesResponse = !lastContent || lastContent.role === 'user';
               if (state.phase < 6 && !agentOwesResponse) return null;
