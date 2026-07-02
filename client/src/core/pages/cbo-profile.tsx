@@ -378,6 +378,11 @@ export default function CboProfilePage() {
   // Cohort membership: if `?cbo=<memberSlug>` is in the URL, this CBO is part
   // of a coordinator-managed cohort and the coordinator gates phase access.
   const [memberSlug, setMemberSlug] = useState<string | null>(null);
+  // Invite-link resolution failure — 'invalid-token' (404/empty) vs 'network'
+  // (timeout/offline/5xx). Renders a retryable error card instead of the bare
+  // infinite spinner; the 30s poll + focus refetch self-heal it when transient.
+  const [sessionError, setSessionError] = useState<'invalid-token' | 'network' | null>(null);
+  const [viaInviteLink, setViaInviteLink] = useState(false);
   const [memberInfo, setMemberInfo] = useState<{ orgName: string; neighborhood: string | null } | null>(null);
   // Project-readiness triage from E1: 'has-project' | 'has-idea' | 'needs-help'
   // | null (until triaged). has-project + has-idea are project-forward.
@@ -484,6 +489,7 @@ export default function CboProfilePage() {
     const token = params.get('t');
     const slugParam = params.get('cbo');
     if (!token && !slugParam) return;
+    setViaInviteLink(true);
     const memberUrl = token
       ? `/api/cbo-member/by-token/${token}`
       : `/api/cbo-member/${slugParam}`;
@@ -514,22 +520,30 @@ export default function CboProfilePage() {
       applyMember(data);
       // Recover session resolution if the initial fetch failed (transient
       // network) and left initRef unset; idempotent once resolved.
-      if (data) resolveSession(data.cboStateId ?? null);
+      if (data) { setSessionError(null); resolveSession(data.cboStateId ?? null); }
     }).catch(() => {});
 
-    fetch(memberUrl)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        applyMember(data);
-        if (data) {
-          setWelcomeMode(true);
-          // Resolve the working session from the server binding — this is what
-          // makes the token link device-independent. Guarded by initRef so the
-          // focus/poll refetch (which also calls applyMember) never re-resolves.
-          resolveSession(data.cboStateId ?? null);
-        }
+    // First fetch of the invite. Failure must NOT leave the user on a bare
+    // infinite spinner (the field case: WhatsApp link opened on patchy mobile
+    // data, or a mistyped/expired token) — surface a distinct, retryable state.
+    fetch(memberUrl, { signal: AbortSignal.timeout(15_000) })
+      .then(r => {
+        if (r.ok) return r.json();
+        throw new Error(r.status === 404 ? 'invalid-token' : 'network');
       })
-      .catch(() => {});
+      .then(data => {
+        if (!data) throw new Error('invalid-token');
+        setSessionError(null);
+        applyMember(data);
+        setWelcomeMode(true);
+        // Resolve the working session from the server binding — this is what
+        // makes the token link device-independent. Guarded by initRef so the
+        // focus/poll refetch (which also calls applyMember) never re-resolves.
+        resolveSession(data.cboStateId ?? null);
+      })
+      .catch((e: any) => {
+        setSessionError(e?.message === 'invalid-token' ? 'invalid-token' : 'network');
+      });
 
     // Re-fetch on tab focus so coordinator unlocks propagate without a manual reload.
     window.addEventListener('focus', refetch);
@@ -1083,7 +1097,40 @@ export default function CboProfilePage() {
 
   const filledCount = useMemo(() => state ? Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length : 0, [state]);
 
-  if (!state) return <div className="flex items-center justify-center h-[100dvh]"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
+  if (!state) {
+    // Invite link failed to resolve — never leave the user on a bare spinner.
+    if (viaInviteLink && sessionError) {
+      const pt = lang === 'pt';
+      const invalid = sessionError === 'invalid-token';
+      return (
+        <div className="flex items-center justify-center h-[100dvh] px-6">
+          <div className="max-w-sm text-center space-y-3" data-testid="cbo-invite-error">
+            <p className="text-3xl">{invalid ? '🔗' : '📶'}</p>
+            <h2 className="text-lg font-semibold">
+              {invalid
+                ? (pt ? 'Este convite não foi encontrado' : 'This invite was not found')
+                : (pt ? 'Não conseguimos conectar' : 'We couldn’t connect')}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {invalid
+                ? (pt
+                  ? 'O link pode estar incompleto ou ter sido substituído. Confira a mensagem original ou peça um novo link pra quem convidou vocês.'
+                  : 'The link may be incomplete or replaced. Check the original message or ask your coordinator for a new link.')
+                : (pt
+                  ? 'Parece um problema de conexão. Verifique a internet do celular e tente de novo.'
+                  : 'This looks like a connection problem. Check your phone’s internet and try again.')}
+            </p>
+            {!invalid && (
+              <Button onClick={() => window.location.reload()} className="bg-emerald-600 hover:bg-emerald-700" data-testid="cbo-invite-retry">
+                {pt ? 'Tentar de novo' : 'Try again'}
+              </Button>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return <div className="flex items-center justify-center h-[100dvh]"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
+  }
 
   // Cohort welcome screen — only when the user arrived via an invite and
   // hasn't dismissed the welcome. Replaces the entire chrome with a calm,
