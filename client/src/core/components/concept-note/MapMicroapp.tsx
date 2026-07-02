@@ -125,7 +125,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const [siteSearching, setSiteSearching] = useState(false);
   const [siteResults, setSiteResults] = useState<Array<{ name: string; centroid: [number, number] }>>([]);
   const [coordInput, setCoordInput] = useState('');
-  const [coordError, setCoordError] = useState(false);
+  const [coordError, setCoordError] = useState<false | 'format' | 'outside'>(false);
 
   const selectionMode = params.selectionMode;
   const isComposite = selectionMode === 'composite';
@@ -763,10 +763,28 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   }, [siteQuery, zoneBbox]);
 
   const addByCoordinate = useCallback(async () => {
-    const parts = coordInput.trim().split(/[,\s]+/).filter(Boolean);
-    const lat = parseFloat(parts[0]); const lng = parseFloat(parts[1]);
-    if (parts.length < 2 || isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      setCoordError(true);
+    // Accept Brazilian decimal-comma input — the PT placeholder itself teaches
+    // "-30,03, -51,22", which the old split-on-comma parser mangled into
+    // lat -30 / lng 3 (a point in the ocean, silently accepted). Extract signed
+    // numeric tokens where ",digits" binds as a decimal separator, and
+    // recombine the space-split "lat, frac, lng, frac" shape.
+    const tokens = coordInput.match(/-?\d+(?:[.,]\d+)?/g) ?? [];
+    const num = (s: string) => parseFloat(s.replace(',', '.'));
+    let lat = NaN, lng = NaN;
+    if (tokens.length === 2) {
+      lat = num(tokens[0]); lng = num(tokens[1]);
+    } else if (tokens.length === 4 && /^\d+$/.test(tokens[1]) && /^\d+$/.test(tokens[3])) {
+      lat = num(`${tokens[0]}.${tokens[1]}`); lng = num(`${tokens[2]}.${tokens[3]}`);
+    }
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      setCoordError('format');
+      return;
+    }
+    // Sanity net: this map is Porto Alegre — a coordinate outside the metro
+    // region is almost certainly a typo/mis-paste, and would otherwise be
+    // persisted as the org's site with no visible feedback.
+    if (lat < -31.5 || lat > -29.2 || lng < -52.5 || lng > -50.2) {
+      setCoordError('outside');
       return;
     }
     setCoordError(false);
@@ -1026,7 +1044,11 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
                 </Button>
               </div>
               {coordError && (
-                <p className="text-[10px] text-red-500">{t('mapMicroapp.coordInvalid', { defaultValue: 'Enter as: latitude, longitude' })}</p>
+                <p className="text-[10px] text-red-500" data-testid="map-coord-error">
+                  {coordError === 'outside'
+                    ? t('mapMicroapp.coordOutside', { defaultValue: 'That point is outside the Porto Alegre region — double-check the numbers.' })
+                    : t('mapMicroapp.coordInvalid', { defaultValue: 'Enter as: latitude, longitude' })}
+                </p>
               )}
             </div>
           )}
