@@ -2030,7 +2030,10 @@
     },
     "cohortWelcomePrefix": "Bem-vindo(a),",
     "cohortPhasesUnlocked": "Seções abertas: {{phases}}",
-    "phaseLocked": "Seu coordenador vai abrir esta seção depois do próximo encontro."
+    "phaseLocked": "Seu coordenador vai abrir esta seção depois do próximo encontro.",
+    "selectAllThatApply": "(pode marcar várias)",
+    "recommended": "recomendado",
+    "confirmSelected": "Confirmar {{n}}"
   },
   "mapMicroapp": {
     "tourNext": "Próximo risco",
@@ -2059,6 +2062,7 @@
     "addPin": "Adicionar",
     "coordInvalid": "Informe assim: latitude, longitude",
     "drawHelpOff": "Arraste pra navegar no mapa. Pra marcar, escolha uma opção acima.",
+    "coordOutside": "Esse ponto fica fora da região de Porto Alegre — confira os números.",
     "risks": "Riscos",
     "hazardFlood": "Enchente",
     "hazardHeat": "Calor",
@@ -2082,7 +2086,18 @@
     "sites": "Locais",
     "nextSites": "Próximo: Selecionar locais",
     "loading": "Carregando...",
-    "clickToSelect": "clique para selecionar"
+    "clickToSelect": "clique para selecionar",
+    "tipPriority": "Prioridade",
+    "tipPoverty": "Pobreza",
+    "tipPeople": "pessoas",
+    "loadingNeighborhoods": "Carregando bairros…",
+    "loadingPlaces": "Buscando lugares próximos…",
+    "loadingAnalysis": "Rodando análise…",
+    "loadingSites": "Carregando locais…",
+    "customSite": "Local marcado",
+    "customPointName": "Ponto marcado",
+    "customAreaName": "Área desenhada ({{n}} pontos)",
+    "siteName": "Local"
   },
   "files": {
     "title": "Arquivos",
