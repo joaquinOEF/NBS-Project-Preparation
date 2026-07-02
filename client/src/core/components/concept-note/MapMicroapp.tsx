@@ -254,7 +254,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     if (selectionMode !== 'zones' && selectionMode !== 'composite') return;
     const map = mapRef.current;
 
-    setLoadingStatus('Loading neighborhoods...');
+    setLoadingStatus(t('mapMicroapp.loadingNeighborhoods', { defaultValue: 'Loading neighborhoods...' }));
     (async () => {
       try {
         const url = zoneSource === 'neighborhoods'
@@ -313,14 +313,20 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
               const poverty = p.povertyRate != null ? `${(p.povertyRate * 100).toFixed(1)}%` : p.poverty_rate != null ? `${(p.poverty_rate * 100).toFixed(1)}%` : '?';
               const hc = p.primaryHazard === 'FLOOD' ? '#3b82f6' : p.primaryHazard === 'HEAT' ? '#ef4444' : p.primaryHazard === 'LANDSLIDE' ? '#a16207' : '#888';
               const hazardLine = p.primaryHazard ? `<span style="color:${hc}">${p.typologyLabel}</span> — ${(p.interventionType || '').replace(/_/g, ' ')}<br/>` : '';
-              const priorityLine = p.priorityScore != null ? `Priority: <strong>${p.priorityScore.toFixed(2)}</strong><br/>` : '';
-              // Within-city percentile band per hazard (comparable across hazards; see risk-display.ts)
+              const priorityLine = p.priorityScore != null ? `${t('mapMicroapp.tipPriority', { defaultValue: 'Priority' })}: <strong>${p.priorityScore.toFixed(2)}</strong><br/>` : '';
+              // Within-city percentile band per hazard (comparable across hazards;
+              // see risk-display.ts). Labels + band names localized — PT users saw
+              // raw "Flood: High" in the tooltip.
               const bandSpan = (hz: HazardKey, label: string) => {
                 const pct = hazardPercentile(p, hz);
                 const band = riskBand(pct);
-                return `${label}: <strong style="color:${band.color}">${band.label} (${pct})</strong>`;
+                return `${label}: <strong style="color:${band.color}">${t(`riskBands.${band.key}`, { defaultValue: band.label })} (${pct})</strong>`;
               };
-              const riskLine = [bandSpan('flood', 'Flood'), bandSpan('heat', 'Heat'), bandSpan('landslide', 'Landslide')].join(' · ');
+              const riskLine = [
+                bandSpan('flood', t('mapMicroapp.hazardFlood', { defaultValue: 'Flood' })),
+                bandSpan('heat', t('mapMicroapp.hazardHeat', { defaultValue: 'Heat' })),
+                bandSpan('landslide', t('mapMicroapp.hazardLandslide', { defaultValue: 'Landslide' })),
+              ].join(' · ');
               // Catalog flood H×E×V breakdown (hazard·exposure·vulnerability)
               const fhxv = p.meanFloodHazard != null
                 ? `<span style="color:#888">Flood H·E·V: ${(p.meanFloodHazard * 100).toFixed(0)}·${((p.meanFloodExposure ?? 0) * 100).toFixed(0)}·${((p.meanFloodVulnerability ?? 0) * 100).toFixed(0)}</span><br/>`
@@ -329,13 +335,13 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
                 `<div style="font-size:11px"><strong>${name}</strong><br/>` +
                 hazardLine + (riskLine ? riskLine + '<br/>' : '') + fhxv + priorityLine +
                 `${pop} hab. · ${(p.areaKm2 || p.area_km2)?.toFixed(1) || '?'} km²<br/>` +
-                `<span style="color:#888">Poverty: ${poverty}</span></div>`,
+                `<span style="color:#888">${t('mapMicroapp.tipPoverty', { defaultValue: 'Poverty' })}: ${poverty}</span></div>`,
                 { sticky: true }
               );
             } else if (zoneSource === 'intervention_zones') {
               const hc = p.primaryHazard === 'FLOOD' ? '#3b82f6' : p.primaryHazard === 'HEAT' ? '#ef4444' : '#a16207';
               featureLayer.bindTooltip(
-                `<div style="font-size:11px"><strong>${p.zoneId}</strong><br/><span style="color:${hc}">${p.typologyLabel}</span> — ${(p.interventionType || '').replace(/_/g, ' ')}<br/>${p.areaKm2?.toFixed(1)} km² · ${p.populationSum?.toLocaleString() || '?'} people</div>`,
+                `<div style="font-size:11px"><strong>${p.zoneId}</strong><br/><span style="color:${hc}">${p.typologyLabel}</span> — ${(p.interventionType || '').replace(/_/g, ' ')}<br/>${p.areaKm2?.toFixed(1)} km² · ${p.populationSum?.toLocaleString() || '?'} ${t('mapMicroapp.tipPeople', { defaultValue: 'people' })}</div>`,
                 { sticky: true }
               );
             }
@@ -408,7 +414,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         const osmDef = OSM_LAYERS.find(l => l.id === osmId);
         if (!osmDef) continue;
         const visual = OSM_VISUALS[osmId] || { emoji: '📍', label: 'Feature' };
-        setLoadingStatus(`Fetching ${osmDef.name}...`);
+        setLoadingStatus(t('mapMicroapp.loadingPlaces', { defaultValue: 'Finding nearby places…' }));
         try {
           const res = await fetch(osmDef.endpoint);
           if (!res.ok) continue;
@@ -428,7 +434,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
               const name = p.name || p.amenity || p.leisure || p.natural || visual.label;
 
               featureLayer.bindTooltip(
-                `<div style="font-size:11px"><strong>${visual.emoji} ${name}</strong><br/><span style="color:#888">${visual.label} — click to select</span></div>`,
+                `<div style="font-size:11px"><strong>${visual.emoji} ${name}</strong><br/><span style="color:#888">${visual.label} — ${t('mapMicroapp.clickToSelect', { defaultValue: 'click to select' })}</span></div>`,
                 { sticky: true }
               );
 
@@ -481,7 +487,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       for (const sqId of params.spatialQueries || []) {
         const queryDef = SPATIAL_QUERIES.find(q => q.id === sqId);
         if (!queryDef) continue;
-        setLoadingStatus(`Running ${queryDef.name}...`);
+        setLoadingStatus(t('mapMicroapp.loadingAnalysis', { defaultValue: 'Running analysis…' }));
         try {
           const result = await buildSpatialQueryLayer(queryDef);
           if (result) result.layer.addTo(map);
@@ -512,7 +518,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
     setCompositeStep('assets');
     setLoading(true);
-    setLoadingStatus('Loading sites...');
+    setLoadingStatus(t('mapMicroapp.loadingSites', { defaultValue: 'Loading sites...' }));
   }, [selectedAssets]);
 
   const backToZones = useCallback(() => {
@@ -629,11 +635,11 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
           if (val !== null) rasterValues[tileDef.name] = val;
         }
         const marker = L.circleMarker([lat, lng], { radius: 8, color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.8, weight: 2 });
-        marker.bindTooltip('Custom site', { permanent: false });
+        marker.bindTooltip(t('mapMicroapp.customSite', { defaultValue: 'Custom site' }), { permanent: false });
         marker.addTo(map);
         customMarkersRef.current.push(marker);
         setSelectedAssets(prev => [...prev, {
-          type: 'custom', name: `Custom point (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+          type: 'custom', name: `${t('mapMicroapp.customPointName', { defaultValue: 'Custom point' })} (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
           coordinates: [lat, lng], properties: {}, rasterValues,
         }]);
         setDrawMode('off');
@@ -674,7 +680,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         }
       }
       setSelectedAssets(prev => [...prev, {
-        type: 'custom', name: `Custom area (${polygonPointsRef.current.length} vertices)`,
+        type: 'custom', name: t('mapMicroapp.customAreaName', { defaultValue: 'Custom area ({{n}} vertices)', n: polygonPointsRef.current.length }),
         geometry, coordinates: centroid || [polygonPointsRef.current[0].lat, polygonPointsRef.current[0].lng],
         properties: {}, rasterValues,
       }]);
@@ -788,7 +794,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       return;
     }
     setCoordError(false);
-    await addCustomSite(lat, lng, `Site (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+    await addCustomSite(lat, lng, `${t('mapMicroapp.siteName', { defaultValue: 'Site' })} (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
     setCoordInput('');
     setAddSiteOpen(false);
   }, [coordInput, addCustomSite]);

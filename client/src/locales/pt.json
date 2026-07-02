@@ -2030,7 +2030,10 @@
     },
     "cohortWelcomePrefix": "Bem-vindo(a),",
     "cohortPhasesUnlocked": "Seções abertas: {{phases}}",
-    "phaseLocked": "Seu coordenador vai abrir esta seção depois do próximo encontro."
+    "phaseLocked": "Seu coordenador vai abrir esta seção depois do próximo encontro.",
+    "selectAllThatApply": "(pode marcar várias)",
+    "recommended": "recomendado",
+    "confirmSelected": "Confirmar {{n}}"
   },
   "mapMicroapp": {
     "tourNext": "Próximo risco",
@@ -2082,7 +2085,18 @@
     "sites": "Locais",
     "nextSites": "Próximo: Selecionar locais",
     "loading": "Carregando...",
-    "clickToSelect": "clique para selecionar"
+    "clickToSelect": "clique para selecionar",
+    "tipPriority": "Prioridade",
+    "tipPoverty": "Pobreza",
+    "tipPeople": "pessoas",
+    "loadingNeighborhoods": "Carregando bairros…",
+    "loadingPlaces": "Buscando lugares próximos…",
+    "loadingAnalysis": "Rodando análise…",
+    "loadingSites": "Carregando locais…",
+    "customSite": "Local marcado",
+    "customPointName": "Ponto marcado",
+    "customAreaName": "Área desenhada ({{n}} pontos)",
+    "siteName": "Local"
   },
   "files": {
     "title": "Arquivos",

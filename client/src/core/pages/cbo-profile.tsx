@@ -952,7 +952,7 @@ export default function CboProfilePage() {
         setIsStreaming(false);
         break;
       case 'done': setIsStreaming(false); break;
-      case 'error': setIsStreaming(false); setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${event.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); break;
+      case 'error': setIsStreaming(false); setMessages(prev => [...prev, { role: 'assistant', content: `${i18n.resolvedLanguage === 'pt' ? 'Erro' : 'Error'}: ${event.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); break;
     }
   }, []);
 
@@ -1269,8 +1269,8 @@ export default function CboProfilePage() {
             <div className="absolute inset-0 z-50 bg-green-500/10 border-2 border-dashed border-green-500 rounded-lg flex items-center justify-center backdrop-blur-sm">
               <div className="text-center">
                 <Download className="w-10 h-10 text-green-600 mx-auto mb-2" />
-                <p className="text-sm font-medium text-green-700">Drop your document here</p>
-                <p className="text-xs text-muted-foreground">Reports, plans, photos, proposals</p>
+                <p className="text-sm font-medium text-green-700">{lang === 'pt' ? 'Solte seu documento aqui' : 'Drop your document here'}</p>
+                <p className="text-xs text-muted-foreground">{lang === 'pt' ? 'Relatórios, planos, fotos, propostas' : 'Reports, plans, photos, proposals'}</p>
               </div>
             </div>
           )}
@@ -1553,7 +1553,7 @@ export default function CboProfilePage() {
                         </button>
                       ))}
                     </div>
-                    <span>Question {currentQuestionIdx + 1} of {totalQuestions} · Tab to cycle</span>
+                    <span>{lang === 'pt' ? `Pergunta ${currentQuestionIdx + 1} de ${totalQuestions} · Tab pra alternar` : `Question ${currentQuestionIdx + 1} of ${totalQuestions} · Tab to cycle`}</span>
                   </div>
                 )}
 
@@ -2186,6 +2186,7 @@ function CboQuestionCard({
   onMultiToggle?: (label: string) => void;
   onMultiConfirm?: () => void;
 }) {
+  const { t } = useTranslation();
   const isMulti = question.multiSelect;
   const multiSet = multiSelected || new Set<string>();
 
@@ -2204,7 +2205,7 @@ function CboQuestionCard({
         <div className="text-sm font-medium prose prose-sm max-w-none flex-1">
           {questionNumber && <span className="text-muted-foreground mr-1">{questionNumber}.</span>}
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{question.question}</ReactMarkdown>
-          {isMulti && <span className="text-[10px] text-muted-foreground ml-1">(select all that apply)</span>}
+          {isMulti && <span className="text-[10px] text-muted-foreground ml-1">{t('cbo.selectAllThatApply', { defaultValue: '(select all that apply)' })}</span>}
         </div>
         {answeredValue && (
           <span className="shrink-0 inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded">
@@ -2233,7 +2234,7 @@ function CboQuestionCard({
               <div className="flex-1">
                 <span className="font-medium">{opt.label}</span>
                 {opt.description && <span className="text-muted-foreground ml-1">{opt.description}</span>}
-                {opt.recommended && <span className="ml-1.5 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded"><Star className="w-2.5 h-2.5 inline" /> recommended</span>}
+                {opt.recommended && <span className="ml-1.5 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded"><Star className="w-2.5 h-2.5 inline" /> {t('cbo.recommended', { defaultValue: 'recommended' })}</span>}
               </div>
             </button>
           );
@@ -2241,7 +2242,7 @@ function CboQuestionCard({
       </div>
       {isMulti && multiSet.size > 0 && !answeredValue && (
         <Button size="sm" onClick={onMultiConfirm} disabled={disabled} className="w-full h-8 text-xs gap-1 bg-green-600 hover:bg-green-700">
-          <Check className="w-3 h-3" /> Confirm {multiSet.size} selected
+          <Check className="w-3 h-3" /> {t('cbo.confirmSelected', { defaultValue: 'Confirm {{n}} selected', n: multiSet.size })}
         </Button>
       )}
     </div>
