@@ -1188,7 +1188,7 @@ export default function CboProfilePage() {
       <div className="flex flex-1 min-h-0">
         {/* LEFT: Chat — full width on mobile (when Chat tab active), half on md+ */}
         <div
-          className={`w-full md:w-1/2 md:border-r md:flex flex-col relative ${
+          className={`w-full md:w-1/2 min-w-0 md:border-r md:flex flex-col relative ${
             mobileActiveTab === 'chat' ? 'flex' : 'hidden'
           }`}
           {...dragHandlers}
@@ -1288,7 +1288,11 @@ export default function CboProfilePage() {
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {/* overflow-x-hidden + the column's min-w-0: without them the NBS
+              type/example strips' min-content width escapes the flex chain and
+              drags the WHOLE page sideways on a phone (header cut off, question
+              card clipped) — the strips scroll internally (overflow-x-auto). */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3">
             {messages.length === 0 && state.phase === 0 && (
               <div className="text-center text-muted-foreground py-8 sm:py-10 max-w-xs sm:max-w-sm mx-auto px-2">
                 <div className="inline-flex w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 items-center justify-center mb-3 sm:mb-4">
