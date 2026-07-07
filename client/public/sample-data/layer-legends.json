@@ -131,6 +131,84 @@
     "source": "sampled",
     "note": "colors recovered from tiles"
   },
+  "poa_heat_hazard": {
+    "layerId": "poa_heat_hazard",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.239,
+        "color": "#addc70"
+      },
+      {
+        "value": 0.319,
+        "color": "#bae27d"
+      },
+      {
+        "value": 0.399,
+        "color": "#daef9c"
+      },
+      {
+        "value": 0.479,
+        "color": "#fff8b6"
+      },
+      {
+        "value": 0.559,
+        "color": "#feeaa7"
+      },
+      {
+        "value": 0.639,
+        "color": "#fed088"
+      },
+      {
+        "value": 0.719,
+        "color": "#fdbd72"
+      }
+    ],
+    "min": 0.239,
+    "max": 0.719,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
+  "poa_landslide_hazard": {
+    "layerId": "poa_landslide_hazard",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.007,
+        "color": "#289f53"
+      },
+      {
+        "value": 0.071,
+        "color": "#41aa57"
+      },
+      {
+        "value": 0.136,
+        "color": "#64ba5e"
+      },
+      {
+        "value": 0.2,
+        "color": "#89cb65"
+      },
+      {
+        "value": 0.264,
+        "color": "#a7d96b"
+      },
+      {
+        "value": 0.329,
+        "color": "#bfe482"
+      },
+      {
+        "value": 0.393,
+        "color": "#d7ee99"
+      }
+    ],
+    "min": 0.007,
+    "max": 0.393,
+    "source": "sampled",
+    "note": "colors recovered from tiles"
+  },
   "oef_dynamic_world": {
     "layerId": "oef_dynamic_world",
     "kind": "classes",
