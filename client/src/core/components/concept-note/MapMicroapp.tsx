@@ -216,7 +216,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       const isSelected = selectedAssetsRef.current.some(a => a.type === 'zone' && a.name === name);
       const el = layer.getElement?.();
       if (zoneDisplayMode === 'outline') {
-        layer.setStyle({ color: '#64748b', weight: 0.7, opacity: 0.7, fillOpacity: 0, dashArray: undefined });
+        layer.setStyle({ color: '#1e293b', weight: 1.2, opacity: 0.85, fillOpacity: 0, dashArray: undefined });
         layer.closeTooltip?.();
         if (el) el.style.pointerEvents = 'none';
       } else if (zoneDisplayMode === 'focus') {
