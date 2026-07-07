@@ -1095,12 +1095,26 @@ export default function CboProfilePage() {
   // user-side trigger — keep it minimal so it doesn't compete with or
   // contradict the system prompt. In particular: do NOT name a specific
   // skill or restate per-turn rules here; let the system prompt drive.
-  const kickoffChat = useCallback(() => {
+  const kickoffChat = useCallback(async () => {
+    // Instant kickoff (W1 latency pack, P2): turn 1 is deterministic, so the
+    // server serves it from a template with zero model time. Falls back to the
+    // model turn if the transcript isn't virgin (resume, race) or on error.
+    try {
+      const r = await fetch(`/api/cbo/${cboId}/kickoff`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang }),
+      });
+      const data = await r.json();
+      if (data?.ok && data.message) {
+        setMessages(prev => [...prev, data.message]);
+        return;
+      }
+    } catch {}
     const text = lang === 'pt'
       ? "Vamos começar."
       : "Let's begin.";
     sendMessage(text, true, false, undefined, 'system');
-  }, [lang, sendMessage]);
+  }, [cboId, lang, sendMessage]);
 
   // File drop handler
   const { isDragging, isUploading, dragHandlers } = useFileDrop({
