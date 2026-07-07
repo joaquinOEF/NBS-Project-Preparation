@@ -237,11 +237,12 @@ function createCboMcpTools(cboId: string) {
 
   const updateSection = sdkTool(
     "update_section",
-    "Update a field in the CBO intervention profile. The document panel updates in real-time.",
+    "Update fields in the CBO intervention profile (document panel updates live). PREFERRED: pass ALL of a turn's fields for a section in ONE call via `fields` — never one call per field.",
     {
       sectionId: z.string().describe("Section ID: org_profile, intervention_site, intervention_type, impact_monitoring, operations_sustain, needs_assessment, results_evidence"),
-      field: z.string().describe("Field name"),
-      value: z.string().describe("Content to set"),
+      fields: z.record(z.string()).optional().describe("PREFERRED: { fieldName: value, … } — every field this turn captured, in one call"),
+      field: z.string().optional().describe("Single-field form (legacy)"),
+      value: z.string().optional().describe("Single-field form (legacy)"),
       confidence: z.enum(["high", "medium", "low"]).default("medium"),
       source: z.string().optional(),
     },
@@ -253,25 +254,40 @@ function createCboMcpTools(cboId: string) {
       }
       const section = state.sections[args.sectionId as keyof typeof state.sections];
       if (!section) return { content: [{ type: "text" as const, text: `Unknown section: ${args.sectionId}` }], isError: true };
+
+      // Multi-field form (preferred — one call per turn) or legacy single-field.
+      const entries: [string, string][] = args.fields && Object.keys(args.fields).length > 0
+        ? Object.entries(args.fields).map(([k, v]) => [k, String(v)] as [string, string])
+        : (args.field != null && args.value != null ? [[String(args.field), String(args.value)]] : []);
+      if (entries.length === 0) {
+        return { content: [{ type: "text" as const, text: "Nothing to update: pass `fields: { name: value, … }` (preferred) or `field` + `value`." }], isError: true };
+      }
       if (args.sectionId === 'org_profile') {
         // Foolproofing (Ana 2026-07-07): invented field names ("current_leadership")
         // land facts in chat that never reach the document, and machine enum ids
         // ("funded") leak to the user raw. Reject the former, canonicalize the latter.
-        if (!isKnownOrgProfileField(args.field)) {
-          return { content: [{ type: "text" as const, text: `Unknown org_profile field "${args.field}". Use exactly one of: ${ORG_PROFILE_FIELDS.join(', ')}. If the fact fits none of these, mention it in chat but do not store it.` }], isError: true };
+        const bad = entries.filter(([k]) => !isKnownOrgProfileField(k)).map(([k]) => k);
+        if (bad.length > 0) {
+          return { content: [{ type: "text" as const, text: `Unknown org_profile field(s) ${bad.map(b => `"${b}"`).join(', ')}. Use exactly: ${ORG_PROFILE_FIELDS.join(', ')}. If a fact fits none of these, mention it in chat but do not store it.` }], isError: true };
         }
-        args.value = canonicalizeOrgProfileValue(args.field, args.value, getActiveCboLang(cboId));
       }
-      const oldValue = section.fields[args.field]?.value ?? null;
-      section.fields[args.field] = { value: args.value, confidence: args.confidence as Confidence, source: args.source, userEdited: false };
+      const updated: string[] = [];
+      for (const [fieldName, rawValue] of entries) {
+        const finalValue = args.sectionId === 'org_profile'
+          ? canonicalizeOrgProfileValue(fieldName, rawValue, getActiveCboLang(cboId))
+          : rawValue;
+        const oldValue = section.fields[fieldName]?.value ?? null;
+        section.fields[fieldName] = { value: finalValue, confidence: args.confidence as Confidence, source: args.source, userEdited: false };
+        state.editLog.push({ timestamp: new Date().toISOString(), sectionId: args.sectionId, field: fieldName, oldValue, newValue: finalValue, source: 'agent' });
+        state.gaps = state.gaps.filter(g => !(g.sectionId === args.sectionId && g.field === fieldName));
+        pushEvent({ type: 'field_update', sectionId: args.sectionId, field: fieldName, value: finalValue, confidence: args.confidence as Confidence, source: args.source });
+        updated.push(fieldName);
+      }
       section.lastUpdatedBy = 'agent';
-      state.editLog.push({ timestamp: new Date().toISOString(), sectionId: args.sectionId, field: args.field, oldValue, newValue: args.value, source: 'agent' });
       section.confidence = args.confidence as Confidence;
       if (args.source && !section.sources.includes(args.source)) section.sources.push(args.source);
-      state.gaps = state.gaps.filter(g => !(g.sectionId === args.sectionId && g.field === args.field));
       setCboState(cboId, state);
-      pushEvent({ type: 'field_update', sectionId: args.sectionId, field: args.field, value: args.value, confidence: args.confidence as Confidence, source: args.source });
-      return { content: [{ type: "text" as const, text: `Updated ${args.sectionId}.${args.field}` }] };
+      return { content: [{ type: "text" as const, text: `Updated ${args.sectionId}: ${updated.join(', ')}` }] };
     },
     { annotations: { readOnlyHint: false } }
   );
@@ -1069,6 +1085,12 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   // (the "silent turn" that strands the user behind a Continue button).
   const calledTools = new Set<string>();
   let emittedText = false;
+  // Latency attribution (W1 latency pack): spawn+prefill shows up as time-to-
+  // first-assistant-message; each assistant message is one inference round.
+  const turnStart = Date.now();
+  let firstEventMs = 0;
+  let inferenceRounds = 0;
+  const roundsDetail: string[] = [];
 
   try {
     for await (const message of sdkQuery({
@@ -1110,6 +1132,11 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
       },
     })) {
       if (message.type === "assistant" && message.message?.content) {
+        inferenceRounds++;
+        if (!firstEventMs) firstEventMs = Date.now() - turnStart;
+        roundsDetail.push(message.message.content.map((b: any) =>
+          b.type === 'tool_use' ? String(b.name).replace(/^mcp__cbo__/, '') : b.type
+        ).join('+'));
         for (const block of message.message.content) {
           if (block.type === "text" && block.text) {
             emittedText = true;
@@ -1130,6 +1157,9 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   } catch (error: any) {
     pushEvent({ type: 'error', message: error.message || 'Agent error' });
   }
+
+  // One greppable line per turn — the before/after for every latency change.
+  console.log(`[cbo] timing for ${cboId}: model=${model} rounds=${inferenceRounds} first_event=${firstEventMs}ms total=${Date.now() - turnStart}ms kind=${turnKind ?? 'none'} detail=${roundsDetail.join(' | ')}`);
 
   // Post-turn guard. The skill (encontro-*.md) requires every mid-encontro
   // turn to end with a user-prompting tool (ask_user / a composer / a closing
