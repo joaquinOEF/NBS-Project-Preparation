@@ -353,3 +353,11 @@ Open, by priority:
 8. **open_map layer ids unvalidated (P3, S)** — unknown id = silently missing hazard layer.
 
 Verified clean: Placar metrics/flags fully localized; roster bands localized; phaseComplete does NOT key on field names (synonym field can't dead-end the banner); E2 recaps are field-bound; no one-shot-question drop in E2.
+
+## SSE stream trust — 2026-07-07 evening (PR #343)
+
+Fixed: 15s heartbeat, deliberate-abort suppression on restart/unmount, stale-session error suppression, honest disconnect log. Fake model gained a `wait` op for simulating thinking gaps.
+
+Open:
+9. **Same-session-in-two-tabs degrades (P3, M)** — `pushEventRegistry` is one slot per cboId, so two live streams for the same member hijack each other's tool events; the starved tab hits the watchdog. Not a real-user pattern (each CBO has one phone), hit only when testing with duplicated tabs. Fix would be per-connection pushers with broadcast.
+10. **Kickoff double-send under StrictMode (P3, S)** — dev-mode double-mount fires the auto-kickoff twice (doubled `sample/init`/`by-token` in logs); prod unaffected. A sent-once ref on the kickoff effect closes it.
