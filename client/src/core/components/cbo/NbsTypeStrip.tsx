@@ -46,7 +46,7 @@ function NbsTypeCardItem({ type, lang }: { type: NbsType; lang: 'pt' | 'en' }) {
 
   return (
     <div
-      className="shrink-0 w-[240px] rounded-xl border border-foreground/10 bg-card overflow-hidden transition-all hover:border-foreground/25"
+      className="shrink-0 w-[240px] md:w-full rounded-xl border border-foreground/10 bg-card overflow-hidden transition-all hover:border-foreground/25"
       data-testid={`type-card-${type.id}`}
     >
       <div
@@ -120,7 +120,7 @@ export function NbsTypeStrip({ typeIds, intro }: { typeIds: string[]; intro?: st
       )}
       <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1 snap-x md:flex-wrap md:overflow-x-visible md:snap-none">
         {types.map(type => (
-          <div key={type.id} className="snap-start">
+          <div key={type.id} className="snap-start md:flex-1 md:min-w-[220px] md:max-w-[320px]">
             <NbsTypeCardItem type={type} lang={lang} />
           </div>
         ))}

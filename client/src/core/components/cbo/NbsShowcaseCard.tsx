@@ -74,7 +74,7 @@ export function NbsShowcaseCardItem({
 
   return (
     <div
-      className={`shrink-0 w-[240px] rounded-xl border bg-card overflow-hidden transition-all ${
+      className={`shrink-0 w-[240px] md:w-full rounded-xl border bg-card overflow-hidden transition-all ${
         isSaved ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-foreground/10 hover:border-foreground/25'
       }`}
       data-testid={`showcase-card-${card.id}`}
@@ -160,7 +160,7 @@ export function NbsShowcaseCardStrip({
       )}
       <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1 snap-x md:flex-wrap md:overflow-x-visible md:snap-none">
         {cards.map(card => (
-          <div key={card.id} className="snap-start">
+          <div key={card.id} className="snap-start md:flex-1 md:min-w-[220px] md:max-w-[320px]">
             <NbsShowcaseCardItem
               card={card}
               lang={lang}
