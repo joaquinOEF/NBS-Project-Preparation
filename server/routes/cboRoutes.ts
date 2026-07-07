@@ -163,6 +163,47 @@ export function registerCboRoutes(app: Express): void {
     debouncedPersist(req.params.id);
   });
 
+  // Instant kickoff (W1 latency pack, P2). Turn 1 of E1 is 100% deterministic —
+  // greeting + doc invite + invite-prefill confirmation + the name/role question —
+  // so it is served from a template with ZERO model time instead of a 10-17s
+  // SDK turn. The message persists as a normal assistant transcript message, so
+  // the agent sees it in RECENT CONVERSATION on the user's first real answer
+  // (the E1 skill knows not to re-greet). Fires only on a virgin transcript;
+  // anything else no-ops and the client falls back to the model kickoff.
+  app.post("/api/cbo/:id/kickoff", async (req: Request, res: Response) => {
+    const state = getCboState(req.params.id);
+    if (!state) return res.status(404).json({ error: "Not found" });
+    const existing = getCboMessages(req.params.id).filter(m => m.messageType === 'content');
+    if (existing.length > 0) return res.json({ ok: false, reason: 'already-started' });
+
+    const cohortLang = await getCohortLanguageForCbo(req.params.id);
+    const bodyLang = typeof req.body?.lang === 'string' ? req.body.lang : undefined;
+    const isPt = (cohortLang ?? (bodyLang === 'en' ? 'en' : 'pt')) === 'pt';
+
+    const org = (state.orgName || String(state.sections.org_profile?.fields?.org_name?.value || '')).trim();
+    const bairro = String(state.sections.org_profile?.fields?.bairro_of_operation?.value || '').trim();
+
+    // Copy mirrors the E1 skill's Step-0 lines verbatim — the skill and the
+    // template must never drift apart in tone or content.
+    let content: string;
+    if (isPt) {
+      const confirm = org
+        ? `Conferindo: vocês são a **${org}**${bairro ? `, atuando no ${bairro}` : ''}, certo? Me corrige se eu errei. E com quem eu tô falando — seu nome e seu papel por aí?`
+        : `Pra começar: qual é o nome da organização de vocês, e com quem eu tô falando — seu nome e seu papel por aí?`;
+      content = `Oi! 👋 Eu vou te ajudar a montar o perfil da ${org || 'organização de vocês'} — leva uns 20 minutinhos, no seu ritmo.\n\nSe vocês já têm algum material — proposta, relatório, até fotos de um projeto — pode arrastar aqui que eu leio e já preencho o que der. Senão a gente conversa rapidinho.\n\n${confirm}`;
+    } else {
+      const confirm = org
+        ? `Checking: you are **${org}**${bairro ? `, working in ${bairro}` : ''}, right? Correct me if I got it wrong. And who am I talking to — your name and your role?`
+        : `To start: what is your organization's name, and who am I talking to — your name and your role?`;
+      content = `Hi! 👋 I'll help you build ${org ? `${org}'s` : 'your organization\u2019s'} profile — about 20 minutes, at your pace.\n\nIf you already have any material — a proposal, a report, even photos of a project — drop it here and I'll read it and pre-fill what I can. Otherwise we'll just have a quick chat.\n\n${confirm}`;
+    }
+
+    const msg = { role: 'assistant' as const, content, messageType: 'content' as const, timestamp: new Date().toISOString() };
+    addCboMessage(req.params.id, msg);
+    debouncedPersist(req.params.id);
+    return res.json({ ok: true, message: msg });
+  });
+
   // Seed from invite — when a CBO is part of a cohort, the orchestrator
   // already collected org name (and sometimes neighborhood) at invite time.
   // Re-asking on E1 is bad UX. This endpoint pre-fills those values into
