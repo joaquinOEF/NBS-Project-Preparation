@@ -240,7 +240,7 @@ function createCboMcpTools(cboId: string) {
     "Update fields in the CBO intervention profile (document panel updates live). PREFERRED: pass ALL of a turn's fields for a section in ONE call via `fields` — never one call per field.",
     {
       sectionId: z.string().describe("Section ID: org_profile, intervention_site, intervention_type, impact_monitoring, operations_sustain, needs_assessment, results_evidence"),
-      fields: z.record(z.string()).optional().describe("PREFERRED: { fieldName: value, … } — every field this turn captured, in one call"),
+      fields: z.record(z.union([z.string(), z.number(), z.boolean()])).optional().describe("PREFERRED: { fieldName: value, … } — every field this turn captured, in one call"),
       field: z.string().optional().describe("Single-field form (legacy)"),
       value: z.string().optional().describe("Single-field form (legacy)"),
       confidence: z.enum(["high", "medium", "low"]).default("medium"),
@@ -262,17 +262,22 @@ function createCboMcpTools(cboId: string) {
       if (entries.length === 0) {
         return { content: [{ type: "text" as const, text: "Nothing to update: pass `fields: { name: value, … }` (preferred) or `field` + `value`." }], isError: true };
       }
+      // Foolproofing (Ana 2026-07-07): invented field names ("current_leadership")
+      // land facts in chat that never reach the document, and machine enum ids
+      // ("funded") leak to the user raw. PARTIAL WRITE: persist every valid
+      // field, report the invalid ones — rejecting the whole batch over one
+      // hallucinated name would silently lose the good answers of the turn.
+      const rejected: string[] = [];
+      let writable = entries;
       if (args.sectionId === 'org_profile') {
-        // Foolproofing (Ana 2026-07-07): invented field names ("current_leadership")
-        // land facts in chat that never reach the document, and machine enum ids
-        // ("funded") leak to the user raw. Reject the former, canonicalize the latter.
-        const bad = entries.filter(([k]) => !isKnownOrgProfileField(k)).map(([k]) => k);
-        if (bad.length > 0) {
-          return { content: [{ type: "text" as const, text: `Unknown org_profile field(s) ${bad.map(b => `"${b}"`).join(', ')}. Use exactly: ${ORG_PROFILE_FIELDS.join(', ')}. If a fact fits none of these, mention it in chat but do not store it.` }], isError: true };
+        rejected.push(...entries.filter(([k]) => !isKnownOrgProfileField(k)).map(([k]) => k));
+        writable = entries.filter(([k]) => isKnownOrgProfileField(k));
+        if (writable.length === 0) {
+          return { content: [{ type: "text" as const, text: `Unknown org_profile field(s) ${rejected.map(b => `"${b}"`).join(', ')} — nothing saved. Use exactly: ${ORG_PROFILE_FIELDS.join(', ')}. If a fact fits none of these, mention it in chat but do not store it.` }], isError: true };
         }
       }
       const updated: string[] = [];
-      for (const [fieldName, rawValue] of entries) {
+      for (const [fieldName, rawValue] of writable) {
         const finalValue = args.sectionId === 'org_profile'
           ? canonicalizeOrgProfileValue(fieldName, rawValue, getActiveCboLang(cboId))
           : rawValue;
@@ -287,7 +292,10 @@ function createCboMcpTools(cboId: string) {
       section.confidence = args.confidence as Confidence;
       if (args.source && !section.sources.includes(args.source)) section.sources.push(args.source);
       setCboState(cboId, state);
-      return { content: [{ type: "text" as const, text: `Updated ${args.sectionId}: ${updated.join(', ')}` }] };
+      const note = rejected.length > 0
+        ? ` REJECTED (not stored, unknown field name${rejected.length > 1 ? 's' : ''}): ${rejected.join(', ')} — valid org_profile fields are: ${ORG_PROFILE_FIELDS.join(', ')}. The saved fields above do NOT need resending.`
+        : '';
+      return { content: [{ type: "text" as const, text: `Updated ${args.sectionId}: ${updated.join(', ')}.${note}` }] };
     },
     { annotations: { readOnlyHint: false } }
   );
