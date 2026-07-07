@@ -368,7 +368,7 @@ export function InviteCboDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Pure invite — no side effects. Called once per CBO in either mode. */
-  onSubmit: (params: { orgName: string; neighborhood?: string; role: 'priority' | 'alternate' }) => Promise<{ memberSlug: string; orgName: string } | null>;
+  onSubmit: (params: { orgName: string; neighborhood?: string }) => Promise<{ memberSlug: string; orgName: string } | null>;
   /** Called after a successful single-mode invite — parent typically opens
       the ShareLinkDialog for that CBO. NOT called in bulk mode. */
   onSingleSuccess?: (result: { memberSlug: string; orgName: string }) => void;
@@ -380,7 +380,6 @@ export function InviteCboDialog({
   const [mode, setMode] = useState<'single' | 'bulk'>('single');
   const [orgName, setOrgName] = useState('');
   const [neighborhood, setNeighborhood] = useState('');
-  const [role, setRole] = useState<'priority' | 'alternate'>('priority');
   const [bulkText, setBulkText] = useState('');
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -391,7 +390,6 @@ export function InviteCboDialog({
       setMode('single');
       setOrgName('');
       setNeighborhood('');
-      setRole('priority');
       setBulkText('');
       setBulkProgress(null);
     }
@@ -409,7 +407,6 @@ export function InviteCboDialog({
         const result = await onSubmit({
           orgName: orgName.trim(),
           neighborhood: neighborhood.trim() || undefined,
-          role,
         });
         if (result) {
           onOpenChange(false);
@@ -428,7 +425,7 @@ export function InviteCboDialog({
     try {
       for (let i = 0; i < parsed.length; i++) {
         const p = parsed[i];
-        const r = await onSubmit({ orgName: p.orgName, neighborhood: p.neighborhood, role });
+        const r = await onSubmit({ orgName: p.orgName, neighborhood: p.neighborhood });
         if (r) results.push({ memberSlug: r.memberSlug, orgName: r.orgName, neighborhood: p.neighborhood });
         setBulkProgress({ done: i + 1, total: parsed.length });
       }
@@ -554,57 +551,6 @@ export function InviteCboDialog({
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-foreground/80">
-              {mode === 'bulk'
-                ? t('orchestrator.cohort.roleAll', { defaultValue: 'Role (applies to all)' })
-                : t('orchestrator.cohort.role', { defaultValue: 'Role in cohort' })}
-            </label>
-            {/* Radio cards — both descriptions always visible so the coordinator
-                sees the operational consequence of each role at selection time.
-                Mirrors RequestSupportDialog's option-card pattern. */}
-            <div className="space-y-1.5">
-              {(['priority', 'alternate'] as const).map((r) => {
-                const isActive = role === r;
-                const label = r === 'priority'
-                  ? t('orchestrator.cohort.rolePriority', { defaultValue: 'Priority' })
-                  : t('orchestrator.cohort.roleAlternate', { defaultValue: 'Alternate' });
-                const hint = r === 'priority'
-                  ? t('orchestrator.cohort.rolePriorityHint', { defaultValue: 'Running the pilot. One of the 10 active seats.' })
-                  : t('orchestrator.cohort.roleAlternateHint', { defaultValue: 'Waitlist. Promotes to cohort if a priority CBO drops out.' });
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRole(r)}
-                    className={`w-full text-left p-3 rounded-lg border transition-colors flex items-start gap-3 ${
-                      isActive
-                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 ring-1 ring-emerald-500'
-                        : 'border-foreground/10 hover:border-foreground/20 hover:bg-muted/50'
-                    }`}
-                    data-testid={`button-role-${r}`}
-                  >
-                    <span
-                      className={`shrink-0 mt-0.5 w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                        isActive ? 'border-emerald-600' : 'border-foreground/30'
-                      }`}
-                      aria-hidden="true"
-                    >
-                      {isActive && <span className="w-2 h-2 rounded-full bg-emerald-600" />}
-                    </span>
-                    <span className="flex-1 min-w-0">
-                      <span className={`block text-sm font-medium leading-tight ${isActive ? 'text-foreground' : 'text-foreground/85'}`}>
-                        {label}
-                      </span>
-                      <span className="block text-xs text-muted-foreground mt-0.5 leading-snug">
-                        {hint}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
         <DialogFooter>
