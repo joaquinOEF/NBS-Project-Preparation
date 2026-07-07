@@ -34,6 +34,7 @@ import {
 } from '@shared/cbo-schema';
 import { NBS_SHOWCASE_CARDS } from '@shared/nbs-showcase-cards';
 import { emitAssistantText } from './agentOutput';
+import { canonicalizeOrgProfileValue } from '@shared/cbo-field-catalog';
 
 export function isFakeModelEnabled(): boolean {
   return process.env.CBO_FAKE_MODEL === '1';
@@ -92,13 +93,13 @@ export async function streamWithFakeModel(
   const turn = queue && queue.length > 0 ? queue.shift()! : defaultTurn(lang, userMessage);
 
   for (const op of turn) {
-    runOp(cboId, op, state, pushEvent, deps);
+    runOp(cboId, op, state, pushEvent, deps, lang);
   }
 
   pushEvent({ type: 'done', summary: 'Response complete (fake model)' });
 }
 
-function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent, deps: FakeDeps): void {
+function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent, deps: FakeDeps, lang: string): void {
   switch (op.op) {
     case 'say': {
       emitAssistantText(op.text, pushEvent);
@@ -108,18 +109,23 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
       if (!isValidSectionId(op.sectionId)) break;
       const section = state.sections[op.sectionId as keyof typeof state.sections];
       if (!section) break;
+      // Same write-path canonicalization as the real update_section tool, so
+      // specs exercise the id -> label mapping deterministically.
+      const value = op.sectionId === 'org_profile'
+        ? canonicalizeOrgProfileValue(op.field, op.value, lang === 'en' ? 'en' : 'pt')
+        : op.value;
       section.fields[op.field] = {
-        value: op.value,
+        value,
         confidence: (op.confidence ?? 'high') as Confidence,
         source: op.source ?? 'user',
         userEdited: false,
       };
       section.lastUpdatedBy = 'agent';
       if (op.sectionId === 'org_profile' && op.field === 'org_name' && !state.orgName) {
-        state.orgName = op.value;
+        state.orgName = value;
       }
       deps.setCboState(cboId, state);
-      pushEvent({ type: 'field_update', sectionId: op.sectionId, field: op.field, value: String(op.value), confidence: (op.confidence ?? 'high') as Confidence, source: op.source ?? 'user' });
+      pushEvent({ type: 'field_update', sectionId: op.sectionId, field: op.field, value: String(value), confidence: (op.confidence ?? 'high') as Confidence, source: op.source ?? 'user' });
       break;
     }
     case 'ask_user': {

@@ -27,6 +27,7 @@ import {
   type OpenInterventionSelectorParams,
   type InterventionSelectorResult,
 } from '@shared/cbo-schema';
+import { orgProfileDisplayValue } from '@shared/cbo-field-catalog';
 import type { OpenMapParams, MapSelectionResult, SelectedAsset } from '@shared/concept-note-schema';
 import {
   Send, Download, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft, Paperclip,
@@ -1973,7 +1974,7 @@ export default function CboProfilePage() {
                                   <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">{t(`cbo.fields.${k}`, k.replace(/_/g, ' '))}</td>
                                   <td className="px-3 py-1.5 text-sm">
                                     <EditableField
-                                      value={String(v.value || '')}
+                                      value={sec.id === 'org_profile' ? orgProfileDisplayValue(k, String(v.value || ''), lang === 'pt' ? 'pt' : 'en') : String(v.value || '')}
                                       userEdited={v.userEdited}
                                       onSave={(newVal) => handleFieldEdit(sec.id, k, newVal)}
                                     />

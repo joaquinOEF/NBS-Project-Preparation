@@ -29,6 +29,7 @@ import { getOrgIdForCboState, listDocumentsByOrg, getDocumentForOrg } from "./do
 import { queryTerms, scoreText, extractExcerpt } from "./textSearch";
 import { isFakeModelEnabled, streamWithFakeModel } from "./fakeCboModel";
 import { emitAssistantText } from "./agentOutput";
+import { isKnownOrgProfileField, canonicalizeOrgProfileValue, ORG_PROFILE_FIELDS } from "@shared/cbo-field-catalog";
 
 // ============================================================================
 // SDK LOADING — shared with conceptNoteAgent (lazy load)
@@ -219,6 +220,13 @@ const pushEventRegistry = new Map<string, EventPusher>();
 
 function setActivePushEvent(id: string, pusher: EventPusher) { pushEventRegistry.set(id, pusher); }
 
+// Session language per CBO, refreshed on every turn. The MCP server (and its
+// tool closures) is cached per cboId, so tools can't take lang at creation —
+// they read it here instead. pt is the product default.
+const cboLangRegistry = new Map<string, 'pt' | 'en'>();
+function setActiveCboLang(id: string, lang: string) { cboLangRegistry.set(id, lang === 'en' ? 'en' : 'pt'); }
+function getActiveCboLang(id: string): 'pt' | 'en' { return cboLangRegistry.get(id) ?? 'pt'; }
+
 function createCboMcpTools(cboId: string) {
   if (!sdkTool || !sdkCreateMcpServer) return null;
 
@@ -245,6 +253,15 @@ function createCboMcpTools(cboId: string) {
       }
       const section = state.sections[args.sectionId as keyof typeof state.sections];
       if (!section) return { content: [{ type: "text" as const, text: `Unknown section: ${args.sectionId}` }], isError: true };
+      if (args.sectionId === 'org_profile') {
+        // Foolproofing (Ana 2026-07-07): invented field names ("current_leadership")
+        // land facts in chat that never reach the document, and machine enum ids
+        // ("funded") leak to the user raw. Reject the former, canonicalize the latter.
+        if (!isKnownOrgProfileField(args.field)) {
+          return { content: [{ type: "text" as const, text: `Unknown org_profile field "${args.field}". Use exactly one of: ${ORG_PROFILE_FIELDS.join(', ')}. If the fact fits none of these, mention it in chat but do not store it.` }], isError: true };
+        }
+        args.value = canonicalizeOrgProfileValue(args.field, args.value, getActiveCboLang(cboId));
+      }
       const oldValue = section.fields[args.field]?.value ?? null;
       section.fields[args.field] = { value: args.value, confidence: args.confidence as Confidence, source: args.source, userEdited: false };
       section.lastUpdatedBy = 'agent';
@@ -929,6 +946,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   }
 
   setActivePushEvent(cboId, pushEvent);
+  setActiveCboLang(cboId, lang);
 
   // Test-only deterministic seam. When CBO_FAKE_MODEL=1 (set ONLY in the
   // test/preview env, never the prod Deployment), drive the turn from a scripted

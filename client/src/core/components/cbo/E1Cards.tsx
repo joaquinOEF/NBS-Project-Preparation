@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { AlertTriangle, Lightbulb, Compass, Target } from 'lucide-react';
 import type { CboSectionState, CboGapEntry } from '@shared/cbo-schema';
+import { orgProfileDisplayValue } from '@shared/cbo-field-catalog';
 
 type GroupKey = 'quem-somos' | 'equipe' | 'historico' | 'caminho' | 'outros';
 
@@ -88,7 +89,7 @@ export function E1Cards({
                           </td>
                           <td className="px-3 py-1.5 text-sm">
                             <EditableField
-                              value={String(v.value || '')}
+                              value={orgProfileDisplayValue(k, String(v.value || ''), isPt ? 'pt' : 'en')}
                               userEdited={v.userEdited}
                               onSave={(newVal) => onFieldEdit(section.id, k, newVal)}
                             />
@@ -151,7 +152,7 @@ export function E1Cards({
                       </td>
                       <td className="px-3 py-1.5 text-sm">
                         <EditableField
-                          value={String(v.value || '')}
+                          value={orgProfileDisplayValue(k, String(v.value || ''), isPt ? 'pt' : 'en')}
                           userEdited={v.userEdited}
                           onSave={(newVal) => onFieldEdit(section.id, k, newVal)}
                         />
