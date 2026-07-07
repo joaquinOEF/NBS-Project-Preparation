@@ -1052,6 +1052,11 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   // (the "silent turn" that strands the user behind a Continue button).
   const calledTools = new Set<string>();
   let emittedText = false;
+  // Latency attribution (W1 latency pack): spawn+prefill shows up as time-to-
+  // first-assistant-message; each assistant message is one inference round.
+  const turnStart = Date.now();
+  let firstEventMs = 0;
+  let inferenceRounds = 0;
 
   try {
     for await (const message of sdkQuery({
@@ -1093,6 +1098,8 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
       },
     })) {
       if (message.type === "assistant" && message.message?.content) {
+        inferenceRounds++;
+        if (!firstEventMs) firstEventMs = Date.now() - turnStart;
         for (const block of message.message.content) {
           if (block.type === "text" && block.text) {
             emittedText = true;
@@ -1113,6 +1120,9 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   } catch (error: any) {
     pushEvent({ type: 'error', message: error.message || 'Agent error' });
   }
+
+  // One greppable line per turn — the before/after for every latency change.
+  console.log(`[cbo] timing for ${cboId}: model=${model} rounds=${inferenceRounds} first_event=${firstEventMs}ms total=${Date.now() - turnStart}ms kind=${turnKind ?? 'none'}`);
 
   // Post-turn guard. The skill (encontro-*.md) requires every mid-encontro
   // turn to end with a user-prompting tool (ask_user / a composer / a closing
