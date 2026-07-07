@@ -88,12 +88,18 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const tileLayerRefs = useRef<Record<string, L.TileLayer>>({});
   const osmLayerRefs = useRef<Record<string, L.GeoJSON>>({});
   const zonesLayerRef = useRef<L.GeoJSON | null>(null);
+  const zoneDefaultStyleRef = useRef<((p: any) => any) | null>(null);
+  // Site-step boundary of the chosen bairro(s) — the interactive zones layer
+  // is removed on advanceToAssets, so this inert outline is what orients the
+  // user while they drop points on satellite imagery.
+  const focusOutlineRef = useRef<L.GeoJSON | null>(null);
   const politicalBaseRef = useRef<L.TileLayer | null>(null);
   const satelliteBaseRef = useRef<L.TileLayer | null>(null);
   const customMarkersRef = useRef<L.Layer[]>([]);
   const selectedHighlightsRef = useRef<Map<string, L.Layer>>(new Map());
 
   const [mapReady, setMapReady] = useState(false);
+  const [zonesLoaded, setZonesLoaded] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
   // Live mirror of selectedAssets for once-bound Leaflet handlers (avoids the
   // stale-closure that wiped a zone's highlight on mouseout — see MAP-SEL-STALE).
@@ -182,6 +188,76 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const enabledTileLayerDefs = Array.from(enabledTiles)
     .map(id => ALL_TILE_LAYERS.find(l => l.id === id))
     .filter(Boolean) as typeof TILE_LAYERS;
+
+  // ── One color encoding per step (CBO E2) ────────────────────────────────────
+  // The zones choropleth used to render fully colored from map-ready onward, so
+  // the hazard tour stacked TWO encodings (raster + typology fills) and the site
+  // step kept 90+ colored polygons under the point-drop tools. Contract:
+  //   tour  → hazard raster only; bairros as thin inert outlines (orientation)
+  //   zone  → choropleth only (rasters are already off post-tour), interactive
+  //   site  → selected bairro as a bold blue OUTLINE (no fill — satellite must
+  //           show through to find the spot); every other bairro hidden & inert.
+  // Scoped to the CBO flow (allowDeferSite) — city/orchestrator flows keep the
+  // always-on choropleth. pointerEvents doubles as the interactivity gate: inert
+  // zones also stop stealing taps from point-dropping on the site step.
+  const zoneDisplayMode: 'outline' | 'focus' | 'choropleth' =
+    params.allowDeferSite && tourActive ? 'outline'
+    : params.allowDeferSite && isComposite && compositeStep === 'assets' ? 'focus'
+    : 'choropleth';
+  const zoneDisplayModeRef = useRef(zoneDisplayMode);
+  zoneDisplayModeRef.current = zoneDisplayMode;
+  useEffect(() => {
+    const zl = zonesLayerRef.current;
+    const styleOf = zoneDefaultStyleRef.current;
+    if (!zl || !styleOf) return;
+    zl.eachLayer((layer: any) => {
+      const props = layer.feature?.properties || {};
+      const name = props.neighbourhoodName || props.neighbourhood_name || props.zoneId;
+      const isSelected = selectedAssetsRef.current.some(a => a.type === 'zone' && a.name === name);
+      const el = layer.getElement?.();
+      if (zoneDisplayMode === 'outline') {
+        layer.setStyle({ color: '#1e293b', weight: 1.2, opacity: 0.85, fillOpacity: 0, dashArray: undefined });
+        layer.closeTooltip?.();
+        if (el) el.style.pointerEvents = 'none';
+      } else if (zoneDisplayMode === 'focus') {
+        if (isSelected) layer.setStyle({ color: '#1d4ed8', weight: 3, opacity: 1, fillOpacity: 0 });
+        else layer.setStyle({ opacity: 0, fillOpacity: 0 });
+        layer.closeTooltip?.();
+        if (el) el.style.pointerEvents = 'none';
+      } else {
+        layer.setStyle(isSelected ? SELECTED_ZONE_STYLE : { ...styleOf(props), opacity: 1 });
+        if (el) el.style.pointerEvents = '';
+      }
+    });
+    // The zones may finish loading after this effect ran (async fetch) — the
+    // load path applies the choropleth default, so re-run once they land.
+  }, [zoneDisplayMode, mapReady, zonesLoaded]);
+
+  // Focus mode's boundary overlay. advanceToAssets removes the interactive
+  // zones layer wholesale (the site step used to show NO boundary at all);
+  // the chosen bairro's outline is re-drawn as a separate inert layer so the
+  // user sees where their bairro ends without any fill over the satellite.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (focusOutlineRef.current) {
+      map.removeLayer(focusOutlineRef.current);
+      focusOutlineRef.current = null;
+    }
+    if (zoneDisplayMode !== 'focus') return;
+    const zoneAssets = selectedAssetsRef.current.filter(a => a.type === 'zone' && a.geometry);
+    if (zoneAssets.length === 0) return;
+    const fc = {
+      type: 'FeatureCollection',
+      features: zoneAssets.map(a => ({ type: 'Feature', geometry: a.geometry, properties: {} })),
+    };
+    const outline = L.geoJSON(fc as any, {
+      style: { color: '#1d4ed8', weight: 3, opacity: 1, fillOpacity: 0 },
+      interactive: false,
+    });
+    outline.addTo(map);
+    focusOutlineRef.current = outline;
+  }, [zoneDisplayMode, mapReady]);
 
   // ── Init map ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -300,6 +376,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
           return { color: '#1e293b', weight: 1.5, fillColor: interventionColor, fillOpacity, dashArray: undefined as string | undefined };
         };
 
+        zoneDefaultStyleRef.current = getDefaultStyle;
         const zonesLayer = L.geoJSON(geojson, {
           style: (feature) => getDefaultStyle(feature?.properties),
           onEachFeature: (feature, featureLayer) => {
@@ -351,6 +428,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
             const featureDefaultStyle = getDefaultStyle(p);
 
             (featureLayer as any).on('click', (e: any) => {
+              if (zoneDisplayModeRef.current !== 'choropleth') return;
               if (drawModeRef.current !== 'off') return;
               L.DomEvent.stopPropagation(e);
               const centroid = geometryCentroid(feature.geometry);
@@ -377,8 +455,12 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
               });
             });
 
-            (featureLayer as any).on('mouseover', () => (featureLayer as any).setStyle({ weight: 3, fillOpacity: Math.max(featureDefaultStyle.fillOpacity + 0.1, 0.15) }));
+            (featureLayer as any).on('mouseover', () => {
+              if (zoneDisplayModeRef.current !== 'choropleth') return;
+              (featureLayer as any).setStyle({ weight: 3, fillOpacity: Math.max(featureDefaultStyle.fillOpacity + 0.1, 0.15) });
+            });
             (featureLayer as any).on('mouseout', () => {
+              if (zoneDisplayModeRef.current !== 'choropleth') return;
               // Read the live ref, not the stale closure — otherwise a just-selected
               // zone loses its highlight the instant the pointer leaves (worst on
               // touch, where tap fires mouseover→click→mouseout in a burst).
@@ -390,6 +472,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         });
         zonesLayer.addTo(map);
         zonesLayerRef.current = zonesLayer;
+        setZonesLoaded(true);
       } catch {}
       setLoading(false);
     })();
