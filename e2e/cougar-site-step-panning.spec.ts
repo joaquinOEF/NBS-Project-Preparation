@@ -22,7 +22,7 @@ test.describe('COUGAR — site step: pan by default, arm to drop', () => {
     await api.scriptCbo(cboId, [[
       { op: 'open_map', params: {
         selectionMode: 'composite', zoneSource: 'neighborhood_zones',
-        tileLayers: ['risk_flood_250m'], showLegendSimple: true,
+        tileLayers: ['poa_flood_hazard'], showLegendSimple: true,
         hazardTour: false, allowDeferSite: true, prompt: 'Marque onde vocês atuam.',
       } },
     ]]);

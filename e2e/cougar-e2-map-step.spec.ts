@@ -13,7 +13,7 @@ test.describe('COUGAR — E2 map step (tour + always-on)', () => {
       selectionMode: 'composite',
       zoneSource: 'neighborhood_zones',
       layers: ['osm_parks', 'osm_schools'],
-      tileLayers: ['risk_flood_250m', 'risk_heat_250m', 'risk_landslide_250m'],
+      tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],
       showLegendSimple: true,
       hazardTour: true,
       allowDeferSite: true,

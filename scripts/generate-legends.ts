@@ -14,7 +14,7 @@
 import fs from 'fs';
 import path from 'path';
 import { PNG } from 'pngjs';
-import { TILE_LAYERS, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS } from '../shared/geospatial-layers';
+import { TILE_LAYERS, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS } from '../shared/geospatial-layers';
 import type { LegendSpec, LegendStop, LegendIndex } from '../shared/legend-types';
 
 const S3 = 'https://geo-test-api.s3.us-east-1.amazonaws.com';
@@ -122,7 +122,7 @@ async function sampleRamp(valueUrl: string, scale: number, offset: number): Prom
 }
 
 async function main() {
-  const all = [...LOCAL_RISK_LAYERS, ...FLOOD_INDEX_LAYERS, ...TILE_LAYERS];
+  const all = [...LOCAL_RISK_LAYERS, ...FLOOD_INDEX_LAYERS, ...HEAT_INDEX_LAYERS, ...LANDSLIDE_INDEX_LAYERS, ...TILE_LAYERS];
   const legends: LegendIndex = {};
   let nFile = 0, nClass = 0, nCode = 0, nSample = 0, nSkip = 0;
 

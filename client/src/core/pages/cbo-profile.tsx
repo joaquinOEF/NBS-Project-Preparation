@@ -165,7 +165,7 @@ const RIGHT_PANEL_TOOLS: Record<ToolKind, RightPanelToolDef> = {
       selectionMode: 'composite',
       zoneSource: 'neighborhood_zones',  // risk-scored bairros (typologyLabel/meanFlood…) — same as the orchestrator
       layers: ['osm_parks', 'osm_schools', 'osm_wetlands', 'osm_hospitals'],  // OSM sites to pick in step 2
-      tileLayers: ['risk_flood_250m', 'risk_heat_250m', 'risk_landslide_250m'],
+      tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],
       showLegendSimple: true,
       hazardTour: false,        // re-entry skips the guided tour, straight to selection
       allowDeferSite: true,

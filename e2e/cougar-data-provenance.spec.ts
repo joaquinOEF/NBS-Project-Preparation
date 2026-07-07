@@ -24,7 +24,7 @@ test.describe('COUGAR — data provenance dialog (CBO map)', () => {
         params: {
           selectionMode: 'composite',
           zoneSource: 'neighborhood_zones',
-          tileLayers: ['risk_flood_250m', 'risk_heat_250m', 'risk_landslide_250m'],
+          tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],
           showLegendSimple: true,
           hazardTour: false,
           allowDeferSite: true,
