@@ -53,8 +53,12 @@ with their own turn.
 If the next step is a tool the agent can call (`open_map`, `show_examples`,
 `show_types`, …), it calls the tool in the same response as its message. A
 chip whose only effect is triggering a tool call costs two waits for one
-action. Chips are for **answers**. (Client-side: the right-panel registry
-keeps map/selector always reachable with no model at all.)
+action. Chips are for **answers**. One legitimate exception: a
+**reading-pace gate** — a strip the user needs time to read may end with a
+"done reading → continue" chip, because only the user knows when they're done
+(E2's "Ver exemplos" chip is this). The standard targets *permission* chips,
+where the agent could simply have acted. (Client-side: the right-panel
+registry keeps map/selector always reachable with no model at all.)
 
 ### 5. Route turns by weight — and let the classifier see new turn kinds
 `resolveTurnModel` sends chips + short text (phase ≤2) to the light model;
