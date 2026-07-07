@@ -97,6 +97,8 @@ Per the spec, these fields land in the CBO profile (`state.sections.org_profile`
 8. `paid_vs_volunteer` — rough split, e.g. "2 pagas · 8 voluntárias"
 9. `prior_project_scale` — enum: none, ad-hoc, funded, partnership
 10. `nbs_experience` — enum: none, env-education, gardens-and-greening, implemented-nbs
+
+For every enum field, **store the Portuguese chip label the user tapped** (e.g. "Projeto financiado (R$ 50k+)", "Hortas / arborização"), never the machine id — the ids above exist only so you can reason about the rubric. The server canonicalizes known values, but raw ids like `funded` leaking to the user's document is exactly the bug this rule prevents. Field names are a **closed list**: `update_section` rejects anything not in fields 1–13 above — if a fact fits none of them (e.g. who the current leader is), mention it in chat but do not store it.
 11. `bairro_of_operation` — where they primarily work (suggests from a POA bairro list)
 12. `groups_served` — multi-select: mulheres, idosos, pessoas com deficiência, comunidades tradicionais, jovens, pessoas negras, povos indígenas, comunidade do bairro
 13. `proud_moment` — optional free-text
@@ -130,22 +132,28 @@ The question set does **not branch** within E1 — everyone answers the same thi
   - Invite pre-fill: *"Conferindo: vocês são a {orgName}, atuando no {bairro}, certo? Me corrige se eu errei."*
   - In the same opening, ask the one human thing as plain prose: *"E com quem eu tô falando — seu nome e seu papel por aí?"*
 
-### Step 1 — If a document was shared: pre-fill, then BULK-confirm (don't re-ask)
+### Step 1 — If a document was shared: pre-fill DESCRIPTIVE fields, then BULK-confirm (don't re-ask)
 
-When a document arrives (now or later), read it and **`update_section` every field you can extract** — org name, mission, legal form, age, team size, prior projects, NBS experience, who they serve — each with `source: 'document'`. Then confirm them **all at once**, concisely, in chat:
+When a document, link, or article arrives (now or later), read it and `update_section` the **descriptive** fields you can extract — `org_name`, `mission_summary`, `legal_form`, `year_founded`, `team_size`, `paid_vs_volunteer`, `bairro_of_operation`, `groups_served`, `proud_moment` — each with `source: 'document'`.
+
+**Four fields are NEVER filled from a document:**
+
+- `prior_project_scale` and `nbs_experience` — these drive the maturity scores; a journalist's phrasing is not evidence. Instead, when you reach Batch B, **lead with your read as a suggestion**: *"Pelo artigo, parece que vocês já tocaram projeto com financiamento — confere?"* with the normal chips. One extra tap beats a silent wrong score.
+- `contact_name` and `contact_role` — the person named in an article is often **not** the person chatting. These come only from the human, in chat.
+
+Then confirm what you wrote **all at once**, concisely. **The recap lists exactly the fields you called `update_section` on — one bullet per field, same wording the document panel shows — nothing more, nothing less.** Never recap a fact you didn't persist (e.g. who the current leader is): the user will try to "correct" a field that doesn't exist, and the chat and the document panel stop matching.
 
 > *"Li o documento e já preenchi bastante:*
-> *• Organização: {org}*
-> *• O que fazem: {mission}*
-> *• Equipe: ~{team}*
-> *• Tempo de atuação: {age}*
-> *• Experiência: {nbs}*
+> *• Organização: {org_name}*
+> *• O que fazem: {mission_summary}*
+> *• Equipe: {team_size}, {paid_vs_volunteer}*
+> *• Tempo de atuação: {year_founded}*
 > *Tá tudo certo?"*
 >
 > Chips: **[✅ Tá tudo certo]** **[✏️ Quero ajustar]**
 
-- **Tá tudo certo** → go straight to whatever the document did **not** cover (batched, below). Skip everything it filled.
-- **Quero ajustar** → *"O que mudo?"*, fix only that field, leave the rest.
+- **Tá tudo certo** → next, **if `contact_name` is still empty, ask it now in prose** (*"E com quem eu tô falando — seu nome e seu papel por aí?"*) — a user whose first message is a link never answered the Step-0 opening, and this question must not be dropped. Then go straight to whatever the document did **not** cover (batched, below). Skip everything it filled.
+- **Quero ajustar** → *"O que mudo?"* with **one chip per field from the same recap list** — fix only that field, leave the rest.
 
 A document never replaces the user's confirmation — extracted fields stay low-confidence (`source: 'document'`) until they validate.
 

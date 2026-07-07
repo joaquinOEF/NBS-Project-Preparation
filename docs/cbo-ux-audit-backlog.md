@@ -329,3 +329,11 @@ _After the v1 wave (#312–#320, all merged), a second deep audit ran against th
 ### Deferred product decisions (Ana)
 - Site selection E2 → E3 with a "do you have a site idea?" gate (meeting decision, due 07-22).
 - NBS example photos in WS2; clustering mechanism (known platform gap).
+
+## Field report — Ana, 2026-07-07 (org profile via news-article link)
+
+Symptoms: `prior_project_scale`/`nbs_experience` filled silently from the article as raw machine ids ("funded", "gardens-and-greening") shown in English on the panel and wrong; the "Quero ajustar" list omitted those two fields but offered "Liderança atual", which isn't a schema field; name/role never re-asked when the first user message is a link.
+
+Root causes and fixes:
+1. **Enum storage lottery** (skill spec says machine ids, system prompt says PT, chips store labels; no display mapping) → `shared/cbo-field-catalog.ts`: canonical `{id, pt, en}` catalog; `update_section` canonicalizes writes + rejects unknown org_profile field names; `E1Cards`/`CboProfileSummary` map legacy ids on render. PR #334.
+2. **Doc over-inference + recap divergence** → E1 skill Step 1 contract: docs fill descriptive fields only; the two scoring enums become Batch-B suggestions ("Pelo artigo parece que… confere?"); contact_name/role only from the human; recap = exactly the persisted fields; "O que mudo?" chips = same list; re-ask name/role after a doc-first opening. PR #335.
