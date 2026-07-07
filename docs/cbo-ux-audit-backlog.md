@@ -337,3 +337,19 @@ Symptoms: `prior_project_scale`/`nbs_experience` filled silently from the articl
 Root causes and fixes:
 1. **Enum storage lottery** (skill spec says machine ids, system prompt says PT, chips store labels; no display mapping) → `shared/cbo-field-catalog.ts`: canonical `{id, pt, en}` catalog; `update_section` canonicalizes writes + rejects unknown org_profile field names; `E1Cards`/`CboProfileSummary` map legacy ids on render. PR #334.
 2. **Doc over-inference + recap divergence** → E1 skill Step 1 contract: docs fill descriptive fields only; the two scoring enums become Batch-B suggestions ("Pelo artigo parece que… confere?"); contact_name/role only from the human; recap = exactly the persisted fields; "O que mudo?" chips = same list; re-ask name/role after a doc-first opening. PR #335.
+
+## Audit 2026-07-07 — same bug classes elsewhere (3-agent sweep after the field report)
+
+Fixed immediately: phase-3+ flat table rendered org_profile values raw, bypassing the E1Cards mapping (→ #334); E2 photo-upload turn said "silently update_section anything useful", contradicting its own confirm-don't-assert rule (→ #335).
+
+Open, by priority:
+1. **InterventionSelector confirm payload (P1, S)** — `cbo-profile.tsx` onConfirm sends `Selected NBS types: … (rain_gardens, …). Knowledge files: nbs/….md` with NO displayText → raw English machine string visible in the bubble immediately AND persisted. Same family as backlog v2 #5 (map raw payload on reload); fix both with a persisted displayText.
+2. **E2 deferred beats store English enum ids (P1 before those beats ship, P3 today)** — `current_use` (encontro-2.md:307), hazard ranking ids (322-326), `land_tenure` (342), consolidated write (392); closing references `{primary_hazard_label}` that nothing produces (398). Port the E1 "store the PT chip label" rule + extend cbo-field-catalog to intervention_site enums when enabling.
+3. **intervention_site machine fields render as document rows (P2, S)** — `site_lat/site_lng/site_geometry/site_deferred` show as table rows ("site geometry: POLYGON((…))"); most E2 field names have no `cbo.fields.*` locale key (bairro, current_use, primary/secondary_hazard, community_anchoring_lead, community_engagement_methods) → humanized English fallbacks. Hide machine fields from render + add labels.
+4. **bairro ↔ neighborhood split (P2, S)** — map-nudge isDone checks `bairro`/`site_name` but SAMPLE_CBO_DATA skip path writes `neighborhood` → dev skip leaves "Abrir o mapa" nudge stuck; locale vocabulary also uses `neighborhood`/`current_conditions`. Reconcile on the E2 skill names.
+5. **flag_gap.sectionId unvalidated (P2, S)** — bogus sectionId (or org_profile field outside FIELD_GROUPS) makes the gap silently invisible; agent believes it flagged. Validate like update_section.
+6. **Markdown export is all-English (P2, S/M)** — `exportCboMarkdown` headers + raw values; community-facing download button.
+7. **MapMicroapp hover tooltip shows raw intervention type (P3, S)** — `interventionType.replace(/_/g,' ')` → "urban forest" in EN.
+8. **open_map layer ids unvalidated (P3, S)** — unknown id = silently missing hazard layer.
+
+Verified clean: Placar metrics/flags fully localized; roster bands localized; phaseComplete does NOT key on field names (synonym field can't dead-end the banner); E2 recaps are field-bound; no one-shot-question drop in E2.
