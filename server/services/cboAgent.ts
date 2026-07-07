@@ -874,6 +874,65 @@ function applySkipData(state: CboState, targetPhase: string): { phase: number; a
   };
 }
 
+// ── Instant E2 entry (W2 latency) ─────────────────────────────────────────────
+// Turn 1 of Encontro 2 is fully scripted by the skill (greeting line + types
+// strip + fixed continue/skip chips — improvisation is explicitly forbidden
+// there), yet it cost a heavy 10-17s model turn. Serve it as a template with
+// zero model time. Copy mirrors encontro-2.md Turn 1 verbatim, including the
+// needs-help branch (no skip chip — they need the grounding). The events flow
+// through the normal pushEvent, so persistence (chat + composers) and reload
+// behavior are identical to an agent-produced turn. Returns false to fall
+// through to the model (already-shown strip, lookup errors).
+async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: EventPusher, lang: string): Promise<boolean> {
+  try {
+    // If the types strip already exists in the transcript (banner re-fire,
+    // resume race), this is not a virgin E2 entry — let the model handle it.
+    const seen = getCboMessages(cboId).some(m => m.messageType === 'composer' && m.content.includes('"kind":"types"'));
+    if (seen) return false;
+
+    const isPt = lang !== 'en';
+    const nome = String(state.sections.org_profile?.fields?.contact_name?.value || '').trim().split(/\s+/)[0] || '';
+
+    // needs-help orgs don't get the skip option (skill Turn 1 rule).
+    let path: string | null = null;
+    try {
+      const rows = await db.select({ path: cohortMembers.path }).from(cohortMembers).where(eq(cohortMembers.cboStateId, cboId)).limit(1);
+      path = rows[0]?.path ?? null;
+    } catch {}
+
+    const greeting = isPt
+      ? `Oi${nome ? `, ${nome}` : ''}! Antes de falar do seu território, dois minutos sobre os tipos de Solução baseada na Natureza — pra gente falar a mesma língua.`
+      : `Hi${nome ? `, ${nome}` : ''}! Before we talk about your territory, two minutes on the types of Nature-based Solutions — so we speak the same language.`;
+    pushEvent({ type: 'chat', content: greeting, role: 'assistant' } as any);
+    // Same expansion the show_intervention_types tool does: empty = all types.
+    const schemaMod = await import("@shared/cbo-schema");
+    pushEvent({
+      type: 'show_types', typeIds: schemaMod.NBS_INTERVENTION_TYPES.map((t: any) => t.id),
+      intro: isPt ? 'Toca em "Saber mais" em qualquer um pra entender melhor.' : 'Tap "Learn more" on any of them to understand better.',
+    } as any);
+    pushEvent({
+      type: 'chat', role: 'assistant',
+      content: isPt
+        ? 'Esses são os grandes tipos de SbN. Não precisa decorar — é só pra você reconhecer quando aparecerem. Dá uma olhada nos que te chamam atenção e, quando terminar, é só tocar abaixo.'
+        : "These are the big types of NbS. No need to memorize them — just enough to recognize them later. Look at the ones that catch your eye and tap below when you're done.",
+    } as any);
+    const options = [
+      { label: isPt ? 'Ver exemplos' : 'See examples', description: isPt ? 'Casos reais desses tipos' : 'Real cases of these types' },
+      ...(path === 'needs-help' ? [] : [{ label: isPt ? 'Já conheço SbN — pular' : 'I know NbS — skip', description: isPt ? 'Ir direto pro final' : 'Go straight to the end' }]),
+    ];
+    pushEvent({
+      type: 'ask_user',
+      question: isPt ? 'Quando terminar de ver os tipos, seguimos pros exemplos reais?' : 'When you finish looking at the types, shall we move on to real examples?',
+      options,
+    } as any);
+    pushEvent({ type: 'done', summary: 'E2 entry (template)' } as any);
+    console.log(`[cbo] timing for ${cboId}: model=template rounds=0 first_event=0ms total=0ms kind=system detail=e2-entry-template`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function streamCboChat(cboId: string, userMessage: string, res: Response, state: CboState, lang: string = 'en', turnKind?: string) {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -980,6 +1039,16 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
 
   setActivePushEvent(cboId, pushEvent);
   setActiveCboLang(cboId, lang);
+
+  // Instant E2 entry — the banner's fixed message at phase 2 gets the
+  // templated Turn 1 (see serveEncontro2Entry) instead of a model turn.
+  const rawEntryMsg = userMessage.split('\n[LANGUAGE:')[0].trim();
+  if (state.phase === 2 && /^(vamos come\u00e7ar o encontro 2\.?|let'?s start encontro 2\.?)$/i.test(rawEntryMsg)) {
+    if (await serveEncontro2Entry(cboId, state, pushEvent, lang)) {
+      res.end();
+      return;
+    }
+  }
 
   // Test-only deterministic seam. When CBO_FAKE_MODEL=1 (set ONLY in the
   // test/preview env, never the prod Deployment), drive the turn from a scripted
