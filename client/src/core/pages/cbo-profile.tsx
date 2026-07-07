@@ -1481,7 +1481,7 @@ export default function CboProfilePage() {
                   if (i === messages.length - 1 && currentQuestion) return null;
                   return (
                     <div key={i} className="flex justify-start">
-                      <div className="max-w-[90%] rounded-lg px-4 py-2.5 bg-muted">
+                      <div className="max-w-[90%] md:max-w-[560px] rounded-lg px-4 py-2.5 bg-muted">
                         <p className="text-sm">{parsed.question}</p>
                       </div>
                     </div>
@@ -1492,7 +1492,7 @@ export default function CboProfilePage() {
               const uploadName = msg.role === 'user' ? parseUploadFilename(msg.content) : null;
               return (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[90%] rounded-lg px-4 py-2.5 ${msg.role === 'user' ? 'bg-green-600 text-white' : msg.messageType === 'thinking' ? 'bg-muted/50 border border-dashed border-muted-foreground/20' : 'bg-muted'}`}>
+                <div className={`max-w-[90%] md:max-w-[560px] rounded-lg px-4 py-2.5 ${msg.role === 'user' ? 'bg-green-600 text-white' : msg.messageType === 'thinking' ? 'bg-muted/50 border border-dashed border-muted-foreground/20' : 'bg-muted'}`}>
                   {msg.messageType === 'thinking' && <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('cbo.working')}</p>}
                   {msg.role === 'user' ? (
                     uploadName ? (
@@ -1527,7 +1527,7 @@ export default function CboProfilePage() {
                 the drag-drop path (isUploading). */}
             {(uploadingName || isUploading) && (
               <div className="flex justify-end">
-                <div className="max-w-[90%] rounded-lg px-4 py-2.5 bg-green-600/80 text-white">
+                <div className="max-w-[90%] md:max-w-[560px] rounded-lg px-4 py-2.5 bg-green-600/80 text-white">
                   <span className="flex items-center gap-2 text-sm">
                     <Loader2 className="w-4 h-4 animate-spin shrink-0" />
                     <span className="font-medium truncate">{uploadingName || (lang === 'pt' ? 'Arquivo' : 'File')}</span>
