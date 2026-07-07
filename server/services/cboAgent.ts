@@ -891,14 +891,22 @@ function applySkipData(state: CboState, targetPhase: string): { phase: number; a
 // through the normal pushEvent, so persistence (chat + composers) and reload
 // behavior are identical to an agent-produced turn. Returns false to fall
 // through to the model (already-shown strip, lookup errors).
+const e2EntryInFlight = new Set<string>();
 async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: EventPusher, lang: string): Promise<boolean> {
+  // Single-flight per cbo: a double-tapped banner fires two overlapping /chat
+  // requests; without this both pass the virgin gate (it sits before awaits)
+  // and the transcript gets two greetings + two strips (adversarial-review
+  // catch). Concurrent duplicates fall through to the model, whose own gate
+  // (the skill's don't-re-greet rule) is conversational, not duplicating.
+  if (e2EntryInFlight.has(cboId)) return false;
+  e2EntryInFlight.add(cboId);
   try {
     // If the types strip already exists in the transcript (banner re-fire,
     // resume race), this is not a virgin E2 entry — let the model handle it.
     const seen = getCboMessages(cboId).some(m => m.messageType === 'composer' && m.content.includes('"kind":"types"'));
     if (seen) return false;
 
-    const isPt = lang !== 'en';
+    const isPt = lang === 'pt';
     const nome = String(state.sections.org_profile?.fields?.contact_name?.value || '').trim().split(/\s+/)[0] || '';
 
     // needs-help orgs don't get the skip option (skill Turn 1 rule).
@@ -906,11 +914,19 @@ async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: Ev
     try {
       const rows = await db.select({ path: cohortMembers.path }).from(cohortMembers).where(eq(cohortMembers.cboStateId, cboId)).limit(1);
       path = rows[0]?.path ?? null;
-    } catch {}
+    } catch {
+      // Can't know if this is a needs-help org → don't guess the chip set;
+      // the model path sees the same data through its own context.
+      return false;
+    }
+
+    // Re-check the gate after the awaits above — the cheap half of the race
+    // defense (the in-flight set covers the concurrent half).
+    if (getCboMessages(cboId).some(m => m.messageType === 'composer' && m.content.includes('"kind":"types"'))) return false;
 
     const greeting = isPt
-      ? `Oi${nome ? `, ${nome}` : ''}! Antes de falar do seu território, dois minutos sobre os tipos de Solução baseada na Natureza — pra gente falar a mesma língua.`
-      : `Hi${nome ? `, ${nome}` : ''}! Before we talk about your territory, two minutes on the types of Nature-based Solutions — so we speak the same language.`;
+      ? `Oi${nome ? `, ${nome}` : ''}. Antes de falar do seu território, dois minutos sobre os tipos de Solução baseada na Natureza — pra gente falar a mesma língua.`
+      : `Hi${nome ? `, ${nome}` : ''}. Before we talk about your territory, two minutes on the types of Nature-based Solutions — so we speak the same language.`;
     pushEvent({ type: 'chat', content: greeting, role: 'assistant' } as any);
     // Same expansion the show_intervention_types tool does: empty = all types.
     const schemaMod = await import("@shared/cbo-schema");
@@ -938,6 +954,8 @@ async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: Ev
     return true;
   } catch {
     return false;
+  } finally {
+    e2EntryInFlight.delete(cboId);
   }
 }
 
