@@ -178,7 +178,15 @@ export function registerCboRoutes(app: Express): void {
 
     const cohortLang = await getCohortLanguageForCbo(req.params.id);
     const bodyLang = typeof req.body?.lang === 'string' ? req.body.lang : undefined;
-    const isPt = (cohortLang ?? (bodyLang === 'en' ? 'en' : 'pt')) === 'pt';
+    const resolved: 'pt' | 'en' = (cohortLang ?? (bodyLang === 'en' ? 'en' : 'pt')) as 'pt' | 'en';
+    const isPt = resolved === 'pt';
+    // Seed the sticky session language so the agent's first real turn can't
+    // diverge from the greeting's language (adversarial-review catch: the
+    // detection fallback could flip an unseeded standalone session).
+    if (state.metadata.language !== resolved) {
+      state.metadata.language = resolved;
+      setCboState(req.params.id, state);
+    }
 
     const org = (state.orgName || String(state.sections.org_profile?.fields?.org_name?.value || '')).trim();
     const bairro = String(state.sections.org_profile?.fields?.bairro_of_operation?.value || '').trim();

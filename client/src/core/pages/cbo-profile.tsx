@@ -1099,6 +1099,10 @@ export default function CboProfilePage() {
     // Instant kickoff (W1 latency pack, P2): turn 1 is deterministic, so the
     // server serves it from a template with zero model time. Falls back to the
     // model turn if the transcript isn't virgin (resume, race) or on error.
+    // Streaming flag ON during the fetch: an eager user typing before the
+    // template lands would otherwise race it (double greeting / out-of-order
+    // transcript — adversarial-review catch).
+    setIsStreaming(true);
     try {
       const r = await fetch(`/api/cbo/${cboId}/kickoff`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1107,9 +1111,11 @@ export default function CboProfilePage() {
       const data = await r.json();
       if (data?.ok && data.message) {
         setMessages(prev => [...prev, data.message]);
+        setIsStreaming(false);
         return;
       }
     } catch {}
+    setIsStreaming(false);
     const text = lang === 'pt'
       ? "Vamos começar."
       : "Let's begin.";
