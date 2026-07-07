@@ -4,6 +4,7 @@
  * snapshot-on-open (re-fetches on `reloadKey`).
  */
 import { useEffect, useState } from 'react';
+import { orgProfileDisplayValue } from '@shared/cbo-field-catalog';
 import { useTranslation } from 'react-i18next';
 import { Loader2, FileText } from 'lucide-react';
 import { CBO_SECTIONS, type CboState } from '@shared/cbo-schema';
@@ -19,7 +20,8 @@ export function CboProfileSummary({
   memberId: string;
   reloadKey: number;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isPt = !!i18n.language?.startsWith('pt');
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +65,12 @@ export function CboProfileSummary({
         const section = profile.sections?.[sec.id];
         if (!section) return null;
         const rows = Object.entries(section.fields)
-          .map(([k, f]) => [k, fmt(f?.value)] as const)
+          .map(([k, f]) => {
+            const v = fmt(f?.value);
+            // org_profile enum fields may hold legacy machine ids ("funded") —
+            // render the viewer-language label instead.
+            return [k, v !== null && sec.id === 'org_profile' ? orgProfileDisplayValue(k, v, isPt ? 'pt' : 'en') : v] as const;
+          })
           .filter(([, v]) => v !== null);
         return (
           <div key={sec.id}>
