@@ -755,7 +755,7 @@ export default function CboProfilePage() {
     init();
   }, []);
 
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isStreaming]);
 
   // Keyboard nav
   useEffect(() => {
@@ -2247,7 +2247,7 @@ function CboQuestionCard({
   };
 
   return (
-    <div data-testid="cbo-question-card" className={`rounded-lg border bg-background p-3 space-y-2 transition-all ${answeredValue ? 'border-green-200 bg-green-50/30' : ''}`}>
+    <div data-testid="cbo-question-card" className={`md:max-w-[560px] rounded-lg border bg-background p-3 space-y-2 transition-all ${answeredValue ? 'border-green-200 bg-green-50/30' : ''}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="text-sm font-medium prose prose-sm max-w-none flex-1">
           {questionNumber && <span className="text-muted-foreground mr-1">{questionNumber}.</span>}
