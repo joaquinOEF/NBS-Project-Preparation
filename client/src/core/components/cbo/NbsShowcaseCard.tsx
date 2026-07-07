@@ -158,7 +158,7 @@ export function NbsShowcaseCardStrip({
       {intro && (
         <p className="text-xs text-muted-foreground px-1 leading-relaxed">{intro}</p>
       )}
-      <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
+      <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1 snap-x md:flex-wrap md:overflow-x-visible md:snap-none">
         {cards.map(card => (
           <div key={card.id} className="snap-start">
             <NbsShowcaseCardItem
