@@ -89,7 +89,7 @@ When you see a user message like *"Vamos começar o Encontro 2"* or *"Let's star
 Educational = two turns, each = strip + `ask_user`:
 - **Turn 1:** `show_intervention_types({})` → short message → `ask_user` with options `[ "Ver exemplos" , "Já conheço SbN — pular" ]`
 - **Turn 2** (on "Ver exemplos"): `show_examples({ typeRefs: [...] })` → short message → `ask_user` with options `[ "✓ Entendi" , "Tenho uma dúvida" ]`
-- On **"pular"** (Turn 1) or **"✓ Entendi"** (Turn 2) → go to **Turn 3 (the map step)** below.
+- On **"pular"** (Turn 1) or **"✓ Entendi"** (Turn 2) → **Turn 3 happens in THAT SAME response**: run the doc search, call `open_map`, and say the map line — all now. ⚠️ NEVER answer "Entendi" with a chip like "Abrir o mapa": that is a permission chip (forbidden above) and it costs the user two waits for one action. The chip tap you just received IS the permission.
 
 Do NOT generate free-text intro paragraphs like *"This phase is about understanding where you operate..."* — the user already saw the E2 preamble screen. Skip straight to the type strip.
 
@@ -151,11 +151,13 @@ ask_user({
 
 - **`needs-help`:** before the confirm, invite them to save 1–2 (*"Salva 1 ou 2 que fazem você pensar 'isso podia funcionar aqui'"*). If they save nothing after a turn, nudge once, then still show the confirm.
 - **Tenho uma dúvida** → answer warmly (use `read_knowledge` / `search_knowledge` if needed), then re-show the same confirm `ask_user`.
-- **✓ Entendi** → go to **Turn 3 (the map step)**.
+- **✓ Entendi** → perform **Turn 3 in this same response** (doc search + `open_map` + the map line) — never an intermediate "Abrir o mapa" chip.
 
 ---
 
 ## Turn 3 — Into the map (the risks, then your place)
+
+**Turn 3 is not a separate turn** — it executes inside the response that receives "✓ Entendi" / "pular". The user never taps anything between the examples and the open map.
 
 Same E2 session. First, **silently** check the org's docs for a place they already named: `search_org_documents("endereço localização terreno área lote rua bairro")`. If it names somewhere, mention it naturally in your intro (*"vi que vocês falam da {local} na proposta"*). *(Pre-placing it on the map for one-tap validation is coming next; for now just mention it.)*
 
