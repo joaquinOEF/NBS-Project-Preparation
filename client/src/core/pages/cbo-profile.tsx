@@ -1886,7 +1886,7 @@ export default function CboProfilePage() {
             On mobile: visible only when mobileActiveTab === 'panel' (the user
             tapped a non-Chat tab, or the agent invoked a microapp). */}
         <div
-          className={`w-full md:w-1/2 md:flex flex-col bg-muted/30 ${
+          className={`w-full md:w-1/2 min-w-0 md:flex flex-col bg-muted/30 ${
             mobileActiveTab === 'panel' ? 'flex' : 'hidden'
           }`}
         >
