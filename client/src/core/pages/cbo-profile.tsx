@@ -403,6 +403,19 @@ export default function CboProfilePage() {
   // A turn whose SSE stream dropped/stalled — holds the original message text
   // so a "Tentar de novo" tap can resend it (hidden — no duplicate user bubble).
   const [streamRetry, setStreamRetry] = useState<string | null>(null);
+  // Live mirror of cboId + the in-flight stream's handle. Restart/unmount
+  // abort the stream DELIBERATELY; the catch below must distinguish that (and
+  // an abort belonging to an already-replaced session) from a genuine drop —
+  // otherwise a zombie stream from the previous session detonates a spurious
+  // "conexão caiu" bubble into the new chat (field report 2026-07-07).
+  const cboIdRef = useRef<string | null>(null);
+  const activeStreamRef = useRef<{ ctrl: AbortController; deliberate: boolean } | null>(null);
+  const abortActiveStream = useCallback(() => {
+    const stream = activeStreamRef.current;
+    if (stream) { stream.deliberate = true; stream.ctrl.abort(); }
+  }, []);
+  cboIdRef.current = cboId; // render-time mirror (an effect would lag a commit)
+  useEffect(() => () => { abortActiveStream(); }, [abortActiveStream]);
   // Invite-link resolution failure — 'invalid-token' (404/empty) vs 'network'
   // (timeout/offline/5xx). Renders a retryable error card instead of the bare
   // infinite spinner; the 30s poll + focus refetch self-heal it when transient.
@@ -989,6 +1002,9 @@ export default function CboProfilePage() {
     // arrives for 60s (well beyond the slowest tool roundtrip), abort and offer
     // a retry instead.
     const ctrl = new AbortController();
+    const streamHandle = { ctrl, deliberate: false };
+    activeStreamRef.current = streamHandle;
+    const sendForCbo = cboId;
     let watchdog: ReturnType<typeof setTimeout> | undefined;
     const armWatchdog = () => {
       clearTimeout(watchdog);
@@ -1014,16 +1030,20 @@ export default function CboProfilePage() {
     } catch {
       // Dropped/stalled stream — a human, localized message + a self-service
       // retry (resends the same message hidden, so no duplicate user bubble).
-      setMessages(prev => [...prev, {
+      // NOT for deliberate aborts (restart/unmount) or streams whose session
+      // was already replaced — those must die silently.
+      const suppress = streamHandle.deliberate || cboIdRef.current !== sendForCbo;
+      if (!suppress) setMessages(prev => [...prev, {
         role: 'assistant',
         content: lang === 'pt'
           ? 'A conexão caiu no meio da resposta. Toque em "Tentar de novo" que eu retomo daqui.'
           : 'The connection dropped mid-response. Tap "Try again" and I\'ll pick it up.',
         messageType: 'content', timestamp: new Date().toISOString(),
       }]);
-      setStreamRetry(text);
+      if (!suppress) setStreamRetry(text);
     } finally {
       clearTimeout(watchdog);
+      if (activeStreamRef.current === streamHandle) activeStreamRef.current = null;
     }
     setIsStreaming(false);
     setCompletedTurns(n => n + 1);
@@ -1077,13 +1097,14 @@ export default function CboProfilePage() {
   }, [cboId, processEvent]);
 
   const handleRestart = useCallback(async () => {
+    abortActiveStream();
     if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
     clearId(); setOpenMapParams(null); setInterventionSelectorParams(null); setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
     setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
     const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
     const data = await res.json();
     setCboId(data.cboId); setState(data.state); saveId(data.cboId);
-  }, [cboId]);
+  }, [cboId, abortActiveStream]);
 
   // Kick off the agent chat with the standard intake prompt. Hidden from the
   // visible message stream — the agent's first response is what the user sees.

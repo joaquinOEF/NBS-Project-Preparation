@@ -921,11 +921,28 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     }
   };
 
+  // SSE heartbeat. The SDK can think for 10-20s between events; proxies
+  // (Replit's dev domain included) may idle-kill a silent socket, and the
+  // client's 60s inactivity watchdog needs SOMETHING arriving to know the
+  // stream is alive. A comment line every 15s keeps both fed — the client
+  // parser only consumes `data: ` lines, so this is invisible to it beyond
+  // resetting the watchdog. With the heartbeat in place, 60s of true silence
+  // now reliably means the connection is dead.
+  const heartbeat = setInterval(() => {
+    if (!clientGone && !res.writableEnded) res.write(': ping\n\n');
+  }, 15_000);
+
   res.on('close', () => {
+    clearInterval(heartbeat);
     if (clientGone) return;
     clientGone = true;
     if (pushEventRegistry.get(cboId) === pushEvent) pushEventRegistry.delete(cboId);
-    console.log(`[cbo] client disconnected mid-stream for ${cboId} (phase ${state.phase})`);
+    // Node fires 'close' after every NORMAL completion too — only a close
+    // before end() is a real disconnect. (The unguarded version logged a
+    // spurious "disconnected" after every healthy turn.)
+    if (!res.writableEnded) {
+      console.log(`[cbo] client disconnected mid-stream for ${cboId} (phase ${state.phase})`);
+    }
   });
 
   // Handle [SKIP TO phase:X] magic prefix
