@@ -47,7 +47,7 @@ export interface UseCohortResult {
   /** Admin: create a coordinator + their cohort in one shot, then load it. */
   provisionCohort: (input: ProvisionInput) => Promise<{ ok: boolean; error?: string; coordinatorEmail?: string }>;
   resetCohort: () => Promise<void>;
-  invite: (params: { orgName: string; neighborhood?: string; role?: 'priority' | 'alternate' }) => Promise<CohortMember | null>;
+  invite: (params: { orgName: string; neighborhood?: string }) => Promise<CohortMember | null>;
   unlockPhase: (memberIds: string[] | 'all', phase: number) => Promise<void>;
   saveWorkshops: (workshops: WorkshopConfig[]) => Promise<void>;
   saveLanguage: (language: 'pt' | 'en' | null) => Promise<void>;
@@ -139,11 +139,11 @@ export function useCohort(): UseCohortResult {
     }
   }, []);
 
-  const invite: UseCohortResult['invite'] = useCallback(async ({ orgName, neighborhood, role }) => {
+  const invite: UseCohortResult['invite'] = useCallback(async ({ orgName, neighborhood }) => {
     const r = await fetch(`/api/cohort/${slugRef.current}/invite`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orgName, neighborhood, role }),
+      body: JSON.stringify({ orgName, neighborhood }),
     });
     if (!r.ok) return null;
     const { member } = await r.json();

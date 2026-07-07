@@ -979,7 +979,7 @@ export default function OrchestratorLandingPage() {
   // Pure: just makes the invite. The post-success share dialog is wired
   // separately via onSingleSuccess so the bulk-invite loop doesn't trigger
   // N share dialogs (it uses onBulkComplete instead).
-  const handleInviteSubmit = async (params: { orgName: string; neighborhood?: string; role: 'priority' | 'alternate' }) => {
+  const handleInviteSubmit = async (params: { orgName: string; neighborhood?: string }) => {
     const created = await invite(params);
     if (!created) {
       toast({ title: t('orchestrator.cohort.inviteFailed', { defaultValue: 'Could not create invitation' }) });
