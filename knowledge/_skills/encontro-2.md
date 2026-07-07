@@ -33,7 +33,7 @@ Same rule as E1. Warmth comes from speed.
 
 **After a chip selection** (or any composer tool result — map, priority rank, anchoring, examples): no chat text at all. Just the next tool call.
 
-⚡ **Parallel tool calls in ONE response**: when a turn needs `update_section` + the next composer/`ask_user`, emit them together in the same assistant message, never sequentially — each extra round is a full model round-trip of user waiting.
+⚡ **Two tool calls, ONE response**: a single `update_section` carrying ALL the turn's fields (`fields: { … }`) + the next composer/`ask_user`, together in the same assistant message — never one call per field, each extra tool round is a full model round-trip of user waiting.
 
 **After a free-text answer**: max 3 words of ack ("Anotado.", "Show!", "Faz sentido."), then the next question.
 
