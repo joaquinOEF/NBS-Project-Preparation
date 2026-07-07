@@ -45,6 +45,7 @@ export function isFakeModelEnabled(): boolean {
 // op names mirror the real MCP tools so a script reads like the agent's intent.
 export type FakeOp =
   | { op: 'say'; text: string }
+  | { op: 'wait'; ms: number } // test seam: simulate SDK thinking time (capped 25s)
   | { op: 'update_section'; sectionId: string; field: string; value: string; confidence?: Confidence; source?: string }
   | { op: 'ask_user'; question: string; options: { label: string; description?: string; recommended?: boolean }[]; multiSelect?: boolean; showMap?: boolean }
   | { op: 'score_maturity'; metric: string; score: number; justification?: string }
@@ -93,6 +94,11 @@ export async function streamWithFakeModel(
   const turn = queue && queue.length > 0 ? queue.shift()! : defaultTurn(lang, userMessage);
 
   for (const op of turn) {
+    if (op.op === 'wait') {
+      // Simulated thinking gap — lets specs exercise heartbeat/watchdog paths.
+      await new Promise(r => setTimeout(r, Math.min(Math.max(op.ms || 0, 0), 25_000)));
+      continue;
+    }
     runOp(cboId, op, state, pushEvent, deps, lang);
   }
 
