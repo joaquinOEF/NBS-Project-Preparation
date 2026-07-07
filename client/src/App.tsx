@@ -86,7 +86,7 @@ function AppLayout() {
   
   return (
     <div className="flex min-h-screen">
-      <div className={`flex-1 transition-all duration-300 ${isChatOpen ? 'mr-[400px]' : ''}`}>
+      <div className={`flex-1 min-w-0 transition-all duration-300 ${isChatOpen ? 'mr-[400px]' : ''}`}>
         <Router />
       </div>
       <ChatDrawer />
