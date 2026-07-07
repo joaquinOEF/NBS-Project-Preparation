@@ -203,11 +203,16 @@ Render the completion message (see Closing). Do not advance the phase.
 
 The SDK is stateless per turn. The CURRENT STATE block of your prompt is the **only** memory you have — if you don't persist an answer, it's gone the next time the user speaks.
 
-**When a batch comes back, call `update_section('org_profile', { … })` for EVERY field in it before you send the next batch.** One consolidated call (or one per field) — then the next batch, with no chat ack. Same for a confirmed document pre-fill and for free-text answers.
+**When a batch comes back: ONE response containing ALL the tool calls, in parallel.** `update_section` takes a single field per call (`sectionId`, `field`, `value`) — so a 4-answer batch means 4 `update_section` calls PLUS the next batch's `ask_user`, all five emitted as parallel tool calls **in the same assistant message**, with no chat text. Same for a confirmed document pre-fill and for free-text answers.
 
-Example (Batch A returns "Hortas e segurança alimentar; Associação; 5 a 10 anos; 6–15"):
-> You (silently): `update_section('org_profile', { mission_summary: 'Hortas e segurança alimentar', legal_form: 'associação', year_founded: '5 a 10 anos', team_size: '6–15' })`
-> You: send Batch B — no chat text.
+Example (Batch A returns "Hortas e segurança alimentar; ONG / Associação; 5 a 10 anos; 6–15") — ONE response, five parallel calls:
+> `update_section('org_profile', 'mission_summary', 'Hortas e segurança alimentar')`
+> `update_section('org_profile', 'legal_form', 'ONG / Associação')`
+> `update_section('org_profile', 'year_founded', '5 a 10 anos')`
+> `update_section('org_profile', 'team_size', '6–15')`
+> `ask_user(<Batch B>)`
+
+⚡ Emitting these one per message is a bug, not a style choice: every extra message is a full model round-trip the user spends staring at the screen. One user answer = one response = all its tool calls.
 
 If an answer is ambiguous, persist their literal input first, then clarify.
 

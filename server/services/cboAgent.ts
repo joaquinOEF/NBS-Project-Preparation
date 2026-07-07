@@ -1057,6 +1057,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   const turnStart = Date.now();
   let firstEventMs = 0;
   let inferenceRounds = 0;
+  const roundsDetail: string[] = [];
 
   try {
     for await (const message of sdkQuery({
@@ -1100,6 +1101,9 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
       if (message.type === "assistant" && message.message?.content) {
         inferenceRounds++;
         if (!firstEventMs) firstEventMs = Date.now() - turnStart;
+        roundsDetail.push(message.message.content.map((b: any) =>
+          b.type === 'tool_use' ? String(b.name).replace(/^mcp__cbo__/, '') : b.type
+        ).join('+'));
         for (const block of message.message.content) {
           if (block.type === "text" && block.text) {
             emittedText = true;
@@ -1122,7 +1126,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   }
 
   // One greppable line per turn — the before/after for every latency change.
-  console.log(`[cbo] timing for ${cboId}: model=${model} rounds=${inferenceRounds} first_event=${firstEventMs}ms total=${Date.now() - turnStart}ms kind=${turnKind ?? 'none'}`);
+  console.log(`[cbo] timing for ${cboId}: model=${model} rounds=${inferenceRounds} first_event=${firstEventMs}ms total=${Date.now() - turnStart}ms kind=${turnKind ?? 'none'} detail=${roundsDetail.join(' | ')}`);
 
   // Post-turn guard. The skill (encontro-*.md) requires every mid-encontro
   // turn to end with a user-prompting tool (ask_user / a composer / a closing
