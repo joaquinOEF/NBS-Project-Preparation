@@ -1999,7 +1999,13 @@
       "nbs_experience": "Experiência SbN",
       "bairro_of_operation": "Bairro de atuação",
       "groups_served": "Comunidades servidas",
-      "proud_moment": "Momento de orgulho"
+      "proud_moment": "Momento de orgulho",
+      "main_activities": "Principais atividades",
+      "has_cnpj": "CNPJ",
+      "funding_history": "Já recebeu financiamento",
+      "funded_project_count": "Projetos financiados",
+      "biggest_project_budget": "Maior orçamento",
+      "nbs_experience_detail": "Experiência SbN — detalhe"
     },
     "sections": {
       "org_profile": "1. Quem Somos",

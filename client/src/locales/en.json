@@ -1828,7 +1828,13 @@
       "nbs_experience": "NBS experience",
       "bairro_of_operation": "Neighborhood",
       "groups_served": "Groups served",
-      "proud_moment": "Proud moment"
+      "proud_moment": "Proud moment",
+      "main_activities": "Main activities",
+      "has_cnpj": "CNPJ",
+      "funding_history": "Funding history",
+      "funded_project_count": "Funded projects",
+      "biggest_project_budget": "Biggest project budget",
+      "nbs_experience_detail": "NBS experience detail"
     },
     "sections": {
       "org_profile": "1. Who We Are",

@@ -31,12 +31,25 @@ export const ORG_PROFILE_FIELDS = [
   'contact_name',
   'contact_role',
   'mission_summary',
+  // Questionnaire v2 (Vila Flores field feedback 2026-07-08): activities got
+  // their own field (they were being squashed into mission_summary, which is
+  // why the mission question silently disappeared from the flow), CNPJ is
+  // asked before org type, and the single prior_project_scale question became
+  // funding_history → funded_project_count + biggest_project_budget.
+  'main_activities',
+  'has_cnpj',
   'legal_form',
   'year_founded',
   'team_size',
   'paid_vs_volunteer',
+  'funding_history',
+  'funded_project_count',
+  'biggest_project_budget',
+  // Legacy — no longer asked; kept so sessions recorded before v2 still
+  // validate, display, and feed the delivery-capacity rubric.
   'prior_project_scale',
   'nbs_experience',
+  'nbs_experience_detail',
   'bairro_of_operation',
   'groups_served',
   'proud_moment',
@@ -68,11 +81,42 @@ export const ORG_PROFILE_ENUMS: Record<string, CboEnumOption[]> = {
     { id: '6-15', pt: '6–15', en: '6–15', aliases: ['6-15 pessoas', '6 a 15'] },
     { id: '16+', pt: '16+', en: '16+', aliases: ['16+ pessoas', 'mais de 16'] },
   ],
+  // Questionnaire v2: "(1–2 pagas)" dropped from the mostly-volunteers label
+  // (it wrongly excluded orgs with 3+ paid among many volunteers) and "Todas
+  // pagas" added. Old labels stay as aliases so legacy stored values re-render.
   paid_vs_volunteer: [
     { id: 'all-volunteer', pt: 'Todas voluntárias', en: 'All volunteers', aliases: ['todos voluntários', 'all volunteer'] },
-    { id: 'mostly-volunteer', pt: 'Maioria voluntárias (1–2 pagas)', en: 'Mostly volunteers (1–2 paid)', aliases: ['maioria voluntárias', 'mostly volunteers'] },
+    { id: 'mostly-volunteer', pt: 'Maioria voluntárias', en: 'Mostly volunteers', aliases: ['maioria voluntárias (1–2 pagas)', 'mostly volunteers (1–2 paid)'] },
     { id: 'half-half', pt: 'Metade e metade', en: 'Half and half', aliases: ['metade', '50/50', 'half half'] },
     { id: 'mostly-paid', pt: 'Maioria pagas', en: 'Mostly paid', aliases: ['maioria remuneradas', 'mostly paid staff'] },
+    { id: 'all-paid', pt: 'Todas pagas', en: 'All paid', aliases: ['todas remuneradas', 'all paid staff'] },
+  ],
+  main_activities: [
+    { id: 'hortas-alimentar', pt: 'Hortas e segurança alimentar', en: 'Gardens and food security', aliases: ['hortas', 'segurança alimentar', 'food security', 'gardens'] },
+    { id: 'arborizacao', pt: 'Arborização e áreas verdes', en: 'Tree planting and green areas', aliases: ['arborização', 'áreas verdes', 'green areas', 'tree planting'] },
+    { id: 'resiliencia-climatica', pt: 'Resiliência climática (enchentes, calor)', en: 'Climate resilience (floods, heat)', aliases: ['resiliência climática', 'climate resilience'] },
+    { id: 'educacao-ambiental', pt: 'Educação ambiental', en: 'Environmental education', aliases: ['env education'] },
+    { id: 'cultura-comunitaria', pt: 'Cultura e organização comunitária', en: 'Culture and community organizing', aliases: ['cultura', 'organização comunitária', 'community organizing'] },
+  ],
+  has_cnpj: [
+    { id: 'yes', pt: 'Sim, temos CNPJ', en: 'Yes, we have a CNPJ', aliases: ['sim', 'yes', 'tem cnpj', 'com cnpj'] },
+    { id: 'no', pt: 'Ainda não', en: 'Not yet', aliases: ['não', 'nao', 'no', 'sem cnpj'] },
+    { id: 'not-sure', pt: 'Não temos certeza', en: 'Not sure', aliases: ['não sei', 'nao sei', 'not sure', 'não tenho certeza'] },
+  ],
+  funding_history: [
+    { id: 'yes', pt: 'Sim, já recebemos', en: 'Yes, we have', aliases: ['sim', 'yes', 'já recebemos', 'ja recebemos'] },
+    { id: 'no', pt: 'Ainda não', en: 'Not yet', aliases: ['não', 'nao', 'no', 'nunca recebemos'] },
+  ],
+  funded_project_count: [
+    { id: 'one', pt: '1 projeto', en: '1 project', aliases: ['um projeto', 'one project', '1'] },
+    { id: '2-5', pt: '2 a 5 projetos', en: '2–5 projects', aliases: ['2-5 projetos', '2 to 5 projects'] },
+    { id: 'gt-5', pt: 'Mais de 5 projetos', en: 'More than 5 projects', aliases: ['5+ projetos', '5+ projects', 'mais de 5'] },
+  ],
+  biggest_project_budget: [
+    { id: 'lt-10k', pt: 'Até R$ 10 mil', en: 'Up to R$ 10k', aliases: ['ate 10 mil', 'menos de 10 mil', 'up to 10k'] },
+    { id: '10-50k', pt: 'R$ 10 a 50 mil', en: 'R$ 10–50k', aliases: ['10 a 50 mil', '10-50k'] },
+    { id: '50-200k', pt: 'R$ 50 a 200 mil', en: 'R$ 50–200k', aliases: ['50 a 200 mil', '50-200k'] },
+    { id: 'gt-200k', pt: 'Mais de R$ 200 mil', en: 'More than R$ 200k', aliases: ['mais de 200 mil', '200k+'] },
   ],
   prior_project_scale: [
     { id: 'none', pt: 'Nenhum formal ainda', en: 'None formal yet', aliases: ['nenhum', 'none yet', 'no formal projects'] },
@@ -80,8 +124,14 @@ export const ORG_PROFILE_ENUMS: Record<string, CboEnumOption[]> = {
     { id: 'funded', pt: 'Projeto com financiamento', en: 'Funded project', aliases: ['projeto financiado', 'com financiamento'] },
     { id: 'partnership', pt: 'Parceria com órgão público / fundação', en: 'Partnership with public agency / foundation', aliases: ['parceria', 'partnership with public agency'] },
   ],
+  // Questionnaire v2: the chips are now Sim / Ainda não / Não temos certeza,
+  // with the specifics captured in the free-text follow-up
+  // (nbs_experience_detail). The old activity-flavored options stay so legacy
+  // sessions keep displaying — and they still read as a "yes" in the rubric.
   nbs_experience: [
-    { id: 'none', pt: 'Ainda não', en: 'Not yet', aliases: ['nenhuma', 'ainda nao'] },
+    { id: 'yes', pt: 'Sim', en: 'Yes', aliases: ['sim, já trabalhamos', 'ja trabalhamos'] },
+    { id: 'none', pt: 'Ainda não', en: 'Not yet', aliases: ['nenhuma', 'ainda nao', 'não', 'nao', 'no'] },
+    { id: 'not-sure', pt: 'Não temos certeza', en: 'Not sure', aliases: ['não tenho certeza', 'nao tenho certeza', 'not sure', 'não sei'] },
     { id: 'env-education', pt: 'Educação ambiental', en: 'Environmental education', aliases: ['env education', 'educação ambiental'] },
     { id: 'gardens-and-greening', pt: 'Hortas / arborização', en: 'Gardens and greening', aliases: ['hortas', 'arborização', 'hortas e arborização', 'gardens', 'greening'] },
     { id: 'implemented-nbs', pt: 'Já implementamos SbN', en: 'Already implemented NbS', aliases: ['já implementamos', 'implementamos', 'implemented nbs'] },
@@ -144,9 +194,10 @@ function matchOptionFuzzy(field: string, raw: string): CboEnumOption | null {
   return hits.length === 1 ? hits[0] : null;
 }
 
-/** groups_served is a multi-select stored as one string — split on the
- *  separators the agent/chips produce, map each item independently. */
-const MULTI_FIELDS = new Set(['groups_served']);
+/** groups_served / main_activities are multi-selects stored as one string —
+ *  split on the separators the agent/chips produce, map each item
+ *  independently. */
+const MULTI_FIELDS = new Set(['groups_served', 'main_activities']);
 const MULTI_SEPARATOR = /\s*[,;·|]\s*|\s+e\s+(?=[A-ZÀ-Ú])/;
 
 function mapValue(field: string, raw: string, pick: (opt: CboEnumOption) => string, fuzzy = false): string {

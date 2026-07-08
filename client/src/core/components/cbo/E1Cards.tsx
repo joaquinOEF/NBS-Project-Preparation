@@ -17,12 +17,13 @@ import { orgProfileDisplayValue } from '@shared/cbo-field-catalog';
 type GroupKey = 'quem-somos' | 'equipe' | 'historico' | 'caminho' | 'outros';
 
 const FIELD_GROUPS: Record<Exclude<GroupKey, 'outros'>, string[]> = {
-  // Identity — what + who
-  'quem-somos': ['org_name', 'contact_name', 'contact_role', 'mission_summary', 'legal_form', 'year_founded'],
+  // Identity — what + who (questionnaire v2 added main_activities + has_cnpj)
+  'quem-somos': ['org_name', 'contact_name', 'contact_role', 'mission_summary', 'main_activities', 'has_cnpj', 'legal_form', 'year_founded'],
   // Team — size + composition
   equipe: ['team_size', 'paid_vs_volunteer'],
-  // History — prior work + NBS experience
-  historico: ['prior_project_scale', 'nbs_experience', 'proud_moment'],
+  // History — funding track record + NBS experience (prior_project_scale is
+  // the pre-v2 legacy field; old sessions still carry it, so it stays listed)
+  historico: ['funding_history', 'funded_project_count', 'biggest_project_budget', 'prior_project_scale', 'nbs_experience', 'nbs_experience_detail', 'proud_moment'],
   // Path — the triage answer + community served + bairro
   caminho: ['bairro_of_operation', 'groups_served'],
 };
