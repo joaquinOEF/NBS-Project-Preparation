@@ -97,6 +97,10 @@ type CboDemoProject = {
   supportPendingCount: number;
   /** How many files this CBO has uploaded — drives the 📎 chip + files drawer. */
   documentCount: number;
+  /** E2 "usar o bairro todo": the org committed a neighborhood but deferred the
+   *  exact site (coords are the bairro centroid). Drives an amber chip and is
+   *  excluded from the sites-mapped KPI. */
+  siteDeferred: boolean;
 };
 
 const TOTAL_SECTIONS = 7;
@@ -129,19 +133,29 @@ const NEXT_ACTION_KEY: Record<number, string> = {
 };
 
 function memberToView(m: CohortMember): CboDemoProject {
-  const sm = m as CohortMember & { displayName?: { en: string; pt: string }; coords?: [number, number] | null };
+  const sm = m as CohortMember & {
+    displayName?: { en: string; pt: string };
+    derivedSectionsComplete?: number;
+  };
   const updatedAt = m.snapshotUpdatedAt ? new Date(m.snapshotUpdatedAt) : null;
   const daysAgo = updatedAt
     ? Math.max(0, Math.floor((Date.now() - updatedAt.getTime()) / 86400000))
     : 0;
   const phaseNum = m.snapshotPhase ?? 1;
+  // Coords come from the structured E2 site commit (member.site.coordinates,
+  // [lat,lng] centroid) — the previous read (`sm.coords`) was a field nothing
+  // populates, so the cohort map rendered zero markers for live cohorts.
+  const site = m.site ?? null;
   return {
     id: m.id,
     name: sm.displayName ?? { en: m.orgName, pt: m.orgName },
     neighborhood: m.neighborhood ?? '',
-    coords: sm.coords ?? null,
+    coords: site?.coordinates ?? null,
     currentPhase: PHASE_TO_KEY[phaseNum] ?? 'who',
-    sectionsComplete: m.snapshotSectionsComplete ?? 0,
+    // Server-derived from the live cbo_state (attachDerivedSections); the raw
+    // snapshot column is only written by a PATCH no client sends, so it reads
+    // 0 forever. Snapshot kept as fallback for pre-derivation payloads.
+    sectionsComplete: sm.derivedSectionsComplete ?? m.snapshotSectionsComplete ?? 0,
     interventionKey: (m.snapshotIntervention as InterventionKey | null) ?? null,
     maturityScore: m.snapshotMaturityScore ?? 0,
     priorityFlagsMet: m.snapshotFlagsMet ?? 0,
@@ -152,6 +166,7 @@ function memberToView(m: CohortMember): CboDemoProject {
       ? ((m as any).supportRequests as { resolvedAt: string | null }[]).filter(r => !r.resolvedAt).length
       : 0,
     documentCount: (m as any).documentCount ?? 0,
+    siteDeferred: site?.deferred === true,
   };
 }
 
@@ -627,6 +642,11 @@ function ProjectCard({
                     {t('orchestrator.demo.locationPending')}
                   </span>
                 )}
+                {project.coords && project.siteDeferred && (
+                  <span className="ml-1.5 inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                    {t('orchestrator.demo.siteDeferred', { defaultValue: 'Site TBD — neighborhood level' })}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -846,7 +866,9 @@ export default function OrchestratorLandingPage() {
   }, [cohort?.id, cohortLanguage, i18n]);
 
   const stats = useMemo(() => {
-    const sitesMapped = projects.filter(p => p.coords).length;
+    // Deferred sites ("usar o bairro todo") have centroid coords for the map
+    // but are not a mapped SITE — counting them would overstate E2 completion.
+    const sitesMapped = projects.filter(p => p.coords && !p.siteDeferred).length;
     const profilesInProgress = projects.filter(
       p => p.sectionsComplete > 0 && p.sectionsComplete < TOTAL_SECTIONS
     ).length;

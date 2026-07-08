@@ -90,6 +90,7 @@
       "portfolioTitle": "Community projects",
       "portfolioSubtitle": "Each CBO sits somewhere in the profile diagnostic. Hover a card to find its site on the map.",
       "locationPending": "Location pending",
+      "siteDeferred": "Site TBD — neighborhood level",
       "sectionsLabel": "Sections complete",
       "sectionsCount": "{{done}} of {{total}}",
       "flagsCount": "{{met}} of {{total}} priority flags",
