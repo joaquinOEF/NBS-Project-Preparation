@@ -97,6 +97,9 @@ type CboDemoProject = {
   supportPendingCount: number;
   /** How many files this CBO has uploaded — drives the 📎 chip + files drawer. */
   documentCount: number;
+  /** Persisted org maturity tier (EF-5): set by the agent at E1 close,
+   *  coordinator-overridable from the card. Null until E1 completes. */
+  maturityTier: 'emerging' | 'developing' | 'advanced' | null;
   /** E2 "usar o bairro todo": the org committed a neighborhood but deferred the
    *  exact site (coords are the bairro centroid). Drives an amber chip and is
    *  excluded from the sites-mapped KPI. */
@@ -166,6 +169,7 @@ function memberToView(m: CohortMember): CboDemoProject {
       ? ((m as any).supportRequests as { resolvedAt: string | null }[]).filter(r => !r.resolvedAt).length
       : 0,
     documentCount: (m as any).documentCount ?? 0,
+    maturityTier: ((m as any).maturityTier as 'emerging' | 'developing' | 'advanced' | null) ?? null,
     siteDeferred: site?.deferred === true,
   };
 }
@@ -585,6 +589,7 @@ function ProjectCard({
   onHover,
   onOpen,
   onOpenCbo,
+  onSetTier,
 }: {
   project: CboDemoProject;
   locale: 'en' | 'pt';
@@ -592,6 +597,7 @@ function ProjectCard({
   onHover: (id: string | null) => void;
   onOpen: (p: CboDemoProject) => void;
   onOpenCbo: (p: CboDemoProject, tab: 'arquivos' | 'conversa' | 'perfil') => void;
+  onSetTier: (p: CboDemoProject, tier: 'emerging' | 'developing' | 'advanced') => void;
 }) {
   const { t } = useTranslation();
   const hasIntervention = project.interventionKey !== null;
@@ -656,6 +662,23 @@ function ProjectCard({
             <span className="inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full border border-foreground/10 bg-foreground/5 text-foreground/75">
               {t(`orchestrator.demo.phase.${project.currentPhase}`)}
             </span>
+            {/* Maturity tier (EF-5): shown once E1 persists it; the select IS
+                the coordinator override — a wrong persisted tier is stickier
+                than per-turn inference, so correction must be one tap. */}
+            {project.maturityTier && (
+              <select
+                value={project.maturityTier}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => { e.stopPropagation(); onSetTier(project, e.target.value as 'emerging' | 'developing' | 'advanced'); }}
+                data-testid={`tier-select-${project.id}`}
+                className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300 cursor-pointer"
+                title={t('orchestrator.demo.tierTitle', { defaultValue: 'Maturity tier (agent-read at E1 — you can override it)' })}
+              >
+                <option value="emerging">{t('orchestrator.demo.tier.emerging', { defaultValue: 'Emerging' })}</option>
+                <option value="developing">{t('orchestrator.demo.tier.developing', { defaultValue: 'Developing' })}</option>
+                <option value="advanced">{t('orchestrator.demo.tier.advanced', { defaultValue: 'Advanced' })}</option>
+              </select>
+            )}
             {project.path && (
               <span
                 className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-900/40"
@@ -838,11 +861,26 @@ export default function OrchestratorLandingPage() {
   const {
     cohort, members, isAdmin, allCohorts,
     invite, unlockPhase, saveWorkshops, resetCohort, saveLanguage, deleteCohort,
-    switchCohort, provisionCohort,
+    switchCohort, provisionCohort, refresh,
   } = useCohort();
   const cohortLanguage = (cohort?.settings as { language?: 'pt' | 'en' } | null)?.language ?? null;
 
   const projects = useMemo(() => members.map(memberToView), [members]);
+
+  // Coordinator tier override (EF-5) — one tap on the card's tier select.
+  const handleSetTier = async (p: CboDemoProject, tier: 'emerging' | 'developing' | 'advanced') => {
+    if (!cohort?.coordinatorSlug) return;
+    const r = await fetch(`/api/cohort/${cohort.coordinatorSlug}/member/${p.id}/tier`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tier }),
+    });
+    if (!r.ok) {
+      toast({ title: t('orchestrator.demo.tierFailed', { defaultValue: 'Could not update the tier' }) });
+      return;
+    }
+    await refresh();
+  };
   const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
 
   // Initialize the inbox badge from already-loaded members so it lights up
@@ -1001,7 +1039,7 @@ export default function OrchestratorLandingPage() {
   // Pure: just makes the invite. The post-success share dialog is wired
   // separately via onSingleSuccess so the bulk-invite loop doesn't trigger
   // N share dialogs (it uses onBulkComplete instead).
-  const handleInviteSubmit = async (params: { orgName: string; neighborhood?: string }) => {
+  const handleInviteSubmit = async (params: { orgName: string; neighborhood?: string; orgType?: 'community' | 'implementer' }) => {
     const created = await invite(params);
     if (!created) {
       toast({ title: t('orchestrator.cohort.inviteFailed', { defaultValue: 'Could not create invitation' }) });
@@ -1303,6 +1341,7 @@ export default function OrchestratorLandingPage() {
                     onHover={setSelectedId}
                     onOpen={(p) => openCbo(p, 'convite')}
                     onOpenCbo={openCbo}
+                    onSetTier={handleSetTier}
                   />
                   {member && (
                     <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">

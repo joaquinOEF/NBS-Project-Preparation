@@ -26,6 +26,7 @@ import { db } from "../db";
 import { cohortMembers } from "@shared/cohort-schema";
 import { eq } from "drizzle-orm";
 import { getOrgIdForCboState, listDocumentsByOrg, listDocumentSummariesByOrg, getDocumentForOrg } from "./documentPersistence";
+import { setMaturityTierForCboState, getMaturityTierForCboState } from "./orgPersistence";
 import { queryTerms, scoreText, extractExcerpt } from "./textSearch";
 import { isFakeModelEnabled, streamWithFakeModel } from "./fakeCboModel";
 import { emitAssistantText } from "./agentOutput";
@@ -360,6 +361,28 @@ function createCboMcpTools(cboId: string) {
         return { content: [{ type: "text" as const, text: `Path set to '${args.path}' for ${result[0].orgName}.` }] };
       } catch (err: any) {
         return { content: [{ type: "text" as const, text: `Error setting path: ${err.message}` }], isError: true };
+      }
+    },
+    { annotations: { readOnlyHint: false } }
+  );
+
+  // E1 close: persist the maturity-tier read (audit EF-5). The tier used to
+  // be inferred fresh from the transcript every turn and never written
+  // anywhere — organizations.maturity_tier stayed null, and E2+ (whose
+  // skills don't re-derive it) ran with no calibration signal at all.
+  const setMaturityTier = sdkTool(
+    "set_maturity_tier",
+    "Persist the org's maturity-tier read at the END of Encontro 1 (with the closing score_maturity + set_path calls). 'emerging' = plainest language, hide jargon; 'developing' = standard depth; 'advanced' = crisper, assume fluency. Grounded in the COUGAR Gate-2 rubric. Later encontros read this instead of re-deriving it, and the coordinator can override it.",
+    { tier: z.enum(["emerging", "developing", "advanced"]) },
+    async (args: any) => {
+      try {
+        const orgName = await setMaturityTierForCboState(cboId, args.tier);
+        if (!orgName) {
+          return { content: [{ type: "text" as const, text: `No organization linked to this session; tier '${args.tier}' not persisted (standalone session).` }] };
+        }
+        return { content: [{ type: "text" as const, text: `Maturity tier set to '${args.tier}' for ${orgName}.` }] };
+      } catch (err: any) {
+        return { content: [{ type: "text" as const, text: `Error setting tier: ${err.message}` }], isError: true };
       }
     },
     { annotations: { readOnlyHint: false } }
@@ -786,7 +809,7 @@ STOP and wait for the user's selection after calling this tool.`,
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, flagGap, setPhase, setPath, showInterventionTypes, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector],
+    tools: [updateSection, flagGap, setPhase, setPath, setMaturityTier, showInterventionTypes, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector],
   });
 }
 
@@ -1284,6 +1307,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           "mcp__cbo__flag_gap",
           "mcp__cbo__set_phase",
           "mcp__cbo__set_path",
+          "mcp__cbo__set_maturity_tier",
           "mcp__cbo__show_examples",
           "mcp__cbo__ask_priority_rank",
           "mcp__cbo__ask_community_anchoring",
@@ -1540,6 +1564,28 @@ async function buildSystemContext(state: CboState, lang: string = 'en'): Promise
   const encontroSkill = await loadEncontroSkill(skillPhase);
   const phaseInstructions = encontroSkill?.markdown ?? buildPhaseInstructions(state.phase, isPt);
 
+  // Persisted maturity tier (EF-5): E1 infers and persists it via
+  // set_maturity_tier; from E2 on we inject the stored value so later
+  // encontros calibrate depth without re-deriving it from a transcript that
+  // no longer contains the E1 signals. Stable per phase, so it lives in the
+  // cached system prefix, not the volatile blocks.
+  let tierBlock = '';
+  if (state.phase >= 2) {
+    const tier = await getMaturityTierForCboState(state.id).catch(() => null);
+    if (tier) {
+      const guidance: Record<string, string> = {
+        emerging: isPt
+          ? 'linguagem simples, sem jargão técnico ("hotspots", "tipologias"); reforço extra de acolhimento; nunca pressuponha orçamento ou estrutura formal.'
+          : 'plainest language, no technical jargon; extra reassurance; never assume budget or formal structure.',
+        developing: isPt ? 'profundidade e ritmo padrão.' : 'standard depth and pace.',
+        advanced: isPt
+          ? 'tom mais direto, assuma fluência; pode aprofundar em projetos anteriores e parcerias — perfis rasos desperdiçam o tempo dessa org.'
+          : 'crisper tone, assume fluency; go deeper on prior projects and partnerships — a thin profile wastes this org\'s time.',
+      };
+      tierBlock = `\n\n## MATURITY TIER: ${tier}\nCalibration (persisted at E1, coordinator can override — adapt TONE and depth, never which steps you run): ${guidance[tier]}`;
+    }
+  }
+
   // ── City summary (condensed, always loaded) ──
   const citySummary = isPt
     ? `Porto Alegre, RS, Brasil. Pop 1,4M. Enchentes catastróficas em maio 2024 (piores da história do RS). Riscos: inundação (Guaíba), ilhas de calor (4° Distrito, Centro), deslizamento (morros). Planos: PCVR, World Bank P178072 (US$85M regeneração verde). Precedentes: Orla do Guaíba (5,7ha, espécies nativas), Regenera Dilúvio. COUGAR mapeou 50+ atores no ecossistema.`
@@ -1571,7 +1617,7 @@ ${isPt
   : `1. Who We Are (org_profile) · 2. Where We Work (intervention_site, use open_map) · 3a. What We're Building (intervention_type, use open_intervention_selector) · 3b. Expected Impact (impact_monitoring) · 3c. Operations & Sustainability (operations_sustain) · 4. What We Need (needs_assessment) · 5. Results & Evidence (results_evidence) · 6. Maturity Scorecard (set_phase 6 to complete)`}
 
 ## CURRENT PHASE INSTRUCTIONS
-${phaseInstructions}
+${phaseInstructions}${tierBlock}
 
 ## RULES
 ${isPt

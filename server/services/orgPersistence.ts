@@ -32,3 +32,32 @@ export async function getOrganization(id: string): Promise<Organization | null> 
 export async function linkCboStateToOrg(cboStateId: string, orgId: string): Promise<void> {
   await db.update(cboStates).set({ orgId }).where(eq(cboStates.id, cboStateId));
 }
+
+/** Resolve the org for a cbo_state (member link preferred, cboStates.orgId
+ *  fallback) and set its maturity tier. Returns the org name, or null when
+ *  no org exists (standalone session). Used by the agent's set_maturity_tier
+ *  tool at E1 close and the coordinator override endpoint (audit EF-5 — the
+ *  tier used to be inferred fresh every turn and never persisted anywhere,
+ *  so E2+ had no tier signal at all). */
+export async function setMaturityTierForCboState(
+  cboStateId: string,
+  tier: MaturityTier,
+): Promise<string | null> {
+  const [row] = await db.select({ orgId: cboStates.orgId }).from(cboStates).where(eq(cboStates.id, cboStateId)).limit(1);
+  const orgId = row?.orgId ?? null;
+  if (!orgId) return null;
+  const [org] = await db.update(organizations).set({ maturityTier: tier }).where(eq(organizations.id, orgId)).returning();
+  return org?.name ?? null;
+}
+
+/** The persisted tier for a cbo_state's org, or null. Read on E2+ turns to
+ *  inject the calibration block into the system context. */
+export async function getMaturityTierForCboState(cboStateId: string): Promise<MaturityTier | null> {
+  const [row] = await db
+    .select({ tier: organizations.maturityTier })
+    .from(cboStates)
+    .innerJoin(organizations, eq(organizations.id, cboStates.orgId))
+    .where(eq(cboStates.id, cboStateId))
+    .limit(1);
+  return (row?.tier as MaturityTier | null) ?? null;
+}

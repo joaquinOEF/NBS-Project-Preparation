@@ -163,7 +163,10 @@
       "workshops": "Cronograma de encontros",
       "phaseUnlocked": "Fase {{phase}} liberada",
       "unlockedThrough": "Liberado até a Fase {{phase}}",
-      "workshopOpened": "{{workshop}} aberto para o grupo"
+      "workshopOpened": "{{workshop}} aberto para o grupo",
+      "orgType": "Tipo de organização",
+      "orgTypeCommunity": "Org comunitária",
+      "orgTypeImplementer": "Implementadora / estúdio"
     },
     "demo": {
       "headerEyebrow": "Visão da articuladora",
@@ -229,6 +232,13 @@
       "support": {
         "pendingChip": "{{n}} pendência(s)",
         "pendingTooltip": "{{n}} pedido(s) de apoio aguardando"
+      },
+      "tierTitle": "Nível de maturidade (lido pelo agente no E1 — você pode corrigir)",
+      "tierFailed": "Não foi possível atualizar o nível",
+      "tier": {
+        "emerging": "Emergente",
+        "developing": "Em desenvolvimento",
+        "advanced": "Avançada"
       }
     },
     "map": {
