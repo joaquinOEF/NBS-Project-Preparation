@@ -1080,6 +1080,26 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     console.log(`[cbo] lifted ${cboId} from stranded phase 0 to phase 1`);
   }
 
+  // "vamos começar o encontro N" — the banner's fixed message (belt to the
+  // client's /advance-phase call), or a user typing the phrase by hand. This
+  // previously lived in the route with its own duplicated policy check and a
+  // silent `state.phase = target` write: no phase_change event, no durable
+  // flush (backlog CBO-PHASE-WRITERS — the manual-typed case left the client
+  // header/banner stale, the same desync class as the fake-E2 report). Route
+  // it through advanceCboPhase — the single gate every other phase writer
+  // uses — and TELL the client.
+  const startEncontroMatch = userMessage.match(/(?:vamos\s+(?:começar|comecar)\s+(?:o\s+)?encontro|let'?s\s+start\s+encontro)\s+(\d+)/i);
+  if (startEncontroMatch) {
+    const target = parseInt(startEncontroMatch[1], 10);
+    if (target >= 1 && target <= 6 && target > (state.phase ?? 0)) {
+      const advanced = await advanceCboPhase(cboId, target);
+      if (advanced.ok) {
+        pushEvent({ type: 'phase_change', phase: target });
+        console.log(`[cbo] chat handler advanced ${cboId} to phase ${target} via "start Encontro" pattern`);
+      }
+    }
+  }
+
   // Handle [SKIP TO phase:X] magic prefix
   const skipMatch = userMessage.match(SKIP_PATTERN);
   if (skipMatch) {

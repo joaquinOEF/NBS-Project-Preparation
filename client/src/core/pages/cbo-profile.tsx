@@ -149,6 +149,12 @@ interface RightPanelToolDef {
   defaultParams: (state: CboState) => any | null;
   // Task complete → the nudge clears; re-entry is just "revisit".
   isDone: (state: CboState) => boolean;
+  // The earliest phase this tool legitimately belongs to (map = E2,
+  // selector = E3) — mirrors the server-side tool fence. A persisted
+  // activeTool BELOW this phase is damage from a role-played encontro
+  // (fake-E2 report 2026-07-08) and must never count as pending — else it
+  // holds the advance banner hostage on a step the org shouldn't be in.
+  minPhase: number;
   nudge: { pt: string; en: string };
 }
 
@@ -172,6 +178,7 @@ const RIGHT_PANEL_TOOLS: Record<ToolKind, RightPanelToolDef> = {
       prompt: 'Marque o bairro e o lugar onde vocês atuam.',
     } : null,
     isDone: (s) => fieldVal(s, 'intervention_site', 'bairro', 'site_name'),
+    minPhase: 2,
     nudge: { pt: 'Abrir o mapa', en: 'Open the map' },
   },
   interventions: {
@@ -179,6 +186,7 @@ const RIGHT_PANEL_TOOLS: Record<ToolKind, RightPanelToolDef> = {
     icon: Layers,
     defaultParams: () => null,  // wired when E3 (NBS-type selection) lands
     isDone: (s) => fieldVal(s, 'intervention_type', 'intervention_type', 'nbs_type'),
+    minPhase: 3,
     nudge: { pt: 'Escolher o tipo de SbN', en: 'Choose the NBS type' },
   },
 };
@@ -189,6 +197,9 @@ function pendingTool(state: CboState | null): { kind: ToolKind; def: RightPanelT
   const kind = (state as any)?.activeTool?.kind as ToolKind | undefined;
   if (!kind || !RIGHT_PANEL_TOOLS[kind] || !state) return null;
   const def = RIGHT_PANEL_TOOLS[kind];
+  // Below the tool's phase = illegitimate residue of a role-played encontro;
+  // never pending (the banner must stay available to do the REAL entry).
+  if ((state.phase ?? 0) < def.minPhase) return null;
   return def.isDone(state) ? null : { kind, def };
 }
 // Has this tool's step been reached (active now, or already done)? → the tab
@@ -1708,7 +1719,12 @@ export default function CboProfilePage() {
               if (isStreaming || !stableStreamEnded || messages.length === 0 || state.phase === 0) return null;
               // ANY live affordance suppresses the banner — not just ask_user.
               // Rank/anchoring/map composers previously co-rendered with it.
-              if (currentQuestion || priorityRankPrompt || anchoringPrompt || openMapParams || interventionSelectorParams) return null;
+              // Tool params only suppress at/above the tool's own phase — a
+              // map/selector restored from a role-played encontro (fake-E2)
+              // must not hide the banner that performs the REAL entry.
+              const mapHolds = openMapParams != null && (state.phase ?? 0) >= RIGHT_PANEL_TOOLS.map.minPhase;
+              const selHolds = interventionSelectorParams != null && (state.phase ?? 0) >= RIGHT_PANEL_TOOLS.interventions.minPhase;
+              if (currentQuestion || priorityRankPrompt || anchoringPrompt || mapHolds || selHolds) return null;
               // Also suppress while a persisted right-panel tool step is
               // pending (isDone-aware — pendingTool clears itself once the
               // step's fields are filled, so this can never stick forever).
@@ -1795,7 +1811,12 @@ export default function CboProfilePage() {
               // currentQuestion-only check let "Continuar da Fase X" render
               // UNDER a live rank/anchoring/map composer (tapping it derails).
               if (isStreaming || !stableStreamEnded || state.phase === 0 || messages.length === 0) return null;
-              if (currentQuestion || priorityRankPrompt || anchoringPrompt || openMapParams || interventionSelectorParams) return null;
+              // Tool params only suppress at/above the tool's own phase — a
+              // map/selector restored from a role-played encontro (fake-E2)
+              // must not hide the banner that performs the REAL entry.
+              const mapHolds = openMapParams != null && (state.phase ?? 0) >= RIGHT_PANEL_TOOLS.map.minPhase;
+              const selHolds = interventionSelectorParams != null && (state.phase ?? 0) >= RIGHT_PANEL_TOOLS.interventions.minPhase;
+              if (currentQuestion || priorityRankPrompt || anchoringPrompt || mapHolds || selHolds) return null;
               // Also suppress while a persisted right-panel tool step is
               // pending (isDone-aware — pendingTool clears itself once the
               // step's fields are filled, so this can never stick forever).
