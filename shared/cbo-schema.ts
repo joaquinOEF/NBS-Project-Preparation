@@ -304,7 +304,15 @@ export function createEmptyCboState(city: string): CboState {
     id: crypto.randomUUID(),
     orgName: '',
     city,
-    phase: 0,
+    // Start at phase 1 — Encontro 1 begins on the first chat turn. Phase 0
+    // ("pre-introduction") required the agent to call set_phase(1) on its
+    // first response; the only prompt rule that triggers it is gated on
+    // RECENT CONVERSATION being empty, which the instant-kickoff template
+    // (persisted before the first agent turn) makes never true — so sessions
+    // finished E1 stuck at phase 0 and the "Começar Encontro 2" banner
+    // (hard-gated to phase >= 1) never appeared. This restores 431eb98e,
+    // which was collateral damage in the 020fe0a7 rollback.
+    phase: 1,
     sections: sections as Record<CboSectionId, CboSectionState>,
     gaps: [],
     maturityScores: [],
