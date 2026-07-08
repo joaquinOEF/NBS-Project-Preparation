@@ -368,7 +368,7 @@ export function InviteCboDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Pure invite — no side effects. Called once per CBO in either mode. */
-  onSubmit: (params: { orgName: string; neighborhood?: string }) => Promise<{ memberSlug: string; orgName: string } | null>;
+  onSubmit: (params: { orgName: string; neighborhood?: string; orgType?: 'community' | 'implementer' }) => Promise<{ memberSlug: string; orgName: string } | null>;
   /** Called after a successful single-mode invite — parent typically opens
       the ShareLinkDialog for that CBO. NOT called in bulk mode. */
   onSingleSuccess?: (result: { memberSlug: string; orgName: string }) => void;
@@ -380,6 +380,10 @@ export function InviteCboDialog({
   const [mode, setMode] = useState<'single' | 'bulk'>('single');
   const [orgName, setOrgName] = useState('');
   const [neighborhood, setNeighborhood] = useState('');
+  // EF-5: the invite used to hardcode type 'community' — wrong default for
+  // the implementer cohort. Coordinator declares it here; agent calibration
+  // and (later) tier read start from the org row.
+  const [orgType, setOrgType] = useState<'community' | 'implementer'>('community');
   const [bulkText, setBulkText] = useState('');
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -390,6 +394,7 @@ export function InviteCboDialog({
       setMode('single');
       setOrgName('');
       setNeighborhood('');
+      setOrgType('community');
       setBulkText('');
       setBulkProgress(null);
     }
@@ -407,6 +412,7 @@ export function InviteCboDialog({
         const result = await onSubmit({
           orgName: orgName.trim(),
           neighborhood: neighborhood.trim() || undefined,
+          orgType,
         });
         if (result) {
           onOpenChange(false);
@@ -505,6 +511,27 @@ export function InviteCboDialog({
                   onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
                   data-testid="input-neighborhood"
                 />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground/80">
+                  {t('orchestrator.cohort.orgType', { defaultValue: 'Organization type' })}
+                </label>
+                <div className="flex gap-1.5">
+                  {(['community', 'implementer'] as const).map(v => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setOrgType(v)}
+                      aria-pressed={orgType === v}
+                      data-testid={`orgtype-${v}`}
+                      className={`px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${orgType === v ? 'bg-foreground text-background border-foreground' : 'bg-background text-foreground/70 border-foreground/15 hover:border-foreground/40'}`}
+                    >
+                      {v === 'community'
+                        ? t('orchestrator.cohort.orgTypeCommunity', { defaultValue: 'Community org' })
+                        : t('orchestrator.cohort.orgTypeImplementer', { defaultValue: 'Implementer / studio' })}
+                    </button>
+                  ))}
+                </div>
               </div>
             </>
           ) : (

@@ -19,7 +19,7 @@ import {
   type WorkshopConfig,
   type MemberSite,
 } from '@shared/cohort-schema';
-import { createOrganization, linkCboStateToOrg } from '../services/orgPersistence';
+import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } from '../services/orgPersistence';
 import { cboStates } from '@shared/cbo-db-schema';
 import { CBO_SECTIONS, cboFieldIsFilled, type CboFieldState } from '@shared/cbo-schema';
 import { getCboMessages, getCboState, loadCboFromDb } from '../services/cboAgent';
@@ -31,6 +31,7 @@ import {
   type CoordinatorRequest,
 } from '../services/coordinatorAuth';
 import { coordinators } from '@shared/coordinator-schema';
+import { organizations } from '@shared/org-schema';
 
 // Slug-as-secret: 24 chars of url-safe nanoid. Used as a fallback when the
 // human-readable slug derivation collides too many times.
@@ -236,6 +237,23 @@ async function attachDerivedSections<
   }));
 }
 
+// Org maturity tier per member, one grouped query (EF-5) — drives the
+// coordinator's tier chip/override on the roster cards.
+async function attachOrgTiers<T extends { orgId: string | null }>(
+  members: T[],
+): Promise<(T & { maturityTier: string | null })[]> {
+  const ids = Array.from(new Set(members.map(m => m.orgId).filter((v): v is string => !!v)));
+  const byOrg = new Map<string, string | null>();
+  if (ids.length > 0) {
+    const rows = await db
+      .select({ id: organizations.id, tier: organizations.maturityTier })
+      .from(organizations)
+      .where(inArray(organizations.id, ids));
+    for (const r of rows) byOrg.set(r.id, r.tier ?? null);
+  }
+  return members.map(m => ({ ...m, maturityTier: (m.orgId && byOrg.get(m.orgId)) || null }));
+}
+
 export function registerCohortRoutes(app: Express): void {
   // Phase 3c-ii — gate the entire coordinator surface behind a coordinator
   // session. Every /api/cohort/* route is coordinator-facing (the CBO-facing
@@ -275,7 +293,7 @@ export function registerCohortRoutes(app: Express): void {
       cohort = c;
     }
     if (!cohort) cohort = await getOrCreateDefaultCohort();
-    const members = await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))));
+    const members = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
     res.json({ cohort, members, isAdmin: !coordinator?.cohortId });
   }));
 
@@ -348,7 +366,7 @@ export function registerCohortRoutes(app: Express): void {
   app.get('/api/cohort/default', wrap(async (req, res) => {
     const cohort = await getOrCreateDefaultCohort();
     if (!mayAccessCohort(req, cohort.id)) { res.status(403).json({ error: 'forbidden' }); return; }
-    const members = await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))));
+    const members = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
     res.json({ cohort, members });
   }));
 
@@ -412,7 +430,7 @@ export function registerCohortRoutes(app: Express): void {
   app.get('/api/cohort/:coordinatorSlug', wrap(async (req, res) => {
     const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
     if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
-    const members = await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))));
+    const members = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
     res.json({ cohort, members });
   }));
 
@@ -485,7 +503,11 @@ export function registerCohortRoutes(app: Express): void {
     const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
     if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
 
-    const { orgName, neighborhood, role, origin } = req.body ?? {};
+    // orgType (EF-5): 'community' (default) or 'implementer'. The hardcoded
+    // 'community' was exactly wrong for the August implementer cohort — the
+    // agent's tier/type calibration starts from the org row, so the invite is
+    // where the coordinator declares it.
+    const { orgName, neighborhood, role, origin, orgType } = req.body ?? {};
     if (!orgName) { res.status(400).json({ error: 'orgName required' }); return; }
 
     const memberSlug = await uniqueMemberSlug(slugify(orgName));
@@ -511,7 +533,7 @@ export function registerCohortRoutes(app: Express): void {
     // block the invite, so org_id just stays null and the backfill picks it up.
     let orgId: string | null = null;
     try {
-      const org = await createOrganization({ name: orgName, city: 'porto-alegre', type: 'community', cohortId: cohort.id });
+      const org = await createOrganization({ name: orgName, city: 'porto-alegre', type: orgType === 'implementer' ? 'implementer' : 'community', cohortId: cohort.id });
       orgId = org.id;
     } catch (e: any) {
       console.error('[cohort] org creation failed on invite (continuing, backfill will link):', e?.message || e);
@@ -574,7 +596,7 @@ export function registerCohortRoutes(app: Express): void {
     const phaseNum = Number(phase);
     if (!phaseNum || phaseNum < 1 || phaseNum > 7) { res.status(400).json({ error: 'invalid phase' }); return; }
 
-    const members = await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))));
+    const members = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
     const targets = memberIds === 'all'
       ? members
       : members.filter(m => Array.isArray(memberIds) && memberIds.includes(m.id));
@@ -641,11 +663,29 @@ export function registerCohortRoutes(app: Express): void {
   // Coordinator support inbox — list all support requests across the cohort,
   // newest first. Returns flattened entries with member context so the UI
   // doesn't need to re-correlate. `status=pending` filters to unresolved.
+  // Coordinator override of the org's maturity tier (EF-5). The agent
+  // persists its read at E1 close; a persisted-wrong tier is stickier than
+  // per-turn inference, so the console MUST be able to correct it. Guarded by
+  // the :coordinatorSlug app.param ownership check like every cohort route.
+  app.patch('/api/cohort/:coordinatorSlug/member/:memberId/tier', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const tier = req.body?.tier;
+    if (!['emerging', 'developing', 'advanced'].includes(tier)) {
+      res.status(400).json({ error: "tier must be 'emerging' | 'developing' | 'advanced'" });
+      return;
+    }
+    if (!member.cboStateId) { res.status(409).json({ error: 'member has no linked session yet' }); return; }
+    const orgName = await setMaturityTierForCboState(member.cboStateId, tier);
+    if (!orgName) { res.status(409).json({ error: 'member has no linked organization yet' }); return; }
+    res.json({ ok: true, tier, orgName });
+  }));
+
   app.get('/api/cohort/:coordinatorSlug/support-requests', wrap(async (req, res) => {
     const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
     if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
     const filter = String(req.query.status ?? 'all');
-    const members = await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))));
+    const members = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
     const items: Array<{
       requestId: string;
       memberId: string;
@@ -714,7 +754,7 @@ export function registerCohortRoutes(app: Express): void {
     const { resolvedNote } = req.body ?? {};
     const note = typeof resolvedNote === 'string' && resolvedNote.trim() ? resolvedNote.trim().slice(0, 1000) : null;
 
-    const members = await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))));
+    const members = await attachOrgTiers(await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)))));
     for (const m of members) {
       const arr = Array.isArray(m.supportRequests) ? (m.supportRequests as SupportRequest[]) : [];
       const idx = arr.findIndex(r => r.id === req.params.requestId);
