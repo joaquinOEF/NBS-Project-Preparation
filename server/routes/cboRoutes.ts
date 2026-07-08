@@ -16,7 +16,9 @@ import {
   deleteCboState as dbDeleteCboState,
   loadCboState as dbLoadCboState,
   loadCboMessages as dbLoadCboMessages,
+  resetMemberProgressForCboState,
 } from "../services/cboPersistence";
+import { clearMaturityTierForCboState } from "../services/orgPersistence";
 import { createEmptyCboState, CBO_SECTIONS, type CboState } from "@shared/cbo-schema";
 import {
   listDocumentsForScope,
@@ -291,8 +293,16 @@ export function registerCboRoutes(app: Express): void {
     debouncedPersist(req.params.id);
   });
 
-  // Delete / restart
+  // Delete / restart. Run-derived member/org data (path, site, snapshots,
+  // maturity tier) is cleared alongside the state itself — otherwise a
+  // "recomeçar do zero" session inherits ghosts of the run being thrown away
+  // (field report 2026-07-08: the E1 path answer survived a restart because
+  // it lives on cohort_members). Both cleanups must run BEFORE the state row
+  // is deleted: the tier clear resolves the org through cbo_states.orgId.
   app.delete("/api/cbo/:id", async (req: Request, res: Response) => {
+    await clearMaturityTierForCboState(req.params.id).catch((e) =>
+      console.error(`[cbo] clearMaturityTier(${req.params.id}) on delete failed`, e));
+    await resetMemberProgressForCboState(req.params.id);
     await dbDeleteCboState(req.params.id);
     setCboState(req.params.id, undefined as any);
     res.json({ deleted: true });

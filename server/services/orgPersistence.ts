@@ -50,6 +50,16 @@ export async function setMaturityTierForCboState(
   return org?.name ?? null;
 }
 
+/** Drop the org's persisted tier when its cbo_state is deleted (restart from
+ *  scratch). The tier was inferred from the run being thrown away — leaving it
+ *  would inject the OLD run's calibration block into the new conversation.
+ *  Must run BEFORE the cbo_states row is deleted (it resolves org via the join). */
+export async function clearMaturityTierForCboState(cboStateId: string): Promise<void> {
+  const [row] = await db.select({ orgId: cboStates.orgId }).from(cboStates).where(eq(cboStates.id, cboStateId)).limit(1);
+  if (!row?.orgId) return;
+  await db.update(organizations).set({ maturityTier: null }).where(eq(organizations.id, row.orgId));
+}
+
 /** The persisted tier for a cbo_state's org, or null. Read on E2+ turns to
  *  inject the calibration block into the system context. */
 export async function getMaturityTierForCboState(cboStateId: string): Promise<MaturityTier | null> {
