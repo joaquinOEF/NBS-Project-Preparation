@@ -99,6 +99,19 @@ export function registerCboRoutes(app: Express): void {
     }
     if (!state) return res.status(404).json({ error: "Not found" });
 
+    // Self-heal sessions stranded at phase 0. New states now start at phase 1
+    // (createEmptyCboState), but sessions created while the 020fe0a7 rollback
+    // was live ran ALL of E1 at phase 0 — and the "Começar Encontro 2" banner
+    // is hard-gated to phase >= 1, so they finished the diagnostic with no way
+    // forward. Phase 0 has no content of its own (the turn already loads E1's
+    // skill via max(1, phase)), so lifting is semantically a no-op for the
+    // agent and unblocks the handoff card on the next reply.
+    if ((state.phase ?? 0) === 0) {
+      state.phase = 1;
+      setCboState(req.params.id, state);
+      console.log(`[cbo] lifted ${req.params.id} from stranded phase 0 to phase 1`);
+    }
+
     // Detect "start encontro N" / "vamos começar o encontro N" — the message
     // the Start-Next-Workshop banner sends. Advance state.phase BEFORE the
     // SDK turn fires so the right encontro-N.md skill loads. This is the
