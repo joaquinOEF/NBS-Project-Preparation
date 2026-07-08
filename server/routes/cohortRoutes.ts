@@ -22,7 +22,8 @@ import {
 import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } from '../services/orgPersistence';
 import { cboStates } from '@shared/cbo-db-schema';
 import { CBO_SECTIONS, cboFieldIsFilled, type CboFieldState } from '@shared/cbo-schema';
-import { getCboMessages, getCboState, loadCboFromDb } from '../services/cboAgent';
+import { getCboMessages, getCboState, setCboState, loadCboFromDb } from '../services/cboAgent';
+import { deleteCboState } from '../services/cboPersistence';
 import {
   requireCoordinator,
   createCoordinator,
@@ -679,6 +680,43 @@ export function registerCohortRoutes(app: Express): void {
     const orgName = await setMaturityTierForCboState(member.cboStateId, tier);
     if (!orgName) { res.status(409).json({ error: 'member has no linked organization yet' }); return; }
     res.json({ ok: true, tier, orgName });
+  }));
+
+  // Reset ONE organization's profile (field report 2026-07-08: the console
+  // could only wipe the whole cohort at once). Deletes the member's working
+  // session (state + transcript, DB and memory) and clears every run-derived
+  // member/org column — path, site, inspiration picks, snapshots, maturity
+  // tier — so the org's next visit starts a genuinely clean E1. Identity
+  // (orgName, neighborhood, invite tokens), coordinator-controlled unlocks,
+  // support-request history, and uploaded org documents are deliberately
+  // kept. Guarded by the :coordinatorSlug app.param ownership check like
+  // every cohort route.
+  app.post('/api/cohort/:coordinatorSlug/member/:memberId/reset', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+
+    if (member.cboStateId) {
+      await deleteCboState(member.cboStateId);
+      setCboState(member.cboStateId, undefined as any);
+    }
+    if (member.orgId) {
+      await db.update(organizations).set({ maturityTier: null }).where(eq(organizations.id, member.orgId));
+    }
+    await db.update(cohortMembers).set({
+      cboStateId: null,
+      path: null,
+      site: null,
+      inspirationPicks: [],
+      startedAt: null,
+      snapshotPhase: null,
+      snapshotSectionsComplete: null,
+      snapshotMaturityScore: null,
+      snapshotFlagsMet: null,
+      snapshotIntervention: null,
+      snapshotUpdatedAt: new Date(),
+    }).where(eq(cohortMembers.id, member.id));
+
+    res.json({ ok: true, memberId: member.id, orgName: member.orgName });
   }));
 
   app.get('/api/cohort/:coordinatorSlug/support-requests', wrap(async (req, res) => {

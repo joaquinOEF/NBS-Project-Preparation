@@ -47,6 +47,7 @@ export interface UseCohortResult {
   /** Admin: create a coordinator + their cohort in one shot, then load it. */
   provisionCohort: (input: ProvisionInput) => Promise<{ ok: boolean; error?: string; coordinatorEmail?: string }>;
   resetCohort: () => Promise<void>;
+  resetMember: (memberId: string) => Promise<boolean>;
   invite: (params: { orgName: string; neighborhood?: string; orgType?: 'community' | 'implementer' }) => Promise<CohortMember | null>;
   unlockPhase: (memberIds: string[] | 'all', phase: number) => Promise<void>;
   saveWorkshops: (workshops: WorkshopConfig[]) => Promise<void>;
@@ -139,6 +140,15 @@ export function useCohort(): UseCohortResult {
     }
   }, []);
 
+  // Reset ONE org's profile — deletes its working session and run-derived
+  // progress server-side; the member row (identity, invite link, unlocks)
+  // stays. Returns false on failure so the card can toast an error.
+  const resetMember = useCallback(async (memberId: string) => {
+    const r = await fetch(`/api/cohort/${slugRef.current}/member/${memberId}/reset`, { method: 'POST' });
+    await refresh();
+    return r.ok;
+  }, [refresh]);
+
   const invite: UseCohortResult['invite'] = useCallback(async ({ orgName, neighborhood, orgType }) => {
     const r = await fetch(`/api/cohort/${slugRef.current}/invite`, {
       method: 'POST',
@@ -193,6 +203,6 @@ export function useCohort(): UseCohortResult {
   return {
     loading, cohort, members, isAdmin, allCohorts,
     refresh, refreshAllCohorts, switchCohort, provisionCohort,
-    resetCohort, invite, unlockPhase, saveWorkshops, saveLanguage, deleteCohort,
+    resetCohort, resetMember, invite, unlockPhase, saveWorkshops, saveLanguage, deleteCohort,
   };
 }
