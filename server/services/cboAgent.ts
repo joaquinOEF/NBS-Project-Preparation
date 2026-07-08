@@ -1248,6 +1248,10 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
         cwd: process.cwd(),
         model,
         systemPrompt,
+        // Token streaming (LT-4): emit stream_event deltas so text reaches the
+        // phone as it generates instead of arriving as whole blocks after each
+        // inference round (~1-3s of staring at "Processando…" per round).
+        includePartialMessages: true,
         // Turn cap — a runaway tool loop otherwise burns the full ~10K-token
         // prompt once per roundtrip while the user watches "Processando…".
         // Normal turns use 2-5 tool calls; 12 is generous headroom.
@@ -1280,6 +1284,16 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
         permissionMode: "bypassPermissions",
       },
     })) {
+      // Live text deltas — transient chat_delta events (never persisted; the
+      // whole-block 'chat' below is the durable record + normalizer input).
+      if ((message as any).type === "stream_event") {
+        const ev: any = (message as any).event;
+        if (ev?.type === 'content_block_delta' && ev.delta?.type === 'text_delta' && ev.delta.text) {
+          if (!firstEventMs) firstEventMs = Date.now() - turnStart;
+          pushEvent({ type: 'chat_delta', content: ev.delta.text });
+        }
+        continue;
+      }
       if (message.type === "assistant" && message.message?.content) {
         inferenceRounds++;
         if (!firstEventMs) firstEventMs = Date.now() - turnStart;
