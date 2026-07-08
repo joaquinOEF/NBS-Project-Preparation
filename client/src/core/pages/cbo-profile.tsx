@@ -944,29 +944,16 @@ export default function CboProfilePage() {
         setState(prev => prev ? { ...prev, gaps: [...prev.gaps, { sectionId: event.sectionId as CboSectionId, field: event.field, reason: event.reason, severity: event.severity as any }] } : prev);
         break;
       case 'phase_change':
+        // Roster snapshots (phase/maturity/flags/last-active) are written
+        // SERVER-SIDE on every durable flush now (EF-4, syncMemberSnapshot in
+        // cboPersistence): the old client PATCH here only fired when a live
+        // socket delivered the event, so progress made during a dead stream
+        // never reached the coordinator. The PATCH route itself stays — the
+        // cboStateId-link effect and the unlock clamp still use it.
         setState(prev => prev ? { ...prev, phase: event.phase } : prev);
-        if (memberSlug) {
-          fetch(`/api/cbo-member/${memberSlug}/snapshot`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phase: event.phase, cboStateId: cboId }),
-          }).catch(() => {});
-        }
         break;
       case 'maturity_update':
         setState(prev => prev ? { ...prev, maturityScores: event.scores, totalMaturityScore: event.total, priorityFlags: event.flags } : prev);
-        if (memberSlug) {
-          // Count filled sections from current state for the snapshot.
-          fetch(`/api/cbo-member/${memberSlug}/snapshot`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              maturityScore: event.total,
-              flagsMet: (event.flags || []).filter((f: PriorityFlag) => f.met).length,
-              cboStateId: cboId,
-            }),
-          }).catch(() => {});
-        }
         break;
       case 'ask_user': {
         setStreamDraft(''); // an inline-options conversion also finalizes the draft

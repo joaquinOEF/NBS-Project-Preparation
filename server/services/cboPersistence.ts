@@ -13,6 +13,8 @@
 
 import { db } from '../db';
 import { cboStates, cboMessages } from '@shared/cbo-db-schema';
+import { cohortMembers } from '@shared/cohort-schema';
+import { CBO_SECTIONS, cboFieldIsFilled, type CboFieldState } from '@shared/cbo-schema';
 import { eq, asc } from 'drizzle-orm';
 import type { CboState, CboChatMessage } from '@shared/cbo-schema';
 
@@ -180,6 +182,16 @@ export async function flushCbo(
         })));
       }
     });
+    // Mirror the roster snapshot server-side (audit EF-4). These columns used
+    // to be written only by a client PATCH fired from the SSE handler on the
+    // CBO's phone — pushEvent silently drops events with no live socket, so
+    // scores earned during a dead stream (or with the app backgrounded) never
+    // reached the coordinator roster. The flush path runs on every durable
+    // save regardless of any client, so the roster can't silently go stale.
+    // Standalone CBOs simply match zero member rows. Best-effort: a snapshot
+    // miss must never fail the flush (the read path derives sections live —
+    // EF-2 — so worst case the roster lags one flush).
+    await syncMemberSnapshot(state).catch((e) => logDbError('syncMemberSnapshot', state.id, e));
     return { committed: true, flushedCount: startPosition + newMessages.length };
   } catch (e) {
     logDbError('flushCbo', state.id, e);
@@ -187,6 +199,25 @@ export async function flushCbo(
     // and the state row will be re-upserted (idempotent), so nothing is lost.
     return { committed: false, flushedCount: startPosition };
   }
+}
+
+/** Derived roster snapshot from the live state — single source of truth for
+ *  what the coordinator cards show between workshops. */
+async function syncMemberSnapshot(state: CboState): Promise<void> {
+  const sectionsComplete = CBO_SECTIONS.filter(sec => {
+    const fields = (state.sections as Record<string, { fields?: Record<string, CboFieldState> } | undefined>)?.[sec.id]?.fields ?? {};
+    return Object.values(fields).some(f => cboFieldIsFilled(f) && f?.source !== 'invite');
+  }).length;
+  const interventionRaw = (state.sections as any)?.intervention_type?.fields;
+  const intervention = (interventionRaw?.intervention_type?.value ?? interventionRaw?.nbs_type?.value ?? null) as string | null;
+  await db.update(cohortMembers).set({
+    snapshotPhase: state.phase ?? 1,
+    snapshotSectionsComplete: sectionsComplete,
+    snapshotMaturityScore: state.totalMaturityScore ?? 0,
+    snapshotFlagsMet: (state.priorityFlags ?? []).filter(f => f.met).length,
+    ...(intervention ? { snapshotIntervention: String(intervention) } : {}),
+    snapshotUpdatedAt: new Date(),
+  }).where(eq(cohortMembers.cboStateId, state.id));
 }
 
 /**
