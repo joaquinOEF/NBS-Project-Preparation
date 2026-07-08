@@ -91,6 +91,32 @@ export async function listDocumentsByOrg(orgId: string): Promise<DocumentRow[]> 
   return db.select().from(documents).where(eq(documents.orgId, orgId)).orderBy(desc(documents.createdAt));
 }
 
+/** Summary metadata only — distinctly typed so `.fullText` misuse is a compile
+ *  error. The per-turn DOCUMENTS ON FILE block needs a 120-char summary line,
+ *  but listDocumentsByOrg ships every column INCLUDING fullText — for a
+ *  doc-heavy org that's megabytes pulled from Postgres on every single chat
+ *  turn (audit LT-3). Search/read paths keep the full rows. */
+export interface DocumentSummary {
+  id: string;
+  filename: string;
+  kind: string | null;
+  droppedInPhase: number | null;
+  summary: string | null;
+}
+export async function listDocumentSummariesByOrg(orgId: string): Promise<DocumentSummary[]> {
+  return db
+    .select({
+      id: documents.id,
+      filename: documents.filename,
+      kind: documents.kind,
+      droppedInPhase: documents.droppedInPhase,
+      summary: documents.summary,
+    })
+    .from(documents)
+    .where(eq(documents.orgId, orgId))
+    .orderBy(desc(documents.createdAt));
+}
+
 /** Document counts for a set of orgs, in one grouped query — powers the per-CBO
  *  file-count chip on the orchestrator cards without an N+1. */
 export async function countDocumentsByOrgIds(orgIds: string[]): Promise<Map<string, number>> {
