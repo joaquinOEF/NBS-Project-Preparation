@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-const grid = JSON.parse(fs.readFileSync('client/public/sample-data/porto-alegre-grid-250m.json', 'utf-8'));
+const grid = JSON.parse(fs.readFileSync('scripts/data/porto-alegre-grid-250m.json', 'utf-8'));
 
 const THRESH = 0.40;
 const tp: any[] = [], fn: any[] = [], fp: any[] = [], tn: any[] = [];

@@ -6,7 +6,7 @@ import { Badge } from '@/core/components/ui/badge';
 import { Check, MapPin, Layers, X, BarChart3, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, REFERENCE_LAYERS, type TileLayerDef } from '@shared/geospatial-layers';
 import { riskBand, hazardPercentile, type HazardKey } from '@shared/risk-display';
-import ValueTooltip from './ValueTooltip';
+import ValueTooltip from '@/core/components/maps/ValueTooltip';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
 
 // ============================================================================

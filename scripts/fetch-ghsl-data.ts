@@ -136,7 +136,7 @@ async function fetchGHSLData() {
     data: grid,
   };
   
-  const outputPath = path.join(process.cwd(), 'client/public/sample-data', 'porto-alegre-builtup.json');
+  const outputPath = path.join(process.cwd(), 'scripts/data', 'porto-alegre-builtup.json');
   fs.writeFileSync(outputPath, JSON.stringify(result));
   const sizeMB = (fs.statSync(outputPath).size / 1024 / 1024).toFixed(2);
   console.log(`\nSaved to: ${outputPath} (${sizeMB} MB)`);
@@ -260,7 +260,7 @@ async function generateBuiltUpFromOSM() {
     data: grid,
   };
   
-  const outputPath = path.join(process.cwd(), 'client/public/sample-data', 'porto-alegre-builtup.json');
+  const outputPath = path.join(process.cwd(), 'scripts/data', 'porto-alegre-builtup.json');
   fs.writeFileSync(outputPath, JSON.stringify(result));
   const sizeMB = (fs.statSync(outputPath).size / 1024 / 1024).toFixed(2);
   console.log(`\nSaved to: ${outputPath} (${sizeMB} MB)`);
@@ -317,7 +317,7 @@ function generateSyntheticBuiltUp() {
     data: grid,
   };
   
-  const outputPath = path.join(process.cwd(), 'client/public/sample-data', 'porto-alegre-builtup.json');
+  const outputPath = path.join(process.cwd(), 'scripts/data', 'porto-alegre-builtup.json');
   fs.writeFileSync(outputPath, JSON.stringify(result));
   const sizeMB = (fs.statSync(outputPath).size / 1024 / 1024).toFixed(2);
   console.log(`\nSaved to: ${outputPath} (${sizeMB} MB)`);

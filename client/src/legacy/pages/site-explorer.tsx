@@ -41,7 +41,7 @@ import { riskBand, pct100, dominantPercentile, hazardPercentile, riskAnchor, TYP
 import { LayerLegend } from '@/core/components/map/LayerLegend';
 import type { LegendIndex } from '@shared/legend-types';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
-import ValueTooltip from '@/core/components/concept-note/ValueTooltip';
+import ValueTooltip from '@/core/components/maps/ValueTooltip';
 
 interface BoundaryData {
   cityLocode: string;

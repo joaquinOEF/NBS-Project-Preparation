@@ -11,8 +11,8 @@ import { Input } from '@/core/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/core/components/ui/tooltip';
 import { useFileDrop } from '@/core/hooks/useFileDrop';
 
-const ConceptNoteMap = lazy(() => import('@/core/components/concept-note/ConceptNoteMap'));
-const MapMicroapp = lazy(() => import('@/core/components/concept-note/MapMicroapp'));
+const ConceptNoteMap = lazy(() => import('@/legacy/components/concept-note/ConceptNoteMap'));
+const MapMicroapp = lazy(() => import('@/core/components/maps/MapMicroapp'));
 
 // Fix inline markdown tables
 function formatMapResult(result: MapSelectionResult): string {

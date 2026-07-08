@@ -287,7 +287,7 @@ async function main() {
     },
   };
 
-  const outPath = 'client/public/sample-data/porto-alegre-grid-250m.json';
+  const outPath = 'scripts/data/porto-alegre-grid-250m.json';
   fs.writeFileSync(outPath, JSON.stringify(output));
   const sizeMB = (fs.statSync(outPath).size / 1024 / 1024).toFixed(1);
   console.log(`\n✓ Saved ${outPath} (${sizeMB} MB, ${subCells.length} cells)`);
