@@ -50,6 +50,41 @@ test.describe('COUGAR — E1 enum fields render human labels, never machine ids'
     await expect(page.getByText(/\bfunded\b/)).toHaveCount(0);
   });
 
+  test('document paraphrases fuzzy-map to a chip label; off-list document values are NOT stored', async ({ page, request }) => {
+    const api = new TestApi(request);
+    const ping = await api.ping();
+    test.skip(!ping.fakeModel, 'CBO_FAKE_MODEL is not enabled on the target — skipping deterministic spec.');
+
+    await page.goto('/cbo-profile');
+    const marker = page.getByTestId('cbo-stream-status');
+    await expect(marker).toHaveAttribute('data-cbo-id', /.+/);
+    const cboId = (await marker.getAttribute('data-cbo-id'))!;
+
+    // Field report 2026-07-08: a link produced "categories related to ours but
+    // not exactly them". Containment: exactly one option's tokens inside the
+    // paraphrase → that chip label. No containable option → rejected, field
+    // stays empty (the agent is told to ask with chips instead).
+    await api.scriptCbo(cboId, [
+      [
+        { op: 'update_section', sectionId: 'org_profile', field: 'legal_form', value: 'Associação comunitária de moradores', source: 'document' },
+        { op: 'update_section', sectionId: 'org_profile', field: 'nbs_experience', value: 'Oficinas de reciclagem e compostagem', source: 'document' },
+        { op: 'say', text: 'Li o material que vocês mandaram.' },
+        { op: 'ask_user', question: 'Tá tudo certo?', options: [{ label: 'Sim' }] },
+      ],
+    ]);
+
+    const input = page.getByTestId('cbo-chat-input');
+    await input.fill('https://exemplo.com/quem-somos');
+    await input.press('Enter');
+    await expect(marker).toHaveAttribute('data-streaming', 'false');
+
+    // Fuzzy hit: the paraphrase landed on the canonical chip label.
+    await expect(page.getByText('ONG / Associação', { exact: false }).first()).toBeVisible();
+    await expect(page.getByText('Associação comunitária de moradores', { exact: false })).toHaveCount(0);
+    // Off-list value: never stored, never rendered.
+    await expect(page.getByText('Oficinas de reciclagem', { exact: false })).toHaveCount(0);
+  });
+
   test('a free-text value that matches no option passes through untouched', async ({ page, request }) => {
     const api = new TestApi(request);
     const ping = await api.ping();

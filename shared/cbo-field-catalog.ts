@@ -122,32 +122,79 @@ function matchOption(field: string, raw: string): CboEnumOption | null {
   return null;
 }
 
+// Containment fallback for DOCUMENT-sourced extractions (field report
+// 2026-07-08: a link produced "categories related to ours but not exactly
+// them"). A model reading an article writes phrases like "Associação
+// comunitária de moradores" — no exact match, but exactly one option's tokens
+// ("associação") appear in it. Match only when precisely ONE option is
+// contained; two hits = ambiguous = no match (the caller then asks the user).
+// Never used for user-typed values — exact matching stays the only path there.
+function matchOptionFuzzy(field: string, raw: string): CboEnumOption | null {
+  const options = ORG_PROFILE_ENUMS[field];
+  if (!options) return null;
+  const rawTokens = norm(raw).split(' ').filter(Boolean);
+  if (rawTokens.length === 0) return null;
+  const contains = (needle: string): boolean => {
+    const toks = norm(needle).split(' ').filter(Boolean);
+    return toks.length > 0 && toks.every(t => rawTokens.includes(t));
+  };
+  const hits = options.filter(opt =>
+    contains(opt.pt) || contains(opt.en) || (opt.aliases ?? []).some(contains),
+  );
+  return hits.length === 1 ? hits[0] : null;
+}
+
 /** groups_served is a multi-select stored as one string — split on the
  *  separators the agent/chips produce, map each item independently. */
 const MULTI_FIELDS = new Set(['groups_served']);
 const MULTI_SEPARATOR = /\s*[,;·|]\s*|\s+e\s+(?=[A-ZÀ-Ú])/;
 
-function mapValue(field: string, raw: string, pick: (opt: CboEnumOption) => string): string {
+function mapValue(field: string, raw: string, pick: (opt: CboEnumOption) => string, fuzzy = false): string {
+  const resolve = (s: string) => matchOption(field, s) ?? (fuzzy ? matchOptionFuzzy(field, s) : null);
   if (MULTI_FIELDS.has(field)) {
     return raw
       .split(MULTI_SEPARATOR)
       .filter(part => part.trim().length > 0)
       .map(part => {
-        const opt = matchOption(field, part);
+        const opt = resolve(part);
         return opt ? pick(opt) : part.trim();
       })
       .join(', ');
   }
-  const opt = matchOption(field, raw);
+  const opt = resolve(raw);
   return opt ? pick(opt) : raw;
 }
 
 /** Write path: turn whatever the agent produced (machine id, English label,
  *  chip label) into the canonical human label for the session language.
- *  Unrecognized values pass through unchanged. */
-export function canonicalizeOrgProfileValue(field: string, raw: string, lang: 'pt' | 'en' = 'pt'): string {
+ *  Unrecognized values pass through unchanged. `fuzzy` adds the containment
+ *  fallback — pass it ONLY for document-sourced extractions. */
+export function canonicalizeOrgProfileValue(field: string, raw: string, lang: 'pt' | 'en' = 'pt', fuzzy = false): string {
   if (typeof raw !== 'string' || !ORG_PROFILE_ENUMS[field]) return raw;
-  return mapValue(field, raw, opt => (lang === 'pt' ? opt.pt : opt.en));
+  return mapValue(field, raw, opt => (lang === 'pt' ? opt.pt : opt.en), fuzzy);
+}
+
+/** True when `field` is one of the closed-list (enum) org_profile fields. */
+export function isEnumOrgProfileField(field: string): boolean {
+  return !!ORG_PROFILE_ENUMS[field];
+}
+
+/** True when `value` already sits on the closed list for `field` (multi-select:
+ *  every part must). Used to REJECT document-sourced off-list values at the
+ *  write path — the agent is told to ask the user with chips instead. */
+export function isCanonicalOrgProfileValue(field: string, value: string): boolean {
+  if (!ORG_PROFILE_ENUMS[field] || typeof value !== 'string') return true;
+  if (MULTI_FIELDS.has(field)) {
+    const parts = value.split(MULTI_SEPARATOR).filter(p => p.trim().length > 0);
+    return parts.length > 0 && parts.every(p => matchOption(field, p) !== null);
+  }
+  return matchOption(field, value) !== null;
+}
+
+/** The chip labels for an enum field in one language — for tool-error messages
+ *  that teach the model the exact allowed list. */
+export function orgProfileOptionLabels(field: string, lang: 'pt' | 'en' = 'pt'): string[] {
+  return (ORG_PROFILE_ENUMS[field] ?? []).map(o => (lang === 'pt' ? o.pt : o.en));
 }
 
 /** Read path: render any stored form (including legacy machine ids already in
