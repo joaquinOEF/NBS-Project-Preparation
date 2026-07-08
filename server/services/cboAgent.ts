@@ -30,7 +30,7 @@ import { setMaturityTierForCboState, getMaturityTierForCboState } from "./orgPer
 import { queryTerms, scoreText, extractExcerpt } from "./textSearch";
 import { isFakeModelEnabled, streamWithFakeModel } from "./fakeCboModel";
 import { emitAssistantText } from "./agentOutput";
-import { isKnownOrgProfileField, canonicalizeOrgProfileValue, ORG_PROFILE_FIELDS } from "@shared/cbo-field-catalog";
+import { isKnownOrgProfileField, canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, orgProfileOptionLabels, ORG_PROFILE_FIELDS } from "@shared/cbo-field-catalog";
 
 // ============================================================================
 // SDK LOADING — shared with conceptNoteAgent (lazy load)
@@ -277,11 +277,26 @@ function createCboMcpTools(cboId: string) {
           return { content: [{ type: "text" as const, text: `Unknown org_profile field(s) ${rejected.map(b => `"${b}"`).join(', ')} — nothing saved. Use exactly: ${ORG_PROFILE_FIELDS.join(', ')}. If a fact fits none of these, mention it in chat but do not store it.` }], isError: true };
         }
       }
+      // Document-sourced extractions get the containment fallback ("Associação
+      // comunitária de moradores" → 'ONG / Associação'), and anything STILL
+      // off-list is rejected below — a link's paraphrase must land exactly on
+      // a chip label or become a question to the user, never a stored value
+      // outside the list (field report 2026-07-08). User-sourced values keep
+      // exact-match-or-pass-through: never destroy what the human said.
+      const isDocSource = String(args.source ?? '').toLowerCase() === 'document';
+      const offList: string[] = [];
       const updated: string[] = [];
       for (const [fieldName, rawValue] of writable) {
         const finalValue = args.sectionId === 'org_profile'
-          ? canonicalizeOrgProfileValue(fieldName, rawValue, getActiveCboLang(cboId))
+          ? canonicalizeOrgProfileValue(fieldName, rawValue, getActiveCboLang(cboId), isDocSource)
           : rawValue;
+        if (
+          isDocSource && args.sectionId === 'org_profile' &&
+          isEnumOrgProfileField(fieldName) && !isCanonicalOrgProfileValue(fieldName, finalValue)
+        ) {
+          offList.push(fieldName);
+          continue;
+        }
         const oldValue = section.fields[fieldName]?.value ?? null;
         section.fields[fieldName] = { value: finalValue, confidence: args.confidence as Confidence, source: args.source, userEdited: false };
         state.editLog.push({ timestamp: new Date().toISOString(), sectionId: args.sectionId, field: fieldName, oldValue, newValue: finalValue, source: 'agent' });
@@ -296,7 +311,11 @@ function createCboMcpTools(cboId: string) {
       const note = rejected.length > 0
         ? ` REJECTED (not stored, unknown field name${rejected.length > 1 ? 's' : ''}): ${rejected.join(', ')} — valid org_profile fields are: ${ORG_PROFILE_FIELDS.join(', ')}. The saved fields above do NOT need resending.`
         : '';
-      return { content: [{ type: "text" as const, text: `Updated ${args.sectionId}: ${updated.join(', ')}.${note}` }] };
+      const offListNote = offList.length > 0
+        ? ` NOT STORED (off-list value from document): ${offList.map(f => `${f} — allowed values are exactly: ${orgProfileOptionLabels(f, getActiveCboLang(cboId)).join(' · ')}`).join('; ')}. Either resend with one of those exact labels, or leave the field empty and ask the user that question with the normal chips, leading with your best guess from the document.`
+        : '';
+      const summary = updated.length > 0 ? `Updated ${args.sectionId}: ${updated.join(', ')}.` : `Nothing stored in ${args.sectionId}.`;
+      return { content: [{ type: "text" as const, text: `${summary}${note}${offListNote}` }] };
     },
     { annotations: { readOnlyHint: false } }
   );
@@ -1209,6 +1228,11 @@ function resolveTurnModel(
   // Reasoning-heavy shapes ALWAYS stay on the big model.
   if (state.phase > 2) return heavy('phase>2');
   if (turnKind === 'upload' || raw.startsWith("I'm uploading:") || raw.startsWith('Uploaded "')) return heavy('upload');
+  // A pasted link is an extraction turn (WebFetch → multi-field
+  // update_section → bulk-confirm), not a short chat reply — live testing
+  // showed the light model fetching the page and then "recapping" fields it
+  // never persisted. Same class as uploads: always heavy.
+  if (/https?:\/\/\S+/i.test(raw)) return heavy('link-paste');
   if (turnKind === 'map' || raw.startsWith('Map selection (')) return heavy('map-result');
   if (turnKind === 'system') return heavy('system-turn');
   if (/(?:vamos\s+(?:começar|comecar)|let'?s\s+start)\s+(?:o\s+)?encontro/i.test(raw)) return heavy('phase-start');
@@ -1321,6 +1345,12 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           "mcp__cbo__list_org_documents",
           "mcp__cbo__read_org_document",
           "mcp__cbo__search_org_documents",
+          // Pasted links (field report 2026-07-08): the flow invites "manda o
+          // link" but NOTHING could fetch a URL, so the model role-played
+          // having read the page and invented near-miss categories from the
+          // URL slug. WebFetch makes link ingestion real; the E1 skill pairs
+          // it with an honesty rule (fetch fails → say so, ask for an upload).
+          "WebFetch",
         ],
         mcpServers: mcpServer ? { cbo: mcpServer } : {},
         permissionMode: "bypassPermissions",

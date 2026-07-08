@@ -34,7 +34,7 @@ import {
 } from '@shared/cbo-schema';
 import { NBS_SHOWCASE_CARDS } from '@shared/nbs-showcase-cards';
 import { emitAssistantText } from './agentOutput';
-import { canonicalizeOrgProfileValue } from '@shared/cbo-field-catalog';
+import { canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue } from '@shared/cbo-field-catalog';
 
 export function isFakeModelEnabled(): boolean {
   return process.env.CBO_FAKE_MODEL === '1';
@@ -116,10 +116,17 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
       const section = state.sections[op.sectionId as keyof typeof state.sections];
       if (!section) break;
       // Same write-path canonicalization as the real update_section tool, so
-      // specs exercise the id -> label mapping deterministically.
+      // specs exercise the id -> label mapping deterministically — including
+      // the document-source rules: containment fallback, and off-list values
+      // rejected (not stored) instead of persisted as approximations.
+      const isDocSource = String(op.source ?? '').toLowerCase() === 'document';
       const value = op.sectionId === 'org_profile'
-        ? canonicalizeOrgProfileValue(op.field, op.value, lang === 'en' ? 'en' : 'pt')
+        ? canonicalizeOrgProfileValue(op.field, op.value, lang === 'en' ? 'en' : 'pt', isDocSource)
         : op.value;
+      if (
+        isDocSource && op.sectionId === 'org_profile' &&
+        isEnumOrgProfileField(op.field) && !isCanonicalOrgProfileValue(op.field, value)
+      ) break;
       section.fields[op.field] = {
         value,
         confidence: (op.confidence ?? 'high') as Confidence,
