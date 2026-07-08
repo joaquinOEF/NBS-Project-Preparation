@@ -178,6 +178,7 @@
       "portfolioTitle": "Projetos comunitários",
       "portfolioSubtitle": "Cada OBC está em algum ponto do diagnóstico. Passe o mouse sobre um card para localizar o ponto no mapa.",
       "locationPending": "Local pendente",
+      "siteDeferred": "Local a definir — nível de bairro",
       "sectionsLabel": "Seções concluídas",
       "sectionsCount": "{{done}} de {{total}}",
       "flagsCount": "{{met}} de {{total}} flags prioritárias",

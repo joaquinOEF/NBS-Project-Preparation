@@ -1,5 +1,5 @@
 import type { Express, Request, Response, RequestHandler } from 'express';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '../db';
 import {
@@ -20,6 +20,8 @@ import {
   type MemberSite,
 } from '@shared/cohort-schema';
 import { createOrganization, linkCboStateToOrg } from '../services/orgPersistence';
+import { cboStates } from '@shared/cbo-db-schema';
+import { CBO_SECTIONS, cboFieldIsFilled, type CboFieldState } from '@shared/cbo-schema';
 import { getCboMessages, getCboState, loadCboFromDb } from '../services/cboAgent';
 import {
   requireCoordinator,
@@ -194,6 +196,46 @@ async function attachDocCounts<T extends { id: string; orgId: string | null; cbo
   return members.map(m => ({ ...m, documentCount: counts.get(m.id) ?? 0 }));
 }
 
+// Roster progress derived from the LIVE cbo_state, not the pushed snapshot.
+// snapshotSectionsComplete is only written by the client PATCH, and no client
+// code sends that field — so the coordinator's sections ring and the
+// "profiles in progress / complete" KPIs sat at 0 for every member. Derive the
+// count server-side with one grouped query (same shape as attachDocCounts).
+// A section counts when it has >=1 filled, non-invite field — the same signal
+// phaseComplete() in shared/cbo-schema.ts uses, so the coordinator view and
+// the CBO's own advance banner can never disagree. Falls back to the snapshot
+// for members whose cbo_state hasn't been created yet.
+async function attachDerivedSections<
+  T extends { cboStateId: string | null; snapshotSectionsComplete: number | null },
+>(members: T[]): Promise<(T & { derivedSectionsComplete: number })[]> {
+  const ids = Array.from(new Set(members.map(m => m.cboStateId).filter((v): v is string => !!v)));
+  const byState = new Map<string, number>();
+  if (ids.length > 0) {
+    const rows = await db
+      .select({ id: cboStates.id, sections: cboStates.sections })
+      .from(cboStates)
+      .where(inArray(cboStates.id, ids));
+    for (const row of rows) {
+      const sections = (row.sections ?? {}) as Record<
+        string,
+        { fields?: Record<string, CboFieldState> } | undefined
+      >;
+      const n = CBO_SECTIONS.filter(sec => {
+        const fields = sections[sec.id]?.fields ?? {};
+        return Object.values(fields).some(f => cboFieldIsFilled(f) && f?.source !== 'invite');
+      }).length;
+      byState.set(row.id, n);
+    }
+  }
+  return members.map(m => ({
+    ...m,
+    derivedSectionsComplete:
+      m.cboStateId && byState.has(m.cboStateId)
+        ? byState.get(m.cboStateId)!
+        : (m.snapshotSectionsComplete ?? 0),
+  }));
+}
+
 export function registerCohortRoutes(app: Express): void {
   // Phase 3c-ii — gate the entire coordinator surface behind a coordinator
   // session. Every /api/cohort/* route is coordinator-facing (the CBO-facing
@@ -233,7 +275,7 @@ export function registerCohortRoutes(app: Express): void {
       cohort = c;
     }
     if (!cohort) cohort = await getOrCreateDefaultCohort();
-    const members = await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)));
+    const members = await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))));
     res.json({ cohort, members, isAdmin: !coordinator?.cohortId });
   }));
 
@@ -306,7 +348,7 @@ export function registerCohortRoutes(app: Express): void {
   app.get('/api/cohort/default', wrap(async (req, res) => {
     const cohort = await getOrCreateDefaultCohort();
     if (!mayAccessCohort(req, cohort.id)) { res.status(403).json({ error: 'forbidden' }); return; }
-    const members = await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)));
+    const members = await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))));
     res.json({ cohort, members });
   }));
 
@@ -370,7 +412,7 @@ export function registerCohortRoutes(app: Express): void {
   app.get('/api/cohort/:coordinatorSlug', wrap(async (req, res) => {
     const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
     if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
-    const members = await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)));
+    const members = await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))));
     res.json({ cohort, members });
   }));
 
@@ -532,7 +574,7 @@ export function registerCohortRoutes(app: Express): void {
     const phaseNum = Number(phase);
     if (!phaseNum || phaseNum < 1 || phaseNum > 7) { res.status(400).json({ error: 'invalid phase' }); return; }
 
-    const members = await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)));
+    const members = await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))));
     const targets = memberIds === 'all'
       ? members
       : members.filter(m => Array.isArray(memberIds) && memberIds.includes(m.id));
@@ -603,7 +645,7 @@ export function registerCohortRoutes(app: Express): void {
     const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
     if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
     const filter = String(req.query.status ?? 'all');
-    const members = await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)));
+    const members = await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))));
     const items: Array<{
       requestId: string;
       memberId: string;
@@ -672,7 +714,7 @@ export function registerCohortRoutes(app: Express): void {
     const { resolvedNote } = req.body ?? {};
     const note = typeof resolvedNote === 'string' && resolvedNote.trim() ? resolvedNote.trim().slice(0, 1000) : null;
 
-    const members = await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id)));
+    const members = await attachDerivedSections(await attachDocCounts(await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id))));
     for (const m of members) {
       const arr = Array.isArray(m.supportRequests) ? (m.supportRequests as SupportRequest[]) : [];
       const idx = arr.findIndex(r => r.id === req.params.requestId);
