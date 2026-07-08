@@ -109,35 +109,14 @@ export function registerCboRoutes(app: Express): void {
       if (persisted) { setCboState(req.params.id, persisted.state); state = persisted.state; }
     }
     if (!state) return res.status(404).json({ error: "Not found" });
-    // The phase-0 self-heal lives in streamCboChat now, where it can emit a
-    // phase_change event — the client must LEARN about the lift or the green
-    // advance banner stays suppressed and users talk the model into a
-    // role-played Encontro 2 (fake-E2 field report 2026-07-08). The GET
-    // handler above also lifts, so a plain reload shows the banner too.
-
-    // Detect "start encontro N" / "vamos começar o encontro N" — the message
-    // the Start-Next-Workshop banner sends. Advance state.phase BEFORE the
-    // SDK turn fires so the right encontro-N.md skill loads. This is the
-    // server-side belt to the client's /advance-phase endpoint suspenders —
-    // even if the client doesn't call advance-phase, the chat handler does
-    // the right thing.
-    const startEncontroMatch = message.match(/(?:vamos\s+(?:começar|comecar)\s+(?:o\s+)?encontro|let'?s\s+start\s+encontro)\s+(\d+)/i);
-    if (startEncontroMatch) {
-      const target = parseInt(startEncontroMatch[1], 10);
-      if (target >= 1 && target <= 6 && target > (state.phase ?? 0)) {
-        const { getPhasePolicyForCbo, isPhaseAllowed } = await import("../services/phaseGating");
-        let allowed = true;
-        if (target <= 5) {
-          const policy = await getPhasePolicyForCbo(req.params.id);
-          if (policy.gated && !isPhaseAllowed(policy, target)) allowed = false;
-        }
-        if (allowed) {
-          state.phase = target;
-          setCboState(req.params.id, state);
-          console.log(`[cbo] chat handler advanced ${req.params.id} to phase ${target} via "start Encontro" pattern`);
-        }
-      }
-    }
+    // The phase-0 self-heal AND the "vamos começar o encontro N" advance both
+    // live in streamCboChat now, where they can emit phase_change — the client
+    // must LEARN about server-side phase writes or the header/banner go stale
+    // and users talk the model into a role-played encontro (fake-E2 field
+    // report 2026-07-08; backlog CBO-PHASE-WRITERS). The regex path also runs
+    // through advanceCboPhase there, the same gate as /advance-phase and the
+    // set_phase tool, instead of a duplicated inline policy check. The GET
+    // handler above lifts phase 0 too, so a plain reload shows the banner.
 
     // Session language authority (CBO-LANG-AUTH). If this CBO belongs to a
     // cohort with a coordinator-forced language, that ALWAYS wins — it overrides
