@@ -14,16 +14,21 @@ This brief answers a different question for an NBS expert:
 
 > **Given a hazard priority area, what logic do we use today to infer a hazard *mechanism* and score candidate NBS types — and where should that logic live long term?**
 
-Implementation reference: [`scripts/nbs_rules.py`](../scripts/nbs_rules.py)  
-Live exercises: [`nbs_site_query_e2e.md`](nbs_site_query_e2e.md) (flood, heat, landslide notebooks)
+Implementation reference (COUGAR repo): `projects/cougar/nbs_e2e/scripts/nbs_rules.py`  
+Live exercises: [`nbs_site_query_flood_e2e.md`](nbs_site_query_flood_e2e.md) · [`nbs_site_query_heat_e2e.md`](nbs_site_query_heat_e2e.md) · [`nbs_site_query_landslide_e2e.md`](nbs_site_query_landslide_e2e.md)
 
 **Related docs (deeper detail, not required for this review):**
 
 | Doc | Role |
 |-----|------|
 | [`nbs_dataset_identification_methodology.md`](nbs_dataset_identification_methodology.md) | Shared Steps 0–8 workflow |
-| [`flood_nbs_dataset_lens.md`](flood_nbs_dataset_lens.md) / [`heat_…`](heat_nbs_dataset_lens.md) / [`landslide_…`](landslide_nbs_dataset_lens.md) | Hazard-specific dataset needs |
+| [`flood_nbs_dataset_lens.md`](flood_nbs_dataset_lens.md) | Flood-specific dataset needs |
+| [`heat_nbs_dataset_lens.md`](heat_nbs_dataset_lens.md) | Heat-specific dataset needs |
+| [`landslide_nbs_dataset_lens.md`](landslide_nbs_dataset_lens.md) | Landslide-specific dataset needs |
 | [`recommended-datasets.md`](recommended-datasets.md) | Full dataset inventory tables by hazard |
+| [`flood_hazard_score_methodology.md`](flood_hazard_score_methodology.md) / [`flood_risk_score_methodology.md`](flood_risk_score_methodology.md) | Operational flood H/E/V scores |
+| [`heat_hazard_score_methodology.md`](heat_hazard_score_methodology.md) / [`heat_risk_score_methodology.md`](heat_risk_score_methodology.md) | Operational heat H/E/V scores |
+| [`landslide_hazard_score_methodology.md`](landslide_hazard_score_methodology.md) / [`landslide_risk_score_methodology.md`](landslide_risk_score_methodology.md) | Operational landslide H/E/V scores |
 
 ---
 
@@ -221,8 +226,8 @@ Today we run flood screening at **two spatial units**:
 
 | Unit | What it does | Implemented |
 |------|--------------|-------------|
-| **Bairro polygon** | Single mechanism assessment + NBS ranking for the whole neighborhood | ✅ Notebooks + `run_e2e.py` |
-| **250 m grid cell** | Per-cell mechanism flags (riverine / pluvial / low-lying) + dominant NBS; bairro rollup (% cells per mechanism) | ✅ Flood grid path in [`grid_screening.py`](../scripts/grid_screening.py) |
+| **Bairro polygon** | Single mechanism assessment + NBS ranking for the whole neighborhood | ✅ [`nbs_site_query_flood_e2e.md`](nbs_site_query_flood_e2e.md) (+ heat/landslide E2E docs) |
+| **250 m grid cell** | Per-cell mechanism flags (riverine / pluvial / low-lying) + dominant NBS; bairro rollup (% cells per mechanism) | ✅ Flood grid path — see [`nbs_site_query_flood_e2e.md`](nbs_site_query_flood_e2e.md) (Part E / grid screening) |
 
 **Why we added grid cells:** A bairro like Humaitá can combine riverside storage potential (low-lying, riverine cells) with dense pluvial runoff (built-up interior cells). A single bairro-level label hides that mix.
 
@@ -258,7 +263,7 @@ Heat and landslide grid screening are **not yet implemented** (heat/l landslide 
 
 - These rules **do not** produce final NBS designs or placement maps.
 - Scores are **not** validated against implemented NBS outcomes or historical performance.
-- Hazard scores (flood, heat, landslide) remain **screening indices** — see respective COUGAR methodology docs.
+- Hazard scores (flood, heat, landslide) remain **screening indices** — see [`flood_hazard_score_methodology.md`](flood_hazard_score_methodology.md), [`heat_hazard_score_methodology.md`](heat_hazard_score_methodology.md), and [`landslide_hazard_score_methodology.md`](landslide_hazard_score_methodology.md).
 - Missing layers (urban drainage, cadastre, groundwater, geotechnical geology, pedestrian heat exposure, roof structure) are **documented gaps**, not hidden assumptions.
 
 ---
@@ -278,12 +283,28 @@ Heat and landslide grid screening are **not yet implemented** (heat/l landslide 
 
 # Traceability
 
+## Documentation (this folder)
+
+| Doc | Path |
+|-----|------|
+| Expert review brief (this doc) | [`nbs_recommendation_rules_expert_review.md`](nbs_recommendation_rules_expert_review.md) |
+| Shared methodology | [`nbs_dataset_identification_methodology.md`](nbs_dataset_identification_methodology.md) |
+| Dataset inventory | [`recommended-datasets.md`](recommended-datasets.md) |
+| Flood lens | [`flood_nbs_dataset_lens.md`](flood_nbs_dataset_lens.md) |
+| Heat lens | [`heat_nbs_dataset_lens.md`](heat_nbs_dataset_lens.md) |
+| Landslide lens | [`landslide_nbs_dataset_lens.md`](landslide_nbs_dataset_lens.md) |
+| Flood E2E exercise | [`nbs_site_query_flood_e2e.md`](nbs_site_query_flood_e2e.md) |
+| Heat E2E exercise | [`nbs_site_query_heat_e2e.md`](nbs_site_query_heat_e2e.md) |
+| Landslide E2E exercise | [`nbs_site_query_landslide_e2e.md`](nbs_site_query_landslide_e2e.md) |
+| Jira ticket | [ON-5993](https://openearth.atlassian.net/browse/ON-5993) |
+
+## Code (COUGAR / OEF monorepo)
+
 | Artifact | Path |
 |----------|------|
-| Rule implementation | [`scripts/nbs_rules.py`](../scripts/nbs_rules.py) |
-| Flood grid screening | [`scripts/grid_screening.py`](../scripts/grid_screening.py) |
-| E2E CLI | [`scripts/run_e2e.py`](../scripts/run_e2e.py) |
-| Flood exercise | [`nbs_site_query_flood_e2e.md`](nbs_site_query_flood_e2e.md) |
-| Heat exercise | [`nbs_site_query_heat_e2e.md`](nbs_site_query_heat_e2e.md) |
-| Landslide exercise | [`nbs_site_query_landslide_e2e.md`](nbs_site_query_landslide_e2e.md) |
-| Jira ticket | [ON-5993](https://openearth.atlassian.net/browse/ON-5993) |
+| Rule implementation | `projects/cougar/nbs_e2e/scripts/nbs_rules.py` |
+| Flood grid screening | `projects/cougar/nbs_e2e/scripts/grid_screening.py` |
+| E2E CLI | `projects/cougar/nbs_e2e/scripts/run_e2e.py` |
+| Flood notebook | `projects/cougar/nbs_e2e/scripts/nbs_site_query_flood_e2e.ipynb` |
+| Heat notebook | `projects/cougar/nbs_e2e/scripts/nbs_site_query_heat_e2e.ipynb` |
+| Landslide notebook | `projects/cougar/nbs_e2e/scripts/nbs_site_query_landslide_e2e.ipynb` |

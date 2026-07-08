@@ -1,6 +1,6 @@
 # Recommended Datasets for NBS Design
 
-Exploratory inventory for **Porto Alegre (POA)**. Links each candidate dataset to an NBS design decision, following the workflow in `docs/nbs_dataset_identification_methodology.md`.
+Exploratory inventory for **Porto Alegre (POA)**. Links each candidate dataset to an NBS design decision, following the workflow in [`nbs_dataset_identification_methodology.md`](nbs_dataset_identification_methodology.md).
 
 **Scope:** multi-hazard NBS screening for POA. Tables are organized **by hazard** below. Hazard-specific rationale lives in the lens documents (`flood`, `heat`, `landslide`).
 
@@ -8,11 +8,11 @@ Exploratory inventory for **Porto Alegre (POA)**. Links each candidate dataset t
 
 ## Hazard index
 
-| Hazard | Lens document | E2E notebook | Tables in this doc |
+| Hazard | Lens document | E2E exercise | Tables in this doc |
 |---|---|---|---|
-| **Flood** | `docs/flood_nbs_dataset_lens.md` | `scripts/nbs_site_query_flood_e2e.ipynb` | Steps 0–6 populated |
-| **Heat** | `docs/heat_nbs_dataset_lens.md` | `scripts/nbs_site_query_heat_e2e.ipynb` | Steps 0–6 populated |
-| **Landslides** | `docs/landslide_nbs_dataset_lens.md` | `scripts/nbs_site_query_landslide_e2e.ipynb` | Steps 0–6 populated |
+| **Flood** | [`flood_nbs_dataset_lens.md`](flood_nbs_dataset_lens.md) | [`nbs_site_query_flood_e2e.md`](nbs_site_query_flood_e2e.md) | Steps 0–6 populated |
+| **Heat** | [`heat_nbs_dataset_lens.md`](heat_nbs_dataset_lens.md) | [`nbs_site_query_heat_e2e.md`](nbs_site_query_heat_e2e.md) | Steps 0–6 populated |
+| **Landslides** | [`landslide_nbs_dataset_lens.md`](landslide_nbs_dataset_lens.md) | [`nbs_site_query_landslide_e2e.md`](nbs_site_query_landslide_e2e.md) | Steps 0–6 populated |
 
 Use the lens doc for hazard-specific design logic; use this doc for the **dataset inventory tables** (proxy → dataset → gap).
 
@@ -46,7 +46,7 @@ Step 1 is hazard-specific:
 
 ## Flood
 
-> Detail: `docs/flood_nbs_dataset_lens.md` · Methodology: `../../floods/docs/flood_hazard_score_methodology.md`
+> Detail: [`flood_nbs_dataset_lens.md`](flood_nbs_dataset_lens.md) · Methodology: [`flood_hazard_score_methodology.md`](flood_hazard_score_methodology.md), [`flood_risk_score_methodology.md`](flood_risk_score_methodology.md)
 
 ### Step 0 — Priority screening
 
@@ -178,7 +178,7 @@ Once the flood mechanism is understood (Step 1), use the tables below to match *
 
 ## Heat
 
-> Detail: `docs/heat_nbs_dataset_lens.md` · Methodology: `../../heat/docs/heat_hazard_score_methodology.md`
+> Detail: [`heat_nbs_dataset_lens.md`](heat_nbs_dataset_lens.md) · Methodology: [`heat_hazard_score_methodology.md`](heat_hazard_score_methodology.md), [`heat_risk_score_methodology.md`](heat_risk_score_methodology.md)
 
 ### Step 0 — Priority screening
 
@@ -286,7 +286,7 @@ Once the heat exposure context is understood (Step 1), use the tables below for 
 
 ## Landslides
 
-> Detail: `docs/landslide_nbs_dataset_lens.md` · Methodology: `../../landslides/docs/landslide_hazard_score_methodology.md`, `../../landslides/docs/landslide_risk_score_methodology.md`
+> Detail: [`landslide_nbs_dataset_lens.md`](landslide_nbs_dataset_lens.md) · Methodology: [`landslide_hazard_score_methodology.md`](landslide_hazard_score_methodology.md), [`landslide_risk_score_methodology.md`](landslide_risk_score_methodology.md)
 
 ### Step 0 — Priority screening
 
@@ -418,15 +418,16 @@ Gaps are listed **by hazard** where they differ; shared gaps appear once under *
 
 ## Related documents
 
-- `docs/nbs_recommendation_rules_expert_review.md` — hazard mechanism → NBS scoring rules (expert review, ON-5993)
-- `docs/nbs_dataset_identification_methodology.md` — shared workflow (Steps 1–8)
-- `docs/nbs_site_query_e2e.md` — E2E exercise index (links to per-hazard notebooks)
-- `scripts/nbs_site_query_flood_e2e.ipynb` — flood E2E notebook (bairro + 250 m grid)
-- `scripts/nbs_site_query_heat_e2e.ipynb` — heat E2E notebook
-- `scripts/nbs_site_query_landslide_e2e.ipynb` — landslide E2E notebook
-- `docs/flood_nbs_dataset_lens.md` — flood-specific exploration and NBS requirements
-- `docs/heat_nbs_dataset_lens.md` — heat-specific exploration and NBS requirements
-- `docs/landslide_nbs_dataset_lens.md` — landslide-specific exploration and NBS requirements
-- `../../landslides/docs/landslide_hazard_score_methodology.md` — operational landslide hazard score
-- `../../landslides/docs/landslide_risk_score_methodology.md` — operational landslide risk score
-- `../../geospatial-data/catalog/datasets.yaml` — POA catalog assets (72 datasets incl. COUGAR local inputs)
+- [`nbs_recommendation_rules_expert_review.md`](nbs_recommendation_rules_expert_review.md) — hazard mechanism → NBS scoring rules (expert review, [ON-5993](https://openearth.atlassian.net/browse/ON-5993))
+- [`nbs_dataset_identification_methodology.md`](nbs_dataset_identification_methodology.md) — shared workflow (Steps 1–8)
+- [`nbs_site_query_flood_e2e.md`](nbs_site_query_flood_e2e.md) — flood E2E exercise (bairro + 250 m grid)
+- [`nbs_site_query_heat_e2e.md`](nbs_site_query_heat_e2e.md) — heat E2E exercise
+- [`nbs_site_query_landslide_e2e.md`](nbs_site_query_landslide_e2e.md) — landslide E2E exercise
+- [`flood_nbs_dataset_lens.md`](flood_nbs_dataset_lens.md) — flood-specific exploration and NBS requirements
+- [`heat_nbs_dataset_lens.md`](heat_nbs_dataset_lens.md) — heat-specific exploration and NBS requirements
+- [`landslide_nbs_dataset_lens.md`](landslide_nbs_dataset_lens.md) — landslide-specific exploration and NBS requirements
+- [`flood_hazard_score_methodology.md`](flood_hazard_score_methodology.md) / [`flood_risk_score_methodology.md`](flood_risk_score_methodology.md) — operational flood scores
+- [`heat_hazard_score_methodology.md`](heat_hazard_score_methodology.md) / [`heat_risk_score_methodology.md`](heat_risk_score_methodology.md) — operational heat scores
+- [`landslide_hazard_score_methodology.md`](landslide_hazard_score_methodology.md) / [`landslide_risk_score_methodology.md`](landslide_risk_score_methodology.md) — operational landslide scores
+- `geospatial-data/catalog/datasets.yaml` — POA catalog assets (OEF monorepo; 72 datasets incl. COUGAR local inputs)
+- Notebooks & scripts: `projects/cougar/nbs_e2e/scripts/` (COUGAR / OEF monorepo)
