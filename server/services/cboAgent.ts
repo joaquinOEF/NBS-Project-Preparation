@@ -1231,7 +1231,19 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   // turn. This mirrors conceptNoteAgent and is the SDK's expected shape;
   // tool-use rules placed in the system prompt are followed more reliably
   // than rules concatenated into the user message string.
-  const systemPrompt = `${sysCtx}\n\n## CURRENT STATE\n${stateSummary}${documentsBlock}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}`;
+  // Prompt-cache split (audit LT-1). The system prompt carries ONLY the
+  // stable, phase-keyed material (persona + rules + skill = sysCtx, ~8-9K
+  // tokens); everything that changes turn-to-turn (CURRENT STATE, DOCUMENTS,
+  // RECENT CONVERSATION, access policy) rides in front of the user message.
+  // Before this, one changed character in the volatile blocks invalidated the
+  // whole prefix, so Anthropic prompt caching never hit across turns — every
+  // turn re-prefilled the full skill. With the split, consecutive same-model
+  // turns reuse the cached prefix (~1-1.5s off round 1 + ~90% input-cost cut
+  // on the prefix). The section names stay identical — sysCtx rules that say
+  // "check CURRENT STATE first" keep working; the blocks just arrive in the
+  // conversation instead of the system message.
+  const systemPrompt = sysCtx;
+  const turnContext = `## CURRENT STATE\n${stateSummary}${documentsBlock}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\n## NEW MESSAGE FROM THE USER\n`;
 
   console.log(`[cbo] Turn for ${cboId} (phase ${state.phase}, model ${model}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length}/7 sections)`);
 
@@ -1249,7 +1261,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
 
   try {
     for await (const message of sdkQuery({
-      prompt: userMessage,
+      prompt: turnContext + userMessage,
       options: {
         cwd: process.cwd(),
         model,
