@@ -1,9 +1,28 @@
 import OpenAI from "openai";
 import { z } from "zod";
 
-export const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+// LAZY client (audit DS-12/DS-3): the eager `new OpenAI(...)` at module load
+// threw on a missing key at BOOT — through the uploadRoutes → fileExtract
+// import chain it crashed the whole workshop server even with the legacy
+// surface disabled. Constructing on first use keeps every call site working
+// unchanged while removing the boot-time env requirement; a missing key now
+// fails only the specific request that actually needs OpenAI.
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    });
+  }
+  return _openai;
+}
+export const openai: OpenAI = new Proxy({} as OpenAI, {
+  get(_t, prop) {
+    const client = getOpenAI() as any;
+    const v = client[prop];
+    return typeof v === 'function' ? v.bind(client) : v;
+  },
 });
 
 export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
