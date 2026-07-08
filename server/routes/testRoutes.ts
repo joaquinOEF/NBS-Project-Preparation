@@ -216,6 +216,9 @@ export function registerTestRoutes(app: Express): void {
     const neighborhood = typeof req.body?.neighborhood === 'string' ? req.body.neighborhood : null;
     const role = req.body?.role === 'alternate' ? 'alternate' : 'priority';
     const unlockedPhases = Array.isArray(req.body?.unlockedPhases) ? req.body.unlockedPhases : [1];
+    // Seedable E1 triage answer — lets specs assert that run-derived member
+    // data (path) is cleared on restart without driving a full scripted E1.
+    const path = (['has-project', 'has-idea', 'needs-help'] as const).includes(req.body?.path) ? req.body.path : null;
 
     let orgId: string | null = null;
     try {
@@ -245,6 +248,7 @@ export function registerTestRoutes(app: Express): void {
       role,
       origin: 'cohort',
       unlockedPhases,
+      path,
       cboStateId,
     }).returning();
 

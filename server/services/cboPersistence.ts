@@ -221,6 +221,35 @@ async function syncMemberSnapshot(state: CboState): Promise<void> {
 }
 
 /**
+ * Restart-from-scratch cleanup — when a CBO session is deleted, every piece
+ * of member/org data DERIVED from that run must go with it, or the fresh
+ * session inherits ghosts of the old one (field report 2026-07-08: after
+ * "recomeçar do zero" the E1 path answer survived because it lives on
+ * cohort_members, not cbo_state). Clears the run-derived columns only —
+ * identity (orgName, neighborhood, tokens), coordinator-controlled unlocks,
+ * and support-request history are NOT touched. cboStateId is nulled; the
+ * client re-binds its new session via the member-link effect immediately.
+ */
+export async function resetMemberProgressForCboState(cboStateId: string): Promise<void> {
+  try {
+    await db.update(cohortMembers).set({
+      cboStateId: null,
+      path: null,
+      site: null,
+      inspirationPicks: [],
+      snapshotPhase: null,
+      snapshotSectionsComplete: null,
+      snapshotMaturityScore: null,
+      snapshotFlagsMet: null,
+      snapshotIntervention: null,
+      snapshotUpdatedAt: new Date(),
+    }).where(eq(cohortMembers.cboStateId, cboStateId));
+  } catch (e) {
+    logDbError('resetMemberProgressForCboState', cboStateId, e);
+  }
+}
+
+/**
  * Self-check at boot — probes for the cbo_states table. If it doesn't exist,
  * log a single LOUD line so the dev sees the fix immediately instead of
  * chasing the symptom (re-introducing agent, 404s on cold load, etc).

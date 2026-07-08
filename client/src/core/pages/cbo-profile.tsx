@@ -1148,10 +1148,46 @@ export default function CboProfilePage() {
     if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
     clearId(); setOpenMapParams(null); setInterventionSelectorParams(null); setStreamDraft(''); setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
     setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
+    // The server just cleared cohort_members.path — mirror it locally so the
+    // UI doesn't keep showing the old run's E1 triage answer.
+    setMemberPath(null);
     const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
     const data = await res.json();
     setCboId(data.cboId); setState(data.state); saveId(data.cboId);
-  }, [cboId, abortActiveStream]);
+    // Re-seed the invite prefill for the NEW session, synchronously and
+    // BEFORE the greeting — the prefill effect is one-shot (prefillSentRef
+    // already consumed by the old session), and the kickoff template reads
+    // org name + bairro from state, so ordering matters. Field report
+    // 2026-07-08: after a restart the org lost its name/neighborhood and
+    // was never greeted again.
+    if (memberInfo) {
+      try {
+        const pr = await fetch(`/api/cbo/${data.cboId}/prefill`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orgName: memberInfo.orgName, neighborhood: memberInfo.neighborhood ?? undefined }),
+        });
+        const pd = await pr.json();
+        if (pd?.state) setState(migrateCboState(pd.state));
+      } catch {}
+      prefillSentRef.current = true;
+    } else {
+      prefillSentRef.current = false;
+    }
+    // Re-post the instant-kickoff greeting so the fresh session opens with
+    // Step 0 (confirmation + name/role question) instead of a silent empty
+    // chat. Uses the explicit new id — the cboId state update hasn't
+    // committed yet, so kickoffChat() would race it. Fresh transcript is
+    // always virgin, so no model fallback is needed; on error the user just
+    // sees the (previous) empty-chat behavior.
+    try {
+      const kr = await fetch(`/api/cbo/${data.cboId}/kickoff`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang }),
+      });
+      const kd = await kr.json();
+      if (kd?.ok && kd.message) setMessages([kd.message]);
+    } catch {}
+  }, [cboId, abortActiveStream, memberInfo, lang]);
 
   // Kick off the agent chat with the standard intake prompt. Hidden from the
   // visible message stream — the agent's first response is what the user sees.
