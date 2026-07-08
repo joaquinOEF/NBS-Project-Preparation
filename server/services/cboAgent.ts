@@ -1012,11 +1012,17 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     } else if (event.type === 'ask_community_anchoring') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'anchoring', prompt: event.prompt }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'open_map') {
-      // Persist that the map step is active so the right-panel tool stays
-      // reachable across reloads (not gated behind a transient button).
+      // Persist BOTH signals (invariant 5 / RL-1). activeTool {kind} keeps the
+      // tab + nudge chip alive across reloads; the composer row carries the
+      // agent's ACTUAL params so a reload restores the exact map step (custom
+      // prompt, hazardTour, suggestedSite, …) instead of the phase defaults —
+      // {kind}-only persistence dropped the params and left the resume chip
+      // rendering over a pending map step.
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'open_map', params: (event as any).params }), messageType: 'composer', timestamp: new Date().toISOString() });
       state.activeTool = { kind: 'map' };
       setCboState(cboId, state); debouncedPersist(cboId);
     } else if (event.type === 'open_intervention_selector') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'open_intervention_selector', params: (event as any).params }), messageType: 'composer', timestamp: new Date().toISOString() });
       state.activeTool = { kind: 'interventions' };
       setCboState(cboId, state); debouncedPersist(cboId);
     }
