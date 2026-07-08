@@ -438,6 +438,11 @@ export default function CboProfilePage() {
   // A turn whose SSE stream dropped/stalled — holds the original message text
   // so a "Tentar de novo" tap can resend it (hidden — no duplicate user bubble).
   const [streamRetry, setStreamRetry] = useState<string | null>(null);
+  // Live token-streaming draft (LT-4). Accumulates transient chat_delta
+  // events into a draft bubble; the finalizing 'chat' (whole block, post
+  // inline-options normalizer) REPLACES it, so persistence and conversion
+  // still operate on whole blocks. Never persisted, cleared on any finalizer.
+  const [streamDraft, setStreamDraft] = useState('');
   // Live mirror of cboId + the in-flight stream's handle. Restart/unmount
   // abort the stream DELIBERATELY; the catch below must distinguish that (and
   // an abort belonging to an already-replaced session) from a genuine drop —
@@ -876,6 +881,13 @@ export default function CboProfilePage() {
   // Process SSE events
   const processEvent = useCallback((event: CboEvent) => {
     switch (event.type) {
+      case 'chat_delta': {
+        // Transient draft text — replaced wholesale when the finalizing
+        // 'chat' arrives. Mobile unread flag matches the 'chat' behavior.
+        if (mobileActiveTabRef.current !== 'chat') setMobileChatUnread(true);
+        setStreamDraft(prev => prev + (event as any).content);
+        break;
+      }
       case 'chat': {
         // All 'chat' events render as regular chat bubbles. The old
         // isNarration heuristic (regex + length<300 fallback) hid brief
@@ -890,6 +902,7 @@ export default function CboProfilePage() {
         if (mobileActiveTabRef.current !== 'chat') {
           setMobileChatUnread(true);
         }
+        setStreamDraft(''); // finalizer replaces the live draft
         setMessages(prev => {
           const last = prev[prev.length - 1];
           // Concatenate consecutive assistant chat chunks into one bubble
@@ -956,6 +969,7 @@ export default function CboProfilePage() {
         }
         break;
       case 'ask_user': {
+        setStreamDraft(''); // an inline-options conversion also finalizes the draft
         // Open the map only when the agent explicitly signals it via `showMap`
         // on the question (or the `open_map` tool). A keyword regex on the
         // question text used to also auto-open it — but that fired for any
@@ -1011,8 +1025,10 @@ export default function CboProfilePage() {
         setAnchoringPrompt({ prompt: event.prompt });
         setIsStreaming(false);
         break;
-      case 'done': setIsStreaming(false); break;
-      case 'error': setIsStreaming(false); setMessages(prev => [...prev, { role: 'assistant', content: `${i18n.resolvedLanguage === 'pt' ? 'Erro' : 'Error'}: ${event.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); break;
+      case 'done':
+        setStreamDraft(''); setIsStreaming(false); break;
+      case 'error':
+        setStreamDraft(''); setIsStreaming(false); setMessages(prev => [...prev, { role: 'assistant', content: `${i18n.resolvedLanguage === 'pt' ? 'Erro' : 'Error'}: ${event.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); break;
     }
   }, []);
 
@@ -1084,6 +1100,7 @@ export default function CboProfilePage() {
         messageType: 'content', timestamp: new Date().toISOString(),
       }]);
       if (!suppress) setStreamRetry(text);
+      setStreamDraft(''); // dropped stream — the partial draft was never finalized/persisted
     } finally {
       clearTimeout(watchdog);
       if (activeStreamRef.current === streamHandle) activeStreamRef.current = null;
@@ -1142,7 +1159,7 @@ export default function CboProfilePage() {
   const handleRestart = useCallback(async () => {
     abortActiveStream();
     if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
-    clearId(); setOpenMapParams(null); setInterventionSelectorParams(null); setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
+    clearId(); setOpenMapParams(null); setInterventionSelectorParams(null); setStreamDraft(''); setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
     setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
     const res = await fetch('/api/cbo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: 'porto-alegre' }) });
     const data = await res.json();
@@ -1697,7 +1714,16 @@ export default function CboProfilePage() {
               </div>
             )}
 
-            {isStreaming && <div className="flex items-center gap-2 py-2"><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} /><span className="text-xs text-muted-foreground ml-1">{t('cbo.working')}</span></div>}
+            {streamDraft && (
+              <div className="flex justify-start">
+                <div className="max-w-[90%] md:max-w-[560px] rounded-lg px-4 py-2.5 bg-muted">
+                  <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamDraft}</ReactMarkdown>
+                  </div>
+                </div>
+              </div>
+            )}
+            {isStreaming && !streamDraft && <div className="flex items-center gap-2 py-2"><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} /><span className="text-xs text-muted-foreground ml-1">{t('cbo.working')}</span></div>}
 
             {/* Start Next Workshop banner.
                 When the coordinator opens a workshop higher than the user's

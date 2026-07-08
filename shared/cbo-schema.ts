@@ -260,6 +260,12 @@ export interface InterventionSelectorResult {
 // SSE events — same structure as concept note but with CBO types
 export type CboEvent =
   | { type: 'chat'; content: string; role: 'assistant'; messageType?: 'content' | 'thinking' | 'tool_status' }
+  // Transient token-streaming delta (LT-4): NOT persisted — the finalizing
+  // 'chat' event (whole block, post-normalizer) is the durable record. The
+  // client accumulates deltas into a live draft bubble and replaces it when
+  // the finalizer arrives, so the inline-options converter keeps operating
+  // on whole blocks (buffer-then-finalize).
+  | { type: 'chat_delta'; content: string }
   | { type: 'chat_thinking'; content: string }
   | { type: 'thinking_step'; step: { id: string; label: string; status: 'pending' | 'active' | 'complete' | 'error' } }
   | { type: 'field_update'; sectionId: string; field: string; value: string; confidence: Confidence; source?: string }
