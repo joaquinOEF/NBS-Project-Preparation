@@ -192,7 +192,12 @@ export const ROLE_CONFIGS: Record<AudienceRole, RoleConfig> = {
       en: 'Community group building or running a nature-based project.',
       pt: 'Grupo comunitário construindo ou mantendo um projeto de base natural.',
     },
-    entryRoute: '/sample/project/sample-ada-1',
+    // Straight into the CBO chat — the workshop product. The legacy sample
+    // hub (/sample/project/sample-ada-1) stays reachable for standalone demo
+    // visitors via the chat header's back button; it must NOT be the entry:
+    // it is an English city-prototype page, and invited members who wandered
+    // in lost their token on the way back (stranded fresh sessions).
+    entryRoute: '/cbo-profile',
     bypassAuth: true,
     // All 5 modules visible, reordered for CBO priority: funding + impact
     // lead (what CBOs care about most), site/operations/business-model trail.

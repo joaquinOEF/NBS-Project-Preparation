@@ -420,7 +420,15 @@ export default function CboProfilePage() {
   // (timeout/offline/5xx). Renders a retryable error card instead of the bare
   // infinite spinner; the 30s poll + focus refetch self-heal it when transient.
   const [sessionError, setSessionError] = useState<'invalid-token' | 'network' | null>(null);
-  const [viaInviteLink, setViaInviteLink] = useState(false);
+  // Synchronous initializer (not an effect): the header renders on the first
+  // commit, and an invited member must never see the legacy-demo back button
+  // — not even for a flash. ?t= / ?cbo= presence is the earliest membership
+  // signal we have.
+  const [viaInviteLink, setViaInviteLink] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const p = new URLSearchParams(window.location.search);
+    return !!(p.get('t') || p.get('cbo'));
+  });
   const [memberInfo, setMemberInfo] = useState<{ orgName: string; neighborhood: string | null } | null>(null);
   // Project-readiness triage from E1: 'has-project' | 'has-idea' | 'needs-help'
   // | null (until triaged). has-project + has-idea are project-forward.
@@ -1351,11 +1359,17 @@ export default function CboProfilePage() {
               buttons keep the right side narrow even on small viewports. */}
           <div className="px-3 sm:px-4 pt-2.5 pb-2 border-b bg-background space-y-2">
             <div className="flex items-center gap-1.5">
-              <Link href="/sample/project/sample-ada-1">
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0">
-                  <ArrowLeft className="w-4 h-4" />
-                </Button>
-              </Link>
+              {/* Back into the legacy sample-project hub is for STANDALONE demo
+                  visitors only. Cohort members (invite token / slug link) have
+                  no "back" — the hub is an English city-prototype demo, and
+                  navigating there drops their token and strands the session. */}
+              {!viaInviteLink && !memberSlug && (
+                <Link href="/sample/project/sample-ada-1">
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0">
+                    <ArrowLeft className="w-4 h-4" />
+                  </Button>
+                </Link>
+              )}
               <div className="min-w-0 flex-1">
                 {memberInfo ? (
                   <h2 className="text-sm font-semibold tracking-tight truncate leading-tight">
