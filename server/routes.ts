@@ -70,6 +70,27 @@ import { registerKnowledgeRoutes } from './routes/knowledgeRoutes';
 import { registerOverpassRoutes } from './routes/overpassRoutes';
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Legacy city-prototype routes (impact-model LLM endpoints, the project
+  // state machine, project agent chat, concept note) are UNAUTHENTICATED and
+  // several stream Claude/OpenAI completions. Default ON so nothing changes
+  // until explicitly flipped; set ENABLE_LEGACY_ROUTES=0 on a deployment to
+  // disable them (404, same as if never registered). Workshop routes
+  // (/api/cbo, /api/cohort, /api/coordinator, tiles, OSM) are unaffected.
+  // See docs/system-complexity-audit-2026-07.md items DS-2/DS-3.
+  const legacyRoutesEnabled = process.env.ENABLE_LEGACY_ROUTES !== '0';
+  if (!legacyRoutesEnabled) {
+    const LEGACY_PATHS =
+      /^\/api\/(impact-model\/|concept-note(\/|$)|projects\/[^/]+\/(agent(\/|$)|patches(\/|$)|state$|patch$|apply$|backfill-interventions$|intervention-sites$|reject$|actions$|blocks\/|evidence$|assumptions$))/;
+    app.use((req, res, next) => {
+      if (LEGACY_PATHS.test(req.path)) {
+        return res
+          .status(404)
+          .json({ error: 'Legacy routes are disabled on this deployment (ENABLE_LEGACY_ROUTES=0)' });
+      }
+      next();
+    });
+  }
+
   // Authentication routes
   app.get('/api/auth/oauth/initiate', async (req, res) => {
     try {
@@ -1993,9 +2014,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  registerAgentRoutes(app);
+  // Legacy-only route files: skip registration entirely when disabled (the
+  // early middleware above also covers their paths — belt and suspenders).
+  if (legacyRoutesEnabled) {
+    registerAgentRoutes(app);
+    registerConceptNoteRoutes(app);
+  }
   registerKnowledgeRoutes(app);
-  registerConceptNoteRoutes(app);
   registerCboRoutes(app);
   registerCohortRoutes(app);
   registerCoordinatorRoutes(app);
