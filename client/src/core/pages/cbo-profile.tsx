@@ -380,6 +380,30 @@ export default function CboProfilePage() {
   // user back on the exact question instead of a dead transcript.
   const hydrateMessages = useCallback((msgs: CboChatMessage[]) => {
     setMessages(msgs);
+    // Right-panel tools (map / intervention selector) restore from ANY composer
+    // row in the TRAILING ASSISTANT RUN — everything after the last user
+    // message — because the agent routinely opens the tool and then asks a
+    // question in the same turn, so the tool row is rarely the very last
+    // message (RL-1). Restoring params (not just activeTool's {kind}) means
+    // the exact step re-renders: custom prompt, hazardTour, suggestedSite,
+    // recommended types. No forced tab switch — the tab chip + pulse are the
+    // affordance.
+    let runStart = msgs.length;
+    while (runStart > 0 && msgs[runStart - 1].role === 'assistant') runStart--;
+    for (let i = runStart; i < msgs.length; i++) {
+      const m = msgs[i];
+      if (m.messageType !== 'composer') continue;
+      let p: any = null;
+      try { p = JSON.parse(m.content); } catch { continue; }
+      if (p?.kind === 'open_map' && p.params) {
+        setOpenMapParams(p.params);
+        setMapRelevant(true);
+      } else if (p?.kind === 'open_intervention_selector' && p.params) {
+        setInterventionSelectorParams(p.params);
+      }
+    }
+    // Question-type composers keep the stricter trailing-message-only rule: a
+    // question is only PENDING when nothing at all followed it.
     const last = msgs[msgs.length - 1];
     if (!last || last.role !== 'assistant' || last.messageType !== 'composer') return;
     let parsed: any = null;
@@ -1685,6 +1709,12 @@ export default function CboProfilePage() {
               // ANY live affordance suppresses the banner — not just ask_user.
               // Rank/anchoring/map composers previously co-rendered with it.
               if (currentQuestion || priorityRankPrompt || anchoringPrompt || openMapParams || interventionSelectorParams) return null;
+              // Also suppress while a persisted right-panel tool step is
+              // pending (isDone-aware — pendingTool clears itself once the
+              // step's fields are filled, so this can never stick forever).
+              // Covers pre-composer-persistence transcripts where activeTool
+              // {kind} exists but no composer row was written to restore params.
+              if (pendingTool(state)) return null;
 
               // Forward-progress gate — the phase must be complete before we
               // offer the next workshop. Uses the shared phaseComplete() predicate
@@ -1766,6 +1796,12 @@ export default function CboProfilePage() {
               // UNDER a live rank/anchoring/map composer (tapping it derails).
               if (isStreaming || !stableStreamEnded || state.phase === 0 || messages.length === 0) return null;
               if (currentQuestion || priorityRankPrompt || anchoringPrompt || openMapParams || interventionSelectorParams) return null;
+              // Also suppress while a persisted right-panel tool step is
+              // pending (isDone-aware — pendingTool clears itself once the
+              // step's fields are filled, so this can never stick forever).
+              // Covers pre-composer-persistence transcripts where activeTool
+              // {kind} exists but no composer row was written to restore params.
+              if (pendingTool(state)) return null;
               const lastContent = [...messages].reverse().find(m => m.messageType === 'content');
               const agentOwesResponse = !lastContent || lastContent.role === 'user';
               if (state.phase < 6 && !agentOwesResponse) return null;
