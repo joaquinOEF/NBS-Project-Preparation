@@ -25,7 +25,7 @@ import {
 import { db } from "../db";
 import { cohortMembers } from "@shared/cohort-schema";
 import { eq } from "drizzle-orm";
-import { getOrgIdForCboState, listDocumentsByOrg, getDocumentForOrg } from "./documentPersistence";
+import { getOrgIdForCboState, listDocumentsByOrg, listDocumentSummariesByOrg, getDocumentForOrg } from "./documentPersistence";
 import { queryTerms, scoreText, extractExcerpt } from "./textSearch";
 import { isFakeModelEnabled, streamWithFakeModel } from "./fakeCboModel";
 import { emitAssistantText } from "./agentOutput";
@@ -684,7 +684,7 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
     async () => {
       const orgId = await getOrgIdForCboState(cboId);
       if (!orgId) return { content: [{ type: "text" as const, text: "No documents on file yet." }] };
-      const docs = await listDocumentsByOrg(orgId);
+      const docs = await listDocumentSummariesByOrg(orgId); // summaries only — no fullText on a listing (LT-3)
       if (docs.length === 0) return { content: [{ type: "text" as const, text: "No documents on file yet." }] };
       const lines = docs.map(d => `- [${d.id}] ${d.filename} (${d.kind ?? 'file'}${d.droppedInPhase ? `, Encontro ${d.droppedInPhase}` : ''}) — ${(d.summary || '').slice(0, 160)}`);
       return { content: [{ type: "text" as const, text: `Documents on file (${docs.length}):\n${lines.join('\n')}\n\nUse read_org_document with an [id] to read the full text.` }] };
@@ -1201,11 +1201,17 @@ function resolveTurnModel(
 
 async function streamWithSdk(cboId: string, userMessage: string, state: CboState, pushEvent: EventPusher, lang: string = 'en', turnKind?: string) {
   const mcpServer = getMcpServer(cboId);
-  const sysCtx = await buildSystemContext(state, lang);
+  // Independent reads — run concurrently instead of serially. Together with
+  // the cohortLanguage JOIN this collapses the pre-model DB wait from 5
+  // sequential round-trips to ~1 (audit LT-2); matters most on light-model
+  // fast turns where the DB wait was a visible share of the turn.
+  const [sysCtx, documentsBlock, policy] = await Promise.all([
+    buildSystemContext(state, lang),
+    buildDocumentsBlock(cboId),
+    getPhasePolicyForCbo(cboId),
+  ]);
   const stateSummary = buildStateSummary(state);
-  const documentsBlock = await buildDocumentsBlock(cboId);
   const decisionLog = buildDecisionLog(cboId);
-  const policy = await getPhasePolicyForCbo(cboId);
   const accessPolicy = buildAccessPolicyPrompt(policy);
 
   // Pull the per-phase model from skill frontmatter, fall back to default.
@@ -1389,7 +1395,9 @@ async function buildDocumentsBlock(cboId: string): Promise<string> {
   try {
     const orgId = await getOrgIdForCboState(cboId);
     if (!orgId) return '';
-    const docs = await listDocumentsByOrg(orgId);
+    // Projection only — the full rows carry fullText, which for a doc-heavy
+    // org is megabytes pulled from Postgres on EVERY chat turn (LT-3).
+    const docs = await listDocumentSummariesByOrg(orgId);
     if (docs.length === 0) return '';
     const lines = docs.slice(0, 20).map(d =>
       `- [${d.id}] ${d.filename} (${d.kind ?? 'file'}${d.droppedInPhase ? `, Encontro ${d.droppedInPhase}` : ''}) — ${(d.summary || '').slice(0, 120)}`);

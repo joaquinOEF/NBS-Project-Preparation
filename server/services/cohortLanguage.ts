@@ -15,18 +15,15 @@ import { eq } from 'drizzle-orm';
 export async function getCohortLanguageForCbo(cboStateId: string): Promise<'pt' | 'en' | null> {
   if (!cboStateId) return null;
   try {
-    const [member] = await db
-      .select({ cohortId: cohortMembers.cohortId })
+    // One JOIN instead of two serial round-trips — this runs on the hot
+    // per-turn chat path before the model can even start (audit LT-2).
+    const [row] = await db
+      .select({ settings: cohorts.settings })
       .from(cohortMembers)
+      .innerJoin(cohorts, eq(cohorts.id, cohortMembers.cohortId))
       .where(eq(cohortMembers.cboStateId, cboStateId))
       .limit(1);
-    if (!member?.cohortId) return null;
-    const [cohort] = await db
-      .select({ settings: cohorts.settings })
-      .from(cohorts)
-      .where(eq(cohorts.id, member.cohortId))
-      .limit(1);
-    return (cohort?.settings as CohortSettings | null)?.language ?? null;
+    return (row?.settings as CohortSettings | null)?.language ?? null;
   } catch {
     return null;
   }
