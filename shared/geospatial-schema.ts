@@ -1,7 +1,3 @@
-import { sql } from 'drizzle-orm';
-import { pgTable, text, varchar, jsonb, timestamp, real } from 'drizzle-orm/pg-core';
-import { createInsertSchema } from 'drizzle-zod';
-import { z } from 'zod';
 
 export type LayerType = 
   | 'elevation'
@@ -26,39 +22,11 @@ export interface LayerMetadata {
   processingTime?: number;
 }
 
-export const geospatialLayers = pgTable('geospatial_layers', {
-  id: varchar('id')
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  cityLocode: text('city_locode').notNull(),
-  layerType: text('layer_type').notNull().$type<LayerType>(),
-  bounds: jsonb('bounds').$type<GeoBounds>().notNull(),
-  metadata: jsonb('metadata').$type<LayerMetadata>().notNull(),
-  geoJson: jsonb('geo_json').$type<any>(),
-  rasterStats: jsonb('raster_stats').$type<{
-    min: number;
-    max: number;
-    mean: number;
-    percentiles?: Record<number, number>;
-  }>(),
-  gridData: jsonb('grid_data').$type<{
-    width: number;
-    height: number;
-    cellSize: number;
-    values?: number[][];
-  }>(),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-});
-
-export const insertGeospatialLayerSchema = createInsertSchema(geospatialLayers).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export type GeospatialLayer = typeof geospatialLayers.$inferSelect;
-export type InsertGeospatialLayer = z.infer<typeof insertGeospatialLayerSchema>;
+// (audit DS-10) The old `geospatialLayers` pgTable + its insert schema/types
+// were deleted: the table was never wired into shared/schema.ts, so it never
+// existed in any database — the fetch-on-demand services cache to disk, not
+// Postgres. GeoBounds / LayerType / LAYER_CONFIGS and the data interfaces
+// below are LIVE (imported by six services + the tile pipeline) and stay.
 
 export interface LandcoverData {
   cityLocode: string;

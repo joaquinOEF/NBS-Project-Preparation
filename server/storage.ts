@@ -1,3 +1,9 @@
+// LEGACY (audit DS-8): this IStorage layer serves only the city-prototype
+// surface (users/cities/projects + the workspace state machine), i.e. the
+// endpoints living in routes/legacyRoutes.ts behind ENABLE_LEGACY_ROUTES.
+// The workshop product (cbo*/cohort*/coordinator*/document*) has its own
+// persistence modules and does not use this file. Frozen with the rest of
+// the legacy tree.
 import {
   type User,
   type InsertUser,
