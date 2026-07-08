@@ -1,6 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { streamAgentResponse, getAgentResponse, type AgentContext } from "../services/agentService";
-import { chatStorage } from "../replit_integrations/chat/storage";
+// Conversation storage for the legacy project agent (moved from the deleted
+// replit_integrations tree - audit DS-4; only this file ever imported it).
+import { chatStorage } from "../services/agentChatStorage";
 import { storage } from "../storage";
 
 const PAGE_GOALS: Record<string, string> = {
