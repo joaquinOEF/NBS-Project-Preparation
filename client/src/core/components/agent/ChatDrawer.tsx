@@ -794,7 +794,10 @@ export function ChatDrawer() {
 
   return (
     <>
-      {!isOpen && !location.includes('/concept-note') && !location.includes('/cbo') && (
+      {/* Route gating lives at the mount site (AppLayout's LEGACY_AGENT_ROUTES
+          allowlist) — the drawer only ever renders on legacy project pages, so
+          the old per-path excludes (/concept-note, /cbo) are gone. */}
+      {!isOpen && (
         <Button
           variant="outline"
           size="icon"
