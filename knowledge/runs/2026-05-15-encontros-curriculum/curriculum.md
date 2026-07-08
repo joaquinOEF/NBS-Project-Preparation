@@ -2,6 +2,14 @@
 
 **Date**: 2026-05-15 · **Status**: design, pre-build · **Pilot start**: 2026-06-11 (Encontro 1)
 
+> **⚠️ AMENDED 2026-07-07 — cadence superseded.** The 2026-06-30 w3-refine plan
+> ([`../2026-06-30-w3-refine/plan.md`](../2026-06-30-w3-refine/plan.md)) **lumps E3+E4 below into a
+> single Encontro 3** covering all of phase 3 (3a intervention_type + 3b impact_monitoring +
+> 3c operations_sustain), matching the schema's sub-phase structure. The live cadence is therefore
+> **5 encontros**: E1=P1, E2=P2, E3=P3a/3b/3c, E4=P4 (needs_assessment), E5=P5 (portfolio →
+> `ready-for-review`). The per-encontro specs below remain the pedagogical source for their beats,
+> but anyone authoring `encontro-4.md`+ skills must use the lumped numbering, not this table.
+
 ## Goal
 
 By the end of **Encontro 6**, the cohort has **10 community-scale NBS projects refined to portfolio-ready state**:

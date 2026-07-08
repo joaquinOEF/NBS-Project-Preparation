@@ -136,12 +136,14 @@ export function getEncontroPreambleConfig(
 }
 
 /**
- * Map a CBO phase number (1-5) to the encontro that introduces it. Most are
- * 1:1, but Phase 3 spans 3 encontros (E3=3a, E4=3b/3c). For now we treat
- * entry-into-phase-N as "encontro N's first session" — Phase 3 sub-phases
- * collapse to E3 only. Refine when E4 ships explicit sub-phase preambles.
+ * Map a CBO phase number (1-5) to the encontro that introduces it. The
+ * mapping is 1:1 under the decided 5-encounter cadence (2026-06-30 w3-refine
+ * plan, knowledge/runs/2026-06-30-w3-refine/plan.md): Encontro 3 runs ALL of
+ * phase 3 (sub-phases 3a/3b/3c) in one session — the original 6-encontro
+ * curriculum's E3/E4 split was lumped, so P4→E4 (needs_assessment) and
+ * P5→E5 (portfolio).
  */
 export function encontroForPhase(phase: number): number | null {
   if (phase < 1 || phase > 5) return null;
-  return phase; // 1:1 for now; revisit when E4 needs a separate preamble
+  return phase; // 1:1 by design under the lumped-W3 cadence
 }
