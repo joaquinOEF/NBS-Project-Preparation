@@ -268,19 +268,6 @@ Heat and landslide grid screening are **not yet implemented** (heat/l landslide 
 
 ---
 
-# Suggested review agenda (60 min)
-
-| Time | Topic |
-|------|-------|
-| 10 min | Workflow recap: Step 0 → mechanism → NBS scoring |
-| 15 min | Flood mechanisms + grid vs bairro question |
-| 10 min | Heat exposure context + cooling NBS mapping |
-| 10 min | Landslide context + vegetation-based stabilization limits |
-| 10 min | Catalog vs application layer split |
-| 5 min | Next steps: threshold calibration, rule ownership, E2E updates |
-
----
-
 # Traceability
 
 ## Documentation (this folder)
