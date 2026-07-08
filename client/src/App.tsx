@@ -7,29 +7,52 @@ import { SampleDataProvider } from '@/core/contexts/sample-data-context';
 import { ProjectContextProvider } from '@/core/contexts/project-context';
 import { ChatProvider, useChatState } from '@/core/contexts/chat-context';
 import { RoleProvider } from '@/core/contexts/role-context';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Loader2 } from 'lucide-react';
 
-// Core pages
-import Login from '@/core/pages/login';
+// Route-level code splitting (audit item DC-3): every page loads its own
+// chunk on first navigation instead of riding in the entry bundle. Before
+// this, the entry was ~722 kB gzip — site-explorer's STATIC leaflet import
+// alone dragged the whole map stack into first paint, defeating the
+// workshop's carefully lazy-loaded MapMicroapp — on a phone-first product.
+// The landing gate stays EAGER: it is the first paint for every visitor and
+// must never flash a route spinner.
 import RoleSelectionPage from '@/core/pages/role-selection';
-import OrchestratorLandingPage from '@/core/pages/orchestrator-landing';
-import CoordinatorLoginPage from '@/core/pages/coordinator-login';
-import CitySelection from '@/core/pages/city-selection';
-import ProjectPage from '@/core/pages/project';
-import SiteExplorerPage from '@/core/pages/site-explorer';
-import FunderSelectionPage from '@/core/pages/funder-selection';
-import ProjectOperationsPage from '@/core/pages/project-operations';
-import BusinessModelPage from '@/core/pages/business-model';
-import ImpactModelPage from '@/core/pages/impact-model';
-import ConceptNotePage from '@/core/pages/concept-note';
-import CboProfilePage from '@/core/pages/cbo-profile';
-import { OAuthCallback } from '@/core/components/auth/oauth-callback';
 import NotFound from '@/core/pages/not-found';
+
+const Login = lazy(() => import('@/core/pages/login'));
+const OrchestratorLandingPage = lazy(() => import('@/core/pages/orchestrator-landing'));
+const CoordinatorLoginPage = lazy(() => import('@/core/pages/coordinator-login'));
+const CitySelection = lazy(() => import('@/core/pages/city-selection'));
+const ProjectPage = lazy(() => import('@/core/pages/project'));
+const SiteExplorerPage = lazy(() => import('@/core/pages/site-explorer'));
+const FunderSelectionPage = lazy(() => import('@/core/pages/funder-selection'));
+const ProjectOperationsPage = lazy(() => import('@/core/pages/project-operations'));
+const BusinessModelPage = lazy(() => import('@/core/pages/business-model'));
+const ImpactModelPage = lazy(() => import('@/core/pages/impact-model'));
+const ConceptNotePage = lazy(() => import('@/core/pages/concept-note'));
+const CboProfilePage = lazy(() => import('@/core/pages/cbo-profile'));
+// Named exports — lazy() wants a default, so remap.
+const OAuthCallback = lazy(() =>
+  import('@/core/components/auth/oauth-callback').then(m => ({ default: m.OAuthCallback })),
+);
+const ChatDrawer = lazy(() =>
+  import('@/core/components/agent/ChatDrawer').then(m => ({ default: m.ChatDrawer })),
+);
 
 // Dynamic module routing
 import { DynamicModuleRoutes } from '@/core/routing/dynamic-routes';
-import { ChatDrawer } from '@/core/components/agent/ChatDrawer';
+
+// Route-chunk loading state. Brief (chunks are small and cached after first
+// hit) — a centered spinner, no layout shift.
+function RouteFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 
 function Router() {
   return (
@@ -102,9 +125,18 @@ function AppLayout() {
   return (
     <div className="flex min-h-screen">
       <div className={`flex-1 min-w-0 transition-all duration-300 ${isChatOpen && showAgentDrawer ? 'mr-[400px]' : ''}`}>
-        <Router />
+        <Suspense fallback={<RouteFallback />}>
+          <Router />
+        </Suspense>
       </div>
-      {showAgentDrawer && <ChatDrawer />}
+      {/* Lazy + route-gated: the drawer chunk only ever downloads on legacy
+          project pages. Suspense fallback null — it's a floating button, not
+          page content. */}
+      {showAgentDrawer && (
+        <Suspense fallback={null}>
+          <ChatDrawer />
+        </Suspense>
+      )}
     </div>
   );
 }

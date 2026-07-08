@@ -1,5 +1,9 @@
+import { lazy } from 'react';
 import { ModuleRegistry } from '@/core/types/module';
-import CityInformation from '@/modules/city-information/pages/city-information';
+
+// Lazy so the whole city-information module tree (13 files) splits out of the
+// entry bundle with the rest of the route-level code splitting (DC-3).
+const CityInformation = lazy(() => import('@/modules/city-information/pages/city-information'));
 
 // Module registry - this is where new modules can be registered
 export const moduleRegistry: ModuleRegistry = {
