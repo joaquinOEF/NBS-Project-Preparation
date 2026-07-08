@@ -874,6 +874,55 @@ export function ShareLinkDialog({
 }
 
 // ---------------------------------------------------------------------------
+// MemberResetConfirmDialog — resets ONE org's profile (field report
+// 2026-07-08: the console could only wipe the whole cohort at once). The
+// member keeps its invite link and workshop unlocks; the working session and
+// run-derived progress are erased.
+// ---------------------------------------------------------------------------
+export function MemberResetConfirmDialog({
+  open, orgName, onOpenChange, onConfirm,
+}: {
+  open: boolean;
+  orgName: string;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => Promise<void> | void;
+}) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[440px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            {t('orchestrator.memberReset.title', { defaultValue: 'Reset {{org}}?', org: orgName })}
+          </DialogTitle>
+          <DialogDescription>
+            {t('orchestrator.memberReset.desc', {
+              defaultValue: 'Erases this organization’s profile, conversation, and progress so it can start Encontro 1 from scratch. The invite link keeps working and workshop unlocks stay. This can’t be undone.',
+            })}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
+            {t('common.cancel', { defaultValue: 'Cancel' })}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }}
+            disabled={busy}
+            data-testid="button-confirm-member-reset"
+          >
+            <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+            {busy ? t('common.working', { defaultValue: 'Working…' }) : t('orchestrator.memberReset.confirm', { defaultValue: 'Yes, reset this org' })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // ResetConfirmDialog — wipes members + restores default workshops. Used in
 // the pilot's singleton-cohort model where there's only one cohort and the
 // orchestrator needs a quick "start fresh" for demo dry runs.

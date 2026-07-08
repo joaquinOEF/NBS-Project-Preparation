@@ -36,6 +36,7 @@ import {
   ShareLinkDialog,
   BulkInviteSummaryDialog,
   ResetConfirmDialog,
+  MemberResetConfirmDialog,
   DeleteCohortConfirmDialog,
   ProvisionCohortDialog,
   type BulkInviteResult,
@@ -590,6 +591,7 @@ function ProjectCard({
   onOpen,
   onOpenCbo,
   onSetTier,
+  onResetProfile,
 }: {
   project: CboDemoProject;
   locale: 'en' | 'pt';
@@ -598,6 +600,7 @@ function ProjectCard({
   onOpen: (p: CboDemoProject) => void;
   onOpenCbo: (p: CboDemoProject, tab: 'arquivos' | 'conversa' | 'perfil') => void;
   onSetTier: (p: CboDemoProject, tier: 'emerging' | 'developing' | 'advanced') => void;
+  onResetProfile: (p: CboDemoProject) => void;
 }) {
   const { t } = useTranslation();
   const hasIntervention = project.interventionKey !== null;
@@ -737,6 +740,19 @@ function ProjectCard({
               <Eye className="w-3 h-3" strokeWidth={2} />
               {t('orchestrator.cboView.open', { defaultValue: 'View' })}
             </button>
+            {/* Per-org reset (field report 2026-07-08): before this, the only
+                way to erase ONE org was resetting the entire cohort. Opens a
+                confirm dialog — the action itself is irreversible. */}
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); onResetProfile(project); }}
+              className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border border-foreground/15 text-foreground/70 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
+              title={t('orchestrator.memberReset.chipTooltip', { defaultValue: 'Reset this organization’s profile from scratch' })}
+              data-testid={`button-cbo-reset-${project.id}`}
+            >
+              <RotateCcw className="w-3 h-3" strokeWidth={2} />
+              {t('orchestrator.memberReset.chip', { defaultValue: 'Reset' })}
+            </button>
             {hasIntervention ? (
               <span
                 className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${toneStyle.bubble} ${toneStyle.fg} border-foreground/10`}
@@ -860,7 +876,7 @@ export default function OrchestratorLandingPage() {
 
   const {
     cohort, members, isAdmin, allCohorts,
-    invite, unlockPhase, saveWorkshops, resetCohort, saveLanguage, deleteCohort,
+    invite, unlockPhase, saveWorkshops, resetCohort, resetMember, saveLanguage, deleteCohort,
     switchCohort, provisionCohort, refresh,
   } = useCohort();
   const cohortLanguage = (cohort?.settings as { language?: 'pt' | 'en' } | null)?.language ?? null;
@@ -926,6 +942,8 @@ export default function OrchestratorLandingPage() {
   const [bulkInvitations, setBulkInvitations] = useState<BulkInviteResult[]>([]);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  // Per-org reset: the card whose profile is about to be erased (null = closed).
+  const [memberResetTarget, setMemberResetTarget] = useState<CboDemoProject | null>(null);
   const [provisionOpen, setProvisionOpen] = useState(false);
   const [supportInboxOpen, setSupportInboxOpen] = useState(false);
   // Mirrored from /support-requests?status=pending — drives the badge on
@@ -994,6 +1012,18 @@ export default function OrchestratorLandingPage() {
     setResetConfirmOpen(false);
     await resetCohort();
     toast({ title: t('orchestrator.cohort.resetDone', { defaultValue: 'Cohort reset' }) });
+  };
+
+  const handleMemberResetConfirm = async () => {
+    const target = memberResetTarget;
+    setMemberResetTarget(null);
+    if (!target) return;
+    const ok = await resetMember(target.id);
+    toast({
+      title: ok
+        ? t('orchestrator.memberReset.done', { defaultValue: '{{org}} reset — the invite link starts fresh', org: target.name[locale] })
+        : t('orchestrator.memberReset.failed', { defaultValue: 'Could not reset {{org}}', org: target.name[locale] }),
+    });
   };
 
   const handleDeleteConfirm = async () => {
@@ -1342,6 +1372,7 @@ export default function OrchestratorLandingPage() {
                     onOpen={(p) => openCbo(p, 'convite')}
                     onOpenCbo={openCbo}
                     onSetTier={handleSetTier}
+                    onResetProfile={setMemberResetTarget}
                   />
                   {member && (
                     <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
@@ -1377,6 +1408,12 @@ export default function OrchestratorLandingPage() {
         open={resetConfirmOpen}
         onOpenChange={setResetConfirmOpen}
         onConfirm={handleResetConfirm}
+      />
+      <MemberResetConfirmDialog
+        open={memberResetTarget != null}
+        orgName={memberResetTarget?.name[locale] ?? ''}
+        onOpenChange={(open) => { if (!open) setMemberResetTarget(null); }}
+        onConfirm={handleMemberResetConfirm}
       />
       <DeleteCohortConfirmDialog
         open={deleteConfirmOpen}

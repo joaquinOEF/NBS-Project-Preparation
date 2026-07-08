@@ -310,6 +310,15 @@
     "cboView": {
       "open": "Ver",
       "openTooltip": "Ver conversa + perfil"
+    },
+    "memberReset": {
+      "chip": "Resetar",
+      "chipTooltip": "Recomeçar o perfil desta organização do zero",
+      "title": "Resetar {{org}}?",
+      "desc": "Apaga o perfil, a conversa e o progresso desta organização para recomeçar o Encontro 1 do zero. O link de convite continua funcionando e os encontros liberados são mantidos. Não dá para desfazer.",
+      "confirm": "Sim, resetar esta org",
+      "done": "{{org}} resetada — o link de convite recomeça do zero",
+      "failed": "Não foi possível resetar {{org}}"
     }
   },
   "citySelection": {
