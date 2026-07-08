@@ -53,6 +53,17 @@ export function registerCboRoutes(app: Express): void {
       }
     }
     if (!state) return res.status(404).json({ error: "Not found" });
+    // Read-time phase-0 self-heal: sessions created during the 020fe0a7
+    // rollback window finished E1 stranded at phase 0 (banner is gated to
+    // phase >= 1). Lifting here means a plain reload immediately shows the
+    // "Começar Encontro 2" card; the chat path lifts too (with a
+    // phase_change event) for live sessions. See fake-E2 report 2026-07-08.
+    if ((state.phase ?? 0) === 0) {
+      state.phase = 1;
+      setCboState(req.params.id, state);
+      debouncedPersist(req.params.id);
+      console.log(`[cbo] lifted ${req.params.id} from stranded phase 0 to phase 1 (read path)`);
+    }
     res.json({ state, cboId: req.params.id });
   });
 
@@ -98,19 +109,11 @@ export function registerCboRoutes(app: Express): void {
       if (persisted) { setCboState(req.params.id, persisted.state); state = persisted.state; }
     }
     if (!state) return res.status(404).json({ error: "Not found" });
-
-    // Self-heal sessions stranded at phase 0. New states now start at phase 1
-    // (createEmptyCboState), but sessions created while the 020fe0a7 rollback
-    // was live ran ALL of E1 at phase 0 — and the "Começar Encontro 2" banner
-    // is hard-gated to phase >= 1, so they finished the diagnostic with no way
-    // forward. Phase 0 has no content of its own (the turn already loads E1's
-    // skill via max(1, phase)), so lifting is semantically a no-op for the
-    // agent and unblocks the handoff card on the next reply.
-    if ((state.phase ?? 0) === 0) {
-      state.phase = 1;
-      setCboState(req.params.id, state);
-      console.log(`[cbo] lifted ${req.params.id} from stranded phase 0 to phase 1`);
-    }
+    // The phase-0 self-heal lives in streamCboChat now, where it can emit a
+    // phase_change event — the client must LEARN about the lift or the green
+    // advance banner stays suppressed and users talk the model into a
+    // role-played Encontro 2 (fake-E2 field report 2026-07-08). The GET
+    // handler above also lifts, so a plain reload shows the banner too.
 
     // Detect "start encontro N" / "vamos começar o encontro N" — the message
     // the Start-Next-Workshop banner sends. Advance state.phase BEFORE the

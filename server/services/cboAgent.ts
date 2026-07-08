@@ -527,6 +527,16 @@ STOP and wait for the user's map selection after calling this tool.`,
       }).optional().describe("E2 map step: a site candidate found via search_org_documents, to pre-place for the user to VALIDATE ('é aqui?') instead of picking blind. Only pass what the doc actually says — the quote is the basis the user sees."),
     },
     async (args: any) => {
+      // Deterministic fence (fake-E2 field report 2026-07-08): the map step
+      // belongs to Encontro 2+. At phase 1, a model that sees a finished
+      // diagnostic in the transcript will happily role-play the E2 opening
+      // and open the map with NO phase change — skipping the E2 preamble,
+      // the templated educational entry, and the header progression. Prompt
+      // rules alone don't hold on light-model turns; refuse at the engine.
+      const mapState = getCboState(cboId);
+      if ((mapState?.phase ?? 0) < 2) {
+        return { content: [{ type: "text" as const, text: `BLOCKED: open_map is an Encontro 2+ tool and this org is still in phase ${mapState?.phase ?? 0}. Do NOT simulate Encontro 2 content or open the map. Tell the user the next encontro will appear as a green card here in the chat once their coordinator opens it, then END your turn.` }] };
+      }
       pushEvent({
         type: 'open_map',
         params: {
@@ -751,6 +761,11 @@ STOP and wait for the user's selection after calling this tool.`,
       maxRecommendations: z.number().optional().default(2).describe("How many types to badge as Recommended (default 2)"),
     },
     async (args: any) => {
+      // Same engine fence as open_map: the selector is an Encontro 3+ tool.
+      const selState = getCboState(cboId);
+      if ((selState?.phase ?? 0) < 3) {
+        return { content: [{ type: "text" as const, text: `BLOCKED: open_intervention_selector is an Encontro 3+ tool and this org is still in phase ${selState?.phase ?? 0}. Do NOT simulate a later encontro. Tell the user the next encontro will appear as a green card here in the chat once their coordinator opens it, then END your turn.` }] };
+      }
       pushEvent({
         type: 'open_intervention_selector',
         params: {
@@ -1051,6 +1066,19 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       console.log(`[cbo] client disconnected mid-stream for ${cboId} (phase ${state.phase})`);
     }
   });
+
+  // Self-heal sessions stranded at phase 0 — AND tell the client (fake-E2
+  // field report 2026-07-08: the first version of this lift lived in the
+  // route and emitted nothing, so the live client kept phase 0, the green
+  // advance banner stayed suppressed, and the user talked the model into a
+  // role-played Encontro 2 instead). phase_change here keeps the client's
+  // state.phase — and therefore the banner gate — in sync with the lift.
+  if ((state.phase ?? 0) === 0) {
+    state.phase = 1;
+    setCboState(cboId, state);
+    pushEvent({ type: 'phase_change', phase: 1 });
+    console.log(`[cbo] lifted ${cboId} from stranded phase 0 to phase 1`);
+  }
 
   // Handle [SKIP TO phase:X] magic prefix
   const skipMatch = userMessage.match(SKIP_PATTERN);
