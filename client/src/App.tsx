@@ -1,4 +1,4 @@
-import { Switch, Route } from 'wouter';
+import { Switch, Route, useLocation } from 'wouter';
 import { queryClient } from '@/core/lib/queryClient';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/core/components/ui/toaster';
@@ -81,15 +81,30 @@ function Router() {
   );
 }
 
+// The floating chat button + drawer is the CITY project agent (it talks to
+// /api/projects/:id/agent/*). It only belongs on the legacy project surfaces:
+// the project hub + the 5 module pages (and their /sample variants). Mounted
+// globally it leaked onto the CBO chat and the orchestrator console — sample
+// mode gives it a projectId anywhere, so its button rendered there too
+// (audit item DC-7; full move into the legacy pages comes with the
+// quarantine wave).
+const LEGACY_AGENT_ROUTES =
+  /^\/(sample\/)?(project|site-explorer|funder-selection|project-operations|business-model|impact-model|city-information)(\/|$)/;
+
 function AppLayout() {
   const { isChatOpen } = useChatState();
-  
+  const [location] = useLocation();
+  const showAgentDrawer = LEGACY_AGENT_ROUTES.test(location);
+
+  // Margin only applies while the drawer can actually render — isChatOpen
+  // survives SPA navigation, and a stale 400px gutter would squeeze the
+  // workshop views after leaving a legacy page with the drawer open.
   return (
     <div className="flex min-h-screen">
-      <div className={`flex-1 min-w-0 transition-all duration-300 ${isChatOpen ? 'mr-[400px]' : ''}`}>
+      <div className={`flex-1 min-w-0 transition-all duration-300 ${isChatOpen && showAgentDrawer ? 'mr-[400px]' : ''}`}>
         <Router />
       </div>
-      <ChatDrawer />
+      {showAgentDrawer && <ChatDrawer />}
     </div>
   );
 }
