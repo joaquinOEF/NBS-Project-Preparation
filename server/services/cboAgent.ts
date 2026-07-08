@@ -518,6 +518,16 @@ Include showMap: true on a question only when the user genuinely needs the map t
       })),
     },
     async (args: any) => {
+      // A question with no chips is a PROSE question, not an ask_user — the
+      // model kept wrapping free-text questions (the mission) in empty-option
+      // ask_user calls, rendering a bare question card instead of plain chat
+      // text (live E1 run, 2026-07-08). Reject the whole call so the model
+      // re-asks correctly; rendering the valid subset would double-ask the
+      // rest on the retry.
+      const empty = (args.questions || []).filter((q: any) => !(q.options?.length > 0));
+      if (empty.length > 0) {
+        return { content: [{ type: "text" as const, text: `NOT shown — ${empty.length} question(s) had no options. ask_user is only for chip questions (2-7 buckets). A question with no natural buckets (mission, name, story) must be asked as PLAIN TEXT in your message, with no tool call. Re-ask now: chip questions via ask_user, free-text ones as prose.` }], isError: true };
+      }
       for (const q of args.questions || []) {
         pushEvent({ type: 'ask_user', question: q.question, options: q.options || [], relatedSections: q.relatedSections, showMap: q.showMap, multiSelect: q.multiSelect });
       }
@@ -1290,7 +1300,12 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   // "check CURRENT STATE first" keep working; the blocks just arrive in the
   // conversation instead of the system message.
   const systemPrompt = sysCtx;
-  const turnContext = `## CURRENT STATE\n${stateSummary}${documentsBlock}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\n## NEW MESSAGE FROM THE USER\n`;
+  // TODAY rides in the volatile block (never the cached system prompt): the
+  // model has no other way to know the date, so age arithmetic silently
+  // drifted — a site saying "fundada em 2013" got bucketed '5 a 10 anos'
+  // instead of 'Mais de 10 anos' (live E1 run, 2026-07-08).
+  const todayLine = `TODAY: ${new Date().toISOString().slice(0, 10)}\n`;
+  const turnContext = `## CURRENT STATE\n${todayLine}${stateSummary}${documentsBlock}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\n## NEW MESSAGE FROM THE USER\n`;
 
   console.log(`[cbo] Turn for ${cboId} (phase ${state.phase}, model ${model}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length}/7 sections)`);
 
