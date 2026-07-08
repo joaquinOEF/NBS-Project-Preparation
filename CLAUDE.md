@@ -18,9 +18,9 @@ POC / prototype for Nature-Based Solutions (NBS) project preparation. Helps citi
 | State | React Query (TanStack), React Context |
 | i18n | react-i18next (en, pt) |
 | Backend | Express.js (TypeScript, ESM) |
-| Database | PostgreSQL (Neon serverless) via Drizzle ORM |
-| Maps | Leaflet, Turf.js, pigeon-maps |
-| Auth | Passport.js (local strategy) + express-session |
+| Database | PostgreSQL via Drizzle ORM (node-postgres `pg` driver) |
+| Maps | Leaflet, Turf.js |
+| Auth | Legacy city flow: CityCatalyst OAuth (cookie sessions in-app). Coordinators: scrypt email+password (`coordinatorAuth.ts`). CBOs: capability-token invite links. No Passport/express-session — that stack was never wired up and its packages were removed. |
 | Analytics | PostHog |
 
 ## Project Structure
