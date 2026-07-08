@@ -14,7 +14,7 @@
 import * as fs from 'fs';
 import { PNG } from 'pngjs';
 
-const gridPath = 'client/public/sample-data/porto-alegre-grid-250m.json';
+const gridPath = 'scripts/data/porto-alegre-grid-250m.json';
 const gridData = JSON.parse(fs.readFileSync(gridPath, 'utf-8'));
 const cells = gridData.geoJson.features;
 

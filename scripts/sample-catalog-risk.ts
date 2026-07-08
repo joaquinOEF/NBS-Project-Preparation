@@ -95,7 +95,7 @@ async function sample(h: Hazard, c: Component, lat: number, lng: number): Promis
 }
 
 async function main() {
-  const gridPath = path.join(process.cwd(), 'client', 'public', 'sample-data', 'porto-alegre-grid-250m.json');
+  const gridPath = path.join(process.cwd(), 'scripts', 'data', 'porto-alegre-grid-250m.json');
   const grid = JSON.parse(fs.readFileSync(gridPath, 'utf-8'));
   const features = grid.geoJson.features as Array<{ properties: { centroid: [number, number]; metrics: Record<string, number | null> } }>;
   console.log(`Loaded ${features.length} cells from ${path.relative(process.cwd(), gridPath)}`);

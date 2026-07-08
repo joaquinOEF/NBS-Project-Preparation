@@ -21,28 +21,31 @@ import { Loader2 } from 'lucide-react';
 import RoleSelectionPage from '@/core/pages/role-selection';
 import NotFound from '@/core/pages/not-found';
 
-const Login = lazy(() => import('@/core/pages/login'));
+const Login = lazy(() => import('@/legacy/pages/login'));
 const OrchestratorLandingPage = lazy(() => import('@/core/pages/orchestrator-landing'));
 const CoordinatorLoginPage = lazy(() => import('@/core/pages/coordinator-login'));
-const CitySelection = lazy(() => import('@/core/pages/city-selection'));
-const ProjectPage = lazy(() => import('@/core/pages/project'));
-const SiteExplorerPage = lazy(() => import('@/core/pages/site-explorer'));
-const FunderSelectionPage = lazy(() => import('@/core/pages/funder-selection'));
-const ProjectOperationsPage = lazy(() => import('@/core/pages/project-operations'));
-const BusinessModelPage = lazy(() => import('@/core/pages/business-model'));
-const ImpactModelPage = lazy(() => import('@/core/pages/impact-model'));
-const ConceptNotePage = lazy(() => import('@/core/pages/concept-note'));
+const CitySelection = lazy(() => import('@/legacy/pages/city-selection'));
+const ProjectPage = lazy(() => import('@/legacy/pages/project'));
+const SiteExplorerPage = lazy(() => import('@/legacy/pages/site-explorer'));
+const FunderSelectionPage = lazy(() => import('@/legacy/pages/funder-selection'));
+const ProjectOperationsPage = lazy(() => import('@/legacy/pages/project-operations'));
+const BusinessModelPage = lazy(() => import('@/legacy/pages/business-model'));
+const ImpactModelPage = lazy(() => import('@/legacy/pages/impact-model'));
+const ConceptNotePage = lazy(() => import('@/legacy/pages/concept-note'));
 const CboProfilePage = lazy(() => import('@/core/pages/cbo-profile'));
 // Named exports — lazy() wants a default, so remap.
 const OAuthCallback = lazy(() =>
-  import('@/core/components/auth/oauth-callback').then(m => ({ default: m.OAuthCallback })),
+  import('@/legacy/components/auth/oauth-callback').then(m => ({ default: m.OAuthCallback })),
 );
 const ChatDrawer = lazy(() =>
-  import('@/core/components/agent/ChatDrawer').then(m => ({ default: m.ChatDrawer })),
+  import('@/legacy/components/agent/ChatDrawer').then(m => ({ default: m.ChatDrawer })),
 );
 
-// Dynamic module routing
-import { DynamicModuleRoutes } from '@/core/routing/dynamic-routes';
+// city-information — the last "dynamic module". The registry/dynamic-routes
+// indirection (one enabled module, ever) is gone (audit DC-11); the two
+// routes are plain lazy Routes below. NOTE: the server-side MODULE_REGISTRY
+// in shared/workspace-schema.ts is a same-named, unrelated, LIVE thing.
+const CityInformation = lazy(() => import('@/legacy/modules/city-information/pages/city-information'));
 
 // Route-chunk loading state. Brief (chunks are small and cached after first
 // hit) — a centered spinner, no layout shift.
@@ -97,7 +100,9 @@ function Router() {
       <Route path='/sample/impact-model/:projectId' component={ImpactModelPage} />
 
       {/* Dynamically loaded module routes */}
-      <DynamicModuleRoutes />
+      {/* Kept: project.tsx back-links navigate here by URL. */}
+      <Route path='/city-information/:cityId' component={CityInformation} />
+      <Route path='/sample/city-information/:cityId' component={CityInformation} />
 
       <Route component={NotFound} />
     </Switch>

@@ -61,8 +61,8 @@ import { NBS_SHOWCASE_CARDS, getShowcaseCard } from '@shared/nbs-showcase-cards'
 import type { WorkshopConfig } from '@shared/cohort-schema';
 import { localizedWorkshopName } from '@/lib/workshopHelpers';
 
-const MapMicroapp = lazy(() => import('@/core/components/concept-note/MapMicroapp'));
-const InterventionSelector = lazy(() => import('@/core/components/concept-note/InterventionSelector'));
+const MapMicroapp = lazy(() => import('@/core/components/maps/MapMicroapp'));
+const InterventionSelector = lazy(() => import('@/core/components/maps/InterventionSelector'));
 
 function formatMapResult(result: MapSelectionResult): string {
   const lines: string[] = [`Map selection (${result.selectionMode} mode):`];

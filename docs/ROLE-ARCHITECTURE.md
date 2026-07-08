@@ -1,6 +1,16 @@
 # Role / Audience Architecture
 
-Status: contract established (Phase 0). Consumers being migrated in Phase 1.
+Status: **scope narrowed 2026-07-08 (audit DC-9)** — role-as-config applies to
+the **legacy demo tree only** (`client/src/legacy/`: the sample-project hub +
+its module pages). The migration beyond it is formally abandoned: the live
+product's audiences got dedicated surfaces instead (CBO chat at
+`/cbo-profile`, coordinator console at `/orchestrator`), each with its own
+auth and entry, and porting them onto `RoleConfig` would churn the
+hardening-frozen workshop path for zero user-visible payoff (audit's
+rejected list). `ROLE_CONFIGS` remains the config spine *inside* the demo
+tree — the rule below still applies there — plus the three landing-page
+fields (`label`, `tagline`, `entryRoute`/`bypassAuth`) that role-selection
+reads.
 
 ## Why this document exists
 
