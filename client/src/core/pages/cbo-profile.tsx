@@ -420,7 +420,20 @@ export default function CboProfilePage() {
     let parsed: any = null;
     try { parsed = JSON.parse(last.content); } catch { return; }
     if (parsed?.kind === 'ask_user' && parsed.question) {
-      setActiveQuestions([{ id: 'q_restored', question: parsed.question, options: parsed.options ?? [], multiSelect: parsed.multiSelect, relatedSections: parsed.relatedSections } as any]);
+      // A BATCH of questions arrives as consecutive ask_user composer rows. The
+      // old code restored only the last one, so reloading mid-batch silently
+      // dropped the questions the user hadn't reached yet. Walk back over the
+      // whole unanswered trailing run.
+      const restored: any[] = [];
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        const m = msgs[i];
+        if (m.role !== 'assistant' || m.messageType !== 'composer') break;
+        let p: any = null;
+        try { p = JSON.parse(m.content); } catch { break; }
+        if (p?.kind !== 'ask_user' || !p.question) break;
+        restored.unshift({ id: `q_restored_${i}`, question: p.question, options: p.options ?? [], multiSelect: p.multiSelect, relatedSections: p.relatedSections });
+      }
+      setActiveQuestions(restored as any);
       setCurrentQuestionIdx(0); setQuestionAnswers({}); setSelectedOptionIdx(0);
     } else if (parsed?.kind === 'priority' && parsed.prompt) {
       setPriorityRankPrompt({ prompt: parsed.prompt, minRanked: parsed.minRanked ?? 2 });
@@ -429,6 +442,30 @@ export default function CboProfilePage() {
     }
   }, []);
   const totalQuestions = activeQuestions.length;
+
+  // question text -> the answer the user picked, from every persisted `answers`
+  // composer. Keyed on the question text because that is the only identifier the
+  // `ask_user` event carries; the server assigns no question id.
+  const answersByQuestion = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of messages) {
+      if (m.messageType !== 'composer' || m.role !== 'user') continue;
+      try {
+        const p = JSON.parse(m.content);
+        if (p?.kind !== 'answers') continue;
+        for (const pair of p.pairs ?? []) if (pair?.question) map.set(pair.question, pair.answer);
+      } catch { /* malformed - skip */ }
+    }
+    return map;
+  }, [messages]);
+
+  // Questions currently live in the interactive card. Their persisted composer
+  // rows must not also render, or the question would appear twice.
+  const pendingQuestionTexts = useMemo(
+    () => new Set(activeQuestions.map((q: any) => q.question)),
+    [activeQuestions]
+  );
+
   const [highlightedSections, setHighlightedSections] = useState<string[]>([]);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -967,6 +1004,17 @@ export default function CboProfilePage() {
           if (prev.length === 0) { setCurrentQuestionIdx(0); setQuestionAnswers({}); }
           return [...prev, { id: `q_${Date.now()}`, question: event.question, options: event.options, multiSelect: (event as any).multiSelect, relatedSections: (event as any).relatedSections }];
         });
+        // Append the composer the server is persisting for this same event
+        // (composers doc, Rule 1). `show_types`/`show_examples` always did this;
+        // `ask_user` did not, so the question lived ONLY in `activeQuestions` and
+        // `setActiveQuestions([])` on answer deleted the only copy on screen. It
+        // reappeared on reload, from the persisted row. Now it never leaves.
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: JSON.stringify({ kind: 'ask_user', question: event.question, options: event.options, multiSelect: (event as any).multiSelect, showMap: (event as any).showMap, relatedSections: (event as any).relatedSections }),
+          messageType: 'composer',
+          timestamp: new Date().toISOString(),
+        }]);
         setSelectedOptionIdx(0);
         setIsStreaming(false);
         if (hasMap) { setMapRelevant(true); setRightTab('map'); setMobileActiveTab('panel'); }
@@ -1033,7 +1081,7 @@ export default function CboProfilePage() {
   }, [isStreaming]);
 
   // Send message. `viaVoice` marks the optimistic user bubble as dictated (🎤).
-  const sendMessage = useCallback(async (text: string, hidden = false, viaVoice = false, displayText?: string, turnKind?: 'chip' | 'text' | 'upload' | 'map' | 'system') => {
+  const sendMessage = useCallback(async (text: string, hidden = false, viaVoice = false, displayText?: string, turnKind?: 'chip' | 'text' | 'upload' | 'map' | 'system', chipAnswers?: Array<{ question: string; answer: string }>) => {
     if (!cboId || !text.trim() || isStreaming) return;
     setInput('');
     setActiveQuestions([]);
@@ -1041,6 +1089,13 @@ export default function CboProfilePage() {
     // displayText lets the chat bubble show a clean summary while the agent
     // still receives the full technical `text` (map selection risk summary).
     if (!hidden) setMessages(prev => [...prev, { role: 'user', content: displayText ?? text, messageType: 'content', timestamp: new Date().toISOString(), viaVoice }]);
+    // A chip turn renders as answered question cards, not a green answer bubble,
+    // so it echoes the same `answers` composer the server persists (mirroring the
+    // show_types pattern). Without this the live transcript and the reloaded one
+    // disagree - which is the bug this whole change exists to kill.
+    if (chipAnswers?.length) {
+      setMessages(prev => [...prev, { role: 'user', content: JSON.stringify({ kind: 'answers', pairs: chipAnswers }), messageType: 'composer', timestamp: new Date().toISOString() }]);
+    }
     setIsStreaming(true);
     // Inactivity watchdog. On patchy mobile data the SSE socket can stall
     // silently — reader.read() then hangs forever, isStreaming stays true, and
@@ -1058,7 +1113,7 @@ export default function CboProfilePage() {
     };
     try {
       armWatchdog();
-      const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang, turnKind }), signal: ctrl.signal });
+      const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang, turnKind, chipAnswers }), signal: ctrl.signal });
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -1102,8 +1157,16 @@ export default function CboProfilePage() {
       const updated = { ...prev, [currentQuestionIdx]: label };
       if (Object.keys(updated).length === totalQuestions) {
         const all = activeQuestions.map((_, i) => updated[i]).filter(Boolean);
+        // `pairs` keeps which answer belongs to which question - the joined string
+        // ("Associacao; 6-20") could not say that under two questions. The joined
+        // text still goes to the model, unchanged; `pairs` is only how the
+        // transcript renders the answered cards.
+        const pairs = activeQuestions
+          .map((q, i) => ({ question: q.question, answer: updated[i] }))
+          .filter(p => !!p.answer);
         setActiveQuestions([]); setCurrentQuestionIdx(0); setSelectedOptionIdx(0);
-        sendMessage(all.join('; '), false, false, undefined, 'chip');
+        // hidden=true: a chip turn renders as answered cards, not a green bubble.
+        sendMessage(all.join('; '), true, false, undefined, 'chip', pairs);
         return {};
       }
       return updated;
@@ -1556,7 +1619,7 @@ export default function CboProfilePage() {
               type/example strips' min-content width escapes the flex chain and
               drags the WHOLE page sideways on a phone (header cut off, question
               card clipped) — the strips scroll internally (overflow-x-auto). */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3">
+          <div data-testid="cbo-chat-thread" className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3">
             {messages.length === 0 && state.phase === 0 && (
               <div className="text-center text-muted-foreground py-8 sm:py-10 max-w-xs sm:max-w-sm mx-auto px-2">
                 <div className="inline-flex w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 items-center justify-center mb-3 sm:mb-4">
@@ -1574,6 +1637,13 @@ export default function CboProfilePage() {
             )}
 
             {messages.map((msg, i) => {
+              // A chip turn persists two rows: the plain user message (which the
+              // agent reads) and an `answers` composer (which the transcript
+              // renders). Show neither as a bubble - the answered question cards
+              // carry the whole Q->A story.
+              if (msg.role === 'user' && msg.messageType === 'composer') return null;
+              if (msg.role === 'user' && messages[i + 1]?.role === 'user' && messages[i + 1]?.messageType === 'composer') return null;
+
               // Inline educational composers (E2): persisted in the transcript so
               // they re-render on reload, in position.
               if (msg.role === 'assistant' && msg.messageType === 'composer') {
@@ -1603,16 +1673,36 @@ export default function CboProfilePage() {
                   );
                 }
                 if (parsed.kind === 'ask_user' && parsed.question) {
-                  // A persisted question. While it's PENDING (trailing message,
-                  // live card showing) render nothing — the interactive card is
-                  // the surface. Once ANSWERED (a later message follows), render
-                  // the question as a plain agent bubble so the transcript reads
-                  // as Q→A instead of an answer to nothing (chip turns have no
-                  // other agent text by design).
-                  if (i === messages.length - 1 && currentQuestion) return null;
+                  // PENDING - the question is still live in `activeQuestions`, and
+                  // the interactive card at the bottom of the thread is its surface.
+                  if (pendingQuestionTexts.has(parsed.question)) return null;
+
+                  const answer = answersByQuestion.get(parsed.question);
+                  // ANSWERED - the card stays, with the chosen chip. This is the
+                  // whole Q->A record; there is no separate green answer bubble.
+                  if (answer && (parsed.options?.length ?? 0) > 0) {
+                    return (
+                      <div key={i} className="flex justify-start">
+                        <div className="w-full md:max-w-[560px]">
+                          <CboQuestionCard
+                            question={{ question: parsed.question, options: parsed.options, multiSelect: parsed.multiSelect }}
+                            selectedIdx={-1}
+                            onSelect={() => {}}
+                            disabled
+                            readOnly
+                            answeredValue={answer}
+                          />
+                        </div>
+                      </div>
+                    );
+                  }
+                  // LEGACY - rows persisted before chip answers were recorded have
+                  // no `answers` composer to pair with. Degrade to the plain
+                  // question bubble they've always rendered as, rather than to a
+                  // card with nothing selected.
                   return (
                     <div key={i} className="flex justify-start">
-                      <div className="max-w-[90%] md:max-w-[560px] rounded-lg px-4 py-2.5 bg-muted">
+                      <div className="max-w-[90%] md:max-w-[560px] rounded-lg px-4 py-2.5 bg-card border border-border">
                         <p className="text-sm">{parsed.question}</p>
                       </div>
                     </div>
@@ -1622,8 +1712,12 @@ export default function CboProfilePage() {
               }
               const uploadName = msg.role === 'user' ? parseUploadFilename(msg.content) : null;
               return (
+              // The agent bubble is `bg-card`, not `bg-muted`: in the light theme
+              // --muted and --background are the SAME value (index.css), so a
+              // bg-muted bubble sat at 1.000:1 contrast against the page and the
+              // agent's messages read as bare, bubble-less text.
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[90%] md:max-w-[560px] rounded-lg px-4 py-2.5 ${msg.role === 'user' ? 'bg-green-600 text-white' : msg.messageType === 'thinking' ? 'bg-muted/50 border border-dashed border-muted-foreground/20' : 'bg-muted'}`}>
+                <div className={`max-w-[90%] md:max-w-[560px] rounded-lg px-4 py-2.5 ${msg.role === 'user' ? 'bg-green-600 text-white' : msg.messageType === 'thinking' ? 'bg-card/60 border border-dashed border-muted-foreground/25' : 'bg-card border border-border'}`}>
                   {msg.messageType === 'thinking' && <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('cbo.working')}</p>}
                   {msg.role === 'user' ? (
                     uploadName ? (
@@ -1643,7 +1737,7 @@ export default function CboProfilePage() {
                     </p>
                     )
                   ) : (
-                    <div className={`text-sm prose prose-sm max-w-none ${msg.messageType === 'thinking' ? 'text-muted-foreground italic text-xs' : ''}`}>
+                    <div className={`text-sm prose prose-sm max-w-none dark:prose-invert ${msg.messageType === 'thinking' ? 'text-muted-foreground italic text-xs' : ''}`}>
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{fixMarkdownTables(msg.content)}</ReactMarkdown>
                     </div>
                   )}
@@ -1738,8 +1832,10 @@ export default function CboProfilePage() {
             )}
 
             {streamDraft && (
+              // Must match the settled assistant bubble exactly - this element is
+              // swapped for one the instant the finalizing `chat` event lands.
               <div className="flex justify-start">
-                <div className="max-w-[90%] md:max-w-[560px] rounded-lg px-4 py-2.5 bg-muted">
+                <div className="max-w-[90%] md:max-w-[560px] rounded-lg px-4 py-2.5 bg-card border border-border">
                   <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamDraft}</ReactMarkdown>
                   </div>
@@ -2384,6 +2480,7 @@ function CboQuestionCard({
   multiSelected,
   onMultiToggle,
   onMultiConfirm,
+  readOnly,
 }: {
   question: { question: string; options: any[]; multiSelect?: boolean };
   selectedIdx: number;
@@ -2394,13 +2491,19 @@ function CboQuestionCard({
   multiSelected?: Set<string>;
   onMultiToggle?: (label: string) => void;
   onMultiConfirm?: () => void;
+  /** Transcript mode: the question was already answered. Options are inert. */
+  readOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const isMulti = question.multiSelect;
   const multiSet = multiSelected || new Set<string>();
+  // A multi-select answer comes back as "A, B" - match each option against the parts.
+  const chosen = new Set(
+    (answeredValue ?? '').split(',').map(s => s.trim()).filter(Boolean)
+  );
 
   const handleClick = (label: string) => {
-    if (disabled) return;
+    if (disabled || readOnly) return;
     if (isMulti && onMultiToggle) {
       onMultiToggle(label);
     } else {
@@ -2409,7 +2512,11 @@ function CboQuestionCard({
   };
 
   return (
-    <div data-testid="cbo-question-card" className={`md:max-w-[560px] rounded-lg border bg-background p-3 space-y-2 transition-all ${answeredValue ? 'border-green-200 bg-green-50/30' : ''}`}>
+    // The answered transcript card carries DIFFERENT testids from the live one.
+    // They render simultaneously (an answered card above, the next live question
+    // below), so sharing `cbo-question-card` would make every existing
+    // getByTestId('cbo-question-card') ambiguous under Playwright strict mode.
+    <div data-testid={readOnly ? 'cbo-answered-card' : 'cbo-question-card'} className={`md:max-w-[560px] rounded-lg border bg-card p-3 space-y-2 transition-all ${answeredValue ? 'border-green-200 bg-green-50/30' : ''}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="text-sm font-medium prose prose-sm max-w-none flex-1">
           {questionNumber && <span className="text-muted-foreground mr-1">{questionNumber}.</span>}
@@ -2425,20 +2532,26 @@ function CboQuestionCard({
       <div className="space-y-1.5">
         {question.options.map((opt: any, i: number) => {
           const letter = String.fromCharCode(65 + i);
-          const isChecked = isMulti && multiSet.has(opt.label);
-          const isFocused = i === selectedIdx;
-          const isHighlighted = isMulti ? isChecked : isFocused;
+          // In readOnly (transcript) mode the highlight tracks the recorded
+          // answer, not the keyboard cursor - there is no cursor.
+          const isPicked = readOnly && chosen.has(opt.label);
+          const isChecked = readOnly ? isPicked : isMulti && multiSet.has(opt.label);
+          const isFocused = readOnly ? false : i === selectedIdx;
+          const isHighlighted = readOnly ? isPicked : isMulti ? isChecked : isFocused;
           return (
             <button key={i} onClick={() => handleClick(opt.label)}
-              data-testid={`cbo-option-${i}`}
+              disabled={readOnly}
+              aria-current={isPicked || undefined}
+              data-testid={readOnly ? `cbo-answered-option-${i}` : `cbo-option-${i}`}
               data-option-label={opt.label}
+              data-picked={isPicked || undefined}
               className={`w-full text-left px-3 py-2 rounded-md border text-sm transition-all flex items-start gap-2 ${
                 isHighlighted ? 'border-green-600 bg-green-50 ring-1 ring-green-600' : isFocused ? 'border-green-400 bg-green-50/50 ring-1 ring-green-400' : 'border-muted hover:border-green-400'
-              } ${disabled ? 'opacity-50' : 'cursor-pointer'}`}>
+              } ${readOnly ? (isPicked ? 'cursor-default' : 'opacity-45 cursor-default hover:border-muted') : disabled ? 'opacity-50' : 'cursor-pointer'}`}>
               <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-mono shrink-0 ${
                 isChecked ? 'bg-green-600 text-white' : isFocused ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'
               }`}>
-                {isMulti && isChecked ? <Check className="w-3 h-3" /> : letter}
+                {isChecked ? <Check className="w-3 h-3" /> : letter}
               </span>
               <div className="flex-1">
                 <span className="font-medium">{opt.label}</span>
@@ -2449,7 +2562,7 @@ function CboQuestionCard({
           );
         })}
       </div>
-      {isMulti && multiSet.size > 0 && !answeredValue && (
+      {isMulti && multiSet.size > 0 && !answeredValue && !readOnly && (
         <Button size="sm" onClick={onMultiConfirm} disabled={disabled} className="w-full h-8 text-xs gap-1 bg-green-600 hover:bg-green-700">
           <Check className="w-3 h-3" /> {t('cbo.confirmSelected', { defaultValue: 'Confirm {{n}} selected', n: multiSet.size })}
         </Button>

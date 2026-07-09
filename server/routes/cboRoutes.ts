@@ -156,6 +156,33 @@ export function registerCboRoutes(app: Express): void {
     // fast model when its own checks agree; a missing/bogus value routes heavy.
     const turnKind = typeof req.body.turnKind === 'string' ? req.body.turnKind : undefined;
     addCboMessage(req.params.id, { role: 'user', content: message, messageType: 'content', timestamp: new Date().toISOString() });
+
+    // A chip turn also records WHICH answer went with WHICH question, as an
+    // `answers` composer row. The plain user message above is untouched -
+    // buildDecisionLog and resolveTurnModel both key off
+    // `messageType === 'content'`, and the agent reads the joined text - so this
+    // row is additive and invisible to the model. The transcript uses it to
+    // render each question with the chip the user picked, instead of a single
+    // "Associacao; 6-20" bubble hanging under two questions.
+    //
+    // It is a separate row, not a field on the ask_user row, because the message
+    // log is append-only: the flusher persists `allMessages.slice(flushed)`, so
+    // an in-place edit of an earlier row would never reach the database.
+    const chipAnswers = req.body.chipAnswers;
+    if (turnKind === 'chip' && Array.isArray(chipAnswers) && chipAnswers.length > 0) {
+      const pairs = chipAnswers
+        .filter((p: any) => p && typeof p.question === 'string' && typeof p.answer === 'string')
+        .map((p: any) => ({ question: p.question, answer: p.answer }));
+      if (pairs.length > 0) {
+        addCboMessage(req.params.id, {
+          role: 'user',
+          content: JSON.stringify({ kind: 'answers', pairs }),
+          messageType: 'composer',
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+
     await streamCboChat(req.params.id, message + langDirective, res, state, resolvedLang, turnKind);
     debouncedPersist(req.params.id);
   });

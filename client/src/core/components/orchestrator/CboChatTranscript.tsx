@@ -42,7 +42,42 @@ export function CboChatTranscript({
   if (loading) return <Centered><Loader2 className="w-5 h-5 animate-spin" /></Centered>;
   if (error) return <div className="py-12 text-center text-sm text-destructive">{error}</div>;
 
-  const visible = messages.filter(m => m.messageType !== 'thinking' && m.messageType !== 'tool_status');
+  // `composer` rows carry a JSON payload, not prose. They were never filtered
+  // here, so a coordinator reading a real transcript saw raw
+  // {"kind":"ask_user",...} blobs rendered as markdown. Questions and the chips
+  // the CBO picked are worth showing; the other widget payloads are not.
+  const answersByQuestion = new Map<string, string>();
+  for (const m of messages) {
+    if (m.messageType !== 'composer' || m.role !== 'user') continue;
+    try {
+      const p = JSON.parse(m.content);
+      if (p?.kind !== 'answers') continue;
+      for (const pair of p.pairs ?? []) if (pair?.question) answersByQuestion.set(pair.question, pair.answer);
+    } catch { /* malformed - skip */ }
+  }
+
+  const isAnswersRow = (m?: Msg) => {
+    if (!m || m.role !== 'user' || m.messageType !== 'composer') return false;
+    try { return JSON.parse(m.content)?.kind === 'answers'; } catch { return false; }
+  };
+
+  const visible = messages.flatMap((m, i) => {
+    if (m.messageType === 'thinking' || m.messageType === 'tool_status') return [];
+    // The joined "Associacao; 6-20" message is the agent's copy of the answer.
+    // Its `answers` composer renders the per-question chips instead.
+    if (m.messageType !== 'composer' && isAnswersRow(messages[i + 1])) return [];
+    if (m.messageType !== 'composer') return [m];
+
+    let p: any = null;
+    try { p = JSON.parse(m.content); } catch { return []; }
+    if (p?.kind !== 'ask_user' || !p.question) return [];
+    const answer = answersByQuestion.get(p.question);
+    // Render the question as the agent's turn, and the chosen chip - if there is
+    // one - as the CBO's reply, so the coordinator reads a normal Q->A.
+    const rows: Msg[] = [{ role: 'assistant', content: p.question, messageType: 'content' }];
+    if (answer) rows.push({ role: 'user', content: answer, messageType: 'content' });
+    return rows;
+  });
   if (visible.length === 0) {
     return (
       <Centered>

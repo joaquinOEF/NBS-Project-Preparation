@@ -46,6 +46,19 @@ test('a batch of questions is one tap-through and one turn, not N turns', async 
   // The crux: four questions answered = exactly ONE more turn (one combined
   // send), NOT four. data-turns goes 1 → 2, not 1 → 5.
   await expect(marker).toHaveAttribute('data-turns', '2');
-  // And the single user message carries all four answers.
-  await expect(page.getByText(/Hortas e segurança alimentar.*ONG \/ Associação.*5 a 10 anos.*6–15/s)).toBeVisible();
+
+  // The answers no longer collapse into one "a; b; c; d" bubble hanging under
+  // four questions — each question stays in the transcript showing the chip that
+  // was picked for it.
+  await expect(page.getByTestId('cbo-answered-card')).toHaveCount(4);
+  for (const [question, answer] of [
+    ['O que vocês fazem?', 'Hortas e segurança alimentar'],
+    ['Que tipo de organização?', 'ONG / Associação'],
+    ['Há quanto tempo existem?', '5 a 10 anos'],
+    ['Quantas pessoas na equipe?', '6–15'],
+  ] as const) {
+    const card = page.getByTestId('cbo-answered-card').filter({ hasText: question });
+    await expect(card).toHaveCount(1);
+    await expect(card.locator('[data-picked="true"]')).toHaveText(new RegExp(answer.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
 });
