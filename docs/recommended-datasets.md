@@ -430,4 +430,4 @@ Gaps are listed **by hazard** where they differ; shared gaps appear once under *
 - [`heat_hazard_score_methodology.md`](heat_hazard_score_methodology.md) / [`heat_risk_score_methodology.md`](heat_risk_score_methodology.md) — operational heat scores
 - [`landslide_hazard_score_methodology.md`](landslide_hazard_score_methodology.md) / [`landslide_risk_score_methodology.md`](landslide_risk_score_methodology.md) — operational landslide scores
 - `geospatial-data/catalog/datasets.yaml` — POA catalog assets (OEF monorepo; 72 datasets incl. COUGAR local inputs)
-- Notebooks & scripts: `projects/cougar/nbs_e2e/scripts/` (COUGAR / OEF monorepo)
+- Notebooks & scripts: `projects/cougar/nbs_e2e/scripts/` (COUGAR monorepo); NBS rule filters: [`scripts/screening/nbs_rules.py`](../scripts/screening/nbs_rules.py)

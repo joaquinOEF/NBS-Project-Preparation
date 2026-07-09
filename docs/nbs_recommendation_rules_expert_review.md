@@ -14,7 +14,7 @@ This brief answers a different question for an NBS expert:
 
 > **Given a hazard priority area, what logic do we use today to infer a hazard *mechanism* and score candidate NBS types — and where should that logic live long term?**
 
-Implementation reference (COUGAR repo): `projects/cougar/nbs_e2e/scripts/nbs_rules.py`  
+Implementation reference: [`scripts/screening/nbs_rules.py`](../scripts/screening/nbs_rules.py)  
 Live exercises: [`nbs_site_query_flood_e2e.md`](nbs_site_query_flood_e2e.md) · [`nbs_site_query_heat_e2e.md`](nbs_site_query_heat_e2e.md) · [`nbs_site_query_landslide_e2e.md`](nbs_site_query_landslide_e2e.md)
 
 **Related docs (deeper detail, not required for this review):**
@@ -285,11 +285,18 @@ Heat and landslide grid screening are **not yet implemented** (heat/l landslide 
 | Landslide E2E exercise | [`nbs_site_query_landslide_e2e.md`](nbs_site_query_landslide_e2e.md) |
 | Jira ticket | [ON-5993](https://openearth.atlassian.net/browse/ON-5993) |
 
-## Code (COUGAR / OEF monorepo)
+## Code
 
 | Artifact | Path |
 |----------|------|
-| Rule implementation | `projects/cougar/nbs_e2e/scripts/nbs_rules.py` |
+| **Rule implementation (this repo)** | [`scripts/screening/nbs_rules.py`](../scripts/screening/nbs_rules.py) |
+| Screening README | [`scripts/screening/README.md`](../scripts/screening/README.md) |
+
+### COUGAR monorepo (E2E + grid)
+
+| Artifact | Path |
+|----------|------|
+| Rule source (sync from) | `projects/cougar/nbs_e2e/scripts/nbs_rules.py` |
 | Flood grid screening | `projects/cougar/nbs_e2e/scripts/grid_screening.py` |
 | E2E CLI | `projects/cougar/nbs_e2e/scripts/run_e2e.py` |
 | Flood notebook | `projects/cougar/nbs_e2e/scripts/nbs_site_query_flood_e2e.ipynb` |

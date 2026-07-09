@@ -1,6 +1,7 @@
 # NBS site query — landslide E2E (Porto Alegre)
 
-**Notebook:** [`scripts/nbs_site_query_landslide_e2e.ipynb`](../scripts/nbs_site_query_landslide_e2e.ipynb)  
+**Notebook (COUGAR monorepo):** `projects/cougar/nbs_e2e/scripts/nbs_site_query_landslide_e2e.ipynb`  
+**Rules (this repo):** [`scripts/screening/nbs_rules.py`](../scripts/screening/nbs_rules.py)  
 **Lens:** [`landslide_nbs_dataset_lens.md`](landslide_nbs_dataset_lens.md)  
 **Default site:** Glória
 
