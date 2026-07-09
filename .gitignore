@@ -15,9 +15,9 @@ scripts/output/
 # never be committed (they contain PII from real CBO conversations).
 knowledge/runs/cbo-*/
 
-# OSM disk cache — runtime data fetched from Overpass mirrors. Re-fetched
-# automatically when missing. Don't commit (regenerable, can be large).
-knowledge/osm-cache/
+# knowledge/osm/ is deliberately NOT ignored: the OSM reference-layer snapshots
+# are committed so they ship with the deploy (Replit autoscale disks are
+# ephemeral). Regenerate with `npm run osm:refresh`.
 
 # Playwright e2e — generated artifacts (regenerable, can be large)
 /test-results/

@@ -4,14 +4,44 @@ import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
-import { Check, X, MapPin, Pencil, Loader2, Trash2, Eye, EyeOff, ChevronRight, Search, Plus, Crosshair } from 'lucide-react';
+import {
+  Check,
+  X,
+  MapPin,
+  Pencil,
+  Loader2,
+  Trash2,
+  Eye,
+  EyeOff,
+  ChevronRight,
+  Search,
+  Plus,
+  Crosshair,
+} from 'lucide-react';
 import { Input } from '@/core/components/ui/input';
-import { TILE_LAYERS, ALL_TILE_LAYERS, tileVisualUrl, OSM_LAYERS, SPATIAL_QUERIES } from '@shared/geospatial-layers';
-import { riskBand, hazardPercentile, TYPOLOGY_COLORS, zoneRiskOpacity, type HazardKey } from '@shared/risk-display';
+import {
+  TILE_LAYERS,
+  ALL_TILE_LAYERS,
+  tileVisualUrl,
+  OSM_LAYERS,
+  SPATIAL_QUERIES,
+} from '@shared/geospatial-layers';
+import {
+  riskBand,
+  hazardPercentile,
+  TYPOLOGY_COLORS,
+  zoneRiskOpacity,
+  type HazardKey,
+} from '@shared/risk-display';
 import type { LegendSpec } from '@shared/legend-types';
 import { DataProvenanceDialog } from '@/core/components/maps/DataProvenanceDialog';
 import type { ProvenanceKey } from '@shared/data-provenance';
-import type { OpenMapParams, SelectedAsset, SampledPoint, MapSelectionResult } from '@shared/concept-note-schema';
+import type {
+  OpenMapParams,
+  SelectedAsset,
+  SampledPoint,
+  MapSelectionResult,
+} from '@shared/concept-note-schema';
 import { sampleRasterAtPoint, geometryCentroid } from '@/lib/valueTileUtils';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
 import ValueTooltip from './ValueTooltip';
@@ -49,10 +79,25 @@ function hazardFamilyOf(id: string): HazardFamily | null {
   if (id.includes('landslide')) return 'landslide';
   return null;
 }
-const HAZARD_LEGEND: Record<HazardFamily, { color: string; labelKey: string; defaultLabel: string }> = {
-  flood:     { color: TYPOLOGY_COLORS.FLOOD,     labelKey: 'mapMicroapp.hazardFlood',     defaultLabel: 'Flood' },
-  heat:      { color: TYPOLOGY_COLORS.HEAT,      labelKey: 'mapMicroapp.hazardHeat',      defaultLabel: 'Heat' },
-  landslide: { color: TYPOLOGY_COLORS.LANDSLIDE, labelKey: 'mapMicroapp.hazardLandslide', defaultLabel: 'Landslide' },
+const HAZARD_LEGEND: Record<
+  HazardFamily,
+  { color: string; labelKey: string; defaultLabel: string }
+> = {
+  flood: {
+    color: TYPOLOGY_COLORS.FLOOD,
+    labelKey: 'mapMicroapp.hazardFlood',
+    defaultLabel: 'Flood',
+  },
+  heat: {
+    color: TYPOLOGY_COLORS.HEAT,
+    labelKey: 'mapMicroapp.hazardHeat',
+    defaultLabel: 'Heat',
+  },
+  landslide: {
+    color: TYPOLOGY_COLORS.LANDSLIDE,
+    labelKey: 'mapMicroapp.hazardLandslide',
+    defaultLabel: 'Landslide',
+  },
 };
 
 // E2 guided hazard tour: the order to walk through, and the per-hazard caption
@@ -62,10 +107,37 @@ const HAZARD_ORDER: HazardFamily[] = ['flood', 'heat', 'landslide'];
 // Captions describe the HAZARD, not a color — the real color scale is shown by
 // the legend bar (built from the layer's actual legend spec) so it always
 // matches the map.
-const TOUR_COPY: Record<HazardFamily, { emoji: string; titleKey: string; title: string; bodyKey: string; body: string }> = {
-  flood:     { emoji: '🌊', titleKey: 'mapMicroapp.tourFloodTitle',     title: 'Enchente',     bodyKey: 'mapMicroapp.tourFloodBody',     body: 'Onde a água tende a se acumular quando chove forte.' },
-  heat:      { emoji: '🔥', titleKey: 'mapMicroapp.tourHeatTitle',      title: 'Calor',        bodyKey: 'mapMicroapp.tourHeatBody',      body: 'Onde a temperatura sobe mais — o efeito ilha de calor.' },
-  landslide: { emoji: '⛰️', titleKey: 'mapMicroapp.tourLandslideTitle', title: 'Deslizamento', bodyKey: 'mapMicroapp.tourLandslideBody', body: 'As encostas com risco de deslizar.' },
+const TOUR_COPY: Record<
+  HazardFamily,
+  {
+    emoji: string;
+    titleKey: string;
+    title: string;
+    bodyKey: string;
+    body: string;
+  }
+> = {
+  flood: {
+    emoji: '🌊',
+    titleKey: 'mapMicroapp.tourFloodTitle',
+    title: 'Enchente',
+    bodyKey: 'mapMicroapp.tourFloodBody',
+    body: 'Onde a água tende a se acumular quando chove forte.',
+  },
+  heat: {
+    emoji: '🔥',
+    titleKey: 'mapMicroapp.tourHeatTitle',
+    title: 'Calor',
+    bodyKey: 'mapMicroapp.tourHeatBody',
+    body: 'Onde a temperatura sobe mais — o efeito ilha de calor.',
+  },
+  landslide: {
+    emoji: '⛰️',
+    titleKey: 'mapMicroapp.tourLandslideTitle',
+    title: 'Deslizamento',
+    bodyKey: 'mapMicroapp.tourLandslideBody',
+    body: 'As encostas com risco de deslizar.',
+  },
 };
 
 // Build a CSS gradient from a layer's legend stops (same source as the map's
@@ -74,7 +146,7 @@ function legendGradientCss(spec: LegendSpec | undefined): string | null {
   if (!spec || spec.kind !== 'gradient' || !spec.stops?.length) return null;
   const min = spec.min ?? spec.stops[0].value;
   const max = spec.max ?? spec.stops[spec.stops.length - 1].value;
-  const span = (max - min) || 1;
+  const span = max - min || 1;
   return `linear-gradient(to right, ${spec.stops
     .map(s => `${s.color} ${(((s.value - min) / span) * 100).toFixed(1)}%`)
     .join(', ')})`;
@@ -106,7 +178,12 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const selectedAssetsRef = useRef<SelectedAsset[]>([]);
   selectedAssetsRef.current = selectedAssets;
   // Blue "selected zone" style, shared by click-select and the mouseout restore.
-  const SELECTED_ZONE_STYLE = { color: '#1d4ed8', weight: 3, fillColor: '#3b82f6', fillOpacity: 0.25 };
+  const SELECTED_ZONE_STYLE = {
+    color: '#1d4ed8',
+    weight: 3,
+    fillColor: '#3b82f6',
+    fillOpacity: 0.25,
+  };
   const [sampledPoints, setSampledPoints] = useState<SampledPoint[]>([]);
   const [drawMode, setDrawMode] = useState<'off' | 'point' | 'polygon'>('off');
   const drawModeRef = useRef(drawMode);
@@ -114,7 +191,9 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   // Basemap: light political map (default) ↔ satellite. The CBO site step opens
   // on satellite so people recognize their actual place; everything else stays
   // political. Gated to the CBO step (allowDeferSite) so the city flow is unchanged.
-  const [basemap, setBasemap] = useState<'political' | 'satellite'>('political');
+  const [basemap, setBasemap] = useState<'political' | 'satellite'>(
+    'political'
+  );
   const [loading, setLoading] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState('');
   const [enabledTiles, setEnabledTiles] = useState<Set<string>>(new Set());
@@ -129,9 +208,13 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const [addSiteOpen, setAddSiteOpen] = useState(false);
   const [siteQuery, setSiteQuery] = useState('');
   const [siteSearching, setSiteSearching] = useState(false);
-  const [siteResults, setSiteResults] = useState<Array<{ name: string; centroid: [number, number] }>>([]);
+  const [siteResults, setSiteResults] = useState<
+    Array<{ name: string; centroid: [number, number] }>
+  >([]);
   const [coordInput, setCoordInput] = useState('');
-  const [coordError, setCoordError] = useState<false | 'format' | 'outside'>(false);
+  const [coordError, setCoordError] = useState<false | 'format' | 'outside'>(
+    false
+  );
 
   const selectionMode = params.selectionMode;
   const isComposite = selectionMode === 'composite';
@@ -140,16 +223,20 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   // E2 guided hazard tour. tourLayers = the hazard tiles present, in flood→heat
   // →landslide order. tourIdx: 0..n-1 = touring that hazard (only it visible);
   // n = done (all visible, selection unlocked); -1 = tour off.
-  const tourLayers = HAZARD_ORDER
-    .map(fam => (params.tileLayers || []).find(id => hazardFamilyOf(id) === fam))
-    .filter(Boolean) as string[];
-  const [tourIdx, setTourIdx] = useState(params.hazardTour && tourLayers.length > 0 ? 0 : -1);
+  const tourLayers = HAZARD_ORDER.map(fam =>
+    (params.tileLayers || []).find(id => hazardFamilyOf(id) === fam)
+  ).filter(Boolean) as string[];
+  const [tourIdx, setTourIdx] = useState(
+    params.hazardTour && tourLayers.length > 0 ? 0 : -1
+  );
   const tourActive = tourIdx >= 0 && tourIdx < tourLayers.length;
 
   // During the tour, suppress zone/asset selection — it's hazard education only.
   const showZones = !tourActive && (!isComposite || compositeStep === 'zone');
-  const showAssets = !tourActive && (!isComposite || compositeStep === 'assets');
-  const polygonHelp = drawMode === 'polygon' ? t('mapMicroapp.polygonHelp') : '';
+  const showAssets =
+    !tourActive && (!isComposite || compositeStep === 'assets');
+  const polygonHelp =
+    drawMode === 'polygon' ? t('mapMicroapp.polygonHelp') : '';
   const tourFamily = tourActive ? hazardFamilyOf(tourLayers[tourIdx]) : null;
   const advanceTour = useCallback(() => setTourIdx(i => i + 1), []);
 
@@ -157,7 +244,10 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   // shows the ACTUAL color scale, not a hand-written color word.
   const [legends, setLegends] = useState<Record<string, LegendSpec>>({});
   useEffect(() => {
-    fetch('/sample-data/layer-legends.json').then(r => (r.ok ? r.json() : {})).then(setLegends).catch(() => {});
+    fetch('/sample-data/layer-legends.json')
+      .then(r => (r.ok ? r.json() : {}))
+      .then(setLegends)
+      .catch(() => {});
   }, []);
 
   // E2: auto-enable requested tile layers on mount so the user immediately sees
@@ -168,7 +258,12 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     if (!isBrowseOnly && !params.showLegendSimple) return;
     if (!params.tileLayers || params.tileLayers.length === 0) return;
     setEnabledTiles(new Set(params.tileLayers));
-  }, [isBrowseOnly, params.showLegendSimple, params.tileLayers, params.hazardTour]);
+  }, [
+    isBrowseOnly,
+    params.showLegendSimple,
+    params.tileLayers,
+    params.hazardTour,
+  ]);
 
   // Hazard tour: while touring, show ONLY the active hazard; once done, show all
   // three so the user sees combined risk while picking a neighborhood.
@@ -201,9 +296,11 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   // always-on choropleth. pointerEvents doubles as the interactivity gate: inert
   // zones also stop stealing taps from point-dropping on the site step.
   const zoneDisplayMode: 'outline' | 'focus' | 'choropleth' =
-    params.allowDeferSite && tourActive ? 'outline'
-    : params.allowDeferSite && isComposite && compositeStep === 'assets' ? 'focus'
-    : 'choropleth';
+    params.allowDeferSite && tourActive
+      ? 'outline'
+      : params.allowDeferSite && isComposite && compositeStep === 'assets'
+        ? 'focus'
+        : 'choropleth';
   const zoneDisplayModeRef = useRef(zoneDisplayMode);
   zoneDisplayModeRef.current = zoneDisplayMode;
   useEffect(() => {
@@ -212,20 +309,37 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     if (!zl || !styleOf) return;
     zl.eachLayer((layer: any) => {
       const props = layer.feature?.properties || {};
-      const name = props.neighbourhoodName || props.neighbourhood_name || props.zoneId;
-      const isSelected = selectedAssetsRef.current.some(a => a.type === 'zone' && a.name === name);
+      const name =
+        props.neighbourhoodName || props.neighbourhood_name || props.zoneId;
+      const isSelected = selectedAssetsRef.current.some(
+        a => a.type === 'zone' && a.name === name
+      );
       const el = layer.getElement?.();
       if (zoneDisplayMode === 'outline') {
-        layer.setStyle({ color: '#1e293b', weight: 1.2, opacity: 0.85, fillOpacity: 0, dashArray: undefined });
+        layer.setStyle({
+          color: '#1e293b',
+          weight: 1.2,
+          opacity: 0.85,
+          fillOpacity: 0,
+          dashArray: undefined,
+        });
         layer.closeTooltip?.();
         if (el) el.style.pointerEvents = 'none';
       } else if (zoneDisplayMode === 'focus') {
-        if (isSelected) layer.setStyle({ color: '#1d4ed8', weight: 3, opacity: 1, fillOpacity: 0 });
+        if (isSelected)
+          layer.setStyle({
+            color: '#1d4ed8',
+            weight: 3,
+            opacity: 1,
+            fillOpacity: 0,
+          });
         else layer.setStyle({ opacity: 0, fillOpacity: 0 });
         layer.closeTooltip?.();
         if (el) el.style.pointerEvents = 'none';
       } else {
-        layer.setStyle(isSelected ? SELECTED_ZONE_STYLE : { ...styleOf(props), opacity: 1 });
+        layer.setStyle(
+          isSelected ? SELECTED_ZONE_STYLE : { ...styleOf(props), opacity: 1 }
+        );
         if (el) el.style.pointerEvents = '';
       }
     });
@@ -245,11 +359,17 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       focusOutlineRef.current = null;
     }
     if (zoneDisplayMode !== 'focus') return;
-    const zoneAssets = selectedAssetsRef.current.filter(a => a.type === 'zone' && a.geometry);
+    const zoneAssets = selectedAssetsRef.current.filter(
+      a => a.type === 'zone' && a.geometry
+    );
     if (zoneAssets.length === 0) return;
     const fc = {
       type: 'FeatureCollection',
-      features: zoneAssets.map(a => ({ type: 'Feature', geometry: a.geometry, properties: {} })),
+      features: zoneAssets.map(a => ({
+        type: 'Feature',
+        geometry: a.geometry,
+        properties: {},
+      })),
     };
     const outline = L.geoJSON(fc as any, {
       style: { color: '#1d4ed8', weight: 3, opacity: 1, fillOpacity: 0 },
@@ -263,25 +383,38 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
     const map = L.map(mapContainerRef.current, {
-      zoomControl: false, attributionControl: false,
-      center: [-30.03, -51.22], zoom: 11, maxZoom: 19,
+      zoomControl: false,
+      attributionControl: false,
+      center: [-30.03, -51.22],
+      zoom: 11,
+      maxZoom: 19,
     });
     // Two base layers; the swap effect below shows one. Esri World Imagery is
     // free (no key) and zooms to ~19 for site-level detail.
-    politicalBaseRef.current = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 });
-    satelliteBaseRef.current = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles © Esri' });
+    politicalBaseRef.current = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      { maxZoom: 19 }
+    );
+    satelliteBaseRef.current = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 19, attribution: 'Tiles © Esri' }
+    );
     politicalBaseRef.current.addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     mapRef.current = map;
     setMapReady(true);
-    return () => { map.remove(); mapRef.current = null; };
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
   }, []);
 
   // Swap the active base layer; bringToBack so it never covers zones/markers.
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     const map = mapRef.current;
-    const pol = politicalBaseRef.current, sat = satelliteBaseRef.current;
+    const pol = politicalBaseRef.current,
+      sat = satelliteBaseRef.current;
     if (!pol || !sat) return;
     const [show, hide] = basemap === 'satellite' ? [sat, pol] : [pol, sat];
     if (!map.hasLayer(show)) show.addTo(map);
@@ -310,7 +443,12 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         const data = await res.json();
         if (data.boundaryGeoJson) {
           const bl = L.geoJSON(data.boundaryGeoJson, {
-            style: { color: '#94a3b8', weight: 2, fillOpacity: 0.02, dashArray: '6 3' },
+            style: {
+              color: '#94a3b8',
+              weight: 2,
+              fillOpacity: 0.02,
+              dashArray: '6 3',
+            },
           }).addTo(mapRef.current!);
           mapRef.current!.fitBounds(bl.getBounds(), { padding: [20, 20] });
         }
@@ -322,36 +460,50 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   // Default: neighborhood-based zones (IBGE bairros with risk scores + vulnerability)
   // Legacy: 'intervention_zones' for old synthetic zones, 'neighborhoods' for raw IBGE
   const zoneSource = params.zoneSource || 'neighborhood_zones';
-  const isNeighborhoods = zoneSource === 'neighborhoods' || zoneSource === 'neighborhood_zones';
+  const isNeighborhoods =
+    zoneSource === 'neighborhoods' || zoneSource === 'neighborhood_zones';
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     if (selectionMode !== 'zones' && selectionMode !== 'composite') return;
     const map = mapRef.current;
 
-    setLoadingStatus(t('mapMicroapp.loadingNeighborhoods', { defaultValue: 'Loading neighborhoods...' }));
+    setLoadingStatus(
+      t('mapMicroapp.loadingNeighborhoods', {
+        defaultValue: 'Loading neighborhoods...',
+      })
+    );
     (async () => {
       try {
-        const url = zoneSource === 'neighborhoods'
-          ? '/sample-data/porto-alegre-ibge-indicators.json'
-          : zoneSource === 'intervention_zones'
-          ? '/sample-data/porto-alegre-zones.json'
-          : '/sample-data/porto-alegre-neighborhood-zones.json';
+        const url =
+          zoneSource === 'neighborhoods'
+            ? '/sample-data/porto-alegre-ibge-indicators.json'
+            : zoneSource === 'intervention_zones'
+              ? '/sample-data/porto-alegre-zones.json'
+              : '/sample-data/porto-alegre-neighborhood-zones.json';
         const res = await fetch(url);
         const data = await res.json();
         const geojson = zoneSource === 'neighborhoods' ? data : data.geoJson;
-        if (!geojson?.features) { setLoading(false); return; }
+        if (!geojson?.features) {
+          setLoading(false);
+          return;
+        }
 
         // Compute priority range for opacity normalization
-        const allPriorities = geojson.features.map((f: any) => f.properties?.priorityScore ?? 0);
+        const allPriorities = geojson.features.map(
+          (f: any) => f.properties?.priorityScore ?? 0
+        );
         const maxPriority = Math.max(...allPriorities, 0.01);
         const minPriority = Math.min(...allPriorities);
         const priorityRange = maxPriority - minPriority || 0.01;
         // CBO E2: risk range (max hazard per zone) for the orchestrator-style fill.
-        const zoneRisk = (p: any) => Math.max(p?.meanFlood || 0, p?.meanHeat || 0, p?.meanLandslide || 0);
-        const allRisk = geojson.features.map((f: any) => zoneRisk(f.properties));
+        const zoneRisk = (p: any) =>
+          Math.max(p?.meanFlood || 0, p?.meanHeat || 0, p?.meanLandslide || 0);
+        const allRisk = geojson.features.map((f: any) =>
+          zoneRisk(f.properties)
+        );
         const riskMin = Math.min(...allRisk, 0);
-        const riskSpan = (Math.max(...allRisk, 0.01) - riskMin) || 0.01;
+        const riskSpan = Math.max(...allRisk, 0.01) - riskMin || 0.01;
 
         const getDefaultStyle = (p: any) => {
           // CBO E2 colors neighborhoods exactly like the orchestrator — HUE =
@@ -365,31 +517,60 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
               // border like the orchestrator's dark-map view would be invisible).
               color: '#334155',
               weight: 0.8 + Math.max(0, Math.min(1, norm)) * 1.4,
-              fillColor: TYPOLOGY_COLORS[p?.typologyLabel] || TYPOLOGY_COLORS.LOW,
+              fillColor:
+                TYPOLOGY_COLORS[p?.typologyLabel] || TYPOLOGY_COLORS.LOW,
               fillOpacity: Math.max(0.35, zoneRiskOpacity(norm)),
               dashArray: undefined as string | undefined,
             };
           }
-          const interventionColor = INTERVENTION_COLORS[p?.interventionType] || '#94a3b8';
-          const normalizedPriority = ((p?.priorityScore ?? 0) - minPriority) / priorityRange;
-          const fillOpacity = p?.priorityScore != null ? 0.05 + normalizedPriority * 0.65 : 0;
-          return { color: '#1e293b', weight: 1.5, fillColor: interventionColor, fillOpacity, dashArray: undefined as string | undefined };
+          const interventionColor =
+            INTERVENTION_COLORS[p?.interventionType] || '#94a3b8';
+          const normalizedPriority =
+            ((p?.priorityScore ?? 0) - minPriority) / priorityRange;
+          const fillOpacity =
+            p?.priorityScore != null ? 0.05 + normalizedPriority * 0.65 : 0;
+          return {
+            color: '#1e293b',
+            weight: 1.5,
+            fillColor: interventionColor,
+            fillOpacity,
+            dashArray: undefined as string | undefined,
+          };
         };
 
         zoneDefaultStyleRef.current = getDefaultStyle;
         const zonesLayer = L.geoJSON(geojson, {
-          style: (feature) => getDefaultStyle(feature?.properties),
+          style: feature => getDefaultStyle(feature?.properties),
           onEachFeature: (feature, featureLayer) => {
             const p = feature.properties || {};
 
             // Rich tooltip with name, risks, poverty, priority
             if (p.neighbourhoodName || p.neighbourhood_name) {
               const name = p.neighbourhoodName || p.neighbourhood_name;
-              const pop = (p.populationTotal || p.population_total)?.toLocaleString() || '?';
-              const poverty = p.povertyRate != null ? `${(p.povertyRate * 100).toFixed(1)}%` : p.poverty_rate != null ? `${(p.poverty_rate * 100).toFixed(1)}%` : '?';
-              const hc = p.primaryHazard === 'FLOOD' ? '#3b82f6' : p.primaryHazard === 'HEAT' ? '#ef4444' : p.primaryHazard === 'LANDSLIDE' ? '#a16207' : '#888';
-              const hazardLine = p.primaryHazard ? `<span style="color:${hc}">${p.typologyLabel}</span> — ${(p.interventionType || '').replace(/_/g, ' ')}<br/>` : '';
-              const priorityLine = p.priorityScore != null ? `${t('mapMicroapp.tipPriority', { defaultValue: 'Priority' })}: <strong>${p.priorityScore.toFixed(2)}</strong><br/>` : '';
+              const pop =
+                (p.populationTotal || p.population_total)?.toLocaleString() ||
+                '?';
+              const poverty =
+                p.povertyRate != null
+                  ? `${(p.povertyRate * 100).toFixed(1)}%`
+                  : p.poverty_rate != null
+                    ? `${(p.poverty_rate * 100).toFixed(1)}%`
+                    : '?';
+              const hc =
+                p.primaryHazard === 'FLOOD'
+                  ? '#3b82f6'
+                  : p.primaryHazard === 'HEAT'
+                    ? '#ef4444'
+                    : p.primaryHazard === 'LANDSLIDE'
+                      ? '#a16207'
+                      : '#888';
+              const hazardLine = p.primaryHazard
+                ? `<span style="color:${hc}">${p.typologyLabel}</span> — ${(p.interventionType || '').replace(/_/g, ' ')}<br/>`
+                : '';
+              const priorityLine =
+                p.priorityScore != null
+                  ? `${t('mapMicroapp.tipPriority', { defaultValue: 'Priority' })}: <strong>${p.priorityScore.toFixed(2)}</strong><br/>`
+                  : '';
               // Within-city percentile band per hazard (comparable across hazards;
               // see risk-display.ts). Labels + band names localized — PT users saw
               // raw "Flood: High" in the tooltip.
@@ -399,23 +580,43 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
                 return `${label}: <strong style="color:${band.color}">${t(`riskBands.${band.key}`, { defaultValue: band.label })} (${pct})</strong>`;
               };
               const riskLine = [
-                bandSpan('flood', t('mapMicroapp.hazardFlood', { defaultValue: 'Flood' })),
-                bandSpan('heat', t('mapMicroapp.hazardHeat', { defaultValue: 'Heat' })),
-                bandSpan('landslide', t('mapMicroapp.hazardLandslide', { defaultValue: 'Landslide' })),
+                bandSpan(
+                  'flood',
+                  t('mapMicroapp.hazardFlood', { defaultValue: 'Flood' })
+                ),
+                bandSpan(
+                  'heat',
+                  t('mapMicroapp.hazardHeat', { defaultValue: 'Heat' })
+                ),
+                bandSpan(
+                  'landslide',
+                  t('mapMicroapp.hazardLandslide', {
+                    defaultValue: 'Landslide',
+                  })
+                ),
               ].join(' · ');
               // Catalog flood H×E×V breakdown (hazard·exposure·vulnerability)
-              const fhxv = p.meanFloodHazard != null
-                ? `<span style="color:#888">Flood H·E·V: ${(p.meanFloodHazard * 100).toFixed(0)}·${((p.meanFloodExposure ?? 0) * 100).toFixed(0)}·${((p.meanFloodVulnerability ?? 0) * 100).toFixed(0)}</span><br/>`
-                : '';
+              const fhxv =
+                p.meanFloodHazard != null
+                  ? `<span style="color:#888">Flood H·E·V: ${(p.meanFloodHazard * 100).toFixed(0)}·${((p.meanFloodExposure ?? 0) * 100).toFixed(0)}·${((p.meanFloodVulnerability ?? 0) * 100).toFixed(0)}</span><br/>`
+                  : '';
               featureLayer.bindTooltip(
                 `<div style="font-size:11px"><strong>${name}</strong><br/>` +
-                hazardLine + (riskLine ? riskLine + '<br/>' : '') + fhxv + priorityLine +
-                `${pop} hab. · ${(p.areaKm2 || p.area_km2)?.toFixed(1) || '?'} km²<br/>` +
-                `<span style="color:#888">${t('mapMicroapp.tipPoverty', { defaultValue: 'Poverty' })}: ${poverty}</span></div>`,
+                  hazardLine +
+                  (riskLine ? riskLine + '<br/>' : '') +
+                  fhxv +
+                  priorityLine +
+                  `${pop} hab. · ${(p.areaKm2 || p.area_km2)?.toFixed(1) || '?'} km²<br/>` +
+                  `<span style="color:#888">${t('mapMicroapp.tipPoverty', { defaultValue: 'Poverty' })}: ${poverty}</span></div>`,
                 { direction: 'top' }
               );
             } else if (zoneSource === 'intervention_zones') {
-              const hc = p.primaryHazard === 'FLOOD' ? '#3b82f6' : p.primaryHazard === 'HEAT' ? '#ef4444' : '#a16207';
+              const hc =
+                p.primaryHazard === 'FLOOD'
+                  ? '#3b82f6'
+                  : p.primaryHazard === 'HEAT'
+                    ? '#ef4444'
+                    : '#a16207';
               featureLayer.bindTooltip(
                 `<div style="font-size:11px"><strong>${p.zoneId}</strong><br/><span style="color:${hc}">${p.typologyLabel}</span> — ${(p.interventionType || '').replace(/_/g, ' ')}<br/>${p.areaKm2?.toFixed(1)} km² · ${p.populationSum?.toLocaleString() || '?'} ${t('mapMicroapp.tipPeople', { defaultValue: 'people' })}</div>`,
                 { direction: 'top' }
@@ -423,7 +624,8 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
             }
 
             // Click to select
-            const zoneName = p.neighbourhoodName || p.neighbourhood_name || p.zoneId;
+            const zoneName =
+              p.neighbourhoodName || p.neighbourhood_name || p.zoneId;
             const zoneSourceId = zoneSource;
             const featureDefaultStyle = getDefaultStyle(p);
 
@@ -435,17 +637,24 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
               if (!centroid) return;
 
               const asset: SelectedAsset = {
-                type: 'zone', source: zoneSourceId, name: zoneName,
-                geometry: feature.geometry, coordinates: centroid, properties: p,
+                type: 'zone',
+                source: zoneSourceId,
+                name: zoneName,
+                geometry: feature.geometry,
+                coordinates: centroid,
+                properties: p,
               };
 
               // Both composite and zones mode: toggle multi-select
               setSelectedAssets(prev => {
-                const existing = prev.findIndex(a => a.type === 'zone' && a.name === asset.name);
+                const existing = prev.findIndex(
+                  a => a.type === 'zone' && a.name === asset.name
+                );
                 if (existing >= 0) {
                   (featureLayer as any).setStyle(featureDefaultStyle);
                   // If deselecting in composite, clear selectedZone if it matches
-                  if (isComposite && selectedZone?.name === asset.name) setSelectedZone(null);
+                  if (isComposite && selectedZone?.name === asset.name)
+                    setSelectedZone(null);
                   return prev.filter((_, i) => i !== existing);
                 }
                 (featureLayer as any).setStyle(SELECTED_ZONE_STYLE);
@@ -457,15 +666,25 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
             (featureLayer as any).on('mouseover', () => {
               if (zoneDisplayModeRef.current !== 'choropleth') return;
-              (featureLayer as any).setStyle({ weight: 3, fillOpacity: Math.max(featureDefaultStyle.fillOpacity + 0.1, 0.15) });
+              (featureLayer as any).setStyle({
+                weight: 3,
+                fillOpacity: Math.max(
+                  featureDefaultStyle.fillOpacity + 0.1,
+                  0.15
+                ),
+              });
             });
             (featureLayer as any).on('mouseout', () => {
               if (zoneDisplayModeRef.current !== 'choropleth') return;
               // Read the live ref, not the stale closure — otherwise a just-selected
               // zone loses its highlight the instant the pointer leaves (worst on
               // touch, where tap fires mouseover→click→mouseout in a burst).
-              const isSelected = selectedAssetsRef.current.some(a => a.type === 'zone' && a.name === zoneName);
-              (featureLayer as any).setStyle(isSelected ? SELECTED_ZONE_STYLE : featureDefaultStyle);
+              const isSelected = selectedAssetsRef.current.some(
+                a => a.type === 'zone' && a.name === zoneName
+              );
+              (featureLayer as any).setStyle(
+                isSelected ? SELECTED_ZONE_STYLE : featureDefaultStyle
+              );
               (featureLayer as any).closeTooltip();
             });
           },
@@ -493,84 +712,150 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     const map = mapRef.current;
 
     (async () => {
-      for (const osmId of params.layers || []) {
-        const osmDef = OSM_LAYERS.find(l => l.id === osmId);
-        if (!osmDef) continue;
+      const addOsmLayer = (
+        osmId: string,
+        osmDef: (typeof OSM_LAYERS)[number],
+        geojson: any
+      ) => {
         const visual = OSM_VISUALS[osmId] || { emoji: '📍', label: 'Feature' };
-        setLoadingStatus(t('mapMicroapp.loadingPlaces', { defaultValue: 'Finding nearby places…' }));
-        try {
-          const res = await fetch(osmDef.endpoint);
-          if (!res.ok) continue;
-          const geojson = await res.json();
+        const layer = L.geoJSON(geojson, {
+          style: {
+            color: osmDef.color,
+            weight: 2,
+            fillColor: osmDef.color,
+            fillOpacity: 0.25,
+            opacity: 0.8,
+          },
+          pointToLayer: (_f, latlng) => {
+            const icon = L.divIcon({
+              html: `<div style="font-size:18px;text-align:center;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));cursor:pointer">${visual.emoji}</div>`,
+              className: '',
+              iconSize: [28, 28],
+              iconAnchor: [14, 14],
+            });
+            return L.marker(latlng, { icon });
+          },
+          onEachFeature: (feature, featureLayer) => {
+            const p = feature.properties || {};
+            const name =
+              p.name || p.amenity || p.leisure || p.natural || visual.label;
 
-          const layer = L.geoJSON(geojson, {
-            style: { color: osmDef.color, weight: 2, fillColor: osmDef.color, fillOpacity: 0.25, opacity: 0.8 },
-            pointToLayer: (_f, latlng) => {
-              const icon = L.divIcon({
-                html: `<div style="font-size:18px;text-align:center;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));cursor:pointer">${visual.emoji}</div>`,
-                className: '', iconSize: [28, 28], iconAnchor: [14, 14],
-              });
-              return L.marker(latlng, { icon });
-            },
-            onEachFeature: (feature, featureLayer) => {
-              const p = feature.properties || {};
-              const name = p.name || p.amenity || p.leisure || p.natural || visual.label;
+            featureLayer.bindTooltip(
+              `<div style="font-size:11px"><strong>${visual.emoji} ${name}</strong><br/><span style="color:#888">${visual.label} — ${t('mapMicroapp.clickToSelect', { defaultValue: 'click to select' })}</span></div>`,
+              { direction: 'top' }
+            );
 
-              featureLayer.bindTooltip(
-                `<div style="font-size:11px"><strong>${visual.emoji} ${name}</strong><br/><span style="color:#888">${visual.label} — ${t('mapMicroapp.clickToSelect', { defaultValue: 'click to select' })}</span></div>`,
-                { direction: 'top' }
-              );
+            (featureLayer as any).on('click', async (e: any) => {
+              if (drawModeRef.current !== 'off') return;
+              L.DomEvent.stopPropagation(e);
+              const centroid = geometryCentroid(feature.geometry);
+              if (!centroid) return;
 
-              (featureLayer as any).on('click', async (e: any) => {
-                if (drawModeRef.current !== 'off') return;
-                L.DomEvent.stopPropagation(e);
-                const centroid = geometryCentroid(feature.geometry);
-                if (!centroid) return;
+              const rasterValues: Record<string, number> = {};
+              for (const tileId of Array.from(enabledTiles)) {
+                const tileDef = ALL_TILE_LAYERS.find(l => l.id === tileId);
+                if (!tileDef?.valueEncoding?.urlTemplate) continue;
+                const val = await sampleRasterAtPoint(
+                  centroid[0],
+                  centroid[1],
+                  tileDef.valueEncoding,
+                  11
+                );
+                if (val !== null) rasterValues[tileDef.name] = val;
+              }
 
-                const rasterValues: Record<string, number> = {};
-                for (const tileId of Array.from(enabledTiles)) {
-                  const tileDef = ALL_TILE_LAYERS.find(l => l.id === tileId);
-                  if (!tileDef?.valueEncoding?.urlTemplate) continue;
-                  const val = await sampleRasterAtPoint(centroid[0], centroid[1], tileDef.valueEncoding, 11);
-                  if (val !== null) rasterValues[tileDef.name] = val;
+              const asset: SelectedAsset = {
+                type: 'osm',
+                source: osmId,
+                name: typeof name === 'string' ? name : String(name),
+                geometry: feature.geometry,
+                coordinates: centroid,
+                properties: p,
+                rasterValues,
+              };
+
+              setSelectedAssets(prev => {
+                const key = `osm:${osmId}:${asset.name}:${centroid[0].toFixed(4)}`;
+                const existing = prev.findIndex(
+                  a =>
+                    a.type === 'osm' &&
+                    `osm:${a.source}:${a.name}:${a.coordinates[0].toFixed(4)}` ===
+                      key
+                );
+                if (existing >= 0) {
+                  selectedHighlightsRef.current.get(key)?.remove();
+                  selectedHighlightsRef.current.delete(key);
+                  return prev.filter((_, i) => i !== existing);
                 }
-
-                const asset: SelectedAsset = {
-                  type: 'osm', source: osmId,
-                  name: typeof name === 'string' ? name : String(name),
-                  geometry: feature.geometry, coordinates: centroid, properties: p, rasterValues,
-                };
-
-                setSelectedAssets(prev => {
-                  const key = `osm:${osmId}:${asset.name}:${centroid[0].toFixed(4)}`;
-                  const existing = prev.findIndex(a => a.type === 'osm' && `osm:${a.source}:${a.name}:${a.coordinates[0].toFixed(4)}` === key);
-                  if (existing >= 0) {
-                    selectedHighlightsRef.current.get(key)?.remove();
-                    selectedHighlightsRef.current.delete(key);
-                    return prev.filter((_, i) => i !== existing);
-                  }
-                  const highlight = L.circleMarker([centroid[0], centroid[1]], {
-                    radius: 16, color: '#fff', fillColor: osmDef.color, fillOpacity: 0.3, weight: 3,
-                  }).addTo(map);
-                  selectedHighlightsRef.current.set(key, highlight);
-                  return [...prev, asset];
-                });
+                const highlight = L.circleMarker([centroid[0], centroid[1]], {
+                  radius: 16,
+                  color: '#fff',
+                  fillColor: osmDef.color,
+                  fillOpacity: 0.3,
+                  weight: 3,
+                }).addTo(map);
+                selectedHighlightsRef.current.set(key, highlight);
+                return [...prev, asset];
               });
+            });
 
-              (featureLayer as any).on('mouseover', () => { map.getContainer().style.cursor = 'pointer'; });
-              (featureLayer as any).on('mouseout', () => { map.getContainer().style.cursor = ''; (featureLayer as any).closeTooltip(); });
-            },
-          });
-          layer.addTo(map);
-          osmLayerRefs.current[osmId] = layer;
-        } catch {}
+            (featureLayer as any).on('mouseover', () => {
+              map.getContainer().style.cursor = 'pointer';
+            });
+            (featureLayer as any).on('mouseout', () => {
+              map.getContainer().style.cursor = '';
+              (featureLayer as any).closeTooltip();
+            });
+          },
+        });
+        layer.addTo(map);
+        osmLayerRefs.current[osmId] = layer;
+      };
+
+      const osmIds = (params.layers || []).filter(id =>
+        OSM_LAYERS.some(l => l.id === id)
+      );
+      if (osmIds.length) {
+        setLoadingStatus(
+          t('mapMicroapp.loadingPlaces', {
+            defaultValue: 'Finding nearby places…',
+          })
+        );
+
+        // Fetch in parallel. These requests are independent, and awaiting them
+        // one at a time stacked a full Overpass round-trip per layer whenever a
+        // snapshot was missing — four cold layers meant four sequential waits.
+        const fetched = await Promise.all(
+          osmIds.map(async osmId => {
+            const osmDef = OSM_LAYERS.find(l => l.id === osmId)!;
+            try {
+              const res = await fetch(osmDef.endpoint);
+              if (!res.ok) return null;
+              return { osmId, osmDef, geojson: await res.json() };
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        // Add in declaration order so layer z-ordering stays stable.
+        for (const entry of fetched) {
+          if (!entry) continue;
+          try {
+            addOsmLayer(entry.osmId, entry.osmDef, entry.geojson);
+          } catch {}
+        }
       }
 
       // Spatial queries
       for (const sqId of params.spatialQueries || []) {
         const queryDef = SPATIAL_QUERIES.find(q => q.id === sqId);
         if (!queryDef) continue;
-        setLoadingStatus(t('mapMicroapp.loadingAnalysis', { defaultValue: 'Running analysis…' }));
+        setLoadingStatus(
+          t('mapMicroapp.loadingAnalysis', {
+            defaultValue: 'Running analysis…',
+          })
+        );
         try {
           const result = await buildSpatialQueryLayer(queryDef);
           if (result) result.layer.addTo(map);
@@ -594,14 +879,18 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     try {
       const allBounds = L.latLngBounds([]);
       for (const asset of zoneAssets) {
-        if (asset.geometry) allBounds.extend(L.geoJSON(asset.geometry).getBounds());
+        if (asset.geometry)
+          allBounds.extend(L.geoJSON(asset.geometry).getBounds());
       }
-      if (allBounds.isValid()) map.fitBounds(allBounds, { padding: [40, 40], maxZoom: 14 });
+      if (allBounds.isValid())
+        map.fitBounds(allBounds, { padding: [40, 40], maxZoom: 14 });
     } catch {}
 
     setCompositeStep('assets');
     setLoading(true);
-    setLoadingStatus(t('mapMicroapp.loadingSites', { defaultValue: 'Loading sites...' }));
+    setLoadingStatus(
+      t('mapMicroapp.loadingSites', { defaultValue: 'Loading sites...' })
+    );
   }, [selectedAssets]);
 
   const backToZones = useCallback(() => {
@@ -666,7 +955,11 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       const layerDef = ALL_TILE_LAYERS.find(l => l.id === id);
       if (!layerDef) continue;
       const tl = L.tileLayer(tileVisualUrl(layerDef), {
-        opacity: 0.6, maxNativeZoom: 15, maxZoom: 19, minZoom: 8, errorTileUrl: '',
+        opacity: 0.6,
+        maxNativeZoom: 15,
+        maxZoom: 19,
+        minZoom: 8,
+        errorTileUrl: '',
       });
       tl.addTo(map);
       tileLayerRefs.current[id] = tl;
@@ -680,15 +973,31 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     const handleClick = async (e: L.LeafletMouseEvent) => {
       const { lat, lng } = e.latlng;
       const values: Record<string, number> = {};
-      for (const tileId of (params.sampleLayers || params.tileLayers || [])) {
+      for (const tileId of params.sampleLayers || params.tileLayers || []) {
         const tileDef = ALL_TILE_LAYERS.find(l => l.id === tileId);
         if (!tileDef?.valueEncoding?.urlTemplate) continue;
-        const val = await sampleRasterAtPoint(lat, lng, tileDef.valueEncoding, 11);
+        const val = await sampleRasterAtPoint(
+          lat,
+          lng,
+          tileDef.valueEncoding,
+          11
+        );
         if (val !== null) values[tileDef.name] = val;
       }
       if (Object.keys(values).length > 0) {
-        const marker = L.circleMarker([lat, lng], { radius: 6, color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.8, weight: 2 });
-        marker.bindTooltip(Object.entries(values).map(([k, v]) => `${k}: <strong>${v.toFixed(3)}</strong>`).join('<br/>'), { permanent: true, direction: 'top' });
+        const marker = L.circleMarker([lat, lng], {
+          radius: 6,
+          color: '#ef4444',
+          fillColor: '#ef4444',
+          fillOpacity: 0.8,
+          weight: 2,
+        });
+        marker.bindTooltip(
+          Object.entries(values)
+            .map(([k, v]) => `${k}: <strong>${v.toFixed(3)}</strong>`)
+            .join('<br/>'),
+          { permanent: true, direction: 'top' }
+        );
         marker.addTo(map);
         customMarkersRef.current.push(marker);
         setSampledPoints(prev => [...prev, { lat, lng, values }]);
@@ -696,7 +1005,10 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     };
     map.on('click', handleClick);
     map.getContainer().style.cursor = 'crosshair';
-    return () => { map.off('click', handleClick); map.getContainer().style.cursor = ''; };
+    return () => {
+      map.off('click', handleClick);
+      map.getContainer().style.cursor = '';
+    };
   }, [mapReady, selectionMode]);
 
   // ── Custom draw ─────────────────────────────────────────────────────────────
@@ -704,7 +1016,12 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const polygonPreviewRef = useRef<L.Polyline | null>(null);
 
   useEffect(() => {
-    if (!mapReady || !mapRef.current || (drawMode !== 'point' && drawMode !== 'polygon')) return;
+    if (
+      !mapReady ||
+      !mapRef.current ||
+      (drawMode !== 'point' && drawMode !== 'polygon')
+    )
+      return;
     const map = mapRef.current;
 
     const handleClick = async (e: L.LeafletMouseEvent) => {
@@ -714,24 +1031,46 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         for (const tileId of Array.from(enabledTiles)) {
           const tileDef = ALL_TILE_LAYERS.find(l => l.id === tileId);
           if (!tileDef?.valueEncoding?.urlTemplate) continue;
-          const val = await sampleRasterAtPoint(lat, lng, tileDef.valueEncoding, 11);
+          const val = await sampleRasterAtPoint(
+            lat,
+            lng,
+            tileDef.valueEncoding,
+            11
+          );
           if (val !== null) rasterValues[tileDef.name] = val;
         }
-        const marker = L.circleMarker([lat, lng], { radius: 8, color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.8, weight: 2 });
-        marker.bindTooltip(t('mapMicroapp.customSite', { defaultValue: 'Custom site' }), { permanent: false });
+        const marker = L.circleMarker([lat, lng], {
+          radius: 8,
+          color: '#8b5cf6',
+          fillColor: '#8b5cf6',
+          fillOpacity: 0.8,
+          weight: 2,
+        });
+        marker.bindTooltip(
+          t('mapMicroapp.customSite', { defaultValue: 'Custom site' }),
+          { permanent: false }
+        );
         marker.addTo(map);
         customMarkersRef.current.push(marker);
-        setSelectedAssets(prev => [...prev, {
-          type: 'custom', name: `${t('mapMicroapp.customPointName', { defaultValue: 'Custom point' })} (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
-          coordinates: [lat, lng], properties: {}, rasterValues,
-        }]);
+        setSelectedAssets(prev => [
+          ...prev,
+          {
+            type: 'custom',
+            name: `${t('mapMicroapp.customPointName', { defaultValue: 'Custom point' })} (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+            coordinates: [lat, lng],
+            properties: {},
+            rasterValues,
+          },
+        ]);
         setDrawMode('off');
       }
       if (drawMode === 'polygon') {
         // Close by tapping the FIRST vertex again (what the PT help copy says:
         // "feche no primeiro ponto") — double-tap still works as a fallback.
         if (polygonPointsRef.current.length >= 3) {
-          const firstPt = map.latLngToContainerPoint(polygonPointsRef.current[0]);
+          const firstPt = map.latLngToContainerPoint(
+            polygonPointsRef.current[0]
+          );
           const clickPt = map.latLngToContainerPoint(e.latlng);
           if (firstPt.distanceTo(clickPt) < 24) {
             await closePolygon();
@@ -739,14 +1078,21 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
           }
         }
         polygonPointsRef.current.push(e.latlng);
-        if (polygonPreviewRef.current) map.removeLayer(polygonPreviewRef.current);
+        if (polygonPreviewRef.current)
+          map.removeLayer(polygonPreviewRef.current);
         if (polygonPointsRef.current.length >= 2) {
           polygonPreviewRef.current = L.polyline(
             [...polygonPointsRef.current, polygonPointsRef.current[0]],
             { color: '#8b5cf6', weight: 2, dashArray: '4 4' }
           ).addTo(map);
         }
-        const vm = L.circleMarker([lat, lng], { radius: 4, color: '#8b5cf6', fillColor: '#fff', fillOpacity: 1, weight: 2 });
+        const vm = L.circleMarker([lat, lng], {
+          radius: 4,
+          color: '#8b5cf6',
+          fillColor: '#fff',
+          fillOpacity: 1,
+          weight: 2,
+        });
         vm.addTo(map);
         customMarkersRef.current.push(vm);
       }
@@ -754,11 +1100,21 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
     const closePolygon = async () => {
       if (polygonPointsRef.current.length < 3) return;
-      const coords = polygonPointsRef.current.map(p => [p.lng, p.lat] as [number, number]);
+      const coords = polygonPointsRef.current.map(
+        p => [p.lng, p.lat] as [number, number]
+      );
       coords.push(coords[0]);
       const geometry = { type: 'Polygon' as const, coordinates: [coords] };
-      if (polygonPreviewRef.current) { map.removeLayer(polygonPreviewRef.current); polygonPreviewRef.current = null; }
-      const poly = L.polygon(polygonPointsRef.current, { color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.3, weight: 2 });
+      if (polygonPreviewRef.current) {
+        map.removeLayer(polygonPreviewRef.current);
+        polygonPreviewRef.current = null;
+      }
+      const poly = L.polygon(polygonPointsRef.current, {
+        color: '#8b5cf6',
+        fillColor: '#8b5cf6',
+        fillOpacity: 0.3,
+        weight: 2,
+      });
       poly.addTo(map);
       customMarkersRef.current.push(poly);
       const centroid = geometryCentroid(geometry);
@@ -767,15 +1123,32 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         for (const tileId of Array.from(enabledTiles)) {
           const tileDef = ALL_TILE_LAYERS.find(l => l.id === tileId);
           if (!tileDef?.valueEncoding?.urlTemplate) continue;
-          const val = await sampleRasterAtPoint(centroid[0], centroid[1], tileDef.valueEncoding, 11);
+          const val = await sampleRasterAtPoint(
+            centroid[0],
+            centroid[1],
+            tileDef.valueEncoding,
+            11
+          );
           if (val !== null) rasterValues[tileDef.name] = val;
         }
       }
-      setSelectedAssets(prev => [...prev, {
-        type: 'custom', name: t('mapMicroapp.customAreaName', { defaultValue: 'Custom area ({{n}} vertices)', n: polygonPointsRef.current.length }),
-        geometry, coordinates: centroid || [polygonPointsRef.current[0].lat, polygonPointsRef.current[0].lng],
-        properties: {}, rasterValues,
-      }]);
+      setSelectedAssets(prev => [
+        ...prev,
+        {
+          type: 'custom',
+          name: t('mapMicroapp.customAreaName', {
+            defaultValue: 'Custom area ({{n}} vertices)',
+            n: polygonPointsRef.current.length,
+          }),
+          geometry,
+          coordinates: centroid || [
+            polygonPointsRef.current[0].lat,
+            polygonPointsRef.current[0].lng,
+          ],
+          properties: {},
+          rasterValues,
+        },
+      ]);
       polygonPointsRef.current = [];
       setDrawMode('off');
     };
@@ -801,7 +1174,10 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       map.doubleClickZoom.enable();
       map.getContainer().style.cursor = '';
       polygonPointsRef.current = [];
-      if (polygonPreviewRef.current) { map.removeLayer(polygonPreviewRef.current); polygonPreviewRef.current = null; }
+      if (polygonPreviewRef.current) {
+        map.removeLayer(polygonPreviewRef.current);
+        polygonPreviewRef.current = null;
+      }
     };
   }, [mapReady, drawMode, enabledTiles]);
 
@@ -809,38 +1185,64 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   // Shared add: drop a marker, sample the active rasters at the point, push it
   // into the selection (type 'custom' so it flows through confirm like a drawn
   // point), and pan the map there.
-  const addCustomSite = useCallback(async (lat: number, lng: number, name: string) => {
-    const map = mapRef.current;
-    const rasterValues: Record<string, number> = {};
-    for (const tileId of Array.from(enabledTiles)) {
-      const tileDef = ALL_TILE_LAYERS.find(l => l.id === tileId);
-      if (!tileDef?.valueEncoding?.urlTemplate) continue;
-      const val = await sampleRasterAtPoint(lat, lng, tileDef.valueEncoding, 11);
-      if (val !== null) rasterValues[tileDef.name] = val;
-    }
-    if (map) {
-      const marker = L.circleMarker([lat, lng], { radius: 8, color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.8, weight: 2 });
-      marker.bindTooltip(name, { permanent: false });
-      marker.addTo(map);
-      customMarkersRef.current.push(marker);
-      map.setView([lat, lng], Math.max(map.getZoom(), 15));
-    }
-    setSelectedAssets(prev => [...prev, {
-      type: 'custom', name, coordinates: [lat, lng], properties: { source: 'user-added' }, rasterValues,
-    }]);
-  }, [enabledTiles]);
+  const addCustomSite = useCallback(
+    async (lat: number, lng: number, name: string) => {
+      const map = mapRef.current;
+      const rasterValues: Record<string, number> = {};
+      for (const tileId of Array.from(enabledTiles)) {
+        const tileDef = ALL_TILE_LAYERS.find(l => l.id === tileId);
+        if (!tileDef?.valueEncoding?.urlTemplate) continue;
+        const val = await sampleRasterAtPoint(
+          lat,
+          lng,
+          tileDef.valueEncoding,
+          11
+        );
+        if (val !== null) rasterValues[tileDef.name] = val;
+      }
+      if (map) {
+        const marker = L.circleMarker([lat, lng], {
+          radius: 8,
+          color: '#8b5cf6',
+          fillColor: '#8b5cf6',
+          fillOpacity: 0.8,
+          weight: 2,
+        });
+        marker.bindTooltip(name, { permanent: false });
+        marker.addTo(map);
+        customMarkersRef.current.push(marker);
+        map.setView([lat, lng], Math.max(map.getZoom(), 15));
+      }
+      setSelectedAssets(prev => [
+        ...prev,
+        {
+          type: 'custom',
+          name,
+          coordinates: [lat, lng],
+          properties: { source: 'user-added' },
+          rasterValues,
+        },
+      ]);
+    },
+    [enabledTiles]
+  );
 
   // Bounding box [minLng, minLat, maxLng, maxLat] (turf.bbox order) of the chosen
   // zone, to bias the name search to the CBO's neighborhood.
   const zoneBbox = useCallback((): [number, number, number, number] | null => {
     const geom = selectedZone?.geometry;
     if (!geom?.coordinates) return null;
-    let minLat = 90, minLng = 180, maxLat = -90, maxLng = -180;
+    let minLat = 90,
+      minLng = 180,
+      maxLat = -90,
+      maxLng = -180;
     const walk = (c: any) => {
       if (typeof c[0] === 'number') {
         const [lng, lat] = c;
-        minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
-        minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+        minLat = Math.min(minLat, lat);
+        maxLat = Math.max(maxLat, lat);
+        minLng = Math.min(minLng, lng);
+        maxLng = Math.max(maxLng, lng);
       } else c.forEach(walk);
     };
     walk(geom.coordinates);
@@ -858,10 +1260,17 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         body: JSON.stringify({ query: siteQuery.trim(), bbox: zoneBbox() }),
       });
       const data = await res.json();
-      setSiteResults((data.assets || [])
-        .filter((a: any) => Array.isArray(a.centroid) && a.centroid.length === 2)
-        .slice(0, 8)
-        .map((a: any) => ({ name: a.name as string, centroid: a.centroid as [number, number] })));
+      setSiteResults(
+        (data.assets || [])
+          .filter(
+            (a: any) => Array.isArray(a.centroid) && a.centroid.length === 2
+          )
+          .slice(0, 8)
+          .map((a: any) => ({
+            name: a.name as string,
+            centroid: a.centroid as [number, number],
+          }))
+      );
     } catch {
       setSiteResults([]);
     } finally {
@@ -877,13 +1286,27 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
     // recombine the space-split "lat, frac, lng, frac" shape.
     const tokens = coordInput.match(/-?\d+(?:[.,]\d+)?/g) ?? [];
     const num = (s: string) => parseFloat(s.replace(',', '.'));
-    let lat = NaN, lng = NaN;
+    let lat = NaN,
+      lng = NaN;
     if (tokens.length === 2) {
-      lat = num(tokens[0]); lng = num(tokens[1]);
-    } else if (tokens.length === 4 && /^\d+$/.test(tokens[1]) && /^\d+$/.test(tokens[3])) {
-      lat = num(`${tokens[0]}.${tokens[1]}`); lng = num(`${tokens[2]}.${tokens[3]}`);
+      lat = num(tokens[0]);
+      lng = num(tokens[1]);
+    } else if (
+      tokens.length === 4 &&
+      /^\d+$/.test(tokens[1]) &&
+      /^\d+$/.test(tokens[3])
+    ) {
+      lat = num(`${tokens[0]}.${tokens[1]}`);
+      lng = num(`${tokens[2]}.${tokens[3]}`);
     }
-    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    if (
+      isNaN(lat) ||
+      isNaN(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    ) {
       setCoordError('format');
       return;
     }
@@ -895,7 +1318,11 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       return;
     }
     setCoordError(false);
-    await addCustomSite(lat, lng, `${t('mapMicroapp.siteName', { defaultValue: 'Site' })} (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+    await addCustomSite(
+      lat,
+      lng,
+      `${t('mapMicroapp.siteName', { defaultValue: 'Site' })} (${lat.toFixed(4)}, ${lng.toFixed(4)})`
+    );
     setCoordInput('');
     setAddSiteOpen(false);
   }, [coordInput, addCustomSite]);
@@ -903,16 +1330,28 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   // ── Confirm ─────────────────────────────────────────────────────────────────
   // A real site = any non-zone asset (OSM/custom) or a sampled point. The zone
   // alone is not a site (it's the neighborhood).
-  const hasSite = selectedAssets.some(a => a.type !== 'zone') || sampledPoints.length > 0;
+  const hasSite =
+    selectedAssets.some(a => a.type !== 'zone') || sampledPoints.length > 0;
   const handleConfirm = useCallback(() => {
     onConfirm({
       selectionMode,
       selectedAssets,
       sampledPoints,
-      enabledLayers: [...(params.layers || []), ...Array.from(enabledTiles), ...(params.spatialQueries || [])],
+      enabledLayers: [
+        ...(params.layers || []),
+        ...Array.from(enabledTiles),
+        ...(params.spatialQueries || []),
+      ],
       siteSource: 'user',
     });
-  }, [selectedAssets, sampledPoints, selectionMode, params, onConfirm, enabledTiles]);
+  }, [
+    selectedAssets,
+    sampledPoints,
+    selectionMode,
+    params,
+    onConfirm,
+    enabledTiles,
+  ]);
   // No-site path (E2 "usar o bairro todo"): commit the neighborhood, mark the
   // site deferred. Keeps the zone, drops any site assets.
   const confirmDeferred = useCallback(() => {
@@ -920,15 +1359,22 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       selectionMode,
       selectedAssets: selectedAssets.filter(a => a.type === 'zone'),
       sampledPoints: [],
-      enabledLayers: [...(params.layers || []), ...Array.from(enabledTiles), ...(params.spatialQueries || [])],
+      enabledLayers: [
+        ...(params.layers || []),
+        ...Array.from(enabledTiles),
+        ...(params.spatialQueries || []),
+      ],
       siteDeferred: true,
       siteSource: 'user',
     });
   }, [selectedAssets, selectionMode, params, onConfirm, enabledTiles]);
 
-  const removeAsset = (index: number) => setSelectedAssets(prev => prev.filter((_, i) => i !== index));
+  const removeAsset = (index: number) =>
+    setSelectedAssets(prev => prev.filter((_, i) => i !== index));
   const clearAll = () => {
-    setSelectedAssets(prev => isComposite ? prev.filter(a => a.type === 'zone') : []);
+    setSelectedAssets(prev =>
+      isComposite ? prev.filter(a => a.type === 'zone') : []
+    );
     setSampledPoints([]);
     for (const m of customMarkersRef.current) mapRef.current?.removeLayer(m);
     customMarkersRef.current = [];
@@ -937,33 +1383,53 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   };
 
   const totalSelections = selectedAssets.length + sampledPoints.length;
-  const availableTileLayers = (params.tileLayers || []).map(id => ALL_TILE_LAYERS.find(l => l.id === id)).filter(Boolean) as typeof TILE_LAYERS;
+  const availableTileLayers = (params.tileLayers || [])
+    .map(id => ALL_TILE_LAYERS.find(l => l.id === id))
+    .filter(Boolean) as typeof TILE_LAYERS;
 
   // Simplified E2 legend: collapse the layer toolkit into ≤3 hazard chips
   // (flood/heat/landslide), each tied to the first matching available layer.
   const simpleLegend = (params.showLegendSimple ? availableTileLayers : [])
     .map(l => ({ layer: l, fam: hazardFamilyOf(l.id) }))
-    .filter((x): x is { layer: typeof availableTileLayers[number]; fam: HazardFamily } => x.fam !== null)
+    .filter(
+      (
+        x
+      ): x is {
+        layer: (typeof availableTileLayers)[number];
+        fam: HazardFamily;
+      } => x.fam !== null
+    )
     .filter((x, i, arr) => arr.findIndex(y => y.fam === x.fam) === i); // one chip per hazard
-  const canDraw = showAssets && (selectionMode === 'assets' || selectionMode === 'composite');
+  const canDraw =
+    showAssets && (selectionMode === 'assets' || selectionMode === 'composite');
 
   // Step instructions
-  const step1Key = isNeighborhoods ? 'mapMicroapp.step1Neighborhood' : 'mapMicroapp.step1Zone';
+  const step1Key = isNeighborhoods
+    ? 'mapMicroapp.step1Neighborhood'
+    : 'mapMicroapp.step1Zone';
   const stepInstruction = isComposite
     ? compositeStep === 'zone'
       ? t(step1Key)
-      : t('mapMicroapp.step2Sites', { zone: selectedAssets.filter(a => a.type === 'zone').map(a => a.name).join(', ') || 'zone' })
-    : selectionMode === 'assets' ? t('mapMicroapp.clickFeatures')
-    : selectionMode === 'sample' ? t('mapMicroapp.clickSample')
-    : t('mapMicroapp.clickZones');
+      : t('mapMicroapp.step2Sites', {
+          zone:
+            selectedAssets
+              .filter(a => a.type === 'zone')
+              .map(a => a.name)
+              .join(', ') || 'zone',
+        })
+    : selectionMode === 'assets'
+      ? t('mapMicroapp.clickFeatures')
+      : selectionMode === 'sample'
+        ? t('mapMicroapp.clickSample')
+        : t('mapMicroapp.clickZones');
 
   return (
-    <div className="flex flex-col h-full w-full bg-background overflow-hidden">
+    <div className='flex flex-col h-full w-full bg-background overflow-hidden'>
       {/* Header */}
-      <div className="px-3 py-2 border-b bg-muted/30 shrink-0 flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium leading-tight">{params.prompt}</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
+      <div className='px-3 py-2 border-b bg-muted/30 shrink-0 flex items-start gap-2'>
+        <div className='min-w-0 flex-1'>
+          <p className='text-xs font-medium leading-tight'>{params.prompt}</p>
+          <p className='text-[10px] text-muted-foreground mt-0.5'>
             {polygonHelp || stepInstruction}
           </p>
         </div>
@@ -972,195 +1438,366 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
           <DataProvenanceDialog
             lang={provLang}
             compact
-            className="shrink-0"
-            entries={(compositeStep === 'assets'
-              ? ['flood', 'heat', 'landslide', 'neighborhoods', 'sites']
-              : ['flood', 'heat', 'landslide', 'neighborhoods']) as ProvenanceKey[]}
+            className='shrink-0'
+            entries={
+              (compositeStep === 'assets'
+                ? ['flood', 'heat', 'landslide', 'neighborhoods', 'sites']
+                : [
+                    'flood',
+                    'heat',
+                    'landslide',
+                    'neighborhoods',
+                  ]) as ProvenanceKey[]
+            }
           />
         )}
       </div>
 
       {/* Prominent point-vs-area control — CBO site step. Replaces the tiny draw
           chips so "draw the area" is clearly available, not just a point. */}
-      {params.allowDeferSite && isComposite && compositeStep === 'assets' && !tourActive && (
-        <div className="px-3 py-2 border-b bg-muted/10 shrink-0">
-          <p className="text-[10px] text-muted-foreground mb-1">{t('mapMicroapp.siteHowToMark', { defaultValue: 'Como marcar seu lugar?' })}</p>
-          <div className="flex gap-1.5">
-            {/* True three-state toggles: nothing is armed until the user picks a
+      {params.allowDeferSite &&
+        isComposite &&
+        compositeStep === 'assets' &&
+        !tourActive && (
+          <div className='px-3 py-2 border-b bg-muted/10 shrink-0'>
+            <p className='text-[10px] text-muted-foreground mb-1'>
+              {t('mapMicroapp.siteHowToMark', {
+                defaultValue: 'Como marcar seu lugar?',
+              })}
+            </p>
+            <div className='flex gap-1.5'>
+              {/* True three-state toggles: nothing is armed until the user picks a
                 mode (re-tapping disarms). The old default made "Um ponto" LOOK
                 active while drawMode was off — and pairing that with auto-arm
                 meant panning taps dropped pins. */}
-            <Button variant={drawMode === 'point' ? 'default' : 'outline'} size="sm" className="h-9 text-[11px] gap-1 flex-1" onClick={() => setDrawMode(drawMode === 'point' ? 'off' : 'point')} data-testid="map-draw-point">
-              <MapPin className="w-3 h-3" /> {t('mapMicroapp.drawPoint', { defaultValue: 'Um ponto' })}
-            </Button>
-            <Button variant={drawMode === 'polygon' ? 'default' : 'outline'} size="sm" className="h-9 text-[11px] gap-1 flex-1" onClick={() => setDrawMode(drawMode === 'polygon' ? 'off' : 'polygon')} data-testid="map-draw-area">
-              <Pencil className="w-3 h-3" /> {t('mapMicroapp.drawArea', { defaultValue: 'Desenhar a área' })}
-            </Button>
+              <Button
+                variant={drawMode === 'point' ? 'default' : 'outline'}
+                size='sm'
+                className='h-9 text-[11px] gap-1 flex-1'
+                onClick={() =>
+                  setDrawMode(drawMode === 'point' ? 'off' : 'point')
+                }
+                data-testid='map-draw-point'
+              >
+                <MapPin className='w-3 h-3' />{' '}
+                {t('mapMicroapp.drawPoint', { defaultValue: 'Um ponto' })}
+              </Button>
+              <Button
+                variant={drawMode === 'polygon' ? 'default' : 'outline'}
+                size='sm'
+                className='h-9 text-[11px] gap-1 flex-1'
+                onClick={() =>
+                  setDrawMode(drawMode === 'polygon' ? 'off' : 'polygon')
+                }
+                data-testid='map-draw-area'
+              >
+                <Pencil className='w-3 h-3' />{' '}
+                {t('mapMicroapp.drawArea', { defaultValue: 'Desenhar a área' })}
+              </Button>
+            </div>
+            <p
+              className='text-[10px] text-muted-foreground mt-1'
+              data-testid='map-draw-help'
+            >
+              {drawMode === 'polygon'
+                ? t('mapMicroapp.drawHelpArea', {
+                    defaultValue:
+                      'Toque nos cantos do lugar; feche no primeiro ponto.',
+                  })
+                : drawMode === 'point'
+                  ? t('mapMicroapp.drawHelpPoint', {
+                      defaultValue: 'Toque no mapa pra marcar o lugar.',
+                    })
+                  : t('mapMicroapp.drawHelpOff', {
+                      defaultValue:
+                        'Arraste pra navegar no mapa. Pra marcar, escolha uma opção acima.',
+                    })}
+            </p>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1" data-testid="map-draw-help">
-            {drawMode === 'polygon'
-              ? t('mapMicroapp.drawHelpArea', { defaultValue: 'Toque nos cantos do lugar; feche no primeiro ponto.' })
-              : drawMode === 'point'
-                ? t('mapMicroapp.drawHelpPoint', { defaultValue: 'Toque no mapa pra marcar o lugar.' })
-                : t('mapMicroapp.drawHelpOff', { defaultValue: 'Arraste pra navegar no mapa. Pra marcar, escolha uma opção acima.' })}
-          </p>
-        </div>
-      )}
+        )}
 
       {/* Stepper bar (composite mode) — hidden during the hazard tour */}
       {!tourActive && isComposite && (
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/20 shrink-0">
+        <div className='flex items-center gap-2 px-3 py-1.5 border-b bg-muted/20 shrink-0'>
           <button
             onClick={compositeStep === 'assets' ? backToZones : undefined}
             className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded ${compositeStep === 'zone' ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:bg-muted/50'}`}
           >
-            <span className="w-4 h-4 rounded-full bg-current/20 flex items-center justify-center text-[9px] font-bold">1</span>
-            {isNeighborhoods ? t('mapMicroapp.neighborhood') : t('mapMicroapp.zone')}
-            {selectedAssets.some(a => a.type === 'zone') && <Check className="w-3 h-3 text-emerald-500" />}
+            <span className='w-4 h-4 rounded-full bg-current/20 flex items-center justify-center text-[9px] font-bold'>
+              1
+            </span>
+            {isNeighborhoods
+              ? t('mapMicroapp.neighborhood')
+              : t('mapMicroapp.zone')}
+            {selectedAssets.some(a => a.type === 'zone') && (
+              <Check className='w-3 h-3 text-emerald-500' />
+            )}
           </button>
-          <ChevronRight className="w-3 h-3 text-muted-foreground" />
+          <ChevronRight className='w-3 h-3 text-muted-foreground' />
           <button
-            onClick={selectedAssets.some(a => a.type === 'zone') ? advanceToAssets : undefined}
+            onClick={
+              selectedAssets.some(a => a.type === 'zone')
+                ? advanceToAssets
+                : undefined
+            }
             className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded ${compositeStep === 'assets' ? 'bg-primary text-primary-foreground font-medium' : selectedAssets.some(a => a.type === 'zone') ? 'text-foreground hover:bg-muted/50' : 'text-muted-foreground/50 cursor-not-allowed'}`}
           >
-            <span className="w-4 h-4 rounded-full bg-current/20 flex items-center justify-center text-[9px] font-bold">2</span>
+            <span className='w-4 h-4 rounded-full bg-current/20 flex items-center justify-center text-[9px] font-bold'>
+              2
+            </span>
             {t('mapMicroapp.sites')}
           </button>
-          {isComposite && compositeStep === 'zone' && selectedAssets.some(a => a.type === 'zone') && (
-            <Button size="sm" className="h-6 text-[10px] gap-1 ml-auto" onClick={advanceToAssets}>
-              {t('mapMicroapp.nextSites')} <ChevronRight className="w-3 h-3" />
-            </Button>
-          )}
+          {isComposite &&
+            compositeStep === 'zone' &&
+            selectedAssets.some(a => a.type === 'zone') && (
+              <Button
+                size='sm'
+                className='h-6 text-[10px] gap-1 ml-auto'
+                onClick={advanceToAssets}
+              >
+                {t('mapMicroapp.nextSites')}{' '}
+                <ChevronRight className='w-3 h-3' />
+              </Button>
+            )}
         </div>
       )}
 
       {/* Tools bar — hidden during the hazard tour (legend is locked) */}
       {!tourActive && (
-      <div className="flex items-center gap-1.5 px-3 py-1 border-b bg-muted/10 shrink-0">
-        {/* Simplified hazard legend (E2): ≤3 colored chips standing in for the
+        <div className='flex items-center gap-1.5 px-3 py-1 border-b bg-muted/10 shrink-0'>
+          {/* Simplified hazard legend (E2): ≤3 colored chips standing in for the
             full layer toolkit, so first-time CBO users see only flood / heat /
             landslide. Each chip toggles its hazard overlay. */}
-        {simpleLegend.length > 0 ? (
-          <div className="flex items-center gap-1.5" data-testid="map-simple-legend">
-            <span className="text-[9px] text-muted-foreground shrink-0">{t('mapMicroapp.risks', { defaultValue: 'Riscos' })}:</span>
-            {simpleLegend.map(({ layer, fam }) => {
-              const isOn = enabledTiles.has(layer.id);
-              const meta = HAZARD_LEGEND[fam];
-              return (
-                <button key={layer.id} onClick={() => toggleTileLayer(layer.id)}
-                  data-testid={`map-hazard-chip-${fam}`}
-                  aria-pressed={isOn}
-                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] shrink-0 border ${isOn ? 'font-semibold' : 'text-muted-foreground border-transparent hover:bg-muted/50'}`}
-                  style={isOn ? { backgroundColor: `${meta.color}22`, borderColor: meta.color, color: meta.color } : undefined}>
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
-                  {t(meta.labelKey, { defaultValue: meta.defaultLabel })}
-                </button>
-              );
-            })}
-          </div>
-        ) : availableTileLayers.length > 0 && (
-          <>
-            <span className="text-[9px] text-muted-foreground shrink-0">{t('mapMicroapp.layers')}:</span>
-            {availableTileLayers.map(layer => {
-              const isOn = enabledTiles.has(layer.id);
-              return (
-                <button key={layer.id} onClick={() => toggleTileLayer(layer.id)}
-                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] shrink-0 ${isOn ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'}`}>
-                  {isOn ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
-                  {layer.name.length > 18 ? layer.name.slice(0, 16) + '…' : layer.name}
-                </button>
-              );
-            })}
-          </>
-        )}
-        <div className="flex-1" />
-        {/* Draw buttons — tiny chips for the city flow; the CBO site step uses
+          {simpleLegend.length > 0 ? (
+            <div
+              className='flex items-center gap-1.5'
+              data-testid='map-simple-legend'
+            >
+              <span className='text-[9px] text-muted-foreground shrink-0'>
+                {t('mapMicroapp.risks', { defaultValue: 'Riscos' })}:
+              </span>
+              {simpleLegend.map(({ layer, fam }) => {
+                const isOn = enabledTiles.has(layer.id);
+                const meta = HAZARD_LEGEND[fam];
+                return (
+                  <button
+                    key={layer.id}
+                    onClick={() => toggleTileLayer(layer.id)}
+                    data-testid={`map-hazard-chip-${fam}`}
+                    aria-pressed={isOn}
+                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] shrink-0 border ${isOn ? 'font-semibold' : 'text-muted-foreground border-transparent hover:bg-muted/50'}`}
+                    style={
+                      isOn
+                        ? {
+                            backgroundColor: `${meta.color}22`,
+                            borderColor: meta.color,
+                            color: meta.color,
+                          }
+                        : undefined
+                    }
+                  >
+                    <span
+                      className='w-2.5 h-2.5 rounded-full shrink-0'
+                      style={{ backgroundColor: meta.color }}
+                    />
+                    {t(meta.labelKey, { defaultValue: meta.defaultLabel })}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            availableTileLayers.length > 0 && (
+              <>
+                <span className='text-[9px] text-muted-foreground shrink-0'>
+                  {t('mapMicroapp.layers')}:
+                </span>
+                {availableTileLayers.map(layer => {
+                  const isOn = enabledTiles.has(layer.id);
+                  return (
+                    <button
+                      key={layer.id}
+                      onClick={() => toggleTileLayer(layer.id)}
+                      className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] shrink-0 ${isOn ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:bg-muted/50'}`}
+                    >
+                      {isOn ? (
+                        <Eye className='w-2.5 h-2.5' />
+                      ) : (
+                        <EyeOff className='w-2.5 h-2.5' />
+                      )}
+                      {layer.name.length > 18
+                        ? layer.name.slice(0, 16) + '…'
+                        : layer.name}
+                    </button>
+                  );
+                })}
+              </>
+            )
+          )}
+          <div className='flex-1' />
+          {/* Draw buttons — tiny chips for the city flow; the CBO site step uses
             the prominent point/area control above instead. */}
-        {canDraw && !params.allowDeferSite && (
-          <>
-            <Button variant={drawMode === 'point' ? 'default' : 'outline'} size="sm" className="h-5 text-[9px] gap-1 px-1.5"
-              onClick={() => setDrawMode(drawMode === 'point' ? 'off' : 'point')}>
-              <MapPin className="w-2.5 h-2.5" /> {t('mapMicroapp.point')}
+          {canDraw && !params.allowDeferSite && (
+            <>
+              <Button
+                variant={drawMode === 'point' ? 'default' : 'outline'}
+                size='sm'
+                className='h-5 text-[9px] gap-1 px-1.5'
+                onClick={() =>
+                  setDrawMode(drawMode === 'point' ? 'off' : 'point')
+                }
+              >
+                <MapPin className='w-2.5 h-2.5' /> {t('mapMicroapp.point')}
+              </Button>
+              <Button
+                variant={drawMode === 'polygon' ? 'default' : 'outline'}
+                size='sm'
+                className='h-5 text-[9px] gap-1 px-1.5'
+                onClick={() =>
+                  setDrawMode(drawMode === 'polygon' ? 'off' : 'polygon')
+                }
+              >
+                <Pencil className='w-2.5 h-2.5' /> {t('mapMicroapp.area')}
+              </Button>
+            </>
+          )}
+          {totalSelections > 0 && (
+            <Button
+              variant='ghost'
+              size='sm'
+              className='h-5 px-1'
+              onClick={clearAll}
+            >
+              <Trash2 className='w-3 h-3' />
             </Button>
-            <Button variant={drawMode === 'polygon' ? 'default' : 'outline'} size="sm" className="h-5 text-[9px] gap-1 px-1.5"
-              onClick={() => setDrawMode(drawMode === 'polygon' ? 'off' : 'polygon')}>
-              <Pencil className="w-2.5 h-2.5" /> {t('mapMicroapp.area')}
-            </Button>
-          </>
-        )}
-        {totalSelections > 0 && (
-          <Button variant="ghost" size="sm" className="h-5 px-1" onClick={clearAll}><Trash2 className="w-3 h-3" /></Button>
-        )}
-      </div>
+          )}
+        </div>
       )}
 
       {/* Add-your-own-site panel (assets step) — search by name or coordinate
           for sites the OSM suggestions miss. Mobile-friendly: collapsed to a
           single chip until tapped. */}
       {canDraw && (
-        <div className="border-b bg-muted/10 shrink-0">
+        <div className='border-b bg-muted/10 shrink-0'>
           {!addSiteOpen ? (
             <button
               onClick={() => setAddSiteOpen(true)}
-              data-testid="map-add-site-toggle"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-medium text-primary hover:bg-muted/40 w-full"
+              data-testid='map-add-site-toggle'
+              className='flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-medium text-primary hover:bg-muted/40 w-full'
             >
-              <Plus className="w-3 h-3" /> {t('mapMicroapp.addSite', { defaultValue: 'Add a site by name or coordinate' })}
+              <Plus className='w-3 h-3' />{' '}
+              {t('mapMicroapp.addSite', {
+                defaultValue: 'Add a site by name or coordinate',
+              })}
             </button>
           ) : (
-            <div className="px-3 py-2 space-y-2">
-              <div className="flex items-center gap-1.5">
-                <Search className="w-3 h-3 text-muted-foreground shrink-0" />
+            <div className='px-3 py-2 space-y-2'>
+              <div className='flex items-center gap-1.5'>
+                <Search className='w-3 h-3 text-muted-foreground shrink-0' />
                 <Input
                   value={siteQuery}
-                  onChange={(e) => setSiteQuery(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') searchSites(); }}
-                  placeholder={t('mapMicroapp.searchPlaceholder', { defaultValue: 'Search a place name…' }) as string}
-                  className="h-7 text-xs"
-                  data-testid="map-site-search-input"
+                  onChange={e => setSiteQuery(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') searchSites();
+                  }}
+                  placeholder={
+                    t('mapMicroapp.searchPlaceholder', {
+                      defaultValue: 'Search a place name…',
+                    }) as string
+                  }
+                  className='h-7 text-xs'
+                  data-testid='map-site-search-input'
                   autoFocus
                 />
-                <Button size="sm" className="h-7 text-[10px] px-2" onClick={searchSites} disabled={siteSearching || !siteQuery.trim()} data-testid="map-site-search-btn">
-                  {siteSearching ? <Loader2 className="w-3 h-3 animate-spin" /> : t('mapMicroapp.search', { defaultValue: 'Search' })}
+                <Button
+                  size='sm'
+                  className='h-7 text-[10px] px-2'
+                  onClick={searchSites}
+                  disabled={siteSearching || !siteQuery.trim()}
+                  data-testid='map-site-search-btn'
+                >
+                  {siteSearching ? (
+                    <Loader2 className='w-3 h-3 animate-spin' />
+                  ) : (
+                    t('mapMicroapp.search', { defaultValue: 'Search' })
+                  )}
                 </Button>
-                <button onClick={() => { setAddSiteOpen(false); setSiteResults([]); setCoordError(false); }} className="shrink-0 text-muted-foreground">
-                  <X className="w-3.5 h-3.5" />
+                <button
+                  onClick={() => {
+                    setAddSiteOpen(false);
+                    setSiteResults([]);
+                    setCoordError(false);
+                  }}
+                  className='shrink-0 text-muted-foreground'
+                >
+                  <X className='w-3.5 h-3.5' />
                 </button>
               </div>
               {siteResults.length > 0 && (
-                <div className="max-h-24 overflow-y-auto space-y-0.5" data-testid="map-site-results">
+                <div
+                  className='max-h-24 overflow-y-auto space-y-0.5'
+                  data-testid='map-site-results'
+                >
                   {siteResults.map((r, i) => (
                     <button
                       key={i}
-                      onClick={() => { addCustomSite(r.centroid[0], r.centroid[1], r.name); setSiteResults([]); setSiteQuery(''); setAddSiteOpen(false); }}
+                      onClick={() => {
+                        addCustomSite(r.centroid[0], r.centroid[1], r.name);
+                        setSiteResults([]);
+                        setSiteQuery('');
+                        setAddSiteOpen(false);
+                      }}
                       data-testid={`map-site-result-${i}`}
-                      className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded text-[11px] hover:bg-muted/60"
+                      className='flex items-center gap-1.5 w-full text-left px-2 py-1 rounded text-[11px] hover:bg-muted/60'
                     >
-                      <MapPin className="w-3 h-3 text-primary shrink-0" />
-                      <span className="truncate">{r.name}</span>
+                      <MapPin className='w-3 h-3 text-primary shrink-0' />
+                      <span className='truncate'>{r.name}</span>
                     </button>
                   ))}
                 </div>
               )}
-              <div className="flex items-center gap-1.5">
-                <Crosshair className="w-3 h-3 text-muted-foreground shrink-0" />
+              <div className='flex items-center gap-1.5'>
+                <Crosshair className='w-3 h-3 text-muted-foreground shrink-0' />
                 <Input
                   value={coordInput}
-                  onChange={(e) => { setCoordInput(e.target.value); setCoordError(false); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') addByCoordinate(); }}
-                  placeholder={t('mapMicroapp.coordPlaceholder', { defaultValue: 'lat, lng (e.g. -30.03, -51.22)' }) as string}
+                  onChange={e => {
+                    setCoordInput(e.target.value);
+                    setCoordError(false);
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') addByCoordinate();
+                  }}
+                  placeholder={
+                    t('mapMicroapp.coordPlaceholder', {
+                      defaultValue: 'lat, lng (e.g. -30.03, -51.22)',
+                    }) as string
+                  }
                   className={`h-7 text-xs ${coordError ? 'border-red-500' : ''}`}
-                  data-testid="map-site-coord-input"
+                  data-testid='map-site-coord-input'
                 />
-                <Button size="sm" variant="outline" className="h-7 text-[10px] px-2" onClick={addByCoordinate} disabled={!coordInput.trim()} data-testid="map-site-coord-btn">
+                <Button
+                  size='sm'
+                  variant='outline'
+                  className='h-7 text-[10px] px-2'
+                  onClick={addByCoordinate}
+                  disabled={!coordInput.trim()}
+                  data-testid='map-site-coord-btn'
+                >
                   {t('mapMicroapp.addPin', { defaultValue: 'Add' })}
                 </Button>
               </div>
               {coordError && (
-                <p className="text-[10px] text-red-500" data-testid="map-coord-error">
+                <p
+                  className='text-[10px] text-red-500'
+                  data-testid='map-coord-error'
+                >
                   {coordError === 'outside'
-                    ? t('mapMicroapp.coordOutside', { defaultValue: 'That point is outside the Porto Alegre region — double-check the numbers.' })
-                    : t('mapMicroapp.coordInvalid', { defaultValue: 'Enter as: latitude, longitude' })}
+                    ? t('mapMicroapp.coordOutside', {
+                        defaultValue:
+                          'That point is outside the Porto Alegre region — double-check the numbers.',
+                      })
+                    : t('mapMicroapp.coordInvalid', {
+                        defaultValue: 'Enter as: latitude, longitude',
+                      })}
                 </p>
               )}
             </div>
@@ -1169,32 +1806,50 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       )}
 
       {/* Map */}
-      <div className="flex-1 relative min-h-0 overflow-hidden">
-        <div ref={mapContainerRef} className="absolute inset-0">
-          <ValueTooltip mapRef={mapRef} enabledLayers={enabledTileLayerDefs} mapReady={mapReady} />
+      <div className='flex-1 relative min-h-0 overflow-hidden'>
+        <div ref={mapContainerRef} className='absolute inset-0'>
+          <ValueTooltip
+            mapRef={mapRef}
+            enabledLayers={enabledTileLayerDefs}
+            mapReady={mapReady}
+          />
         </div>
         {/* Narration overlay (E2 needs-help). Translucent banner pinned to
             the top of the map so the agent can explain colors as the user
             scrolls. Pointer-events disabled so it doesn't block the map. */}
         {params.narrationOverlay && !tourActive && (
-          <div className="absolute top-2 left-2 right-2 z-[900] pointer-events-none">
-            <div className="bg-background/85 backdrop-blur-sm border border-foreground/10 rounded-lg px-3 py-2 shadow-sm">
-              <p className="text-[11px] text-foreground/85 leading-snug">{params.narrationOverlay}</p>
+          <div className='absolute top-2 left-2 right-2 z-[900] pointer-events-none'>
+            <div className='bg-background/85 backdrop-blur-sm border border-foreground/10 rounded-lg px-3 py-2 shadow-sm'>
+              <p className='text-[11px] text-foreground/85 leading-snug'>
+                {params.narrationOverlay}
+              </p>
             </div>
           </div>
         )}
         {/* Hazard-tour caption — pinned over the map while a single hazard is
             shown. Pointer-events disabled so the user can still pan underneath. */}
         {tourActive && tourFamily && (
-          <div className="absolute top-2 left-2 right-2 z-[900] pointer-events-none">
-            <div className="bg-background/90 backdrop-blur-sm border-2 rounded-lg px-3 py-2 shadow-md" style={{ borderColor: HAZARD_LEGEND[tourFamily].color }}>
-              <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: HAZARD_LEGEND[tourFamily].color }}>
+          <div className='absolute top-2 left-2 right-2 z-[900] pointer-events-none'>
+            <div
+              className='bg-background/90 backdrop-blur-sm border-2 rounded-lg px-3 py-2 shadow-md'
+              style={{ borderColor: HAZARD_LEGEND[tourFamily].color }}
+            >
+              <p
+                className='text-xs font-semibold flex items-center gap-1.5'
+                style={{ color: HAZARD_LEGEND[tourFamily].color }}
+              >
                 <span>{TOUR_COPY[tourFamily].emoji}</span>
-                {t(TOUR_COPY[tourFamily].titleKey, { defaultValue: TOUR_COPY[tourFamily].title })}
-                <span className="ml-auto text-[10px] font-medium text-muted-foreground">{tourIdx + 1}/{tourLayers.length}</span>
+                {t(TOUR_COPY[tourFamily].titleKey, {
+                  defaultValue: TOUR_COPY[tourFamily].title,
+                })}
+                <span className='ml-auto text-[10px] font-medium text-muted-foreground'>
+                  {tourIdx + 1}/{tourLayers.length}
+                </span>
               </p>
-              <p className="text-[11px] text-foreground/85 leading-snug mt-0.5">
-                {t(TOUR_COPY[tourFamily].bodyKey, { defaultValue: TOUR_COPY[tourFamily].body })}
+              <p className='text-[11px] text-foreground/85 leading-snug mt-0.5'>
+                {t(TOUR_COPY[tourFamily].bodyKey, {
+                  defaultValue: TOUR_COPY[tourFamily].body,
+                })}
               </p>
               {/* Real color scale for the active hazard layer (from the map's
                   own legend data), so the colors always match. */}
@@ -1202,11 +1857,22 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
                 const grad = legendGradientCss(legends[tourLayers[tourIdx]]);
                 if (!grad) return null;
                 return (
-                  <div className="mt-1.5">
-                    <div className="h-2 rounded-sm w-full border border-foreground/10" style={{ background: grad }} />
-                    <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5">
-                      <span>{t('mapMicroapp.lessRisk', { defaultValue: 'menos risco' })}</span>
-                      <span>{t('mapMicroapp.moreRisk', { defaultValue: 'mais risco' })}</span>
+                  <div className='mt-1.5'>
+                    <div
+                      className='h-2 rounded-sm w-full border border-foreground/10'
+                      style={{ background: grad }}
+                    />
+                    <div className='flex justify-between text-[9px] text-muted-foreground mt-0.5'>
+                      <span>
+                        {t('mapMicroapp.lessRisk', {
+                          defaultValue: 'menos risco',
+                        })}
+                      </span>
+                      <span>
+                        {t('mapMicroapp.moreRisk', {
+                          defaultValue: 'mais risco',
+                        })}
+                      </span>
                     </div>
                   </div>
                 );
@@ -1216,47 +1882,83 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         )}
         {/* Neighborhood-coloring explainer (CBO zone step) — same encoding as the
             orchestrator: hue = which risk, stronger color = more risk. */}
-        {!tourActive && params.allowDeferSite && isComposite && compositeStep === 'zone' && (
-          <div className="absolute top-2 left-2 right-2 z-[900] pointer-events-none">
-            <div className="bg-background/90 backdrop-blur-sm border border-foreground/10 rounded-lg px-3 py-2 shadow-sm">
-              <p className="text-[11px] text-foreground/85 leading-snug">
-                {t('mapMicroapp.zoneRiskExplainer', { defaultValue: 'Cada bairro está colorido pelo risco principal — quanto mais forte a cor, maior o risco. Toque no seu bairro.' })}
-              </p>
-              <div className="flex items-center gap-2.5 mt-1 flex-wrap">
-                {([['FLOOD', t('mapMicroapp.hazardFlood', { defaultValue: 'Enchente' })], ['HEAT', t('mapMicroapp.hazardHeat', { defaultValue: 'Calor' })], ['LANDSLIDE', t('mapMicroapp.hazardLandslide', { defaultValue: 'Deslizamento' })]] as [keyof typeof TYPOLOGY_COLORS, string][]).map(([key, label]) => (
-                  <span key={key} className="flex items-center gap-1 text-[9px] text-muted-foreground">
-                    <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: TYPOLOGY_COLORS[key] }} />
-                    {label}
-                  </span>
-                ))}
+        {!tourActive &&
+          params.allowDeferSite &&
+          isComposite &&
+          compositeStep === 'zone' && (
+            <div className='absolute top-2 left-2 right-2 z-[900] pointer-events-none'>
+              <div className='bg-background/90 backdrop-blur-sm border border-foreground/10 rounded-lg px-3 py-2 shadow-sm'>
+                <p className='text-[11px] text-foreground/85 leading-snug'>
+                  {t('mapMicroapp.zoneRiskExplainer', {
+                    defaultValue:
+                      'Cada bairro está colorido pelo risco principal — quanto mais forte a cor, maior o risco. Toque no seu bairro.',
+                  })}
+                </p>
+                <div className='flex items-center gap-2.5 mt-1 flex-wrap'>
+                  {(
+                    [
+                      [
+                        'FLOOD',
+                        t('mapMicroapp.hazardFlood', {
+                          defaultValue: 'Enchente',
+                        }),
+                      ],
+                      [
+                        'HEAT',
+                        t('mapMicroapp.hazardHeat', { defaultValue: 'Calor' }),
+                      ],
+                      [
+                        'LANDSLIDE',
+                        t('mapMicroapp.hazardLandslide', {
+                          defaultValue: 'Deslizamento',
+                        }),
+                      ],
+                    ] as [keyof typeof TYPOLOGY_COLORS, string][]
+                  ).map(([key, label]) => (
+                    <span
+                      key={key}
+                      className='flex items-center gap-1 text-[9px] text-muted-foreground'
+                    >
+                      <span
+                        className='w-2.5 h-2.5 rounded-sm'
+                        style={{ backgroundColor: TYPOLOGY_COLORS[key] }}
+                      />
+                      {label}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
         {/* Basemap toggle — CBO site step only (satellite to recognize the place,
             or back to the political map). */}
-        {params.allowDeferSite && isComposite && compositeStep === 'assets' && !tourActive && (
-          <div className="absolute top-2 right-2 z-[900] flex rounded-md overflow-hidden border border-foreground/15 shadow-sm text-[10px] font-medium">
-            <button
-              onClick={() => setBasemap('satellite')}
-              className={`px-2 py-1 ${basemap === 'satellite' ? 'bg-primary text-primary-foreground' : 'bg-background/90 text-foreground hover:bg-muted'}`}
-              data-testid="map-basemap-satellite"
-            >
-              {t('mapMicroapp.basemapSatellite', { defaultValue: 'Satélite' })}
-            </button>
-            <button
-              onClick={() => setBasemap('political')}
-              className={`px-2 py-1 border-l border-foreground/15 ${basemap === 'political' ? 'bg-primary text-primary-foreground' : 'bg-background/90 text-foreground hover:bg-muted'}`}
-              data-testid="map-basemap-political"
-            >
-              {t('mapMicroapp.basemapPolitical', { defaultValue: 'Mapa' })}
-            </button>
-          </div>
-        )}
+        {params.allowDeferSite &&
+          isComposite &&
+          compositeStep === 'assets' &&
+          !tourActive && (
+            <div className='absolute top-2 right-2 z-[900] flex rounded-md overflow-hidden border border-foreground/15 shadow-sm text-[10px] font-medium'>
+              <button
+                onClick={() => setBasemap('satellite')}
+                className={`px-2 py-1 ${basemap === 'satellite' ? 'bg-primary text-primary-foreground' : 'bg-background/90 text-foreground hover:bg-muted'}`}
+                data-testid='map-basemap-satellite'
+              >
+                {t('mapMicroapp.basemapSatellite', {
+                  defaultValue: 'Satélite',
+                })}
+              </button>
+              <button
+                onClick={() => setBasemap('political')}
+                className={`px-2 py-1 border-l border-foreground/15 ${basemap === 'political' ? 'bg-primary text-primary-foreground' : 'bg-background/90 text-foreground hover:bg-muted'}`}
+                data-testid='map-basemap-political'
+              >
+                {t('mapMicroapp.basemapPolitical', { defaultValue: 'Mapa' })}
+              </button>
+            </div>
+          )}
         {loading && (
-          <div className="absolute inset-0 bg-background/70 flex items-center justify-center z-[1000]">
-            <div className="bg-background border rounded-lg px-4 py-3 shadow-lg flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin" /> {loadingStatus}
+          <div className='absolute inset-0 bg-background/70 flex items-center justify-center z-[1000]'>
+            <div className='bg-background border rounded-lg px-4 py-3 shadow-lg flex items-center gap-2 text-xs text-muted-foreground'>
+              <Loader2 className='w-4 h-4 animate-spin' /> {loadingStatus}
             </div>
           </div>
         )}
@@ -1264,18 +1966,33 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
 
       {/* Selection list */}
       {totalSelections > 0 && (
-        <div className="border-t px-3 py-1.5 max-h-20 overflow-y-auto shrink-0">
-          <div className="flex flex-wrap gap-1">
+        <div className='border-t px-3 py-1.5 max-h-20 overflow-y-auto shrink-0'>
+          <div className='flex flex-wrap gap-1'>
             {selectedAssets.map((asset, i) => {
               const visual = asset.source ? OSM_VISUALS[asset.source] : null;
               return (
-                <Badge key={i} variant="secondary" className="text-[9px] h-5 gap-1">
-                  {asset.type === 'zone' ? '📍' : asset.type === 'custom' ? '✏️' : visual?.emoji || '📌'}
-                  <span className="max-w-[120px] truncate">{asset.name}</span>
-                  {asset.rasterValues && Object.keys(asset.rasterValues).length > 0 && (
-                    <span className="text-emerald-500 text-[8px]">{Object.values(asset.rasterValues).map(v => v.toFixed(2)).join(' ')}</span>
-                  )}
-                  <button onClick={() => removeAsset(i)}><X className="w-2.5 h-2.5" /></button>
+                <Badge
+                  key={i}
+                  variant='secondary'
+                  className='text-[9px] h-5 gap-1'
+                >
+                  {asset.type === 'zone'
+                    ? '📍'
+                    : asset.type === 'custom'
+                      ? '✏️'
+                      : visual?.emoji || '📌'}
+                  <span className='max-w-[120px] truncate'>{asset.name}</span>
+                  {asset.rasterValues &&
+                    Object.keys(asset.rasterValues).length > 0 && (
+                      <span className='text-emerald-500 text-[8px]'>
+                        {Object.values(asset.rasterValues)
+                          .map(v => v.toFixed(2))
+                          .join(' ')}
+                      </span>
+                    )}
+                  <button onClick={() => removeAsset(i)}>
+                    <X className='w-2.5 h-2.5' />
+                  </button>
                 </Badge>
               );
             })}
@@ -1284,48 +2001,110 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       )}
 
       {/* Action bar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-t bg-background shrink-0">
+      <div className='flex items-center gap-2 px-3 py-2 border-t bg-background shrink-0'>
         {tourActive ? (
           /* Hazard tour: one CTA that advances flood→heat→landslide, then hands
              off to neighborhood selection. The only control while touring. */
-          <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={advanceTour} data-testid="map-tour-next">
-            {tourIdx < tourLayers.length - 1
-              ? <>{t('mapMicroapp.tourNext', { defaultValue: 'Próximo risco' })} <ChevronRight className="w-3 h-3" /></>
-              : <>{t('mapMicroapp.tourToZone', { defaultValue: 'Escolher meu bairro' })} <ChevronRight className="w-3 h-3" /></>}
+          <Button
+            size='sm'
+            className='h-7 text-xs gap-1 flex-1'
+            onClick={advanceTour}
+            data-testid='map-tour-next'
+          >
+            {tourIdx < tourLayers.length - 1 ? (
+              <>
+                {t('mapMicroapp.tourNext', { defaultValue: 'Próximo risco' })}{' '}
+                <ChevronRight className='w-3 h-3' />
+              </>
+            ) : (
+              <>
+                {t('mapMicroapp.tourToZone', {
+                  defaultValue: 'Escolher meu bairro',
+                })}{' '}
+                <ChevronRight className='w-3 h-3' />
+              </>
+            )}
           </Button>
         ) : isBrowseOnly ? (
           /* Browse-only mode (E2 needs-help): single CTA back to chat. No
              confirm because the user isn't committing to anything. */
-          <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={onCancel} data-testid="map-back-to-chat">
+          <Button
+            size='sm'
+            className='h-7 text-xs gap-1 flex-1'
+            onClick={onCancel}
+            data-testid='map-back-to-chat'
+          >
             ← {t('mapMicroapp.backToChat', { defaultValue: 'Voltar ao chat' })}
           </Button>
         ) : (
           <>
-        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={isComposite && compositeStep === 'assets' ? backToZones : onCancel}>
-          {isComposite && compositeStep === 'assets' ? '← ' + (isNeighborhoods ? t('mapMicroapp.neighborhood') : t('mapMicroapp.zone')) : t('mapMicroapp.cancel')}
-        </Button>
-        {isComposite && compositeStep === 'zone' ? (
-          <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={advanceToAssets} disabled={!selectedAssets.some(a => a.type === 'zone')}>
-            {t('mapMicroapp.nextSites')} <ChevronRight className="w-3 h-3" />
-          </Button>
-        ) : isComposite && compositeStep === 'assets' && params.allowDeferSite ? (
-          /* E2 site step: a real site → Confirm; no site yet → "usar o bairro
+            <Button
+              variant='ghost'
+              size='sm'
+              className='h-7 text-xs'
+              onClick={
+                isComposite && compositeStep === 'assets'
+                  ? backToZones
+                  : onCancel
+              }
+            >
+              {isComposite && compositeStep === 'assets'
+                ? '← ' +
+                  (isNeighborhoods
+                    ? t('mapMicroapp.neighborhood')
+                    : t('mapMicroapp.zone'))
+                : t('mapMicroapp.cancel')}
+            </Button>
+            {isComposite && compositeStep === 'zone' ? (
+              <Button
+                size='sm'
+                className='h-7 text-xs gap-1 flex-1'
+                onClick={advanceToAssets}
+                disabled={!selectedAssets.some(a => a.type === 'zone')}
+              >
+                {t('mapMicroapp.nextSites')}{' '}
+                <ChevronRight className='w-3 h-3' />
+              </Button>
+            ) : isComposite &&
+              compositeStep === 'assets' &&
+              params.allowDeferSite ? (
+              /* E2 site step: a real site → Confirm; no site yet → "usar o bairro
              todo" (commit the neighborhood, defer the site). Gated to the CBO
              map step so the city/concept-note composite flow is unaffected. */
-          hasSite ? (
-            <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={handleConfirm} data-testid="map-confirm-site">
-              <Check className="w-3 h-3" /> {t('mapMicroapp.confirm', { count: totalSelections })}
-            </Button>
-          ) : (
-            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 flex-1" onClick={confirmDeferred} data-testid="map-use-whole-bairro">
-              {t('mapMicroapp.useWholeBairro', { defaultValue: 'Usar o bairro todo' })}
-            </Button>
-          )
-        ) : (
-          <Button size="sm" className="h-7 text-xs gap-1 flex-1" onClick={handleConfirm} disabled={totalSelections === 0}>
-            <Check className="w-3 h-3" /> {t('mapMicroapp.confirm', { count: totalSelections })}
-          </Button>
-        )}
+              hasSite ? (
+                <Button
+                  size='sm'
+                  className='h-7 text-xs gap-1 flex-1'
+                  onClick={handleConfirm}
+                  data-testid='map-confirm-site'
+                >
+                  <Check className='w-3 h-3' />{' '}
+                  {t('mapMicroapp.confirm', { count: totalSelections })}
+                </Button>
+              ) : (
+                <Button
+                  size='sm'
+                  variant='outline'
+                  className='h-7 text-xs gap-1 flex-1'
+                  onClick={confirmDeferred}
+                  data-testid='map-use-whole-bairro'
+                >
+                  {t('mapMicroapp.useWholeBairro', {
+                    defaultValue: 'Usar o bairro todo',
+                  })}
+                </Button>
+              )
+            ) : (
+              <Button
+                size='sm'
+                className='h-7 text-xs gap-1 flex-1'
+                onClick={handleConfirm}
+                disabled={totalSelections === 0}
+              >
+                <Check className='w-3 h-3' />{' '}
+                {t('mapMicroapp.confirm', { count: totalSelections })}
+              </Button>
+            )}
           </>
         )}
       </div>
