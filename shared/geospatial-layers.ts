@@ -18,8 +18,13 @@ export type LayerGroup =
   | 'climate_projections'; // New: FRI, HWM projections
 
 // Value-tile encoding from OEF GitHub catalog (datasets.yaml).
-// Formula for numeric layers: value = (R + 256*G + 65536*B + offset) / scale
-// Formula for categorical layers: class_id = R  (G=B=0)
+// Both kinds read the same 24-bit value: raw = R + 256*G + 65536*B
+//   numeric:     value    = (raw + offset) / scale
+//   categorical: class_id = raw + offset
+// Most categorical layers encode the class directly (offset 0, G=B=0), but the
+// catalog's `class_lookup` layers reserve raw 0 for nodata and store class+1 —
+// those declare `offset: -1` and `nodata: 0`. Decoding those with the old
+// `class_id = R` rule silently shifted every label by one.
 export interface ValueTileEncoding {
   type: "numeric" | "categorical";
   scale?: number;
@@ -27,6 +32,8 @@ export interface ValueTileEncoding {
   unit?: string;
   urlTemplate?: string;
   classes?: Record<number, string>;
+  /** Raw 24-bit value meaning "no data". Decodes to null. */
+  nodata?: number;
 }
 
 export interface TileLayerDef {
@@ -99,6 +106,23 @@ export const FLOOD_INDEX_LAYERS: TileLayerDef[] = [
     id: 'poa_flood_hazard', name: 'Flood Hazard', group: 'flood_indices', color: '#2563eb',
     tileLayerId: 'poa_flood_hazard', available: true, hasValueTiles: true,
     valueEncoding: hazardIndexEncoding('floods', 'hazard'),
+  },
+  {
+    // Catalog dataset_id: poa_flood_mechanism_type (class_lookup, 250 m).
+    // Value tiles store class+1 so raw 0 can mean nodata — hence offset -1.
+    // Porto Alegre's raster only contains riverine, low-lying and mixed;
+    // pluvial and drainage_constrained never occur (drainage is a proxy until
+    // municipal drainage data exists).
+    id: 'poa_flood_mechanism', name: 'Flood Mechanism', group: 'flood_indices', color: '#7b3294',
+    tileLayerId: 'poa_flood_mechanism', available: true, hasValueTiles: true,
+    valueEncoding: {
+      type: 'categorical', offset: -1, nodata: 0,
+      urlTemplate: `${CLIMATE_HAZARDS_BASE}/floods/flood_mechanism/tiles_values/{z}/{x}/{y}.png`,
+      classes: {
+        0: 'None', 1: 'Riverine', 2: 'Pluvial',
+        3: 'Low-lying', 4: 'Drainage constrained', 5: 'Mixed',
+      },
+    },
   },
 ];
 

@@ -48,6 +48,9 @@ const COLOR_FILES: Record<string, { path: string; unit?: string }> = {
 // Categorical class colors from the catalog datasets.yaml (valueEncoding.classes has names only).
 const CLASS_COLORS: Record<string, Record<number, string>> = {
   oef_dynamic_world: { 0: '#62B0CC', 1: '#488C5F', 2: '#98B982', 3: '#A0AAC3', 4: '#D7A55F', 5: '#CDB982', 6: '#B45F55', 7: '#AFA89E', 8: '#B9CDE1' },
+  // Verified against the visual tiles: encoded 2/4/6 paint #2166ac/#abd9e9/#969696,
+  // which is class = encoded - 1 (riverine / low-lying / mixed).
+  poa_flood_mechanism: { 0: '#e0e0e0', 1: '#2166ac', 2: '#fdae61', 3: '#abd9e9', 4: '#7b3294', 5: '#969696' },
 };
 
 // Local risk ramps — mirror the colorFns in generate-risk-tiles.ts (value → color).
