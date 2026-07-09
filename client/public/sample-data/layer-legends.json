@@ -131,6 +131,43 @@
     "source": "sampled",
     "note": "colors recovered from tiles"
   },
+  "poa_flood_mechanism": {
+    "layerId": "poa_flood_mechanism",
+    "kind": "classes",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#e0e0e0",
+        "label": "None"
+      },
+      {
+        "value": 1,
+        "color": "#2166ac",
+        "label": "Riverine"
+      },
+      {
+        "value": 2,
+        "color": "#fdae61",
+        "label": "Pluvial"
+      },
+      {
+        "value": 3,
+        "color": "#abd9e9",
+        "label": "Low-lying"
+      },
+      {
+        "value": 4,
+        "color": "#7b3294",
+        "label": "Drainage constrained"
+      },
+      {
+        "value": 5,
+        "color": "#969696",
+        "label": "Mixed"
+      }
+    ],
+    "source": "classes"
+  },
   "poa_heat_hazard": {
     "layerId": "poa_heat_hazard",
     "kind": "gradient",

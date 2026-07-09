@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Check, MapPin, Layers, X, BarChart3, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
-import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, REFERENCE_LAYERS, type TileLayerDef } from '@shared/geospatial-layers';
+import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, REFERENCE_LAYERS, type TileLayerDef } from '@shared/geospatial-layers';
 import { riskBand, hazardPercentile, type HazardKey } from '@shared/risk-display';
 import ValueTooltip from '@/core/components/maps/ValueTooltip';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
@@ -119,9 +119,11 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
   const osmLayerRefs = useRef<Record<string, L.GeoJSON>>({});
   const spatialQueryRefs = useRef<Record<string, L.GeoJSON>>({});
 
-  // Enabled tile layer defs for ValueTooltip
+  // Enabled tile layer defs for ValueTooltip. ALL_TILE_LAYERS, not TILE_LAYERS —
+  // see the same note in site-explorer.tsx: the risk/index layers are merged in
+  // only by ALL_*, so filtering TILE_LAYERS silently dropped their hover values.
   const enabledTileLayerDefs = useMemo(
-    () => TILE_LAYERS.filter(l => enabledTileLayers.has(l.id)),
+    () => ALL_TILE_LAYERS.filter(l => enabledTileLayers.has(l.id)),
     [enabledTileLayers]
   );
 

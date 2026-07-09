@@ -36,7 +36,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
-import { TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS } from '@shared/geospatial-layers';
+import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS } from '@shared/geospatial-layers';
 import { riskBand, pct100, dominantPercentile, hazardPercentile, riskAnchor, TYPOLOGY_COLORS, type HazardKey } from '@shared/risk-display';
 import { LayerLegend } from '@/core/components/map/LayerLegend';
 import type { LegendIndex } from '@shared/legend-types';
@@ -308,9 +308,13 @@ export default function SiteExplorerPage() {
 
   const isSampleModeActive = isSampleMode || isSampleRoute;
 
-  // Enabled tile layers with value encodings for ValueTooltip
+  // Enabled tile layers with value encodings for ValueTooltip.
+  // Must be ALL_TILE_LAYERS, not TILE_LAYERS: the risk cards and the flood/heat/
+  // landslide index layers live in their own arrays and are only merged in ALL_*.
+  // Filtering TILE_LAYERS meant those layers advertised value tiles (green dot)
+  // but their hover tooltip could never fire.
   const enabledTileLayerDefs = useMemo(
-    () => TILE_LAYERS.filter(l => layers.some(ls => ls.id === l.id && ls.enabled)),
+    () => ALL_TILE_LAYERS.filter(l => layers.some(ls => ls.id === l.id && ls.enabled)),
     [layers]
   );
 

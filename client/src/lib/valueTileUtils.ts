@@ -1,23 +1,17 @@
 // Utilities for decoding OEF value tiles (RGB → numeric/categorical).
 // Ported from Bike-lanes-project-preparation/app/client/src/lib/valueTileUtils.ts
 
-// ── Value-tile encoding spec (matches geospatial-layers.ts) ─────────────────
-// Formula for numeric: value = (R + 256*G + 65536*B + offset) / scale
-// Formula for categorical: class_id = R (G=B=0)
-export interface ValueTileEncoding {
-  type: "numeric" | "categorical";
-  scale?: number;
-  offset?: number;
-  unit?: string;
-  urlTemplate?: string;
-  classes?: Record<number, string>;
-}
+// The encoding spec is owned by the catalog in @shared/geospatial-layers. It used
+// to be re-declared here by hand, which is how the two drifted apart.
+export type { ValueTileEncoding } from '@shared/geospatial-layers';
+import type { ValueTileEncoding } from '@shared/geospatial-layers';
 
 // ── Lat/lng → tile coordinate + pixel offset ─────────────────────────────────
 export function latLngToTilePixel(lat: number, lng: number, z: number) {
   const n = Math.pow(2, z);
   const latR = (lat * Math.PI) / 180;
-  const mercY = (1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2;
+  const mercY =
+    (1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2;
 
   const tileX = Math.floor(((lng + 180) / 360) * n);
   const tileY = Math.floor(mercY * n);
@@ -37,7 +31,9 @@ export function latLngToTilePixel(lat: number, lng: number, z: number) {
 const tileCache = new Map<string, ImageData | null>();
 const pendingTiles = new Map<string, Promise<ImageData | null>>();
 
-export async function fetchTilePixels(tileUrl: string): Promise<ImageData | null> {
+export async function fetchTilePixels(
+  tileUrl: string
+): Promise<ImageData | null> {
   if (tileCache.has(tileUrl)) return tileCache.get(tileUrl)!;
   if (pendingTiles.has(tileUrl)) return pendingTiles.get(tileUrl)!;
 
@@ -46,21 +42,28 @@ export async function fetchTilePixels(tileUrl: string): Promise<ImageData | null
     ? tileUrl
     : `/api/geospatial/proxy-tile?url=${encodeURIComponent(tileUrl)}`;
 
-  const promise = new Promise<ImageData | null>((resolve) => {
+  const promise = new Promise<ImageData | null>(resolve => {
     const img = new Image();
-    img.crossOrigin = "anonymous";
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
-      const canvas = document.createElement("canvas");
+      const canvas = document.createElement('canvas');
       canvas.width = 256;
       canvas.height = 256;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) { tileCache.set(tileUrl, null); resolve(null); return; }
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        tileCache.set(tileUrl, null);
+        resolve(null);
+        return;
+      }
       ctx.drawImage(img, 0, 0, 256, 256);
       const data = ctx.getImageData(0, 0, 256, 256);
       tileCache.set(tileUrl, data);
       resolve(data);
     };
-    img.onerror = () => { tileCache.set(tileUrl, null); resolve(null); };
+    img.onerror = () => {
+      tileCache.set(tileUrl, null);
+      resolve(null);
+    };
     img.src = proxyUrl;
   });
 
@@ -71,38 +74,56 @@ export async function fetchTilePixels(tileUrl: string): Promise<ImageData | null
 }
 
 // ── Sample a single pixel from an ImageData ───────────────────────────────────
-export function samplePixel(imgData: ImageData, px: number, py: number): [number, number, number, number] {
+export function samplePixel(
+  imgData: ImageData,
+  px: number,
+  py: number
+): [number, number, number, number] {
   const i = (py * 256 + px) * 4;
-  return [imgData.data[i], imgData.data[i + 1], imgData.data[i + 2], imgData.data[i + 3]];
+  return [
+    imgData.data[i],
+    imgData.data[i + 1],
+    imgData.data[i + 2],
+    imgData.data[i + 3],
+  ];
 }
 
 // ── Decode OEF value tile pixel → number (or null for nodata) ─────────────────
 export function decodePixelNumeric(
-  r: number, g: number, b: number, alpha: number,
+  r: number,
+  g: number,
+  b: number,
+  alpha: number,
   encoding: ValueTileEncoding
 ): number | null {
   if (alpha < 10) return null;
 
-  if (encoding.type === "categorical") {
-    return r; // class id
+  const raw = r + 256 * g + 65536 * b;
+  if (encoding.nodata !== undefined && raw === encoding.nodata) return null;
+  const offset = encoding.offset ?? 0;
+
+  if (encoding.type === 'categorical') {
+    return raw + offset; // class id
   }
 
-  const raw = r + 256 * g + 65536 * b;
   const scale = encoding.scale ?? 100;
-  const offset = encoding.offset ?? 0;
   const value = (raw + offset) / scale;
   return isFinite(value) ? value : null;
 }
 
 // ── Decode pixel to human-readable string ─────────────────────────────────────
 export function decodePixelDisplay(
-  r: number, g: number, b: number, alpha: number,
+  r: number,
+  g: number,
+  b: number,
+  alpha: number,
   encoding: ValueTileEncoding
 ): string | null {
   if (alpha < 10) return null;
 
-  if (encoding.type === "categorical") {
-    const classId = r;
+  if (encoding.type === 'categorical') {
+    const classId = decodePixelNumeric(r, g, b, alpha, encoding);
+    if (classId === null) return null;
     const className = encoding.classes?.[classId];
     return className ?? `Class ${classId}`;
   }
@@ -110,8 +131,8 @@ export function decodePixelDisplay(
   const value = decodePixelNumeric(r, g, b, alpha, encoding);
   if (value === null) return null;
 
-  if (encoding.unit === "index 0–1") return value.toFixed(3);
-  if (encoding.unit?.includes("°C")) return value.toFixed(1);
+  if (encoding.unit === 'index 0–1') return value.toFixed(3);
+  if (encoding.unit?.includes('°C')) return value.toFixed(1);
   return value.toFixed(1);
 }
 
@@ -127,9 +148,9 @@ export async function sampleRasterAtPoint(
   const { tileX, tileY, px, py } = latLngToTilePixel(lat, lng, z);
 
   const tileUrl = encoding.urlTemplate
-    .replace("{z}", String(z))
-    .replace("{x}", String(tileX))
-    .replace("{y}", String(tileY));
+    .replace('{z}', String(z))
+    .replace('{x}', String(tileX))
+    .replace('{y}', String(tileY));
 
   try {
     const imgData = await fetchTilePixels(tileUrl);
@@ -150,22 +171,22 @@ export function geometryCentroid(geometry: any): [number, number] | null {
 
   const collect = (geom: any): void => {
     switch (geom.type) {
-      case "Point":
+      case 'Point':
         coords.push(geom.coordinates);
         break;
-      case "MultiPoint":
-      case "LineString":
+      case 'MultiPoint':
+      case 'LineString':
         coords.push(...geom.coordinates);
         break;
-      case "MultiLineString":
-      case "Polygon":
+      case 'MultiLineString':
+      case 'Polygon':
         for (const ring of geom.coordinates) coords.push(...ring);
         break;
-      case "MultiPolygon":
+      case 'MultiPolygon':
         for (const poly of geom.coordinates)
           for (const ring of poly) coords.push(...ring);
         break;
-      case "GeometryCollection":
+      case 'GeometryCollection':
         for (const g of geom.geometries) collect(g);
         break;
     }
