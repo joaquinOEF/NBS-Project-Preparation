@@ -1536,8 +1536,23 @@ function buildDecisionLog(cboId: string): string {
       return null;
     }
     const who = m.role === 'user' ? 'User' : 'You (agent)';
-    return `- ${who}: ${m.content.slice(0, 300)}`;
+    return `- ${who}: ${clipKeepingTail(m.content, 300)}`;
   }).filter(Boolean).join('\n');
+}
+
+// Truncate from the MIDDLE, never the end. Agent messages put their question
+// LAST, so the old head-only `slice(0, 300)` deleted the question from the
+// agent's own memory of any message over 300 chars. The guaranteed victim was
+// the templated kickoff greeting (404 chars, every language/prefill variant):
+// the model never saw that it had already asked for the contact's name+role,
+// so it re-asked on turn 1 of every session. See
+// docs/audit-e1-first-turn-2026-07-10.md §2.1. Exported for the proof test.
+export function clipKeepingTail(text: string, max = 300): string {
+  if (text.length <= max) return text;
+  const marker = ' […] ';
+  const head = Math.ceil((max - marker.length) * 0.55);
+  const tail = max - marker.length - head;
+  return `${text.slice(0, head)}${marker}${text.slice(-tail)}`;
 }
 
 // Knowledge cache (cleared on server restart)
