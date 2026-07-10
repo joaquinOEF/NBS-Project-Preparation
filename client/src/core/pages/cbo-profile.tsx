@@ -376,6 +376,11 @@ export default function CboProfilePage() {
   useEffect(() => { refreshFileCount(); }, [refreshFileCount]);
   const [mapRelevant, setMapRelevant] = useState(false);
   const [openMapParams, setOpenMapParams] = useState<OpenMapParams | null>(null);
+  // The E2 hazard tour's position lives HERE, not in MapMicroapp. Any trip to
+  // another right-panel tab sets rightTab and unmounts the map, which would
+  // otherwise reset the tour to Enchente 1/3 — and asking the agent a question
+  // mid-tour makes leaving the map tab much more likely.
+  const [tourIdx, setTourIdx] = useState(0);
   const [interventionSelectorParams, setInterventionSelectorParams] = useState<OpenInterventionSelectorParams | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1022,6 +1027,9 @@ export default function CboProfilePage() {
       }
       case 'open_map':
         setOpenMapParams(event.params);
+        // A fresh guided tour always starts at the first hazard. Re-entry
+        // (hazardTour false) leaves the index alone — MapMicroapp ignores it.
+        if (event.params?.hazardTour) setTourIdx(0);
         // Mirror the server-persisted activeTool locally so the chip/pulse/
         // re-entry reflect it immediately (the client's loaded state predates
         // this turn; without this they'd only update on reload).
@@ -1081,7 +1089,7 @@ export default function CboProfilePage() {
   }, [isStreaming]);
 
   // Send message. `viaVoice` marks the optimistic user bubble as dictated (🎤).
-  const sendMessage = useCallback(async (text: string, hidden = false, viaVoice = false, displayText?: string, turnKind?: 'chip' | 'text' | 'upload' | 'map' | 'system', chipAnswers?: Array<{ question: string; answer: string }>) => {
+  const sendMessage = useCallback(async (text: string, hidden = false, viaVoice = false, displayText?: string, turnKind?: 'chip' | 'text' | 'upload' | 'map' | 'map_help' | 'system', chipAnswers?: Array<{ question: string; answer: string }>) => {
     if (!cboId || !text.trim() || isStreaming) return;
     setInput('');
     setActiveQuestions([]);
@@ -1113,7 +1121,7 @@ export default function CboProfilePage() {
     };
     try {
       armWatchdog();
-      const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang, turnKind, chipAnswers }), signal: ctrl.signal });
+      const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang, turnKind, chipAnswers, displayText }), signal: ctrl.signal });
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -1150,6 +1158,32 @@ export default function CboProfilePage() {
     setIsStreaming(false);
     setCompletedTurns(n => n + 1);
   }, [cboId, isStreaming, processEvent, lang]);
+
+  // "Tenho outra dúvida" in the map's legend sheet. The sheet already answered
+  // the common question in place; this is the escape hatch for a real one.
+  //
+  // Two things make the round-trip safe:
+  //  - rightTab stays 'map', so MapMicroapp never unmounts and the tour holds
+  //    its position while the user reads the answer on the chat tab;
+  //  - turnKind 'map_help' fences the agent's tools server-side (ask_user +
+  //    read_knowledge only), so a question about colors can't advance the
+  //    encontro or reopen the map.
+  // The message carries the ramp's real hex/value pairs — without them the
+  // agent has no way to know that flood's green end is the DANGEROUS one.
+  const handleAskMapHelp = useCallback((family: 'flood' | 'heat' | 'landslide', rampNote: string) => {
+    const hazardName = t(`mapMicroapp.hazard${family[0].toUpperCase()}${family.slice(1)}`);
+    const display = t('cbo.mapHelpQuestion', {
+      hazard: hazardName.toLowerCase(),
+      defaultValue: `Tenho uma dúvida sobre o mapa de ${hazardName.toLowerCase()}.`,
+    });
+    const text =
+      `[MAP HELP] hazard=${family}\n` +
+      `Escala real do mapa que ele está vendo agora — ${rampNote}\n` +
+      `O usuário está no tour de riscos e quer entender como ler as cores. ` +
+      `Responda usando as cores reais acima, não as convenções habituais.`;
+    setMobileActiveTab('chat'); // rightTab stays 'map' on purpose
+    void sendMessage(text, false, false, display, 'map_help');
+  }, [sendMessage, t]);
 
   // MC selection
   const handleSelectOption = useCallback((label: string) => {
@@ -2158,7 +2192,7 @@ export default function CboProfilePage() {
             </div>
             <div className="flex px-4 gap-0 border-t">
               {(['document', 'map', 'interventions', 'scorecard'] as const).map(tab => (
-                <button key={tab} onClick={() => setRightTab(tab)}
+                <button key={tab} onClick={() => setRightTab(tab)} data-testid={`cbo-tab-${tab}`}
                   className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${rightTab === tab ? 'border-green-600 text-green-700' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
                   {tab === 'interventions' ? (t('cbo.tabs.interventions', 'NBS Types')) : t(`cbo.tabs.${tab}`)}
                   {rightTab !== tab && ((tab === 'map' && mapRelevant) || pendingTool(state)?.def.tab === tab) && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse ml-1 inline-block" />}
@@ -2257,6 +2291,9 @@ export default function CboProfilePage() {
                 {(openMapParams ?? (toolReached(state, 'map') && state ? RIGHT_PANEL_TOOLS.map.defaultParams(state) : null)) ? (
                   <MapMicroapp
                     params={(openMapParams ?? RIGHT_PANEL_TOOLS.map.defaultParams(state!)) as OpenMapParams}
+                    tourIdx={tourIdx}
+                    onTourIdxChange={setTourIdx}
+                    onAskMapHelp={handleAskMapHelp}
                     onConfirm={(result: MapSelectionResult) => {
                       const message = formatMapResult(result);
                       // Gap 1 — persist the chosen site as STRUCTURED data, not just

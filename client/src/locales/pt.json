@@ -2053,7 +2053,8 @@
     "phaseLocked": "Seu coordenador vai abrir esta seção depois do próximo encontro.",
     "selectAllThatApply": "(pode marcar várias)",
     "recommended": "recomendado",
-    "confirmSelected": "Confirmar {{n}}"
+    "confirmSelected": "Confirmar {{n}}",
+    "mapHelpQuestion": "Tenho uma dúvida sobre o mapa de {{hazard}}."
   },
   "mapMicroapp": {
     "tourNext": "Próximo risco",
@@ -2117,7 +2118,18 @@
     "customSite": "Local marcado",
     "customPointName": "Ponto marcado",
     "customAreaName": "Área desenhada ({{n}} pontos)",
-    "siteName": "Local"
+    "siteName": "Local",
+    "howToRead": "Como ler este mapa",
+    "helpTitle": "Como ler este mapa",
+    "helpTitle_flood": "Como ler o mapa de enchente",
+    "helpTitle_heat": "Como ler o mapa de calor",
+    "helpTitle_landslide": "Como ler o mapa de deslizamento",
+    "helpWarnInverted": "Neste mapa o verde é o risco ALTO — não o baixo.",
+    "helpWarnLowContrast": "Quase toda a cidade fica na faixa mais baixa — as diferenças de cor aqui são sutis.",
+    "helpRelative": "A cor compara a cidade com ela mesma: “Muito Alto” é o mais alto daqui.",
+    "helpNoLegend": "A escala de cores deste mapa ainda está carregando.",
+    "helpUnderstood": "Entendi",
+    "helpAskAgent": "Tenho outra dúvida"
   },
   "files": {
     "title": "Arquivos",

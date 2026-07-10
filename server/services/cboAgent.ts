@@ -1237,6 +1237,12 @@ export function resolveTurnModel(
   // or a 3-char chip answer looks like a 240-char message.
   const raw = userMessage.split('\n[LANGUAGE:')[0].trim();
 
+  // "What do these colors mean?" from the map's legend sheet. The message
+  // already carries the ramp's hex/value pairs and the tools are fenced to
+  // ask_user + read_knowledge, so there is nothing here for the big model to
+  // reason about — and the user is staring at a map waiting.
+  if (turnKind === 'map_help') return light('map-help');
+
   // Reasoning-heavy shapes ALWAYS stay on the big model.
   if (state.phase > 2) return heavy('phase>2');
   if (turnKind === 'upload' || raw.startsWith("I'm uploading:") || raw.startsWith('Uploaded "')) return heavy('upload');
@@ -1315,6 +1321,13 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   // instead of 'Mais de 10 anos' (live E1 run, 2026-07-08).
   const todayLine = `TODAY: ${new Date().toISOString().slice(0, 10)}\n`;
   const turnContext = `## CURRENT STATE\n${todayLine}${stateSummary}${documentsBlock}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\n## NEW MESSAGE FROM THE USER\n`;
+  // The user tapped "Tenho outra dúvida" in the map's legend sheet. They are
+  // parked mid-tour on the map tab; answer the question and give them the way
+  // back. The tool fence below already blocks everything else, but saying so
+  // keeps the model from narrating an advance it cannot perform.
+  const mapHelpDirective = turnKind === 'map_help'
+    ? `## THIS TURN\nO usuário está no tour de riscos do mapa e perguntou como ler as cores. Responda a pergunta em 2-3 frases curtas, usando as cores REAIS que a mensagem informa (elas variam por risco e às vezes contrariam a intuição — verde nem sempre é seguro). Não avance o encontro, não preencha campos, não reabra o mapa. Termine SEMPRE com ask_user, showMap: true, oferecendo "Voltar pro mapa" como primeira opção.\n\n`
+    : '';
 
   console.log(`[cbo] Turn for ${cboId} (phase ${state.phase}, model ${model}, ${Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length}/7 sections)`);
 
@@ -1330,9 +1343,20 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   let inferenceRounds = 0;
   const roundsDetail: string[] = [];
 
+  // A map_help turn answers "what do these colors mean?" while the user sits on
+  // the map with the tour paused. Fencing the tools is what makes that round
+  // trip safe: the turn is structurally incapable of advancing the encontro,
+  // persisting a field, or reopening the map underneath the user. It ends on
+  // ask_user, which is also how it hands control back to the map.
+  const MAP_HELP_TOOLS = [
+    "mcp__cbo__ask_user",
+    "mcp__cbo__read_knowledge",
+    "mcp__cbo__search_knowledge",
+  ];
+
   try {
     for await (const message of sdkQuery({
-      prompt: turnContext + userMessage,
+      prompt: mapHelpDirective + turnContext + userMessage,
       options: {
         cwd: process.cwd(),
         model,
@@ -1350,7 +1374,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
         // file tools only invited stray repo exploration — each stray call is
         // a whole extra model roundtrip on the slowest path (Ana's "agent too
         // slow on basic questions").
-        allowedTools: [
+        allowedTools: turnKind === 'map_help' ? MAP_HELP_TOOLS : [
           "mcp__cbo__update_section",
           "mcp__cbo__flag_gap",
           "mcp__cbo__set_phase",

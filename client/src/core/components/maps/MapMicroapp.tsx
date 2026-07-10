@@ -34,7 +34,9 @@ import {
   type HazardKey,
 } from '@shared/risk-display';
 import type { LegendSpec } from '@shared/legend-types';
+import { describeRamp } from '@shared/hazard-legend';
 import { DataProvenanceDialog } from '@/core/components/maps/DataProvenanceDialog';
+import HazardLegendSheet from '@/core/components/maps/HazardLegendSheet';
 import type { ProvenanceKey } from '@shared/data-provenance';
 import type {
   OpenMapParams,
@@ -65,6 +67,19 @@ interface Props {
   params: OpenMapParams;
   onConfirm: (result: MapSelectionResult) => void;
   onCancel: () => void;
+  /**
+   * Hazard-tour position, owned by the parent. Without this the tour lives in
+   * local useState and restarts at Enchente every time the map unmounts — which
+   * cbo-profile does whenever the user visits another right-panel tab. Omit in
+   * flows that don't run the tour (concept-note).
+   */
+  tourIdx?: number;
+  onTourIdxChange?: (idx: number) => void;
+  /**
+   * Escalate a "how do I read this?" question into the chat, carrying the
+   * hazard and its actual color ramp so the agent reasons from the real stops.
+   */
+  onAskMapHelp?: (family: HazardFamily, rampNote: string) => void;
 }
 
 // Composite mode has two steps: 1) pick zone, 2) pick assets within it
@@ -152,7 +167,14 @@ function legendGradientCss(spec: LegendSpec | undefined): string | null {
     .join(', ')})`;
 }
 
-export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
+export default function MapMicroapp({
+  params,
+  onConfirm,
+  onCancel,
+  tourIdx: tourIdxProp,
+  onTourIdxChange,
+  onAskMapHelp,
+}: Props) {
   const { t, i18n } = useTranslation();
   const provLang: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
   const mapRef = useRef<L.Map | null>(null);
@@ -226,10 +248,29 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const tourLayers = HAZARD_ORDER.map(fam =>
     (params.tileLayers || []).find(id => hazardFamilyOf(id) === fam)
   ).filter(Boolean) as string[];
-  const [tourIdx, setTourIdx] = useState(
+  // Position is the parent's when it offers one (cbo-profile, so a trip to the
+  // Perfil tab doesn't restart the tour); otherwise local.
+  const [localTourIdx, setLocalTourIdx] = useState(
     params.hazardTour && tourLayers.length > 0 ? 0 : -1
   );
+  const controlledTour = onTourIdxChange != null && tourIdxProp != null;
+  const tourIdx =
+    params.hazardTour && tourLayers.length > 0
+      ? controlledTour
+        ? tourIdxProp
+        : localTourIdx
+      : -1;
+  const setTourIdx = useCallback(
+    (next: number) => {
+      if (controlledTour) onTourIdxChange(next);
+      else setLocalTourIdx(next);
+    },
+    [controlledTour, onTourIdxChange]
+  );
   const tourActive = tourIdx >= 0 && tourIdx < tourLayers.length;
+
+  // "Como ler este mapa" sheet, scoped to the hazard currently on screen.
+  const [helpOpen, setHelpOpen] = useState(false);
 
   // During the tour, suppress zone/asset selection — it's hazard education only.
   const showZones = !tourActive && (!isComposite || compositeStep === 'zone');
@@ -238,7 +279,10 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
   const polygonHelp =
     drawMode === 'polygon' ? t('mapMicroapp.polygonHelp') : '';
   const tourFamily = tourActive ? hazardFamilyOf(tourLayers[tourIdx]) : null;
-  const advanceTour = useCallback(() => setTourIdx(i => i + 1), []);
+  const advanceTour = useCallback(() => {
+    setHelpOpen(false);
+    setTourIdx(tourIdx + 1);
+  }, [setTourIdx, tourIdx]);
 
   // Real per-layer legend specs (same source as the map's legends) so the tour
   // shows the ACTUAL color scale, not a hand-written color word.
@@ -1424,7 +1468,7 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
         : t('mapMicroapp.clickZones');
 
   return (
-    <div className='flex flex-col h-full w-full bg-background overflow-hidden'>
+    <div className='relative flex flex-col h-full w-full bg-background overflow-hidden'>
       {/* Header */}
       <div className='px-3 py-2 border-b bg-muted/30 shrink-0 flex items-start gap-2'>
         <div className='min-w-0 flex-1'>
@@ -2003,28 +2047,42 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
       {/* Action bar */}
       <div className='flex items-center gap-2 px-3 py-2 border-t bg-background shrink-0'>
         {tourActive ? (
-          /* Hazard tour: one CTA that advances flood→heat→landslide, then hands
-             off to neighborhood selection. The only control while touring. */
-          <Button
-            size='sm'
-            className='h-7 text-xs gap-1 flex-1'
-            onClick={advanceTour}
-            data-testid='map-tour-next'
-          >
-            {tourIdx < tourLayers.length - 1 ? (
-              <>
-                {t('mapMicroapp.tourNext', { defaultValue: 'Próximo risco' })}{' '}
-                <ChevronRight className='w-3 h-3' />
-              </>
-            ) : (
-              <>
-                {t('mapMicroapp.tourToZone', {
-                  defaultValue: 'Escolher meu bairro',
-                })}{' '}
-                <ChevronRight className='w-3 h-3' />
-              </>
-            )}
-          </Button>
+          /* Hazard tour: advance flood→heat→landslide, then hand off to
+             neighborhood selection. Below it, the way out of "I see colors but
+             I don't know what they mean" — the tour's only other control. */
+          <div className='flex flex-col gap-1.5 w-full'>
+            <Button
+              size='sm'
+              className='h-7 text-xs gap-1 w-full'
+              onClick={advanceTour}
+              data-testid='map-tour-next'
+            >
+              {tourIdx < tourLayers.length - 1 ? (
+                <>
+                  {t('mapMicroapp.tourNext', { defaultValue: 'Próximo risco' })}{' '}
+                  <ChevronRight className='w-3 h-3' />
+                </>
+              ) : (
+                <>
+                  {t('mapMicroapp.tourToZone', {
+                    defaultValue: 'Escolher meu bairro',
+                  })}{' '}
+                  <ChevronRight className='w-3 h-3' />
+                </>
+              )}
+            </Button>
+            <Button
+              size='sm'
+              variant='outline'
+              className='h-7 text-xs w-full'
+              onClick={() => setHelpOpen(true)}
+              data-testid='map-tour-howto'
+            >
+              {t('mapMicroapp.howToRead', {
+                defaultValue: 'Como ler este mapa',
+              })}
+            </Button>
+          </div>
         ) : isBrowseOnly ? (
           /* Browse-only mode (E2 needs-help): single CTA back to chat. No
              confirm because the user isn't committing to anything. */
@@ -2108,6 +2166,33 @@ export default function MapMicroapp({ params, onConfirm, onCancel }: Props) {
           </>
         )}
       </div>
+
+      {/* "Como ler este mapa" — swatches + caveats for the hazard on screen,
+          read out of the same legend spec the gradient bar uses. Over the map
+          (not in the chat) because on a phone the chat is a different tab: you
+          cannot read about a color you cannot see. Rendered at the root so its
+          scrim also covers the action bar — otherwise "Próximo risco" stays
+          tappable behind the sheet. */}
+      {tourActive && tourFamily && (
+        <HazardLegendSheet
+          open={helpOpen}
+          family={tourFamily}
+          spec={legends[tourLayers[tourIdx]]}
+          lang={provLang}
+          onClose={() => setHelpOpen(false)}
+          onAskAgent={
+            onAskMapHelp
+              ? () => {
+                  setHelpOpen(false);
+                  onAskMapHelp(
+                    tourFamily,
+                    describeRamp(legends[tourLayers[tourIdx]])
+                  );
+                }
+              : undefined
+          }
+        />
+      )}
     </div>
   );
 }
