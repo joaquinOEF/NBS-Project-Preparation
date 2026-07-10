@@ -1,28 +1,53 @@
-// NbsTypeStrip — inline chat strip that TEACHES the kinds of nature-based
-// solutions, shown as the first educational beat of E2 (before any real
-// examples or the map). Read-only: there is no selection here — the user reads,
-// expands "Saber mais" to learn more, and moves on. Picking a concrete type
-// happens later in the flow.
+// NbsTypeStrip — the inline chat strip that TEACHES the kinds of nature-based
+// solutions. First educational beat of E2, pre-posted by the platform on phase
+// entry (cboAgent.ts). Read-only: tapping "Saber mais" opens NbsTypeSheet, which
+// holds all six types, scrolled to the one that was tapped.
 //
-// Source of truth: NBS_INTERVENTION_TYPES in shared/cbo-schema.ts. We
-// deliberately render an emoji + hazard-colored gradient (NOT the per-type
-// caseStudy photos) so the strip stays consistent and avoids the mislabeled
-// type-catalog images flagged in docs/photo-curation.md.
+// Design record: docs/nbs-type-content-model.md
+//
+// The card TRIAGES; the sheet TEACHES. So the card carries the croqui, the type
+// name, one benefit line and three chips — two hazards and one delivery chip
+// naming who can actually build the thing. Cost, time, area and maintenance are
+// deliberation attributes and live in the sheet: people filter on one to three
+// salient attributes, then consult the rest only after narrowing.
+//
+// Source of truth for the types: NBS_INTERVENTION_TYPES in shared/cbo-schema.ts.
+// Copy + illustrations: shared/nbs-type-content.ts (croquis, not photographs —
+// see docs/photo-curation.md on the two registers).
+//
+// `lang` arrives as a prop. Reading i18n.language here loses a pre-fetch race and
+// renders English to a PT cohort — see cbo-ux-audit-backlog.md:11.
 
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { NBS_INTERVENTION_TYPES, getLocalizedNbsType } from '@shared/cbo-schema';
+import { ArrowRight } from 'lucide-react';
+import {
+  NBS_INTERVENTION_TYPES,
+  getLocalizedNbsType,
+} from '@shared/cbo-schema';
+import type { NbsInterventionTypeId } from '@shared/cbo-schema';
+import {
+  NBS_TYPE_CONTENT,
+  getNbsTypeContent,
+  nbsIllustration,
+} from '@shared/nbs-type-content';
+import type { NbsDelivery } from '@shared/nbs-type-content';
+import { NbsTypeSheet } from './NbsTypeSheet';
 
+// Fallback wash behind the croqui — also what shows if an image fails to load.
 const GRADIENTS: Record<'flood' | 'heat' | 'biodiversity', string> = {
   flood: 'linear-gradient(135deg, #cffafe 0%, #67e8f9 100%)',
   heat: 'linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%)',
   biodiversity: 'linear-gradient(135deg, #d1fae5 0%, #6ee7b7 100%)',
 };
 
-// Which hazards each type primarily addresses (for the small tags) and which
-// gradient to paint behind its emoji. Derived from knowledge/_interventions/*.md.
-const TYPE_VISUAL: Record<string, { gradient: 'flood' | 'heat' | 'biodiversity'; hazards: Array<'flood' | 'heat'> }> = {
+// Which hazards each type primarily addresses. Derived from knowledge/_interventions/*.md.
+const TYPE_VISUAL: Record<
+  string,
+  {
+    gradient: 'flood' | 'heat' | 'biodiversity';
+    hazards: Array<'flood' | 'heat'>;
+  }
+> = {
   'bioswales-rain-gardens': { gradient: 'flood', hazards: ['flood'] },
   'flood-parks': { gradient: 'flood', hazards: ['flood'] },
   'green-corridors': { gradient: 'biodiversity', hazards: ['heat', 'flood'] },
@@ -36,95 +61,151 @@ const HAZARD_LABELS = {
   en: { flood: 'flood', heat: 'heat' },
 };
 
+const DELIVERY_LABELS: Record<'pt' | 'en', Record<NbsDelivery, string>> = {
+  pt: {
+    mutirao: 'mutirão',
+    parceria: 'parceria',
+    licenca: 'licença ambiental',
+  },
+  en: { mutirao: 'mutirão', parceria: 'partnership', licenca: 'env. licence' },
+};
+
+// The delivery chip is the honest one: at community scale all six are affordable,
+// so what actually gates a project is who has to say yes and who keeps it alive.
+const DELIVERY_CLASS: Record<NbsDelivery, string> = {
+  mutirao:
+    'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+  parceria: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300',
+  licenca: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
+};
+
+const MORE_LABEL = { pt: 'Saber mais', en: 'Learn more' };
+
 type NbsType = (typeof NBS_INTERVENTION_TYPES)[number];
 
-function NbsTypeCardItem({ type, lang }: { type: NbsType; lang: 'pt' | 'en' }) {
-  const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(false);
+function NbsTypeCardItem({
+  type,
+  lang,
+  onOpen,
+}: {
+  type: NbsType;
+  lang: 'pt' | 'en';
+  onOpen: (id: NbsInterventionTypeId) => void;
+}) {
   const loc = getLocalizedNbsType(type, lang);
-  const visual = TYPE_VISUAL[type.id] ?? { gradient: 'biodiversity' as const, hazards: [] };
+  const { copy, delivery } = getNbsTypeContent(type.id, lang);
+  const visual = TYPE_VISUAL[type.id] ?? {
+    gradient: 'biodiversity' as const,
+    hazards: [],
+  };
 
   return (
     <div
-      className="shrink-0 w-[240px] md:w-full rounded-xl border border-foreground/10 bg-card overflow-hidden transition-all hover:border-foreground/25"
+      className='flex h-full w-[240px] shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-emerald-500/60 md:w-full'
       data-testid={`type-card-${type.id}`}
     >
       <div
-        className="relative h-24 w-full flex items-center justify-center"
+        className='h-[118px] w-full shrink-0 overflow-hidden'
         style={{ background: GRADIENTS[visual.gradient] }}
       >
-        <span className="text-5xl" role="img" aria-hidden="true">{type.emoji}</span>
+        <img
+          src={nbsIllustration(type.id, 'after')}
+          alt=''
+          aria-hidden='true'
+          width={1200}
+          height={896}
+          loading='lazy'
+          decoding='async'
+          className='h-full w-full object-cover'
+        />
       </div>
 
-      <div className="p-3 space-y-1.5">
-        <h4 className="text-sm font-semibold leading-tight">{loc.label}</h4>
+      <div className='flex flex-1 flex-col gap-1.5 p-3'>
+        <h4 className='text-sm font-semibold leading-tight tracking-tight'>
+          {loc.label}
+        </h4>
+        <p className='text-xs leading-snug text-muted-foreground'>
+          {copy.benefit}
+        </p>
 
-        {visual.hazards.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {visual.hazards.map(h => (
-              <span
-                key={h}
-                className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground"
-              >
-                {HAZARD_LABELS[lang][h]}
-              </span>
-            ))}
-          </div>
-        )}
-
-        <p className="text-xs text-foreground/85 leading-snug">{loc.description}</p>
+        <div className='mt-auto flex flex-wrap items-center gap-1 pt-1'>
+          {visual.hazards.map(h => (
+            <span
+              key={h}
+              className='rounded-[3px] bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground'
+            >
+              {HAZARD_LABELS[lang][h]}
+            </span>
+          ))}
+          <span
+            className={`rounded-[3px] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide ${DELIVERY_CLASS[delivery]}`}
+          >
+            {DELIVERY_LABELS[lang][delivery]}
+          </span>
+        </div>
 
         <button
-          type="button"
-          onClick={() => setExpanded(v => !v)}
-          className="flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 -ml-0.5 pt-0.5"
+          type='button'
+          onClick={() => onOpen(type.id)}
+          className='mt-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-2 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-950'
           data-testid={`type-expand-${type.id}`}
         >
-          {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          {expanded
-            ? t('cbo.showcase.less', { defaultValue: 'Menos' })
-            : t('cbo.showcase.more', { defaultValue: 'Saber mais' })}
+          {MORE_LABEL[lang]}
+          <ArrowRight className='h-3 w-3' />
         </button>
-
-        {expanded && (
-          <div className="space-y-1.5 pt-1">
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              <span className="font-medium text-foreground/70">
-                {t('cbo.types.example', { defaultValue: 'Exemplo' })}:
-              </span>{' '}
-              {loc.example}
-            </p>
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              <span className="font-medium text-foreground/70">{loc.caseStudy.project}</span>
-              {' · '}{loc.caseStudy.city}
-            </p>
-            <p className="text-[11px] text-muted-foreground leading-relaxed">{loc.caseStudy.outcome}</p>
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-export function NbsTypeStrip({ typeIds, intro }: { typeIds: string[]; intro?: string }) {
-  const { i18n } = useTranslation();
-  const lang: 'pt' | 'en' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
+export function NbsTypeStrip({
+  typeIds,
+  intro,
+  lang,
+}: {
+  typeIds: string[];
+  intro?: string;
+  lang: 'pt' | 'en';
+}) {
+  const [openTypeId, setOpenTypeId] = useState<NbsInterventionTypeId | null>(
+    null
+  );
+
   const ids = new Set(typeIds);
-  const types = NBS_INTERVENTION_TYPES.filter(t => ids.has(t.id));
+  const types = NBS_INTERVENTION_TYPES.filter(
+    t => ids.has(t.id) && NBS_TYPE_CONTENT[t.id]
+  );
   if (types.length === 0) return null;
 
   return (
-    <div className="space-y-2">
+    // min-w-0 + max-w-full contain the scroller: without them the strip drags the
+    // whole page sideways at 390px (cbo-ux-audit-backlog.md — types-strip overflow).
+    <div className='w-full min-w-0 max-w-full space-y-2'>
       {intro && (
-        <p className="text-xs text-muted-foreground px-1 leading-relaxed">{intro}</p>
+        <p className='px-1 text-xs leading-relaxed text-muted-foreground'>
+          {intro}
+        </p>
       )}
-      <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1 snap-x md:flex-wrap md:overflow-x-visible md:snap-none">
+
+      <div className='-mx-1 flex max-w-full snap-x snap-mandatory gap-2.5 overflow-x-auto px-1 pb-2 md:flex-wrap md:overflow-x-visible md:snap-none'>
         {types.map(type => (
-          <div key={type.id} className="snap-start md:flex-1 md:min-w-[220px] md:max-w-[320px]">
-            <NbsTypeCardItem type={type} lang={lang} />
+          <div
+            key={type.id}
+            // scroll-snap-stop: always — an iOS momentum fling otherwise skips
+            // several cards past their snap points.
+            className='flex snap-start [scroll-snap-stop:always] md:min-w-[220px] md:max-w-[320px] md:flex-1'
+          >
+            <NbsTypeCardItem type={type} lang={lang} onOpen={setOpenTypeId} />
           </div>
         ))}
       </div>
+
+      <NbsTypeSheet
+        typeIds={typeIds}
+        openTypeId={openTypeId}
+        onClose={() => setOpenTypeId(null)}
+        lang={lang}
+      />
     </div>
   );
 }

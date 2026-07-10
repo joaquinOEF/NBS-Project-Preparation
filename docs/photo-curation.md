@@ -17,9 +17,40 @@ Every photograph shown on the platform must demonstrably represent the named pro
 ## What is NOT allowed
 
 - Stock photography (Getty, Shutterstock, Unsplash without explicit project match)
-- AI-generated images
+- AI-generated **photography** (see the two-register rule below — this ban is about images that assert a real place exists)
 - Photos without verifiable attribution
 - Photos labeled as one project but visually inconsistent with that project's actual look (e.g. a generic "rain garden" labeled as a specific Recife project — credibility risk)
+
+## Two registers: documentary photography vs explanatory illustration
+
+The rules above govern **documentary photography** — an image that asserts *this is a real, named place*. A second register is permitted for the generic NBS **type cards** (`NbsTypeStrip` / `NbsTypeSheet`), which teach what a *category* of intervention is and name no specific place. Full rationale: [`nbs-type-content-model.md`](./nbs-type-content-model.md).
+
+**Register 1 — documentary photography of a named place.** Governed entirely by the rules above. **Never synthetic. No exceptions.** The trust premise — "a community leader who knows Curitiba can spot a fake Parque Barigui" — lives here. The `caseStudy.image` photos and the `NbsShowcaseCard` photos are Register 1.
+
+**Register 2 — explanatory *illustration* of a generic category (croqui / section perspective).** The type cards may use a hand-drawn-style architectural **croqui** instead of a photo or emoji, under ALL of these conditions:
+
+1. **Names no real place.** No landmark, no recognizable named site, no real identifiable person. If it depicts a specific place, it is Register 1 and must be a photograph.
+2. **Reviewed by a domain expert** before a live cohort sees it. A landscape architect, ecologist, or NBS/drainage engineer (WRI Brasil, or a municipal engineer) confirms the depiction is physically and biologically plausible — drainage that would actually work, a curb cut on the correct side, plausible native planting. This is a hard gate, not a nicety: the first biovaleta render drew a rain garden that was **not recessed** and so would not retain water — caught only because the drainage manuals had been read first.
+3. **Recorded in the manifest** with `register: illustration`, `subject_scope: generic_category`, `synthetic`, `author`/`generator`, `expert_reviewer`, `expert_reviewed_at`.
+4. **Disclosed.** Where the origin is not otherwise obvious, the surface carries a caption in the viewer's language, e.g. *"Ilustração esquemática — representa um tipo de intervenção, não um local específico."*
+
+> **Status of the current six type croquis (2026-07):** AI-generated, and shipped. Condition 2 — expert review — is **outstanding** and tracked as an open item in [`nbs-type-content-model.md`](./nbs-type-content-model.md). They must be reviewed before the next live cohort.
+
+### Register 2 manifest block
+
+```yaml
+nbs_type_illustrations:
+  - id: bioswales-rain-gardens        # + <id>--before.jpg for before/after types
+    file: client/public/assets/nbs/types/bioswales-rain-gardens.jpg
+    register: illustration
+    subject_scope: generic_category
+    medium: croqui
+    synthetic: true                   # gemini-3-pro-image-preview
+    author: "AI-generated (croqui register)"
+    expert_reviewer: null             # ⚠️ REQUIRED before next live cohort
+    expert_reviewed_at: null
+    status: shipped_pending_review
+```
 
 ## How to attribute
 

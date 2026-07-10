@@ -34,10 +34,16 @@ const DrawerOverlay = React.forwardRef<
 ));
 DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName;
 
+/**
+ * `hideHandle` suppresses the decorative grab bar so the caller can render a real
+ * `<DrawerHandle />` instead. That matters when the drawer is opened with vaul's
+ * `handleOnly`: only a true Drawer.Handle can then drag the sheet, which is what
+ * stops a scroll or a swipe inside the content from dismissing it.
+ */
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & { hideHandle?: boolean }
+>(({ className, children, hideHandle = false, ...props }, ref) => (
   <DrawerPortal>
     <DrawerOverlay />
     <DrawerPrimitive.Content
@@ -48,12 +54,16 @@ const DrawerContent = React.forwardRef<
       )}
       {...props}
     >
-      <div className='mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted' />
+      {!hideHandle && (
+        <div className='mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted' />
+      )}
       {children}
     </DrawerPrimitive.Content>
   </DrawerPortal>
 ));
 DrawerContent.displayName = 'DrawerContent';
+
+const DrawerHandle = DrawerPrimitive.Handle;
 
 const DrawerHeader = ({
   className,
@@ -111,6 +121,7 @@ export {
   DrawerTrigger,
   DrawerClose,
   DrawerContent,
+  DrawerHandle,
   DrawerHeader,
   DrawerFooter,
   DrawerTitle,
