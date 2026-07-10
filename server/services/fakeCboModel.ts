@@ -52,6 +52,7 @@ export type FakeOp =
   | { op: 'set_phase'; phase: number }
   | { op: 'priority_flag'; flag: string; met: boolean; notes?: string }
   | { op: 'open_map'; params?: Record<string, unknown> }
+  | { op: 'open_intervention_selector'; params?: Record<string, unknown> }
   | { op: 'show_types'; typeIds?: string[]; intro?: string }
   | { op: 'show_examples'; cardIds?: string[]; mode?: 'browse' | 'favorites'; intro?: string };
 
@@ -173,6 +174,10 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
     }
     case 'open_map': {
       pushEvent({ type: 'open_map', params: (op.params ?? {}) as any });
+      break;
+    }
+    case 'open_intervention_selector': {
+      pushEvent({ type: 'open_intervention_selector', params: (op.params ?? {}) as any });
       break;
     }
     case 'show_types': {

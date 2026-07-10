@@ -396,7 +396,7 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
 
       {/* Footer */}
       <div className="p-3 border-t bg-background flex items-center justify-between">
-        <Button variant="outline" size="sm" onClick={onCancel}>
+        <Button variant="outline" size="sm" onClick={onCancel} data-testid="intervention-cancel">
           {isPt ? 'Cancelar' : 'Cancel'}
         </Button>
         <div className="flex items-center gap-2">
