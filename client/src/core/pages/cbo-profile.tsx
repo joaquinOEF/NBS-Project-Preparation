@@ -1052,7 +1052,14 @@ export default function CboProfilePage() {
         // Mirror the server-persisted activeTool locally so the chip/pulse/
         // re-entry reflect it immediately (the client's loaded state predates
         // this turn; without this they'd only update on reload).
-        setState(prev => prev ? { ...prev, activeTool: { kind: 'map' } } : prev);
+        // Mirror what pushEvent writes, tourIdx included: a fresh guided tour
+        // resets to 0, any other open_map keeps the recorded position. Writing
+        // a bare {kind:'map'} here silently dropped the position from the local
+        // mirror while the server still held it.
+        setState(prev => prev ? {
+          ...prev,
+          activeTool: { kind: 'map', tourIdx: event.params?.hazardTour ? 0 : prev.activeTool?.tourIdx },
+        } : prev);
         setRightTab('map');
         setMapRelevant(true);
         setMobileActiveTab('panel');
@@ -2415,7 +2422,12 @@ export default function CboProfilePage() {
                       setRightTab('document'); setMobileActiveTab('chat');
                     }}
                     onCancel={() => {
-                      setInterventionSelectorParams(null);
+                      // Same rule as the map: leaving is navigation, not
+                      // completion. Nulling params here stranded the user —
+                      // the nudge chip still said "Escolher o tipo de SbN",
+                      // but the tab it opened showed the "not yet" placeholder,
+                      // because `interventions` has no defaultParams to fall
+                      // back to. Only onConfirm may clear it.
                       setRightTab('document'); setMobileActiveTab('chat');
                     }}
                   />
@@ -2479,6 +2491,12 @@ export default function CboProfilePage() {
         {(() => {
           // Compose the tabs available right now. Chat + Perfil are permanent.
           // Mapa / Intervenções appear only while the agent has those microapps active.
+          //
+          // Deliberately keyed on the LIVE params, not on pendingTool(): the tool
+          // stays "pending" between onConfirm and the agent persisting the section
+          // field, so a registry-derived gate would pop the tab back up seconds
+          // after the user finished with it. Cancelar no longer nulls the params,
+          // so the tab now survives leaving the panel — which is what was broken.
           const showMap = openMapParams != null || mapRelevant;
           const showInterv = interventionSelectorParams != null;
           const tabs: Array<{
