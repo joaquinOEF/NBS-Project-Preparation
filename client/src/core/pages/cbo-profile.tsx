@@ -1687,7 +1687,11 @@ export default function CboProfilePage() {
                 if (parsed.kind === 'types') {
                   return (
                     <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
-                      <NbsTypeStrip typeIds={parsed.typeIds ?? []} intro={parsed.intro} />
+                      <NbsTypeStrip
+                        typeIds={parsed.typeIds ?? []}
+                        intro={parsed.intro}
+                        lang={lang.startsWith('pt') ? 'pt' : 'en'}
+                      />
                     </div>
                   );
                 }
