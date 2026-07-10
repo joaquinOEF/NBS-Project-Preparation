@@ -155,7 +155,19 @@ export function registerCboRoutes(app: Express): void {
     // a HINT for adaptive model routing. The server only ever *downgrades* to the
     // fast model when its own checks agree; a missing/bogus value routes heavy.
     const turnKind = typeof req.body.turnKind === 'string' ? req.body.turnKind : undefined;
-    addCboMessage(req.params.id, { role: 'user', content: message, messageType: 'content', timestamp: new Date().toISOString() });
+
+    // A map_help turn's `message` is a machine payload — "[MAP HELP] hazard=flood
+    // … #3c2c6c (0.104) → #4dc16b (0.62)" — that exists only so the agent reasons
+    // from the real ramp instead of the usual green-is-safe convention. Persist
+    // what the user actually asked, or the hex dump becomes the transcript on
+    // reload and lands in buildDecisionLog forever.
+    //
+    // Scoped to map_help on purpose. `map` turns persist their raw payload too,
+    // but the agent legitimately re-reads the H×E×V numbers out of the decision
+    // log on later turns; swapping those for the summary is a separate change.
+    const displayText = typeof req.body.displayText === 'string' ? req.body.displayText : undefined;
+    const persistedUserText = turnKind === 'map_help' && displayText ? displayText : message;
+    addCboMessage(req.params.id, { role: 'user', content: persistedUserText, messageType: 'content', timestamp: new Date().toISOString() });
 
     // A chip turn also records WHICH answer went with WHICH question, as an
     // `answers` composer row. The plain user message above is untouched -

@@ -1879,7 +1879,8 @@
     },
     "cohortWelcomePrefix": "Welcome,",
     "cohortPhasesUnlocked": "Sections open: {{phases}}",
-    "phaseLocked": "Your coordinator will unlock this after the next workshop."
+    "phaseLocked": "Your coordinator will unlock this after the next workshop.",
+    "mapHelpQuestion": "I have a question about the {{hazard}} map."
   },
   "mapMicroapp": {
     "tourNext": "Next risk",
@@ -1930,6 +1931,17 @@
     "sites": "Sites",
     "nextSites": "Next: Select sites",
     "loading": "Loading...",
-    "clickToSelect": "click to select"
+    "clickToSelect": "click to select",
+    "howToRead": "How to read this map",
+    "helpTitle": "How to read this map",
+    "helpTitle_flood": "How to read the flood map",
+    "helpTitle_heat": "How to read the heat map",
+    "helpTitle_landslide": "How to read the landslide map",
+    "helpWarnInverted": "On this map green is HIGH risk — not low.",
+    "helpWarnLowContrast": "Almost the whole city sits in the lowest band — the color differences here are subtle.",
+    "helpRelative": "The color compares the city against itself: “Very High” is the highest here.",
+    "helpNoLegend": "This map’s color scale is still loading.",
+    "helpUnderstood": "Got it",
+    "helpAskAgent": "I have another question"
   }
 }

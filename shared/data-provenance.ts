@@ -39,7 +39,9 @@ export const DATA_PROVENANCE: Record<ProvenanceKey, ProvenanceEntry> = {
     en: {
       title: 'Flood risk',
       whatItShows: 'Where flooding is most likely to cause harm — combining how flood-prone an area is with how many people live there and how vulnerable they are.',
-      colorMeaning: 'Green = lower risk, orange/red = higher risk.',
+      // ⚠️ This ramp runs the other way to the other two. Verified against the
+      // sampled stops in layer-legends.json: #3c2c6c → #4dc16b.
+      colorMeaning: 'Dark purple = lower risk, green = higher risk — the reverse of the heat and landslide maps.',
       source: 'Open Earth Foundation, built from Copernicus Emergency Mapping (May 2024 flood), MERIT Hydro terrain, JRC surface water, and the IBGE 2022 Census.',
       vintage: 'Flood hazard: current terrain + the May 2024 event. People & vulnerability: 2022 Census.',
       resolution: '~250 m grid',
@@ -48,7 +50,7 @@ export const DATA_PROVENANCE: Record<ProvenanceKey, ProvenanceEntry> = {
     pt: {
       title: 'Risco de inundação',
       whatItShows: 'Onde as inundações têm mais chance de causar dano — combinando o quanto uma área alaga com quantas pessoas vivem ali e quão vulneráveis são.',
-      colorMeaning: 'Verde = menor risco, laranja/vermelho = maior risco.',
+      colorMeaning: 'Roxo escuro = menor risco, verde = maior risco — o contrário dos mapas de calor e deslizamento.',
       source: 'Open Earth Foundation, a partir do Mapeamento de Emergência Copernicus (enchente de maio de 2024), terreno MERIT Hydro, água superficial do JRC e o Censo IBGE 2022.',
       vintage: 'Ameaça de inundação: terreno atual + o evento de maio de 2024. Pessoas e vulnerabilidade: Censo 2022.',
       resolution: 'grade de ~250 m',
@@ -60,7 +62,7 @@ export const DATA_PROVENANCE: Record<ProvenanceKey, ProvenanceEntry> = {
     en: {
       title: 'Heat risk',
       whatItShows: 'Where extreme heat is most likely to harm people — the hottest areas combined with who lives there and how vulnerable they are.',
-      colorMeaning: 'Green = lower risk, orange/red = higher risk.',
+      colorMeaning: 'Green = lower risk, orange = higher risk.',
       source: 'Open Earth Foundation, built from summer land-surface temperature 2015–2024 (Landsat 8, NASA MODIS), ERA5-Land climate data, and the IBGE 2022 Census.',
       vintage: 'Heat: summers 2015–2024. People & vulnerability: 2022 Census.',
       resolution: '~250 m grid',
@@ -69,7 +71,7 @@ export const DATA_PROVENANCE: Record<ProvenanceKey, ProvenanceEntry> = {
     pt: {
       title: 'Risco de calor',
       whatItShows: 'Onde o calor extremo tem mais chance de prejudicar as pessoas — as áreas mais quentes combinadas com quem vive ali e quão vulnerável é.',
-      colorMeaning: 'Verde = menor risco, laranja/vermelho = maior risco.',
+      colorMeaning: 'Verde = menor risco, laranja = maior risco.',
       source: 'Open Earth Foundation, a partir da temperatura de superfície dos verões de 2015–2024 (Landsat 8, NASA MODIS), dados climáticos ERA5-Land e o Censo IBGE 2022.',
       vintage: 'Calor: verões de 2015–2024. Pessoas e vulnerabilidade: Censo 2022.',
       resolution: 'grade de ~250 m',
@@ -81,7 +83,9 @@ export const DATA_PROVENANCE: Record<ProvenanceKey, ProvenanceEntry> = {
     en: {
       title: 'Landslide risk',
       whatItShows: 'Where steep, unstable ground could slide and harm people nearby.',
-      colorMeaning: 'Green = lower risk, brown/red = higher risk.',
+      // Porto Alegre's 98th percentile is only 0.393, so the ramp never leaves
+      // green — the whole city is genuinely low-susceptibility.
+      colorMeaning: 'Dark green = lower risk, pale yellow-green = higher risk. Almost the whole city sits in the low band, so the differences are subtle.',
       source: 'Open Earth Foundation, built from Copernicus 30 m terrain slope, MERIT Hydro, SoilGrids soil, CHIRPS rainfall, and vegetation 2015–2024 (MODIS, Dynamic World 2023).',
       vintage: 'Terrain: current. Rainfall & vegetation: through 2024.',
       resolution: '~90 m grid',
@@ -90,7 +94,7 @@ export const DATA_PROVENANCE: Record<ProvenanceKey, ProvenanceEntry> = {
     pt: {
       title: 'Risco de deslizamento',
       whatItShows: 'Onde o terreno íngreme e instável pode deslizar e atingir quem está por perto.',
-      colorMeaning: 'Verde = menor risco, marrom/vermelho = maior risco.',
+      colorMeaning: 'Verde-escuro = menor risco, verde-amarelado claro = maior risco. Quase toda a cidade fica na faixa baixa, então as diferenças são sutis.',
       source: 'Open Earth Foundation, a partir da declividade do terreno Copernicus 30 m, MERIT Hydro, solos SoilGrids, chuva CHIRPS e vegetação 2015–2024 (MODIS, Dynamic World 2023).',
       vintage: 'Terreno: atual. Chuva e vegetação: até 2024.',
       resolution: 'grade de ~90 m',
