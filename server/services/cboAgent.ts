@@ -1220,7 +1220,9 @@ const DEFAULT_CBO_MODEL = 'claude-sonnet-4-6';
 // prompts). Kill switch: CBO_ADAPTIVE_MODEL=0 (no redeploy needed).
 const LIGHT_CBO_MODEL = process.env.CBO_LIGHT_MODEL || 'claude-haiku-4-5';
 
-function resolveTurnModel(
+// Exported for testability — the first-turn guard interacts with the kickoff
+// route's persisted greeting, and that interaction is exactly what regressed.
+export function resolveTurnModel(
   cboId: string,
   state: CboState,
   userMessage: string,
@@ -1247,7 +1249,14 @@ function resolveTurnModel(
   if (turnKind === 'system') return heavy('system-turn');
   if (/(?:vamos\s+(?:começar|comecar)|let'?s\s+start)\s+(?:o\s+)?encontro/i.test(raw)) return heavy('phase-start');
   // First user message of the session = the intro turn (set_phase + framing).
-  if (getCboMessages(cboId).filter(m => m.messageType === 'content').length < 2) return heavy('first-turn');
+  // Count USER messages only. The old check counted all 'content' messages,
+  // and the instant-kickoff route persists one ASSISTANT content message before
+  // the user ever types — so by the first real turn the count was already 2 and
+  // this guard never fired: the session's most important turn fell through to
+  // light('short-text') → the fast model (audit §2.3, a regression: guard
+  // c9a00d5e 2026-07-02, kickoff fa647505 2026-07-07). The current user message
+  // is persisted before we run, so first turn ⇒ exactly 1 user message.
+  if (getCboMessages(cboId).filter(m => m.messageType === 'content' && m.role === 'user').length < 2) return heavy('first-turn');
 
   // Trivial conversational turns in the interview phases → fast model.
   if (turnKind === 'chip') return light('chip-answer');
