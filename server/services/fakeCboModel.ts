@@ -33,6 +33,7 @@ import {
   isValidSectionId,
 } from '@shared/cbo-schema';
 import { NBS_SHOWCASE_CARDS } from '@shared/nbs-showcase-cards';
+import { resolveOpenMapParams } from '@shared/cbo-map-presets';
 import { emitAssistantText } from './agentOutput';
 import { canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue } from '@shared/cbo-field-catalog';
 
@@ -173,7 +174,12 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
       break;
     }
     case 'open_map': {
-      pushEvent({ type: 'open_map', params: (op.params ?? {}) as any });
+      // Resolve presets exactly as the real MCP tool does, so a spec that
+      // scripts { preset: 'e2_risk_tour' } exercises the same params a live
+      // agent would produce. Without this the fake path would silently pass a
+      // bare {preset} straight through and the map would render nothing.
+      const resolved = resolveOpenMapParams((op.params ?? {}) as any, lang === 'en' ? 'en' : 'pt');
+      pushEvent({ type: 'open_map', params: resolved as any });
       break;
     }
     case 'open_intervention_selector': {

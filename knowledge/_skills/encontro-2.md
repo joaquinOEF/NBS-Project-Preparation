@@ -180,16 +180,15 @@ ask_user({
 On **"Abrir o mapa"** open with the guided tour ON; on **"Já conheço os riscos"** the same call with `hazardTour: false` (skips the tour, straight to neighborhood selection):
 
 ```
-open_map({
-  selectionMode: 'composite',
-  zoneSource: 'neighborhood_zones',  // risk-scored bairros (colored by risk like the orchestrator) — NOT 'neighborhoods' (raw IBGE, no risk colors)
-  layers: ['osm_parks', 'osm_schools', 'osm_wetlands', 'osm_hospitals'],  // OSM sites to pick in step 2
-  tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],  // HAZARD overlays (not H×E×V risk) — the tour teaches where each hazard is, one at a time, with the real color scale
-  showLegendSimple: true,
-  hazardTour: true,        // false if they tapped "Já conheço os riscos"
-  allowDeferSite: true,    // lets them tap "Usar o bairro todo" if no site yet
-  prompt: 'Conheça os riscos e marque onde vocês atuam.'
-})
+open_map({ preset: 'e2_risk_tour' })
+
+// The preset carries selectionMode, zoneSource, layers, hazard tiles, the
+// simplified legend, the guided tour, "usar o bairro todo", and the prompt.
+// It is defined ONCE in shared/cbo-map-presets.ts and imported by both the
+// server tool and the client — so it cannot drift from what actually renders.
+//
+// If they tapped "Já conheço os riscos": open_map({ preset: 'e2_site' })
+// If a doc named a place:               open_map({ preset: 'e2_risk_tour', suggestedSite: {…} })
 ```
 
 The map runs the **whole step itself** — you make ONE call, then wait for ONE result:
@@ -249,14 +248,7 @@ Never block on this — it's optional. Don't push if they don't have files.
 ### Old map recipe (reference)
 
 ```
-open_map({
-  selectionMode: 'composite',
-  zoneSource: 'neighborhoods',
-  layers: ['osm_parks', 'osm_schools', 'osm_wetlands'],
-  tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],
-  showLegendSimple: true,
-  prompt: 'Marca onde vocês querem atuar — primeiro o bairro, depois o lugar específico.'
-})
+open_map({ preset: 'e2_site' })
 ```
 
 ### `needs-help` flow — Beat 2a (browse-only)
@@ -264,13 +256,7 @@ open_map({
 First, exploration mode with a narration banner. The user can scroll the map, toggle layers, and read your overlay — but doesn't have to commit to a site yet.
 
 ```
-open_map({
-  selectionMode: 'browse-only',
-  tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],
-  showLegendSimple: true,
-  prompt: 'Olha o seu bairro. As cores mostram os riscos.',
-  narrationOverlay: 'Azul = enchente. Vermelho = calor. Marrom = deslizamento. Toque "Voltar ao chat" quando quiser.'
-})
+open_map({ preset: 'e2_browse' })
 ```
 
 When the user clicks "Voltar ao chat", you receive an `onCancel`-equivalent (no map result message). Ask:
@@ -282,13 +268,7 @@ Listen for cues. If they name a spot, transition to Beat 2b. If they're still un
 ### `needs-help` flow — Beat 2b (site selection)
 
 ```
-open_map({
-  selectionMode: 'composite',
-  zoneSource: 'neighborhoods',
-  tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],
-  showLegendSimple: true,
-  prompt: 'Agora marca o lugar específico onde vocês querem atuar.'
-})
+open_map({ preset: 'e2_site', prompt: 'Agora marca o lugar específico onde vocês querem atuar.' })
 ```
 
 After the user confirms a selection, you'll receive a message starting with `Map selection (composite mode):`. Parse it:
@@ -440,7 +420,7 @@ Active in this educational module:
 
 Wired but DEFERRED to the map step (do NOT call here):
 - `ask_priority_rank({prompt, minRanked?})`, `ask_community_anchoring({prompt})`
-- `open_map({selectionMode, zoneSource, layers, tileLayers, prompt, ...})`
+- `open_map({preset})` — `e2_risk_tour` | `e2_site` | `e2_browse`. Never retype the params.
 - `score_maturity`, `set_phase`
 - `read_knowledge(folder, file)` — exact-path KB read; `search_knowledge(query)` — search the KB by topic when you don't know the filename (prefer this)
 - `search_org_documents(query)`, `list_org_documents()`, `read_org_document([id])` — the org's uploaded files (see "Mine the org's documents before each beat" above)
