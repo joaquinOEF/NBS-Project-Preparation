@@ -431,7 +431,12 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
   };
 
   return (
-    <div className="flex flex-col h-full">
+    // `isolate` traps the hover-info overlay's z-1000 in a local stacking
+    // context. Without it that z-index competes at the root and paints over
+    // every portalled dialog/popover/select, all of which are z-50.
+    // `isolation` creates the context without touching layout, so the
+    // absolutely-positioned overlay keeps its containing block.
+    <div className="flex flex-col h-full isolate">
       {/* Controls */}
       <div className="flex items-center justify-end gap-1.5 p-2 border-b bg-background">
         {(() => {

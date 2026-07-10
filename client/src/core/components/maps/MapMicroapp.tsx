@@ -1468,7 +1468,14 @@ export default function MapMicroapp({
         : t('mapMicroapp.clickZones');
 
   return (
-    <div className='relative flex flex-col h-full w-full bg-background overflow-hidden'>
+    // `isolate` is load-bearing. The overlays below (tour caption z-900, legend
+    // sheet z-1001, loading veil z-1000) sit OUTSIDE .leaflet-container, so
+    // without a stacking context here their z-indices compete in the root
+    // context and beat every portalled Radix overlay — all of which are z-50.
+    // The ⓘ "De onde vêm estes dados" dialog opened *underneath* the hazard
+    // legend because of this. Leaflet solves it for its own panes the same way
+    // (.leaflet-container is z-index:0); we just do it for ours.
+    <div className='relative isolate flex flex-col h-full w-full bg-background overflow-hidden'>
       {/* Header */}
       <div className='px-3 py-2 border-b bg-muted/30 shrink-0 flex items-start gap-2'>
         <div className='min-w-0 flex-1'>
