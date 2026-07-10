@@ -1503,7 +1503,10 @@ async function buildDocumentsBlock(cboId: string): Promise<string> {
   }
 }
 
-function buildDecisionLog(cboId: string): string {
+// Exported for testability: the RECENT CONVERSATION window is 10 slots wide and
+// what occupies those slots is easy to get wrong (see the answers-composer note
+// below). Nothing outside tests should call this.
+export function buildDecisionLog(cboId: string): string {
   // The SDK is called per-turn with no session continuity, so the agent has
   // no native memory of its own previous responses. Without that context,
   // the agent reads a user message like "Test Huerta" with no idea it was
@@ -1513,9 +1516,20 @@ function buildDecisionLog(cboId: string): string {
   // Include composer messages (persisted prompts/strips) as readable
   // annotations — without them the agent has NO memory of questions it asked
   // via ask_user (the user's "Sim" reads as a reply to nothing), and re-asks.
+  // `answers` composers are a RENDERING record (which chip went with which
+  // question); the user's answer text already arrives as its own 'content'
+  // message. They must be dropped BEFORE slice(-10), not after: the map() below
+  // returns null for unknown composer kinds, so an answers row left in `msgs`
+  // would silently eat one of the agent's ten recent-conversation slots and
+  // contribute nothing. Chip turns are common, so that compounds.
+  const isAnswersComposer = (m: CboChatMessage) => {
+    if (m.messageType !== 'composer') return false;
+    try { return JSON.parse(m.content)?.kind === 'answers'; } catch { return false; }
+  };
   const msgs = getCboMessages(cboId).filter(m =>
     (m.messageType === 'content' || m.messageType === 'composer') &&
-    !!m.content?.trim()
+    !!m.content?.trim() &&
+    !isAnswersComposer(m)
   );
   if (msgs.length === 0) return 'No prior conversation. This is the first turn — introduce yourself and start the flow.';
   // Last 10 messages (composers now occupy slots too). Truncate each to keep prompt small.
