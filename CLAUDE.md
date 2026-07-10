@@ -218,3 +218,20 @@ When working across multiple features:
 ### TypeScript Build
 
 The project has some pre-existing type errors. Use `npx tsc --noEmit` to check for new errors — focus on files you changed, not the entire output.
+
+### ⚠️ Never run `prettier --write` on a file you didn't create
+
+The repo is **not** prettier-formatted: 208 of 283 `.ts`/`.tsx` files fail
+`prettier --check`, and no CI workflow enforces it. Running `npm run format` or
+`prettier --write` on an existing file reformats the *whole* file, so a 30-line
+change lands as a 1,600-line diff — unreviewable, and `git blame` then points at
+your commit for most of the file.
+
+This already happened: PR #375 reformatted `MapMicroapp.tsx` (1,663 changed
+lines for ~228 real ones; 1,221 of 2,113 lines now blame to that commit), and
+PR #376 did the same to `valueTileUtils.ts` (103 changed for 26 real).
+
+- Format **new** files only.
+- Match the surrounding style by hand in existing files.
+- Before committing, sanity-check the diff size against the change you made:
+  `git diff --stat`. If it's an order of magnitude too big, you reformatted.

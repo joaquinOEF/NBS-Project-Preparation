@@ -66,11 +66,16 @@ export function snapshotPath(
 /**
  * Foreign members we attach to the FeatureCollection. GeoJSON permits these and
  * Leaflet ignores them, so the snapshot stays directly renderable.
+ *
+ * NOT named `bbox`: RFC 7946 §5 reserves that member on a FeatureCollection and
+ * requires an array of numbers. We were writing the Overpass bbox *string* there,
+ * so any consumer that trusted `fc.bbox` (turf.bboxPolygon, mapbox tooling) would
+ * have choked on it. `sourceBbox` is ours to define.
  */
 export interface SnapshotMeta {
   generatedAt: string;
   source: string;
-  bbox: string;
+  sourceBbox: string;
 }
 
 const snapshotMemo = new Map<string, any>();
