@@ -47,6 +47,7 @@ function rowToState(row: any): CboState {
     totalMaturityScore: row.totalMaturityScore ?? 0,
     editLog: row.editLog ?? [],
     uploadedFiles: row.uploadedFiles ?? [],
+    activeTool: row.activeTool ?? null,
     metadata: row.metadata ?? {
       createdAt: row.createdAt?.toISOString?.() ?? new Date().toISOString(),
       updatedAt: row.updatedAt?.toISOString?.() ?? new Date().toISOString(),
@@ -102,6 +103,7 @@ export async function upsertCboState(state: CboState): Promise<void> {
       priorityFlags: state.priorityFlags ?? [],
       editLog: state.editLog ?? [],
       uploadedFiles: state.uploadedFiles ?? [],
+      activeTool: state.activeTool ?? null,
       metadata: state.metadata ?? { createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
       updatedAt: new Date(),
     };
@@ -165,6 +167,7 @@ export async function flushCbo(
     priorityFlags: state.priorityFlags ?? [],
     editLog: state.editLog ?? [],
     uploadedFiles: state.uploadedFiles ?? [],
+    activeTool: state.activeTool ?? null,
     metadata: state.metadata ?? { createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
     updatedAt: new Date(),
   };
