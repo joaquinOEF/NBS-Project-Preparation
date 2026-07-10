@@ -14,7 +14,7 @@
 import { db } from '../db';
 import { cboStates, cboMessages } from '@shared/cbo-db-schema';
 import { cohortMembers } from '@shared/cohort-schema';
-import { CBO_SECTIONS, cboFieldIsFilled, type CboFieldState } from '@shared/cbo-schema';
+import { cboSectionsFilledCount } from '@shared/cbo-schema';
 import { eq, asc } from 'drizzle-orm';
 import type { CboState, CboChatMessage } from '@shared/cbo-schema';
 
@@ -204,10 +204,7 @@ export async function flushCbo(
 /** Derived roster snapshot from the live state — single source of truth for
  *  what the coordinator cards show between workshops. */
 async function syncMemberSnapshot(state: CboState): Promise<void> {
-  const sectionsComplete = CBO_SECTIONS.filter(sec => {
-    const fields = (state.sections as Record<string, { fields?: Record<string, CboFieldState> } | undefined>)?.[sec.id]?.fields ?? {};
-    return Object.values(fields).some(f => cboFieldIsFilled(f) && f?.source !== 'invite');
-  }).length;
+  const sectionsComplete = cboSectionsFilledCount(state);
   const interventionRaw = (state.sections as any)?.intervention_type?.fields;
   const intervention = (interventionRaw?.intervention_type?.value ?? interventionRaw?.nbs_type?.value ?? null) as string | null;
   await db.update(cohortMembers).set({

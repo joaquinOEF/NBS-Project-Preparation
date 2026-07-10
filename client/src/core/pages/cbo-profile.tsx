@@ -17,6 +17,7 @@ import { useFileDrop } from '@/core/hooks/useFileDrop';
 import {
   CBO_SECTIONS,
   phaseComplete,
+  cboSectionsFilledCount,
   type CboState,
   type CboEvent,
   type CboChatMessage,
@@ -1413,7 +1414,11 @@ export default function CboProfilePage() {
   // Clear a stale voice error once the user starts a new recording.
   useEffect(() => { if (voice.status === 'recording') setVoiceError(null); }, [voice.status]);
 
-  const filledCount = useMemo(() => state ? Object.values(state.sections).filter(s => Object.keys(s.fields).length > 0).length : 0, [state]);
+  // Was: sections with ANY field key, which counted invite-prefilled org_profile
+  // (and empty-valued fields) — so the CBO read 1/7 at turn 0 while the
+  // coordinator's roster derived 0/7. Use the shared predicate the server and
+  // phaseComplete() already use.
+  const filledCount = useMemo(() => state ? cboSectionsFilledCount(state) : 0, [state]);
 
   if (!state) {
     // Invite link failed to resolve — never leave the user on a bare spinner.

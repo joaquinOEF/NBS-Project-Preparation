@@ -21,7 +21,7 @@ import {
 } from '@shared/cohort-schema';
 import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } from '../services/orgPersistence';
 import { cboStates } from '@shared/cbo-db-schema';
-import { CBO_SECTIONS, cboFieldIsFilled, type CboFieldState } from '@shared/cbo-schema';
+import { cboSectionsFilledCount, type CboState } from '@shared/cbo-schema';
 import { getCboMessages, getCboState, setCboState, loadCboFromDb } from '../services/cboAgent';
 import { deleteCboState } from '../services/cboPersistence';
 import {
@@ -218,14 +218,7 @@ async function attachDerivedSections<
       .from(cboStates)
       .where(inArray(cboStates.id, ids));
     for (const row of rows) {
-      const sections = (row.sections ?? {}) as Record<
-        string,
-        { fields?: Record<string, CboFieldState> } | undefined
-      >;
-      const n = CBO_SECTIONS.filter(sec => {
-        const fields = sections[sec.id]?.fields ?? {};
-        return Object.values(fields).some(f => cboFieldIsFilled(f) && f?.source !== 'invite');
-      }).length;
+      const n = cboSectionsFilledCount({ sections: (row.sections ?? {}) as CboState['sections'] });
       byState.set(row.id, n);
     }
   }
