@@ -19,11 +19,22 @@ import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Check, Clock, Compass, Copy, Droplets, Eye, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
-  Mountain, Network, Paperclip, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Waves,
+  ArrowLeft, BookOpen, Check, Clock, Compass, Copy, Droplets, Eye, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
+  Map as MapIcon, Mountain, Network, Paperclip, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Waves,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from '@/core/components/ui/tabs';
+import {
+  NbsSolutionsGrid,
+  NbsCasesGrid,
+} from '@/core/components/cbo/NbsDesktopGrids';
+import { NBS_SHOWCASE_CARDS } from '@shared/nbs-showcase-cards';
 import { TitleLarge, BodyMedium, BodySmall } from '@oef/components';
 import { useToast } from '@/core/hooks/use-toast';
 import { useResetRole } from '@/core/contexts/role-context';
@@ -835,6 +846,11 @@ export default function OrchestratorLandingPage() {
   const locale: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Which view fills the map region: the bairro map, the six NBS type cards, or
+  // the Brazilian case studies. The map stays mounted underneath either panel.
+  const [regionTab, setRegionTab] = useState<'map' | 'solutions' | 'cases'>(
+    'map'
+  );
   // Active risk view on the coordinator map (one at a time). Defaults to flood —
   // the primary POA hazard — so the map lands on something meaningful.
   const [activeRisk, setActiveRisk] = useState<RiskView | null>('flood');
@@ -1334,28 +1350,68 @@ export default function OrchestratorLandingPage() {
           </BodySmall>
         </div>
 
-        {/* Map (full width) on top, participants list below. Presenting the map
-            this way keeps the orgs' states off-screen (below the fold). */}
+        {/* Tabs govern the map REGION only. The map stays mounted underneath —
+            the two card panels render as overlays over it — so switching tabs
+            never re-inits Leaflet, refetches the 2.5MB GeoJSON, or loses the
+            map's center/zoom (Leaflet greys out if init/resized while hidden).
+            The participants list below the tabs stays visible on every tab. */}
         <div className="flex flex-col gap-5">
-          {/* Map — full width */}
-          <div className="w-full">
+          <Tabs
+            value={regionTab}
+            onValueChange={v => setRegionTab(v as typeof regionTab)}
+            className="w-full"
+          >
+            <TabsList className="mb-3">
+              <TabsTrigger value="map" data-testid="region-tab-map">
+                <MapIcon className="w-3.5 h-3.5 mr-1.5" />
+                {t('orchestrator.regionTabs.map', { defaultValue: 'Mapa' })}
+              </TabsTrigger>
+              <TabsTrigger value="solutions" data-testid="region-tab-solutions">
+                <Sprout className="w-3.5 h-3.5 mr-1.5" />
+                {t('orchestrator.regionTabs.solutions', {
+                  defaultValue: 'Soluções',
+                })}
+              </TabsTrigger>
+              <TabsTrigger value="cases" data-testid="region-tab-cases">
+                <BookOpen className="w-3.5 h-3.5 mr-1.5" />
+                {t('orchestrator.regionTabs.cases', { defaultValue: 'Casos' })}
+              </TabsTrigger>
+            </TabsList>
+
             {/* `isolate`: MapLayerControls is z-400 and sits outside
                 .leaflet-container. Portalled Radix overlays are all z-50, so
                 without a local stacking context the legend paints over any
                 dialog opened from this page. */}
             <div className="relative isolate h-[56vh] md:h-[64vh] w-full">
-              <MapPanel
-                projects={projects}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-                activeRisk={activeRisk}
-                onBairroClick={handleBairroClick}
-              />
-              <MapLayerControls active={activeRisk} onChange={setActiveRisk} />
-            </div>
-          </div>
+              {/* Map is ALWAYS mounted, never in a TabsContent (which would
+                  display:none it). The overlays sit on top when active. */}
+              <div className="absolute inset-0" aria-label="Mapa" role="group">
+                <MapPanel
+                  projects={projects}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  activeRisk={activeRisk}
+                  onBairroClick={handleBairroClick}
+                />
+                <MapLayerControls active={activeRisk} onChange={setActiveRisk} />
+              </div>
 
-          {/* Participants — full-width list/grid below the map */}
+              <TabsContent
+                value="solutions"
+                className="absolute inset-0 z-[500] m-0 overflow-y-auto overscroll-contain rounded-xl border border-foreground/10 bg-background p-4 focus-visible:outline-none"
+              >
+                <NbsSolutionsGrid lang={locale} />
+              </TabsContent>
+              <TabsContent
+                value="cases"
+                className="absolute inset-0 z-[500] m-0 overflow-y-auto overscroll-contain rounded-xl border border-foreground/10 bg-background p-4 focus-visible:outline-none"
+              >
+                <NbsCasesGrid cards={NBS_SHOWCASE_CARDS} lang={locale} />
+              </TabsContent>
+            </div>
+          </Tabs>
+
+          {/* Participants — full-width list/grid below the tabs, always visible */}
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {projects.map((p, i) => {
               const member = memberById.get(p.id);
