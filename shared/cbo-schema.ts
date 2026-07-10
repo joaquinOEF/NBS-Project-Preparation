@@ -43,6 +43,33 @@ export function cboFieldIsFilled(f?: CboFieldState): boolean {
 }
 
 /**
+ * Whether a section has real work in it: at least one filled field the ORG
+ * provided. Invite-prefilled values (source:'invite' — the org name / bairro the
+ * ORCHESTRATOR typed at invite time) don't count; they aren't the org's work.
+ *
+ * This is THE definition of "filled" for a section. The server's snapshot
+ * (syncMemberSnapshot) and the shared phaseComplete() both use it; the client's
+ * "X/7 seções" progress readout must too, or the CBO's count and the
+ * coordinator's roster disagree — the CBO saw 1/7 at turn 0 (org_profile,
+ * invite-prefilled) while the coordinator derived 0/7.
+ */
+export function cboSectionIsFilled(
+  section?: { fields?: Record<string, CboFieldState> },
+): boolean {
+  const fields = section?.fields ?? {};
+  return Object.values(fields).some(f => cboFieldIsFilled(f) && f?.source !== 'invite');
+}
+
+/** How many of the 7 sections have real (non-invite) work. One source of truth. */
+export function cboSectionsFilledCount(
+  state: Pick<CboState, 'sections'>,
+): number {
+  return CBO_SECTIONS.filter(sec =>
+    cboSectionIsFilled(state.sections?.[sec.id as keyof CboState['sections']]),
+  ).length;
+}
+
+/**
  * Phases whose skill GUARANTEES its maturity scores at the encontro's close.
  * For these, the scores ARE the completion signal and the section-fill
  * fallback below must not apply — it is far too weak. Phase 1 has exactly one
@@ -88,14 +115,12 @@ export function phaseComplete(
     if (PHASES_SCORED_AT_CLOSE.has(phase)) return false;
   }
 
-  return sections.every(sec => {
-    const fields = state.sections?.[sec.id]?.fields ?? {};
-    // Invite-prefilled values (org name / neighborhood the ORCHESTRATOR typed at
-    // invite time, source:'invite') are not work the org did — counting them
-    // made phase 1 "complete" at turn 0 for every invited org, so the green
-    // "Começar Encontro 2" banner appeared mid-interview once WS2 was unlocked.
-    return Object.values(fields).some(f => cboFieldIsFilled(f) && f?.source !== 'invite');
-  });
+  // Invite-prefilled values don't count — see cboSectionIsFilled. Counting them
+  // made phase 1 "complete" at turn 0 for every invited org, firing the green
+  // "Começar Encontro 2" banner mid-interview.
+  return sections.every(sec =>
+    cboSectionIsFilled(state.sections?.[sec.id as keyof CboState['sections']]),
+  );
 }
 
 // Maturity scores (0-3 per COUGAR NBS Mapping Criteria)
