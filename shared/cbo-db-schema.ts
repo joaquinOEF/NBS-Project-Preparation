@@ -50,6 +50,12 @@ export const cboStates = pgTable('cbo_states', {
     parsedAt: string;
     summary: string;
   }>>().default([]),
+  // The right-panel tool the agent has open + where the user is inside it
+  // (map tourIdx). Persisted so the panel is re-enterable and the E2 tour
+  // resumes across a COLD load — a Replit recycle drops the in-memory Map, and
+  // until this column existed activeTool lived only there, so the nudge chip
+  // and tour position silently reset after a spin-down.
+  activeTool: jsonb('active_tool').$type<{ kind: 'map' | 'interventions'; tourIdx?: number } | null>(),
   metadata: jsonb('metadata').$type<{
     createdAt: string;
     updatedAt: string;

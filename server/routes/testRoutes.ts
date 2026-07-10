@@ -145,6 +145,15 @@ export function registerTestRoutes(app: Express): void {
     res.json({ ok: true, state });
   }));
 
+  // Simulate a cold load / Replit recycle: flush to DB, then drop the in-memory
+  // maps. The next read hydrates from DB — so a spec can prove state survives a
+  // process restart, not just a warm page reload (which keeps the Map).
+  app.post('/__test/cbo/:id/evict', wrap(async (req, res) => {
+    await flushNow(req.params.id);
+    setCboState(req.params.id, undefined as any);
+    res.json({ ok: true });
+  }));
+
   // ── Fake-model scripting ────────────────────────────────────────────────
   // Body: { turns: FakeTurn[] }. Each user message pops one turn. Requires
   // CBO_FAKE_MODEL=1 to have any effect (otherwise the live SDK runs).

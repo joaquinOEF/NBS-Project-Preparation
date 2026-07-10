@@ -33,6 +33,11 @@ export class TestApi {
     return this.post(`/cbo/${cboId}/script`, { turns });
   }
 
+  /** Flush to DB then drop the in-memory maps — simulates a Replit recycle. */
+  evictCbo(cboId: string) {
+    return this.post(`/cbo/${cboId}/evict`);
+  }
+
   /** The per-org KB documents for the org this session is linked to. */
   async listDocs(cboId: string): Promise<{ orgId: string | null; documents: any[] }> {
     const r = await this.request.get(`/__test/cbo/${cboId}/documents`);
