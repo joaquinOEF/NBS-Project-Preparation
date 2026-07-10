@@ -43,17 +43,34 @@ export function cboFieldIsFilled(f?: CboFieldState): boolean {
 }
 
 /**
+ * Phases whose skill GUARANTEES its maturity scores at the encontro's close.
+ * For these, the scores ARE the completion signal and the section-fill
+ * fallback below must not apply — it is far too weak. Phase 1 has exactly one
+ * section (org_profile), so the fallback's every() collapsed to some(): the
+ * agent's very first update_section (contact_name) marked Encontro 1 complete
+ * and fired the "Começar Encontro 2" banner one exchange into the interview
+ * (docs/audit-e1-first-turn-2026-07-10.md §3). encontro-1.md:220 mandates both
+ * score_maturity calls at the E1 close, and the score_maturity validator
+ * already tells the model "the next-workshop banner only appears when the
+ * phase's metrics are scored" — this makes that sentence true.
+ *
+ * NOT in the set: phase 2 (encontro-2.md:81 explicitly DEFERS scoring — the
+ * fallback exists for it) and phases 3-5 (no skill files yet; their scoring
+ * behavior is unverified, so their gate is left untouched).
+ */
+const PHASES_SCORED_AT_CLOSE = new Set([1]);
+
+/**
  * Whether a phase's work is done — the single forward-progress predicate used by
  * the next-workshop advance banner (and available to the server phase gate).
  * A phase is complete when EITHER signal holds:
  *   (a) every maturity metric for the phase is scored (the legacy signal — still
  *       true for phases that DO score), OR
- *   (b) every section belonging to the phase has at least one filled field.
+ *   (b) every section belonging to the phase has at least one filled field —
+ *       UNLESS the phase is in PHASES_SCORED_AT_CLOSE, where (a) is the contract.
  * (b) is what unblocks Encontro 2, whose skill intentionally DEFERS its two
  * maturity scores (site_control / community_anchoring) — so (a) is never
  * satisfiable there and the advance banner used to dead-end with no way forward.
- * Being an OR of the two, this is strictly more permissive than the old
- * metrics-only gate: it can never hide a banner that previously showed.
  */
 export function phaseComplete(
   state: Pick<CboState, 'sections' | 'maturityScores'>,
@@ -66,6 +83,9 @@ export function phaseComplete(
   if (required.length > 0) {
     const scored = new Set((state.maturityScores ?? []).map(s => s.metric));
     if (required.every(m => scored.has(m))) return true;
+    // The skill scores these at the encontro's close — until it does, the
+    // phase is not complete, no matter how many fields are filled.
+    if (PHASES_SCORED_AT_CLOSE.has(phase)) return false;
   }
 
   return sections.every(sec => {
