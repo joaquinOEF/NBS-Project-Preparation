@@ -3,7 +3,7 @@
 // value tiles at each feature's centroid, keeps features that pass the threshold.
 
 import L from "leaflet";
-import { TILE_LAYERS, LOCAL_RISK_LAYERS, type SpatialQueryDef } from "@shared/geospatial-layers";
+import { ALL_TILE_LAYERS, type SpatialQueryDef } from "@shared/geospatial-layers";
 import { sampleRasterAtPoint, geometryCentroid } from "./valueTileUtils";
 
 function compareValue(value: number, threshold: number, comparator: string): boolean {
@@ -33,9 +33,11 @@ export async function buildSpatialQueryLayer(
   const features = geojson?.features;
   if (!features || features.length === 0) return null;
 
-  // Find raster encoding (check both S3 tile layers and local risk layers)
-  const allLayers = [...TILE_LAYERS, ...LOCAL_RISK_LAYERS];
-  const rasterLayer = allLayers.find(l => l.id === query.rasterLayerId);
+  // Find raster encoding. ALL_TILE_LAYERS covers the catalog, the local risk
+  // cards AND the flood/heat/landslide index layers. Every rasterLayerId in use
+  // today resolves under the old [TILE_LAYERS, LOCAL_RISK_LAYERS] pair, but a
+  // query pointed at e.g. poa_flood_hazard would have silently returned null.
+  const rasterLayer = ALL_TILE_LAYERS.find(l => l.id === query.rasterLayerId);
   const enc = rasterLayer?.valueEncoding;
   if (!enc?.urlTemplate) return null;
 

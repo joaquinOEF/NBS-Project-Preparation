@@ -70,7 +70,7 @@ async function main(): Promise<void> {
       const bytes = await writeSnapshot(layer.id, geojson, {
         generatedAt: new Date().toISOString(),
         source: 'OpenStreetMap via Overpass API (ODbL)',
-        bbox: POA_BBOX,
+        sourceBbox: POA_BBOX,
       });
 
       const delta =

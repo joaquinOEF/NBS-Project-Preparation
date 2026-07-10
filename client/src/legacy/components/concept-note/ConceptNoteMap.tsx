@@ -477,7 +477,12 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
         <div className="flex items-center gap-1 px-3 py-1 border-b bg-muted/30 flex-wrap">
           <span className="text-[10px] text-muted-foreground">Active:</span>
           {Array.from(enabledTileLayers).map(id => {
-            const layer = TILE_LAYERS.find(l => l.id === id);
+            // ALL_TILE_LAYERS, not TILE_LAYERS: the risk cards below (:522+) can
+            // be toggled into `enabledTileLayers`, but they live in
+            // LOCAL_RISK_LAYERS. Looking them up in TILE_LAYERS returned
+            // undefined, so enabling "Flood Risk" rendered NO chip in this
+            // "Active:" bar — and therefore no way to switch it off from here.
+            const layer = ALL_TILE_LAYERS.find(l => l.id === id);
             return layer ? (
               <Badge key={id} variant="secondary" className="text-[9px] h-4 gap-0.5">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: layer.color }} />
