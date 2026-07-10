@@ -24,6 +24,7 @@ import {
 } from "./cboPersistence";
 import { db } from "../db";
 import { cohortMembers } from "@shared/cohort-schema";
+import { resolveOpenMapParams } from "@shared/cbo-map-presets";
 import { eq } from "drizzle-orm";
 import { getOrgIdForCboState, listDocumentsByOrg, listDocumentSummariesByOrg, getDocumentForOrg } from "./documentPersistence";
 import { setMaturityTierForCboState, getMaturityTierForCboState } from "./orgPersistence";
@@ -551,19 +552,27 @@ OSM (vector): osm_parks, osm_schools, osm_hospitals, osm_wetlands
 Tiles (raster): poa_flood_hazard (Flood Hazard), poa_heat_hazard (Heat Hazard), poa_landslide_hazard (Landslide Hazard), oef_dynamic_world (Land Use), oef_chirps_r90p_2024, oef_copernicus_dem, oef_ghsl_population, oef_merit_elv, +40 more
 Spatial queries: sq_parks_flood, sq_schools_flood, sq_hospitals_flood, sq_wetlands_flood, sq_schools_heat_250m, sq_schools_landslide_250m
 
-## Recipes
-- CBO Phase 2 (Where We Work): composite + zoneSource:"neighborhoods" + [osm_parks, osm_schools, osm_wetlands] + [poa_flood_hazard, poa_heat_hazard, poa_landslide_hazard]
+## Presets — ALWAYS use one for an Encontro-2 map. Never retype its params.
+- \`preset:"e2_risk_tour"\` — Beat 2, the guided entry: hazard tour (flood → heat → landslide), then bairro, then site.
+- \`preset:"e2_site"\` — the same map with the tour off ("Já conheço os riscos").
+- \`preset:"e2_browse"\` — needs-help Beat 2a: look around, commit to nothing.
+A preset supplies selectionMode, zoneSource, layers, tiles, legend, tour and prompt.
+Pass an extra field ONLY to narrow it — e.g. \`{preset:"e2_risk_tour", suggestedSite:{…}}\`
+or \`{preset:"e2_risk_tour", prompt:"…"}\` to frame it on the org's own words.
+
+## Recipes (non-CBO flows, which have no preset)
 - CBO Phase 3 (What We're Doing): assets + [osm_parks, osm_wetlands] + [oef_dynamic_world, poa_flood_hazard, poa_heat_hazard, poa_landslide_hazard]
 - Concept Note Phase 2 (Territorial Scope): zones + [] + [poa_flood_hazard, poa_heat_hazard, poa_landslide_hazard]
 - Environmental analysis: sample + [] + [poa_flood_hazard, poa_heat_hazard, oef_copernicus_dem]
 
 STOP and wait for the user's map selection after calling this tool.`,
     {
+      preset: z.enum(["e2_risk_tour", "e2_site", "e2_browse"]).optional().describe("The canonical Encontro-2 map step. Supplies every param below. USE THIS for any E2 map — the params are defined once in shared/cbo-map-presets.ts, so a retyped copy can never drift from the one the client renders."),
       layers: z.array(z.string()).optional().describe("OSM layer IDs to show: osm_parks, osm_schools, osm_hospitals, osm_wetlands"),
       tileLayers: z.array(z.string()).optional().describe("Tile layer IDs as toggleable overlays (not auto-shown): poa_flood_hazard, poa_heat_hazard, etc."),
       spatialQueries: z.array(z.string()).optional().describe("Pre-filter features: sq_parks_flood, sq_schools_heatwave, etc."),
-      selectionMode: z.enum(["zones", "assets", "sample", "composite", "browse-only"]).describe("composite = zone first, then sites. assets = sites only. zones = zones only. sample = click-to-read-values. browse-only = exploration; no commitment (E2 needs-help)."),
-      prompt: z.string().describe("Clear instruction for the user, e.g. 'Select the zone where you work, then pick the parks and schools you are targeting'"),
+      selectionMode: z.enum(["zones", "assets", "sample", "composite", "browse-only"]).optional().describe("Required unless `preset` is given. composite = zone first, then sites. assets = sites only. zones = zones only. sample = click-to-read-values. browse-only = exploration; no commitment (E2 needs-help)."),
+      prompt: z.string().optional().describe("Required unless `preset` is given. Clear instruction for the user, e.g. 'Select the zone where you work, then pick the parks and schools you are targeting'"),
       sampleLayers: z.array(z.string()).optional().describe("For sample mode: which tile layers to sample on click"),
       zoneSource: z.enum(["neighborhood_zones", "intervention_zones", "neighborhoods"]).optional().describe("For composite mode step 1: 'neighborhood_zones' (default) shows bairros with risk scores + vulnerability-weighted priority. 'neighborhoods' shows raw IBGE census data. 'intervention_zones' uses legacy synthetic zones."),
       narrationOverlay: z.string().optional().describe("Translucent banner over the map for browse-only mode — agent narrates what colors mean. ~80 chars ideal."),
@@ -589,24 +598,32 @@ STOP and wait for the user's map selection after calling this tool.`,
       if ((mapState?.phase ?? 0) < 2) {
         return { content: [{ type: "text" as const, text: `BLOCKED: open_map is an Encontro 2+ tool and this org is still in phase ${mapState?.phase ?? 0}. Do NOT simulate Encontro 2 content or open the map. Tell the user the next encontro will appear as a green card here in the chat once their coordinator opens it, then END your turn.` }] };
       }
-      pushEvent({
-        type: 'open_map',
-        params: {
-          layers: args.layers,
-          tileLayers: args.tileLayers,
-          spatialQueries: args.spatialQueries,
-          selectionMode: args.selectionMode,
-          prompt: args.prompt,
-          sampleLayers: args.sampleLayers,
-          zoneSource: args.zoneSource,
-          narrationOverlay: args.narrationOverlay,
-          showLegendSimple: args.showLegendSimple,
-          hazardTour: args.hazardTour,
-          allowDeferSite: args.allowDeferSite,
-          suggestedSite: args.suggestedSite,
-        },
-      });
-      return { content: [{ type: "text" as const, text: `Map opened in "${args.selectionMode}" mode. STOP and wait for selection.` }] };
+      // A preset supplies the whole canonical step (shared/cbo-map-presets.ts);
+      // any explicit arg narrows it. Without a preset this is a passthrough, so
+      // the city / concept-note flows are untouched.
+      const lang = mapState?.metadata?.language === 'en' ? 'en' : 'pt';
+      const resolved = resolveOpenMapParams({
+        preset: args.preset,
+        layers: args.layers,
+        tileLayers: args.tileLayers,
+        spatialQueries: args.spatialQueries,
+        selectionMode: args.selectionMode,
+        prompt: args.prompt,
+        sampleLayers: args.sampleLayers,
+        zoneSource: args.zoneSource,
+        narrationOverlay: args.narrationOverlay,
+        showLegendSimple: args.showLegendSimple,
+        hazardTour: args.hazardTour,
+        allowDeferSite: args.allowDeferSite,
+        suggestedSite: args.suggestedSite,
+      }, lang);
+
+      if (!resolved.selectionMode) {
+        return { content: [{ type: "text" as const, text: `NOT opened — pass a \`preset\` (e2_risk_tour | e2_site | e2_browse) or an explicit \`selectionMode\`. Re-call open_map now.` }], isError: true };
+      }
+
+      pushEvent({ type: 'open_map', params: resolved });
+      return { content: [{ type: "text" as const, text: `Map opened in "${resolved.selectionMode}" mode${args.preset ? ` (preset ${args.preset})` : ''}. STOP and wait for selection.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
@@ -1779,12 +1796,12 @@ Score: Org Delivery Capacity (0-3), Team Technical Experience (0-3).`;
     case 2:
       return isPt
         ? `**Fase 2: Onde Atuamos** (intervention_site)
-Abrir open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks","osm_schools","osm_wetlands"], tileLayers: ["poa_flood_hazard","poa_heat_hazard","poa_landslide_hazard"], showLegendSimple: true, prompt: "Selecione seu bairro, depois escolha os locais" }).
+Abrir open_map({ preset: "e2_risk_tour" }) — o preset já traz modo, camadas, tour de riscos e prompt.
 Após seleção: perguntar condições atuais, população, posse do terreno, engajamento comunitário.
 Se desenharem ponto/área customizada: perguntar "Esse local tem um nome?"
 Pedir fotos do local. Avaliar: Controle do Local (0-3), Ancoragem Comunitária (0-3).`
         : `**Phase 2: Where We Work** (intervention_site)
-Open open_map({ selectionMode: "composite", zoneSource: "neighborhoods", layers: ["osm_parks","osm_schools","osm_wetlands"], tileLayers: ["poa_flood_hazard","poa_heat_hazard","poa_landslide_hazard"], showLegendSimple: true, prompt: "Select your neighborhood, then pick sites" }).
+Open open_map({ preset: "e2_risk_tour" }) — the preset carries mode, layers, hazard tour and prompt.
 After selection: ask current conditions, population, land tenure, community engagement.
 If they draw custom point/area: ask "Does this site have a name?"
 Ask for site photos. Score: Site Control (0-3), Community Anchoring (0-3).`;

@@ -222,7 +222,16 @@ The single structural fix is a **per-turn validate-before-flush normalization la
 - **Evidence:** MapMicroapp.tsx:135 showZones defined (only showAssets used at :807); zones effect :243-374 adds handlers regardless of tour; caption pointer-events:none :1025.
 - **Fix:** Gate the zone click handler on tour state (early-return when tourActive via a tourActiveRef) or don't enable the zones layer until the tour completes; remove the dead showZones or wire it to disable interactivity.
 
-#### [P2] `MAP-PARAM-DIVERGENCE` — Live-agent open vs re-entry param divergence: zone fill can be invisible (fillOpacity 0)  _(effort M)_
+#### ✅ FIXED [P2] `MAP-PARAM-DIVERGENCE` — Live-agent open vs re-entry param divergence: zone fill can be invisible (fillOpacity 0)  _(effort M)_
+> Resolved by `shared/cbo-map-presets.ts`: the E2 map is defined once and the agent
+> names a preset (`e2_risk_tour` / `e2_site` / `e2_browse`) instead of retyping params.
+> It was worse than recorded — **five** definitions, in `cboAgent.ts` (tool description
+> + phase map), `cbo-profile.tsx` (defaultParams) and `encontro-2.md` (three recipes,
+> two of which contradicted the file's own "NOT 'neighborhoods'" comment).
+> Pinned by `e2e/cougar-e2-map-presets.spec.ts`, which asserts the bairros actually
+> have nonzero fill; reverting the preset to the old params drops it to exactly 0.
+> The `minimum fillOpacity` half of the suggested fix was NOT done — invisible zones
+> are now impossible by construction, and a floor would mask the next divergence.
 - **Symptom:** Depending on whether the map was opened live by the agent vs restored from defaultParams, the zone step looks different: on the live path the choropleth may be missing and with zoneSource 'neighborhoods' (null priorityScore) zone fillOpacity computes to 0, so bairros look absent and only rasters show - feeding 'no clickable zones, just an overlay'.
 - **Root cause:** cboAgent.ts open_map examples pass showLegendSimple but omit allowDeferSite and hazardTour, whereas defaultParams sets allowDeferSite:true. Without allowDeferSite, getDefaultStyle takes the intervention-color branch where fillOpacity = priorityScore!=null ? ... : 0 -> 0 for raw-IBGE neighborhoods.
 - **Evidence:** cboAgent.ts:1300,1305 (no allowDeferSite/hazardTour); cbo-profile.tsx:125-134 sets them; MapMicroapp.tsx:289-292 fillOpacity 0 when priorityScore null.

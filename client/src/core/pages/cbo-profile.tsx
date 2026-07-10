@@ -29,6 +29,7 @@ import {
 } from '@shared/cbo-schema';
 import { orgProfileDisplayValue } from '@shared/cbo-field-catalog';
 import type { OpenMapParams, MapSelectionResult, SelectedAsset } from '@shared/concept-note-schema';
+import { e2SiteParams } from '@shared/cbo-map-presets';
 import {
   Send, Download, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft, Paperclip,
   FileText, Files, Loader2, RotateCcw, Star, Leaf,
@@ -170,20 +171,15 @@ const RIGHT_PANEL_TOOLS: Record<ToolKind, RightPanelToolDef> = {
     // LEGACY FALLBACK ONLY. Normal re-entry restores the agent's actual params
     // from the persisted `open_map` composer row (see hydrateMessages), so the
     // user gets back the map that was opened — guided hazard tour included.
-    // This reconstruction runs only for transcripts written before composer
-    // persistence, where no such row exists. Do not "improve" it into a second
-    // definition of the E2 map: that divergence (hazardTour:false, a different
-    // prompt) is exactly what made "Abrir o mapa" open the wrong map.
-    defaultParams: (s) => s.phase === 2 ? {
-      selectionMode: 'composite',
-      zoneSource: 'neighborhood_zones',  // risk-scored bairros (typologyLabel/meanFlood…) — same as the orchestrator
-      layers: ['osm_parks', 'osm_schools', 'osm_wetlands', 'osm_hospitals'],  // OSM sites to pick in step 2
-      tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],
-      showLegendSimple: true,
-      hazardTour: false,        // no recorded tour position to resume → skip it
-      allowDeferSite: true,
-      prompt: 'Marque o bairro e o lugar onde vocês atuam.',
-    } : null,
+    // This runs only for transcripts written before composer persistence.
+    //
+    // It is the `e2_site` preset itself, not a copy of it. The copy IS the bug:
+    // four hand-written definitions of this map disagreed on zoneSource,
+    // hazardTour and allowDeferSite, and whichever one won decided whether the
+    // bairros were even visible. See shared/cbo-map-presets.ts.
+    defaultParams: (s) => s.phase === 2
+      ? e2SiteParams(s.metadata?.language === 'en' ? 'en' : 'pt')
+      : null,
     isDone: (s) => fieldVal(s, 'intervention_site', 'bairro', 'site_name'),
     minPhase: 2,
     nudge: { pt: 'Abrir o mapa', en: 'Open the map' },
