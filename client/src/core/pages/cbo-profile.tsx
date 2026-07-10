@@ -167,13 +167,20 @@ const RIGHT_PANEL_TOOLS: Record<ToolKind, RightPanelToolDef> = {
   map: {
     tab: 'map',
     icon: MapIcon,
+    // LEGACY FALLBACK ONLY. Normal re-entry restores the agent's actual params
+    // from the persisted `open_map` composer row (see hydrateMessages), so the
+    // user gets back the map that was opened — guided hazard tour included.
+    // This reconstruction runs only for transcripts written before composer
+    // persistence, where no such row exists. Do not "improve" it into a second
+    // definition of the E2 map: that divergence (hazardTour:false, a different
+    // prompt) is exactly what made "Abrir o mapa" open the wrong map.
     defaultParams: (s) => s.phase === 2 ? {
       selectionMode: 'composite',
       zoneSource: 'neighborhood_zones',  // risk-scored bairros (typologyLabel/meanFlood…) — same as the orchestrator
       layers: ['osm_parks', 'osm_schools', 'osm_wetlands', 'osm_hospitals'],  // OSM sites to pick in step 2
       tileLayers: ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'],
       showLegendSimple: true,
-      hazardTour: false,        // re-entry skips the guided tour, straight to selection
+      hazardTour: false,        // no recorded tour position to resume → skip it
       allowDeferSite: true,
       prompt: 'Marque o bairro e o lugar onde vocês atuam.',
     } : null,
@@ -380,7 +387,12 @@ export default function CboProfilePage() {
   // another right-panel tab sets rightTab and unmounts the map, which would
   // otherwise reset the tour to Enchente 1/3 — and asking the agent a question
   // mid-tour makes leaving the map tab much more likely.
+  // Mirrors cbo_state.activeTool.tourIdx, which is the durable copy.
   const [tourIdx, setTourIdx] = useState(0);
+  // One-shot hydration latch. Without it, this effect and the write-through
+  // below trade the value back and forth on every commit (the persisted-state
+  // swap loop documented in useNavigationPersistence).
+  const tourIdxHydrated = useRef(false);
   const [interventionSelectorParams, setInterventionSelectorParams] = useState<OpenInterventionSelectorParams | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -396,25 +408,32 @@ export default function CboProfilePage() {
   // user back on the exact question instead of a dead transcript.
   const hydrateMessages = useCallback((msgs: CboChatMessage[]) => {
     setMessages(msgs);
-    // Right-panel tools (map / intervention selector) restore from ANY composer
-    // row in the TRAILING ASSISTANT RUN — everything after the last user
-    // message — because the agent routinely opens the tool and then asks a
-    // question in the same turn, so the tool row is rarely the very last
-    // message (RL-1). Restoring params (not just activeTool's {kind}) means
-    // the exact step re-renders: custom prompt, hazardTour, suggestedSite,
-    // recommended types. No forced tab switch — the tab chip + pulse are the
-    // affordance.
-    let runStart = msgs.length;
-    while (runStart > 0 && msgs[runStart - 1].role === 'assistant') runStart--;
-    for (let i = runStart; i < msgs.length; i++) {
+    // Right-panel tools (map / intervention selector) restore from the LAST
+    // matching composer row ANYWHERE in the transcript — not just the trailing
+    // assistant run. The trailing-run rule is right for *questions* ("pending"
+    // means nothing followed it) but wrong for an opened tool: `open_map` says
+    // "this is the map the agent opened", and that stays true until the tool's
+    // task is done. Scanning only the trailing run meant one chat turn after
+    // the map opened (e.g. a "how do I read this?" question) pushed the row out
+    // of the window, and re-entry silently fell back to the phase defaults —
+    // a DIFFERENT map, with the guided hazard tour switched off.
+    //
+    // Safe because the panel only renders the map when toolReached() says the
+    // step is live, and because we take the last row: a superseded open_map
+    // (site step after the tour) wins over the earlier one.
+    let mapRestored = false;
+    let interventionRestored = false;
+    for (let i = msgs.length - 1; i >= 0 && !(mapRestored && interventionRestored); i--) {
       const m = msgs[i];
       if (m.messageType !== 'composer') continue;
       let p: any = null;
       try { p = JSON.parse(m.content); } catch { continue; }
-      if (p?.kind === 'open_map' && p.params) {
+      if (p?.kind === 'open_map' && p.params && !mapRestored) {
+        mapRestored = true;
         setOpenMapParams(p.params);
         setMapRelevant(true);
-      } else if (p?.kind === 'open_intervention_selector' && p.params) {
+      } else if (p?.kind === 'open_intervention_selector' && p.params && !interventionRestored) {
+        interventionRestored = true;
         setInterventionSelectorParams(p.params);
       }
     }
@@ -1158,6 +1177,29 @@ export default function CboProfilePage() {
     setIsStreaming(false);
     setCompletedTurns(n => n + 1);
   }, [cboId, isStreaming, processEvent, lang]);
+
+  // Resume the hazard tour where the user left it, once, when state first lands.
+  useEffect(() => {
+    if (tourIdxHydrated.current || !state) return;
+    tourIdxHydrated.current = true;
+    const persisted = state.activeTool?.tourIdx;
+    if (typeof persisted === 'number') setTourIdx(persisted);
+  }, [state]);
+
+  // Advancing the tour is a UI gesture, not a chat turn — write it straight to
+  // cbo_state so a reload, a device switch, or "Abrir o mapa" all resume here.
+  // Fire-and-forget: a failed write costs the user a replayed tour, nothing more,
+  // so it must never block the tap or surface an error over the map.
+  const handleTourIdxChange = useCallback((next: number) => {
+    setTourIdx(next);
+    setState(prev => (prev?.activeTool ? { ...prev, activeTool: { ...prev.activeTool, tourIdx: next } } : prev));
+    if (!cboId) return;
+    fetch(`/api/cbo/${cboId}/tour-progress`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tourIdx: next }),
+    }).catch(err => console.warn('[cbo] tour-progress write failed', err));
+  }, [cboId]);
 
   // "Tenho outra dúvida" in the map's legend sheet. The sheet already answered
   // the common question in place; this is the escape hatch for a real one.
@@ -2292,7 +2334,7 @@ export default function CboProfilePage() {
                   <MapMicroapp
                     params={(openMapParams ?? RIGHT_PANEL_TOOLS.map.defaultParams(state!)) as OpenMapParams}
                     tourIdx={tourIdx}
-                    onTourIdxChange={setTourIdx}
+                    onTourIdxChange={handleTourIdxChange}
                     onAskMapHelp={handleAskMapHelp}
                     onConfirm={(result: MapSelectionResult) => {
                       const message = formatMapResult(result);
@@ -2341,8 +2383,12 @@ export default function CboProfilePage() {
                       setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
                     }}
                     onCancel={() => {
-                      setOpenMapParams(null);
-                      setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
+                      // Leaving the map is navigation, not completion. Keep
+                      // openMapParams so "Abrir o mapa" re-enters THIS map at
+                      // the step the user left; nulling it here is what made
+                      // re-entry fall through to the phase defaults and drop
+                      // the guided hazard tour. Only onConfirm clears it.
+                      setRightTab('document'); setMobileActiveTab('chat');
                     }}
                   />
                 ) : (

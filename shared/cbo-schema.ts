@@ -150,7 +150,13 @@ export interface CboState {
   // The right-panel tool the agent has opened for this phase (map / type selector).
   // Persisted so the tool stays reachable across reloads — the panel isn't gated
   // behind a one-shot agent button. Cleared/superseded as the task completes.
-  activeTool?: { kind: 'map' | 'interventions' } | null;
+  //
+  // `tourIdx` is the E2 hazard tour's position (0=flood, 1=heat, 2=landslide,
+  // 3=done). It lives HERE, next to {kind}, because "where the user is inside
+  // the open tool" is one fact and needs one home: React state loses it on
+  // reload, and localStorage loses it on a device switch (the token link is
+  // meant to resume anywhere — see docs/cbo-chat-composers.md rule 5).
+  activeTool?: { kind: 'map' | 'interventions'; tourIdx?: number } | null;
   editLog: Array<{ timestamp: string; sectionId: string; field: string; oldValue: any; newValue: any; source: 'agent' | 'user' }>;
   uploadedFiles: Array<{ name: string; path: string; parsedAt: string; summary: string }>;
   metadata: {

@@ -324,6 +324,34 @@ export function registerCboRoutes(app: Express): void {
     res.json({ ok: true, phase: result.phase, state: getCboState(req.params.id) });
   });
 
+  // E2 hazard-tour position. The only client→state write that isn't a chat turn:
+  // advancing the tour is a UI gesture, not something the agent should hear about.
+  // Persisting it is what lets "Abrir o mapa" resume at the hazard the user left,
+  // and survives both a reload and a cross-device resume of the token link.
+  app.post("/api/cbo/:id/tour-progress", async (req: Request, res: Response) => {
+    if (!getCboState(req.params.id)) {
+      const persisted = await loadPersistedCboState(req.params.id);
+      if (persisted) setCboState(req.params.id, persisted.state);
+    }
+    const state = getCboState(req.params.id);
+    if (!state) return res.status(404).json({ error: "Not found" });
+
+    const tourIdx = Number(req.body?.tourIdx);
+    // 0-2 = touring that hazard; 3 = finished. Anything else is a client bug.
+    if (!Number.isInteger(tourIdx) || tourIdx < 0 || tourIdx > 3) {
+      return res.status(400).json({ error: "tourIdx must be an integer 0-3" });
+    }
+    // Only meaningful while the map is the open tool; refuse to invent one.
+    if (state.activeTool?.kind !== 'map') {
+      return res.status(409).json({ error: "map is not the active tool" });
+    }
+
+    state.activeTool = { ...state.activeTool, tourIdx };
+    setCboState(req.params.id, state);
+    debouncedPersist(req.params.id);
+    res.json({ ok: true, tourIdx });
+  });
+
   // User edit
   app.post("/api/cbo/:id/edit", async (req: Request, res: Response) => {
     const { sectionId, field, value } = req.body;

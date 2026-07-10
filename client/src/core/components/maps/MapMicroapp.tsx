@@ -2107,6 +2107,11 @@ export default function MapMicroapp({
               variant='ghost'
               size='sm'
               className='h-7 text-xs'
+              data-testid={
+                isComposite && compositeStep === 'assets'
+                  ? 'map-back-to-zones'
+                  : 'map-cancel'
+              }
               onClick={
                 isComposite && compositeStep === 'assets'
                   ? backToZones

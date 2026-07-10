@@ -92,10 +92,25 @@ One structural pattern, in `cbo-profile.tsx`:
   `open_intervention_selector`, the server sets `cbo_state.activeTool = { kind }`
   (in `pushEvent`). It survives reload, so the panel is re-enterable. (Don't gate
   on the ephemeral `openMapParams` event — that's lost on reload.)
+- **Persist where the user is INSIDE the tool, next to `{kind}`.** The E2 hazard
+  tour's position rides on `activeTool.tourIdx` (0-2 = that hazard, 3 = done),
+  written by `POST /api/cbo/:id/tour-progress`. Advancing a tour is a UI gesture,
+  not a chat turn — the agent must not hear about it — but it still has to
+  survive a reload and a cross-device resume (Rule 5).
+- **Re-entry restores the agent's ACTUAL params, from the persisted `open_map`
+  composer row.** `hydrateMessages` scans the whole transcript backwards for the
+  last one. The trailing-assistant-run rule applies to *questions* ("pending"
+  means nothing followed it), never to an opened tool: one chat turn after the
+  map opened used to push the row out of the window. And leaving a tool
+  (`onCancel`) is navigation — only *completion* (`onConfirm`) may clear
+  `openMapParams`.
 - **Declare each tool in `RIGHT_PANEL_TOOLS`.** Each entry gives its `tab`, a
-  `defaultParams(state)` (the re-entry config when there's no live agent params —
-  e.g. the map's composite/site config with the tour OFF), an `isDone(state)`
-  check (reads the captured section field), a `nudge` label, and an `icon`.
+  `defaultParams(state)` — a **legacy fallback only**, for transcripts written
+  before composer persistence — an `isDone(state)` check (reads the captured
+  section field), a `nudge` label, and an `icon`. ⚠️ `defaultParams` must never
+  become a second definition of the step: its divergence from the agent's real
+  params (`hazardTour: false`, a different prompt) is what made "Abrir o mapa"
+  silently open a different map.
 - **The plumbing is generic over the registry.** `pendingTool(state)` (open +
   not done) drives a persistent chat **nudge chip** and the **tab pulse**;
   `toolReached(state, kind)` makes the tab render the live tool (`openMapParams ??

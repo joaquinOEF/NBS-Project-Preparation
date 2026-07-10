@@ -1086,7 +1086,11 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       // {kind}-only persistence dropped the params and left the resume chip
       // rendering over a pending map step.
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'open_map', params: (event as any).params }), messageType: 'composer', timestamp: new Date().toISOString() });
-      state.activeTool = { kind: 'map' };
+      // A fresh guided tour starts at hazard 0. Any other open_map (re-entry,
+      // site step) leaves the recorded position alone, so the user resumes.
+      state.activeTool = (event as any).params?.hazardTour
+        ? { kind: 'map', tourIdx: 0 }
+        : { kind: 'map', tourIdx: state.activeTool?.tourIdx };
       setCboState(cboId, state); debouncedPersist(cboId);
     } else if (event.type === 'open_intervention_selector') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'open_intervention_selector', params: (event as any).params }), messageType: 'composer', timestamp: new Date().toISOString() });
