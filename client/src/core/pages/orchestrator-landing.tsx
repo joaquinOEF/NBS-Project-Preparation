@@ -1339,7 +1339,11 @@ export default function OrchestratorLandingPage() {
         <div className="flex flex-col gap-5">
           {/* Map — full width */}
           <div className="w-full">
-            <div className="relative h-[56vh] md:h-[64vh] w-full">
+            {/* `isolate`: MapLayerControls is z-400 and sits outside
+                .leaflet-container. Portalled Radix overlays are all z-50, so
+                without a local stacking context the legend paints over any
+                dialog opened from this page. */}
+            <div className="relative isolate h-[56vh] md:h-[64vh] w-full">
               <MapPanel
                 projects={projects}
                 selectedId={selectedId}

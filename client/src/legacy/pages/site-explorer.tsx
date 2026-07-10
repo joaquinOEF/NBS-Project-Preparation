@@ -1891,7 +1891,11 @@ export default function SiteExplorerPage() {
             )}
           </div>
         </div>
-        <div className="flex-1 relative">
+        {/* `isolate`: the zone panel / evidence drawer / zone card below are
+            z-1001 and live outside .leaflet-container, so without a local
+            stacking context they paint over every portalled Radix overlay
+            (all z-50) — including the ⓘ data-provenance dialog. */}
+        <div className="flex-1 relative isolate">
           {/* Map container - leaves room for right panel and bottom drawer */}
           <div
             ref={mapContainerRef}
