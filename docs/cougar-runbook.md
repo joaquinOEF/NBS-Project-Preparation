@@ -1,7 +1,8 @@
 # COUGAR / Vila Flores — Coordinator Runbook
 
 How to provision a coordinator, set up a cohort, invite community orgs (CBOs),
-re-issue links, and clean up. For the platform at `https://nbs-project-preparation.replit.app`.
+re-issue links, and clean up. For the platform at `https://cougar-nbs.replit.app`
+(the old `nbs-project-preparation.replit.app` URL is dead).
 
 > **Roles in one line.** *Coordinators* log in and manage a cohort. *CBOs never
 > log in* — their invite link (`?t=<token>`) is their sole credential.
@@ -71,6 +72,9 @@ Log in at **`/coordinator-login`** → lands on **`/orchestrator`**.
 - **Workshops:** the cadence rail shows the 6 workshops as collapsible rows.
   Schedule a date, and click **Open for cohort** on the next-up workshop to
   unlock that phase for every org.
+- **Rename:** `PATCH /api/cohort/<coordinatorSlug>/name` with `{"name": "..."}`
+  (coordinator/admin cookie). Only the display name changes — invite links and
+  coordinator logins are untouched. No UI yet.
 
 ---
 
@@ -91,6 +95,8 @@ Log in at **`/coordinator-login`** → lands on **`/orchestrator`**.
 
 | Action | What it does | Where |
 |---|---|---|
+| **Reset one org** | Erases the org's session + progress; the member row, invite link, and unlocks **stay**. | Card → **Reset** |
+| **Remove one org** | Deletes the member: invite link dies, card disappears. The org row + uploaded documents are **kept** and relink if the same org name is re-invited. | Card → **Remove** |
 | **Reset cohort** | Removes every invited CBO + clears workshop progress. The cohort row **stays** (same singleton, fresh state). | Header → **Reset** |
 | **Delete cohort** *(admin)* | Removes the cohort **and** its members entirely. The default cohort is re-created empty on next load. | Header → **Delete cohort** |
 | **Namespaced test data** | The e2e harness namespaces its data (`e2e-*` cohorts, `*@e2e.test` coordinators) and purges it via `POST /__test/cleanup` (gated by `ENABLE_TEST_ROUTES`). | test only |
