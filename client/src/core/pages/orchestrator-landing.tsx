@@ -48,6 +48,7 @@ import {
   BulkInviteSummaryDialog,
   ResetConfirmDialog,
   MemberResetConfirmDialog,
+  MemberRemoveConfirmDialog,
   DeleteCohortConfirmDialog,
   ProvisionCohortDialog,
   type BulkInviteResult,
@@ -603,6 +604,7 @@ function ProjectCard({
   onOpenCbo,
   onSetTier,
   onResetProfile,
+  onRemove,
 }: {
   project: CboDemoProject;
   locale: 'en' | 'pt';
@@ -612,6 +614,7 @@ function ProjectCard({
   onOpenCbo: (p: CboDemoProject, tab: 'arquivos' | 'conversa' | 'perfil') => void;
   onSetTier: (p: CboDemoProject, tier: 'emerging' | 'developing' | 'advanced') => void;
   onResetProfile: (p: CboDemoProject) => void;
+  onRemove: (p: CboDemoProject) => void;
 }) {
   const { t } = useTranslation();
   const hasIntervention = project.interventionKey !== null;
@@ -764,6 +767,18 @@ function ProjectCard({
               <RotateCcw className="w-3 h-3" strokeWidth={2} />
               {t('orchestrator.memberReset.chip', { defaultValue: 'Reset' })}
             </button>
+            {/* Remove the org from the cohort entirely (invite link dies).
+                Opens a confirm dialog — unlike Reset, the member is gone. */}
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); onRemove(project); }}
+              className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border border-foreground/15 text-foreground/70 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
+              title={t('orchestrator.memberRemove.chipTooltip', { defaultValue: 'Remove this organization from the cohort' })}
+              data-testid={`button-cbo-remove-${project.id}`}
+            >
+              <Trash2 className="w-3 h-3" strokeWidth={2} />
+              {t('orchestrator.memberRemove.chip', { defaultValue: 'Remove' })}
+            </button>
             {hasIntervention ? (
               <span
                 className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${toneStyle.bubble} ${toneStyle.fg} border-foreground/10`}
@@ -892,7 +907,7 @@ export default function OrchestratorLandingPage() {
 
   const {
     cohort, members, isAdmin, allCohorts,
-    invite, unlockPhase, saveWorkshops, resetCohort, resetMember, saveLanguage, deleteCohort,
+    invite, unlockPhase, saveWorkshops, resetCohort, resetMember, removeMember, saveLanguage, deleteCohort,
     switchCohort, provisionCohort, refresh,
   } = useCohort();
   const cohortLanguage = (cohort?.settings as { language?: 'pt' | 'en' } | null)?.language ?? null;
@@ -960,6 +975,8 @@ export default function OrchestratorLandingPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   // Per-org reset: the card whose profile is about to be erased (null = closed).
   const [memberResetTarget, setMemberResetTarget] = useState<CboDemoProject | null>(null);
+  // Per-org remove: the card about to leave the cohort entirely (null = closed).
+  const [memberRemoveTarget, setMemberRemoveTarget] = useState<CboDemoProject | null>(null);
   const [provisionOpen, setProvisionOpen] = useState(false);
   const [supportInboxOpen, setSupportInboxOpen] = useState(false);
   // Mirrored from /support-requests?status=pending — drives the badge on
@@ -1039,6 +1056,18 @@ export default function OrchestratorLandingPage() {
       title: ok
         ? t('orchestrator.memberReset.done', { defaultValue: '{{org}} reset — the invite link starts fresh', org: target.name[locale] })
         : t('orchestrator.memberReset.failed', { defaultValue: 'Could not reset {{org}}', org: target.name[locale] }),
+    });
+  };
+
+  const handleMemberRemoveConfirm = async () => {
+    const target = memberRemoveTarget;
+    setMemberRemoveTarget(null);
+    if (!target) return;
+    const ok = await removeMember(target.id);
+    toast({
+      title: ok
+        ? t('orchestrator.memberRemove.done', { defaultValue: '{{org}} removed from the cohort', org: target.name[locale] })
+        : t('orchestrator.memberRemove.failed', { defaultValue: 'Could not remove {{org}}', org: target.name[locale] }),
     });
   };
 
@@ -1433,6 +1462,7 @@ export default function OrchestratorLandingPage() {
                     onOpenCbo={openCbo}
                     onSetTier={handleSetTier}
                     onResetProfile={setMemberResetTarget}
+                    onRemove={setMemberRemoveTarget}
                   />
                   {member && (
                     <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
@@ -1474,6 +1504,12 @@ export default function OrchestratorLandingPage() {
         orgName={memberResetTarget?.name[locale] ?? ''}
         onOpenChange={(open) => { if (!open) setMemberResetTarget(null); }}
         onConfirm={handleMemberResetConfirm}
+      />
+      <MemberRemoveConfirmDialog
+        open={memberRemoveTarget != null}
+        orgName={memberRemoveTarget?.name[locale] ?? ''}
+        onOpenChange={(open) => { if (!open) setMemberRemoveTarget(null); }}
+        onConfirm={handleMemberRemoveConfirm}
       />
       <DeleteCohortConfirmDialog
         open={deleteConfirmOpen}

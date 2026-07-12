@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Check, Copy, ExternalLink, Link as LinkIcon, MessageCircle, Plus, RotateCcw, Send, Users } from 'lucide-react';
+import { AlertTriangle, Check, Copy, ExternalLink, Link as LinkIcon, MessageCircle, Plus, RotateCcw, Send, Trash2, Users } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
@@ -915,6 +915,55 @@ export function MemberResetConfirmDialog({
           >
             <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
             {busy ? t('common.working', { defaultValue: 'Working…' }) : t('orchestrator.memberReset.confirm', { defaultValue: 'Yes, reset this org' })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// MemberRemoveConfirmDialog — removes ONE org from the cohort entirely (unlike
+// reset, which keeps the member + invite link). The invite link stops working
+// and the card disappears from the roster; the org's uploaded documents are
+// kept server-side and relink if the same org name is invited again.
+// ---------------------------------------------------------------------------
+export function MemberRemoveConfirmDialog({
+  open, orgName, onOpenChange, onConfirm,
+}: {
+  open: boolean;
+  orgName: string;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => Promise<void> | void;
+}) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[440px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-destructive" />
+            {t('orchestrator.memberRemove.title', { defaultValue: 'Remove {{org}} from the cohort?', org: orgName })}
+          </DialogTitle>
+          <DialogDescription>
+            {t('orchestrator.memberRemove.desc', {
+              defaultValue: 'Removes this organization from the cohort: the invite link stops working and its conversation and progress are erased. Uploaded documents are kept and come back if you invite the same organization name again. This can’t be undone.',
+            })}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
+            {t('common.cancel', { defaultValue: 'Cancel' })}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }}
+            disabled={busy}
+            data-testid="button-confirm-member-remove"
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+            {busy ? t('common.working', { defaultValue: 'Working…' }) : t('orchestrator.memberRemove.confirm', { defaultValue: 'Yes, remove this org' })}
           </Button>
         </DialogFooter>
       </DialogContent>

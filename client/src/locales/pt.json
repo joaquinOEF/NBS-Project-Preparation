@@ -319,6 +319,15 @@
       "confirm": "Sim, resetar esta org",
       "done": "{{org}} resetada — o link de convite recomeça do zero",
       "failed": "Não foi possível resetar {{org}}"
+    },
+    "memberRemove": {
+      "chip": "Remover",
+      "chipTooltip": "Remover esta organização da coorte",
+      "title": "Remover {{org}} da coorte?",
+      "desc": "Remove esta organização da coorte: o link de convite deixa de funcionar e a conversa e o progresso são apagados. Os documentos enviados são mantidos e voltam se você convidar o mesmo nome de organização de novo. Não dá para desfazer.",
+      "confirm": "Sim, remover esta org",
+      "done": "{{org}} removida da coorte",
+      "failed": "Não foi possível remover {{org}}"
     }
   },
   "citySelection": {

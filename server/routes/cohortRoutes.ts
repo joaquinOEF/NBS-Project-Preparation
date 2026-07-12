@@ -527,8 +527,24 @@ export function registerCohortRoutes(app: Express): void {
     // block the invite, so org_id just stays null and the backfill picks it up.
     let orgId: string | null = null;
     try {
-      const org = await createOrganization({ name: orgName, city: 'porto-alegre', type: orgType === 'implementer' ? 'implementer' : 'community', cohortId: cohort.id });
-      orgId = org.id;
+      // Reuse an existing same-name org in this cohort (e.g. a previously
+      // removed member being re-invited): its identity, documents, and any
+      // profile the platform accumulated come back, instead of minting a
+      // duplicate organizations row (name has no unique constraint).
+      const [existingOrg] = await db.select().from(organizations)
+        .where(and(eq(organizations.name, String(orgName)), eq(organizations.cohortId, cohort.id)))
+        .limit(1);
+      if (existingOrg) {
+        orgId = existingOrg.id;
+        // The invite is where the coordinator declares the type (EF-5) — an
+        // explicit implementer re-invite upgrades a reused community/unknown row.
+        if (orgType === 'implementer' && existingOrg.type !== 'implementer') {
+          await db.update(organizations).set({ type: 'implementer' }).where(eq(organizations.id, existingOrg.id));
+        }
+      } else {
+        const org = await createOrganization({ name: orgName, city: 'porto-alegre', type: orgType === 'implementer' ? 'implementer' : 'community', cohortId: cohort.id });
+        orgId = org.id;
+      }
     } catch (e: any) {
       console.error('[cohort] org creation failed on invite (continuing, backfill will link):', e?.message || e);
     }
@@ -579,6 +595,19 @@ export function registerCohortRoutes(app: Express): void {
     const settings: CohortSettings = { ...(cohort.settings as CohortSettings), language };
     await db.update(cohorts).set({ settings }).where(eq(cohorts.id, cohort.id));
     res.json({ ok: true, language: language ?? null });
+  }));
+
+  // Rename the cohort. Only the display name changes — id, coordinatorSlug,
+  // coordinator scoping, and member invite tokens are untouched, so live
+  // invites keep working across a rename.
+  app.patch('/api/cohort/:coordinatorSlug/name', wrap(async (req, res) => {
+    const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
+    if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
+
+    const name = String(req.body?.name ?? '').trim();
+    if (!name) { res.status(400).json({ error: 'name required' }); return; }
+    await db.update(cohorts).set({ name }).where(eq(cohorts.id, cohort.id));
+    res.json({ ok: true, name });
   }));
 
   // Unlock a phase — for one member, multiple members, or 'all'
@@ -709,6 +738,30 @@ export function registerCohortRoutes(app: Express): void {
       snapshotUpdatedAt: new Date(),
     }).where(eq(cohortMembers.id, member.id));
 
+    res.json({ ok: true, memberId: member.id, orgName: member.orgName });
+  }));
+
+  // Remove ONE member from the cohort entirely — the invite link dies and the
+  // org disappears from the roster. Deletes the member row and its working
+  // session (state + transcript). The organization row and its uploaded
+  // documents are deliberately KEPT: re-inviting the same org name relinks to
+  // them (the invite endpoint reuses an existing same-name org in the cohort
+  // instead of minting a duplicate). Guarded by the :coordinatorSlug app.param
+  // ownership check like every cohort route.
+  app.delete('/api/cohort/:coordinatorSlug/member/:memberId', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+
+    if (member.cboStateId) {
+      await deleteCboState(member.cboStateId);
+      setCboState(member.cboStateId, undefined as any);
+    }
+    // The tier was calibrated from the run being deleted — a future re-invite
+    // must not inherit it (same rationale as per-member reset).
+    if (member.orgId) {
+      await db.update(organizations).set({ maturityTier: null }).where(eq(organizations.id, member.orgId));
+    }
+    await db.delete(cohortMembers).where(eq(cohortMembers.id, member.id));
     res.json({ ok: true, memberId: member.id, orgName: member.orgName });
   }));
 
