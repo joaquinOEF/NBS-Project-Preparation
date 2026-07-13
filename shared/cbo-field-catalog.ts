@@ -248,6 +248,22 @@ export function orgProfileOptionLabels(field: string, lang: 'pt' | 'en' = 'pt'):
   return (ORG_PROFILE_ENUMS[field] ?? []).map(o => (lang === 'pt' ? o.pt : o.en));
 }
 
+/** Resolve any form of an enum value (stable id, pt/en label, alias) to its
+ *  stable option id — the representation the questionnaire manifest rules use.
+ *  Null when the field isn't an enum or the value doesn't sit on the list. */
+export function resolveOrgProfileOptionId(field: string, raw: string): string | null {
+  if (typeof raw !== 'string' || !ORG_PROFILE_ENUMS[field]) return null;
+  return matchOption(field, raw)?.id ?? null;
+}
+
+/** Labels (in `lang`) for a subset of an enum field's option ids — for guard
+ *  messages that must name the allowed chips exactly. */
+export function orgProfileLabelsForIds(field: string, ids: string[], lang: 'pt' | 'en' = 'pt'): string[] {
+  return (ORG_PROFILE_ENUMS[field] ?? [])
+    .filter(o => ids.includes(o.id))
+    .map(o => (lang === 'pt' ? o.pt : o.en));
+}
+
 /** Read path: render any stored form (including legacy machine ids already in
  *  the database) as the viewer-language label. */
 export function orgProfileDisplayValue(field: string, stored: string, lang: 'pt' | 'en'): string {

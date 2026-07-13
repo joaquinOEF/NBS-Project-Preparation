@@ -36,6 +36,7 @@ import { NBS_SHOWCASE_CARDS } from '@shared/nbs-showcase-cards';
 import { resolveOpenMapParams } from '@shared/cbo-map-presets';
 import { emitAssistantText } from './agentOutput';
 import { canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue } from '@shared/cbo-field-catalog';
+import { QUESTIONNAIRES, checkOptionRule } from '@shared/cbo-questionnaire';
 
 export function isFakeModelEnabled(): boolean {
   return process.env.CBO_FAKE_MODEL === '1';
@@ -134,6 +135,17 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
         isDocSource && op.sectionId === 'org_profile' &&
         isEnumOrgProfileField(op.field) && !isCanonicalOrgProfileValue(op.field, value)
       ) break;
+      // Same conditional-option rule as the real tool (manifest): a known
+      // option excluded by the stored dependency answer is not stored.
+      if (op.sectionId === 'org_profile') {
+        const blocked = Object.values(QUESTIONNAIRES)
+          .filter(m => m.sectionId === op.sectionId)
+          .some(m => !checkOptionRule(m, op.field, value, (f) => {
+            const v = section.fields[f]?.value;
+            return v == null ? undefined : String(v);
+          }).ok);
+        if (blocked) break;
+      }
       section.fields[op.field] = {
         value,
         confidence: (op.confidence ?? 'high') as Confidence,

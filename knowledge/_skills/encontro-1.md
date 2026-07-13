@@ -134,7 +134,7 @@ Treat pre-filled values as **starting points the user can edit**, never as final
 
 Phase 1 is almost entirely **information capture**. Only two things need real reasoning, and both happen **once, at the very end**: the two maturity scores and the path triage. So do **not** take a full turn per question — that makes the user wait for the model after every tap. **Capture in batches; reason once.**
 
-The question set **barely branches** within E1 — everyone answers the same batches; org type and maturity tier change only your *tone*, never *which* questions you ask. The ONLY conditional questions are the post-Batch-B follow-ups (funding count/budget when funding_history = Sim; the NbS detail when nbs_experience ≠ Ainda não). Because nothing inside a batch depends on an earlier answer, you can safely put several questions on one screen.
+The question set branches **only at declared points** within E1 — everyone answers the same batches; org type and maturity tier change only your *tone*, never *which* questions you ask. The conditional questions are: the org-type follow-up after Batch A (its option list depends on `has_cnpj` — see the mapping there) and the post-Batch-B follow-ups (funding count/budget when funding_history = Sim; the NbS detail when nbs_experience ≠ Ainda não). Because nothing inside a single batch depends on an answer from that same batch, you can safely put several questions on one screen. These rules are also enforced in code (shared/cbo-questionnaire.ts): inconsistent chips are filtered, inconsistent values rejected, and the closing scores refuse while required fields are missing.
 
 ### Step 0 — Open, and use what you already know
 
@@ -207,9 +207,15 @@ For everything still unknown, send **grouped `ask_user` calls** — one call car
 **Batch A — quem são** (one `ask_user`):
 1. *O que vocês fazem?* (multi-select, no cap — most orgs do several things; never tell the user to limit their picks) — Hortas e segurança alimentar · Arborização e áreas verdes · Resiliência climática (enchentes, calor) · Educação ambiental · Cultura e organização comunitária → `main_activities`
 2. *Vocês têm CNPJ?* — Sim, temos CNPJ · Ainda não · Não temos certeza → `has_cnpj`
-3. *Que tipo de organização?* — ONG / Associação · Cooperativa · Coletivo informal · Empresa social · Empresa / estúdio / escritório técnico · Outra → `legal_form`
-4. *Há quanto tempo vocês existem?* — Começando agora · Menos de 2 anos · 2 a 5 anos · 5 a 10 anos · Mais de 10 anos → `year_founded`
-5. *Quantas pessoas na equipe?* — 1–2 · 3–5 · 6–15 · 16+ → `team_size`
+3. *Há quanto tempo vocês existem?* — Começando agora · Menos de 2 anos · 2 a 5 anos · 5 a 10 anos · Mais de 10 anos → `year_founded`
+4. *Quantas pessoas na equipe?* — 1–2 · 3–5 · 6–15 · 16+ → `team_size`
+
+**Follow-up — org type (right after Batch A returns, its options depend on the CNPJ answer):**
+*Que tipo de organização?* → `legal_form`, offering ONLY the subset the `has_cnpj` answer allows:
+- **Sim, temos CNPJ** → ONG / Associação · Cooperativa · Empresa social · Empresa / estúdio / escritório técnico · Outra (no "Coletivo informal" — an org with a CNPJ isn't informal)
+- **Ainda não** → Coletivo informal · Outra (without a CNPJ they can't be an empresa or formal NGO)
+- **Não temos certeza** → ONG / Associação · Cooperativa · Coletivo informal · Outra
+The server enforces this mapping: chips outside the subset are dropped before the user sees them, and an inconsistent `legal_form` value is rejected at `update_section`. You can batch this follow-up together with Batch B in one grouped `ask_user`.
 
 **Batch B — experiência e alcance** (one `ask_user`):
 1. *Como é a equipe?* — Todas voluntárias · Maioria voluntárias · Metade e metade · Maioria pagas · Todas pagas → `paid_vs_volunteer`
@@ -217,7 +223,7 @@ For everything still unknown, send **grouped `ask_user` calls** — one call car
 3. *Já trabalharam com soluções baseadas na natureza?* — Sim · Ainda não · Não temos certeza → `nbs_experience`
 4. *Quem vocês atendem?* (multi-select) — Mulheres · Idosos · Pessoas com deficiência · Comunidades tradicionais · Jovens · Pessoas negras · Povos indígenas · Comunidade do bairro → `groups_served`
 
-**Follow-ups — the ONLY conditional questions in E1** (send after Batch B returns, skip entirely when they don't apply):
+**Follow-ups after Batch B** (send after Batch B returns, skip entirely when they don't apply):
 - If `funding_history` = **Sim** → one grouped `ask_user` with both:
   1. *Quantos projetos financiados vocês já executaram?* — 1 projeto · 2 a 5 projetos · Mais de 5 projetos → `funded_project_count`
   2. *Qual foi o orçamento do maior projeto?* — Até R$ 10 mil · R$ 10 a 50 mil · R$ 50 a 200 mil · Mais de R$ 200 mil → `biggest_project_budget`
@@ -356,7 +362,7 @@ A doc-sourced value is still **confirmed with the user, not asserted** (keep `so
 After both batches are answered (Step 2) and the path triage is done:
 
 1. Call `update_section('org_profile', ...)` with any consolidated fields not yet persisted
-2. Call `score_maturity` for both Phase-1 metrics (`org_delivery_capacity`, `team_technical_experience`) — REQUIRED. Without both scores, the green "next workshop" banner will not appear for the user.
+2. Call `score_maturity` for both Phase-1 metrics (`org_delivery_capacity`, `team_technical_experience`) — REQUIRED. Without both scores, the green "next workshop" banner will not appear for the user. The server refuses these calls while any required E1 field (or the path triage) is still missing — the refusal names exactly what's left; ask those questions first, even if the user edited an earlier answer late in the flow, then re-run the closing calls.
 3. Render the completion message (one final chat text — this is the only allowed long message in E1):
 
 > "✓ **Diagnóstico concluído** — obrigado pelas respostas, [contact_name]. Esse perfil já está salvo.
