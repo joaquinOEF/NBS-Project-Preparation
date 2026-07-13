@@ -48,6 +48,7 @@ function rowToState(row: any): CboState {
     editLog: row.editLog ?? [],
     uploadedFiles: row.uploadedFiles ?? [],
     activeTool: row.activeTool ?? null,
+    stagedDocFields: (row.stagedDocFields ?? undefined) as CboState['stagedDocFields'],
     metadata: row.metadata ?? {
       createdAt: row.createdAt?.toISOString?.() ?? new Date().toISOString(),
       updatedAt: row.updatedAt?.toISOString?.() ?? new Date().toISOString(),
@@ -104,6 +105,7 @@ export async function upsertCboState(state: CboState): Promise<void> {
       editLog: state.editLog ?? [],
       uploadedFiles: state.uploadedFiles ?? [],
       activeTool: state.activeTool ?? null,
+      stagedDocFields: (state.stagedDocFields ?? null) as any,
       metadata: state.metadata ?? { createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
       updatedAt: new Date(),
     };
@@ -168,6 +170,7 @@ export async function flushCbo(
     editLog: state.editLog ?? [],
     uploadedFiles: state.uploadedFiles ?? [],
     activeTool: state.activeTool ?? null,
+    stagedDocFields: (state.stagedDocFields ?? null) as any,
     metadata: state.metadata ?? { createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
     updatedAt: new Date(),
   };

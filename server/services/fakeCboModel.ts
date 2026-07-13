@@ -50,6 +50,7 @@ export type FakeOp =
   | { op: 'wait'; ms: number } // test seam: simulate SDK thinking time (capped 25s)
   | { op: 'thinking_step'; label: string; status?: 'active' | 'complete' } // live tool-activity label (pair with 'wait' to hold it visible)
   | { op: 'update_section'; sectionId: string; field: string; value: string; confidence?: Confidence; source?: string }
+  | { op: 'confirm_doc_fields'; fields?: string[] } // commit values staged by doc-sourced free-text update_section
   | { op: 'ask_user'; question: string; options: { label: string; description?: string; recommended?: boolean; action?: 'upload' }[]; multiSelect?: boolean; showMap?: boolean }
   | { op: 'score_maturity'; metric: string; score: number; justification?: string }
   | { op: 'set_phase'; phase: number }
@@ -146,6 +147,17 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
           }).ok);
         if (blocked) break;
       }
+      // Crawl-trust gate (mirror of the real tool): doc-sourced FREE-TEXT
+      // values are staged, not written — the confirm_doc_fields op commits.
+      if (isDocSource && op.sectionId === 'org_profile' && !isEnumOrgProfileField(op.field)) {
+        state.stagedDocFields = state.stagedDocFields ?? {};
+        state.stagedDocFields[`${op.sectionId}.${op.field}`] = {
+          sectionId: op.sectionId as any, field: op.field, value: String(value),
+          confidence: (op.confidence ?? 'high') as Confidence, stagedAtUserTurns: 0,
+        };
+        deps.setCboState(cboId, state);
+        break;
+      }
       section.fields[op.field] = {
         value,
         confidence: (op.confidence ?? 'high') as Confidence,
@@ -158,6 +170,20 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
       }
       deps.setCboState(cboId, state);
       pushEvent({ type: 'field_update', sectionId: op.sectionId, field: op.field, value: String(value), confidence: (op.confidence ?? 'high') as Confidence, source: op.source ?? 'user' });
+      break;
+    }
+    case 'confirm_doc_fields': {
+      const stagedAll = Object.values(state.stagedDocFields ?? {});
+      const wanted = op.fields?.length ? stagedAll.filter(s => op.fields!.includes(s.field)) : stagedAll;
+      for (const s of wanted) {
+        const sec = state.sections[s.sectionId as keyof typeof state.sections];
+        if (!sec) continue;
+        sec.fields[s.field] = { value: s.value, confidence: s.confidence, source: 'document', userEdited: false };
+        sec.lastUpdatedBy = 'agent';
+        delete state.stagedDocFields![`${s.sectionId}.${s.field}`];
+        pushEvent({ type: 'field_update', sectionId: s.sectionId, field: s.field, value: s.value, confidence: s.confidence, source: 'document' });
+      }
+      deps.setCboState(cboId, state);
       break;
     }
     case 'ask_user': {
