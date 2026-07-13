@@ -512,7 +512,10 @@ Include showMap: true on a question only when the user genuinely needs the map t
     {
       questions: z.array(z.object({
         question: z.string(),
-        options: z.array(z.object({ label: z.string(), description: z.string().optional(), recommended: z.boolean().optional() })),
+        // action 'upload': renders as a prominent attach banner (paperclip
+        // icon) that opens the file picker instead of sending an answer. Use
+        // ONLY on the intake-opening "send your site or documents" option.
+        options: z.array(z.object({ label: z.string(), description: z.string().optional(), recommended: z.boolean().optional(), action: z.enum(['upload']).optional() })),
         relatedSections: z.array(z.string()).optional(),
         showMap: z.boolean().optional(),
         multiSelect: z.boolean().optional(),

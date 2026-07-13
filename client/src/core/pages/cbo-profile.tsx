@@ -1939,6 +1939,7 @@ export default function CboProfilePage() {
                   multiSelected={multiSelectedOptions}
                   onMultiToggle={(label) => setMultiSelectedOptions(prev => { const next = new Set(prev); next.has(label) ? next.delete(label) : next.add(label); return next; })}
                   onMultiConfirm={() => { handleSelectOption(Array.from(multiSelectedOptions).join(', ')); setMultiSelectedOptions(new Set()); }}
+                  onUploadAction={() => fileInputRef.current?.click()}
                 />
               </div>
             )}
@@ -2611,6 +2612,7 @@ function CboQuestionCard({
   onMultiToggle,
   onMultiConfirm,
   readOnly,
+  onUploadAction,
 }: {
   question: { question: string; options: any[]; multiSelect?: boolean };
   selectedIdx: number;
@@ -2623,6 +2625,8 @@ function CboQuestionCard({
   onMultiConfirm?: () => void;
   /** Transcript mode: the question was already answered. Options are inert. */
   readOnly?: boolean;
+  /** Opens the file picker — for options with action 'upload'. */
+  onUploadAction?: () => void;
 }) {
   const { t } = useTranslation();
   const isMulti = question.multiSelect;
@@ -2661,6 +2665,29 @@ function CboQuestionCard({
       </div>
       <div className="space-y-1.5">
         {question.options.map((opt: any, i: number) => {
+          // Upload-action option (intake opening's "send your site or
+          // documents"): a deliberately prominent attach banner — dashed
+          // border + paperclip badge — that opens the file picker instead of
+          // sending an answer (field report 2026-07: the docs path needed to
+          // be "a bit more noticeable"). Inert in transcript mode.
+          if (opt.action === 'upload') {
+            return (
+              <button key={i} type="button"
+                onClick={() => { if (!disabled && !readOnly) onUploadAction?.(); }}
+                disabled={readOnly}
+                data-testid={readOnly ? `cbo-answered-option-${i}` : 'cbo-option-upload'}
+                data-option-label={opt.label}
+                className={`w-full text-left px-3 py-3 rounded-md border-2 border-dashed text-sm transition-all flex items-center gap-3 ${
+                  readOnly ? 'opacity-45 cursor-default border-muted' : disabled ? 'opacity-50 border-green-300' : 'border-green-500 bg-green-50/60 hover:bg-green-50 cursor-pointer'
+                }`}>
+                <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-green-600 text-white shrink-0"><Paperclip className="w-4 h-4" /></span>
+                <div className="flex-1">
+                  <span className="font-semibold">{opt.label}</span>
+                  {opt.description && <div className="text-muted-foreground text-xs mt-0.5">{opt.description}</div>}
+                </div>
+              </button>
+            );
+          }
           const letter = String.fromCharCode(65 + i);
           // In readOnly (transcript) mode the highlight tracks the recorded
           // answer, not the keyboard cursor - there is no cursor.

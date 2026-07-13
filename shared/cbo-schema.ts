@@ -323,7 +323,10 @@ export type CboEvent =
   | { type: 'gap'; sectionId: string; field: string; reason: string; severity: string }
   | { type: 'phase_change'; phase: number }
   | { type: 'maturity_update'; scores: MaturityScore[]; total: number; flags: PriorityFlag[] }
-  | { type: 'ask_user'; question: string; options: Array<{ label: string; description: string; recommended?: boolean; imageUrl?: string; location?: string }>; relatedSections?: string[]; showMap?: boolean; multiSelect?: boolean }
+  // options[].action 'upload': the chip renders as a prominent attach banner
+  // (paperclip icon) and opens the file picker instead of answering — the
+  // intake opening's "send your site or documents" affordance.
+  | { type: 'ask_user'; question: string; options: Array<{ label: string; description: string; recommended?: boolean; imageUrl?: string; location?: string; action?: 'upload' }>; relatedSections?: string[]; showMap?: boolean; multiSelect?: boolean }
   | { type: 'open_map'; params: OpenMapParams }
   | { type: 'open_intervention_selector'; params: OpenInterventionSelectorParams }
   | { type: 'show_examples'; cardIds: string[]; mode: 'browse' | 'favorites'; intro?: string }

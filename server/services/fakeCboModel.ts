@@ -49,7 +49,7 @@ export type FakeOp =
   | { op: 'wait'; ms: number } // test seam: simulate SDK thinking time (capped 25s)
   | { op: 'thinking_step'; label: string; status?: 'active' | 'complete' } // live tool-activity label (pair with 'wait' to hold it visible)
   | { op: 'update_section'; sectionId: string; field: string; value: string; confidence?: Confidence; source?: string }
-  | { op: 'ask_user'; question: string; options: { label: string; description?: string; recommended?: boolean }[]; multiSelect?: boolean; showMap?: boolean }
+  | { op: 'ask_user'; question: string; options: { label: string; description?: string; recommended?: boolean; action?: 'upload' }[]; multiSelect?: boolean; showMap?: boolean }
   | { op: 'score_maturity'; metric: string; score: number; justification?: string }
   | { op: 'set_phase'; phase: number }
   | { op: 'priority_flag'; flag: string; met: boolean; notes?: string }
@@ -149,7 +149,7 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
       break;
     }
     case 'ask_user': {
-      const options = (op.options ?? []).map(o => ({ label: o.label, description: o.description ?? '', recommended: o.recommended }));
+      const options = (op.options ?? []).map(o => ({ label: o.label, description: o.description ?? '', recommended: o.recommended, action: o.action }));
       pushEvent({ type: 'ask_user', question: op.question, options, showMap: op.showMap, multiSelect: op.multiSelect });
       break;
     }
