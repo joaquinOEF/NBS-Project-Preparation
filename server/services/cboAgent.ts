@@ -529,10 +529,24 @@ Include showMap: true on a question only when the user genuinely needs the map t
       if (empty.length > 0) {
         return { content: [{ type: "text" as const, text: `NOT shown — ${empty.length} question(s) had no options. ask_user is only for chip questions (2-7 buckets). A question with no natural buckets (mission, name, story) must be asked as PLAIN TEXT in your message, with no tool call. Re-ask now: chip questions via ask_user, free-text ones as prose.` }], isError: true };
       }
+      // A ONE-option "list" is a free-text question wearing a chip costume —
+      // the user has to tap the lone chip (e.g. "Me conta") just to unlock the
+      // text input (field report 2026-07: "weird option, like a one-option
+      // list … a little bit confusing"). The skill forbids it but the model
+      // still does it, so convert server-side: deliver the question as plain
+      // chat prose instead of a composer. No isError — the question DID reach
+      // the user; an error retry would double-ask it.
+      let converted = 0;
       for (const q of args.questions || []) {
-        pushEvent({ type: 'ask_user', question: q.question, options: q.options || [], relatedSections: q.relatedSections, showMap: q.showMap, multiSelect: q.multiSelect });
+        if ((q.options?.length ?? 0) === 1) {
+          pushEvent({ type: 'chat', content: q.question, role: 'assistant' } as any);
+          converted++;
+        } else {
+          pushEvent({ type: 'ask_user', question: q.question, options: q.options || [], relatedSections: q.relatedSections, showMap: q.showMap, multiSelect: q.multiSelect });
+        }
       }
-      return { content: [{ type: "text" as const, text: `${(args.questions || []).length} question(s) shown. STOP and wait.` }] };
+      const note = converted > 0 ? ` (${converted} single-option question(s) delivered as plain text instead — a one-option list is a free-text question; next time ask it as prose with no tool call)` : '';
+      return { content: [{ type: "text" as const, text: `${(args.questions || []).length} question(s) shown.${note} STOP and wait.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
