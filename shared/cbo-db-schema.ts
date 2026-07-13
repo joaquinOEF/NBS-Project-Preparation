@@ -56,6 +56,10 @@ export const cboStates = pgTable('cbo_states', {
   // until this column existed activeTool lived only there, so the nudge chip
   // and tour position silently reset after a spin-down.
   activeTool: jsonb('active_tool').$type<{ kind: 'map' | 'interventions'; tourIdx?: number } | null>(),
+  // Crawl-trust gate: doc-sourced free-text extractions awaiting the user's
+  // confirmation (see CboState.stagedDocFields). Persisted so a reload
+  // mid-recap doesn't silently drop them.
+  stagedDocFields: jsonb('staged_doc_fields').$type<Record<string, { sectionId: string; field: string; value: string; confidence: string; stagedAtUserTurns: number }> | null>(),
   metadata: jsonb('metadata').$type<{
     createdAt: string;
     updatedAt: string;

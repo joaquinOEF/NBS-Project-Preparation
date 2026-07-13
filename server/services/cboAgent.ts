@@ -47,6 +47,13 @@ function sectionFieldReader(section: { fields: Record<string, { value: unknown }
   };
 }
 
+/** How many real user messages the transcript holds — the staging/commit
+ *  guard's clock: confirm_doc_fields only commits values staged at a LOWER
+ *  count, i.e. the user has spoken since. */
+function countUserContentTurns(cboId: string): number {
+  return getCboMessages(cboId).filter(m => m.role === 'user' && m.messageType === 'content').length;
+}
+
 // ============================================================================
 // SDK LOADING — shared with conceptNoteAgent (lazy load)
 // ============================================================================
@@ -301,6 +308,7 @@ function createCboMcpTools(cboId: string) {
       const isDocSource = String(args.source ?? '').toLowerCase() === 'document';
       const offList: string[] = [];
       const ruleBlocked: { field: string; dependsOn: string; allowedIds: string[] }[] = [];
+      const staged: string[] = [];
       const updated: string[] = [];
       // Conditional-option rules (manifest): write dependency fields first so
       // a batch carrying { has_cnpj, legal_form } validates legal_form against
@@ -330,6 +338,22 @@ function createCboMcpTools(cboId: string) {
           ruleBlocked.push({ field: fieldName, dependsOn: ruleHit.dependsOn, allowedIds: ruleHit.allowedIds });
           continue;
         }
+        // Crawl-trust gate: doc-sourced FREE-TEXT extractions are STAGED, not
+        // written — the user must confirm the recap before they land in the
+        // document (field report 2026-07: "should validate with user before
+        // filling out any fields … sometimes asks for validation sometimes
+        // doesn't"). Enum fields already commit through the exact-label
+        // guard above; free-text has no list to catch a misread, so the
+        // human is the guard. confirm_doc_fields commits after they reply.
+        if (isDocSource && args.sectionId === 'org_profile' && !isEnumOrgProfileField(fieldName)) {
+          state.stagedDocFields = state.stagedDocFields ?? {};
+          state.stagedDocFields[`${args.sectionId}.${fieldName}`] = {
+            sectionId: args.sectionId, field: fieldName, value: String(finalValue),
+            confidence: args.confidence as Confidence, stagedAtUserTurns: countUserContentTurns(cboId),
+          };
+          staged.push(fieldName);
+          continue;
+        }
         const oldValue = section.fields[fieldName]?.value ?? null;
         section.fields[fieldName] = { value: finalValue, confidence: args.confidence as Confidence, source: args.source, userEdited: false };
         state.editLog.push({ timestamp: new Date().toISOString(), sectionId: args.sectionId, field: fieldName, oldValue, newValue: finalValue, source: 'agent' });
@@ -350,8 +374,53 @@ function createCboMcpTools(cboId: string) {
       const ruleNote = ruleBlocked.length > 0
         ? ` NOT STORED (inconsistent with an earlier answer): ${ruleBlocked.map(b => `${b.field} — given the stored ${b.dependsOn} answer, the only valid options are: ${orgProfileLabelsForIds(b.field, b.allowedIds, getActiveCboLang(cboId)).join(' · ')}`).join('; ')}. Re-ask the user with exactly those chips.`
         : '';
+      const stagedNote = staged.length > 0
+        ? ` STAGED (awaiting the user's confirmation — NOT in the document yet): ${staged.join(', ')}. Recap each staged value to the user verbatim, say WHERE you read it (which page/section of the site or document, e.g. "li na página Sobre nós"), and ask for confirmation with chips ("Confere tudo" / "Quero ajustar"). When the user confirms, call confirm_doc_fields to commit; if they correct something, resend it via update_section with source 'user'.`
+        : '';
       const summary = updated.length > 0 ? `Updated ${args.sectionId}: ${updated.join(', ')}.` : `Nothing stored in ${args.sectionId}.`;
-      return { content: [{ type: "text" as const, text: `${summary}${note}${offListNote}${ruleNote}` }] };
+      return { content: [{ type: "text" as const, text: `${summary}${note}${offListNote}${ruleNote}${stagedNote}` }] };
+    },
+    { annotations: { readOnlyHint: false } }
+  );
+
+  // Crawl-trust gate, commit half: doc-sourced free-text values staged by
+  // update_section land in the document only through this tool, and only
+  // after the user has actually replied since staging — the guard makes
+  // "stage and silently self-confirm in the same turn" impossible.
+  const confirmDocFields = sdkTool(
+    "confirm_doc_fields",
+    "Commit document-extracted values that update_section STAGED (free-text fields sent with source 'document'), after the user confirmed your recap in chat. Optional `fields` commits a subset (the rest stay staged). REFUSES when the user hasn't replied since staging — never call it in the same turn that staged the values.",
+    { fields: z.array(z.string()).optional() },
+    async (args: any) => {
+      const state = getCboState(cboId);
+      if (!state) return { content: [{ type: "text" as const, text: "Error: not found" }], isError: true };
+      const stagedAll = Object.values(state.stagedDocFields ?? {});
+      const wanted = args.fields?.length ? stagedAll.filter(s => args.fields.includes(s.field)) : stagedAll;
+      if (wanted.length === 0) {
+        return { content: [{ type: "text" as const, text: "Nothing staged to commit. Doc-sourced free-text values are staged by update_section (source 'document'); there are none pending." }] };
+      }
+      const userTurns = countUserContentTurns(cboId);
+      const committable = wanted.filter(s => s.stagedAtUserTurns < userTurns);
+      if (committable.length === 0) {
+        return { content: [{ type: "text" as const, text: "NOT committed — the user hasn't replied since these values were staged. Present the staged values (with where you read them) and wait for the user's confirmation, then call confirm_doc_fields again." }], isError: true };
+      }
+      const committed: string[] = [];
+      for (const s of committable) {
+        const sec = state.sections[s.sectionId as keyof typeof state.sections];
+        if (!sec) continue;
+        const oldValue = sec.fields[s.field]?.value ?? null;
+        sec.fields[s.field] = { value: s.value, confidence: s.confidence, source: 'document', userEdited: false };
+        sec.lastUpdatedBy = 'agent';
+        if (!sec.sources.includes('document')) sec.sources.push('document');
+        state.editLog.push({ timestamp: new Date().toISOString(), sectionId: s.sectionId, field: s.field, oldValue, newValue: s.value, source: 'agent' });
+        state.gaps = state.gaps.filter(g => !(g.sectionId === s.sectionId && g.field === s.field));
+        pushEvent({ type: 'field_update', sectionId: s.sectionId, field: s.field, value: s.value, confidence: s.confidence, source: 'document' });
+        delete state.stagedDocFields![`${s.sectionId}.${s.field}`];
+        committed.push(s.field);
+      }
+      setCboState(cboId, state);
+      const held = wanted.length - committable.length;
+      return { content: [{ type: "text" as const, text: `Committed to the document: ${committed.join(', ')}.${held > 0 ? ` ${held} value(s) stayed staged (user hasn't replied since they were staged).` : ''}` }] };
     },
     { annotations: { readOnlyHint: false } }
   );
@@ -952,7 +1021,7 @@ STOP and wait for the user's selection after calling this tool.`,
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, flagGap, setPhase, setPath, setMaturityTier, showInterventionTypes, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector],
+    tools: [updateSection, confirmDocFields, flagGap, setPhase, setPath, setMaturityTier, showInterventionTypes, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector],
   });
 }
 
@@ -1523,6 +1592,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
         // slow on basic questions").
         allowedTools: turnKind === 'map_help' ? MAP_HELP_TOOLS : [
           "mcp__cbo__update_section",
+          "mcp__cbo__confirm_doc_fields",
           "mcp__cbo__flag_gap",
           "mcp__cbo__set_phase",
           "mcp__cbo__set_path",

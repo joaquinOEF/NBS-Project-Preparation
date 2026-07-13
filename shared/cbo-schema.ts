@@ -168,6 +168,13 @@ export interface CboState {
   city: string;
   phase: number;
   sections: Record<CboSectionId, CboSectionState>;
+  // Crawl-trust gate (field report 2026-07: extracted values were filled with
+  // no validation, "sometimes asks for validation sometimes doesn't"). Doc-
+  // sourced FREE-TEXT extractions land here instead of the section; the
+  // confirm_doc_fields tool commits them only after the user confirmed the
+  // recap in chat (enum fields keep their canonicalize-or-reject guard and
+  // commit directly). Keyed `${sectionId}.${field}`.
+  stagedDocFields?: Record<string, { sectionId: CboSectionId; field: string; value: string; confidence: Confidence; stagedAtUserTurns: number }>;
   gaps: CboGapEntry[];
   maturityScores: MaturityScore[];
   priorityFlags: PriorityFlag[];
