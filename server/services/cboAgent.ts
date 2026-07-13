@@ -31,7 +31,21 @@ import { setMaturityTierForCboState, getMaturityTierForCboState } from "./orgPer
 import { queryTerms, scoreText, extractExcerpt } from "./textSearch";
 import { isFakeModelEnabled, streamWithFakeModel } from "./fakeCboModel";
 import { emitAssistantText } from "./agentOutput";
-import { isKnownOrgProfileField, canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, orgProfileOptionLabels, ORG_PROFILE_FIELDS } from "@shared/cbo-field-catalog";
+import { isKnownOrgProfileField, canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, orgProfileOptionLabels, orgProfileLabelsForIds, ORG_PROFILE_FIELDS } from "@shared/cbo-field-catalog";
+import { QUESTIONNAIRES, checkOptionRule, filterRuledOptions, missingRequiredForClose, type FieldReader, type QuestionnaireManifest } from "@shared/cbo-questionnaire";
+
+/** Manifests whose rules govern this section (today: E1 ↔ org_profile). */
+function manifestsForSection(sectionId: string): QuestionnaireManifest[] {
+  return Object.values(QUESTIONNAIRES).filter(m => m.sectionId === sectionId);
+}
+
+/** FieldReader over a live section's fields. */
+function sectionFieldReader(section: { fields: Record<string, { value: unknown } | undefined> }): FieldReader {
+  return (field: string) => {
+    const v = section.fields[field]?.value;
+    return v == null ? undefined : String(v);
+  };
+}
 
 // ============================================================================
 // SDK LOADING — shared with conceptNoteAgent (lazy load)
@@ -286,7 +300,14 @@ function createCboMcpTools(cboId: string) {
       // exact-match-or-pass-through: never destroy what the human said.
       const isDocSource = String(args.source ?? '').toLowerCase() === 'document';
       const offList: string[] = [];
+      const ruleBlocked: { field: string; dependsOn: string; allowedIds: string[] }[] = [];
       const updated: string[] = [];
+      // Conditional-option rules (manifest): write dependency fields first so
+      // a batch carrying { has_cnpj, legal_form } validates legal_form against
+      // the has_cnpj value from THIS batch, not a stale one.
+      const manifests = manifestsForSection(args.sectionId);
+      const dependencyFields = new Set(manifests.flatMap(m => Object.values(m.optionRules).map(r => r.dependsOn)));
+      writable = [...writable.filter(([k]) => dependencyFields.has(k)), ...writable.filter(([k]) => !dependencyFields.has(k))];
       for (const [fieldName, rawValue] of writable) {
         const finalValue = args.sectionId === 'org_profile'
           ? canonicalizeOrgProfileValue(fieldName, rawValue, getActiveCboLang(cboId), isDocSource)
@@ -296,6 +317,17 @@ function createCboMcpTools(cboId: string) {
           isEnumOrgProfileField(fieldName) && !isCanonicalOrgProfileValue(fieldName, finalValue)
         ) {
           offList.push(fieldName);
+          continue;
+        }
+        // Manifest rule: a KNOWN option that the stored dependency answer
+        // excludes (e.g. legal_form "ONG" after has_cnpj "Ainda não") is
+        // rejected for every source — user chips included, since a wrong
+        // stored combination is wrong no matter who produced it.
+        const ruleHit = manifests
+          .map(m => checkOptionRule(m, fieldName, finalValue, sectionFieldReader(section)))
+          .find(r => !r.ok) as { ok: false; dependsOn: string; allowedIds: string[] } | undefined;
+        if (ruleHit) {
+          ruleBlocked.push({ field: fieldName, dependsOn: ruleHit.dependsOn, allowedIds: ruleHit.allowedIds });
           continue;
         }
         const oldValue = section.fields[fieldName]?.value ?? null;
@@ -315,8 +347,11 @@ function createCboMcpTools(cboId: string) {
       const offListNote = offList.length > 0
         ? ` NOT STORED (off-list value from document): ${offList.map(f => `${f} — allowed values are exactly: ${orgProfileOptionLabels(f, getActiveCboLang(cboId)).join(' · ')}`).join('; ')}. Either resend with one of those exact labels, or leave the field empty and ask the user that question with the normal chips, leading with your best guess from the document.`
         : '';
+      const ruleNote = ruleBlocked.length > 0
+        ? ` NOT STORED (inconsistent with an earlier answer): ${ruleBlocked.map(b => `${b.field} — given the stored ${b.dependsOn} answer, the only valid options are: ${orgProfileLabelsForIds(b.field, b.allowedIds, getActiveCboLang(cboId)).join(' · ')}`).join('; ')}. Re-ask the user with exactly those chips.`
+        : '';
       const summary = updated.length > 0 ? `Updated ${args.sectionId}: ${updated.join(', ')}.` : `Nothing stored in ${args.sectionId}.`;
-      return { content: [{ type: "text" as const, text: `${summary}${note}${offListNote}` }] };
+      return { content: [{ type: "text" as const, text: `${summary}${note}${offListNote}${ruleNote}` }] };
     },
     { annotations: { readOnlyHint: false } }
   );
@@ -540,16 +575,34 @@ Include showMap: true on a question only when the user genuinely needs the map t
       // chat prose instead of a composer. No isError — the question DID reach
       // the user; an error retry would double-ask it.
       let converted = 0;
+      const filteredNotes: string[] = [];
       for (const q of args.questions || []) {
         if ((q.options?.length ?? 0) === 1) {
           pushEvent({ type: 'chat', content: q.question, role: 'assistant' } as any);
           converted++;
-        } else {
-          pushEvent({ type: 'ask_user', question: q.question, options: q.options || [], relatedSections: q.relatedSections, showMap: q.showMap, multiSelect: q.multiSelect });
+          continue;
         }
+        // Manifest rule: when this is recognizably a rule-governed enum
+        // question (e.g. legal_form), drop the options the stored dependency
+        // answer excludes — a CNPJ-less org must never see "ONG" as a chip.
+        // Only applied when ≥2 options survive; otherwise the original list
+        // renders and the write-path rule still backstops the answer.
+        let options = q.options || [];
+        const qState = getCboState(cboId);
+        for (const m of Object.values(QUESTIONNAIRES)) {
+          const qSection = qState?.sections[m.sectionId as keyof typeof qState.sections];
+          if (!qSection) continue;
+          const filtered = filterRuledOptions(m, options, sectionFieldReader(qSection));
+          if (filtered && filtered.droppedLabels.length > 0 && filtered.kept.length >= 2) {
+            options = filtered.kept as typeof options;
+            filteredNotes.push(`dropped ${filtered.droppedLabels.length} ${filtered.field} option(s) inconsistent with the stored ${m.optionRules[filtered.field].dependsOn} answer: ${filtered.droppedLabels.join(' · ')}`);
+          }
+        }
+        pushEvent({ type: 'ask_user', question: q.question, options, relatedSections: q.relatedSections, showMap: q.showMap, multiSelect: q.multiSelect });
       }
       const note = converted > 0 ? ` (${converted} single-option question(s) delivered as plain text instead — a one-option list is a free-text question; next time ask it as prose with no tool call)` : '';
-      return { content: [{ type: "text" as const, text: `${(args.questions || []).length} question(s) shown.${note} STOP and wait.` }] };
+      const filterNote = filteredNotes.length > 0 ? ` (${filteredNotes.join('; ')} — the user only saw the valid chips)` : '';
+      return { content: [{ type: "text" as const, text: `${(args.questions || []).length} question(s) shown.${note}${filterNote} STOP and wait.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
@@ -664,6 +717,33 @@ STOP and wait for the user's map selection after calling this tool.`,
           }],
           isError: true,
         };
+      }
+      // CLOSE GATE (manifest): for phases scored at close (E1), scoring IS the
+      // closing signal — so refuse it while required questionnaire fields (or
+      // the set_path triage) are missing, naming exactly what's left. This is
+      // what makes "edit an earlier answer near the end → the model jumps to
+      // the closing and skips the project-status question" structurally
+      // impossible (field report 2026-07).
+      const closeManifest = QUESTIONNAIRES[state.phase];
+      if (closeManifest) {
+        const gateSection = state.sections[closeManifest.sectionId as keyof typeof state.sections];
+        let hasPath: boolean | null = null; // null = standalone session, path not persistable
+        if (closeManifest.requiresPath) {
+          try {
+            const rows = await db.select({ path: cohortMembers.path }).from(cohortMembers).where(eq(cohortMembers.cboStateId, cboId)).limit(1);
+            hasPath = rows.length === 0 ? null : rows[0].path != null;
+          } catch { hasPath = null; }
+        }
+        const missing = gateSection ? missingRequiredForClose(closeManifest, sectionFieldReader(gateSection), hasPath) : [];
+        if (missing.length > 0) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: `NOT scored — Encontro ${state.phase} can't close yet, these are still missing: ${missing.join(', ')}. Ask the user for each of them (chips for enum fields, prose for free-text), store the answers, and only then re-run the closing calls.`,
+            }],
+            isError: true,
+          };
+        }
       }
       state.maturityScores = state.maturityScores.filter(s => s.metric !== args.metric);
       state.maturityScores.push({ metric: args.metric, score: args.score, justification: args.justification });
