@@ -234,12 +234,12 @@ export function registerCboRoutes(app: Express): void {
       const confirm = org
         ? `Conferindo: vocês são a **${org}**${bairro ? `, atuando no ${bairro}` : ''}, certo? Me corrige se eu errei. E com quem eu tô falando — seu nome e seu papel por aí?`
         : `Pra começar: qual é o nome da organização de vocês, e com quem eu tô falando — seu nome e seu papel por aí?`;
-      content = `Oi! 👋 Eu vou te ajudar a montar o perfil da ${org || 'organização de vocês'} — leva uns 20 minutinhos, no seu ritmo.\n\nSe vocês já têm algum material — proposta, relatório, até fotos de um projeto — pode arrastar aqui que eu leio e já preencho o que der. Senão a gente conversa rapidinho.\n\n${confirm}`;
+      content = `Oi! 👋 Eu vou te ajudar a montar o perfil da ${org || 'organização de vocês'} — leva uns 20 minutinhos, no seu ritmo.\n\n${confirm}`;
     } else {
       const confirm = org
         ? `Checking: you are **${org}**${bairro ? `, working in ${bairro}` : ''}, right? Correct me if I got it wrong. And who am I talking to — your name and your role?`
         : `To start: what is your organization's name, and who am I talking to — your name and your role?`;
-      content = `Hi! 👋 I'll help you build ${org ? `${org}'s` : 'your organization\u2019s'} profile — about 20 minutes, at your pace.\n\nIf you already have any material — a proposal, a report, even photos of a project — drop it here and I'll read it and pre-fill what I can. Otherwise we'll just have a quick chat.\n\n${confirm}`;
+      content = `Hi! 👋 I'll help you build ${org ? `${org}'s` : 'your organization\u2019s'} profile — about 20 minutes, at your pace.\n\n${confirm}`;
     }
 
     const msg = { role: 'assistant' as const, content, messageType: 'content' as const, timestamp: new Date().toISOString() };
