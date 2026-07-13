@@ -767,7 +767,15 @@ export default function CboProfilePage() {
   // LOCK the document so only the inner message list scrolls — the page can't
   // scroll, so the chrome can't move and the bottom bar is pinned. Both are
   // scoped to this page and restored on unmount.
+  //
+  // Scoped to the CHAT shell only: the welcome/preamble screens have no inner
+  // scroller, so they need normal document scroll — locking during them
+  // stranded the CTA below the fold on short desktop viewports (field report
+  // 2026-07: "intro page is not scrolling so in the PC view you can not
+  // completely see the button to continue").
+  const preChatScreen = welcomeMode || preambleEncontro != null;
   useEffect(() => {
+    if (preChatScreen) return;
     const root = document.documentElement;
     const body = document.body;
     const mount = document.getElementById('root');
@@ -814,7 +822,7 @@ export default function CboProfilePage() {
       body.style.overscrollBehavior = prev.bodyOverscroll;
       if (mount) { mount.style.height = prev.mountHeight; mount.style.overflow = prev.mountOverflow; }
     };
-  }, []);
+  }, [preChatScreen]);
 
   // Auto-scroll to related sections when question changes
   useEffect(() => {

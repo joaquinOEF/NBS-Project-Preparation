@@ -98,7 +98,7 @@ Per the spec, these fields land in the CBO profile (`state.sections.org_profile`
 2. `contact_name` — who's talking with us
 3. `contact_role` — their role in the org — **capture only if volunteered.** Ask name+role together once (Step 0); if the answer brings only a name, take it and move on. Never spend a turn chasing the role — it gates nothing.
 4. `mission_summary` — the org's mission in one sentence, **in their words** — asked as the SECOND question of the encontro (free-text prose, right after Step 0), before the activity list. It matters for almost any funding application, and answering it first makes the org reflect before picking activities.
-5. `main_activities` — **multi-select, up to 3**: Hortas e segurança alimentar · Arborização e áreas verdes · Resiliência climática (enchentes, calor) · Educação ambiental · Cultura e organização comunitária. (Most orgs do more than one thing; the list itself is still being refined with Vila Flores.)
+5. `main_activities` — **multi-select, no cap**: Hortas e segurança alimentar · Arborização e áreas verdes · Resiliência climática (enchentes, calor) · Educação ambiental · Cultura e organização comunitária. (Most orgs do more than one thing — let them pick as many as apply; the list itself is still being refined with Vila Flores.)
 6. `has_cnpj` — enum: Sim, temos CNPJ · Ainda não · Não temos certeza. Asked BEFORE the org-type question — formalization is what actually gates fundraising.
 7. `legal_form` — enum: ngo, associação, cooperativa, informal, implementer (empresa/estúdio/escritório técnico), social-enterprise, other
 8. `year_founded` — org-age **bucket**, captured as a chip (Começando agora / Menos de 2 anos / 2 a 5 anos / 5 a 10 anos / Mais de 10 anos) — a tap, not a typed year; works for informal groups too ("tempo que vocês fazem esse trabalho")
@@ -192,7 +192,7 @@ For everything still unknown, send **grouped `ask_user` calls** — one call car
 **Build each batch ONLY from questions whose fields are still empty in CURRENT STATE.** A document (or the invite) filling a field removes its question from the batch — the bulk-confirm in Step 1 already validated it. Re-asking something the panel already shows is the single most-reported field bug: after a link upload the org answered the same questions twice. If a batch would end up with zero questions, skip it entirely.
 
 **Batch A — quem são** (one `ask_user`):
-1. *O que vocês fazem? Pode escolher até 3.* (multi-select, max 3) — Hortas e segurança alimentar · Arborização e áreas verdes · Resiliência climática (enchentes, calor) · Educação ambiental · Cultura e organização comunitária → `main_activities`
+1. *O que vocês fazem?* (multi-select, no cap — most orgs do several things; never tell the user to limit their picks) — Hortas e segurança alimentar · Arborização e áreas verdes · Resiliência climática (enchentes, calor) · Educação ambiental · Cultura e organização comunitária → `main_activities`
 2. *Vocês têm CNPJ?* — Sim, temos CNPJ · Ainda não · Não temos certeza → `has_cnpj`
 3. *Que tipo de organização?* — ONG / Associação · Cooperativa · Coletivo informal · Empresa social · Empresa / estúdio / escritório técnico · Outra → `legal_form`
 4. *Há quanto tempo vocês existem?* — Começando agora · Menos de 2 anos · 2 a 5 anos · 5 a 10 anos · Mais de 10 anos → `year_founded`
