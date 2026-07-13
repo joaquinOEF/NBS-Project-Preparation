@@ -1222,8 +1222,29 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   // (persisted on phase boundaries); we just stop writing to nobody.
   let clientGone = false;
 
+  // Near-duplicate guard for this turn's chat text. Live test 2026-07-13: the
+  // model asked the proud-moment question, ran tools, then re-emitted the same
+  // question slightly extended in its final round — the client concatenates
+  // consecutive assistant blocks, so the user read the question twice in one
+  // bubble. If a later block is a prefix-extension (or repeat) of an earlier
+  // one this turn, drop it. 40-char floor so short legit repeats ("Anotado.")
+  // are never touched; per-turn scope so re-asking in a LATER turn still works.
+  const turnChatTexts: string[] = [];
+  const normChat = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  const isTurnDuplicate = (content: string): boolean => {
+    const n = normChat(content);
+    return turnChatTexts.some(p => Math.min(p.length, n.length) >= 40 && (n.startsWith(p) || p.startsWith(n)));
+  };
+
   const pushEvent = (event: CboEvent) => {
     if (clientGone || res.writableEnded) return;
+    if (event.type === 'chat') {
+      if (isTurnDuplicate(event.content)) {
+        console.log(`[cbo] dropped near-duplicate chat block for ${cboId} (${event.content.length} chars)`);
+        return;
+      }
+      turnChatTexts.push(normChat(event.content));
+    }
     res.write(`data: ${JSON.stringify(event)}\n\n`);
     if (event.type === 'chat') {
       // ALL chat events store as messageType: 'content'. The previous
