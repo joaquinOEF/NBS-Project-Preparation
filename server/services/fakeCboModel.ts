@@ -47,6 +47,7 @@ export function isFakeModelEnabled(): boolean {
 export type FakeOp =
   | { op: 'say'; text: string }
   | { op: 'wait'; ms: number } // test seam: simulate SDK thinking time (capped 25s)
+  | { op: 'thinking_step'; label: string; status?: 'active' | 'complete' } // live tool-activity label (pair with 'wait' to hold it visible)
   | { op: 'update_section'; sectionId: string; field: string; value: string; confidence?: Confidence; source?: string }
   | { op: 'ask_user'; question: string; options: { label: string; description?: string; recommended?: boolean }[]; multiSelect?: boolean; showMap?: boolean }
   | { op: 'score_maturity'; metric: string; score: number; justification?: string }
@@ -111,6 +112,10 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
   switch (op.op) {
     case 'say': {
       emitAssistantText(op.text, pushEvent);
+      break;
+    }
+    case 'thinking_step': {
+      pushEvent({ type: 'thinking_step', step: { id: 'fake-step', label: op.label, status: op.status ?? 'active' } });
       break;
     }
     case 'update_section': {

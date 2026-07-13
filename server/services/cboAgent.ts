@@ -1292,6 +1292,35 @@ export function resolveTurnModel(
   return heavy('default');
 }
 
+/** Human label for the working indicator while a tool executes. Server-side
+ *  (not i18n keys) because the WebFetch label embeds the fetched hostname and
+ *  the kickoff/recovery copy already follows this server-picks-language
+ *  pattern. Returns null for instant / user-facing tools (ask_user, chips,
+ *  composers, phase bookkeeping) — a label that flashes for 50ms is noise. */
+function formatCboToolLabel(tool: string, input: any, lang: string): string | null {
+  const pt = lang === 'pt';
+  switch (tool) {
+    case 'WebFetch': {
+      let host = '';
+      try { host = new URL(String(input?.url ?? '')).hostname.replace(/^www\./, ''); } catch { /* no host in label */ }
+      return host ? (pt ? `Lendo ${host}…` : `Reading ${host}…`) : (pt ? 'Lendo o site…' : 'Reading the website…');
+    }
+    case 'update_section':
+      return pt ? 'Atualizando a ficha…' : 'Updating the profile…';
+    case 'read_org_document':
+    case 'search_org_documents':
+    case 'list_org_documents':
+      return pt ? 'Lendo seus documentos…' : 'Reading your documents…';
+    case 'read_knowledge':
+    case 'search_knowledge':
+      return pt ? 'Consultando o material de apoio…' : 'Checking the reference material…';
+    case 'score_maturity':
+      return pt ? 'Avaliando o perfil…' : 'Assessing the profile…';
+    default:
+      return null;
+  }
+}
+
 async function streamWithSdk(cboId: string, userMessage: string, state: CboState, pushEvent: EventPusher, lang: string = 'en', turnKind?: string) {
   const mcpServer = getMcpServer(cboId);
   // Independent reads — run concurrently instead of serially. Together with
@@ -1450,7 +1479,15 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           } else if (block.type === "tool_use" && block.name) {
             // MCP tools come through namespaced as "mcp__cbo__<name>"; strip
             // the prefix so the guard below can match against canonical names.
-            calledTools.add(String(block.name).replace(/^mcp__cbo__/, ''));
+            const toolName = String(block.name).replace(/^mcp__cbo__/, '');
+            calledTools.add(toolName);
+            // Live activity label (field report 2026-07: users only ever saw
+            // "Processando…" and couldn't tell the agent was e.g. reading
+            // their website). The tool_use block lands right BEFORE the tool
+            // executes — exactly the wait this label narrates. Ephemeral:
+            // the client clears it on the next text delta / composer / done.
+            const label = formatCboToolLabel(toolName, (block as any).input, lang);
+            if (label) pushEvent({ type: 'thinking_step', step: { id: String((block as any).id || toolName), label, status: 'active' } });
           }
         }
       }
