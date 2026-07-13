@@ -501,6 +501,13 @@ export default function CboProfilePage() {
   // inline-options normalizer) REPLACES it, so persistence and conversion
   // still operate on whole blocks. Never persisted, cleared on any finalizer.
   const [streamDraft, setStreamDraft] = useState('');
+  // Live per-tool activity label ("Lendo o site…", "Atualizando a ficha…")
+  // emitted as 'thinking_step' events while the agent runs tools. Replaces the
+  // generic "Processando…" in the working indicator; ephemeral — cleared as
+  // soon as text starts streaming or the turn ends, never persisted. (Field
+  // report 2026-07: users only ever saw "processando" and couldn't tell the
+  // agent was e.g. reading their website.)
+  const [activeToolLabel, setActiveToolLabel] = useState<string | null>(null);
   // Live mirror of cboId + the in-flight stream's handle. Restart/unmount
   // abort the stream DELIBERATELY; the catch below must distinguish that (and
   // an abort belonging to an already-replaced session) from a genuine drop —
@@ -951,7 +958,14 @@ export default function CboProfilePage() {
         // Transient draft text — replaced wholesale when the finalizing
         // 'chat' arrives. Mobile unread flag matches the 'chat' behavior.
         if (mobileActiveTabRef.current !== 'chat') setMobileChatUnread(true);
+        setActiveToolLabel(null); // text is flowing — the tool step is over
         setStreamDraft(prev => prev + (event as any).content);
+        break;
+      }
+      case 'thinking_step': {
+        // Per-tool activity label while the agent works. 'active' shows it in
+        // the working indicator; anything else clears it.
+        setActiveToolLabel(event.step.status === 'active' ? event.step.label : null);
         break;
       }
       case 'chat': {
@@ -969,6 +983,7 @@ export default function CboProfilePage() {
           setMobileChatUnread(true);
         }
         setStreamDraft(''); // finalizer replaces the live draft
+        setActiveToolLabel(null);
         setMessages(prev => {
           const last = prev[prev.length - 1];
           // Concatenate consecutive assistant chat chunks into one bubble
@@ -1100,9 +1115,9 @@ export default function CboProfilePage() {
         setIsStreaming(false);
         break;
       case 'done':
-        setStreamDraft(''); setIsStreaming(false); break;
+        setStreamDraft(''); setActiveToolLabel(null); setIsStreaming(false); break;
       case 'error':
-        setStreamDraft(''); setIsStreaming(false); setMessages(prev => [...prev, { role: 'assistant', content: `${i18n.resolvedLanguage === 'pt' ? 'Erro' : 'Error'}: ${event.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); break;
+        setStreamDraft(''); setActiveToolLabel(null); setIsStreaming(false); setMessages(prev => [...prev, { role: 'assistant', content: `${i18n.resolvedLanguage === 'pt' ? 'Erro' : 'Error'}: ${event.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); break;
     }
   }, []);
 
@@ -1136,6 +1151,7 @@ export default function CboProfilePage() {
       setMessages(prev => [...prev, { role: 'user', content: JSON.stringify({ kind: 'answers', pairs: chipAnswers }), messageType: 'composer', timestamp: new Date().toISOString() }]);
     }
     setIsStreaming(true);
+    setActiveToolLabel(null); // never carry a stale tool label into a new turn
     // Inactivity watchdog. On patchy mobile data the SSE socket can stall
     // silently — reader.read() then hangs forever, isStreaming stays true, and
     // the user faces a frozen "Processando…" with no way out. If no chunk
@@ -1938,7 +1954,7 @@ export default function CboProfilePage() {
                 </div>
               </div>
             )}
-            {isStreaming && !streamDraft && <div className="flex items-center gap-2 py-2"><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} /><span className="text-xs text-muted-foreground ml-1">{t('cbo.working')}</span></div>}
+            {isStreaming && !streamDraft && <div className="flex items-center gap-2 py-2"><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} /><span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} /><span className="text-xs text-muted-foreground ml-1" data-testid="cbo-working-label">{activeToolLabel ?? t('cbo.working')}</span></div>}
 
             {/* Start Next Workshop banner.
                 When the coordinator opens a workshop higher than the user's
