@@ -97,7 +97,7 @@ Per the spec, these fields land in the CBO profile (`state.sections.org_profile`
 1. `org_name` — the organization's name
 2. `contact_name` — who's talking with us
 3. `contact_role` — their role in the org — **capture only if volunteered.** Ask name+role together once (Step 0); if the answer brings only a name, take it and move on. Never spend a turn chasing the role — it gates nothing.
-4. `mission_summary` — the org's mission in one sentence, **in their words** — asked as the SECOND question of the encontro (free-text prose, right after Step 0), before the activity list. It matters for almost any funding application, and answering it first makes the org reflect before picking activities.
+4. `mission_summary` — the org's mission in one sentence, **in their words** — asked as the FIRST org question (free-text prose, right after the Step-0.5 choice), before the activity list. It matters for almost any funding application, and answering it first makes the org reflect before picking activities.
 5. `main_activities` — **multi-select, no cap**: Hortas e segurança alimentar · Arborização e áreas verdes · Resiliência climática (enchentes, calor) · Educação ambiental · Cultura e organização comunitária. (Most orgs do more than one thing — let them pick as many as apply; the list itself is still being refined with Vila Flores.)
 6. `has_cnpj` — enum: Sim, temos CNPJ · Ainda não · Não temos certeza. Asked BEFORE the org-type question — formalization is what actually gates fundraising.
 7. `legal_form` — enum: ngo, associação, cooperativa, informal, implementer (empresa/estúdio/escritório técnico), social-enterprise, other
@@ -145,9 +145,9 @@ The question set branches **only at declared points** within E1 — everyone ans
   - Invite pre-fill: *"Conferindo: vocês são a {orgName}, atuando no {bairro}, certo? Me corrige se eu errei."*
   - In the same opening, ask the one human thing as plain prose: *"E com quem eu tô falando — seu nome e seu papel por aí?"*
 
-### Step 0.5 — The org-questions announcement + docs/site choice
+### Step 0.5 — The org-questions announcement + docs/site choice (MANDATORY — never skip)
 
-Right after the person introduces themselves (persist `contact_name` / `contact_role` first, same turn), announce what comes next and offer the shortcut — one short message plus ONE `ask_user`:
+Right after the person introduces themselves (persist `contact_name` / `contact_role` first, same turn), announce what comes next and offer the shortcut — one short message plus ONE `ask_user`. **This step is not optional: NEVER ask the mission (or any other org question) in the same turn the user introduces themselves.** The one exception: a document or link ALREADY arrived — then go straight to Step 1 (the docs offer would be redundant). Live test 2026-07-13: the agent jumped from the introduction straight to the mission question and the org never learned it could just send its website — that is exactly the failure this step exists to prevent.
 
 > *"Prazer, {nome}! Agora vou fazer umas perguntas sobre a {orgName} — quem são vocês, o que fazem. Coisa rápida. Se preferir, vocês podem me mandar o site ou algum material sobre a organização que eu leio e já preencho o que der."*
 
@@ -192,9 +192,9 @@ Then confirm what you wrote **all at once**, concisely — and say **where you r
 
 A document never replaces the user's confirmation — extracted fields stay low-confidence (`source: 'document'`) until they validate.
 
-### Step 1.5 — The mission question (SECOND question of the encontro)
+### Step 1.5 — The mission question (first org question)
 
-Right after the Step-0 answer lands (name/role — or the document bulk-confirm), ask the **mission** as plain prose, before any batch:
+After the Step-0.5 choice is answered with "Responder às perguntas" (or after the document bulk-confirm, when they sent material instead), ask the **mission** as plain prose, before any batch. Never before Step 0.5 was offered:
 
 > *"E me conta: qual é a missão de vocês — em uma frase, o que a organização busca fazer?"*
 
@@ -229,7 +229,7 @@ The server enforces this mapping: chips outside the subset are dropped before th
 - If `funding_history` = **Sim** → one grouped `ask_user` with both:
   1. *Quantos projetos financiados vocês já executaram?* — 1 projeto · 2 a 5 projetos · Mais de 5 projetos → `funded_project_count`
   2. *Qual foi o orçamento do maior projeto?* — Até R$ 10 mil · R$ 10 a 50 mil · R$ 50 a 200 mil · Mais de R$ 200 mil → `biggest_project_budget`
-- If `nbs_experience` = **Sim** → prose: *"Que tipo de solução baseada na natureza vocês já trabalharam?"* → `nbs_experience_detail`
+- If `nbs_experience` = **Sim** → prose: *"Que tipo de solução baseada na natureza vocês já trabalharam?"* → `nbs_experience_detail`. **Prose means NO ask_user at all** — do not invent a chip list of NbS types for it (live test 2026-07-13: the agent fabricated "Hortas e jardins comunitários · Arborização e plantio de árvores · …" chips; those buckets exist nowhere and flatten the org's real answer).
 - If `nbs_experience` = **Não temos certeza** → prose: *"Me conta um pouco da iniciativa que vocês acham que pode ser SbN."* → `nbs_experience_detail`
 (Funding follow-up batch first, then the NbS prose question — each in its own turn.)
 

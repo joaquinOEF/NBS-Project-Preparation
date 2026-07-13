@@ -2658,8 +2658,12 @@ function CboQuestionCard({
           {isMulti && <span className="text-[10px] text-muted-foreground ml-1">{t('cbo.selectAllThatApply', { defaultValue: '(select all that apply)' })}</span>}
         </div>
         {answeredValue && (
-          <span className="shrink-0 inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded">
-            <Check className="w-3 h-3" /> {answeredValue}
+          // max-w + wrapping: a long multi-select answer ("Arborização e áreas
+          // verdes, Hortas e segurança alimentar, …") used to be shrink-0 and
+          // squeezed the question title into a one-word column (live test
+          // 2026-07-13). The badge now wraps within half the card instead.
+          <span className="max-w-[50%] inline-flex items-start gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded break-words [overflow-wrap:anywhere]">
+            <Check className="w-3 h-3 shrink-0 mt-0.5" /> <span className="min-w-0">{answeredValue}</span>
           </span>
         )}
       </div>
