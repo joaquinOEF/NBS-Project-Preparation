@@ -35,11 +35,14 @@ import {
 import { NBS_SHOWCASE_CARDS } from '@shared/nbs-showcase-cards';
 import { resolveOpenMapParams } from '@shared/cbo-map-presets';
 import { emitAssistantText } from './agentOutput';
+import { isReplitDeployment } from './runtimeEnv';
 import { canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue } from '@shared/cbo-field-catalog';
 import { QUESTIONNAIRES, checkOptionRule } from '@shared/cbo-questionnaire';
 
 export function isFakeModelEnabled(): boolean {
-  return process.env.CBO_FAKE_MODEL === '1';
+  // Deployment backstop: Replit shares App secrets with Deployments by
+  // default, so the flag alone isn't a prod guarantee (see runtimeEnv.ts).
+  return process.env.CBO_FAKE_MODEL === '1' && !isReplitDeployment();
 }
 
 // ── Script shape ────────────────────────────────────────────────────────────
