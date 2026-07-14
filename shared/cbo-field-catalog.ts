@@ -97,6 +97,12 @@ export const ORG_PROFILE_ENUMS: Record<string, CboEnumOption[]> = {
     { id: 'resiliencia-climatica', pt: 'Resiliência climática (enchentes, calor)', en: 'Climate resilience (floods, heat)', aliases: ['resiliência climática', 'climate resilience'] },
     { id: 'educacao-ambiental', pt: 'Educação ambiental', en: 'Environmental education', aliases: ['env education'] },
     { id: 'cultura-comunitaria', pt: 'Cultura e organização comunitária', en: 'Culture and community organizing', aliases: ['cultura', 'organização comunitária', 'community organizing'] },
+    // VF feedback 2026-07-14: an "Others" escape chip. The skill treats it as
+    // a doorway (tap → free-text follow-up, store the org's own words — the
+    // multi-field passes unlisted items through untouched); this entry exists
+    // so a tapped "Outras" canonicalizes across languages instead of failing
+    // the exact-label guard while the follow-up is still in flight.
+    { id: 'other', pt: 'Outras', en: 'Others', aliases: ['other', 'outros'] },
   ],
   has_cnpj: [
     { id: 'yes', pt: 'Sim, temos CNPJ', en: 'Yes, we have a CNPJ', aliases: ['sim', 'yes', 'tem cnpj', 'com cnpj'] },

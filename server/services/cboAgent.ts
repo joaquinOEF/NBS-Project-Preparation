@@ -679,13 +679,21 @@ Include showMap: true on a question only when the user genuinely needs the map t
             }
           }
         }
+        let options = q.options || [];
+        const qState = getCboState(cboId);
+        // E1 asks FACTS about the org (team size, CNPJ, experience) — there is
+        // no answer to "recommend", and a ⭐ badge on "Sim" reads as pressure
+        // to self-inflate (Perfect Demo 2026-07-14: "por que dice
+        // recomendado?"). Strip the flag in phase 1; later encontros (real
+        // recommendations, e.g. NBS types) keep it.
+        if ((qState?.phase ?? 1) <= 1) {
+          options = options.map(({ recommended: _r, ...rest }: any) => rest);
+        }
         // Manifest rule: when this is recognizably a rule-governed enum
         // question (e.g. legal_form), drop the options the stored dependency
         // answer excludes — a CNPJ-less org must never see "ONG" as a chip.
         // Only applied when ≥2 options survive; otherwise the original list
         // renders and the write-path rule still backstops the answer.
-        let options = q.options || [];
-        const qState = getCboState(cboId);
         for (const m of Object.values(QUESTIONNAIRES)) {
           const qSection = qState?.sections[m.sectionId as keyof typeof qState.sections];
           if (!qSection) continue;

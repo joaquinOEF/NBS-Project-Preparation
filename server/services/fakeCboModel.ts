@@ -190,7 +190,10 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
       break;
     }
     case 'ask_user': {
-      const options = (op.options ?? []).map(o => ({ label: o.label, description: o.description ?? '', recommended: o.recommended, action: o.action }));
+      // Mirror of the real tool's phase-1 "recommended" strip: E1 facts have
+      // no recommendable answer (Perfect Demo 2026-07-14).
+      const stripRecommended = (state.phase ?? 1) <= 1;
+      const options = (op.options ?? []).map(o => ({ label: o.label, description: o.description ?? '', recommended: stripRecommended ? undefined : o.recommended, action: o.action }));
       // Mirror of the real ask_user re-ask guard (cboAgent.ts): a chip list
       // that resolves to enum field(s) the state already answers is a
       // duplicate and is dropped instead of rendered. `allowReask` bypasses,
