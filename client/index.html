@@ -8,10 +8,15 @@
          automatically (page is constrained above the URL bar / below the
          notch). Adding viewport-fit=cover would require us to manage all
          safe-area-inset offsets, which created empty space below the mobile
-         tab bar where Safari's URL bar was overlaying. -->
+         tab bar where Safari's URL bar was overlaying.
+         interactive-widget=resizes-content: Android Chrome 108+ resizes the
+         LAYOUT viewport when the keyboard opens (instead of overlaying it),
+         so 100dvh layouts stay correct with zero JS there. iOS ignores it —
+         the visualViewport follower in cbo-profile covers iOS. See
+         docs/mobile-viewport.md. -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0"
+      content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"
     />
     <!-- Brand tint for Safari/Chrome toolbar. Light + dark variants match the
          emerald-50 page bg the CBO flow uses; falls back to single value for

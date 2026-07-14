@@ -794,6 +794,17 @@ export default function CboProfilePage() {
   // scroll, so the chrome can't move and the bottom bar is pinned. Both are
   // scoped to this page and restored on unmount.
   //
+  //  3. HEIGHT ALONE IS NOT ENOUGH (field report 2026-07-15, WhatsApp→Safari):
+  //     when the keyboard opens, iOS also SCROLLS the visual viewport down
+  //     (visualViewport.offsetTop > 0) to reveal the focused input. A shell
+  //     anchored at the layout-viewport top then pokes out of the visible
+  //     window: the tab bar rides up and dead space (= offsetTop) opens below
+  //     it, growing while typing. On dismiss iOS often fails to restore the
+  //     offset (long-standing bug, worse on iOS 26), leaving a permanent gap.
+  //     So the shell also FOLLOWS the viewport: translateY(offsetTop), plus a
+  //     scroll reset (nothing legitimate ever scrolls the locked document, so
+  //     any window scroll is Safari residue). See docs/mobile-viewport.md.
+  //
   // Scoped to the CHAT shell only: the welcome/preamble screens have no inner
   // scroller, so they need normal document scroll — locking during them
   // stranded the CTA below the fold on short desktop viewports (field report
@@ -805,9 +816,18 @@ export default function CboProfilePage() {
     const root = document.documentElement;
     const body = document.body;
     const mount = document.getElementById('root');
+    let raf = 0;
     const setVH = () => {
-      const h = window.visualViewport?.height ?? window.innerHeight;
-      root.style.setProperty('--cbo-vh', `${Math.round(h)}px`);
+      if (raf) return; // coalesce bursts (iOS fires resize+scroll together)
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const v = window.visualViewport;
+        const h = v?.height ?? window.innerHeight;
+        const top = v?.offsetTop ?? 0;
+        root.style.setProperty('--cbo-vh', `${Math.round(h)}px`);
+        root.style.setProperty('--cbo-vv-top', `${Math.round(top)}px`);
+        if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
+      });
     };
     setVH();
     const vv = window.visualViewport;
@@ -840,7 +860,9 @@ export default function CboProfilePage() {
       vv?.removeEventListener('scroll', setVH);
       window.removeEventListener('orientationchange', setVH);
       window.removeEventListener('resize', setVH);
+      if (raf) cancelAnimationFrame(raf);
       root.style.removeProperty('--cbo-vh');
+      root.style.removeProperty('--cbo-vv-top');
       root.style.overflow = prev.htmlOverflow;
       root.style.height = prev.htmlHeight;
       body.style.overflow = prev.bodyOverflow;
@@ -1572,7 +1594,7 @@ export default function CboProfilePage() {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden" style={{ height: 'var(--cbo-vh, 100dvh)' }}>
+    <div data-testid="cbo-shell" className="h-[100dvh] flex flex-col bg-background overflow-hidden" style={{ height: 'var(--cbo-vh, 100dvh)', transform: 'translateY(var(--cbo-vv-top, 0px))' }}>
       {/* E2E stream-complete contract. SSE never goes network-idle, so Playwright
           waits on this hidden marker's attributes instead: data-streaming flips
           to 'false' when a turn ends, data-turns counts completed turns, and
