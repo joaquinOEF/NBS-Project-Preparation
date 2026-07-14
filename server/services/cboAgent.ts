@@ -30,6 +30,7 @@ import { getOrgIdForCboState, listDocumentsByOrg, listDocumentSummariesByOrg, ge
 import { setMaturityTierForCboState, getMaturityTierForCboState } from "./orgPersistence";
 import { queryTerms, scoreText, extractExcerpt } from "./textSearch";
 import { isFakeModelEnabled, streamWithFakeModel } from "./fakeCboModel";
+import { isPhaseSkipEnabled } from "./runtimeEnv";
 import { emitAssistantText } from "./agentOutput";
 import { isKnownOrgProfileField, canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, orgProfileOptionLabels, orgProfileLabelsForIds, ORG_PROFILE_FIELDS } from "@shared/cbo-field-catalog";
 import { QUESTIONNAIRES, checkOptionRule, filterRuledOptions, missingRequiredForClose, type FieldReader, type QuestionnaireManifest } from "@shared/cbo-questionnaire";
@@ -1366,8 +1367,8 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   // it must be dead even for someone who TYPES the magic string: the message
   // is intercepted here and never reaches the model or the state.
   const skipMatch = userMessage.match(SKIP_PATTERN);
-  if (skipMatch && process.env.ENABLE_PHASE_SKIP !== '1') {
-    console.warn(`[cbo] blocked [SKIP TO phase:${skipMatch[1]}] for ${cboId} — ENABLE_PHASE_SKIP not set`);
+  if (skipMatch && !isPhaseSkipEnabled()) {
+    console.warn(`[cbo] blocked [SKIP TO phase:${skipMatch[1]}] for ${cboId} — phase skip disabled (flag unset or running in a deployment)`);
     pushEvent({ type: 'chat', content: lang === 'pt' ? 'Esse atalho de demonstração está desativado aqui.' : 'That demo shortcut is disabled here.', role: 'assistant' } as any);
     pushEvent({ type: 'done', summary: 'phase-skip blocked (flag off)' });
     res.end();

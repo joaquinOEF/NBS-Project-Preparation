@@ -1,4 +1,5 @@
 import type { Express } from 'express';
+import { isReplitDeployment } from "./services/runtimeEnv";
 import { createServer, type Server } from 'http';
 import { registerCboRoutes } from './routes/cboRoutes';
 import { registerCohortRoutes } from './routes/cohortRoutes';
@@ -110,7 +111,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test-only seeding API — CONDITIONALLY registered so the routes literally do
   // not exist in production (the gate is registration, not a runtime check).
   // Never set ENABLE_TEST_ROUTES on the production Deployment. See testRoutes.ts.
-  if (process.env.ENABLE_TEST_ROUTES === '1') {
+  // Deployment backstop (see runtimeEnv.ts): a shared secret can't enable
+  // the test seams inside a Replit Deployment.
+  if (process.env.ENABLE_TEST_ROUTES === '1' && !isReplitDeployment()) {
     const { registerTestRoutes } = await import('./routes/testRoutes');
     registerTestRoutes(app);
   }

@@ -27,6 +27,7 @@ import {
   toDocumentMeta,
 } from "../services/documentPersistence";
 import { getCohortLanguageForCbo } from "../services/cohortLanguage";
+import { isPhaseSkipEnabled } from "../services/runtimeEnv";
 
 // Shim — pre-DB code called this synchronous-style. Routes now await DB.
 async function loadPersistedCboState(id: string): Promise<{ state: CboState; messages: any[] } | null> {
@@ -35,10 +36,10 @@ async function loadPersistedCboState(id: string): Promise<{ state: CboState; mes
 
 export function registerCboRoutes(app: Express): void {
   // Demo-only phase skipping (progress-bar segments become jump buttons and
-  // the server honors [SKIP TO phase:X]). Never set on the prod Deployment —
-  // the skip stamps sample data over real answers. Same family as
-  // ENABLE_TEST_ROUTES / CBO_FAKE_MODEL.
-  const phaseSkipEnabled = () => process.env.ENABLE_PHASE_SKIP === '1';
+  // the server honors [SKIP TO phase:X]) — the skip stamps sample data over
+  // real answers. isPhaseSkipEnabled requires the flag AND a non-deployment
+  // environment, so a secret shared with the Deployment can't enable it there.
+  const phaseSkipEnabled = () => isPhaseSkipEnabled();
 
   // Create new CBO session
   app.post("/api/cbo", async (req: Request, res: Response) => {

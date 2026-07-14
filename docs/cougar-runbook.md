@@ -104,7 +104,10 @@ Log in at **`/coordinator-login`** → lands on **`/orchestrator`**.
 > **Never** set `ENABLE_TEST_ROUTES` / `CBO_FAKE_MODEL` / `TEST_API_SECRET` /
 > `ENABLE_PHASE_SKIP` on the prod Deployment. (`ENABLE_PHASE_SKIP` turns the
 > CBO progress bar into demo jump buttons that overwrite real answers with
-> sample data — dev demos only.)
+> sample data — dev demos only.) Since Replit shares App secrets with
+> Deployments, the server additionally refuses all of these seams whenever it
+> runs inside a Replit Deployment (`REPLIT_DEPLOYMENT=1`) — a shared secret
+> cannot switch them on in prod.
 
 ---
 
