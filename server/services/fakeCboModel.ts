@@ -36,7 +36,7 @@ import { NBS_SHOWCASE_CARDS } from '@shared/nbs-showcase-cards';
 import { resolveOpenMapParams } from '@shared/cbo-map-presets';
 import { emitAssistantText } from './agentOutput';
 import { isReplitDeployment } from './runtimeEnv';
-import { canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue } from '@shared/cbo-field-catalog';
+import { canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, enumFieldsMatchingOptions } from '@shared/cbo-field-catalog';
 import { QUESTIONNAIRES, checkOptionRule } from '@shared/cbo-questionnaire';
 
 export function isFakeModelEnabled(): boolean {
@@ -54,7 +54,7 @@ export type FakeOp =
   | { op: 'thinking_step'; label: string; status?: 'active' | 'complete' } // live tool-activity label (pair with 'wait' to hold it visible)
   | { op: 'update_section'; sectionId: string; field: string; value: string; confidence?: Confidence; source?: string }
   | { op: 'confirm_doc_fields'; fields?: string[] } // commit values staged by doc-sourced free-text update_section
-  | { op: 'ask_user'; question: string; options: { label: string; description?: string; recommended?: boolean; action?: 'upload' }[]; multiSelect?: boolean; showMap?: boolean }
+  | { op: 'ask_user'; question: string; options: { label: string; description?: string; recommended?: boolean; action?: 'upload' }[]; multiSelect?: boolean; showMap?: boolean; allowReask?: boolean }
   | { op: 'score_maturity'; metric: string; score: number; justification?: string }
   | { op: 'set_phase'; phase: number }
   | { op: 'priority_flag'; flag: string; met: boolean; notes?: string }
@@ -191,6 +191,20 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
     }
     case 'ask_user': {
       const options = (op.options ?? []).map(o => ({ label: o.label, description: o.description ?? '', recommended: o.recommended, action: o.action }));
+      // Mirror of the real ask_user re-ask guard (cboAgent.ts): a chip list
+      // that resolves to enum field(s) the state already answers is a
+      // duplicate and is dropped instead of rendered. `allowReask` bypasses,
+      // same as the real tool.
+      if (!op.allowReask) {
+        const fieldsHit = enumFieldsMatchingOptions(options.filter(o => !o.action).map(o => o.label));
+        const fields = state.sections.org_profile?.fields ?? {};
+        if (
+          fieldsHit.length > 0 &&
+          fieldsHit.every(f => String(fields[f]?.value ?? '').trim().length > 0)
+        ) {
+          break;
+        }
+      }
       pushEvent({ type: 'ask_user', question: op.question, options, showMap: op.showMap, multiSelect: op.multiSelect });
       break;
     }

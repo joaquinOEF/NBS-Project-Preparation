@@ -32,7 +32,7 @@ import { queryTerms, scoreText, extractExcerpt } from "./textSearch";
 import { isFakeModelEnabled, streamWithFakeModel } from "./fakeCboModel";
 import { isPhaseSkipEnabled } from "./runtimeEnv";
 import { emitAssistantText } from "./agentOutput";
-import { isKnownOrgProfileField, canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, orgProfileOptionLabels, orgProfileLabelsForIds, ORG_PROFILE_FIELDS } from "@shared/cbo-field-catalog";
+import { isKnownOrgProfileField, canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, orgProfileOptionLabels, orgProfileLabelsForIds, ORG_PROFILE_FIELDS, enumFieldsMatchingOptions } from "@shared/cbo-field-catalog";
 import { QUESTIONNAIRES, checkOptionRule, filterRuledOptions, missingRequiredForClose, type FieldReader, type QuestionnaireManifest } from "@shared/cbo-questionnaire";
 
 /** Manifests whose rules govern this section (today: E1 ↔ org_profile). */
@@ -624,6 +624,9 @@ Include showMap: true on a question only when the user genuinely needs the map t
         relatedSections: z.array(z.string()).optional(),
         showMap: z.boolean().optional(),
         multiSelect: z.boolean().optional(),
+        // Escape hatch for the re-ask guard below: set it ONLY when the user
+        // explicitly asked, this turn, to change an answer they already gave.
+        allowReask: z.boolean().optional(),
       })),
     },
     async (args: any) => {
@@ -646,11 +649,35 @@ Include showMap: true on a question only when the user genuinely needs the map t
       // the user; an error retry would double-ask it.
       let converted = 0;
       const filteredNotes: string[] = [];
+      const blockedNotes: string[] = [];
+      let shown = 0;
       for (const q of args.questions || []) {
         if ((q.options?.length ?? 0) === 1) {
           pushEvent({ type: 'chat', content: q.question, role: 'assistant' } as any);
           converted++;
           continue;
+        }
+        // Re-ask guard (COUGAR Perfect Demo 2026-07-14): the model re-asked
+        // already-answered questions ("How is your team structured?" twice in
+        // a row). ask_user carries no field id, so infer the target field(s)
+        // by resolving the chip labels against the enum catalog; when every
+        // plausible field already holds an answer, this is a duplicate — drop
+        // it and teach the model instead of rendering it. `allowReask: true`
+        // (a deliberate act, reserved for a user-requested change) bypasses.
+        if (!q.allowReask) {
+          const chipLabels = (q.options || []).filter((o: any) => !o.action).map((o: any) => o.label);
+          const fieldsHit = enumFieldsMatchingOptions(chipLabels);
+          if (fieldsHit.length > 0) {
+            const orgSection = getCboState(cboId)?.sections?.org_profile;
+            if (orgSection) {
+              const read = sectionFieldReader(orgSection);
+              const answered = fieldsHit.map(f => ({ field: f, value: read(f) })).filter(x => (x.value ?? '').trim().length > 0);
+              if (answered.length === fieldsHit.length) {
+                blockedNotes.push(`"${q.question}" — ${answered.map(a => `${a.field} is already answered ("${a.value}")`).join(' and ')}`);
+                continue;
+              }
+            }
+          }
         }
         // Manifest rule: when this is recognizably a rule-governed enum
         // question (e.g. legal_form), drop the options the stored dependency
@@ -669,10 +696,18 @@ Include showMap: true on a question only when the user genuinely needs the map t
           }
         }
         pushEvent({ type: 'ask_user', question: q.question, options, relatedSections: q.relatedSections, showMap: q.showMap, multiSelect: q.multiSelect });
+        shown++;
+      }
+      // Everything was a blocked duplicate and nothing reached the user →
+      // error so the model retries with the NEXT unanswered question (a plain
+      // success here would strand the user on a promptless turn).
+      if (shown === 0 && converted === 0 && blockedNotes.length > 0) {
+        return { content: [{ type: "text" as const, text: `NOT shown — duplicate question(s): ${blockedNotes.join('; ')}. Do NOT re-ask answered fields. Move on to the next UNANSWERED field now (check the CURRENT STATE). If the user explicitly asked to change one of these answers, call update_section with the new value directly, or re-ask with allowReask: true.` }], isError: true };
       }
       const note = converted > 0 ? ` (${converted} single-option question(s) delivered as plain text instead — a one-option list is a free-text question; next time ask it as prose with no tool call)` : '';
       const filterNote = filteredNotes.length > 0 ? ` (${filteredNotes.join('; ')} — the user only saw the valid chips)` : '';
-      return { content: [{ type: "text" as const, text: `${(args.questions || []).length} question(s) shown.${note}${filterNote} STOP and wait.` }] };
+      const blockedNote = blockedNotes.length > 0 ? ` (${blockedNotes.length} duplicate question(s) NOT shown: ${blockedNotes.join('; ')} — never re-ask answered fields)` : '';
+      return { content: [{ type: "text" as const, text: `${shown + converted} question(s) shown.${note}${filterNote}${blockedNote} STOP and wait.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
