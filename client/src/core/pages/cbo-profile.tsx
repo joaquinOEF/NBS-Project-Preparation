@@ -35,6 +35,7 @@ import {
   Send, Download, ChevronDown, ChevronRight, AlertTriangle, ArrowLeft, Paperclip,
   FileText, Files, Loader2, RotateCcw, Star, Leaf,
   Check, Circle, AlertCircle, Pencil, Mic, Square, Map as MapIcon, Layers,
+  ChevronsRight, ClipboardList, BarChart3,
   type LucideIcon,
 } from 'lucide-react';
 import { useVoiceRecorder, type RecorderError } from '@/core/hooks/useVoiceRecorder';
@@ -360,6 +361,12 @@ export default function CboProfilePage() {
   // Mobile-only: which top-level pane is visible. On `md+` both panels render
   // side-by-side and this state is ignored.
   const [mobileActiveTab, setMobileActiveTab] = useState<'chat' | 'panel'>('chat');
+  // Desktop chat-first (Perfect Demo decision, 2026-07-14): on md+ the right
+  // panel starts COLLAPSED — chat takes the full width, mirroring the mobile
+  // pattern — and opens when the agent activates a microapp or the user taps
+  // the edge strip. Form + map side-by-side read as "a system" to
+  // low-digital-literacy users; the conversation must be the whole screen.
+  const [desktopPanelOpen, setDesktopPanelOpen] = useState(false);
   // Unread indicator on the Chat tab when the agent posts while the user is on
   // another mobile tab. Cleared on switch-to-chat.
   const [mobileChatUnread, setMobileChatUnread] = useState(false);
@@ -1069,7 +1076,7 @@ export default function CboProfilePage() {
         }]);
         setSelectedOptionIdx(0);
         setIsStreaming(false);
-        if (hasMap) { setMapRelevant(true); setRightTab('map'); setMobileActiveTab('panel'); }
+        if (hasMap) { setMapRelevant(true); setRightTab('map'); setMobileActiveTab('panel'); setDesktopPanelOpen(true); }
         break;
       }
       case 'open_map':
@@ -1091,6 +1098,7 @@ export default function CboProfilePage() {
         setRightTab('map');
         setMapRelevant(true);
         setMobileActiveTab('panel');
+        setDesktopPanelOpen(true);
         setIsStreaming(false);
         break;
       case 'open_intervention_selector':
@@ -1098,6 +1106,7 @@ export default function CboProfilePage() {
         setState(prev => prev ? { ...prev, activeTool: { kind: 'interventions' } } : prev);
         setRightTab('interventions');
         setMobileActiveTab('panel');
+        setDesktopPanelOpen(true);
         setIsStreaming(false);
         break;
       case 'show_types':
@@ -1321,7 +1330,7 @@ export default function CboProfilePage() {
   const handleRestart = useCallback(async () => {
     abortActiveStream();
     if (cboId) { try { await fetch(`/api/cbo/${cboId}`, { method: 'DELETE' }); } catch {} }
-    clearId(); setOpenMapParams(null); setInterventionSelectorParams(null); setStreamDraft(''); setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
+    clearId(); setOpenMapParams(null); setInterventionSelectorParams(null); setStreamDraft(''); setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat'); setDesktopPanelOpen(false);
     setMessages([]); setActiveQuestions([]); setState(null); setCboId(null);
     // The server just cleared cohort_members.path — mirror it locally so the
     // UI doesn't keep showing the old run's E1 triage answer.
@@ -1592,11 +1601,13 @@ export default function CboProfilePage() {
       )}
       <CboFilesSheet cboId={cboId} open={filesSheetOpen} onOpenChange={setFilesSheetOpen} />
       <div className="flex flex-1 min-h-0">
-        {/* LEFT: Chat — full width on mobile (when Chat tab active), half on md+ */}
+        {/* LEFT: Chat — full width on mobile (when Chat tab active); on md+
+            full width while the panel is collapsed (chat-first), half when
+            the panel is open. */}
         <div
-          className={`w-full md:w-1/2 min-w-0 md:border-r md:flex flex-col relative ${
-            mobileActiveTab === 'chat' ? 'flex' : 'hidden'
-          }`}
+          className={`w-full min-w-0 md:flex flex-col relative ${
+            desktopPanelOpen ? 'md:w-1/2 md:border-r' : 'md:w-full'
+          } ${mobileActiveTab === 'chat' ? 'flex' : 'hidden'}`}
           {...dragHandlers}
         >
           {isDragging && (
@@ -2141,7 +2152,7 @@ export default function CboProfilePage() {
                   <Button
                     size="sm"
                     className="h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700"
-                    onClick={() => { setRightTab(pend.def.tab); setMapRelevant(true); setMobileActiveTab('panel'); }}
+                    onClick={() => { setRightTab(pend.def.tab); setMapRelevant(true); setMobileActiveTab('panel'); setDesktopPanelOpen(true); }}
                     data-testid={`cbo-open-tool-${pend.kind}`}
                   >
                     <Icon className="w-3.5 h-3.5" /> {lang === 'pt' ? pend.def.nudge.pt : pend.def.nudge.en}
@@ -2267,15 +2278,28 @@ export default function CboProfilePage() {
 
         {/* RIGHT: Document / Map / Scorecard / Interventions
             On mobile: visible only when mobileActiveTab === 'panel' (the user
-            tapped a non-Chat tab, or the agent invoked a microapp). */}
+            tapped a non-Chat tab, or the agent invoked a microapp).
+            On md+: only while desktopPanelOpen — collapsed is the default. */}
         <div
-          className={`w-full md:w-1/2 min-w-0 md:flex flex-col bg-muted/30 ${
-            mobileActiveTab === 'panel' ? 'flex' : 'hidden'
-          }`}
+          className={`w-full min-w-0 flex-col bg-muted/30 ${
+            desktopPanelOpen ? 'md:flex md:w-1/2' : 'md:hidden'
+          } ${mobileActiveTab === 'panel' ? 'flex' : 'hidden'}`}
         >
           <div className="border-b bg-background">
             <div className="px-4 pt-3 pb-0">
-              <h2 className="text-base font-semibold">{state.orgName || t('cbo.interventionProfile')}</h2>
+              <div className="flex items-start justify-between gap-2">
+                <h2 className="text-base font-semibold">{state.orgName || t('cbo.interventionProfile')}</h2>
+                <button
+                  type="button"
+                  onClick={() => setDesktopPanelOpen(false)}
+                  className="hidden md:inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+                  title={lang === 'pt' ? 'Recolher painel' : 'Collapse panel'}
+                  aria-label={lang === 'pt' ? 'Recolher painel' : 'Collapse panel'}
+                  data-testid="cbo-panel-collapse"
+                >
+                  <ChevronsRight className="w-4 h-4" />
+                </button>
+              </div>
               <div className="flex items-center gap-3 mt-1.5 mb-2">
                 <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${(filledCount / 7) * 100}%` }} /></div>
                 <span className="text-xs text-muted-foreground shrink-0">{filledCount}/7</span>
@@ -2429,7 +2453,7 @@ export default function CboProfilePage() {
                       if (currentQuestion) setActiveQuestions([]);
                       sendMessage(message, false, false, summary, 'map');
                       setOpenMapParams(null);
-                      setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat');
+                      setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat'); setDesktopPanelOpen(false);
                     }}
                     onCancel={() => {
                       // Leaving the map is navigation, not completion. Keep
@@ -2437,7 +2461,7 @@ export default function CboProfilePage() {
                       // the step the user left; nulling it here is what made
                       // re-entry fall through to the phase defaults and drop
                       // the guided hazard tour. Only onConfirm clears it.
-                      setRightTab('document'); setMobileActiveTab('chat');
+                      setRightTab('document'); setMobileActiveTab('chat'); setDesktopPanelOpen(false);
                     }}
                   />
                 ) : (
@@ -2461,7 +2485,7 @@ export default function CboProfilePage() {
                         : result.label; // "I don't know — help me decide"
                       if (currentQuestion) handleSelectOption(message); else sendMessage(message);
                       setInterventionSelectorParams(null);
-                      setRightTab('document'); setMobileActiveTab('chat');
+                      setRightTab('document'); setMobileActiveTab('chat'); setDesktopPanelOpen(false);
                     }}
                     onCancel={() => {
                       // Same rule as the map: leaving is navigation, not
@@ -2470,7 +2494,7 @@ export default function CboProfilePage() {
                       // but the tab it opened showed the "not yet" placeholder,
                       // because `interventions` has no defaultParams to fall
                       // back to. Only onConfirm may clear it.
-                      setRightTab('document'); setMobileActiveTab('chat');
+                      setRightTab('document'); setMobileActiveTab('chat'); setDesktopPanelOpen(false);
                     }}
                   />
                 ) : (
@@ -2524,6 +2548,41 @@ export default function CboProfilePage() {
             </div>
           )}
         </div>
+
+        {/* DESKTOP EDGE STRIP — md+ only, rendered while the panel is
+            collapsed (chat-first default). Mirrors the mobile tab bar's
+            availability rules: Perfil + Scorecard always; Mapa /
+            Intervenções only while those microapps are live. */}
+        {!desktopPanelOpen && (
+          <div className="hidden md:flex w-14 shrink-0 border-l bg-background flex-col items-stretch pt-2 gap-1" data-testid="cbo-panel-strip">
+            {(() => {
+              const stripTabs: Array<{ tab: 'document' | 'map' | 'interventions' | 'scorecard'; Icon: LucideIcon; label: string; pulse?: boolean }> = [
+                { tab: 'document', Icon: ClipboardList, label: t('cbo.mobileTab.perfil', { defaultValue: 'Perfil' }), pulse: pendingTool(state)?.def.tab === 'document' },
+                ...(openMapParams != null || mapRelevant
+                  ? [{ tab: 'map' as const, Icon: MapIcon, label: t('cbo.mobileTab.map', { defaultValue: 'Mapa' }), pulse: mapRelevant || pendingTool(state)?.def.tab === 'map' }]
+                  : []),
+                ...(interventionSelectorParams != null
+                  ? [{ tab: 'interventions' as const, Icon: Leaf, label: t('cbo.tabs.interventions', 'NBS'), pulse: true }]
+                  : []),
+                { tab: 'scorecard', Icon: BarChart3, label: t('cbo.tabs.scorecard') },
+              ];
+              return stripTabs.map(({ tab, Icon, label, pulse }) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => { setRightTab(tab); setDesktopPanelOpen(true); }}
+                  className="relative flex flex-col items-center gap-0.5 py-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-md mx-1"
+                  data-testid={`cbo-strip-${tab}`}
+                  title={label}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="text-[9px] leading-tight text-center px-0.5 truncate max-w-full">{label}</span>
+                  {pulse && <span className="absolute top-1 right-1.5 w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
+                </button>
+              ));
+            })()}
+          </div>
+        )}
       </div>
 
       {/* MOBILE TAB BAR — visible only below md. Drives `mobileActiveTab` +
