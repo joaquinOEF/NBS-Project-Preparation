@@ -86,9 +86,12 @@ test.describe('COUGAR — activeTool survives a cold load', () => {
     await page.reload();
     await expect(marker).toHaveAttribute('data-cbo-id', /.+/, { timeout: 30_000 });
 
-    // Leave to the document tab: the nudge chip (pendingTool → activeTool.kind)
-    // must still be there. Before the column, activeTool was null cold → no chip.
-    await page.getByTestId('cbo-tab-document').click();
+    // Chat-first desktop: a cold load lands on the chat with the panel
+    // collapsed, and the nudge chip (pendingTool → activeTool.kind) is the
+    // re-entry affordance. Before the column, activeTool was null cold → no
+    // chip; before chat-first this needed a click over to the document tab.
     await expect(page.getByTestId('cbo-open-tool-map')).toBeVisible({ timeout: 10_000 });
+    // The map-relevant strip button pulses too — the second way back in.
+    await expect(page.getByTestId('cbo-strip-map')).toBeVisible();
   });
 });

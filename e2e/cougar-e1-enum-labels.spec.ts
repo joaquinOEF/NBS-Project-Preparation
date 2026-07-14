@@ -40,6 +40,8 @@ test.describe('COUGAR — E1 enum fields render human labels, never machine ids'
     await input.press('Enter');
     await expect(marker).toHaveAttribute('data-streaming', 'false');
 
+    // Chat-first desktop: the document panel starts collapsed — open it.
+    await page.getByTestId('cbo-strip-document').click();
     // Histórico card shows the Portuguese chip labels…
     await expect(page.getByText('Projeto com financiamento', { exact: false })).toBeVisible();
     await expect(page.getByText('Hortas / arborização', { exact: false })).toBeVisible();
@@ -78,6 +80,8 @@ test.describe('COUGAR — E1 enum fields render human labels, never machine ids'
     await input.press('Enter');
     await expect(marker).toHaveAttribute('data-streaming', 'false');
 
+    // Chat-first desktop: the document panel starts collapsed — open it.
+    await page.getByTestId('cbo-strip-document').click();
     // Fuzzy hit: the paraphrase landed on the canonical chip label.
     await expect(page.getByText('ONG / Associação', { exact: false }).first()).toBeVisible();
     await expect(page.getByText('Associação comunitária de moradores', { exact: false })).toHaveCount(0);

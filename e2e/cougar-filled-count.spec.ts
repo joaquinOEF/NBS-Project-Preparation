@@ -35,6 +35,8 @@ test.describe('COUGAR — CBO progress count matches the server predicate', () =
     await page.reload();
     await expect(page.getByTestId('cbo-stream-status')).toHaveAttribute('data-cbo-id', /.+/, { timeout: 30_000 });
 
+    // Chat-first desktop: the count lives in the collapsed panel — open it.
+    await page.getByTestId('cbo-strip-document').click();
     await expect(page.getByText('0/7').first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('1/7')).toHaveCount(0);
   });
@@ -56,6 +58,8 @@ test.describe('COUGAR — CBO progress count matches the server predicate', () =
     await page.reload();
     await expect(page.getByTestId('cbo-stream-status')).toHaveAttribute('data-cbo-id', /.+/, { timeout: 30_000 });
 
+    // Chat-first desktop: the count lives in the collapsed panel — open it.
+    await page.getByTestId('cbo-strip-document').click();
     await expect(page.getByText('1/7').first()).toBeVisible({ timeout: 15_000 });
   });
 });

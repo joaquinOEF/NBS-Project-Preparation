@@ -33,11 +33,18 @@ test.describe('COUGAR — showcase strip wraps into a grid on desktop', () => {
     expect(n).toBeGreaterThanOrEqual(3);
 
     // Every card sits fully inside the chat column — none clipped at an edge.
-    const vw = await page.evaluate(() => document.documentElement.clientWidth);
+    // Chat-first desktop: the column ends at the collapsed panel's edge strip
+    // (or, with the panel open, at the half-viewport split) — not at a
+    // hardcoded vw/2.
+    const chatRight = await page.evaluate(() => {
+      const strip = document.querySelector('[data-testid="cbo-panel-strip"]');
+      if (strip) return strip.getBoundingClientRect().left;
+      return document.documentElement.clientWidth / 2;
+    });
     for (let i = 0; i < n; i++) {
       const box = (await cards.nth(i).boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(-1);
-      expect(box.x + box.width).toBeLessThanOrEqual(vw / 2 + 2);
+      expect(box.x + box.width).toBeLessThanOrEqual(chatRight + 2);
     }
 
     // The strip container itself has nothing to scroll (it wrapped instead).
