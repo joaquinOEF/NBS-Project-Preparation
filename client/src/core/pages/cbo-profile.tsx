@@ -664,8 +664,13 @@ export default function CboProfilePage() {
       if (typeof data.supportPendingCount === 'number') setSupportPendingCount(data.supportPendingCount);
       if (Array.isArray(data.inspirationPicks)) setInspirationPicks(data.inspirationPicks);
       if (data.cohort?.name) setCohortName(data.cohort.name);
-      // Coordinator-forced cohort language overrides browser detection.
-      const cohortLang = data.cohort?.language;
+      // Coordinator-forced cohort language overrides browser detection. When
+      // the coordinator never picked one, members still default to Portuguese:
+      // this is a POA community tool opened from WhatsApp invite links, and an
+      // English-configured phone/laptop must not flip the whole session
+      // (questions, chips, the agent itself) into English. Coordinators can
+      // force EN from the orchestrator view for the exceptions.
+      const cohortLang = data.cohort ? (data.cohort.language ?? 'pt') : undefined;
       if ((cohortLang === 'pt' || cohortLang === 'en') && i18n.resolvedLanguage !== cohortLang) {
         i18n.changeLanguage(cohortLang);
       }

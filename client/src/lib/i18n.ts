@@ -10,7 +10,14 @@ i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    fallbackLng: 'en',
+    // The platform's audience is Porto Alegre community organizations — an
+    // unrecognized/unsupported browser language must land on Portuguese, not
+    // English (COUGAR Perfect Demo 2026-07-14: a whole E1 session ran in
+    // English because detection resolved 'en'). English must NOT fall back to
+    // pt though: some patterns (workshopHelpers' by-position names) rely on
+    // keys being absent from en.json so `defaultValue` (the stored English
+    // string) wins — a global pt fallback would surface Portuguese there.
+    fallbackLng: { en: ['en'], default: ['pt'] },
     supportedLngs: ['en', 'pt'],
     // Map region locales to the base language — without this, a `pt-BR` browser
     // (every Brazilian user + Playwright's pt-BR locale) doesn't match the
