@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, Leaf, Sprout } from 'lucide-react';
+import { Calendar, Clock, Sprout } from 'lucide-react';
 import { Button } from '@/core/components/ui/button';
+import { RedeMark } from '@/core/components/RedeMark';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 import { formatCalendarDate } from '@/lib/dateHelpers';
 import { localizedWorkshopName } from '@/lib/workshopHelpers';
@@ -51,12 +52,12 @@ export function CboWelcome({
     : null;
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-emerald-50/60 via-white to-emerald-50/40 dark:from-emerald-950/30 dark:via-background dark:to-emerald-950/20">
-      {/* Top bar — quiet brand mark, no other chrome */}
-      <header className="px-5 sm:px-8 py-5 flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
-        <Leaf className="w-4 h-4" strokeWidth={1.75} />
+    <div className="min-h-[100dvh] flex flex-col bg-gradient-to-b from-[#EFE9DA] via-[#F8F4EB] to-[#ECE5D3] dark:from-emerald-950/30 dark:via-background dark:to-emerald-950/20">
+      {/* Top bar — quiet brand mark (Rede palette, no logo), no other chrome */}
+      <header className="px-5 sm:px-8 py-5 flex items-center gap-2.5 text-[#3F4A46] dark:text-emerald-400">
+        <RedeMark />
         <span className="text-xs font-medium uppercase tracking-[0.18em]">
-          {t('cbo.welcome.brand', { defaultValue: 'COUGAR · Vila Flores' })}
+          {t('cbo.welcome.brand', { defaultValue: 'COUGAR · Rede SCbN POA' })}
         </span>
       </header>
 
@@ -70,10 +71,10 @@ export function CboWelcome({
         >
           {/* Greeting */}
           <div className="space-y-2">
-            <p className="text-sm text-emerald-700/80 dark:text-emerald-300/80 font-medium">
+            <p className="text-sm text-[#8A4C38] dark:text-emerald-300/80 font-medium">
               {t('cbo.welcome.greeting', { defaultValue: 'Olá,' })}
             </p>
-            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight leading-tight text-foreground">
+            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight leading-tight text-[#3F4A46] dark:text-foreground">
               {orgName}
             </h1>
             {neighborhood && (
@@ -106,9 +107,9 @@ export function CboWelcome({
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.15 }}
-              className="rounded-xl border border-emerald-200/60 bg-white/70 dark:border-emerald-900/40 dark:bg-emerald-950/30 px-4 py-3 backdrop-blur-sm"
+              className="rounded-xl border border-[#3F4A46]/15 bg-white/75 dark:border-emerald-900/40 dark:bg-emerald-950/30 px-4 py-3 backdrop-blur-sm"
             >
-              <p className="text-[10px] uppercase tracking-wider text-emerald-700/70 dark:text-emerald-400/70 font-semibold mb-1.5">
+              <p className="text-[10px] uppercase tracking-wider text-[#4B5C8A] dark:text-emerald-400/70 font-semibold mb-1.5">
                 {focusWorkshopIsCurrent
                   ? t('cbo.welcome.currentWorkshopLabel', { defaultValue: 'Current workshop' })
                   : t('cbo.welcome.nextWorkshopLabel', { defaultValue: 'Next workshop' })}
@@ -137,12 +138,16 @@ export function CboWelcome({
                 { label: t('cbo.welcome.step3', { defaultValue: 'What you build' }), unlocked: unlockedPhases.includes(3) },
                 { label: t('cbo.welcome.step4', { defaultValue: 'What you need' }), unlocked: unlockedPhases.includes(4) },
                 { label: t('cbo.welcome.step5', { defaultValue: 'Results & evidence' }), unlocked: unlockedPhases.includes(5) },
-              ].map((s, i) => (
-                <li key={i} className="flex items-center gap-2.5 text-sm">
-                  <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${s.unlocked ? 'bg-emerald-500' : 'bg-foreground/15'}`} />
-                  <span className={s.unlocked ? 'text-foreground/85' : 'text-muted-foreground/60'}>{s.label}</span>
-                </li>
-              ))}
+              ].map((s, i) => {
+                // Unlocked steps carry the Rede tile colors, in logo order.
+                const tone = ['bg-[#8A4C38]', 'bg-[#8F7041]', 'bg-[#4B5C8A]', 'bg-[#7D9AA6]', 'bg-[#3F4A46]'][i];
+                return (
+                  <li key={i} className="flex items-center gap-2.5 text-sm">
+                    <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${s.unlocked ? tone : 'bg-foreground/15'}`} />
+                    <span className={s.unlocked ? 'text-foreground/85' : 'text-muted-foreground/60'}>{s.label}</span>
+                  </li>
+                );
+              })}
             </ol>
           </div>
 
@@ -150,7 +155,7 @@ export function CboWelcome({
           <div className="pt-2 space-y-2">
             <Button
               size="lg"
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-full h-12 text-base font-medium shadow-sm"
+              className="w-full bg-[#3F4A46] hover:bg-[#33403B] dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white rounded-full h-12 text-base font-medium shadow-sm"
               onClick={hasExistingProgress ? onResume : onStart}
               data-testid="button-cbo-welcome-cta"
             >

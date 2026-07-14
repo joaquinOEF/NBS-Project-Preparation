@@ -37,6 +37,7 @@ import {
 import { NBS_SHOWCASE_CARDS } from '@shared/nbs-showcase-cards';
 import { TitleLarge, BodyMedium, BodySmall } from '@oef/components';
 import { useToast } from '@/core/hooks/use-toast';
+import { RedeMark } from '@/core/components/RedeMark';
 import { useResetRole } from '@/core/contexts/role-context';
 import { useCohort } from '@/core/hooks/useCohort';
 import { useLocation } from 'wouter';
@@ -1143,13 +1144,14 @@ export default function OrchestratorLandingPage() {
   }
 
   return (
-    <div className="min-h-screen relative bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-background dark:to-slate-950">
-      {/* Header */}
-      <header className="relative z-10 px-6 sm:px-10 py-6 border-b border-foreground/5 bg-background/40 backdrop-blur-sm">
+    <div className="min-h-screen relative bg-gradient-to-b from-[#F2EDE0] via-white to-[#F2EDE0] dark:from-slate-950 dark:via-background dark:to-slate-950">
+      {/* Header — carries the Rede SCbN POA palette (colors only, no logo:
+          the platform serves the whole network, not one org). */}
+      <header className="relative z-10 px-6 sm:px-10 py-6 border-b border-[#3F4A46]/10 dark:border-foreground/5 bg-background/40 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300 flex items-center justify-center">
-              <Compass className="w-5 h-5" strokeWidth={1.75} />
+            <div className="w-10 h-10 rounded-lg bg-white/80 border border-[#3F4A46]/10 dark:bg-amber-950/40 dark:border-transparent flex items-center justify-center">
+              <RedeMark size="md" />
             </div>
             <div>
               <BodySmall className="text-muted-foreground uppercase tracking-wide text-[11px]">
