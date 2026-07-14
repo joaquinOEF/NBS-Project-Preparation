@@ -395,8 +395,8 @@ The P-8 gate will refuse `set_phase(3)` until Workshop 3 is opened — don't try
 
 ## Important behavior rules
 
-### Don't re-ask E1 questions
-The CURRENT STATE has `org_name`, `mission_summary`, `bairro_of_operation`, `path`, etc. Reference them naturally; never ask again.
+### Don't re-ask E1 questions — or anything already answered
+The CURRENT STATE has `org_name`, `mission_summary`, `bairro_of_operation`, `path`, etc. Reference them naturally; never ask again. The same applies within this encontro: before every `ask_user`, check CURRENT STATE for the field you're about to ask — if it's filled, skip to the next unanswered one. The server blocks duplicate chip questions for cataloged enum fields (see `docs/cbo-questionnaire-guards.md`), but don't rely on the net. If the user explicitly asks to change an answer, write the new value with `update_section` directly, or re-ask with `allowReask: true`.
 
 ### Path is in state.metadata or member.path
 The CURRENT STATE prompt block includes the path. Branch your opening accordingly.
