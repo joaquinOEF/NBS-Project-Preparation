@@ -1360,8 +1360,19 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     }
   }
 
-  // Handle [SKIP TO phase:X] magic prefix
+  // Handle [SKIP TO phase:X] magic prefix — DEMO TOOL, env-gated. It stamps
+  // fictitious CEA Bom Jesus sample data over earlier sections and renames the
+  // org, so on prod (flag never set there, same family as ENABLE_TEST_ROUTES)
+  // it must be dead even for someone who TYPES the magic string: the message
+  // is intercepted here and never reaches the model or the state.
   const skipMatch = userMessage.match(SKIP_PATTERN);
+  if (skipMatch && process.env.ENABLE_PHASE_SKIP !== '1') {
+    console.warn(`[cbo] blocked [SKIP TO phase:${skipMatch[1]}] for ${cboId} — ENABLE_PHASE_SKIP not set`);
+    pushEvent({ type: 'chat', content: lang === 'pt' ? 'Esse atalho de demonstração está desativado aqui.' : 'That demo shortcut is disabled here.', role: 'assistant' } as any);
+    pushEvent({ type: 'done', summary: 'phase-skip blocked (flag off)' });
+    res.end();
+    return;
+  }
   if (skipMatch) {
     const targetPhase = skipMatch[1];
     const { phase, agentMessage } = applySkipData(state, targetPhase);
