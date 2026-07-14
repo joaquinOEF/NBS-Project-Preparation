@@ -42,8 +42,17 @@ offset. Screenshot in the PR.
    locked document, so the handler resets `scrollTo(0,0)`. This is what
    clears the post-dismiss gap.
 5. **One rAF-coalesced listener** on `visualViewport` `resize`+`scroll` (+
-   window `resize`/`orientationchange`). Cheap enough for low-end Androids;
-   the transform is GPU-composited. Do not add per-frame work here.
+   window `resize`/`orientationchange`, + document `focusin`/`focusout` with a
+   400ms settle re-measure). Cheap enough for low-end Androids; the transform
+   is GPU-composited. Do not add per-frame work here.
+5b. **Keyboard state is inferred from FOCUS, never from the viewport.** After
+   a dismissal, iOS keeps reporting the stale keyboard-sized
+   `visualViewport.height`/`offsetTop` and often fires no further event
+   (iOS 26 regression — this shipped as "fixed" once and came back through
+   exactly this hole: fine at session start, short shell after the first
+   typed turn). When no editable element is focused, the keyboard cannot be
+   open: clamp to `max(vv.height, innerHeight)`, offset 0. Skipped while
+   pinch-zoomed (`vv.scale ≠ 1`), where a small vv is legitimate.
 6. **`interactive-widget=resizes-content`** in the viewport meta: Android
    Chrome 108+ then resizes the LAYOUT viewport for the keyboard, making
    Android correct with zero JS. iOS ignores the flag — the follower covers it.
