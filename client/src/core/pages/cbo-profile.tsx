@@ -817,22 +817,50 @@ export default function CboProfilePage() {
     const body = document.body;
     const mount = document.getElementById('root');
     let raf = 0;
+    let settle: ReturnType<typeof setTimeout> | undefined;
     const setVH = () => {
       if (raf) return; // coalesce bursts (iOS fires resize+scroll together)
       raf = requestAnimationFrame(() => {
         raf = 0;
         const v = window.visualViewport;
-        const h = v?.height ?? window.innerHeight;
-        const top = v?.offsetTop ?? 0;
+        let h = v?.height ?? window.innerHeight;
+        let top = v?.offsetTop ?? 0;
+        // KEYBOARD STATE IS INFERRED FROM FOCUS, NOT FROM THE VIEWPORT. After
+        // the keyboard dismisses, iOS keeps REPORTING the stale smaller
+        // height/offset and often never fires another vv event (field report
+        // 2026-07-15 round 2: fine at session start, short shell + dead space
+        // after the first typed turn; known iOS 26 regression). No editable
+        // element focused ⇒ the keyboard cannot be open ⇒ trust the layout
+        // viewport. Skipped while pinch-zoomed (scale ≠ 1), where
+        // vv.height < innerHeight is legitimate.
+        const ae = document.activeElement as HTMLElement | null;
+        const editableFocused = !!ae && (
+          ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable
+        );
+        if (!editableFocused && (v?.scale ?? 1) === 1) {
+          h = Math.max(h, window.innerHeight);
+          top = 0;
+        }
         root.style.setProperty('--cbo-vh', `${Math.round(h)}px`);
         root.style.setProperty('--cbo-vv-top', `${Math.round(top)}px`);
         if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
       });
     };
+    // Focus changes are the reliable keyboard signal, but they land BEFORE the
+    // keyboard animation finishes and — in the stale case above — without any
+    // vv event at all. Measure immediately and again after the animation
+    // settles (~300ms on iOS; 400 leaves margin for low-end Androids).
+    const onFocusChange = () => {
+      setVH();
+      clearTimeout(settle);
+      settle = setTimeout(setVH, 400);
+    };
     setVH();
     const vv = window.visualViewport;
     vv?.addEventListener('resize', setVH);
     vv?.addEventListener('scroll', setVH);
+    document.addEventListener('focusin', onFocusChange);
+    document.addEventListener('focusout', onFocusChange);
     window.addEventListener('orientationchange', setVH);
     window.addEventListener('resize', setVH);
 
@@ -858,9 +886,12 @@ export default function CboProfilePage() {
     return () => {
       vv?.removeEventListener('resize', setVH);
       vv?.removeEventListener('scroll', setVH);
+      document.removeEventListener('focusin', onFocusChange);
+      document.removeEventListener('focusout', onFocusChange);
       window.removeEventListener('orientationchange', setVH);
       window.removeEventListener('resize', setVH);
       if (raf) cancelAnimationFrame(raf);
+      clearTimeout(settle);
       root.style.removeProperty('--cbo-vh');
       root.style.removeProperty('--cbo-vv-top');
       root.style.overflow = prev.htmlOverflow;
