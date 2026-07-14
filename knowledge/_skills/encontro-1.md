@@ -98,7 +98,7 @@ Per the spec, these fields land in the CBO profile (`state.sections.org_profile`
 2. `contact_name` — who's talking with us
 3. `contact_role` — their role in the org — **capture only if volunteered.** Ask name+role together once (Step 0); if the answer brings only a name, take it and move on. Never spend a turn chasing the role — it gates nothing.
 4. `mission_summary` — the org's mission in one sentence, **in their words** — asked as the FIRST org question (free-text prose, right after the Step-0.5 choice), before the activity list. It matters for almost any funding application, and answering it first makes the org reflect before picking activities.
-5. `main_activities` — **multi-select, no cap**: Hortas e segurança alimentar · Arborização e áreas verdes · Resiliência climática (enchentes, calor) · Educação ambiental · Cultura e organização comunitária. (Most orgs do more than one thing — let them pick as many as apply; the list itself is still being refined with Vila Flores.)
+5. `main_activities` — **multi-select, no cap**: Hortas e segurança alimentar · Arborização e áreas verdes · Resiliência climática (enchentes, calor) · Educação ambiental · Cultura e organização comunitária · Outras. (Most orgs do more than one thing — let them pick as many as apply; the list itself is still being refined with Vila Flores. "Outras" opens a free-text follow-up — store what they say, not the word "Outras".)
 6. `has_cnpj` — enum: Sim, temos CNPJ · Ainda não · Não temos certeza. Asked BEFORE the org-type question — formalization is what actually gates fundraising.
 7. `legal_form` — enum: ngo, associação, cooperativa, informal, implementer (empresa/estúdio/escritório técnico), social-enterprise, other
 8. `year_founded` — org-age **bucket**, captured as a chip (Começando agora / Menos de 2 anos / 2 a 5 anos / 5 a 10 anos / Mais de 10 anos) — a tap, not a typed year; works for informal groups too ("tempo que vocês fazem esse trabalho")
@@ -111,7 +111,7 @@ Per the spec, these fields land in the CBO profile (`state.sections.org_profile`
 15. `nbs_experience_detail` — free-text follow-up: if Sim, *"Que tipo de SbN vocês já trabalharam?"*; if Não temos certeza, *"Me conta um pouco da iniciativa que vocês acham que pode ser SbN"*. (Legacy field `prior_project_scale` is no longer asked — old sessions still carry it.)
 
 For every enum field, **store the Portuguese chip label the user tapped**, never the machine id — the ids above exist only so you can reason about the rubric. The server canonicalizes known values, but raw ids like `funded` leaking to the user's document is exactly the bug this rule prevents. Field names are a **closed list**: `update_section` rejects anything not in the numbered fields on this page — if a fact fits none of them (e.g. who the current leader is), mention it in chat but do not store it.
-16. `bairro_of_operation` — where they primarily work (suggests from a POA bairro list)
+16. `bairro_of_operation` — where they primarily work. **Free-text, NEVER chips** (Perfect Demo 2026-07-14: the model invented a POA bairro list — Moinhos de Vento, Centro… — and the org's real bairro wasn't on it). Usually pre-filled from the invite → confirm, don't ask.
 17. `groups_served` — multi-select: mulheres, idosos, pessoas com deficiência, comunidades tradicionais, jovens, pessoas negras, povos indígenas, comunidade do bairro
 18. `proud_moment` — optional free-text
 19. (cohort-level) `path` — enum on `cohort_members`: has-project | has-idea | needs-help
@@ -120,6 +120,10 @@ Plus on `state.maturityScores`:
 
 - `org_delivery_capacity` (0-3) — you infer this; see the rubric below
 - `team_technical_experience` (0-3) — you infer this
+
+## Never mark chips as "recommended" in this encontro
+
+E1 questions are **facts about the organization** — team size, CNPJ, experience. There is no answer to recommend, and a ⭐ "recomendado" badge on "Sim" reads as the platform pressuring the org to inflate itself (Perfect Demo 2026-07-14: "por que dice recomendado?"). Never set `recommended: true` on any E1 `ask_user` option; the server strips it in phase 1 anyway.
 
 ## Pre-filled from invite — check CURRENT STATE first
 
@@ -209,7 +213,7 @@ For everything still unknown, send **grouped `ask_user` calls** — one call car
 **Build each batch ONLY from questions whose fields are still empty in CURRENT STATE.** A document (or the invite) filling a field removes its question from the batch — the bulk-confirm in Step 1 already validated it. Re-asking something the panel already shows is the single most-reported field bug: after a link upload the org answered the same questions twice. If a batch would end up with zero questions, skip it entirely.
 
 **Batch A — quem são** (one `ask_user`):
-1. *O que vocês fazem?* (multi-select, no cap — most orgs do several things; never tell the user to limit their picks) — Hortas e segurança alimentar · Arborização e áreas verdes · Resiliência climática (enchentes, calor) · Educação ambiental · Cultura e organização comunitária → `main_activities`
+1. *Quais são as principais atividades da organização?* (multi-select, no cap — most orgs do several things; never tell the user to limit their picks. VF feedback 2026-07-14: this exact wording, not "o que vocês fazem?") — Hortas e segurança alimentar · Arborização e áreas verdes · Resiliência climática (enchentes, calor) · Educação ambiental · Cultura e organização comunitária · Outras → `main_activities`. **"Outras" is a doorway, never a value**: when tapped, ask in prose what else they do and store THEIR words in `main_activities` alongside the tapped chips (the field accepts free-text items) — never store the literal "Outras".
 2. *Vocês têm CNPJ?* — Sim, temos CNPJ · Ainda não · Não temos certeza → `has_cnpj`
 3. *Há quanto tempo vocês existem?* — Começando agora · Menos de 2 anos · 2 a 5 anos · 5 a 10 anos · Mais de 10 anos → `year_founded`
 4. *Quantas pessoas na equipe?* — 1–2 · 3–5 · 6–15 · 16+ → `team_size`
@@ -235,7 +239,7 @@ The server enforces this mapping: chips outside the subset are dropped before th
 - If `nbs_experience` = **Não temos certeza** → prose: *"Me conta um pouco da iniciativa que vocês acham que pode ser SbN."* → `nbs_experience_detail`
 (Funding follow-up batch first, then the NbS prose question — each in its own turn.)
 
-After each batch comes back, `update_section` **every** field in it (see Persisting), then send the next batch. If the invite didn't pre-fill the bairro, add it as one extra chip/prose in Batch A.
+After each batch comes back, `update_section` **every** field in it (see Persisting), then send the next batch. If the invite didn't pre-fill the bairro, ask it as one extra **prose** question alongside Batch A — never as chips (do not invent a bairro list; whatever they type is the answer).
 
 ### Step 3 — The two things that need thought (do them ONCE, now)
 
