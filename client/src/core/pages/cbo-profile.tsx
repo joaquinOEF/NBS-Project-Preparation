@@ -501,6 +501,11 @@ export default function CboProfilePage() {
   // inline-options normalizer) REPLACES it, so persistence and conversion
   // still operate on whole blocks. Never persisted, cleared on any finalizer.
   const [streamDraft, setStreamDraft] = useState('');
+  // Demo-only phase skipping — reported by the server (ENABLE_PHASE_SKIP,
+  // never set on prod). When false the progress segments are plain
+  // indicators; when true they become jump buttons that trigger the
+  // sample-data skip. Server-enforced too — this only controls affordance.
+  const [phaseSkipEnabled, setPhaseSkipEnabled] = useState(false);
   // Live per-tool activity label ("Lendo o site…", "Atualizando a ficha…")
   // emitted as 'thinking_step' events while the agent runs tools. Replaces the
   // generic "Processando…" in the working indicator; ephemeral — cleared as
@@ -613,6 +618,7 @@ export default function CboProfilePage() {
           const data = await res.json();
           setCboId(candidate);
           setState(migrateCboState(data.state));
+          setPhaseSkipEnabled(!!data.phaseSkipEnabled);
           const msgRes = await fetch(`/api/cbo/${candidate}/messages`);
           if (msgRes.ok) { const msgs = await msgRes.json(); if (msgs.length) hydrateMessages(msgs); }
           saveId(candidate); // converge the same-device cache onto the server id
@@ -627,6 +633,7 @@ export default function CboProfilePage() {
     const data = await res.json();
     setCboId(data.cboId);
     setState(data.state);
+    setPhaseSkipEnabled(!!data.phaseSkipEnabled);
     saveId(data.cboId);
   }, []);
 
@@ -870,6 +877,7 @@ export default function CboProfilePage() {
             const data = await res.json();
             setCboId(saved);
             setState(migrateCboState(data.state));
+            setPhaseSkipEnabled(!!data.phaseSkipEnabled);
             const msgRes = await fetch(`/api/cbo/${saved}/messages`);
             if (msgRes.ok) { const msgs = await msgRes.json(); if (msgs.length) hydrateMessages(msgs); }
             return;
@@ -1715,11 +1723,15 @@ export default function CboProfilePage() {
               currentPhase={Math.max(1, Math.min(5, state.phase || 1))}
               unlockedPhases={unlockedPhases}
               workshops={workshops}
-              onJumpToPhase={(p) => {
+              // Demo-only: without the flag the segments are plain progress
+              // indicators. The jump overwrites earlier sections with sample
+              // data, so it must never be one accidental tap away for a real
+              // org (server blocks it independently).
+              onJumpToPhase={phaseSkipEnabled ? (p) => {
                 if (isStreaming) return;
                 const skip = p === 3 ? '3a' : String(p);
                 sendMessage(`[SKIP TO phase:${skip}]`, false, false, undefined, 'system');
-              }}
+              } : undefined}
             />
           </div>
 

@@ -101,8 +101,10 @@ Log in at **`/coordinator-login`** → lands on **`/orchestrator`**.
 | **Delete cohort** *(admin)* | Removes the cohort **and** its members entirely. The default cohort is re-created empty on next load. | Header → **Delete cohort** |
 | **Namespaced test data** | The e2e harness namespaces its data (`e2e-*` cohorts, `*@e2e.test` coordinators) and purges it via `POST /__test/cleanup` (gated by `ENABLE_TEST_ROUTES`). | test only |
 
-> **Never** set `ENABLE_TEST_ROUTES` / `CBO_FAKE_MODEL` / `TEST_API_SECRET` on
-> the prod Deployment.
+> **Never** set `ENABLE_TEST_ROUTES` / `CBO_FAKE_MODEL` / `TEST_API_SECRET` /
+> `ENABLE_PHASE_SKIP` on the prod Deployment. (`ENABLE_PHASE_SKIP` turns the
+> CBO progress bar into demo jump buttons that overwrite real answers with
+> sample data — dev demos only.)
 
 ---
 

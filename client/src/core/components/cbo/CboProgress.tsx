@@ -34,8 +34,11 @@ export function CboProgress({
   currentPhase: number;
   unlockedPhases: number[];
   workshops: WorkshopConfig[];
-  /** Called when the user taps an unlocked phase segment to navigate there. */
-  onJumpToPhase: (phaseNum: number) => void;
+  /** Called when the user taps an unlocked phase segment to navigate there.
+   *  DEMO-ONLY (ENABLE_PHASE_SKIP): the jump overwrites earlier sections with
+   *  sample data. Omit it (the default in prod) and the segments render as
+   *  plain, non-interactive progress indicators. */
+  onJumpToPhase?: (phaseNum: number) => void;
 }) {
   const { t, i18n } = useTranslation();
   const isPt = i18n.language?.startsWith('pt');
@@ -123,6 +126,22 @@ export function CboProgress({
             );
           }
 
+          if (!onJumpToPhase) {
+            // Plain indicator — no tap target at all when phase-skipping is
+            // off (the prod default): a progress bar must never be one
+            // accidental thumb-tap away from rewriting the profile.
+            return (
+              <div
+                key={p.num}
+                className={`flex-1 h-1.5 rounded-full ${bg} ${isCompleted ? 'flex items-center justify-center' : ''}`}
+                aria-label={`Phase ${p.num} (${segmentLabel})`}
+                data-testid={`cbo-progress-unlocked-${p.num}`}
+                title={segmentLabel}
+              >
+                {isCompleted && <Check className="w-2 h-2 text-white" strokeWidth={3} />}
+              </div>
+            );
+          }
           return (
             <button
               key={p.num}

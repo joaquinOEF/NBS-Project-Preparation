@@ -34,13 +34,19 @@ async function loadPersistedCboState(id: string): Promise<{ state: CboState; mes
 }
 
 export function registerCboRoutes(app: Express): void {
+  // Demo-only phase skipping (progress-bar segments become jump buttons and
+  // the server honors [SKIP TO phase:X]). Never set on the prod Deployment —
+  // the skip stamps sample data over real answers. Same family as
+  // ENABLE_TEST_ROUTES / CBO_FAKE_MODEL.
+  const phaseSkipEnabled = () => process.env.ENABLE_PHASE_SKIP === '1';
+
   // Create new CBO session
   app.post("/api/cbo", async (req: Request, res: Response) => {
     const { city } = req.body;
     const state = createEmptyCboState(city || "porto-alegre");
     setCboState(state.id, state);
     debouncedPersist(state.id);
-    res.json({ cboId: state.id, state });
+    res.json({ cboId: state.id, state, phaseSkipEnabled: phaseSkipEnabled() });
   });
 
   // Get CBO state
@@ -66,7 +72,7 @@ export function registerCboRoutes(app: Express): void {
       debouncedPersist(req.params.id);
       console.log(`[cbo] lifted ${req.params.id} from stranded phase 0 to phase 1 (read path)`);
     }
-    res.json({ state, cboId: req.params.id });
+    res.json({ state, cboId: req.params.id, phaseSkipEnabled: phaseSkipEnabled() });
   });
 
   // Get messages
