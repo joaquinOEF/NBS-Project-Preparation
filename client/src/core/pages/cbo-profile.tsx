@@ -1053,6 +1053,12 @@ export default function CboProfilePage() {
         // cboStateId-link effect and the unlock clamp still use it.
         setState(prev => prev ? { ...prev, phase: event.phase } : prev);
         break;
+      case 'path_set':
+        // The E1 closing set_path writes cohort_members.path — mirror it
+        // locally so the panel's Path section flips from "not yet chosen"
+        // without needing a page refresh (Perfect Demo 2026-07-14).
+        setMemberPath(event.path);
+        break;
       case 'maturity_update':
         setState(prev => prev ? { ...prev, maturityScores: event.scores, totalMaturityScore: event.total, priorityFlags: event.flags } : prev);
         break;
