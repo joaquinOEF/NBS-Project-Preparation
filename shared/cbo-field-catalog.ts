@@ -256,6 +256,25 @@ export function resolveOrgProfileOptionId(field: string, raw: string): string | 
   return matchOption(field, raw)?.id ?? null;
 }
 
+/** Re-ask guard support (COUGAR Perfect Demo 2026-07-14: the model re-asked
+ *  "How is your team structured?" right after it was answered). ask_user
+ *  carries no field id, so the guard infers which enum field(s) a chip list
+ *  plausibly targets: a field qualifies when at least 2 of the labels — and at
+ *  least 70% of them — resolve to its options. Generic yes/no chip sets match
+ *  several fields (has_cnpj / nbs_experience share "Sim"/"Ainda não"); the
+ *  caller must treat the result as a duplicate only when EVERY returned field
+ *  is already answered. */
+export function enumFieldsMatchingOptions(labels: string[]): string[] {
+  const real = labels.filter(l => typeof l === 'string' && l.trim().length > 0);
+  if (real.length < 2) return [];
+  const fields: string[] = [];
+  for (const field of Object.keys(ORG_PROFILE_ENUMS)) {
+    const hits = real.filter(l => matchOption(field, l) !== null).length;
+    if (hits >= 2 && hits >= Math.ceil(real.length * 0.7)) fields.push(field);
+  }
+  return fields;
+}
+
 /** Labels (in `lang`) for a subset of an enum field's option ids — for guard
  *  messages that must name the allowed chips exactly. */
 export function orgProfileLabelsForIds(field: string, ids: string[], lang: 'pt' | 'en' = 'pt'): string[] {
