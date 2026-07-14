@@ -57,6 +57,7 @@ export type FakeOp =
   | { op: 'ask_user'; question: string; options: { label: string; description?: string; recommended?: boolean; action?: 'upload' }[]; multiSelect?: boolean; showMap?: boolean; allowReask?: boolean }
   | { op: 'score_maturity'; metric: string; score: number; justification?: string }
   | { op: 'set_phase'; phase: number }
+  | { op: 'set_path'; path: 'has-project' | 'has-idea' | 'needs-help' } // emits path_set (display mirror; standalone sessions have no member row)
   | { op: 'priority_flag'; flag: string; met: boolean; notes?: string }
   | { op: 'open_map'; params?: Record<string, unknown> }
   | { op: 'open_intervention_selector'; params?: Record<string, unknown> }
@@ -227,6 +228,12 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
       state.phase = phase;
       deps.setCboState(cboId, state);
       pushEvent({ type: 'phase_change', phase });
+      break;
+    }
+    case 'set_path': {
+      // Display mirror of the real set_path's path_set event (the DB write to
+      // cohort_members is skipped — standalone e2e sessions have no member).
+      pushEvent({ type: 'path_set', path: op.path });
       break;
     }
     case 'priority_flag': {

@@ -483,6 +483,10 @@ function createCboMcpTools(cboId: string) {
         if (result.length === 0) {
           return { content: [{ type: "text" as const, text: `No cohort member linked to this CBO; path '${args.path}' not persisted (standalone session).` }] };
         }
+        // Without this event the panel's Path section says "not yet chosen"
+        // until a full page refresh (Perfect Demo 2026-07-14) — the value
+        // lives on the member row, which the client only refetches on load.
+        pushEvent({ type: 'path_set', path: args.path });
         return { content: [{ type: "text" as const, text: `Path set to '${args.path}' for ${result[0].orgName}.` }] };
       } catch (err: any) {
         return { content: [{ type: "text" as const, text: `Error setting path: ${err.message}` }], isError: true };

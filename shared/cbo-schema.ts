@@ -329,6 +329,10 @@ export type CboEvent =
   | { type: 'field_update'; sectionId: string; field: string; value: string; confidence: Confidence; source?: string }
   | { type: 'gap'; sectionId: string; field: string; reason: string; severity: string }
   | { type: 'phase_change'; phase: number }
+  // set_path persists to cohort_members and used to be silent — the panel's
+  // Path section kept saying "not yet chosen" until a full page refresh
+  // (Perfect Demo 2026-07-14). This event lets the client update live.
+  | { type: 'path_set'; path: 'has-project' | 'has-idea' | 'needs-help' }
   | { type: 'maturity_update'; scores: MaturityScore[]; total: number; flags: PriorityFlag[] }
   // options[].action 'upload': the chip renders as a prominent attach banner
   // (paperclip icon) and opens the file picker instead of answering — the
