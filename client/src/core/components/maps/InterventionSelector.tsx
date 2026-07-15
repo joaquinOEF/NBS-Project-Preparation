@@ -26,14 +26,17 @@ import {
   type NbsFamiliaId,
   type NbsSolution,
 } from '@shared/nbs-catalog';
+import { NbsSolutionDetail } from '@/core/components/cbo/NbsSolutionDetail';
 
 // Two-level selector (família → variante, catalog in shared/nbs-catalog.ts).
 // The recommendation happens at the FAMÍLIA level — hazards and the agent's
 // guidance can support that reliably; the specific variant depends on terrain,
 // tenure and politics the platform can't know, so it stays the org's choice.
-// Variants mapped to one of the six deep-content types keep the "Saiba mais"
-// knowledge panel; the confirm result carries both the chosen solutions and
-// the mapped legacy types so downstream knowledge-file flows keep working.
+// "Saiba mais" opens the variant's own ficha técnica (NbsSolutionDetail);
+// variants mapped to a deep-content type link onward to the croqui/knowledge
+// panel from inside the ficha — the type content complements the ficha, it
+// never substitutes for it. The confirm result carries both the chosen
+// solutions and the mapped legacy types so downstream flows keep working.
 
 interface Props {
   params: OpenInterventionSelectorParams;
@@ -82,7 +85,11 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
     return new Set();
   });
 
-  // Detail panel state — operates on the mapped deep-content type, but tracks
+  // Ficha view: the per-solution ficha técnica, first level of "Saiba mais".
+  const [fichaSolutionId, setFichaSolutionId] = useState<string | null>(null);
+
+  // Type-content panel — the croqui/knowledge markdown of the mapped
+  // deep-content type, second level (opened from inside the ficha). Tracks
   // which solution opened it so "Selecionar" selects that variant.
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailSolutionId, setDetailSolutionId] = useState<string | null>(null);
@@ -105,7 +112,11 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
     setDetailLoading(false);
   }, [lang]);
 
-  const closeDetail = () => { setDetailId(null); setDetailSolutionId(null); setDetailSections(null); };
+  // Back from the type-content panel returns to the ficha that opened it.
+  const closeDetail = () => {
+    if (detailSolutionId) setFichaSolutionId(detailSolutionId);
+    setDetailId(null); setDetailSolutionId(null); setDetailSections(null);
+  };
 
   // Família relevance: explicit recommendedFamilias > legacy recommendedTypes
   // (mapped through the catalog) > site hazards × the família hazard profile.
@@ -317,6 +328,44 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
     );
   }
 
+  // ── Ficha técnica view (first level of "Saiba mais") ────────────────────────
+  const fichaSolution = fichaSolutionId ? getSolution(fichaSolutionId) : undefined;
+  if (fichaSolution) {
+    const isSelected = selected.has(fichaSolution.id);
+    return (
+      <div className="flex flex-col h-full" data-testid="selector-ficha-view">
+        <div className="p-3 border-b bg-background">
+          <Button variant="outline" size="sm" onClick={() => setFichaSolutionId(null)} data-testid="selector-ficha-back">
+            <ArrowLeft className="w-3 h-3 mr-1" />
+            {isPt ? 'Voltar' : 'Back'}
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <NbsSolutionDetail
+            solution={fichaSolution}
+            lang={lang}
+            onOpenTypeContent={typeId => {
+              setFichaSolutionId(null);
+              openDetail(typeId, fichaSolution.id);
+            }}
+          />
+        </div>
+        <div className="p-3 border-t bg-background flex items-center justify-end">
+          <Button
+            size="sm"
+            className={isSelected ? 'bg-green-700' : 'bg-green-600 hover:bg-green-700'}
+            onClick={() => { toggleSelect(fichaSolution.id); setFichaSolutionId(null); }}
+          >
+            <Check className="w-4 h-4 mr-1" />
+            {isSelected
+              ? (isPt ? 'Selecionado' : 'Selected')
+              : (isPt ? 'Selecionar esta solução' : 'Select this solution')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // ── Solution row (variant inside an open família) ──────────────────────────
   const renderSolution = (solution: NbsSolution) => {
     const isSelected = selected.has(solution.id);
@@ -346,16 +395,15 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
               <span className="rounded-[3px] bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {DELIVERY_SHORT[lang][solution.delivery]}
               </span>
-              {solution.legacyTypeId && (
-                <button
-                  type="button"
-                  className="text-[10.5px] font-medium text-green-700 hover:underline dark:text-green-400"
-                  onClick={() => openDetail(solution.legacyTypeId!, solution.id)}
-                >
-                  {isPt ? 'Saiba mais' : 'Learn more'}
-                  <ChevronRight className="w-3 h-3 inline" />
-                </button>
-              )}
+              <button
+                type="button"
+                className="text-[10.5px] font-medium text-green-700 hover:underline dark:text-green-400"
+                data-testid={`selector-saibamais-${solution.id}`}
+                onClick={() => setFichaSolutionId(solution.id)}
+              >
+                {isPt ? 'Saiba mais' : 'Learn more'}
+                <ChevronRight className="w-3 h-3 inline" />
+              </button>
             </div>
           </div>
           <div className="flex items-center">

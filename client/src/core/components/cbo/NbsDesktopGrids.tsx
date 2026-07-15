@@ -9,22 +9,26 @@ import { useState } from 'react';
 import type { NbsInterventionTypeId } from '@shared/cbo-schema';
 import { NBS_INTERVENTION_TYPES } from '@shared/cbo-schema';
 import { NBS_TYPE_CONTENT } from '@shared/nbs-type-content';
-import { NBS_FAMILIAS, solutionsForFamilia } from '@shared/nbs-catalog';
+import { NBS_FAMILIAS, getSolution, solutionsForFamilia } from '@shared/nbs-catalog';
 import type { NbsShowcaseCard } from '@shared/nbs-showcase-cards';
-import { NbsTypeCard } from './NbsTypeCard';
+import { Dialog, DialogContent } from '@/core/components/ui/dialog';
 import { NbsTypeDialog } from './NbsTypeDialog';
 import { NbsSolutionCard } from './NbsSolutionCard';
+import { NbsSolutionDetail } from './NbsSolutionDetail';
 import { NbsShowcaseCardItem } from './NbsShowcaseCard';
 
 const GRID = 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3';
 
 /** "Soluções" tab — the full Rede SCbN POA catalog: five família sections, each
- *  with its solution variants. Variants that map to one of the six deep-content
- *  types keep a "Ficha técnica" button opening the croqui/cost dialog. */
+ *  with its solution variants. Every variant opens its own ficha técnica
+ *  (NbsSolutionDetail); variants mapped to a deep-content type link onward to
+ *  the croqui/cost dialog as a complement. */
 export function NbsSolutionsGrid({ lang }: { lang: 'pt' | 'en' }) {
   const [openTypeId, setOpenTypeId] = useState<NbsInterventionTypeId | null>(
     null
   );
+  const [openSolutionId, setOpenSolutionId] = useState<string | null>(null);
+  const openSolution = openSolutionId ? getSolution(openSolutionId) : undefined;
   const typeIds = NBS_INTERVENTION_TYPES.filter(
     t => NBS_TYPE_CONTENT[t.id]
   ).map(t => t.id);
@@ -60,13 +64,36 @@ export function NbsSolutionsGrid({ lang }: { lang: 'pt' | 'en' }) {
                   key={solution.id}
                   solution={solution}
                   lang={lang}
-                  onOpenLegacy={setOpenTypeId}
+                  onOpenFicha={setOpenSolutionId}
                 />
               ))}
             </div>
           </section>
         );
       })}
+
+      {/* Per-solution ficha técnica dialog; "ver conteúdo do tipo" swaps to the
+          croqui/knowledge dialog below (never both open at once). */}
+      <Dialog
+        open={!!openSolution}
+        onOpenChange={open => { if (!open) setOpenSolutionId(null); }}
+      >
+        <DialogContent
+          className='max-h-[85vh] max-w-lg overflow-y-auto'
+          data-testid='nbs-solution-dialog'
+        >
+          {openSolution && (
+            <NbsSolutionDetail
+              solution={openSolution}
+              lang={lang}
+              onOpenTypeContent={typeId => {
+                setOpenSolutionId(null);
+                setOpenTypeId(typeId);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <NbsTypeDialog
         typeIds={typeIds}

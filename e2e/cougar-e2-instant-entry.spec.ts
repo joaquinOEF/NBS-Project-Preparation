@@ -42,6 +42,15 @@ test.describe('COUGAR — instant E2 entry', () => {
     const sheet = page.getByTestId('nbs-familia-sheet');
     await expect(sheet).toBeVisible();
     expect(await sheet.locator('[data-testid^="solution-card-"]').count()).toBe(11);
+
+    // Third level: a variant's ficha técnica opens INSIDE the sheet (list ⇄
+    // detail with a back affordance), with the five CBO-first sections.
+    await sheet.getByTestId('solution-ficha-jardins-de-chuva').click();
+    await expect(sheet.getByTestId('solution-detail-jardins-de-chuva')).toBeVisible();
+    await expect(sheet.getByText('Quem precisa dizer sim')).toBeVisible();
+    await page.getByTestId('nbs-familia-sheet-back').click();
+    await expect(sheet.locator('[data-testid^="solution-card-"]').first()).toBeVisible();
+
     await page.getByTestId('nbs-familia-sheet-close').click();
     await expect(sheet).toBeHidden();
 
