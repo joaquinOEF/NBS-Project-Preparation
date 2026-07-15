@@ -44,18 +44,25 @@ const HAZARD_LABELS = {
   en: { flood: 'flood', heat: 'heat' },
 };
 
-const DELIVERY_LABELS: Record<'pt' | 'en', Record<NbsDelivery, string>> = {
-  pt: {
-    mutirao: 'mutirão',
-    parceria: 'parceria',
-    licenca: 'licença ambiental',
-  },
-  en: { mutirao: 'mutirão', parceria: 'partnership', licenca: 'env. licence' },
-};
+// Exported: NbsSolutionCard (the 27-variant leaf) reuses the same chip
+// vocabulary so família variants and type cards never disagree on wording.
+export const DELIVERY_LABELS: Record<'pt' | 'en', Record<NbsDelivery, string>> =
+  {
+    pt: {
+      mutirao: 'mutirão',
+      parceria: 'parceria',
+      licenca: 'licença ambiental',
+    },
+    en: {
+      mutirao: 'mutirão',
+      parceria: 'partnership',
+      licenca: 'env. licence',
+    },
+  };
 
 // The delivery chip is the honest one: at community scale all six are affordable,
 // so what actually gates a project is who has to say yes and who keeps it alive.
-const DELIVERY_CLASS: Record<NbsDelivery, string> = {
+export const DELIVERY_CLASS: Record<NbsDelivery, string> = {
   mutirao:
     'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
   parceria: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300',

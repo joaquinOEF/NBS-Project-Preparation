@@ -47,6 +47,7 @@ import { E1Cards } from '@/core/components/cbo/E1Cards';
 import { RequestSupportDialog } from '@/core/components/cbo/RequestSupportDialog';
 import { NbsShowcaseCardStrip } from '@/core/components/cbo/NbsShowcaseCard';
 import { NbsTypeStrip } from '@/core/components/cbo/NbsTypeStrip';
+import { NbsFamiliaStrip } from '@/core/components/cbo/NbsFamiliaStrip';
 import { RiskPriorityChips, type HazardId } from '@/core/components/cbo/RiskPriorityChips';
 import { CommunityAnchoringComposer, type CommunityAnchoringResult } from '@/core/components/cbo/CommunityAnchoringComposer';
 import { CboFilesSheet } from '@/core/components/cbo/CboFilesSheet';
@@ -1174,6 +1175,7 @@ export default function CboProfilePage() {
         setIsStreaming(false);
         break;
       case 'show_types':
+      case 'show_familias':
       case 'show_examples': {
         // Educational strips render inline AND persist: append a `composer`
         // message to the transcript (mirrors what the server saves), so it shows
@@ -1183,7 +1185,9 @@ export default function CboProfilePage() {
         // `done` / stream close.
         const payload = event.type === 'show_types'
           ? { kind: 'types', typeIds: (event as any).typeIds, intro: (event as any).intro }
-          : { kind: 'examples', cardIds: event.cardIds, mode: event.mode, intro: event.intro };
+          : event.type === 'show_familias'
+            ? { kind: 'familias', familiaIds: (event as any).familiaIds, intro: (event as any).intro }
+            : { kind: 'examples', cardIds: event.cardIds, mode: event.mode, intro: event.intro };
         setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify(payload), messageType: 'composer', timestamp: new Date().toISOString() }]);
         break;
       }
@@ -1850,6 +1854,17 @@ export default function CboProfilePage() {
                     <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
                       <NbsTypeStrip
                         typeIds={parsed.typeIds ?? []}
+                        intro={parsed.intro}
+                        lang={lang.startsWith('pt') ? 'pt' : 'en'}
+                      />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'familias') {
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <NbsFamiliaStrip
+                        familiaIds={parsed.familiaIds}
                         intro={parsed.intro}
                         lang={lang.startsWith('pt') ? 'pt' : 'en'}
                       />

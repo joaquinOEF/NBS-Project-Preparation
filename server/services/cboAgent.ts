@@ -1201,7 +1201,9 @@ async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: Ev
   try {
     // If the types strip already exists in the transcript (banner re-fire,
     // resume race), this is not a virgin E2 entry — let the model handle it.
-    const seen = getCboMessages(cboId).some(m => m.messageType === 'composer' && m.content.includes('"kind":"types"'));
+    // "types" is the pre-familias strip — old transcripts that already saw it
+    // must not get a second (familias) strip on resume.
+    const seen = getCboMessages(cboId).some(m => m.messageType === 'composer' && (m.content.includes('"kind":"types"') || m.content.includes('"kind":"familias"')));
     if (seen) return false;
 
     const isPt = lang === 'pt';
@@ -1220,23 +1222,23 @@ async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: Ev
 
     // Re-check the gate after the awaits above — the cheap half of the race
     // defense (the in-flight set covers the concurrent half).
-    if (getCboMessages(cboId).some(m => m.messageType === 'composer' && m.content.includes('"kind":"types"'))) return false;
+    if (getCboMessages(cboId).some(m => m.messageType === 'composer' && (m.content.includes('"kind":"types"') || m.content.includes('"kind":"familias"')))) return false;
 
     const greeting = isPt
-      ? `Oi${nome ? `, ${nome}` : ''}. Antes de falar do seu território, dois minutos sobre os tipos de Solução baseada na Natureza — pra gente falar a mesma língua.`
-      : `Hi${nome ? `, ${nome}` : ''}. Before we talk about your territory, two minutes on the types of Nature-based Solutions — so we speak the same language.`;
+      ? `Oi${nome ? `, ${nome}` : ''}. Antes de falar do seu território, dois minutos sobre as famílias de Solução baseada na Natureza — pra gente falar a mesma língua.`
+      : `Hi${nome ? `, ${nome}` : ''}. Before we talk about your territory, two minutes on the families of Nature-based Solutions — so we speak the same language.`;
     pushEvent({ type: 'chat', content: greeting, role: 'assistant' } as any);
-    // Same expansion the show_intervention_types tool does: empty = all types.
-    const schemaMod = await import("@shared/cbo-schema");
+    // The 5 famílias of the Rede SCbN POA deck (shared/nbs-catalog.ts) — the
+    // same cards the cohort holds in the encontros. Empty ids = all five.
     pushEvent({
-      type: 'show_types', typeIds: schemaMod.NBS_INTERVENTION_TYPES.map((t: any) => t.id),
-      intro: isPt ? 'Toca em "Saber mais" em qualquer um pra entender melhor.' : 'Tap "Learn more" on any of them to understand better.',
+      type: 'show_familias',
+      intro: isPt ? 'Toca em "Ver opções" em qualquer uma pra conhecer as soluções.' : 'Tap "See options" on any of them to explore the solutions.',
     } as any);
     pushEvent({
       type: 'chat', role: 'assistant',
       content: isPt
-        ? 'Esses são os grandes tipos de SbN. Não precisa decorar — é só pra você reconhecer quando aparecerem. Dá uma olhada nos que te chamam atenção e, quando terminar, é só tocar abaixo.'
-        : "These are the big types of NbS. No need to memorize them — just enough to recognize them later. Look at the ones that catch your eye and tap below when you're done.",
+        ? 'Essas são as 5 famílias de SbN — as mesmas das cartas que vocês vão usar nos encontros. Não precisa decorar: dá uma olhada nas que têm a ver com o seu território e, quando terminar, é só tocar abaixo.'
+        : "These are the 5 families of NbS — the same ones on the cards you'll use in the encontros. No need to memorize them: look at the ones that match your territory and tap below when you're done.",
     } as any);
     const options = [
       { label: isPt ? 'Ver exemplos' : 'See examples', description: isPt ? 'Casos reais desses tipos' : 'Real cases of these types' },
@@ -1316,6 +1318,8 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       // payload the client parses; messageType 'composer' keeps it out of text-
       // based message logic.
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'types', typeIds: event.typeIds, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_familias') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'familias', familiaIds: event.familiaIds, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_examples') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'examples', cardIds: event.cardIds, mode: event.mode, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'ask_user') {

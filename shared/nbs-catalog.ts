@@ -35,6 +35,7 @@ export const NBS_FAMILIAS = [
     id: 'aguas-pluviais',
     emoji: '💧',
     color: '#4B5C8A',
+    coverSolutionId: 'jardins-de-chuva',
     pt: {
       label: 'Gestão de Águas Pluviais',
       description: 'Infiltrar, reter e tratar a água da chuva para reduzir alagamentos.',
@@ -49,6 +50,7 @@ export const NBS_FAMILIAS = [
     id: 'verde-urbano',
     emoji: '🌳',
     color: '#6E8E9B',
+    coverSolutionId: 'parques-e-florestas-urbanas',
     pt: {
       label: 'Infraestrutura Verde Urbana',
       description: 'Mais verde no tecido da cidade — sombra, lazer e menos calor.',
@@ -63,6 +65,7 @@ export const NBS_FAMILIAS = [
     id: 'agricultura-urbana',
     emoji: '🌱',
     color: '#8F7041',
+    coverSolutionId: 'hortas-urbanas',
     pt: {
       label: 'Agricultura Urbana',
       description: 'Alimento, compostagem e economia circular no território.',
@@ -77,6 +80,7 @@ export const NBS_FAMILIAS = [
     id: 'encostas-e-solo',
     emoji: '⛰️',
     color: '#8A4C38',
+    coverSolutionId: 'muro-de-arrimo-verde',
     pt: {
       label: 'Estabilização de Encostas e Solo',
       description: 'Segurar taludes e conter erosão em áreas de risco.',
@@ -91,6 +95,7 @@ export const NBS_FAMILIAS = [
     id: 'recuperacao-ecossistemas',
     emoji: '🌿',
     color: '#4E6B50',
+    coverSolutionId: 'reflorestamento',
     pt: {
       label: 'Recuperação de Ecossistemas Naturais',
       description: 'Restaurar matas, várzeas e margens que protegem a cidade.',
