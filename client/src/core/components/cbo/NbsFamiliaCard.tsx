@@ -27,36 +27,57 @@ export function NbsFamiliaCard({
   id,
   lang,
   onOpen,
+  onOpenCroqui,
 }: {
   id: NbsFamiliaId;
   lang: 'pt' | 'en';
   onOpen: (id: NbsFamiliaId) => void;
+  /** Tap on the cover enlarges the croqui (the 104px crop hides most of it). */
+  onOpenCroqui?: (id: NbsFamiliaId) => void;
 }) {
   const familia = getFamilia(id);
   if (!familia) return null;
   const loc = familia[lang];
   const count = solutionsForFamilia(id).length;
 
+  const cover = (
+    <>
+      <img
+        src={familia.croqui}
+        alt=''
+        aria-hidden='true'
+        loading='lazy'
+        decoding='async'
+        className='h-full w-full object-cover'
+      />
+      <div
+        aria-hidden='true'
+        className='absolute inset-x-0 bottom-0 h-1'
+        style={{ background: familia.color }}
+      />
+    </>
+  );
+
   return (
     <div
       className='flex h-full w-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-emerald-500/60'
       data-testid={`familia-card-${id}`}
     >
-      <div className='relative h-[104px] w-full shrink-0 overflow-hidden bg-muted'>
-        <img
-          src={familia.croqui}
-          alt=''
-          aria-hidden='true'
-          loading='lazy'
-          decoding='async'
-          className='h-full w-full object-cover'
-        />
-        <div
-          aria-hidden='true'
-          className='absolute inset-x-0 bottom-0 h-1'
-          style={{ background: familia.color }}
-        />
-      </div>
+      {onOpenCroqui ? (
+        <button
+          type='button'
+          onClick={() => onOpenCroqui(id)}
+          className='relative h-[104px] w-full shrink-0 overflow-hidden bg-muted'
+          aria-label={loc.label}
+          data-testid={`familia-cover-croqui-${id}`}
+        >
+          {cover}
+        </button>
+      ) : (
+        <div className='relative h-[104px] w-full shrink-0 overflow-hidden bg-muted'>
+          {cover}
+        </div>
+      )}
 
       <div className='flex flex-1 flex-col gap-1.5 p-3'>
         <h4 className='text-sm font-semibold leading-tight tracking-tight'>

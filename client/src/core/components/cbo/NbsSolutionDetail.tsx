@@ -76,12 +76,16 @@ export function NbsSolutionDetail({
   solution,
   lang,
   onOpenTypeContent,
+  wide,
 }: {
   solution: NbsSolution;
   lang: 'pt' | 'en';
   /** When set and the solution maps to a deep-content type, renders the
    *  complementary "see croqui/technical content" button. */
   onOpenTypeContent?: (id: NbsInterventionTypeId) => void;
+  /** Desktop dialog layout: photo + identity on the left, the four ficha
+   *  sections on the right (collapses back to one column under md). */
+  wide?: boolean;
 }) {
   const s = STRINGS[lang];
   const ficha = getSolutionFicha(solution.id);
@@ -91,10 +95,10 @@ export function NbsSolutionDetail({
     ? NBS_INTERVENTION_TYPES.find(t => t.id === solution.legacyTypeId)
     : undefined;
 
-  return (
-    <div className='space-y-4' data-testid={`solution-detail-${solution.id}`}>
+  const identity = (
+    <div className='space-y-4'>
       <div className='overflow-hidden rounded-lg'>
-        <div className='h-36 w-full overflow-hidden bg-muted'>
+        <div className={`${wide ? 'h-44' : 'h-36'} w-full overflow-hidden bg-muted`}>
           <img
             src={nbsSolutionPhoto(solution.id)}
             alt=''
@@ -124,7 +128,11 @@ export function NbsSolutionDetail({
       </div>
 
       <Section title={s.oQueE} body={solution[lang].whatItIs} estimadoLabel={s.estimado} />
+    </div>
+  );
 
+  const fichaBody = (
+    <div className='space-y-4'>
       {copy ? (
         <>
           <Section title={s.comoFunciona} body={copy.comoFunciona} estimadoLabel={s.estimado} />
@@ -163,6 +171,20 @@ export function NbsSolutionDetail({
           {s.fontes}: {ficha.sources.join(' · ')}
         </p>
       )}
+    </div>
+  );
+
+  return (
+    <div
+      className={
+        wide
+          ? 'space-y-4 md:grid md:grid-cols-[2fr_3fr] md:gap-6 md:space-y-0'
+          : 'space-y-4'
+      }
+      data-testid={`solution-detail-${solution.id}`}
+    >
+      {identity}
+      {fichaBody}
     </div>
   );
 }
