@@ -11,9 +11,10 @@
 
 import { useState } from 'react';
 import type { NbsFamiliaId } from '@shared/nbs-catalog';
-import { NBS_FAMILIAS } from '@shared/nbs-catalog';
+import { NBS_FAMILIAS, getFamilia } from '@shared/nbs-catalog';
 import { NbsFamiliaCard } from './NbsFamiliaCard';
 import { NbsFamiliaSheet } from './NbsFamiliaSheet';
+import { CroquiLightbox } from './CroquiLightbox';
 
 export function NbsFamiliaStrip({
   familiaIds,
@@ -26,6 +27,8 @@ export function NbsFamiliaStrip({
   lang: 'pt' | 'en';
 }) {
   const [openFamiliaId, setOpenFamiliaId] = useState<NbsFamiliaId | null>(null);
+  const [croquiFamiliaId, setCroquiFamiliaId] = useState<NbsFamiliaId | null>(null);
+  const croquiFamilia = croquiFamiliaId ? getFamilia(croquiFamiliaId) : undefined;
 
   const ids = new Set(familiaIds && familiaIds.length > 0 ? familiaIds : NBS_FAMILIAS.map(f => f.id));
   const familias = NBS_FAMILIAS.filter(f => ids.has(f.id));
@@ -49,6 +52,7 @@ export function NbsFamiliaStrip({
               id={familia.id}
               lang={lang}
               onOpen={setOpenFamiliaId}
+              onOpenCroqui={setCroquiFamiliaId}
             />
           </div>
         ))}
@@ -58,6 +62,13 @@ export function NbsFamiliaStrip({
         openFamiliaId={openFamiliaId}
         onClose={() => setOpenFamiliaId(null)}
         lang={lang}
+      />
+
+      <CroquiLightbox
+        src={croquiFamilia?.croqui ?? null}
+        title={croquiFamilia?.[lang].label}
+        lang={lang}
+        onClose={() => setCroquiFamiliaId(null)}
       />
     </div>
   );

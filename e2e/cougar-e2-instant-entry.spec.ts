@@ -37,11 +37,20 @@ test.describe('COUGAR — instant E2 entry', () => {
     expect(Date.now() - t0).toBeLessThan(8_000); // UI-time, not model-time
     await expect(page.getByText('Vamos continuar', { exact: false })).toHaveCount(0); // model never ran
 
-    // Two-level: opening a família shows its variants (deck-card leaves).
+    // Two-level: opening a família shows its croqui banner + variants.
     await page.getByTestId('familia-expand-aguas-pluviais').click();
     const sheet = page.getByTestId('nbs-familia-sheet');
     await expect(sheet).toBeVisible();
     expect(await sheet.locator('[data-testid^="solution-card-"]').count()).toBe(11);
+
+    // The croqui reads WITH the variants: banner above the list, tap → large
+    // view carrying the Register-2 "ilustração esquemática" disclosure.
+    await sheet.getByTestId('familia-sheet-croqui').click();
+    const lightbox = page.getByTestId('croqui-lightbox');
+    await expect(lightbox).toBeVisible();
+    await expect(lightbox.getByText('Ilustração esquemática', { exact: false })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(lightbox).toBeHidden();
 
     // Third level: a variant's ficha técnica opens INSIDE the sheet (list ⇄
     // detail with a back affordance), with the five CBO-first sections.

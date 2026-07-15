@@ -51,6 +51,16 @@ test.describe('COUGAR — orchestrator NBS tabs', () => {
     ).toBeVisible();
     expect(await page.locator('[data-testid^="familia-section-"]').count()).toBe(5);
     expect(await page.locator('[data-testid^="solution-card-"]').count()).toBe(27);
+
+    // Each família shows its croqui BESIDE the variants; clicking enlarges it
+    // in the lightbox (with the ilustração-esquemática disclosure).
+    expect(await page.locator('[data-testid^="familia-croqui-"]').count()).toBe(5);
+    await page.getByTestId('familia-croqui-encostas-e-solo').click();
+    const lightbox = page.getByTestId('croqui-lightbox');
+    await expect(lightbox).toBeVisible();
+    await expect(lightbox.getByText(/Ilustração esquemática|Schematic illustration/)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(lightbox).toBeHidden();
     await expect(
       participant,
       'participant list stays visible on Soluções'

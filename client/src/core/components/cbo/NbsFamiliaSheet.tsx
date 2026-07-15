@@ -21,6 +21,7 @@ import type { NbsFamiliaId } from '@shared/nbs-catalog';
 import { getFamilia, getSolution, solutionsForFamilia } from '@shared/nbs-catalog';
 import { NbsSolutionCard } from './NbsSolutionCard';
 import { NbsSolutionDetail } from './NbsSolutionDetail';
+import { CroquiLightbox } from './CroquiLightbox';
 
 const STRINGS = {
   pt: {
@@ -29,6 +30,7 @@ const STRINGS = {
     handle: 'Arraste para fechar',
     credit: 'Fotos: cartas da Rede SCbN de POA (fontes MMA, GIZ e CNM)',
     estNote: '* classificação estimada, em verificação',
+    croquiHint: 'Ilustração esquemática — toque para ampliar',
   },
   en: {
     close: 'Close',
@@ -36,6 +38,7 @@ const STRINGS = {
     handle: 'Drag to close',
     credit: 'Photos: Rede SCbN de POA card deck (MMA, GIZ and CNM sources)',
     estNote: '* estimated classification, under verification',
+    croquiHint: 'Schematic illustration — tap to enlarge',
   },
 };
 
@@ -52,6 +55,7 @@ export function NbsFamiliaSheet({
   const s = STRINGS[lang];
   const bodyRef = useRef<HTMLDivElement>(null);
   const [openSolutionId, setOpenSolutionId] = useState<string | null>(null);
+  const [croquiOpen, setCroquiOpen] = useState(false);
   const familia = openFamiliaId ? getFamilia(openFamiliaId) : undefined;
   const solutions = openFamiliaId ? solutionsForFamilia(openFamiliaId) : [];
   const openSolution = openSolutionId ? getSolution(openSolutionId) : undefined;
@@ -135,6 +139,30 @@ export function NbsFamiliaSheet({
                   {familia[lang].description}
                 </p>
               )}
+              {/* The família croqui reads WITH its variants — banner above the
+                  list, tap to see it large (the strip card crops it to 104px). */}
+              {familia && (
+                <figure className='m-0'>
+                  <button
+                    type='button'
+                    className='block w-full overflow-hidden rounded-lg border border-border'
+                    onClick={() => setCroquiOpen(true)}
+                    data-testid='familia-sheet-croqui'
+                    data-vaul-no-drag
+                  >
+                    <img
+                      src={familia.croqui}
+                      alt={familia[lang].label}
+                      loading='lazy'
+                      decoding='async'
+                      className='max-h-44 w-full object-cover'
+                    />
+                  </button>
+                  <figcaption className='mt-1 px-1 text-[10px] italic text-muted-foreground'>
+                    {s.croquiHint}
+                  </figcaption>
+                </figure>
+              )}
               {solutions.map(solution => (
                 <NbsSolutionCard
                   key={solution.id}
@@ -149,6 +177,13 @@ export function NbsFamiliaSheet({
             </>
           )}
         </div>
+
+        <CroquiLightbox
+          src={croquiOpen && familia ? familia.croqui : null}
+          title={familia?.[lang].label}
+          lang={lang}
+          onClose={() => setCroquiOpen(false)}
+        />
       </DrawerContent>
     </Drawer>
   );
