@@ -17,9 +17,25 @@ import { NbsSolutionCard } from './NbsSolutionCard';
 import { NbsSolutionDetail } from './NbsSolutionDetail';
 import { NbsShowcaseCardItem } from './NbsShowcaseCard';
 import { CroquiLightbox } from './CroquiLightbox';
+import type { CroquiLightboxContent } from './CroquiLightbox';
 
 const GRID = 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3';
-const CROQUI_CAPTION = { pt: 'Ilustração esquemática — toque para ampliar', en: 'Schematic illustration — click to enlarge' };
+const STRINGS = {
+  pt: {
+    croquiEyebrow: 'Croqui da família · ilustração esquemática',
+    solutionsEyebrow: (n: number) => `As ${n} soluções · fotos reais`,
+    ampliar: 'Toque para ampliar',
+    antes: 'ANTES',
+    depois: 'DEPOIS',
+  },
+  en: {
+    croquiEyebrow: 'Família croqui · schematic illustration',
+    solutionsEyebrow: (n: number) => `The ${n} solutions · real photos`,
+    ampliar: 'Click to enlarge',
+    antes: 'BEFORE',
+    depois: 'AFTER',
+  },
+};
 
 /** "Soluções" tab — the full Rede SCbN POA catalog: five família sections, each
  *  with its solution variants. Every variant opens its own ficha técnica
@@ -30,7 +46,8 @@ export function NbsSolutionsGrid({ lang }: { lang: 'pt' | 'en' }) {
     null
   );
   const [openSolutionId, setOpenSolutionId] = useState<string | null>(null);
-  const [croqui, setCroqui] = useState<{ src: string; title: string } | null>(null);
+  const [croqui, setCroqui] = useState<CroquiLightboxContent | null>(null);
+  const s = STRINGS[lang];
   const openSolution = openSolutionId ? getSolution(openSolutionId) : undefined;
   const typeIds = NBS_INTERVENTION_TYPES.filter(
     t => NBS_TYPE_CONTENT[t.id]
@@ -61,31 +78,73 @@ export function NbsSolutionsGrid({ lang }: { lang: 'pt' | 'en' }) {
                 — {familia[lang].description}
               </span>
             </div>
-            {/* The croqui sits BESIDE its variants — the category drawing and
-                the concrete options read together (field ask, 2026-07-15). */}
+            {/* The croqui pair sits BESIDE its variants and stays pinned while
+                they scroll (sticky) — the transformation is always in view.
+                Paper treatment + eyebrows separate "schematic drawing" from
+                "real photos" at a glance (field ask, 2026-07-15). */}
             <div className='flex flex-col gap-5 lg:flex-row'>
-              <figure className='m-0 shrink-0 lg:w-1/3'>
-                <button
-                  type='button'
-                  className='block w-full overflow-hidden rounded-xl border border-border transition-colors hover:border-emerald-500/60'
-                  onClick={() =>
-                    setCroqui({ src: familia.croqui, title: familia[lang].label })
-                  }
-                  data-testid={`familia-croqui-${familia.id}`}
+              <div className='shrink-0 lg:sticky lg:top-4 lg:w-1/3 lg:self-start'>
+                <div
+                  className='rounded-xl border border-[#e2d9c4] bg-[#f8f4ea] p-3 dark:border-stone-700 dark:bg-stone-900'
+                  data-testid={`familia-croqui-panel-${familia.id}`}
                 >
-                  <img
-                    src={familia.croqui}
-                    alt={familia[lang].label}
-                    loading='lazy'
-                    decoding='async'
-                    className='aspect-[4/3] w-full object-cover'
-                  />
-                </button>
-                <figcaption className='mt-1 px-1 text-[10px] italic text-muted-foreground'>
-                  {CROQUI_CAPTION[lang]}
-                </figcaption>
-              </figure>
+                  <p className='m-0 mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#7a6f56] dark:text-stone-400'>
+                    {s.croquiEyebrow}
+                  </p>
+                  <button
+                    type='button'
+                    className='block w-full space-y-2 text-left'
+                    onClick={() =>
+                      setCroqui({
+                        src: familia.croqui,
+                        before: familia.croquiBefore,
+                        title: familia[lang].label,
+                        antesCaption: familia.croquiCaptions[lang].antes,
+                        depoisCaption: familia.croquiCaptions[lang].depois,
+                      })
+                    }
+                    data-testid={`familia-croqui-${familia.id}`}
+                  >
+                    <figure className='relative m-0'>
+                      <img
+                        src={familia.croquiBefore}
+                        alt=''
+                        loading='lazy'
+                        decoding='async'
+                        className='aspect-[4/3] w-full rounded-lg object-cover'
+                      />
+                      <span className='absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[9.5px] font-bold tracking-wide text-white'>
+                        {s.antes}
+                      </span>
+                      <figcaption className='mt-1 text-[11px] leading-snug text-[#6d6350] dark:text-stone-400'>
+                        {familia.croquiCaptions[lang].antes}
+                      </figcaption>
+                    </figure>
+                    <figure className='relative m-0'>
+                      <img
+                        src={familia.croqui}
+                        alt=''
+                        loading='lazy'
+                        decoding='async'
+                        className='aspect-[4/3] w-full rounded-lg object-cover'
+                      />
+                      <span className='absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[9.5px] font-bold tracking-wide text-white'>
+                        {s.depois}
+                      </span>
+                      <figcaption className='mt-1 text-[11px] leading-snug text-[#6d6350] dark:text-stone-400'>
+                        {familia.croquiCaptions[lang].depois}
+                      </figcaption>
+                    </figure>
+                    <span className='block text-[10px] italic text-[#8a7f68] dark:text-stone-500'>
+                      {s.ampliar}
+                    </span>
+                  </button>
+                </div>
+              </div>
               <div className='min-w-0 flex-1'>
+                <p className='m-0 mb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground'>
+                  {s.solutionsEyebrow(solutions.length)}
+                </p>
                 <div className='grid grid-cols-1 gap-5 sm:grid-cols-2'>
                   {solutions.map(solution => (
                     <NbsSolutionCard
@@ -103,8 +162,7 @@ export function NbsSolutionsGrid({ lang }: { lang: 'pt' | 'en' }) {
       })}
 
       <CroquiLightbox
-        src={croqui?.src ?? null}
-        title={croqui?.title}
+        content={croqui}
         lang={lang}
         onClose={() => setCroqui(null)}
       />

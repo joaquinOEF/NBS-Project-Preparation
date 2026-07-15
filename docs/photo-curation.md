@@ -162,6 +162,22 @@ nbs_familia_illustrations:
   # aguas-pluviais / verde-urbano / recuperacao-ecossistemas reuse
   # bioswales-rain-gardens.jpg / urban-forests.jpg / wetland-restoration.jpg
   # from the existing nbs_type_illustrations block (same review debt).
+  - id: agricultura-urbana--before
+    file: client/public/assets/nbs/familias/agricultura-urbana--before.jpg
+    register: illustration
+    subject_scope: generic_category
+    medium: croqui                    # SAME scene as the after, pre-intervention (D4 rule)
+    synthetic: true                   # generated with the after croqui as input image
+    expert_reviewer: null             # same batched review session
+    status: shipped_pending_review
+  - id: encostas-e-solo--before
+    file: client/public/assets/nbs/familias/encostas-e-solo--before.jpg
+    register: illustration
+    subject_scope: generic_category
+    medium: croqui                    # eroded slope w/ gullies + tension crack near the house
+    synthetic: true
+    expert_reviewer: null             # same batch — 16 croquis total now
+    status: shipped_pending_review
 ```
 
 ## Solution photos — Rede SCbN POA card deck (2026-07-15)

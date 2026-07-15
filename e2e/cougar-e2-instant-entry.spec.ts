@@ -43,11 +43,18 @@ test.describe('COUGAR — instant E2 entry', () => {
     await expect(sheet).toBeVisible();
     expect(await sheet.locator('[data-testid^="solution-card-"]').count()).toBe(11);
 
-    // The croqui reads WITH the variants: banner above the list, tap → large
-    // view carrying the Register-2 "ilustração esquemática" disclosure.
-    await sheet.getByTestId('familia-sheet-croqui').click();
+    // The sheet opens with the ANTES/DEPOIS croqui pair + captions (the
+    // teaching moment); tapping it enlarges the pair with the Register-2
+    // "ilustração esquemática" disclosure.
+    const banner = sheet.getByTestId('familia-sheet-croqui');
+    await expect(banner.getByText('ANTES', { exact: true })).toBeVisible();
+    await expect(banner.getByText('DEPOIS', { exact: true })).toBeVisible();
+    await expect(banner.getByText('a chuva corre pela rua', { exact: false })).toBeVisible();
+    await banner.click();
     const lightbox = page.getByTestId('croqui-lightbox');
     await expect(lightbox).toBeVisible();
+    await expect(lightbox.getByText('ANTES', { exact: true })).toBeVisible();
+    await expect(lightbox.getByText('DEPOIS', { exact: true })).toBeVisible();
     await expect(lightbox.getByText('Ilustração esquemática', { exact: false })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(lightbox).toBeHidden();

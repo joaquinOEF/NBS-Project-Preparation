@@ -52,12 +52,21 @@ test.describe('COUGAR — orchestrator NBS tabs', () => {
     expect(await page.locator('[data-testid^="familia-section-"]').count()).toBe(5);
     expect(await page.locator('[data-testid^="solution-card-"]').count()).toBe(27);
 
-    // Each família shows its croqui BESIDE the variants; clicking enlarges it
-    // in the lightbox (with the ilustração-esquemática disclosure).
-    expect(await page.locator('[data-testid^="familia-croqui-"]').count()).toBe(5);
+    // Each família shows its ANTES/DEPOIS croqui pair BESIDE the variants in a
+    // sticky paper panel with eyebrow labels separating "schematic drawing"
+    // from "real photos"; clicking enlarges the pair in the lightbox.
+    expect(await page.locator('[data-testid^="familia-croqui-panel-"]').count()).toBe(5);
+    const panel = page.getByTestId('familia-croqui-panel-encostas-e-solo');
+    await expect(panel.getByText(/Croqui da família|Família croqui/)).toBeVisible();
+    await expect(panel.getByText(/ANTES|BEFORE/)).toBeVisible();
+    await expect(panel.getByText(/DEPOIS|AFTER/)).toBeVisible();
+    await expect(
+      page.getByTestId('familia-section-encostas-e-solo').getByText(/As 4 soluções|The 4 solutions/)
+    ).toBeVisible();
     await page.getByTestId('familia-croqui-encostas-e-solo').click();
     const lightbox = page.getByTestId('croqui-lightbox');
     await expect(lightbox).toBeVisible();
+    await expect(lightbox.getByText(/ANTES|BEFORE/)).toBeVisible();
     await expect(lightbox.getByText(/Ilustração esquemática|Schematic illustration/)).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(lightbox).toBeHidden();
