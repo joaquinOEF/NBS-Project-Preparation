@@ -1,5 +1,6 @@
 // NbsFamiliaCard — the leaf card for one of the 5 famílias from the Rede SCbN
-// POA deck: cover photo (a representative solution's card photo), família color
+// POA deck: croqui cover (the register rule: croqui teaches the CATEGORY, the
+// deck photo documents the EXAMPLE — variants keep the photos), família color
 // accent, name, one-line description and an option count. Headless like
 // NbsTypeCard — fills whatever cell the parent gives it (chat strip snap item,
 // desktop grid track).
@@ -11,11 +12,7 @@
 
 import { ArrowRight } from 'lucide-react';
 import type { NbsFamiliaId } from '@shared/nbs-catalog';
-import {
-  getFamilia,
-  nbsSolutionPhoto,
-  solutionsForFamilia,
-} from '@shared/nbs-catalog';
+import { getFamilia, solutionsForFamilia } from '@shared/nbs-catalog';
 
 const OPTIONS_LABEL = {
   pt: (n: number) => `Ver as ${n} opções`,
@@ -47,7 +44,7 @@ export function NbsFamiliaCard({
     >
       <div className='relative h-[104px] w-full shrink-0 overflow-hidden bg-muted'>
         <img
-          src={nbsSolutionPhoto(familia.coverSolutionId)}
+          src={familia.croqui}
           alt=''
           aria-hidden='true'
           loading='lazy'

@@ -36,6 +36,7 @@ export const NBS_FAMILIAS = [
     emoji: '💧',
     color: '#4B5C8A',
     coverSolutionId: 'jardins-de-chuva',
+    croqui: '/assets/nbs/types/bioswales-rain-gardens.jpg',
     pt: {
       label: 'Gestão de Águas Pluviais',
       description: 'Infiltrar, reter e tratar a água da chuva para reduzir alagamentos.',
@@ -51,6 +52,7 @@ export const NBS_FAMILIAS = [
     emoji: '🌳',
     color: '#6E8E9B',
     coverSolutionId: 'parques-e-florestas-urbanas',
+    croqui: '/assets/nbs/types/urban-forests.jpg',
     pt: {
       label: 'Infraestrutura Verde Urbana',
       description: 'Mais verde no tecido da cidade — sombra, lazer e menos calor.',
@@ -66,6 +68,7 @@ export const NBS_FAMILIAS = [
     emoji: '🌱',
     color: '#8F7041',
     coverSolutionId: 'hortas-urbanas',
+    croqui: '/assets/nbs/familias/agricultura-urbana.jpg',
     pt: {
       label: 'Agricultura Urbana',
       description: 'Alimento, compostagem e economia circular no território.',
@@ -81,6 +84,7 @@ export const NBS_FAMILIAS = [
     emoji: '⛰️',
     color: '#8A4C38',
     coverSolutionId: 'muro-de-arrimo-verde',
+    croqui: '/assets/nbs/familias/encostas-e-solo.jpg',
     pt: {
       label: 'Estabilização de Encostas e Solo',
       description: 'Segurar taludes e conter erosão em áreas de risco.',
@@ -96,6 +100,7 @@ export const NBS_FAMILIAS = [
     emoji: '🌿',
     color: '#4E6B50',
     coverSolutionId: 'reflorestamento',
+    croqui: '/assets/nbs/types/wetland-restoration.jpg',
     pt: {
       label: 'Recuperação de Ecossistemas Naturais',
       description: 'Restaurar matas, várzeas e margens que protegem a cidade.',
