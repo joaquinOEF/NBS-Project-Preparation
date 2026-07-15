@@ -37,6 +37,11 @@ export const NBS_FAMILIAS = [
     color: '#4B5C8A',
     coverSolutionId: 'jardins-de-chuva',
     croqui: '/assets/nbs/types/bioswales-rain-gardens.jpg',
+    croquiBefore: '/assets/nbs/types/bioswales-rain-gardens--before.jpg',
+    croquiCaptions: {
+      pt: { antes: 'Hoje: a chuva corre pela rua e o bueiro entope.', depois: 'Depois: a água entra na terra e some em poucas horas.' },
+      en: { antes: 'Today: rain runs down the street and the drain clogs.', depois: 'After: the water soaks in and is gone within hours.' },
+    },
     pt: {
       label: 'Gestão de Águas Pluviais',
       description: 'Infiltrar, reter e tratar a água da chuva para reduzir alagamentos.',
@@ -53,6 +58,11 @@ export const NBS_FAMILIAS = [
     color: '#6E8E9B',
     coverSolutionId: 'parques-e-florestas-urbanas',
     croqui: '/assets/nbs/types/urban-forests.jpg',
+    croquiBefore: '/assets/nbs/types/urban-forests--before.jpg',
+    croquiCaptions: {
+      pt: { antes: 'Hoje: terreno baldio com entulho, mato seco e lixo.', depois: 'Depois: mata fechada, sombra, e um caminho de terra por dentro.' },
+      en: { antes: 'Today: a vacant lot with rubble, dry weeds and litter.', depois: 'After: closed forest, shade, and an earth path through it.' },
+    },
     pt: {
       label: 'Infraestrutura Verde Urbana',
       description: 'Mais verde no tecido da cidade — sombra, lazer e menos calor.',
@@ -69,6 +79,11 @@ export const NBS_FAMILIAS = [
     color: '#8F7041',
     coverSolutionId: 'hortas-urbanas',
     croqui: '/assets/nbs/familias/agricultura-urbana.jpg',
+    croquiBefore: '/assets/nbs/familias/agricultura-urbana--before.jpg',
+    croquiCaptions: {
+      pt: { antes: 'Hoje: um terreno baldio fechado, que só junta lixo.', depois: 'Depois: canteiros produzindo, composteira, e o bairro cuidando do espaço.' },
+      en: { antes: 'Today: a fenced-off vacant lot that only collects litter.', depois: 'After: beds producing food, a composter, and the neighbourhood caring for the space.' },
+    },
     pt: {
       label: 'Agricultura Urbana',
       description: 'Alimento, compostagem e economia circular no território.',
@@ -85,6 +100,11 @@ export const NBS_FAMILIAS = [
     color: '#8A4C38',
     coverSolutionId: 'muro-de-arrimo-verde',
     croqui: '/assets/nbs/familias/encostas-e-solo.jpg',
+    croquiBefore: '/assets/nbs/familias/encostas-e-solo--before.jpg',
+    croquiCaptions: {
+      pt: { antes: 'Hoje: barranco pelado — cada chuva leva mais terra pra perto da casa.', depois: 'Depois: raízes e grade viva segurando o morro; a água desce pelo canal.' },
+      en: { antes: 'Today: a bare slope — every rain carries more soil toward the house.', depois: 'After: roots and a living grid holding the hill; water runs down the channel.' },
+    },
     pt: {
       label: 'Estabilização de Encostas e Solo',
       description: 'Segurar taludes e conter erosão em áreas de risco.',
@@ -101,6 +121,11 @@ export const NBS_FAMILIAS = [
     color: '#4E6B50',
     coverSolutionId: 'reflorestamento',
     croqui: '/assets/nbs/types/wetland-restoration.jpg',
+    croquiBefore: '/assets/nbs/types/wetland-restoration--before.jpg',
+    croquiCaptions: {
+      pt: { antes: 'Hoje: arroio sujo, barranco pelado, pneu e cano de esgoto.', depois: 'Depois: água rasa com taboa e junco, garça, e uma passarela na margem.' },
+      en: { antes: 'Today: a dirty stream, bare banks, tyres and a sewage pipe.', depois: 'After: shallow water with cattail and rush, herons, and a boardwalk along the bank.' },
+    },
     pt: {
       label: 'Recuperação de Ecossistemas Naturais',
       description: 'Restaurar matas, várzeas e margens que protegem a cidade.',

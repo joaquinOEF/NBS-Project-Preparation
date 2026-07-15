@@ -65,8 +65,17 @@ export function NbsFamiliaStrip({
       />
 
       <CroquiLightbox
-        src={croquiFamilia?.croqui ?? null}
-        title={croquiFamilia?.[lang].label}
+        content={
+          croquiFamilia
+            ? {
+                src: croquiFamilia.croqui,
+                before: croquiFamilia.croquiBefore,
+                title: croquiFamilia[lang].label,
+                antesCaption: croquiFamilia.croquiCaptions[lang].antes,
+                depoisCaption: croquiFamilia.croquiCaptions[lang].depois,
+              }
+            : null
+        }
         lang={lang}
         onClose={() => setCroquiFamiliaId(null)}
       />

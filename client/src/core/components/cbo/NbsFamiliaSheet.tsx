@@ -31,6 +31,8 @@ const STRINGS = {
     credit: 'Fotos: cartas da Rede SCbN de POA (fontes MMA, GIZ e CNM)',
     estNote: '* classificação estimada, em verificação',
     croquiHint: 'Ilustração esquemática — toque para ampliar',
+    antes: 'ANTES',
+    depois: 'DEPOIS',
   },
   en: {
     close: 'Close',
@@ -39,6 +41,8 @@ const STRINGS = {
     credit: 'Photos: Rede SCbN de POA card deck (MMA, GIZ and CNM sources)',
     estNote: '* estimated classification, under verification',
     croquiHint: 'Schematic illustration — tap to enlarge',
+    antes: 'BEFORE',
+    depois: 'AFTER',
   },
 };
 
@@ -139,29 +143,53 @@ export function NbsFamiliaSheet({
                   {familia[lang].description}
                 </p>
               )}
-              {/* The família croqui reads WITH its variants — banner above the
-                  list, tap to see it large (the strip card crops it to 104px). */}
+              {/* The teaching moment: the ANTES/DEPOIS croqui pair with its
+                  one-line captions opens the sheet (E2 mockup decision D,
+                  2026-07-15) — the strip card stays a calm DEPOIS. */}
               {familia && (
-                <figure className='m-0'>
-                  <button
-                    type='button'
-                    className='block w-full overflow-hidden rounded-lg border border-border'
-                    onClick={() => setCroquiOpen(true)}
-                    data-testid='familia-sheet-croqui'
-                    data-vaul-no-drag
-                  >
-                    <img
-                      src={familia.croqui}
-                      alt={familia[lang].label}
-                      loading='lazy'
-                      decoding='async'
-                      className='max-h-44 w-full object-cover'
-                    />
-                  </button>
-                  <figcaption className='mt-1 px-1 text-[10px] italic text-muted-foreground'>
+                <button
+                  type='button'
+                  className='block w-full rounded-lg border border-[#e2d9c4] bg-[#f8f4ea] p-2 text-left dark:border-stone-700 dark:bg-stone-900'
+                  onClick={() => setCroquiOpen(true)}
+                  data-testid='familia-sheet-croqui'
+                  data-vaul-no-drag
+                >
+                  <div className='flex gap-2'>
+                    <figure className='relative m-0 w-1/2'>
+                      <img
+                        src={familia.croquiBefore}
+                        alt=''
+                        loading='lazy'
+                        decoding='async'
+                        className='aspect-[4/3] w-full rounded-md object-cover'
+                      />
+                      <span className='absolute left-1.5 top-1.5 rounded-full bg-black/55 px-1.5 py-0.5 text-[8.5px] font-bold tracking-wide text-white'>
+                        {s.antes}
+                      </span>
+                      <figcaption className='mt-1 text-[10px] leading-snug text-muted-foreground'>
+                        {familia.croquiCaptions[lang].antes}
+                      </figcaption>
+                    </figure>
+                    <figure className='relative m-0 w-1/2'>
+                      <img
+                        src={familia.croqui}
+                        alt=''
+                        loading='lazy'
+                        decoding='async'
+                        className='aspect-[4/3] w-full rounded-md object-cover'
+                      />
+                      <span className='absolute left-1.5 top-1.5 rounded-full bg-black/55 px-1.5 py-0.5 text-[8.5px] font-bold tracking-wide text-white'>
+                        {s.depois}
+                      </span>
+                      <figcaption className='mt-1 text-[10px] leading-snug text-muted-foreground'>
+                        {familia.croquiCaptions[lang].depois}
+                      </figcaption>
+                    </figure>
+                  </div>
+                  <span className='mt-1 block text-[10px] italic text-muted-foreground/80'>
                     {s.croquiHint}
-                  </figcaption>
-                </figure>
+                  </span>
+                </button>
               )}
               {solutions.map(solution => (
                 <NbsSolutionCard
@@ -179,8 +207,17 @@ export function NbsFamiliaSheet({
         </div>
 
         <CroquiLightbox
-          src={croquiOpen && familia ? familia.croqui : null}
-          title={familia?.[lang].label}
+          content={
+            croquiOpen && familia
+              ? {
+                  src: familia.croqui,
+                  before: familia.croquiBefore,
+                  title: familia[lang].label,
+                  antesCaption: familia.croquiCaptions[lang].antes,
+                  depoisCaption: familia.croquiCaptions[lang].depois,
+                }
+              : null
+          }
           lang={lang}
           onClose={() => setCroquiOpen(false)}
         />

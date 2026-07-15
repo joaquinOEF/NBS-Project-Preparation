@@ -1413,7 +1413,7 @@ export default function OrchestratorLandingPage() {
                 .leaflet-container. Portalled Radix overlays are all z-50, so
                 without a local stacking context the legend paints over any
                 dialog opened from this page. */}
-            <div className="relative isolate h-[56vh] md:h-[64vh] w-full">
+            <div className="relative isolate h-[64vh] md:h-[78vh] w-full">
               {/* Map is ALWAYS mounted, never in a TabsContent (which would
                   display:none it). The overlays sit on top when active. */}
               <div className="absolute inset-0" aria-label="Mapa" role="group">
