@@ -13,7 +13,6 @@ import { ArrowRight } from 'lucide-react';
 import type { NbsSolution } from '@shared/nbs-catalog';
 import { nbsSolutionPhoto } from '@shared/nbs-catalog';
 import type { NbsCostBand } from '@shared/nbs-type-content';
-import type { NbsInterventionTypeId } from '@shared/cbo-schema';
 import { DELIVERY_CLASS, DELIVERY_LABELS } from './NbsTypeCard';
 
 const COST_LABELS: Record<'pt' | 'en', Record<NbsCostBand, string>> = {
@@ -26,15 +25,18 @@ const FICHA_LABEL = { pt: 'Ficha técnica', en: 'Details' };
 export function NbsSolutionCard({
   solution,
   lang,
-  onOpenLegacy,
+  onOpenFicha,
 }: {
   solution: NbsSolution;
   lang: 'pt' | 'en';
-  /** When set and the solution maps to a deep-content type, renders a
-   *  "Ficha técnica" button that opens that type's croqui/cost detail. */
-  onOpenLegacy?: (id: NbsInterventionTypeId) => void;
+  /** Opens the per-solution ficha técnica (NbsSolutionDetail) in the host's
+   *  surface (sheet inner view / desktop dialog). */
+  onOpenFicha?: (id: string) => void;
 }) {
   const loc = solution[lang];
+  // The delivery/cost classification is ours, pending verification against the
+  // MMA manual — the asterisk keeps the "no unmarked placeholder" rule honest.
+  const est = solution.classificationEstimated ? '*' : '';
 
   return (
     <div
@@ -64,10 +66,10 @@ export function NbsSolutionCard({
           <span
             className={`rounded-[3px] px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide ${DELIVERY_CLASS[solution.delivery]}`}
           >
-            {DELIVERY_LABELS[lang][solution.delivery]}
+            {DELIVERY_LABELS[lang][solution.delivery]}{est}
           </span>
           <span className='rounded-[3px] bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground'>
-            {COST_LABELS[lang][solution.costBand]}
+            {COST_LABELS[lang][solution.costBand]}{est}
           </span>
         </div>
 
@@ -75,10 +77,10 @@ export function NbsSolutionCard({
           {solution.exampleCity}
         </p>
 
-        {onOpenLegacy && solution.legacyTypeId && (
+        {onOpenFicha && (
           <button
             type='button'
-            onClick={() => onOpenLegacy(solution.legacyTypeId!)}
+            onClick={() => onOpenFicha(solution.id)}
             className='mt-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-2 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-950'
             data-testid={`solution-ficha-${solution.id}`}
           >

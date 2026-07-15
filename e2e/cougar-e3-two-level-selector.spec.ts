@@ -54,6 +54,15 @@ test.describe('COUGAR — E3 two-level solution selector', () => {
     await page.getByTestId('selector-familia-agricultura-urbana').click();
     await expect(page.getByTestId('selector-solution-hortas-urbanas')).toBeVisible();
 
+    // "Saiba mais" opens the variant's own ficha técnica (not the mapped
+    // type's content — that's reachable from inside the ficha as a complement).
+    await page.getByTestId('selector-saibamais-jardins-de-chuva').click();
+    await expect(page.getByTestId('selector-ficha-view')).toBeVisible();
+    await expect(page.getByTestId('solution-detail-jardins-de-chuva')).toBeVisible();
+    await expect(page.getByText('Quem precisa dizer sim')).toBeVisible();
+    await page.getByTestId('selector-ficha-back').click();
+    await expect(page.getByTestId('selector-ficha-view')).toHaveCount(0);
+
     // Pick a variant inside the recommended família and confirm.
     await page.getByTestId('selector-select-jardins-de-chuva').click();
     await page.getByTestId('selector-confirm').click();

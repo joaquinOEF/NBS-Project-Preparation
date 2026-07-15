@@ -130,6 +130,40 @@ The "Bioretention Rain Garden, Portland USA" entry is clearly wrong context (the
 
 Until a Brazilian-grounded photo is sourced, the bioswales card should use the gradient + emoji placeholder pattern (per the E2 mockup), not the current Portland JPG.
 
+## Família croquis (Register 2) — 2026-07-15
+
+The 5 família cards use croquis (the register rule: a croqui teaches the
+CATEGORY, a documentary photo shows an EXAMPLE — the 27 variant cards keep the
+deck photos). Three famílias reuse existing type croquis; two were newly
+generated in the same register:
+
+```yaml
+nbs_familia_illustrations:
+  - id: agricultura-urbana
+    file: client/public/assets/nbs/familias/agricultura-urbana.jpg
+    register: illustration
+    subject_scope: generic_category
+    medium: croqui
+    synthetic: true                   # gemini-3-pro-image-preview, style-ref'd on the existing 12
+    author: "AI-generated (croqui register)"
+    expert_reviewer: null             # ⚠️ batch with the 12 outstanding type croquis — ONE review session for all 14
+    expert_reviewed_at: null
+    status: shipped_pending_review
+  - id: encostas-e-solo
+    file: client/public/assets/nbs/familias/encostas-e-solo.jpg
+    register: illustration
+    subject_scope: generic_category
+    medium: croqui                    # subsurface cutaway: roots-in-section + grade viva + drainage channel
+    synthetic: true
+    author: "AI-generated (croqui register)"
+    expert_reviewer: null             # ⚠️ same batch — geotechnical plausibility matters most here
+    expert_reviewed_at: null
+    status: shipped_pending_review
+  # aguas-pluviais / verde-urbano / recuperacao-ecossistemas reuse
+  # bioswales-rain-gardens.jpg / urban-forests.jpg / wetland-restoration.jpg
+  # from the existing nbs_type_illustrations block (same review debt).
+```
+
 ## Solution photos — Rede SCbN POA card deck (2026-07-15)
 
 The 27 files under `client/public/assets/nbs/solutions/<id>.jpg` are extracted

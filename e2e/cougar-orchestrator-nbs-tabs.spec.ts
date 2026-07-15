@@ -56,9 +56,15 @@ test.describe('COUGAR — orchestrator NBS tabs', () => {
       'participant list stays visible on Soluções'
     ).toBeVisible();
 
-    // A solution mapped to a deep-content type opens the croqui/cost dialog;
-    // it's a centered dialog, not a sheet. bacia-de-retencao → flood-parks (2nd).
+    // Every solution opens its own ficha técnica dialog first; a mapped one
+    // links onward to the type croqui/cost dialog (complement, not substitute —
+    // this is the bacia→flood-parks mismatch fix). bacia-de-retencao → flood-parks (2nd).
     await page.getByTestId('solution-ficha-bacia-de-retencao').click();
+    const fichaDialog = page.getByTestId('nbs-solution-dialog');
+    await expect(fichaDialog).toBeVisible();
+    await expect(fichaDialog.getByText(/Quem precisa dizer sim|Who has to say yes/)).toBeVisible();
+    await page.getByTestId('solution-type-content-bacia-de-retencao').click();
+    await expect(fichaDialog).toBeHidden();
     const dialog = page.getByTestId('nbs-type-dialog');
     await expect(dialog).toBeVisible();
     await expect(page.getByTestId('nbs-type-sheet')).toHaveCount(0); // not the mobile drawer
