@@ -19,11 +19,18 @@ test.describe('COUGAR — NBS type sheet', () => {
     await expect(marker).toHaveAttribute('data-cbo-id', /.+/, {
       timeout: 30_000,
     });
-    await api.seedState((await marker.getAttribute('data-cbo-id'))!, {
-      phase: 2,
-    });
+    const cboId = (await marker.getAttribute('data-cbo-id'))!;
+    await api.seedState(cboId, { phase: 2 });
+    // The E2 entry template now posts the FAMÍLIAS strip; the six-type strip
+    // (this sheet's host) renders for explicit show_types calls and old
+    // transcripts — drive it explicitly.
+    await api.scriptCbo(cboId, [[
+      { op: 'say', text: 'Dois minutos sobre os tipos de SbN.' },
+      { op: 'show_types' },
+      { op: 'ask_user', question: 'Seguimos?', options: [{ label: 'Ver exemplos' }] },
+    ]]);
     const input = page.getByTestId('cbo-chat-input');
-    await input.fill('Vamos começar o Encontro 2.');
+    await input.fill('Vamos ver os tipos.');
     await input.press('Enter');
     await expect(
       page.locator('[data-testid^="type-card-"]').first()

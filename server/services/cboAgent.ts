@@ -524,7 +524,7 @@ function createCboMcpTools(cboId: string) {
   // hazard is known). Cards available from shared/nbs-showcase-cards.ts.
   const showExamples = sdkTool(
     "show_examples",
-    "Render the NbsShowcaseCard strip inline in chat. Use in E2 Beat 1, AFTER show_intervention_types, to show REAL Brazilian/Porto Alegre cases of the NBS types. Pass typeRefs to tie the examples to the types just shown. mode='favorites' for needs-help path. Optional hazardFilter to narrow.",
+    "Render the NbsShowcaseCard strip inline in chat. Use in E2 Beat 1, AFTER show_nbs_familias, to show REAL Brazilian/Porto Alegre cases. Pass typeRefs (deep-content type ids) to tie the examples to what was just taught. mode='favorites' for needs-help path. Optional hazardFilter to narrow.",
     {
       mode: z.enum(["browse", "favorites"]).default("browse"),
       hazardFilter: z.enum(["flood", "heat", "biodiversity"]).optional(),
@@ -571,6 +571,29 @@ function createCboMcpTools(cboId: string) {
         : all;
       pushEvent({ type: 'show_types', typeIds: ids, intro: args.intro });
       return { content: [{ type: "text" as const, text: `Showed ${ids.length} NBS type(s). The strip is read-only and has NO buttons — in this SAME turn you MUST follow with a short message and an \`ask_user\` (e.g. options "Ver exemplos" / "Já conheço, pular") so the user has a way to continue. Do not end the turn on the strip alone.` }] };
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
+  // Two-level taxonomy strip: the 5 famílias of the Rede SCbN POA card deck
+  // (shared/nbs-catalog.ts), each expandable into its solution variants.
+  // Preferred over show_intervention_types for teaching — it matches the
+  // printed cards the cohort holds in the encontros.
+  const showNbsFamilias = sdkTool(
+    "show_nbs_familias",
+    "Render the educational NBS FAMÍLIAS strip inline in chat (5 famílias from the Rede SCbN POA card deck, each opening into its solution variants). Use as the FIRST action in E2 to build vocabulary. Optionally pass familiaIds for a subset; omit for all 5. STOP and wait for the user to read/react.",
+    {
+      familiaIds: z.array(z.string()).optional().describe("Subset of família ids: aguas-pluviais, verde-urbano, agricultura-urbana, encostas-e-solo, recuperacao-ecossistemas; omit for all 5"),
+      intro: z.string().optional().describe("Optional 1-line lead text rendered above the strip"),
+    },
+    async (args: any) => {
+      const catalog = await import("@shared/nbs-catalog");
+      const all = catalog.NBS_FAMILIAS.map((f: any) => f.id);
+      const ids = Array.isArray(args.familiaIds) && args.familiaIds.length > 0
+        ? args.familiaIds.filter((id: string) => all.includes(id))
+        : undefined; // undefined = all five
+      pushEvent({ type: 'show_familias', familiaIds: ids, intro: args.intro } as any);
+      return { content: [{ type: "text" as const, text: `Showed the famílias strip (${ids ? ids.length : 5} família(s)). It is read-only and has NO buttons — in this SAME turn you MUST follow with a short message and an \`ask_user\` (e.g. options "Ver exemplos" / "Já conheço, pular") so the user has a way to continue. Do not end the turn on the strip alone.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
@@ -1019,15 +1042,15 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
 
   const openInterventionSelector = sdkTool(
     "open_intervention_selector",
-    `Open the NBS Intervention Type Selector micro-app. Shows 6 NBS types as visual cards with REAL PHOTOS from Brazilian case studies, cost data, outcomes, and timelines. The user browses and selects one or more intervention types.
+    `Open the NBS Solution Selector micro-app — TWO-LEVEL: 5 famílias (from the Rede SCbN POA card deck) that expand into their 27 solution variants, each with the deck's real photo. YOU recommend at the FAMÍLIA level; the ORGANIZATION picks the variant (terrain, tenure and politics are theirs to know).
 
-Use this in Phase 3a after collecting site information. Pass siteHazards from Phase 2 data to highlight the most relevant types. Only the top 2 types get the "Recommended" badge.
+Use this in Phase 3a after collecting site information. Pass siteHazards from Phase 2 data (or recommendedFamilias from guidance mode) to badge and pre-open the most relevant famílias. Only the top 2 famílias get the "Recommended" badge.
 
 ⚠️ siteHazards.landslide MUST be the site's landslide HAZARD (terrain susceptibility, 0–1) sampled on the E2 map (the poa_landslide_hazard layer value at the chosen point), NOT the landslide RISK. Landslide RISK is structurally tiny in POA (low exposure on the slopes ≈ 0), but the HAZARD is high on the morros — and it's what should drive slope-stabilizing NbS (urban forests, green corridors, whose roots stabilize slopes). If the E2 site sits on landslide-prone terrain (landslide hazard ≳ 0.2), pass that hazard value so those types surface as Recommended; a near-zero value would wrongly hide them.
 
-If the user went through guidance mode first (asked about problems, site conditions), pass recommendedTypes with your recommended order — the selector will sort and badge accordingly.
+If the user went through guidance mode first (asked about problems, site conditions), pass recommendedFamilias with your recommended order — the selector will sort and badge accordingly. (recommendedTypes still works and maps to famílias.)
 
-The user can select MULTIPLE types (e.g., wetland restoration + bioswales combo).
+The user can select MULTIPLE solutions (e.g., wetland construído + biovaletas combo).
 
 STOP and wait for the user's selection after calling this tool.`,
     {
@@ -1040,8 +1063,9 @@ STOP and wait for the user's selection after calling this tool.`,
         heat: z.number().min(0).max(1),
         landslide: z.number().min(0).max(1),
       }).optional().describe("Hazard scores from Phase 2 to rank types by relevance. landslide = the site's landslide HAZARD (terrain susceptibility), NOT the risk — so slope-stabilizing NbS surface on the morros."),
-      recommendedTypes: z.array(z.string()).optional().describe("Ordered list of recommended type IDs from guidance mode, e.g. ['wetland-restoration', 'bioswales-rain-gardens', 'flood-parks']. First 2 get 'Recommended' badge."),
-      maxRecommendations: z.number().optional().default(2).describe("How many types to badge as Recommended (default 2)"),
+      recommendedTypes: z.array(z.string()).optional().describe("Legacy: ordered list of recommended TYPE ids; mapped to famílias. Prefer recommendedFamilias."),
+      recommendedFamilias: z.array(z.string()).optional().describe("Ordered list of recommended FAMÍLIA ids from guidance mode: aguas-pluviais, verde-urbano, agricultura-urbana, encostas-e-solo, recuperacao-ecossistemas. First 2 get 'Recommended' badge and start expanded."),
+      maxRecommendations: z.number().optional().default(2).describe("How many famílias to badge as Recommended (default 2)"),
     },
     async (args: any) => {
       // Same engine fence as open_map: the selector is an Encontro 3+ tool.
@@ -1058,6 +1082,7 @@ STOP and wait for the user's selection after calling this tool.`,
           multiSelect: args.multiSelect ?? true,
           siteHazards: args.siteHazards,
           recommendedTypes: args.recommendedTypes,
+          recommendedFamilias: args.recommendedFamilias,
           maxRecommendations: args.maxRecommendations ?? 2,
         },
       });
@@ -1069,7 +1094,7 @@ STOP and wait for the user's selection after calling this tool.`,
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, confirmDocFields, flagGap, setPhase, setPath, setMaturityTier, showInterventionTypes, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector],
+    tools: [updateSection, confirmDocFields, flagGap, setPhase, setPath, setMaturityTier, showInterventionTypes, showNbsFamilias, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector],
   });
 }
 
@@ -1201,7 +1226,9 @@ async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: Ev
   try {
     // If the types strip already exists in the transcript (banner re-fire,
     // resume race), this is not a virgin E2 entry — let the model handle it.
-    const seen = getCboMessages(cboId).some(m => m.messageType === 'composer' && m.content.includes('"kind":"types"'));
+    // "types" is the pre-familias strip — old transcripts that already saw it
+    // must not get a second (familias) strip on resume.
+    const seen = getCboMessages(cboId).some(m => m.messageType === 'composer' && (m.content.includes('"kind":"types"') || m.content.includes('"kind":"familias"')));
     if (seen) return false;
 
     const isPt = lang === 'pt';
@@ -1220,23 +1247,23 @@ async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: Ev
 
     // Re-check the gate after the awaits above — the cheap half of the race
     // defense (the in-flight set covers the concurrent half).
-    if (getCboMessages(cboId).some(m => m.messageType === 'composer' && m.content.includes('"kind":"types"'))) return false;
+    if (getCboMessages(cboId).some(m => m.messageType === 'composer' && (m.content.includes('"kind":"types"') || m.content.includes('"kind":"familias"')))) return false;
 
     const greeting = isPt
-      ? `Oi${nome ? `, ${nome}` : ''}. Antes de falar do seu território, dois minutos sobre os tipos de Solução baseada na Natureza — pra gente falar a mesma língua.`
-      : `Hi${nome ? `, ${nome}` : ''}. Before we talk about your territory, two minutes on the types of Nature-based Solutions — so we speak the same language.`;
+      ? `Oi${nome ? `, ${nome}` : ''}. Antes de falar do seu território, dois minutos sobre as famílias de Solução baseada na Natureza — pra gente falar a mesma língua.`
+      : `Hi${nome ? `, ${nome}` : ''}. Before we talk about your territory, two minutes on the families of Nature-based Solutions — so we speak the same language.`;
     pushEvent({ type: 'chat', content: greeting, role: 'assistant' } as any);
-    // Same expansion the show_intervention_types tool does: empty = all types.
-    const schemaMod = await import("@shared/cbo-schema");
+    // The 5 famílias of the Rede SCbN POA deck (shared/nbs-catalog.ts) — the
+    // same cards the cohort holds in the encontros. Empty ids = all five.
     pushEvent({
-      type: 'show_types', typeIds: schemaMod.NBS_INTERVENTION_TYPES.map((t: any) => t.id),
-      intro: isPt ? 'Toca em "Saber mais" em qualquer um pra entender melhor.' : 'Tap "Learn more" on any of them to understand better.',
+      type: 'show_familias',
+      intro: isPt ? 'Toca em "Ver opções" em qualquer uma pra conhecer as soluções.' : 'Tap "See options" on any of them to explore the solutions.',
     } as any);
     pushEvent({
       type: 'chat', role: 'assistant',
       content: isPt
-        ? 'Esses são os grandes tipos de SbN. Não precisa decorar — é só pra você reconhecer quando aparecerem. Dá uma olhada nos que te chamam atenção e, quando terminar, é só tocar abaixo.'
-        : "These are the big types of NbS. No need to memorize them — just enough to recognize them later. Look at the ones that catch your eye and tap below when you're done.",
+        ? 'Essas são as 5 famílias de SbN — as mesmas das cartas que vocês vão usar nos encontros. Não precisa decorar: dá uma olhada nas que têm a ver com o seu território e, quando terminar, é só tocar abaixo.'
+        : "These are the 5 families of NbS — the same ones on the cards you'll use in the encontros. No need to memorize them: look at the ones that match your territory and tap below when you're done.",
     } as any);
     const options = [
       { label: isPt ? 'Ver exemplos' : 'See examples', description: isPt ? 'Casos reais desses tipos' : 'Real cases of these types' },
@@ -1316,6 +1343,8 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       // payload the client parses; messageType 'composer' keeps it out of text-
       // based message logic.
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'types', typeIds: event.typeIds, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_familias') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'familias', familiaIds: event.familiaIds, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_examples') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'examples', cardIds: event.cardIds, mode: event.mode, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'ask_user') {
@@ -1678,6 +1707,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           "mcp__cbo__set_path",
           "mcp__cbo__set_maturity_tier",
           "mcp__cbo__show_examples",
+          "mcp__cbo__show_nbs_familias",
           "mcp__cbo__ask_priority_rank",
           "mcp__cbo__ask_community_anchoring",
           "mcp__cbo__ask_user",
@@ -1869,6 +1899,7 @@ function buildDecisionLog(cboId: string): string {
         if (p.kind === 'priority') return '- You (agent) asked the user to rank the hazards by priority.';
         if (p.kind === 'anchoring') return '- You (agent) asked the community-anchoring questions.';
         if (p.kind === 'types') return '- You (agent) showed the NBS types strip.';
+        if (p.kind === 'familias') return '- You (agent) showed the NBS famílias strip (5 famílias, expandable into variants).';
         if (p.kind === 'examples') return '- You (agent) showed real project examples.';
       } catch {}
       return null;

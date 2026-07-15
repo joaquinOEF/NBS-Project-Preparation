@@ -43,19 +43,22 @@ test.describe('COUGAR — orchestrator NBS tabs', () => {
     );
     await expect(participant, 'participant list visible on Mapa').toBeVisible();
 
-    // → Soluções: the six type cards render; the map is hidden underneath.
+    // → Soluções: the five família sections with all 27 deck solutions render;
+    // the map is hidden underneath.
     await page.getByTestId('region-tab-solutions').click();
     await expect(
-      page.locator('[data-testid^="type-card-"]').first()
+      page.locator('[data-testid^="familia-section-"]').first()
     ).toBeVisible();
-    expect(await page.locator('[data-testid^="type-card-"]').count()).toBe(6);
+    expect(await page.locator('[data-testid^="familia-section-"]').count()).toBe(5);
+    expect(await page.locator('[data-testid^="solution-card-"]').count()).toBe(27);
     await expect(
       participant,
       'participant list stays visible on Soluções'
     ).toBeVisible();
 
-    // Open the detail dialog on the 2nd type; it's a centered dialog, not a sheet.
-    await page.getByTestId('type-expand-flood-parks').click();
+    // A solution mapped to a deep-content type opens the croqui/cost dialog;
+    // it's a centered dialog, not a sheet. bacia-de-retencao → flood-parks (2nd).
+    await page.getByTestId('solution-ficha-bacia-de-retencao').click();
     const dialog = page.getByTestId('nbs-type-dialog');
     await expect(dialog).toBeVisible();
     await expect(page.getByTestId('nbs-type-sheet')).toHaveCount(0); // not the mobile drawer

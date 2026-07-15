@@ -28,17 +28,26 @@ test.describe('COUGAR — instant E2 entry', () => {
     await input.fill('Vamos começar o Encontro 2.');
     await input.press('Enter');
 
-    // The full templated turn: greeting, strip, follow-up line, chips.
-    await expect(page.getByText('tipos de Solução baseada na Natureza', { exact: false })).toBeVisible({ timeout: 8_000 });
-    await expect(page.locator('[data-testid^="type-card-"]').first()).toBeVisible();
+    // The full templated turn: greeting, famílias strip, follow-up line, chips.
+    await expect(page.getByText('famílias de Solução baseada na Natureza', { exact: false })).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator('[data-testid^="familia-card-"]').first()).toBeVisible();
+    expect(await page.locator('[data-testid^="familia-card-"]').count()).toBe(5);
     await expect(page.getByTestId('cbo-option-0')).toHaveAttribute('data-option-label', 'Ver exemplos');
     await expect(page.getByTestId('cbo-option-1')).toHaveAttribute('data-option-label', 'Já conheço SbN — pular');
     expect(Date.now() - t0).toBeLessThan(8_000); // UI-time, not model-time
     await expect(page.getByText('Vamos continuar', { exact: false })).toHaveCount(0); // model never ran
 
+    // Two-level: opening a família shows its variants (deck-card leaves).
+    await page.getByTestId('familia-expand-aguas-pluviais').click();
+    const sheet = page.getByTestId('nbs-familia-sheet');
+    await expect(sheet).toBeVisible();
+    expect(await sheet.locator('[data-testid^="solution-card-"]').count()).toBe(11);
+    await page.getByTestId('nbs-familia-sheet-close').click();
+    await expect(sheet).toBeHidden();
+
     // Persisted: reload rehydrates the strip AND the pending question.
     await page.reload();
-    await expect(page.locator('[data-testid^="type-card-"]').first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('[data-testid^="familia-card-"]').first()).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId('cbo-option-0')).toHaveAttribute('data-option-label', 'Ver exemplos', { timeout: 10_000 });
 
     // Non-virgin: sending the banner again falls through to the model
@@ -50,6 +59,6 @@ test.describe('COUGAR — instant E2 entry', () => {
     await input.fill('Vamos começar o Encontro 2.');
     await input.press('Enter');
     await expect(page.getByText('Seguindo de onde paramos', { exact: false })).toBeVisible({ timeout: 20_000 });
-    expect(await page.locator('[data-testid^="type-card-"]').count()).toBeGreaterThan(0); // old strip still there, not duplicated as a second strip block
+    expect(await page.locator('[data-testid^="familia-card-"]').count()).toBe(5); // old strip still there, not duplicated as a second strip block
   });
 });

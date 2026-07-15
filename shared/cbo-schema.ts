@@ -291,23 +291,29 @@ export function getLocalizedNbsType(type: typeof NBS_INTERVENTION_TYPES[number],
 
 export type NbsInterventionTypeId = typeof NBS_INTERVENTION_TYPES[number]['id'];
 
-// Params for the NBS Type Selector micro-app
+// Params for the NBS Solution Selector micro-app (two-level: família → variante,
+// catalog in shared/nbs-catalog.ts). The agent recommends at the FAMÍLIA level;
+// the organization picks the variant.
 export interface OpenInterventionSelectorParams {
   prompt: string;
   preSelectedType?: NbsInterventionTypeId;
   showCaseStudies?: boolean;
-  multiSelect?: boolean; // allow selecting multiple NBS types (e.g., wetland + bioswales combo)
-  siteHazards?: { flood: number; heat: number; landslide: number }; // from Phase 2 to highlight relevant types
-  recommendedTypes?: NbsInterventionTypeId[]; // agent can pass ordered recommendations from guidance mode
-  maxRecommendations?: number; // max types to badge as "Recommended" (default: 2)
+  multiSelect?: boolean; // allow selecting multiple solutions (e.g., wetland + bioswales combo)
+  siteHazards?: { flood: number; heat: number; landslide: number }; // from Phase 2 to highlight relevant famílias
+  recommendedTypes?: NbsInterventionTypeId[]; // legacy: ordered type recommendations (mapped to famílias)
+  recommendedFamilias?: string[]; // ordered NbsFamiliaId[] — preferred over recommendedTypes
+  maxRecommendations?: number; // max famílias to badge as "Recommended" (default: 2)
 }
 
 // Result returned when user confirms selection in the micro-app
 export interface InterventionSelectorResult {
-  interventionTypes: NbsInterventionTypeId[]; // array to support multi-select
+  interventionTypes: NbsInterventionTypeId[]; // mapped deep-content types (may be empty for agricultura/encostas variants)
   labels: string[];
   primaryBenefits: string[];
   knowledgeFiles: string[];
+  // Two-level catalog fields (shared/nbs-catalog.ts)
+  solutionIds?: string[];
+  familias?: string[]; // localized labels of the chosen variants' famílias
   // Legacy single-select fields for backwards compat
   interventionType: NbsInterventionTypeId;
   label: string;
@@ -342,6 +348,8 @@ export type CboEvent =
   | { type: 'open_intervention_selector'; params: OpenInterventionSelectorParams }
   | { type: 'show_examples'; cardIds: string[]; mode: 'browse' | 'favorites'; intro?: string }
   | { type: 'show_types'; typeIds: string[]; intro?: string }
+  // Two-level taxonomy strip (shared/nbs-catalog.ts): empty familiaIds = all 5.
+  | { type: 'show_familias'; familiaIds?: string[]; intro?: string }
   | { type: 'ask_priority_rank'; prompt: string; minRanked: number }
   | { type: 'ask_community_anchoring'; prompt: string }
   | { type: 'done'; summary: string }

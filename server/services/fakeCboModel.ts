@@ -62,6 +62,7 @@ export type FakeOp =
   | { op: 'open_map'; params?: Record<string, unknown> }
   | { op: 'open_intervention_selector'; params?: Record<string, unknown> }
   | { op: 'show_types'; typeIds?: string[]; intro?: string }
+  | { op: 'show_familias'; familiaIds?: string[]; intro?: string }
   | { op: 'show_examples'; cardIds?: string[]; mode?: 'browse' | 'favorites'; intro?: string };
 
 export type FakeTurn = FakeOp[];
@@ -261,6 +262,10 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
         ? op.typeIds
         : NBS_INTERVENTION_TYPES.map(t => t.id);
       pushEvent({ type: 'show_types', typeIds: ids, intro: op.intro });
+      break;
+    }
+    case 'show_familias': {
+      pushEvent({ type: 'show_familias', familiaIds: op.familiaIds, intro: op.intro });
       break;
     }
     case 'show_examples': {

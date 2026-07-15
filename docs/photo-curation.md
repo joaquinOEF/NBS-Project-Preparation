@@ -130,6 +130,38 @@ The "Bioretention Rain Garden, Portland USA" entry is clearly wrong context (the
 
 Until a Brazilian-grounded photo is sourced, the bioswales card should use the gradient + emoji placeholder pattern (per the E2 mockup), not the current Portland JPG.
 
+## Solution photos — Rede SCbN POA card deck (2026-07-15)
+
+The 27 files under `client/public/assets/nbs/solutions/<id>.jpg` are extracted
+1:1 from the printed card deck **"A4 - cartas_scbn"** produced by the Rede SCbN
+de POA / Vila Flores (one photo per card, same crop). They are Register 1
+documentary photos of named places, but they were *curated by the deck's
+authors*, not by us — each card's "Fonte" line credits the MMA/Arcadis Manual
+Prático, the GIZ catalog, CNM, or MMA Soluções Comunitárias, and the named
+place is the card's "Onde encontrar?". Per-photo metadata (place + source line)
+lives in code as `exampleCity` / `source` on each entry of
+`shared/nbs-catalog.ts` — that file is the manifest for this set; keep it in
+sync with any photo swap.
+
+```yaml
+nbs_solution_photos:
+  files: client/public/assets/nbs/solutions/*.jpg   # 27, ids = NBS_SOLUTIONS ids
+  register: documentary
+  curated_by: "Rede SCbN de POA / Vila Flores (card deck A4 - cartas_scbn)"
+  per_photo_metadata: shared/nbs-catalog.ts          # exampleCity + source per id
+  original_sources: "MMA Manual Prático (Arcadis) · GIZ Catálogo SbN Espaços Livres · CNM · MMA Soluções Comunitárias"
+  permission: pending                                # ⚠️ written OK from Vila Flores/Rede to reuse in-app
+  permission_contact: "via Ana R. → Vila Flores (contato@vilaflores.org)"
+  extracted_at: "2026-07-15"
+  extracted_by: "JVP (pdfimages, one large photo per page, visually spot-checked)"
+```
+
+**Individual photographer credits are NOT known** for most cards (the deck
+itself doesn't carry them; exceptions: biodigestor photo "André Marques",
+parque naturalizado "Prefeitura de Jundiaí"). The in-app credit renders the
+card's Fonte line + "cartas Rede SCbN POA". If Vila Flores' permission doesn't
+come through, replace per solution via the standard sourcing process below.
+
 ## Process for adding new photos
 
 1. **Identify** the project (specific named place, not a category).
