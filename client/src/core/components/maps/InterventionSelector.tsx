@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -6,7 +6,7 @@ import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
 import { Card, CardContent } from '@/core/components/ui/card';
 import {
-  Check, HelpCircle, ChevronRight, ArrowLeft, Camera, Loader2,
+  Check, HelpCircle, ChevronDown, ChevronRight, ArrowLeft, Camera, Loader2,
   Droplets, Thermometer, TreePine, DollarSign, AlertTriangle, MapPin, Clock,
 } from 'lucide-react';
 import {
@@ -16,19 +16,30 @@ import {
   type InterventionSelectorResult,
   type NbsInterventionTypeId,
 } from '@shared/cbo-schema';
+import {
+  NBS_FAMILIAS,
+  NBS_SOLUTIONS,
+  getFamilia,
+  getSolution,
+  nbsSolutionPhoto,
+  solutionsForFamilia,
+  type NbsFamiliaId,
+  type NbsSolution,
+} from '@shared/nbs-catalog';
+
+// Two-level selector (família → variante, catalog in shared/nbs-catalog.ts).
+// The recommendation happens at the FAMÍLIA level — hazards and the agent's
+// guidance can support that reliably; the specific variant depends on terrain,
+// tenure and politics the platform can't know, so it stays the org's choice.
+// Variants mapped to one of the six deep-content types keep the "Saiba mais"
+// knowledge panel; the confirm result carries both the chosen solutions and
+// the mapped legacy types so downstream knowledge-file flows keep working.
 
 interface Props {
   params: OpenInterventionSelectorParams;
   onConfirm: (result: InterventionSelectorResult) => void;
   onCancel: () => void;
 }
-
-// Hazard → which intervention types address it (with weight)
-const HAZARD_WEIGHTS: Record<string, Record<NbsInterventionTypeId, number>> = {
-  flood: { 'bioswales-rain-gardens': 0.9, 'flood-parks': 1.0, 'wetland-restoration': 0.95, 'green-corridors': 0.3, 'green-roofs-walls': 0.4, 'urban-forests': 0.3 },
-  heat: { 'green-corridors': 0.9, 'green-roofs-walls': 0.85, 'urban-forests': 1.0, 'bioswales-rain-gardens': 0.2, 'flood-parks': 0.3, 'wetland-restoration': 0.2 },
-  landslide: { 'urban-forests': 0.9, 'green-corridors': 0.7, 'bioswales-rain-gardens': 0.3, 'flood-parks': 0.1, 'green-roofs-walls': 0.1, 'wetland-restoration': 0.2 },
-};
 
 // Section labels and icons for the detail panel
 const SECTION_CONFIG: Record<string, { icon: typeof Droplets; label: string; labelPt: string }> = {
@@ -49,77 +60,114 @@ const DETAIL_SECTION_ORDER = [
   'risks_and_failure_modes', 'brazilian_and_latin_american_examples',
 ];
 
+const DELIVERY_SHORT: Record<'pt' | 'en', Record<string, string>> = {
+  pt: { mutirao: 'mutirão', parceria: 'parceria', licenca: 'licença' },
+  en: { mutirao: 'mutirão', parceria: 'partnership', licenca: 'licence' },
+};
+
 export default function InterventionSelector({ params, onConfirm, onCancel }: Props) {
   const { i18n } = useTranslation();
   const isPt = i18n.resolvedLanguage === 'pt';
-  const [selected, setSelected] = useState<Set<NbsInterventionTypeId>>(() => {
-    if (params.preSelectedType) return new Set([params.preSelectedType]);
-    return new Set();
-  });
+  const lang: 'pt' | 'en' = isPt ? 'pt' : 'en';
   const multiSelect = params.multiSelect ?? true;
   const maxRecs = params.maxRecommendations ?? 2;
 
-  // Detail panel state
+  // Selection is at the SOLUTION level. Legacy preSelectedType maps to the
+  // canonical variant of that type (the first catalog solution carrying it).
+  const [selected, setSelected] = useState<Set<string>>(() => {
+    if (params.preSelectedType) {
+      const canonical = NBS_SOLUTIONS.find(s => s.legacyTypeId === params.preSelectedType);
+      if (canonical) return new Set([canonical.id]);
+    }
+    return new Set();
+  });
+
+  // Detail panel state — operates on the mapped deep-content type, but tracks
+  // which solution opened it so "Selecionar" selects that variant.
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailSolutionId, setDetailSolutionId] = useState<string | null>(null);
   const [detailSections, setDetailSections] = useState<Record<string, string> | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [activeSection, setActiveSection] = useState<string>('description');
 
-  // Fetch detail content when opening a card
-  const openDetail = useCallback(async (id: string) => {
-    setDetailId(id);
+  const openDetail = useCallback(async (typeId: string, solutionId: string) => {
+    setDetailId(typeId);
+    setDetailSolutionId(solutionId);
     setDetailLoading(true);
     setActiveSection('description');
     try {
-      const lang = isPt ? 'pt' : 'en';
-      const res = await fetch(`/api/knowledge/interventions/${id}?lang=${lang}`);
+      const res = await fetch(`/api/knowledge/interventions/${typeId}?lang=${lang}`);
       if (res.ok) {
         const data = await res.json();
         setDetailSections(data.sections);
       }
     } catch { /* ignore */ }
     setDetailLoading(false);
-  }, []);
+  }, [lang]);
 
-  // Calculate relevance scores for each type
-  const typeScores = useMemo(() => {
-    const scores = new Map<NbsInterventionTypeId, number>();
+  const closeDetail = () => { setDetailId(null); setDetailSolutionId(null); setDetailSections(null); };
+
+  // Família relevance: explicit recommendedFamilias > legacy recommendedTypes
+  // (mapped through the catalog) > site hazards × the família hazard profile.
+  const familiaScores = useMemo(() => {
+    const scores = new Map<NbsFamiliaId, number>();
+    for (const f of NBS_FAMILIAS) scores.set(f.id, 0);
+
+    if (params.recommendedFamilias && params.recommendedFamilias.length > 0) {
+      params.recommendedFamilias.forEach((id, idx) => {
+        if (scores.has(id as NbsFamiliaId)) scores.set(id as NbsFamiliaId, 1000 - idx);
+      });
+      return scores;
+    }
     if (params.recommendedTypes && params.recommendedTypes.length > 0) {
-      for (const type of NBS_INTERVENTION_TYPES) {
-        const idx = params.recommendedTypes.indexOf(type.id);
-        scores.set(type.id, idx >= 0 ? 1000 - idx : 0);
+      params.recommendedTypes.forEach((typeId, idx) => {
+        const familia = NBS_SOLUTIONS.find(s => s.legacyTypeId === typeId)?.familiaId;
+        if (familia && (scores.get(familia) ?? 0) === 0) scores.set(familia, 1000 - idx);
+      });
+      return scores;
+    }
+    if (params.siteHazards) {
+      const { flood, heat, landslide } = params.siteHazards;
+      for (const f of NBS_FAMILIAS) {
+        scores.set(f.id, f.hazards.flood * flood + f.hazards.heat * heat + f.hazards.landslide * landslide);
       }
-      return scores;
-    }
-    if (!params.siteHazards) {
-      for (const type of NBS_INTERVENTION_TYPES) scores.set(type.id, 0);
-      return scores;
-    }
-    const { flood, heat, landslide } = params.siteHazards;
-    for (const type of NBS_INTERVENTION_TYPES) {
-      const score = (HAZARD_WEIGHTS.flood[type.id] || 0) * flood
-        + (HAZARD_WEIGHTS.heat[type.id] || 0) * heat
-        + (HAZARD_WEIGHTS.landslide[type.id] || 0) * landslide;
-      scores.set(type.id, score);
     }
     return scores;
-  }, [params.siteHazards, params.recommendedTypes]);
+  }, [params.recommendedFamilias, params.recommendedTypes, params.siteHazards]);
 
-  const lang = isPt ? 'pt' : 'en';
+  const recommendedFamiliaSet = useMemo(() => {
+    const sorted = Array.from(familiaScores.entries()).sort((a, b) => b[1] - a[1]);
+    return new Set(sorted.slice(0, maxRecs).filter(([, s]) => s > 0).map(([id]) => id));
+  }, [familiaScores, maxRecs]);
 
-  const sortedTypes = useMemo(() => {
-    return [...NBS_INTERVENTION_TYPES]
-      .sort((a, b) => (typeScores.get(b.id) || 0) - (typeScores.get(a.id) || 0))
-      .map(t => getLocalizedNbsType(t, lang));
-  }, [typeScores, lang]);
+  const sortedFamilias = useMemo(
+    () => [...NBS_FAMILIAS].sort((a, b) => (familiaScores.get(b.id) || 0) - (familiaScores.get(a.id) || 0)),
+    [familiaScores]
+  );
 
-  const recommendedSet = useMemo(() => {
-    const sorted = [...typeScores.entries()].sort((a, b) => b[1] - a[1]);
-    const topN = sorted.slice(0, maxRecs).filter(([, score]) => score > 0);
-    return new Set(topN.map(([id]) => id));
-  }, [typeScores, maxRecs]);
+  // Recommended famílias start open; with no recommendation signal, all open
+  // (browsing mode). Others collapse to keep 27 variants scannable.
+  const [expanded, setExpanded] = useState<Set<NbsFamiliaId>>(() => {
+    const rec = new Set<NbsFamiliaId>();
+    const sorted = Array.from(familiaScores.entries()).sort((a, b) => b[1] - a[1]);
+    sorted.slice(0, maxRecs).filter(([, s]) => s > 0).forEach(([id]) => rec.add(id));
+    if (rec.size === 0) return new Set(NBS_FAMILIAS.map(f => f.id));
+    if (params.preSelectedType) {
+      const familia = NBS_SOLUTIONS.find(s => s.legacyTypeId === params.preSelectedType)?.familiaId;
+      if (familia) rec.add(familia);
+    }
+    return rec;
+  });
 
-  const toggleSelect = (id: NbsInterventionTypeId) => {
+  const toggleExpanded = (id: NbsFamiliaId) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelect = (id: string) => {
     setSelected(prev => {
       const next = new Set(prev);
       if (next.has(id)) { next.delete(id); } else { if (!multiSelect) next.clear(); next.add(id); }
@@ -129,15 +177,22 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
 
   const handleConfirm = () => {
     if (selected.size === 0) return;
-    const types = NBS_INTERVENTION_TYPES.filter(t => selected.has(t.id));
+    const solutions = NBS_FAMILIAS.flatMap(f => solutionsForFamilia(f.id)).filter(s => selected.has(s.id));
+    const mappedTypes = Array.from(new Set(solutions.map(s => s.legacyTypeId).filter(Boolean))) as NbsInterventionTypeId[];
+    const types = NBS_INTERVENTION_TYPES.filter(t => mappedTypes.includes(t.id));
+    const familias = Array.from(new Set(solutions.map(s => getFamilia(s.familiaId)?.[lang].label).filter(Boolean))) as string[];
     const first = types[0];
     onConfirm({
       interventionTypes: types.map(t => t.id),
-      labels: types.map(t => t.label),
+      labels: solutions.map(s => s[lang].label),
       primaryBenefits: types.map(t => t.primaryBenefit),
       knowledgeFiles: types.map(t => t.knowledgeFile),
-      interventionType: first.id, label: first.label,
-      primaryBenefit: first.primaryBenefit, knowledgeFile: first.knowledgeFile,
+      solutionIds: solutions.map(s => s.id),
+      familias,
+      interventionType: (first?.id ?? '') as NbsInterventionTypeId,
+      label: solutions[0]?.[lang].label ?? '',
+      primaryBenefit: first?.primaryBenefit ?? '',
+      knowledgeFile: first?.knowledgeFile ?? '',
     });
   };
 
@@ -146,6 +201,7 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
     onConfirm({
       interventionTypes: [], labels: [helpLabel],
       primaryBenefits: [], knowledgeFiles: [],
+      solutionIds: [], familias: [],
       interventionType: '' as NbsInterventionTypeId, label: helpLabel,
       primaryBenefit: '', knowledgeFile: '',
     });
@@ -153,10 +209,11 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
 
   const detailTypeRaw = detailId ? NBS_INTERVENTION_TYPES.find(t => t.id === detailId) : null;
   const detailType = detailTypeRaw ? getLocalizedNbsType(detailTypeRaw, lang) : null;
+  const detailSolution = detailSolutionId ? getSolution(detailSolutionId) : undefined;
 
-  // ── Detail panel view ──────────────────────────────────────────────────────
+  // ── Detail panel view (deep content of the mapped type) ────────────────────
   if (detailId && detailType) {
-    const isSelected = selected.has(detailType.id);
+    const isSelected = detailSolutionId ? selected.has(detailSolutionId) : false;
     const cs = detailType.caseStudy;
     return (
       <div className="flex flex-col h-full">
@@ -166,21 +223,18 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
             <img src={cs.image} alt={cs.project} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
             <button
-              onClick={() => { setDetailId(null); setDetailSections(null); }}
+              onClick={closeDetail}
               className="absolute top-3 left-3 w-8 h-8 bg-black/40 hover:bg-black/60 rounded-full flex items-center justify-center text-white transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
-            {recommendedSet.has(detailType.id) && (
-              <Badge className="absolute top-3 right-3 bg-green-600 text-[10px]">
-                {isPt ? 'Recomendado' : 'Recommended'}
-              </Badge>
-            )}
             <div className="absolute bottom-3 left-3 right-3">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>{detailType.emoji}</span> {detailType.label}
+                <span>{detailType.emoji}</span> {detailSolution ? detailSolution[lang].label : detailType.label}
               </h2>
-              <p className="text-xs text-white/80 mt-0.5">{detailType.description}</p>
+              <p className="text-xs text-white/80 mt-0.5">
+                {detailSolution ? detailSolution[lang].whatItIs : detailType.description}
+              </p>
               <p className="text-[10px] text-white/60 mt-1">📍 {cs.city} — {cs.project}</p>
             </div>
           </div>
@@ -242,26 +296,87 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
 
         {/* Detail footer */}
         <div className="p-3 border-t bg-background flex items-center justify-between">
-          <Button variant="outline" size="sm" onClick={() => { setDetailId(null); setDetailSections(null); }}>
+          <Button variant="outline" size="sm" onClick={closeDetail}>
             <ArrowLeft className="w-3 h-3 mr-1" />
             {isPt ? 'Voltar' : 'Back'}
           </Button>
-          <Button
-            size="sm"
-            className={isSelected ? 'bg-green-700' : 'bg-green-600 hover:bg-green-700'}
-            onClick={() => { toggleSelect(detailType.id); setDetailId(null); setDetailSections(null); }}
-          >
-            <Check className="w-4 h-4 mr-1" />
-            {isSelected
-              ? (isPt ? 'Selecionado' : 'Selected')
-              : (isPt ? 'Selecionar este tipo' : 'Select this type')}
-          </Button>
+          {detailSolutionId && (
+            <Button
+              size="sm"
+              className={isSelected ? 'bg-green-700' : 'bg-green-600 hover:bg-green-700'}
+              onClick={() => { toggleSelect(detailSolutionId); closeDetail(); }}
+            >
+              <Check className="w-4 h-4 mr-1" />
+              {isSelected
+                ? (isPt ? 'Selecionado' : 'Selected')
+                : (isPt ? 'Selecionar esta solução' : 'Select this solution')}
+            </Button>
+          )}
         </div>
       </div>
     );
   }
 
-  // ── Card list view ─────────────────────────────────────────────────────────
+  // ── Solution row (variant inside an open família) ──────────────────────────
+  const renderSolution = (solution: NbsSolution) => {
+    const isSelected = selected.has(solution.id);
+    return (
+      <Card
+        key={solution.id}
+        data-testid={`selector-solution-${solution.id}`}
+        className={`overflow-hidden transition-all ${isSelected ? 'ring-2 ring-green-500 border-green-500' : ''}`}
+      >
+        <CardContent className="p-2.5 flex gap-2.5">
+          <div className="w-16 h-16 shrink-0 rounded-md overflow-hidden bg-muted">
+            <img
+              src={nbsSolutionPhoto(solution.id)}
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              decoding="async"
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-[13px] font-semibold leading-tight">{solution[lang].label}</h4>
+            <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 line-clamp-2">
+              {solution[lang].whatItIs}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+              <span className="rounded-[3px] bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {DELIVERY_SHORT[lang][solution.delivery]}
+              </span>
+              {solution.legacyTypeId && (
+                <button
+                  type="button"
+                  className="text-[10.5px] font-medium text-green-700 hover:underline dark:text-green-400"
+                  onClick={() => openDetail(solution.legacyTypeId!, solution.id)}
+                >
+                  {isPt ? 'Saiba mais' : 'Learn more'}
+                  <ChevronRight className="w-3 h-3 inline" />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center">
+            <Button
+              size="sm"
+              data-testid={`selector-select-${solution.id}`}
+              className={`text-[11px] h-7 ${isSelected ? 'bg-green-700' : 'bg-green-600 hover:bg-green-700'}`}
+              onClick={() => toggleSelect(solution.id)}
+            >
+              <Check className="w-3 h-3" />
+              <span className="sr-only sm:not-sr-only sm:ml-1">
+                {isSelected ? (isPt ? 'Selecionado' : 'Selected') : (isPt ? 'Selecionar' : 'Select')}
+              </span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // ── Família list view ───────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -291,83 +406,41 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
         </div>
       </div>
 
-      {/* Cards */}
+      {/* Famílias with their variants */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {sortedTypes.map((type) => {
-          const isRec = recommendedSet.has(type.id);
-          const isSelected = selected.has(type.id);
-          const cs = type.caseStudy;
-
+        {sortedFamilias.map(familia => {
+          const isRec = recommendedFamiliaSet.has(familia.id);
+          const isOpen = expanded.has(familia.id);
+          const solutions = solutionsForFamilia(familia.id);
+          const selectedHere = solutions.filter(s => selected.has(s.id)).length;
           return (
-            <Card
-              key={type.id}
-              className={`transition-all overflow-hidden ${
-                isSelected
-                  ? 'ring-2 ring-green-500 border-green-500'
-                  : isRec
-                    ? 'hover:border-green-300 hover:shadow-md'
-                    : 'opacity-70 hover:opacity-90'
-              }`}
-            >
-              {/* Real photo — clicking opens detail */}
-              <div
-                className="h-36 relative overflow-hidden bg-muted cursor-pointer"
-                onClick={() => openDetail(type.id)}
+            <div key={familia.id} className={isRec ? '' : 'opacity-90'}>
+              <button
+                type="button"
+                data-testid={`selector-familia-${familia.id}`}
+                aria-expanded={isOpen}
+                onClick={() => toggleExpanded(familia.id)}
+                className="w-full flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-left transition-colors hover:border-green-300"
               >
-                <img src={cs.image} alt={`${cs.project} — ${cs.city}`} className="w-full h-full object-cover" loading="lazy" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                {isOpen ? <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />}
+                <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: familia.color }} />
+                <span className="text-[13px] font-semibold leading-tight">{familia[lang].label}</span>
                 {isRec && (
-                  <Badge className="absolute top-2 right-2 bg-green-600 text-[10px]">
+                  <Badge className="bg-green-600 text-[9.5px] shrink-0">
                     {isPt ? 'Recomendado' : 'Recommended'}
                   </Badge>
                 )}
-                {isSelected && (
-                  <div className="absolute top-2 left-2 w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
-                    <Check className="w-4 h-4 text-white" />
-                  </div>
-                )}
-                <div className="absolute bottom-2 left-2 right-2 flex items-end justify-between">
-                  <span className="text-[10px] text-white/90 bg-black/40 px-1.5 py-0.5 rounded">📍 {cs.city}</span>
-                  <span className="text-4xl">{type.emoji}</span>
+                <span className="ml-auto text-[11px] tabular-nums text-muted-foreground shrink-0">
+                  {selectedHere > 0 ? `${selectedHere}/` : ''}{solutions.length}
+                </span>
+              </button>
+              {isOpen && (
+                <div className="mt-2 space-y-2 pl-2">
+                  <p className="text-[11px] text-muted-foreground px-1">{familia[lang].description}</p>
+                  {solutions.map(renderSolution)}
                 </div>
-              </div>
-
-              <CardContent className="p-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h4 className="text-sm font-semibold">{type.label}</h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">{type.description}</p>
-                    <p className="text-[11px] text-muted-foreground mt-1 italic">
-                      {isPt ? 'Ex' : 'e.g.'}: {type.example}
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] ml-2 shrink-0">
-                    {type.primaryBenefit === 'adaptation' ? (isPt ? 'Adaptação' : 'Adaptation')
-                      : type.primaryBenefit === 'both' ? (isPt ? 'Ambos' : 'Both')
-                      : (isPt ? 'Mitigação' : 'Mitigation')}
-                  </Badge>
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex items-center gap-2 mt-2.5">
-                  <Button
-                    variant="outline" size="sm" className="text-[11px] h-7 flex-1"
-                    onClick={(e) => { e.stopPropagation(); openDetail(type.id); }}
-                  >
-                    {isPt ? 'Saiba mais' : 'Learn more'}
-                    <ChevronRight className="w-3 h-3 ml-1" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    className={`text-[11px] h-7 ${isSelected ? 'bg-green-700' : 'bg-green-600 hover:bg-green-700'}`}
-                    onClick={(e) => { e.stopPropagation(); toggleSelect(type.id); }}
-                  >
-                    <Check className="w-3 h-3 mr-1" />
-                    {isSelected ? (isPt ? 'Selecionado' : 'Selected') : (isPt ? 'Selecionar' : 'Select')}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
           );
         })}
 
@@ -403,11 +476,11 @@ export default function InterventionSelector({ params, onConfirm, onCancel }: Pr
           {selected.size > 0 && (
             <span className="text-xs text-muted-foreground">
               {selected.size === 1
-                ? NBS_INTERVENTION_TYPES.find(t => selected.has(t.id))?.label
+                ? getSolution(Array.from(selected)[0])?.[lang].label
                 : `${selected.size} ${isPt ? 'selecionados' : 'selected'}`}
             </span>
           )}
-          <Button size="sm" className="bg-green-600 hover:bg-green-700" disabled={selected.size === 0} onClick={handleConfirm}>
+          <Button size="sm" className="bg-green-600 hover:bg-green-700" disabled={selected.size === 0} onClick={handleConfirm} data-testid="selector-confirm">
             <Check className="w-4 h-4 mr-1" />
             {isPt ? 'Confirmar' : 'Confirm'}{selected.size > 1 ? ` (${selected.size})` : ''}
           </Button>

@@ -2559,8 +2559,9 @@ export default function CboProfilePage() {
                   <InterventionSelector
                     params={interventionSelectorParams}
                     onConfirm={(result: InterventionSelectorResult) => {
-                      const message = result.interventionTypes.length > 0
-                        ? `Selected NBS type${result.interventionTypes.length > 1 ? 's' : ''}: ${result.labels.join(' + ')} (${result.interventionTypes.join(', ')}). Primary benefits: ${result.primaryBenefits.join(', ')}. Knowledge files: ${result.knowledgeFiles.join(', ')}`
+                      const hasSolutions = (result.solutionIds?.length ?? 0) > 0;
+                      const message = hasSolutions
+                        ? `Selected NBS solution${result.solutionIds!.length > 1 ? 's' : ''}: ${result.labels.join(' + ')} (${result.solutionIds!.join(', ')}). Família${(result.familias?.length ?? 0) > 1 ? 's' : ''}: ${(result.familias ?? []).join(', ')}.${result.interventionTypes.length > 0 ? ` Mapped NBS types: ${result.interventionTypes.join(', ')}. Knowledge files: ${result.knowledgeFiles.join(', ')}` : ''}`
                         : result.label; // "I don't know — help me decide"
                       if (currentQuestion) handleSelectOption(message); else sendMessage(message);
                       setInterventionSelectorParams(null);
