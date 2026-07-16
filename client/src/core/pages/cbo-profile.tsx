@@ -63,7 +63,8 @@ function parseUploadFilename(content: string): string | null {
   const m = content.match(UPLOAD_MSG_RE);
   return m ? m[1] : null;
 }
-import { LifeBuoy } from 'lucide-react';
+import { LifeBuoy, ShieldCheck } from 'lucide-react';
+import { CboDataNoticeDialog } from '@/core/components/cbo/CboDataNoticeDialog';
 import { NBS_SHOWCASE_CARDS, getShowcaseCard } from '@shared/nbs-showcase-cards';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 import { localizedWorkshopName } from '@/lib/workshopHelpers';
@@ -560,6 +561,7 @@ export default function CboProfilePage() {
   // chat header. Pending count comes from /api/cbo-member/:slug; agent or
   // coordinator-side flows can also nudge the user to open this.
   const [supportDialogOpen, setSupportDialogOpen] = useState(false);
+  const [dataNoticeOpen, setDataNoticeOpen] = useState(false);
   const [supportPendingCount, setSupportPendingCount] = useState(0);
   // E2 educational strips (types + examples) are persisted as inline `composer`
   // messages in the transcript (see processEvent / messages.map) so they survive
@@ -1682,6 +1684,7 @@ export default function CboProfilePage() {
         />
       )}
       <CboFilesSheet cboId={cboId} open={filesSheetOpen} onOpenChange={setFilesSheetOpen} />
+      <CboDataNoticeDialog open={dataNoticeOpen} onOpenChange={setDataNoticeOpen} lang={lang === 'pt' ? 'pt' : 'en'} />
       <div className="flex flex-1 min-h-0">
         {/* LEFT: Chat — full width on mobile (when Chat tab active); on md+
             full width while the panel is collapsed (chat-first), half when
@@ -1770,6 +1773,23 @@ export default function CboProfilePage() {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>{t('cbo.export')}</TooltipContent>
+                </Tooltip>
+                {/* "Seus dados" — the standing answer to "what are you going
+                    to do with that?" (Antonia, biweekly 2026-07-16). Always
+                    visible so the answer exists before anyone has to ask. */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setDataNoticeOpen(true)}
+                      data-testid="button-data-notice"
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{lang === 'pt' ? 'Seus dados' : 'Your data'}</TooltipContent>
                 </Tooltip>
                 {/* Restart is IRREVERSIBLE (deletes the whole session server-side).
                     It sits one thumb-width from Export on mobile, and the tooltip
