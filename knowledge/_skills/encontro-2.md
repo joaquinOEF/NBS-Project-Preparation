@@ -36,7 +36,11 @@ LOG shows already happened.
    → convite pra fotos/arquivos (📎).
 6. **Famílias pra estudar** — always ≥2, ranked by risco do bairro × tipo de
    lugar × what the org shared → "Faz sentido / Quero ajustar".
-7. **Closing** — no `set_phase(3)` (the coordinator gates it).
+7. **Interesse + papel** (after "Faz sentido") — two templated chip loops:
+   quais famílias interessam (multi-pick, "Pronto ✓" fecha) and que papel
+   querem ter (multi-pick + "Outro papel" → one free-text turn the PLATFORM
+   captures). Feeds the coordination's portfolio clustering before Workshop 3.
+8. **Closing** — no `set_phase(3)` (the coordinator gates it).
 
 ## Voice
 
@@ -65,7 +69,10 @@ the platform watches for it to serve the next checkpoint.
 "Tenho uma dúvida", free-text questions mid-flow, "o que é X?" — answer warmly
 (use `search_knowledge` / `read_knowledge`), then re-show the SAME pending
 question with `ask_user` using the exact labels from the DECISION LOG, so the
-user lands back on the checkpoint they left.
+user lands back on the checkpoint they left. This includes mid-loop chats
+during the interesse/papel step: after answering, re-offer the pending chips
+exactly as the decision log shows them (remaining famílias/papéis +
+"Pronto ✓") — never invent your own interest/role labels.
 
 ### 3 · "É outro tipo de lugar" (site-card correction)
 

@@ -26,6 +26,7 @@ import { db } from "../db";
 import { cohortMembers, type SupportRequest } from "@shared/cohort-schema";
 import { resolveOpenMapParams } from "@shared/cbo-map-presets";
 import { rankFamiliasForSite, inferSiteTypeLabel } from "@shared/nbs-recommendation";
+import { NBS_FAMILIAS } from "@shared/nbs-catalog";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { getOrgIdForCboState, listDocumentsByOrg, listDocumentSummariesByOrg, getDocumentForOrg } from "./documentPersistence";
@@ -1272,6 +1273,8 @@ const E2C: Record<string, { pt: string; en: string; desc?: { pt: string; en: str
   prontoSeguir: { pt: 'Pronto, pode seguir', en: "Done, let's continue" },
   fazSentido: { pt: 'Faz sentido', en: 'Makes sense' },
   queroAjustar: { pt: 'Quero ajustar', en: 'I want to adjust' },
+  prontoLista: { pt: 'Pronto ✓', en: 'Done ✓' },
+  outroPapel: { pt: 'Outro papel', en: 'Another role' },
 };
 
 // current_use / land_tenure enum chips (un-deferred from the old Beat 2b/3b —
@@ -1289,6 +1292,17 @@ const E2_TENURE: Array<{ id: string; pt: string; en: string }> = [
   { id: 'public-informal', pt: 'É da prefeitura, mas a gente usa', en: "It's the city's, but we use it" },
   { id: 'public-no-access', pt: 'É público mas não temos acesso garantido', en: "It's public but access isn't guaranteed" },
   { id: 'mixed', pt: 'Misto / não sei certinho', en: 'Mixed / not sure' },
+];
+// Implementation-role chips for the interest step (2026-07-16 biweekly: orgs
+// signal preferred roles before Workshop 3 so the coordination can cluster the
+// portfolio by role and scale). The taxonomy is the meeting's placeholder set —
+// pending Robson/Belén confirmation; labels are a data-only change.
+const E2_ROLES: Array<{ id: string; pt: string; en: string }> = [
+  { id: 'ser-consultada', pt: 'Ser consultada (dar opinião)', en: 'Be consulted (give input)' },
+  { id: 'escrever-projeto', pt: 'Escrever o projeto', en: 'Write the project' },
+  { id: 'receber-administrar', pt: 'Receber e administrar recursos', en: 'Receive and manage the funds' },
+  { id: 'executar', pt: 'Executar / implementar', en: 'Implement on the ground' },
+  { id: 'articular-parceiros', pt: 'Articular parceiros', en: 'Coordinate partners' },
 ];
 
 const normChip = (s: string) =>
@@ -1374,6 +1388,8 @@ async function serveE2Checkpoint(
   const siteName = val('site_name');
   const currentUse = val('current_use');
   const tenure = val('land_tenure');
+  const pickedFamilias = val('nbs_interest') ? val('nbs_interest').split(',').map(s => s.trim()).filter(Boolean) : [];
+  const pickedRoles = val('role_preference') ? val('role_preference').split(',').map(s => s.trim()).filter(Boolean) : [];
 
   const say = (pt: string, en: string) => pushEvent({ type: 'chat', content: isPt ? pt : en, role: 'assistant' } as any);
   const ask = (qPt: string, qEn: string, opts: Array<{ pt: string; en: string; dPt?: string; dEn?: string }>) =>
@@ -1389,6 +1405,47 @@ async function serveE2Checkpoint(
   };
   const openMapPreset = (args: Record<string, unknown>) =>
     pushEvent({ type: 'open_map', params: resolveOpenMapParams(args as any, isPt ? 'pt' : 'en') } as any);
+
+  // ── Interest + role loops (2026-07-16 biweekly commitment for Aug 12) ──────
+  // After the famílias recommendation, orgs mark which famílias they'd want a
+  // project in and the role(s) they'd play. Multi-pick via chip loops: every
+  // pick re-offers what's left plus "Pronto ✓" — templated, park/resume-safe.
+  const askInterest = (picked: string[]) => {
+    const opts = NBS_FAMILIAS.filter(f => !picked.includes(f.id)).map(f => ({ pt: f.pt.label, en: f.en.label })) as Array<{ pt: string; en: string; dPt?: string; dEn?: string }>;
+    if (picked.length > 0) opts.push({ pt: E2C.prontoLista.pt, en: E2C.prontoLista.en, dPt: 'Fechar a lista', dEn: 'Close the list' });
+    ask(
+      picked.length === 0
+        ? 'Em quais famílias vocês teriam interesse em tocar um projeto? Pode marcar mais de uma — toca numa por vez.'
+        : 'Marcado ✓ Mais alguma?',
+      picked.length === 0
+        ? 'Which famílias would you be interested in running a project on? You can pick more than one — tap one at a time.'
+        : 'Noted ✓ Any other?',
+      opts,
+    );
+  };
+  const askRoles = (picked: string[], intro: boolean) => {
+    if (intro)
+      say(
+        'Fechou. E que **papel** vocês gostariam de ter nesses projetos? Também pode marcar mais de um.',
+        'Got it. And what **role** would you like to play in these projects? You can pick more than one too.',
+      );
+    const opts = E2_ROLES.filter(r => !picked.includes(r.id)).map(r => ({ pt: r.pt, en: r.en })) as Array<{ pt: string; en: string; dPt?: string; dEn?: string }>;
+    opts.push({ pt: E2C.outroPapel.pt, en: E2C.outroPapel.en, dPt: 'Me conta qual', dEn: 'Tell me which' });
+    if (picked.length > 0) opts.push({ pt: E2C.prontoLista.pt, en: E2C.prontoLista.en, dPt: 'Fechar a lista', dEn: 'Close the list' });
+    ask(
+      picked.length === 0 ? 'Que papel vocês imaginam?' : 'Marcado ✓ Mais algum papel?',
+      picked.length === 0 ? 'What role do you imagine?' : 'Noted ✓ Any other role?',
+      opts,
+    );
+  };
+  const closeE2 = (): true => {
+    const nome = String(state.sections.org_profile?.fields?.contact_name?.value || '').trim().split(/\s+/)[0];
+    say(
+      `✓ **Pronto${nome ? `, ${nome}` : ''}!** Marcamos **${siteName || bairro}** e já sabemos por onde começar a estudar.\n\nNo próximo encontro a gente escolhe juntas a solução que mais combina com esse lugar. Até lá! 🌱`,
+      `✓ **Done${nome ? `, ${nome}` : ''}!** We've marked **${siteName || bairro}** and we know where to start studying.\n\nIn the next encontro we'll pick together the solution that best fits this place. See you! 🌱`,
+    );
+    return finish('closing');
+  };
 
   // ── Map results ────────────────────────────────────────────────────────────
   if (turnKind === 'map' || raw.startsWith('Map selection (')) {
@@ -1460,6 +1517,18 @@ async function serveE2Checkpoint(
       { pt: E2C.outroLugar.pt, en: E2C.outroLugar.en, dPt: 'Voltar pro mapa', dEn: 'Back to the map' },
     ]);
     return finish('site-card');
+  }
+
+  // "Outro papel" answer — the ONLY free-text turn the checkpoint machine
+  // consumes, and only while the role question is explicitly waiting for it.
+  if (val('_role_other_pending') === 'yes' && val('_role_done') !== 'yes' && turnKind !== 'chip' && raw && !raw.startsWith('Map selection (')) {
+    const other = `outro: ${raw.replace(/\s+/g, ' ').slice(0, 120)}`;
+    writeE2Fields(cboId, state, {
+      role_preference: [...pickedRoles, other].join(', '),
+      _role_other_pending: '',
+    }, pushEvent);
+    askRoles([...pickedRoles, other], false);
+    return finish('role-other-captured');
   }
 
   // ── Chip taps ──────────────────────────────────────────────────────────────
@@ -1633,14 +1702,60 @@ async function serveE2Checkpoint(
     ]);
     return finish('familia-reco');
   }
-  // Recommendation acknowledged → closing.
-  if (is(E2C.fazSentido) && getCboMessages(cboId).some(m => m.messageType === 'composer' && m.content.includes('"kind":"familia_reco"'))) {
-    const nome = String(state.sections.org_profile?.fields?.contact_name?.value || '').trim().split(/\s+/)[0];
+  // Recommendation acknowledged → the interest question (not closing yet).
+  if (is(E2C.fazSentido) && val('_interest_done') !== 'yes' && getCboMessages(cboId).some(m => m.messageType === 'composer' && m.content.includes('"kind":"familia_reco"'))) {
     say(
-      `✓ **Pronto${nome ? `, ${nome}` : ''}!** Marcamos **${siteName || bairro}** e já sabemos por onde começar a estudar.\n\nNo próximo encontro a gente escolhe juntas a solução que mais combina com esse lugar. Até lá! 🌱`,
-      `✓ **Done${nome ? `, ${nome}` : ''}!** We've marked **${siteName || bairro}** and we know where to start studying.\n\nIn the next encontro we'll pick together the solution that best fits this place. See you! 🌱`,
+      'Boa! Última coisa — e essa parte ajuda a coordenação a montar os grupos dos próximos encontros.',
+      'Great! One last thing — this part helps the coordination shape the groups for the next encontros.',
     );
-    return finish('closing');
+    writeE2Fields(cboId, state, { _interest_offered: 'yes' }, pushEvent);
+    askInterest(pickedFamilias);
+    return finish('ask-interest');
+  }
+
+  // Interest loop: família picks accumulate; "Pronto ✓" (or all five) advances.
+  if (val('_interest_offered') === 'yes' && val('_interest_done') !== 'yes') {
+    const fam = NBS_FAMILIAS.find(f => is({ pt: f.pt.label, en: f.en.label }) && !pickedFamilias.includes(f.id));
+    if (fam) {
+      const next = [...pickedFamilias, fam.id];
+      writeE2Fields(cboId, state, { nbs_interest: next.join(', ') }, pushEvent);
+      if (next.length >= NBS_FAMILIAS.length) {
+        writeE2Fields(cboId, state, { _interest_done: 'yes', _roles_offered: 'yes' }, pushEvent);
+        askRoles(pickedRoles, true);
+        return finish('ask-roles');
+      }
+      askInterest(next);
+      return finish('interest-picked');
+    }
+    if (is(E2C.prontoLista) && pickedFamilias.length > 0) {
+      writeE2Fields(cboId, state, { _interest_done: 'yes', _roles_offered: 'yes' }, pushEvent);
+      askRoles(pickedRoles, true);
+      return finish('ask-roles');
+    }
+  }
+
+  // Role loop: same shape; "Outro papel" hands one turn to free text above.
+  if (val('_roles_offered') === 'yes' && val('_role_done') !== 'yes') {
+    const role = E2_ROLES.find(r => is(r) && !pickedRoles.includes(r.id));
+    if (role) {
+      const next = [...pickedRoles, role.id];
+      writeE2Fields(cboId, state, { role_preference: next.join(', ') }, pushEvent);
+      if (E2_ROLES.every(r => next.includes(r.id))) {
+        writeE2Fields(cboId, state, { _role_done: 'yes' }, pushEvent);
+        return closeE2();
+      }
+      askRoles(next, false);
+      return finish('role-picked');
+    }
+    if (is(E2C.outroPapel)) {
+      writeE2Fields(cboId, state, { _role_other_pending: 'yes' }, pushEvent);
+      say('Me conta: que papel vocês imaginam pra vocês nesses projetos?', 'Tell me: what role do you imagine for yourselves in these projects?');
+      return finish('role-other-asked');
+    }
+    if (is(E2C.prontoLista) && pickedRoles.length > 0) {
+      writeE2Fields(cboId, state, { _role_done: 'yes' }, pushEvent);
+      return closeE2();
+    }
   }
 
   return false;
