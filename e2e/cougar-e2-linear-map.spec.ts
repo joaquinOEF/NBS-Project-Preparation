@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { TestApi } from './helpers/testApi';
+import { clickCenterZone } from './helpers/mapActions';
 
 // E2 linear flow — the map opens twice, each session doing ONE job:
 //   Map 1 (e2_bairro):       hazard tour → pick the bairro → "Confirmar bairro"
@@ -44,10 +45,8 @@ test.describe('COUGAR — E2 linear map sessions', () => {
     await expect(confirmBairro).toBeVisible();
     await expect(confirmBairro).toBeDisabled();
 
-    // Pick the bairro under the map center (zones GeoJSON is loaded by now).
-    await page.waitForTimeout(600);
-    const mapBox = (await page.locator('.leaflet-container').first().boundingBox())!;
-    await page.mouse.click(mapBox.x + mapBox.width / 2, mapBox.y + mapBox.height / 2);
+    // Pick the bairro under the map center.
+    await clickCenterZone(page);
     await expect(confirmBairro).toBeEnabled({ timeout: 10_000 });
     await confirmBairro.click();
 
