@@ -41,6 +41,119 @@ Note: `drainage_constrained` is a **proxy** until municipal storm-drain data exi
 Application-layer NBS filters (e.g. wetland only near wetlands) stay outside this catalog layer.
 """.strip()
 
+HeatMechanismType = Literal[
+    "without_clear_dominant",
+    "uhi_built_up",
+    "shade_deficit",
+    "high_daytime_lst",
+    "limited_nocturnal_cooling",
+    "high_social_exposure",
+    "mixed",
+]
+
+# Dominant-type threshold for heat grid screening (lower than flood default 0.2).
+HEAT_MIN_STRENGTH = 0.15
+
+HEAT_MECHANISM_TYPE_CODES: dict[HeatMechanismType, int] = {
+    "without_clear_dominant": 0,
+    "uhi_built_up": 1,
+    "shade_deficit": 2,
+    "high_daytime_lst": 3,
+    "limited_nocturnal_cooling": 4,
+    "high_social_exposure": 5,
+    "mixed": 6,
+}
+HEAT_MECHANISM_CODE_TO_TYPE: dict[int, HeatMechanismType] = {
+    v: k for k, v in HEAT_MECHANISM_TYPE_CODES.items()
+}
+
+HEAT_MECHANISM_DISPLAY_LABELS: dict[HeatMechanismType, str] = {
+    "without_clear_dominant": "without a clear dominant mechanism",
+    "uhi_built_up": "uhi_built_up",
+    "shade_deficit": "shade_deficit",
+    "high_daytime_lst": "high_daytime_lst",
+    "limited_nocturnal_cooling": "limited_nocturnal_cooling",
+    "high_social_exposure": "high_social_exposure",
+    "mixed": "mixed",
+}
+
+HEAT_MECHANISM_CATALOG_DOCS = """
+| Code | Type | Meaning | Primary proxies |
+|------|------|---------|-----------------|
+| 0 | without_clear_dominant | Without a clear dominant mechanism (all strengths < 0.15) | Weak or marginal screening signals |
+| 1 | uhi_built_up | Urban heat island / built-up low vegetation | GHSL/DW built-up ≥ 0.35 with low vegetation proxy |
+| 2 | shade_deficit | Lack of canopy / tree cover | Low tree %, Hansen tree cover < 20%, low green in built areas |
+| 3 | high_daytime_lst | High daytime surface heating | Heat hazard ≥ 0.45 or Landsat/MODIS day LST norm ≥ 0.55 |
+| 4 | limited_nocturnal_cooling | Nighttime heat retention | MODIS night ≥ day + 0.05 with night LST ≥ 0.5 |
+| 5 | high_social_exposure | High heat risk / exposure / vulnerability | Risk ≥ 0.35 or E/V ≥ 0.5 |
+| 6 | mixed | Two+ mechanisms within strength tie band | Multiple strengths within 0.15 of top score |
+
+Note: LST proxies measure **surface** temperature, not pedestrian thermal comfort.
+Application-layer NBS filters stay outside this catalog layer.
+""".strip()
+
+LandslideMechanismType = Literal[
+    "without_clear_dominant",
+    "steep_activatable_slope",
+    "rainfall_trigger",
+    "low_cohesion_wet",
+    "vegetation_deficit",
+    "drainage_saturation",
+    "disturbed_bare_slope",
+    "upslope_convergence",
+    "high_social_exposure",
+    "mixed",
+]
+
+LANDSLIDE_MIN_STRENGTH = 0.15
+
+LANDSLIDE_MECHANISM_TYPE_CODES: dict[LandslideMechanismType, int] = {
+    "without_clear_dominant": 0,
+    "steep_activatable_slope": 1,
+    "rainfall_trigger": 2,
+    "low_cohesion_wet": 3,
+    "vegetation_deficit": 4,
+    "drainage_saturation": 5,
+    "disturbed_bare_slope": 6,
+    "upslope_convergence": 7,
+    "high_social_exposure": 8,
+    "mixed": 9,
+}
+LANDSLIDE_MECHANISM_CODE_TO_TYPE: dict[int, LandslideMechanismType] = {
+    v: k for k, v in LANDSLIDE_MECHANISM_TYPE_CODES.items()
+}
+
+LANDSLIDE_MECHANISM_DISPLAY_LABELS: dict[LandslideMechanismType, str] = {
+    "without_clear_dominant": "without a clear dominant mechanism",
+    "steep_activatable_slope": "steep_activatable_slope",
+    "rainfall_trigger": "rainfall_trigger",
+    "low_cohesion_wet": "low_cohesion_wet",
+    "vegetation_deficit": "vegetation_deficit",
+    "drainage_saturation": "drainage_saturation",
+    "disturbed_bare_slope": "disturbed_bare_slope",
+    "upslope_convergence": "upslope_convergence",
+    "high_social_exposure": "high_social_exposure",
+    "mixed": "mixed",
+}
+
+LANDSLIDE_MECHANISM_CATALOG_DOCS = """
+| Code | Type | Meaning | Primary proxies |
+|------|------|---------|-----------------|
+| 0 | without_clear_dominant | Without a clear dominant mechanism (all strengths < 0.15) | Weak or marginal screening signals |
+| 1 | steep_activatable_slope | Slope activation gate / susceptibility | Slope ≥ 15° or landslide hazard > 0 |
+| 2 | rainfall_trigger | Chronic extreme rainfall | CHIRPS R90p climatology ≥ 200 mm |
+| 3 | low_cohesion_wet | Low cohesion when wet | SoilGrids clay ≥ 35% |
+| 4 | vegetation_deficit | Lack of stabilizing cover | Low NDVI P10, tree, or green cover |
+| 5 | drainage_saturation | Drainage convergence / saturation | HAND ≤ 5 m or near waterways |
+| 6 | disturbed_bare_slope | Disturbed or bare slope | Dynamic World bare/built fractions |
+| 7 | upslope_convergence | Upslope contributing area | MERIT UPA ≥ 1 km² |
+| 8 | high_social_exposure | High landslide risk / E / V | Risk ≥ 0.03 or elevated E/V |
+| 9 | mixed | Two+ mechanisms within strength tie band | Multiple strengths within 0.15 of top score |
+
+Note: Landslide hazard is a **screening susceptibility index**, not failure probability.
+Application-layer NBS filters stay outside this catalog layer.
+""".strip()
+
 
 @dataclass
 class MechanismAssessment:
@@ -56,6 +169,26 @@ class FloodMechanismClassification:
     """Dominant grid-level flood mechanism (ON-5990 catalog layer)."""
 
     mechanism_type: FloodMechanismType
+    mechanism_code: int
+    strengths: dict[str, float]
+    rationale: list[str] = field(default_factory=list)
+
+
+@dataclass
+class HeatMechanismClassification:
+    """Dominant grid-level heat mechanism (ON-5991 catalog layer)."""
+
+    mechanism_type: HeatMechanismType
+    mechanism_code: int
+    strengths: dict[str, float]
+    rationale: list[str] = field(default_factory=list)
+
+
+@dataclass
+class LandslideMechanismClassification:
+    """Dominant grid-level landslide mechanism (POA 90 m catalog layer)."""
+
+    mechanism_type: LandslideMechanismType
     mechanism_code: int
     strengths: dict[str, float]
     rationale: list[str] = field(default_factory=list)
@@ -84,6 +217,16 @@ def _get(stats: dict[str, Any], key: str, default: float | None = None) -> float
     if val is None:
         return default
     return float(val)
+
+
+def _normalize_lst_signal(val: float | None) -> float | None:
+    """Map catalog LST (°C P90 composites or 0–1 norm) to a 0–1 screening scale."""
+    if val is None:
+        return None
+    if val <= 1.5:
+        return float(val)
+    # POA DJF / P90 surface-temperature approximate range for screening (°C).
+    return min(1.0, max(0.0, (float(val) - 20.0) / 25.0))
 
 
 def _heavy_rain_signal(grid: dict[str, Any]) -> bool:
@@ -204,23 +347,22 @@ def flood_mechanism_strengths(
     }
 
 
-def classify_dominant_flood_mechanism(
-    ctx: dict[str, Any],
-    grid: dict[str, Any],
-    water: dict[str, Any],
+def classify_from_strengths(
+    strengths: dict[str, float],
     *,
     min_strength: float = 0.2,
     mixed_band: float = 0.15,
+    rationale_prefix: list[str] | None = None,
 ) -> FloodMechanismClassification:
-    """Assign a single dominant flood mechanism type per grid cell (ON-5990)."""
-    strengths = flood_mechanism_strengths(ctx, grid, water)
+    """Assign dominant flood mechanism type from precomputed strength scores."""
     ranked = sorted(strengths.items(), key=lambda kv: kv[1], reverse=True)
     top_name, top_val = ranked[0]
     second_val = ranked[1][1] if len(ranked) > 1 else 0.0
-    rationale: list[str] = [
+    rationale: list[str] = list(rationale_prefix or [])
+    rationale.append(
         f"Strengths: riverine={strengths['riverine']}, pluvial={strengths['pluvial']}, "
         f"low_lying={strengths['low_lying']}, drainage={strengths['drainage_constrained']}."
-    ]
+    )
 
     if top_val < min_strength:
         mech_type: FloodMechanismType = "none"
@@ -238,6 +380,23 @@ def classify_dominant_flood_mechanism(
         mechanism_code=FLOOD_MECHANISM_TYPE_CODES[mech_type],
         strengths=strengths,
         rationale=rationale,
+    )
+
+
+def classify_dominant_flood_mechanism(
+    ctx: dict[str, Any],
+    grid: dict[str, Any],
+    water: dict[str, Any],
+    *,
+    min_strength: float = 0.2,
+    mixed_band: float = 0.15,
+) -> FloodMechanismClassification:
+    """Assign a single dominant flood mechanism type per grid cell (ON-5990)."""
+    strengths = flood_mechanism_strengths(ctx, grid, water)
+    return classify_from_strengths(
+        strengths,
+        min_strength=min_strength,
+        mixed_band=mixed_band,
     )
 
 
@@ -428,20 +587,21 @@ def infer_heat_mechanism(
 
     imperv = _get(grid, "imperv_pct_mean")
     dw_built = _get(grid, "dw_built_pct_mean")
-    green = _get(grid, "green_pct_mean", 0)
-    tree = _get(grid, "tree_pct_mean", 0)
+    green = _get(grid, "green_pct_mean")
+    tree = _get(grid, "tree_pct_mean")
     treecover = _get(grid, "treecover2000_mean")
     ndvi = _get(grid, "ndvi_mean")
     heat_hazard = _get(grid, "heat_score_mean") or _get(ctx, "hazard_mean")
     risk = _get(ctx, "risk_mean", 0)
     exposure = _get(ctx, "exposure_score", 0)
     vulnerability = _get(ctx, "vulnerability_score", 0)
-    landsat = _get(grid, "landsat_lst_norm_mean")
-    modis_day = _get(grid, "modis_lst_day_norm_mean")
-    modis_night = _get(grid, "modis_lst_night_norm_mean")
+    landsat = _normalize_lst_signal(_get(grid, "landsat_lst_norm_mean"))
+    modis_day = _normalize_lst_signal(_get(grid, "modis_lst_day_norm_mean"))
+    modis_night = _normalize_lst_signal(_get(grid, "modis_lst_night_norm_mean"))
 
     built_proxy = max(v for v in [imperv, dw_built, 0.0] if v is not None)
-    veg_proxy = max(green or 0.0, tree or 0.0, (ndvi or 0.0) / 100.0 if ndvi else 0.0)
+    veg_parts = [v for v in [green, tree, (ndvi / 100.0) if ndvi is not None else None] if v is not None]
+    veg_proxy = max(veg_parts) if veg_parts else 0.0
 
     uhi_built_up = bool(built_proxy >= 0.35 and veg_proxy < 0.3)
     if uhi_built_up:
@@ -498,6 +658,128 @@ def infer_heat_mechanism(
         limited_nocturnal_cooling=limited_nocturnal_cooling,
         high_social_exposure=high_social_exposure,
         rationale=rationale,
+    )
+
+
+def heat_mechanism_strengths(
+    ctx: dict[str, Any], grid: dict[str, Any], water: dict[str, Any] | None = None
+) -> dict[str, float]:
+    """Continuous 0–1 strength per heat mechanism type for grid-level classification."""
+    _ = water
+    imperv = _get(grid, "imperv_pct_mean")
+    dw_built = _get(grid, "dw_built_pct_mean")
+    green = _get(grid, "green_pct_mean")
+    tree = _get(grid, "tree_pct_mean")
+    treecover = _get(grid, "treecover2000_mean")
+    ndvi = _get(grid, "ndvi_mean")
+    heat_hazard = _get(grid, "heat_score_mean") or _get(ctx, "hazard_mean")
+    risk = _get(ctx, "risk_mean", 0)
+    exposure = _get(ctx, "exposure_score", 0)
+    vulnerability = _get(ctx, "vulnerability_score", 0)
+    landsat = _normalize_lst_signal(_get(grid, "landsat_lst_norm_mean"))
+    modis_day = _normalize_lst_signal(_get(grid, "modis_lst_day_norm_mean"))
+    modis_night = _normalize_lst_signal(_get(grid, "modis_lst_night_norm_mean"))
+
+    built_proxy = max(v for v in [imperv, dw_built, 0.0] if v is not None)
+    veg_parts = [v for v in [green, tree, (ndvi / 100.0) if ndvi is not None else None] if v is not None]
+    veg_proxy = max(veg_parts) if veg_parts else 0.0
+
+    uhi = 0.0
+    if built_proxy >= 0.35 and veg_proxy < 0.3:
+        uhi = min(1.0, 0.5 + (built_proxy - 0.35) / 0.4 + max(0.0, (0.3 - veg_proxy) / 0.3))
+    elif built_proxy >= 0.25 and veg_proxy < 0.2:
+        uhi = 0.35
+
+    shade = 0.0
+    if tree is not None and tree < 0.15:
+        shade = max(shade, min(1.0, (0.15 - tree) / 0.15))
+    if treecover is not None and treecover < 20:
+        shade = max(shade, min(1.0, (20 - treecover) / 20))
+    if green is not None and green < 0.25 and built_proxy >= 0.25:
+        shade = max(shade, min(1.0, (0.25 - green) / 0.25 * built_proxy))
+
+    daytime = 0.0
+    if heat_hazard is not None and heat_hazard >= 0.45:
+        daytime = max(daytime, min(1.0, (heat_hazard - 0.45) / 0.35))
+    if landsat is not None and landsat >= 0.55:
+        daytime = max(daytime, min(1.0, (landsat - 0.55) / 0.35))
+    if modis_day is not None and modis_day >= 0.55:
+        daytime = max(daytime, min(1.0, (modis_day - 0.55) / 0.35))
+
+    nocturnal = 0.0
+    if modis_night is not None and modis_day is not None and modis_night >= 0.5:
+        delta = modis_night - modis_day
+        if delta >= 0.05:
+            nocturnal = min(1.0, 0.4 + delta / 0.2 + max(0.0, (modis_night - 0.5) / 0.3))
+
+    social = 0.0
+    if risk is not None and risk >= 0.35:
+        social = max(social, min(1.0, (risk - 0.35) / 0.4))
+    if exposure is not None and exposure >= 0.5:
+        social = max(social, min(1.0, (exposure - 0.5) / 0.4))
+    if vulnerability is not None and vulnerability >= 0.5:
+        social = max(social, min(1.0, (vulnerability - 0.5) / 0.4))
+
+    return {
+        "uhi_built_up": round(uhi, 3),
+        "shade_deficit": round(shade, 3),
+        "high_daytime_lst": round(daytime, 3),
+        "limited_nocturnal_cooling": round(nocturnal, 3),
+        "high_social_exposure": round(social, 3),
+    }
+
+
+def classify_from_heat_strengths(
+    strengths: dict[str, float],
+    *,
+    min_strength: float = HEAT_MIN_STRENGTH,
+    mixed_band: float = 0.15,
+    rationale_prefix: list[str] | None = None,
+) -> HeatMechanismClassification:
+    """Assign dominant heat mechanism type from precomputed strength scores."""
+    ranked = sorted(strengths.items(), key=lambda kv: kv[1], reverse=True)
+    top_name, top_val = ranked[0]
+    second_val = ranked[1][1] if len(ranked) > 1 else 0.0
+    rationale: list[str] = list(rationale_prefix or [])
+    rationale.append(
+        "Strengths: " + ", ".join(f"{k}={v}" for k, v in strengths.items()) + "."
+    )
+
+    if top_val < min_strength:
+        mech_type: HeatMechanismType = "without_clear_dominant"
+        rationale.append(
+            f"No mechanism ≥ {min_strength} — without a clear dominant mechanism."
+        )
+    elif second_val >= top_val - mixed_band and second_val >= min_strength:
+        mech_type = "mixed"
+        tied = [k for k, v in strengths.items() if v >= top_val - mixed_band and v >= min_strength]
+        rationale.append(f"Mixed: {', '.join(tied)} within {mixed_band} of top score.")
+    else:
+        mech_type = top_name  # type: ignore[assignment]
+        rationale.append(f"Dominant: {mech_type} (strength={top_val:.2f}).")
+
+    return HeatMechanismClassification(
+        mechanism_type=mech_type,
+        mechanism_code=HEAT_MECHANISM_TYPE_CODES[mech_type],
+        strengths=strengths,
+        rationale=rationale,
+    )
+
+
+def classify_dominant_heat_mechanism(
+    ctx: dict[str, Any],
+    grid: dict[str, Any],
+    water: dict[str, Any] | None = None,
+    *,
+    min_strength: float = HEAT_MIN_STRENGTH,
+    mixed_band: float = 0.15,
+) -> HeatMechanismClassification:
+    """Assign a single dominant heat mechanism type per grid cell (ON-5991)."""
+    strengths = heat_mechanism_strengths(ctx, grid, water)
+    return classify_from_heat_strengths(
+        strengths,
+        min_strength=min_strength,
+        mixed_band=mixed_band,
     )
 
 
@@ -738,6 +1020,138 @@ def infer_landslide_mechanism(
         upslope_convergence=upslope_convergence,
         high_social_exposure=high_social_exposure,
         rationale=rationale,
+    )
+
+
+def landslide_mechanism_strengths(
+    ctx: dict[str, Any], grid: dict[str, Any], water: dict[str, Any] | None = None
+) -> dict[str, float]:
+    """Continuous 0–1 strength per landslide mechanism type for grid-level classification."""
+    slope = _get(grid, "slope_mean")
+    hazard = _get(grid, "landslide_score_mean") or _get(ctx, "hazard_mean")
+    risk = _get(ctx, "risk_mean", 0)
+    exposure = _get(ctx, "exposure_score", 0)
+    vulnerability = _get(ctx, "vulnerability_score", 0)
+    clay = _get(grid, "clay_pct_mean")
+    ndvi_p10 = _get(grid, "ndvi_p10_mean")
+    r90p = _get(grid, "r90p_climatology_mean") or _get(grid, "r90p_2024_mean")
+    hand = _get(grid, "merit_hand_mean")
+    upa = _get(grid, "upstream_area_km2_mean")
+    bare = _get(grid, "dw_bare_pct_mean")
+    built = _get(grid, "dw_built_pct_mean")
+    green = _get(grid, "green_pct_mean")
+    tree = _get(grid, "tree_pct_mean")
+    dist_water = _get((water or {}), "dist_nearest_m", 9999)
+
+    steep = 0.0
+    if slope is not None and slope >= 15:
+        steep = min(1.0, 0.5 + (slope - 15) / 25)
+    elif hazard is not None and hazard > 0:
+        steep = min(1.0, max(0.2, hazard * 2))
+
+    rainfall = 0.0
+    if r90p is not None and r90p >= 200:
+        rainfall = min(1.0, (r90p - 200) / 100)
+
+    cohesion = 0.0
+    if clay is not None and clay >= 35:
+        cohesion = min(1.0, (clay - 35) / 25)
+
+    veg = 0.0
+    if ndvi_p10 is not None and ndvi_p10 < 0.35:
+        veg = max(veg, min(1.0, (0.35 - ndvi_p10) / 0.35))
+    if green is not None and green < 0.25:
+        veg = max(veg, min(1.0, (0.25 - green) / 0.25))
+    if tree is not None and tree < 0.15:
+        veg = max(veg, min(1.0, (0.15 - tree) / 0.15))
+
+    drainage = 0.0
+    if hand is not None and hand <= 5:
+        drainage = max(drainage, min(1.0, 1.0 - hand / 5.0))
+    if dist_water is not None and dist_water < 200:
+        drainage = max(drainage, min(1.0, 1.0 - dist_water / 200))
+
+    bare_slope = 0.0
+    if bare is not None and bare >= 0.15:
+        bare_slope = max(bare_slope, min(1.0, (bare - 0.15) / 0.35))
+    if built is not None and built >= 0.25:
+        bare_slope = max(bare_slope, min(1.0, (built - 0.25) / 0.35))
+
+    upslope = 0.0
+    if upa is not None and upa >= 1.0:
+        upslope = min(1.0, 0.4 + (upa - 1.0) / 5.0)
+
+    social = 0.0
+    if risk is not None and risk >= 0.03:
+        social = max(social, min(1.0, (risk - 0.03) / 0.1))
+    if exposure is not None and exposure >= 0.15:
+        social = max(social, min(1.0, (exposure - 0.15) / 0.35))
+    if vulnerability is not None and vulnerability >= 0.25:
+        social = max(social, min(1.0, (vulnerability - 0.25) / 0.35))
+
+    return {
+        "steep_activatable_slope": round(steep, 3),
+        "rainfall_trigger": round(rainfall, 3),
+        "low_cohesion_wet": round(cohesion, 3),
+        "vegetation_deficit": round(veg, 3),
+        "drainage_saturation": round(drainage, 3),
+        "disturbed_bare_slope": round(bare_slope, 3),
+        "upslope_convergence": round(upslope, 3),
+        "high_social_exposure": round(social, 3),
+    }
+
+
+def classify_from_landslide_strengths(
+    strengths: dict[str, float],
+    *,
+    min_strength: float = LANDSLIDE_MIN_STRENGTH,
+    mixed_band: float = 0.15,
+    rationale_prefix: list[str] | None = None,
+) -> LandslideMechanismClassification:
+    """Assign dominant landslide mechanism type from precomputed strength scores."""
+    ranked = sorted(strengths.items(), key=lambda kv: kv[1], reverse=True)
+    top_name, top_val = ranked[0]
+    second_val = ranked[1][1] if len(ranked) > 1 else 0.0
+    rationale: list[str] = list(rationale_prefix or [])
+    rationale.append(
+        "Strengths: " + ", ".join(f"{k}={v}" for k, v in strengths.items()) + "."
+    )
+
+    if top_val < min_strength:
+        mech_type: LandslideMechanismType = "without_clear_dominant"
+        rationale.append(
+            f"No mechanism ≥ {min_strength} — without a clear dominant mechanism."
+        )
+    elif second_val >= top_val - mixed_band and second_val >= min_strength:
+        mech_type = "mixed"
+        tied = [k for k, v in strengths.items() if v >= top_val - mixed_band and v >= min_strength]
+        rationale.append(f"Mixed: {', '.join(tied)} within {mixed_band} of top score.")
+    else:
+        mech_type = top_name  # type: ignore[assignment]
+        rationale.append(f"Dominant: {mech_type} (strength={top_val:.2f}).")
+
+    return LandslideMechanismClassification(
+        mechanism_type=mech_type,
+        mechanism_code=LANDSLIDE_MECHANISM_TYPE_CODES[mech_type],
+        strengths=strengths,
+        rationale=rationale,
+    )
+
+
+def classify_dominant_landslide_mechanism(
+    ctx: dict[str, Any],
+    grid: dict[str, Any],
+    water: dict[str, Any] | None = None,
+    *,
+    min_strength: float = LANDSLIDE_MIN_STRENGTH,
+    mixed_band: float = 0.15,
+) -> LandslideMechanismClassification:
+    """Assign a single dominant landslide mechanism type per grid cell."""
+    strengths = landslide_mechanism_strengths(ctx, grid, water)
+    return classify_from_landslide_strengths(
+        strengths,
+        min_strength=min_strength,
+        mixed_band=mixed_band,
     )
 
 
