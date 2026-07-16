@@ -1019,11 +1019,22 @@ export default function MapMicroapp({
     setSelectedZone(asset);
     const map = mapRef.current;
     map.removeLayer(zl);
-    try {
-      const bounds = L.geoJSON(feature.geometry).getBounds();
-      if (bounds.isValid())
-        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
-    } catch {}
+    // Fit the view to the bairro. This effect fires while the panel is still
+    // opening (the container can have zero/stale size), so a single fitBounds
+    // computes the wrong zoom and leaves the user staring at the whole metro
+    // region (JVP video 2026-07-16). invalidateSize + staggered refits make it
+    // land once layout settles; the calls are idempotent.
+    const fitToBairro = () => {
+      try {
+        map.invalidateSize();
+        const bounds = L.geoJSON(feature.geometry).getBounds();
+        if (bounds.isValid())
+          map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+      } catch {}
+    };
+    fitToBairro();
+    setTimeout(fitToBairro, 350);
+    setTimeout(fitToBairro, 1000);
     setCompositeStep('assets');
     setLoading(true);
     setLoadingStatus(
@@ -2238,19 +2249,24 @@ export default function MapMicroapp({
             </div>
           )}
 
-        {/* Simple site mode, map path: one instruction, nothing else. */}
+        {/* Simple site mode, map path: one instruction, nothing else. Solid
+            card below the basemap toggle — the first translucent version was
+            unreadable over satellite imagery (JVP video 2026-07-16). */}
         {simpleSite &&
           compositeStep === 'assets' &&
           simpleChoice === 'map' &&
           !hasSite && (
-            <div className='absolute top-2 left-2 right-2 z-[900] bg-background/95 border rounded-lg px-3 py-2 text-xs text-center shadow'>
+            <div
+              className='absolute top-12 left-1/2 -translate-x-1/2 z-[900] bg-background border rounded-xl px-4 py-2.5 text-sm font-medium text-center shadow-lg max-w-[90%]'
+              data-testid='map-simple-tap-banner'
+            >
               📍{' '}
               {t('mapMicroapp.simpleTapToMark', {
                 defaultValue: 'Toque no lugar exato pra marcar',
-              })}{' '}
+              })}
               <button
                 onClick={() => setSimpleChoice('search')}
-                className='text-primary underline'
+                className='block w-full text-xs font-normal text-primary underline mt-0.5'
               >
                 {t('mapMicroapp.simpleOrSearch', {
                   defaultValue: 'ou buscar pelo nome',
