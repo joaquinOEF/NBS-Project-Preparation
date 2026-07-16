@@ -1315,7 +1315,7 @@ function buildFamiliaRecoItems(state: CboState, lang: string, modelItems?: Array
   const pct = (k: string) => Math.max(0, Math.min(100, parseInt(String(f[k]?.value ?? '0'), 10) || 0));
   const bairro = String(f.bairro?.value ?? '').split(',')[0].trim() || (lang === 'pt' ? 'seu bairro' : 'your neighborhood');
   const ranked = rankFamiliasForSite({
-    risks: { flood: pct('bairro_flood_pct'), heat: pct('bairro_heat_pct'), landslide: pct('bairro_landslide_pct') },
+    risks: { flood: pct('_bairro_flood_pct'), heat: pct('_bairro_heat_pct'), landslide: pct('_bairro_landslide_pct') },
     bairro,
     currentUse: String(f.current_use?.value ?? '') || undefined,
     siteName: String(f.site_name?.value ?? '') || undefined,
@@ -1402,13 +1402,17 @@ async function serveE2Checkpoint(
 
     if (sites.length === 0) {
       // CP: bairro confirmed (zone-only session) → the "tem um lugar?" fork.
+      // ALL zones persist in _bairros_json (a multi-bairro org picks which one
+      // the site is in later); the primary's risks seed the _pct fields until
+      // the site session pins them to the site's own bairro.
       const names = zones.map(z => z.name).join(', ');
       const z = zones[0];
       writeE2Fields(cboId, state, {
         bairro: names,
-        bairro_flood_pct: String(z.flood),
-        bairro_heat_pct: String(z.heat),
-        bairro_landslide_pct: String(z.landslide),
+        _bairros_json: JSON.stringify(zones),
+        _bairro_flood_pct: String(z.flood),
+        _bairro_heat_pct: String(z.heat),
+        _bairro_landslide_pct: String(z.landslide),
       }, pushEvent);
       say(`✓ **${names}** confirmado.`, `✓ **${names}** confirmed.`);
       ask(
@@ -1422,30 +1426,32 @@ async function serveE2Checkpoint(
       return finish('bairro-fork');
     }
 
-    // CP: site chosen → the site card + confirm.
+    // CP: site chosen → the site card + confirm. The site session's message
+    // carries the FOCUSED bairro's zone line — always prefer it: for a
+    // multi-bairro org it is the bairro the site is actually in, so the card
+    // and the recommendation use ITS risks (the _pct fields are re-pinned).
     const s = sites[sites.length - 1];
     const z = zones[0];
     writeE2Fields(cboId, state, {
-      ...(bairro ? {} : { bairro: z.name, bairro_flood_pct: String(z.flood), bairro_heat_pct: String(z.heat), bairro_landslide_pct: String(z.landslide) }),
+      ...(bairro ? {} : { bairro: z.name }),
+      _bairro_flood_pct: String(z.flood),
+      _bairro_heat_pct: String(z.heat),
+      _bairro_landslide_pct: String(z.landslide),
       site_name: s.name,
-      site_lat: String(s.lat),
-      site_lng: String(s.lng),
+      _site_lat: String(s.lat),
+      _site_lng: String(s.lng),
     }, pushEvent);
     const typeLabel = inferSiteTypeLabel(s.name, isPt ? 'pt' : 'en');
     pushEvent({
       type: 'show_site_card',
       card: {
         name: s.name,
-        bairro: bairro || z.name,
+        bairro: z.name,
         lat: s.lat,
         lng: s.lng,
         siteKind: s.kind,
         ...(typeLabel ? { siteTypeLabel: typeLabel } : {}),
-        risks: {
-          flood: bairro ? parseInt(val('bairro_flood_pct') || '0', 10) : z.flood,
-          heat: bairro ? parseInt(val('bairro_heat_pct') || '0', 10) : z.heat,
-          landslide: bairro ? parseInt(val('bairro_landslide_pct') || '0', 10) : z.landslide,
-        },
+        risks: { flood: z.flood, heat: z.heat, landslide: z.landslide },
       },
     } as any);
     ask('É isso mesmo?', 'Is that right?', [
@@ -1487,14 +1493,34 @@ async function serveE2Checkpoint(
     return finish('open-bairro-map');
   }
 
-  // "Tem um lugar" fork answers.
-  if (bairro && !siteName && (is(E2C.simTenho) || is(E2C.jaTenho))) {
+  // "Tem um lugar" fork answers. Multi-bairro orgs pick WHICH bairro the site
+  // is in first (one chip per bairro from _bairros_json); single-bairro orgs
+  // go straight to the focused map.
+  const storedBairros: Array<{ name: string; flood: number; heat: number; landslide: number }> = (() => {
+    try { return JSON.parse(val('_bairros_json') || '[]'); } catch { return []; }
+  })();
+  const openSiteMapOrPicker = (detail: string): true => {
+    if (storedBairros.length > 1) {
+      ask('Em qual bairro fica o lugar?', 'Which neighborhood is the place in?',
+        storedBairros.map(b => ({ pt: b.name, en: b.name })));
+      return finish(`${detail}-bairro-picker`);
+    }
     openMapPreset({ preset: 'e2_site_focused', focusZone: bairro.split(',')[0].trim() });
-    return finish('open-site-map');
+    return finish(detail);
+  };
+  if (bairro && !siteName && (is(E2C.simTenho) || is(E2C.jaTenho))) {
+    return openSiteMapOrPicker('open-site-map');
   }
   if (bairro && siteName && is(E2C.outroLugar)) {
-    openMapPreset({ preset: 'e2_site_focused', focusZone: bairro.split(',')[0].trim() });
-    return finish('open-site-map-again');
+    return openSiteMapOrPicker('open-site-map-again');
+  }
+  // Bairro-picker answer: the chip is one of the stored bairro names.
+  if (bairro && storedBairros.length > 1) {
+    const picked = storedBairros.find(b => msg === normChip(b.name));
+    if (picked) {
+      openMapPreset({ preset: 'e2_site_focused', focusZone: picked.name });
+      return finish('open-site-map-picked');
+    }
   }
   if (bairro && !siteName && is(E2C.aindaNao)) {
     say(
@@ -1535,7 +1561,7 @@ async function serveE2Checkpoint(
 
   // Site card confirmed → describe stage, first templated question (current use).
   if (siteName && !currentUse && is(E2C.confirmar)) {
-    writeE2Fields(cboId, state, { site_confirmed: 'yes' }, pushEvent);
+    writeE2Fields(cboId, state, { _site_confirmed: 'yes' }, pushEvent);
     ask('Como é esse lugar hoje?', 'What is this place like today?', E2_CURRENT_USE.map(o => ({ pt: o.pt, en: o.en })));
     return finish('ask-current-use');
   }
