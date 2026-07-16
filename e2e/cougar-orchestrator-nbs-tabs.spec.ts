@@ -98,6 +98,10 @@ test.describe('COUGAR — orchestrator NBS tabs', () => {
     const fichaDialog = page.getByTestId('nbs-solution-dialog');
     await expect(fichaDialog).toBeVisible();
     await expect(fichaDialog.getByText(/Quem precisa dizer sim|Who has to say yes/)).toBeVisible();
+    // Every ficha names its official sources — page-level citations plus the
+    // base MMA/GIZ/CNM documents the deck card came from (Aline, 2026-07-16).
+    await expect(fichaDialog.getByTestId('solution-sources')).toBeVisible();
+    await expect(fichaDialog.getByTestId('solution-sources')).toContainText(/MMA|GIZ|CNM/);
     await page.getByTestId('solution-type-content-bacia-de-retencao').click();
     await expect(fichaDialog).toBeHidden();
     const dialog = page.getByTestId('nbs-type-dialog');

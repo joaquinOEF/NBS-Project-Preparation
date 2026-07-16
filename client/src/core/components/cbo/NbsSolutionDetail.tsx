@@ -91,6 +91,18 @@ export function NbsSolutionDetail({
   const ficha = getSolutionFicha(solution.id);
   const copy: NbsFichaCopy | undefined = ficha?.[lang];
   const familia = getFamilia(solution.familiaId);
+  // Fontes = the ficha's page-level citations + the card's base documents
+  // (solution.source) that the ficha doesn't already cite — Vila Flores asked
+  // that the official publications behind the content always be named
+  // (Aline, biweekly 2026-07-16). Dedupe by issuing org (MMA/GIZ/CNM).
+  const fichaSources = ficha?.sources ?? [];
+  const deckDocs = solution.source
+    .split(' | ')
+    .filter(doc => {
+      const org = doc.split(' — ')[0].trim();
+      return org && !fichaSources.some(x => x.includes(org));
+    });
+  const allSources = [...fichaSources, ...deckDocs];
   const legacyType = solution.legacyTypeId
     ? NBS_INTERVENTION_TYPES.find(t => t.id === solution.legacyTypeId)
     : undefined;
@@ -166,9 +178,12 @@ export function NbsSolutionDetail({
         </button>
       )}
 
-      {ficha && ficha.sources.length > 0 && (
-        <p className='m-0 border-t border-border pt-2 text-[10px] leading-snug text-muted-foreground/80'>
-          {s.fontes}: {ficha.sources.join(' · ')}
+      {allSources.length > 0 && (
+        <p
+          className='m-0 border-t border-border pt-2 text-[10px] leading-snug text-muted-foreground/80'
+          data-testid='solution-sources'
+        >
+          {s.fontes}: {allSources.join(' · ')}
         </p>
       )}
     </div>
