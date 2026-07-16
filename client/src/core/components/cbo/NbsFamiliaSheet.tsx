@@ -137,7 +137,13 @@ export function NbsFamiliaSheet({
           {openSolution ? (
             <NbsSolutionDetail solution={openSolution} lang={lang} />
           ) : (
-            <>
+            // max-w + centered so a desktop-width drawer doesn't render one
+            // huge full-width column; the solutions live in a GRID (1-col on
+            // phones, 2 from sm) — grid cells are also what makes the card's
+            // h-full mean "equal row height" instead of "as tall as the whole
+            // sheet body" (JVP screenshot 2026-07-16: one viewport-tall card
+            // per solution, chips pushed to the bottom by mt-auto).
+            <div className='mx-auto w-full max-w-3xl space-y-3'>
               {familia && (
                 <p className='m-0 text-xs leading-relaxed text-muted-foreground'>
                   {familia[lang].description}
@@ -191,18 +197,20 @@ export function NbsFamiliaSheet({
                   </span>
                 </button>
               )}
-              {solutions.map(solution => (
-                <NbsSolutionCard
-                  key={solution.id}
-                  solution={solution}
-                  lang={lang}
-                  onOpenFicha={setOpenSolutionId}
-                />
-              ))}
+              <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+                {solutions.map(solution => (
+                  <NbsSolutionCard
+                    key={solution.id}
+                    solution={solution}
+                    lang={lang}
+                    onOpenFicha={setOpenSolutionId}
+                  />
+                ))}
+              </div>
               <p className='m-0 pb-2 text-[10px] leading-tight text-muted-foreground/70'>
                 {s.credit} · {s.estNote}
               </p>
-            </>
+            </div>
           )}
         </div>
 

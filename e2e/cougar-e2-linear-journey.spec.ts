@@ -87,6 +87,17 @@ test.describe('COUGAR — E2 linear journey (all checkpoints)', () => {
     await expect(page.getByText('acesso a esse espaço', { exact: false })).toBeVisible({ timeout: 8_000 });
     await chip('É da prefeitura, mas a gente usa').click();
     await expect(page.getByText('fotos do lugar', { exact: false })).toBeVisible({ timeout: 8_000 });
+
+    // Tenure landed → the checkpoint scored site_control itself (the model
+    // never runs in this path, so the old skill-driven scoring can't happen).
+    // public-informal without municipal awareness = 1 per the rubric.
+    await expect
+      .poll(async () => {
+        const body = await (await request.get(`/api/cbo/${cboId}`)).json();
+        const s = (body.state?.maturityScores ?? []).find((m: any) => m.metric === 'site_control');
+        return s?.score;
+      }, { timeout: 8_000 })
+      .toBe(1);
     await chip('Não tenho agora').click();
 
     // 8 · Famílias recommendation: ≥2 famílias, ranked, with example variants.
