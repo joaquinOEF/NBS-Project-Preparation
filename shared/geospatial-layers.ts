@@ -110,9 +110,10 @@ export const FLOOD_INDEX_LAYERS: TileLayerDef[] = [
   {
     // Catalog dataset_id: poa_flood_mechanism_type (class_lookup, 250 m).
     // Value tiles store class+1 so raw 0 can mean nodata — hence offset -1.
-    // Porto Alegre's raster only contains riverine, low-lying and mixed;
-    // pluvial and drainage_constrained never occur (drainage is a proxy until
-    // municipal drainage data exists).
+    // Raster regenerated 2026-07 (IDW gap-fill + open-water mask, see
+    // docs/poa_mechanism_type_layer.md); POA now contains none, riverine,
+    // pluvial, low-lying and mixed. Drainage constrained still never occurs
+    // (drainage is a proxy until municipal drainage data exists).
     id: 'poa_flood_mechanism', name: 'Flood Mechanism', group: 'flood_indices', color: '#7b3294',
     tileLayerId: 'poa_flood_mechanism', available: true, hasValueTiles: true,
     valueEncoding: {
@@ -132,6 +133,23 @@ export const HEAT_INDEX_LAYERS: TileLayerDef[] = [
     tileLayerId: 'poa_heat_hazard', available: true, hasValueTiles: true,
     valueEncoding: hazardIndexEncoding('heat', 'hazard'),
   },
+  {
+    // Catalog dataset_id: poa_heat_mechanism_type (class_lookup, 250 m).
+    // Same class+1 encoding as flood mechanism (raw 0 = nodata, offset -1);
+    // verified against the visual tiles 2026-07-16 (colour distance 0.0).
+    // POA raster contains every class except limited nocturnal cooling.
+    id: 'poa_heat_mechanism', name: 'Heat Mechanism', group: 'heat_indices', color: '#d73027',
+    tileLayerId: 'poa_heat_mechanism', available: true, hasValueTiles: true,
+    valueEncoding: {
+      type: 'categorical', offset: -1, nodata: 0,
+      urlTemplate: `${CLIMATE_HAZARDS_BASE}/heat/heat_mechanism/tiles_values/{z}/{x}/{y}.png`,
+      classes: {
+        0: 'Without clear dominant', 1: 'UHI built-up', 2: 'Shade deficit',
+        3: 'High daytime LST', 4: 'Limited nocturnal cooling',
+        5: 'High social exposure', 6: 'Mixed',
+      },
+    },
+  },
 ];
 
 // Landslide hazard overlay — catalog path is `landslides` (PLURAL, like `floods`).
@@ -140,6 +158,26 @@ export const LANDSLIDE_INDEX_LAYERS: TileLayerDef[] = [
     id: 'poa_landslide_hazard', name: 'Landslide Hazard', group: 'landslide_indices', color: '#a16207',
     tileLayerId: 'poa_landslide_hazard', available: true, hasValueTiles: true,
     valueEncoding: hazardIndexEncoding('landslides', 'hazard'),
+  },
+  {
+    // Catalog dataset_id: poa_landslide_mechanism_type (class_lookup, 90 m —
+    // NOT the 250 m grid; only pixels with landslide hazard > 0 are classified,
+    // so most of the city is nodata). Same class+1 encoding as flood mechanism;
+    // verified against the visual tiles 2026-07-16 (colour distance 0.0).
+    // POA raster contains steep activatable slope, rainfall trigger, vegetation
+    // deficit, drainage saturation and mixed.
+    id: 'poa_landslide_mechanism', name: 'Landslide Mechanism', group: 'landslide_indices', color: '#8c510a',
+    tileLayerId: 'poa_landslide_mechanism', available: true, hasValueTiles: true,
+    valueEncoding: {
+      type: 'categorical', offset: -1, nodata: 0,
+      urlTemplate: `${CLIMATE_HAZARDS_BASE}/landslides/landslide_mechanism/tiles_values/{z}/{x}/{y}.png`,
+      classes: {
+        0: 'Without clear dominant', 1: 'Steep activatable slope', 2: 'Rainfall trigger',
+        3: 'Low cohesion wet', 4: 'Vegetation deficit', 5: 'Drainage saturation',
+        6: 'Disturbed bare slope', 7: 'Upslope convergence',
+        8: 'High social exposure', 9: 'Mixed',
+      },
+    },
   },
 ];
 
