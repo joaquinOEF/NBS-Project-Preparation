@@ -242,6 +242,26 @@ export default function MapMicroapp({
   const isComposite = selectionMode === 'composite';
   const isBrowseOnly = selectionMode === 'browse-only';
 
+  // Simple site mode (E2 linear flow, focusZone sessions): the map does ONE
+  // thing — find the place. A chooser overlay offers "buscar pelo nome" or
+  // "marcar no mapa"; everything else (mode picker, stepper, lat/lng input,
+  // area drawing, selection trash) is hidden. One pin at a time: a new tap
+  // replaces the previous one.
+  const simpleSite = !!params.focusZone && isComposite;
+  const [simpleChoice, setSimpleChoice] = useState<'none' | 'search' | 'map'>(
+    'none'
+  );
+  // Known places INSIDE the bairro (parks/schools/wetlands from the OSM
+  // snapshots, clipped to the zone polygon) offered as one-tap picks in the
+  // chooser — most orgs' sites are a known praça or escola, so this beats both
+  // search and pin for the common case. null = not fetched yet.
+  const [bairroPlaces, setBairroPlaces] = useState<Array<{
+    name: string;
+    lat: number;
+    lng: number;
+    emoji: string;
+  }> | null>(null);
+
   // E2 guided hazard tour. tourLayers = the hazard tiles present, in flood→heat
   // →landslide order. tourIdx: 0..n-1 = touring that hazard (only it visible);
   // n = done (all visible, selection unlocked); -1 = tour off.
@@ -968,6 +988,126 @@ export default function MapMicroapp({
     setLoading(false);
   }, []);
 
+  // ── focusZone (E2 linear flow): open already inside the bairro ──────────────
+  // The site session starts where the bairro session ended: the named zone is
+  // pre-selected, the zone step skipped, the view fitted to the bairro. One-shot
+  // (ref latch); a name that matches no zone falls back to the normal zone step.
+  const focusZoneAppliedRef = useRef(false);
+  useEffect(() => {
+    if (focusZoneAppliedRef.current) return;
+    if (!params.focusZone || !isComposite || params.hazardTour) return;
+    if (!zonesLoaded || !mapReady || !mapRef.current) return;
+    const zl = zonesLayerRef.current;
+    if (!zl) return;
+    const want = params.focusZone.trim().toLowerCase();
+    let matched: { feature: any } | null = null;
+    zl.eachLayer((layer: any) => {
+      if (matched) return;
+      const p = layer.feature?.properties || {};
+      const name = p.neighbourhoodName || p.neighbourhood_name || p.zoneId;
+      if (typeof name === 'string' && name.trim().toLowerCase() === want) {
+        matched = { feature: layer.feature };
+      }
+    });
+    if (!matched) return;
+    const feature = (matched as { feature: any }).feature;
+    const p = feature.properties || {};
+    const centroid = geometryCentroid(feature.geometry);
+    if (!centroid) return;
+    focusZoneAppliedRef.current = true;
+    const asset: SelectedAsset = {
+      type: 'zone',
+      source: zoneSource,
+      name: p.neighbourhoodName || p.neighbourhood_name || p.zoneId,
+      geometry: feature.geometry,
+      coordinates: centroid,
+      properties: p,
+    };
+    setSelectedAssets(prev =>
+      prev.some(a => a.type === 'zone') ? prev : [...prev, asset]
+    );
+    setSelectedZone(asset);
+    const map = mapRef.current;
+    map.removeLayer(zl);
+    // Fit the view to the bairro. This effect fires while the panel is still
+    // opening (the container can have zero/stale size), so a single fitBounds
+    // computes the wrong zoom and leaves the user staring at the whole metro
+    // region (JVP video 2026-07-16). invalidateSize + staggered refits make it
+    // land once layout settles; the calls are idempotent.
+    const fitToBairro = () => {
+      try {
+        map.invalidateSize();
+        const bounds = L.geoJSON(feature.geometry).getBounds();
+        if (bounds.isValid())
+          map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+      } catch {}
+    };
+    fitToBairro();
+    setTimeout(fitToBairro, 350);
+    setTimeout(fitToBairro, 1000);
+    setCompositeStep('assets');
+    setLoading(true);
+    setLoadingStatus(
+      t('mapMicroapp.loadingSites', { defaultValue: 'Loading sites...' })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zonesLoaded, mapReady]);
+
+  // Simple site mode: fetch the bairro's known places for the chooser list.
+  // Ray-casting point-in-polygon — the zone geometry is small and this runs
+  // once per session; no need to pull turf in for it.
+  useEffect(() => {
+    if (!simpleSite || bairroPlaces !== null) return;
+    const zoneGeom = selectedZone?.geometry as any;
+    if (!zoneGeom?.coordinates) return;
+    const inRing = (pt: [number, number], ring: Array<[number, number]>) => {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [xi, yi] = ring[i];
+        const [xj, yj] = ring[j];
+        if (yi > pt[1] !== yj > pt[1] && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi)
+          inside = !inside;
+      }
+      return inside;
+    };
+    const inZone = (lng: number, lat: number): boolean => {
+      const polys: Array<Array<Array<[number, number]>>> =
+        zoneGeom.type === 'MultiPolygon' ? zoneGeom.coordinates : [zoneGeom.coordinates];
+      return polys.some(rings => inRing([lng, lat], rings[0]));
+    };
+    (async () => {
+      const SOURCES: Array<{ endpoint: string; emoji: string }> = [
+        { endpoint: '/api/osm/parks', emoji: '🌳' },
+        { endpoint: '/api/osm/schools', emoji: '🏫' },
+        { endpoint: '/api/osm/wetlands', emoji: '🌾' },
+      ];
+      const found: Array<{ name: string; lat: number; lng: number; emoji: string }> = [];
+      await Promise.all(
+        SOURCES.map(async src => {
+          try {
+            const res = await fetch(src.endpoint);
+            if (!res.ok) return;
+            const gj = await res.json();
+            for (const feat of gj?.features ?? []) {
+              const name = feat.properties?.name;
+              if (typeof name !== 'string' || !name.trim()) continue; // unnamed = not recognizable as "their" place
+              const c = geometryCentroid(feat.geometry);
+              if (!c || !inZone(c[1], c[0])) continue;
+              found.push({ name: name.trim(), lat: c[0], lng: c[1], emoji: src.emoji });
+            }
+          } catch {}
+        })
+      );
+      const seen = new Set<string>();
+      setBairroPlaces(
+        found
+          .filter(pl => (seen.has(pl.name) ? false : (seen.add(pl.name), true)))
+          .slice(0, 6)
+      );
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simpleSite, selectedZone, bairroPlaces]);
+
   // ── Toggle tile layer ───────────────────────────────────────────────────────
   // State-only: just flip membership in enabledTiles. The reconcile effect below
   // is the single place that adds/removes the actual Leaflet layers, so an
@@ -1396,6 +1536,22 @@ export default function MapMicroapp({
     onConfirm,
     enabledTiles,
   ]);
+  // E2 linear flow (confirmAtZone): the bairro session ends HERE — confirm the
+  // selected zone(s) only, no site step, no deferred marker (the site question
+  // is the chat's job, in its own later session).
+  const confirmZoneOnly = useCallback(() => {
+    onConfirm({
+      selectionMode,
+      selectedAssets: selectedAssets.filter(a => a.type === 'zone'),
+      sampledPoints: [],
+      enabledLayers: [
+        ...(params.layers || []),
+        ...Array.from(enabledTiles),
+        ...(params.spatialQueries || []),
+      ],
+      siteSource: 'user',
+    });
+  }, [selectedAssets, selectionMode, params, onConfirm, enabledTiles]);
   // No-site path (E2 "usar o bairro todo"): commit the neighborhood, mark the
   // site deferred. Keeps the zone, drops any site assets.
   const confirmDeferred = useCallback(() => {
@@ -1425,6 +1581,31 @@ export default function MapMicroapp({
     selectedHighlightsRef.current.forEach(hl => hl.remove());
     selectedHighlightsRef.current.clear();
   };
+
+  // Simple site mode: "Marcar no mapa" arms point-dropping and KEEPS it armed
+  // (the generic point handler disarms after each drop), so a second tap moves
+  // the pin instead of requiring a re-tap on a mode button.
+  const nonZoneCount = selectedAssets.filter(a => a.type !== 'zone').length;
+  useEffect(() => {
+    if (!simpleSite || simpleChoice !== 'map') return;
+    if (drawMode === 'off') setDrawMode('point');
+  }, [simpleSite, simpleChoice, drawMode]);
+  // Simple site mode is single-pin: keep only the newest non-zone asset and
+  // its marker (markers push in the same order the assets do).
+  useEffect(() => {
+    if (!simpleSite || nonZoneCount <= 1) return;
+    setSelectedAssets(prev => {
+      const zones = prev.filter(a => a.type === 'zone');
+      const others = prev.filter(a => a.type !== 'zone');
+      return [...zones, others[others.length - 1]];
+    });
+    const map = mapRef.current;
+    while (customMarkersRef.current.length > 1) {
+      const old = customMarkersRef.current.shift();
+      if (old && map) map.removeLayer(old);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simpleSite, nonZoneCount]);
 
   const totalSelections = selectedAssets.length + sampledPoints.length;
   const availableTileLayers = (params.tileLayers || [])
@@ -1505,11 +1686,13 @@ export default function MapMicroapp({
       </div>
 
       {/* Prominent point-vs-area control — CBO site step. Replaces the tiny draw
-          chips so "draw the area" is clearly available, not just a point. */}
+          chips so "draw the area" is clearly available, not just a point.
+          Hidden in simple site mode: the chooser overlay is the only control. */}
       {params.allowDeferSite &&
         isComposite &&
         compositeStep === 'assets' &&
-        !tourActive && (
+        !tourActive &&
+        !simpleSite && (
           <div className='px-3 py-2 border-b bg-muted/10 shrink-0'>
             <p className='text-[10px] text-muted-foreground mb-1'>
               {t('mapMicroapp.siteHowToMark', {
@@ -1567,8 +1750,9 @@ export default function MapMicroapp({
           </div>
         )}
 
-      {/* Stepper bar (composite mode) — hidden during the hazard tour */}
-      {!tourActive && isComposite && (
+      {/* Stepper bar (composite mode) — hidden during the hazard tour, and in
+          simple site mode (there is no step 1 to go back to). */}
+      {!tourActive && isComposite && !simpleSite && (
         <div className='flex items-center gap-2 px-3 py-1.5 border-b bg-muted/20 shrink-0'>
           <button
             onClick={compositeStep === 'assets' ? backToZones : undefined}
@@ -1711,7 +1895,7 @@ export default function MapMicroapp({
               </Button>
             </>
           )}
-          {totalSelections > 0 && (
+          {totalSelections > 0 && !simpleSite && (
             <Button
               variant='ghost'
               size='sm'
@@ -1726,8 +1910,9 @@ export default function MapMicroapp({
 
       {/* Add-your-own-site panel (assets step) — search by name or coordinate
           for sites the OSM suggestions miss. Mobile-friendly: collapsed to a
-          single chip until tapped. */}
-      {canDraw && (
+          single chip until tapped. Simple site mode has its own search in the
+          chooser overlay instead. */}
+      {canDraw && !simpleSite && (
         <div className='border-b bg-muted/10 shrink-0'>
           {!addSiteOpen ? (
             <button
@@ -2013,6 +2198,169 @@ export default function MapMicroapp({
             </div>
           </div>
         )}
+
+        {/* Simple site mode — the chooser overlay: ONE question, two big
+            buttons; the search lives here too. Gone the moment a site exists. */}
+        {simpleSite &&
+          compositeStep === 'assets' &&
+          !tourActive &&
+          !hasSite &&
+          simpleChoice !== 'map' && (
+            <div className='absolute inset-0 z-[950] flex items-center justify-center bg-black/25 p-4'>
+              <div
+                className='bg-background rounded-xl shadow-xl border p-4 w-full max-w-xs space-y-2'
+                data-testid='map-simple-chooser'
+              >
+                {simpleChoice === 'none' ? (
+                  <>
+                    <p className='text-sm font-medium text-center'>
+                      {t('mapMicroapp.simpleHowFind', {
+                        defaultValue: 'Como você quer achar o lugar?',
+                      })}
+                    </p>
+                    <Button
+                      className='w-full h-11 gap-2 text-sm'
+                      onClick={() => setSimpleChoice('search')}
+                      data-testid='map-simple-search'
+                    >
+                      <Search className='w-4 h-4' />
+                      {t('mapMicroapp.simpleSearchName', {
+                        defaultValue: 'Buscar pelo nome',
+                      })}
+                    </Button>
+                    <Button
+                      variant='outline'
+                      className='w-full h-11 gap-2 text-sm'
+                      onClick={() => setSimpleChoice('map')}
+                      data-testid='map-simple-pin'
+                    >
+                      <MapPin className='w-4 h-4' />
+                      {t('mapMicroapp.simplePinMap', {
+                        defaultValue: 'Marcar no mapa',
+                      })}
+                    </Button>
+                    {(bairroPlaces?.length ?? 0) > 0 && (
+                      <div className='pt-1' data-testid='map-simple-places'>
+                        <p className='text-[10px] uppercase tracking-wide text-muted-foreground text-center mb-1'>
+                          {t('mapMicroapp.simpleKnownPlaces', {
+                            defaultValue: 'ou toca num lugar conhecido do bairro',
+                          })}
+                        </p>
+                        <div className='max-h-36 overflow-y-auto space-y-0.5'>
+                          {bairroPlaces!.map((pl, i) => (
+                            <button
+                              key={i}
+                              onClick={() => addCustomSite(pl.lat, pl.lng, pl.name)}
+                              data-testid={`map-simple-place-${i}`}
+                              className='flex items-center gap-2 w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted/60'
+                            >
+                              <span className='shrink-0'>{pl.emoji}</span>
+                              <span className='truncate'>{pl.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className='flex items-center gap-1.5'>
+                      <button
+                        onClick={() => setSimpleChoice('none')}
+                        className='text-muted-foreground px-1'
+                        data-testid='map-simple-back'
+                      >
+                        ←
+                      </button>
+                      <Input
+                        value={siteQuery}
+                        onChange={e => setSiteQuery(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') searchSites();
+                        }}
+                        placeholder={t('mapMicroapp.searchPlaceholder', {
+                          defaultValue: 'Search a place name…',
+                        })}
+                        className='h-9 text-sm'
+                        data-testid='map-simple-search-input'
+                        autoFocus
+                      />
+                      <Button
+                        size='sm'
+                        className='h-9 text-xs'
+                        onClick={searchSites}
+                        disabled={siteSearching || !siteQuery.trim()}
+                        data-testid='map-simple-search-btn'
+                      >
+                        {siteSearching ? (
+                          <Loader2 className='w-3 h-3 animate-spin' />
+                        ) : (
+                          t('mapMicroapp.search', { defaultValue: 'Search' })
+                        )}
+                      </Button>
+                    </div>
+                    {siteResults.length > 0 && (
+                      <div
+                        className='max-h-40 overflow-y-auto space-y-0.5'
+                        data-testid='map-simple-results'
+                      >
+                        {siteResults.map((r, i) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              addCustomSite(r.centroid[0], r.centroid[1], r.name);
+                              setSiteResults([]);
+                              setSiteQuery('');
+                            }}
+                            data-testid={`map-simple-result-${i}`}
+                            className='flex items-center gap-1.5 w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted/60'
+                          >
+                            <MapPin className='w-3 h-3 text-primary shrink-0' />
+                            <span className='truncate'>{r.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setSimpleChoice('map')}
+                      className='w-full text-center text-xs text-primary underline pt-1'
+                      data-testid='map-simple-notfound'
+                    >
+                      {t('mapMicroapp.simpleNotFound', {
+                        defaultValue: 'Não achei — prefiro marcar no mapa',
+                      })}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+        {/* Simple site mode, map path: one instruction, nothing else. Solid
+            card below the basemap toggle — the first translucent version was
+            unreadable over satellite imagery (JVP video 2026-07-16). */}
+        {simpleSite &&
+          compositeStep === 'assets' &&
+          simpleChoice === 'map' &&
+          !hasSite && (
+            <div
+              className='absolute top-12 left-1/2 -translate-x-1/2 z-[900] bg-background border rounded-xl px-4 py-2.5 text-sm font-medium text-center shadow-lg max-w-[90%]'
+              data-testid='map-simple-tap-banner'
+            >
+              📍{' '}
+              {t('mapMicroapp.simpleTapToMark', {
+                defaultValue: 'Toque no lugar exato pra marcar',
+              })}
+              <button
+                onClick={() => setSimpleChoice('search')}
+                className='block w-full text-xs font-normal text-primary underline mt-0.5'
+              >
+                {t('mapMicroapp.simpleOrSearch', {
+                  defaultValue: 'ou buscar pelo nome',
+                })}
+              </button>
+            </div>
+          )}
       </div>
 
       {/* Selection list */}
@@ -2020,6 +2368,9 @@ export default function MapMicroapp({
         <div className='border-t px-3 py-1.5 max-h-20 overflow-y-auto shrink-0'>
           <div className='flex flex-wrap gap-1'>
             {selectedAssets.map((asset, i) => {
+              // Simple site mode: the bairro is a fixed frame, not a removable
+              // selection — only the picked place shows as a chip.
+              if (simpleSite && asset.type === 'zone') return null;
               const visual = asset.source ? OSM_VISUALS[asset.source] : null;
               return (
                 <Badge
@@ -2108,17 +2459,17 @@ export default function MapMicroapp({
               size='sm'
               className='h-7 text-xs'
               data-testid={
-                isComposite && compositeStep === 'assets'
+                isComposite && compositeStep === 'assets' && !params.focusZone
                   ? 'map-back-to-zones'
                   : 'map-cancel'
               }
               onClick={
-                isComposite && compositeStep === 'assets'
+                isComposite && compositeStep === 'assets' && !params.focusZone
                   ? backToZones
                   : onCancel
               }
             >
-              {isComposite && compositeStep === 'assets'
+              {isComposite && compositeStep === 'assets' && !params.focusZone
                 ? '← ' +
                   (isNeighborhoods
                     ? t('mapMicroapp.neighborhood')
@@ -2126,15 +2477,32 @@ export default function MapMicroapp({
                 : t('mapMicroapp.cancel')}
             </Button>
             {isComposite && compositeStep === 'zone' ? (
-              <Button
-                size='sm'
-                className='h-7 text-xs gap-1 flex-1'
-                onClick={advanceToAssets}
-                disabled={!selectedAssets.some(a => a.type === 'zone')}
-              >
-                {t('mapMicroapp.nextSites')}{' '}
-                <ChevronRight className='w-3 h-3' />
-              </Button>
+              params.confirmAtZone ? (
+                /* E2 linear flow: the bairro session ends at the zone step —
+                   no "Próximo (sites)", the site gets its own session. */
+                <Button
+                  size='sm'
+                  className='h-7 text-xs gap-1 flex-1'
+                  onClick={confirmZoneOnly}
+                  disabled={!selectedAssets.some(a => a.type === 'zone')}
+                  data-testid='map-confirm-bairro'
+                >
+                  <Check className='w-3 h-3' />{' '}
+                  {t('mapMicroapp.confirmBairro', {
+                    defaultValue: 'Confirmar bairro',
+                  })}
+                </Button>
+              ) : (
+                <Button
+                  size='sm'
+                  className='h-7 text-xs gap-1 flex-1'
+                  onClick={advanceToAssets}
+                  disabled={!selectedAssets.some(a => a.type === 'zone')}
+                >
+                  {t('mapMicroapp.nextSites')}{' '}
+                  <ChevronRight className='w-3 h-3' />
+                </Button>
+              )
             ) : isComposite &&
               compositeStep === 'assets' &&
               params.allowDeferSite ? (
@@ -2149,7 +2517,26 @@ export default function MapMicroapp({
                   data-testid='map-confirm-site'
                 >
                   <Check className='w-3 h-3' />{' '}
-                  {t('mapMicroapp.confirm', { count: totalSelections })}
+                  {simpleSite
+                    ? t('mapMicroapp.confirmPlace', {
+                        defaultValue: 'Confirmar lugar',
+                      })
+                    : t('mapMicroapp.confirm', { count: totalSelections })}
+                </Button>
+              ) : params.focusZone ? (
+                /* Focused site session (E2 linear): the user already said they
+                   HAVE a place — no whole-bairro escape here; the "don't have a
+                   site" paths (pedir apoio / voltar depois) live in the chat. */
+                <Button
+                  size='sm'
+                  className='h-7 text-xs gap-1 flex-1'
+                  disabled
+                  data-testid='map-confirm-site'
+                >
+                  <Check className='w-3 h-3' />{' '}
+                  {t('mapMicroapp.confirmPlace', {
+                    defaultValue: 'Confirmar lugar',
+                  })}
                 </Button>
               ) : (
                 <Button

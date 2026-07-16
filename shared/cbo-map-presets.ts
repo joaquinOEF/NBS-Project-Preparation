@@ -22,7 +22,12 @@
 
 import type { OpenMapParams } from './concept-note-schema';
 
-export type CboMapPresetId = 'e2_risk_tour' | 'e2_site' | 'e2_browse';
+export type CboMapPresetId =
+  | 'e2_risk_tour'
+  | 'e2_site'
+  | 'e2_browse'
+  | 'e2_bairro'
+  | 'e2_site_focused';
 
 /** The OSM place types a CBO picks their intervention site from, in step 2. */
 const E2_OSM_LAYERS = ['osm_parks', 'osm_schools', 'osm_wetlands', 'osm_hospitals'];
@@ -70,6 +75,48 @@ const PRESETS: Record<CboMapPresetId, PresetDef> = {
     prompt: {
       pt: 'Marque o bairro e o lugar onde vocês atuam.',
       en: 'Mark the neighborhood and the place where you work.',
+    },
+  },
+
+  // ── E2 linear flow (chat → mapa → chat) ────────────────────────────────────
+  // The old composite session did three jobs in one map open (tour → bairro →
+  // site) and returned one blob. The linear flow splits it: each open does ONE
+  // job and the chat (server-templated checkpoints) is the spine between them.
+
+  // Map 1 — understand the risks, mark the bairro, done. The tour runs first;
+  // confirmAtZone ends the session right after the neighborhood pick (no site
+  // step, no hazard rasters over the selection choropleth — they're off
+  // post-tour already).
+  e2_bairro: {
+    params: {
+      selectionMode: 'composite',
+      zoneSource: 'neighborhood_zones',
+      tileLayers: E2_HAZARD_TILES,
+      showLegendSimple: true,
+      hazardTour: true,
+      allowDeferSite: true,
+      confirmAtZone: true,
+    },
+    prompt: {
+      pt: 'Conheça os riscos e marque o bairro onde vocês atuam.',
+      en: 'Get to know the risks, then mark the neighborhood where you work.',
+    },
+  },
+
+  // Map 2 — just the place. Opens already inside the confirmed bairro
+  // (focusZone is passed as an override with the saved name): satellite, other
+  // bairros hidden, NO hazard tiles, and no OSM icon layers either — the
+  // chooser overlay (buscar pelo nome / marcar no mapa) is the only affordance.
+  e2_site_focused: {
+    params: {
+      selectionMode: 'composite',
+      zoneSource: 'neighborhood_zones',
+      hazardTour: false,
+      allowDeferSite: true,
+    },
+    prompt: {
+      pt: 'Marque o lugar exato onde vocês querem atuar.',
+      en: 'Mark the exact place where you want to work.',
     },
   },
 
