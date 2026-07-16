@@ -52,6 +52,22 @@ test.describe('COUGAR — orchestrator NBS tabs', () => {
     expect(await page.locator('[data-testid^="familia-section-"]').count()).toBe(5);
     expect(await page.locator('[data-testid^="solution-card-"]').count()).toBe(27);
 
+    // Filter chips (Julia, biweekly 2026-07-16): "mutirão" narrows the catalog
+    // to the community-buildable subset; counts stay structural because the
+    // delivery classification is pending Robson's review.
+    await page.getByTestId('solution-filter-mutirao').click();
+    const mutiraoCount = await page.locator('[data-testid^="solution-card-"]').count();
+    expect(mutiraoCount).toBeGreaterThan(0);
+    expect(mutiraoCount).toBeLessThan(27);
+    await expect(page.getByTestId('solution-card-jardins-de-chuva')).toBeVisible();
+    await expect(page.getByTestId('solution-card-bacia-de-retencao')).toHaveCount(0); // licença
+    // AND with cost; then clear both — the full catalog returns.
+    await page.getByTestId('solution-filter-lowcost').click();
+    expect(await page.locator('[data-testid^="solution-card-"]').count()).toBeLessThanOrEqual(mutiraoCount);
+    await page.getByTestId('solution-filter-mutirao').click();
+    await page.getByTestId('solution-filter-lowcost').click();
+    expect(await page.locator('[data-testid^="solution-card-"]').count()).toBe(27);
+
     // Each família shows its ANTES/DEPOIS croqui pair BESIDE the variants in a
     // sticky paper panel with eyebrow labels separating "schematic drawing"
     // from "real photos"; clicking enlarges the pair in the lightbox.

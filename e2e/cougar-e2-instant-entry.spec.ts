@@ -43,6 +43,16 @@ test.describe('COUGAR — instant E2 entry', () => {
     await expect(sheet).toBeVisible();
     expect(await sheet.locator('[data-testid^="solution-card-"]').count()).toBe(11);
 
+    // Filter chips inside the sheet (Julia, biweekly 2026-07-16): "mutirão"
+    // narrows to the community-buildable variants; clearing restores all 11.
+    await sheet.getByTestId('solution-filter-mutirao').click();
+    const mutiraoOnly = await sheet.locator('[data-testid^="solution-card-"]').count();
+    expect(mutiraoOnly).toBeGreaterThan(0);
+    expect(mutiraoOnly).toBeLessThan(11);
+    await expect(sheet.getByTestId('solution-card-bacia-de-retencao')).toHaveCount(0); // licença
+    await sheet.getByTestId('solution-filter-mutirao').click();
+    expect(await sheet.locator('[data-testid^="solution-card-"]').count()).toBe(11);
+
     // The sheet opens with the ANTES/DEPOIS croqui pair + captions (the
     // teaching moment); tapping it enlarges the pair with the Register-2
     // "ilustração esquemática" disclosure.

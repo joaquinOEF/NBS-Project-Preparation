@@ -18,6 +18,14 @@ import { NbsSolutionDetail } from './NbsSolutionDetail';
 import { NbsShowcaseCardItem } from './NbsShowcaseCard';
 import { CroquiLightbox } from './CroquiLightbox';
 import type { CroquiLightboxContent } from './CroquiLightbox';
+import {
+  EMPTY_SOLUTION_FILTER,
+  NbsSolutionFilterChips,
+  filterSolutions,
+  isFilterActive,
+  solutionFilterEmptyText,
+  type SolutionFilter,
+} from './NbsSolutionFilterChips';
 
 const GRID = 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3';
 const STRINGS = {
@@ -47,16 +55,35 @@ export function NbsSolutionsGrid({ lang }: { lang: 'pt' | 'en' }) {
   );
   const [openSolutionId, setOpenSolutionId] = useState<string | null>(null);
   const [croqui, setCroqui] = useState<CroquiLightboxContent | null>(null);
+  const [filter, setFilter] = useState<SolutionFilter>(EMPTY_SOLUTION_FILTER);
   const s = STRINGS[lang];
   const openSolution = openSolutionId ? getSolution(openSolutionId) : undefined;
   const typeIds = NBS_INTERVENTION_TYPES.filter(
     t => NBS_TYPE_CONTENT[t.id]
   ).map(t => t.id);
+  const anyVisible = NBS_FAMILIAS.some(
+    f => filterSolutions(solutionsForFamilia(f.id), filter).length > 0
+  );
 
   return (
     <div className='space-y-8'>
+      {/* Catalog-wide "o que a gente consegue fazer?" filter (Julia, biweekly
+          2026-07-16) — famílias with no matching solution collapse away. */}
+      <NbsSolutionFilterChips value={filter} onChange={setFilter} lang={lang} />
+      {isFilterActive(filter) && !anyVisible && (
+        <p
+          className='m-0 rounded-lg bg-muted px-3 py-4 text-center text-xs text-muted-foreground'
+          data-testid='solution-filter-empty'
+        >
+          {solutionFilterEmptyText(lang)}
+        </p>
+      )}
       {NBS_FAMILIAS.map(familia => {
-        const solutions = solutionsForFamilia(familia.id);
+        const solutions = filterSolutions(
+          solutionsForFamilia(familia.id),
+          filter
+        );
+        if (solutions.length === 0) return null;
         return (
           <section
             key={familia.id}

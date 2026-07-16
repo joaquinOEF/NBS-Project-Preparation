@@ -22,6 +22,14 @@ import { getFamilia, getSolution, solutionsForFamilia } from '@shared/nbs-catalo
 import { NbsSolutionCard } from './NbsSolutionCard';
 import { NbsSolutionDetail } from './NbsSolutionDetail';
 import { CroquiLightbox } from './CroquiLightbox';
+import {
+  EMPTY_SOLUTION_FILTER,
+  NbsSolutionFilterChips,
+  filterSolutions,
+  isFilterActive,
+  solutionFilterEmptyText,
+  type SolutionFilter,
+} from './NbsSolutionFilterChips';
 
 const STRINGS = {
   pt: {
@@ -60,12 +68,14 @@ export function NbsFamiliaSheet({
   const bodyRef = useRef<HTMLDivElement>(null);
   const [openSolutionId, setOpenSolutionId] = useState<string | null>(null);
   const [croquiOpen, setCroquiOpen] = useState(false);
+  const [filter, setFilter] = useState<SolutionFilter>(EMPTY_SOLUTION_FILTER);
   const familia = openFamiliaId ? getFamilia(openFamiliaId) : undefined;
   const solutions = openFamiliaId ? solutionsForFamilia(openFamiliaId) : [];
+  const visibleSolutions = filterSolutions(solutions, filter);
   const openSolution = openSolutionId ? getSolution(openSolutionId) : undefined;
 
   // Fresh view state per família; scroll back to top on list ⇄ detail swaps.
-  useEffect(() => { setOpenSolutionId(null); }, [openFamiliaId]);
+  useEffect(() => { setOpenSolutionId(null); setFilter(EMPTY_SOLUTION_FILTER); }, [openFamiliaId]);
   useEffect(() => { bodyRef.current?.scrollTo(0, 0); }, [openSolutionId]);
 
   const handleOpenChange = useCallback(
@@ -197,8 +207,22 @@ export function NbsFamiliaSheet({
                   </span>
                 </button>
               )}
+              {/* "O que a gente consegue fazer?" — filters over the delivery/
+                  cost attributes the cards already badge (Julia, biweekly
+                  2026-07-16). Sticky so the chips survive the scroll. */}
+              <div className='sticky top-0 z-10 -mx-1 bg-background px-1 pb-2 pt-1'>
+                <NbsSolutionFilterChips value={filter} onChange={setFilter} lang={lang} />
+              </div>
+              {isFilterActive(filter) && visibleSolutions.length === 0 && (
+                <p
+                  className='m-0 rounded-lg bg-muted px-3 py-4 text-center text-xs text-muted-foreground'
+                  data-testid='solution-filter-empty'
+                >
+                  {solutionFilterEmptyText(lang)}
+                </p>
+              )}
               <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
-                {solutions.map(solution => (
+                {visibleSolutions.map(solution => (
                   <NbsSolutionCard
                     key={solution.id}
                     solution={solution}
