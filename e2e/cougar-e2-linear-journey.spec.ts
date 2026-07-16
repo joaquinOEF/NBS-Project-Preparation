@@ -38,6 +38,11 @@ const LANGS = [
     noPhotos: 'Não tenho agora',
     exampleMark: 'ex.:',
     makesSense: 'Faz sentido',
+    interestText: 'famílias vocês teriam interesse',
+    interestPick: 'Infraestrutura Verde Urbana',
+    roleText: 'vocês gostariam de ter nesses projetos',
+    rolePick: 'Executar / implementar',
+    doneList: 'Pronto ✓',
     closingText: 'por onde começar a estudar',
   },
   {
@@ -63,6 +68,11 @@ const LANGS = [
     noPhotos: "I don't have any right now",
     exampleMark: 'e.g.:',
     makesSense: 'Makes sense',
+    interestText: 'famílias would you be interested',
+    interestPick: 'Urban Green Infrastructure',
+    roleText: 'would you like to play in these projects',
+    rolePick: 'Implement on the ground',
+    doneList: 'Done ✓',
     closingText: 'where to start studying',
   },
 ] as const;
@@ -164,8 +174,16 @@ for (const L of LANGS) {
       expect(await reco.locator('[data-testid^="familia-reco-"]').count()).toBeGreaterThanOrEqual(2);
       await expect(reco.getByText(L.exampleMark, { exact: false }).first()).toBeVisible();
 
-      // 9 · Close.
+      // 9 · Interest + role loops (the Aug-12 biweekly commitment), then close.
       await chip(L.makesSense).click();
+      await expect(page.getByText(L.interestText, { exact: false })).toBeVisible({ timeout: 8_000 });
+      await chip(L.interestPick).click();
+      await expect(chip(L.doneList)).toBeVisible({ timeout: 8_000 });
+      await chip(L.doneList).click();
+      await expect(page.getByText(L.roleText, { exact: false })).toBeVisible({ timeout: 8_000 });
+      await chip(L.rolePick).click();
+      await expect(chip(L.doneList)).toBeVisible({ timeout: 8_000 });
+      await chip(L.doneList).click();
       await expect(page.getByText(L.closingText, { exact: false })).toBeVisible({ timeout: 8_000 });
 
       // 10 · Reload: the site card and the recommendation are composer-persisted.
