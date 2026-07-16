@@ -105,11 +105,13 @@ under-construction; land_tenure: private-owned | formal-agreement |
 public-informal | public-no-access | mixed), then continue by re-asking the
 NEXT pending checkpoint question with its exact labels. When unclear, ask.
 
-## Scoring — site_control (now active)
+## Scoring — site_control (now active, scored by the platform)
 
-When `land_tenure` lands (you'll see it in CURRENT STATE), if you are handling
-a turn afterwards, call `score_maturity('site_control', …)` per the rubric —
-1-sentence Portuguese justification:
+The tenure checkpoint scores `site_control` automatically the moment
+`land_tenure` lands — you do NOT need to score it in the normal flow. Call
+`score_maturity('site_control', …)` only when the situation CHANGES through
+you (the user corrects their tenure answer, or reveals municipal awareness
+that upgrades a `public-informal` from 1 to 2). Rubric:
 
 ```
 SITE_CONTROL (0-3)

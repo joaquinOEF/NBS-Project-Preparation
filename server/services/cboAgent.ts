@@ -1552,6 +1552,26 @@ async function serveE2Checkpoint(
     const tenureHit = E2_TENURE.find(o => is(o));
     if (tenureHit) {
       writeE2Fields(cboId, state, { land_tenure: tenureHit.id }, pushEvent);
+      // Score site_control HERE — the rubric is pure land_tenure, and in the
+      // happy path every remaining turn is a template, so the model (which
+      // used to do this scoring) never runs. public-informal scores 1, not 2:
+      // the 2 requires municipal awareness we haven't asked about — the model
+      // may raise it later if the conversation surfaces it.
+      const score = tenureHit.id === 'private-owned' || tenureHit.id === 'formal-agreement' ? 3
+        : tenureHit.id === 'mixed' ? 2 : 1;
+      const just: Record<string, { pt: string; en: string }> = {
+        'private-owned': { pt: 'A organização é dona do terreno.', en: 'The organization owns the land.' },
+        'formal-agreement': { pt: 'Acesso garantido por acordo formal.', en: 'Access secured by a formal agreement.' },
+        'mixed': { pt: 'Situação de posse mista — detalhes a verificar.', en: 'Mixed tenure — details to verify.' },
+        'public-informal': { pt: 'Uso informal de área pública, sem documento.', en: 'Informal use of public land, no document.' },
+        'public-no-access': { pt: 'Área pública sem acesso garantido.', en: 'Public land without guaranteed access.' },
+      };
+      state.maturityScores = state.maturityScores.filter(s => s.metric !== 'site_control');
+      state.maturityScores.push({ metric: 'site_control', score, justification: (isPt ? just[tenureHit.id]?.pt : just[tenureHit.id]?.en) ?? '' });
+      state.totalMaturityScore = state.maturityScores.reduce((sum, s) => sum + s.score, 0);
+      setCboState(cboId, state);
+      debouncedPersist(cboId);
+      pushEvent({ type: 'maturity_update', scores: state.maturityScores, total: state.totalMaturityScore, flags: state.priorityFlags } as any);
       say(
         'Boa! Antes de fechar: você tem **fotos do lugar**, uma proposta, plantas? Toca no 📎 aqui embaixo e anexa — eu leio e uso nos próximos encontros.',
         'Great! Before we close: do you have **photos of the place**, a proposal, plans? Tap the 📎 below and attach them — I read them and use them in the next encontros.',
