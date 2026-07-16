@@ -14,6 +14,38 @@ interface Props {
   mapReady: boolean;
 }
 
+// ── Mixed-cell composition for mechanism layers ──────────────────────────────
+// The mechanism rasters only store the dominant class; for "Mixed" pixels the
+// server reduces the per-cell GeoJSON to [bbox, tied labels] per mixed cell
+// (/api/geospatial/mechanism-mix/:hazard, ~100–350 KB per hazard). Loaded once
+// per hazard when a mechanism layer is enabled; module-level so all maps share
+// it. Cells absent from the index (IDW gap-fill) show plain "Mixed".
+interface MixCell { b: [number, number, number, number]; m: string[] }
+const mixIndexCache = new Map<string, Promise<MixCell[]>>();
+
+function loadMixIndex(hazard: string): Promise<MixCell[]> {
+  let promise = mixIndexCache.get(hazard);
+  if (!promise) {
+    promise = fetch(`/api/geospatial/mechanism-mix/${hazard}`)
+      .then(r => (r.ok ? r.json() : { cells: [] }))
+      .then(d => d.cells ?? [])
+      .catch(() => {
+        mixIndexCache.delete(hazard); // let a later hover retry
+        return [];
+      });
+    mixIndexCache.set(hazard, promise);
+  }
+  return promise;
+}
+
+function lookupMixedComposition(cells: MixCell[], lat: number, lng: number): string[] | null {
+  for (const cell of cells) {
+    const [w, s, e, n] = cell.b;
+    if (lng >= w && lng <= e && lat >= s && lat <= n) return cell.m;
+  }
+  return null;
+}
+
 interface TooltipState {
   x: number;
   y: number;
@@ -27,6 +59,18 @@ export default function ValueTooltip({ mapRef, enabledLayers, mapReady }: Props)
   const activeValueLayers = enabledLayers.filter(
     (l) => l.hasValueTiles && l.valueEncoding?.urlTemplate
   );
+
+  // Prefetch the mixed-composition index as soon as a mechanism layer is on,
+  // so the first "Mixed" hover doesn't wait on the network.
+  const activeMechanismHazards = activeValueLayers
+    .map((l) => l.mechanismHazard)
+    .filter((h): h is NonNullable<typeof h> => !!h)
+    .join(",");
+  useEffect(() => {
+    for (const hazard of activeMechanismHazards.split(",").filter(Boolean)) {
+      loadMixIndex(hazard);
+    }
+  }, [activeMechanismHazards]);
 
   const handleMouseMove = useCallback(
     async (e: L.LeafletMouseEvent) => {
@@ -61,8 +105,18 @@ export default function ValueTooltip({ mapRef, enabledLayers, mapReady }: Props)
             if (!imgData) continue;
 
             const [r, g, b, a] = samplePixel(imgData, px, py);
-            const decoded = decodePixelDisplay(r, g, b, a, enc);
+            let decoded = decodePixelDisplay(r, g, b, a, enc);
             if (decoded === null) continue;
+
+            // Mechanism layers: expand "Mixed" into its tied mechanisms.
+            if (decoded === "Mixed" && layer.mechanismHazard) {
+              const mix = lookupMixedComposition(
+                await loadMixIndex(layer.mechanismHazard),
+                lat,
+                lng
+              );
+              if (mix) decoded = `Mixed (${mix.join(" + ")})`;
+            }
 
             lines.push({
               label: layer.name,

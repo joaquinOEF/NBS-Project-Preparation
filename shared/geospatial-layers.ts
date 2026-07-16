@@ -49,7 +49,30 @@ export interface TileLayerDef {
   // proxy — e.g. the local pre-rendered risk tiles under client/public/tiles/.
   // When absent, the proxy path `/api/geospatial/tiles/{tileLayerId}/…` is used.
   visualUrlTemplate?: string;
+  // Set on the poa_<haz>_mechanism layers. The raster only stores the dominant
+  // class, so a "Mixed" pixel says nothing about WHICH mechanisms are tied.
+  // That detail lives in the per-cell GeoJSON on S3; the ValueTooltip resolves
+  // it through /api/geospatial/mechanism-mix/{mechanismHazard} on hover.
+  mechanismHazard?: 'flood' | 'heat' | 'landslide';
 }
+
+// snake_case mechanism keys (GeoJSON property names / nbs_rules.py identifiers)
+// → the display labels used in valueEncoding.classes. Shared so the
+// mechanism-mix endpoint and the class labels can't drift apart.
+export const MECHANISM_KEY_LABELS: Record<string, string> = {
+  // flood
+  riverine: 'Riverine', pluvial: 'Pluvial', low_lying: 'Low-lying',
+  drainage_constrained: 'Drainage constrained',
+  // heat
+  uhi_built_up: 'UHI built-up', shade_deficit: 'Shade deficit',
+  high_daytime_lst: 'High daytime LST', limited_nocturnal_cooling: 'Limited nocturnal cooling',
+  high_social_exposure: 'High social exposure',
+  // landslide
+  steep_activatable_slope: 'Steep activatable slope', rainfall_trigger: 'Rainfall trigger',
+  low_cohesion_wet: 'Low cohesion wet', vegetation_deficit: 'Vegetation deficit',
+  drainage_saturation: 'Drainage saturation', disturbed_bare_slope: 'Disturbed bare slope',
+  upslope_convergence: 'Upslope convergence',
+};
 
 // Pre-rendered risk analysis layers (250m grid, generated locally)
 // Visual tiles: client/public/tiles/{name}/{z}/{x}/{y}.png
@@ -115,7 +138,7 @@ export const FLOOD_INDEX_LAYERS: TileLayerDef[] = [
     // pluvial, low-lying and mixed. Drainage constrained still never occurs
     // (drainage is a proxy until municipal drainage data exists).
     id: 'poa_flood_mechanism', name: 'Flood Mechanism', group: 'flood_indices', color: '#7b3294',
-    tileLayerId: 'poa_flood_mechanism', available: true, hasValueTiles: true,
+    tileLayerId: 'poa_flood_mechanism', available: true, hasValueTiles: true, mechanismHazard: 'flood',
     valueEncoding: {
       type: 'categorical', offset: -1, nodata: 0,
       urlTemplate: `${CLIMATE_HAZARDS_BASE}/floods/flood_mechanism/tiles_values/{z}/{x}/{y}.png`,
@@ -139,7 +162,7 @@ export const HEAT_INDEX_LAYERS: TileLayerDef[] = [
     // verified against the visual tiles 2026-07-16 (colour distance 0.0).
     // POA raster contains every class except limited nocturnal cooling.
     id: 'poa_heat_mechanism', name: 'Heat Mechanism', group: 'heat_indices', color: '#d73027',
-    tileLayerId: 'poa_heat_mechanism', available: true, hasValueTiles: true,
+    tileLayerId: 'poa_heat_mechanism', available: true, hasValueTiles: true, mechanismHazard: 'heat',
     valueEncoding: {
       type: 'categorical', offset: -1, nodata: 0,
       urlTemplate: `${CLIMATE_HAZARDS_BASE}/heat/heat_mechanism/tiles_values/{z}/{x}/{y}.png`,
@@ -167,7 +190,7 @@ export const LANDSLIDE_INDEX_LAYERS: TileLayerDef[] = [
     // POA raster contains steep activatable slope, rainfall trigger, vegetation
     // deficit, drainage saturation and mixed.
     id: 'poa_landslide_mechanism', name: 'Landslide Mechanism', group: 'landslide_indices', color: '#8c510a',
-    tileLayerId: 'poa_landslide_mechanism', available: true, hasValueTiles: true,
+    tileLayerId: 'poa_landslide_mechanism', available: true, hasValueTiles: true, mechanismHazard: 'landslide',
     valueEncoding: {
       type: 'categorical', offset: -1, nodata: 0,
       urlTemplate: `${CLIMATE_HAZARDS_BASE}/landslides/landslide_mechanism/tiles_values/{z}/{x}/{y}.png`,

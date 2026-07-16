@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import { MECHANISM_KEY_LABELS } from "@shared/geospatial-layers";
 
 // ============================================================================
 // TILE PROXY — proxies S3 tile requests with CORS handling + caching
@@ -133,6 +134,91 @@ const OEF_TILE_LAYERS: Record<string, TileLayerConfig> = {
 const failedTiles = new Map<string, number>();
 const FAIL_CACHE_MS = 60 * 60 * 1000;
 
+// ── Mechanism-mix lookup (what a "Mixed" pixel is made of) ───────────────────
+// The mechanism rasters only store the dominant class; the per-cell GeoJSONs on
+// S3 (4–13 MB) carry the detail. This endpoint reduces each file to just its
+// mixed cells — [bbox, tied mechanism labels] — so the ValueTooltip can render
+// "Mixed (Riverine + Low-lying)" without the client downloading the full file.
+// Landslide has an explicit `mixed_tied_mechanisms` property; flood and heat
+// use their per-mechanism boolean flags. IDW gap-filled cells are absent from
+// the GeoJSONs, so hovers there fall back to plain "Mixed".
+const MECHANISM_GEOJSON_BASE =
+  'https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards';
+const MECHANISM_MIX_SOURCES: Record<string, { url: string; typeProp: string; tiedProp?: string; flagKeys: string[] }> = {
+  flood: {
+    url: `${MECHANISM_GEOJSON_BASE}/floods/flood_mechanism/flood_mechanism_type_poa_250m.geojson`,
+    typeProp: 'flood_mechanism_type',
+    flagKeys: ['riverine', 'pluvial', 'low_lying'],
+  },
+  heat: {
+    url: `${MECHANISM_GEOJSON_BASE}/heat/heat_mechanism/heat_mechanism_type_poa_250m.geojson`,
+    typeProp: 'heat_mechanism_type',
+    flagKeys: ['uhi_built_up', 'shade_deficit', 'high_daytime_lst', 'limited_nocturnal_cooling', 'high_social_exposure'],
+  },
+  landslide: {
+    url: `${MECHANISM_GEOJSON_BASE}/landslides/landslide_mechanism/landslide_mechanism_type_poa_90m.geojson`,
+    typeProp: 'landslide_mechanism_type',
+    tiedProp: 'mixed_tied_mechanisms',
+    flagKeys: ['steep_activatable_slope', 'rainfall_trigger', 'low_cohesion_wet', 'vegetation_deficit', 'drainage_saturation', 'disturbed_bare_slope', 'upslope_convergence', 'high_social_exposure'],
+  },
+};
+
+// [west, south, east, north] + tied mechanism display labels
+interface MixCell { b: [number, number, number, number]; m: string[] }
+const mixCellCache = new Map<string, MixCell[]>();
+const mixCellPending = new Map<string, Promise<MixCell[]>>();
+
+async function loadMixCells(hazard: string): Promise<MixCell[]> {
+  const cached = mixCellCache.get(hazard);
+  if (cached) return cached;
+  const pending = mixCellPending.get(hazard);
+  if (pending) return pending;
+
+  const src = MECHANISM_MIX_SOURCES[hazard];
+  const promise = (async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    const response = await fetch(src.url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!response.ok) throw new Error(`geojson fetch ${response.status}`);
+    const geojson = await response.json();
+
+    const cells: MixCell[] = [];
+    for (const feature of geojson.features ?? []) {
+      const props = feature.properties ?? {};
+      if (props[src.typeProp] !== 'mixed') continue;
+
+      const tied: string | null = src.tiedProp ? props[src.tiedProp] : null;
+      const keys: string[] = tied
+        ? tied.split(',').map(k => k.trim())
+        : src.flagKeys.filter(k => props[k] === true);
+      const labels = keys.map(k => MECHANISM_KEY_LABELS[k] ?? k);
+      if (labels.length === 0) continue;
+
+      let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
+      for (const ring of feature.geometry?.coordinates ?? []) {
+        for (const [lng, lat] of ring) {
+          if (lng < w) w = lng;
+          if (lng > e) e = lng;
+          if (lat < s) s = lat;
+          if (lat > n) n = lat;
+        }
+      }
+      if (!isFinite(w)) continue;
+      const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
+      cells.push({ b: [r6(w), r6(s), r6(e), r6(n)], m: labels });
+    }
+    mixCellCache.set(hazard, cells);
+    return cells;
+  })();
+  mixCellPending.set(hazard, promise);
+  try {
+    return await promise;
+  } finally {
+    mixCellPending.delete(hazard);
+  }
+}
+
 export function registerTileProxyRoutes(app: Express): void {
   // Register a proxy route for each tile layer
   Object.entries(OEF_TILE_LAYERS).forEach(([layerId, config]) => {
@@ -175,6 +261,22 @@ export function registerTileProxyRoutes(app: Express): void {
         res.status(204).end();
       }
     });
+  });
+
+  // Mixed-cell composition for the mechanism-type layers (see loadMixCells)
+  app.get('/api/geospatial/mechanism-mix/:hazard', async (req: Request, res: Response) => {
+    const { hazard } = req.params;
+    if (!MECHANISM_MIX_SOURCES[hazard]) {
+      return res.status(400).json({ error: `Unknown hazard '${hazard}'. Expected one of: ${Object.keys(MECHANISM_MIX_SOURCES).join(', ')}` });
+    }
+    try {
+      const cells = await loadMixCells(hazard);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.json({ hazard, cells });
+    } catch (err) {
+      console.error(`[tiles] mechanism-mix ${hazard} failed:`, err);
+      res.status(502).json({ error: 'Failed to load mechanism GeoJSON from S3' });
+    }
   });
 
   // List available tile layers
