@@ -69,6 +69,23 @@ test.describe('COUGAR — E2 linear map sessions', () => {
         body: JSON.stringify({ assets: [{ name: 'Praça Teste', centroid: [-30.045, -51.19] }] }),
       })
     );
+    // Deterministic known-places (no live Overpass): one park INSIDE Bela
+    // Vista (its centroid), one outside — only the inside one may list.
+    await page.route('**/api/osm/parks', route =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          type: 'FeatureCollection',
+          features: [
+            { type: 'Feature', properties: { name: 'Praça da Bela Vista' }, geometry: { type: 'Point', coordinates: [-51.18983, -30.03273] } },
+            { type: 'Feature', properties: { name: 'Praça Longe' }, geometry: { type: 'Point', coordinates: [-51.4, -30.2] } },
+          ],
+        }),
+      })
+    );
+    await page.route(/\/api\/osm\/(schools|wetlands)/, route =>
+      route.fulfill({ contentType: 'application/json', body: JSON.stringify({ type: 'FeatureCollection', features: [] }) })
+    );
 
     await page.goto('/cbo-profile');
     const marker = page.getByTestId('cbo-stream-status');
@@ -96,6 +113,13 @@ test.describe('COUGAR — E2 linear map sessions', () => {
     await expect(page.getByTestId('map-add-site-toggle')).toHaveCount(0);
     await expect(page.getByTestId('map-use-whole-bairro')).toHaveCount(0);
     await expect(page.getByTestId('map-confirm-site')).toBeDisabled();
+
+    // Known places of the bairro list as one-tap picks — clipped to the zone
+    // polygon, so the far-away park must NOT appear.
+    const places = page.getByTestId('map-simple-places');
+    await expect(places).toBeVisible({ timeout: 10_000 });
+    await expect(places.getByText('Praça da Bela Vista')).toBeVisible();
+    await expect(places.getByText('Praça Longe')).toHaveCount(0);
 
     // Search path: type a name, pick the result — the pin is placed and the
     // overlay closes (a site now exists).

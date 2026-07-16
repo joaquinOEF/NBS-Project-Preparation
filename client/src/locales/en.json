@@ -1894,6 +1894,7 @@
     "simpleTapToMark": "Tap the exact spot to mark it",
     "simpleOrSearch": "or search by name",
     "simpleNotFound": "Couldn't find it — I'll mark it on the map",
+    "simpleKnownPlaces": "or tap a known place in the neighborhood",
     "tourFloodTitle": "Flood",
     "tourFloodBody": "Where water tends to pool when it rains hard.",
     "tourHeatTitle": "Heat",

@@ -251,6 +251,16 @@ export default function MapMicroapp({
   const [simpleChoice, setSimpleChoice] = useState<'none' | 'search' | 'map'>(
     'none'
   );
+  // Known places INSIDE the bairro (parks/schools/wetlands from the OSM
+  // snapshots, clipped to the zone polygon) offered as one-tap picks in the
+  // chooser — most orgs' sites are a known praça or escola, so this beats both
+  // search and pin for the common case. null = not fetched yet.
+  const [bairroPlaces, setBairroPlaces] = useState<Array<{
+    name: string;
+    lat: number;
+    lng: number;
+    emoji: string;
+  }> | null>(null);
 
   // E2 guided hazard tour. tourLayers = the hazard tiles present, in flood→heat
   // →landslide order. tourIdx: 0..n-1 = touring that hazard (only it visible);
@@ -1042,6 +1052,61 @@ export default function MapMicroapp({
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zonesLoaded, mapReady]);
+
+  // Simple site mode: fetch the bairro's known places for the chooser list.
+  // Ray-casting point-in-polygon — the zone geometry is small and this runs
+  // once per session; no need to pull turf in for it.
+  useEffect(() => {
+    if (!simpleSite || bairroPlaces !== null) return;
+    const zoneGeom = selectedZone?.geometry as any;
+    if (!zoneGeom?.coordinates) return;
+    const inRing = (pt: [number, number], ring: Array<[number, number]>) => {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [xi, yi] = ring[i];
+        const [xj, yj] = ring[j];
+        if (yi > pt[1] !== yj > pt[1] && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi)
+          inside = !inside;
+      }
+      return inside;
+    };
+    const inZone = (lng: number, lat: number): boolean => {
+      const polys: Array<Array<Array<[number, number]>>> =
+        zoneGeom.type === 'MultiPolygon' ? zoneGeom.coordinates : [zoneGeom.coordinates];
+      return polys.some(rings => inRing([lng, lat], rings[0]));
+    };
+    (async () => {
+      const SOURCES: Array<{ endpoint: string; emoji: string }> = [
+        { endpoint: '/api/osm/parks', emoji: '🌳' },
+        { endpoint: '/api/osm/schools', emoji: '🏫' },
+        { endpoint: '/api/osm/wetlands', emoji: '🌾' },
+      ];
+      const found: Array<{ name: string; lat: number; lng: number; emoji: string }> = [];
+      await Promise.all(
+        SOURCES.map(async src => {
+          try {
+            const res = await fetch(src.endpoint);
+            if (!res.ok) return;
+            const gj = await res.json();
+            for (const feat of gj?.features ?? []) {
+              const name = feat.properties?.name;
+              if (typeof name !== 'string' || !name.trim()) continue; // unnamed = not recognizable as "their" place
+              const c = geometryCentroid(feat.geometry);
+              if (!c || !inZone(c[1], c[0])) continue;
+              found.push({ name: name.trim(), lat: c[0], lng: c[1], emoji: src.emoji });
+            }
+          } catch {}
+        })
+      );
+      const seen = new Set<string>();
+      setBairroPlaces(
+        found
+          .filter(pl => (seen.has(pl.name) ? false : (seen.add(pl.name), true)))
+          .slice(0, 6)
+      );
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simpleSite, selectedZone, bairroPlaces]);
 
   // ── Toggle tile layer ───────────────────────────────────────────────────────
   // State-only: just flip membership in enabledTiles. The reconcile effect below
@@ -2174,6 +2239,28 @@ export default function MapMicroapp({
                         defaultValue: 'Marcar no mapa',
                       })}
                     </Button>
+                    {(bairroPlaces?.length ?? 0) > 0 && (
+                      <div className='pt-1' data-testid='map-simple-places'>
+                        <p className='text-[10px] uppercase tracking-wide text-muted-foreground text-center mb-1'>
+                          {t('mapMicroapp.simpleKnownPlaces', {
+                            defaultValue: 'ou toca num lugar conhecido do bairro',
+                          })}
+                        </p>
+                        <div className='max-h-36 overflow-y-auto space-y-0.5'>
+                          {bairroPlaces!.map((pl, i) => (
+                            <button
+                              key={i}
+                              onClick={() => addCustomSite(pl.lat, pl.lng, pl.name)}
+                              data-testid={`map-simple-place-${i}`}
+                              className='flex items-center gap-2 w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted/60'
+                            >
+                              <span className='shrink-0'>{pl.emoji}</span>
+                              <span className='truncate'>{pl.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>
