@@ -1471,9 +1471,13 @@ async function serveE2Checkpoint(
   if (!bairro && (is({ pt: 'Já conheço SbN — pular', en: 'I know NbS — skip' }) || /\bentendi\b|\bgot it\b/.test(msg))) {
     const sawStrip = getCboMessages(cboId).some(m => m.messageType === 'composer' && (m.content.includes('"kind":"familias"') || m.content.includes('"kind":"types"')));
     if (!sawStrip) return false;
+    // Framing matters here: the cohort KNOWS its risks ("a gente já sabe o que
+    // acontece no nosso bairro", org meeting 2026-07-15) — the map's job is
+    // official quantitative data that gives their project weight with funders,
+    // never "teaching them their own territory" (Ana, biweekly 2026-07-16).
     say(
-      'Show! Agora vamos pro mapa: primeiro te mostro os **riscos** — enchente, calor e deslizamento — e aí você marca seu bairro.',
-      "Great! Now to the map: first I'll show you the **risks** — flood, heat and landslide — and then you mark your neighborhood.",
+      'Show! Agora vamos pro mapa. Vocês já conhecem os riscos do território de vocês — o mapa traz os **dados oficiais** de enchente, calor e deslizamento, que dão peso ao projeto na hora de buscar recursos. Dá uma olhada e marca seu bairro.',
+      "Great! Now to the map. You already know your territory's risks — the map adds the **official data** on flood, heat and landslide, which gives your project weight when you go after funding. Take a look, then mark your neighborhood.",
     );
     ask('Vocês atuam em um bairro só ou em mais de um?', 'Do you work in one neighborhood or more than one?', [
       { pt: E2C.umBairro.pt, en: E2C.umBairro.en },
