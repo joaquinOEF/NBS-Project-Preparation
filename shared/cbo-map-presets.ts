@@ -105,12 +105,12 @@ const PRESETS: Record<CboMapPresetId, PresetDef> = {
 
   // Map 2 — just the place. Opens already inside the confirmed bairro
   // (focusZone is passed as an override with the saved name): satellite, other
-  // bairros hidden, NO hazard tiles, OSM places + name search + pin/polygon.
+  // bairros hidden, NO hazard tiles, and no OSM icon layers either — the
+  // chooser overlay (buscar pelo nome / marcar no mapa) is the only affordance.
   e2_site_focused: {
     params: {
       selectionMode: 'composite',
       zoneSource: 'neighborhood_zones',
-      layers: E2_OSM_LAYERS,
       hazardTour: false,
       allowDeferSite: true,
     },

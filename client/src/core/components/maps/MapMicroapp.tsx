@@ -242,6 +242,16 @@ export default function MapMicroapp({
   const isComposite = selectionMode === 'composite';
   const isBrowseOnly = selectionMode === 'browse-only';
 
+  // Simple site mode (E2 linear flow, focusZone sessions): the map does ONE
+  // thing — find the place. A chooser overlay offers "buscar pelo nome" or
+  // "marcar no mapa"; everything else (mode picker, stepper, lat/lng input,
+  // area drawing, selection trash) is hidden. One pin at a time: a new tap
+  // replaces the previous one.
+  const simpleSite = !!params.focusZone && isComposite;
+  const [simpleChoice, setSimpleChoice] = useState<'none' | 'search' | 'map'>(
+    'none'
+  );
+
   // E2 guided hazard tour. tourLayers = the hazard tiles present, in flood→heat
   // →landslide order. tourIdx: 0..n-1 = touring that hazard (only it visible);
   // n = done (all visible, selection unlocked); -1 = tour off.
@@ -1496,6 +1506,31 @@ export default function MapMicroapp({
     selectedHighlightsRef.current.clear();
   };
 
+  // Simple site mode: "Marcar no mapa" arms point-dropping and KEEPS it armed
+  // (the generic point handler disarms after each drop), so a second tap moves
+  // the pin instead of requiring a re-tap on a mode button.
+  const nonZoneCount = selectedAssets.filter(a => a.type !== 'zone').length;
+  useEffect(() => {
+    if (!simpleSite || simpleChoice !== 'map') return;
+    if (drawMode === 'off') setDrawMode('point');
+  }, [simpleSite, simpleChoice, drawMode]);
+  // Simple site mode is single-pin: keep only the newest non-zone asset and
+  // its marker (markers push in the same order the assets do).
+  useEffect(() => {
+    if (!simpleSite || nonZoneCount <= 1) return;
+    setSelectedAssets(prev => {
+      const zones = prev.filter(a => a.type === 'zone');
+      const others = prev.filter(a => a.type !== 'zone');
+      return [...zones, others[others.length - 1]];
+    });
+    const map = mapRef.current;
+    while (customMarkersRef.current.length > 1) {
+      const old = customMarkersRef.current.shift();
+      if (old && map) map.removeLayer(old);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simpleSite, nonZoneCount]);
+
   const totalSelections = selectedAssets.length + sampledPoints.length;
   const availableTileLayers = (params.tileLayers || [])
     .map(id => ALL_TILE_LAYERS.find(l => l.id === id))
@@ -1575,11 +1610,13 @@ export default function MapMicroapp({
       </div>
 
       {/* Prominent point-vs-area control — CBO site step. Replaces the tiny draw
-          chips so "draw the area" is clearly available, not just a point. */}
+          chips so "draw the area" is clearly available, not just a point.
+          Hidden in simple site mode: the chooser overlay is the only control. */}
       {params.allowDeferSite &&
         isComposite &&
         compositeStep === 'assets' &&
-        !tourActive && (
+        !tourActive &&
+        !simpleSite && (
           <div className='px-3 py-2 border-b bg-muted/10 shrink-0'>
             <p className='text-[10px] text-muted-foreground mb-1'>
               {t('mapMicroapp.siteHowToMark', {
@@ -1637,8 +1674,9 @@ export default function MapMicroapp({
           </div>
         )}
 
-      {/* Stepper bar (composite mode) — hidden during the hazard tour */}
-      {!tourActive && isComposite && (
+      {/* Stepper bar (composite mode) — hidden during the hazard tour, and in
+          simple site mode (there is no step 1 to go back to). */}
+      {!tourActive && isComposite && !simpleSite && (
         <div className='flex items-center gap-2 px-3 py-1.5 border-b bg-muted/20 shrink-0'>
           <button
             onClick={compositeStep === 'assets' ? backToZones : undefined}
@@ -1781,7 +1819,7 @@ export default function MapMicroapp({
               </Button>
             </>
           )}
-          {totalSelections > 0 && (
+          {totalSelections > 0 && !simpleSite && (
             <Button
               variant='ghost'
               size='sm'
@@ -1796,8 +1834,9 @@ export default function MapMicroapp({
 
       {/* Add-your-own-site panel (assets step) — search by name or coordinate
           for sites the OSM suggestions miss. Mobile-friendly: collapsed to a
-          single chip until tapped. */}
-      {canDraw && (
+          single chip until tapped. Simple site mode has its own search in the
+          chooser overlay instead. */}
+      {canDraw && !simpleSite && (
         <div className='border-b bg-muted/10 shrink-0'>
           {!addSiteOpen ? (
             <button
@@ -2083,6 +2122,142 @@ export default function MapMicroapp({
             </div>
           </div>
         )}
+
+        {/* Simple site mode — the chooser overlay: ONE question, two big
+            buttons; the search lives here too. Gone the moment a site exists. */}
+        {simpleSite &&
+          compositeStep === 'assets' &&
+          !tourActive &&
+          !hasSite &&
+          simpleChoice !== 'map' && (
+            <div className='absolute inset-0 z-[950] flex items-center justify-center bg-black/25 p-4'>
+              <div
+                className='bg-background rounded-xl shadow-xl border p-4 w-full max-w-xs space-y-2'
+                data-testid='map-simple-chooser'
+              >
+                {simpleChoice === 'none' ? (
+                  <>
+                    <p className='text-sm font-medium text-center'>
+                      {t('mapMicroapp.simpleHowFind', {
+                        defaultValue: 'Como você quer achar o lugar?',
+                      })}
+                    </p>
+                    <Button
+                      className='w-full h-11 gap-2 text-sm'
+                      onClick={() => setSimpleChoice('search')}
+                      data-testid='map-simple-search'
+                    >
+                      <Search className='w-4 h-4' />
+                      {t('mapMicroapp.simpleSearchName', {
+                        defaultValue: 'Buscar pelo nome',
+                      })}
+                    </Button>
+                    <Button
+                      variant='outline'
+                      className='w-full h-11 gap-2 text-sm'
+                      onClick={() => setSimpleChoice('map')}
+                      data-testid='map-simple-pin'
+                    >
+                      <MapPin className='w-4 h-4' />
+                      {t('mapMicroapp.simplePinMap', {
+                        defaultValue: 'Marcar no mapa',
+                      })}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className='flex items-center gap-1.5'>
+                      <button
+                        onClick={() => setSimpleChoice('none')}
+                        className='text-muted-foreground px-1'
+                        data-testid='map-simple-back'
+                      >
+                        ←
+                      </button>
+                      <Input
+                        value={siteQuery}
+                        onChange={e => setSiteQuery(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') searchSites();
+                        }}
+                        placeholder={t('mapMicroapp.searchPlaceholder', {
+                          defaultValue: 'Search a place name…',
+                        })}
+                        className='h-9 text-sm'
+                        data-testid='map-simple-search-input'
+                        autoFocus
+                      />
+                      <Button
+                        size='sm'
+                        className='h-9 text-xs'
+                        onClick={searchSites}
+                        disabled={siteSearching || !siteQuery.trim()}
+                        data-testid='map-simple-search-btn'
+                      >
+                        {siteSearching ? (
+                          <Loader2 className='w-3 h-3 animate-spin' />
+                        ) : (
+                          t('mapMicroapp.search', { defaultValue: 'Search' })
+                        )}
+                      </Button>
+                    </div>
+                    {siteResults.length > 0 && (
+                      <div
+                        className='max-h-40 overflow-y-auto space-y-0.5'
+                        data-testid='map-simple-results'
+                      >
+                        {siteResults.map((r, i) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              addCustomSite(r.centroid[0], r.centroid[1], r.name);
+                              setSiteResults([]);
+                              setSiteQuery('');
+                            }}
+                            data-testid={`map-simple-result-${i}`}
+                            className='flex items-center gap-1.5 w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted/60'
+                          >
+                            <MapPin className='w-3 h-3 text-primary shrink-0' />
+                            <span className='truncate'>{r.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setSimpleChoice('map')}
+                      className='w-full text-center text-xs text-primary underline pt-1'
+                      data-testid='map-simple-notfound'
+                    >
+                      {t('mapMicroapp.simpleNotFound', {
+                        defaultValue: 'Não achei — prefiro marcar no mapa',
+                      })}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+        {/* Simple site mode, map path: one instruction, nothing else. */}
+        {simpleSite &&
+          compositeStep === 'assets' &&
+          simpleChoice === 'map' &&
+          !hasSite && (
+            <div className='absolute top-2 left-2 right-2 z-[900] bg-background/95 border rounded-lg px-3 py-2 text-xs text-center shadow'>
+              📍{' '}
+              {t('mapMicroapp.simpleTapToMark', {
+                defaultValue: 'Toque no lugar exato pra marcar',
+              })}{' '}
+              <button
+                onClick={() => setSimpleChoice('search')}
+                className='text-primary underline'
+              >
+                {t('mapMicroapp.simpleOrSearch', {
+                  defaultValue: 'ou buscar pelo nome',
+                })}
+              </button>
+            </div>
+          )}
       </div>
 
       {/* Selection list */}
@@ -2090,6 +2265,9 @@ export default function MapMicroapp({
         <div className='border-t px-3 py-1.5 max-h-20 overflow-y-auto shrink-0'>
           <div className='flex flex-wrap gap-1'>
             {selectedAssets.map((asset, i) => {
+              // Simple site mode: the bairro is a fixed frame, not a removable
+              // selection — only the picked place shows as a chip.
+              if (simpleSite && asset.type === 'zone') return null;
               const visual = asset.source ? OSM_VISUALS[asset.source] : null;
               return (
                 <Badge
@@ -2236,7 +2414,11 @@ export default function MapMicroapp({
                   data-testid='map-confirm-site'
                 >
                   <Check className='w-3 h-3' />{' '}
-                  {t('mapMicroapp.confirm', { count: totalSelections })}
+                  {simpleSite
+                    ? t('mapMicroapp.confirmPlace', {
+                        defaultValue: 'Confirmar lugar',
+                      })
+                    : t('mapMicroapp.confirm', { count: totalSelections })}
                 </Button>
               ) : params.focusZone ? (
                 /* Focused site session (E2 linear): the user already said they
@@ -2249,7 +2431,9 @@ export default function MapMicroapp({
                   data-testid='map-confirm-site'
                 >
                   <Check className='w-3 h-3' />{' '}
-                  {t('mapMicroapp.confirm', { count: totalSelections })}
+                  {t('mapMicroapp.confirmPlace', {
+                    defaultValue: 'Confirmar lugar',
+                  })}
                 </Button>
               ) : (
                 <Button
