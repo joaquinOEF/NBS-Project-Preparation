@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { orgProfileDisplayValue } from '@shared/cbo-field-catalog';
 import { useTranslation } from 'react-i18next';
 import { Loader2, FileText } from 'lucide-react';
-import { CBO_SECTIONS, type CboState } from '@shared/cbo-schema';
+import { CBO_SECTIONS, isInternalCboField, type CboState } from '@shared/cbo-schema';
 
 type Profile = Pick<CboState, 'phase' | 'sections' | 'maturityScores' | 'totalMaturityScore' | 'gaps'>;
 
@@ -65,6 +65,8 @@ export function CboProfileSummary({
         const section = profile.sections?.[sec.id];
         if (!section) return null;
         const rows = Object.entries(section.fields)
+          // "_"-prefixed = E2 checkpoint machine state, not an answer.
+          .filter(([k]) => !isInternalCboField(k))
           .map(([k, f]) => {
             const v = fmt(f?.value);
             // org_profile enum fields may hold legacy machine ids ("funded") —

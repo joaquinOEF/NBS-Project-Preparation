@@ -27,6 +27,7 @@ import {
   type PriorityFlag,
   type OpenInterventionSelectorParams,
   type InterventionSelectorResult,
+  isInternalCboField,
 } from '@shared/cbo-schema';
 import { orgProfileDisplayValue } from '@shared/cbo-field-catalog';
 import type { OpenMapParams, MapSelectionResult, SelectedAsset } from '@shared/concept-note-schema';
@@ -2461,7 +2462,11 @@ export default function CboProfilePage() {
                     </div>
                   );
                 }
-                const fields = Object.entries(section.fields);
+                // "_"-prefixed fields are E2 checkpoint machine state
+                // (risk %s, coords, confirm latches) — never render them.
+                const fields = Object.entries(section.fields).filter(
+                  ([k]) => !isInternalCboField(k)
+                );
                 const hasGaps = state.gaps.some(g => g.sectionId === sec.id);
                 const isHL = highlightedSections.includes(sec.id);
                 return (

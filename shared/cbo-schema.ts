@@ -145,6 +145,13 @@ export interface CboFieldState {
   userEdited: boolean;
 }
 
+/** E2 checkpoint helper fields ("_"-prefixed): persisted so the linear flow
+ *  can derive its step and build the site card / recommendation, but hidden
+ *  from every human-facing field render (CBO document panel, coordinator
+ *  profile summary) — a raw "_bairro_flood_pct: 82" row is machine state,
+ *  not an answer. */
+export const isInternalCboField = (field: string) => field.startsWith('_');
+
 export interface CboSectionState {
   id: CboSectionId;
   title: string;
