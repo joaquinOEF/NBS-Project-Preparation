@@ -121,8 +121,12 @@ const OEF_TILE_LAYERS: Record<string, TileLayerConfig> = {
   poa_flood_mechanism:   { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/floods/flood_mechanism/tiles_visual/{z}/{x}/{y}.png" },
   poa_heat_risk:         { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat/risk/tiles_visual/{z}/{x}/{y}.png" },
   poa_heat_hazard:       { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat/hazard/tiles_visual/{z}/{x}/{y}.png" },
+  // Like flood, the path segment is `heat_mechanism` / `landslide_mechanism`,
+  // not the catalog dataset_id `poa_<haz>_mechanism_type`.
+  poa_heat_mechanism:    { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/heat/heat_mechanism/tiles_visual/{z}/{x}/{y}.png" },
   poa_landslide_risk:    { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/landslides/risk/tiles_visual/{z}/{x}/{y}.png" },
   poa_landslide_hazard:  { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/landslides/hazard/tiles_visual/{z}/{x}/{y}.png" },
+  poa_landslide_mechanism: { urlTemplate: "https://geo-test-api.s3.us-east-1.amazonaws.com/oef_calculation/release/v1/porto_alegre/climate_hazards/landslides/landslide_mechanism/tiles_visual/{z}/{x}/{y}.png" },
 };
 
 // Track failed tile URLs to avoid repeated 404s (cache for 1 hour)

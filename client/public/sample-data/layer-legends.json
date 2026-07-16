@@ -207,6 +207,48 @@
     "source": "sampled",
     "note": "colors recovered from tiles"
   },
+  "poa_heat_mechanism": {
+    "layerId": "poa_heat_mechanism",
+    "kind": "classes",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#e0e0e0",
+        "label": "Without clear dominant"
+      },
+      {
+        "value": 1,
+        "color": "#d73027",
+        "label": "UHI built-up"
+      },
+      {
+        "value": 2,
+        "color": "#fee08b",
+        "label": "Shade deficit"
+      },
+      {
+        "value": 3,
+        "color": "#fc8d59",
+        "label": "High daytime LST"
+      },
+      {
+        "value": 4,
+        "color": "#9970ab",
+        "label": "Limited nocturnal cooling"
+      },
+      {
+        "value": 5,
+        "color": "#636363",
+        "label": "High social exposure"
+      },
+      {
+        "value": 6,
+        "color": "#969696",
+        "label": "Mixed"
+      }
+    ],
+    "source": "classes"
+  },
   "poa_landslide_hazard": {
     "layerId": "poa_landslide_hazard",
     "kind": "gradient",
@@ -245,6 +287,63 @@
     "max": 0.393,
     "source": "sampled",
     "note": "colors recovered from tiles"
+  },
+  "poa_landslide_mechanism": {
+    "layerId": "poa_landslide_mechanism",
+    "kind": "classes",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#e0e0e0",
+        "label": "Without clear dominant"
+      },
+      {
+        "value": 1,
+        "color": "#b2182b",
+        "label": "Steep activatable slope"
+      },
+      {
+        "value": 2,
+        "color": "#2166ac",
+        "label": "Rainfall trigger"
+      },
+      {
+        "value": 3,
+        "color": "#8c510a",
+        "label": "Low cohesion wet"
+      },
+      {
+        "value": 4,
+        "color": "#d8b365",
+        "label": "Vegetation deficit"
+      },
+      {
+        "value": 5,
+        "color": "#4393c3",
+        "label": "Drainage saturation"
+      },
+      {
+        "value": 6,
+        "color": "#a6611a",
+        "label": "Disturbed bare slope"
+      },
+      {
+        "value": 7,
+        "color": "#5e3c99",
+        "label": "Upslope convergence"
+      },
+      {
+        "value": 8,
+        "color": "#636363",
+        "label": "High social exposure"
+      },
+      {
+        "value": 9,
+        "color": "#969696",
+        "label": "Mixed"
+      }
+    ],
+    "source": "classes"
   },
   "oef_dynamic_world": {
     "layerId": "oef_dynamic_world",
