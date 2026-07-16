@@ -170,6 +170,111 @@ export const NBS_SHOWCASE_CARDS: NbsShowcaseCard[] = [
       emoji: '🌊',
     },
   },
+  // ── Community-led cases (biweekly 2026-07-16: "look at how the community
+  // did it, how the process went") — the five below are organized/built by
+  // residents, not delivered to them. Facts web-verified 2026-07-16; the set
+  // is under Robson/Vila Flores validation (see the validation doc) — wrong
+  // picks get swapped, so keep each card self-contained.
+  {
+    id: 'rio-mutirao-reflorestamento',
+    org: 'Mutirão Reflorestamento',
+    city: 'Rio de Janeiro, RJ',
+    year: 1986,
+    hazard: 'mixed',
+    typeRefs: ['urban-forests'],
+    summaryPt: 'Moradores reflorestam as encostas das próprias comunidades',
+    summaryEn: 'Residents reforest the slopes of their own communities',
+    detailPt:
+      'Desde 1986, moradores das favelas cariocas são contratados em mutirão remunerado pra reflorestar as encostas onde vivem — mais de 15 mil pessoas já passaram pelo programa e mais de 3.500 ha de encostas em áreas de risco foram recuperados. A comunidade entra com o trabalho; a prefeitura com mudas, ferramentas, EPI e apoio técnico.',
+    detailEn:
+      'Since 1986, residents of Rio\'s favelas have been hired through paid mutirões to reforest the slopes where they live — over 15,000 people have taken part and 3,500+ ha of at-risk hillsides recovered. The community brings the work; the city brings seedlings, tools, PPE and technical support.',
+    // Fonte: prefeitura.rio (35 anos do programa) + World Bank blog (2023).
+    photo: null,
+    placeholder: {
+      gradient: 'biodiversity',
+      emoji: '⛰️',
+    },
+  },
+  {
+    id: 'bh-jardim-chuva-barreiro',
+    org: 'Jardim de chuva da EMEI Solar Urucuia',
+    city: 'Belo Horizonte, MG',
+    year: 2025,
+    hazard: 'flood',
+    typeRefs: ['bioswales-rain-gardens'],
+    summaryPt: 'Um jardim de chuva feito em mutirão — começou com uma professora',
+    summaryEn: 'A rain garden built by mutirão — it started with one teacher',
+    detailPt:
+      'No Barreiro, uma professora da escola infantil procurou a prefeitura atrás de uma solução pro alagamento. O bairro se organizou: grupo de WhatsApp, reuniões, rifa pra bancar parte da obra — e o jardim foi plantado em mutirão com os moradores e as crianças (inaugurado em 2025). Primeiro jardim de chuva de BH feito em parceria com a comunidade.',
+    detailEn:
+      'In Barreiro, a preschool teacher went to the city hall looking for a flooding fix. The neighborhood organized: a WhatsApp group, meetings, a raffle to fund part of the works — and the garden was planted in a mutirão with residents and the school\'s children (opened 2025). BH\'s first rain garden built in partnership with a community.',
+    // Fonte: prefeitura.pbh.gov.br, informe técnico do Barreiro (set/2025).
+    photo: null,
+    placeholder: {
+      gradient: 'flood',
+      emoji: '🌧️',
+    },
+  },
+  {
+    id: 'sp-horta-das-corujas',
+    org: 'Horta das Corujas',
+    city: 'São Paulo, SP',
+    year: 2012,
+    hazard: 'biodiversity',
+    typeRefs: [],
+    summaryPt: 'Vizinhos ocuparam uma praça e criaram a 1ª horta comunitária de SP',
+    summaryEn: "Neighbors took over a square and created SP's first community garden",
+    detailPt:
+      'Nasceu de um grupo de Facebook (Hortelões Urbanos) e virou a primeira grande horta comunitária de São Paulo: 800 m² numa praça pública da Vila Beatriz, tocada por voluntários com escala de rega e canteiros adotados. No caminho, recuperaram uma das nascentes que alimentam o Córrego das Corujas. Sem dono, sem cerca — e funcionando desde 2012.',
+    detailEn:
+      "Born in a Facebook group (Hortelões Urbanos), it became São Paulo's first major community garden: 800 m² in a public square in Vila Beatriz, run by volunteers with a watering rota and adopted beds. Along the way they recovered one of the springs feeding the Córrego das Corujas. No owner, no fence — running since 2012.",
+    // Fonte: hortadascorujas.wordpress.com (Sobre a Horta) + Recicla Sampa.
+    photo: null,
+    placeholder: {
+      gradient: 'biodiversity',
+      emoji: '🥬',
+    },
+  },
+  {
+    id: 'poa-hortas-agroflorestais',
+    org: 'Hortas Comunitárias Agroflorestais',
+    city: 'Porto Alegre, RS',
+    year: 2024,
+    hazard: 'biodiversity',
+    typeRefs: [],
+    summaryPt: 'Hortas agroflorestais escolhidas e mantidas pelas comunidades',
+    summaryEn: 'Agroforestry gardens chosen and kept by the communities',
+    detailPt:
+      'Porto Alegre está implantando 68 hortas comunitárias agroflorestais — os locais são escolhidos com a população pelo Orçamento Participativo e a manutenção é das próprias comunidades, com apoio da OSC Ecos. Dezesseis já funcionavam no fim de 2024. A da Lomba do Pinheiro articula moradores, secretarias e universidades no mesmo espaço.',
+    detailEn:
+      'Porto Alegre is rolling out 68 agroforestry community gardens — sites are chosen with residents through Participatory Budgeting and maintenance is done by the communities themselves, supported by the CSO Ecos. Sixteen were running by late 2024. The Lomba do Pinheiro garden brings residents, city departments and universities into one space.',
+    // Fonte: prefeitura.poa.br/smgov (dez/2024).
+    photo: null,
+    placeholder: {
+      gradient: 'biodiversity',
+      emoji: '🌱',
+    },
+  },
+  {
+    id: 'asa-um-milhao-de-cisternas',
+    org: 'ASA — Um Milhão de Cisternas (P1MC)',
+    city: 'Semiárido brasileiro',
+    year: 2003,
+    hazard: 'mixed',
+    typeRefs: [],
+    summaryPt: 'Mais de 1 milhão de cisternas construídas pelas próprias famílias',
+    summaryEn: 'Over 1 million cisterns built by the families themselves',
+    detailPt:
+      'A maior obra hídrica comunitária do país: famílias do Semiárido, com pedreiros locais capacitados pelo programa, construíram mais de 1 milhão de cisternas de placas de 16 mil litros pra captar água da chuva. Prova de que mutirão organizado chega a uma escala que nenhuma empreiteira alcançou — tecnologia simples, dona é a família.',
+    detailEn:
+      "Brazil's largest community-built water infrastructure: families across the Semiárido, with locally trained masons, built over 1 million 16,000-liter plate cisterns to harvest rainwater. Proof that organized mutirões reach a scale no contractor ever did — simple technology, owned by the family.",
+    // Fonte: asabrasil.org.br (P1MC).
+    photo: null,
+    placeholder: {
+      gradient: 'flood',
+      emoji: '🛢️',
+    },
+  },
 ];
 
 export function getShowcaseCard(id: string): NbsShowcaseCard | undefined {
