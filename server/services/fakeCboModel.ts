@@ -63,7 +63,10 @@ export type FakeOp =
   | { op: 'open_intervention_selector'; params?: Record<string, unknown> }
   | { op: 'show_types'; typeIds?: string[]; intro?: string }
   | { op: 'show_familias'; familiaIds?: string[]; intro?: string }
-  | { op: 'show_examples'; cardIds?: string[]; mode?: 'browse' | 'favorites'; intro?: string };
+  | { op: 'show_examples'; cardIds?: string[]; mode?: 'browse' | 'favorites'; intro?: string }
+  // E2 linear flow mirrors — passthrough payloads, same events the real tools emit.
+  | { op: 'show_site_card'; card: Record<string, unknown> }
+  | { op: 'show_familia_recommendation'; items: Array<{ familiaId: string; why: string; exampleSolutionIds?: string[] }>; intro?: string };
 
 export type FakeTurn = FakeOp[];
 
@@ -251,6 +254,18 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
       // bare {preset} straight through and the map would render nothing.
       const resolved = resolveOpenMapParams((op.params ?? {}) as any, lang === 'en' ? 'en' : 'pt');
       pushEvent({ type: 'open_map', params: resolved as any });
+      break;
+    }
+    case 'show_site_card': {
+      pushEvent({ type: 'show_site_card', card: op.card as any } as any);
+      break;
+    }
+    case 'show_familia_recommendation': {
+      pushEvent({
+        type: 'show_familia_recommendation',
+        items: op.items.map(i => ({ ...i, exampleSolutionIds: i.exampleSolutionIds ?? [] })),
+        intro: op.intro,
+      } as any);
       break;
     }
     case 'open_intervention_selector': {

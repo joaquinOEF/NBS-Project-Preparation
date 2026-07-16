@@ -48,6 +48,8 @@ import { RequestSupportDialog } from '@/core/components/cbo/RequestSupportDialog
 import { NbsShowcaseCardStrip } from '@/core/components/cbo/NbsShowcaseCard';
 import { NbsTypeStrip } from '@/core/components/cbo/NbsTypeStrip';
 import { NbsFamiliaStrip } from '@/core/components/cbo/NbsFamiliaStrip';
+import { CboSiteCard } from '@/core/components/cbo/CboSiteCard';
+import { CboFamiliaRecommendation } from '@/core/components/cbo/CboFamiliaRecommendation';
 import { RiskPriorityChips, type HazardId } from '@/core/components/cbo/RiskPriorityChips';
 import { CommunityAnchoringComposer, type CommunityAnchoringResult } from '@/core/components/cbo/CommunityAnchoringComposer';
 import { CboFilesSheet } from '@/core/components/cbo/CboFilesSheet';
@@ -1191,6 +1193,17 @@ export default function CboProfilePage() {
         setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify(payload), messageType: 'composer', timestamp: new Date().toISOString() }]);
         break;
       }
+      case 'show_site_card':
+      case 'show_familia_recommendation': {
+        // E2 linear-flow composers — same persist-inline pattern as the strips
+        // above (mirrors the server's composer row; mid-turn, so no
+        // setIsStreaming(false) — the paired ask_user follows in this turn).
+        const payload = event.type === 'show_site_card'
+          ? { kind: 'site_card', card: (event as any).card }
+          : { kind: 'familia_reco', items: (event as any).items, intro: (event as any).intro };
+        setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify(payload), messageType: 'composer', timestamp: new Date().toISOString() }]);
+        break;
+      }
       case 'ask_priority_rank':
         setPriorityRankPrompt({ prompt: event.prompt, minRanked: event.minRanked });
         setIsStreaming(false);
@@ -1868,6 +1881,20 @@ export default function CboProfilePage() {
                         intro={parsed.intro}
                         lang={lang.startsWith('pt') ? 'pt' : 'en'}
                       />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'site_card' && parsed.card) {
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <CboSiteCard card={parsed.card} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'familia_reco' && Array.isArray(parsed.items)) {
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <CboFamiliaRecommendation items={parsed.items} intro={parsed.intro} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
                     </div>
                   );
                 }

@@ -350,10 +350,39 @@ export type CboEvent =
   | { type: 'show_types'; typeIds: string[]; intro?: string }
   // Two-level taxonomy strip (shared/nbs-catalog.ts): empty familiaIds = all 5.
   | { type: 'show_familias'; familiaIds?: string[]; intro?: string }
+  // E2 linear flow — the site card served after the focused site session: what
+  // they picked, the bairro's risk profile (0–100 means), the inferred kind of
+  // place. The serving checkpoint pairs it with a confirm ask_user.
+  | { type: 'show_site_card'; card: CboSiteCard }
+  // E2 linear flow closing — famílias worth studying for THIS site (always ≥2,
+  // never a single verdict), each with a one-line why in the session language
+  // and concrete example variants from the 27-solution catalog.
+  | { type: 'show_familia_recommendation'; items: FamiliaRecoItem[]; intro?: string }
   | { type: 'ask_priority_rank'; prompt: string; minRanked: number }
   | { type: 'ask_community_anchoring'; prompt: string }
   | { type: 'done'; summary: string }
   | { type: 'error'; message: string };
+
+// E2 linear flow — payload of show_site_card. Risks are the bairro's mean
+// hazard scores as 0–100 integers (parsed from the map confirmation).
+export interface CboSiteCard {
+  name: string;
+  bairro: string;
+  lat?: number;
+  lng?: number;
+  siteKind: 'osm' | 'custom' | 'zone';
+  /** Keyword-inferred kind of place ("praça", "escola", …); absent = unknown. */
+  siteTypeLabel?: string;
+  risks: { flood: number; heat: number; landslide: number };
+}
+
+// E2 linear flow — one recommended família in show_familia_recommendation.
+export interface FamiliaRecoItem {
+  familiaId: string;
+  /** One-line reason in the session language, tied to their data. */
+  why: string;
+  exampleSolutionIds: string[];
+}
 
 // Chat message type (same as concept note — shared)
 export interface CboChatMessage {

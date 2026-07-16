@@ -23,8 +23,10 @@ import {
   flushCbo,
 } from "./cboPersistence";
 import { db } from "../db";
-import { cohortMembers } from "@shared/cohort-schema";
+import { cohortMembers, type SupportRequest } from "@shared/cohort-schema";
 import { resolveOpenMapParams } from "@shared/cbo-map-presets";
+import { rankFamiliasForSite, inferSiteTypeLabel } from "@shared/nbs-recommendation";
+import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { getOrgIdForCboState, listDocumentsByOrg, listDocumentSummariesByOrg, getDocumentForOrg } from "./documentPersistence";
 import { setMaturityTierForCboState, getMaturityTierForCboState } from "./orgPersistence";
@@ -598,6 +600,31 @@ function createCboMcpTools(cboId: string) {
     { annotations: { readOnlyHint: true } }
   );
 
+  // E2 linear flow closing — famílias worth studying for this site. The RANKING
+  // is computed server-side (bairro risks × catalog hazard weights × context
+  // boosts — shared/nbs-recommendation.ts) so the card can never be a single
+  // hallucinated verdict; the model's contribution is richer per-família "why"
+  // lines when it has context the server doesn't (photos, free-text answers).
+  const showFamiliaRecommendation = sdkTool(
+    "show_familia_recommendation",
+    "Render the closing 'famílias pra estudar' card for the captured site (always ≥2 famílias, ranked by the bairro's risks + what the org shared). Optionally pass per-família `why` lines grounded in what the USER said/uploaded; the server fills ranking, example variants, and any missing whys. In this SAME turn follow with an ask_user (e.g. 'Faz sentido' / 'Quero ajustar').",
+    {
+      items: z.array(z.object({
+        familiaId: z.string().describe("aguas-pluviais | verde-urbano | agricultura-urbana | encostas-e-solo | recuperacao-ecossistemas"),
+        why: z.string().describe("One-line reason tied to THEIR data ('você contou que o terreno alaga'), session language"),
+      })).optional(),
+      intro: z.string().optional().describe("Optional 1-line lead above the card"),
+    },
+    async (args: any) => {
+      const state = getCboState(cboId);
+      if (!state) return { content: [{ type: "text" as const, text: "Error: not found" }], isError: true };
+      const items = buildFamiliaRecoItems(state, getActiveCboLang(cboId), args.items);
+      pushEvent({ type: 'show_familia_recommendation', items, intro: args.intro } as any);
+      return { content: [{ type: "text" as const, text: `Showed ${items.length} famílias (${items.map(i => i.familiaId).join(', ')}). The card is read-only — follow with an ask_user in this SAME turn.` }] };
+    },
+    { annotations: { readOnlyHint: true } }
+  );
+
   // E2 Beat 3a — risk priority ranking. Renders 3 tap-in-order chips for
   // flood / heat / landslide. User taps in priority order, then confirms.
   // Result comes back as a chat message: "Priority ranking: flood (1), heat (2)..."
@@ -763,12 +790,14 @@ Tiles (raster): poa_flood_hazard (Flood Hazard), poa_heat_hazard (Heat Hazard), 
 Spatial queries: sq_parks_flood, sq_schools_flood, sq_hospitals_flood, sq_wetlands_flood, sq_schools_heat_250m, sq_schools_landslide_250m
 
 ## Presets — ALWAYS use one for an Encontro-2 map. Never retype its params.
-- \`preset:"e2_risk_tour"\` — Beat 2, the guided entry: hazard tour (flood → heat → landslide), then bairro, then site.
-- \`preset:"e2_site"\` — the same map with the tour off ("Já conheço os riscos").
-- \`preset:"e2_browse"\` — needs-help Beat 2a: look around, commit to nothing.
+⚠️ In E2 the platform's checkpoints open both map sessions for you — only call
+open_map yourself when the user explicitly asks to redo a step.
+- \`preset:"e2_bairro"\` — Map 1: hazard tour, then bairro; confirms AT the zone step.
+- \`preset:"e2_site_focused"\` — Map 2: pass \`focusZone:"<bairro>"\`; opens inside it (satellite, chooser overlay).
+- \`preset:"e2_risk_tour"\` / \`preset:"e2_site"\` — legacy combined session (old flow re-entries only).
+- \`preset:"e2_browse"\` — needs-help: look around, commit to nothing.
 A preset supplies selectionMode, zoneSource, layers, tiles, legend, tour and prompt.
-Pass an extra field ONLY to narrow it — e.g. \`{preset:"e2_risk_tour", suggestedSite:{…}}\`
-or \`{preset:"e2_risk_tour", prompt:"…"}\` to frame it on the org's own words.
+Pass an extra field ONLY to narrow it — e.g. \`{preset:"e2_site_focused", focusZone:"Sarandi"}\`.
 
 ## Recipes (non-CBO flows, which have no preset)
 - CBO Phase 3 (What We're Doing): assets + [osm_parks, osm_wetlands] + [oef_dynamic_world, poa_flood_hazard, poa_heat_hazard, poa_landslide_hazard]
@@ -777,7 +806,9 @@ or \`{preset:"e2_risk_tour", prompt:"…"}\` to frame it on the org's own words.
 
 STOP and wait for the user's map selection after calling this tool.`,
     {
-      preset: z.enum(["e2_risk_tour", "e2_site", "e2_browse"]).optional().describe("The canonical Encontro-2 map step. Supplies every param below. USE THIS for any E2 map — the params are defined once in shared/cbo-map-presets.ts, so a retyped copy can never drift from the one the client renders."),
+      preset: z.enum(["e2_risk_tour", "e2_site", "e2_browse", "e2_bairro", "e2_site_focused"]).optional().describe("The canonical Encontro-2 map step. Supplies every param below. USE THIS for any E2 map — the params are defined once in shared/cbo-map-presets.ts, so a retyped copy can never drift from the one the client renders."),
+      focusZone: z.string().optional().describe("e2_site_focused only: the confirmed bairro name — the map opens already inside it"),
+      confirmAtZone: z.boolean().optional().describe("Composite: the session ends at the zone step (e2_bairro sets this)"),
       layers: z.array(z.string()).optional().describe("OSM layer IDs to show: osm_parks, osm_schools, osm_hospitals, osm_wetlands"),
       tileLayers: z.array(z.string()).optional().describe("Tile layer IDs as toggleable overlays (not auto-shown): poa_flood_hazard, poa_heat_hazard, etc."),
       spatialQueries: z.array(z.string()).optional().describe("Pre-filter features: sq_parks_flood, sq_schools_heatwave, etc."),
@@ -1094,7 +1125,7 @@ STOP and wait for the user's selection after calling this tool.`,
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, confirmDocFields, flagGap, setPhase, setPath, setMaturityTier, showInterventionTypes, showNbsFamilias, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector],
+    tools: [updateSection, confirmDocFields, flagGap, setPhase, setPath, setMaturityTier, showInterventionTypes, showNbsFamilias, showFamiliaRecommendation, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector],
   });
 }
 
@@ -1215,6 +1246,360 @@ function applySkipData(state: CboState, targetPhase: string): { phase: number; a
 // behavior are identical to an agent-produced turn. Returns false to fall
 // through to the model (already-shown strip, lookup errors).
 const e2EntryInFlight = new Set<string>();
+// ============================================================================
+// E2 linear flow — server-templated checkpoints
+// ============================================================================
+// The W2 redesign (2026-07-16): chat → mapa → chat, one job per map session,
+// every stage boundary a deterministic template. The step is DERIVED from the
+// saved intervention_site fields — not a counter — so resume, park-and-return
+// ("vou verificar e volto"), and old mid-flow transcripts are all free. The
+// model only converses inside the describe stage (free follow-ups, uploads)
+// and the "quero ajustar" branches; everything else never reaches it.
+
+const E2C: Record<string, { pt: string; en: string; desc?: { pt: string; en: string } }> = {
+  umBairro: { pt: 'Um bairro', en: 'One neighborhood' },
+  maisDeUm: { pt: 'Mais de um', en: 'More than one' },
+  simTenho: { pt: 'Sim, tenho um lugar', en: 'Yes, I have a place' },
+  aindaNao: { pt: 'Ainda não', en: 'Not yet' },
+  pedirApoio: { pt: 'Pedir apoio à coordenação', en: 'Ask the coordination for help' },
+  voltoDepois: { pt: 'Vou verificar e volto', en: "I'll check and come back" },
+  jaTenho: { pt: 'Já sei o lugar', en: 'I know the place now' },
+  confirmar: { pt: 'Confirmar ✓', en: 'Confirm ✓' },
+  outroTipo: { pt: 'É outro tipo de lugar', en: "It's a different kind of place" },
+  outroLugar: { pt: 'Escolher outro lugar', en: 'Pick another place' },
+  temArquivos: { pt: 'Tenho arquivos pra anexar', en: 'I have files to attach' },
+  semArquivos: { pt: 'Não tenho agora', en: "I don't have any right now" },
+  prontoSeguir: { pt: 'Pronto, pode seguir', en: "Done, let's continue" },
+  fazSentido: { pt: 'Faz sentido', en: 'Makes sense' },
+  queroAjustar: { pt: 'Quero ajustar', en: 'I want to adjust' },
+};
+
+// current_use / land_tenure enum chips (un-deferred from the old Beat 2b/3b —
+// they ARE the "describe your site" questions of the sketch).
+const E2_CURRENT_USE: Array<{ id: string; pt: string; en: string }> = [
+  { id: 'vegetated', pt: 'Vegetação (área verde, mato, árvores)', en: 'Vegetation (green area, brush, trees)' },
+  { id: 'paved', pt: 'Pavimentado / impermeabilizado', en: 'Paved / sealed' },
+  { id: 'mixed', pt: 'Misto (vegetação + pavimentação)', en: 'Mixed (vegetation + paving)' },
+  { id: 'abandoned', pt: 'Abandonado / degradado', en: 'Abandoned / degraded' },
+  { id: 'under-construction', pt: 'Em construção', en: 'Under construction' },
+];
+const E2_TENURE: Array<{ id: string; pt: string; en: string }> = [
+  { id: 'private-owned', pt: 'Sim, somos donas do terreno', en: 'Yes, we own the land' },
+  { id: 'formal-agreement', pt: 'Sim, com acordo formal', en: 'Yes, with a formal agreement' },
+  { id: 'public-informal', pt: 'É da prefeitura, mas a gente usa', en: "It's the city's, but we use it" },
+  { id: 'public-no-access', pt: 'É público mas não temos acesso garantido', en: "It's public but access isn't guaranteed" },
+  { id: 'mixed', pt: 'Misto / não sei certinho', en: 'Mixed / not sure' },
+];
+
+const normChip = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+
+function writeE2Fields(cboId: string, state: CboState, fields: Record<string, string>, pushEvent: EventPusher, source = 'user') {
+  const section = state.sections.intervention_site;
+  if (!section) return;
+  for (const [k, v] of Object.entries(fields)) {
+    const oldValue = section.fields[k]?.value ?? null;
+    section.fields[k] = { value: v, confidence: 'high', source, userEdited: false };
+    state.editLog.push({ timestamp: new Date().toISOString(), sectionId: 'intervention_site', field: k, oldValue, newValue: v, source: 'agent' });
+    state.gaps = state.gaps.filter(g => !(g.sectionId === 'intervention_site' && g.field === k));
+    pushEvent({ type: 'field_update', sectionId: 'intervention_site', field: k, value: v, confidence: 'high', source });
+  }
+  section.lastUpdatedBy = 'agent';
+  setCboState(cboId, state);
+  debouncedPersist(cboId);
+}
+
+/** Server-computed recommendation items; model-passed whys override per família. */
+function buildFamiliaRecoItems(state: CboState, lang: string, modelItems?: Array<{ familiaId: string; why: string }>) {
+  const f = state.sections.intervention_site?.fields ?? {} as any;
+  const pct = (k: string) => Math.max(0, Math.min(100, parseInt(String(f[k]?.value ?? '0'), 10) || 0));
+  const bairro = String(f.bairro?.value ?? '').split(',')[0].trim() || (lang === 'pt' ? 'seu bairro' : 'your neighborhood');
+  const ranked = rankFamiliasForSite({
+    risks: { flood: pct('bairro_flood_pct'), heat: pct('bairro_heat_pct'), landslide: pct('bairro_landslide_pct') },
+    bairro,
+    currentUse: String(f.current_use?.value ?? '') || undefined,
+    siteName: String(f.site_name?.value ?? '') || undefined,
+  });
+  const overrides = new Map((modelItems ?? []).map(i => [i.familiaId, i.why]));
+  return ranked.slice(0, 3).map(r => ({
+    familiaId: r.familiaId,
+    why: overrides.get(r.familiaId) ?? (lang === 'pt' ? r.why.pt : r.why.en),
+    exampleSolutionIds: r.exampleSolutionIds,
+  }));
+}
+
+/** File a coordinator support request from the "pedir apoio" chip. */
+async function createSiteSupportRequest(cboId: string, lang: string): Promise<boolean> {
+  try {
+    const rows = await db.select().from(cohortMembers).where(eq(cohortMembers.cboStateId, cboId)).limit(1);
+    const member = rows[0];
+    if (!member) return false;
+    const entry: SupportRequest = {
+      id: nanoid(12),
+      type: 'coordinator-chat',
+      message: lang === 'pt'
+        ? 'E2: a organização ainda não tem um lugar específico e pediu apoio pra encontrar um.'
+        : 'E2: the organization has no specific site yet and asked for help finding one.',
+      createdAt: new Date().toISOString(),
+      resolvedAt: null,
+      resolvedNote: null,
+    };
+    const existing = Array.isArray(member.supportRequests) ? (member.supportRequests as SupportRequest[]) : [];
+    let next = [...existing, entry];
+    if (next.length > 20) {
+      const resolvedIdx = next.findIndex(r => !!r.resolvedAt);
+      next.splice(resolvedIdx >= 0 ? resolvedIdx : 0, 1);
+    }
+    await db.update(cohortMembers).set({ supportRequests: next }).where(eq(cohortMembers.id, member.id));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function serveE2Checkpoint(
+  cboId: string,
+  userMessage: string,
+  state: CboState,
+  pushEvent: EventPusher,
+  lang: string,
+  turnKind?: string,
+): Promise<boolean> {
+  if (state.phase !== 2) return false;
+  const isPt = lang === 'pt';
+  const raw = userMessage.split('\n[LANGUAGE:')[0].trim();
+  const fields = state.sections.intervention_site?.fields ?? ({} as Record<string, any>);
+  const val = (k: string) => String(fields[k]?.value ?? '').trim();
+  const bairro = val('bairro');
+  const siteName = val('site_name');
+  const currentUse = val('current_use');
+  const tenure = val('land_tenure');
+
+  const say = (pt: string, en: string) => pushEvent({ type: 'chat', content: isPt ? pt : en, role: 'assistant' } as any);
+  const ask = (qPt: string, qEn: string, opts: Array<{ pt: string; en: string; dPt?: string; dEn?: string }>) =>
+    pushEvent({
+      type: 'ask_user',
+      question: isPt ? qPt : qEn,
+      options: opts.map(o => ({ label: isPt ? o.pt : o.en, description: isPt ? (o.dPt ?? '') : (o.dEn ?? '') })),
+    } as any);
+  const finish = (detail: string): true => {
+    pushEvent({ type: 'done', summary: `E2 checkpoint (${detail})` } as any);
+    console.log(`[cbo] timing for ${cboId}: model=template rounds=0 first_event=0ms total=0ms kind=system detail=e2-${detail}`);
+    return true;
+  };
+  const openMapPreset = (args: Record<string, unknown>) =>
+    pushEvent({ type: 'open_map', params: resolveOpenMapParams(args as any, isPt ? 'pt' : 'en') } as any);
+
+  // ── Map results ────────────────────────────────────────────────────────────
+  if (turnKind === 'map' || raw.startsWith('Map selection (')) {
+    if (!raw.startsWith('Map selection (composite mode):')) return false;
+    if (raw.includes('- [site] DEFERRED')) return false; // legacy "bairro todo" flow → model
+    const zones = Array.from(raw.matchAll(/^- \[zone\] (.+?): .*?flood: (\d+)%, heat: (\d+)%, landslide: (\d+)%/gm))
+      .map(m => ({ name: m[1].trim(), flood: +m[2], heat: +m[3], landslide: +m[4] }));
+    const sites = Array.from(raw.matchAll(/^- \[(osm|custom)\] (.+?)(?: \(drawn area\))? at \((-?[\d.]+), (-?[\d.]+)\)/gm))
+      .map(m => ({ kind: m[1] as 'osm' | 'custom', name: m[2].trim(), lat: +m[3], lng: +m[4] }));
+    if (zones.length === 0) return false;
+
+    if (sites.length === 0) {
+      // CP: bairro confirmed (zone-only session) → the "tem um lugar?" fork.
+      const names = zones.map(z => z.name).join(', ');
+      const z = zones[0];
+      writeE2Fields(cboId, state, {
+        bairro: names,
+        bairro_flood_pct: String(z.flood),
+        bairro_heat_pct: String(z.heat),
+        bairro_landslide_pct: String(z.landslide),
+      }, pushEvent);
+      say(`✓ **${names}** confirmado.`, `✓ **${names}** confirmed.`);
+      ask(
+        'Vocês já têm um lugar específico onde querem atuar — um terreno, uma praça, um pátio?',
+        'Do you already have a specific place where you want to act — a lot, a square, a yard?',
+        [
+          { pt: E2C.simTenho.pt, en: E2C.simTenho.en, dPt: 'Vamos marcar no mapa', dEn: "Let's mark it on the map" },
+          { pt: E2C.aindaNao.pt, en: E2C.aindaNao.en, dPt: 'Tudo bem — tem caminhos', dEn: "That's fine — there are paths" },
+        ],
+      );
+      return finish('bairro-fork');
+    }
+
+    // CP: site chosen → the site card + confirm.
+    const s = sites[sites.length - 1];
+    const z = zones[0];
+    writeE2Fields(cboId, state, {
+      ...(bairro ? {} : { bairro: z.name, bairro_flood_pct: String(z.flood), bairro_heat_pct: String(z.heat), bairro_landslide_pct: String(z.landslide) }),
+      site_name: s.name,
+      site_lat: String(s.lat),
+      site_lng: String(s.lng),
+    }, pushEvent);
+    const typeLabel = inferSiteTypeLabel(s.name, isPt ? 'pt' : 'en');
+    pushEvent({
+      type: 'show_site_card',
+      card: {
+        name: s.name,
+        bairro: bairro || z.name,
+        lat: s.lat,
+        lng: s.lng,
+        siteKind: s.kind,
+        ...(typeLabel ? { siteTypeLabel: typeLabel } : {}),
+        risks: {
+          flood: bairro ? parseInt(val('bairro_flood_pct') || '0', 10) : z.flood,
+          heat: bairro ? parseInt(val('bairro_heat_pct') || '0', 10) : z.heat,
+          landslide: bairro ? parseInt(val('bairro_landslide_pct') || '0', 10) : z.landslide,
+        },
+      },
+    } as any);
+    ask('É isso mesmo?', 'Is that right?', [
+      { pt: E2C.confirmar.pt, en: E2C.confirmar.en },
+      { pt: E2C.outroTipo.pt, en: E2C.outroTipo.en, dPt: 'Me conta o que é', dEn: 'Tell me what it is' },
+      { pt: E2C.outroLugar.pt, en: E2C.outroLugar.en, dPt: 'Voltar pro mapa', dEn: 'Back to the map' },
+    ]);
+    return finish('site-card');
+  }
+
+  // ── Chip taps ──────────────────────────────────────────────────────────────
+  if (turnKind !== 'chip') return false;
+  const msg = normChip(raw);
+  const is = (c: { pt: string; en: string }) => msg === normChip(c.pt) || msg === normChip(c.en);
+
+  // Educational done ("pular" / "entendi") → the one-or-more-bairros question.
+  if (!bairro && (is({ pt: 'Já conheço SbN — pular', en: 'I know NbS — skip' }) || /\bentendi\b|\bgot it\b/.test(msg))) {
+    const sawStrip = getCboMessages(cboId).some(m => m.messageType === 'composer' && (m.content.includes('"kind":"familias"') || m.content.includes('"kind":"types"')));
+    if (!sawStrip) return false;
+    say(
+      'Show! Agora vamos pro mapa: primeiro te mostro os **riscos** — enchente, calor e deslizamento — e aí você marca seu bairro.',
+      "Great! Now to the map: first I'll show you the **risks** — flood, heat and landslide — and then you mark your neighborhood.",
+    );
+    ask('Vocês atuam em um bairro só ou em mais de um?', 'Do you work in one neighborhood or more than one?', [
+      { pt: E2C.umBairro.pt, en: E2C.umBairro.en },
+      { pt: E2C.maisDeUm.pt, en: E2C.maisDeUm.en },
+    ]);
+    return finish('bairro-question');
+  }
+
+  // One-or-more answer → Map 1 (tour + bairro, confirms at the zone step).
+  if (!bairro && (is(E2C.umBairro) || is(E2C.maisDeUm))) {
+    openMapPreset({
+      preset: 'e2_bairro',
+      ...(is(E2C.maisDeUm)
+        ? { prompt: isPt ? 'Conheça os riscos e marque os bairros onde vocês atuam.' : 'Get to know the risks, then mark the neighborhoods where you work.' }
+        : {}),
+    });
+    return finish('open-bairro-map');
+  }
+
+  // "Tem um lugar" fork answers.
+  if (bairro && !siteName && (is(E2C.simTenho) || is(E2C.jaTenho))) {
+    openMapPreset({ preset: 'e2_site_focused', focusZone: bairro.split(',')[0].trim() });
+    return finish('open-site-map');
+  }
+  if (bairro && siteName && is(E2C.outroLugar)) {
+    openMapPreset({ preset: 'e2_site_focused', focusZone: bairro.split(',')[0].trim() });
+    return finish('open-site-map-again');
+  }
+  if (bairro && !siteName && is(E2C.aindaNao)) {
+    say(
+      'Sem problema. Quer que a coordenação te ajude a achar um lugar, ou prefere verificar com a equipe e voltar aqui?',
+      'No problem. Want the coordination to help you find a place, or would you rather check with your team and come back?',
+    );
+    ask('Como prefere?', 'What works best?', [
+      { pt: E2C.pedirApoio.pt, en: E2C.pedirApoio.en, dPt: 'Eles recebem seu pedido', dEn: 'They get your request' },
+      { pt: E2C.voltoDepois.pt, en: E2C.voltoDepois.en, dPt: 'A gente retoma daqui', dEn: 'We pick up from here' },
+    ]);
+    return finish('no-site-fork');
+  }
+  if (bairro && !siteName && is(E2C.pedirApoio)) {
+    const ok = await createSiteSupportRequest(cboId, lang);
+    say(
+      ok
+        ? '✓ Avisei a coordenação — eles vão te procurar pra ajudar a achar o lugar.'
+        : 'Anotei — fala com a coordenação pelo botão **Pedir Apoio** aqui na tela, tá?',
+      ok
+        ? "✓ I've told the coordination — they'll reach out to help you find the place."
+        : 'Noted — please reach the coordination via the **Request Support** button on this screen.',
+    );
+    ask('Quando souberem o lugar, é só tocar abaixo.', 'When you know the place, just tap below.', [
+      { pt: E2C.jaTenho.pt, en: E2C.jaTenho.en },
+    ]);
+    return finish('support-requested');
+  }
+  if (bairro && !siteName && is(E2C.voltoDepois)) {
+    say(
+      'Tranquilo — fica pra próxima. Quando souberem o lugar, é só voltar aqui e tocar abaixo.',
+      "No rush — next time then. When you know the place, just come back and tap below.",
+    );
+    ask('Quando souberem o lugar:', 'When you know the place:', [
+      { pt: E2C.jaTenho.pt, en: E2C.jaTenho.en },
+    ]);
+    return finish('parked');
+  }
+
+  // Site card confirmed → describe stage, first templated question (current use).
+  if (siteName && !currentUse && is(E2C.confirmar)) {
+    writeE2Fields(cboId, state, { site_confirmed: 'yes' }, pushEvent);
+    ask('Como é esse lugar hoje?', 'What is this place like today?', E2_CURRENT_USE.map(o => ({ pt: o.pt, en: o.en })));
+    return finish('ask-current-use');
+  }
+  // "É outro tipo de lugar" → the model converses (free text), then continues.
+  if (siteName && !currentUse) {
+    const useHit = E2_CURRENT_USE.find(o => is(o));
+    if (useHit) {
+      writeE2Fields(cboId, state, { current_use: useHit.id }, pushEvent);
+      ask('E vocês têm acesso a esse espaço hoje?', 'And do you have access to this space today?', E2_TENURE.map(o => ({ pt: o.pt, en: o.en })));
+      return finish('ask-tenure');
+    }
+  }
+  if (siteName && currentUse && !tenure) {
+    const tenureHit = E2_TENURE.find(o => is(o));
+    if (tenureHit) {
+      writeE2Fields(cboId, state, { land_tenure: tenureHit.id }, pushEvent);
+      say(
+        'Boa! Antes de fechar: você tem **fotos do lugar**, uma proposta, plantas? Toca no 📎 aqui embaixo e anexa — eu leio e uso nos próximos encontros.',
+        'Great! Before we close: do you have **photos of the place**, a proposal, plans? Tap the 📎 below and attach them — I read them and use them in the next encontros.',
+      );
+      ask('Quer anexar fotos ou arquivos do lugar?', 'Want to attach photos or files of the place?', [
+        { pt: E2C.temArquivos.pt, en: E2C.temArquivos.en, dPt: 'Vou tocar no 📎 e enviar', dEn: "I'll tap 📎 and send" },
+        { pt: E2C.semArquivos.pt, en: E2C.semArquivos.en, dPt: 'Seguir sem anexar', dEn: 'Continue without attaching' },
+      ]);
+      return finish('ask-photos');
+    }
+  }
+  if (tenure && is(E2C.temArquivos)) {
+    say(
+      'Show! Toca no 📎 e manda o que tiver. Quando terminar, toca abaixo.',
+      'Great! Tap 📎 and send what you have. When you finish, tap below.',
+    );
+    ask('Quando terminar de anexar:', 'When you finish attaching:', [
+      { pt: E2C.prontoSeguir.pt, en: E2C.prontoSeguir.en },
+    ]);
+    return finish('await-uploads');
+  }
+  // Photos done (or none) → the famílias recommendation, served directly.
+  if (tenure && (is(E2C.semArquivos) || is(E2C.prontoSeguir))) {
+    const items = buildFamiliaRecoItems(state, lang);
+    say(
+      'Pra esse lugar, com o que você me contou, vale estudar essas famílias — não é veredito, é convite:',
+      "For this place, with what you've told me, these famílias are worth studying — not a verdict, an invitation:",
+    );
+    pushEvent({ type: 'show_familia_recommendation', items } as any);
+    ask('Qual dessas conversa mais com o que vocês imaginam?', 'Which of these speaks most to what you imagine?', [
+      { pt: E2C.fazSentido.pt, en: E2C.fazSentido.en },
+      { pt: E2C.queroAjustar.pt, en: E2C.queroAjustar.en, dPt: 'Quero mexer na lista', dEn: 'I want to change the list' },
+    ]);
+    return finish('familia-reco');
+  }
+  // Recommendation acknowledged → closing.
+  if (is(E2C.fazSentido) && getCboMessages(cboId).some(m => m.messageType === 'composer' && m.content.includes('"kind":"familia_reco"'))) {
+    const nome = String(state.sections.org_profile?.fields?.contact_name?.value || '').trim().split(/\s+/)[0];
+    say(
+      `✓ **Pronto${nome ? `, ${nome}` : ''}!** Marcamos **${siteName || bairro}** e já sabemos por onde começar a estudar.\n\nNo próximo encontro a gente escolhe juntas a solução que mais combina com esse lugar. Até lá! 🌱`,
+      `✓ **Done${nome ? `, ${nome}` : ''}!** We've marked **${siteName || bairro}** and we know where to start studying.\n\nIn the next encontro we'll pick together the solution that best fits this place. See you! 🌱`,
+    );
+    return finish('closing');
+  }
+
+  return false;
+}
+
 async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: EventPusher, lang: string): Promise<boolean> {
   // Single-flight per cbo: a double-tapped banner fires two overlapping /chat
   // requests; without this both pass the virgin gate (it sits before awaits)
@@ -1347,6 +1732,10 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'familias', familiaIds: event.familiaIds, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_examples') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'examples', cardIds: event.cardIds, mode: event.mode, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_site_card') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'site_card', card: (event as any).card }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_familia_recommendation') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'familia_reco', items: (event as any).items, intro: (event as any).intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'ask_user') {
       // Persist every user-prompting question (PERSIST-PROMPTS). Before this,
       // ask_user was SSE-only: a reload mid-question dropped the prompt and the
@@ -1475,6 +1864,21 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     if (await serveEncontro2Entry(cboId, state, pushEvent, lang)) {
       res.end();
       return;
+    }
+  }
+
+  // E2 linear-flow checkpoints \u2014 every stage boundary of the chat\u2192mapa\u2192chat
+  // journey is a deterministic template (see serveE2Checkpoint). Falls through
+  // to the model for everything it doesn't recognize (describe-stage free
+  // text, uploads, "quero ajustar", legacy flows).
+  if (state.phase === 2) {
+    try {
+      if (await serveE2Checkpoint(cboId, userMessage, state, pushEvent, lang, turnKind)) {
+        res.end();
+        return;
+      }
+    } catch (err) {
+      console.error(`[cbo] e2 checkpoint error for ${cboId} \u2014 falling through to the model:`, err);
     }
   }
 
@@ -1708,6 +2112,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           "mcp__cbo__set_maturity_tier",
           "mcp__cbo__show_examples",
           "mcp__cbo__show_nbs_familias",
+          "mcp__cbo__show_familia_recommendation",
           "mcp__cbo__ask_priority_rank",
           "mcp__cbo__ask_community_anchoring",
           "mcp__cbo__ask_user",
@@ -1901,6 +2306,8 @@ function buildDecisionLog(cboId: string): string {
         if (p.kind === 'types') return '- You (agent) showed the NBS types strip.';
         if (p.kind === 'familias') return '- You (agent) showed the NBS famílias strip (5 famílias, expandable into variants).';
         if (p.kind === 'examples') return '- You (agent) showed real project examples.';
+        if (p.kind === 'site_card') return `- You (agent) showed the site card: "${String(p.card?.name ?? '')}" in ${String(p.card?.bairro ?? '')} — and asked the user to confirm it.`;
+        if (p.kind === 'familia_reco') return `- You (agent) showed the famílias recommendation card: ${(p.items ?? []).map((i: any) => i.familiaId).join(', ')}.`;
       } catch {}
       return null;
     }
@@ -2111,15 +2518,11 @@ Score: Org Delivery Capacity (0-3), Team Technical Experience (0-3).`;
     case 2:
       return isPt
         ? `**Fase 2: Onde Atuamos** (intervention_site)
-Abrir open_map({ preset: "e2_risk_tour" }) — o preset já traz modo, camadas, tour de riscos e prompt.
-Após seleção: perguntar condições atuais, população, posse do terreno, engajamento comunitário.
-Se desenharem ponto/área customizada: perguntar "Esse local tem um nome?"
-Pedir fotos do local. Avaliar: Controle do Local (0-3), Ancoragem Comunitária (0-3).`
+⚠️ O fluxo linear do E2 é conduzido por checkpoints do servidor (mapas, cartão do lugar, uso atual, posse, fotos, famílias). Você só cuida do que a skill lista: exemplos, dúvidas, uploads, ajustes. NUNCA abra mapa por conta própria nem refaça perguntas dos checkpoints.
+Avaliar Controle do Local (0-3) quando land_tenure aparecer no estado.`
         : `**Phase 2: Where We Work** (intervention_site)
-Open open_map({ preset: "e2_risk_tour" }) — the preset carries mode, layers, hazard tour and prompt.
-After selection: ask current conditions, population, land tenure, community engagement.
-If they draw custom point/area: ask "Does this site have a name?"
-Ask for site photos. Score: Site Control (0-3), Community Anchoring (0-3).`;
+⚠️ The linear E2 flow is driven by server checkpoints (maps, site card, current use, tenure, photos, famílias). You only handle what the skill lists: examples, doubts, uploads, adjustments. NEVER open a map on your own or redo checkpoint questions.
+Score Site Control (0-3) once land_tenure appears in state.`;
 
     case 3:
       return isPt
