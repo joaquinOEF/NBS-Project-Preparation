@@ -968,6 +968,60 @@ export default function MapMicroapp({
     setLoading(false);
   }, []);
 
+  // ── focusZone (E2 linear flow): open already inside the bairro ──────────────
+  // The site session starts where the bairro session ended: the named zone is
+  // pre-selected, the zone step skipped, the view fitted to the bairro. One-shot
+  // (ref latch); a name that matches no zone falls back to the normal zone step.
+  const focusZoneAppliedRef = useRef(false);
+  useEffect(() => {
+    if (focusZoneAppliedRef.current) return;
+    if (!params.focusZone || !isComposite || params.hazardTour) return;
+    if (!zonesLoaded || !mapReady || !mapRef.current) return;
+    const zl = zonesLayerRef.current;
+    if (!zl) return;
+    const want = params.focusZone.trim().toLowerCase();
+    let matched: { feature: any } | null = null;
+    zl.eachLayer((layer: any) => {
+      if (matched) return;
+      const p = layer.feature?.properties || {};
+      const name = p.neighbourhoodName || p.neighbourhood_name || p.zoneId;
+      if (typeof name === 'string' && name.trim().toLowerCase() === want) {
+        matched = { feature: layer.feature };
+      }
+    });
+    if (!matched) return;
+    const feature = (matched as { feature: any }).feature;
+    const p = feature.properties || {};
+    const centroid = geometryCentroid(feature.geometry);
+    if (!centroid) return;
+    focusZoneAppliedRef.current = true;
+    const asset: SelectedAsset = {
+      type: 'zone',
+      source: zoneSource,
+      name: p.neighbourhoodName || p.neighbourhood_name || p.zoneId,
+      geometry: feature.geometry,
+      coordinates: centroid,
+      properties: p,
+    };
+    setSelectedAssets(prev =>
+      prev.some(a => a.type === 'zone') ? prev : [...prev, asset]
+    );
+    setSelectedZone(asset);
+    const map = mapRef.current;
+    map.removeLayer(zl);
+    try {
+      const bounds = L.geoJSON(feature.geometry).getBounds();
+      if (bounds.isValid())
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+    } catch {}
+    setCompositeStep('assets');
+    setLoading(true);
+    setLoadingStatus(
+      t('mapMicroapp.loadingSites', { defaultValue: 'Loading sites...' })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zonesLoaded, mapReady]);
+
   // ── Toggle tile layer ───────────────────────────────────────────────────────
   // State-only: just flip membership in enabledTiles. The reconcile effect below
   // is the single place that adds/removes the actual Leaflet layers, so an
@@ -1396,6 +1450,22 @@ export default function MapMicroapp({
     onConfirm,
     enabledTiles,
   ]);
+  // E2 linear flow (confirmAtZone): the bairro session ends HERE — confirm the
+  // selected zone(s) only, no site step, no deferred marker (the site question
+  // is the chat's job, in its own later session).
+  const confirmZoneOnly = useCallback(() => {
+    onConfirm({
+      selectionMode,
+      selectedAssets: selectedAssets.filter(a => a.type === 'zone'),
+      sampledPoints: [],
+      enabledLayers: [
+        ...(params.layers || []),
+        ...Array.from(enabledTiles),
+        ...(params.spatialQueries || []),
+      ],
+      siteSource: 'user',
+    });
+  }, [selectedAssets, selectionMode, params, onConfirm, enabledTiles]);
   // No-site path (E2 "usar o bairro todo"): commit the neighborhood, mark the
   // site deferred. Keeps the zone, drops any site assets.
   const confirmDeferred = useCallback(() => {
@@ -2108,17 +2178,17 @@ export default function MapMicroapp({
               size='sm'
               className='h-7 text-xs'
               data-testid={
-                isComposite && compositeStep === 'assets'
+                isComposite && compositeStep === 'assets' && !params.focusZone
                   ? 'map-back-to-zones'
                   : 'map-cancel'
               }
               onClick={
-                isComposite && compositeStep === 'assets'
+                isComposite && compositeStep === 'assets' && !params.focusZone
                   ? backToZones
                   : onCancel
               }
             >
-              {isComposite && compositeStep === 'assets'
+              {isComposite && compositeStep === 'assets' && !params.focusZone
                 ? '← ' +
                   (isNeighborhoods
                     ? t('mapMicroapp.neighborhood')
@@ -2126,15 +2196,32 @@ export default function MapMicroapp({
                 : t('mapMicroapp.cancel')}
             </Button>
             {isComposite && compositeStep === 'zone' ? (
-              <Button
-                size='sm'
-                className='h-7 text-xs gap-1 flex-1'
-                onClick={advanceToAssets}
-                disabled={!selectedAssets.some(a => a.type === 'zone')}
-              >
-                {t('mapMicroapp.nextSites')}{' '}
-                <ChevronRight className='w-3 h-3' />
-              </Button>
+              params.confirmAtZone ? (
+                /* E2 linear flow: the bairro session ends at the zone step —
+                   no "Próximo (sites)", the site gets its own session. */
+                <Button
+                  size='sm'
+                  className='h-7 text-xs gap-1 flex-1'
+                  onClick={confirmZoneOnly}
+                  disabled={!selectedAssets.some(a => a.type === 'zone')}
+                  data-testid='map-confirm-bairro'
+                >
+                  <Check className='w-3 h-3' />{' '}
+                  {t('mapMicroapp.confirmBairro', {
+                    defaultValue: 'Confirmar bairro',
+                  })}
+                </Button>
+              ) : (
+                <Button
+                  size='sm'
+                  className='h-7 text-xs gap-1 flex-1'
+                  onClick={advanceToAssets}
+                  disabled={!selectedAssets.some(a => a.type === 'zone')}
+                >
+                  {t('mapMicroapp.nextSites')}{' '}
+                  <ChevronRight className='w-3 h-3' />
+                </Button>
+              )
             ) : isComposite &&
               compositeStep === 'assets' &&
               params.allowDeferSite ? (
@@ -2146,6 +2233,19 @@ export default function MapMicroapp({
                   size='sm'
                   className='h-7 text-xs gap-1 flex-1'
                   onClick={handleConfirm}
+                  data-testid='map-confirm-site'
+                >
+                  <Check className='w-3 h-3' />{' '}
+                  {t('mapMicroapp.confirm', { count: totalSelections })}
+                </Button>
+              ) : params.focusZone ? (
+                /* Focused site session (E2 linear): the user already said they
+                   HAVE a place — no whole-bairro escape here; the "don't have a
+                   site" paths (pedir apoio / voltar depois) live in the chat. */
+                <Button
+                  size='sm'
+                  className='h-7 text-xs gap-1 flex-1'
+                  disabled
                   data-testid='map-confirm-site'
                 >
                   <Check className='w-3 h-3' />{' '}

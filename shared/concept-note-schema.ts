@@ -188,6 +188,15 @@ export interface OpenMapParams {
   // legend, per-hazard caption + counter) before unlocking neighborhood/site
   // selection. Opt-in; the city/concept-note flow leaves it off.
   hazardTour?: boolean;
+  // E2 linear flow — the map session ends at the ZONE step: "Confirmar bairro"
+  // replaces "Próximo (sites)" and confirms with the selected zone(s) only.
+  // The site is picked later, in its own focused session (focusZone).
+  confirmAtZone?: boolean;
+  // E2 linear flow — open the composite map already INSIDE this bairro: the
+  // zone is pre-selected by name, the zone step is skipped, the view fits the
+  // bairro (satellite via allowDeferSite), other bairros hidden. If the name
+  // doesn't match any zone, the map falls back to the normal zone step.
+  focusZone?: string;
   // E2 map step — a site candidate extracted from the org's uploaded docs, to
   // pre-place for the user to validate ("é aqui?") instead of picking blind.
   // Tiered: a precise place geocodes to a pin; a bairro-only hint pre-selects
