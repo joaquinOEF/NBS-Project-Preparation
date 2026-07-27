@@ -153,6 +153,7 @@ function WorkshopRow({
   index,
   disabled,
   onOpenForCohort,
+  onCloseForCohort,
   onUpdateDate,
 }: {
   workshop: WorkshopConfig;
@@ -160,10 +161,23 @@ function WorkshopRow({
   index: number;
   disabled?: boolean;
   onOpenForCohort: () => void;
+  onCloseForCohort: () => void;
   onUpdateDate: (date: string | null) => void;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language?.startsWith('pt') ? 'pt-BR' : 'en-US';
+
+  // Close-workshop inline confirm (opened by mistake — field ask 2026-07-16).
+  // First click arms; second click within 5s fires; the timer disarms so a
+  // stray click can't linger as a loaded gun. Phase 1 never closes (it is
+  // open-on-invite), so the button only exists for W2+ while Open.
+  const [closeArmed, setCloseArmed] = useState(false);
+  useEffect(() => {
+    if (!closeArmed) return;
+    const timer = setTimeout(() => setCloseArmed(false), 5000);
+    return () => clearTimeout(timer);
+  }, [closeArmed]);
+  const canClose = state === 'open' && workshop.unlocksPhase >= 2;
 
   // Curriculum context fallback — existing cohorts in the DB may have
   // workshops without description/expectedOutput (created before these
@@ -474,6 +488,29 @@ function WorkshopRow({
             {ctaLabel}
           </Button>
         )}
+        {canClose && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            className={`h-8 text-xs whitespace-nowrap ${
+              closeArmed
+                ? 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300'
+                : 'text-muted-foreground'
+            }`}
+            onClick={() => {
+              if (!closeArmed) { setCloseArmed(true); return; }
+              setCloseArmed(false);
+              onCloseForCohort();
+            }}
+            data-testid={`button-close-workshop-${index}`}
+          >
+            <Lock className="w-3 h-3 mr-1.5" />
+            {closeArmed
+              ? t('orchestrator.cohort.closeWorkshopConfirm', { defaultValue: 'Click again to close for the cohort' })
+              : t('orchestrator.cohort.closeWorkshop', { defaultValue: 'Close workshop' })}
+          </Button>
+        )}
       </div>
       </>)}
     </div>
@@ -487,6 +524,7 @@ export function WorkshopCadence({
   workshops,
   disabled,
   onOpenWorkshop,
+  onCloseWorkshop,
   onUpdateWorkshops,
 }: {
   workshops: WorkshopConfig[];
@@ -497,6 +535,11 @@ export function WorkshopCadence({
    * the workshop's phase + persist `today` as the workshop's date (if blank).
    */
   onOpenWorkshop: (index: number, todayISO: string) => Promise<void>;
+  /**
+   * Coordinator confirmed "Close workshop" on `index` (opened by mistake).
+   * Caller should re-lock the phase cohort-wide + roll back sessions in it.
+   */
+  onCloseWorkshop: (index: number) => Promise<void>;
   /** Caller persists the workshops array (used by inline date editor). */
   onUpdateWorkshops: (workshops: WorkshopConfig[]) => Promise<void>;
 }) {
@@ -535,6 +578,7 @@ export function WorkshopCadence({
               const today = new Date().toISOString().slice(0, 10);
               await onOpenWorkshop(i, today);
             }}
+            onCloseForCohort={async () => { await onCloseWorkshop(i); }}
             onUpdateDate={async (next) => {
               const updated = workshops.map((w2, j) => (j === i ? { ...w2, date: next } : w2));
               await onUpdateWorkshops(updated);

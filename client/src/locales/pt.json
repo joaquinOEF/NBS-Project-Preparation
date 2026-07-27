@@ -166,7 +166,11 @@
       "workshopOpened": "{{workshop}} aberto para o grupo",
       "orgType": "Tipo de organização",
       "orgTypeCommunity": "Org comunitária",
-      "orgTypeImplementer": "Implementadora / estúdio"
+      "orgTypeImplementer": "Implementadora / estúdio",
+      "closeWorkshop": "Fechar encontro",
+      "closeWorkshopConfirm": "Clica de novo pra fechar pro grupo",
+      "workshopClosed": "{{workshop}} fechado — {{n}} organização(ões) bloqueada(s) de novo",
+      "workshopCloseFailed": "Não foi possível fechar o encontro"
     },
     "demo": {
       "headerEyebrow": "Visão da articuladora",

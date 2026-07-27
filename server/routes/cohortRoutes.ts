@@ -22,7 +22,7 @@ import {
 import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } from '../services/orgPersistence';
 import { cboStates } from '@shared/cbo-db-schema';
 import { cboSectionsFilledCount, type CboState } from '@shared/cbo-schema';
-import { getCboMessages, getCboState, setCboState, loadCboFromDb } from '../services/cboAgent';
+import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist } from '../services/cboAgent';
 import { deleteCboState } from '../services/cboPersistence';
 import {
   requireCoordinator,
@@ -631,6 +631,66 @@ export function registerCohortRoutes(app: Express): void {
       await db.update(cohortMembers).set({ unlockedPhases: next }).where(eq(cohortMembers.id, m.id));
     }
     res.json({ ok: true, updated: targets.length });
+  }));
+
+  // Close a workshop — the reverse of "Open for cohort" (field ask 2026-07-16:
+  // Rede SCbN POA opened W2 by mistake). Three things happen together:
+  //   1. the workshop's `openedAt` is cleared in the cohort settings (the
+  //      cadence rail shows it as next-up/locked again),
+  //   2. the phase leaves every member's unlockedPhases (1 always stays —
+  //      it's open-on-invite by design, which is also why phase 1 can't close),
+  //   3. sessions already SITTING in the closed phase roll back to the highest
+  //      phase still unlocked — gating only clamps entry, so without this an
+  //      org that tapped the banner would keep running the closed encontro.
+  // Everything the org typed stays: fields persist, and the E2 checkpoints
+  // re-derive their position from saved fields, so reopening later resumes
+  // exactly where they left off.
+  app.patch('/api/cohort/:coordinatorSlug/close-workshop', wrap(async (req, res) => {
+    const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
+    if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
+
+    const phaseNum = Number(req.body?.phase);
+    if (!phaseNum || phaseNum < 2 || phaseNum > 7) { res.status(400).json({ error: 'invalid phase (2-7)' }); return; }
+
+    const settings: CohortSettings = (cohort.settings as CohortSettings | null) ?? ({} as CohortSettings);
+    const workshops: WorkshopConfig[] = (settings.workshops ?? []).map(w =>
+      Number(w.unlocksPhase) === phaseNum ? { ...w, openedAt: null } : w);
+    await db.update(cohorts).set({ settings: { ...settings, workshops } }).where(eq(cohorts.id, cohort.id));
+
+    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    let relocked = 0;
+    let rolledBack = 0;
+    for (const m of members) {
+      const current = Array.isArray(m.unlockedPhases) ? (m.unlockedPhases as number[]) : [1];
+      if (!current.includes(phaseNum)) continue;
+      const next = current.filter(p => p !== phaseNum);
+      if (!next.includes(1)) next.push(1);
+      next.sort((a, b) => a - b);
+      const maxAllowed = Math.max(...next);
+      await db.update(cohortMembers).set({
+        unlockedPhases: next,
+        // The roster snapshot mirrors the live phase — clamp it too, or the
+        // dashboard keeps showing the closed workshop as in progress.
+        snapshotPhase: Math.min(Number(m.snapshotPhase ?? 1) || 1, maxAllowed),
+      }).where(eq(cohortMembers.id, m.id));
+      relocked++;
+
+      if (m.cboStateId) {
+        try {
+          const state = getCboState(m.cboStateId) ?? (await loadCboFromDb(m.cboStateId))?.state;
+          if (state && state.phase === phaseNum) {
+            state.phase = maxAllowed;
+            setCboState(m.cboStateId, state);
+            debouncedPersist(m.cboStateId);
+            rolledBack++;
+          }
+        } catch (e: any) {
+          console.error(`[cohort] close-workshop rollback failed for ${m.cboStateId}:`, e?.message || e);
+        }
+      }
+    }
+    console.log(`[cohort] closed workshop phase ${phaseNum} for cohort ${cohort.id}: relocked=${relocked} rolledBack=${rolledBack}`);
+    res.json({ ok: true, relocked, rolledBack });
   }));
 
   // Member-facing read by unguessable capability token (the new invite-link
