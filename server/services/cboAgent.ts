@@ -1834,7 +1834,41 @@ async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: Ev
   }
 }
 
+// Single-flight per session. Live test 2026-07-16: a link-paste turn showed no
+// visible event for 65s, the user re-sent the link, and the two overlapping
+// model turns each re-stated the same field summary (the per-turn duplicate
+// guard can't see across turns). One model turn per cboId at a time; the
+// duplicate send gets an ephemeral "ainda tô nessa" and no second turn. The
+// timestamp is a stale-lock escape (a crashed/hung turn stops blocking after
+// 3 min — maxTurns ends real turns well before that).
+const chatTurnInFlight = new Map<string, number>();
+
 export async function streamCboChat(cboId: string, userMessage: string, res: Response, state: CboState, lang: string = 'en', turnKind?: string) {
+  const since = chatTurnInFlight.get(cboId);
+  if (since && Date.now() - since < 180_000) {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    const content = lang === 'pt'
+      ? 'Ainda tô terminando a resposta anterior — já te respondo aqui. 🙂'
+      : "Still finishing my previous reply — with you in a moment. 🙂";
+    // Written straight to the stream (not persisted): the notice is about THIS
+    // moment; on reload the real turn's outcome is the record that matters.
+    res.write(`data: ${JSON.stringify({ type: 'chat', content })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: 'done', summary: 'turn already in flight' })}\n\n`);
+    console.log(`[cbo] duplicate send while turn in flight for ${cboId} (${Date.now() - since}ms in)`);
+    res.end();
+    return;
+  }
+  chatTurnInFlight.set(cboId, Date.now());
+  try {
+    await streamCboChatInner(cboId, userMessage, res, state, lang, turnKind);
+  } finally {
+    chatTurnInFlight.delete(cboId);
+  }
+}
+
+async function streamCboChatInner(cboId: string, userMessage: string, res: Response, state: CboState, lang: string = 'en', turnKind?: string) {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -2192,6 +2226,25 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   const { model, routing, reason } = resolveTurnModel(cboId, state, userMessage, turnKind, heavyModel);
   console.log(`[cbo] turn routing for ${cboId}: ${routing} (${reason}) kind=${turnKind ?? 'none'} model=${model}`);
 
+  // Link-paste turns open with WebFetch, and the tool_use label only fires
+  // when round 1 lands — live test 2026-07-16 measured 65s of blank screen
+  // before the first event, which is exactly how long it took the user to
+  // decide it was stuck and re-send. We know the shape of this turn before
+  // the model does: narrate it immediately.
+  if (reason === 'link-paste') {
+    const host = (userMessage.match(/https?:\/\/(?:www\.)?([^\/\s]+)/i)?.[1] ?? '').trim();
+    pushEvent({
+      type: 'thinking_step',
+      step: {
+        id: 'link-paste-prefetch',
+        label: lang === 'pt'
+          ? (host ? `Lendo ${host}… (pode levar um minutinho)` : 'Lendo o site… (pode levar um minutinho)')
+          : (host ? `Reading ${host}… (may take a minute)` : 'Reading the website… (may take a minute)'),
+        status: 'active',
+      },
+    } as any);
+  }
+
   // System prompt = the durable facts the agent needs (persona, tools, skill,
   // state, recent conversation, access policy). User prompt = just the new
   // turn. This mirrors conceptNoteAgent and is the SDK's expected shape;
@@ -2296,6 +2349,18 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           // URL slug. WebFetch makes link ingestion real; the E1 skill pairs
           // it with an honesty rule (fetch fails → say so, ask for an upload).
           "WebFetch",
+        ],
+        // allowedTools is NOT enough: with bypassPermissions the SDK's
+        // built-ins stay callable even when absent from the list. Live test
+        // 2026-07-16: the model asked its question via the CLI's
+        // AskUserQuestion (renders NOTHING headless — the user got prose with
+        // no chips) and spawned a Task subagent mid-turn (109s total).
+        // disallowedTools removes these from the model's context entirely.
+        // WebFetch stays allowed (link ingestion); the file/exec tools are
+        // listed too so bypassPermissions can't resurrect them.
+        disallowedTools: [
+          "Task", "AskUserQuestion", "TodoWrite", "WebSearch",
+          "Bash", "Read", "Write", "Edit", "Glob", "Grep", "NotebookEdit",
         ],
         mcpServers: mcpServer ? { cbo: mcpServer } : {},
         permissionMode: "bypassPermissions",
