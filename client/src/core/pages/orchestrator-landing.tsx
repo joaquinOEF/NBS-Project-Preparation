@@ -908,7 +908,7 @@ export default function OrchestratorLandingPage() {
 
   const {
     cohort, members, isAdmin, allCohorts,
-    invite, unlockPhase, saveWorkshops, resetCohort, resetMember, removeMember, saveLanguage, deleteCohort,
+    invite, unlockPhase, closeWorkshopPhase, saveWorkshops, resetCohort, resetMember, removeMember, saveLanguage, deleteCohort,
     switchCohort, provisionCohort, refresh,
   } = useCohort();
   const cohortLanguage = (cohort?.settings as { language?: 'pt' | 'en' } | null)?.language ?? null;
@@ -1040,6 +1040,24 @@ export default function OrchestratorLandingPage() {
 
   const handleUpdateWorkshops = async (next: WorkshopConfig[]) => {
     await saveWorkshops(next);
+  };
+
+  // Coordinator confirmed "Close workshop" (opened by mistake — field ask
+  // 2026-07-16). The server clears openedAt, re-locks the phase for every
+  // member, and rolls back sessions already sitting in it; their answers stay.
+  const handleCloseWorkshop = async (workshopIndex: number) => {
+    const workshop = (cohort?.settings as any)?.workshops?.[workshopIndex] as WorkshopConfig | undefined;
+    if (!workshop) return;
+    const result = await closeWorkshopPhase(workshop.unlocksPhase);
+    toast({
+      title: result
+        ? t('orchestrator.cohort.workshopClosed', {
+            defaultValue: '{{workshop}} closed — {{n}} org(s) re-locked',
+            workshop: workshop.name,
+            n: result.relocked,
+          })
+        : t('orchestrator.cohort.workshopCloseFailed', { defaultValue: 'Could not close the workshop' }),
+    });
   };
 
   const handleResetConfirm = async () => {
@@ -1338,6 +1356,7 @@ export default function OrchestratorLandingPage() {
           <WorkshopCadence
             workshops={workshops}
             onOpenWorkshop={handleOpenWorkshop}
+            onCloseWorkshop={handleCloseWorkshop}
             onUpdateWorkshops={handleUpdateWorkshops}
           />
         </div>

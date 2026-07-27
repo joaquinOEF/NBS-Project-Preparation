@@ -51,6 +51,8 @@ export interface UseCohortResult {
   removeMember: (memberId: string) => Promise<boolean>;
   invite: (params: { orgName: string; neighborhood?: string; orgType?: 'community' | 'implementer' }) => Promise<CohortMember | null>;
   unlockPhase: (memberIds: string[] | 'all', phase: number) => Promise<void>;
+  /** Close a workshop: re-lock its phase for every member and roll back sessions sitting in it. */
+  closeWorkshopPhase: (phase: number) => Promise<{ relocked: number; rolledBack: number } | null>;
   saveWorkshops: (workshops: WorkshopConfig[]) => Promise<void>;
   saveLanguage: (language: 'pt' | 'en' | null) => Promise<void>;
   deleteCohort: () => Promise<void>;
@@ -180,6 +182,17 @@ export function useCohort(): UseCohortResult {
     await refresh();
   }, [refresh]);
 
+  const closeWorkshopPhase = useCallback(async (phase: number): Promise<{ relocked: number; rolledBack: number } | null> => {
+    const r = await fetch(`/api/cohort/${slugRef.current}/close-workshop`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phase }),
+    });
+    const body = r.ok ? await r.json() : null;
+    await refresh();
+    return body;
+  }, [refresh]);
+
   const saveWorkshops = useCallback(async (workshops: WorkshopConfig[]) => {
     await fetch(`/api/cohort/${slugRef.current}/workshops`, {
       method: 'PATCH',
@@ -213,6 +226,6 @@ export function useCohort(): UseCohortResult {
   return {
     loading, cohort, members, isAdmin, allCohorts,
     refresh, refreshAllCohorts, switchCohort, provisionCohort,
-    resetCohort, resetMember, removeMember, invite, unlockPhase, saveWorkshops, saveLanguage, deleteCohort,
+    resetCohort, resetMember, removeMember, invite, unlockPhase, closeWorkshopPhase, saveWorkshops, saveLanguage, deleteCohort,
   };
 }
