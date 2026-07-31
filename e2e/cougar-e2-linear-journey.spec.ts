@@ -34,13 +34,20 @@ const LANGS = [
     currentUsePick: 'Abandonado / degradado',
     tenureText: 'acesso a esse espaço',
     tenurePick: 'É da prefeitura, mas a gente usa',
-    photosText: 'fotos do lugar',
+    frameText: 'nosso mapa é',
+    worryText: 'mais preocupa',
+    worryPick: '💧 Alagamento',
+    storyText: 'palavras de vocês',
+    skipStory: 'Prefiro pular',
+    photosText: 'fotos ajudam',
+    checkText: 'média do bairro',
+    checkPick: 'Aqui é pior',
     noPhotos: 'Não tenho agora',
     exampleMark: 'ex.:',
     makesSense: 'Faz sentido',
     interestText: 'famílias vocês teriam interesse',
     interestPick: 'Infraestrutura Verde Urbana',
-    roleText: 'vocês gostariam de ter nesses projetos',
+    roleText: 'papel a organização',
     rolePick: 'Executar / implementar',
     doneList: 'Pronto ✓',
     closingText: 'por onde começar a estudar',
@@ -64,13 +71,20 @@ const LANGS = [
     currentUsePick: 'Abandoned / degraded',
     tenureText: 'access to this space',
     tenurePick: "It's the city's, but we use it",
-    photosText: 'photos of the place',
+    frameText: 'our map is',
+    worryText: 'worries you most',
+    worryPick: '💧 Flooding',
+    storyText: 'your own words',
+    skipStory: "I'd rather skip",
+    photosText: 'photos would help',
+    checkText: 'average over the whole neighbourhood',
+    checkPick: "It's worse here",
     noPhotos: "I don't have any right now",
     exampleMark: 'e.g.:',
     makesSense: 'Makes sense',
     interestText: 'famílias would you be interested',
     interestPick: 'Urban Green Infrastructure',
-    roleText: 'would you like to play in these projects',
+    roleText: 'role does the organization',
     rolePick: 'Implement on the ground',
     doneList: 'Done ✓',
     closingText: 'where to start studying',
@@ -153,7 +167,9 @@ for (const L of LANGS) {
       await chip(L.currentUsePick).click();
       await expect(page.getByText(L.tenureText, { exact: false })).toBeVisible({ timeout: 8_000 });
       await chip(L.tenurePick).click();
-      await expect(page.getByText(L.photosText, { exact: false })).toBeVisible({ timeout: 8_000 });
+      // 7b · The W2 diagnostic beats (/refine 2026-07-31): frame → worry.
+      await expect(page.getByText(L.frameText, { exact: false })).toBeVisible({ timeout: 8_000 });
+      await expect(page.getByText(L.worryText, { exact: false })).toBeVisible();
 
       // Tenure landed → the checkpoint scored site_control itself (the model
       // never runs in this path, so the old skill-driven scoring can't happen).
@@ -166,7 +182,18 @@ for (const L of LANGS) {
         }, { timeout: 8_000 })
         .toBe(1);
 
+      // 7c · Worry → story → photos → the read-back checkpoint. Every one of
+      // these is templated too; a fall-through to the model would strand here.
+      await chip(L.worryPick).click();
+      await expect(chip(L.doneList)).toBeVisible({ timeout: 8_000 });
+      await chip(L.doneList).click();
+      await expect(page.getByText(L.storyText, { exact: false })).toBeVisible({ timeout: 8_000 });
+      await chip(L.skipStory).click();
+      await expect(page.getByText(L.photosText, { exact: false })).toBeVisible({ timeout: 8_000 });
       await chip(L.noPhotos).click();
+      // The read-back: our data states a bairro average, they correct it.
+      await expect(page.getByText(L.checkText, { exact: false })).toBeVisible({ timeout: 8_000 });
+      await chip(L.checkPick).click();
 
       // 8 · Famílias recommendation: ≥2 famílias, ranked, with example variants.
       const reco = page.getByTestId('cbo-familia-reco');
@@ -180,7 +207,7 @@ for (const L of LANGS) {
       await chip(L.interestPick).click();
       await expect(chip(L.doneList)).toBeVisible({ timeout: 8_000 });
       await chip(L.doneList).click();
-      await expect(page.getByText(L.roleText, { exact: false })).toBeVisible({ timeout: 8_000 });
+      await expect(page.getByText(L.roleText, { exact: false }).first()).toBeVisible({ timeout: 8_000 });
       await chip(L.rolePick).click();
       await expect(chip(L.doneList)).toBeVisible({ timeout: 8_000 });
       await chip(L.doneList).click();

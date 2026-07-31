@@ -10,8 +10,16 @@ import { getFamilia, getSolution } from '@shared/nbs-catalog';
 // Faz sentido / Quero ajustar chips ride in the paired ask_user.
 
 const STRINGS = {
-  pt: { eyebrow: 'Pra esse lugar, vale estudar', ex: 'ex.:' },
-  en: { eyebrow: 'For this place, worth studying', ex: 'e.g.:' },
+  pt: {
+    eyebrow: 'Pra esse lugar, vale estudar',
+    ex: 'ex.:',
+    weak: 'sem sinal forte pra esse lugar — mas dá pra explorar',
+  },
+  en: {
+    eyebrow: 'For this place, worth studying',
+    ex: 'e.g.:',
+    weak: 'no strong signal for this place — but you can explore them',
+  },
 };
 
 export function CboFamiliaRecommendation({
@@ -24,6 +32,11 @@ export function CboFamiliaRecommendation({
   lang: 'pt' | 'en';
 }) {
   const s = STRINGS[lang];
+  // Every família ships; the ones with nothing behind them are grouped rather
+  // than ranked, so the list can carry all five without implying the last two
+  // were reasoned into position.
+  const strong = items.filter(i => !i.weak);
+  const weak = items.filter(i => i.weak);
   return (
     <div
       className='rounded-xl border border-[#e2d9c4] bg-[#f8f4ea] dark:bg-stone-900 dark:border-stone-700 px-3 py-2.5'
@@ -34,7 +47,7 @@ export function CboFamiliaRecommendation({
       </div>
       {intro && <p className='text-[11.5px] text-muted-foreground mb-1.5'>{intro}</p>}
       <div className='space-y-1.5'>
-        {items.map((item, i) => {
+        {strong.map((item, i) => {
           const familia = getFamilia(item.familiaId as any);
           if (!familia) return null;
           const examples = (item.exampleSolutionIds ?? [])
@@ -71,6 +84,28 @@ export function CboFamiliaRecommendation({
           );
         })}
       </div>
+      {weak.length > 0 && (
+        <div className='mt-2 pt-2 border-t border-[#e2d9c4] dark:border-stone-700' data-testid='familia-reco-weak'>
+          <div className='text-[9.5px] uppercase tracking-wide text-[#8a7d5c] dark:text-stone-400 mb-1'>
+            {s.weak}
+          </div>
+          <div className='flex flex-wrap gap-1.5'>
+            {weak.map(item => {
+              const familia = getFamilia(item.familiaId as any);
+              if (!familia) return null;
+              return (
+                <span
+                  key={item.familiaId}
+                  className='text-[11px] rounded-full border border-[#e2d9c4] dark:border-stone-700 bg-white/70 dark:bg-stone-950 px-2.5 py-1 text-muted-foreground'
+                  data-testid={`familia-reco-weak-${item.familiaId}`}
+                >
+                  {familia.emoji} {familia[lang].label}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
