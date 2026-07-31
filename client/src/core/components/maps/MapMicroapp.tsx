@@ -329,8 +329,11 @@ export default function MapMicroapp({
     params.hazardTour,
   ]);
 
-  // Hazard tour: while touring, show ONLY the active hazard; once done, show all
-  // three so the user sees combined risk while picking a neighborhood.
+  // Hazard tour: while touring, show ONLY the active hazard. Once done we hide
+  // the rasters entirely — the bairro choropleth carries the risk colour at the
+  // selection step, and leaving three rasters under it made both unreadable.
+  // (The comment here used to claim all three stay on; verified against the
+  // tiles on 2026-07-31 — they do not.)
   useEffect(() => {
     if (!params.hazardTour || tourLayers.length === 0) return;
     if (tourIdx >= 0 && tourIdx < tourLayers.length) {
@@ -468,7 +471,24 @@ export default function MapMicroapp({
     mapRef.current = map;
     setMapReady(true);
     return () => {
-      map.remove();
+      // Neutralise a zoom animation still in flight, or unmounting throws.
+      //
+      // Leaflet 1.9.4 `_animateZoom` schedules `setTimeout(_onZoomTransitionEnd,
+      // 250)` as a workaround for WebKit not firing `transitionend`, and
+      // `remove()` never cancels that timer. The handler bails only when
+      // `_animatingZoom` is falsy — which `remove()` also doesn't clear. So
+      // closing this panel mid-zoom (confirming a site does exactly that) lets
+      // the orphan timer fire against a detached `_mapPane`, and
+      // `getPosition()` reads `_leaflet_pos` off undefined. It throws from a
+      // timer, so no try/catch at the call site can see it; in dev it raises a
+      // runtime-error overlay that then swallows every click on the page.
+      //
+      // Clearing the flag makes the orphan timer a no-op, which is precisely
+      // the early-return Leaflet already intends. Note `map.stop()` is NOT a
+      // substitute: it calls setZoom() and can start a fresh animation.
+      // The WebKit detail matters here — iOS Safari is what the CBOs use.
+      try { (map as any)._animatingZoom = false; } catch {}
+      try { map.remove(); } catch {}
       mapRef.current = null;
     };
   }, []);
@@ -1035,6 +1055,14 @@ export default function MapMicroapp({
     // region (JVP video 2026-07-16). invalidateSize + staggered refits make it
     // land once layout settles; the calls are idempotent.
     const fitToBairro = () => {
+      // The map may already be gone: confirming the site closes the panel and
+      // unmounts it, and a refit landing after that reaches into a torn-down
+      // Leaflet instance — `invalidateSize` fires a resize → pan animation that
+      // throws `_leaflet_pos` of undefined from inside a rAF callback, where the
+      // try/catch below cannot reach it. In dev that raises a runtime-error
+      // overlay that swallows every subsequent click. The unmount handler nulls
+      // mapRef, so this identity check is the reliable liveness test.
+      if (mapRef.current !== map) return;
       try {
         map.invalidateSize();
         const bounds = L.geoJSON(feature.geometry).getBounds();
@@ -1043,13 +1071,13 @@ export default function MapMicroapp({
       } catch {}
     };
     fitToBairro();
-    setTimeout(fitToBairro, 350);
-    setTimeout(fitToBairro, 1000);
+    const refitTimers = [setTimeout(fitToBairro, 350), setTimeout(fitToBairro, 1000)];
     setCompositeStep('assets');
     setLoading(true);
     setLoadingStatus(
       t('mapMicroapp.loadingSites', { defaultValue: 'Loading sites...' })
     );
+    return () => refitTimers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zonesLoaded, mapReady]);
 
@@ -1634,7 +1662,17 @@ export default function MapMicroapp({
     : 'mapMicroapp.step1Zone';
   const stepInstruction = isComposite
     ? compositeStep === 'zone'
-      ? t(step1Key)
+      // During the hazard tour, zone selection is deliberately suppressed
+      // (`showZones = !tourActive`) — so telling the user to tap their bairro
+      // invites the one gesture that cannot work, and a tap on a dead map gives
+      // no feedback at all. Almost certainly the "I tapped and nothing
+      // happened" failure: an automated harness needed eight jittered offsets
+      // before a bairro would select at phone size.
+      ? tourActive
+        ? t('mapMicroapp.tourHint', {
+            defaultValue: 'Veja como cada risco se espalha pela cidade.',
+          })
+        : t(step1Key)
       : t('mapMicroapp.step2Sites', {
           zone:
             selectedAssets
