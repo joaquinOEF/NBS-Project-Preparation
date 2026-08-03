@@ -814,7 +814,7 @@ Spatial queries: sq_parks_flood, sq_schools_flood, sq_hospitals_flood, sq_wetlan
 ## Presets — ALWAYS use one for an Encontro-2 map. Never retype its params.
 ⚠️ In E2 the platform's checkpoints open both map sessions for you — only call
 open_map yourself when the user explicitly asks to redo a step.
-- \`preset:"e2_bairro"\` — Map 1: hazard tour, then bairro; confirms AT the zone step.
+- \`preset:"e2_bairro"\` — Map 1: hazard tour, then bairro; confirms AT the zone step. Pass \`preselectZone:"<bairro>"\` (org_profile.bairro_of_operation) so the org confirms instead of hunting for itself on a 94-polygon map.
 - \`preset:"e2_site_focused"\` — Map 2: pass \`focusZone:"<bairro>"\`; opens inside it (satellite, chooser overlay).
 - \`preset:"e2_risk_tour"\` / \`preset:"e2_site"\` — legacy combined session (old flow re-entries only).
 - \`preset:"e2_browse"\` — needs-help: look around, commit to nothing.
@@ -830,6 +830,7 @@ STOP and wait for the user's map selection after calling this tool.`,
     {
       preset: z.enum(["e2_risk_tour", "e2_site", "e2_browse", "e2_bairro", "e2_site_focused"]).optional().describe("The canonical Encontro-2 map step. Supplies every param below. USE THIS for any E2 map — the params are defined once in shared/cbo-map-presets.ts, so a retyped copy can never drift from the one the client renders."),
       focusZone: z.string().optional().describe("e2_site_focused only: the confirmed bairro name — the map opens already inside it"),
+      preselectZone: z.string().optional().describe("e2_bairro only: the bairro E1 already recorded (org_profile.bairro_of_operation). Pre-selects it and rings it through the hazard tour, so the step is a confirmation. The zone step is NOT skipped — the user can still tap a different bairro. A name matching no zone is ignored."),
       confirmAtZone: z.boolean().optional().describe("Composite: the session ends at the zone step (e2_bairro sets this)"),
       layers: z.array(z.string()).optional().describe("OSM layer IDs to show: osm_parks, osm_schools, osm_hospitals, osm_wetlands"),
       tileLayers: z.array(z.string()).optional().describe("Tile layer IDs as toggleable overlays (not auto-shown): poa_flood_hazard, poa_heat_hazard, etc."),
@@ -879,6 +880,12 @@ STOP and wait for the user's map selection after calling this tool.`,
         hazardTour: args.hazardTour,
         allowDeferSite: args.allowDeferSite,
         suggestedSite: args.suggestedSite,
+        // Both zone hints were documented in this tool's description and then
+        // dropped on the floor here — the whitelist above is explicit, so an arg
+        // absent from it silently never reaches the client. `focusZone` is the
+        // one the description tells the model to pass for e2_site_focused.
+        focusZone: args.focusZone,
+        preselectZone: args.preselectZone,
       }, lang);
 
       if (!resolved.selectionMode) {
@@ -2007,8 +2014,20 @@ async function serveE2Checkpoint(
   // so match the shape as well as the constant.
   const isSingleBairroChip = is(E2C.umBairro) || /^(so o |so a |just )/.test(msg);
   if (!bairro && (isSingleBairroChip || is(E2C.maisDeUm))) {
+    // Carry E1's bairro onto the map so the step is a confirmation, not a
+    // search through 94 polygons for yourself. Only for the single-bairro
+    // answer: an org that just said "mais de um" is being asked to mark
+    // several, and pre-committing one of them would frame the answer.
+    // The client ignores a name that matches no zone, so a typo at invite time
+    // degrades to today's behaviour rather than selecting the wrong territory.
+    const e1BairroForMap = String(
+      state.sections.org_profile?.fields?.bairro_of_operation?.value ?? '',
+    ).split(',')[0].trim();
     openMapPreset({
       preset: 'e2_bairro',
+      ...(isSingleBairroChip && e1BairroForMap
+        ? { preselectZone: e1BairroForMap }
+        : {}),
       ...(is(E2C.maisDeUm)
         ? { prompt: isPt ? 'Conheça os riscos e marque os bairros onde vocês atuam.' : 'Get to know the risks, then mark the neighborhoods where you work.' }
         : {}),
