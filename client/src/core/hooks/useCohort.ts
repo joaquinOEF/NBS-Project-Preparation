@@ -50,7 +50,9 @@ export interface UseCohortResult {
   resetMember: (memberId: string) => Promise<boolean>;
   removeMember: (memberId: string) => Promise<boolean>;
   invite: (params: { orgName: string; neighborhood?: string; orgType?: 'community' | 'implementer' }) => Promise<CohortMember | null>;
-  unlockPhase: (memberIds: string[] | 'all', phase: number) => Promise<void>;
+  unlockPhase: (memberIds: string[] | 'all', phase: number) => Promise<boolean>;
+  /** Open a workshop for the whole cohort: unlock + stamp openedAt, atomically. */
+  openWorkshopPhase: (phase: number, openedAt: string) => Promise<boolean>;
   /** Close a workshop: re-lock its phase for every member and roll back sessions sitting in it. */
   closeWorkshopPhase: (phase: number) => Promise<{ relocked: number; rolledBack: number } | null>;
   saveWorkshops: (workshops: WorkshopConfig[]) => Promise<void>;
@@ -90,6 +92,20 @@ export function useCohort(): UseCohortResult {
 
   // Boot resolution — /mine establishes who we are (admin vs scoped) and the
   // starting cohort. Admins additionally pull the full cohort directory.
+  //
+  // ⚠️ COHORT-SELECTION-LOST-ON-RELOAD (JVP, 2026-08-03: "I restarted server for
+  // the staging version and the W2 was closed, when I had opened it before").
+  // switchCohort used to live only in React state, so every reload resolved back
+  // to /mine — the coordinator's OWN cohort. An admin who had switched to
+  // another cohort, opened a workshop there, and then reloaded came back to a
+  // different cohort whose rail showed that workshop as never opened. Nothing
+  // was lost; they were looking at the wrong cohort, which is worse, because it
+  // reads as data loss and invites re-opening a workshop that is already open.
+  //
+  // The selection now rides in the URL (?cohort=<slug>): it survives reloads and
+  // restarts, it is shareable, and there is no stale localStorage to diverge
+  // from what is on screen. A slug the caller may not access simply 403s at the
+  // app.param guard and we keep /mine's cohort.
   const fetchCohort = useCallback(async () => {
     setLoading(true);
     try {
@@ -101,10 +117,15 @@ export function useCohort(): UseCohortResult {
       setIsAdmin(!!data.isAdmin);
       if (data.cohort?.coordinatorSlug) slugRef.current = data.cohort.coordinatorSlug;
       if (data.isAdmin) void refreshAllCohorts();
+
+      const wanted = new URLSearchParams(window.location.search).get('cohort');
+      if (wanted && wanted !== data.cohort?.coordinatorSlug) {
+        await loadCohort(wanted);
+      }
     } finally {
       setLoading(false);
     }
-  }, [refreshAllCohorts]);
+  }, [refreshAllCohorts, loadCohort]);
 
   useEffect(() => { fetchCohort(); }, [fetchCohort]);
 
@@ -114,7 +135,15 @@ export function useCohort(): UseCohortResult {
 
   const switchCohort = useCallback(async (cohortSlug: string) => {
     setLoading(true);
-    try { await loadCohort(cohortSlug); } finally { setLoading(false); }
+    try {
+      await loadCohort(cohortSlug);
+      // Write the selection into the URL so a reload lands on the SAME cohort.
+      // replaceState, not push: switching cohorts is changing what you're
+      // looking at, not navigating somewhere you'd expect Back to undo.
+      const url = new URL(window.location.href);
+      url.searchParams.set('cohort', cohortSlug);
+      window.history.replaceState(null, '', url.toString());
+    } finally { setLoading(false); }
   }, [loadCohort]);
 
   const provisionCohort = useCallback<UseCohortResult['provisionCohort']>(async (input) => {
@@ -173,13 +202,32 @@ export function useCohort(): UseCohortResult {
     return member;
   }, [refresh]);
 
+  // Per-member unlock (the "unlock next phase for this one org" card action).
+  // Returns ok so the caller can stop claiming success on a failed write — the
+  // bare `await fetch` here used to swallow every error while the toast fired
+  // regardless.
   const unlockPhase = useCallback(async (memberIds: string[] | 'all', phase: number) => {
-    await fetch(`/api/cohort/${slugRef.current}/unlock`, {
+    const r = await fetch(`/api/cohort/${slugRef.current}/unlock`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ memberIds, phase }),
     });
     await refresh();
+    return r.ok;
+  }, [refresh]);
+
+  // Open a workshop for the whole cohort. ONE server call that unlocks every
+  // member and stamps `openedAt` in a single transaction — this used to be two
+  // sequential client-driven writes to two tables, neither of which checked
+  // whether it succeeded.
+  const openWorkshopPhase = useCallback(async (phase: number, openedAt: string) => {
+    const r = await fetch(`/api/cohort/${slugRef.current}/open-workshop`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phase, openedAt }),
+    });
+    await refresh();
+    return r.ok;
   }, [refresh]);
 
   const closeWorkshopPhase = useCallback(async (phase: number): Promise<{ relocked: number; rolledBack: number } | null> => {
@@ -225,7 +273,7 @@ export function useCohort(): UseCohortResult {
 
   return {
     loading, cohort, members, isAdmin, allCohorts,
-    refresh, refreshAllCohorts, switchCohort, provisionCohort,
+    refresh, refreshAllCohorts, switchCohort, provisionCohort, openWorkshopPhase,
     resetCohort, resetMember, removeMember, invite, unlockPhase, closeWorkshopPhase, saveWorkshops, saveLanguage, deleteCohort,
   };
 }

@@ -573,12 +573,26 @@ export function registerCohortRoutes(app: Express): void {
     const incoming = req.body?.workshops;
     if (!Array.isArray(incoming)) { res.status(400).json({ error: 'workshops must be an array' }); return; }
 
-    const workshops: WorkshopConfig[] = incoming.map((w: any) => ({
-      name: String(w.name ?? ''),
-      date: w.date ? String(w.date) : null,
-      unlocksPhase: Number(w.unlocksPhase) || 1,
-      openedAt: w.openedAt ? String(w.openedAt) : null,
-    }));
+    // `openedAt` is NOT client-writable here. This route exists to edit the
+    // cadence — names, dates, which phase a workshop unlocks. It used to accept
+    // the whole array verbatim, so any edit from a page whose `cohort` object
+    // predated an opening silently cleared `openedAt` for every workshop — and
+    // unlike close-workshop it re-locked nobody, leaving the rail showing
+    // "closed" while every org still had access. Opening and closing go through
+    // their own endpoints, which move the flag and the members together.
+    const existingByPhase = new Map(
+      ((cohort.settings as CohortSettings | null)?.workshops ?? [])
+        .map(w => [Number(w.unlocksPhase), w.openedAt ?? null]),
+    );
+    const workshops: WorkshopConfig[] = incoming.map((w: any) => {
+      const unlocksPhase = Number(w.unlocksPhase) || 1;
+      return {
+        name: String(w.name ?? ''),
+        date: w.date ? String(w.date) : null,
+        unlocksPhase,
+        openedAt: existingByPhase.get(unlocksPhase) ?? null,
+      };
+    });
     const settings: CohortSettings = { ...(cohort.settings as CohortSettings), workshops };
     await db.update(cohorts).set({ settings }).where(eq(cohorts.id, cohort.id));
     res.json({ ok: true });
@@ -631,6 +645,64 @@ export function registerCohortRoutes(app: Express): void {
       await db.update(cohortMembers).set({ unlockedPhases: next }).where(eq(cohortMembers.id, m.id));
     }
     res.json({ ok: true, updated: targets.length });
+  }));
+
+  // Open a workshop — the exact mirror of close-workshop below, and the reason
+  // this endpoint exists at all (JVP, 2026-08-03: "I restarted server for the
+  // staging version and the W2 was closed, when I had opened it before").
+  //
+  // "Open for cohort" used to be TWO client-driven writes to two different
+  // tables — PATCH /unlock (cohort_members.unlockedPhases, which actually gates
+  // the org) then PATCH /workshops (cohorts.settings.workshops[].openedAt,
+  // which the cadence rail displays). Three ways that drifts:
+  //
+  //   1. Neither call checked `r.ok`, and the success toast fired regardless.
+  //      A failed or interrupted second write left the phase unlocked with the
+  //      rail showing the workshop as never opened — silently.
+  //   2. They are sequential and non-atomic. Navigate away between them and you
+  //      get the same split.
+  //   3. PATCH /workshops overwrites the whole array from the CLIENT's copy, so
+  //      any later edit from a stale page nulls `openedAt` — and unlike this
+  //      route's mirror below it re-locks nobody, leaving the rail saying
+  //      "closed" while every org still has access.
+  //
+  // One request, one transaction, server-side merge. The client no longer
+  // decides what `openedAt` was.
+  app.patch('/api/cohort/:coordinatorSlug/open-workshop', wrap(async (req, res) => {
+    const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
+    if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
+
+    const phaseNum = Number(req.body?.phase);
+    if (!phaseNum || phaseNum < 1 || phaseNum > 7) { res.status(400).json({ error: 'invalid phase (1-7)' }); return; }
+    // The date is the coordinator's local "today" — the server may be in
+    // another timezone, and the cadence rail is a record of when the workshop
+    // was actually held. Validated, never trusted raw into settings.
+    const openedAt = /^\d{4}-\d{2}-\d{2}$/.test(String(req.body?.openedAt ?? ''))
+      ? String(req.body.openedAt)
+      : new Date().toISOString().slice(0, 10);
+
+    const settings: CohortSettings = (cohort.settings as CohortSettings | null) ?? ({} as CohortSettings);
+    const workshops: WorkshopConfig[] = (settings.workshops ?? []).map(w =>
+      // Merge, don't replace: only this workshop's openedAt changes, and only
+      // if it wasn't already stamped (re-opening keeps the original date).
+      Number(w.unlocksPhase) === phaseNum && !w.openedAt ? { ...w, openedAt } : w);
+
+    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    let unlocked = 0;
+
+    await db.transaction(async tx => {
+      await tx.update(cohorts).set({ settings: { ...settings, workshops } }).where(eq(cohorts.id, cohort.id));
+      for (const m of members) {
+        const current = Array.isArray(m.unlockedPhases) ? (m.unlockedPhases as number[]) : [1];
+        if (current.includes(phaseNum)) continue;
+        const next = [...current, phaseNum].sort((a, b) => a - b);
+        await tx.update(cohortMembers).set({ unlockedPhases: next }).where(eq(cohortMembers.id, m.id));
+        unlocked++;
+      }
+    });
+
+    console.log(`[cohort] opened workshop phase ${phaseNum} for cohort ${cohort.id}: unlocked=${unlocked}/${members.length}`);
+    res.json({ ok: true, phase: phaseNum, openedAt, unlocked, members: members.length });
   }));
 
   // Close a workshop — the reverse of "Open for cohort" (field ask 2026-07-16:
