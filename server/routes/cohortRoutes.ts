@@ -23,6 +23,9 @@ import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } fro
 import { cboStates } from '@shared/cbo-db-schema';
 import { cboSectionsFilledCount, type CboState } from '@shared/cbo-schema';
 import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist } from '../services/cboAgent';
+import JSZip from 'jszip';
+import { getObject } from '../services/blobStorage';
+import { buildContextMarkdown, buildTranscriptMarkdown, type BundleDoc } from '../services/contextBundle';
 import { deleteCboState } from '../services/cboPersistence';
 import {
   requireCoordinator,
@@ -489,6 +492,102 @@ export function registerCohortRoutes(app: Express): void {
         gaps: state.gaps,
       },
     });
+  }));
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Context bundle — one org, one zip, readable by a person or an agent.
+  // JVP 2026-08-03: "an export button which downloads a folder with all that
+  // we have that you or another agent can read to get the full context bundle
+  // of that org." Built server-side because it needs the profile, the whole
+  // transcript, AND the blob originals — the drawer has none of the last two in
+  // full, and reassembling them client-side would mean N+1 fetches over the
+  // coordinator's connection.
+  //
+  // Ownership-gated by the :coordinatorSlug param guard + memberInCohort, like
+  // every other member read here.
+  // ──────────────────────────────────────────────────────────────────────
+  app.get('/api/cohort/:coordinatorSlug/member/:memberId/export', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+
+    let state: CboState | null = null;
+    let messages: any[] = [];
+    if (member.cboStateId) {
+      state = getCboState(member.cboStateId) ?? null;
+      messages = getCboMessages(member.cboStateId);
+      if (!state || messages.length === 0) {
+        const persisted = await loadCboFromDb(member.cboStateId);
+        state = state ?? persisted?.state ?? null;
+        if (messages.length === 0) messages = persisted?.messages ?? [];
+      }
+    }
+
+    const rows = await listDocumentsForScope({ orgId: member.orgId, cboStateId: member.cboStateId });
+    const docs: BundleDoc[] = [];
+    for (const d of rows) {
+      // Originals are best-effort: a doc whose blob is gone (or predates blob
+      // storage) still appears in context.md with its extracted text, which is
+      // the part that carries meaning. Failing the whole export over one
+      // missing attachment would be the wrong trade.
+      let bytes: Buffer | null = null;
+      if (d.storageKey) bytes = await getObject(d.storageKey).catch(() => null);
+      docs.push({
+        filename: d.filename,
+        kind: d.kind,
+        droppedInPhase: d.droppedInPhase,
+        summary: d.summary,
+        fullText: d.fullText,
+        bytes,
+      });
+    }
+
+    const input = {
+      orgName: member.orgName || 'organização',
+      bairro: member.neighborhood,
+      state,
+      messages,
+      docs,
+      generatedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    };
+
+    const zip = new JSZip();
+    zip.file('context.md', buildContextMarkdown(input));
+    zip.file('transcricao.md', buildTranscriptMarkdown(input));
+    zip.file('perfil.json', JSON.stringify({
+      orgName: member.orgName,
+      neighborhood: member.neighborhood,
+      phase: state?.phase ?? null,
+      unlockedPhases: member.unlockedPhases ?? null,
+      sections: state?.sections ?? null,
+      maturityScores: state?.maturityScores ?? null,
+      totalMaturityScore: state?.totalMaturityScore ?? null,
+      gaps: state?.gaps ?? null,
+    }, null, 2));
+    const files = zip.folder('arquivos')!;
+    const used = new Set<string>();
+    for (const d of docs) {
+      // Two uploads can share a filename ("foto.jpg"); a zip entry collision
+      // would silently drop one.
+      let name = d.filename || 'arquivo';
+      if (used.has(name)) {
+        const dot = name.lastIndexOf('.');
+        const stem = dot > 0 ? name.slice(0, dot) : name;
+        const ext = dot > 0 ? name.slice(dot) : '';
+        let n = 2;
+        while (used.has(`${stem}-${n}${ext}`)) n++;
+        name = `${stem}-${n}${ext}`;
+      }
+      used.add(name);
+      if (d.bytes) files.file(name, d.bytes);
+      else if (d.fullText) files.file(`${name}.txt`, d.fullText);
+    }
+
+    const buf = await zip.generateAsync({ type: 'nodebuffer' });
+    const safe = (member.orgName || 'org').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'org';
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${safe}-contexto.zip"`);
+    res.send(buf);
   }));
 
   // Invite a CBO — slugs are human-readable, derived from the org name.
