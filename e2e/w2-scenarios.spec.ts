@@ -161,6 +161,8 @@ test.describe('W2 test-kit scenarios', () => {
     await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 25_000 });
     notes.readbackText = await page.locator('text=/Nosso mapa diz/').first().textContent().catch(() => null);
     await c.tap('Aqui é pior');
+    // Two hazard checks are possible now — see CBO-RISK-SCALE.
+    if (await c.chip('Aqui é pior').isVisible().catch(() => false)) await c.tap('Aqui é pior');
 
     // Passo 13 — did the correction reach the recommendation?
     await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 20_000 });
@@ -214,6 +216,7 @@ test.describe('W2 test-kit scenarios', () => {
     await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 15_000 });
     notes.readbackText = await page.locator('text=/Nosso mapa diz/').first().textContent().catch(() => null);
     await tapCount('Não sei dizer');
+    if (await c.chip('Não sei dizer').isVisible().catch(() => false)) await tapCount('Não sei dizer');
     if (await c.chip('Não sei dizer').isVisible().catch(() => false)) await tapCount('Não sei dizer');
 
     await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 20_000 });
@@ -282,6 +285,8 @@ test.describe('W2 test-kit scenarios', () => {
     notes.readbackText = await page.locator('text=/Nosso mapa diz/').first().textContent().catch(() => null);
     notes.readbackUsesDayToDay = await page.getByText('dia a dia de vocês', { exact: false }).count() > 0;
     await c.tap('Aqui é pior');
+    // Two hazard checks are possible now — see CBO-RISK-SCALE.
+    if (await c.chip('Aqui é pior').isVisible().catch(() => false)) await c.tap('Aqui é pior');
 
     await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 20_000 });
     notes.recoWhys = await page.locator('[data-testid^="familia-reco-"]').allTextContents();
