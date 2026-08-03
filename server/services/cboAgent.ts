@@ -26,6 +26,8 @@ import { db } from "../db";
 import { cohortMembers, type SupportRequest } from "@shared/cohort-schema";
 import { resolveOpenMapParams } from "@shared/cbo-map-presets";
 import { rankFamiliasForSite, inferSiteTypeLabel } from "@shared/nbs-recommendation";
+import { rankFamiliasWithContext, type FamiliaRankingResult } from "./familiaRanker";
+import { getObject } from "./blobStorage";
 import {
   E2_WORRIES,
   orderWorriesByData,
@@ -1384,6 +1386,124 @@ function buildFamiliaRecoItems(state: CboState, lang: string, modelItems?: Array
   }));
 }
 
+/** Cap on a single photo sent to the ranker. Above this the request gets slow
+ *  and expensive for no gain — the model is looking for standing water and bare
+ *  pavement, not reading a sign. */
+const RANKER_PHOTO_MAX_BYTES = 1_500_000;
+
+/**
+ * The org's site photos, as data URLs for the ranking call.
+ *
+ * We asked them to walk their own site and photograph it. Until now those
+ * photos informed nothing downstream of the chat turn they arrived in. Reads
+ * the durable blob original; a photo whose bytes are gone is simply skipped.
+ */
+async function sitePhotosForRanking(
+  cboId: string,
+): Promise<Array<{ filename: string; dataUrl: string }>> {
+  try {
+    const orgId = await getOrgIdForCboState(cboId);
+    const docs = await listDocumentsForScope({ cboStateId: cboId, orgId: orgId ?? undefined });
+    const images = docs
+      .filter(d => d.kind === 'image' && d.storageKey)
+      .filter(d => !d.sizeBytes || d.sizeBytes <= RANKER_PHOTO_MAX_BYTES)
+      .slice(0, 3);
+    const out: Array<{ filename: string; dataUrl: string }> = [];
+    for (const d of images) {
+      const buf = await getObject(d.storageKey!).catch(() => null);
+      if (!buf) continue;
+      const mime = d.mimeType || 'image/jpeg';
+      out.push({ filename: d.filename, dataUrl: `data:${mime};base64,${buf.toString('base64')}` });
+    }
+    return out;
+  } catch (e: any) {
+    console.error('[cbo] sitePhotosForRanking failed:', e?.message || e);
+    return [];
+  }
+}
+
+/** Short excerpts from the org's uploaded documents, for the ranking call. */
+async function siteDocExcerpts(cboId: string): Promise<string[]> {
+  try {
+    const orgId = await getOrgIdForCboState(cboId);
+    const docs = await listDocumentsForScope({ cboStateId: cboId, orgId: orgId ?? undefined });
+    return docs
+      .filter(d => d.kind !== 'image' && (d.summary || d.fullText))
+      .slice(0, 2)
+      .map(d => String(d.summary || d.fullText).replace(/\s+/g, ' ').trim().slice(0, 600))
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Assemble the org's full context and rank the famílias over it, then persist
+ * BOTH that ranking and the deterministic baseline.
+ *
+ * Persisting both is what pays for putting a model in this position. A model
+ * ranking cannot be recomputed later — two runs can differ — so instead of
+ * deriving the reasoning after the fact we record it: `_reco_json` holds the
+ * served list, which ranker produced it, why it fell back if it did, and the
+ * baseline it would otherwise have shown. That is what lets a coordinator (and
+ * the context-bundle export) answer "the photos and the voice note — what did
+ * they change?" with evidence rather than an assumption.
+ */
+async function buildFamiliaReco(
+  state: CboState,
+  lang: string,
+  cboId: string,
+): Promise<FamiliaRankingResult> {
+  const f = state.sections.intervention_site?.fields ?? ({} as any);
+  const v = (k: string) => String(f[k]?.value ?? '').trim();
+  const pct = (k: string) => Math.max(0, Math.min(100, parseInt(v(k), 10) || 0));
+  const l: 'pt' | 'en' = lang === 'pt' ? 'pt' : 'en';
+
+  let corrections: Record<string, any> | undefined;
+  try { corrections = JSON.parse(v('_hazard_check_json')) || undefined; } catch { corrections = undefined; }
+
+  const worries = v('site_worry').split(',').map(s => s.trim()).filter(Boolean);
+  const baseline = {
+    risks: { flood: pct('_bairro_flood_pct'), heat: pct('_bairro_heat_pct'), landslide: pct('_bairro_landslide_pct') },
+    bairro: v('bairro').split(',')[0].trim() || (l === 'pt' ? 'seu bairro' : 'your neighborhood'),
+    currentUse: v('current_use') || undefined,
+    siteName: v('site_name') || undefined,
+    corrections,
+    worries,
+  };
+
+  const org = state.sections.org_profile?.fields ?? ({} as any);
+  const result = await rankFamiliasWithContext({
+    lang: l,
+    baseline,
+    // The voice note. The whole reason this function exists.
+    story: v('site_story') || undefined,
+    worries,
+    corrections,
+    landTenure: v('land_tenure') || undefined,
+    orgMission: String(org.mission_summary?.value ?? '').trim() || undefined,
+    photos: await sitePhotosForRanking(cboId),
+    docExcerpts: await siteDocExcerpts(cboId),
+  });
+
+  // Record what was served and what the arithmetic alone would have said.
+  try {
+    const deterministic = rankFamiliasForSite(baseline);
+    writeE2Fields(cboId, state, {
+      _reco_json: JSON.stringify({
+        source: result.source,
+        ...(result.fallbackReason ? { fallbackReason: result.fallbackReason } : {}),
+        served: result.items.map(i => i.familiaId),
+        baseline: deterministic.map(d => d.familiaId),
+        usedStory: !!v('site_story'),
+        at: new Date().toISOString(),
+      }),
+    }, () => {});
+  } catch { /* recording must never break the beat */ }
+
+  return result;
+}
+
 /**
  * What the org has already shared. An organization that uploaded a proposal or
  * a site description may have answered the diagnostic's questions before we
@@ -1710,8 +1830,32 @@ async function serveE2Checkpoint(
   };
 
   /** Serve the famílias recommendation — the end of the diagnostic. */
-  const serveFamiliaReco = (): true => {
-    const items = buildFamiliaRecoItems(state, lang);
+  const serveFamiliaReco = async (): Promise<true> => {
+    // The line below says "com o que você me contou", so the ranking has to
+    // have actually read it. buildFamiliaRecoItems() alone never saw the voice
+    // note or the photos — see familiaRanker.ts. This call does, and falls back
+    // to exactly the old arithmetic on any failure.
+    //
+    // It is allowed to take a few seconds. Narrate it: an unexplained pause
+    // after someone recorded a voice note reads as the app hanging, and a named
+    // one reads as being listened to (JVP, 2026-08-03: fine to take ~15s
+    // "especially if the tool call is explicit").
+    const thinkingLabel = isPt
+      ? 'Lendo o que vocês contaram sobre o lugar…'
+      : 'Reading what you told us about the place…';
+    pushEvent({
+      type: 'thinking_step',
+      step: { id: 'familia-ranking', label: thinkingLabel, status: 'active' },
+    } as any);
+    const ranking = await buildFamiliaReco(state, lang, cboId);
+    // Clear the indicator explicitly. The client only drops the label on a
+    // non-'active' status, so a turn that ends without this leaves "Lendo o que
+    // vocês contaram…" frozen under the finished card.
+    pushEvent({
+      type: 'thinking_step',
+      step: { id: 'familia-ranking', label: thinkingLabel, status: 'complete' },
+    } as any);
+    const items = ranking.items;
     say(
       'Pra esse lugar, com o que você me contou, vale estudar essas famílias — não é veredito, é convite. **Nada fica descartado**: dá pra ver as 27 soluções quando quiser.',
       "For this place, with what you've told me, these famílias are worth studying — not a verdict, an invitation. **Nothing is ruled out**: you can see all 27 solutions whenever you like.",
@@ -2160,7 +2304,7 @@ async function serveE2Checkpoint(
       pushEvent({ type: 'maturity_update', scores: state.maturityScores, total: state.totalMaturityScore, flags: state.priorityFlags } as any);
       // An org that already did the diagnostic at bairro level and then came
       // back to pin a site must not be walked through all of it again.
-      if (val('_check_done') === 'yes') return serveFamiliaReco();
+      if (val('_check_done') === 'yes') return await serveFamiliaReco();
       return startDiagnostic();
     }
   }
@@ -2250,7 +2394,7 @@ async function serveE2Checkpoint(
       }
       await persistDepth();
       if (askHazardCheck()) return finish('ask-hazard-check');
-      return serveFamiliaReco();
+      return await serveFamiliaReco();
     }
   }
 
@@ -2287,7 +2431,7 @@ async function serveE2Checkpoint(
       if (askHazardCheck()) return finish('ask-hazard-check');
       writeE2Fields(cboId, state, { _check_done: 'yes' }, pushEvent);
       await persistDepth();
-      return serveFamiliaReco();
+      return await serveFamiliaReco();
     }
   }
   // Recommendation acknowledged → the interest question (not closing yet).
