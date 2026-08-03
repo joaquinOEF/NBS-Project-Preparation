@@ -40,9 +40,42 @@ const DEFAULT_CONFIG: ResponsesConfig = {
   maxCompletionTokens: 8192,
 };
 
+/**
+ * A content part, for messages that carry more than text.
+ *
+ * Added for the E2 família ranking, which has to reason over the photos an org
+ * sent of its own site — the whole point of asking for them. Everything that
+ * predates this passes a plain string, which stays valid: `content` is a union,
+ * and the call sites below normalize it.
+ */
+export type ContentPart =
+  | { type: "input_text"; text: string }
+  | { type: "input_image"; image_url: string; detail?: "low" | "high" | "auto" };
+
 export interface Message {
   role: "user" | "assistant" | "system" | "developer";
-  content: string;
+  content: string | ContentPart[];
+}
+
+/**
+ * The Responses API accepts a bare string or an array of parts, but only on
+ * `user` messages — a system/developer message with parts is rejected. Callers
+ * shouldn't have to know that, so collapse parts to text for those roles.
+ */
+/** Text-only rendering, for the Chat Completions surface (no image support
+ *  here, and every caller of it passes strings anyway). */
+function flattenToText(m: Message): string {
+  if (typeof m.content === "string") return m.content;
+  return m.content.map(p => (p.type === "input_text" ? p.text : "[image]")).join("\n");
+}
+
+function normalizeContent(m: Message): string | ContentPart[] {
+  if (typeof m.content === "string") return m.content;
+  if (m.role === "user" || m.role === "assistant") return m.content;
+  return m.content
+    .map(p => (p.type === "input_text" ? p.text : ""))
+    .filter(Boolean)
+    .join("\n");
 }
 
 export interface ResponsesCreateParams {
@@ -65,7 +98,7 @@ export async function createResponse(params: ResponsesCreateParams): Promise<str
 
   const response = await openai.responses.create({
     model: mergedConfig.model!,
-    input: input.map(m => ({ role: m.role, content: m.content })),
+    input: input.map(m => ({ role: m.role, content: normalizeContent(m) })) as any,
     max_output_tokens: mergedConfig.maxCompletionTokens,
     reasoning: { effort: mergedConfig.reasoningEffort as any },
   });
@@ -87,7 +120,7 @@ export async function* streamResponse(params: ResponsesCreateParams): AsyncGener
 
   const stream = await openai.responses.create({
     model: mergedConfig.model!,
-    input: input.map(m => ({ role: m.role, content: m.content })),
+    input: input.map(m => ({ role: m.role, content: normalizeContent(m) })) as any,
     max_output_tokens: mergedConfig.maxCompletionTokens,
     reasoning: { effort: mergedConfig.reasoningEffort as any },
     stream: true,
@@ -149,10 +182,10 @@ export async function createStructuredResponse<T>(
 
   const response = await openai.responses.create({
     model: mergedConfig.model!,
-    input: [systemMessage, jsonSchemaInstruction, ...input].map(m => ({ 
-      role: m.role, 
-      content: m.content 
-    })),
+    input: [systemMessage, jsonSchemaInstruction, ...input].map(m => ({
+      role: m.role,
+      content: normalizeContent(m),
+    })) as any,
     max_output_tokens: mergedConfig.maxCompletionTokens,
     reasoning: { effort: mergedConfig.reasoningEffort as any },
     text: {
@@ -249,7 +282,7 @@ export async function createChatCompletion(
   
   const response = await openai.chat.completions.create({
     model: mergedConfig.model!,
-    messages: messages.map(m => ({ role: m.role as any, content: m.content })),
+    messages: messages.map(m => ({ role: m.role as any, content: flattenToText(m) })),
     max_completion_tokens: mergedConfig.maxCompletionTokens,
     response_format: { type: "json_object" },
   });
@@ -265,7 +298,7 @@ export async function* streamChatCompletion(
   
   const stream = await openai.chat.completions.create({
     model: mergedConfig.model!,
-    messages: messages.map(m => ({ role: m.role as any, content: m.content })),
+    messages: messages.map(m => ({ role: m.role as any, content: flattenToText(m) })),
     max_completion_tokens: mergedConfig.maxCompletionTokens,
     stream: true,
   });
