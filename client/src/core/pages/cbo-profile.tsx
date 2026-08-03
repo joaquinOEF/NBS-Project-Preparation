@@ -2844,13 +2844,19 @@ function CboQuestionCard({
     (answeredValue ?? '').split(',').map(s => s.trim()).filter(Boolean)
   );
 
-  const handleClick = (label: string) => {
+  const handleClick = (label: string, action?: string) => {
     if (disabled || readOnly) return;
     if (isMulti && onMultiToggle) {
       onMultiToggle(label);
     } else {
       onSelect(label);
     }
+    // 'upload_then_answer' is a NORMAL chip that also opens the file picker.
+    // Distinct from the 'upload' banner above, which opens the picker INSTEAD of
+    // answering: a server-templated checkpoint derives its position from the
+    // answers, so a chip that only opened a picker would strand the flow.
+    // Answer first, then open — the picker is modal and blocks the send.
+    if (action === 'upload_then_answer') onUploadAction?.();
   };
 
   return (
@@ -2908,7 +2914,7 @@ function CboQuestionCard({
           const isFocused = readOnly ? false : i === selectedIdx;
           const isHighlighted = readOnly ? isPicked : isMulti ? isChecked : isFocused;
           return (
-            <button key={i} onClick={() => handleClick(opt.label)}
+            <button key={i} onClick={() => handleClick(opt.label, opt.action)}
               disabled={readOnly}
               aria-current={isPicked || undefined}
               data-testid={readOnly ? `cbo-answered-option-${i}` : `cbo-option-${i}`}
