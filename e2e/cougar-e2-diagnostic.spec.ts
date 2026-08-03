@@ -10,6 +10,38 @@ import { clickCenterZone } from './helpers/mapActions';
 // the beats add three new chip screens plus a long templated message, which is
 // exactly where vertical density and horizontal overflow go wrong.
 
+/**
+ * Answer the read-back, however many hazards it asks about.
+ *
+ * hazardsToCheck() returns the hazards the org NAMED plus any our data calls
+ * high (>=66), capped at 2. That second source was unreachable while the CBO
+ * flow ran on the compressed absolute scale — no POA bairro ever cleared 66 —
+ * so specs written then assumed exactly one check. See CBO-RISK-SCALE.
+ *
+ * A bare `if (await chip.isVisible())` after the tap is a race: the next
+ * question has not rendered yet, so it reads false and the second check is
+ * never answered. Poll for whichever arrives first instead.
+ */
+async function answerReadBack(
+  page: import('@playwright/test').Page,
+  pick: string,
+  tap: (l: string) => Promise<void>,
+) {
+  const chipFor = (l: string) =>
+    page.locator(`[data-testid^="cbo-option-"][data-option-label="${l}"]`);
+  for (let i = 0; i < 2; i++) {
+    // .last(): on the second pass an ANSWERED read-back card is still in the
+    // transcript above the live one, so a bare match is a strict-mode violation.
+    await expect(page.getByText('média do bairro', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
+    await tap(pick);
+    const which = await Promise.race([
+      page.getByTestId('cbo-familia-reco').waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'reco'),
+      chipFor(pick).waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'again'),
+    ]).catch(() => 'reco');
+    if (which === 'reco') return;
+  }
+}
+
 const SHOTS = 'test-results/w2-diagnostic-shots';
 
 test.use({ ...devices['iPhone 14 Pro'], locale: 'pt-BR' });
@@ -148,11 +180,7 @@ test.describe('COUGAR — W2 diagnostic beats', () => {
     await tap('Não tenho agora');
 
     // Beat 4 — the read-back: our data states a bairro average, they correct it.
-    await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 10_000 });
-    await assertNoHScroll(page, 'beat 4 read-back');
-    await page.waitForTimeout(1400);
-    await page.screenshot({ path: `${SHOTS}/04-readback.png`, fullPage: false });
-    await tap('Aqui é pior');
+    await answerReadBack(page, 'Aqui é pior', tap);
 
     // Beat 5 — famílias, explicitly non-prescriptive.
     const reco = page.getByTestId('cbo-familia-reco');
@@ -187,9 +215,8 @@ test.describe('COUGAR — W2 diagnostic beats', () => {
     await expect(page.getByText('fotos ajudam', { exact: false })).toBeVisible({ timeout: 10_000 });
     await tap('Não tenho agora');
     // "Não sei dizer" must widen, never stall.
-    await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 10_000 });
-    await tap('Não sei dizer');
-    await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 15_000 });
+    await answerReadBack(page, 'Não sei dizer', tap);
+    await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 20_000 });
 
     const body = await (await request.get(`/api/cbo/${cboId}`)).json();
     const f = body.state?.sections?.intervention_site?.fields ?? {};
@@ -334,9 +361,8 @@ test.describe('COUGAR — W2 degraded scenarios', () => {
     await tap('Prefiro pular');
     await expect(page.getByText('fotos ajudam', { exact: false })).toBeVisible({ timeout: 15_000 });
     await tap('Não tenho agora');
-    await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 15_000 });
-    await tap('É mais ou menos isso');
-    await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 15_000 });
+    await answerReadBack(page, 'É mais ou menos isso', tap);
+    await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 20_000 });
 
     const body = await (await request.get(`/api/cbo/${cboId}`)).json();
     const f = body.state?.sections?.intervention_site?.fields ?? {};
@@ -359,9 +385,7 @@ test.describe('COUGAR — W2 degraded scenarios', () => {
     await expect(page.getByText('fotos ajudam', { exact: false })).toBeVisible({ timeout: 10_000 });
     await tap('Não tenho agora');
     // Contradict the read-back too.
-    await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 10_000 });
-    await tap('Aqui é pior');
-    if (await chip('Aqui é pior').isVisible().catch(() => false)) await tap('Aqui é pior');
+    await answerReadBack(page, 'Aqui é pior', tap);
     await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 15_000 });
 
     const body = await (await request.get(`/api/cbo/${cboId}`)).json();

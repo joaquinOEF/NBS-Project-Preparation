@@ -15,6 +15,7 @@ import {
 } from '@/core/components/ui/alert-dialog';
 import { useFileDrop } from '@/core/hooks/useFileDrop';
 import { useToast } from '@/core/hooks/use-toast';
+import { hazardPercentile, riskBand, dominantPercentile } from '@shared/risk-display';
 import {
   CBO_SECTIONS,
   phaseComplete,
@@ -81,7 +82,7 @@ function formatMapResult(result: MapSelectionResult): string {
       const pop = (p.populationTotal || p.populationSum)?.toLocaleString() || '?';
       const poverty = p.povertyRate != null ? `, poverty: ${(p.povertyRate * 100).toFixed(1)}%` : '';
       const priority = p.priorityScore != null ? `, priority: ${p.priorityScore.toFixed(2)}` : '';
-      lines.push(`- [zone] ${asset.name}: ${p.typologyLabel || ''} risk, intervention: ${(p.interventionType || '').replace(/_/g, ' ')}, area: ${p.areaKm2?.toFixed(1) || '?'} km², pop: ${pop}${poverty}${priority}, flood: ${((p.meanFlood || 0) * 100).toFixed(0)}%, heat: ${((p.meanHeat || 0) * 100).toFixed(0)}%, landslide: ${((p.meanLandslide || 0) * 100).toFixed(0)}%, at (${asset.coordinates[0].toFixed(4)}, ${asset.coordinates[1].toFixed(4)})`);
+      lines.push(`- [zone] ${asset.name}: ${p.typologyLabel || ''} risk, intervention: ${(p.interventionType || '').replace(/_/g, ' ')}, area: ${p.areaKm2?.toFixed(1) || '?'} km², pop: ${pop}${poverty}${priority}, flood: ${hazardPercentile(p, 'flood')}%, heat: ${hazardPercentile(p, 'heat')}%, landslide: ${hazardPercentile(p, 'landslide')}%, at (${asset.coordinates[0].toFixed(4)}, ${asset.coordinates[1].toFixed(4)})`);
     } else {
       const rasterInfo = asset.rasterValues && Object.keys(asset.rasterValues).length > 0
         ? Object.entries(asset.rasterValues).map(([k, v]) => `${k}: ${v.toFixed(3)}`).join(', ')
@@ -105,9 +106,38 @@ function formatMapResult(result: MapSelectionResult): string {
 // the actual neighborhood stats, not just a color (Ana's ask), and NOT the raw
 // H×E×V/coordinate dump (CBO-MAP-PAYLOAD). The raw payload still goes to the
 // agent as hidden context; this is only what the user reads back.
-const RISK_WORDS: Record<'pt' | 'en', [string, string, string]> = { pt: ['baixo', 'médio', 'alto'], en: ['low', 'medium', 'high'] };
-const PRIO_WORDS: Record<'pt' | 'en', [string, string, string]> = { pt: ['baixa', 'média', 'alta'], en: ['low', 'medium', 'high'] };
-function level(v?: number): 0 | 1 | 2 { const x = v ?? 0; return x >= 0.66 ? 2 : x >= 0.33 ? 1 : 0; }
+// ⚠️ CBO-RISK-SCALE (JVP, 2026-08-03: Site Explorer said Floresta was flood
+// "Muito Alto · 97", the CBO chat told the same org "inundação baixo").
+//
+// Both numbers were real. They are different statistics, and the CBO flow was
+// using the wrong one. `meanFlood` is the absolute (H×E×V)^⅓ product, which
+// shared/risk-display.ts documents as "structurally compressed (rarely > ~0.2)"
+// — and the words below were being applied to it with 0.33/0.66 thresholds.
+//
+// Measured over the 94 POA bairros: ZERO have meanFlood ≥ 0.33 (max 0.242) and
+// ZERO have meanLandslide ≥ 0.33. So the old code could not return anything but
+// "baixo" for flood and landslide, in every neighbourhood in the city, forever
+// — including the single worst flood bairro in Porto Alegre.
+//
+// That is not just a label: this string is parsed back into _bairro_*_pct,
+// which drives the site card, the hazard-check read-back ("nosso mapa diz que o
+// risco de enchente é baixo") and rankFamiliasForSite — so águas-pluviais and
+// encostas-e-solo were systematically down-ranked for every org in the cohort.
+//
+// Fixed by using the WITHIN-CITY PERCENTILE (floodRank/heatRank/landslideRank)
+// via shared/risk-display.ts — the same module and the same basis the
+// coordinator's Site Explorer already uses. One source of truth, as intended.
+const BAND_WORDS: Record<'pt' | 'en', Record<string, string>> = {
+  pt: { very_low: 'muito baixo', low: 'baixo', moderate: 'moderado', high: 'alto', very_high: 'muito alto' },
+  en: { very_low: 'very low', low: 'low', moderate: 'moderate', high: 'high', very_high: 'very high' },
+};
+const BAND_WORDS_F: Record<'pt' | 'en', Record<string, string>> = {
+  pt: { very_low: 'muito baixa', low: 'baixa', moderate: 'moderada', high: 'alta', very_high: 'muito alta' },
+  en: BAND_WORDS.en,
+};
+/** Band word for a 0–100 WITHIN-CITY percentile (never for a raw mean). */
+const bandWord = (pct: number, lang: 'pt' | 'en', fem = false) =>
+  (fem ? BAND_WORDS_F : BAND_WORDS)[lang][riskBand(pct).key];
 
 function buildRiskSummary(result: MapSelectionResult, langRaw: string): string {
   const lang: 'pt' | 'en' = langRaw === 'pt' ? 'pt' : 'en';
@@ -118,11 +148,17 @@ function buildRiskSummary(result: MapSelectionResult, langRaw: string): string {
   for (const z of zones) {
     const p: any = z.properties || {};
     out.push(`${L ? 'Bairro' : 'Neighborhood'} ${z.name}`);
-    out.push(`🔵 ${L ? 'inundação' : 'flood'} ${RISK_WORDS[lang][level(p.meanFlood)]} · 🔴 ${L ? 'calor' : 'heat'} ${RISK_WORDS[lang][level(p.meanHeat)]} · 🟤 ${L ? 'deslizamento' : 'landslide'} ${RISK_WORDS[lang][level(p.meanLandslide)]}`);
+    out.push(`🔵 ${L ? 'inundação' : 'flood'} ${bandWord(hazardPercentile(p, 'flood'), lang)} · 🔴 ${L ? 'calor' : 'heat'} ${bandWord(hazardPercentile(p, 'heat'), lang)} · 🟤 ${L ? 'deslizamento' : 'landslide'} ${bandWord(hazardPercentile(p, 'landslide'), lang)}`);
+    // The percentile is relative to the rest of the city — say so, or "alto"
+    // reads as an absolute claim about danger.
+    out.push(L ? '_(comparado com os outros bairros de Porto Alegre)_' : '_(compared with the other neighbourhoods in Porto Alegre)_');
     const pop = p.populationTotal || p.populationSum;
     const bits: string[] = [];
     if (pop) bits.push(`👥 ~${Number(pop).toLocaleString(L ? 'pt-BR' : 'en-US')} ${L ? 'moradores' : 'residents'}`);
-    if (p.priorityScore != null) bits.push(`⭐ ${L ? 'prioridade' : 'priority'} ${PRIO_WORDS[lang][level(p.priorityScore)]}`);
+    // Priority reads off the dominant hazard's display percentile — the same
+    // basis as the coordinator's priority badge (risk-display.dominantPercentile),
+    // not the compressed absolute priorityScore.
+    if (p.priorityScore != null) bits.push(`⭐ ${L ? 'prioridade' : 'priority'} ${bandWord(dominantPercentile(p), lang, L)}`);
     if (bits.length) out.push(bits.join(' · '));
   }
   if (sites.length) {

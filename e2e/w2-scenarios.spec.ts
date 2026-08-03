@@ -41,6 +41,14 @@ async function openSession(page: any, request: any) {
   const upload = async (files: string[]) => {
     await page.locator('input[type="file"]').setInputFiles(files);
     await page.waitForTimeout(6000); // extraction + the synthetic chat turn
+    // …and then wait for the turn to actually END. The sleep alone was load-
+    // sensitive: it was just sufficient at the old suite pace and started
+    // failing once the suite got faster and contention changed. While the
+    // transcript is still streaming it auto-scrolls, so every chip below is
+    // permanently "not stable" and Playwright waits out the whole test timeout
+    // on an element it can already see.
+    await expect(page.getByTestId('cbo-stream-status'))
+      .toHaveAttribute('data-streaming', 'false', { timeout: 60_000 });
   };
   return { cboId, page, request, chip, input, tap, type, upload };
 }
@@ -161,6 +169,8 @@ test.describe('W2 test-kit scenarios', () => {
     await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 25_000 });
     notes.readbackText = await page.locator('text=/Nosso mapa diz/').first().textContent().catch(() => null);
     await c.tap('Aqui é pior');
+    // Two hazard checks are possible now — see CBO-RISK-SCALE.
+    if (await c.chip('Aqui é pior').isVisible().catch(() => false)) await c.tap('Aqui é pior');
 
     // Passo 13 — did the correction reach the recommendation?
     await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 20_000 });
@@ -214,6 +224,7 @@ test.describe('W2 test-kit scenarios', () => {
     await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 15_000 });
     notes.readbackText = await page.locator('text=/Nosso mapa diz/').first().textContent().catch(() => null);
     await tapCount('Não sei dizer');
+    if (await c.chip('Não sei dizer').isVisible().catch(() => false)) await tapCount('Não sei dizer');
     if (await c.chip('Não sei dizer').isVisible().catch(() => false)) await tapCount('Não sei dizer');
 
     await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 20_000 });
@@ -282,6 +293,8 @@ test.describe('W2 test-kit scenarios', () => {
     notes.readbackText = await page.locator('text=/Nosso mapa diz/').first().textContent().catch(() => null);
     notes.readbackUsesDayToDay = await page.getByText('dia a dia de vocês', { exact: false }).count() > 0;
     await c.tap('Aqui é pior');
+    // Two hazard checks are possible now — see CBO-RISK-SCALE.
+    if (await c.chip('Aqui é pior').isVisible().catch(() => false)) await c.tap('Aqui é pior');
 
     await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 20_000 });
     notes.recoWhys = await page.locator('[data-testid^="familia-reco-"]').allTextContents();

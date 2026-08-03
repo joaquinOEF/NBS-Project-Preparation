@@ -3,17 +3,22 @@ import { TestApi } from './helpers/testApi';
 
 // SSE trust hardening (field report 2026-07-07): the SDK can think 10-20s
 // between events; proxies idle-kill silent sockets and the client's 60s
-// watchdog needs bytes to know the stream is alive. The server now emits a
-// `: ping` comment every 15s. This spec opens a raw chat stream against a
-// scripted 17s thinking gap and asserts (a) heartbeat bytes arrive mid-gap,
-// (b) the turn still completes with its done event, (c) the UI never shows
-// the connection-drop card for a healthy-but-slow turn.
+// watchdog needs bytes to know the stream is alive. The server emits a
+// `: ping` comment on an interval. This spec asserts (a) heartbeat bytes
+// arrive mid-gap, (b) the turn still completes with its done event, (c) the UI
+// never shows the connection-drop card for a healthy-but-slow turn.
+//
+// TIMING: the interval is scaled to 400ms here (CBO_SSE_PING_MS in
+// playwright.config.ts) so a "silent gap several pings long" costs ~1.2s
+// instead of 17. The ratio is what matters — the gap is still many multiples
+// of the cadence, which is the only thing these assertions depend on. Before
+// this, the two tests spent 35s sleeping: 7% of the entire suite.
 
 test.describe('CBO — SSE heartbeat keeps slow turns alive', () => {
   test.use({ locale: 'pt-BR' });
 
-  test('a 17s silent turn carries pings and completes without the drop card', async ({ page, request }) => {
-    test.setTimeout(90_000);
+  test('a silent turn carries pings and completes without the drop card', async ({ page, request }) => {
+    test.setTimeout(30_000);
     const api = new TestApi(request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
 
@@ -23,7 +28,7 @@ test.describe('CBO — SSE heartbeat keeps slow turns alive', () => {
     const cboId = (await marker.getAttribute('data-cbo-id'))!;
 
     await api.scriptCbo(cboId, [[
-      { op: 'wait', ms: 17_000 } as any,
+      { op: 'wait', ms: 1_400 } as any,
       { op: 'say', text: 'Demorei mas cheguei.' },
       { op: 'ask_user', question: 'Seguimos?', options: [{ label: 'Sim' }] },
     ]]);
@@ -51,14 +56,14 @@ test.describe('CBO — SSE heartbeat keeps slow turns alive', () => {
       };
     }, cboId);
 
-    // 17s gap at a 15s cadence → at least one ping, plus the full turn.
+    // A gap 3× the cadence → at least one ping, plus the full turn.
     expect(result.pings).toBeGreaterThanOrEqual(1);
     expect(result.sawDone).toBe(true);
     expect(result.sawSay).toBe(true);
   });
 
   test('the UI rides out a slow turn — no drop card, question arrives', async ({ page, request }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(30_000);
     const api = new TestApi(request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
 
@@ -68,7 +73,7 @@ test.describe('CBO — SSE heartbeat keeps slow turns alive', () => {
     const cboId = (await marker.getAttribute('data-cbo-id'))!;
 
     await api.scriptCbo(cboId, [[
-      { op: 'wait', ms: 16_000 } as any,
+      { op: 'wait', ms: 1_400 } as any,
       { op: 'say', text: 'Pensei bastante nessa.' },
       { op: 'ask_user', question: 'Tudo certo?', options: [{ label: 'Sim' }] },
     ]]);

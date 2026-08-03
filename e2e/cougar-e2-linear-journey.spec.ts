@@ -194,10 +194,15 @@ for (const L of LANGS) {
       // The read-back: our data states a bairro average, they correct it.
       await expect(page.getByText(L.checkText, { exact: false })).toBeVisible({ timeout: 8_000 });
       await chip(L.checkPick).click();
+      // The read-back can ask about TWO hazards: hazardsToCheck() adds any our
+      // data calls high (>=66), which was unreachable while the CBO flow ran on
+      // the compressed absolute scale — see CBO-RISK-SCALE. Answer whatever is
+      // still pending; the cap is 2 by design.
+      if (await chip(L.checkPick).isVisible().catch(() => false)) await chip(L.checkPick).click();
 
       // 8 · Famílias recommendation: ≥2 famílias, ranked, with example variants.
       const reco = page.getByTestId('cbo-familia-reco');
-      await expect(reco).toBeVisible({ timeout: 8_000 });
+      await expect(reco).toBeVisible({ timeout: 15_000 });
       expect(await reco.locator('[data-testid^="familia-reco-"]').count()).toBeGreaterThanOrEqual(2);
       await expect(reco.getByText(L.exampleMark, { exact: false }).first()).toBeVisible();
 

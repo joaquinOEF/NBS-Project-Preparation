@@ -192,14 +192,22 @@ export interface OpenMapParams {
   // replaces "Próximo (sites)" and confirms with the selected zone(s) only.
   // The site is picked later, in its own focused session (focusZone).
   confirmAtZone?: boolean;
-  // E2 Map 1 — render the bairros as plain outlines instead of the risk
-  // choropleth. The typology colouring encodes TWO things at once (hue = which
-  // hazard, opacity = how much) and, measured on the 94 POA zones, discriminates
-  // almost nothing: 67 bairros are the same red, 18 green and 8 purple are hues
-  // the simple legend never names, and its brown never appears at all. The
-  // hazard tour already taught the risks and the site card reports this bairro's
-  // three numbers, so the selection screen is better off asking one question.
-  plainZones?: boolean;
+  // E2 Map 1 — shade the bairros on a SINGLE sequential ramp by their
+  // within-city risk percentile, instead of the typology choropleth.
+  //
+  // The typology version encoded two things at once (hue = which hazard,
+  // opacity = how much) and discriminated almost nothing: 67 of 94 POA bairros
+  // came out the same red, 18 green and 8 purple were hues the legend never
+  // named, and its brown never appeared at all. It was removed outright, which
+  // then left the selection map blank — and a blank map cannot answer the
+  // question the hazard tour just raised ("so which bairros are worst?").
+  //
+  // One ramp fixes both: one legend, and a scale that actually separates the
+  // city now that the CBO flow reads percentiles rather than the compressed
+  // absolute means (see CBO-RISK-SCALE). The band colours come from
+  // risk-display.RISK_BANDS, so this map, the site card and the coordinator all
+  // speak one visual language.
+  zoneRiskRamp?: boolean;
   // E2 Map 1 — the bairro E1 already knows (org_profile.bairro_of_operation),
   // pre-selected so the step is a confirmation, not a search. Its outline stays
   // visible through the hazard tour so the org sees its own territory in each
