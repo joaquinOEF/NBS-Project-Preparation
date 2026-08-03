@@ -261,6 +261,54 @@ export function hasPendingFlush(id: string): boolean {
 type EventPusher = (event: CboEvent) => void;
 const pushEventRegistry = new Map<string, EventPusher>();
 
+// ── One turn at a time, per session ─────────────────────────────────────────
+// ⚠️ CBO-CONCURRENT-TURNS (JVP, 2026-08-03: "there were like two flows running…
+// two agents. One had opened the map and it was going through the map but then
+// it started responding again like 'Oh I will show you the examples'").
+//
+// Nothing stopped a second /chat from starting while the first was still
+// streaming. His server log shows it plainly — two `Turn for <same cboId>`
+// beginning 17s apart, the first finishing later:
+//
+//   [cbo] Turn for 7d0b… (phase 2, model claude-sonnet-4-6, 1/7 sections)
+//   [cbo] Turn for 7d0b… (phase 2, model claude-haiku-4-5, 1/7 sections)
+//   [cbo] timing … model=claude-sonnet-4-6 rounds=3 … total=16816ms
+//
+// Both then wrote into one transcript, and because `pushEventRegistry` holds a
+// SINGLE pusher per session, the later turn silently hijacked the earlier one's
+// event stream — so one agent's map opened while the other's prose kept
+// arriving. A 76-second turn (rounds=9, first_event=62557ms) in the same log
+// shows how wide the window gets.
+//
+// The window is easy to hit: the client disables its input while streaming, but
+// a persisted composer's chips re-render on load, and any reload or second tab
+// re-arms them. So this has to be enforced server-side, not by the UI.
+//
+// Rejecting is right rather than queueing: the second message is almost always
+// an impatient re-tap of a question the in-flight turn is already answering, and
+// running it would double-answer. The client surfaces a gentle "ainda estou
+// respondendo" instead of a failure.
+const activeTurns = new Map<string, number>();
+
+/** Safety valve: a turn whose finally-block never ran must not lock a session
+ *  forever. Longer than any real turn (the slowest observed was 77s). */
+const TURN_LOCK_MAX_MS = 5 * 60 * 1000;
+
+/** Claim the turn slot for a session. False = one is already in flight. */
+export function beginTurn(cboId: string): boolean {
+  const startedAt = activeTurns.get(cboId);
+  if (startedAt != null && Date.now() - startedAt < TURN_LOCK_MAX_MS) return false;
+  if (startedAt != null) {
+    console.warn(`[cbo] turn lock for ${cboId} exceeded ${TURN_LOCK_MAX_MS}ms — force-releasing`);
+  }
+  activeTurns.set(cboId, Date.now());
+  return true;
+}
+
+export function endTurn(cboId: string): void {
+  activeTurns.delete(cboId);
+}
+
 function setActivePushEvent(id: string, pusher: EventPusher) { pushEventRegistry.set(id, pusher); }
 
 // Session language per CBO, refreshed on every turn. The MCP server (and its

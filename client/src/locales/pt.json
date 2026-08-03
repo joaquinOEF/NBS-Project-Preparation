@@ -1900,6 +1900,7 @@
     },
     "export": "Exportar perfil",
     "startOver": "Recomeçar",
+    "stillAnswering": "Só um segundo — ainda estou respondendo a anterior.",
     "working": "Processando...",
     "phase": "Fase {{num}}/5, {{count}} seções preenchidas",
     "continue": "Continuar",

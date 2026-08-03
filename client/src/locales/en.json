@@ -1716,6 +1716,7 @@
     },
     "export": "Export profile",
     "startOver": "Start over",
+    "stillAnswering": "One second — I'm still answering the last one.",
     "working": "Working...",
     "phase": "Phase {{num}}/5, {{count}} sections filled",
     "continue": "Continue",
