@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Download } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/core/components/ui/sheet';
@@ -72,9 +72,32 @@ export function CboFilesDrawer({
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2 pr-8">
             <span className="truncate">{member?.orgName}</span>
+            {/* Context bundle — the whole org in one folder, readable by a
+                person or an agent. Anchored rather than fetch+blob: the server
+                sets Content-Disposition, so the browser streams it straight to
+                disk and a large zip never has to sit in a tab's memory. */}
+            <Button
+              asChild
+              variant="ghost" size="sm"
+              className="ml-auto shrink-0 h-7 px-2 gap-1"
+            >
+              <a
+                href={`/api/cohort/${cohortSlug}/member/${member?.id}/export`}
+                download
+                title={t('cboView.exportHint', {
+                  defaultValue: 'Download everything we have about this org',
+                }) as string}
+                data-testid="cbo-drawer-export"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="text-[11px] font-medium">
+                  {t('cboView.export', { defaultValue: 'Export' })}
+                </span>
+              </a>
+            </Button>
             <Button
               variant="ghost" size="sm"
-              className="ml-auto shrink-0 h-7 px-2"
+              className="shrink-0 h-7 px-2"
               onClick={() => setReloadKey(k => k + 1)}
               title={t('cboView.refresh', { defaultValue: 'Refresh' }) as string}
               data-testid="cbo-drawer-refresh"

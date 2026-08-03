@@ -2177,6 +2177,8 @@
     "empty": "—",
     "scorecard": "Quadro de maturidade",
     "refresh": "Atualizar",
+    "export": "Exportar",
+    "exportHint": "Baixar tudo o que temos sobre esta organização",
     "tabFiles": "Arquivos",
     "tabChat": "Conversa",
     "tabProfile": "Perfil",
