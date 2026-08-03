@@ -2325,32 +2325,37 @@ export default function CboProfilePage() {
               </div>
             )}
             <form onSubmit={(e) => { e.preventDefault(); if (currentQuestion && input.trim()) { handleSelectOption(input.trim()); setInput(''); } else sendMessage(input, false, false, undefined, 'text'); }} className="flex gap-2">
-              <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.pptx,.docx,.xlsx,.txt,.md,.csv,.tsv,.json,.png,.jpg,.jpeg,.gif,.webp,.heic,.heif,.mp3,.wav,.m4a,.webm,.ogg,.opus,.aac,.flac,audio/*,image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file && cboId) {
-                    setUploadingName(file.name);
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    fetch(`/api/upload/cbo/${cboId}`, { method: 'POST', body: formData })
-                      .then(r => r.json())
-                      .then(data => {
-                        // Gap 4 — link a site photo to the chosen site (best-effort;
-                        // the server no-ops until a site exists). Images only.
-                        if (file.type.startsWith('image/') && data.savedPath && memberSlug) {
-                          fetch(`/api/cbo-member/${memberSlug}/site/photo`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ path: data.savedPath }),
-                          }).catch(() => {});
-                        }
-                        sendMessage(`I'm uploading: "${file.name}".\n\nParsed content:\n${(data.content || '').slice(0, 8000)}\n\nPlease extract info, auto-fill sections, and score maturity.`);
-                        setTimeout(refreshFileCount, 600);
-                      })
-                      .catch(() => sendMessage(`Uploaded "${file.name}" but could not parse.`))
-                      .finally(() => setUploadingName(null));
-                  }
+              <input ref={fileInputRef} type="file" multiple className="hidden" accept=".pdf,.pptx,.docx,.xlsx,.txt,.md,.csv,.tsv,.json,.png,.jpg,.jpeg,.gif,.webp,.heic,.heif,.mp3,.wav,.m4a,.webm,.ogg,.opus,.aac,.flac,audio/*,image/*"
+                onChange={async (e) => {
+                  // E2 asks for THREE photos, so the picker takes several at
+                  // once. Uploaded sequentially: each one posts its own parsed
+                  // content as a chat turn, and the server writes one document
+                  // row per file. Selecting three used to fail outright.
+                  const files = Array.from(e.target.files ?? []);
                   e.target.value = '';
+                  if (!files.length || !cboId) return;
+                  for (const file of files) {
+                    setUploadingName(files.length > 1 ? `${file.name} (${files.indexOf(file) + 1}/${files.length})` : file.name);
+                    try {
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      const data = await fetch(`/api/upload/cbo/${cboId}`, { method: 'POST', body: formData }).then(r => r.json());
+                      // Gap 4 — link a site photo to the chosen site (best-effort;
+                      // the server no-ops until a site exists). Images only.
+                      if (file.type.startsWith('image/') && data.savedPath && memberSlug) {
+                        fetch(`/api/cbo-member/${memberSlug}/site/photo`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ path: data.savedPath }),
+                        }).catch(() => {});
+                      }
+                      await sendMessage(`I'm uploading: "${file.name}".\n\nParsed content:\n${(data.content || '').slice(0, 8000)}\n\nPlease extract info, auto-fill sections, and score maturity.`);
+                    } catch {
+                      await sendMessage(`Uploaded "${file.name}" but could not parse.`);
+                    }
+                  }
+                  setUploadingName(null);
+                  setTimeout(refreshFileCount, 600);
                 }}
               />
               <Tooltip><TooltipTrigger asChild>

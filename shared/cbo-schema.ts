@@ -389,6 +389,13 @@ export interface FamiliaRecoItem {
   /** One-line reason in the session language, tied to their data. */
   why: string;
   exampleSolutionIds: string[];
+  /**
+   * No real signal behind this família for this place. Shown grouped rather
+   * than ranked, so the list can honestly carry all five without pretending
+   * the last two were reasoned into position. Every família always ships —
+   * "nada fica descartado" is on screen and has to be true.
+   */
+  weak?: boolean;
 }
 
 // Chat message type (same as concept note — shared)

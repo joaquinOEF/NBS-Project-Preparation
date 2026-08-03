@@ -27,6 +27,32 @@ export interface FamiliaRecoInput {
   currentUse?: string;
   /** The picked site's name — keyword boosts (praça, escola, horta…). */
   siteName?: string;
+  /**
+   * The W2 read-back: the org told us whether their own place is worse, the
+   * same, or calmer than the bairro figure we quoted (shared/site-knowledge.ts).
+   *
+   * These OVERRIDE the raster, deliberately. The bairro mean is an average over
+   * ~500 ha and two of its three factors are bairro constants, while this came
+   * from someone standing in the place — and the read-back explicitly promises
+   * that their answer counts for more than our number. A correction that
+   * changed nothing visible would make that promise a lie.
+   */
+  corrections?: Partial<Record<'flood' | 'heat' | 'landslide', 'worse' | 'same' | 'less' | 'unsure'>>;
+  /**
+   * What the org said worries them at this place (beat 1). The clearest
+   * statement of intent we ever get, and until 2026-07-31 the ranking ignored
+   * it completely: Coletivo Encosta Viva named the slope and was shown three
+   * famílias, none of them about slopes, under a line reading "nada fica
+   * descartado". The documented failure mode of recommenders is exactly this —
+   * inferred signals overriding a user's stated aspiration — and here the
+   * inferred signal was a 250 m average over ~500 ha.
+   *
+   * Weighted, not obeyed: the boost is capped so hazard data still shapes the
+   * order, and `familiaGuaranteed` marks the named família so the caller can
+   * keep it visible however it trims the list. Boosting is safe precisely
+   * because nothing is hidden — see the "sem sinal forte" group in the UI.
+   */
+  worries?: string[];
 }
 
 export interface RankedFamilia {
@@ -34,17 +60,78 @@ export interface RankedFamilia {
   score: number;
   why: { pt: string; en: string };
   exampleSolutionIds: string[];
+  /** This família answers a hazard the org named — never drop it from view. */
+  guaranteed?: boolean;
+  /** No confirmed signal behind it; the UI groups these rather than ranking them. */
+  weak?: boolean;
 }
 
+/** Below this, a família has nothing real behind it for this place. */
+const WEAK_FLOOR = 0.25;
+
 const HAZARD_WORDS = {
-  flood: { pt: 'enchente', en: 'flood' },
-  heat: { pt: 'calor', en: 'heat' },
-  landslide: { pt: 'deslizamento', en: 'landslide' },
+  // `em` carries the gender: "na enchente" (fem) but "no calor" / "no
+  // deslizamento" (masc). Templating "no ${palavra}" for all three printed
+  // "age principalmente no enchente" to every reader in the cohort.
+  flood: { pt: 'enchente', en: 'flood', em: 'na' },
+  heat: { pt: 'calor', en: 'heat', em: 'no' },
+  landslide: { pt: 'deslizamento', en: 'landslide', em: 'no' },
 } as const;
 
-function levelWord(pct: number, lang: 'pt' | 'en'): string {
+/** `fem` for "enchente é baixA" — the masculine form was printing for all three. */
+function levelWord(pct: number, lang: 'pt' | 'en', fem = false): string {
   const idx = pct >= 66 ? 2 : pct >= 33 ? 1 : 0;
-  return (lang === 'pt' ? ['baixo', 'médio', 'alto'] : ['low', 'medium', 'high'])[idx];
+  if (lang !== 'pt') return ['low', 'medium', 'high'][idx];
+  return (fem ? ['baixa', 'média', 'alta'] : ['baixo', 'médio', 'alto'])[idx];
+}
+
+/**
+ * The opening sentence, varied by rank so three cards don't repeat one
+ * sentence verbatim. Each variant states the SAME fact a different way —
+ * rephrasing only, never an extra claim the data doesn't carry.
+ */
+function openingLine(
+  variant: number,
+  hazard: 'flood' | 'heat' | 'landslide',
+  pct: number,
+  bairro: string,
+  corrected: 'worse' | 'less' | null,
+  lang: 'pt' | 'en',
+): string {
+  const w = HAZARD_WORDS[hazard];
+  if (corrected) {
+    const dir = corrected === 'worse'
+      ? { pt: 'pior', en: 'worse' } : { pt: 'mais brando', en: 'milder' };
+    if (lang === 'pt') {
+      return [
+        `Vocês disseram que ${w.pt} aqui é ${dir.pt} que na média do bairro.`,
+        `Pelo que vocês contaram, ${w.pt} aqui é ${dir.pt} que a média do bairro.`,
+        `Como vocês apontaram, aqui ${w.pt} é ${dir.pt} que no resto do bairro.`,
+      ][variant % 3];
+    }
+    return [
+      `You told me ${w.en} is ${dir.en} here than the bairro average.`,
+      `From what you said, ${w.en} here is ${dir.en} than the bairro average.`,
+      `As you pointed out, ${w.en} here is ${dir.en} than across the bairro.`,
+    ][variant % 3];
+  }
+  const fem = hazard === 'flood';
+  if (lang === 'pt') {
+    const L = levelWord(pct, 'pt', fem);
+    const Cap = w.pt.charAt(0).toUpperCase() + w.pt.slice(1);
+    return [
+      `${Cap} é ${L} no ${bairro}.`,
+      `No ${bairro}, ${w.pt} é ${L}.`,
+      `O dado do bairro aponta ${w.pt} ${L}.`,
+    ][variant % 3];
+  }
+  const L = levelWord(pct, 'en');
+  const Cap = w.en.charAt(0).toUpperCase() + w.en.slice(1);
+  return [
+    `${Cap} risk is ${L} in ${bairro}.`,
+    `In ${bairro}, ${w.en} risk is ${L}.`,
+    `The bairro data puts ${w.en} risk at ${L}.`,
+  ][variant % 3];
 }
 
 /** Two example variants per família — mutirão-buildable first, then cheapest. */
@@ -57,8 +144,26 @@ export function exampleSolutionsFor(familiaId: NbsFamiliaId): string[] {
     .map(s => s.id);
 }
 
+/** Apply the org's read-back corrections on top of the bairro means. */
+function correctedRisks(
+  risks: FamiliaRecoInput['risks'],
+  corrections: FamiliaRecoInput['corrections'],
+): FamiliaRecoInput['risks'] {
+  if (!corrections) return risks;
+  const out = { ...risks };
+  for (const h of ['flood', 'heat', 'landslide'] as const) {
+    const c = corrections[h];
+    // A deliberate step, not a nudge: "worse" has to be able to lift a hazard
+    // the bairro average called low, or the correction is cosmetic.
+    if (c === 'worse') out[h] = Math.min(100, Math.max(out[h] + 30, 70));
+    else if (c === 'less') out[h] = Math.max(0, Math.min(out[h] - 30, 45));
+  }
+  return out;
+}
+
 export function rankFamiliasForSite(input: FamiliaRecoInput): RankedFamilia[] {
-  const { risks, bairro } = input;
+  const bairro = input.bairro;
+  const risks = correctedRisks(input.risks, input.corrections);
   const use = (input.currentUse ?? '').toLowerCase();
   const siteName = (input.siteName ?? '')
     .toLowerCase()
@@ -105,20 +210,101 @@ export function rankFamiliasForSite(input: FamiliaRecoInput): RankedFamilia[] {
       };
     }
 
-    const hazardWhy = {
-      pt: `${HAZARD_WORDS[top.h].pt.charAt(0).toUpperCase() + HAZARD_WORDS[top.h].pt.slice(1)} é ${levelWord(risks[top.h], 'pt')} no ${bairro}.`,
-      en: `${HAZARD_WORDS[top.h].en.charAt(0).toUpperCase() + HAZARD_WORDS[top.h].en.slice(1)} risk is ${levelWord(risks[top.h], 'en')} in ${bairro}.`,
-    };
+    // The hazard THIS família is built for — used to keep the "why" lines
+    // distinct. Without it two famílias whose top contributor happens to be the
+    // same hazard print the identical sentence, which reads as canned and
+    // tells the org nothing about why they are being shown two different
+    // things (observed on mobile: Verde Urbano and Recuperação both saying
+    // only "Calor é médio no Vila São José").
+    const primary = (['flood', 'heat', 'landslide'] as Array<'flood' | 'heat' | 'landslide'>)
+      .slice()
+      .sort((a, b) => f.hazards[b] - f.hazards[a])[0];
 
+    // A correction the org made outranks the raster in the copy too — quoting
+    // our own bairro number back at someone who just told us it's wrong is the
+    // fastest way to look like we weren't listening.
+    const corrected = input.corrections?.[top.h];
+    const correctedDir: 'worse' | 'less' | null =
+      corrected === 'worse' ? 'worse' : corrected === 'less' ? 'less' : null;
+
+    // "a que mais dá conta de X" would be a superlative ACROSS famílias, and
+    // `primary` is only this família's own strongest hazard — Agricultura
+    // Urbana leans to heat internally but is nowhere near the best answer to
+    // heat. Phrase it as what this família works on, never as a ranking claim.
+    const tail = primary === top.h
+      ? {
+          pt: ` Essa família age principalmente ${HAZARD_WORDS[top.h].em} ${HAZARD_WORDS[top.h].pt}.`,
+          en: ` This família acts mainly on ${HAZARD_WORDS[top.h].en}.`,
+        }
+      : {
+          pt: ` Ela age mais ${HAZARD_WORDS[primary].em} ${HAZARD_WORDS[primary].pt} e ajuda também ${HAZARD_WORDS[top.h].em} ${HAZARD_WORDS[top.h].pt}.`,
+          en: ` It acts mainly on ${HAZARD_WORDS[primary].en} and helps with ${HAZARD_WORDS[top.h].en} too.`,
+        };
+
+    // The worry the org named. Capped so the hazard data still shapes the
+    // order — a stated worry should lift a família decisively, not seize the
+    // ranking — and marked `guaranteed` so no trimming can hide it.
+    const named = (input.worries ?? []).filter(
+      (w): w is 'flood' | 'heat' | 'landslide' => w === 'flood' || w === 'heat' || w === 'landslide');
+    const answersAWorry = named.find(h => f.hazards[h] >= 0.6);
+    const worryBoost = answersAWorry ? Math.min(0.35, 0.35 * f.hazards[answersAWorry]) : 0;
+
+    // An unconfirmed hazard must not read as a confident one: flatten toward
+    // the middle so more famílias stay in play, and say so on the card.
+    const unsure = input.corrections?.[top.h] === 'unsure';
+    const spread = unsure ? 0.6 : 1;
+
+    // Skip when the opening already attributes this same hazard to them — the
+    // corrected opening and this line otherwise both start "Vocês disseram
+    // que enchente…" in a single card.
+    const worryWhy = answersAWorry && !(correctedDir && answersAWorry === top.h)
+      ? {
+          pt: ` Vocês disseram que ${HAZARD_WORDS[answersAWorry].pt} preocupa aqui.`,
+          en: ` You told me ${HAZARD_WORDS[answersAWorry].en} worries you here.`,
+        }
+      : null;
+    const unsureWhy = unsure
+      ? {
+          pt: ' Como não deu pra confirmar esse risco, deixo mais coisa em aberto.',
+          en: " Since we couldn't confirm that risk, I'm keeping more open.",
+        }
+      : null;
+
+    const score = (hazardScore + boost) * spread + worryBoost;
     return {
       familiaId: f.id,
-      score: hazardScore + boost,
-      why: boostWhy
-        ? { pt: `${hazardWhy.pt} ${boostWhy.pt}`, en: `${hazardWhy.en} ${boostWhy.en}` }
-        : hazardWhy,
+      score,
+      // Assembled at the end, where the rank is known (openingLine varies by it).
+      _parts: {
+        hazard: top.h, pct: risks[top.h], correctedDir,
+        tail, worryWhy, boostWhy, unsureWhy,
+      },
+      why: { pt: '', en: '' },
       exampleSolutionIds: exampleSolutionsFor(f.id),
-    };
-  }).sort((a, b) => b.score - a.score);
+      guaranteed: !!answersAWorry,
+      weak: !answersAWorry && score < WEAK_FLOOR,
+    } as RankedFamilia & { _parts: any };
+  })
+  .sort((a, b) => b.score - a.score)
+  .map((r: any, i: number) => {
+    const p = r._parts;
+    const build = (lang: 'pt' | 'en') => [
+      openingLine(i, p.hazard, p.pct, bairro, p.correctedDir, lang),
+      p.tail[lang],
+      p.worryWhy?.[lang],
+      p.boostWhy?.[lang],
+      p.unsureWhy?.[lang],
+    ].filter(Boolean).join('');
+    const { _parts, ...rest } = r;
+    return {
+      ...rest,
+      // The top three are never grouped as weak. A single card above a row of
+      // greyed chips reads as "we ruled the rest out", which is the opposite
+      // of the aperture rule — and the component's own contract is ≥2.
+      weak: i < 3 ? false : rest.weak,
+      why: { pt: build('pt'), en: build('en') },
+    } as RankedFamilia;
+  });
 }
 
 /** Keyword site-type inference from a searched/named place — pt/en label, or null. */

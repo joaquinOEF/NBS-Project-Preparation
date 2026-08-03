@@ -26,10 +26,23 @@ import { db } from "../db";
 import { cohortMembers, type SupportRequest } from "@shared/cohort-schema";
 import { resolveOpenMapParams } from "@shared/cbo-map-presets";
 import { rankFamiliasForSite, inferSiteTypeLabel } from "@shared/nbs-recommendation";
+import {
+  E2_WORRIES,
+  orderWorriesByData,
+  photoPromptsFor,
+  PHOTO_PROMPT_OPEN,
+  HAZARD_CHECK_OPTIONS,
+  hazardCheckQuestion,
+  hazardsToCheck,
+  computeSiteKnowledgeDepth,
+  type HazardKey,
+  type HazardCheckAnswer,
+} from "@shared/site-knowledge";
+import { NBS_SCALE_HONESTY, needsScaleReframing } from "@shared/nbs-performance";
 import { NBS_FAMILIAS } from "@shared/nbs-catalog";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
-import { getOrgIdForCboState, listDocumentsByOrg, listDocumentSummariesByOrg, getDocumentForOrg } from "./documentPersistence";
+import { getOrgIdForCboState, listDocumentsByOrg, listDocumentSummariesByOrg, getDocumentForOrg, listDocumentsForScope } from "./documentPersistence";
 import { setMaturityTierForCboState, getMaturityTierForCboState } from "./orgPersistence";
 import { queryTerms, scoreText, extractExcerpt } from "./textSearch";
 import { isFakeModelEnabled, streamWithFakeModel } from "./fakeCboModel";
@@ -349,7 +362,15 @@ function createCboMcpTools(cboId: string) {
         // doesn't"). Enum fields already commit through the exact-label
         // guard above; free-text has no list to catch a misread, so the
         // human is the guard. confirm_doc_fields commits after they reply.
-        if (isDocSource && args.sectionId === 'org_profile' && !isEnumOrgProfileField(fieldName)) {
+        // intervention_site joins the gate (2026-07-31). It had none: a PDF
+        // could write the site's tenure or current use straight into the
+        // record as fact, and the only trace was a coordinator-facing line
+        // saying nobody had confirmed it. Those two fields also drive the
+        // site_control score. A document is evidence; the record should hold
+        // testimony, so the human confirms before it commits.
+        if (isDocSource &&
+            ((args.sectionId === 'org_profile' && !isEnumOrgProfileField(fieldName)) ||
+             args.sectionId === 'intervention_site')) {
           state.stagedDocFields = state.stagedDocFields ?? {};
           state.stagedDocFields[`${args.sectionId}.${fieldName}`] = {
             sectionId: args.sectionId, field: fieldName, value: String(finalValue),
@@ -1275,6 +1296,7 @@ const E2C: Record<string, { pt: string; en: string; desc?: { pt: string; en: str
   queroAjustar: { pt: 'Quero ajustar', en: 'I want to adjust' },
   prontoLista: { pt: 'Pronto ✓', en: 'Done ✓' },
   outroPapel: { pt: 'Outro papel', en: 'Another role' },
+  podePerguntar: { pt: 'Pode perguntar', en: 'Go ahead and ask' },
 };
 
 // current_use / land_tenure enum chips (un-deferred from the old Beat 2b/3b —
@@ -1328,18 +1350,125 @@ function buildFamiliaRecoItems(state: CboState, lang: string, modelItems?: Array
   const f = state.sections.intervention_site?.fields ?? {} as any;
   const pct = (k: string) => Math.max(0, Math.min(100, parseInt(String(f[k]?.value ?? '0'), 10) || 0));
   const bairro = String(f.bairro?.value ?? '').split(',')[0].trim() || (lang === 'pt' ? 'seu bairro' : 'your neighborhood');
+  // The W2 read-back corrections override the bairro means — see the comment on
+  // FamiliaRecoInput.corrections. Without this the org corrects our data and
+  // the recommendation visibly ignores them, one turn after we said their
+  // answer counts for more than our number.
+  let corrections: Record<string, any> | undefined;
+  try { corrections = JSON.parse(String(f._hazard_check_json?.value ?? '')) || undefined; } catch { corrections = undefined; }
   const ranked = rankFamiliasForSite({
     risks: { flood: pct('_bairro_flood_pct'), heat: pct('_bairro_heat_pct'), landslide: pct('_bairro_landslide_pct') },
     bairro,
     currentUse: String(f.current_use?.value ?? '') || undefined,
     siteName: String(f.site_name?.value ?? '') || undefined,
+    corrections,
+    worries: String(f.site_worry?.value ?? '').split(',').map(s => s.trim()).filter(Boolean),
   });
   const overrides = new Map((modelItems ?? []).map(i => [i.familiaId, i.why]));
-  return ranked.slice(0, 3).map(r => ({
+  // All five ship. The old slice(0, 3) sat directly beneath a line promising
+  // "nada fica descartado", and it hid the one família that answered the
+  // hazard Coletivo Encosta Viva had just named (scenario test, 2026-07-31).
+  // A família answering a stated worry can never be marked weak.
+  return ranked.map(r => ({
     familiaId: r.familiaId,
     why: overrides.get(r.familiaId) ?? (lang === 'pt' ? r.why.pt : r.why.en),
     exampleSolutionIds: r.exampleSolutionIds,
+    ...(r.weak && !r.guaranteed ? { weak: true } : {}),
   }));
+}
+
+/**
+ * What the org has already shared. An organization that uploaded a proposal or
+ * a site description may have answered the diagnostic's questions before we
+ * asked them — re-asking reads as not having looked, which is exactly the
+ * "people keep engaging us and nothing comes of it" dynamic Antônia flagged
+ * (2026-07-16). Fetched only inside the beats that need it, never on every turn.
+ */
+async function siteDocsBrief(cboId: string): Promise<{ count: number; images: number; names: string[] }> {
+  try {
+    // Scope by the SESSION as well as the org. An org link is not guaranteed to
+    // exist by the time someone uploads, and the org-only lookup then reports
+    // zero documents for a file that is sitting in the user's own drawer — so
+    // the agent asks "tell me about this place" seconds after they sent a note
+    // describing it, which is exactly the "you didn't read it" moment this beat
+    // exists to prevent. The CBO's own /documents route already scopes this way.
+    const orgId = await getOrgIdForCboState(cboId);
+    const docs = await listDocumentsForScope({ cboStateId: cboId, orgId: orgId ?? undefined });
+    return {
+      count: docs.length,
+      images: docs.filter(d => d.kind === 'image').length,
+      names: docs.slice(0, 3).map(d => d.filename),
+    };
+  } catch (e: any) {
+    console.error('[cbo] siteDocsBrief failed:', e?.message || e);
+    return { count: 0, images: 0, names: [] };
+  }
+}
+
+/**
+ * intervention_site values that came out of a document and were never confirmed
+ * by a person. The doc-staging gate covers org_profile only, so these commit
+ * unstaged — evidence, not testimony, until someone says otherwise.
+ */
+function unconfirmedDocSiteFields(state: CboState): string[] {
+  const fields = state.sections.intervention_site?.fields ?? {};
+  return Object.entries(fields)
+    .filter(([name, f]: [string, any]) => !name.startsWith('_') && f?.source === 'document')
+    .map(([name]) => name);
+}
+
+/**
+ * A sentence from the org's own uploaded files that bears on `topic`, so a
+ * templated question can open with what they already wrote instead of asking
+ * from zero.
+ *
+ * Quotes, never infers. We return THEIR sentence and still ask the same
+ * question with the same chips — the skill's rule that tenure and current use
+ * come from the person rather than a PDF stands, because both feed the
+ * site_control score and a model's reading of a proposal is evidence, not
+ * testimony. Leading with the quote only removes the feeling of not having
+ * been read.
+ */
+const DOC_TOPIC_PATTERNS: Record<string, RegExp> = {
+  tenure: /\b(prefeitura|munic[ií]pio|cedid[oa]|comodato|alugad[oa]|arrendad[oa]|terreno (?:nosso|próprio|da associação)|área pública|escritura|posse|autoriza(?:ção|do)|tapume)\b/i,
+  current_use: /\b(baldio|abandonad[oa]|entulho|cimentad[oa]|pavimentad[oa]|asfaltad[oa]|mato|vegeta(?:ção|do)|gramado|quadra|pátio|horta já)\b/i,
+};
+
+async function docQuoteFor(cboId: string, topic: 'tenure' | 'current_use'): Promise<string | null> {
+  try {
+    const orgId = await getOrgIdForCboState(cboId);
+    const docs = await listDocumentsForScope({ cboStateId: cboId, orgId: orgId ?? undefined });
+    const re = DOC_TOPIC_PATTERNS[topic];
+    // Bounded on purpose: these rows carry fullText, which for a doc-heavy org
+    // is megabytes (the same trap buildDocumentsBlock avoids by selecting
+    // summaries). This runs on exactly two turns, so cap the work rather than
+    // scanning an entire locker for a sentence.
+    for (const d of docs.slice(0, 4)) {
+      const text = String((d as any).fullText ?? '').slice(0, 40_000).replace(/\s+/g, ' ');
+      if (!text) continue;
+      for (const sentence of text.split(/(?<=[.!?])\s+/)) {
+        const s = sentence.trim();
+        // Long enough to be a real statement, short enough to quote on a phone.
+        if (s.length < 25 || s.length > 190) continue;
+        if (re.test(s)) return s;
+      }
+    }
+    return null;
+  } catch (e: any) {
+    console.error('[cbo] docQuoteFor failed:', e?.message || e);
+    return null;
+  }
+}
+
+/** The E1 triage answer, so E2 stops re-asking what it already established. */
+async function getCboPath(cboId: string): Promise<string | null> {
+  try {
+    const rows = await db.select({ path: cohortMembers.path })
+      .from(cohortMembers).where(eq(cohortMembers.cboStateId, cboId)).limit(1);
+    return (rows[0]?.path as string | undefined) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** File a coordinator support request from the "pedir apoio" chip. */
@@ -1426,20 +1555,218 @@ async function serveE2Checkpoint(
   const askRoles = (picked: string[], intro: boolean) => {
     if (intro)
       say(
-        'Fechou. E que **papel** vocês gostariam de ter nesses projetos? Também pode marcar mais de um.',
-        'Got it. And what **role** would you like to play in these projects? You can pick more than one too.',
+        'Fechou. E que **papel a organização** quer ter na execução desses projetos? Também pode marcar mais de um.',
+        'Got it. And what **role does the organization** want in delivering these projects? You can pick more than one too.',
       );
     const opts = E2_ROLES.filter(r => !picked.includes(r.id)).map(r => ({ pt: r.pt, en: r.en })) as Array<{ pt: string; en: string; dPt?: string; dEn?: string }>;
     opts.push({ pt: E2C.outroPapel.pt, en: E2C.outroPapel.en, dPt: 'Me conta qual', dEn: 'Tell me which' });
     if (picked.length > 0) opts.push({ pt: E2C.prontoLista.pt, en: E2C.prontoLista.en, dPt: 'Fechar a lista', dEn: 'Close the list' });
     ask(
-      picked.length === 0 ? 'Que papel vocês imaginam?' : 'Marcado ✓ Mais algum papel?',
+      picked.length === 0 ? 'Que papel a organização imagina?' : 'Marcado ✓ Mais algum papel?',
       picked.length === 0 ? 'What role do you imagine?' : 'Noted ✓ Any other role?',
       opts,
     );
   };
-  const closeE2 = (): true => {
+  // ── W2 diagnostic beats (/refine 2026-07-31) ──────────────────────────────
+  // Frame → worry → story → photos → read-back. See shared/site-knowledge.ts for
+  // why this order and not the reverse: the platform states its own coarseness
+  // first and exposes itself to correction, rather than quizzing the org.
+  const risks: Record<HazardKey, number> = {
+    flood: Math.max(0, Math.min(100, parseInt(val('_bairro_flood_pct'), 10) || 0)),
+    heat: Math.max(0, Math.min(100, parseInt(val('_bairro_heat_pct'), 10) || 0)),
+    landslide: Math.max(0, Math.min(100, parseInt(val('_bairro_landslide_pct'), 10) || 0)),
+  };
+  const pickedWorries = val('site_worry') ? val('site_worry').split(',').map(s => s.trim()).filter(Boolean) : [];
+  const hazardChecks: Partial<Record<HazardKey, HazardCheckAnswer>> = (() => {
+    try { return JSON.parse(val('_hazard_check_json') || '{}'); } catch { return {}; }
+  })();
+
+  const askWorry = (picked: string[]) => {
+    const remaining = orderWorriesByData(risks).filter(w => !picked.includes(w.id));
+    const opts = remaining.map(w => ({ pt: w.pt, en: w.en, dPt: w.dPt, dEn: w.dEn })) as Array<{ pt: string; en: string; dPt?: string; dEn?: string }>;
+    if (picked.length > 0) opts.push({ pt: E2C.prontoLista.pt, en: E2C.prontoLista.en, dPt: 'Fechar', dEn: 'Close' });
+    ask(
+      picked.length === 0 ? 'O que mais preocupa vocês nesse lugar?' : 'Marcado ✓ Mais alguma coisa?',
+      picked.length === 0 ? 'What worries you most about this place?' : 'Noted ✓ Anything else?',
+      opts,
+    );
+  };
+
+  const askStory = async () => {
+    writeE2Fields(cboId, state, { _story_pending: 'yes' }, pushEvent);
+    const docs = await siteDocsBrief(cboId);
+    // If they already sent something, say so first. Asking as though the file
+    // never arrived is the fastest way to look like we didn't read it.
+    const seen = docs.count > 0
+      ? {
+          pt: `Vi que vocês já mandaram ${docs.count === 1 ? 'um arquivo' : `${docs.count} arquivos`} (${docs.names.join(', ')}) — já dei uma lida. `,
+          en: `I can see you already sent ${docs.count === 1 ? 'a file' : `${docs.count} files`} (${docs.names.join(', ')}) — I've read through them. `,
+        }
+      : { pt: '', en: '' };
+    say(
+      `${seen.pt}Agora me conta desse lugar com as palavras de vocês — pode **gravar um áudio** no microfone aqui embaixo, ou escrever.\n\n_Coisas que ajudam, se vierem à cabeça: o que acontece quando chove forte, quem usa o espaço, o que já tem plantado ou construído ali._`,
+      `${seen.en}Now tell me about this place in your own words — you can **record a voice note** with the microphone below, or type.\n\n_Things that help, if they come to mind: what happens when it rains hard, who uses the space, what is already planted or built there._`,
+    );
+    ask('Quando quiser:', 'Whenever you like:', [
+      ...(docs.count > 0
+        ? [{ pt: 'Já está no arquivo', en: "It's in the file", dPt: 'Uso o que vocês mandaram', dEn: "I'll use what you sent" }]
+        : []),
+      { pt: 'Prefiro pular', en: "I'd rather skip", dPt: 'Sem problema', dEn: 'No problem' },
+    ]);
+  };
+
+  /** The diagnostic runs at bairro level too, when no site is pinned yet. */
+  const hasSite = !!siteName;
+  const placeWord = () => (hasSite ? (isPt ? 'lugar' : 'place') : (isPt ? 'bairro' : 'neighborhood'));
+
+  const askPhotos = async () => {
+    const docs = await siteDocsBrief(cboId);
+    const prompts = photoPromptsFor(pickedWorries);
+    const lines = prompts.map(p => `- ${isPt ? p.pt : p.en}`).join('\n');
+    const already = docs.images > 0
+      ? {
+          pt: `Vocês já mandaram ${docs.images === 1 ? 'uma imagem' : `${docs.images} imagens`}. Se der pra completar, essas ajudariam:`,
+          en: `You've already sent ${docs.images === 1 ? 'an image' : `${docs.images} images`}. If you can round it out, these would help:`,
+        }
+      : hasSite
+        ? {
+            pt: 'Se em algum momento vocês estiverem lá com o celular, umas fotos ajudam muito. Sem pressa, e pode pular qualquer uma:',
+            en: "If you're ever there with your phone, a few photos would help a lot. No rush, and skip any of them:",
+          }
+        : {
+            // No site pinned yet — anchor the request to whatever in the bairro
+            // worries them, so the ask still makes sense.
+            pt: 'Se vocês passarem por algum lugar do bairro que preocupa vocês, umas fotos ajudam muito. Sem pressa, e pode pular qualquer uma:',
+            en: 'If you pass by somewhere in the neighborhood that worries you, a few photos would help a lot. No rush, and skip any of them:',
+          };
+    say(`${already.pt}\n\n${lines}`, `${already.en}\n\n${lines}`);
+    ask('Como prefere?', 'What works best?', [
+      { pt: E2C.temArquivos.pt, en: E2C.temArquivos.en, dPt: 'Toco no 📎 e mando agora', dEn: "I'll tap 📎 and send now" },
+      { pt: 'Mando depois', en: "I'll send later", dPt: 'Fica anotado', dEn: "I'll note it down" },
+      ...(docs.images > 0
+        ? [{ pt: 'Já mandei o que tinha', en: 'I already sent what I had', dPt: 'Seguir com o que tem', dEn: 'Continue with what we have' }]
+        : []),
+      { pt: E2C.semArquivos.pt, en: E2C.semArquivos.en, dPt: 'Seguir sem fotos', dEn: 'Continue without photos' },
+    ]);
+  };
+
+  /** The data side of the read-back — one hazard at a time, max two. */
+  const askHazardCheck = (): boolean => {
+    const pending = hazardsToCheck(pickedWorries, risks).filter(h => !hazardChecks[h]);
+    if (pending.length === 0) return false;
+    const h = pending[0];
+    // No preamble: beat 0 already said the map is coarse, and the question
+    // itself repeats "isso é a média do bairro inteiro". Saying it a third time
+    // four turns later reads as filler — and the skill's own voice rules ban it.
+    const bn = bairro.split(',')[0].trim();
+    ask(
+      hazardCheckQuestion(h, risks[h], bn || 'seu bairro', 'pt', hasSite),
+      hazardCheckQuestion(h, risks[h], bn || 'your neighborhood', 'en', hasSite),
+      HAZARD_CHECK_OPTIONS.map(o => ({ pt: o.pt, en: o.en })),
+    );
+    return true;
+  };
+
+  /**
+   * An org with no site used to park here with nothing captured but a bairro
+   * name — and those are precisely the orgs the coordination most needs a read
+   * on. Offer the diagnostic at bairro level instead, while keeping the "I know
+   * the place now" escape one tap away: someone who taps "not yet" and
+   * immediately remembers the spot must not be marched through the whole
+   * questionnaire first.
+   */
+  const offerBairroDiagnostic = (detail: string): true => {
+    ask(
+      'Enquanto isso, posso te perguntar umas coisas sobre o bairro? Ajuda bastante — e se já souberem o lugar, a gente marca no mapa.',
+      'In the meantime, can I ask you a few things about the neighborhood? It helps a lot — and if you already know the place, we can mark it on the map.',
+      [
+        { pt: E2C.podePerguntar.pt, en: E2C.podePerguntar.en, dPt: 'Perguntas rápidas', dEn: 'Quick questions' },
+        { pt: E2C.jaTenho.pt, en: E2C.jaTenho.en, dPt: 'Vamos pro mapa', dEn: "Let's go to the map" },
+      ],
+    );
+    return finish(detail);
+  };
+
+  /**
+   * Beat 0 + 1. Reached two ways: after tenure (site pinned), and after an org
+   * says it has no site yet — in which case the whole diagnostic runs at bairro
+   * level rather than parking the session with nothing but a bairro name.
+   */
+  const startDiagnostic = (): true => {
+    say(
+      `Agora uma coisa importante: o nosso mapa é **grosso** — cada quadradinho dele cobre uns quarteirões inteiros. Ele serve pra comparar bairros, mas não enxerga o ${hasSite ? 'pátio' : 'dia a dia'} de vocês. **Vocês conhecem esse ${placeWord()} muito melhor do que o nosso dado.** Então vou perguntar umas coisas.`,
+      `Now something important: our map is **coarse** — each of its squares covers whole blocks. It's useful for comparing neighborhoods, but it can't see your ${hasSite ? 'yard' : 'day to day'}. **You know this ${placeWord()} far better than our data does.** So let me ask you a few things.`,
+    );
+    writeE2Fields(cboId, state, { _worry_offered: 'yes' }, pushEvent);
+    askWorry([]);
+    return finish('ask-worry');
+  };
+
+  /** Serve the famílias recommendation — the end of the diagnostic. */
+  const serveFamiliaReco = (): true => {
+    const items = buildFamiliaRecoItems(state, lang);
+    say(
+      'Pra esse lugar, com o que você me contou, vale estudar essas famílias — não é veredito, é convite. **Nada fica descartado**: dá pra ver as 27 soluções quando quiser.',
+      "For this place, with what you've told me, these famílias are worth studying — not a verdict, an invitation. **Nothing is ruled out**: you can see all 27 solutions whenever you like.",
+    );
+    pushEvent({ type: 'show_familia_recommendation', items } as any);
+    ask('Faz sentido pra vocês?', 'Does this make sense to you?', [
+      { pt: E2C.fazSentido.pt, en: E2C.fazSentido.en },
+      { pt: E2C.queroAjustar.pt, en: E2C.queroAjustar.en, dPt: 'Quero mexer na lista', dEn: 'I want to change the list' },
+    ]);
+    return finish('familia-reco');
+  };
+
+  /**
+   * The depth read — what W2 hands to W3. Coordinator-facing by decision
+   * (2026-07-31): shown to the org it reads as a grade.
+   *
+   * Recomputed after EVERY beat, not only at the close. Orgs routinely stop
+   * once they've seen the famílias, and a read that only exists for sessions
+   * that ran all the way through the interest and role loops would be missing
+   * for exactly the half-finished sessions the coordination most needs to see.
+   */
+  const persistDepth = async () => {
+    try {
+      const docs = await siteDocsBrief(cboId);
+      const depth = computeSiteKnowledgeDepth({
+        siteConfirmed: val('_site_confirmed') === 'yes',
+        worries: pickedWorries,
+        story: val('site_story'),
+        photoIntent: (val('site_photo_intent') as 'sent' | 'later' | 'skip' | '') || '',
+        photoCount: docs.images,
+        hazardChecks,
+        currentUse,
+        tenure,
+        risks,
+        docCount: docs.count,
+        docImageCount: docs.images,
+        unconfirmedDocFields: unconfirmedDocSiteFields(state),
+      }, isPt ? 'pt' : 'en');
+      writeE2Fields(cboId, state, {
+        _depth_json: JSON.stringify(depth),
+        site_knowledge_depth: depth.level,
+      }, pushEvent, 'agent');
+    } catch (err) {
+      console.error(`[cbo] depth read failed for ${cboId}:`, err);
+    }
+  };
+
+  const closeE2 = async (): Promise<true> => {
+    await persistDepth();
     const nome = String(state.sections.org_profile?.fields?.contact_name?.value || '').trim().split(/\s+/)[0];
+    // No site yet: close on the way back in, not on a dead end. This also keeps
+    // the turn from ending silent, which would strand a Continue button.
+    if (!hasSite) {
+      say(
+        `✓ **Valeu${nome ? `, ${nome}` : ''}!** Já dá pra trabalhar com o que vocês contaram do **${bairro.split(',')[0].trim()}**.\n\nQuando souberem o lugar exato, é só voltar aqui e me dizer — a gente marca no mapa e afina a partir dele.`,
+        `✓ **Thanks${nome ? `, ${nome}` : ''}!** What you told me about **${bairro.split(',')[0].trim()}** is already enough to work with.\n\nWhen you know the exact place, just come back and tell me — we'll mark it on the map and sharpen things from there.`,
+      );
+      ask('Quando souberem o lugar:', 'When you know the place:', [
+        { pt: E2C.jaTenho.pt, en: E2C.jaTenho.en },
+      ]);
+      return finish('closing-no-site');
+    }
     say(
       `✓ **Pronto${nome ? `, ${nome}` : ''}!** Marcamos **${siteName || bairro}** e já sabemos por onde começar a estudar.\n\nNo próximo encontro a gente escolhe juntas a solução que mais combina com esse lugar. Até lá! 🌱`,
       `✓ **Done${nome ? `, ${nome}` : ''}!** We've marked **${siteName || bairro}** and we know where to start studying.\n\nIn the next encontro we'll pick together the solution that best fits this place. See you! 🌱`,
@@ -1472,13 +1799,39 @@ async function serveE2Checkpoint(
         _bairro_landslide_pct: String(z.landslide),
       }, pushEvent);
       say(`✓ **${names}** confirmado.`, `✓ **${names}** confirmed.`);
+      // E1's closing triage already answered this for two of the three paths:
+      // 'has-project' is DEFINED as having the site and scope, and
+      // 'needs-help' means they explicitly asked for help finding one. Only
+      // 'has-idea' is genuinely open. Lead accordingly instead of asking all
+      // three the same cold question.
+      const e1Path = await getCboPath(cboId);
+      if (e1Path === 'has-project') {
+        say(
+          'Como vocês já têm o projeto definido, vamos direto marcar o lugar dele no mapa.',
+          'Since you already have the project defined, let\'s go straight to marking its place on the map.',
+        );
+        ask('Pode ser?', 'Shall we?', [
+          { pt: E2C.simTenho.pt, en: E2C.simTenho.en, dPt: 'Vamos pro mapa', dEn: "Let's go to the map" },
+          { pt: E2C.aindaNao.pt, en: E2C.aindaNao.en, dPt: 'Mudou, ainda não temos', dEn: "It changed, not yet" },
+        ]);
+        return finish('bairro-fork-has-project');
+      }
       ask(
-        'Vocês já têm um lugar específico onde querem atuar — um terreno, uma praça, um pátio?',
-        'Do you already have a specific place where you want to act — a lot, a square, a yard?',
-        [
-          { pt: E2C.simTenho.pt, en: E2C.simTenho.en, dPt: 'Vamos marcar no mapa', dEn: "Let's mark it on the map" },
-          { pt: E2C.aindaNao.pt, en: E2C.aindaNao.en, dPt: 'Tudo bem — tem caminhos', dEn: "That's fine — there are paths" },
-        ],
+        e1Path === 'needs-help'
+          ? 'Vocês falaram que queriam ajuda pra achar um lugar. Já apareceu algum, ou seguimos sem ele por enquanto?'
+          : 'Vocês já têm um lugar específico onde querem atuar — um terreno, uma praça, um pátio?',
+        e1Path === 'needs-help'
+          ? 'You said you wanted help finding a place. Has one come up, or do we carry on without it for now?'
+          : 'Do you already have a specific place where you want to act — a lot, a square, a yard?',
+        e1Path === 'needs-help'
+          ? [
+              { pt: E2C.aindaNao.pt, en: E2C.aindaNao.en, dPt: 'Seguimos sem ele', dEn: 'Carry on without it' },
+              { pt: E2C.simTenho.pt, en: E2C.simTenho.en, dPt: 'Apareceu um lugar', dEn: 'A place came up' },
+            ]
+          : [
+              { pt: E2C.simTenho.pt, en: E2C.simTenho.en, dPt: 'Vamos marcar no mapa', dEn: "Let's mark it on the map" },
+              { pt: E2C.aindaNao.pt, en: E2C.aindaNao.en, dPt: 'Tudo bem — tem caminhos', dEn: "That's fine — there are paths" },
+            ],
       );
       return finish('bairro-fork');
     }
@@ -1519,6 +1872,85 @@ async function serveE2Checkpoint(
     return finish('site-card');
   }
 
+  // ── Uploads during a beat must not hand the turn to the model ─────────────
+  // Every upload posts a chat message carrying the parsed content. Left to the
+  // model, that turn renders its own question and REPLACES the checkpoint's
+  // pending composer — so the "Pronto, pode seguir" chip disappears and the
+  // flow strands, which is exactly what three photos produced in the scenario
+  // run. Keep the beat in control: acknowledge and re-offer the same question.
+  if (raw.startsWith("I'm uploading:")) {
+    if (val('_story_pending') === 'yes') {
+      // Also stops an upload dump being stored as their story.
+      say('Recebi o arquivo — já dou uma lida.', "Got the file — I'll read it.");
+      ask('Quando quiser:', 'Whenever you like:', [
+        { pt: 'Já está no arquivo', en: "It's in the file", dPt: 'Uso o que vocês mandaram', dEn: "I'll use what you sent" },
+        { pt: 'Prefiro pular', en: "I'd rather skip", dPt: 'Sem problema', dEn: 'No problem' },
+      ]);
+      return finish('upload-during-story');
+    }
+    if (val('_story_done') === 'yes' && val('_photos_done') !== 'yes') {
+      say('Recebi ✓', 'Got it ✓');
+      ask('Quando terminar de anexar:', 'When you finish attaching:', [
+        { pt: E2C.prontoSeguir.pt, en: E2C.prontoSeguir.en },
+      ]);
+      return finish('upload-during-photos');
+    }
+  }
+
+  // ── Beat 2 · the story, free text ─────────────────────────────────────────
+  // A voice note arrives here too: the recorder transcribes and sends it as an
+  // ordinary text turn. Stored verbatim — their words are the point, and the
+  // agent's working memory (last 10 messages, 300 chars each) would lose them
+  // within a few turns otherwise.
+  // ⚠️ turnKind is NOT a reliable "did they type it" signal here. The story
+  // prompt ends with an ask_user (so the turn prompts, and so "Prefiro pular"
+  // exists), and the client routes anything typed while a question is pending
+  // through handleSelectOption — which posts it as turnKind 'chip'. A dictated
+  // voice note, by contrast, always posts as 'text'. Keying off turnKind would
+  // therefore capture spoken stories and silently drop typed ones. With a
+  // single pending question the message is the raw text verbatim, so we accept
+  // either kind and just exclude the two chip labels this beat offers.
+  if (val('_story_pending') === 'yes' && raw && !raw.startsWith('Map selection (')) {
+    const n = normChip(raw);
+    const isStoryChip =
+      n === normChip('Prefiro pular') || n === normChip("I'd rather skip") ||
+      n === normChip('Já está no arquivo') || n === normChip("It's in the file");
+    if (!isStoryChip) {
+    writeE2Fields(cboId, state, {
+      site_story: raw.slice(0, 4000),
+      _story_pending: '',
+      _story_done: 'yes',
+    }, pushEvent);
+    // If they described the 2024 catastrophe, the scale has to be named now —
+    // before they design a project against a problem NBS cannot address.
+    // (Conceito Arte's technical note, 2026-07-31: NBS absorb ~0.03% of that
+    // event but ~11.5% of a microbasin flooding.)
+    if (needsScaleReframing(pickedWorries, raw)) {
+      say(
+        `Obrigado por contar — isso ajuda muito.\n\n${NBS_SCALE_HONESTY.framing.pt}`,
+        `Thank you for that — it helps a lot.\n\n${NBS_SCALE_HONESTY.framing.en}`,
+      );
+    } else {
+      say('Obrigado por contar — isso ajuda muito.', 'Thank you for that — it helps a lot.');
+    }
+    await askPhotos();
+    return finish('story-captured');
+    }
+  }
+
+  // "Outra coisa" worry — free text, same pending-flag pattern.
+  if (val('_worry_other_pending') === 'yes' && turnKind !== 'chip' && raw && !raw.startsWith('Map selection (')) {
+    const other = `outro: ${raw.replace(/\s+/g, ' ').slice(0, 120)}`;
+    const next = [...pickedWorries.filter(w => w !== 'other'), other];
+    writeE2Fields(cboId, state, {
+      site_worry: next.join(', '),
+      _worry_other_pending: '',
+      _worry_done: 'yes',
+    }, pushEvent);
+    await askStory();
+    return finish('worry-other-captured');
+  }
+
   // "Outro papel" answer — the ONLY free-text turn the checkpoint machine
   // consumes, and only while the role question is explicitly waiting for it.
   if (val('_role_other_pending') === 'yes' && val('_role_done') !== 'yes' && turnKind !== 'chip' && raw && !raw.startsWith('Map selection (')) {
@@ -1548,15 +1980,33 @@ async function serveE2Checkpoint(
       'Show! Agora vamos pro mapa. Vocês já conhecem os riscos do território de vocês — o mapa traz os **dados oficiais** de enchente, calor e deslizamento, que dão peso ao projeto na hora de buscar recursos. Dá uma olhada e marca seu bairro.',
       "Great! Now to the map. You already know your territory's risks — the map adds the **official data** on flood, heat and landslide, which gives your project weight when you go after funding. Take a look, then mark your neighborhood.",
     );
-    ask('Vocês atuam em um bairro só ou em mais de um?', 'Do you work in one neighborhood or more than one?', [
-      { pt: E2C.umBairro.pt, en: E2C.umBairro.en },
+    // E1 already recorded where they work, and until now E2 never read it —
+    // `bairro_of_operation` was written at kickoff and consulted nowhere in
+    // this file. Asking cold for something we were told twenty minutes ago is
+    // the clearest "you weren't listening" signal in the flow. Known facts
+    // become confirmations; only an unknown stays a question.
+    const e1Bairro = String(
+      state.sections.org_profile?.fields?.bairro_of_operation?.value ?? '',
+    ).split(',')[0].trim();
+    ask(
+      e1Bairro
+        ? `Vocês atuam no **${e1Bairro}**, certo? Só ele, ou em mais de um bairro?`
+        : 'Vocês atuam em um bairro só ou em mais de um?',
+      e1Bairro
+        ? `You work in **${e1Bairro}**, right? Just there, or in more than one neighborhood?`
+        : 'Do you work in one neighborhood or more than one?',
+      [
+      { pt: e1Bairro ? `Só o ${e1Bairro}` : E2C.umBairro.pt, en: e1Bairro ? `Just ${e1Bairro}` : E2C.umBairro.en },
       { pt: E2C.maisDeUm.pt, en: E2C.maisDeUm.en },
     ]);
     return finish('bairro-question');
   }
 
   // One-or-more answer → Map 1 (tour + bairro, confirms at the zone step).
-  if (!bairro && (is(E2C.umBairro) || is(E2C.maisDeUm))) {
+  // "Um bairro" may arrive as the confirm label built from E1 ("Só o Sarandi"),
+  // so match the shape as well as the constant.
+  const isSingleBairroChip = is(E2C.umBairro) || /^(so o |so a |just )/.test(msg);
+  if (!bairro && (isSingleBairroChip || is(E2C.maisDeUm))) {
     openMapPreset({
       preset: 'e2_bairro',
       ...(is(E2C.maisDeUm)
@@ -1616,26 +2066,33 @@ async function serveE2Checkpoint(
         ? "✓ I've told the coordination — they'll reach out to help you find the place."
         : 'Noted — please reach the coordination via the **Request Support** button on this screen.',
     );
-    ask('Quando souberem o lugar, é só tocar abaixo.', 'When you know the place, just tap below.', [
-      { pt: E2C.jaTenho.pt, en: E2C.jaTenho.en },
-    ]);
-    return finish('support-requested');
+    return offerBairroDiagnostic('support-requested');
   }
   if (bairro && !siteName && is(E2C.voltoDepois)) {
     say(
-      'Tranquilo — fica pra próxima. Quando souberem o lugar, é só voltar aqui e tocar abaixo.',
-      "No rush — next time then. When you know the place, just come back and tap below.",
+      'Tranquilo — o lugar exato fica pra depois.',
+      'No rush — the exact place can wait.',
     );
-    ask('Quando souberem o lugar:', 'When you know the place:', [
-      { pt: E2C.jaTenho.pt, en: E2C.jaTenho.en },
-    ]);
-    return finish('parked');
+    return offerBairroDiagnostic('parked');
   }
+  // Fork answer: run the diagnostic at bairro level.
+  if (bairro && !siteName && is(E2C.podePerguntar)) return startDiagnostic();
 
   // Site card confirmed → describe stage, first templated question (current use).
   if (siteName && !currentUse && is(E2C.confirmar)) {
     writeE2Fields(cboId, state, { _site_confirmed: 'yes' }, pushEvent);
-    ask('Como é esse lugar hoje?', 'What is this place like today?', E2_CURRENT_USE.map(o => ({ pt: o.pt, en: o.en })));
+    const useQuote = await docQuoteFor(cboId, 'current_use');
+    if (useQuote) {
+      say(
+        `No arquivo que vocês mandaram eu li: _"${useQuote}"_`,
+        `In the file you sent I read: _"${useQuote}"_`,
+      );
+    }
+    ask(
+      useQuote ? 'É assim que está hoje?' : 'Como é esse lugar hoje?',
+      useQuote ? 'Is that how it is today?' : 'What is this place like today?',
+      E2_CURRENT_USE.map(o => ({ pt: o.pt, en: o.en })),
+    );
     return finish('ask-current-use');
   }
   // "É outro tipo de lugar" → the model converses (free text), then continues.
@@ -1643,7 +2100,18 @@ async function serveE2Checkpoint(
     const useHit = E2_CURRENT_USE.find(o => is(o));
     if (useHit) {
       writeE2Fields(cboId, state, { current_use: useHit.id }, pushEvent);
-      ask('E vocês têm acesso a esse espaço hoje?', 'And do you have access to this space today?', E2_TENURE.map(o => ({ pt: o.pt, en: o.en })));
+      const tenureQuote = await docQuoteFor(cboId, 'tenure');
+      if (tenureQuote) {
+        say(
+          `E sobre o terreno, no arquivo diz: _"${tenureQuote}"_`,
+          `And about the land, the file says: _"${tenureQuote}"_`,
+        );
+      }
+      ask(
+        tenureQuote ? 'Continua assim?' : 'E vocês têm acesso a esse espaço hoje?',
+        tenureQuote ? 'Is that still the case?' : 'And do you have access to this space today?',
+        E2_TENURE.map(o => ({ pt: o.pt, en: o.en })),
+      );
       return finish('ask-tenure');
     }
   }
@@ -1671,40 +2139,137 @@ async function serveE2Checkpoint(
       setCboState(cboId, state);
       debouncedPersist(cboId);
       pushEvent({ type: 'maturity_update', scores: state.maturityScores, total: state.totalMaturityScore, flags: state.priorityFlags } as any);
+      // An org that already did the diagnostic at bairro level and then came
+      // back to pin a site must not be walked through all of it again.
+      if (val('_check_done') === 'yes') return serveFamiliaReco();
+      return startDiagnostic();
+    }
+  }
+
+  // Bridge for sessions that were parked at the old generic "quer anexar
+  // fotos?" step when the diagnostic beats shipped: their next tap enters the
+  // new flow at beat 1 instead of falling through to the model.
+  if (tenure && !val('_worry_offered') && (is(E2C.temArquivos) || is(E2C.semArquivos) || is(E2C.prontoSeguir))) {
+    writeE2Fields(cboId, state, { _worry_offered: 'yes' }, pushEvent);
+    askWorry([]);
+    return finish('ask-worry-bridged');
+  }
+
+  // ── Beat 1 · what worries them here ───────────────────────────────────────
+  if (val('_worry_offered') === 'yes' && val('_worry_done') !== 'yes') {
+    const hit = orderWorriesByData(risks).find(w => is({ pt: w.pt, en: w.en }) && !pickedWorries.includes(w.id));
+    if (hit) {
+      const next = [...pickedWorries, hit.id];
+      writeE2Fields(cboId, state, { site_worry: next.join(', ') }, pushEvent);
+      if (hit.id === 'other') {
+        writeE2Fields(cboId, state, { _worry_other_pending: 'yes' }, pushEvent);
+        say('Me conta: o que mais preocupa vocês nesse lugar?', 'Tell me: what worries you most about this place?');
+        return finish('worry-other-asked');
+      }
+      if (next.length >= E2_WORRIES.length - 1) {
+        writeE2Fields(cboId, state, { _worry_done: 'yes' }, pushEvent);
+        await askStory();
+        return finish('ask-story');
+      }
+      askWorry(next);
+      return finish('worry-picked');
+    }
+    if (is(E2C.prontoLista) && pickedWorries.length > 0) {
+      writeE2Fields(cboId, state, { _worry_done: 'yes' }, pushEvent);
+      await askStory();
+      return finish('ask-story');
+    }
+  }
+
+  // ── Beat 2 · the story — skip paths (the free-text path is above) ─────────
+  if (val('_story_pending') === 'yes') {
+    if (is({ pt: 'Já está no arquivo', en: "It's in the file" })) {
+      writeE2Fields(cboId, state, {
+        _story_pending: '',
+        _story_done: 'yes',
+        site_story: isPt ? '(remeteram ao arquivo que já enviaram)' : '(they pointed to the file they already sent)',
+      }, pushEvent);
       say(
-        'Boa! Antes de fechar: você tem **fotos do lugar**, uma proposta, plantas? Toca no 📎 aqui embaixo e anexa — eu leio e uso nos próximos encontros.',
-        'Great! Before we close: do you have **photos of the place**, a proposal, plans? Tap the 📎 below and attach them — I read them and use them in the next encontros.',
+        'Perfeito — uso o que vocês mandaram, e a coordenação também vai olhar.',
+        "Perfect — I'll use what you sent, and the coordination will look at it too.",
       );
-      ask('Quer anexar fotos ou arquivos do lugar?', 'Want to attach photos or files of the place?', [
-        { pt: E2C.temArquivos.pt, en: E2C.temArquivos.en, dPt: 'Vou tocar no 📎 e enviar', dEn: "I'll tap 📎 and send" },
-        { pt: E2C.semArquivos.pt, en: E2C.semArquivos.en, dPt: 'Seguir sem anexar', dEn: 'Continue without attaching' },
-      ]);
+      await askPhotos();
+      return finish('ask-photos');
+    }
+    if (is({ pt: 'Prefiro pular', en: "I'd rather skip" })) {
+      writeE2Fields(cboId, state, { _story_pending: '', _story_done: 'yes' }, pushEvent);
+      say('Sem problema.', 'No problem.');
+      await askPhotos();
       return finish('ask-photos');
     }
   }
-  if (tenure && is(E2C.temArquivos)) {
-    say(
-      'Show! Toca no 📎 e manda o que tiver. Quando terminar, toca abaixo.',
-      'Great! Tap 📎 and send what you have. When you finish, tap below.',
-    );
-    ask('Quando terminar de anexar:', 'When you finish attaching:', [
-      { pt: E2C.prontoSeguir.pt, en: E2C.prontoSeguir.en },
-    ]);
-    return finish('await-uploads');
+
+  // ── Beat 3 · photographs ──────────────────────────────────────────────────
+  if (val('_story_done') === 'yes' && val('_photos_done') !== 'yes') {
+    if (is(E2C.temArquivos)) {
+      say(
+        'Show! Toca no 📎 e manda o que tiver. Quando terminar, toca abaixo.',
+        'Great! Tap 📎 and send what you have. When you finish, tap below.',
+      );
+      ask('Quando terminar de anexar:', 'When you finish attaching:', [
+        { pt: E2C.prontoSeguir.pt, en: E2C.prontoSeguir.en },
+      ]);
+      return finish('await-uploads');
+    }
+    const intent =
+      is(E2C.prontoSeguir) || is({ pt: 'Já mandei o que tinha', en: 'I already sent what I had' }) ? 'sent'
+      : is({ pt: 'Mando depois', en: "I'll send later" }) ? 'later'
+      : is(E2C.semArquivos) ? 'skip'
+      : null;
+    if (intent) {
+      writeE2Fields(cboId, state, { _photos_done: 'yes', site_photo_intent: intent }, pushEvent);
+      if (intent === 'later') {
+        say(
+          'Fica anotado — quando mandarem, eu leio e a coordenação também vê.',
+          "Noted — when you send them I'll read them, and the coordination sees them too.",
+        );
+      }
+      await persistDepth();
+      if (askHazardCheck()) return finish('ask-hazard-check');
+      return serveFamiliaReco();
+    }
   }
-  // Photos done (or none) → the famílias recommendation, served directly.
-  if (tenure && (is(E2C.semArquivos) || is(E2C.prontoSeguir))) {
-    const items = buildFamiliaRecoItems(state, lang);
-    say(
-      'Pra esse lugar, com o que você me contou, vale estudar essas famílias — não é veredito, é convite:',
-      "For this place, with what you've told me, these famílias are worth studying — not a verdict, an invitation:",
-    );
-    pushEvent({ type: 'show_familia_recommendation', items } as any);
-    ask('Qual dessas conversa mais com o que vocês imaginam?', 'Which of these speaks most to what you imagine?', [
-      { pt: E2C.fazSentido.pt, en: E2C.fazSentido.en },
-      { pt: E2C.queroAjustar.pt, en: E2C.queroAjustar.en, dPt: 'Quero mexer na lista', dEn: 'I want to change the list' },
-    ]);
-    return finish('familia-reco');
+
+  // ── Beat 4 · the read-back, our side ──────────────────────────────────────
+  if (val('_photos_done') === 'yes' && val('_check_done') !== 'yes') {
+    const answer = HAZARD_CHECK_OPTIONS.find(o => is(o));
+    if (answer) {
+      const pending = hazardsToCheck(pickedWorries, risks).filter(h => !hazardChecks[h]);
+      const h = pending[0];
+      if (h) {
+        const next = { ...hazardChecks, [h]: answer.id };
+        writeE2Fields(cboId, state, { _hazard_check_json: JSON.stringify(next) }, pushEvent);
+        hazardChecks[h] = answer.id;
+        if (answer.id !== 'unsure') {
+          say(
+            answer.id === 'worse'
+              ? 'Anotado — e isso vale mais que o nosso número, porque vocês estão lá.'
+              : answer.id === 'less'
+                ? 'Bom saber — o dado do bairro estava puxando pra cima.'
+                : 'Show, o dado bate então.',
+            answer.id === 'worse'
+              ? "Noted — and that counts for more than our number, because you're the ones there."
+              : answer.id === 'less'
+                ? 'Good to know — the bairro figure was pulling it up.'
+                : 'Good, the data matches then.',
+          );
+        } else {
+          say(
+            'Tranquilo — deixo em aberto e a coordenação pode olhar isso com vocês.',
+            "That's fine — I'll leave it open and the coordination can look at it with you.",
+          );
+        }
+      }
+      if (askHazardCheck()) return finish('ask-hazard-check');
+      writeE2Fields(cboId, state, { _check_done: 'yes' }, pushEvent);
+      await persistDepth();
+      return serveFamiliaReco();
+    }
   }
   // Recommendation acknowledged → the interest question (not closing yet).
   if (is(E2C.fazSentido) && val('_interest_done') !== 'yes' && getCboMessages(cboId).some(m => m.messageType === 'composer' && m.content.includes('"kind":"familia_reco"'))) {
@@ -1746,7 +2311,7 @@ async function serveE2Checkpoint(
       writeE2Fields(cboId, state, { role_preference: next.join(', ') }, pushEvent);
       if (E2_ROLES.every(r => next.includes(r.id))) {
         writeE2Fields(cboId, state, { _role_done: 'yes' }, pushEvent);
-        return closeE2();
+        return await closeE2();
       }
       askRoles(next, false);
       return finish('role-picked');
@@ -1758,7 +2323,7 @@ async function serveE2Checkpoint(
     }
     if (is(E2C.prontoLista) && pickedRoles.length > 0) {
       writeE2Fields(cboId, state, { _role_done: 'yes' }, pushEvent);
-      return closeE2();
+      return await closeE2();
     }
   }
 
@@ -1834,41 +2399,7 @@ async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: Ev
   }
 }
 
-// Single-flight per session. Live test 2026-07-16: a link-paste turn showed no
-// visible event for 65s, the user re-sent the link, and the two overlapping
-// model turns each re-stated the same field summary (the per-turn duplicate
-// guard can't see across turns). One model turn per cboId at a time; the
-// duplicate send gets an ephemeral "ainda tô nessa" and no second turn. The
-// timestamp is a stale-lock escape (a crashed/hung turn stops blocking after
-// 3 min — maxTurns ends real turns well before that).
-const chatTurnInFlight = new Map<string, number>();
-
 export async function streamCboChat(cboId: string, userMessage: string, res: Response, state: CboState, lang: string = 'en', turnKind?: string) {
-  const since = chatTurnInFlight.get(cboId);
-  if (since && Date.now() - since < 180_000) {
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    const content = lang === 'pt'
-      ? 'Ainda tô terminando a resposta anterior — já te respondo aqui. 🙂'
-      : "Still finishing my previous reply — with you in a moment. 🙂";
-    // Written straight to the stream (not persisted): the notice is about THIS
-    // moment; on reload the real turn's outcome is the record that matters.
-    res.write(`data: ${JSON.stringify({ type: 'chat', content })}\n\n`);
-    res.write(`data: ${JSON.stringify({ type: 'done', summary: 'turn already in flight' })}\n\n`);
-    console.log(`[cbo] duplicate send while turn in flight for ${cboId} (${Date.now() - since}ms in)`);
-    res.end();
-    return;
-  }
-  chatTurnInFlight.set(cboId, Date.now());
-  try {
-    await streamCboChatInner(cboId, userMessage, res, state, lang, turnKind);
-  } finally {
-    chatTurnInFlight.delete(cboId);
-  }
-}
-
-async function streamCboChatInner(cboId: string, userMessage: string, res: Response, state: CboState, lang: string = 'en', turnKind?: string) {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -2226,25 +2757,6 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   const { model, routing, reason } = resolveTurnModel(cboId, state, userMessage, turnKind, heavyModel);
   console.log(`[cbo] turn routing for ${cboId}: ${routing} (${reason}) kind=${turnKind ?? 'none'} model=${model}`);
 
-  // Link-paste turns open with WebFetch, and the tool_use label only fires
-  // when round 1 lands — live test 2026-07-16 measured 65s of blank screen
-  // before the first event, which is exactly how long it took the user to
-  // decide it was stuck and re-send. We know the shape of this turn before
-  // the model does: narrate it immediately.
-  if (reason === 'link-paste') {
-    const host = (userMessage.match(/https?:\/\/(?:www\.)?([^\/\s]+)/i)?.[1] ?? '').trim();
-    pushEvent({
-      type: 'thinking_step',
-      step: {
-        id: 'link-paste-prefetch',
-        label: lang === 'pt'
-          ? (host ? `Lendo ${host}… (pode levar um minutinho)` : 'Lendo o site… (pode levar um minutinho)')
-          : (host ? `Reading ${host}… (may take a minute)` : 'Reading the website… (may take a minute)'),
-        status: 'active',
-      },
-    } as any);
-  }
-
   // System prompt = the durable facts the agent needs (persona, tools, skill,
   // state, recent conversation, access policy). User prompt = just the new
   // turn. This mirrors conceptNoteAgent and is the SDK's expected shape;
@@ -2349,18 +2861,6 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
           // URL slug. WebFetch makes link ingestion real; the E1 skill pairs
           // it with an honesty rule (fetch fails → say so, ask for an upload).
           "WebFetch",
-        ],
-        // allowedTools is NOT enough: with bypassPermissions the SDK's
-        // built-ins stay callable even when absent from the list. Live test
-        // 2026-07-16: the model asked its question via the CLI's
-        // AskUserQuestion (renders NOTHING headless — the user got prose with
-        // no chips) and spawned a Task subagent mid-turn (109s total).
-        // disallowedTools removes these from the model's context entirely.
-        // WebFetch stays allowed (link ingestion); the file/exec tools are
-        // listed too so bypassPermissions can't resurrect them.
-        disallowedTools: [
-          "Task", "AskUserQuestion", "TodoWrite", "WebSearch",
-          "Bash", "Read", "Write", "Edit", "Glob", "Grep", "NotebookEdit",
         ],
         mcpServers: mcpServer ? { cbo: mcpServer } : {},
         permissionMode: "bypassPermissions",
