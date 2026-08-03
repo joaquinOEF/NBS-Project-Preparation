@@ -14,6 +14,7 @@ import {
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
 } from '@/core/components/ui/alert-dialog';
 import { useFileDrop } from '@/core/hooks/useFileDrop';
+import { useToast } from '@/core/hooks/use-toast';
 import { hazardPercentile, riskBand, dominantPercentile } from '@shared/risk-display';
 import {
   CBO_SECTIONS,
@@ -360,6 +361,7 @@ function clearId() { try { localStorage.removeItem(sessionStorageKey()); } catch
 
 export default function CboProfilePage() {
   const { t, i18n } = useTranslation();
+  const { toast } = useToast();
   const lang = i18n.resolvedLanguage || 'en';
   const [cboId, setCboId] = useState<string | null>(null);
   const [state, setState] = useState<CboState | null>(null);
@@ -1306,6 +1308,18 @@ export default function CboProfilePage() {
     try {
       armWatchdog();
       const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang, turnKind, chipAnswers, displayText }), signal: ctrl.signal });
+      // 409 = a turn is already streaming for this session (CBO-CONCURRENT-TURNS).
+      // Not an error the user caused and not something to retry: the answer they
+      // are waiting for is already on its way. Say so gently and leave the
+      // transcript alone — the in-flight turn will finish and render normally.
+      if (res.status === 409) {
+        toast({
+          title: t('cbo.stillAnswering', {
+            defaultValue: 'Só um segundo — ainda estou respondendo a anterior.',
+          }),
+        });
+        return;
+      }
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let buffer = '';

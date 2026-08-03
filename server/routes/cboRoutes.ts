@@ -9,6 +9,8 @@ import {
   debouncedPersist,
   advanceCboPhase,
   loadCboFromDb,
+  beginTurn,
+  endTurn,
   getFlushedMessageCount,
   hasPendingFlush,
 } from "../services/cboAgent";
@@ -202,7 +204,17 @@ export function registerCboRoutes(app: Express): void {
       }
     }
 
-    await streamCboChat(req.params.id, message + langDirective, res, state, resolvedLang, turnKind);
+    // One turn at a time — see CBO-CONCURRENT-TURNS in cboAgent.ts. Checked
+    // BEFORE streamCboChat writes any SSE headers, so a rejected second turn is
+    // a clean JSON 409 the client can handle rather than a half-open stream.
+    if (!beginTurn(req.params.id)) {
+      return res.status(409).json({ error: 'turn_in_flight' });
+    }
+    try {
+      await streamCboChat(req.params.id, message + langDirective, res, state, resolvedLang, turnKind);
+    } finally {
+      endTurn(req.params.id);
+    }
     debouncedPersist(req.params.id);
   });
 
