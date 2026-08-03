@@ -51,9 +51,24 @@ test.describe('COUGAR — E2 interest + role loops', () => {
     await chip('Abandonado / degradado').click();
     await expect(page.getByText('acesso a esse espaço', { exact: false })).toBeVisible({ timeout: 8_000 });
     await chip('É da prefeitura, mas a gente usa').click();
-    await expect(page.getByText('fotos do lugar', { exact: false })).toBeVisible({ timeout: 8_000 });
+
+    // Tenure now opens the DIAGNOSTIC beats (worry → story → photos → hazard
+    // check) rather than the old single "quer anexar fotos do lugar?" step this
+    // spec used to expect — see startDiagnostic() in cboAgent.ts. Skip through
+    // them the cheapest legitimate way; what this test is actually about starts
+    // at the recommendation. The beats themselves are covered in
+    // cougar-e2-diagnostic.spec.ts.
+    await expect(page.getByText('mais preocupa', { exact: false })).toBeVisible({ timeout: 8_000 });
+    await chip('💧 Alagamento').click();          // worry has no skip chip
+    await chip('Pronto ✓').click();
+    await expect(page.getByText('palavras de vocês', { exact: false })).toBeVisible({ timeout: 8_000 });
+    await chip('Prefiro pular').click();
+    await expect(page.getByText('fotos ajudam', { exact: false })).toBeVisible({ timeout: 8_000 });
     await chip('Não tenho agora').click();
-    await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 8_000 });
+    await chip('Não sei dizer').click();
+
+    await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 15_000 });
 
     // "Faz sentido" now opens the interest question instead of closing.
     await chip('Faz sentido').click();
@@ -69,7 +84,8 @@ test.describe('COUGAR — E2 interest + role loops', () => {
     await chip('Pronto ✓').click();
 
     // Role loop: one catalog role + the "Outro papel" free-text turn.
-    await expect(page.getByText('vocês gostariam de ter nesses projetos', { exact: false })).toBeVisible({ timeout: 8_000 });
+    // The intro line renders twice (streamed turn + persisted transcript row).
+    await expect(page.getByText('papel a organização', { exact: false }).first()).toBeVisible({ timeout: 8_000 });
     await chip('Escrever o projeto').click();
     await expect(page.getByText('Mais algum papel?', { exact: false })).toBeVisible({ timeout: 8_000 });
     await chip('Outro papel').click();
