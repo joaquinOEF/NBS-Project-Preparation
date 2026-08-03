@@ -908,7 +908,7 @@ export default function OrchestratorLandingPage() {
 
   const {
     cohort, members, isAdmin, allCohorts,
-    invite, unlockPhase, closeWorkshopPhase, saveWorkshops, resetCohort, resetMember, removeMember, saveLanguage, deleteCohort,
+    invite, unlockPhase, openWorkshopPhase, closeWorkshopPhase, saveWorkshops, resetCohort, resetMember, removeMember, saveLanguage, deleteCohort,
     switchCohort, provisionCohort, refresh,
   } = useCohort();
   const cohortLanguage = (cohort?.settings as { language?: 'pt' | 'en' } | null)?.language ?? null;
@@ -1016,25 +1016,28 @@ export default function OrchestratorLandingPage() {
     toast({ title: t('orchestrator.cohort.phaseUnlocked', { defaultValue: `Phase ${next} unlocked`, phase: next }) });
   };
 
-  // Coordinator clicked "Open for cohort" on a specific workshop. Two things
-  // happen together: (1) bulk-unlock the workshop's phase for every member,
-  // (2) auto-stamp today's date into the workshop's `openedAt` so the cadence
-  // accumulates a real timeline as it runs. Scheduled `date` is left alone.
+  // Coordinator clicked "Open for cohort". ONE server call now does both halves
+  // — unlock the phase for every member AND stamp `openedAt` — in a single
+  // transaction. This used to be two sequential client-driven writes to two
+  // different tables, neither of which checked whether it succeeded, while the
+  // toast fired regardless: a failed or interrupted second write left the phase
+  // unlocked and the cadence rail showing the workshop as never opened, with no
+  // sign anything had gone wrong. Scheduled `date` is left alone.
   const handleOpenWorkshop = async (workshopIndex: number, todayISO: string) => {
     const workshop = (cohort?.settings as any)?.workshops?.[workshopIndex] as WorkshopConfig | undefined;
     if (!workshop) return;
-    await unlockPhase('all', workshop.unlocksPhase);
-    if (!workshop.openedAt) {
-      const updated: WorkshopConfig[] = ((cohort?.settings as any)?.workshops ?? []).map(
-        (w: WorkshopConfig, j: number) => (j === workshopIndex ? { ...w, openedAt: todayISO } : w),
-      );
-      await saveWorkshops(updated);
-    }
+    const ok = await openWorkshopPhase(workshop.unlocksPhase, todayISO);
     toast({
-      title: t('orchestrator.cohort.workshopOpened', {
-        defaultValue: `${workshop.name} opened for cohort`,
-        workshop: workshop.name,
-      }),
+      variant: ok ? undefined : 'destructive',
+      title: ok
+        ? t('orchestrator.cohort.workshopOpened', {
+            defaultValue: `${workshop.name} opened for cohort`,
+            workshop: workshop.name,
+          })
+        : t('orchestrator.cohort.workshopOpenFailed', {
+            defaultValue: `Could not open ${workshop.name} — nothing was changed. Try again.`,
+            workshop: workshop.name,
+          }),
     });
   };
 

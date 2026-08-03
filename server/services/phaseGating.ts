@@ -53,8 +53,19 @@ export async function getPhasePolicyForCbo(cboStateId: string): Promise<PhasePol
       maxAllowedPhase: Math.max(...unlocked),
       memberId: member.id,
     };
-  } catch {
-    return UNGATED;
+  } catch (e: any) {
+    // A DB error is NOT "this CBO is standalone". Returning UNGATED here made
+    // the gate fail OPEN: unlockedPhases [1,2,3,4,5] for everyone, so a
+    // transient connection blip — exactly what a redeploy or restart produces —
+    // let any org walk into a workshop the coordinator hasn't opened. The two
+    // situations look identical to the caller and are opposites.
+    //
+    // Fail closed instead: phase 1 only, which every invited org has by design.
+    // The worst case is an org briefly told "the next workshop isn't open yet",
+    // which self-corrects on the next successful query — versus an org running
+    // an encontro the coordination never opened, which does not.
+    console.error(`[phaseGating] policy lookup failed for ${cboStateId}; failing CLOSED:`, e?.message || e);
+    return { gated: true, unlockedPhases: [1], maxAllowedPhase: 1, memberId: null };
   }
 }
 
