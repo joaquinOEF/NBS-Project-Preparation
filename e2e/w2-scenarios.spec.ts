@@ -38,17 +38,53 @@ async function openSession(page: any, request: any) {
     await input.fill(text);
     await input.press('Enter');
   };
+  // Wait for the upload to LAND, rather than for a guessed number of seconds.
+  //
+  // The fixed 6s sleep here was the single most expensive line in the suite and
+  // a flake in both directions — too short under load, wasted when fast. It was
+  // also silently load-bearing: the `if (isVisible())` check after it had no
+  // wait of its own and only ever passed because the sleep had let the chip
+  // render.
+  //
+  // ⚠️ The obvious replacement is wrong, and measuring is the only way to see
+  // it. `setInputFiles` with N files triggers ONE CHAT TURN PER FILE, in
+  // sequence — `data-streaming` goes true→false once per upload. Instrumented
+  // with three photos:
+  //
+  //   11379:true 11395:false | 12852:true 12861:false
+  //   13686:true 13694:false | 14501:true 14510:false
+  //
+  // Four turns over ~3.1s. So a single `data-streaming=false` wait is satisfied
+  // 16ms in, by the FIRST turn, while three more are still coming — which is
+  // exactly why replacing the sleep with it broke org 1 and org 3. The 6s sleep
+  // only ever worked because 6 > 3.1.
+  //
+  // The correct signal is QUIESCENCE: every document has landed, and the stream
+  // has then been idle continuously for a settle window. That adapts to real
+  // speed instead of guessing at it.
+  const SETTLE_MS = 700;
   const upload = async (files: string[]) => {
+    const before = (await (await request.get(`/api/cbo/${cboId}/documents`)).json())?.documents?.length ?? 0;
     await page.locator('input[type="file"]').setInputFiles(files);
-    await page.waitForTimeout(6000); // extraction + the synthetic chat turn
-    // …and then wait for the turn to actually END. The sleep alone was load-
-    // sensitive: it was just sufficient at the old suite pace and started
-    // failing once the suite got faster and contention changed. While the
-    // transcript is still streaming it auto-scrolls, so every chip below is
-    // permanently "not stable" and Playwright waits out the whole test timeout
-    // on an element it can already see.
-    await expect(page.getByTestId('cbo-stream-status'))
-      .toHaveAttribute('data-streaming', 'false', { timeout: 60_000 });
+
+    // 1 · every file is extracted and stored
+    await expect
+      .poll(async () => {
+        const r = await request.get(`/api/cbo/${cboId}/documents`);
+        return r.ok() ? ((await r.json())?.documents?.length ?? 0) : 0;
+      }, { timeout: 60_000, intervals: [200, 300, 500] })
+      .toBeGreaterThanOrEqual(before + files.length);
+
+    // 2 · …and the per-file turns have stopped arriving
+    await expect
+      .poll(async () => page.evaluate(async (ms) => {
+        const el = document.querySelector('[data-testid="cbo-stream-status"]');
+        const idle = () => el?.getAttribute('data-streaming') === 'false';
+        if (!idle()) return false;
+        await new Promise(r => setTimeout(r, ms));
+        return idle();
+      }, SETTLE_MS), { timeout: 60_000, intervals: [300] })
+      .toBe(true);
   };
   return { cboId, page, request, chip, input, tap, type, upload };
 }
