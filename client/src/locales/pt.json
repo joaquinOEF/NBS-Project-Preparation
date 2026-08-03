@@ -2100,6 +2100,7 @@
     "drawArea": "Desenhar a área",
     "drawHelpPoint": "Toque no mapa pra marcar o lugar.",
     "drawHelpArea": "Toque nos cantos do lugar; feche no primeiro ponto.",
+    "rampExplainer": "A cor mostra o risco de cada bairro comparado com o resto de Porto Alegre. Toque num bairro pra ver qual risco é.",
     "zoneRiskExplainer": "Cada bairro está colorido pelo risco principal — quanto mais forte a cor, maior o risco. Toque no seu bairro.",
     "addSite": "Adicionar um local por nome ou coordenada",
     "searchPlaceholder": "Buscar um nome de lugar…",

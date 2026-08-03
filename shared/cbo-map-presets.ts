@@ -88,11 +88,12 @@ const PRESETS: Record<CboMapPresetId, PresetDef> = {
   // step, no hazard rasters over the bairro outlines — they're off post-tour
   // already).
   //
-  // `plainZones` retires the risk choropleth here: it painted 67 of 94 bairros
-  // the same red while 26 more carried hues the 3-chip legend never named, so it
-  // added a colour puzzle to a step whose only question is "which one is yours?".
-  // The tour teaches the risks; the site card reports this bairro's numbers.
-  // The caller passes `preselectZone` with the bairro E1 already recorded.
+  // `zoneRiskRamp` shades the bairros on ONE sequential scale by their
+  // within-city risk percentile. The old typology choropleth painted 67 of 94
+  // bairros the same red while 26 more carried hues the 3-chip legend never
+  // named; removing it left the map blank, which cannot answer the question the
+  // hazard tour just raised. One ramp, one legend, and a scale that separates
+  // the city. The caller passes `preselectZone` with the bairro E1 recorded.
   e2_bairro: {
     params: {
       selectionMode: 'composite',
@@ -102,7 +103,7 @@ const PRESETS: Record<CboMapPresetId, PresetDef> = {
       hazardTour: true,
       allowDeferSite: true,
       confirmAtZone: true,
-      plainZones: true,
+      zoneRiskRamp: true,
     },
     prompt: {
       pt: 'Conheça os riscos e confirme o bairro onde vocês atuam.',

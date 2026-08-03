@@ -56,6 +56,7 @@ import {
   type HazardKey,
 } from '@shared/risk-display';
 import { normalizeZoneName } from '@shared/bairro-match';
+import { RISK_BANDS } from '@shared/risk-display';
 import type { LegendSpec } from '@shared/legend-types';
 import { describeRamp } from '@shared/hazard-legend';
 import { DataProvenanceDialog } from '@/core/components/maps/DataProvenanceDialog';
@@ -629,19 +630,55 @@ export default function MapMicroapp({
         const riskMin = Math.min(...allRisk, 0);
         const riskSpan = Math.max(...allRisk, 0.01) - riskMin || 0.01;
 
+        // Within-city percentile rank of priorityScore. Computed once over the
+        // whole city here, because a percentile is meaningless per-feature.
+        const prioritySorted = [...allPriorities].sort((a, b) => a - b);
+        const priorityPercentile = (p: any): number => {
+          const v = p?.priorityScore ?? 0;
+          if (prioritySorted.length < 2) return 0;
+          let below = 0;
+          for (const x of prioritySorted) if (x < v) below++;
+          return Math.round((below / (prioritySorted.length - 1)) * 100);
+        };
+
         const getDefaultStyle = (p: any) => {
-          // E2 Map 1: no risk colouring at all — grey outlines with a whisper of
-          // fill, so the only thing the screen asks is "which one is yours?".
-          // (The typology choropleth below made 67 of 94 POA bairros the same
-          // red and gave 26 more a hue the legend never named.) The fill is not
-          // zero: a transparent polygon still takes the tap, but it must be
-          // faint enough that no bairro looks pre-judged.
-          if (params.plainZones) {
+          // E2 Map 1: ONE sequential ramp, by the bairro's worst within-city
+          // hazard percentile.
+          //
+          // Two encodings were the original problem — the typology choropleth
+          // below used hue for WHICH hazard and opacity for HOW MUCH, and named
+          // neither in a legend anyone could follow. One channel, one legend.
+          //
+          // The percentile is what makes this worth drawing at all: on the
+          // absolute means it was arithmetically impossible for a POA bairro to
+          // read above the lowest band (see CBO-RISK-SCALE), so the map could
+          // only ever have been flat. `hazardPercentile` ranks within the city,
+          // so the ramp actually separates it.
+          //
+          // Colours come from risk-display.RISK_BANDS — the same five the site
+          // card and the coordinator use, so one vocabulary spans the product.
+          if (params.zoneRiskRamp) {
+            // The percentile RANK of this bairro's priority score among all of
+            // them — not the max of the three hazard percentiles.
+            //
+            // Max-of-three was the obvious move and it is wrong: every bairro is
+            // the worst at SOMETHING, so the max skews hard high (E[max of 3
+            // uniforms] ≈ 0.75). Measured on the 94 POA zones it put 56 in the
+            // top band and 84 in the top two — the same "everything is one
+            // colour" failure as the typology choropleth, in a new costume.
+            //
+            // Ranking priorityScore is uniform by construction: 20/18/19/18/19
+            // across the five bands. It is also the ordering the coordinator's
+            // priority list already uses, so the two views agree on which
+            // bairros are worst.
+            const worst = priorityPercentile(p);
             return {
-              color: '#64748b',
-              weight: 1,
-              fillColor: '#94a3b8',
-              fillOpacity: 0.06,
+              color: '#334155',
+              weight: 0.9,
+              fillColor: riskBand(worst).color,
+              // Floor the alpha: the lowest band is near-white, and a bairro you
+              // cannot see is a bairro you cannot tap.
+              fillOpacity: 0.3 + (worst / 100) * 0.4,
               dashArray: undefined as string | undefined,
             };
           }
@@ -689,11 +726,25 @@ export default function MapMicroapp({
             // bairros the user is trying to tap, in vocabulary the flow has not
             // introduced. Here the only question is "which one is yours?".
             if (
-              params.plainZones &&
+              params.zoneRiskRamp &&
               (p.neighbourhoodName || p.neighbourhood_name)
             ) {
+              // Name + the hazard driving the colour. The ramp says HOW MUCH;
+              // without this the user can see a bairro is dark and still not
+              // know of what, which is the question the tour just raised.
+              const ranked = (['flood', 'heat', 'landslide'] as HazardKey[])
+                .map(h => ({ h, pct: hazardPercentile(p, h) }))
+                .sort((a, b) => b.pct - a.pct)[0];
+              const hazardName = t(
+                `mapMicroapp.hazard${ranked.h === 'flood' ? 'Flood' : ranked.h === 'heat' ? 'Heat' : 'Landslide'}`,
+                { defaultValue: ranked.h },
+              );
+              const bandName = t(`riskBands.${riskBand(ranked.pct).key}`, {
+                defaultValue: riskBand(ranked.pct).label,
+              });
               featureLayer.bindTooltip(
-                `<div style="font-size:12px;font-weight:600">${p.neighbourhoodName || p.neighbourhood_name}</div>`,
+                `<div style="font-size:12px"><strong>${p.neighbourhoodName || p.neighbourhood_name}</strong>` +
+                  `<br/><span style="color:${riskBand(ranked.pct).color === '#e5e7eb' ? '#64748b' : riskBand(ranked.pct).color}">${hazardName}: ${bandName}</span></div>`,
                 { direction: 'top' }
               );
             } else if (p.neighbourhoodName || p.neighbourhood_name) {
@@ -2390,14 +2441,53 @@ export default function MapMicroapp({
         )}
         {/* Neighborhood-coloring explainer (CBO zone step) — same encoding as the
             orchestrator: hue = which risk, stronger color = more risk.
-            Suppressed under `plainZones`, where there is no colouring to explain:
+            Suppressed under `zoneRiskRamp`, which has its own single-scale legend:
             it repeated the three hazard dots already sitting in the chip row
             directly above it (two legends for one map), and named a brown that
             appears on ZERO of Porto Alegre's 94 bairros while saying nothing
             about the purple and green that cover 26 of them. */}
+        {/* One-scale risk legend (E2 Map 1). Replaces the two-encoding explainer
+            below: a single sequential ramp needs a single key, and the five
+            bands are the same ones the site card and the coordinator use. */}
+        {!tourActive &&
+          params.zoneRiskRamp &&
+          isComposite &&
+          compositeStep === 'zone' && (
+            <div
+              className='absolute top-2 left-2 right-2 z-[900] pointer-events-none'
+              data-testid='map-risk-ramp-legend'
+            >
+              <div className='bg-background/92 backdrop-blur-sm border border-foreground/10 rounded-lg px-3 py-2 shadow-sm'>
+                <p className='text-[11px] text-foreground/85 leading-snug'>
+                  {t('mapMicroapp.rampExplainer', {
+                    defaultValue:
+                      'A cor mostra o risco de cada bairro comparado com o resto de Porto Alegre. Toque num bairro pra ver qual risco é.',
+                  })}
+                </p>
+                <div className='flex items-center gap-1 mt-1.5'>
+                  {RISK_BANDS.map(b => (
+                    <div key={b.key} className='flex-1'>
+                      <div
+                        className='h-2 rounded-sm border border-foreground/10'
+                        style={{ backgroundColor: b.color }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className='flex items-center justify-between mt-0.5'>
+                  <span className='text-[9px] text-muted-foreground'>
+                    {t('mapMicroapp.lessRisk', { defaultValue: 'menos risco' })}
+                  </span>
+                  <span className='text-[9px] text-muted-foreground'>
+                    {t('mapMicroapp.moreRisk', { defaultValue: 'mais risco' })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         {!tourActive &&
           params.allowDeferSite &&
-          !params.plainZones &&
+          !params.zoneRiskRamp &&
           isComposite &&
           compositeStep === 'zone' && (
             <div className='absolute top-2 left-2 right-2 z-[900] pointer-events-none'>
