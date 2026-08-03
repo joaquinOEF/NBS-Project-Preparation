@@ -2735,9 +2735,15 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   // parser only consumes `data: ` lines, so this is invisible to it beyond
   // resetting the watchdog. With the heartbeat in place, 60s of true silence
   // now reliably means the connection is dead.
+  //
+  // The interval is env-overridable ONLY so the e2e suite can assert the
+  // behaviour without spending real seconds on it: the spec used to script a
+  // 17-second silent turn and wait it out, which cost 35s — 7% of the whole
+  // suite — sleeping on purpose. The logic under test is "pings arrive during a
+  // gap and the drop card never fires", and that is scale-free.
   const heartbeat = setInterval(() => {
     if (!clientGone && !res.writableEnded) res.write(': ping\n\n');
-  }, 15_000);
+  }, Number(process.env.CBO_SSE_PING_MS) || 15_000);
 
   res.on('close', () => {
     clearInterval(heartbeat);
