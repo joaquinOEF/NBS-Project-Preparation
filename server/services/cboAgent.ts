@@ -699,7 +699,7 @@ Include showMap: true on a question only when the user genuinely needs the map t
         // action 'upload': renders as a prominent attach banner (paperclip
         // icon) that opens the file picker instead of sending an answer. Use
         // ONLY on the intake-opening "send your site or documents" option.
-        options: z.array(z.object({ label: z.string(), description: z.string().optional(), recommended: z.boolean().optional(), action: z.enum(['upload']).optional() })),
+        options: z.array(z.object({ label: z.string(), description: z.string().optional(), recommended: z.boolean().optional(), action: z.enum(['upload', 'upload_then_answer']).optional() })),
         relatedSections: z.array(z.string()).optional(),
         showMap: z.boolean().optional(),
         multiSelect: z.boolean().optional(),
@@ -1653,11 +1653,31 @@ async function serveE2Checkpoint(
   const pickedRoles = val('role_preference') ? val('role_preference').split(',').map(s => s.trim()).filter(Boolean) : [];
 
   const say = (pt: string, en: string) => pushEvent({ type: 'chat', content: isPt ? pt : en, role: 'assistant' } as any);
-  const ask = (qPt: string, qEn: string, opts: Array<{ pt: string; en: string; dPt?: string; dEn?: string }>) =>
+  // `action` is the seam that lets a TEMPLATED checkpoint offer a chip that does
+  // something client-side as well as answering. It already existed end to end —
+  // declared on the ask_user option type, accepted by the model's tool, and
+  // honoured by the chip renderer (cbo-profile.tsx: `opt.action === 'upload'`
+  // opens the file picker) — but this helper flattened every option down to
+  // label + description, so no server checkpoint could ever set it. The result
+  // was the dead step JVP hit twice: tapping "Tenho arquivos pra anexar"
+  // answered the question and then told you to go find the 📎 yourself.
+  //
+  // Deliberately additive: the chip still posts its message. The checkpoint
+  // machine derives its position from the answers, so a chip that only opened a
+  // picker without answering would strand the flow.
+  const ask = (
+    qPt: string,
+    qEn: string,
+    opts: Array<{ pt: string; en: string; dPt?: string; dEn?: string; action?: 'upload_then_answer' }>,
+  ) =>
     pushEvent({
       type: 'ask_user',
       question: isPt ? qPt : qEn,
-      options: opts.map(o => ({ label: isPt ? o.pt : o.en, description: isPt ? (o.dPt ?? '') : (o.dEn ?? '') })),
+      options: opts.map(o => ({
+        label: isPt ? o.pt : o.en,
+        description: isPt ? (o.dPt ?? '') : (o.dEn ?? ''),
+        ...(o.action ? { action: o.action } : {}),
+      })),
     } as any);
   const finish = (detail: string): true => {
     pushEvent({ type: 'done', summary: `E2 checkpoint (${detail})` } as any);
@@ -1773,7 +1793,10 @@ async function serveE2Checkpoint(
           };
     say(`${already.pt}\n\n${lines}`, `${already.en}\n\n${lines}`);
     ask('Como prefere?', 'What works best?', [
-      { pt: E2C.temArquivos.pt, en: E2C.temArquivos.en, dPt: 'Toco no 📎 e mando agora', dEn: "I'll tap 📎 and send now" },
+      // Opens the file picker on tap AND answers the question — see the note on
+      // `ask`. The description no longer instructs them to find the 📎 because
+      // the chip does it.
+      { pt: E2C.temArquivos.pt, en: E2C.temArquivos.en, dPt: 'Abre pra escolher os arquivos', dEn: 'Opens the file chooser', action: 'upload_then_answer' },
       { pt: 'Mando depois', en: "I'll send later", dPt: 'Fica anotado', dEn: "I'll note it down" },
       ...(docs.images > 0
         ? [{ pt: 'Já mandei o que tinha', en: 'I already sent what I had', dPt: 'Seguir com o que tem', dEn: 'Continue with what we have' }]
@@ -2398,13 +2421,27 @@ async function serveE2Checkpoint(
 
   // ── Beat 3 · photographs ──────────────────────────────────────────────────
   if (val('_story_done') === 'yes' && val('_photos_done') !== 'yes') {
+    // "Anexar mais" re-opens the picker (client-side) and must re-serve the SAME
+    // pending question. Left unhandled it would fall through to the model, whose
+    // turn replaces the pending composer — so the "Pronto, pode seguir" chip
+    // would vanish and the org would be stranded mid-upload.
+    if (is({ pt: 'Anexar mais', en: 'Attach more' })) {
+      ask('Quando terminar de anexar:', 'When you finish attaching:', [
+        { pt: E2C.prontoSeguir.pt, en: E2C.prontoSeguir.en },
+        { pt: 'Anexar mais', en: 'Attach more', dPt: 'Abre de novo', dEn: 'Opens it again', action: 'upload_then_answer' },
+      ]);
+      return finish('await-more-uploads');
+    }
     if (is(E2C.temArquivos)) {
+      // The picker is already open at this point (the chip opened it), so this
+      // no longer says "toca no 📎" — that instruction was the dead step.
       say(
-        'Show! Toca no 📎 e manda o que tiver. Quando terminar, toca abaixo.',
-        'Great! Tap 📎 and send what you have. When you finish, tap below.',
+        'Show! Escolhe os arquivos e manda. Quando terminar, toca abaixo.',
+        'Great! Pick your files and send them. When you finish, tap below.',
       );
       ask('Quando terminar de anexar:', 'When you finish attaching:', [
         { pt: E2C.prontoSeguir.pt, en: E2C.prontoSeguir.en },
+        { pt: 'Anexar mais', en: 'Attach more', dPt: 'Abre de novo', dEn: 'Opens it again', action: 'upload_then_answer' },
       ]);
       return finish('await-uploads');
     }
