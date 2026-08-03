@@ -98,6 +98,18 @@ export interface FamiliaRankingResult {
   fallbackReason?: string;
 }
 
+/**
+ * Whether a model call is possible at all.
+ *
+ * Exported so the caller can skip ASSEMBLING the context when it can't be used.
+ * Gathering the photos means reading every blob original; without this the beat
+ * paid two DB round-trips and N blob fetches on every run that was always going
+ * to fall back — including every e2e run and every deployment without a key.
+ */
+export function rankerCanRun(): boolean {
+  return !!process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+}
+
 function catalogueBrief(lang: 'pt' | 'en'): string {
   return NBS_FAMILIAS.map(f => {
     const t = lang === 'pt' ? f.pt : f.en;
@@ -235,7 +247,7 @@ export async function rankFamiliasWithContext(
   if (!ctx.story?.trim() && !ctx.photos?.length && !ctx.docExcerpts?.length) {
     return fallback('no org-supplied context to read');
   }
-  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+  if (!rankerCanRun()) {
     return fallback('no API key');
   }
 

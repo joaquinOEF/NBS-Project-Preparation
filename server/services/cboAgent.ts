@@ -26,7 +26,7 @@ import { db } from "../db";
 import { cohortMembers, type SupportRequest } from "@shared/cohort-schema";
 import { resolveOpenMapParams } from "@shared/cbo-map-presets";
 import { rankFamiliasForSite, inferSiteTypeLabel } from "@shared/nbs-recommendation";
-import { rankFamiliasWithContext, type FamiliaRankingResult } from "./familiaRanker";
+import { rankFamiliasWithContext, rankerCanRun, type FamiliaRankingResult } from "./familiaRanker";
 import { getObject } from "./blobStorage";
 import { reverseGeocode, isPlaceholderSiteName } from "./geocodeService";
 import {
@@ -1474,6 +1474,7 @@ async function buildFamiliaReco(
   };
 
   const org = state.sections.org_profile?.fields ?? ({} as any);
+  const canRun = rankerCanRun();
   const result = await rankFamiliasWithContext({
     lang: l,
     baseline,
@@ -1483,8 +1484,11 @@ async function buildFamiliaReco(
     corrections,
     landTenure: v('land_tenure') || undefined,
     orgMission: String(org.mission_summary?.value ?? '').trim() || undefined,
-    photos: await sitePhotosForRanking(cboId),
-    docExcerpts: await siteDocExcerpts(cboId),
+    // Only assemble the expensive context when it can actually be used —
+    // gathering the photos reads every blob original, and without this guard
+    // the beat paid for it on every run that was always going to fall back.
+    photos: canRun ? await sitePhotosForRanking(cboId) : [],
+    docExcerpts: canRun ? await siteDocExcerpts(cboId) : [],
   });
 
   // Record what was served and what the arithmetic alone would have said.
