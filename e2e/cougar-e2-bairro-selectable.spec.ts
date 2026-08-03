@@ -197,6 +197,41 @@ test.describe('COUGAR — E2 Map 1 (e2_bairro)', () => {
     });
   });
 
+  test('reload at the zone step: the tour does not replay and the bairro is still selectable', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    const api = new TestApi(request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+
+    await bootToBairroMap(page, api, { preselectZone: 'sarandi' });
+    await finishTour(page);
+    await expect(page.getByTestId('map-confirm-bairro')).toBeEnabled();
+
+    // tourIdx is written to cbo_state.activeTool; debouncedPersist needs a beat.
+    await page.waitForTimeout(1200);
+    await page.reload();
+
+    // Reload deliberately does NOT force the map tab open — the chip and the
+    // tab pulse are the affordance (hydrateMessages). Take the chip, as a user
+    // would.
+    await page.getByTestId('cbo-open-tool-map').click();
+    await expect(page.locator('.leaflet-container').first()).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => zonePathCount(page), { timeout: 20_000 }).toBeGreaterThan(50);
+
+    // A finished tour must not replay…
+    await expect(page.getByTestId('map-tour-next')).toHaveCount(0);
+    // …the decluttering must survive rehydration…
+    await expect(page.getByTestId('map-simple-legend')).toHaveCount(0);
+    await expect(page.getByText(/2\s*Locais/i)).toHaveCount(0);
+    // …and the pre-selection comes back with it, still named. `preselectZone`
+    // rides in cbo_state.activeTool with the rest of the agent's map params, so
+    // an org that loses its connection mid-step returns to a confirmable screen
+    // rather than an empty map.
+    const confirm = page.getByTestId('map-confirm-bairro');
+    await expect(confirm).toBeVisible();
+    await expect(confirm, 'the zone step must be answerable after a reload').toBeEnabled();
+    await expect(confirm).toContainText(/Sarandi/i);
+  });
+
   test('an unmatched bairro name degrades to the normal tap flow', async ({ page, request }) => {
     test.setTimeout(120_000);
     const api = new TestApi(request);
