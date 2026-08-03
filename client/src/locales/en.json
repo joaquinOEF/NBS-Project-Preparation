@@ -1951,6 +1951,7 @@
     "helpRelative": "The color compares the city against itself: “Very High” is the highest here.",
     "helpNoLegend": "This map’s color scale is still loading.",
     "helpUnderstood": "Got it",
-    "helpAskAgent": "I have another question"
+    "helpAskAgent": "I have another question",
+    "tourHint": "See how each risk spreads across the city."
   }
 }

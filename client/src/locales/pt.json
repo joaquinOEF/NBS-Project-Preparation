@@ -2151,7 +2151,8 @@
     "helpRelative": "A cor compara a cidade com ela mesma: “Muito Alto” é o mais alto daqui.",
     "helpNoLegend": "A escala de cores deste mapa ainda está carregando.",
     "helpUnderstood": "Entendi",
-    "helpAskAgent": "Tenho outra dúvida"
+    "helpAskAgent": "Tenho outra dúvida",
+    "tourHint": "Veja como cada risco se espalha pela cidade."
   },
   "files": {
     "title": "Arquivos",
