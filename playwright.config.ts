@@ -38,6 +38,51 @@ export default defineConfig({
     extraHTTPHeaders: process.env.TEST_API_SECRET ? { 'x-test-secret': process.env.TEST_API_SECRET } : {},
   },
   projects: [
+    // ── @smoke: the inner-loop tier ────────────────────────────────────────
+    // The full suite is 4.2 minutes. Running it after every small change cost
+    // ~30 minutes in a single session, most of it re-proving things that could
+    // not have broken. This tier is what runs WHILE iterating; the full suite
+    // runs once before a PR.
+    //
+    // The list is explicit and lives in one place rather than as @smoke tags
+    // scattered across 90 files — so it can be read, argued with, and pruned.
+    // What earns a place:
+    //   · the turn spine (golden path, batching, transcript parity)
+    //   · guards that fail SILENTLY (prompt persistence, re-ask, duplicate text,
+    //     stream retry) — the ones whose breakage looks like nothing happening
+    //   · the tenancy / auth boundary
+    //   · pure-function guardrails, which cost ~1ms and pin real logic
+    //   · a regression test for every bug that actually reached JVP
+    // What does not: multi-org scenario walkthroughs, catalog/tile fetches,
+    // layout polish, anything @live.
+    //
+    // RULE: when a bug reaches JVP and smoke was green, its regression test
+    // joins this list. That is the only thing keeping the tier honest.
+    {
+      name: 'smoke',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: [
+        // the spine
+        /cbo-golden-path/, /cbo-batched-questions/, /cbo-phase1-walkthrough/,
+        /cbo-transcript-parity/, /cbo-language/,
+        // silent-failure guards
+        /cbo-prompt-persist/, /cbo-reask-guard/, /cbo-duplicate-text-guard/,
+        /cbo-stream-retry/, /cbo-sse-heartbeat/, /cbo-upload/,
+        /cougar-inline-options/, /cougar-doc-stage-confirm/,
+        /cougar-map-overlay-stacking/,
+        // boundaries
+        /cohort-isolation/, /coordinator-auth/,
+        // regressions for bugs that reached the field
+        /cougar-e2-bairro-selectable/,      // clicks swallowed by pointer drift
+        /cougar-chip-opens-file-picker/,    // chip that needed a file didn't open it
+        /cougar-workshop-open-atomic/,      // opening a workshop was two writes
+        /cougar-cohort-selection-persist/,  // reload dropped the chosen cohort
+        /cougar-e2-site-card-clarity/,      // the card asked two questions at once
+        // ranking guardrails (pure functions — milliseconds, real coverage)
+        /cougar-e2-familia-ranking-context/,
+        /cougar-e2-risk-summary/, /cougar-e2-one-encoding-per-step/,
+      ],
+    },
     // Default deterministic suite — desktop Chromium. Skips the mobile-layout
     // spec (which needs the WebKit/iPhone project below).
     { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /cbo-mobile-layout/ },
@@ -62,6 +107,12 @@ export default defineConfig({
         // suite never exercises the OAuth flow.
         env: {
           ENABLE_TEST_ROUTES: '1',
+          // Scale the SSE heartbeat down for tests. The behaviour under test —
+          // "pings arrive during a silent gap, and the drop card never fires" —
+          // is scale-free, but at the production 15s cadence the spec had to
+          // script 17-second waits and sit through them: 35s, 7% of the whole
+          // suite, spent sleeping on purpose.
+          CBO_SSE_PING_MS: '400',
           CBO_FAKE_MODEL: '1',
           NODE_ENV: 'development',
           PORT,
