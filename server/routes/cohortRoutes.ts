@@ -23,6 +23,9 @@ import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } fro
 import { cboStates } from '@shared/cbo-db-schema';
 import { cboSectionsFilledCount, type CboState } from '@shared/cbo-schema';
 import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist } from '../services/cboAgent';
+import JSZip from 'jszip';
+import { getObject } from '../services/blobStorage';
+import { buildContextMarkdown, buildTranscriptMarkdown, type BundleDoc } from '../services/contextBundle';
 import { deleteCboState } from '../services/cboPersistence';
 import {
   requireCoordinator,
@@ -491,6 +494,102 @@ export function registerCohortRoutes(app: Express): void {
     });
   }));
 
+  // ──────────────────────────────────────────────────────────────────────
+  // Context bundle — one org, one zip, readable by a person or an agent.
+  // JVP 2026-08-03: "an export button which downloads a folder with all that
+  // we have that you or another agent can read to get the full context bundle
+  // of that org." Built server-side because it needs the profile, the whole
+  // transcript, AND the blob originals — the drawer has none of the last two in
+  // full, and reassembling them client-side would mean N+1 fetches over the
+  // coordinator's connection.
+  //
+  // Ownership-gated by the :coordinatorSlug param guard + memberInCohort, like
+  // every other member read here.
+  // ──────────────────────────────────────────────────────────────────────
+  app.get('/api/cohort/:coordinatorSlug/member/:memberId/export', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+
+    let state: CboState | null = null;
+    let messages: any[] = [];
+    if (member.cboStateId) {
+      state = getCboState(member.cboStateId) ?? null;
+      messages = getCboMessages(member.cboStateId);
+      if (!state || messages.length === 0) {
+        const persisted = await loadCboFromDb(member.cboStateId);
+        state = state ?? persisted?.state ?? null;
+        if (messages.length === 0) messages = persisted?.messages ?? [];
+      }
+    }
+
+    const rows = await listDocumentsForScope({ orgId: member.orgId, cboStateId: member.cboStateId });
+    const docs: BundleDoc[] = [];
+    for (const d of rows) {
+      // Originals are best-effort: a doc whose blob is gone (or predates blob
+      // storage) still appears in context.md with its extracted text, which is
+      // the part that carries meaning. Failing the whole export over one
+      // missing attachment would be the wrong trade.
+      let bytes: Buffer | null = null;
+      if (d.storageKey) bytes = await getObject(d.storageKey).catch(() => null);
+      docs.push({
+        filename: d.filename,
+        kind: d.kind,
+        droppedInPhase: d.droppedInPhase,
+        summary: d.summary,
+        fullText: d.fullText,
+        bytes,
+      });
+    }
+
+    const input = {
+      orgName: member.orgName || 'organização',
+      bairro: member.neighborhood,
+      state,
+      messages,
+      docs,
+      generatedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    };
+
+    const zip = new JSZip();
+    zip.file('context.md', buildContextMarkdown(input));
+    zip.file('transcricao.md', buildTranscriptMarkdown(input));
+    zip.file('perfil.json', JSON.stringify({
+      orgName: member.orgName,
+      neighborhood: member.neighborhood,
+      phase: state?.phase ?? null,
+      unlockedPhases: member.unlockedPhases ?? null,
+      sections: state?.sections ?? null,
+      maturityScores: state?.maturityScores ?? null,
+      totalMaturityScore: state?.totalMaturityScore ?? null,
+      gaps: state?.gaps ?? null,
+    }, null, 2));
+    const files = zip.folder('arquivos')!;
+    const used = new Set<string>();
+    for (const d of docs) {
+      // Two uploads can share a filename ("foto.jpg"); a zip entry collision
+      // would silently drop one.
+      let name = d.filename || 'arquivo';
+      if (used.has(name)) {
+        const dot = name.lastIndexOf('.');
+        const stem = dot > 0 ? name.slice(0, dot) : name;
+        const ext = dot > 0 ? name.slice(dot) : '';
+        let n = 2;
+        while (used.has(`${stem}-${n}${ext}`)) n++;
+        name = `${stem}-${n}${ext}`;
+      }
+      used.add(name);
+      if (d.bytes) files.file(name, d.bytes);
+      else if (d.fullText) files.file(`${name}.txt`, d.fullText);
+    }
+
+    const buf = await zip.generateAsync({ type: 'nodebuffer' });
+    const safe = (member.orgName || 'org').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'org';
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${safe}-contexto.zip"`);
+    res.send(buf);
+  }));
+
   // Invite a CBO — slugs are human-readable, derived from the org name.
   // "Horta Comunitária Cascata" → /cbo-profile?cbo=horta-comunitaria-cascata
   app.post('/api/cohort/:coordinatorSlug/invite', wrap(async (req, res) => {
@@ -573,12 +672,26 @@ export function registerCohortRoutes(app: Express): void {
     const incoming = req.body?.workshops;
     if (!Array.isArray(incoming)) { res.status(400).json({ error: 'workshops must be an array' }); return; }
 
-    const workshops: WorkshopConfig[] = incoming.map((w: any) => ({
-      name: String(w.name ?? ''),
-      date: w.date ? String(w.date) : null,
-      unlocksPhase: Number(w.unlocksPhase) || 1,
-      openedAt: w.openedAt ? String(w.openedAt) : null,
-    }));
+    // `openedAt` is NOT client-writable here. This route exists to edit the
+    // cadence — names, dates, which phase a workshop unlocks. It used to accept
+    // the whole array verbatim, so any edit from a page whose `cohort` object
+    // predated an opening silently cleared `openedAt` for every workshop — and
+    // unlike close-workshop it re-locked nobody, leaving the rail showing
+    // "closed" while every org still had access. Opening and closing go through
+    // their own endpoints, which move the flag and the members together.
+    const existingByPhase = new Map(
+      ((cohort.settings as CohortSettings | null)?.workshops ?? [])
+        .map(w => [Number(w.unlocksPhase), w.openedAt ?? null]),
+    );
+    const workshops: WorkshopConfig[] = incoming.map((w: any) => {
+      const unlocksPhase = Number(w.unlocksPhase) || 1;
+      return {
+        name: String(w.name ?? ''),
+        date: w.date ? String(w.date) : null,
+        unlocksPhase,
+        openedAt: existingByPhase.get(unlocksPhase) ?? null,
+      };
+    });
     const settings: CohortSettings = { ...(cohort.settings as CohortSettings), workshops };
     await db.update(cohorts).set({ settings }).where(eq(cohorts.id, cohort.id));
     res.json({ ok: true });
@@ -631,6 +744,64 @@ export function registerCohortRoutes(app: Express): void {
       await db.update(cohortMembers).set({ unlockedPhases: next }).where(eq(cohortMembers.id, m.id));
     }
     res.json({ ok: true, updated: targets.length });
+  }));
+
+  // Open a workshop — the exact mirror of close-workshop below, and the reason
+  // this endpoint exists at all (JVP, 2026-08-03: "I restarted server for the
+  // staging version and the W2 was closed, when I had opened it before").
+  //
+  // "Open for cohort" used to be TWO client-driven writes to two different
+  // tables — PATCH /unlock (cohort_members.unlockedPhases, which actually gates
+  // the org) then PATCH /workshops (cohorts.settings.workshops[].openedAt,
+  // which the cadence rail displays). Three ways that drifts:
+  //
+  //   1. Neither call checked `r.ok`, and the success toast fired regardless.
+  //      A failed or interrupted second write left the phase unlocked with the
+  //      rail showing the workshop as never opened — silently.
+  //   2. They are sequential and non-atomic. Navigate away between them and you
+  //      get the same split.
+  //   3. PATCH /workshops overwrites the whole array from the CLIENT's copy, so
+  //      any later edit from a stale page nulls `openedAt` — and unlike this
+  //      route's mirror below it re-locks nobody, leaving the rail saying
+  //      "closed" while every org still has access.
+  //
+  // One request, one transaction, server-side merge. The client no longer
+  // decides what `openedAt` was.
+  app.patch('/api/cohort/:coordinatorSlug/open-workshop', wrap(async (req, res) => {
+    const cohort = await findCohortByCoordinatorSlug(req.params.coordinatorSlug);
+    if (!cohort) { res.status(404).json({ error: 'cohort not found' }); return; }
+
+    const phaseNum = Number(req.body?.phase);
+    if (!phaseNum || phaseNum < 1 || phaseNum > 7) { res.status(400).json({ error: 'invalid phase (1-7)' }); return; }
+    // The date is the coordinator's local "today" — the server may be in
+    // another timezone, and the cadence rail is a record of when the workshop
+    // was actually held. Validated, never trusted raw into settings.
+    const openedAt = /^\d{4}-\d{2}-\d{2}$/.test(String(req.body?.openedAt ?? ''))
+      ? String(req.body.openedAt)
+      : new Date().toISOString().slice(0, 10);
+
+    const settings: CohortSettings = (cohort.settings as CohortSettings | null) ?? ({} as CohortSettings);
+    const workshops: WorkshopConfig[] = (settings.workshops ?? []).map(w =>
+      // Merge, don't replace: only this workshop's openedAt changes, and only
+      // if it wasn't already stamped (re-opening keeps the original date).
+      Number(w.unlocksPhase) === phaseNum && !w.openedAt ? { ...w, openedAt } : w);
+
+    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    let unlocked = 0;
+
+    await db.transaction(async tx => {
+      await tx.update(cohorts).set({ settings: { ...settings, workshops } }).where(eq(cohorts.id, cohort.id));
+      for (const m of members) {
+        const current = Array.isArray(m.unlockedPhases) ? (m.unlockedPhases as number[]) : [1];
+        if (current.includes(phaseNum)) continue;
+        const next = [...current, phaseNum].sort((a, b) => a - b);
+        await tx.update(cohortMembers).set({ unlockedPhases: next }).where(eq(cohortMembers.id, m.id));
+        unlocked++;
+      }
+    });
+
+    console.log(`[cohort] opened workshop phase ${phaseNum} for cohort ${cohort.id}: unlocked=${unlocked}/${members.length}`);
+    res.json({ ok: true, phase: phaseNum, openedAt, unlocked, members: members.length });
   }));
 
   // Close a workshop — the reverse of "Open for cohort" (field ask 2026-07-16:

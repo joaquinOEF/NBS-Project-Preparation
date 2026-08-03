@@ -529,11 +529,19 @@ export default function MapMicroapp({
     show.bringToBack();
   }, [basemap, mapReady]);
 
-  // CBO site step opens on satellite; tour + neighborhood steps stay political.
+  // Every CBO step opens on the political basemap. The site step used to force
+  // satellite, on the theory that imagery helps you recognise your own yard —
+  // but you have to FIND the yard first, and satellite carries no street names,
+  // no bus stops, no praça labels (JVP, 2026-08-03: "hard to choose a location
+  // here"). Orientation comes from streets; recognition comes from imagery, and
+  // orientation comes first. Satellite stays one tap away on the toggle, which
+  // is where it earns its keep — checking you pinned the right side of the
+  // street once you know which street it is.
+  //
   // Fires on step change only, so a manual toggle within a step isn't overridden.
   useEffect(() => {
     if (!params.allowDeferSite) return;
-    setBasemap(compositeStep === 'assets' ? 'satellite' : 'political');
+    setBasemap('political');
   }, [compositeStep, params.allowDeferSite]);
 
   // CBO site step: draw mode starts OFF — the user arms "Um ponto" / "Desenhar

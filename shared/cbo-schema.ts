@@ -380,6 +380,19 @@ export interface CboSiteCard {
   siteKind: 'osm' | 'custom' | 'zone';
   /** Keyword-inferred kind of place ("praça", "escola", …); absent = unknown. */
   siteTypeLabel?: string;
+  /**
+   * Reverse-geocoded street address for a dropped pin, when Nominatim gave one.
+   * Shown as the card's headline so the org confirms a place it can recognise
+   * and repeat, instead of a latitude. Absent = we only have the coordinate.
+   */
+  address?: string;
+  /**
+   * Bairro-wide MEAN hazard scores, 0–100 — NOT measured at this site. The card
+   * must label them as such: the diagnostic's hazard-check beat exists to ask
+   * whether the bairro figure matches the org's own place, and a card that
+   * presents these as "your place's risk" pre-empts that question with an
+   * answer it never had. See shared/site-knowledge.ts → hazardCheckQuestion.
+   */
   risks: { flood: number; heat: number; landslide: number };
 }
 
