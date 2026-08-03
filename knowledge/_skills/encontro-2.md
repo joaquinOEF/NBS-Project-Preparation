@@ -28,7 +28,12 @@ LOG shows already happened.
 2. **Bairro** — if E1 recorded `bairro_of_operation`, the platform CONFIRMS it
    ("Vocês atuam no {bairro}, certo? Só ele, ou em mais de um bairro?") instead
    of asking cold; only an unknown bairro still gets the open question. Then
-   **Mapa 1**: tour de riscos → marcar bairro → "Confirmar bairro".
+   **Mapa 1**: tour de riscos → o bairro do E1 já vem MARCADO, com o contorno
+   visível durante todo o tour → "Confirmar **{bairro}**" (o botão diz o nome:
+   um valor errado do convite tem que dar pra discordar). O mapa não pinta os
+   bairros por risco e não repete a legenda — o tour já mostrou os riscos e o
+   site card traz os números do bairro. Nome que não bate com nenhum bairro →
+   volta ao fluxo normal de tocar no mapa.
 3. **"Já têm um lugar específico?"** fork — now driven by the E1 triage:
    `has-project` goes straight toward the map (that path is DEFINED as having a
    site), `needs-help` leads with the no-site branch, and only `has-idea` gets

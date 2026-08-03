@@ -1,6 +1,28 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+
+// ⚠️ MAP-CLICK-EATEN-BY-DRIFT (JVP, 2026-08-03: "I can't actually select any
+// neighborhood, so no way to select").
+//
+// Leaflet's Draggable flags a gesture as a map DRAG as soon as the pointer
+// moves `clickTolerance` (default 3) in Manhattan distance between down and up,
+// and `Map._handleDOMEvent` then swallows the `click` that follows — so the
+// bairro under the cursor never fires its handler. Three pixels is nothing: a
+// trackpad click drifts 1–4px routinely and a thumb tap on a phone always does.
+// The result is a map that pans fine and selects nothing, intermittently, which
+// is exactly how it was reported.
+//
+// Every e2e click we had used `page.mouse.click()` — pixel-perfect, zero drift —
+// so the whole suite passed while the real thing was broken. See
+// cougar-e2-bairro-selectable.spec.ts, which now clicks WITH drift.
+//
+// Leaflet's Map.Drag constructs its Draggable with no options, so the prototype
+// default is the only lever. 12px keeps panning responsive (a real pan clears
+// it in the first frame) while making an ordinary tap or click reliable.
+// (`options` is real at runtime; @types/leaflet just doesn't declare it on the
+// Draggable prototype.)
+(L.Draggable.prototype as any).options.clickTolerance = 12;
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/core/components/ui/button';
 import { Badge } from '@/core/components/ui/badge';
@@ -33,6 +55,7 @@ import {
   zoneRiskOpacity,
   type HazardKey,
 } from '@shared/risk-display';
+import { normalizeZoneName } from '@shared/bairro-match';
 import type { LegendSpec } from '@shared/legend-types';
 import { describeRamp } from '@shared/hazard-legend';
 import { DataProvenanceDialog } from '@/core/components/maps/DataProvenanceDialog';
@@ -534,7 +557,16 @@ export default function MapMicroapp({
               dashArray: '6 3',
             },
           }).addTo(mapRef.current!);
-          mapRef.current!.fitBounds(bl.getBounds(), { padding: [20, 20] });
+          // Keep the outline, but don't let it drive the view on the bairro
+          // step: the municipal boundary runs far south past Lami, so fitting
+          // to it frames a lot of countryside and shrinks the bairros — the one
+          // thing the user has to tap — into a clump in the middle. The
+          // zones-bounds fit below owns the view there. (Both are async, so
+          // this raced rather than lost outright, which is worse: the framing
+          // depended on which fetch returned first.)
+          if (!params.confirmAtZone) {
+            mapRef.current!.fitBounds(bl.getBounds(), { padding: [20, 20] });
+          }
         }
       } catch {}
     })();
@@ -590,6 +622,21 @@ export default function MapMicroapp({
         const riskSpan = Math.max(...allRisk, 0.01) - riskMin || 0.01;
 
         const getDefaultStyle = (p: any) => {
+          // E2 Map 1: no risk colouring at all — grey outlines with a whisper of
+          // fill, so the only thing the screen asks is "which one is yours?".
+          // (The typology choropleth below made 67 of 94 POA bairros the same
+          // red and gave 26 more a hue the legend never named.) The fill is not
+          // zero: a transparent polygon still takes the tap, but it must be
+          // faint enough that no bairro looks pre-judged.
+          if (params.plainZones) {
+            return {
+              color: '#64748b',
+              weight: 1,
+              fillColor: '#94a3b8',
+              fillOpacity: 0.06,
+              dashArray: undefined as string | undefined,
+            };
+          }
           // CBO E2 colors neighborhoods exactly like the orchestrator — HUE =
           // which risk (typology), OPACITY = how risky — so first-time users see
           // the same map the coordinator does. The city/concept-note flow keeps
@@ -628,8 +675,21 @@ export default function MapMicroapp({
           onEachFeature: (feature, featureLayer) => {
             const p = feature.properties || {};
 
-            // Rich tooltip with name, risks, poverty, priority
-            if (p.neighbourhoodName || p.neighbourhood_name) {
+            // E2 Map 1: the name, and nothing else. The rich tooltip below is
+            // written for the coordinator — H·E·V, priority score, poverty rate
+            // — and on a CBO phone it opened a 130px opaque panel over the very
+            // bairros the user is trying to tap, in vocabulary the flow has not
+            // introduced. Here the only question is "which one is yours?".
+            if (
+              params.plainZones &&
+              (p.neighbourhoodName || p.neighbourhood_name)
+            ) {
+              featureLayer.bindTooltip(
+                `<div style="font-size:12px;font-weight:600">${p.neighbourhoodName || p.neighbourhood_name}</div>`,
+                { direction: 'top' }
+              );
+            } else if (p.neighbourhoodName || p.neighbourhood_name) {
+              // Rich tooltip with name, risks, poverty, priority
               const name = p.neighbourhoodName || p.neighbourhood_name;
               const pop =
                 (p.populationTotal || p.population_total)?.toLocaleString() ||
@@ -1007,6 +1067,124 @@ export default function MapMicroapp({
     setSelectedZone(null);
     setLoading(false);
   }, []);
+
+  // ── Fit the bairro step to the city ─────────────────────────────────────────
+  // The map opens at a fixed centre/zoom 11, which frames the whole metro region
+  // — Canoas, Viamão, Barra do Ribeiro, Lagoa Negra — and leaves Porto Alegre's
+  // 94 bairros as a small clump in the middle. On a phone that is most of the
+  // map budget spent on land the org will never pick. Fit to the bairros
+  // themselves instead. Staggered refits for the same reason as fitToBairro: the
+  // panel is still opening when this first runs, so a single fitBounds computes
+  // its zoom against a stale container size.
+  const cityFitAppliedRef = useRef(false);
+  useEffect(() => {
+    if (cityFitAppliedRef.current) return;
+    if (!params.confirmAtZone) return;
+    if (!zonesLoaded || !mapReady || !mapRef.current) return;
+    const zl = zonesLayerRef.current;
+    const map = mapRef.current;
+    if (!zl) return;
+    cityFitAppliedRef.current = true;
+    const fit = () => {
+      if (mapRef.current !== map) return; // unmounted mid-timer
+      try {
+        map.invalidateSize();
+        const b = zl.getBounds();
+        if (b.isValid()) map.fitBounds(b, { padding: [16, 16] });
+      } catch {}
+    };
+    fit();
+    const timers = [setTimeout(fit, 350), setTimeout(fit, 1000)];
+    return () => timers.forEach(clearTimeout);
+  }, [zonesLoaded, mapReady, params.confirmAtZone]);
+
+  // ── preselectZone (E2 Map 1): confirm, don't search ─────────────────────────
+  // E1 already recorded org_profile.bairro_of_operation — prefilled at invite
+  // time and confirmed out loud in E1's opening line — and E2 then handed the
+  // org a 94-polygon city map and asked them to find themselves on it. The zone
+  // is pre-selected here so the step is a confirmation. Unlike focusZone this
+  // does NOT advance to the site step or remove the zones layer: tapping a
+  // different bairro still works, and "Confirmar" names the bairro so a wrong
+  // invite value is visible rather than silently accepted.
+  //
+  // The selection is applied ONCE (ref latch) but the OUTLINE is drawn even
+  // while the hazard tour is running, which is the point: the org watches flood,
+  // heat and landslide sweep the city with its own territory ringed on top.
+  const preselectAppliedRef = useRef(false);
+  useEffect(() => {
+    if (preselectAppliedRef.current) return;
+    if (!params.preselectZone || !isComposite) return;
+    if (!zonesLoaded || !mapReady || !mapRef.current) return;
+    const zl = zonesLayerRef.current;
+    if (!zl) return;
+    const want = normalizeZoneName(params.preselectZone);
+    if (!want) return;
+    let matched: any = null;
+    zl.eachLayer((layer: any) => {
+      if (matched) return;
+      const p = layer.feature?.properties || {};
+      const name = p.neighbourhoodName || p.neighbourhood_name || p.zoneId;
+      if (typeof name === 'string' && normalizeZoneName(name) === want) {
+        matched = layer.feature;
+      }
+    });
+    if (!matched) return; // unmatched name → today's behaviour, no guessing
+    const p = matched.properties || {};
+    const centroid = geometryCentroid(matched.geometry);
+    if (!centroid) return;
+    preselectAppliedRef.current = true;
+    setSelectedAssets(prev =>
+      prev.some(a => a.type === 'zone')
+        ? prev
+        : [
+            ...prev,
+            {
+              type: 'zone',
+              source: zoneSource,
+              name: p.neighbourhoodName || p.neighbourhood_name || p.zoneId,
+              geometry: matched.geometry,
+              coordinates: centroid,
+              properties: p,
+            } as SelectedAsset,
+          ]
+    );
+    setSelectedZone({
+      type: 'zone',
+      source: zoneSource,
+      name: p.neighbourhoodName || p.neighbourhood_name || p.zoneId,
+      geometry: matched.geometry,
+      coordinates: centroid,
+      properties: p,
+    } as SelectedAsset);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zonesLoaded, mapReady, params.preselectZone]);
+
+  // The pre-selected bairro's outline, drawn as its own inert layer so it
+  // survives the tour (where the zones layer is styled down to thin outlines and
+  // made non-interactive). Without this the org sees three hazard maps of a city
+  // it can't locate itself in.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !params.preselectZone) return;
+    const geom = selectedZone?.geometry as any;
+    if (!geom) return;
+    const ring = L.geoJSON(geom, {
+      style: {
+        color: '#0f172a',
+        weight: 3,
+        opacity: 0.9,
+        fill: false,
+        dashArray: '6 4',
+      },
+      interactive: false,
+    });
+    ring.addTo(map);
+    return () => {
+      try {
+        map.removeLayer(ring);
+      } catch {}
+    };
+  }, [selectedZone, params.preselectZone, mapReady]);
 
   // ── focusZone (E2 linear flow): open already inside the bairro ──────────────
   // The site session starts where the bairro session ended: the named zone is
@@ -1653,8 +1831,30 @@ export default function MapMicroapp({
       } => x.fam !== null
     )
     .filter((x, i, arr) => arr.findIndex(y => y.fam === x.fam) === i); // one chip per hazard
+
+  // The hazard chips are LAYER TOGGLES, not a key to what's on screen — and on
+  // a confirmAtZone map they never appear anywhere they'd be true. The tools bar
+  // is hidden for the whole tour (the tour carries its own locked legend), and
+  // the tour turns every raster OFF when it ends, so the only moment the chips
+  // rendered was the bairro step: three dead switches that read as the key to
+  // the polygon colours while controlling a different encoding entirely, where
+  // tapping one stacked a raster back over the map. Other presets (browse, the
+  // legacy combined session) still show them over live rasters, so this is
+  // scoped rather than deleted.
+  const showHazardChips = simpleLegend.length > 0 && !params.confirmAtZone;
   const canDraw =
     showAssets && (selectionMode === 'assets' || selectionMode === 'composite');
+
+  // The bairro we pre-selected from E1, once it actually matched a polygon.
+  // Naming it on the confirm button is the safeguard against a wrong invite
+  // value: "Confirmar Sarandi" can be disagreed with, "Confirmar bairro" can't.
+  const selectedZoneName = selectedAssets.find(a => a.type === 'zone')?.name;
+  const preselectedName =
+    params.preselectZone &&
+    selectedZoneName &&
+    normalizeZoneName(selectedZoneName) === normalizeZoneName(params.preselectZone)
+      ? selectedZoneName
+      : null;
 
   // Step instructions
   const step1Key = isNeighborhoods
@@ -1672,7 +1872,20 @@ export default function MapMicroapp({
         ? t('mapMicroapp.tourHint', {
             defaultValue: 'Veja como cada risco se espalha pela cidade.',
           })
-        : t(step1Key)
+        : preselectedName
+          ? t('mapMicroapp.step1Preselected', {
+              bairro: preselectedName,
+              defaultValue:
+                'Já marcamos {{bairro}}. Confirme, ou toque em outro bairro.',
+            })
+          : params.confirmAtZone
+            ? // No "Passo 1:" — this session has no step 2 (that's why the
+              // stepper is gone), and the cohort is on phones, where "clique"
+              // is the wrong verb.
+              t('mapMicroapp.tapYourBairro', {
+                defaultValue: 'Toque no bairro onde vocês atuam.',
+              })
+            : t(step1Key)
       : t('mapMicroapp.step2Sites', {
           zone:
             selectedAssets
@@ -1788,9 +2001,12 @@ export default function MapMicroapp({
           </div>
         )}
 
-      {/* Stepper bar (composite mode) — hidden during the hazard tour, and in
-          simple site mode (there is no step 1 to go back to). */}
-      {!tourActive && isComposite && !simpleSite && (
+      {/* Stepper bar (composite mode) — hidden during the hazard tour, in simple
+          site mode (there is no step 1 to go back to), and whenever the session
+          ENDS at the zone step: `confirmAtZone` means there is no step 2 in this
+          map at all, so "1 Bairro › 2 Locais" advertised a destination the
+          Confirmar button never goes to. The site gets its own later session. */}
+      {!tourActive && isComposite && !simpleSite && !params.confirmAtZone && (
         <div className='flex items-center gap-2 px-3 py-1.5 border-b bg-muted/20 shrink-0'>
           <button
             onClick={compositeStep === 'assets' ? backToZones : undefined}
@@ -1835,13 +2051,18 @@ export default function MapMicroapp({
         </div>
       )}
 
-      {/* Tools bar — hidden during the hazard tour (legend is locked) */}
-      {!tourActive && (
+      {/* Tools bar — hidden during the hazard tour (legend is locked), and on
+          the bairro-confirm step, where everything it can hold is either gone
+          (the hazard chips) or wrong for the step (the draw tools, and a bare
+          trash icon that would silently drop the pre-selected bairro). Leaving
+          the bar up would render an empty bordered strip eating vertical space
+          the map needs on a phone. */}
+      {!tourActive && !(params.confirmAtZone && compositeStep === 'zone') && (
         <div className='flex items-center gap-1.5 px-3 py-1 border-b bg-muted/10 shrink-0'>
           {/* Simplified hazard legend (E2): ≤3 colored chips standing in for the
             full layer toolkit, so first-time CBO users see only flood / heat /
             landslide. Each chip toggles its hazard overlay. */}
-          {simpleLegend.length > 0 ? (
+          {showHazardChips ? (
             <div
               className='flex items-center gap-1.5'
               data-testid='map-simple-legend'
@@ -1879,6 +2100,11 @@ export default function MapMicroapp({
               })}
             </div>
           ) : (
+            // Full layer toolkit — the city/concept-note flows. Never fall back
+            // to it when the caller asked for the simplified legend: hiding the
+            // 3 hazard chips on the bairro step must not swap in the 48-layer
+            // control they were introduced to replace.
+            !params.showLegendSimple &&
             availableTileLayers.length > 0 && (
               <>
                 <span className='text-[9px] text-muted-foreground shrink-0'>
@@ -2155,9 +2381,15 @@ export default function MapMicroapp({
           </div>
         )}
         {/* Neighborhood-coloring explainer (CBO zone step) — same encoding as the
-            orchestrator: hue = which risk, stronger color = more risk. */}
+            orchestrator: hue = which risk, stronger color = more risk.
+            Suppressed under `plainZones`, where there is no colouring to explain:
+            it repeated the three hazard dots already sitting in the chip row
+            directly above it (two legends for one map), and named a brown that
+            appears on ZERO of Porto Alegre's 94 bairros while saying nothing
+            about the purple and green that cover 26 of them. */}
         {!tourActive &&
           params.allowDeferSite &&
+          !params.plainZones &&
           isComposite &&
           compositeStep === 'zone' && (
             <div className='absolute top-2 left-2 right-2 z-[900] pointer-events-none'>
@@ -2526,9 +2758,18 @@ export default function MapMicroapp({
                   data-testid='map-confirm-bairro'
                 >
                   <Check className='w-3 h-3' />{' '}
-                  {t('mapMicroapp.confirmBairro', {
-                    defaultValue: 'Confirmar bairro',
-                  })}
+                  {/* Name the bairro when we pre-selected it. "Confirmar bairro"
+                      is unfalsifiable — you can't disagree with a label that
+                      doesn't say what it's confirming, and the value came from
+                      whatever an orchestrator typed at invite time. */}
+                  {selectedZoneName
+                    ? t('mapMicroapp.confirmBairroNamed', {
+                        bairro: selectedZoneName,
+                        defaultValue: 'Confirmar {{bairro}}',
+                      })
+                    : t('mapMicroapp.confirmBairro', {
+                        defaultValue: 'Confirmar bairro',
+                      })}
                 </Button>
               ) : (
                 <Button

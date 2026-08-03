@@ -192,6 +192,20 @@ export interface OpenMapParams {
   // replaces "Próximo (sites)" and confirms with the selected zone(s) only.
   // The site is picked later, in its own focused session (focusZone).
   confirmAtZone?: boolean;
+  // E2 Map 1 — render the bairros as plain outlines instead of the risk
+  // choropleth. The typology colouring encodes TWO things at once (hue = which
+  // hazard, opacity = how much) and, measured on the 94 POA zones, discriminates
+  // almost nothing: 67 bairros are the same red, 18 green and 8 purple are hues
+  // the simple legend never names, and its brown never appears at all. The
+  // hazard tour already taught the risks and the site card reports this bairro's
+  // three numbers, so the selection screen is better off asking one question.
+  plainZones?: boolean;
+  // E2 Map 1 — the bairro E1 already knows (org_profile.bairro_of_operation),
+  // pre-selected so the step is a confirmation, not a search. Its outline stays
+  // visible through the hazard tour so the org sees its own territory in each
+  // risk layer. Unlike `focusZone` this does NOT skip the zone step: the user
+  // can still tap a different bairro. A name matching no zone is ignored.
+  preselectZone?: string;
   // E2 linear flow — open the composite map already INSIDE this bairro: the
   // zone is pre-selected by name, the zone step is skipped, the view fits the
   // bairro (satellite via allowDeferSite), other bairros hidden. If the name

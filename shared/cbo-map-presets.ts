@@ -83,10 +83,16 @@ const PRESETS: Record<CboMapPresetId, PresetDef> = {
   // site) and returned one blob. The linear flow splits it: each open does ONE
   // job and the chat (server-templated checkpoints) is the spine between them.
 
-  // Map 1 — understand the risks, mark the bairro, done. The tour runs first;
+  // Map 1 — understand the risks, confirm the bairro, done. The tour runs first;
   // confirmAtZone ends the session right after the neighborhood pick (no site
-  // step, no hazard rasters over the selection choropleth — they're off
-  // post-tour already).
+  // step, no hazard rasters over the bairro outlines — they're off post-tour
+  // already).
+  //
+  // `plainZones` retires the risk choropleth here: it painted 67 of 94 bairros
+  // the same red while 26 more carried hues the 3-chip legend never named, so it
+  // added a colour puzzle to a step whose only question is "which one is yours?".
+  // The tour teaches the risks; the site card reports this bairro's numbers.
+  // The caller passes `preselectZone` with the bairro E1 already recorded.
   e2_bairro: {
     params: {
       selectionMode: 'composite',
@@ -96,10 +102,11 @@ const PRESETS: Record<CboMapPresetId, PresetDef> = {
       hazardTour: true,
       allowDeferSite: true,
       confirmAtZone: true,
+      plainZones: true,
     },
     prompt: {
-      pt: 'Conheça os riscos e marque o bairro onde vocês atuam.',
-      en: 'Get to know the risks, then mark the neighborhood where you work.',
+      pt: 'Conheça os riscos e confirme o bairro onde vocês atuam.',
+      en: 'Get to know the risks, then confirm the neighborhood where you work.',
     },
   },
 
