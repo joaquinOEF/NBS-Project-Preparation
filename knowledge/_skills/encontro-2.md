@@ -41,7 +41,13 @@ LOG shows already happened.
    bairro, satellite, chooser: buscar pelo nome / lugar conhecido / marcar no
    mapa). Ainda não → pedir apoio à coordenação OR "vou verificar e volto"
    (the flow parks and resumes at this fork).
-4. **Site card** (bairro risks + inferred type) → Confirmar.
+4. **Site card** → "Esse é o lugar certo?" → Confirmar. O card confirma o
+   **lugar**, não o risco: mostra uma miniatura do mapa centrada no ponto e,
+   quando o lugar foi marcado com um pin, o **endereço** (Nominatim reverse —
+   vira o `site_name`, então some o "Ponto marcado (-30.05…, -51.19…)"). Os
+   três riscos aparecem embaixo, rotulados como **média do bairro**, com uma
+   linha avisando que a pergunta sobre riscos vem depois. NUNCA trate esses
+   números como o risco do lugar deles — é exatamente o que o beat 7 desfaz.
 5. **Describe**: como é o lugar hoje (current_use) → acesso/posse (land_tenure).
    If the org has uploaded files, each of these two OPENS WITH A SENTENCE
    QUOTED FROM THEM ("No arquivo que vocês mandaram eu li: …" → "É assim que

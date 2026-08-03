@@ -26,6 +26,7 @@ import { db } from "../db";
 import { cohortMembers, type SupportRequest } from "@shared/cohort-schema";
 import { resolveOpenMapParams } from "@shared/cbo-map-presets";
 import { rankFamiliasForSite, inferSiteTypeLabel } from "@shared/nbs-recommendation";
+import { reverseGeocode, isPlaceholderSiteName } from "./geocodeService";
 import {
   E2_WORRIES,
   orderWorriesByData,
@@ -1858,7 +1859,25 @@ async function serveE2Checkpoint(
       _site_lat: String(s.lat),
       _site_lng: String(s.lng),
     }, pushEvent);
-    const typeLabel = inferSiteTypeLabel(s.name, isPt ? 'pt' : 'en');
+    // A dropped pin is stored as "Ponto marcado (-30.0577, -51.1936)" — and the
+    // next thing we do is ask the org to confirm it. Nobody can confirm a
+    // latitude, and that string then travels into the transcript, the concept
+    // note and the coordinator roster as the name of the place. Reverse-geocode
+    // it to a street address, and write that back as `site_name` so there is
+    // ONE name everywhere downstream rather than a display alias.
+    //
+    // Only for the coordinate placeholders: a name the user typed or that OSM
+    // supplied ("Praça da Encol") is already better than any address we'd fetch.
+    // Fails soft — a slow or unhelpful Nominatim leaves the coordinate name.
+    let address: string | null = null;
+    if (isPlaceholderSiteName(s.name)) {
+      address = await reverseGeocode(s.lat, s.lng);
+      if (address) writeE2Fields(cboId, state, { site_name: address }, pushEvent);
+    }
+    // Infer the kind of place from the best name we now have: "R. São Manoel"
+    // tells us nothing, but a geocode that lands on "Praça Itália" or "EMEF
+    // Vila Nova" feeds the same keyword rules the picked-place path uses.
+    const typeLabel = inferSiteTypeLabel(address || s.name, isPt ? 'pt' : 'en');
     pushEvent({
       type: 'show_site_card',
       card: {
@@ -1867,11 +1886,17 @@ async function serveE2Checkpoint(
         lat: s.lat,
         lng: s.lng,
         siteKind: s.kind,
+        ...(address ? { address } : {}),
         ...(typeLabel ? { siteTypeLabel: typeLabel } : {}),
         risks: { flood: z.flood, heat: z.heat, landslide: z.landslide },
       },
     } as any);
-    ask('É isso mesmo?', 'Is that right?', [
+    // "É isso mesmo?" over a card carrying three risk bars asked two questions
+    // at once and accepted an answer to neither — the chips are all about the
+    // PLACE, and the risk question belongs to the diagnostic beat that comes
+    // later and is built to receive an answer (pior / mais ou menos / mais
+    // tranquilo). Name what is being confirmed.
+    ask('Esse é o lugar certo?', 'Is this the right place?', [
       { pt: E2C.confirmar.pt, en: E2C.confirmar.en },
       { pt: E2C.outroTipo.pt, en: E2C.outroTipo.en, dPt: 'Me conta o que é', dEn: 'Tell me what it is' },
       { pt: E2C.outroLugar.pt, en: E2C.outroLugar.en, dPt: 'Voltar pro mapa', dEn: 'Back to the map' },
