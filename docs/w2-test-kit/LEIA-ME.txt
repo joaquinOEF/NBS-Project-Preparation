@@ -1,0 +1,107 @@
+═══════════════════════════════════════════════════════════════════════════
+KIT DE TESTE DO ENCONTRO 2 — três organizações fictícias
+NBS Project Builder · COUGAR · preparado em 31/07/2026
+═══════════════════════════════════════════════════════════════════════════
+
+Três cenários para rodar antes do encontro de 12 de agosto. Cada pasta tem
+um roteiro passo a passo, e os arquivos que você vai precisar enviar durante
+o teste. Dá para rodar os três em uns 30–40 minutos.
+
+Rode no CELULAR se possível — é onde as organizações vão estar, e é onde os
+problemas aparecem.
+
+
+AS TRÊS ORGANIZAÇÕES E O QUE CADA UMA TESTA
+──────────────────────────────────────────────────────────────────────────
+
+  1 · HORTA COMUNITÁRIA RAÍZES DO SARANDI      "conta tudo"
+      Tem lugar, escreve um relato longo, manda três fotos.
+      Fala da enchente de 2024 → deve disparar a mensagem de escala.
+      Diz que no lugar dela é PIOR que a média → a correção deve
+      aparecer na recomendação depois.
+      Esperado: leitura de profundidade FORTE.
+
+  2 · COLETIVO ENCOSTA VIVA                     "discorda e não manda nada"
+      Só toques. Sem áudio, sem foto, sem documento.
+      Aponta o barranco — justamente o risco que o nosso dado
+      classifica como o mais baixo → divergência registrada.
+      Responde "Não sei dizer" na conferência.
+      Esperado: profundidade FINA/PARCIAL, mas com informação útil
+      mesmo assim.
+
+  3 · ASSOCIAÇÃO CULTURAL VILA NOVA             "sem lugar, com documento"
+      Manda um PDF ANTES de começar (passo 0 do roteiro — não pule).
+      Não tem terreno escolhido → o diagnóstico roda no nível do bairro.
+      Usa "Já está no arquivo" em vez de repetir o relato.
+      Usa "Outra coisa" com texto livre.
+      Esperado: a conversa NÃO morre por falta de lugar.
+
+
+O QUE VOCÊ ESTÁ TESTANDO, NO FUNDO
+──────────────────────────────────────────────────────────────────────────
+  O Encontro 2 virou um diagnóstico: ele não tenta acertar uma solução,
+  ele tenta descobrir onde cada organização está — e é isso que define
+  até onde o Encontro 3 vai conseguir ir.
+
+  Então a pergunta que vale em cada cenário é sempre a mesma:
+
+      "Mesmo assim, sobrou informação útil?"
+
+  No cenário 2 a organização não mandou nada e discordou de tudo. No
+  cenário 3 ela nem lugar tem. Se nesses dois casos a coordenação ainda
+  receber alguma coisa que sirva, o desenho está de pé.
+
+
+ANTES DE COMEÇAR
+──────────────────────────────────────────────────────────────────────────
+  · Use uma sessão nova para cada organização (não reaproveite).
+  · Confirme que a fase 2 está liberada para a organização de teste.
+  · Tenha os arquivos da pasta à mão no celular.
+  · Anote qualquer coisa que travar, repetir ou soar estranha — inclusive
+    tom de voz. O texto todo foi escrito para soar como conversa, não
+    como formulário.
+
+
+DEPOIS DE RODAR OS TRÊS
+──────────────────────────────────────────────────────────────────────────
+  Vale olhar o lado da coordenação e comparar as três leituras de
+  profundidade lado a lado. É exatamente essa comparação que o Encontro 3
+  vai usar para decidir com quem dá para ir fundo e quem precisa de uma
+  conversa antes.
+
+
+═══════════════════════════════════════════════════════════════════════════
+CRÉDITOS DAS IMAGENS
+═══════════════════════════════════════════════════════════════════════════
+Todas do Wikimedia Commons, com licença livre. São fotos de lugares reais
+usadas apenas como material de teste — nenhuma delas retrata as
+organizações fictícias deste kit.
+
+  org-1/fotos/01-por-onde-a-agua-entra.jpg
+     "Rua Marcílio Dias, em Porto Alegre, durante a enchente de maio de 2024"
+     Apesito.nomas · CC BY-SA 4.0
+
+  org-1/fotos/02-onde-a-agua-fica-parada.jpg
+     "Porto Alegre após a enchente 15"
+     CarolSiBa · CC BY 4.0
+
+  org-1/fotos/03-o-chao-de-perto.jpg
+     "Horta Comunitária Plantando Saúde"
+     Douglas Lopes · CC BY 4.0
+
+  org-2/fotos/01-a-cara-do-barranco.jpg
+     "Eroded hillside landscape with exposed clay strata near Villa de Leyva"
+     Mottenpriesterin · CC BY-SA 4.0
+
+  org-2/fotos/02-o-que-tem-embaixo.jpg
+     "Favelascape"
+     eflon (Flickr) · CC BY 2.0
+
+  org-3/fotos/01-a-praca-hoje.jpg
+     "Praça Frederico Arnaldo Ballvé, Porto Alegre"
+     Eugenio Hansen, OFS · CC BY-SA 3.0
+
+O PDF do cenário 3 é fictício, escrito para este teste.
+
+⚠️ Este material é para teste interno. Se alguma imagem for reutilizada
+   em apresentação ou publicação, mantenha o crédito e a licença acima.

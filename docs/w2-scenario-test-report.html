@@ -1,0 +1,262 @@
+<title>W2 scenario test — three organizations, what actually happened</title>
+<style>
+  :root {
+    --bg: #EEEFF1; --card: #FBFBFC; --ink: #1E2226; --muted: #666D75;
+    --line: #DCDEE2; --rule: #C2C6CC; --accent: #38506E; --accent-soft: #DFE5EE;
+    --ok: #2F6B4F; --ok-bg: #DFEDE5;
+    --warn: #8A5A18; --warn-bg: #F3E7D3;
+    --bad: #97382C; --bad-bg: #F5E0DB;
+    --term-bg: #F4F5F7; --term-line: #D8DBDF;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #131619; --card: #1B1F23; --ink: #E1E4E7; --muted: #949BA3;
+      --line: #292E33; --rule: #3A4046; --accent: #8FAAC9; --accent-soft: #1B252F;
+      --ok: #7CBE97; --ok-bg: #1B2C22; --warn: #D9AC63; --warn-bg: #322717;
+      --bad: #D98878; --bad-bg: #331F1B; --term-bg: #171A1E; --term-line: #2B3036; }
+  }
+  :root[data-theme="dark"] { --bg: #131619; --card: #1B1F23; --ink: #E1E4E7; --muted: #949BA3;
+    --line: #292E33; --rule: #3A4046; --accent: #8FAAC9; --accent-soft: #1B252F;
+    --ok: #7CBE97; --ok-bg: #1B2C22; --warn: #D9AC63; --warn-bg: #322717;
+    --bad: #D98878; --bad-bg: #331F1B; --term-bg: #171A1E; --term-line: #2B3036; }
+  :root[data-theme="light"] { --bg: #EEEFF1; --card: #FBFBFC; --ink: #1E2226; --muted: #666D75;
+    --line: #DCDEE2; --rule: #C2C6CC; --accent: #38506E; --accent-soft: #DFE5EE;
+    --ok: #2F6B4F; --ok-bg: #DFEDE5; --warn: #8A5A18; --warn-bg: #F3E7D3;
+    --bad: #97382C; --bad-bg: #F5E0DB; --term-bg: #F4F5F7; --term-line: #D8DBDF; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Avenir Next", Seravek, "Segoe UI", system-ui, sans-serif; font-size: 16px; line-height: 1.58; }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 44px 22px 92px; }
+  h1, h2, h3 { font-weight: 600; letter-spacing: -0.012em; text-wrap: balance; }
+  h1 { font-size: 31px; line-height: 1.16; margin: 0 0 12px; }
+  h2 { font-size: 21px; margin: 56px 0 4px; }
+  h3 { font-size: 16px; margin: 26px 0 6px; }
+  p, li { max-width: 74ch; }
+  .lede { color: var(--muted); margin-top: 2px; }
+  header.doc { border-bottom: 2px solid var(--rule); padding-bottom: 20px; }
+  .kicker { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 11px; }
+  code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.85em; }
+  code { background: var(--accent-soft); border-radius: 3px; padding: 1px 5px; }
+  .headline { border: 1px solid var(--bad); background: var(--bad-bg); border-radius: 6px; padding: 18px 22px; margin: 22px 0; }
+  .headline h3 { margin: 0 0 8px; color: var(--bad); font-size: 17px; }
+  .headline p { margin: 0 0 9px; }
+  .headline p:last-child { margin-bottom: 0; }
+  /* transcript */
+  .term { background: var(--term-bg); border: 1px solid var(--term-line); border-radius: 6px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; line-height: 1.55;
+    padding: 14px 16px; margin: 16px 0; overflow-x: auto; }
+  .term div { white-space: pre-wrap; max-width: none; }
+  .term .a { color: var(--ink); }
+  .term .u { color: var(--accent); font-weight: 600; }
+  .term .q { color: var(--muted); }
+  .term .r { color: var(--ok); }
+  .term .flag { color: var(--bad); font-weight: 600; }
+  .term .cut { color: var(--muted); font-style: italic; }
+  /* scenario cards */
+  .scn { background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 20px 22px; margin: 20px 0; }
+  .scn > h3 { margin-top: 0; font-size: 18px; }
+  .scn .meta { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
+  .verdict { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+  .pill { font-size: 12px; border-radius: 4px; padding: 2px 9px; font-weight: 600; }
+  .pill.ok { color: var(--ok); background: var(--ok-bg); }
+  .pill.warn { color: var(--warn); background: var(--warn-bg); }
+  .pill.bad { color: var(--bad); background: var(--bad-bg); }
+  /* findings */
+  .tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--card); margin: 18px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th { text-align: left; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); font-weight: 400; padding: 11px 13px; border-bottom: 1.5px solid var(--rule); }
+  td { padding: 11px 13px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.id { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+  td.w { font-weight: 600; min-width: 190px; }
+  .foot { font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--rule); margin-top: 54px; padding-top: 16px; }
+  ol.q { counter-reset: q; list-style: none; padding-left: 0; }
+  ol.q li { counter-increment: q; margin-bottom: 13px; padding-left: 42px; position: relative; }
+  ol.q li::before { content: "Q" counter(q); position: absolute; left: 0; top: 2px; font-family: ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 3px; padding: 2px 6px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+<header class="doc">
+  <div class="kicker">NBS Project Builder · COUGAR · scenario test run 31 July 2026</div>
+  <h1>Three organizations went through Workshop 2. Here is what actually happened.</h1>
+  <p class="lede">The three roteiros from the test kit were run end to end against the real application at an iPhone viewport, with the real photos and the real PDF. The transcripts below are captured from the running app, not written by hand. One serious problem surfaced, one bug was found and fixed during the run, and four smaller things are worth deciding on.</p>
+</header>
+
+<div class="headline">
+  <h3>The serious one: an organization named the slope, and we showed it three families, none of them about slopes</h3>
+  <p>Coletivo Encosta Viva said the thing that worries them is <b>o barranco</b>. Everything downstream honoured that — the photo requests asked for the slope face, the read-back asked about landslide risk. Then the recommendation arrived: <b>Recuperação de Ecossistemas</b>, <b>Infraestrutura Verde Urbana</b>, <b>Agricultura Urbana</b>. Estabilização de Encostas e Solo was not among them — directly beneath a sentence reading "<b>Nada fica descartado</b>".</p>
+  <p>Seconds later, asked which families interest them, they picked <b>Estabilização de Encostas e Solo</b>: the one family we did not show.</p>
+  <p>Two separate causes, both confirmed in code. The recommendation still slices to the <b>top three</b> (<code>cboAgent.ts:1359</code>) even though the agreed design and the on-screen copy both say all five appear. And the stated worry <b>does not enter the ranking at all</b> — it routes the photos and the read-back, but <code>rankFamiliasForSite</code> never sees it. Because this organization answered "não sei dizer", no correction applied either, so the ranking ran purely on neighbourhood averages that put heat first.</p>
+</div>
+
+<h2>How the run was done</h2>
+<p>Each scenario was driven through the real UI at an iPhone 14 Pro viewport in Portuguese, following its roteiro step for step: the same chips, the same typed story, the same files. Nothing was stubbed except the language model behind free-text turns, which does not participate in any of the templated beats being tested. Transcripts, captured fields and the depth read were dumped straight from the app's own endpoints. Spec: <code>e2e/w2-scenarios.spec.ts</code>. Zero JavaScript errors in all three runs.</p>
+
+<h2>Scenario 1 · Horta Comunitária Raízes do Sarandi</h2>
+<div class="scn">
+  <p class="meta">Has a site · long typed story mentioning the 2024 flood · three photos · says her place is worse than the average</p>
+  <div class="term">
+<div><span class="q">ASK</span>  O que mais preocupa vocês nesse lugar?   [🌡️ Calor | ⛰️ O barranco | 💧 Alagamento | Outra coisa]</div>
+<div><span class="u">TAP</span>  💧 Alagamento  →  Pronto ✓</div>
+<div><span class="a">ASSI</span> Agora me conta desse lugar com as palavras de vocês — pode <b>gravar um áudio</b>…</div>
+<div><span class="u">USER</span> Na enchente de 2024 a água do Guaíba subiu e tomou tudo aqui, o dique não segurou… Quando chove forte a água desce da rua de cima e entra pelo canto do terreno, junta ali e demora uns dois dias pra ir embora.</div>
+<div><span class="r">ASSI</span> Obrigado por contar — isso ajuda muito.
+     As SbN resolvem muito bem a água do dia a dia… O que elas <b>não</b> resolvem é a enchente grande, de rio subindo e dique rompendo.  <span class="r">← escala disparou corretamente</span></div>
+<div><span class="a">ASSI</span> …umas fotos ajudam muito:
+     - Por onde a água entra quando chove forte
+     - Onde ela fica parada depois
+     - O chão de perto — terra, grama, concreto   <span class="r">← roteadas para água</span></div>
+<div><span class="q">ASK</span>  Nosso mapa diz que o risco de alagamento é <b>baixo</b> no Vila São José — mas isso é a média do bairro inteiro, não do lugar de vocês.</div>
+<div><span class="u">TAP</span>  Aqui é pior</div>
+<div><span class="r">ASSI</span> Anotado — e isso vale mais que o nosso número, porque vocês estão lá.</div>
+<div><span class="a">RECO</span> 1 💧 Águas Pluviais — <b>Vocês disseram que enchente aqui é pior que na média do bairro.</b> Essa família age principalmente <span class="flag">no</span> enchente.</div>
+<div><span class="a">RECO</span> 2 🌱 Agricultura Urbana — Calor é médio no Vila São José…</div>
+<div><span class="a">RECO</span> 3 🌿 Recuperação — Vocês disseram que enchente aqui é pior que na média do bairro…</div>
+  </div>
+  <p>The correction did its job: our map called flood risk <i>low</i>, she said it is worse, and Águas Pluviais moved to first place quoting her back. The scale message fired exactly when it should — on a story naming 2024, the Guaíba and the dike — and framed the limit without shrinking her project.</p>
+  <div class="verdict">
+    <span class="pill ok">depth: strong (6)</span>
+    <span class="pill ok">scale honesty fired</span>
+    <span class="pill ok">correction reached the ranking</span>
+    <span class="pill bad">3 photos could not be attached at once</span>
+    <span class="pill warn">"no enchente" — grammar</span>
+  </div>
+</div>
+
+<h2>Scenario 2 · Coletivo Encosta Viva</h2>
+<div class="scn">
+  <p class="meta">Taps only · no voice, no photos, no document · names the hazard our data ranks lowest · answers "I can't say"</p>
+  <div class="term">
+<div><span class="q">ASK</span>  O que mais preocupa vocês nesse lugar?</div>
+<div><span class="u">TAP</span>  ⛰️ O barranco  →  Pronto ✓</div>
+<div><span class="u">TAP</span>  Prefiro pular   <span class="q">(sem relato)</span></div>
+<div><span class="a">ASSI</span> …umas fotos ajudam muito:
+     - A cara do barranco, de frente
+     - O que tem em cima do barranco
+     - O que tem embaixo — casas, rua, quintal   <span class="r">← roteadas para barranco</span></div>
+<div><span class="u">TAP</span>  Não tenho agora</div>
+<div><span class="q">ASK</span>  Nosso mapa diz que o risco de deslizamento é <b>baixo</b> no Vila São José…</div>
+<div><span class="u">TAP</span>  Não sei dizer</div>
+<div><span class="r">ASSI</span> Tranquilo — deixo em aberto e a coordenação pode olhar isso com vocês.</div>
+<div><span class="a">ASSI</span> …vale estudar essas famílias — não é veredito, é convite. <b>Nada fica descartado</b>…</div>
+<div><span class="flag">RECO 1 🌿 Recuperação de Ecossistemas — Calor é médio no Vila São José.</span></div>
+<div><span class="flag">RECO 2 🌳 Verde Urbano — Calor é médio no Vila São José.</span></div>
+<div><span class="flag">RECO 3 🌱 Agricultura Urbana — Calor é médio no Vila São José.</span></div>
+<div><span class="cut">        ⛰️ Estabilização de Encostas e Solo — não apareceu</span></div>
+<div><span class="q">ASK</span>  Em quais famílias vocês teriam interesse em tocar um projeto?</div>
+<div><span class="u">TAP</span>  Estabilização de Encostas e Solo   <span class="flag">← a família que não mostramos</span></div>
+  </div>
+  <p>Everything that reads the worry behaved correctly. Only the ranking ignored it. Note also that all three cards open with the identical sentence, which makes the recommendation look generated rather than reasoned.</p>
+  <p>The good news underneath: with no voice note, no photo and no document, the coordination still received the site, the stated worry, the current use, the tenure situation, an explicit "they couldn't say" on landslide risk, and a recorded disagreement — thirteen taps from site card to close.</p>
+  <div class="verdict">
+    <span class="pill bad">stated worry absent from the recommendation</span>
+    <span class="pill bad">only 3 of 5 families shown</span>
+    <span class="pill warn">3 identical why-lines</span>
+    <span class="pill ok">disagreement recorded</span>
+    <span class="pill ok">depth: partial (3)</span>
+  </div>
+</div>
+
+<h2>Scenario 3 · Associação Cultural Vila Nova</h2>
+<div class="scn">
+  <p class="meta">Uploads a two-page PDF first · has no site yet · uses "it's in the file" · free text via "Outra coisa"</p>
+  <div class="term">
+<div><span class="u">USER</span> [upload] nota-area-de-atuacao-vila-nova.pdf  <span class="q">— 2 966 characters extracted</span></div>
+<div><span class="u">TAP</span>  Ainda não  →  Vou verificar e volto</div>
+<div><span class="a">ASSI</span> Tranquilo — o lugar exato fica pra depois.</div>
+<div><span class="q">ASK</span>  Enquanto isso, posso te perguntar umas coisas sobre o bairro? …   [Pode perguntar | Já sei o lugar]  <span class="r">← o beco sem saída virou bifurcação</span></div>
+<div><span class="a">ASSI</span> …não enxerga o <b>dia a dia</b> de vocês. Vocês conhecem esse <b>bairro</b> muito melhor…  <span class="r">← copy adaptada, sem lugar</span></div>
+<div><span class="u">TAP</span>  🌡️ Calor  →  Outra coisa</div>
+<div><span class="u">USER</span> Lixo e entulho acumulado no terreno fechado   <span class="r">← guardado com as palavras dela</span></div>
+<div><span class="a">ASSI</span> <b>Vi que vocês já mandaram um arquivo</b> (nota-area-de-atuacao-vila-nova.pdf) — já dei uma lida. Agora me conta desse lugar…</div>
+<div><span class="q">ASK</span>  Quando quiser:   [Já está no arquivo | Prefiro pular]   <span class="r">← só depois da correção abaixo</span></div>
+<div><span class="q">ASK</span>  Nosso mapa diz que o risco de calor é médio… <b>No dia a dia de vocês, isso bate?</b>  <span class="r">← variante sem lugar</span></div>
+<div><span class="a">RECO</span> 1 🌳 Verde Urbano — <b>Vocês disseram que calor aqui é pior que na média do bairro.</b> …</div>
+<div><span class="a">RECO</span> 2 🌿 Recuperação — <span class="flag">Vocês disseram que calor aqui é pior que na média do bairro.</span> …</div>
+<div><span class="a">RECO</span> 3 🌱 Agricultura — <span class="flag">Vocês disseram que calor aqui é pior que na média do bairro.</span> …</div>
+  </div>
+  <p>The no-site path works: the session forks instead of parking, the copy switches from "lugar" to "bairro" and "dia a dia", the closing offers the way back to the map, and a depth read exists despite no site ever being marked. The free text from "Outra coisa" was stored verbatim.</p>
+  <div class="verdict">
+    <span class="pill ok">no-site path complete</span>
+    <span class="pill ok">PDF recognised (after fix)</span>
+    <span class="pill ok">bairro-level copy correct</span>
+    <span class="pill warn">3 identical opening sentences</span>
+    <span class="pill ok">depth: partial (5)</span>
+  </div>
+</div>
+
+<h2>Findings</h2>
+<div class="tbl"><table>
+  <tr><th>&nbsp;</th><th>What</th><th>Evidence</th><th>Status</th></tr>
+  <tr>
+    <td class="id">F-1</td>
+    <td class="w">Only three of five families are shown, while the copy says nothing is ruled out</td>
+    <td>Org 2 saw 3 families; <code>ranked.slice(0, 3)</code> at <code>cboAgent.ts:1359</code>. The agreed design and the on-screen sentence both promise five.</td>
+    <td><span class="pill bad">open</span></td>
+  </tr>
+  <tr>
+    <td class="id">F-2</td>
+    <td class="w">The stated worry never reaches the ranking</td>
+    <td>Org 2 named the slope; <code>rankFamiliasForSite</code> receives risks, bairro, current use and site name — not <code>site_worry</code>. Combined with F-1, the family matching their only concern disappeared.</td>
+    <td><span class="pill bad">open</span></td>
+  </tr>
+  <tr>
+    <td class="id">F-3</td>
+    <td class="w">The agent could not see a file that was sitting in the organization's own drawer</td>
+    <td>Org 3's PDF extracted correctly and was linked to the session, but <code>org_id</code> was null, and doc-awareness used the org-only lookup while the user's drawer uses a session-scoped one. The agent asked for the story as if nothing had been sent.</td>
+    <td><span class="pill ok">fixed during the run</span></td>
+  </tr>
+  <tr>
+    <td class="id">F-4</td>
+    <td class="w">Three photos cannot be attached in one go</td>
+    <td>The file input has no <code>multiple</code> attribute, so the beat that asks for three photos accepts them one tap at a time. Org 1's upload failed outright when three were selected.</td>
+    <td><span class="pill bad">open</span></td>
+  </tr>
+  <tr>
+    <td class="id">F-5</td>
+    <td class="w">Recommendation cards repeat the same opening sentence verbatim</td>
+    <td>Org 2: three cards all begin "Calor é médio no Vila São José." Org 3: three all begin "Vocês disseram que calor aqui é pior…". Reads as generated rather than reasoned.</td>
+    <td><span class="pill warn">open</span></td>
+  </tr>
+  <tr>
+    <td class="id">F-6</td>
+    <td class="w">Portuguese gender agreement in the templated why-lines</td>
+    <td>"Essa família age principalmente <b>no</b> enchente" — should be "na enchente". Visible to every reader in the cohort.</td>
+    <td><span class="pill warn">open</span></td>
+  </tr>
+  <tr>
+    <td class="id">F-7</td>
+    <td class="w">Redundant disagreement entries</td>
+    <td>Org 1 produced three, two of which state the same fact ("our data ranks heat highest but they named flooding" / "they named flooding, which our data scores low").</td>
+    <td><span class="pill warn">open</span></td>
+  </tr>
+  <tr>
+    <td class="id">F-8</td>
+    <td class="w">Blob storage failure is silent</td>
+    <td>Locally the original file upload to blob storage fails (no bucket configured) and nothing surfaces; only the database row and extracted text survive. Harmless here, but in production it would mean the original file is quietly unrecoverable.</td>
+    <td><span class="pill warn">environment · worth a guard</span></td>
+  </tr>
+</table></div>
+
+<h2>What worked, and is worth keeping</h2>
+<ul>
+  <li>Photo requests routed correctly by the stated worry in all three runs — water, slope and heat prompts each appeared where they should.</li>
+  <li>The scale message fired for the 2024 story and stayed silent for the everyday-water one.</li>
+  <li>A correction genuinely changed the recommendation and was quoted back in the organization's own terms.</li>
+  <li>"Não sei dizer" was treated as a real answer, recorded as a known unknown, and handed to the coordination.</li>
+  <li>The no-site path produced a full diagnostic and a depth read where it used to produce nothing.</li>
+  <li>Thirteen taps for the minimum path; no JavaScript errors; no horizontal scrolling at 390 px.</li>
+</ul>
+
+<h2>Room for improvement — for /refine</h2>
+<ol class="q">
+  <li><b>Should the stated worry weight the ranking, and by how much?</b> It is the clearest statement of intent an organization gives us, and today it is diagnostic-only. Weighted too heavily it becomes self-fulfilling; ignored, we get scenario 2.</li>
+  <li><b>Show all five families, or keep a top-N?</b> The copy already promises five. If five is right, what does the fourth and fifth look like when the signal is weak — listed plainly, or grouped as "no strong signal"?</li>
+  <li><b>What should "não sei dizer" do to the ranking?</b> Currently nothing. It could widen the spread, or leave the hazard open and say so on the card.</li>
+  <li><b>Multiple photo attachment</b> — one attribute, but it changes the upload experience; worth deciding deliberately rather than by default.</li>
+  <li><b>How much should why-lines vary?</b> Full deterministic variety risks over-claiming, as the earlier "a que mais dá conta" superlative did. Identical sentences are the opposite failure.</li>
+  <li><b>Do disagreements need de-duplication and a severity</b>, so the coordination sees one clear signal rather than three overlapping lines?</li>
+</ol>
+
+<p class="foot">Run 31 July 2026 against the local application, Chromium at iPhone 14 Pro viewport, pt-BR, three fresh sessions. Materials from <code>docs/w2-test-kit/</code>. Spec: <code>e2e/w2-scenarios.spec.ts</code>; raw transcripts, captured fields and depth reads under <code>test-results/w2-scenarios/</code>. Transcript excerpts are abridged for length; wording is verbatim from the captured messages. F-3 was fixed during the run and the scenario re-run to confirm; everything else is as observed.</p>
+</div>
