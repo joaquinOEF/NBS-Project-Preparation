@@ -1,0 +1,495 @@
+<title>NBS catalog — Robson review → proposed changes</title>
+<style>
+  :root {
+    --paper: #F6F6F1;
+    --card: #FDFDFA;
+    --ink: #242B25;
+    --muted: #6B7268;
+    --line: #DCDED4;
+    --accent: #4E6B50;
+    --accent-ink: #3D5640;
+    --alta: #3C7A4C;
+    --media: #A0742A;
+    --baixa: #A34632;
+    --alta-bg: #E4EFE6;
+    --media-bg: #F4EBD9;
+    --baixa-bg: #F3E2DD;
+    --open-bg: #E9E9E4;
+    --quote-bg: #EFF1EA;
+    --agua: #4B5C8A;
+    --verde: #5F7E8B;
+    --agri: #8F7041;
+    --encosta: #8A4C38;
+    --recup: #4E6B50;
+    --chip-bg: #ECEEE6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #141815;
+      --card: #1B211C;
+      --ink: #E4E8DF;
+      --muted: #98A094;
+      --line: #2C332D;
+      --accent: #7FA184;
+      --accent-ink: #9BBc9F;
+      --alta: #7FBB8D;
+      --media: #D4A855;
+      --baixa: #D98871;
+      --alta-bg: #22351F;
+      --media-bg: #362D18;
+      --baixa-bg: #3A241E;
+      --open-bg: #262B26;
+      --quote-bg: #20261F;
+      --agua: #8A9BC8;
+      --verde: #8FAEBB;
+      --agri: #C0A071;
+      --encosta: #C08068;
+      --recup: #86A78B;
+      --chip-bg: #262C26;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #141815; --card: #1B211C; --ink: #E4E8DF; --muted: #98A094;
+    --line: #2C332D; --accent: #7FA184; --accent-ink: #9BBC9F;
+    --alta: #7FBB8D; --media: #D4A855; --baixa: #D98871;
+    --alta-bg: #22351F; --media-bg: #362D18; --baixa-bg: #3A241E;
+    --open-bg: #262B26; --quote-bg: #20261F;
+    --agua: #8A9BC8; --verde: #8FAEBB; --agri: #C0A071; --encosta: #C08068;
+    --recup: #86A78B; --chip-bg: #262C26;
+  }
+  :root[data-theme="light"] {
+    --paper: #F6F6F1; --card: #FDFDFA; --ink: #242B25; --muted: #6B7268;
+    --line: #DCDED4; --accent: #4E6B50; --accent-ink: #3D5640;
+    --alta: #3C7A4C; --media: #A0742A; --baixa: #A34632;
+    --alta-bg: #E4EFE6; --media-bg: #F4EBD9; --baixa-bg: #F3E2DD;
+    --open-bg: #E9E9E4; --quote-bg: #EFF1EA;
+    --agua: #4B5C8A; --verde: #5F7E8B; --agri: #8F7041; --encosta: #8A4C38;
+    --recup: #4E6B50; --chip-bg: #ECEEE6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "Avenir Next", "Seravek", "Segoe UI", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.55;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 48px 24px 96px; }
+  header.doc { border-bottom: 3px solid var(--accent); padding-bottom: 20px; margin-bottom: 8px; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px; color: var(--accent-ink); font-weight: 600; margin-bottom: 10px; }
+  h1 { font-size: 30px; line-height: 1.2; margin: 0 0 10px; text-wrap: balance; font-weight: 600; }
+  .subtitle { color: var(--muted); max-width: 62ch; margin: 0; }
+  .sources { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .source-chip { font-size: 12.5px; background: var(--chip-bg); border: 1px solid var(--line); border-radius: 4px; padding: 3px 9px; color: var(--muted); }
+  .source-chip b { color: var(--ink); font-weight: 600; }
+  h2 { font-size: 21px; margin: 56px 0 6px; font-weight: 600; text-wrap: balance; }
+  h2 .pnum { color: var(--accent-ink); font-weight: 700; margin-right: 8px; }
+  h3 { font-size: 16px; margin: 28px 0 8px; font-weight: 600; }
+  p, li { max-width: 72ch; }
+  .lede { color: var(--muted); margin-top: 0; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.86em; background: var(--chip-bg); border-radius: 3px; padding: 1px 5px; }
+  blockquote { margin: 12px 0; padding: 10px 16px; background: var(--quote-bg); border-left: 3px solid var(--accent); font-style: italic; max-width: 68ch; }
+  blockquote .who { display: block; font-style: normal; font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 3px; padding: 1px 8px; white-space: nowrap; }
+  .pill.alta  { color: var(--alta);  background: var(--alta-bg); }
+  .pill.media { color: var(--media); background: var(--media-bg); }
+  .pill.baixa { color: var(--baixa); background: var(--baixa-bg); }
+  .pill.open  { color: var(--muted); background: var(--open-bg); }
+  .flag { font-size: 12px; color: var(--baixa); font-weight: 600; }
+  .tbl-scroll { overflow-x: auto; margin: 20px 0; border: 1px solid var(--line); border-radius: 6px; background: var(--card); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr.fam td { font-weight: 600; font-size: 13px; padding: 8px 12px; background: var(--chip-bg); border-left: 4px solid var(--famc, var(--accent)); }
+  td.sol { font-weight: 600; min-width: 150px; }
+  td.sol small { display: block; font-weight: 400; color: var(--muted); }
+  td.today { color: var(--muted); white-space: nowrap; font-size: 12.5px; }
+  td.quote { font-style: italic; color: var(--ink); min-width: 220px; max-width: 380px; }
+  td.prop { min-width: 170px; }
+  td.prop .note { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .num { font-variant-numeric: tabular-nums; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; margin: 18px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; }
+  .card h4 { margin: 0 0 6px; font-size: 14px; }
+  .card p { font-size: 13.5px; margin: 0; color: var(--muted); }
+  .chips-demo { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+  .chips-demo .chip { border: 1.5px solid var(--line); background: var(--card); border-radius: 999px; padding: 5px 14px; font-size: 13.5px; }
+  .chips-demo .chip.on { border-color: var(--accent); background: var(--alta-bg); font-weight: 600; }
+  .chips-demo .dim-label { align-self: center; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; margin-right: 4px; width: 100%; }
+  .stage { display: inline-block; font-size: 11.5px; font-weight: 700; border-radius: 3px; padding: 1px 7px; }
+  .stage.e1 { background: var(--media-bg); color: var(--media); }
+  .stage.e2 { background: var(--alta-bg); color: var(--alta); }
+  .stage.e0 { background: var(--open-bg); color: var(--muted); }
+  .bar { display: inline-block; height: 8px; border-radius: 4px; background: var(--accent); vertical-align: middle; }
+  .bar-track { display: inline-block; width: 72px; height: 8px; border-radius: 4px; background: var(--chip-bg); vertical-align: middle; margin-right: 6px; }
+  .agent-panel { background: var(--quote-bg); border: 1px solid var(--line); border-radius: 6px; padding: 16px 20px; margin: 16px 0; }
+  .agent-panel .tag { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-ink); font-weight: 700; }
+  .agent-panel ul { margin: 8px 0 0; padding-left: 20px; }
+  .agent-panel li { font-size: 14px; margin-bottom: 6px; }
+  ol.decisions { counter-reset: q; list-style: none; padding-left: 0; }
+  ol.decisions li { counter-increment: q; margin-bottom: 14px; padding-left: 44px; position: relative; }
+  ol.decisions li::before {
+    content: "Q" counter(q); position: absolute; left: 0; top: 1px;
+    font-size: 12px; font-weight: 700; color: var(--accent-ink);
+    background: var(--chip-bg); border-radius: 3px; padding: 2px 7px;
+  }
+  .tiers td:first-child { font-weight: 600; white-space: nowrap; }
+  .footnote { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); margin-top: 56px; padding-top: 16px; }
+  /* W2 flow walkthrough */
+  .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 18px; margin: 20px 0; }
+  .step.wide { grid-column: 1 / -1; }
+  .step .cap { font-size: 13.5px; margin-bottom: 8px; }
+  .novo { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent-ink); background: var(--alta-bg); border-radius: 3px; padding: 1px 6px; }
+  .same { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); background: var(--open-bg); border-radius: 3px; padding: 1px 6px; }
+  .phone { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .step.wide .phone { max-width: 560px; }
+  .bubble { background: var(--quote-bg); border-radius: 12px 12px 12px 4px; padding: 9px 12px; font-size: 13px; max-width: 95%; }
+  .chiprow { display: flex; flex-wrap: wrap; gap: 6px; }
+  .uichip { border: 1.5px solid var(--line); border-radius: 999px; padding: 3px 11px; font-size: 12px; background: var(--paper); white-space: nowrap; }
+  .uichip.primary, .uichip.on { border-color: var(--accent); background: var(--alta-bg); font-weight: 600; }
+  .uichip.nv { border-style: dashed; border-color: var(--accent); }
+  .famstrip { display: flex; gap: 8px; font-size: 22px; }
+  .famstrip span { background: var(--chip-bg); border-radius: 8px; padding: 4px 10px; }
+  .maplike { background: var(--chip-bg); border-radius: 8px; padding: 18px 12px; font-size: 12.5px; text-align: center; }
+  .sitecard { border: 1px solid var(--line); border-left: 3px solid var(--agua); border-radius: 8px; padding: 10px 12px; font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
+  .sitecard .meta { font-size: 12px; color: var(--muted); }
+  .mechline { font-size: 12.5px; background: var(--quote-bg); border-radius: 6px; padding: 6px 9px; margin-top: 4px; }
+  .famrow { border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; display: flex; flex-direction: column; gap: 5px; }
+  .famrow.dim { color: var(--muted); border-style: dashed; }
+  .fnome { font-size: 13px; font-weight: 600; }
+  .fex { font-size: 11.5px; color: var(--muted); }
+  .sigs { display: flex; flex-wrap: wrap; gap: 5px; }
+  .sig { font-size: 11px; font-weight: 600; border-radius: 3px; padding: 1px 7px; }
+  .sig.risk { color: var(--baixa); background: var(--baixa-bg); }
+  .sig.mech { color: var(--agua); background: var(--chip-bg); }
+  .sig.ctx  { color: var(--muted); background: var(--open-bg); }
+  .sig.feas { color: var(--alta); background: var(--alta-bg); }
+  .fam-divider { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+  .solcard { border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .solcard .meta { flex-basis: 100%; font-size: 11.5px; color: var(--muted); }
+  .solcard.dim { opacity: 0.62; }
+  .ann { font-size: 12.5px; color: var(--muted); margin-top: 8px; max-width: 60ch; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+<header class="doc">
+  <div class="eyebrow">NBS Project Builder · COUGAR · Proposal for /refine</div>
+  <h1>What Robson's review changes in the catalog, the filters, and Workshop&nbsp;2</h1>
+  <p class="subtitle">Robson Louiz Capretz (Pyxera/BwB NBS specialist) reviewed the 27-solution catalog — 38 inline comments on the Notion page (Jul&nbsp;22) plus positions taken in three meetings. This doc turns that into concrete proposed changes, adds the Workshop&nbsp;2 filter/role decisions from the Jul&nbsp;16 biweekly, and explores Ana's orchestrator-dashboard idea (Jul&nbsp;30).</p>
+  <div class="sources">
+    <span class="source-chip"><b>Jul 8</b> · Tool &amp; data deep-dive</span>
+    <span class="source-chip"><b>Jul 16</b> · PxG&lt;&gt;OEF biweekly</span>
+    <span class="source-chip"><b>Jul 22</b> · 38 Notion comments</span>
+    <span class="source-chip"><b>Jul 30</b> · Partnership alignment</span>
+    <span class="source-chip">Code: <b>nbs-catalog.ts · NbsSolutionFilterChips · cboAgent E2</b></span>
+  </div>
+</header>
+
+<h2>What Robson actually said — five cross-cutting themes</h2>
+<p class="lede">The 38 comments are one coherent argument, not scattered notes:</p>
+
+<div class="cards">
+  <div class="card"><h4>1 · Complexity is the feasibility ceiling</h4>
+    <p>"Very important for feasibility. The high complexity NbS are (almost) not feasible." Everything licensed/engineered is effectively out of a CBO's 1–2 year reach.</p></div>
+  <div class="card"><h4>2 · Scale is a hidden axis</h4>
+    <p>Several solutions fail not on cost but on scale: constructed wetlands, linear parks, reforestation and wetland restoration "fit to landscapes, not neighborhoods." Urban Green Infrastructure as a whole is "usually for neighborhoods and larger areas — important for scale."</p></div>
+  <div class="card"><h4>3 · Some solutions aren't quite NbS</h4>
+    <p>Retention basins, rainwater harvesting, biodigester kitchens, geocells: "not 100% NbS, but still useful." He never says remove — he says label honestly.</p></div>
+  <div class="card"><h4>4 · Licensing is concrete, not abstract</h4>
+    <p>Street bioswales → check water &amp; gas pipes; permeable pavement on streets → EPTC + SMAMUS approval (private terrain: none); rain terraces → Defesa Civil; all natural lakes and rivers are public under Brazilian law.</p></div>
+  <div class="card"><h4>5 · Feasibility will be dual-input</h4>
+    <p>(Jul 30) His maturity/feasibility mapping lands end of August, combining platform-captured data with direct mentorship — the catalog's feasibility field feeds that, it doesn't replace it.</p></div>
+</div>
+
+<p>From Jul 8, two standing constraints on how we encode any of this: don't over-instrument the system with sensitive socio-economic data (tenure, income) — surface those in workshop conversation instead; and asset/tenure/political factors stay with humans, the platform supplies geospatial context and scoring.</p>
+
+<h2><span class="pnum">P1</span>Per-solution feasibility — his verdicts, mapped to a proposed band</h2>
+<p class="lede">Verbatim quotes (EN, as written). Proposed band: <span class="pill alta">alta</span> <span class="pill media">média</span> <span class="pill baixa">baixa</span> — plus reclassifications where his comments contradict our current <code>delivery</code>/<code>costBand</code>.</p>
+
+<div class="tbl-scroll"><table>
+  <tr><th>Solution</th><th>Today</th><th>Robson (verbatim)</th><th>Proposed</th></tr>
+
+  <tr class="fam" style="--famc: var(--agua)"><td colspan="4">💧 Gestão de Águas Pluviais (11)</td></tr>
+  <tr><td class="sol">Jardins de chuva</td><td class="today">mutirão · baixo</td><td class="quote">"Very feasible"</td><td class="prop"><span class="pill alta">alta</span></td></tr>
+  <tr><td class="sol">Biovaletas</td><td class="today">mutirão · baixo</td><td class="quote">"Feasible, by mutirão" — but street placement: "needed to check for water &amp; gas pipes" (occasional municipal engineer)</td><td class="prop"><span class="pill alta">alta</span><span class="note">ficha edit: street-placement pipe check</span></td></tr>
+  <tr><td class="sol">Canteiro pluvial</td><td class="today">mutirão · baixo</td><td class="quote">"medium feasible due to licenses"</td><td class="prop"><span class="pill media">média</span></td></tr>
+  <tr><td class="sol">Bacia de retenção</td><td class="today">licença · alto</td><td class="quote">"Not 'really' a NbS due to gray infrastructure. But still useful for the drought risks." / "medium feasibility due to costs, gray infrastructure and licenses"</td><td class="prop"><span class="pill media">média</span><span class="note">+ not-quite-NbS badge</span></td></tr>
+  <tr><td class="sol">Wetland construído</td><td class="today">licença · alto</td><td class="quote">"not feasible for local scale — best for neighborhoods and landscapes, but it requires (lot of) licensing"</td><td class="prop"><span class="pill baixa">baixa</span><span class="note">scale: bairro+ · "depends how gray"</span></td></tr>
+  <tr><td class="sol">Pavimentos permeáveis</td><td class="today">parceria · medio</td><td class="quote">"Very feasible" — on streets/sidewalks "EPTC &amp; SMAMUS approval"; "Internal pavements on private terrains don't need it"</td><td class="prop"><span class="pill alta">alta</span><span class="note">ficha edit: private vs street split</span></td></tr>
+  <tr><td class="sol">Escada hidráulica vegetada</td><td class="today">licença · medio</td><td class="quote">"not feasible"</td><td class="prop"><span class="pill baixa">baixa</span></td></tr>
+  <tr><td class="sol">Terraços de chuva</td><td class="today">mutirão · baixo</td><td class="quote">"if it requires engineering plans, including licensing from Defesa Civil, for sure it is not Low." / "not feasible for communities' scale"</td><td class="prop"><span class="pill baixa">baixa</span><span class="note"><span class="flag">reclass:</span> mutirão→licença · baixo→medio/alto (resolves the flagged inconsistency)</span></td></tr>
+  <tr><td class="sol">Ilhas filtrantes flutuantes</td><td class="today">parceria · baixo</td><td class="quote">"all natural lakes (and rivers) are considered public in Brazilian laws" / "medium feasibility — I'm not sure if it is worthy considering costs, licensing and the potential of solving pollution"</td><td class="prop"><span class="pill media">média</span><span class="note">candidate to deprioritize for POA (Q9)</span></td></tr>
+  <tr><td class="sol">Barraginha</td><td class="today">mutirão · baixo</td><td class="quote">"very common at rural areas in Brazil; very feasible for agriculture lands; not sure about its potential at urban areas / feasible, anyway, because it requires low or easy maintenance"</td><td class="prop"><span class="pill alta">alta</span><span class="note">scale note: peri-urban</span></td></tr>
+  <tr><td class="sol">Captação de água da chuva</td><td class="today">mutirão · baixo</td><td class="quote">"very feasible (despite it is not a 'real' NbS because it isn't green infrastructure)"</td><td class="prop"><span class="pill alta">alta</span><span class="note">+ not-quite-NbS badge</span></td></tr>
+
+  <tr class="fam" style="--famc: var(--verde)"><td colspan="4">🌳 Infraestrutura Verde Urbana (6) — família note: "usually for neighborhoods and larger areas — important for scale"</td></tr>
+  <tr><td class="sol">Parques e florestas urbanas</td><td class="today">parceria · medio</td><td class="quote">"medium feasibility — it is part of legal compliance on Forest Code, but medium complexity for communities. It requires articulation between different actors."</td><td class="prop"><span class="pill media">média</span></td></tr>
+  <tr><td class="sol">Teto verde</td><td class="today">mutirão · baixo</td><td class="quote">"very feasible"</td><td class="prop"><span class="pill alta">alta</span></td></tr>
+  <tr><td class="sol">Corredores verdes</td><td class="today">parceria · medio</td><td class="quote">"I suggest medium feasibility"</td><td class="prop"><span class="pill media">média</span></td></tr>
+  <tr><td class="sol">Parques lineares</td><td class="today">parceria · medio</td><td class="quote">"harder than green corridors — larger area. (almost) not feasible for communities, it requires government and public budget"</td><td class="prop"><span class="pill baixa">baixa</span><span class="note">CBO role = advocacy + adoption (already in ficha)</span></td></tr>
+  <tr><td class="sol">Escola verde</td><td class="today">parceria · baixo</td><td class="quote">"very feasible (if schools are engaged)"</td><td class="prop"><span class="pill alta">alta</span><span class="note">condition: school engagement</span></td></tr>
+  <tr><td class="sol">Parque naturalizado</td><td class="today">parceria · medio</td><td class="quote">"high/medium feasibility (due to bureaucratic issues)"</td><td class="prop"><span class="pill alta">alta</span><span class="note">caveat: bureaucracy</span></td></tr>
+
+  <tr class="fam" style="--famc: var(--agri)"><td colspan="4">🌱 Agricultura Urbana (4)</td></tr>
+  <tr><td class="sol">Hortas urbanas</td><td class="today">mutirão · baixo</td><td class="quote">"high feasibility"</td><td class="prop"><span class="pill alta">alta</span></td></tr>
+  <tr><td class="sol">Compostagem</td><td class="today">mutirão · baixo</td><td class="quote">"very feasible"</td><td class="prop"><span class="pill alta">alta</span><span class="note">validates the classification he questioned Jul 16</span></td></tr>
+  <tr><td class="sol">Cozinha comunitária + biodigestor</td><td class="today">parceria · medio</td><td class="quote">"medium feasibility (and not a 'real' NbS, but still useful)"</td><td class="prop"><span class="pill media">média</span><span class="note">+ not-quite-NbS badge</span></td></tr>
+  <tr><td class="sol">Sistema alimentar local</td><td class="today">parceria · medio</td><td class="quote">"high costs due to high maintenance, especially for Agroforestry Systems" — <b>no feasibility verdict given</b></td><td class="prop"><span class="pill open">open — ask Robson</span><span class="note"><span class="flag">conflict:</span> our page says cost ≈ coordination time; his comment says high maintenance cost (Q4)</span></td></tr>
+
+  <tr class="fam" style="--famc: var(--encosta)"><td colspan="4">⛰️ Estabilização de Encostas e Solo (4)</td></tr>
+  <tr><td class="sol">Grade viva</td><td class="today">parceria · medio</td><td class="quote">"high feasibility"</td><td class="prop"><span class="pill alta">alta</span></td></tr>
+  <tr><td class="sol">Muro de arrimo verde</td><td class="today">licença · alto</td><td class="quote">"medium feasibility due to licensing"</td><td class="prop"><span class="pill media">média</span></td></tr>
+  <tr><td class="sol">Solo grampeado verde</td><td class="today">licença · alto</td><td class="quote">"low feasibility — costs, licensing, bureaucracy"</td><td class="prop"><span class="pill baixa">baixa</span></td></tr>
+  <tr><td class="sol">Contenções em geocélulas</td><td class="today">licença · alto</td><td class="quote">"not 100% NbS, but still useful" / "low-medium feasibility — costs, licensing, requirements from technicians"</td><td class="prop"><span class="pill baixa">baixa</span><span class="note">+ not-quite-NbS badge</span></td></tr>
+
+  <tr class="fam" style="--famc: var(--recup)"><td colspan="4">🌿 Recuperação de Ecossistemas Naturais (2)</td></tr>
+  <tr><td class="sol">Reflorestamento</td><td class="today">mutirão · medio</td><td class="quote">"low-medium feasibility — fit to landscapes, not neighborhoods" — costs "sometimes less than that, depending on each biome — in the case of POA, probably restingas"</td><td class="prop"><span class="pill media">média</span><span class="note">ficha edit: restinga cost note · scale-variant examples (Q6)</span></td></tr>
+  <tr><td class="sol">Restauração de áreas úmidas</td><td class="today">licença · alto</td><td class="quote">"low-medium feasibility, the same as restoration"</td><td class="prop"><span class="pill media">média</span></td></tr>
+</table></div>
+
+<p><b>Tally:</b> <span class="num">11</span> alta · <span class="num">9</span> média · <span class="num">6</span> baixa · <span class="num">1</span> open. The catalog's honest read for the cohort: roughly <b>40% of the deck is genuinely buildable by a POA CBO in 1–2 years</b>, and the 6 "baixa" ones are exactly the licensed/engineered, landscape-scale interventions — Robson's theme 1 and 2 confirmed by his own per-card verdicts.</p>
+
+<h2><span class="pnum">P2</span>Catalog schema changes (<code>nbs-catalog.ts</code>)</h2>
+<p class="lede">Four new fields plus two flag resolutions. The Notion page stays derived — regenerate it from the TS after these land.</p>
+
+<div class="cards">
+  <div class="card"><h4><code>feasibility</code></h4>
+    <p><code>'alta' | 'media' | 'baixa'</code> + <code>feasibilityNote</code> (his caveat, verbatim-derived). Source: this review — finally fills the field the page left "open — add your input". Marked <code>source: 'robson-2026-07-22'</code> so later rounds can supersede it.</p></div>
+  <div class="card"><h4><code>complexity</code></h4>
+    <p><code>'simples' | 'complexa' | 'assistida'</code> — the Jul 16 decision's simple / complex / government-assisted. Mostly derivable from <code>delivery</code> (mutirão→simples, parceria→complexa, licença→assistida) but not always: terraços moves to assistida, parques lineares to assistida ("requires government and public budget").</p></div>
+  <div class="card"><h4><code>expertise</code></h4>
+    <p>Professional-expertise needs (Jul 16: "engineer, architect, biologist vs. grassroots-implementable"). Proposed: <code>'comunitaria' | 'tecnico' | 'profissional-registrado'</code> (ART/CREA — engineer, architect, geotech, biologist), with a free-text <code>expertiseDetail</code>. Granularity is Q7.</p></div>
+  <div class="card"><h4><code>scale</code> + <code>notQuiteNbs</code></h4>
+    <p><code>scale: 'lote' | 'bairro' | 'paisagem'</code> captures his second theme so the recommender stops offering landscape solutions to lot-scale orgs. <code>notQuiteNbs: true</code> on bacia, captação, cozinha, geocélulas — shown as an honest badge ("infraestrutura híbrida"), not a removal.</p></div>
+</div>
+
+<h3>Flag resolutions + ficha edits</h3>
+<ul>
+  <li><b>Terraços de chuva</b> — accept Robson: <code>delivery: licença</code>, <code>costBand: medio</code> (R$ 600–1,000/m² is not Low). Clears the ⚠️ on the page.</li>
+  <li><b>Sistema alimentar local</b> — his comment goes the <em>opposite</em> way from our flag: we thought Medium was too high (coordination time); he says agroforestry maintenance makes it high-cost. Keep <code>medio</code>, rewrite the cost text to distinguish "starting it" (coordination) from "sustaining it" (maintenance, especially SAFs). Ask his feasibility verdict — the only solution missing one.</li>
+  <li><b>Ficha micro-edits</b>: biovaletas street-placement pipe check · pavimentos private-vs-street licensing split · ilhas filtrantes "all natural lakes and rivers are public" · reflorestamento restinga/biome cost note.</li>
+  <li><b>Reforestation variants</b> (his Jul 16 ask + Julia's Miyawaki vs. larger-forest point): rather than new catalog entries, add <code>scaleVariants</code> examples to reflorestamento (and candidates like hortas) — one NbS shown at two costs/scales. Q6 decides entries-vs-examples.</li>
+  <li><b><code>classificationEstimated</code></b>: for the 26 solutions with a verdict, flip to a provenance note (expert-reviewed 2026-07-22) — the honesty flag has done its job.</li>
+</ul>
+
+<h2><span class="pnum">P3</span>Filters — from 2 chips to the decided set</h2>
+<p class="lede"><code>NbsSolutionFilterChips</code> today filters on delivery (mutirão/parceria) + low-cost. The Jul 16 decision names the real dimensions. Proposed chip set (same headless pattern, same AND-across-dimensions logic):</p>
+
+<p style="font-size:12.5px;color:var(--muted)">Mockups shown in English; the shipped UI is pt-BR (strings live next to their EN pairs in the components, as everywhere else).</p>
+<div class="chips-demo">
+  <span class="dim-label">Complexity</span>
+  <span class="chip on">🌱 a community mutirão can build it</span>
+  <span class="chip">🧩 needs a technician or partnership</span>
+  <span class="chip">🏛️ needs the government on board</span>
+</div>
+<div class="chips-demo">
+  <span class="dim-label">Who designs it</span>
+  <span class="chip on">🤝 the community can run it</span>
+  <span class="chip">📐 needs a technical design (eng/arch/bio)</span>
+</div>
+<div class="chips-demo">
+  <span class="dim-label">Cost &amp; feasibility</span>
+  <span class="chip">💰 low cost</span>
+  <span class="chip on">✓ feasible for organizations (expert assessment)</span>
+</div>
+
+<p>Notes: the complexity chips <em>replace</em> the delivery chips (they're the same axis, better labeled). The feasibility chip defaults ON in the CBO-facing catalog — communities see the buildable deck first, "mostrar todas" reveals the rest; the coordinator view sees everything with the bands visible. Whether CBOs ever see a solution labeled "baixa" (vs. a softer "precisa do governo junto") is Q1 — Robson's Jul 8 caution about not encoding discouragement applies.</p>
+
+<h2><span class="pnum">P4</span>Workshop 2 (Aug 12) — questions and roles</h2>
+<p class="lede">E2 already has the "Interesse + papel" chip loops after "Faz sentido" — the structure the Jul 16 decision asked for exists. Two gaps:</p>
+
+<h3>a. Role taxonomy needs reconciliation</h3>
+<div class="tbl-scroll"><table>
+  <tr><th>Decided taxonomy (Jul 16)</th><th>Current <code>E2_ROLES</code> chip</th><th>Fit</th></tr>
+  <tr><td>Implementing organization</td><td>Executar / implementar</td><td>✓ clean</td></tr>
+  <tr><td>Consulting / advising</td><td>Ser consultada (dar opinião)</td><td>✓ clean</td></tr>
+  <tr><td>Administrative executor</td><td rowspan="2">Receber e administrar recursos</td><td rowspan="2"><span class="flag">conflated</span> — one chip covers two decided roles; clustering can't tell "we want to hold the money" from "we want to run the books". Proposal: split into <b>Receber recursos</b> and <b>Administrar o projeto</b>.</td></tr>
+  <tr><td>Funding recipient</td></tr>
+  <tr><td>—</td><td>Escrever o projeto · Articular parceiros</td><td>extras beyond the decided set — real roles; keep, but confirm with Robson/Belén (the code comment already marks the set as pending their confirmation). Labels are a data-only change.</td></tr>
+</table></div>
+
+<h3>b. Filters inside the E2 flow</h3>
+<p>The complexity/expertise chips (P3) surface in two E2 moments: the <b>educational step</b> (famílias strip → "See examples" grid gets the chips, so orgs browse the deck through "what can we actually build?") and the <b>"Families worth studying"</b> ranked list, where each suggested família shows its buildable-solution count ("Stormwater Management — 6 of 11 buildable by mutirão"). Interest chips stay at família level (the two-level model holds: agent recommends the família, the org picks the variante).</p>
+
+<h2><span class="pnum">P5</span>W2 recommendation model × hazard mechanisms (Mau's layers)</h2>
+<p class="lede">The E2 família recommendation today is coarse: <code>rankFamiliasForSite</code> crosses three <b>bairro-mean</b> hazard scores (0–100) with the família hazard weights, plus keyword boosts from <code>current_use</code>/site name. Mau's mechanism-type rasters answer a sharper question — not "how much flood risk" but <b>"what kind of flooding is this"</b> — and none of it reaches the W2 decision yet.</p>
+
+<div class="tbl-scroll"><table>
+  <tr><th>Asset (Mau)</th><th>Status</th><th>Used in W2 today?</th></tr>
+  <tr><td><code>poa_flood_mechanism_type</code> — riverine · pluvial · low_lying · drainage_constrained · mixed (250&nbsp;m)</td><td>shipped as tiles + value tooltips + <code>/api/geospatial/mechanism-mix</code></td><td>no — map layer only</td></tr>
+  <tr><td><code>poa_heat_mechanism_type</code> — uhi_built_up · shade_deficit · high_daytime_lst · limited_nocturnal_cooling · high_social_exposure… (250&nbsp;m)</td><td>shipped</td><td>no</td></tr>
+  <tr><td><code>poa_landslide_mechanism_type</code> — steep_activatable_slope · rainfall_trigger · vegetation_deficit · drainage_saturation… (90&nbsp;m, gated on hazard&gt;0)</td><td>shipped</td><td>no</td></tr>
+  <tr><td>Mechanism→NBS scoring rules (<code>scripts/screening/nbs_rules.py</code> — per-type rule scores per mechanism)</td><td>Python pipeline only</td><td>no — never ported to the app</td></tr>
+  <tr><td>Supporting layers: soil, native species, wetlands, protected areas (Brazil-specific candidates, Jul 21 doc)</td><td>research candidates</td><td>no — test in POA first</td></tr>
+</table></div>
+
+<h3>Proposed change, in W2 order of value</h3>
+<ul>
+  <li><b>a. Sample the mechanism at the confirmed site/bairro.</b> When the org confirms the site (Mapa 2 → site card), sample the dominant mechanism class (point) and the bairro's mechanism mix (the endpoint exists). One new sampling call — the rasters and decode path are already in the platform.</li>
+  <li><b>b. Name the mechanism in the "why" lines.</b> Today: "Enchente é alto no Sarandi." With mechanisms: <i>"Aqui o alagamento vem da chuva que não infiltra — não do arroio subindo."</i> This is Ana's Jul 16 framing operationalized: orgs already know their territory; the platform's job is formalizing <em>why</em>, and mechanism language is the credibility jump. Cheap (template per class), high trust value, no re-scoring risk.</li>
+  <li><b>c. Pick example solutions by mechanism × feasibility.</b> <code>exampleSolutionsFor</code> currently sorts by delivery/cost only. Port the affinity table from <code>nbs_rules.py</code> to a shared TS map (mechanism class → solution boost): pluvial/drainage_constrained → jardins, biovaletas, pavimentos; riverine/low_lying → restauração de áreas úmidas, parques lineares; shade_deficit → corredores/parques; steep_activatable_slope + vegetation_deficit → grade viva, muro verde. Combined with P1's feasibility field, the two examples shown per família become <b>buildable AND mechanism-right</b>.</li>
+  <li><b>d. (Later) modulate the família score itself</b> — <code>score = hazardScore × (1 + mechanismAffinity) + boosts</code>. Gated on the open validation below.</li>
+  <li><b>e. (W3, not W2) supporting layers as site-condition modifiers</b> — soil permeability, wetlands proximity, protected areas map onto Robson's required/preferred/caution conditions from the Jul 8 four-step workflow. Keep out of W2: that's scoping territory, and Robson's data-minimalism caution applies to the social-exposure classes.</li>
+</ul>
+
+<h3>Refined design (2026-07-30 /refine — decisions locked)</h3>
+<ul>
+  <li><b>Decision-support, not verdict:</b> the recommendation moment shows <b>all 5 famílias</b>, sorted by fit but none hidden (the top-3 cut is what makes a ranking prescriptive). Each família carries soft <b>signal chips</b> — <code>[neighborhood risk]</code> <code>[mechanism]</code> <code>[what you told us]</code> — instead of a single verdict line; famílias below a signal floor are grouped honestly as "no strong signal for this place", not fake-ranked. "See all 27 solutions" is always one tap away from this screen.</li>
+  <li><b>Mechanism folds into the ranking as a capped boost</b> (≤0.15, tie-breaker scale — it can reorder near-ties, never bury a high-risk família), with hedged language ("approximate signal"). The cap holds until the hazard↔mechanism correlation test (Q12) shows the specificity is real.</li>
+  <li><b>Feasibility is weighted in as well — as the third capped signal, and visibly.</b> Each família gets a small boost (≤0.10) from its share of alta-feasibility solutions (Robson's list), surfaced as its own chip — <code>[has solutions you can build]</code> — so the weighting is transparent, never a hidden thumb on the scale. The formula: <code>score = hazard × (1 + mechanism ≤0.15) + context + feasibility ≤0.10</code> — hazard stays dominant, so a high-risk família can never be buried by low feasibility, only edged in near-ties. At solution level Robson's list also drives honest badges (baixa renders as "🏛️ needs the government on board", never "can't be done"), the org-toggleable "feasible for organizations" filter (default ON), and example picks = mechanism-fit × feasibility.</li>
+</ul>
+
+<h3>How it looks in the W2 flow — step by step</h3>
+<p>The seven beats of Encontro 2 (<code>knowledge/_skills/encontro-2.md</code>), with the new model in place. Frames approximate the CBO chat UI, shown in English — the shipped UI is pt-BR. <span class="novo">new</span> marks what changes vs. today.</p>
+
+<div class="flow">
+
+  <div class="step">
+    <div class="cap"><b>1 · Educational</b> — famílias strip <span class="same">as today</span></div>
+    <div class="phone">
+      <div class="bubble">Before we look at the map: the solutions we study come in 5 families 👇</div>
+      <div class="famstrip"><span>💧</span><span>🌳</span><span>🌱</span><span>⛰️</span><span>🌿</span></div>
+      <div class="chiprow"><span class="uichip">See examples</span><span class="uichip">I know NbS — skip</span></div>
+    </div>
+    <div class="ann">No change. The catalog that "See examples" opens already carries the new filters (step 6).</div>
+  </div>
+
+  <div class="step">
+    <div class="cap"><b>2 · Neighborhood on the map</b> — risk tour <span class="same">as today</span></div>
+    <div class="phone">
+      <div class="maplike">🗺️ Sarandi — flooding <b>high</b> · heat <b>medium</b> · landslide <b>low</b></div>
+      <div class="chiprow"><span class="uichip primary">Confirm neighborhood</span></div>
+    </div>
+    <div class="ann">No visible change — but on confirm the server already samples the neighborhood's <b>dominant mechanism</b> (250&nbsp;m mix) in the background.</div>
+  </div>
+
+  <div class="step">
+    <div class="cap"><b>3 · Site card</b> — <span class="novo">new</span> mechanism line</div>
+    <div class="phone">
+      <div class="sitecard">
+        <b>Praça do Mercado · Sarandi</b>
+        <span class="meta">Square / public area</span>
+        <span class="meta">Flooding high · Heat medium</span>
+        <span class="mechline">🔎 The flooding here comes from <b>rain that can't soak in</b> — not from the stream rising. <i>(approximate signal)</i></span>
+      </div>
+      <div class="chiprow"><span class="uichip primary">Confirm ✓</span><span class="uichip">It's a different kind of place</span></div>
+    </div>
+    <div class="ann">The mechanism sampled at the point enters the card in territory language, with the precision hedge. Class <code>mixed</code>/<code>none</code> → the line simply doesn't render.</div>
+  </div>
+
+  <div class="step">
+    <div class="cap"><b>4 · Describe the place</b> <span class="same">as today</span></div>
+    <div class="phone">
+      <div class="bubble">What is the place like today?</div>
+      <div class="chiprow"><span class="uichip on">Paved</span><span class="uichip">Vegetation</span><span class="uichip">Mixed</span><span class="uichip">Abandoned</span></div>
+      <div class="bubble">And the land — whose is it?</div>
+      <div class="chiprow"><span class="uichip on">It's the city's, but we use it</span></div>
+    </div>
+    <div class="ann">No change — <code>current_use</code> keeps feeding the context boost, which now shows up as a visible chip in step 5.</div>
+  </div>
+
+  <div class="step wide">
+    <div class="cap"><b>5 · Families worth studying</b> — <span class="novo">new</span> all 5, with signals — the heart of the change</div>
+    <div class="phone">
+      <div class="bubble">Crossing your neighborhood's risk, the type of flooding, and what you told us, these families are worth studying — <b>but the choice is yours</b>:</div>
+      <div class="famrow"><span class="fnome">💧 Stormwater Management</span>
+        <span class="sigs"><span class="sig risk">high risk</span><span class="sig mech">rain can't soak in</span><span class="sig feas">has solutions you can build</span></span>
+        <span class="fex">e.g.: rain gardens · bioswales</span></div>
+      <div class="famrow"><span class="fnome">🌳 Urban Green Infrastructure</span>
+        <span class="sigs"><span class="sig risk">medium heat</span><span class="sig ctx">paved area</span><span class="sig feas">has solutions you can build</span></span>
+        <span class="fex">e.g.: green roof · naturalized playground</span></div>
+      <div class="famrow"><span class="fnome">🌿 Ecosystem Restoration</span>
+        <span class="sigs"><span class="sig risk">high risk</span></span>
+        <span class="fex">e.g.: reforestation (restinga)</span></div>
+      <div class="fam-divider">no strong signal for this place — but you can explore them:</div>
+      <div class="famrow dim"><span class="fnome">🌱 Urban Agriculture &nbsp;·&nbsp; ⛰️ Slopes &amp; Soil</span></div>
+      <div class="chiprow"><span class="uichip primary">Makes sense</span><span class="uichip">I want to adjust</span><span class="uichip">See all 27 solutions</span></div>
+    </div>
+    <div class="ann">Today: top-3 with one why-sentence each. Now: <b>always all 5</b>, ordered but none hidden; every score factor becomes a readable chip (risk · mechanism · context · feasibility); below the signal floor, families are grouped honestly instead of fake-ranked; examples per family = mechanism-right × buildable; the full catalog is one tap away.</div>
+  </div>
+
+  <div class="step wide">
+    <div class="cap"><b>6 · See all 27 solutions</b> — <span class="novo">new</span> filters + feasibility badges</div>
+    <div class="phone">
+      <div class="chiprow filters">
+        <span class="uichip on">🌱 a mutirão can build it</span><span class="uichip">🧩 with a technician or partnership</span><span class="uichip">🏛️ with the government on board</span>
+      </div>
+      <div class="chiprow filters">
+        <span class="uichip on">✓ feasible for organizations</span><span class="uichip">💰 low cost</span>
+      </div>
+      <div class="solcard"><b>Rain gardens</b> 💧 <span class="pill alta">✓ you can build it</span><span class="meta">receives and infiltrates rainwater</span></div>
+      <div class="solcard"><b>Permeable pavements</b> 💧 <span class="pill alta">✓ you can build it</span><span class="meta">on your own land, no license needed</span></div>
+      <div class="solcard dim"><b>Constructed wetland</b> 💧 <span class="pill media">🏛️ needs the government on board</span><span class="meta">neighborhood scale — appears when the filter is off</span></div>
+      <div class="chiprow"><span class="uichip">Show all (27)</span></div>
+    </div>
+    <div class="ann">The "feasible" filter starts ON but belongs to <b>the organization</b> — turning it off shows everything, with honest badges instead of hiding. "Baixa" never becomes "can't be done": it becomes the path ("needs the government on board" → articulation role, W3).</div>
+  </div>
+
+  <div class="step">
+    <div class="cap"><b>7 · Interest + role</b> — <span class="novo">new</span> split roles</div>
+    <div class="phone">
+      <div class="bubble">And what <b>role</b> would you like to have in these projects? You can pick more than one.</div>
+      <div class="chiprow">
+        <span class="uichip on">Implement on the ground</span><span class="uichip">Be consulted</span><span class="uichip">Write the project</span>
+        <span class="uichip nv">Receive the funds</span><span class="uichip nv">Manage the project</span>
+        <span class="uichip">Coordinate partners</span><span class="uichip">Another role</span><span class="uichip">Done ✓</span>
+      </div>
+    </div>
+    <div class="ann">"Receive and manage the funds" split into the two roles from the Jul 16 taxonomy (dashed highlight) — September's clustering can then tell who wants to hold the money from who wants to run the management. Labels are a data-only change; pending Robson/Belén confirmation.</div>
+  </div>
+
+</div>
+
+<p><b>The honest caveat (Mau + JVP, Jul 21):</b> hazard and mechanism layers share input data, so they're correlated even though the calculations are independent — it's an open test whether mechanism adds <em>actionable specificity</em> for decisions or is partly redundant. That validation is already my action item from the check-in. Suggested sequencing for Aug 12: ship (a)+(b) — sampling and language, no scoring change — and hold (c)/(d) until the correlation test says the specificity is real. Note the landslide grid is 90&nbsp;m and hazard-gated, so mechanism whys for encostas sites will be the most site-specific of the three.</p>
+
+<h2><span class="pnum">P6</span>Orchestrator: aggregated cohort dashboard (Ana, Jul 30)</h2>
+<blockquote>"…qué tan fácil sería hacer una visualización más agregada, tipo tabla/dashboard, con la etapa en que cada organización está y una visión de su perfil… un poco de cómo el agente podría ya empezar a ayudar a hacer análisis sobre la madurez del grupo y posibles sinergias."
+<span class="who">Ana — added to the backlog as item 18 (docs/cbo-ux-audit-backlog.md)</span></blockquote>
+
+<p>Today <code>orchestrator-landing.tsx</code> shows per-org <em>cards</em> + map. The aggregate view is one table over data that already exists (phase reached, sections complete, maturity score, and — post-E2 — <code>nbs_interest</code> and <code>role_preference</code>). Sketch:</p>
+
+<div class="tbl-scroll"><table>
+  <tr><th>Organization</th><th>Stage</th><th>E1 profile</th><th>Maturity</th><th>Interests</th><th>Role</th><th>Neighborhood / risk</th></tr>
+  <tr><td>Org A (bellwether)</td><td><span class="stage e2">E2 ✓</span></td><td><span class="bar-track"><span class="bar" style="width:100%"></span></span><span class="num">7/7</span></td><td class="num">21/27</td><td>💧 🌱</td><td>Implement</td><td>Floresta · flooding</td></tr>
+  <tr><td>Org B</td><td><span class="stage e2">E2 in progress</span></td><td><span class="bar-track"><span class="bar" style="width:86%"></span></span><span class="num">6/7</span></td><td class="num">14/27</td><td>💧 🌳</td><td>Coordinate</td><td>Sarandi · flooding</td></tr>
+  <tr><td>Org C</td><td><span class="stage e1">E1 ✓</span></td><td><span class="bar-track"><span class="bar" style="width:71%"></span></span><span class="num">5/7</span></td><td class="num">9/27</td><td>—</td><td>—</td><td>—</td></tr>
+  <tr><td>Org D</td><td><span class="stage e0">invited</span></td><td><span class="bar-track"><span class="bar" style="width:0%"></span></span><span class="num">0/7</span></td><td class="num">—</td><td>—</td><td>—</td><td>—</td></tr>
+</table></div>
+
+<div class="agent-panel">
+  <span class="tag">Agent analysis — portfolio read</span>
+  <ul>
+    <li><b>Group maturity:</b> 5 of 11 orgs completed E1; bimodal distribution — 3 orgs ready for scoping, 6 haven't activated their invite yet (Aline's message covers this).</li>
+    <li><b>Synergy candidate:</b> Orgs A + B share interest in 💧 on the same flood-risk axis — cluster candidates with complementary roles (implement + coordinate).</li>
+    <li><b>Gap:</b> no org has declared "receive the funds" — relevant for Belén's Aug 26 session on financing instruments.</li>
+  </ul>
+</div>
+
+<p>Scoping tiers, so it can land incrementally:</p>
+<div class="tbl-scroll"><table class="tiers">
+  <tr><th>Tier</th><th>What</th><th>Size</th><th>When it's useful</th></tr>
+  <tr><td>T1 · Table</td><td>Sortable table view over existing cohort data (a view-mode toggle next to the cards; same data source, no schema work)</td><td>S</td><td>now — Ana's immediate ask ("quiénes contestaron la etapa 1")</td></tr>
+  <tr><td>T2 · Post-E2 columns</td><td>Interesses + papéis + site status columns once Aug 12 data lands; CSV export for Vila Flores</td><td>S</td><td>Aug 12–26, feeds Belén's session prep</td></tr>
+  <tr><td>T3 · Agent portfolio read</td><td>On-demand agent summary over the table (maturity distribution, gaps, outliers) — reuses the coordinator back-office agent</td><td>M</td><td>late Aug — pre-reads for the governance workshop</td></tr>
+  <tr><td>T4 · Synergy clustering</td><td>Agent proposes clusters (overlapping famílias × shared risk profile × complementary roles), coordinator curates</td><td>M/L</td><td>September — the cluster-formation moment, and the platform half of Robson's dual-input feasibility assessment</td></tr>
+</table></div>
+
+<h2>Open questions for /refine</h2>
+<ol class="decisions">
+  <li><b>Who sees "baixa"?</b> Coordinator-only bands with a softer CBO framing ("precisa do governo junto"), or honest bands everywhere?</li>
+  <li><b>Three bands or four?</b> Robson writes "low-medium", "high/medium" — I collapsed to three and kept his words in <code>feasibilityNote</code>. Good enough?</li>
+  <li><b>Terraços reclass</b> — accept mutirão→licença + baixo→medio? (His comment is unambiguous, but it demotes a card the deck presents as community-buildable.)</li>
+  <li><b>Sistema alimentar</b> — resolve the cost contradiction his way (maintenance-heavy) and ask him for the missing feasibility verdict?</li>
+  <li><b>not-quite-NbS badge</b> — badge + keep (his position), or does the Rede/Julia want those cards visually distinct in the printed deck too?</li>
+  <li><b>Reforestation variants</b> — <code>scaleVariants</code> examples on existing entries vs. new catalog entries (Miyawaki / restinga)? New entries break the 27-card ↔ printed-deck mirror.</li>
+  <li><b>Expertise granularity</b> — binary chip (community vs. technical) for CBOs with per-profession detail in the ficha, or full profession filter?</li>
+  <li><b>Role chips</b> — split "Receber e administrar recursos"; keep the two extra chips? Needs Robson/Belén sign-off (already marked pending in code). Existing E2 answers would need a data migration note.</li>
+  <li><b>Ilhas filtrantes</b> — deprioritize for the POA cohort per his "not sure if it is worthy"? (Hide behind "mostrar todas" rather than delete.)</li>
+  <li><b>Dashboard tiers</b> — commit T1 now (before Aug 12?) and which tier is the Aug 26 target? Who sees the agent analysis — orchestrator only, or shared with Vila Flores?</li>
+  <li><b>Mechanism scope for Aug 12</b> — ship sampling + mechanism-named "why" lines only (P5 a+b), or also mechanism-fit example picks (c)? c depends on porting the nbs_rules.py affinity table and pairs naturally with the feasibility field landing.</li>
+  <li><b>Mechanism validation bar</b> — what result from the hazard↔mechanism correlation test counts as "adds specificity"? (e.g. mechanism class changes the top-família or top-examples for ≥N% of bairros — worth defining before testing.)</li>
+  <li><b>Feasibility weight calibration</b> — the ≤0.10 cap keeps hazard dominant, but the per-família alta-share differs a lot (Águas 5/11 vs Encostas 1/4): confirm with a dry-run over all bairros that the boost only breaks ties and never flips a clearly-higher-risk família.</li>
+</ol>
+
+<p class="footnote">Sources: Notion "NBS types" page (38 inline comments, 2026-07-22, author API-unresolvable external guest — attribution to Robson inferred from content with high confidence) · Fireflies: Jul 8 NbS-Specialist deep-dive, Jul 16 PxG&lt;&gt;OEF biweekly, Jul 30 partnership alignment · Code: <code>shared/nbs-catalog.ts</code>, <code>client/src/core/components/cbo/NbsSolutionFilterChips.tsx</code>, <code>server/services/cboAgent.ts</code> (E2_ROLES), <code>client/src/core/pages/orchestrator-landing.tsx</code>. The Notion page is derived from the TS catalog — apply changes in code and regenerate, don't hand-edit the page.</p>
+</div>

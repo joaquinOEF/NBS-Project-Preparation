@@ -1,0 +1,295 @@
+<title>The map steps — three ways to make them simpler and harder to break</title>
+<style>
+  :root {
+    --bg: #F1F0EC; --card: #FCFBF9; --ink: #21252A; --muted: #6A7079;
+    --line: #DEDCD6; --rule: #C4C1B9; --accent: #1F5E63; --accent-soft: #DCEAEA;
+    --hot: #A5482F; --hot-bg: #F5E2DB;
+    --ok: #34694C; --ok-bg: #E0EDE4;
+    --num: #8A6A1F; --num-bg: #F3E9D2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121517; --card: #1A1E21; --ink: #E2E4E3; --muted: #939A9F;
+      --line: #272C30; --rule: #383E43; --accent: #6FADB1; --accent-soft: #14282A;
+      --hot: #D98A70; --hot-bg: #33201A; --ok: #7FBE96; --ok-bg: #1C2E22;
+      --num: #CCA55E; --num-bg: #302716; }
+  }
+  :root[data-theme="dark"] { --bg: #121517; --card: #1A1E21; --ink: #E2E4E3; --muted: #939A9F;
+    --line: #272C30; --rule: #383E43; --accent: #6FADB1; --accent-soft: #14282A;
+    --hot: #D98A70; --hot-bg: #33201A; --ok: #7FBE96; --ok-bg: #1C2E22;
+    --num: #CCA55E; --num-bg: #302716; }
+  :root[data-theme="light"] { --bg: #F1F0EC; --card: #FCFBF9; --ink: #21252A; --muted: #6A7079;
+    --line: #DEDCD6; --rule: #C4C1B9; --accent: #1F5E63; --accent-soft: #DCEAEA;
+    --hot: #A5482F; --hot-bg: #F5E2DB; --ok: #34694C; --ok-bg: #E0EDE4;
+    --num: #8A6A1F; --num-bg: #F3E9D2; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Avenir Next", Seravek, "Segoe UI", system-ui, sans-serif; font-size: 16px; line-height: 1.58; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 44px 22px 92px; }
+  h1, h2, h3 { font-weight: 600; letter-spacing: -0.014em; text-wrap: balance; }
+  h1 { font-size: 31px; line-height: 1.16; margin: 0 0 12px; }
+  h2 { font-size: 21px; margin: 56px 0 4px; }
+  h3 { font-size: 16.5px; margin: 26px 0 6px; }
+  p, li { max-width: 73ch; }
+  .lede { color: var(--muted); margin-top: 2px; }
+  header.doc { border-bottom: 2px solid var(--rule); padding-bottom: 20px; }
+  .kicker { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 11px; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.85em; background: var(--accent-soft); border-radius: 3px; padding: 1px 5px; }
+  .num { font-variant-numeric: tabular-nums; }
+  /* step chain */
+  .chain { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; margin: 16px 0; }
+  .st { background: var(--card); border: 1px solid var(--line); border-radius: 5px; padding: 7px 11px; font-size: 12.5px; min-width: 88px; }
+  .st b { display: block; font-size: 12.5px; }
+  .st span { color: var(--muted); font-size: 11px; }
+  .st.tap { border-color: var(--accent); }
+  .st.risk { border-color: var(--hot); background: var(--hot-bg); }
+  .arrow { align-self: center; color: var(--muted); font-size: 13px; }
+  /* alternative cards */
+  .alt { background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 20px 22px; margin: 20px 0; }
+  .alt-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 14px; }
+  .letter { font-family: ui-monospace, Menlo, monospace; font-size: 12px; font-weight: 700; color: var(--card); background: var(--accent); border-radius: 3px; padding: 2px 9px; }
+  .alt-name { font-size: 18.5px; font-weight: 600; }
+  .alt-sub { flex-basis: 100%; font-size: 13.5px; color: var(--muted); }
+  .grid2 { display: grid; grid-template-columns: minmax(250px, 1fr) minmax(230px, 300px); gap: 22px; align-items: start; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+  .alt dl { margin: 0; font-size: 13.5px; }
+  .alt dt { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-top: 12px; }
+  .alt dt:first-child { margin-top: 0; }
+  .alt dd { margin: 3px 0 0; }
+  .mock { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .mock .scr { background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 9px 11px; font-size: 12px; }
+  .mock .scr b { display: block; font-size: 12.5px; margin-bottom: 3px; }
+  .mock .btn { display: inline-block; border: 1.5px solid var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 3px 12px; font-size: 11.5px; font-weight: 600; margin-top: 6px; }
+  .mock .maparea { background: var(--accent-soft); border-radius: 6px; padding: 16px 8px; text-align: center; font-size: 11.5px; color: var(--muted); }
+  .mock .cap { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: var(--muted); }
+  .verdict { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); align-items: center; }
+  .verdict b { color: var(--ink); font-weight: 600; }
+  .tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--card); margin: 18px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th { text-align: left; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); font-weight: 400; padding: 11px 13px; border-bottom: 1.5px solid var(--rule); }
+  td { padding: 10px 13px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.q { font-weight: 600; min-width: 165px; }
+  td.c { text-align: center; }
+  .flag { border-left: 3px solid var(--hot); background: var(--hot-bg); padding: 14px 18px; border-radius: 0 5px 5px 0; margin: 18px 0; }
+  .flag p { margin: 0 0 8px; } .flag p:last-child { margin-bottom: 0; }
+  .rec { border-left: 3px solid var(--ok); background: var(--ok-bg); padding: 14px 18px; border-radius: 0 5px 5px 0; margin: 18px 0; }
+  .rec p { margin: 0; font-size: 14px; }
+  ol.q { counter-reset: q; list-style: none; padding-left: 0; }
+  ol.q li { counter-increment: q; margin-bottom: 13px; padding-left: 42px; position: relative; }
+  ol.q li::before { content: "Q" counter(q); position: absolute; left: 0; top: 2px; font-family: ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 3px; padding: 2px 6px; }
+  .foot { font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--rule); margin-top: 54px; padding-top: 16px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+<header class="doc">
+  <div class="kicker">NBS Project Builder · COUGAR · Workshop 2 · map steps</div>
+  <h1>The map is the hardest part of Workshop 2. Three ways to make it simpler and harder to break.</h1>
+  <p class="lede">Everything else in W2 is a chip tap. The two map moments are the only place where a community organization has to hit a target, wait for tiles, and interpret a legend — and they sit at the very start, before any of the value shows up. This sets out what the steps are today, what actually goes wrong, and three different ways to fix it.</p>
+</header>
+
+<h2>What happens today</h2>
+<p>Eleven interactions between "let's start" and having a place marked. Each box is one thing the user must do:</p>
+
+<div class="chain">
+  <div class="st"><b>skip / learn</b><span>chip</span></div><span class="arrow">→</span>
+  <div class="st"><b>one bairro?</b><span>chip</span></div><span class="arrow">→</span>
+  <div class="st risk"><b>tour 1/3</b><span>flood tiles</span></div><span class="arrow">→</span>
+  <div class="st risk"><b>tour 2/3</b><span>heat tiles</span></div><span class="arrow">→</span>
+  <div class="st risk"><b>tour 3/3</b><span>landslide</span></div><span class="arrow">→</span>
+  <div class="st tap"><b>tap a bairro</b><span>hit a polygon</span></div><span class="arrow">→</span>
+  <div class="st"><b>confirm</b><span>button enables</span></div>
+</div>
+<div class="chain">
+  <div class="st"><b>have a place?</b><span>chip</span></div><span class="arrow">→</span>
+  <div class="st tap"><b>choose how</b><span>search / known / pin</span></div><span class="arrow">→</span>
+  <div class="st tap"><b>tap the map</b><span>hit a point</span></div><span class="arrow">→</span>
+  <div class="st"><b>confirm site</b><span>button enables</span></div><span class="arrow">→</span>
+  <div class="st"><b>site card ✓</b><span>chip</span></div>
+</div>
+
+<div class="flag">
+  <p><b>The evidence that this is genuinely hard.</b> Driving these steps from an automated test at an iPhone viewport, a single tap on the centre of the map failed often enough that the harness needed a retry loop walking outwards through <b class="num">eight</b> different offsets before a bairro would select. Retrying the <i>same</i> point never helped — it is a targeting problem, not a timing one. The desktop test never sees it.</p>
+  <p>If a scripted harness that knows exactly where to tap needs eight tries, a person holding a phone will tap, see nothing happen, and tap again somewhere else.</p>
+  <p>Worse, there is a recorded case where the bairros are not merely hard to hit but <b>invisible</b>: with one zone source the fill opacity computes to zero, so the polygons render blank and the screen reads as "no clickable zones, just an overlay" (<code>MAP-ZONE-INVISIBLE</code>, UX backlog). Nothing on screen tells the user the map is waiting for a tap.</p>
+</div>
+
+<h3>The specific things that break</h3>
+<div class="tbl"><table>
+  <tr><th>Where</th><th>What goes wrong</th></tr>
+  <tr><td class="q">Before anything</td><td>Three tour screens must be dismissed before the user can act. The first thing W2 asks of an organization is to read three maps.</td></tr>
+  <tr><td class="q">Tapping the bairro</td><td>The target is an irregular polygon that may be small, off-centre, or rendered with zero fill. No affordance says "tap here", and a missed tap gives no feedback at all.</td></tr>
+  <tr><td class="q">Reading the colours</td><td>Green means <i>danger</i> on the flood layer and <i>safety</i> on the other two — shown back to back in the same tour. The landslide ramp never leaves green city-wide, so it looks like nothing is happening.</td></tr>
+  <tr><td class="q">Waiting</td><td>A full-map blocking overlay while OSM places load, with hard-coded English status text.</td></tr>
+  <tr><td class="q">Tooltips</td><td>Sticky on touch: they linger, stack on one another, and drift half off-screen.</td></tr>
+  <tr><td class="q">Choosing the site</td><td>Three input modes offered at once — search by name, pick a known place, drop a pin — before the user has any sense of which they need.</td></tr>
+  <tr><td class="q">Touch targets</td><td>Map chrome at <code>h-5</code>/<code>h-6</code>/<code>h-7</code>; the badge-remove control is 10 px.</td></tr>
+</table></div>
+
+<div class="flag">
+  <p><b>And the thing that makes all three alternatives possible:</b> we usually already know the organization's neighbourhood before W2 starts. Encontro 1 captures <code>bairro_of_operation</code>, and the cohort invite pre-fills it from the coordinator's own list. The map is currently asking people to find something the system already has written down.</p>
+</div>
+
+<h2>What the screenshots showed — and what I had wrong</h2>
+<p class="lede">Before proposing anything, the tour was instrumented: tile sources read straight off the map at each step, plus a screenshot. Three corrections and three new findings.</p>
+
+<div class="tbl"><table>
+  <tr><th>Step</th><th>Hazard layers actually painting</th><th>What the UI said</th></tr>
+  <tr><td class="q">Tour 1/3</td><td><code>poa_flood_hazard</code> only</td><td>"Passo 1: Clique no seu bairro"</td></tr>
+  <tr><td class="q">Tour 2/3</td><td><code>poa_heat_hazard</code> only</td><td>"Passo 1: Clique no seu bairro"</td></tr>
+  <tr><td class="q">Tour 3/3</td><td><code>poa_landslide_hazard</code> only</td><td>"Passo 1: Clique no seu bairro"</td></tr>
+  <tr><td class="q">Selection</td><td>none — bairro choropleth carries the colour</td><td>"Riscos: Enchente · Calor · Deslizamento"</td></tr>
+</table></div>
+
+<p><b>Layers are clean.</b> Exactly one hazard renders at a time; nothing is stacked. The worry about layers piling on top of each other does not apply to this flow — though the code comment above the tour effect still claims all three are shown after the tour, which the code stopped doing.</p>
+
+<div class="flag">
+  <p><b>1 · The instruction invites a tap the code disables.</b> "Passo 1: Clique no seu bairro" shows on all three tour screens, but zone selection is suppressed while the tour runs (<code>showZones = !tourActive</code>). Tapping does nothing, and a dead tap gives no feedback whatsoever. This is almost certainly the failure the harness was fighting. <b>Fixed</b> — the tour now says "veja como cada risco se espalha pela cidade" and the tap instruction appears only when tapping works.</p>
+  <p><b>2 · Green means opposite things three taps apart.</b> On the flood screen the ramp runs dark purple → green, green being <i>more</i> risk. Two taps later, at the selection step, green bairros are the calm ones. Same session, same user, no warning.</p>
+  <p><b>3 · The selection legend names three colours; the map paints five.</b> "Enchente · Calor · Deslizamento" is shown, while the choropleth also uses green and purple for the multi-hazard and low categories — unexplained.</p>
+</div>
+
+<p>Two more things the screenshots make plain. The city-wide raster covers the whole metro region — Canoas, Gravataí, Viamão, Alvorada all under colour — with <b>nothing marking where the organization actually is</b>; so the comparison the tour exists to create cannot happen, because they cannot find themselves on it. And the instruction is duplicated: once in the header, again in an overlay card sitting on top of the map, which also repeats the legend already shown above it.</p>
+
+<h2>Three alternatives</h2>
+<p class="lede">They differ in how much they trust the map as an input device. Mockups in English; the shipped UI is pt-BR.</p>
+
+<div class="alt">
+  <div class="alt-head"><span class="letter">A</span><span class="alt-name">One action per screen</span>
+    <span class="alt-sub">Keep the map exactly where it is, but never ask for two things at once. Each screen has one affordance and one primary button.</span></div>
+  <div class="grid2">
+    <div>
+      <dl>
+        <dt>What changes</dt><dd>The tour becomes one screen with the three hazards side by side and a single "Entendi", not three sequential screens. The zone step loses the legend, the chips and the second button — leaving a map, a title that says "toque no seu bairro", and nothing else. The site step asks "como prefere marcar?" first and then shows only the mode chosen.</dd>
+        <dt>Why it might be enough</dt><dd>Most of the observed failures are competition for attention rather than the map itself. Halving what is on screen at each moment is the cheapest intervention that touches every one of them.</dd>
+        <dt>What it does not fix</dt><dd>Hitting a polygon is still hitting a polygon. If the fill renders blank, the user still faces an empty screen with no instruction — this makes that failure clearer, not impossible.</dd>
+        <dt>Effort</dt><dd>Small–medium, entirely in <code>MapMicroapp</code>. No change to the flow or the data.</dd>
+      </dl>
+    </div>
+    <div class="mock">
+      <div class="scr"><b>1 · Os riscos do seu bairro</b>
+        💧 enchente · 🌡️ calor · ⛰️ deslizamento<br /><span class="cap">três miniaturas lado a lado</span>
+        <span class="btn">Entendi</span></div>
+      <div class="scr"><b>2 · Toque no seu bairro</b>
+        <div class="maparea">🗺️ apenas o mapa</div>
+        <span class="cap">sem legenda, sem chips, sem segundo botão</span></div>
+      <div class="scr"><b>3 · É o Sarandi?</b>
+        <span class="btn">Confirmar</span> <span class="cap">· escolher outro</span></div>
+    </div>
+  </div>
+  <div class="verdict"><b>Taps</b> 11 → ~8 · <b>Risk removed</b> attention competition · <b>Risk remaining</b> the tap target itself</div>
+</div>
+
+<div class="alt">
+  <div class="alt-head"><span class="letter">B</span><span class="alt-name">Confirm, don't hunt</span>
+    <span class="alt-sub">Use the neighbourhood we already hold from Encontro 1. The map opens zoomed to it, already selected, and asks only whether it is right.</span></div>
+  <div class="grid2">
+    <div>
+      <dl>
+        <dt>What changes</dt><dd>No searching for a polygon in a city-wide view. The bairro arrives pre-selected and highlighted, the map is zoomed to its bounds, and the question is "é o Sarandi mesmo?" with "sim" and "não, é outro" — the second opening a <b>list of bairro names</b>, not a map hunt. The map still shows the hazards for their bairro, so nothing educational is lost.</dd>
+        <dt>Why it is the strongest</dt><dd>It deletes the hardest interaction rather than improving it, and it uses information we already have. Recognition instead of recall, and a list is a reliable target where a polygon is not.</dd>
+        <dt>What it costs</dt><dd>The organization no longer <i>finds</i> their territory on the map, which is a small moment of ownership. And when <code>bairro_of_operation</code> is missing or wrong, we fall back to something — probably A's cleaned-up tap step, or the list.</dd>
+        <dt>Effort</dt><dd>Medium: pre-selection plumbing plus a bairro list component. The zone data already carries names.</dd>
+      </dl>
+    </div>
+    <div class="mock">
+      <div class="scr"><b>1 · Os riscos do Sarandi</b>
+        <div class="maparea">🗺️ já centrado no Sarandi<br />bairro destacado</div>
+        <span class="cap">enchente alta · calor médio · deslizamento baixo</span></div>
+      <div class="scr"><b>É o Sarandi mesmo?</b>
+        <span class="btn">Sim, é aqui</span> <span class="cap">· não, é outro</span></div>
+      <div class="scr"><b>(se "não")</b>
+        <span class="cap">lista de bairros, com busca</span><br />
+        Sarandi · Rubem Berta · Passo das Pedras…</div>
+    </div>
+  </div>
+  <div class="verdict"><b>Taps</b> 11 → ~5 · <b>Risk removed</b> the polygon tap, entirely · <b>Needs</b> a fallback when the bairro is unknown</div>
+</div>
+
+<div class="alt">
+  <div class="alt-head"><span class="letter">C</span><span class="alt-name">Map last, not first</span>
+    <span class="alt-sub">Move both map moments out of the opening. Start the conversation, and bring the map in only once there is something to put on it.</span></div>
+  <div class="grid2">
+    <div>
+      <dl>
+        <dt>What changes</dt><dd>W2 opens with what the organization can answer without any interface: what worries them, and their account of the place. Only then does the map appear, already carrying their words — "vocês falaram de água parada no pátio; vamos marcar onde é". The bairro comes pre-filled as in B, and the site step is optional from the start.</dd>
+        <dt>Why it is interesting</dt><dd>It matches what W2 is now for. The diagnostic does not need coordinates to be useful, and putting the hardest interaction after the trust has been built means a failure there costs a session's data rather than all of it. It also means an organization that never manages the map still completes a useful W2.</dd>
+        <dt>What it costs</dt><dd>The largest change of the three: the checkpoint order, the skill, and both specs. It also loses the hazard map as an opening framing device, which Ana has used deliberately — the official data is what gives their project weight with funders.</dd>
+        <dt>Effort</dt><dd>Large. Realistically a September change, not a pre-12-August one.</dd>
+      </dl>
+    </div>
+    <div class="mock">
+      <div class="scr"><b>1 · O que mais preocupa vocês?</b>
+        <span class="cap">chips — sem mapa nenhum</span></div>
+      <div class="scr"><b>2 · Me conta desse lugar</b>
+        <span class="cap">áudio ou texto</span></div>
+      <div class="scr"><b>3 · Agora sim, o mapa</b>
+        <div class="maparea">🗺️ centrado no bairro deles</div>
+        <span class="cap">"vocês falaram de água parada — onde é?"</span>
+        <span class="btn">Marcar</span> <span class="cap">· deixar pra depois</span></div>
+    </div>
+  </div>
+  <div class="verdict"><b>Taps</b> similar, but later · <b>Risk removed</b> a map failure no longer costs the whole session · <b>Effort</b> large</div>
+</div>
+
+<h3>Side by side</h3>
+<div class="tbl"><table>
+  <tr><th>&nbsp;</th><th>A · one action per screen</th><th>B · confirm, don't hunt</th><th>C · map last</th></tr>
+  <tr><td class="q">Removes the polygon tap</td><td class="c">no</td><td class="c">yes</td><td class="c">yes</td></tr>
+  <tr><td class="q">Uses what E1 already knows</td><td class="c">no</td><td class="c">yes</td><td class="c">yes</td></tr>
+  <tr><td class="q">Keeps the hazard framing up front</td><td class="c">yes</td><td class="c">yes</td><td class="c">no</td></tr>
+  <tr><td class="q">Survives a map failure</td><td class="c">no</td><td class="c">partly</td><td class="c">yes</td></tr>
+  <tr><td class="q">Ready before 12 August</td><td class="c">yes</td><td class="c">probably</td><td class="c">no</td></tr>
+  <tr><td class="q">Effort</td><td class="c">S–M</td><td class="c">M</td><td class="c">L</td></tr>
+</table></div>
+
+<h2>Fixes that apply whichever we choose</h2>
+<p class="lede">None of these are alternatives to each other — they are the failsafe layer, and most are small.</p>
+<ul>
+  <li><b>Never render a step with no visible target.</b> If zone fill computes to zero or the layer is empty, say so and offer the list instead of showing a blank map.</li>
+  <li><b>Acknowledge a missed tap.</b> Today nothing happens at all; a brief "toque em cima do bairro" after a tap that hits nothing would close the loop.</li>
+  <li><b>Grow the tap target</b> — a tap within a tolerance of a polygon should select the nearest one rather than requiring a hit inside it.</li>
+  <li><b>Stop shipping the whole city to the phone.</b> ⚠️ Not a caching problem — see the measurement below. The four reference layers already serve from committed snapshots in <b>1–10 ms</b>; what blocks is <b>1.6 MB of JSON</b> downloaded and then filtered to one bairro in the browser with ray-casting. Filter server-side by the bairro's bounds and the overlay mostly stops being necessary. Keep the corner chip and timeout regardless.</li>
+  <li><b>Drop sticky tooltips on touch</b> and close on pointer-out.</li>
+  <li><b>Touch targets to ≥ 36 px</b> across map chrome; the 10 px remove control is unusable with a thumb.</li>
+  <li><b>Re-bake the hazard ramps</b> so green never means danger on one layer and safety on the next — this is data-pipeline work, but the tour shows all three back to back.</li>
+  <li><b>Translate the loading and tooltip strings</b> that are still hard-coded English.</li>
+</ul>
+
+<h2>Decided design (/refine, 31 July)</h2>
+<p class="lede">Not one of the three wholesale — the tour survives, because its purpose is sound; what was missing is the thing that makes the purpose reachable.</p>
+
+<div class="tbl"><table>
+  <tr><th>Decision</th><th>Why</th></tr>
+  <tr><td class="q">Keep the one-hazard-per-screen cycle</td><td>Side-by-side is impossible at 390 px, and the map is a separate tab where the chat is not visible — the cycle is the right shape for that constraint, not a compromise.</td></tr>
+  <tr><td class="q">Draw their bairro's outline on every hazard screen</td><td>The tour exists so an organization can see how their territory compares to the rest of the city. Today the raster covers the whole metro region with nothing marking them, so the comparison is intended but undeliverable. The outline is what turns three pictures into a comparison.</td></tr>
+  <tr><td class="q">One check after all three</td><td>"Isso bate com o que vocês vivem aí?" — bate / mais ou menos / não bate. One decision rather than three, taken while the data is actually on screen. A "não bate" is a disagreement signal before we have asked anything else.</td></tr>
+  <tr><td class="q">Bairro pre-selected from E1, list as fallback</td><td>We usually already hold <code>bairro_of_operation</code>. Confirming beats hunting, and a name list is a reliable target where a polygon is not.</td></tr>
+  <tr><td class="q">Warn about the inverted ramp in words now</td><td><code>rampWarning()</code> already detects it. Say plainly on the flood screen that green is the higher risk here; re-baking all three onto one scale is September pipeline work.</td></tr>
+</table></div>
+
+<p><b>The challenge I owe you, since you asked.</b> You said you weren't sure how relevant the tour is. I think the intent is right and the execution currently cannot deliver it — a city-wide raster with no indication of where you are teaches nothing you can act on, which is probably why it feels uncertain. Outlining their bairro is the cheapest change that makes it do what it was always for. And the check afterwards may end up more valuable than the tour itself: "não bate" tells us our data misdescribes their territory, at the very start, from an organization that has just looked at it.</p>
+
+<p>One thing worth watching: we now ask "isso bate?" after the tour and "o que mais preocupa vocês?" a few beats later. They are different questions — the first is about whether our data describes them, the second about what they actually care about — but if the wording drifts together they will read as the same question asked twice, which is the fastest way to sound like a form.</p>
+
+<div class="rec">
+  <p><b>Sequence:</b> the failsafe list lands regardless and is mostly small. The false tour instruction is <b>already fixed</b>. Next, in order of value per effort: the bairro outline on the tour screens, the pre-selected bairro with its list fallback, the post-tour check, and the inverted-ramp warning. The site step stays where it is — the diagnostic already survives without it.</p>
+</div>
+
+<h2>Settled in the second interview</h2>
+<div class="tbl"><table>
+  <tr><th>Question</th><th>Decision</th></tr>
+  <tr><td class="q">Do we say the bairro was pre-filled?</td><td>Only when it genuinely came from them. "Peguei do que vocês contaram no primeiro encontro" is honest for an E1 answer and simply false when the bairro came from the coordinator's invite list — so attribute it in the first case and just ask in the second.</td></tr>
+  <tr><td class="q">Where does the check live?</td><td>Last screen of the map tab, right after the third hazard, while the maps are still what they are looking at.</td></tr>
+  <tr><td class="q">What does "não bate" do?</td><td>Flags it for the coordination <i>and</i> widens the recommendation, exactly as "não sei dizer" now does — only widening when no later per-hazard correction arrives, so the two cannot double-count.</td></tr>
+  <tr><td class="q">Failsafes for 12 August</td><td>All four: near-miss tolerance on the bairro tap, the OSM payload fix, the five-colour legend, and touch targets + sticky tooltips.</td></tr>
+</table></div>
+
+<h3>On caching OSM — already done, and the bottleneck is elsewhere</h3>
+<p>The question was whether we could hold OSM locally instead of depending on the live service. <b>We already do</b>, and it works: parks, schools, wetlands and hospitals all serve from committed snapshots under <code>knowledge/osm/porto-alegre/</code>, verified returning <code>X-Cache: snapshot</code> in <b class="num">1–10 ms</b>. That shipped in PR #375, which measured the cold Overpass path at <b class="num">48.1 s</b> against <b class="num">8 ms</b> from snapshot. Overpass now exists only as a fallback for a layer with no snapshot.</p>
+<p>So the blocking overlay is not waiting on a network service at all. It is waiting on <b class="num">1.6 MB</b> of JSON — parks 496 KB, schools 374 KB, wetlands 798 KB — being downloaded to the phone and then filtered down to a single bairro <i>in the browser</i>, with hand-rolled point-in-polygon ray-casting. On mobile data that is the whole cost.</p>
+<p>The fix is therefore server-side filtering by the bairro's bounds, not more caching. Worth saying plainly because it would be easy to spend a week making the caching better and move nothing.</p>
+<p class="lede">One related item that is <i>not</i> in E2's path: the per-zone <code>osm-assets</code> query (436 Overpass calls) flagged as open in the snapshot work belongs to the legacy Site Explorer, not the CBO map. E2 is clean on that front.</p>
+
+<p class="foot">Evidence: automated runs of the three test-kit scenarios at iPhone 14 Pro viewport (31 July 2026) — the zone tap needed a jittered retry across up to eight offsets; <code>docs/cbo-ux-audit-backlog.md</code> items on OSM loading, sticky tooltips, touch targets, zone-step density and <code>MAP-ZONE-INVISIBLE</code>; <code>shared/hazard-legend.ts</code> ramp warnings; <code>client/src/core/components/maps/MapMicroapp.tsx</code>. E1 field <code>bairro_of_operation</code> and the cohort invite pre-fill are in <code>shared/cbo-field-catalog.ts</code> and <code>cboRoutes.ts</code>.</p>
+</div>

@@ -1,0 +1,661 @@
+<title>What our data can't know about a community site — W2 alternatives</title>
+<style>
+  :root {
+    --ground: #EDF0F1;
+    --card: #FBFCFC;
+    --ink: #1C282C;
+    --muted: #667479;
+    --line: #D6DDDF;
+    --rule: #BFCACD;
+    --accent: #2E5C6B;
+    --accent-soft: #DCE7EA;
+    --known: #3F7A55;
+    --known-bg: #E2EDE5;
+    --inferred: #A0722A;
+    --inferred-bg: #F2E9D8;
+    --unknown: #7B888C;
+    --unknown-bg: #E5E9EA;
+    --warn: #A34632;
+    --warn-bg: #F4E2DD;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #101719; --card: #172024; --ink: #DCE4E6; --muted: #8B989C;
+      --line: #263135; --rule: #334247; --accent: #7FB3C4; --accent-soft: #1B2C33;
+      --known: #7FBB8D; --known-bg: #1D3222; --inferred: #D4A855; --inferred-bg: #332915;
+      --unknown: #7C8A8F; --unknown-bg: #1E282B; --warn: #D98871; --warn-bg: #34211C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #101719; --card: #172024; --ink: #DCE4E6; --muted: #8B989C;
+    --line: #263135; --rule: #334247; --accent: #7FB3C4; --accent-soft: #1B2C33;
+    --known: #7FBB8D; --known-bg: #1D3222; --inferred: #D4A855; --inferred-bg: #332915;
+    --unknown: #7C8A8F; --unknown-bg: #1E282B; --warn: #D98871; --warn-bg: #34211C;
+  }
+  :root[data-theme="light"] {
+    --ground: #EDF0F1; --card: #FBFCFC; --ink: #1C282C; --muted: #667479;
+    --line: #D6DDDF; --rule: #BFCACD; --accent: #2E5C6B; --accent-soft: #DCE7EA;
+    --known: #3F7A55; --known-bg: #E2EDE5; --inferred: #A0722A; --inferred-bg: #F2E9D8;
+    --unknown: #7B888C; --unknown-bg: #E5E9EA; --warn: #A34632; --warn-bg: #F4E2DD;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: "Avenir Next", Seravek, "Segoe UI", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.58;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 44px 22px 92px; }
+  h1, h2, h3, .serif { font-family: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif; }
+  h1, h2, h3 { font-weight: 600; text-wrap: balance; }
+  h1 { font-size: 32px; line-height: 1.18; margin: 0 0 12px; }
+  h2 { font-size: 23px; margin: 58px 0 4px; }
+  h3 { font-size: 17px; margin: 32px 0 6px; }
+  p, li { max-width: 74ch; }
+  .lede { color: var(--muted); margin-top: 2px; }
+  header.doc { border-bottom: 2px solid var(--rule); padding-bottom: 22px; }
+  .kicker { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+  .standfirst { font-size: 17.5px; max-width: 68ch; }
+  code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.85em; }
+  code { background: var(--unknown-bg); border-radius: 3px; padding: 1px 5px; }
+  blockquote { margin: 14px 0; padding: 12px 18px; background: var(--card); border-left: 3px solid var(--accent); }
+  blockquote p { margin: 0; font-style: italic; }
+  blockquote .who { display: block; font-style: normal; font-size: 12.5px; color: var(--muted); margin-top: 7px; }
+  .thesis { background: var(--accent-soft); border: 1px solid var(--rule); border-radius: 4px; padding: 18px 22px; margin: 22px 0; }
+  .thesis p { margin: 0; font-size: 17px; }
+  .sw { display: inline-block; width: 30px; height: 11px; border-radius: 2px; vertical-align: -1px; margin-right: 7px; flex: none; }
+  .sw.measured { background: var(--known); }
+  .sw.averaged { background: linear-gradient(to right, var(--inferred), rgba(160,114,42,0.25)); }
+  .sw.interp { background: repeating-linear-gradient(45deg, var(--inferred) 0 2px, transparent 2px 5px); border: 1px solid var(--inferred); }
+  .sw.none { border: 1.5px dotted var(--unknown); background: transparent; }
+  .sw.told { background: var(--known); box-shadow: inset 0 0 0 2px var(--card), 0 0 0 1.5px var(--known); }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px 24px; background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 14px 18px; margin: 18px 0; font-size: 13px; }
+  .legend div { display: flex; align-items: center; }
+  .tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--card); margin: 20px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th { text-align: left; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); font-weight: 400; padding: 11px 13px; border-bottom: 1.5px solid var(--rule); }
+  td { padding: 10px 13px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.q { font-weight: 600; min-width: 168px; }
+  td.src { font-size: 12.5px; color: var(--muted); min-width: 210px; }
+  td.they { min-width: 190px; }
+  td.r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .num { font-variant-numeric: tabular-nums; }
+  .tag { display: inline-block; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; letter-spacing: 0.04em; border-radius: 3px; padding: 1px 6px; white-space: nowrap; }
+  .tag.k { color: var(--known); background: var(--known-bg); }
+  .tag.i { color: var(--inferred); background: var(--inferred-bg); }
+  .tag.u { color: var(--unknown); background: var(--unknown-bg); }
+  .tag.w { color: var(--warn); background: var(--warn-bg); }
+  .alarm { border-left: 3px solid var(--warn); background: var(--warn-bg); padding: 14px 18px; border-radius: 0 4px 4px 0; margin: 18px 0; }
+  .alarm p { margin: 0 0 8px; font-size: 14px; }
+  .alarm p:last-child { margin-bottom: 0; }
+  .alt { background: var(--card); border: 1px solid var(--line); border-radius: 5px; padding: 20px 22px; margin: 20px 0; }
+  .alt-head { display: flex; align-items: baseline; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .alt-letter { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; font-weight: 700; color: var(--card); background: var(--accent); border-radius: 3px; padding: 2px 8px; }
+  .alt-name { font-family: "Iowan Old Style", Palatino, Georgia, serif; font-size: 19px; font-weight: 600; }
+  .alt-sub { font-size: 13px; color: var(--muted); flex-basis: 100%; }
+  .alt-grid { display: grid; grid-template-columns: minmax(255px, 1fr) minmax(235px, 315px); gap: 22px; align-items: start; }
+  @media (max-width: 700px) { .alt-grid { grid-template-columns: 1fr; } }
+  .alt dl { margin: 0; font-size: 13.5px; }
+  .alt dt { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-top: 12px; }
+  .alt dt:first-child { margin-top: 0; }
+  .alt dd { margin: 3px 0 0; }
+  .mock { background: var(--ground); border: 1px solid var(--line); border-radius: 10px; padding: 13px; display: flex; flex-direction: column; gap: 9px; }
+  .mock .bub { background: var(--card); border: 1px solid var(--line); border-radius: 10px 10px 10px 3px; padding: 8px 11px; font-size: 12.5px; }
+  .mock .row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .mock .c { border: 1.5px solid var(--rule); border-radius: 999px; padding: 3px 10px; font-size: 11.5px; background: var(--card); }
+  .mock .c.on { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .mock .c.dk { border-style: dashed; color: var(--muted); }
+  .mock .shot { border: 1.5px dashed var(--rule); border-radius: 6px; padding: 9px 11px; font-size: 11.5px; color: var(--muted); background: var(--card); }
+  .mock .sat { background: var(--unknown-bg); border-radius: 6px; padding: 18px 10px; font-size: 11.5px; text-align: center; color: var(--muted); }
+  .mock .cap { font-size: 11px; color: var(--muted); font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .verdict { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12.5px; align-items: center; color: var(--muted); }
+  .verdict b { font-weight: 600; color: var(--ink); }
+  .matrix td.c { text-align: center; }
+  .rec { border-left: 3px solid var(--known); background: var(--known-bg); padding: 14px 18px; border-radius: 0 4px 4px 0; margin: 18px 0; }
+  .rec p { margin: 0; font-size: 14px; }
+  ol.qs { counter-reset: q; list-style: none; padding-left: 0; }
+  ol.qs li { counter-increment: q; margin-bottom: 13px; padding-left: 42px; position: relative; }
+  ol.qs li::before { content: "Q" counter(q); position: absolute; left: 0; top: 2px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 3px; padding: 2px 6px; }
+  .foot { font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--rule); margin-top: 54px; padding-top: 16px; }
+  .flow-steps .alt-letter { min-width: 26px; text-align: center; }
+  .flow-steps .mock { max-width: 100%; }
+  a { color: var(--accent); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+<header class="doc">
+  <div class="kicker">NBS Project Builder · COUGAR · Workshop 2 · design alternatives</div>
+  <h1>What a 250-metre pixel cannot know about a community garden</h1>
+  <p class="standfirst">The W2 recommendation ranks five NBS families from data that was never measured at the place an organization chose — and in several cases was never measured anywhere near it. This sets out honestly what our data can and cannot say at site scale, then puts five alternatives on the table for letting the organizations close the gap themselves.</p>
+</header>
+
+<div class="thesis">
+  <p class="serif"><b>What W2 is for</b> (decided 31 July): not a precise recommendation — a <i>diagnostic</i>. Gather as much as we can in the easiest possible way, and establish where each organization stands, which is what determines how deep Workshop 3 can go. So uncertainty <i>widens</i> the aperture here and narrowing is W3's job. What an organization can tell us is itself the signal, not just the input.</p>
+</div>
+<p class="lede" style="margin-top:14px">Sections 1–3 are the evidence: what our data can and cannot say, and what the platform already receives. Section 4 is the option space. <b>Section 5 is the decided model</b> — read that first if you only read one.</p>
+
+<h2>1 · The asymmetry</h2>
+<p>Porto Alegre's ~<b class="num">497 km²</b> is divided into <b class="num">94</b> usable IBGE census bairros — a mean bairro of about <b class="num">500 hectares</b>, and Arquipélago alone is <b class="num">6,600</b>. A community organization's site is a square, a school yard, a vacant lot: <b class="num">0.3–1 hectare</b>.</p>
+
+<p>Here is what that means for the numbers we show them. Each layer's native cell, against a 0.3 ha praça:</p>
+
+<div class="tbl"><table>
+  <tr><th>The number we show</th><th>Native cell</th><th>Cell area</th><th class="r">× a 0.3 ha site</th></tr>
+  <tr><td>Landslide hazard &amp; mechanism</td><td class="src">90 m</td><td class="src">0.81 ha</td><td class="r">2.7×</td></tr>
+  <tr><td><b>Flood &amp; heat hazard, risk, mechanism</b></td><td class="src"><b>250 m</b></td><td class="src"><b>6.25 ha</b></td><td class="r"><b>21×</b></td></tr>
+  <tr><td>Soil clay content (SoilGrids), NDVI</td><td class="src">250 m</td><td class="src">6.25 ha</td><td class="r">21×</td></tr>
+  <tr><td>Elevation, slope, flow, population &amp; building density (v3 grid)</td><td class="src">1 km effective</td><td class="src">100 ha</td><td class="r">333×</td></tr>
+  <tr><td>Rainfall trigger (CHIRPS Rx1day)</td><td class="src">~5.5 km</td><td class="src">~2,700 ha</td><td class="r">~9,000×</td></tr>
+  <tr><td>Heatwave magnitude (ERA5-Land)</td><td class="src">11 km</td><td class="src">~11,000 ha</td><td class="r">~37,000×</td></tr>
+</table></div>
+
+<p>A 55 × 55 m yard takes its flood and heat numbers from a cell twenty-one times its size, and its rainfall trigger from a cell covering roughly a fifth of the municipality. ERA5-Land resolves to just <b class="num">3 × 3</b> pixels over the whole metro area — which is exactly why it was excluded from the operational heat ensemble, though eight ERA5-derived layers and two "schools in heatwave zones" query cards still ship.</p>
+
+<h3>It is worse than resolution, in three specific ways</h3>
+<p><b>Two of the three factors in every risk score are bairro constants.</b> Risk is <code>(H × E × V)^⅓</code>. Hazard varies at 250 m; exposure (population density) and vulnerability (share aged 0–4 and 60+) are <i>identical for every site in the bairro</i> — stated verbatim in all three methodology docs. For a 0.3 ha site those are averages over an area 1,600× to 22,000× larger. And exposure's denominator is total bairro area including parks, water and industry, so a bairro with a big park reads as less dense than the streets people actually live on.</p>
+
+<p><b>The site's shape is discarded.</b> When an organization draws a polygon, the app reduces it to <code>geometryCentroid()</code> — an unweighted mean of the vertices, not an area centroid — and samples one pixel there (<code>MapMicroapp.tsx:1304-1317</code>). No zonal statistic is ever computed. An L-shaped lot gets located toward whichever arm has more vertices.</p>
+
+<p><b>And the ranking doesn't even use that point.</b> The recommendation reads <code>_bairro_flood_pct</code> — the neighbourhood figure (<code>cboAgent.ts:1332</code>, written at <code>:1494</code>) — while the site's own lat/lng sits unused beside it. Two organizations in the same bairro, one on a hilltop and one in a hollow, get identical hazard inputs and therefore the same family order.</p>
+
+<h3>One fifth of the flood mechanism map was never screened</h3>
+<div class="tbl"><table>
+  <tr><th>Flood mechanism raster, Porto Alegre</th><th class="r">Pixels</th><th class="r">Share</th></tr>
+  <tr><td>Total on the 250 m grid</td><td class="r">19,328</td><td class="r">100%</td></tr>
+  <tr><td>Directly screened against local evidence</td><td class="r">~15,394</td><td class="r">~80%</td></tr>
+  <tr><td><b>Filled by inverse-distance interpolation from neighbours</b></td><td class="r"><b>~3,934</b></td><td class="r"><b>~20%</b></td></tr>
+  <tr><td>Flood <i>hazard</i>: observed ensemble coverage</td><td class="r">13,894</td><td class="r">71.9%</td></tr>
+</table></div>
+<p>The published product is deliberately the <i>filled</i> raster. The methodology is candid about what that means: filled gaps "have no local hazard evidence; they inherit context from observed neighbours", and interpolation "can smooth transitions and produce <code>mixed</code> in bands where direct screening would be more binary". Interpolated values are "inferred screening scores, not new observations", and the doc asks that they "be flagged (<code>is_interpolated</code>) and not conflated with direct ensemble outputs".</p>
+
+<div class="alarm">
+  <p><b>The flag exists as a raster product. It is surfaced nowhere.</b> Searching the entire client, server and shared code for <code>is_interpolated</code> returns three hits: a Leaflet attribution string, an i18n config line, and a colour-ramp function. On hover, a gap-filled pixel and a directly-screened one both read "Mixed", identically. The tooltip prints the value to three decimal places either way.</p>
+  <p>Alongside that, a long list of values are substituted defaults no one is told about: missing HAND becomes <span class="mono">0.3</span>; missing rainfall trigger, soil cohesion and permeability all become <span class="mono">0.5</span> (SoilGrids covers 64% of the city); missing elevation becomes the city's 25th percentile; ~46% of grid cells get their bairro by nearest-centroid fallback rather than point-in-polygon. And when a layer has no data at the site at all, its line is simply omitted from the tooltip — an absence, never a "we can't say here".</p>
+</div>
+
+<h3>Some classes we would rank on can never appear</h3>
+<p>This one bears directly on the mechanism-informed ranking proposed in the companion doc. Of the flood mechanism classes, <b><code>drainage_constrained</code> never occurs anywhere in Porto Alegre</b> — it is a proxy awaiting municipal drainage data we do not have. Of the ten landslide mechanism classes, four never appear, and most of the city is nodata because the layer is gated to hazard &gt; 0. Heat lacks <code>limited_nocturnal_cooling</code> entirely. A recommendation rule keyed to a phantom class is dead code that looks like intelligence.</p>
+
+<p>Two further cautions on the same layer: <code>riverine=True</code> and <code>flood_mechanism_type=none</code> can legitimately coexist (different thresholds), and the landslide ramp's 98th percentile across POA is only <b class="num">0.393</b>, so the entire city renders green and real variation is invisible.</p>
+
+<h3>The provenance we do show is out of date</h3>
+<p><code>data-provenance.ts</code> is the only "about this data" surface in the product, and it currently tells users the flood layer is built from the May 2024 Copernicus emergency mapping — while the shipped hazard ensemble is JRC GloFAS RP100 (0.45), the Global Flood Database (0.30), WRI Aqueduct v2 (0.15) and GFPLAIN250m (0.10). It credits ERA5-Land for heat, which was explicitly excluded. Separately, the flood model's own validation is compromised by leakage: the May 2024 depth raster is a 15%-weight input <i>and</i> the validation label, and the audit's gate table answers "F1 = 70% validated model?" with a flat <b>No</b>.</p>
+
+<blockquote>
+  <p>They already know their territory. What the platform adds is a source they can put in front of a funder.</p>
+  <span class="who">Ana's framing, PxG&lt;&gt;OEF biweekly, 16 July — the reason to formalise local knowledge rather than replace it</span>
+</blockquote>
+
+<p>Which is the uncomfortable inversion at the centre of this: we are asking communities to trust our numbers as the formal evidence for their projects, when at their scale their own knowledge is the better instrument. In a REDD+ study, participatory mapping added <b class="num">39</b> land-cover classes to the <b class="num">8</b> a remote-sensing desk assessment produced. At site scale, community knowledge isn't a garnish on the raster — it is most of the map.</p>
+
+<h2>2 · What only they can tell us</h2>
+<p class="lede">Every question that changes an NBS recommendation, and where the answer would have to come from.</p>
+
+<div class="legend">
+  <div><span class="sw measured"></span> measured at this place</div>
+  <div><span class="sw averaged"></span> neighbourhood average</div>
+  <div><span class="sw interp"></span> interpolated or proxied</div>
+  <div><span class="sw none"></span> we have nothing</div>
+  <div><span class="sw told"></span> they told us</div>
+</div>
+
+<div class="tbl"><table>
+  <tr><th>The question that matters</th><th>What we have</th><th>At site scale</th><th>What they would say</th></tr>
+  <tr>
+    <td class="q">Does water collect here, and for how long?</td>
+    <td class="src">Flood hazard from four global riverine models on a 250 m grid; 28% of pixels interpolated. No dedicated pluvial model.</td>
+    <td><span class="sw averaged"></span><span class="tag i">bairro average</span></td>
+    <td class="they">"It pools in that corner and takes two days to drain."</td>
+  </tr>
+  <tr>
+    <td class="q">Where does the water come from?</td>
+    <td class="src">Mechanism class, dominant only — a "mixed" pixel hides which mechanisms tie, ~20% are gap-fill, and one of the four classes can never occur.</td>
+    <td><span class="sw interp"></span><span class="tag i">partly phantom</span></td>
+    <td class="they">"It comes down off the street, not from the stream."</td>
+  </tr>
+  <tr>
+    <td class="q">Does rain soak into this ground?</td>
+    <td class="src">SoilGrids 250 m, 64% coverage, default 0.5 where missing. Field infiltration tests are named as required before design. Robson flagged permeability as a critical hidden variable on 8 July.</td>
+    <td><span class="sw none"></span><span class="tag u">screening only</span></td>
+    <td class="they">"It turns to mud" · "there's slab underneath" · "it drains fast."</td>
+  </tr>
+  <tr>
+    <td class="q">How deep is the groundwater?</td>
+    <td class="src">Nothing usable — global layers too coarse for urban POA. This is the <i>exclusion</i> criterion for rain gardens and permeable surfaces: the two solutions Robson rated most feasible.</td>
+    <td><span class="sw none"></span><span class="tag w">missing, and decisive</span></td>
+    <td class="they">"The water table's right there — you dig half a metre and it's wet."</td>
+  </tr>
+  <tr>
+    <td class="q">What's buried under it?</td>
+    <td class="src">No open utilities or drainage network at city scale. Robson, 22 July: a street bioswale needs a check for water and gas pipes.</td>
+    <td><span class="sw none"></span><span class="tag w">missing, and decisive</span></td>
+    <td class="they">"They opened that street last year — there's a main under the kerb."</td>
+  </tr>
+  <tr>
+    <td class="q">Is it unbearable here in the afternoon?</td>
+    <td class="src">Summer land-surface temperature 2015–2024 resampled from 1 km MODIS. LST is not air temperature, and there is no shade, canopy or plantable-area layer at site scale.</td>
+    <td><span class="sw averaged"></span><span class="tag i">proxy, bairro average</span></td>
+    <td class="they">"Nobody can use the court after two o'clock."</td>
+  </tr>
+  <tr>
+    <td class="q">Could this roof take a green roof?</td>
+    <td class="src">No structural-capacity layer exists. Green roofs cannot be screened at all — and Robson rated them "very feasible".</td>
+    <td><span class="sw none"></span><span class="tag u">unscreenable</span></td>
+    <td class="they">"It's a slab" · "it's fibre-cement sheet on timber."</td>
+  </tr>
+  <tr>
+    <td class="q">Is this slope moving?</td>
+    <td class="src">90 m grid, hazard-gated, p98 = 0.393 so the whole city renders green. No validation against any landslide inventory. Narrow ravines under 30 m average out below the activation threshold.</td>
+    <td><span class="sw interp"></span><span class="tag w">low contrast, unvalidated</span></td>
+    <td class="they">"Every heavy rain takes more earth toward the house."</td>
+  </tr>
+  <tr>
+    <td class="q">Whose land is it, and can you use it?</td>
+    <td class="src">No cadastre, anywhere in the pipeline. Legal tenure is not inferable from land cover.</td>
+    <td><span class="sw none"></span><span class="tag u">missing</span></td>
+    <td class="they">Exactly — and we already ask (<code>land_tenure</code>), then never use the answer.</td>
+  </tr>
+  <tr>
+    <td class="q">What is already growing or built there?</td>
+    <td class="src">OSM reference layers — thin and inconsistent for informal and community spaces.</td>
+    <td><span class="sw none"></span><span class="tag u">sparse</span></td>
+    <td class="they">"There's already a garden behind the shed."</td>
+  </tr>
+</table></div>
+
+<p>Read the third column downward: <b>not one input to the family ranking is measured at the site.</b> Two are neighbourhood averages, three are interpolated or proxied, five don't exist. The organization sitting in front of the screen is the highest-resolution instrument in the system — and on the two questions that would actually rule out Robson's most-feasible solutions (groundwater, buried pipes) they are the <i>only</i> instrument.</p>
+
+<h2>3 · What the platform can already receive</h2>
+<p class="lede">Nine capture affordances exist. Exactly one computation consumes site data, and it reads five values.</p>
+<div class="tbl"><table>
+  <tr><th>Already captured</th><th>Where it goes</th><th>What consumes it</th></tr>
+  <tr><td><code>current_use</code> — 5 enum chips</td><td><code>intervention_site</code></td><td><span class="tag k">ranking</span> — three boosts: abandoned→agriculture, paved→urban green, vegetated→restoration</td></tr>
+  <tr><td><code>site_name</code></td><td>same</td><td><span class="tag k">ranking</span> — keyword regexes (horta, praça, arroio…)</td></tr>
+  <tr><td><code>land_tenure</code> — 5 enum chips</td><td>same</td><td><span class="tag i">maturity only</span> — deterministically scores <code>site_control</code>; invisible to the ranking and to feasibility</td></tr>
+  <tr><td>Photos, PDFs, audio (📎 in E2)</td><td>disk + <code>documents</code> table + blob</td><td><span class="tag k">the agent</span> — see below; far more than expected</td></tr>
+  <tr><td>Free text mid-flow</td><td>transcript</td><td><span class="tag i">last 10 messages</span> — <code>buildDecisionLog</code>, truncated to 300 chars each. Older text is invisible to every automated path.</td></tr>
+  <tr><td>Drawn point / polygon</td><td><code>_site_lat/_lng</code>; geometry → <code>cohort_members.site</code></td><td><span class="tag u">nothing</span> — the <code>(drawn area)</code> marker is matched and explicitly discarded server-side</td></tr>
+  <tr><td><code>nbs_interest</code>, <code>role_preference</code></td><td>same section</td><td><span class="tag u">nothing</span> — the inputs the September clustering is supposed to run on</td></tr>
+  <tr><td>"Ask the coordination for help"</td><td><code>SupportRequest</code> jsonb</td><td><span class="tag u">nothing</span> — write-only; the only coordinator-authored narrative in the system</td></tr>
+</table></div>
+
+<h3>Most of what we need is already built, then dropped at a parse boundary</h3>
+<p>This reframes the whole exercise. Several of the alternatives below are not "build intake" but "stop discarding what arrives":</p>
+<ul>
+  <li><b>Point-level raster values are already sampled</b> on every map click and serialised into the confirm message — and the server's two regexes capture only zone names, three percentages, and lat/lng. The site-level numbers travel the whole way and are dropped in the parse.</li>
+  <li><b>The offline zone data is far richer than what survives</b>: a full H×E×V decomposition, flood-extent percentage, vulnerability factor, population and priority score are computed, rendered in tooltips — then collapsed to three integers (<span class="mono">3 decimals → toFixed(0) → parseInt</span>) before anything stores them.</li>
+  <li><b>Uploads already get heavy AI extraction</b> — vision OCR on every image with a verbatim-transcription prompt, PDF page vision, PPTX, DOCX, XLSX, and audio transcription — and reach the agent four ways, including a <code>DOCUMENTS ON FILE</code> block in every system prompt. The 8 July "photo analysis is experimental" caveat is about <i>trusting</i> it, not about building it.</li>
+  <li><b>But photo EXIF/GPS is discarded</b> — no code path reads it. A photo taken at the site carries its own coordinates and we throw them away.</li>
+  <li><b>Voice input already works</b> — recorder → transcription endpoint → normal text turn. The audio isn't retained, but the capture exists.</li>
+  <li><b>Polygon drawing is implemented and hidden</b> — the E2 focused-site map runs in <code>simpleSite</code> mode, which removes the draw controls; geometry that does get through is stored in <code>cohort_members.site</code> where nothing reads it.</li>
+  <li><b>The community-anchoring composer is fully built and unreachable</b>, along with priority ranking — both explicitly deferred in the E2 skill.</li>
+</ul>
+
+<div class="alarm">
+  <p><b>One provenance defect to fix before alternative E is honest.</b> The support inbox links coordinators to the CBO's own profile page, which is unauthenticated and has no principal distinction — so a coordinator gets full edit rights over every field, and <code>handleCboEdit</code> hard-codes <code>source: 'user'</code>. A coordinator's inference is recorded as the organization's own statement, and the edit re-invokes the agent, which can cascade into further writes and append turns to the org's transcript.</p>
+  <p>Related, and relevant to B: the upload routes have no auth or cohort check, and <code>GET /api/documents/:id/original</code> is completely ungated — the raw file is the least protected artefact in the chain. That needs closing before we invite a cohort to photograph their sites, and certainly before the data-governance agreement is signed.</p>
+</div>
+
+<h3>The precondition: stop showing inferred values as measured</h3>
+<p>None of the alternatives below are honest while the platform still presents a gap-filled 250 m average as a fact about someone's yard. Four cheap moves, none of which need a single new answer from anyone:</p>
+<ul>
+  <li><b>Surface <code>is_interpolated</code></b> — the raster already exists; the tooltip and the site card should distinguish "screened here" from "inferred from neighbours within 750 m".</li>
+  <li><b>Say the cell size next to the site</b>, once, in words they can act on: "one square of this map covers about six hectares — several blocks."</li>
+  <li><b>Render nodata as a statement</b> — "we can't say here" — instead of an omitted line.</li>
+  <li><b>Fix <code>data-provenance.ts</code></b> so the sources it names are the sources actually in the ensemble.</li>
+</ul>
+<p>There is a precedent to extend rather than invent: <code>estimated: true</code> on NBS catalogue content, rendered as a visible mark with "estimated classification, under verification". It is the only per-value honesty flag in the product — and today it covers the solution cards, not a single geospatial number.</p>
+
+<h2>4 · Five alternatives</h2>
+<p class="lede">Five answers to "how does what only they know get into the system?" — not mutually exclusive; §5 proposes a combination. Mockups are in English; the shipped UI is pt-BR.</p>
+
+<div class="alt">
+  <div class="alt-head"><span class="alt-letter">A</span><span class="alt-name">"Does that match?" — the platform states, they correct</span>
+    <span class="alt-sub">Turn the two or three weakest values into plain-language claims the organization can confirm, correct, or wave off.</span></div>
+  <div class="alt-grid">
+    <div>
+      <dl>
+        <dt>What it fixes</dt><dd>Upgrades exactly the values the ranking leans on — flood mechanism, ground behaviour, afternoon heat — from "bairro average, partly interpolated" to "they told us", in-session.</dd>
+        <dt>Why it fits these users</dt><dd>Taps, not typing. Electronic forms measured ~4.2% error with novice and low-literacy users against ~0.5% on an assisted path; reacting to a claim someone else made is the lightest input there is. "I'm not sure" is already first-class in E1 (<code>has_cnpj: not-sure</code>).</dd>
+        <dt>Risk</dt><dd>Leading the witness. Mitigations: symmetric phrasing, "I'm not sure" with no penalty, never more than three checkpoints, and the platform admitting its own coarseness first — which the precondition above makes true rather than rhetorical.</dd>
+        <dt>Effect on ranking</dt><dd>Direct and immediate. A confirmed mechanism changes which solutions lead inside a family; a correction overrides the pixel and is labelled as theirs.</dd>
+      </dl>
+    </div>
+    <div class="mock">
+      <div class="cap">after the site card</div>
+      <div class="bub">One square of our map covers about six hectares — several blocks. So let me check two things with you.</div>
+      <div class="bub">It suggests the flooding here is <b>rain that can't drain away</b>, rather than the stream rising. Does that match?</div>
+      <div class="row"><span class="c on">That's it</span><span class="c">No — it's the stream</span><span class="c dk">I'm not sure</span></div>
+      <div class="bub">And when it rains hard, does the water sit or drain within the day?</div>
+      <div class="row"><span class="c">Drains fast</span><span class="c on">Sits a day or more</span><span class="c dk">I'm not sure</span></div>
+      <div class="bub">Noted — that changes what's worth studying, and I'll show you how.</div>
+    </div>
+  </div>
+  <div class="verdict"><b>Burden</b> ~30 seconds, taps only · <b>Build</b> S · <b>Reaches the ranking</b> in-session · <b>Needs</b> point-level mechanism sampling first</div>
+</div>
+
+<div class="alt">
+  <div class="alt-head"><span class="alt-letter">B</span><span class="alt-name">Three photographs that answer three questions</span>
+    <span class="alt-sub">Replace the open "attach files" invitation with three named shots, each tied to something no raster can see.</span></div>
+  <div class="alt-grid">
+    <div>
+      <dl>
+        <dt>What it fixes</dt><dd>Ground surface, drainage behaviour, existing vegetation and structures — and roof type, which is the only way a green roof can be screened at all. It also produces the evidence a mentor or funder will ask for regardless.</dd>
+        <dt>Why it fits these users</dt><dd>The phone camera is the one instrument every organization already carries and already uses daily. No literacy demand, no map interaction, and it can be done at the site by whoever happens to be there.</dd>
+        <dt>Cheaper than it looks</dt><dd>The upload path already runs vision OCR on every image and feeds the result to the agent. What's missing is naming the three shots, tagging each to the question it answers, and <b>reading the EXIF coordinates we currently discard</b> — which would give us a site location measured by the person standing in it.</dd>
+        <dt>Risk</dt><dd>Quality, angle and season make extraction unreliable — flagged experimental on 8 July, with coordinator review as the standing fallback. And the plumbing is not ready for volume: the upload routes have no auth and the original-file route is ungated. Consent and retention are unresolved until the governance agreement lands, and this cohort has already voiced exactly that worry.</dd>
+        <dt>Effect on ranking</dt><dd>None at first, by design: asynchronous. It informs the coordinator, the mentorship and W3 scoping; extraction later, always as a suggestion to confirm.</dd>
+      </dl>
+    </div>
+    <div class="mock">
+      <div class="cap">end of E2, or between sessions</div>
+      <div class="bub">If you're at the site with your phone sometime, three photos would help a lot — no rush, skip any of them:</div>
+      <div class="shot">📷 <b>The whole space</b>, from the entrance</div>
+      <div class="shot">📷 <b>Where the water goes</b> when it rains hard</div>
+      <div class="shot">📷 <b>The ground up close</b> — grass, earth, concrete</div>
+      <div class="row"><span class="c on">Send now</span><span class="c">I'll send later</span><span class="c dk">Skip</span></div>
+      <div class="cap">coordinator drawer receives them tagged by question</div>
+    </div>
+  </div>
+  <div class="verdict"><b>Burden</b> low mentally, needs a site visit · <b>Build</b> XS–S (pipeline exists) · <b>Reaches the ranking</b> not directly · <b>Blocked by</b> governance terms + route auth</div>
+</div>
+
+<div class="alt">
+  <div class="alt-head"><span class="alt-letter">C</span><span class="alt-name">Marks on the satellite image</span>
+    <span class="alt-sub">Two or three typed pins inside their own site: where water pools, where the sun is punishing, where earth comes down.</span></div>
+  <div class="alt-grid">
+    <div>
+      <dl>
+        <dt>What it fixes</dt><dd>The resolution mismatch head-on. It is the only alternative producing data spatially precise enough to legitimately replace a 6.25-hectare average — and the artefact participatory-mapping research says makes local knowledge legible to government.</dd>
+        <dt>Why it fits these users</dt><dd>Pointing beats describing, and the satellite view of their own block is instantly recognisable — recognition rather than recall.</dd>
+        <dt>Half of it already exists</dt><dd>Vertex-by-vertex polygon drawing is implemented; the E2 focused-site map just hides the controls in <code>simpleSite</code> mode, and any geometry that survives is stored where nothing reads it. The engineering gap is smaller than the UX gap.</dd>
+        <dt>Risk</dt><dd>The map is already the hardest beat in E2; the UX backlog asks to simplify it, not extend it (touch targets and the blocking load overlay are open items). And precision theatre: three pins can look more authoritative than they are.</dd>
+        <dt>Effect on ranking</dt><dd>Strongest available — a pin inside the site justifies replacing the bairro figure for that hazard and setting the mechanism locally. Note it only fixes hazard: exposure and vulnerability stay bairro constants whatever we do.</dd>
+      </dl>
+    </div>
+    <div class="mock">
+      <div class="cap">optional after site confirm — or coordinator-assisted</div>
+      <div class="bub">Want to mark what happens where? Two or three marks is plenty.</div>
+      <div class="row"><span class="c on">💧 water pools</span><span class="c">☀️ no shade</span><span class="c">⛰️ earth slides</span></div>
+      <div class="sat">🛰️ your site, satellite view<br /><span class="cap">tap to place · drag to move · tap again to remove</span></div>
+      <div class="row"><span class="c on">Done</span><span class="c dk">Skip this</span></div>
+    </div>
+  </div>
+  <div class="verdict"><b>Burden</b> highest · <b>Build</b> M · <b>Reaches the ranking</b> strongest signal · <b>Caution</b> lands on the flow's weakest step</div>
+</div>
+
+<div class="alt">
+  <div class="alt-head"><span class="alt-letter">D</span><span class="alt-name">Let them tell the story, then read it back</span>
+    <span class="alt-sub">One open prompt — spoken or typed — about what happens there when it rains hard; the agent extracts structure and confirms each item before storing it.</span></div>
+  <div class="alt-grid">
+    <div>
+      <dl>
+        <dt>What it fixes</dt><dd>Everything at once, unstructured — including what we didn't think to ask, which is the point. It is also the beat where an organization feels heard rather than surveyed.</dd>
+        <dt>Why it fits these users</dt><dd>Voice notes are native to how this cohort communicates, and speaking carries no literacy cost. The knowledge exists as narrative: "in 2024 the water reached the second step." <b>Voice capture already ships</b> — recorder to transcription endpoint to a normal text turn.</dd>
+        <dt>Risk</dt><dd>Over-inference — we have been burned already. Ana's field report (7 Jul) found the agent silently filling scoring enums from a news article, wrong and in English. The rule from that fix holds: descriptive fields may be filled, scoring fields become suggestions the organization confirms. Second constraint: the agent's working memory is the last ten messages truncated to 300 characters each, so a story that isn't turned into a field is forgotten within a few turns.</dd>
+        <dt>Effect on ranking</dt><dd>Only through confirmed chips, never silently. An unconfirmed story changes the why-lines, not the order.</dd>
+      </dl>
+    </div>
+    <div class="mock">
+      <div class="cap">replaces or precedes the checkpoints in A</div>
+      <div class="bub">Tell me in your own words what happens there when it rains hard — you can record a voice note.</div>
+      <div class="row"><span class="c on">🎙️ Record</span><span class="c">Type instead</span></div>
+      <div class="bub">Here's what I understood — correct anything wrong:</div>
+      <div class="row"><span class="c on">comes off the street ✓</span><span class="c on">pools 2 days ✓</span><span class="c dk">clay soil?</span></div>
+      <div class="cap">confirmed → stored + ranked · unconfirmed → why-lines only</div>
+    </div>
+  </div>
+  <div class="verdict"><b>Burden</b> lowest to start, open-ended · <b>Build</b> M — voice already exists · <b>Reaches the ranking</b> via confirmation · <b>Precedent</b> the E1 over-inference fix</div>
+</div>
+
+<div class="alt">
+  <div class="alt-head"><span class="alt-letter">E</span><span class="alt-name">The coordinator fills what the platform can't</span>
+    <span class="alt-sub">A per-organization "still unknown" queue in the orchestrator, filled during mentoring and labelled as coordinator-sourced.</span></div>
+  <div class="alt-grid">
+    <div>
+      <dl>
+        <dt>What it fixes</dt><dd>The residue of every other alternative — organizations that don't answer, don't upload, or answer "I'm not sure" — plus knowledge that only ever exists in a conversation.</dd>
+        <dt>Why it fits these users</dt><dd>The assisted path is empirically the most accurate input mode for this population, and it matches how COUGAR already runs: mentoring from September, with coordinator back-office review regardless of what the platform captures (8 July decision).</dd>
+        <dt>Risk</dt><dd>Staff time — and a provenance defect that must be fixed first: today a coordinator editing through the CBO page is logged as <code>source: 'user'</code>, indistinguishable from the organization itself. Alternative E is dishonest until that is separated.</dd>
+        <dt>Effect on ranking</dt><dd>Same weight as an organization's answer, different label. Feeds the aggregated cohort dashboard directly (backlog #18).</dd>
+      </dl>
+    </div>
+    <div class="mock">
+      <div class="cap">orchestrator · per organization</div>
+      <div class="bub"><b>Still unknown — Org B, Praça do Mercado</b></div>
+      <div class="shot">Water source — <i>pixel says pluvial, interpolated, unconfirmed</i></div>
+      <div class="shot">Ground surface — <i>no data</i></div>
+      <div class="shot">Tenure — <i>"city's, but we use it" — no formal agreement</i></div>
+      <div class="row"><span class="c on">Fill from mentoring notes</span><span class="c">Ask the org</span></div>
+      <div class="cap">stored as source: coordination — and shown as such</div>
+    </div>
+  </div>
+  <div class="verdict"><b>Burden</b> on OEF / Vila Flores, not the org · <b>Build</b> S — inbox exists · <b>Blocked by</b> the coordinator-provenance fix · <b>Pairs with</b> all of the above</div>
+</div>
+
+<h3>Comparison</h3>
+<div class="tbl"><table class="matrix">
+  <tr><th>&nbsp;</th><th>Burden on org</th><th>Build</th><th>Ranking effect</th><th>Gaps it fills</th><th>Ready for 12 Aug?</th></tr>
+  <tr><td class="q">A · Does that match?</td><td class="c">very low</td><td class="c">S</td><td class="c">direct, in-session</td><td>mechanism, ground, heat</td><td class="c"><span class="tag k">yes</span></td></tr>
+  <tr><td class="q">B · Three photographs</td><td class="c">low, off-session</td><td class="c">XS–S</td><td class="c">none at first</td><td>surface, roof, vegetation, GPS</td><td class="c"><span class="tag i">needs auth + governance</span></td></tr>
+  <tr><td class="q">C · Marks on the image</td><td class="c">high</td><td class="c">S–M</td><td class="c">strongest</td><td>resolution itself</td><td class="c"><span class="tag u">no</span></td></tr>
+  <tr><td class="q">D · Tell the story</td><td class="c">low / open</td><td class="c">M</td><td class="c">via confirmation</td><td>anything, incl. unasked</td><td class="c"><span class="tag i">partly</span></td></tr>
+  <tr><td class="q">E · Coordinator fills</td><td class="c">none</td><td class="c">S</td><td class="c">yes, labelled</td><td>the residue of all</td><td class="c"><span class="tag i">after provenance fix</span></td></tr>
+</table></div>
+
+<h2>5 · The decided model — W2, beat by beat</h2>
+<p class="lede">Decisions taken 31 July. The sequence inverts the doc's original proposal: <b>they speak first</b>, then photographs, then we correct our understanding of what <i>they</i> gave us. The coordinator layer moves to W3. Frames are in English; the shipped UI is pt-BR.</p>
+
+<div class="flow-steps">
+
+  <div class="alt">
+    <div class="alt-head"><span class="alt-letter">0</span><span class="alt-name">The frame — why we're asking</span>
+      <span class="alt-sub">The honesty from §3 stops being a separate feature and becomes the opening line that motivates everything after it.</span></div>
+    <div class="mock" style="max-width:520px">
+      <div class="bub">Before we go further — one square of our map covers about six hectares, several blocks. It's useful for comparing areas, but it can't see your yard. <b>You know this place far better than our data does.</b></div>
+    </div>
+  </div>
+
+  <div class="alt">
+    <div class="alt-head"><span class="alt-letter">0b</span><span class="alt-name">What these solutions do and don't do</span>
+      <span class="alt-sub">Added 31 July from a technical note by <b>Conceito Arte</b>, an organization in this cohort — which is what makes it sayable.</span></div>
+    <div class="alt-grid">
+      <div>
+        <dl>
+          <dt>Why it belongs in W2, not W3</dt><dd>If an organization names flooding meaning May 2024 and we walk them toward rain gardens, we have offered something addressing ~0.03% of what frightens them. Expectation-setting has to happen <i>before</i> they design a project against a problem it cannot solve — Ana's 8 July caution about not overselling community-scale potential, arrived at independently by a community organization with numbers.</dd>
+          <dt>When it fires</dt><dd>Not always. Only when they name flooding <i>and</i> their story mentions 2024, the Guaíba, a river or a dike — otherwise it's an unprompted lecture about limits, which is its own kind of discouragement.</dd>
+          <dt>It is the mechanism distinction, in impact language</dt><dd>Riverine catastrophe → NBS marginal. Pluvial microbasin → NBS strong. The same split the mechanism rasters encode, restated as "can this project honestly claim impact?" — which is the version a funder actually asks.</dd>
+          <dt>Provenance</dt><dd>Illustrative for the Sarandi basin, on a hypothetical 160-intervention portfolio. Carries an <code>estimated</code> flag, same discipline as <code>classificationEstimated</code>.</dd>
+        </dl>
+      </div>
+      <div class="mock">
+        <div class="cap">fires only on a catastrophe-scale expectation</div>
+        <div class="bub">NBS work very well on everyday water — the rain that floods the street, overloads the drain, the heat that takes over the square. What they <b>don't</b> solve is the big flood, rivers rising and dikes breaking: that needs macrodrainage works. This doesn't diminish your project — it just places where it genuinely acts.</div>
+        <div class="shot">microbasin flooding → ~11.5% absorbed</div>
+        <div class="shot">2024 historic flood → ~0.03% absorbed</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alt">
+    <div class="alt-head"><span class="alt-letter">1</span><span class="alt-name">What worries you most here?</span>
+      <span class="alt-sub">One chip question, options ordered by what the bairro data suggests. Routes everything downstream — and the answer is itself diagnostic.</span></div>
+    <div class="alt-grid">
+      <div>
+        <dl>
+          <dt>Why this first</dt><dd>It answers "how do we know whether this is a flood story or a heat story" with one tap instead of an inference, and what they pick — including when it disagrees with our data — tells us where they stand.</dd>
+          <dt>Build</dt><dd>A switch, not a build: <code>ask_priority_rank</code> is a fully built composer currently deferred in the E2 skill. Reactivate it, seed the order from <code>_bairro_*_pct</code>, and allow more than one.</dd>
+          <dt>Watch for</dt><dd>Disagreement with the raster is a finding, not an error — log it. Several of these sites carry two hazards at once, so multi-select.</dd>
+        </dl>
+      </div>
+      <div class="mock">
+        <div class="bub">What worries you most about this place?</div>
+        <div class="row"><span class="c on">💧 Flooding</span><span class="c">🌡️ Heat</span><span class="c">⛰️ The slope</span><span class="c dk">Something else</span></div>
+        <div class="cap">order seeded by bairro data · multi-select · disagreement is logged</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alt">
+    <div class="alt-head"><span class="alt-letter">2</span><span class="alt-name">The story — broad, with examples</span>
+      <span class="alt-sub">One open invitation plus two or three examples of what helps, explicitly as examples rather than a checklist.</span></div>
+    <div class="alt-grid">
+      <div>
+        <dl>
+          <dt>Why broad</dt><dd>The photovoice literature finds narrow assignments encode a power imbalance between facilitator and participant, while broad prompts surface what the facilitator didn't know to ask. The examples exist only so a novice user isn't staring at a blank prompt.</dd>
+          <dt>Build</dt><dd>Voice capture already ships — recorder to transcription endpoint to a normal text turn. The work is the extraction discipline, not the capture.</dd>
+          <dt>Hard rule</dt><dd>Descriptive fields may be filled from the story; anything that scores or ranks becomes a suggestion the organization confirms at beat 4. This is the E1 over-inference fix, applied here before it can bite again.</dd>
+          <dt>Constraint</dt><dd>The agent's working memory is the last ten messages truncated to 300 characters. A story that isn't turned into a field is forgotten within a few turns — so extraction has to happen on the turn it arrives.</dd>
+        </dl>
+      </div>
+      <div class="mock">
+        <div class="bub">So tell me about this place, in your own words — you can record a voice note.</div>
+        <div class="bub" style="border-style:dashed">Things that help, if they come to mind: what happens when it rains hard · who uses it · what's growing or built there now.</div>
+        <div class="row"><span class="c on">🎙️ Record</span><span class="c">Type instead</span><span class="c dk">Skip for now</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alt">
+    <div class="alt-head"><span class="alt-letter">3</span><span class="alt-name">Photographs, routed by beats 1 and 2</span>
+      <span class="alt-sub">A broad ask with hazard-specific suggestions — not a fixed checklist of three.</span></div>
+    <div class="alt-grid">
+      <div>
+        <dl>
+          <dt>What changes by hazard</dt><dd><b>Flood:</b> where the water comes in, where it stands, the ground close up. <b>Heat:</b> the space at midday, whatever shade exists, the surface underfoot. <b>Slope:</b> the slope face, what's above it, what's below it. Always plus "anything else you think we should see".</dd>
+          <dt>Cheaper than it looks</dt><dd>Vision OCR already runs on every uploaded image and reaches the agent. What's new is tagging each photo to the question it answers — and <b>reading the EXIF coordinates we currently discard</b>, which gives a site location measured by the person standing in it.</dd>
+          <dt>Asynchronous by nature</dt><dd>They may not be at the site. Photos that arrive later feed the depth read and W3 rather than re-opening W2 — see the open item in §7.</dd>
+          <dt>Prerequisite</dt><dd>Route auth. Uploads have no auth or cohort check and the original-file route is completely ungated, which is not a state to invite a cohort to photograph their spaces in.</dd>
+        </dl>
+      </div>
+      <div class="mock">
+        <div class="cap">flooding was picked at beat 1</div>
+        <div class="bub">If you're ever there with your phone, photos would help a lot. No rush, and skip any of them.</div>
+        <div class="shot">📷 Where the water comes in</div>
+        <div class="shot">📷 Where it stands afterwards</div>
+        <div class="shot">📷 The ground up close</div>
+        <div class="shot" style="border-style:solid">📷 Anything else you think we should see</div>
+        <div class="row"><span class="c on">Send now</span><span class="c">I'll send later</span><span class="c dk">Skip</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alt">
+    <div class="alt-head"><span class="alt-letter">4</span><span class="alt-name">Read-back — theirs first, then ours</span>
+      <span class="alt-sub">One interaction covering both: confirm what we understood from them, and check the guesses our own data is making.</span></div>
+    <div class="alt-grid">
+      <div>
+        <dl>
+          <dt>Order matters</dt><dd>Their words are read back first and our pixel second, so the platform is the one exposing itself to correction — not the organization being quizzed.</dd>
+          <dt>"I'm not sure" is a real answer</dt><dd>Already precedent in E1 (<code>has_cnpj: not-sure</code>). It widens rather than guesses, and flags the item for the coordination.</dd>
+          <dt>What it produces</dt><dd>Every confirmed item upgrades from "bairro average, partly interpolated" to "they told us" — labelled as theirs, and the only values in the system measured at the site.</dd>
+          <dt>Watch for</dt><dd>Leading the witness: symmetric phrasing, never more than a handful of items, and our guesses stated as guesses.</dd>
+        </dl>
+      </div>
+      <div class="mock">
+        <div class="bub">Let me check I understood — correct anything wrong:</div>
+        <div class="row"><span class="c on">water comes off the street ✓</span><span class="c on">stands 2 days ✓</span><span class="c dk">clay soil?</span></div>
+        <div class="bub">And one from our side: the map guesses this ground doesn't drain well. Does that match?</div>
+        <div class="row"><span class="c on">That's right</span><span class="c">No, it drains fast</span><span class="c dk">I'm not sure</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alt">
+    <div class="alt-head"><span class="alt-letter">5</span><span class="alt-name">Families — wide, and visibly wider when we know less</span>
+      <span class="alt-sub">All five, ordered but none hidden, signal chips now including what they told us. Interest and role chips follow as today.</span></div>
+    <div class="mock" style="max-width:520px">
+      <div class="bub">Given your neighbourhood's risk, what you told me about the water, and the kind of place this is — these are worth studying. <b>Nothing is ruled out.</b></div>
+      <div class="row"><span class="c on">💧 Stormwater</span><span class="c">🌳 Urban green</span><span class="c">🌿 Restoration</span><span class="c dk">🌱 Agriculture · ⛰️ Slopes</span></div>
+      <div class="cap">chips: [high risk] [you told us: rain can't drain] [has solutions you can build]</div>
+      <div class="row"><span class="c">See all 27 solutions</span></div>
+    </div>
+  </div>
+
+  <div class="alt">
+    <div class="alt-head"><span class="alt-letter">→</span><span class="alt-name">Output: a depth read for the coordination</span>
+      <span class="alt-sub">W2's actual deliverable — how much this organization could tell us, how specific their knowledge is, and what remains unknown.</span></div>
+    <div class="alt-grid">
+      <div>
+        <dl>
+          <dt>Why coordinator-facing</dt><dd>Shown to the organization it risks reading as a grade, which is precisely the extractive dynamic Antônia warned about. Held by the coordination, it's a planning instrument.</dd>
+          <dt>What it sets</dt><dd>How deep W3 can go for each org, and which organizations need the coordinator-fill pass first. Feeds the aggregated cohort dashboard (backlog #18) and pairs with Robson's dual-input feasibility assessment.</dd>
+          <dt>Composition</dt><dd>Mechanical where possible — what was captured, confirmed, skipped or answered "not sure" — with an agent summary on top rather than a score presented as objective.</dd>
+        </dl>
+      </div>
+      <div class="mock">
+        <div class="cap">orchestrator · after W2</div>
+        <div class="bub"><b>Org B · Praça do Mercado</b></div>
+        <div class="shot">Site knowledge: <b>strong</b> — story ✓ · 3 photos ✓ · mechanism confirmed ✓</div>
+        <div class="shot">Still unknown: tenure detail · ground surface</div>
+        <div class="shot">Data disagreement: they say stream, raster says pluvial</div>
+        <div class="row"><span class="c on">W3: can go deep on scoping</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<h2>6 · The aperture rule</h2>
+<p>Because W2 is a diagnostic rather than a verdict, the ranking has to behave differently according to how much it actually knows — otherwise we are just more confident about the same thin data. Three states, visible to the organization:</p>
+<div class="tbl"><table>
+  <tr><th>What we know</th><th>What the recommendation does</th><th>What it says</th></tr>
+  <tr><td><span class="sw averaged"></span> bairro data only, nothing confirmed</td><td>All five families, little spread between them, two examples each, wide</td><td>"This is neighbourhood-level data — nothing is ruled out. Tell me about the place and I can be more useful."</td></tr>
+  <tr><td><span class="sw told"></span> one or two answers confirmed</td><td>Signals gain a "you told us" mark; examples re-picked; order may shift</td><td>"Because you told me the water sits two days, these moved up."</td></tr>
+  <tr><td><span class="sw none"></span> they answered "I'm not sure"</td><td>Widens rather than guesses; keeps both branches alive and flags it for the coordinator</td><td>"No problem — I'll keep both possibilities open and the coordination can look at it with you."</td></tr>
+</table></div>
+
+<p>And the guarantee that makes any of this non-prescriptive, worth stating in the interface: <b>nothing an organization answers ever removes a solution from the catalogue.</b> Answers change order, examples and emphasis. All 27 stay reachable with Robson's honest feasibility badges, one tap away — which is also the safety net for when our data is simply wrong, which §1 establishes it sometimes is.</p>
+
+<div class="rec">
+  <p><b>Where the alternatives landed.</b> <b>D</b> and <b>B</b> become beats 2 and 3, in that order, because the organization speaking first is both the better diagnostic and the less extractive posture. <b>A</b> becomes beat 4 — a read-back of their words before our pixel, rather than the opening move. <b>C</b> is not in W2: the map is already the flow's hardest step, and EXIF from beat 3 gets us site-level location for free. <b>E</b> moves to W3, where the depth read tells the coordination who needs it.</p>
+</div>
+
+<h2>7 · Decisions taken, and what's still open</h2>
+<div class="tbl"><table>
+  <tr><th>Decided 31 July</th><th>Why</th></tr>
+  <tr><td class="q">W2 is a diagnostic, not a verdict</td><td>Its job is to gather in the easiest way possible and establish how deep W3 can go for each org.</td></tr>
+  <tr><td class="q">Sequence: frame → worry → story → photos → read-back → families</td><td>They speak first; we correct our understanding of what they gave. Photovoice research: narrow prompts encode a power imbalance.</td></tr>
+  <tr><td class="q">Hazard routing by asking, seeded by our data</td><td>One tap instead of an inference, and the answer is itself diagnostic. Reactivates a built-but-deferred composer.</td></tr>
+  <tr><td class="q">Story prompt broad, with examples</td><td>Balances the open-prompt finding against novice users producing little from a blank prompt.</td></tr>
+  <tr><td class="q">Read-back covers their input <i>and</i> our guesses</td><td>Same interaction, no extra taps, and the only moment our data gets ground-truthed.</td></tr>
+  <tr><td class="q">Output is a coordinator-facing depth read</td><td>Shown to the org it reads as a grade — the extractive dynamic to avoid.</td></tr>
+  <tr><td class="q">Attribution stays light</td><td>An 11-org pilot doesn't need principal separation; marking who edited is enough.</td></tr>
+</table></div>
+
+<h3>What was built (31 July)</h3>
+<div class="tbl"><table>
+  <tr><th>File</th><th>What it holds</th></tr>
+  <tr><td class="q"><code>shared/site-knowledge.ts</code> <span class="tag k">new</span></td><td>The diagnostic layer: worry chips ordered by bairro data, hazard-routed photo prompts, the read-back question builder, and <code>computeSiteKnowledgeDepth()</code> — mechanical, counting what was captured rather than judging the org.</td></tr>
+  <tr><td class="q"><code>shared/nbs-performance.ts</code> <span class="tag k">new</span></td><td>Conceito Arte's retention parameters for five typologies with their sizing formulas, the event-scale table, and the solve / don't-solve statement. <code>estimateRetentionM3()</code> is there for W3; W2 doesn't size anything.</td></tr>
+  <tr><td class="q"><code>server/services/cboAgent.ts</code></td><td>Beats 0–4 in the E2 checkpoint machine, the free-text capture for story and "something else", a bridge for sessions parked at the old photo step, and the depth read on close.</td></tr>
+  <tr><td class="q"><code>knowledge/_skills/encontro-2.md</code></td><td>The journey rewritten to 12 steps, a "what E2 is FOR" section (uncertainty widens; their knowledge outranks our raster), and the scale answer for "will this stop the flood?".</td></tr>
+  <tr><td class="q"><code>docs/w2-preparacao-organizacoes.txt</code> <span class="tag k">new</span></td><td>The participant prep note in pt-BR, ready to send ahead of 12 August, with an English section for the team.</td></tr>
+</table></div>
+<p>Two things the build deliberately did <i>not</i> do: it does not size anything (that is W3, and the retention figures sit unused until then), and it does not narrow the recommendation — the famílias text now says "nothing is ruled out" explicitly.</p>
+
+<h3>Retention parameters — the catalog's first performance figures</h3>
+<div class="tbl"><table>
+  <tr><th>Solution</th><th>Capacity</th><th>Formula</th></tr>
+  <tr><td class="q">Bacia de retenção</td><td class="src">0.15–0.35 m³/m²</td><td class="src">Area × Depth × 0.85</td></tr>
+  <tr><td class="q">Jardim de chuva</td><td class="src">0.15–0.35 m³/m²</td><td class="src">Area × Depth × Porosity × Safety coef.</td></tr>
+  <tr><td class="q">Biovaleta</td><td class="src">0.10–0.20 m³/linear m</td><td class="src">Length × Width × Depth × Porosity</td></tr>
+  <tr><td class="q">Reflorestamento (Miyawaki)</td><td class="src">0.20–0.30 m³/m²</td><td class="src">Area × 0.25 · 3–12 seedlings/m²</td></tr>
+  <tr><td class="q">Pavimento permeável</td><td class="src">0.014–0.194 m³/m²/h <span class="tag w">a rate</span></td><td class="src">Area × infiltration rate</td></tr>
+</table></div>
+<p>The last row is a flow rate, not a stored volume — a permeable pavement passes water through rather than holding it, so it must never be summed with the others. The Miyawaki parameters also answer the reforestation scale-variant question Robson raised and Julia framed on 16 July; when <code>scaleVariants</code> land in the catalog, that row moves onto the variant.</p>
+
+<h3>Still open</h3>
+<ol class="qs">
+  <li><b>Photos are asynchronous — does the read-back wait?</b> Proposal: read back in-session on the story alone; photos arriving later enrich the depth read and W3 rather than re-opening W2. Alternative: a short second read-back when photos land.</li>
+  <li><b>Does a confirmed answer override the pixel outright, or re-weight it?</b> Overriding is what "their knowledge outranks our raster" means — but it makes one tap heavier than an entire hazard model.</li>
+  <li><b>Do we parse the point samples we already send?</b> Site-level raster values ride the confirm message today and are dropped by the server's regex. Nearly free to read — though it only fixes hazard; exposure and vulnerability stay bairro constants regardless.</li>
+  <li><b>Route auth before inviting photos.</b> Separate from the attribution question and, I'd argue, not optional: uploads have no auth and the original-file route is ungated.</li>
+  <li><b>Phantom mechanism classes</b> — build affinities only on classes that actually occur in POA, and decide what the agent says when the class is a gap-filled "mixed".</li>
+  <li><b>Tenure</b> — it scores <code>site_control</code> today but touches neither the ranking nor feasibility framing. Wire it into W3 scoping, or leave it as a maturity signal only?</li>
+  <li><b>How much of the honesty is user-facing</b> — the cell-size line is now beat 0, but interpolation flags and nodata-as-a-statement could stay coordinator-side.</li>
+</ol>
+
+<p class="foot">Grounding — code: <code>shared/nbs-recommendation.ts</code>, <code>server/services/cboAgent.ts</code> (:1332, :1494), <code>client/.../MapMicroapp.tsx</code> (:1304), <code>shared/data-provenance.ts</code>, <code>shared/hazard-legend.ts</code>, <code>shared/risk-display.ts</code>, <code>shared/cbo-field-catalog.ts</code>. Docs: <code>neighborhood-zones-methodology.md</code>, <code>poa_mechanism_type_layer.md</code>, <code>{flood,heat,landslide}_{hazard,risk}_score_methodology.md</code>, <code>recommended-datasets.md</code>, <code>nbs_dataset_identification_methodology.md</code>, <code>site-explorer-data-audit.md</code>, <code>risk-scoring-methodology-audit.md</code>, <code>cbo-ux-audit-backlog.md</code>. Meetings: NbS-specialist deep-dive 8 Jul · biweekly 16 Jul · data check-in with Maureen 21 Jul · partnership alignment 30 Jul · Robson's 38 catalogue comments 22 Jul. External: <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5157989/">participatory mapping for REDD+ MRV</a> · <a href="https://dl.acm.org/doi/abs/10.1145/1959022.1959024">mobile interfaces for novice and low-literacy users</a> · <a href="https://link.springer.com/article/10.1007/s13753-021-00336-8">local knowledge and biophysical data in hazard dynamics</a>. Companion: <code>nbs-catalog-robson-review-proposal.html</code>.</p>
+</div>

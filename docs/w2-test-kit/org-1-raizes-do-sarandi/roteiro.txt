@@ -1,0 +1,160 @@
+═══════════════════════════════════════════════════════════════════════════
+ORG 1 — HORTA COMUNITÁRIA RAÍZES DO SARANDI
+Roteiro de teste do Encontro 2 · cenário "organização que conta tudo"
+═══════════════════════════════════════════════════════════════════════════
+
+O QUE ESTE CENÁRIO TESTA
+──────────────────────────────────────────────────────────────────────────
+  · o caminho completo, com relato longo e fotos
+  · o disparo da mensagem de escala (a org fala da enchente de 2024)
+  · a correção do dado: elas dizem que no lugar delas é PIOR que a média
+  · se essa correção realmente muda a recomendação depois
+
+  Resultado esperado no fim: leitura de profundidade = FORTE
+
+QUEM É A ORGANIZAÇÃO (para você responder no personagem)
+──────────────────────────────────────────────────────────────────────────
+  Nome: Horta Comunitária Raízes do Sarandi
+  Contato: Marlene Duarte, coordenadora
+  Bairro: Sarandi (zona norte, alagou muito em 2024)
+  11 anos de atuação, CNPJ desde 2016, 22 pessoas (4 com bolsa)
+  Já cultivam metade de um terreno da prefeitura; querem estruturar o resto
+  Lugar do projeto: o terreno baldio ao lado da horta atual, ~600 m²
+
+ARQUIVOS DESTA PASTA
+──────────────────────────────────────────────────────────────────────────
+  fotos/01-por-onde-a-agua-entra.jpg
+  fotos/02-onde-a-agua-fica-parada.jpg
+  fotos/03-o-chao-de-perto.jpg
+  (nenhum PDF — esta organização não mandou documento)
+
+
+═══════════════════════════════════════════════════════════════════════════
+PASSO A PASSO
+═══════════════════════════════════════════════════════════════════════════
+
+1 · ABRIR
+   Abra /cbo-profile já com a fase 2 liberada.
+   Se precisar destravar, mande no chat: Vamos começar o Encontro 2.
+
+2 · EDUCACIONAL
+   Aparece a tira das 5 famílias.
+   → toque em "Já conheço SbN — pular"
+
+3 · UM BAIRRO OU MAIS?
+   → toque em "Um bairro"
+
+4 · MAPA 1 — TOUR DE RISCOS
+   Passe pelas telas do tour (botão de avançar, 3 vezes).
+   Clique no meio do mapa para selecionar um bairro.
+   → "Confirmar bairro"
+
+   ⚠️ ANOTE o que o mapa disse dos riscos desse bairro. Você vai
+      precisar comparar com a pergunta do passo 9.
+
+5 · TEM UM LUGAR ESPECÍFICO?
+   → toque em "Sim, tenho um lugar"
+
+6 · MAPA 2 — MARCAR O LUGAR
+   Use "marcar no mapa" e toque num ponto dentro do bairro.
+   → "Confirmar"
+
+7 · CARTÃO DO LUGAR
+   Confira o cartão (nome, bairro, riscos).
+   → "Confirmar ✓"
+
+8 · COMO É O LUGAR HOJE / ACESSO
+   → "Abandonado / degradado"
+   → "É da prefeitura, mas a gente usa"
+
+   ⚠️ OBSERVE: aqui deve aparecer a mensagem dizendo que o nosso mapa
+      é grosso e que vocês conhecem o lugar melhor que o dado.
+
+9 · O QUE MAIS PREOCUPA?
+   → toque em "💧 Alagamento"
+   → depois toque em "Pronto ✓"
+
+   ⚠️ OBSERVE: a ORDEM das opções. Ela vem do dado do bairro (a mais
+      provável primeiro). Confira se bate com o que você anotou no passo 4.
+
+10 · O RELATO — cole este texto (ou grave um áudio lendo ele)
+
+   ┌─────────────────────────────────────────────────────────────────────┐
+   │ Na enchente de 2024 a água do Guaíba subiu e tomou tudo aqui, o     │
+   │ dique não segurou e a gente perdeu a horta inteira. Mas o que       │
+   │ atrapalha todo mês não é isso. Quando chove forte a água desce da   │
+   │ rua de cima e entra pelo canto do terreno, junta ali e demora uns   │
+   │ dois dias pra ir embora. O chão vira lama e não dá pra pisar. A     │
+   │ gente já perdeu muda de alface duas vezes assim. Quem usa o         │
+   │ espaço é a gente e umas oito famílias da volta, tem uma composteira │
+   │ nossa no fundo e três bananeiras que sobreviveram.                  │
+   └─────────────────────────────────────────────────────────────────────┘
+
+   ⚠️ OBSERVE COM ATENÇÃO: como o relato fala da enchente de 2024, do
+      Guaíba e do dique, deve aparecer a MENSAGEM DE ESCALA — dizendo
+      que as SbN resolvem bem a água do dia a dia mas não resolvem rio
+      subindo e dique rompendo, e que isso não diminui o projeto delas.
+      Essa mensagem vem da nota técnica da Conceito Arte.
+
+      Se ela NÃO aparecer, anote — é um caso de teste que falhou.
+
+11 · FOTOS
+   ⚠️ OBSERVE: os pedidos de foto devem ser sobre ÁGUA (por onde entra,
+      onde fica parada, o chão de perto), porque foi isso que ela marcou
+      no passo 9. Se aparecerem pedidos sobre calor ou barranco, anote.
+
+   → toque em "Tenho arquivos pra anexar"
+   → use o 📎 e mande as três fotos da pasta fotos/
+   → quando terminar, toque em "Pronto, pode seguir"
+
+12 · "CONFERE?" — A CORREÇÃO
+   O assistente vai dizer o que o mapa acha do alagamento no bairro e
+   avisar que isso é a média do bairro inteiro.
+
+   → toque em "Aqui é pior"
+
+   ⚠️ OBSERVE: a resposta dele deve reconhecer que o que vocês dizem
+      vale mais que o número dele.
+
+13 · FAMÍLIAS PRA ESTUDAR
+   ⚠️ OBSERVE TRÊS COISAS:
+      a) aparecem TODAS as famílias, nenhuma escondida
+      b) alguma delas deve dizer algo como "Vocês disseram que enchente
+         aqui é pior que na média do bairro" — ou seja, a correção do
+         passo 12 apareceu na explicação
+      c) deve estar escrito que NADA FICA DESCARTADO e deve existir um
+         caminho para ver as 27 soluções
+
+   → toque em "Faz sentido"
+
+14 · INTERESSE E PAPEL
+   → interesse: "Gestão de Águas Pluviais", depois "Agricultura Urbana",
+     depois "Pronto ✓"
+   → papel: "Executar / implementar", depois "Articular parceiros",
+     depois "Pronto ✓"
+
+15 · FECHAMENTO
+   Deve aparecer a mensagem de encerramento.
+
+
+═══════════════════════════════════════════════════════════════════════════
+O QUE CONFERIR DEPOIS (lado da coordenação)
+═══════════════════════════════════════════════════════════════════════════
+  · o relato inteiro ficou salvo, com as palavras dela
+  · as três fotos aparecem na gaveta de arquivos
+  · a leitura de profundidade deve ser FORTE
+  · deve constar como "ainda desconhecido": lençol freático e tubulação
+    enterrada — não temos dado nenhum sobre isso
+  · a correção "aqui é pior" deve aparecer como divergência com o dado
+
+ANOTAÇÕES DO TESTE
+──────────────────────────────────────────────────────────────────────────
+  A mensagem de escala apareceu?           [  ]
+  Os pedidos de foto foram sobre água?     [  ]
+  A correção apareceu na recomendação?     [  ]
+  Deu para chegar nas 27 soluções?         [  ]
+  Algo travou / ficou estranho no celular?
+
+  ______________________________________________________________________
+
+  ______________________________________________________________________

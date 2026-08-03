@@ -1,0 +1,169 @@
+═══════════════════════════════════════════════════════════════════════════
+ORG 3 — ASSOCIAÇÃO CULTURAL VILA NOVA
+Roteiro de teste do Encontro 2 · cenário "sem lugar definido, mas com documento"
+═══════════════════════════════════════════════════════════════════════════
+
+O QUE ESTE CENÁRIO TESTA
+──────────────────────────────────────────────────────────────────────────
+  · a organização NÃO tem um terreno escolhido — está entre duas opções
+  · ela já mandou um PDF explicando a área e o projeto
+  · o assistente deve PERCEBER o documento e não perguntar de novo o que
+    já está escrito nele
+  · o diagnóstico deve rodar mesmo assim, no nível do BAIRRO
+  · a preocupação principal (calor) não é a primeira da lista do dado
+  · testa também o "Outra coisa" com texto livre
+
+  Resultado esperado: o Encontro 2 não morre por falta de lugar — a
+  organização sai com famílias pra estudar e a coordenação sai com uma
+  leitura dela. O caminho de volta pra marcar o lugar continua aberto.
+
+QUEM É A ORGANIZAÇÃO (para você responder no personagem)
+──────────────────────────────────────────────────────────────────────────
+  Nome: Associação Cultural Vila Nova
+  Contato: Rita Camargo, coordenação
+  Bairro: Vila Nova (zona sul), parte alta
+  11 anos, CNPJ desde 2019, 15 pessoas (3 com bolsa)
+  Duas áreas possíveis: a praça em frente à escola (800 m², cimentada)
+  ou um terreno da prefeitura fechado com tapume (400 m², entulho)
+  Nunca captaram recurso para obra nem para projeto ambiental
+
+ARQUIVOS DESTA PASTA
+──────────────────────────────────────────────────────────────────────────
+  nota-area-de-atuacao-vila-nova.pdf   ← MANDE ESTE ANTES DE COMEÇAR
+  fotos/01-a-praca-hoje.jpg            ← opcional, ver passo 11
+
+
+═══════════════════════════════════════════════════════════════════════════
+PASSO A PASSO
+═══════════════════════════════════════════════════════════════════════════
+
+0 · ⚠️ ANTES DE QUALQUER COISA — MANDE O PDF
+   Abra /cbo-profile, toque no 📎 e anexe
+   nota-area-de-atuacao-vila-nova.pdf
+
+   Espere ele processar (o sistema lê o texto do PDF).
+   Só depois siga para o passo 1.
+
+   ⚠️ Este passo é o coração do teste. Se você pular, o cenário perde
+      o sentido.
+
+1 · ABRIR O ENCONTRO 2
+   Se precisar destravar: Vamos começar o Encontro 2.
+
+2 · EDUCACIONAL
+   → "Já conheço SbN — pular"
+
+3 · UM BAIRRO OU MAIS?
+   → "Um bairro"
+
+4 · MAPA 1
+   Passe o tour, clique num bairro no mapa.
+   → "Confirmar bairro"
+
+5 · TEM UM LUGAR ESPECÍFICO?
+   → toque em "Ainda não"
+
+   (a organização está entre duas áreas e não decidiu)
+
+6 · COMO PREFERE?
+   → toque em "Vou verificar e volto"
+
+7 · ⚠️ O TESTE PRINCIPAL — O QUE ACONTECE AGORA?
+
+   O comportamento correto é: o assistente NÃO deve encerrar a conversa
+   aqui. Ele deve oferecer duas saídas:
+
+        "Pode perguntar"        e        "Já sei o lugar"
+
+   → toque em "Pode perguntar"
+
+   ⚠️ Se em vez disso a conversa simplesmente parar, ou se sumir a opção
+      de voltar pro mapa, ANOTE — era exatamente esse o buraco que a
+      gente corrigiu.
+
+8 · O QUE MAIS PREOCUPA?
+   ⚠️ OBSERVE: as perguntas agora falam em BAIRRO, não em "o lugar de
+      vocês" — porque ainda não existe um lugar. Repare se algum texto
+      escorregou e ficou falando de um lugar que não existe.
+
+   → toque em "🌡️ Calor"
+   → depois toque em "Outra coisa"
+   → quando ele pedir, escreva:
+
+        Lixo e entulho acumulado no terreno fechado
+
+   ⚠️ OBSERVE: o texto livre deve ser aceito e guardado com as palavras
+      dela, não convertido em outra coisa.
+
+9 · O RELATO
+   ⚠️ OBSERVE PRIMEIRO: o assistente deve DIZER que já viu o arquivo que
+      vocês mandaram, e deve oferecer a opção "Já está no arquivo".
+
+      Se ele pedir o relato como se nunca tivesse visto o PDF, ANOTE —
+      é justamente o comportamento que a gente quer evitar.
+
+   → toque em "Já está no arquivo"
+
+10 · FOTOS
+   ⚠️ OBSERVE: os pedidos devem ser sobre CALOR (o lugar no meio do dia,
+      a sombra que existe, o chão que esquenta) — porque foi calor que
+      ela marcou. E o texto deve falar do bairro, já que não tem lugar.
+
+   → toque em "Mando depois"
+
+   ⚠️ OBSERVE: "mando depois" deve ser tratado como resposta legítima,
+      com o assistente registrando que as fotos ainda vão chegar.
+
+11 · "CONFERE?"
+   ⚠️ OBSERVE: sem lugar marcado, a pergunta deve validar o número do
+      BAIRRO contra o dia a dia delas — algo como "no dia a dia de
+      vocês, isso bate?" — e não perguntar sobre "o lugar de vocês".
+
+   → toque em "Aqui é pior"
+
+12 · FAMÍLIAS PRA ESTUDAR
+   Devem aparecer normalmente, mesmo sem lugar definido.
+   → "Faz sentido"
+
+13 · INTERESSE E PAPEL
+   → interesse: "Infraestrutura Verde Urbana" → "Pronto ✓"
+   → papel: "Executar / implementar", depois "Escrever o projeto",
+     depois "Pronto ✓"
+
+14 · FECHAMENTO
+   ⚠️ OBSERVE: como não tem lugar marcado, o fechamento deve convidar a
+      voltar quando souberem o lugar, e deve existir o botão
+      "Já sei o lugar".
+
+   → (opcional) toque em "Já sei o lugar" e veja se ele abre o mapa.
+      Se abrir e você marcar um ponto, ele NÃO deve refazer todas as
+      perguntas do diagnóstico de novo.
+
+
+═══════════════════════════════════════════════════════════════════════════
+O QUE CONFERIR DEPOIS (lado da coordenação)
+═══════════════════════════════════════════════════════════════════════════
+  · o PDF aparece na gaveta de arquivos e o conteúdo dele foi lido
+  · o bairro ficou registrado, mesmo sem lugar
+  · "calor" + o texto livre sobre lixo ficaram guardados
+  · deve constar que o relato veio do arquivo, e não de uma conversa
+  · deve constar que as fotos ainda não chegaram (não que foram recusadas)
+  · a leitura de profundidade deve existir mesmo com a sessão incompleta
+
+  ⚠️ PONTO DELICADO: o que o sistema tirou do PDF ainda não foi
+     confirmado por ninguém da organização. Isso deve aparecer marcado
+     como "tirado de arquivo, ainda não confirmado com elas" — não como
+     se ela tivesse dito.
+
+
+ANOTAÇÕES DO TESTE
+──────────────────────────────────────────────────────────────────────────
+  A conversa continuou depois de "Ainda não"?      [  ]
+  Ele reconheceu o PDF antes de pedir o relato?    [  ]
+  Os textos falaram de "bairro" e não de "lugar"?  [  ]
+  O texto livre do "Outra coisa" foi guardado?     [  ]
+  O caminho de volta pro mapa continuou aberto?    [  ]
+
+  ______________________________________________________________________
+
+  ______________________________________________________________________

@@ -1,0 +1,160 @@
+═══════════════════════════════════════════════════════════════════════════
+ORG 2 — COLETIVO ENCOSTA VIVA
+Roteiro de teste do Encontro 2 · cenário "discorda de tudo e não manda nada"
+═══════════════════════════════════════════════════════════════════════════
+
+O QUE ESTE CENÁRIO TESTA
+──────────────────────────────────────────────────────────────────────────
+  · o caminho mínimo: só toques, sem áudio, sem foto, sem documento
+  · a DIVERGÊNCIA: ela aponta o barranco, que é justamente o risco que o
+    nosso dado classifica como mais baixo em quase toda Porto Alegre
+    (o mapa de deslizamento praticamente não sai do verde na cidade toda)
+  · o "Não sei dizer" como resposta legítima, sem punição
+  · se, mesmo sem nada disso, ainda sobra informação útil pra coordenação
+
+  Resultado esperado no fim: leitura de profundidade FINA ou PARCIAL,
+  com a divergência registrada
+
+QUEM É A ORGANIZAÇÃO (para você responder no personagem)
+──────────────────────────────────────────────────────────────────────────
+  Nome: Coletivo Encosta Viva
+  Contato: Jeferson Rocha
+  Bairro: parte alta, casas em encosta
+  Coletivo informal, 4 anos, sem CNPJ, 9 pessoas, ninguém com bolsa
+  Nunca captaram recurso
+  Lugar do projeto: o barranco atrás das últimas casas da rua
+
+  ⚠️ IMPORTANTE PARA O TESTE: responda com pressa, como quem está no
+     celular com pouco tempo. Não escreva nada. Só toque nos botões.
+
+ARQUIVOS DESTA PASTA
+──────────────────────────────────────────────────────────────────────────
+  fotos/01-a-cara-do-barranco.jpg
+  fotos/02-o-que-tem-embaixo.jpg
+
+  ⚠️ ESTAS FOTOS **NÃO** DEVEM SER ENVIADAS no roteiro principal.
+     Elas estão aqui só para a variação opcional no fim do arquivo.
+
+
+═══════════════════════════════════════════════════════════════════════════
+PASSO A PASSO
+═══════════════════════════════════════════════════════════════════════════
+
+1 · ABRIR
+   Abra /cbo-profile com a fase 2 liberada.
+   Se precisar: Vamos começar o Encontro 2.
+
+2 · EDUCACIONAL
+   → "Já conheço SbN — pular"
+
+3 · UM BAIRRO OU MAIS?
+   → "Um bairro"
+
+4 · MAPA 1
+   Passe o tour (3 vezes o avançar), clique num bairro no mapa.
+   → "Confirmar bairro"
+
+   ⚠️ ANOTE: quase certamente o mapa vai dizer que o risco de
+      DESLIZAMENTO é baixo. É esse o ponto do teste.
+
+5 · TEM UM LUGAR?
+   → "Sim, tenho um lugar"
+
+6 · MAPA 2
+   Marque um ponto no mapa → "Confirmar"
+
+7 · CARTÃO DO LUGAR
+   → "Confirmar ✓"
+
+8 · COMO É O LUGAR / ACESSO
+   → "Vegetação (área verde, mato, árvores)"
+   → "É público mas não temos acesso garantido"
+
+9 · O QUE MAIS PREOCUPA?
+   → toque em "⛰️ O barranco"
+   → depois "Pronto ✓"
+
+   ⚠️ AQUI É O TESTE PRINCIPAL. Você está apontando exatamente o risco
+      que o nosso dado diz ser o mais baixo do bairro. Repare se o
+      assistente aceita isso com naturalidade ou se ele discute com você.
+      Ele NÃO deve discutir.
+
+10 · O RELATO
+   → toque em "Prefiro pular"
+
+   (não escreva nada, não grave áudio)
+
+11 · FOTOS
+   ⚠️ OBSERVE: os pedidos de foto devem ser sobre BARRANCO (a cara do
+      barranco, o que tem em cima, o que tem embaixo). Se vierem pedidos
+      sobre água ou calor, anote — o roteamento errou.
+
+   → toque em "Não tenho agora"
+
+12 · "CONFERE?"
+   → toque em "Não sei dizer"
+
+   ⚠️ OBSERVE: a resposta não pode soar como cobrança. Deve dizer algo
+      como "tranquilo, deixo em aberto e a coordenação vê isso com vocês".
+      Se aparecer uma segunda pergunta de conferência, responda também
+      "Não sei dizer".
+
+13 · FAMÍLIAS PRA ESTUDAR
+   ⚠️ OBSERVE: mesmo com quase nenhuma informação, todas as famílias
+      aparecem e nada é descartado. Repare se as explicações ficaram
+      genéricas — e se duas famílias diferentes dizem a MESMA frase.
+      (Isso era um defeito conhecido; deve estar corrigido.)
+
+   → toque em "Faz sentido"
+
+14 · INTERESSE E PAPEL
+   → interesse: "Estabilização de Encostas e Solo" → "Pronto ✓"
+   → papel: "Ser consultada (dar opinião)" → "Pronto ✓"
+
+15 · FECHAMENTO
+
+
+═══════════════════════════════════════════════════════════════════════════
+O QUE CONFERIR DEPOIS (lado da coordenação)
+═══════════════════════════════════════════════════════════════════════════
+  Mesmo sem áudio, sem foto e sem documento, deve ter ficado registrado:
+
+    · o lugar marcado no mapa
+    · o que preocupa: barranco
+    · como é o lugar hoje: vegetação
+    · acesso: público sem acesso garantido
+    · que elas não souberam dizer sobre o risco  → isso vira uma
+      "incerteza conhecida", não um vazio
+    · que elas não mandaram fotos (por escolha, não por falha)
+
+  E, o mais importante:
+
+    · uma DIVERGÊNCIA registrada, dizendo que elas apontaram deslizamento
+      e o nosso dado classifica isso como baixo no bairro
+
+  ⚠️ Essa divergência é o item mais valioso do teste. Ou o nosso dado
+     não enxerga a escala do barranco delas (o mapa de deslizamento tem
+     resolução de 90 m e nunca foi validado contra histórico de
+     deslizamento em Porto Alegre), ou tem algo local que explica. As
+     duas hipóteses interessam antes de desenhar qualquer coisa.
+
+
+═══════════════════════════════════════════════════════════════════════════
+VARIAÇÃO OPCIONAL (se sobrar tempo)
+═══════════════════════════════════════════════════════════════════════════
+  Refaça só do passo 11, mas desta vez toque em "Tenho arquivos pra
+  anexar" e mande as duas fotos da pasta fotos/.
+  Compare a leitura de profundidade com a da primeira rodada — deve subir.
+
+
+ANOTAÇÕES DO TESTE
+──────────────────────────────────────────────────────────────────────────
+  O assistente discutiu com a escolha dela?   [  ]
+  Os pedidos de foto foram sobre barranco?    [  ]
+  "Não sei dizer" foi tratado com respeito?   [  ]
+  Duas famílias repetiram a mesma frase?      [  ]
+  Quantos toques do começo ao fim?  ______
+
+  ______________________________________________________________________
+
+  ______________________________________________________________________

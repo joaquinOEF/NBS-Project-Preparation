@@ -1,0 +1,302 @@
+<title>What Workshop 2 gives us, and what Workshop 3 does with it</title>
+<style>
+  :root {
+    --ground: #F0EFEA;
+    --card: #FBFAF7;
+    --ink: #22262A;
+    --muted: #6C7278;
+    --line: #DEDCD4;
+    --rule: #C6C3B8;
+    --accent: #2F6B5F;
+    --accent-soft: #DDE9E5;
+    --told: #3F7A55;
+    --told-bg: #E3EEE5;
+    --est: #9A6E28;
+    --est-bg: #F2E9D6;
+    --unk: #7B858A;
+    --unk-bg: #E7E7E2;
+    --warn: #A2452F;
+    --warn-bg: #F4E1DB;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #14171A; --card: #1C2023; --ink: #E2E4E1; --muted: #949B9F;
+      --line: #2B3034; --rule: #3A4045; --accent: #6FAE9E; --accent-soft: #1B2C29;
+      --told: #7FBB8D; --told-bg: #1E3123; --est: #CFA355; --est-bg: #322816;
+      --unk: #7F8A8F; --unk-bg: #232729; --warn: #D6866F; --warn-bg: #33201A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #14171A; --card: #1C2023; --ink: #E2E4E1; --muted: #949B9F;
+    --line: #2B3034; --rule: #3A4045; --accent: #6FAE9E; --accent-soft: #1B2C29;
+    --told: #7FBB8D; --told-bg: #1E3123; --est: #CFA355; --est-bg: #322816;
+    --unk: #7F8A8F; --unk-bg: #232729; --warn: #D6866F; --warn-bg: #33201A;
+  }
+  :root[data-theme="light"] {
+    --ground: #F0EFEA; --card: #FBFAF7; --ink: #22262A; --muted: #6C7278;
+    --line: #DEDCD4; --rule: #C6C3B8; --accent: #2F6B5F; --accent-soft: #DDE9E5;
+    --told: #3F7A55; --told-bg: #E3EEE5; --est: #9A6E28; --est-bg: #F2E9D6;
+    --unk: #7B858A; --unk-bg: #E7E7E2; --warn: #A2452F; --warn-bg: #F4E1DB;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: "Avenir Next", Seravek, "Segoe UI", system-ui, sans-serif;
+    font-size: 16.5px; line-height: 1.6;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 46px 22px 96px; }
+  h1, h2, h3 { font-weight: 600; text-wrap: balance; letter-spacing: -0.015em; }
+  h1 { font-size: 33px; line-height: 1.15; margin: 0 0 14px; }
+  h2 { font-size: 22px; margin: 60px 0 4px; }
+  h3 { font-size: 16.5px; margin: 30px 0 6px; }
+  p, li { max-width: 72ch; }
+  .lede { color: var(--muted); margin-top: 2px; }
+  header.doc { border-bottom: 2px solid var(--rule); padding-bottom: 24px; }
+  .kicker { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; letter-spacing: 0.11em; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+  .standfirst { font-size: 18px; max-width: 66ch; }
+  .who { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; }
+  .who span { font-size: 12.5px; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 3px 12px; color: var(--muted); }
+  .who b { color: var(--ink); font-weight: 600; }
+  code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.85em; }
+  code { background: var(--unk-bg); border-radius: 3px; padding: 1px 5px; }
+  .callout { background: var(--accent-soft); border: 1px solid var(--rule); border-radius: 5px; padding: 18px 22px; margin: 22px 0; }
+  .callout p { margin: 0; }
+  .callout p + p { margin-top: 10px; }
+  /* beats */
+  .beats { counter-reset: b; list-style: none; padding: 0; margin: 20px 0; display: grid; gap: 10px; }
+  .beats li { counter-increment: b; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 13px 16px 13px 52px; position: relative; max-width: none; }
+  .beats li::before {
+    content: counter(b); position: absolute; left: 16px; top: 13px;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--accent); color: var(--card);
+    font-size: 12.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  }
+  .beats b { display: block; font-size: 15px; }
+  .beats span { font-size: 14px; color: var(--muted); }
+  .beats em { font-style: normal; font-size: 12px; color: var(--accent); font-weight: 600; }
+  /* confidence chips */
+  .tag { display: inline-block; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; border-radius: 3px; padding: 1px 7px; white-space: nowrap; }
+  .tag.t { color: var(--told); background: var(--told-bg); }
+  .tag.e { color: var(--est); background: var(--est-bg); }
+  .tag.u { color: var(--unk); background: var(--unk-bg); }
+  .tag.w { color: var(--warn); background: var(--warn-bg); }
+  /* handoff */
+  .handoff { display: grid; gap: 12px; margin: 22px 0; }
+  .row { background: var(--card); border: 1px solid var(--line); border-radius: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 0; overflow: hidden; }
+  @media (max-width: 720px) { .row { grid-template-columns: 1fr; } }
+  .row .from, .row .to { padding: 14px 17px; }
+  .row .from { border-right: 1px solid var(--line); }
+  @media (max-width: 720px) { .row .from { border-right: none; border-bottom: 1px solid var(--line); } }
+  .row .to { background: var(--accent-soft); }
+  .row h4 { margin: 0 0 5px; font-size: 14.5px; font-weight: 600; }
+  .row p { margin: 0; font-size: 13.5px; color: var(--muted); max-width: none; }
+  .row .to h4 { color: var(--accent); }
+  .colhead { display: grid; grid-template-columns: 1fr 1fr; gap: 0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding: 0 17px; }
+  @media (max-width: 720px) { .colhead { display: none; } }
+  /* example */
+  .example { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; padding: 18px 22px; margin: 20px 0; }
+  .example dl { margin: 0; display: grid; grid-template-columns: minmax(130px, auto) 1fr; gap: 7px 16px; font-size: 14px; }
+  @media (max-width: 620px) { .example dl { grid-template-columns: 1fr; gap: 2px 0; } .example dd { margin-bottom: 9px; } }
+  .example dt { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding-top: 3px; }
+  .example dd { margin: 0; }
+  /* stakeholder asks */
+  .asks { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 20px 0; }
+  .ask { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; }
+  .ask h4 { margin: 0 0 3px; font-size: 15px; }
+  .ask .role { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+  .ask ul { margin: 0; padding-left: 18px; }
+  .ask li { font-size: 13.5px; margin-bottom: 7px; }
+  .notyet { border-left: 3px solid var(--est); background: var(--est-bg); padding: 15px 19px; border-radius: 0 5px 5px 0; margin: 20px 0; }
+  .notyet p { margin: 0; font-size: 14.5px; }
+  .foot { font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--rule); margin-top: 56px; padding-top: 16px; }
+  a { color: var(--accent); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+<header class="doc">
+  <div class="kicker">COUGAR · NBS Project Builder · for review before 12 August</div>
+  <h1>What Workshop 2 gives us, and what Workshop 3 should do with it</h1>
+  <p class="standfirst">Workshop 2 is now a diagnostic rather than a recommendation exercise. It gathers what it can in the easiest way possible and establishes where each organization stands — which is what should set how deep Workshop 3 can go. This page sets out exactly what comes out of it, and asks you to check that it is the right handover before we build Workshop 3 around it.</p>
+  <div class="who">
+    <span>For <b>Vila Flores</b> — Antônia, Aline, Julia</span>
+    <span>For <b>Robson</b> — NBS technical review</span>
+    <span>For <b>Ana</b> — coordination and September clustering</span>
+  </div>
+</header>
+
+<div class="notyet">
+  <p><b>Why we are asking now.</b> Workshop 2 is built and tested. Workshop 3 is <i>not</i> — it exists in the platform only as an empty structure. So this is the moment where changing the handover is cheap. If something below is the wrong thing to collect, or the wrong thing to do with it, telling us this week costs nothing; telling us in October costs a rebuild.</p>
+</div>
+
+<h2>1 · What an organization actually does in Workshop 2</h2>
+<p class="lede">About five minutes of tapping. Everything except naming one worry can be skipped, and skipping is recorded as an answer rather than treated as a failure.</p>
+
+<ol class="beats">
+  <li><b>We admit our map is coarse</b>
+    <span>The platform says plainly that each square of its map covers whole blocks, that it cannot see their yard, and that they know the place far better than our data does.</span></li>
+  <li><b>"What worries you most here?"</b>
+    <span>Flooding, heat, the slope, or something else. Multiple choices allowed. The options are ordered by what our data suggests, but the answer is theirs — and when it contradicts our data, that contradiction is recorded as a finding.</span></li>
+  <li><b>They tell us about the place, in their own words</b>
+    <span>A voice note or typed text. Broad prompt, with examples offered rather than a checklist. If they already uploaded a proposal or site description, the platform says so and offers "it's in the file" instead of making them repeat themselves.</span>
+    <em>optional</em></li>
+  <li><b>Photographs — chosen by what worries them</b>
+    <span>If they said water: where it comes in, where it stands, the ground close up. If heat: the space at midday, whatever shade exists, the surface. If the slope: its face, what's above, what's below. Always plus "anything else you think we should see". They can send later.</span>
+    <em>optional</em></li>
+  <li><b>We read our own data back, and they correct it</b>
+    <span>"Our map says flood risk is low in your bairro — but that's an average over the whole neighbourhood, not your place. At your place, is it worse, about the same, or calmer?" A correction outranks our number, visibly: the recommendation that follows says "you told me flooding here is worse than the bairro average."</span></li>
+  <li><b>Five families worth studying — none hidden</b>
+    <span>All five appear, ordered by fit but with nothing removed, and all 27 solutions stay one tap away. Then which families interest them, and what role they would want to play.</span></li>
+</ol>
+
+<p>If an organization does not have a site yet, none of this is skipped: the whole diagnostic runs at neighbourhood level instead, and the way back to mark a place stays one tap away. Organizations still deciding where to work are exactly the ones we most need to understand, so they should not be the ones we learn least about.</p>
+
+<h2>2 · What comes out of it, and what each piece is worth</h2>
+<p class="lede">Being honest about provenance matters more here than volume. Three kinds of thing come out:</p>
+<p>
+  <span class="tag t">they told us</span> the only information measured at the place ·
+  <span class="tag e">our estimate</span> neighbourhood-scale, from satellite and census data ·
+  <span class="tag u">still unknown</span> named openly, because a known gap is useful and a silent one is not
+</p>
+
+<div class="colhead"><div>What Workshop 2 produces</div><div>What Workshop 3 could do with it</div></div>
+<div class="handoff">
+
+  <div class="row">
+    <div class="from"><h4>The place <span class="tag t">they told us</span></h4>
+      <p>A marked site, or a neighbourhood when there isn't one yet, plus what the place is like today and whether they can actually use it.</p></div>
+    <div class="to"><h4>Where scoping starts</h4>
+      <p>W3 opens on a place both sides already agree on, rather than spending its first session establishing one.</p></div>
+  </div>
+
+  <div class="row">
+    <div class="from"><h4>What worries them <span class="tag t">they told us</span></h4>
+      <p>The hazard they name, which may or may not be the one our data ranks highest.</p></div>
+    <div class="to"><h4>Which families to go deep on</h4>
+      <p>W3 works through solutions inside the families that match their concern, instead of re-opening the whole catalogue.</p></div>
+  </div>
+
+  <div class="row">
+    <div class="from"><h4>Their account of the place <span class="tag t">they told us</span></h4>
+      <p>A voice note or text: how the water moves, who uses the space, what is already growing there, how the ground behaves.</p></div>
+    <div class="to"><h4>The site description a funder asks for</h4>
+      <p>Their own words are the material for the project narrative, and they carry more weight than anything we could infer.</p></div>
+  </div>
+
+  <div class="row">
+    <div class="from"><h4>Photographs <span class="tag t">they told us</span></h4>
+      <p>Tied to the question each one answers. Ground surface, drainage behaviour, existing vegetation, roof type.</p></div>
+    <div class="to"><h4>The only view of conditions no satellite has</h4>
+      <p>Whether a roof could take a green roof, whether the ground drains — screening questions with no dataset behind them anywhere.</p></div>
+  </div>
+
+  <div class="row">
+    <div class="from"><h4>Their corrections to our data <span class="tag t">they told us</span></h4>
+      <p>Whether their place is worse, about the same, or calmer than the neighbourhood figure we quoted them.</p></div>
+    <div class="to"><h4>A site-level correction to a neighbourhood average</h4>
+      <p>The single cheapest improvement to our numbers, and the one that comes from someone standing in the place.</p></div>
+  </div>
+
+  <div class="row">
+    <div class="from"><h4>Where they disagree with us <span class="tag w">a finding</span></h4>
+      <p>Recorded whenever what they name differs from what our data ranks — never treated as an error.</p></div>
+    <div class="to"><h4>The first thing to check in the field</h4>
+      <p>Either our data is wrong at their scale, or something local explains it. Both are worth knowing before designing anything.</p></div>
+  </div>
+
+  <div class="row">
+    <div class="from"><h4>What is still unknown <span class="tag u">still unknown</span></h4>
+      <p>Named explicitly: land tenure detail, how the ground drains, groundwater depth, what is buried under the street — and anything they answered "I can't say" to.</p></div>
+    <div class="to"><h4>The mentor's question list, written in advance</h4>
+      <p>W3 opens knowing exactly what it must find out, rather than discovering the gaps halfway through.</p></div>
+  </div>
+
+  <div class="row">
+    <div class="from"><h4>Interests and preferred roles <span class="tag t">they told us</span></h4>
+      <p>Which families they would want a project in, and whether they see themselves implementing, advising, managing, receiving funds, or connecting partners.</p></div>
+    <div class="to"><h4>Cluster formation in September</h4>
+      <p>Organizations with overlapping interests, shared risk profiles and complementary roles are the raw material for a portfolio.</p></div>
+  </div>
+
+  <div class="row">
+    <div class="from"><h4>A depth read, for the coordination only</h4>
+      <p>How much this organization could tell us, what is missing, and where they disagree with our data. Not a score of the organization, and never shown to them.</p></div>
+    <div class="to"><h4>How deep W3 can go, per organization</h4>
+      <p>And which organizations need a conversation with the coordination before W3 rather than during it.</p></div>
+  </div>
+
+</div>
+
+<h3>A worked example</h3>
+<div class="example">
+  <dl>
+    <dt>Place</dt><dd>Praça do Mercado, Vila São José — public land, used informally, currently paved and degraded</dd>
+    <dt>Their worry</dt><dd>Flooding</dd>
+    <dt>In their words</dt><dd>"The water comes in off the street when it rains hard and stands for about two days in the corner of the lot. The ground turns to mud."</dd>
+    <dt>Photos</dt><dd>Three: where the water enters, where it stands, the ground close up</dd>
+    <dt>Their correction</dt><dd>Our map called flood risk <b>low</b> for the bairro. They said it is <b>worse</b> at their place.</dd>
+    <dt>Disagreement</dt><dd>Recorded — worth checking, since our flood layer is a 250 m average and two of its three ingredients are neighbourhood constants</dd>
+    <dt>Still unknown</dt><dd>Whether the ground drains, groundwater depth, what is buried under the street, the exact tenure arrangement</dd>
+    <dt>Depth read</dt><dd><b>Strong</b> — W3 can go straight to scoping</dd>
+  </dl>
+</div>
+<p>Workshop 3 for this organization would open on stormwater solutions at a paved, informally-held public square where water stands two days; would ask first about the buried pipes and the water table, because those two unknowns decide whether the most feasible solutions are possible at all; and would size whatever is chosen against the square's actual area.</p>
+
+<h2>3 · What Workshop 2 deliberately does not give us</h2>
+<p class="lede">Worth stating plainly, because the temptation to over-read this data will be strong once it is in front of us.</p>
+<ul>
+  <li><b>No chosen solution.</b> W2 ends with families worth studying, never one answer. Choosing is Workshop 3's job, with the organization.</li>
+  <li><b>No sizing and no design.</b> We now hold retention figures per solution type — from Conceito Arte's technical note — but nothing is sized in W2. That needs a defined area and a chosen solution.</li>
+  <li><b>No feasibility verdict for a specific site.</b> Robson's review gives us feasibility per solution type across the cohort. Whether <i>this</i> organization can build <i>that</i> thing on <i>that</i> land is a Workshop 3 conversation, and partly a mentoring one.</li>
+  <li><b>No verified tenure.</b> We record what they tell us. Nobody has checked a document.</li>
+  <li><b>Nothing about groundwater or buried services.</b> No open dataset covers either at city scale — and they are exactly what would rule out rain gardens or a street bioswale, the two solutions rated most feasible. Only local knowledge or a site visit can answer them.</li>
+</ul>
+
+<div class="callout">
+  <p><b>And one thing we now say out loud, from Conceito Arte's own analysis.</b> When an organization describes the 2024 flood, the platform answers honestly: nature-based solutions work very well on everyday water — the rain that floods the street, overloads the drain, the heat that takes over the square. What they do not solve is rivers rising above flood level and dikes failing; that needs macrodrainage works.</p>
+  <p>It says this only when an organization's own account points at a catastrophe, never as an unprompted lecture about limits. The purpose is to stop anyone designing a project against a problem it cannot solve, and then being disappointed in front of a funder.</p>
+</div>
+
+<h2>4 · What we would like each of you to check</h2>
+<p class="lede">Different questions for different eyes — these are the things we cannot settle ourselves.</p>
+
+<div class="asks">
+  <div class="ask">
+    <h4>Vila Flores</h4>
+    <p class="role">Antônia, Aline, Julia — whether this respects the organizations</p>
+    <ul>
+      <li>Does asking for photographs of their own spaces feel like support, or like extraction? The data agreement is not signed yet, and this is the moment to shape it.</li>
+      <li>Is the language right? It is deliberately informal and second-person, and it says openly that our data is poor.</li>
+      <li>Is five minutes of questions before the recommendation too much, or about right?</li>
+      <li>Organizations still deciding where to work now get the full set of questions at neighbourhood level. Does that help them, or does it press them?</li>
+    </ul>
+  </div>
+
+  <div class="ask">
+    <h4>Robson</h4>
+    <p class="role">Technical review — whether these are the right questions</p>
+    <ul>
+      <li>Are these the right things to ask a community about a site, and what would a technician need that we are not asking?</li>
+      <li>The unknowns we name are tenure, drainage behaviour, groundwater and buried services. Is that the right list, and which of them actually block design rather than merely weakening it?</li>
+      <li>Is the scale framing right to show communities, and at the right moment?</li>
+      <li>When an organization contradicts our hazard data for their own site, should their answer override our number outright — which is what it does today?</li>
+    </ul>
+  </div>
+
+  <div class="ask">
+    <h4>Ana</h4>
+    <p class="role">Coordination — whether this serves what comes next</p>
+    <ul>
+      <li>Does the depth read give the coordination what it needs to plan September, or is something missing from it?</li>
+      <li>It is coordinator-facing by design, because shown to an organization it would read as a grade. Is that the right call?</li>
+      <li>Are interests and roles enough to start forming clusters, or does that need something we are not capturing?</li>
+      <li>What should happen for an organization whose depth read comes back thin — a conversation before W3, or a different W3?</li>
+    </ul>
+  </div>
+</div>
+
+<h2>5 · What happens next</h2>
+<p>Workshop 2 runs on 12 August. Between now and then we would like the checks above, and we will adjust what we can. Workshop 3 gets designed in September against whatever this handover turns out to be — which is the reason to disagree with it now rather than later.</p>
+
+<p class="foot">Built and tested: the Workshop 2 flow described in section 1, the depth read, and the honest scale framing. Not built: Workshop 3, which exists in the platform only as an empty structure. Feasibility ratings per solution come from Robson's review of the 27-solution catalogue (22 July). Retention figures and the scale comparison come from Conceito Arte's technical note (31 July) and are illustrative for the Sarandi basin rather than measurements. Companion documents: <code>w2-site-knowledge-alternatives.html</code> (why the data is weak and what we did about it), <code>nbs-catalog-robson-review-proposal.html</code> (the catalogue review), <code>w2-preparacao-organizacoes.txt</code> (the note for organizations, in Portuguese).</p>
+</div>
