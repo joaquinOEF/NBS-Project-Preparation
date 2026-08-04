@@ -186,6 +186,18 @@ function fixMarkdownTables(text: string): string {
 //     GENERIC over this registry (see pendingTool / toolReached below).
 // Adding a tool for a future phase = one declarative entry, not new plumbing.
 type ToolKind = 'map' | 'interventions';
+
+/** What kind of gesture produced a turn — a hint the server uses for model routing. */
+type TurnKind = 'chip' | 'text' | 'upload' | 'map' | 'map_help' | 'system';
+
+/** Everything needed to replay one chat turn verbatim (see `streamRetry`). */
+interface PendingTurn {
+  text: string;
+  displayText?: string;
+  turnKind?: TurnKind;
+  chipAnswers?: Array<{ question: string; answer: string }>;
+}
+
 interface RightPanelToolDef {
   tab: 'document' | 'map' | 'interventions' | 'scorecard';
   icon: LucideIcon;
@@ -543,9 +555,14 @@ export default function CboProfilePage() {
   // Cohort membership: if `?cbo=<memberSlug>` is in the URL, this CBO is part
   // of a coordinator-managed cohort and the coordinator gates phase access.
   const [memberSlug, setMemberSlug] = useState<string | null>(null);
-  // A turn whose SSE stream dropped/stalled — holds the original message text
-  // so a "Tentar de novo" tap can resend it (hidden — no duplicate user bubble).
-  const [streamRetry, setStreamRetry] = useState<string | null>(null);
+  // A turn that never happened — its SSE stream dropped/stalled, or the server
+  // refused it because another turn held the session (409). Holds the WHOLE
+  // payload, not just the text, so "Tentar de novo" replays the same turn:
+  // resending a chip answer as a bare text turn loses `chipAnswers`, and the
+  // transcript then can't render which chip went with which question.
+  // Always replayed hidden — the optimistic user bubble/composer is already on
+  // screen from the first attempt.
+  const [streamRetry, setStreamRetry] = useState<PendingTurn | null>(null);
   // Live token-streaming draft (LT-4). Accumulates transient chat_delta
   // events into a draft bubble; the finalizing 'chat' (whole block, post
   // inline-options normalizer) REPLACES it, so persistence and conversion
@@ -1274,7 +1291,7 @@ export default function CboProfilePage() {
   }, [isStreaming]);
 
   // Send message. `viaVoice` marks the optimistic user bubble as dictated (🎤).
-  const sendMessage = useCallback(async (text: string, hidden = false, viaVoice = false, displayText?: string, turnKind?: 'chip' | 'text' | 'upload' | 'map' | 'map_help' | 'system', chipAnswers?: Array<{ question: string; answer: string }>) => {
+  const sendMessage = useCallback(async (text: string, hidden = false, viaVoice = false, displayText?: string, turnKind?: TurnKind, chipAnswers?: Array<{ question: string; answer: string }>) => {
     if (!cboId || !text.trim() || isStreaming) return;
     setInput('');
     setActiveQuestions([]);
@@ -1308,16 +1325,23 @@ export default function CboProfilePage() {
     try {
       armWatchdog();
       const res = await fetch(`/api/cbo/${cboId}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text, lang, turnKind, chipAnswers, displayText }), signal: ctrl.signal });
-      // 409 = a turn is already streaming for this session (CBO-CONCURRENT-TURNS).
-      // Not an error the user caused and not something to retry: the answer they
-      // are waiting for is already on its way. Say so gently and leave the
-      // transcript alone — the in-flight turn will finish and render normally.
+      // ⚠️ CBO-TURN-TAIL-FREEZE. 409 = the server gave up waiting for the turn
+      // that holds this session (it now queues for 20s first, so this is rare
+      // and means something is genuinely wedged, not the ordinary tail race).
+      //
+      // The first version of this branch just toasted and returned — which
+      // skipped the setIsStreaming(false) at the bottom of this function, while
+      // the caller had ALREADY cleared the question. That left the answered chip
+      // on screen, the composer disabled forever and no way out but a reload:
+      // the exact dead session JVP hit on the família question. Whatever else
+      // happens here, the user gets the session back and a way to retry.
       if (res.status === 409) {
         toast({
           title: t('cbo.stillAnswering', {
             defaultValue: 'Só um segundo — ainda estou respondendo a anterior.',
           }),
         });
+        setStreamRetry({ text, displayText, turnKind, chipAnswers });
         return;
       }
       const reader = res.body?.getReader();
@@ -1347,13 +1371,20 @@ export default function CboProfilePage() {
           : 'The connection dropped mid-response. Tap "Try again" and I\'ll pick it up.',
         messageType: 'content', timestamp: new Date().toISOString(),
       }]);
-      if (!suppress) setStreamRetry(text);
+      if (!suppress) setStreamRetry({ text, displayText, turnKind, chipAnswers });
       setStreamDraft(''); // dropped stream — the partial draft was never finalized/persisted
     } finally {
       clearTimeout(watchdog);
       if (activeStreamRef.current === streamHandle) activeStreamRef.current = null;
+      // In the `finally`, not after it. This flag disables the whole composer,
+      // and the caller has usually already cleared the question that was on
+      // screen — so ANY path out of this function that leaves it true is a dead
+      // session (CBO-TURN-TAIL-FREEZE). It used to sit below the try, where an
+      // early `return` skipped it. Never move it back out.
+      setIsStreaming(false);
     }
-    setIsStreaming(false);
+    // Stays below the try on purpose: the 409 path returns before it, because a
+    // refused turn never ran and must not count toward the phase-advance gate.
     setCompletedTurns(n => n + 1);
   }, [cboId, isStreaming, processEvent, lang]);
 
@@ -2367,7 +2398,13 @@ export default function CboProfilePage() {
                   size="sm"
                   className="w-full h-9 bg-emerald-600 hover:bg-emerald-700 gap-1.5"
                   data-testid="cbo-stream-retry"
-                  onClick={() => { const msg = streamRetry; setStreamRetry(null); sendMessage(msg, true); }}
+                  onClick={() => {
+                    const turn = streamRetry;
+                    setStreamRetry(null);
+                    // hidden=true: the user bubble/answer composer from the first
+                    // attempt is still on screen; replaying the rest verbatim.
+                    sendMessage(turn.text, true, false, turn.displayText, turn.turnKind, turn.chipAnswers);
+                  }}
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   {lang === 'pt' ? 'Tentar de novo' : 'Try again'}

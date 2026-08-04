@@ -284,15 +284,38 @@ const pushEventRegistry = new Map<string, EventPusher>();
 // a persisted composer's chips re-render on load, and any reload or second tab
 // re-arms them. So this has to be enforced server-side, not by the UI.
 //
-// Rejecting is right rather than queueing: the second message is almost always
-// an impatient re-tap of a question the in-flight turn is already answering, and
-// running it would double-answer. The client surfaces a gentle "ainda estou
-// respondendo" instead of a failure.
+// ⚠️ CBO-TURN-QUEUE (JVP, 2026-08-04: "the same thing happened as before … i get
+// stuck here"). The first version of this lock REJECTED the second turn, on the
+// reasoning that it is "almost always an impatient re-tap". That reasoning was
+// wrong, and it killed a live session:
+//
+//   [cbo] timing … total=14822ms detail=show_nbs_familias | text | ask_user
+//   POST …/chat 409 in 12ms      ← his answer to that very question
+//   POST …/chat 200 in 14856ms   ← the turn that asked it
+//
+// A turn emits `ask_user` and the UI opens for input immediately — the whole
+// point of streaming. But the turn keeps running afterwards (further rounds,
+// persistence) and kept holding this lock. So the single most normal action in
+// the app, answering the question you were just asked, raced the tail of the
+// turn that asked it and lost.
+//
+// So we QUEUE instead: wait for the in-flight turn, then run. Serializing is
+// what actually fixed the bug above — two turns never execute at once, so they
+// can never interleave into one pushEvent registry — and the queued turn starts
+// against a fully-persisted transcript, so the model sees its own question and
+// the user's answer in order. The old "double-answer" worry only applied to
+// CONCURRENT execution; an impatient re-tap now costs one extra sequential
+// reply, which is a far better failure than a session that can't be answered.
 const activeTurns = new Map<string, number>();
 
 /** Safety valve: a turn whose finally-block never ran must not lock a session
  *  forever. Longer than any real turn (the slowest observed was 77s). */
 const TURN_LOCK_MAX_MS = 5 * 60 * 1000;
+
+/** How long a turn waits for the one ahead of it before giving up. Comfortably
+ *  longer than a normal turn (8-20s), so a queued ANSWER practically always
+ *  runs; past it the client gets a 409 it can retry rather than a dead socket. */
+const TURN_QUEUE_WAIT_MS = Number(process.env.CBO_TURN_QUEUE_WAIT_MS) || 20_000;
 
 /** Claim the turn slot for a session. False = one is already in flight. */
 export function beginTurn(cboId: string): boolean {
@@ -303,6 +326,27 @@ export function beginTurn(cboId: string): boolean {
   }
   activeTurns.set(cboId, Date.now());
   return true;
+}
+
+/**
+ * Claim the turn slot, waiting for an in-flight turn to finish first.
+ * False = still busy after `waitMs`.
+ *
+ * Polled rather than a waiter queue on purpose: turns are released from a
+ * `finally`, but a process that dies mid-turn (or a bug in that finally) would
+ * leak every parked waiter. A poll has nothing to leak, and 150ms of latency on
+ * a path that just waited seconds is not worth the bookkeeping.
+ */
+export async function acquireTurn(cboId: string, waitMs = TURN_QUEUE_WAIT_MS): Promise<boolean> {
+  const deadline = Date.now() + waitMs;
+  for (;;) {
+    if (beginTurn(cboId)) return true;
+    if (Date.now() >= deadline) {
+      console.warn(`[cbo] turn queue for ${cboId} timed out after ${waitMs}ms`);
+      return false;
+    }
+    await new Promise(r => setTimeout(r, 150));
+  }
 }
 
 export function endTurn(cboId: string): void {

@@ -113,6 +113,13 @@ export default defineConfig({
           // script 17-second waits and sit through them: 35s, 7% of the whole
           // suite, spent sleeping on purpose.
           CBO_SSE_PING_MS: '400',
+          // Same reasoning for the turn queue (CBO-TURN-QUEUE): the behaviour
+          // under test is "a queued answer runs, and giving up never freezes the
+          // UI", which is scale-free. At the production 20s the give-up spec
+          // would have to hold a session — and a worker — for 20+ seconds, and
+          // this suite runs 4 workers on one box: sleeping specs are paid for by
+          // every other spec's timeout budget.
+          CBO_TURN_QUEUE_WAIT_MS: '3000',
           CBO_FAKE_MODEL: '1',
           NODE_ENV: 'development',
           PORT,

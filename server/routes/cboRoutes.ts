@@ -9,7 +9,7 @@ import {
   debouncedPersist,
   advanceCboPhase,
   loadCboFromDb,
-  beginTurn,
+  acquireTurn,
   endTurn,
   getFlushedMessageCount,
   hasPendingFlush,
@@ -120,97 +120,105 @@ export function registerCboRoutes(app: Express): void {
       if (persisted) { setCboState(req.params.id, persisted.state); state = persisted.state; }
     }
     if (!state) return res.status(404).json({ error: "Not found" });
-    // The phase-0 self-heal AND the "vamos começar o encontro N" advance both
-    // live in streamCboChat now, where they can emit phase_change — the client
-    // must LEARN about server-side phase writes or the header/banner go stale
-    // and users talk the model into a role-played encontro (fake-E2 field
-    // report 2026-07-08; backlog CBO-PHASE-WRITERS). The regex path also runs
-    // through advanceCboPhase there, the same gate as /advance-phase and the
-    // set_phase tool, instead of a duplicated inline policy check. The GET
-    // handler above lifts phase 0 too, so a plain reload shows the banner.
 
-    // Session language authority (CBO-LANG-AUTH). If this CBO belongs to a
-    // cohort with a coordinator-forced language, that ALWAYS wins — it overrides
-    // the client-sent lang and text detection, so an English-looking org name, a
-    // standalone/test fallback, or a pre-fetch race can't flip the agent to
-    // English mid-flow. Only truly standalone CBOs (no cohort) fall through to
-    // the legacy sticky behavior: an explicit UI pick, else the stored language,
-    // else detect once from this first message.
-    const cohortLang = await getCohortLanguageForCbo(req.params.id);
-    let sessionLang: 'pt' | 'en';
-    if (cohortLang) {
-      sessionLang = cohortLang;
-    } else if (lang === 'pt' || lang === 'en') {
-      sessionLang = lang;
-    } else if (state.metadata.language) {
-      sessionLang = state.metadata.language;
-    } else {
-      sessionLang = (
-        /[àáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ]/.test(message) ||
-        /\b(sim|não|qual|como|quero|projeto|nossa|organização|comunidade)\b/i.test(message)
-      ) ? 'pt' : 'en';
-    }
-    if (state.metadata.language !== sessionLang) {
-      state.metadata.language = sessionLang;
-      setCboState(req.params.id, state);
-    }
-    const isPt = sessionLang === 'pt';
-    const langDirective = isPt
-      ? '\n[LANGUAGE: Respond ONLY in Portuguese — every single word, including ask_user option labels and update_section content. Do NOT mix in any English words or phrases, even if the user writes some English back. One language, Portuguese, with no exceptions.]'
-      : '\n[LANGUAGE: Respond ONLY in English — every single word, including ask_user option labels and update_section content. Do NOT mix in any Portuguese words or phrases, even if the user writes some Portuguese back. One language, English, with no exceptions.]';
-
-    const resolvedLang = sessionLang;
-    // Client-declared turn kind ('chip' | 'text' | 'upload' | 'map' | 'system') —
-    // a HINT for adaptive model routing. The server only ever *downgrades* to the
-    // fast model when its own checks agree; a missing/bogus value routes heavy.
-    const turnKind = typeof req.body.turnKind === 'string' ? req.body.turnKind : undefined;
-
-    // A map_help turn's `message` is a machine payload — "[MAP HELP] hazard=flood
-    // … #3c2c6c (0.104) → #4dc16b (0.62)" — that exists only so the agent reasons
-    // from the real ramp instead of the usual green-is-safe convention. Persist
-    // what the user actually asked, or the hex dump becomes the transcript on
-    // reload and lands in buildDecisionLog forever.
-    //
-    // Scoped to map_help on purpose. `map` turns persist their raw payload too,
-    // but the agent legitimately re-reads the H×E×V numbers out of the decision
-    // log on later turns; swapping those for the summary is a separate change.
-    const displayText = typeof req.body.displayText === 'string' ? req.body.displayText : undefined;
-    const persistedUserText = turnKind === 'map_help' && displayText ? displayText : message;
-    addCboMessage(req.params.id, { role: 'user', content: persistedUserText, messageType: 'content', timestamp: new Date().toISOString() });
-
-    // A chip turn also records WHICH answer went with WHICH question, as an
-    // `answers` composer row. The plain user message above is untouched -
-    // buildDecisionLog and resolveTurnModel both key off
-    // `messageType === 'content'`, and the agent reads the joined text - so this
-    // row is additive and invisible to the model. The transcript uses it to
-    // render each question with the chip the user picked, instead of a single
-    // "Associacao; 6-20" bubble hanging under two questions.
-    //
-    // It is a separate row, not a field on the ask_user row, because the message
-    // log is append-only: the flusher persists `allMessages.slice(flushed)`, so
-    // an in-place edit of an earlier row would never reach the database.
-    const chipAnswers = req.body.chipAnswers;
-    if (turnKind === 'chip' && Array.isArray(chipAnswers) && chipAnswers.length > 0) {
-      const pairs = chipAnswers
-        .filter((p: any) => p && typeof p.question === 'string' && typeof p.answer === 'string')
-        .map((p: any) => ({ question: p.question, answer: p.answer }));
-      if (pairs.length > 0) {
-        addCboMessage(req.params.id, {
-          role: 'user',
-          content: JSON.stringify({ kind: 'answers', pairs }),
-          messageType: 'composer',
-          timestamp: new Date().toISOString(),
-        });
-      }
-    }
-
-    // One turn at a time — see CBO-CONCURRENT-TURNS in cboAgent.ts. Checked
-    // BEFORE streamCboChat writes any SSE headers, so a rejected second turn is
-    // a clean JSON 409 the client can handle rather than a half-open stream.
-    if (!beginTurn(req.params.id)) {
+    // ⚠️ Serialize turns for this session — CBO-TURN-QUEUE in cboAgent.ts.
+    // Acquired HERE, before anything below reads state or writes a transcript
+    // row: a turn that had to wait must not resolve the session language from
+    // a pre-wait handle, nor interleave its user message into the running
+    // turn's messages. Still ahead of any SSE header, so the give-up case is a
+    // clean JSON 409 rather than a half-open stream.
+    if (!(await acquireTurn(req.params.id))) {
       return res.status(409).json({ error: 'turn_in_flight' });
     }
     try {
+      // The turn we queued behind may have replaced the state object wholesale
+      // (setCboState stores a new object), so re-read it instead of trusting
+      // the handle taken before the wait.
+      state = getCboState(req.params.id) ?? state;
+      // The phase-0 self-heal AND the "vamos começar o encontro N" advance both
+      // live in streamCboChat now, where they can emit phase_change — the client
+      // must LEARN about server-side phase writes or the header/banner go stale
+      // and users talk the model into a role-played encontro (fake-E2 field
+      // report 2026-07-08; backlog CBO-PHASE-WRITERS). The regex path also runs
+      // through advanceCboPhase there, the same gate as /advance-phase and the
+      // set_phase tool, instead of a duplicated inline policy check. The GET
+      // handler above lifts phase 0 too, so a plain reload shows the banner.
+
+      // Session language authority (CBO-LANG-AUTH). If this CBO belongs to a
+      // cohort with a coordinator-forced language, that ALWAYS wins — it overrides
+      // the client-sent lang and text detection, so an English-looking org name, a
+      // standalone/test fallback, or a pre-fetch race can't flip the agent to
+      // English mid-flow. Only truly standalone CBOs (no cohort) fall through to
+      // the legacy sticky behavior: an explicit UI pick, else the stored language,
+      // else detect once from this first message.
+      const cohortLang = await getCohortLanguageForCbo(req.params.id);
+      let sessionLang: 'pt' | 'en';
+      if (cohortLang) {
+        sessionLang = cohortLang;
+      } else if (lang === 'pt' || lang === 'en') {
+        sessionLang = lang;
+      } else if (state.metadata.language) {
+        sessionLang = state.metadata.language;
+      } else {
+        sessionLang = (
+          /[àáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ]/.test(message) ||
+          /\b(sim|não|qual|como|quero|projeto|nossa|organização|comunidade)\b/i.test(message)
+        ) ? 'pt' : 'en';
+      }
+      if (state.metadata.language !== sessionLang) {
+        state.metadata.language = sessionLang;
+        setCboState(req.params.id, state);
+      }
+      const isPt = sessionLang === 'pt';
+      const langDirective = isPt
+        ? '\n[LANGUAGE: Respond ONLY in Portuguese — every single word, including ask_user option labels and update_section content. Do NOT mix in any English words or phrases, even if the user writes some English back. One language, Portuguese, with no exceptions.]'
+        : '\n[LANGUAGE: Respond ONLY in English — every single word, including ask_user option labels and update_section content. Do NOT mix in any Portuguese words or phrases, even if the user writes some Portuguese back. One language, English, with no exceptions.]';
+
+      const resolvedLang = sessionLang;
+      // Client-declared turn kind ('chip' | 'text' | 'upload' | 'map' | 'system') —
+      // a HINT for adaptive model routing. The server only ever *downgrades* to the
+      // fast model when its own checks agree; a missing/bogus value routes heavy.
+      const turnKind = typeof req.body.turnKind === 'string' ? req.body.turnKind : undefined;
+
+      // A map_help turn's `message` is a machine payload — "[MAP HELP] hazard=flood
+      // … #3c2c6c (0.104) → #4dc16b (0.62)" — that exists only so the agent reasons
+      // from the real ramp instead of the usual green-is-safe convention. Persist
+      // what the user actually asked, or the hex dump becomes the transcript on
+      // reload and lands in buildDecisionLog forever.
+      //
+      // Scoped to map_help on purpose. `map` turns persist their raw payload too,
+      // but the agent legitimately re-reads the H×E×V numbers out of the decision
+      // log on later turns; swapping those for the summary is a separate change.
+      const displayText = typeof req.body.displayText === 'string' ? req.body.displayText : undefined;
+      const persistedUserText = turnKind === 'map_help' && displayText ? displayText : message;
+      addCboMessage(req.params.id, { role: 'user', content: persistedUserText, messageType: 'content', timestamp: new Date().toISOString() });
+
+      // A chip turn also records WHICH answer went with WHICH question, as an
+      // `answers` composer row. The plain user message above is untouched -
+      // buildDecisionLog and resolveTurnModel both key off
+      // `messageType === 'content'`, and the agent reads the joined text - so this
+      // row is additive and invisible to the model. The transcript uses it to
+      // render each question with the chip the user picked, instead of a single
+      // "Associacao; 6-20" bubble hanging under two questions.
+      //
+      // It is a separate row, not a field on the ask_user row, because the message
+      // log is append-only: the flusher persists `allMessages.slice(flushed)`, so
+      // an in-place edit of an earlier row would never reach the database.
+      const chipAnswers = req.body.chipAnswers;
+      if (turnKind === 'chip' && Array.isArray(chipAnswers) && chipAnswers.length > 0) {
+        const pairs = chipAnswers
+          .filter((p: any) => p && typeof p.question === 'string' && typeof p.answer === 'string')
+          .map((p: any) => ({ question: p.question, answer: p.answer }));
+        if (pairs.length > 0) {
+          addCboMessage(req.params.id, {
+            role: 'user',
+            content: JSON.stringify({ kind: 'answers', pairs }),
+            messageType: 'composer',
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+
       await streamCboChat(req.params.id, message + langDirective, res, state, resolvedLang, turnKind);
     } finally {
       endTurn(req.params.id);
