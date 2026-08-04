@@ -103,6 +103,69 @@ test.describe('COUGAR — E2 Map 1 (e2_bairro)', () => {
     ).toBeEnabled();
   });
 
+  // ⚠️ MAP-BOUNDARY-EATS-CLICKS (JVP, 2026-08-04: "I cant click here on
+  // neighborhood… cant select", again, a day after the drift fix).
+  //
+  // The municipal boundary outline is a FILLED polygon covering all of Porto
+  // Alegre, in the same SVG pane as the 94 bairros — and Leaflet paths are
+  // interactive by default. So the map carried a city-sized click target lying
+  // over every bairro. Whichever of the two async fetches painted LAST won:
+  // locally the 2.5MB zones file lands after the small boundary file and the
+  // bairros end up on top, which is the only reason the suite was green. On
+  // JVP's browser it landed the other way and every tap died. His console:
+  //
+  //   stack: path.leaflet-interactive > path.leaflet-interactive > DIV.absolute
+  //
+  // The tap-with-drift test above could not catch this — it was passing on the
+  // lucky side of a race. So this asserts the PROPERTY instead: nothing but a
+  // bairro may be clickable here. That was false on both builds, mine included.
+  test('only the bairros are clickable — no decorative layer takes a tap', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    const api = new TestApi(request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+
+    const zones = await (await request.get('/sample-data/porto-alegre-neighborhood-zones.json')).json();
+    const bairroCount = zones.geoJson.features.length;
+
+    await bootToBairroMap(page, api);
+    await finishTour(page);
+
+    const paths = await page.$$eval('.leaflet-overlay-pane path', ps =>
+      ps.map(p => ({
+        interactive: p.classList.contains('leaflet-interactive'),
+        dash: p.getAttribute('stroke-dasharray'),
+      })),
+    );
+    // The boundary IS still drawn — this is not "delete the outline".
+    expect(paths.length, 'the boundary outline must still be on the map')
+      .toBeGreaterThan(bairroCount);
+    expect(
+      paths.filter(p => p.interactive).length,
+      'exactly the bairros may take a click — anything else is a lid over the map',
+    ).toBe(bairroCount);
+
+    // And the thing a user actually does: at a point inside a bairro, that
+    // bairro's own path is what receives the tap — nothing sits above it.
+    const topIsOwnPath = await page.evaluate(() => {
+      const ps = Array.from(document.querySelectorAll('.leaflet-overlay-pane path')) as SVGPathElement[];
+      const big = ps
+        .map(p => ({ p, b: p.getBoundingClientRect() }))
+        .filter(x => x.b.width > 25 && x.b.height > 25)
+        .sort((a, b) => b.b.width * b.b.height - a.b.width * a.b.height);
+      let checked = 0, ok = 0;
+      for (const { p, b } of big.slice(0, 12)) {
+        const x = b.x + b.width / 2, y = b.y + b.height / 2;
+        if (document.elementFromPoint(x, y) !== p) continue; // bbox centre outside the shape
+        checked++;
+        const above = document.elementsFromPoint(x, y);
+        if (above[0] === p) ok++;
+      }
+      return { checked, ok };
+    });
+    expect(topIsOwnPath.checked, 'no bairro was big enough to probe').toBeGreaterThan(0);
+    expect(topIsOwnPath.ok, 'a bairro tap must reach the bairro').toBe(topIsOwnPath.checked);
+  });
+
   test('one legend, no dead stepper, no risk choropleth', async ({ page, request }) => {
     test.setTimeout(120_000);
     const api = new TestApi(request);

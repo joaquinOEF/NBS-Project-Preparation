@@ -565,6 +565,21 @@ export default function MapMicroapp({
               fillOpacity: 0.02,
               dashArray: '6 3',
             },
+            // ⚠️ MAP-BOUNDARY-EATS-CLICKS (JVP, 2026-08-04: "I cant click here on
+            // neighborhood… cant select"). Leaflet paths are interactive by
+            // DEFAULT, and this one is a filled polygon covering the entire
+            // municipality — so it is a city-sized click target sitting in the
+            // same SVG pane as the 94 bairros. Whichever of the two async fetches
+            // resolves LAST paints on top: locally the 2.5MB zones file lands
+            // after this one and the bairros win, so the bug is invisible here;
+            // with a warm cache (JVP's browser) this lands last and swallows
+            // every tap. His console proved it — `elementsFromPoint` at the tap
+            // returned `path.leaflet-interactive > path.leaflet-interactive`,
+            // this outline on top of the bairro it hid.
+            //
+            // It is decoration. It must never take a click, and then the race
+            // stops mattering rather than being one we have to win.
+            interactive: false,
           }).addTo(mapRef.current!);
           // Keep the outline, but don't let it drive the view on the bairro
           // step: the municipal boundary runs far south past Lami, so fitting
@@ -1530,9 +1545,15 @@ export default function MapMicroapp({
         if (polygonPreviewRef.current)
           map.removeLayer(polygonPreviewRef.current);
         if (polygonPointsRef.current.length >= 2) {
+          // interactive:false throughout the draw path — same family as
+          // MAP-BOUNDARY-EATS-CLICKS. Every shape here is FEEDBACK about what the
+          // user is drawing, and the drawing itself is driven by taps on the map.
+          // Left interactive, the preview line and the vertex dots sit exactly
+          // where the next tap is likely to land and eat it, so the polygon
+          // silently stops growing.
           polygonPreviewRef.current = L.polyline(
             [...polygonPointsRef.current, polygonPointsRef.current[0]],
-            { color: '#8b5cf6', weight: 2, dashArray: '4 4' }
+            { color: '#8b5cf6', weight: 2, dashArray: '4 4', interactive: false }
           ).addTo(map);
         }
         const vm = L.circleMarker([lat, lng], {
@@ -1541,6 +1562,7 @@ export default function MapMicroapp({
           fillColor: '#fff',
           fillOpacity: 1,
           weight: 2,
+          interactive: false,
         });
         vm.addTo(map);
         customMarkersRef.current.push(vm);
@@ -1563,6 +1585,9 @@ export default function MapMicroapp({
         fillColor: '#8b5cf6',
         fillOpacity: 0.3,
         weight: 2,
+        // The drawn area is a RESULT, not a control — and a filled one, so left
+        // interactive it covers its own footprint and blocks re-drawing over it.
+        interactive: false,
       });
       poly.addTo(map);
       customMarkersRef.current.push(poly);
