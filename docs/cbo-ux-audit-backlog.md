@@ -354,6 +354,26 @@ _After the v1 wave (#312–#320, all merged), a second deep audit ran against th
 
 22. **Voice-note transcription keeps the speaker's language, not the session's (P2, S)** — in the 2026-08-03 test the org spoke Spanish and `site_story` was stored verbatim in **Spanish** inside a pt-BR session ("Este sitio es una escuela que tiene muy poco terreno verde…"). It flows unchanged into the profile panel, the concept note, and anything a coordinator reads. Decide deliberately: keep the verbatim transcript (respecting their words — the photovoice principle already applied elsewhere) **plus** a session-language rendering, rather than silently storing whichever language the audio happened to be in. Worth checking against the cohort — some orgs may be more comfortable in Spanish.
 
+### Wave: chip actions — JVP, 2026-08-04 (refined, approved, not built)
+
+23. **A chip carries its action; the model is not asked to retype a string literal (P1, M — structural)** — JVP got stuck on the famílias question: he tapped "Ver exemplos reais" and nothing happened. Two defects met there. The freeze itself is fixed (PR for CBO-TURN-TAIL-FREEZE); this is the cause behind it.
+
+    `serveE2Checkpoint` is a string-matching state machine — it routes on exact chip labels (`is({ pt: 'Já conheço SbN — pular', … })`). When the *template* wrote the chips, the labels match and the step resolves in 0ms (`model=template`). When the *model* wrote them, they don't. The strip tools (`show_types`, `show_familias`, `show_familia_recommendation`) end their tool result by instructing the model: *"in this SAME turn you MUST follow with a short message and an `ask_user` (e.g. options 'Ver exemplos' / 'Já conheço, pular')"*. That sentence delegates authorship of the flow's control surface to a model. "Ver exemplos" became "Ver exemplos reais"; nothing matched; the tap fell through to a full ~10s model turn — which is also what made the turn-tail race wide enough to freeze on.
+
+    **Principle (JVP's, and the rule to hold to): the model interprets what people WRITE; the template resolves what people TAP.** A tap is already unambiguous — re-interpreting it costs ~10s, tokens, and a contract that fails silently.
+
+    Decided 2026-08-04 (both via /refine, JVP picked both recommendations):
+    - **Routing = action id on the option.** Extend the existing `action` field (today `'upload' | 'upload_then_answer'`, already honoured end to end by the chip renderer) into the E2 intents: `show_examples`, `skip_examples`, `open_map`, `pronto`. The server dispatches on the id; the label becomes pure copy the model may still phrase freely.
+    - **Every tap deterministic.** No chip in E2 costs a model turn. The model keeps the story, the uploads, the read-back, the diagnostic — everything requiring prose.
+
+    Work: (a) widen the `action` union + carry `chipAction` on the chat POST; (b) `serveE2Checkpoint` dispatches on the id BEFORE label matching, with label matching kept as the fallback so sessions already in flight keep working; (c) the strip tools push their own follow-up `ask_user` with fixed ids instead of instructing the model to write one; (d) delete the "you MUST follow with an ask_user" line from the tool descriptions and `knowledge/_skills/encontro-2.md`.
+
+    ⚠️ **The action id must be persisted on the composer row**, not just sent live — chips re-render from that row after a reload, and an id that isn't stored means a reloaded session silently drops back to label matching. That would leave the bug alive for exactly the people whose connection dropped.
+
+    ⚠️ Cost to weigh per step: a templated reply can't react in the moment the way a model can. Nobody will miss that on navigation chips ("see examples", "open the map"); a step whose reply should sound like it heard them is a judgement call, not a blanket conversion.
+
+    Applies beyond E2 — the seam is in the shared `ask_user`/checkpoint layer, and JVP flagged it as relevant for W3 onwards. Worth landing before W3's flow is written on top of label matching.
+
 ## Field report — Ana, 2026-07-07 (org profile via news-article link)
 
 Symptoms: `prior_project_scale`/`nbs_experience` filled silently from the article as raw machine ids ("funded", "gardens-and-greening") shown in English on the panel and wrong; the "Quero ajustar" list omitted those two fields but offered "Liderança atual", which isn't a schema field; name/role never re-asked when the first user message is a link.

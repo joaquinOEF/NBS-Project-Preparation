@@ -14,9 +14,15 @@ import { TestApi } from './helpers/testApi';
 // The window is easy to hit: the UI disables its input while streaming, but a
 // persisted composer's chips re-render on load and any reload or second tab
 // re-arms them. So the guard has to be server-side, which is what this asserts.
+//
+// The guard SERIALIZES rather than rejects — see CBO-TURN-QUEUE. Rejecting is
+// what froze JVP's session a day later (cougar-answer-during-turn-tail.spec.ts):
+// the most normal action in the app, answering the question the in-flight turn
+// just asked, was refused. Queueing fixes the hijack just as completely — two
+// turns still never run at once — without discarding the user's message.
 
 test.describe('CBO — one turn at a time per session', () => {
-  test('a second turn while one is streaming is refused, not run', async ({ page, request }) => {
+  test('a second turn waits for the first instead of running alongside it', async ({ page, request }) => {
     test.setTimeout(120_000);
     const api = new TestApi(request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
@@ -37,25 +43,36 @@ test.describe('CBO — one turn at a time per session', () => {
       data: { message: 'oi', lang: 'pt' },
     });
     await new Promise(r => setTimeout(r, 600));
+    const startedSecond = Date.now();
     const second = await request.post(`/api/cbo/${cboId}/chat`, {
       data: { message: 'oi de novo', lang: 'pt' },
     });
+    const secondTook = Date.now() - startedSecond;
 
-    // The second is refused cleanly — a JSON 409, not a half-open SSE stream.
-    expect(second.status(), 'a concurrent turn must be refused').toBe(409);
-    expect((await second.json()).error).toBe('turn_in_flight');
-
-    // …and the first is unharmed.
     const firstRes = await first;
     expect(firstRes.status()).toBe(200);
     expect(await firstRes.text()).toContain('Primeira resposta');
 
-    // The refused turn left NOTHING behind: no orphan user message, no second
-    // agent reply. A double-answered question is the whole failure mode.
-    const body = await (await request.get(`/api/cbo/${cboId}`)).json();
-    const texts = (body.messages ?? []).map((m: any) => String(m.content ?? ''));
-    expect(texts.filter((c: string) => c.includes('oi de novo'))).toHaveLength(0);
-    expect(texts.filter((c: string) => c.includes('Segunda resposta'))).toHaveLength(0);
+    // Both turns run — the second is queued, not discarded…
+    expect(second.status()).toBe(200);
+    expect(await second.text()).toContain('Segunda resposta');
+
+    // …and it ran AFTER, not alongside. Turn 1 had ~2.4s left when turn 2 was
+    // posted; a turn 2 that returns faster than that is executing concurrently,
+    // which is the bug (one pushEvent registry per session, so the later turn
+    // hijacks the earlier one's stream).
+    expect(secondTook, 'the second turn must wait for the first').toBeGreaterThan(2_000);
+
+    // The transcript reads in the order it happened. This is why the lock is
+    // taken BEFORE the user row is appended: a queued turn that wrote its user
+    // message on arrival would slot it ahead of the reply to the message before
+    // it, and the model reads this log back as the conversation.
+    const msgs = await (await request.get(`/api/cbo/${cboId}/messages`)).json();
+    const at = (needle: string) =>
+      msgs.findIndex((m: any) => String(m.content ?? '').includes(needle));
+    expect(at('oi de novo'), 'the queued answer must be in the transcript').toBeGreaterThan(-1);
+    expect(at('Primeira resposta')).toBeLessThan(at('oi de novo'));
+    expect(at('oi de novo')).toBeLessThan(at('Segunda resposta'));
   });
 
   test('the lock releases — the next turn runs normally', async ({ page, request }) => {
