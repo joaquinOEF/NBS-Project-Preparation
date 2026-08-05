@@ -15,7 +15,8 @@ export type LayerGroup =
   | 'population'       // New: GHSL Population, Census, Transit
   | 'hydrology'        // New: DEM, MERIT, JRC, Flood Depth
   | 'climate_extreme'  // New: CHIRPS, ERA5
-  | 'climate_projections'; // New: FRI, HWM projections
+  | 'climate_projections' // New: FRI, HWM projections
+  | 'official_risk';   // SGB/CPRM — the published municipal risk cartography
 
 // Value-tile encoding from OEF GitHub catalog (datasets.yaml).
 // Both kinds read the same 24-bit value: raw = R + 256*G + 65536*B
@@ -204,8 +205,34 @@ export const LANDSLIDE_INDEX_LAYERS: TileLayerDef[] = [
   },
 ];
 
+// ── Official risk cartography (SGB/CPRM) ─────────────────────────────────────
+// Susceptibility rasters straight from the Serviço Geológico do Brasil, served
+// through the WMS→XYZ proxy in server/routes/officialRiskRoutes.ts.
+//
+// These are REGIONAL products (1:250k-ish): over Porto Alegre they resolve to
+// "low-lying is flood-susceptible, hilly is landslide-susceptible" and blanket
+// most of the municipality. They are context for the surveyed sectors, not a
+// substitute for them — and no value tiles, because the WMS serves a rendered
+// 3-class image (Alta/Média/Baixa) with no numeric band behind it.
+//
+// SGB's enxurrada and corrida-de-massa layers are deliberately absent: both
+// return an empty image over the municipality (verified against a POA bbox).
+export const OFFICIAL_RISK_LAYERS: TileLayerDef[] = [
+  {
+    id: 'sgb_suscet_inundacao', name: 'Flood Susceptibility (SGB)', group: 'official_risk', color: '#5a5aff',
+    tileLayerId: 'sgb_suscet_inundacao', available: true,
+    visualUrlTemplate: '/api/geospatial/wms/sgb_suscet_inundacao/{z}/{x}/{y}.png',
+  },
+  {
+    id: 'sgb_suscet_mov_massa', name: 'Landslide Susceptibility (SGB)', group: 'official_risk', color: '#c46d1b',
+    tileLayerId: 'sgb_suscet_mov_massa', available: true,
+    visualUrlTemplate: '/api/geospatial/wms/sgb_suscet_mov_massa/{z}/{x}/{y}.png',
+  },
+];
+
 // Groups for the layer selector UI
 export const TILE_LAYER_GROUPS: Array<{ id: LayerGroup; label: string }> = [
+  { id: 'official_risk', label: 'Official Risk Cartography (SGB)' },
   { id: 'urban_land', label: 'Land Use & Urban Form' },
   { id: 'ecology', label: 'Environment & Ecology' },
   { id: 'population', label: 'Population & Society' },
@@ -338,6 +365,7 @@ export const ALL_TILE_LAYERS: TileLayerDef[] = [
   ...FLOOD_INDEX_LAYERS,
   ...HEAT_INDEX_LAYERS,
   ...LANDSLIDE_INDEX_LAYERS,
+  ...OFFICIAL_RISK_LAYERS,
 ];
 
 /** The visual (RGB) tile URL template for a layer — its local override when set,
@@ -360,6 +388,30 @@ export const OSM_LAYERS: OsmLayerDef[] = [
   { id: 'osm_schools',   name: 'Schools & Education',  color: '#f59e0b', endpoint: '/api/osm/schools' },
   { id: 'osm_hospitals', name: 'Hospitals & Health',    color: '#ef4444', endpoint: '/api/osm/hospitals' },
   { id: 'osm_wetlands',  name: 'Wetlands',             color: '#3b82f6', endpoint: '/api/osm/wetlands' },
+];
+
+// ── Official Risk Vector Layers (SGB/CPRM, via /api/official-risk) ────────────
+// Polygons, not points — so these do NOT go through the OSM marker path. See
+// shared/official-risk.ts for the styling and popup contract, and for why
+// absence of a sector must never be rendered as an all-clear.
+
+export interface OfficialVectorLayerDef {
+  id: string;
+  name: string;
+  color: string;
+  endpoint: string;
+  /** Shown wherever the layer is active — coverage is partial by design. */
+  coverageNoteKey: string;
+}
+
+export const OFFICIAL_VECTOR_LAYERS: OfficialVectorLayerDef[] = [
+  {
+    id: 'sgb_setores_risco',
+    name: 'Surveyed Risk Sectors (SGB)',
+    color: '#b91c1c',
+    endpoint: '/api/official-risk/sgb-setorizacao',
+    coverageNoteKey: 'officialRisk.coverageNote',
+  },
 ];
 
 // ── Reference Data Layers (GeoJSON, loaded from sample-data) ──────────────────

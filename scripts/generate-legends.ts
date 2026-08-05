@@ -14,7 +14,7 @@
 import fs from 'fs';
 import path from 'path';
 import { PNG } from 'pngjs';
-import { TILE_LAYERS, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS } from '../shared/geospatial-layers';
+import { TILE_LAYERS, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS, OFFICIAL_RISK_LAYERS } from '../shared/geospatial-layers';
 import type { LegendSpec, LegendStop, LegendIndex } from '../shared/legend-types';
 
 const S3 = 'https://geo-test-api.s3.us-east-1.amazonaws.com';
@@ -128,14 +128,45 @@ async function sampleRamp(valueUrl: string, scale: number, offset: number): Prom
   return { stops, min: Math.round(min * 1000) / 1000, max: Math.round(max * 1000) / 1000 };
 }
 
+// SGB susceptibility WMS layers have no value tiles and no colormap file — the
+// service renders a finished 3-class image. These stops were read off SGB's own
+// GetLegendGraphic swatches, so they match the pixels exactly. `value` is the
+// class ordinal (0 = Baixa) since the ramp carries no measured unit.
+const SGB_CLASS_LEGENDS: LegendIndex = {
+  sgb_suscet_inundacao: {
+    layerId: 'sgb_suscet_inundacao', kind: 'classes', source: 'classes',
+    stops: [
+      { value: 0, color: '#d0d0ff', label: 'Baixa' },
+      { value: 1, color: '#a0a0ff', label: 'Média' },
+      { value: 2, color: '#5a5aff', label: 'Alta' },
+    ],
+    note: 'SGB/CPRM regional susceptibility — classes from GetLegendGraphic',
+  },
+  sgb_suscet_mov_massa: {
+    layerId: 'sgb_suscet_mov_massa', kind: 'classes', source: 'classes',
+    stops: [
+      { value: 0, color: '#ffff80', label: 'Baixa' },
+      { value: 1, color: '#f7c348', label: 'Média' },
+      { value: 2, color: '#c46d1b', label: 'Alta' },
+    ],
+    note: 'SGB/CPRM regional susceptibility — classes from GetLegendGraphic',
+  },
+};
+
 async function main() {
-  const all = [...LOCAL_RISK_LAYERS, ...FLOOD_INDEX_LAYERS, ...HEAT_INDEX_LAYERS, ...LANDSLIDE_INDEX_LAYERS, ...TILE_LAYERS];
+  const all = [...LOCAL_RISK_LAYERS, ...FLOOD_INDEX_LAYERS, ...HEAT_INDEX_LAYERS, ...LANDSLIDE_INDEX_LAYERS, ...TILE_LAYERS, ...OFFICIAL_RISK_LAYERS];
   const legends: LegendIndex = {};
   let nFile = 0, nClass = 0, nCode = 0, nSample = 0, nSkip = 0;
 
   for (const l of all) {
     const enc: any = (l as any).valueEncoding;
     const id = l.id;
+
+    // 0) hand-authored class legends (SGB WMS — no value tiles to sample)
+    if (SGB_CLASS_LEGENDS[id]) {
+      legends[id] = SGB_CLASS_LEGENDS[id];
+      nClass++; continue;
+    }
 
     // 1) categorical
     if (enc?.type === 'categorical' && enc.classes) {

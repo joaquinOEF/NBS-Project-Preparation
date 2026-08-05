@@ -36,7 +36,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
-import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS } from '@shared/geospatial-layers';
+import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS, OFFICIAL_RISK_LAYERS, OFFICIAL_VECTOR_LAYERS, tileVisualUrl } from '@shared/geospatial-layers';
+import { sectorColors, sectorPopupHtml, SECTOR_POPUP_LABELS_EN as SECTOR_POPUP_LABELS } from '@shared/official-risk';
 import { riskBand, pct100, dominantPercentile, hazardPercentile, riskAnchor, TYPOLOGY_COLORS, type HazardKey } from '@shared/risk-display';
 import { LayerLegend } from '@/core/components/map/LayerLegend';
 import type { LegendIndex } from '@shared/legend-types';
@@ -81,7 +82,7 @@ interface CityInfo {
 }
 
 type LayerSource = 'geojson' | 'tiles';
-type LayerGroupId = 'analysis' | 'environment' | 'reference_data' | 'osm_reference' | 'spatial_queries' | 'risk_250m' | 'flood_indices' | 'heat_indices' | 'landslide_indices' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections';
+type LayerGroupId = 'analysis' | 'environment' | 'reference_data' | 'osm_reference' | 'spatial_queries' | 'risk_250m' | 'flood_indices' | 'heat_indices' | 'landslide_indices' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections' | 'official_risk';
 
 interface LayerState {
   id: string;
@@ -179,6 +180,29 @@ const LAYER_CONFIGS: LayerConfig[] = [
     color: l.color,
     source: 'tiles' as LayerSource,
     group: 'landslide_indices' as LayerGroupId,
+    available: true,
+    tileLayerId: l.tileLayerId,
+    hasValueTiles: l.hasValueTiles,
+    valueEncoding: l.valueEncoding,
+  })),
+  // Official risk cartography (SGB/CPRM) — the surveyed sector polygons and the
+  // two susceptibility rasters that actually cover Porto Alegre.
+  ...OFFICIAL_VECTOR_LAYERS.map(l => ({
+    id: l.id,
+    name: l.name,
+    icon: AlertTriangle,
+    color: l.color,
+    source: 'geojson' as LayerSource,
+    group: 'official_risk' as LayerGroupId,
+    available: true,
+  })),
+  ...OFFICIAL_RISK_LAYERS.map(l => ({
+    id: l.id,
+    name: l.name,
+    icon: Layers,
+    color: l.color,
+    source: 'tiles' as LayerSource,
+    group: 'official_risk' as LayerGroupId,
     available: true,
     tileLayerId: l.tileLayerId,
     hasValueTiles: l.hasValueTiles,
@@ -962,7 +986,7 @@ export default function SiteExplorerPage() {
         const data = await res.json();
         return { geoJson: data.geoJson || data };
       }
-      default:
+      default: {
         // OSM reference layers — fetch from Overpass API proxy
         if (layerId.startsWith('osm_')) {
           const osmId = layerId.replace('osm_', '');
@@ -971,7 +995,16 @@ export default function SiteExplorerPage() {
           const geojson = await res.json();
           return { geoJson: geojson };
         }
+        // Official risk vector layers (SGB/CPRM surveyed sectors)
+        const official = OFFICIAL_VECTOR_LAYERS.find(l => l.id === layerId);
+        if (official) {
+          const res = await fetch(official.endpoint);
+          if (!res.ok) return null;
+          const geojson = await res.json();
+          return { geoJson: geojson };
+        }
         return null;
+      }
     }
   }, [isSampleModeActive]);
 
@@ -1635,24 +1668,59 @@ export default function SiteExplorerPage() {
             },
           });
         }
+        // Official risk sectors (SGB/CPRM) — polygons styled by grau_risco, with
+        // the survey record itself in the popup. See shared/official-risk.ts.
+        if (OFFICIAL_VECTOR_LAYERS.some(l => l.id === layerId) && data.geoJson?.features) {
+          return L.geoJSON(data.geoJson, {
+            style: (feature) => {
+              const c = sectorColors(feature?.properties?.grau_risco);
+              return {
+                color: c.stroke,
+                weight: 1.5,
+                fillColor: c.fill,
+                fillOpacity: 0.45,
+                opacity: 0.9,
+              };
+            },
+            onEachFeature: (feature, layer) => {
+              layer.bindPopup(
+                sectorPopupHtml(feature.properties || {}, SECTOR_POPUP_LABELS),
+                { maxWidth: 340 }
+              );
+              const p = feature.properties || {};
+              layer.bindTooltip(
+                `${p.local || p.num_setor || 'Setor'} — ${p.grau_risco || ''}`,
+                { sticky: true }
+              );
+            },
+          });
+        }
         return null;
     }
   }, []);
 
   const createTileLayer = useCallback((layerConfig: LayerState): L.TileLayer | null => {
     if (!layerConfig.tileLayerId) return null;
-    // Local risk tiles use /tiles/ path, S3 tiles use the proxy
+    // Local risk tiles use /tiles/, WMS-backed official layers use the WMS
+    // proxy, S3 catalog tiles use the tile proxy. All three are already encoded
+    // in the shared catalog — resolve through tileVisualUrl so this and the CBO
+    // MapMicroapp cannot disagree about a layer's URL.
+    const def = ALL_TILE_LAYERS.find(l => l.id === layerConfig.id);
     const isLocal = layerConfig.tileLayerId.startsWith('_local_');
-    const tileUrl = isLocal
-      ? `/tiles/${layerConfig.tileLayerId.replace('_local_', '')}/{z}/{x}/{y}.png`
-      : `/api/geospatial/tiles/${layerConfig.tileLayerId}/{z}/{x}/{y}.png`;
+    const tileUrl = def
+      ? tileVisualUrl(def)
+      : isLocal
+        ? `/tiles/${layerConfig.tileLayerId.replace('_local_', '')}/{z}/{x}/{y}.png`
+        : `/api/geospatial/tiles/${layerConfig.tileLayerId}/{z}/{x}/{y}.png`;
+    // SGB serves its WMS from a regional cache; asking past z15 just upscales.
+    const isWms = tileUrl.startsWith('/api/geospatial/wms/');
     return L.tileLayer(tileUrl, {
       opacity: 0.7,
       maxNativeZoom: isLocal ? 14 : 15,
       maxZoom: 19,
       minZoom: isLocal ? 10 : 10,
       errorTileUrl: '',
-      className: isLocal ? 'risk-tile-layer' : 'oef-tile-layer',
+      className: isLocal ? 'risk-tile-layer' : isWms ? 'sgb-tile-layer' : 'oef-tile-layer',
     });
   }, []);
 
