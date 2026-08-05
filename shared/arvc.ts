@@ -114,9 +114,21 @@ export const ARVC_DERIVED_NOTE = {
  * ✓ DO use these for the question they answer: which populated areas combine
  *   climate hazard with social vulnerability.
  *
- * This also explains why ARVC heat risk and our own poa_heat_risk agree so
- * poorly (Spearman ρ = +0.34): ours is hazard-led, theirs is vulnerability-led.
- * They are answering different questions, and neither is wrong.
+ * ⚠️ OUR OWN LAYERS HAVE THE SAME PROPERTY. Running the identical correlation
+ * test on poa_flood_risk / poa_heat_risk / poa_landslide_risk gives a mean
+ * off-diagonal of 0.82 — flood↔heat 0.85, heat↔landslide 0.80 — against the
+ * ARVC's 0.83. Flood and heat share no physical mechanism either. This is the
+ * bairro-constant problem already documented in shared/site-knowledge.ts: two of
+ * the three factors in every one of our risk scores are bairro constants shared
+ * across all hazards, so all three composites are largely the same E×V surface.
+ * (Caveat: the landslide tiles returned far fewer sampled cells than heat, so
+ * its pairs rest on a smaller common set, and flood↔landslide had too few shared
+ * cells to compute at all.)
+ *
+ * So the earlier reading of the ρ = +0.34 heat disagreement — "ours is
+ * hazard-led, theirs is vulnerability-led" — was WRONG. Both are
+ * vulnerability-led. They disagree because they use DIFFERENT vulnerability
+ * inputs, spatial units and vintages, not because one is about hazard.
  */
 export const ARVC_INTERPRETATION = {
   en: 'ARVC risk = hazard × exposure × vulnerability, and exposure/vulnerability dominate. Read as "vulnerable populated areas", not as a hazard map. For landslide terrain use the SGB layers.',
