@@ -43,6 +43,7 @@ import {
   arvcClass,
   arvcFeatureCollection,
   ARVC_DERIVED_NOTE,
+  ARVC_INTERPRETATION,
   ARVC_HAZARDS,
   type ArvcHazardId,
   type ArvcPayload,
@@ -1733,7 +1734,8 @@ export default function SiteExplorerPage() {
                 `<div style="font-size:11px;max-width:230px">` +
                   `<strong>${arvcClass(v)}</strong> — índice ${v.toFixed(2)}<br/>` +
                   `<span style="color:#888">${hazardMeta?.sourceTitle ?? ''}</span><br/>` +
-                  `<span style="color:#b45309">${ARVC_DERIVED_NOTE.en}</span>` +
+                  `<span style="color:#b45309">${ARVC_DERIVED_NOTE.en}</span><br/>` +
+                  `<span style="color:#6b7280">${ARVC_INTERPRETATION.en}</span>` +
                   `</div>`,
                 { sticky: true }
               );

@@ -213,6 +213,53 @@ isolated how much of the gap is the 2050 horizon versus the different inputs.
 
 ---
 
+## What these layers actually measure — read before using them
+
+The ARVC composites are **not hazard maps**. They follow R = ∛(A × E × V), and in
+this dataset **exposure and vulnerability dominate the hazard term**.
+
+Two pieces of evidence, both from the published figures:
+
+**1. The landslide hazard map is flat.** Figura 21 (*Ameaça — Deslizamento*) is
+almost uniformly "Baixa" across the whole municipality; it does not resolve the
+morros. Figura 24 (*Risco — Deslizamento*) is nevertheless red across the entire
+built-up area, including the flat north where there are no slopes.
+
+**2. The six layers correlate at 0.83.**
+
+| | heat | flood | landslide | drought | arbovirus | storm |
+|---|---|---|---|---|---|---|
+| **heat** | 1.00 | 0.67 | 0.87 | 0.88 | 0.88 | 0.88 |
+| **flood** | 0.67 | 1.00 | 0.71 | 0.71 | 0.72 | 0.73 |
+| **landslide** | 0.87 | 0.71 | 1.00 | 0.89 | 0.88 | **0.94** |
+| **drought** | 0.88 | 0.71 | **0.89** | 1.00 | 0.89 | 0.89 |
+| **arbovirus** | 0.88 | 0.72 | 0.88 | 0.89 | 1.00 | 0.89 |
+| **storm** | 0.88 | 0.73 | **0.94** | 0.89 | 0.89 | 1.00 |
+
+Drought and landslide share no physical mechanism. Six unrelated hazards can only
+agree at 0.89 if what they mostly encode is the term they have in common.
+
+**There is still real per-hazard signal.** The landslide layer averages **0.583**
+inside SGB's 44 field-surveyed *deslizamento* sectors against **0.405** citywide,
+and is **not** elevated in flood sectors (0.405). Heat risk is also somewhat
+elevated there (0.485) because those are precarious hillside settlements — but
+landslide is elevated about 2.2× more than heat, which is genuine hazard-specific
+information. It is a minority of the variance, not noise.
+
+### Consequences
+
+- ✗ **Do not use ARVC landslide risk as a landslide susceptibility map.** For
+  terrain-driven landslide exposure, use the SGB layers already in the site
+  explorer — the field-surveyed Setorização de Risco and SGB's Suscetibilidade a
+  Movimento de Massa.
+- ✓ **Do use these for the question they answer:** which populated areas combine
+  a climate hazard with social vulnerability.
+- This also explains the ρ = +0.34 disagreement with our own `poa_heat_risk`
+  documented below: ours is hazard-led, theirs is vulnerability-led. They answer
+  different questions and neither is wrong.
+
+---
+
 ## Two bugs, and what they teach
 
 Both were caught by checks, not by looking at output that seemed fine.
