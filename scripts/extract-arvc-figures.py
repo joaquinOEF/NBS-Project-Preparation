@@ -31,8 +31,15 @@ INV = Transformer.from_crs('EPSG:31982', 'EPSG:4326', always_xy=True)
 
 RAMP = np.array([(253,245,239),(253,226,213),(251,194,170),(252,158,127),(251,123,90),
                  (244,85,62),(227,46,40),(194,22,24),(157,13,19),(102,0,13)], float)
+# Pure white belongs here as a COMPETING ANCHOR, not as a tolerance rule.
+# Ramp step 0 (#fdf5ef) sits only 19 RGB units from white, so a tolerance loose
+# enough to catch it also catches label text — an earlier version dropped white
+# entirely and then read ~1,000 label pixels per figure as "Muito Baixa".
+# Nearest-anchor assignment separates them correctly: a true step-0 pixel is 0
+# from step 0 and 19 from white; a label pixel is the reverse.
 NONDATA = np.array([(226,226,226),(198,226,242),(45,104,56),(166,209,162),
-                    (128,128,128),(0,0,0),(90,90,90),(180,180,180)], float)
+                    (128,128,128),(0,0,0),(90,90,90),(180,180,180),
+                    (255,255,255),(250,250,250)], float)
 GREY_NA = np.array([226,226,226], float)
 CLASS_NAMES = ['Muito Baixa','Baixa','Média','Alta','Muito Alta']
 MAX_DIST = 42.0
