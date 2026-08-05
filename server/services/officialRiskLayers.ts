@@ -34,9 +34,13 @@ const SGB_ARCGIS =
 export interface OfficialRiskSource {
   id: string;
   label: string;
-  /** Fully-formed request URL for the live source. */
-  url: string;
-  /** Human-readable attribution, echoed to the client with the GeoJSON. */
+  /**
+   * Fully-formed request URL for the live source. Absent for derived layers —
+   * the ARVC surfaces are reconstructed offline from the published PDF and have
+   * no live endpoint to refresh from, so their snapshot IS the source.
+   */
+  url?: string;
+  /** Human-readable attribution, echoed to the client with the payload. */
   attribution: string;
 }
 
@@ -48,6 +52,14 @@ export const OFFICIAL_RISK_SOURCES: OfficialRiskSource[] = [
       `${SGB_ARCGIS}?where=${encodeURIComponent(`cd_geocmu='${POA_IBGE_CODE}'`)}` +
       '&outFields=*&returnGeometry=true&outSR=4326&f=geoJSON',
     attribution: 'Serviço Geológico do Brasil (SGB/CPRM) — Setorização de Risco',
+  },
+  {
+    id: 'arvc-poa',
+    label: 'ARVC — climate risk 2050 (reconstructed)',
+    // No url: derived offline. See scripts/extract-arvc-figures.py.
+    attribution:
+      'Reconstructed from ARVC / Plano de Ação Climática de Porto Alegre ' +
+      '(WayCarbon, ICLEI, Ludovino Lopes, Ecofinance) — NOT the official dataset',
   },
 ];
 
@@ -118,6 +130,12 @@ export async function readSnapshot(layerId: string): Promise<any | null> {
 
 /** Live query against SGB. Slow and occasionally down — the fallback, not the path. */
 export async function fetchLive(source: OfficialRiskSource): Promise<any> {
+  if (!source.url) {
+    throw new Error(
+      `'${source.id}' is a derived layer with no live source; its committed ` +
+        `snapshot is missing. Regenerate it (see scripts/extract-arvc-figures.py).`
+    );
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60_000);
   try {
@@ -136,6 +154,14 @@ export async function fetchLive(source: OfficialRiskSource): Promise<any> {
 
 export function logSnapshotStatus(layerId: string, hit: boolean): void {
   if (hit) return;
+  const source = OFFICIAL_RISK_SOURCES.find(s => s.id === layerId);
+  if (source && !source.url) {
+    console.error(
+      `[official-risk] '${layerId}' is derived and its snapshot is MISSING — this ` +
+        `layer cannot be served. Regenerate with scripts/extract-arvc-figures.py.`
+    );
+    return;
+  }
   console.warn(
     `[official-risk] No committed snapshot for '${layerId}' — falling back to a live ` +
       `SGB query. Run \`npm run official-risk:refresh\` to commit one.`

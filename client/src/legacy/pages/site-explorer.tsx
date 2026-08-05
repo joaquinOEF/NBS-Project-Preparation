@@ -36,8 +36,17 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
-import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS, OFFICIAL_RISK_LAYERS, OFFICIAL_VECTOR_LAYERS, tileVisualUrl } from '@shared/geospatial-layers';
+import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS, OFFICIAL_RISK_LAYERS, OFFICIAL_VECTOR_LAYERS, ARVC_LAYERS, ARVC_ENDPOINT, tileVisualUrl } from '@shared/geospatial-layers';
 import { sectorColors, sectorPopupHtml, SECTOR_POPUP_LABELS_EN as SECTOR_POPUP_LABELS } from '@shared/official-risk';
+import {
+  arvcColor,
+  arvcClass,
+  arvcFeatureCollection,
+  ARVC_DERIVED_NOTE,
+  ARVC_HAZARDS,
+  type ArvcHazardId,
+  type ArvcPayload,
+} from '@shared/arvc';
 import { riskBand, pct100, dominantPercentile, hazardPercentile, riskAnchor, TYPOLOGY_COLORS, type HazardKey } from '@shared/risk-display';
 import { LayerLegend } from '@/core/components/map/LayerLegend';
 import type { LegendIndex } from '@shared/legend-types';
@@ -82,7 +91,7 @@ interface CityInfo {
 }
 
 type LayerSource = 'geojson' | 'tiles';
-type LayerGroupId = 'analysis' | 'environment' | 'reference_data' | 'osm_reference' | 'spatial_queries' | 'risk_250m' | 'flood_indices' | 'heat_indices' | 'landslide_indices' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections' | 'official_risk';
+type LayerGroupId = 'analysis' | 'environment' | 'reference_data' | 'osm_reference' | 'spatial_queries' | 'risk_250m' | 'flood_indices' | 'heat_indices' | 'landslide_indices' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections' | 'official_risk' | 'arvc';
 
 interface LayerState {
   id: string;
@@ -208,6 +217,17 @@ const LAYER_CONFIGS: LayerConfig[] = [
     hasValueTiles: l.hasValueTiles,
     valueEncoding: l.valueEncoding,
   })),
+  // ARVC climate-risk surfaces, reconstructed from the municipal plan's PDF
+  // figures. All six share one grid and one fetch — see shared/arvc.ts.
+  ...ARVC_LAYERS.map(l => ({
+    id: l.id,
+    name: l.name,
+    icon: AlertTriangle,
+    color: l.color,
+    source: 'geojson' as LayerSource,
+    group: 'arvc' as LayerGroupId,
+    available: true,
+  })),
   // OEF tile layers — generated from shared catalog (48 layers)
   ...TILE_LAYERS.filter(l => l.available).map(l => ({
     id: l.id,
@@ -222,6 +242,24 @@ const LAYER_CONFIGS: LayerConfig[] = [
     valueEncoding: l.valueEncoding,
   })),
 ];
+
+// All six ARVC hazards live in one payload on one shared grid, so toggling them
+// must not mean six downloads of the same ~890 KB. Cached at module scope; a
+// failed attempt clears the cache so the next toggle can retry rather than
+// leaving the layers permanently dead.
+let arvcPayloadPromise: Promise<ArvcPayload | null> | null = null;
+function loadArvcPayload(): Promise<ArvcPayload | null> {
+  if (!arvcPayloadPromise) {
+    arvcPayloadPromise = fetch(ARVC_ENDPOINT)
+      .then(res => (res.ok ? res.json() : null))
+      .catch(() => null)
+      .then((data: ArvcPayload | null) => {
+        if (!data) arvcPayloadPromise = null;
+        return data;
+      });
+  }
+  return arvcPayloadPromise;
+}
 
 const LAYER_GROUPS: readonly { id: LayerGroupId; label: string }[] = [
   { id: 'risk_250m', label: 'Risk Analysis (250m)' },
@@ -1003,6 +1041,13 @@ export default function SiteExplorerPage() {
           const geojson = await res.json();
           return { geoJson: geojson };
         }
+        // ARVC — one shared payload, sliced per hazard
+        const arvc = ARVC_LAYERS.find(l => l.id === layerId);
+        if (arvc) {
+          const payload = await loadArvcPayload();
+          if (!payload) return null;
+          return { geoJson: arvcFeatureCollection(payload, arvc.hazard as ArvcHazardId) };
+        }
         return null;
       }
     }
@@ -1665,6 +1710,33 @@ export default function SiteExplorerPage() {
               const type = p.amenity || p.leisure || p.natural || p.landuse || '';
               const label = [name, type].filter(Boolean).join('<br/>') || 'OSM Feature';
               layer.bindTooltip(label, { sticky: true });
+            },
+          });
+        }
+        // ARVC climate-risk surface — a continuous 0–1 choropleth on the 250 m
+        // grid, drawn with the ARVC's own ColorBrewer Reds ramp so it reads the
+        // same as the printed municipal plan. No border: at 250 m the cell
+        // outlines dominate the fill and turn the layer into a mesh.
+        if (ARVC_LAYERS.some(l => l.id === layerId) && data.geoJson?.features) {
+          const arvcDef = ARVC_LAYERS.find(l => l.id === layerId)!;
+          const hazardMeta = ARVC_HAZARDS.find(h => h.id === arvcDef.hazard);
+          return L.geoJSON(data.geoJson, {
+            style: (feature) => ({
+              color: arvcColor(feature?.properties?.value ?? 0),
+              weight: 0,
+              fillColor: arvcColor(feature?.properties?.value ?? 0),
+              fillOpacity: 0.72,
+            }),
+            onEachFeature: (feature, layer) => {
+              const v = feature.properties?.value ?? 0;
+              layer.bindTooltip(
+                `<div style="font-size:11px;max-width:230px">` +
+                  `<strong>${arvcClass(v)}</strong> — índice ${v.toFixed(2)}<br/>` +
+                  `<span style="color:#888">${hazardMeta?.sourceTitle ?? ''}</span><br/>` +
+                  `<span style="color:#b45309">${ARVC_DERIVED_NOTE.en}</span>` +
+                  `</div>`,
+                { sticky: true }
+              );
             },
           });
         }

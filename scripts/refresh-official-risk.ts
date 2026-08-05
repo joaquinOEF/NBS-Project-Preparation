@@ -26,6 +26,12 @@ async function main() {
 
   let failures = 0;
   for (const source of OFFICIAL_RISK_SOURCES) {
+    // Derived layers have no live endpoint — their snapshot is produced by
+    // scripts/extract-arvc-figures.py, not by this refresher.
+    if (!source.url) {
+      console.log(`[official-risk] ${source.id} … skipped (derived, no live source)`);
+      continue;
+    }
     process.stdout.write(`[official-risk] ${source.id} … `);
     try {
       const geojson = await fetchLive(source);

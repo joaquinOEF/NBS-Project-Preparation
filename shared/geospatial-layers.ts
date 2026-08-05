@@ -16,7 +16,8 @@ export type LayerGroup =
   | 'hydrology'        // New: DEM, MERIT, JRC, Flood Depth
   | 'climate_extreme'  // New: CHIRPS, ERA5
   | 'climate_projections' // New: FRI, HWM projections
-  | 'official_risk';   // SGB/CPRM — the published municipal risk cartography
+  | 'official_risk'    // SGB/CPRM — the published municipal risk cartography
+  | 'arvc';            // Municipal climate plan risk surfaces (reconstructed)
 
 // Value-tile encoding from OEF GitHub catalog (datasets.yaml).
 // Both kinds read the same 24-bit value: raw = R + 256*G + 65536*B
@@ -233,6 +234,7 @@ export const OFFICIAL_RISK_LAYERS: TileLayerDef[] = [
 // Groups for the layer selector UI
 export const TILE_LAYER_GROUPS: Array<{ id: LayerGroup; label: string }> = [
   { id: 'official_risk', label: 'Official Risk Cartography (SGB)' },
+  { id: 'arvc', label: 'Municipal Climate Plan — ARVC 2050 (reconstructed)' },
   { id: 'urban_land', label: 'Land Use & Urban Form' },
   { id: 'ecology', label: 'Environment & Ecology' },
   { id: 'population', label: 'Population & Society' },
@@ -412,6 +414,31 @@ export const OFFICIAL_VECTOR_LAYERS: OfficialVectorLayerDef[] = [
     endpoint: '/api/official-risk/sgb-setorizacao',
     coverageNoteKey: 'officialRisk.coverageNote',
   },
+];
+
+// ── ARVC climate-risk surfaces (reconstructed from the municipal plan) ────────
+// Six hazards on one shared 250 m grid, all served by a SINGLE fetch of
+// /api/official-risk/arvc-poa — see shared/arvc.ts for the payload shape and
+// for why these must never be cited as the official dataset.
+
+export const ARVC_ENDPOINT = '/api/official-risk/arvc-poa';
+
+export interface ArvcLayerDef {
+  /** Layer id in the explorer — `arvc_` prefix routes it to the ARVC renderer. */
+  id: string;
+  /** Key into the payload's `hazards` map. */
+  hazard: string;
+  name: string;
+  color: string;
+}
+
+export const ARVC_LAYERS: ArvcLayerDef[] = [
+  { id: 'arvc_heat_risk_2050',      hazard: 'heat_risk_2050',      name: 'Heat Wave Risk 2050 (ARVC)',   color: '#c21618' },
+  { id: 'arvc_flood_risk_2050',     hazard: 'flood_risk_2050',     name: 'River Flood Risk 2050 (ARVC)', color: '#9d0d13' },
+  { id: 'arvc_landslide_risk_2050', hazard: 'landslide_risk_2050', name: 'Landslide Risk 2050 (ARVC)',   color: '#e32e28' },
+  { id: 'arvc_storm_risk_2050',     hazard: 'storm_risk_2050',     name: 'Storm Risk 2050 (ARVC)',       color: '#f4553e' },
+  { id: 'arvc_drought_risk_2050',   hazard: 'drought_risk_2050',   name: 'Drought Risk 2050 (ARVC)',     color: '#fb7b5a' },
+  { id: 'arvc_arbovirus_risk_2050', hazard: 'arbovirus_risk_2050', name: 'Arbovirus Risk 2050 (ARVC)',   color: '#fc9e7f' },
 ];
 
 // ── Reference Data Layers (GeoJSON, loaded from sample-data) ──────────────────
