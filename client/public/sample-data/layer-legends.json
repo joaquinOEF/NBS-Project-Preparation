@@ -1463,5 +1463,311 @@
     ],
     "source": "classes",
     "note": "SGB/CPRM regional susceptibility — classes from GetLegendGraphic"
+  },
+  "arvc_heat_risk_2050": {
+    "layerId": "arvc_heat_risk_2050",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#fdf5ef"
+      },
+      {
+        "value": 0.111,
+        "color": "#fde2d5"
+      },
+      {
+        "value": 0.222,
+        "color": "#fbc2aa"
+      },
+      {
+        "value": 0.333,
+        "color": "#fc9e7f"
+      },
+      {
+        "value": 0.444,
+        "color": "#fb7b5a"
+      },
+      {
+        "value": 0.556,
+        "color": "#f4553e"
+      },
+      {
+        "value": 0.667,
+        "color": "#e32e28"
+      },
+      {
+        "value": 0.778,
+        "color": "#c21618"
+      },
+      {
+        "value": 0.889,
+        "color": "#9d0d13"
+      },
+      {
+        "value": 1.0,
+        "color": "#66000d"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "classes",
+    "note": "ARVC legend ramp, read off the published figure — reconstructed values"
+  },
+  "arvc_flood_risk_2050": {
+    "layerId": "arvc_flood_risk_2050",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#fdf5ef"
+      },
+      {
+        "value": 0.111,
+        "color": "#fde2d5"
+      },
+      {
+        "value": 0.222,
+        "color": "#fbc2aa"
+      },
+      {
+        "value": 0.333,
+        "color": "#fc9e7f"
+      },
+      {
+        "value": 0.444,
+        "color": "#fb7b5a"
+      },
+      {
+        "value": 0.556,
+        "color": "#f4553e"
+      },
+      {
+        "value": 0.667,
+        "color": "#e32e28"
+      },
+      {
+        "value": 0.778,
+        "color": "#c21618"
+      },
+      {
+        "value": 0.889,
+        "color": "#9d0d13"
+      },
+      {
+        "value": 1.0,
+        "color": "#66000d"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "classes",
+    "note": "ARVC legend ramp, read off the published figure — reconstructed values"
+  },
+  "arvc_landslide_risk_2050": {
+    "layerId": "arvc_landslide_risk_2050",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#fdf5ef"
+      },
+      {
+        "value": 0.111,
+        "color": "#fde2d5"
+      },
+      {
+        "value": 0.222,
+        "color": "#fbc2aa"
+      },
+      {
+        "value": 0.333,
+        "color": "#fc9e7f"
+      },
+      {
+        "value": 0.444,
+        "color": "#fb7b5a"
+      },
+      {
+        "value": 0.556,
+        "color": "#f4553e"
+      },
+      {
+        "value": 0.667,
+        "color": "#e32e28"
+      },
+      {
+        "value": 0.778,
+        "color": "#c21618"
+      },
+      {
+        "value": 0.889,
+        "color": "#9d0d13"
+      },
+      {
+        "value": 1.0,
+        "color": "#66000d"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "classes",
+    "note": "ARVC legend ramp, read off the published figure — reconstructed values"
+  },
+  "arvc_storm_risk_2050": {
+    "layerId": "arvc_storm_risk_2050",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#fdf5ef"
+      },
+      {
+        "value": 0.111,
+        "color": "#fde2d5"
+      },
+      {
+        "value": 0.222,
+        "color": "#fbc2aa"
+      },
+      {
+        "value": 0.333,
+        "color": "#fc9e7f"
+      },
+      {
+        "value": 0.444,
+        "color": "#fb7b5a"
+      },
+      {
+        "value": 0.556,
+        "color": "#f4553e"
+      },
+      {
+        "value": 0.667,
+        "color": "#e32e28"
+      },
+      {
+        "value": 0.778,
+        "color": "#c21618"
+      },
+      {
+        "value": 0.889,
+        "color": "#9d0d13"
+      },
+      {
+        "value": 1.0,
+        "color": "#66000d"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "classes",
+    "note": "ARVC legend ramp, read off the published figure — reconstructed values"
+  },
+  "arvc_drought_risk_2050": {
+    "layerId": "arvc_drought_risk_2050",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#fdf5ef"
+      },
+      {
+        "value": 0.111,
+        "color": "#fde2d5"
+      },
+      {
+        "value": 0.222,
+        "color": "#fbc2aa"
+      },
+      {
+        "value": 0.333,
+        "color": "#fc9e7f"
+      },
+      {
+        "value": 0.444,
+        "color": "#fb7b5a"
+      },
+      {
+        "value": 0.556,
+        "color": "#f4553e"
+      },
+      {
+        "value": 0.667,
+        "color": "#e32e28"
+      },
+      {
+        "value": 0.778,
+        "color": "#c21618"
+      },
+      {
+        "value": 0.889,
+        "color": "#9d0d13"
+      },
+      {
+        "value": 1.0,
+        "color": "#66000d"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "classes",
+    "note": "ARVC legend ramp, read off the published figure — reconstructed values"
+  },
+  "arvc_arbovirus_risk_2050": {
+    "layerId": "arvc_arbovirus_risk_2050",
+    "kind": "gradient",
+    "unit": "index 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#fdf5ef"
+      },
+      {
+        "value": 0.111,
+        "color": "#fde2d5"
+      },
+      {
+        "value": 0.222,
+        "color": "#fbc2aa"
+      },
+      {
+        "value": 0.333,
+        "color": "#fc9e7f"
+      },
+      {
+        "value": 0.444,
+        "color": "#fb7b5a"
+      },
+      {
+        "value": 0.556,
+        "color": "#f4553e"
+      },
+      {
+        "value": 0.667,
+        "color": "#e32e28"
+      },
+      {
+        "value": 0.778,
+        "color": "#c21618"
+      },
+      {
+        "value": 0.889,
+        "color": "#9d0d13"
+      },
+      {
+        "value": 1.0,
+        "color": "#66000d"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "classes",
+    "note": "ARVC legend ramp, read off the published figure — reconstructed values"
   }
 }
