@@ -1417,5 +1417,51 @@
     "max": 1,
     "source": "sampled",
     "note": "colors recovered from tiles"
+  },
+  "sgb_suscet_inundacao": {
+    "layerId": "sgb_suscet_inundacao",
+    "kind": "classes",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#d0d0ff",
+        "label": "Baixa"
+      },
+      {
+        "value": 1,
+        "color": "#a0a0ff",
+        "label": "Média"
+      },
+      {
+        "value": 2,
+        "color": "#5a5aff",
+        "label": "Alta"
+      }
+    ],
+    "source": "classes",
+    "note": "SGB/CPRM regional susceptibility — classes from GetLegendGraphic"
+  },
+  "sgb_suscet_mov_massa": {
+    "layerId": "sgb_suscet_mov_massa",
+    "kind": "classes",
+    "stops": [
+      {
+        "value": 0,
+        "color": "#ffff80",
+        "label": "Baixa"
+      },
+      {
+        "value": 1,
+        "color": "#f7c348",
+        "label": "Média"
+      },
+      {
+        "value": 2,
+        "color": "#c46d1b",
+        "label": "Alta"
+      }
+    ],
+    "source": "classes",
+    "note": "SGB/CPRM regional susceptibility — classes from GetLegendGraphic"
   }
 }

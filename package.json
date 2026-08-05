@@ -10,6 +10,7 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "osm:refresh": "tsx scripts/refresh-osm-snapshots.ts",
+    "official-risk:refresh": "tsx scripts/refresh-official-risk.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:e2e": "playwright test --project=chromium",
