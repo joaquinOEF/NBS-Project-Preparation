@@ -254,9 +254,32 @@ information. It is a minority of the variance, not noise.
   Movimento de Massa.
 - ✓ **Do use these for the question they answer:** which populated areas combine
   a climate hazard with social vulnerability.
-- This also explains the ρ = +0.34 disagreement with our own `poa_heat_risk`
-  documented below: ours is hazard-led, theirs is vulnerability-led. They answer
-  different questions and neither is wrong.
+### ⚠️ Our own layers have the same property
+
+Running the identical correlation test on our own composites:
+
+| | flood | heat | landslide |
+|---|---|---|---|
+| **flood** | 1.00 | **0.85** | – |
+| **heat** | 0.85 | 1.00 | **0.80** |
+| **landslide** | – | 0.80 | 1.00 |
+
+Mean off-diagonal **0.82**, against the ARVC's 0.83. Flood and heat share no
+physical mechanism either. This is the bairro-constant problem already recorded
+in `shared/site-knowledge.ts`: two of the three factors in every one of our risk
+scores are bairro constants shared across all hazards, so all three composites
+are largely the same E×V surface.
+
+*Caveat:* the landslide value tiles returned far fewer sampled cells than heat
+(1,121 vs 28,932), so its pairs rest on a smaller common set, and flood↔landslide
+had too few shared cells to compute.
+
+**This corrects an earlier statement in this document.** The ρ = +0.34
+disagreement between ARVC heat risk and our `poa_heat_risk` was explained as
+"ours is hazard-led, theirs is vulnerability-led". That is wrong. **Both are
+vulnerability-led.** They disagree because they use different vulnerability
+inputs, spatial units and vintages — not because one of them is about hazard.
+The criticism levelled at the ARVC above applies to our own layers equally.
 
 ---
 
