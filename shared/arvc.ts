@@ -83,6 +83,46 @@ export const ARVC_DERIVED_NOTE = {
   pt: 'Reconstruído do mapa publicado em PDF — não é o dado oficial. Use para triagem, não para citação.',
 };
 
+/**
+ * ⚠️ HOW TO READ THESE LAYERS — they are not hazard maps.
+ *
+ * The ARVC composites follow the IPCC form R = ∛(Ameaça × Exposição ×
+ * Vulnerabilidade). In this dataset the exposure and vulnerability terms
+ * dominate, and the hazard term contributes comparatively little. Two pieces of
+ * evidence, both from the published figures themselves:
+ *
+ *  1. The landslide AMEAÇA map (Figura 21) is almost uniformly "Baixa" across
+ *     the whole municipality — it does not resolve the morros at all. The
+ *     landslide RISCO map (Figura 24) is nevertheless red across the entire
+ *     built-up area, including the flat north.
+ *
+ *  2. The six risk layers correlate with each other at a mean of 0.83
+ *     (landslide↔storm 0.94, drought↔landslide 0.89). Drought and landslide
+ *     share no physical mechanism. Six unrelated hazards can only agree that
+ *     strongly if what they mostly encode is the term they have in common.
+ *
+ * So read any ARVC risk layer as: "where vulnerable, exposed people are,
+ * modulated by a weaker hazard signal." There IS real per-hazard signal — the
+ * landslide layer averages 0.583 inside SGB's 44 field-surveyed deslizamento
+ * sectors against 0.405 citywide, and is not elevated in flood sectors — but it
+ * is a minority of the variance.
+ *
+ * ✗ Do NOT use ARVC landslide risk as a landslide susceptibility map. For
+ *   terrain-driven landslide exposure use the SGB layers already in the site
+ *   explorer: the field-surveyed Setorização de Risco, and SGB's
+ *   Suscetibilidade a Movimento de Massa.
+ * ✓ DO use these for the question they answer: which populated areas combine
+ *   climate hazard with social vulnerability.
+ *
+ * This also explains why ARVC heat risk and our own poa_heat_risk agree so
+ * poorly (Spearman ρ = +0.34): ours is hazard-led, theirs is vulnerability-led.
+ * They are answering different questions, and neither is wrong.
+ */
+export const ARVC_INTERPRETATION = {
+  en: 'ARVC risk = hazard × exposure × vulnerability, and exposure/vulnerability dominate. Read as "vulnerable populated areas", not as a hazard map. For landslide terrain use the SGB layers.',
+  pt: 'Risco ARVC = ameaça × exposição × vulnerabilidade, com exposição/vulnerabilidade dominando. Leia como "áreas povoadas vulneráveis", não como mapa de ameaça. Para terreno de deslizamento use as camadas do SGB.',
+};
+
 /** Cells absent from a hazard were masked at source. Absence ≠ safety. */
 export const ARVC_COVERAGE_NOTE = {
   en: 'The ARVC masks water, parks and áreas verdes out of its own index. A blank cell was excluded at source — it is not "low risk".',
