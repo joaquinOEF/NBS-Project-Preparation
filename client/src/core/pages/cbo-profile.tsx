@@ -473,6 +473,10 @@ export default function CboProfilePage() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Why the picker was opened, when a chip said so (`uploadPurpose` on the
+  // ask_user option). Consumed by the next upload and then cleared — untagged
+  // is the normal case and has to stay the default.
+  const pendingUploadPurposeRef = useRef<string | null>(null);
   const handleSelectRef = useRef<(label: string) => void>(() => {});
 
   const currentQuestion = activeQuestions[currentQuestionIdx] || null;
@@ -2047,6 +2051,13 @@ export default function CboProfilePage() {
                         familiaIds={parsed.familiaIds}
                         intro={parsed.intro}
                         lang={lang.startsWith('pt') ? 'pt' : 'en'}
+                        // The mechanisms they named in the worry beat, so the
+                        // variants inside a família lead with what answers their
+                        // problem (backlog #24). Read live from the profile —
+                        // the strip persists as a composer and re-renders on
+                        // reload, when this prop must still be right.
+                        worries={String(state?.sections?.intervention_site?.fields?.site_worry?.value ?? '')
+                          .split(',').map(w => w.trim()).filter(Boolean)}
                       />
                     </div>
                   );
@@ -2251,7 +2262,12 @@ export default function CboProfilePage() {
                   multiSelected={multiSelectedOptions}
                   onMultiToggle={(label) => setMultiSelectedOptions(prev => { const next = new Set(prev); next.has(label) ? next.delete(label) : next.add(label); return next; })}
                   onMultiConfirm={() => { handleSelectOption(Array.from(multiSelectedOptions).join(', ')); setMultiSelectedOptions(new Set()); }}
-                  onUploadAction={() => fileInputRef.current?.click()}
+                  onUploadAction={(purpose) => {
+                    // Tagged uploads (the Teia Sprint chip) tell the next file
+                    // why it is being sent; everything else stays untagged.
+                    pendingUploadPurposeRef.current = purpose ?? null;
+                    fileInputRef.current?.click();
+                  }}
                 />
               </div>
             )}
@@ -2507,6 +2523,9 @@ export default function CboProfilePage() {
                     try {
                       const formData = new FormData();
                       formData.append('file', file);
+                      if (pendingUploadPurposeRef.current) {
+                        formData.append('purpose', pendingUploadPurposeRef.current);
+                      }
                       const data = await fetch(`/api/upload/cbo/${cboId}`, { method: 'POST', body: formData }).then(r => r.json());
                       // Gap 4 — link a site photo to the chosen site (best-effort;
                       // the server no-ops until a site exists). Images only.
@@ -3018,7 +3037,7 @@ function CboQuestionCard({
   /** Transcript mode: the question was already answered. Options are inert. */
   readOnly?: boolean;
   /** Opens the file picker — for options with action 'upload'. */
-  onUploadAction?: () => void;
+  onUploadAction?: (purpose?: string) => void;
 }) {
   const { t } = useTranslation();
   const isMulti = question.multiSelect;
@@ -3028,7 +3047,7 @@ function CboQuestionCard({
     (answeredValue ?? '').split(',').map(s => s.trim()).filter(Boolean)
   );
 
-  const handleClick = (label: string, action?: string) => {
+  const handleClick = (label: string, action?: string, uploadPurpose?: string) => {
     if (disabled || readOnly) return;
     if (isMulti && onMultiToggle) {
       onMultiToggle(label);
@@ -3040,7 +3059,7 @@ function CboQuestionCard({
     // answering: a server-templated checkpoint derives its position from the
     // answers, so a chip that only opened a picker would strand the flow.
     // Answer first, then open — the picker is modal and blocks the send.
-    if (action === 'upload_then_answer') onUploadAction?.();
+    if (action === 'upload_then_answer') onUploadAction?.(uploadPurpose);
   };
 
   return (
@@ -3098,7 +3117,7 @@ function CboQuestionCard({
           const isFocused = readOnly ? false : i === selectedIdx;
           const isHighlighted = readOnly ? isPicked : isMulti ? isChecked : isFocused;
           return (
-            <button key={i} onClick={() => handleClick(opt.label, opt.action)}
+            <button key={i} onClick={() => handleClick(opt.label, opt.action, opt.uploadPurpose)}
               disabled={readOnly}
               aria-current={isPicked || undefined}
               data-testid={readOnly ? `cbo-answered-option-${i}` : `cbo-option-${i}`}

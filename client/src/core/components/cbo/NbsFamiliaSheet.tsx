@@ -18,7 +18,7 @@ import {
   DrawerHandle,
 } from '@/core/components/ui/drawer';
 import type { NbsFamiliaId } from '@shared/nbs-catalog';
-import { getFamilia, getSolution, solutionsForFamilia } from '@shared/nbs-catalog';
+import { getFamilia, getSolution, solutionsForFamilia, orderSolutionsByMechanism } from '@shared/nbs-catalog';
 import { NbsSolutionCard } from './NbsSolutionCard';
 import { NbsSolutionDetail } from './NbsSolutionDetail';
 import { CroquiLightbox } from './CroquiLightbox';
@@ -58,11 +58,15 @@ export function NbsFamiliaSheet({
   openFamiliaId,
   onClose,
   lang,
+  worries = [],
 }: {
   /** Which família to show. `null` closes the sheet. */
   openFamiliaId: NbsFamiliaId | null;
   onClose: () => void;
   lang: 'pt' | 'en';
+  /** What the org said worries them, as the mechanisms they named. Orders the
+   *  list so what answers their problem is on top — never hides anything. */
+  worries?: string[];
 }) {
   const s = STRINGS[lang];
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -70,7 +74,12 @@ export function NbsFamiliaSheet({
   const [croquiOpen, setCroquiOpen] = useState(false);
   const [filter, setFilter] = useState<SolutionFilter>(EMPTY_SOLUTION_FILTER);
   const familia = openFamiliaId ? getFamilia(openFamiliaId) : undefined;
-  const solutions = openFamiliaId ? solutionsForFamilia(openFamiliaId) : [];
+  // Ordered by the mechanism they named — Inundação puts margin and várzea work
+  // above rain gardens — and the filter still sees the whole set, because
+  // nothing is ever removed (see SOLUTION_MECHANISMS).
+  const solutions = openFamiliaId
+    ? orderSolutionsByMechanism(solutionsForFamilia(openFamiliaId), worries)
+    : [];
   const visibleSolutions = filterSolutions(solutions, filter);
   const openSolution = openSolutionId ? getSolution(openSolutionId) : undefined;
 

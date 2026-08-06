@@ -15,6 +15,20 @@ import { pgTable, text, varchar, integer, timestamp, index } from 'drizzle-orm/p
 // Mirrors fileExtract's ExtractKind.
 export type DocumentKind = 'pdf' | 'pptx' | 'docx' | 'xlsx' | 'text' | 'image' | 'audio' | 'other';
 
+/**
+ * WHY a document was uploaded, as opposed to what format it is.
+ *
+ * `kind` is the file format and always will be — a Teia Sprint application is a
+ * `pdf` like any other pdf. COUGAR convening 2026-08-06: orgs applied to the
+ * Teia Sprint open call, which makes those applications semi-formalised project
+ * proposals that W3 refines into scope, partnerships and funding. The
+ * coordination team needs to FIND them among the site photos and permits, so
+ * purpose is its own field rather than a naming convention on the filename.
+ *
+ * null = an ordinary upload, which is almost all of them.
+ */
+export type DocumentPurpose = 'teia_sprint';
+
 export const documents = pgTable('documents', {
   id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
   // The owning org — the locker is org-scoped so it accumulates across every
@@ -25,6 +39,9 @@ export const documents = pgTable('documents', {
   filename: text('filename').notNull(),
   mimeType: text('mime_type'),
   kind: text('kind').$type<DocumentKind>(),
+  // ⚠️ NEW COLUMN — needs `npm run db:push` before this deploys, or every upload
+  // 500s on an unknown column.
+  purpose: text('purpose').$type<DocumentPurpose>(),
   sizeBytes: integer('size_bytes'),
   // The WHOLE extracted text — not the 8K chat-truncated copy. This is what
   // later sessions read back via read_org_document.
@@ -51,6 +68,7 @@ export type DocumentMeta = {
   filename: string;
   mimeType: string | null;
   kind: DocumentKind | null;
+  purpose: DocumentPurpose | null;
   sizeBytes: number | null;
   droppedInPhase: number | null;
   summary: string | null;

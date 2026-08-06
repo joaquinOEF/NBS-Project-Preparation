@@ -51,6 +51,8 @@ const LANGS = [
     rolePick: 'Executar / implementar',
     doneList: 'Pronto ✓',
     closingText: 'por onde começar a estudar',
+    teiaNo: 'Não mandamos',
+    collabNo: 'Ainda não',
   },
   {
     name: 'en',
@@ -73,7 +75,7 @@ const LANGS = [
     tenurePick: "It's the city's, but we use it",
     frameText: 'our map is',
     worryText: 'worries you most',
-    worryPick: '💧 Flooding',
+    worryPick: '💧 Ponding',   // Alagamento — the pluvial mechanism (backlog #24)
     storyText: 'your own words',
     skipStory: "I'd rather skip",
     photosText: 'photos would help',
@@ -88,6 +90,8 @@ const LANGS = [
     rolePick: 'Implement on the ground',
     doneList: 'Done ✓',
     closingText: 'where to start studying',
+    teiaNo: "We didn't submit",
+    collabNo: 'Not yet',
   },
 ] as const;
 
@@ -216,6 +220,11 @@ for (const L of LANGS) {
       await chip(L.rolePick).click();
       await expect(chip(L.doneList)).toBeVisible({ timeout: 8_000 });
       await chip(L.doneList).click();
+      // The two convening questions now sit before the closing (backlog #26).
+      await expect(chip(L.teiaNo)).toBeVisible({ timeout: 8_000 });
+      await chip(L.teiaNo).click();
+      await expect(chip(L.collabNo)).toBeVisible({ timeout: 8_000 });
+      await chip(L.collabNo).click();
       await expect(page.getByText(L.closingText, { exact: false })).toBeVisible({ timeout: 8_000 });
 
       // 10 · Reload: the site card and the recommendation are composer-persisted.

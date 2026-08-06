@@ -1,7 +1,7 @@
 // Per-org document store persistence (see docs/cbo-platform-architecture.md).
 
 import { db } from '../db';
-import { documents, type DocumentRow, type DocumentKind, type DocumentMeta } from '@shared/document-schema';
+import { documents, type DocumentRow, type DocumentKind, type DocumentPurpose, type DocumentMeta } from '@shared/document-schema';
 import { cboStates } from '@shared/cbo-db-schema';
 import { eq, desc, and, or, inArray, sql } from 'drizzle-orm';
 
@@ -45,6 +45,7 @@ export function toDocumentMeta(d: DocumentRow): DocumentMeta {
     filename: d.filename,
     mimeType: d.mimeType,
     kind: d.kind,
+    purpose: d.purpose ?? null,
     sizeBytes: d.sizeBytes,
     droppedInPhase: d.droppedInPhase,
     summary: d.summary,
@@ -65,6 +66,7 @@ export async function createDocument(input: {
   filename: string;
   mimeType?: string | null;
   kind?: DocumentKind | null;
+  purpose?: DocumentPurpose | null;
   sizeBytes?: number | null;
   fullText?: string | null;
   summary?: string | null;
@@ -77,6 +79,7 @@ export async function createDocument(input: {
     filename: input.filename,
     mimeType: input.mimeType ?? null,
     kind: input.kind ?? null,
+    purpose: input.purpose ?? null,
     sizeBytes: input.sizeBytes ?? null,
     fullText: input.fullText ?? null,
     summary: input.summary ?? null,
@@ -100,6 +103,7 @@ export interface DocumentSummary {
   id: string;
   filename: string;
   kind: string | null;
+  purpose: string | null;
   droppedInPhase: number | null;
   summary: string | null;
 }
@@ -109,6 +113,7 @@ export async function listDocumentSummariesByOrg(orgId: string): Promise<Documen
       id: documents.id,
       filename: documents.filename,
       kind: documents.kind,
+      purpose: documents.purpose,
       droppedInPhase: documents.droppedInPhase,
       summary: documents.summary,
     })

@@ -111,6 +111,11 @@ export function registerUploadRoutes(app: Express): void {
             filename: file.originalname,
             mimeType: file.mimetype,
             kind: kindFromUpload(file.originalname, file.mimetype),
+            // Why it was sent, when the client knows — today only the Teia
+            // Sprint chip sets it. `kind` stays the format: a Teia application
+            // is a pdf like any other pdf, and the coordination team still has
+            // to find it among the site photos.
+            purpose: req.body?.purpose === 'teia_sprint' ? 'teia_sprint' : null,
             sizeBytes: file.size,
             fullText: content,
             summary: content.slice(0, 280),

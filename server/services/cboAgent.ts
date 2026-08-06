@@ -1402,6 +1402,15 @@ const E2C: Record<string, { pt: string; en: string; desc?: { pt: string; en: str
   fazSentido: { pt: 'Faz sentido', en: 'Makes sense' },
   queroAjustar: { pt: 'Quero ajustar', en: 'I want to adjust' },
   prontoLista: { pt: 'Pronto ✓', en: 'Done ✓' },
+  // COUGAR convening 2026-08-06. Orgs applied to the Teia Sprint open call, which
+  // makes those applications semi-formalised project proposals — W3 refines them
+  // into scope, partnerships and funding, so the coordination wants them BEFORE
+  // it plans W3, not during.
+  teiaSobeAgora: { pt: 'Sim — subir agora', en: 'Yes — upload it now' },
+  teiaDepois: { pt: 'Sim, mando depois', en: 'Yes, I\'ll send it later' },
+  teiaNao: { pt: 'Não mandamos', en: "We didn't submit" },
+  colabSim: { pt: 'Sim, já fizemos', en: "Yes, we have" },
+  colabNao: { pt: 'Ainda não', en: 'Not yet' },
   outroPapel: { pt: 'Outro papel', en: 'Another role' },
   podePerguntar: { pt: 'Pode perguntar', en: 'Go ahead and ask' },
 };
@@ -1744,7 +1753,7 @@ async function serveE2Checkpoint(
   const ask = (
     qPt: string,
     qEn: string,
-    opts: Array<{ pt: string; en: string; dPt?: string; dEn?: string; action?: 'upload_then_answer' }>,
+    opts: Array<{ pt: string; en: string; dPt?: string; dEn?: string; action?: 'upload_then_answer'; uploadPurpose?: string }>,
   ) =>
     pushEvent({
       type: 'ask_user',
@@ -1753,6 +1762,10 @@ async function serveE2Checkpoint(
         label: isPt ? o.pt : o.en,
         description: isPt ? (o.dPt ?? '') : (o.dEn ?? ''),
         ...(o.action ? { action: o.action } : {}),
+        // Why the picker is opening, so the file arrives tagged. Without this
+        // the Teia application lands as one more pdf among the site photos —
+        // which is the thing the convening asked us to stop.
+        ...(o.uploadPurpose ? { uploadPurpose: o.uploadPurpose } : {}),
       })),
     } as any);
   const finish = (detail: string): true => {
@@ -2007,6 +2020,46 @@ async function serveE2Checkpoint(
     }
   };
 
+  // ── Teia Sprint + prior collaboration ────────────────────────────────────
+  // Two questions the convening asked for, at the close of W2 rather than in W3:
+  // the coordination team wants the applications as baseline concepts while it
+  // is still planning W3, and it wants to know who has a cross-org track record
+  // before it designs partnerships.
+  const askTeia = (): true => {
+    say(
+      'Quase lá. Uma coisa que pode ajudar bastante: vocês mandaram algum projeto pro **Teia Sprint**?',
+      'Almost there. One thing that helps a lot: did you submit a project to the **Teia Sprint**?',
+    );
+    ask('Mandaram algo pro Teia Sprint?', 'Did you submit anything to the Teia Sprint?', [
+      // Opens the file chooser on tap AND answers — the same seam the "tenho
+      // arquivos" chip uses. Telling someone who just said yes to go hunt for a
+      // paperclip is the dead step we already fixed once (backlog #20).
+      { pt: E2C.teiaSobeAgora.pt, en: E2C.teiaSobeAgora.en, dPt: 'Abre pra escolher o arquivo', dEn: 'Opens the file chooser', action: 'upload_then_answer', uploadPurpose: 'teia_sprint' },
+      { pt: E2C.teiaDepois.pt, en: E2C.teiaDepois.en, dPt: 'Sem problema', dEn: 'No problem' },
+      { pt: E2C.teiaNao.pt, en: E2C.teiaNao.en, dPt: 'Tudo bem também', dEn: "That's fine too" },
+    ]);
+    return finish('teia-ask');
+  };
+
+  const askCollab = (): true => {
+    ask(
+      'Vocês já fizeram algum projeto com outras organizações da rede?',
+      'Have you already done a project with other organizations in the network?',
+      [
+        { pt: E2C.colabSim.pt, en: E2C.colabSim.en, dPt: 'Me conta com quem', dEn: 'Tell me who with' },
+        { pt: E2C.colabNao.pt, en: E2C.colabNao.en, dPt: 'Seria a primeira vez', dEn: 'It would be a first' },
+      ],
+    );
+    return finish('collab-ask');
+  };
+
+  /** The close, gated behind the two convening questions. */
+  const closeOrAsk = async (): Promise<true> => {
+    if (val('_teia_done') !== 'yes') return askTeia();
+    if (val('_collab_done') !== 'yes') return askCollab();
+    return await closeE2();
+  };
+
   const closeE2 = async (): Promise<true> => {
     await persistDepth();
     const nome = String(state.sections.org_profile?.fields?.contact_name?.value || '').trim().split(/\s+/)[0];
@@ -2240,6 +2293,19 @@ async function serveE2Checkpoint(
     }, pushEvent);
     askRoles([...pickedRoles, other], false);
     return finish('role-other-captured');
+  }
+
+  // "Com quem?" is TYPED, so it must be captured above the chip gate — same as
+  // the story and the "outro papel" free text. Left below it, the answer would
+  // fall through to the model and W2 would never close.
+  if (val('_collab_detail_pending') === 'yes') {
+    writeE2Fields(cboId, state, {
+      prior_collaboration_detail: raw,
+      _collab_detail_pending: '',
+      _collab_done: 'yes',
+    }, pushEvent);
+    say('Anotado — isso ajuda a montar as duplas no Encontro 3.', 'Noted — that helps shape the pairings in Encontro 3.');
+    return await closeE2();
   }
 
   // ── Chip taps ──────────────────────────────────────────────────────────────
@@ -2608,6 +2674,50 @@ async function serveE2Checkpoint(
     }
   }
 
+  // ── Teia Sprint answer ────────────────────────────────────────────────────
+  // Reached only once the role loop is done, so it cannot swallow an earlier
+  // "Sim" from a different question.
+  if (val('_role_done') === 'yes' && val('_teia_done') !== 'yes') {
+    const teia =
+      is(E2C.teiaSobeAgora) ? 'enviado'
+      : is(E2C.teiaDepois) ? 'envia-depois'
+      : is(E2C.teiaNao) ? 'nao-enviou'
+      : null;
+    if (teia) {
+      writeE2Fields(cboId, state, { teia_sprint: teia, _teia_done: 'yes' }, pushEvent);
+      if (teia === 'enviado') {
+        // The picker is already open (upload_then_answer); the file lands on the
+        // normal upload path and is tagged by the pending purpose the client set.
+        say('Boa — sobe aí que eu guardo junto com o resto.', 'Great — upload it and I\'ll keep it with the rest.');
+      } else if (teia === 'envia-depois') {
+        say('Tranquilo. Quando mandarem, é só voltar aqui e subir.', 'No problem. When you do, come back and upload it here.');
+      }
+      return askCollab();
+    }
+    // Nothing matched — ask (or re-ask). The beat owns the turn until it is
+    // answered, the same way the worry and role loops do: an org that reloads
+    // mid-question, or types something instead of tapping, gets the question
+    // back rather than falling through to the model with W2 half-closed.
+    return askTeia();
+  }
+
+  // ── Prior collaboration ───────────────────────────────────────────────────
+  // Yes/no plus who, in their own words. Deliberately NOT a pick-list of the
+  // cohort: that would show every org who else is in their hub, days after they
+  // told us they were anxious about how their data is used (backlog #31).
+  if (val('_teia_done') === 'yes' && val('_collab_done') !== 'yes') {
+    if (is(E2C.colabSim)) {
+      writeE2Fields(cboId, state, { prior_collaboration: 'sim', _collab_detail_pending: 'yes' }, pushEvent);
+      say('Com quem? Pode falar do jeito que vocês lembram.', 'Who with? However you remember it.');
+      return finish('collab-detail-asked');
+    }
+    if (is(E2C.colabNao)) {
+      writeE2Fields(cboId, state, { prior_collaboration: 'nao', _collab_done: 'yes' }, pushEvent);
+      return await closeE2();
+    }
+    return askCollab();
+  }
+
   // Role loop: same shape; "Outro papel" hands one turn to free text above.
   if (val('_roles_offered') === 'yes' && val('_role_done') !== 'yes') {
     const role = E2_ROLES.find(r => is(r) && !pickedRoles.includes(r.id));
@@ -2616,7 +2726,7 @@ async function serveE2Checkpoint(
       writeE2Fields(cboId, state, { role_preference: next.join(', ') }, pushEvent);
       if (E2_ROLES.every(r => next.includes(r.id))) {
         writeE2Fields(cboId, state, { _role_done: 'yes' }, pushEvent);
-        return await closeE2();
+        return await closeOrAsk();
       }
       askRoles(next, false);
       return finish('role-picked');
@@ -2628,7 +2738,7 @@ async function serveE2Checkpoint(
     }
     if (is(E2C.prontoLista) && pickedRoles.length > 0) {
       writeE2Fields(cboId, state, { _role_done: 'yes' }, pushEvent);
-      return await closeE2();
+      return await closeOrAsk();
     }
   }
 

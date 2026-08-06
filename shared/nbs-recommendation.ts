@@ -13,6 +13,7 @@
 // calls the show_familia_recommendation tool with its own whys, which override
 // these per-família.
 
+import { familiesOfWorries } from './site-knowledge';
 import {
   NBS_FAMILIAS,
   solutionsForFamilia,
@@ -244,8 +245,11 @@ export function rankFamiliasForSite(input: FamiliaRecoInput): RankedFamilia[] {
     // The worry the org named. Capped so the hazard data still shapes the
     // order — a stated worry should lift a família decisively, not seize the
     // ranking — and marked `guaranteed` so no trimming can hide it.
-    const named = (input.worries ?? []).filter(
-      (w): w is 'flood' | 'heat' | 'landslide' => w === 'flood' || w === 'heat' || w === 'landslide');
+    // Through the family: worries now carry the finer mechanism (Alagamento /
+    // Inundação / Enxurrada) and this scores against the one flood layer we
+    // have. A raw `w === 'flood'` filter would drop every one of them and
+    // silently stop honouring the worry they just told us about.
+    const named = familiesOfWorries(input.worries ?? []);
     const answersAWorry = named.find(h => f.hazards[h] >= 0.6);
     const worryBoost = answersAWorry ? Math.min(0.35, 0.35 * f.hazards[answersAWorry]) : 0;
 

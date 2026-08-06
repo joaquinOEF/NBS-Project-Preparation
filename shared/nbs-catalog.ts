@@ -27,6 +27,7 @@
 // line. ⚠️ Written permission from Vila Flores/Rede to reuse them in-app is
 // pending (tracked in docs/photo-curation.md).
 
+import { WORRY_SUBTYPES, type WorryId } from './site-knowledge';
 import type { NbsInterventionTypeId } from './cbo-schema';
 import type { NbsCostBand, NbsDelivery } from './nbs-type-content';
 
@@ -704,6 +705,105 @@ export type NbsSolutionId = (typeof NBS_SOLUTIONS)[number]['id'];
 /** `/assets/nbs/solutions/<id>.jpg` — the solution's own card photo. */
 export function nbsSolutionPhoto(id: NbsSolutionId): string {
   return `/assets/nbs/solutions/${id}.jpg`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WHICH MECHANISM A SOLUTION ANSWERS  ⚠️ PROVISIONAL
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// COUGAR convening 2026-08-06: "solution types differ fundamentally by hazard
+// type". An org that says Inundação should not be shown rain gardens first — a
+// rain garden answers Alagamento. So the mechanism the org names (see
+// WORRY_SUBTYPES) orders the solutions inside a família.
+//
+// ⚠️ TWO RULES, both load-bearing.
+//
+// 1. ORDER AND EXPLAIN, NEVER EXCLUDE. The flow promises, in its own words,
+//    "Nada fica descartado — dá pra ver as 27 soluções quando quiser." Keep that
+//    literally true. Then a wrong tag below costs an org some scrolling instead
+//    of hiding the answer they needed.
+// 2. THESE TAGS ARE OUR READ, NOT AN EXPERT'S — the same status as
+//    `classificationEstimated` on the solutions themselves. Each one is drafted
+//    from the solution's OWN `whatItIs` text, not invented: "escada hidráulica
+//    vegetada" says "diminuindo sua velocidade" in terrain "inclinado", which is
+//    Enxurrada; "parques lineares" says "ao longo de cursos d'água", which is
+//    Inundação. Robson/Hesioni to confirm at the convening — this map is
+//    deliberately one screen so it can be read and argued with in one sitting.
+//
+// An empty/absent entry is NEUTRAL, not "irrelevant": the solution simply never
+// gets reordered by mechanism. Better than a guess we cannot source.
+export const SOLUTION_MECHANISMS: Record<string, WorryId[]> = {
+  // ── Águas pluviais — water that pools, drains, or runs ────────────────────
+  'jardins-de-chuva': ['alagamento'],                       // "infiltrar… reduzindo o escoamento superficial"
+  'biovaletas': ['alagamento', 'enxurrada'],                // "escoamento mais lento… reduzindo erosão"
+  'canteiro-pluvial': ['alagamento'],                       // "receber e infiltrar… em áreas urbanas"
+  'bacia-de-retencao': ['alagamento', 'enxurrada'],         // "acumular temporariamente… regulando a vazão"
+  'wetland-construido': ['alagamento', 'inundacao'],        // "retenção de águas da chuva"; buffers a watercourse
+  'pavimentos-permeaveis': ['alagamento'],                  // "infiltração… reduzindo o escoamento"
+  'escada-hidraulica-vegetada': ['enxurrada'],              // "terrenos inclinados, diminuindo sua velocidade"
+  'terracos-de-chuva': ['enxurrada', 'alagamento'],         // "no declive do terreno… absorvem o escoamento"
+  'barraginha': ['enxurrada', 'alagamento'],                // "captam a água da chuva" on periurban slopes
+  'captacao-agua-da-chuva': ['alagamento'],                 // cisterns take rain off the surface
+  'ilhas-filtrantes-flutuantes': [],                        // water QUALITY in a body of water — no flood mechanism
+  // ── Verde urbano ──────────────────────────────────────────────────────────
+  'teto-verde': ['heat', 'alagamento'],                     // "retém água da chuva, reduz ilhas de calor"
+  'parques-e-florestas-urbanas': ['heat'],
+  'corredores-verdes': ['heat'],
+  'escola-verde': ['heat'],
+  'parque-naturalizado': ['heat'],
+  'parques-lineares': ['inundacao'],                        // "ao longo de cursos d'água"
+  // ── Encostas e solo — the slope itself, and water arriving down it ────────
+  'grade-viva': ['landslide', 'enxurrada'],                 // "estabilizam o solo em áreas inclinadas"
+  'muro-de-arrimo-verde': ['landslide'],
+  'solo-grampeado-verde': ['landslide'],
+  'contencoes-em-geocelulas': ['landslide', 'enxurrada'],
+  // ── Recuperação de ecossistemas ───────────────────────────────────────────
+  'reflorestamento': ['enxurrada', 'inundacao'],            // slope cover + "proteger recursos hídricos"
+  'restauracao-areas-umidas': ['inundacao'],                // "transição entre terra e água… resiliência"
+  // ── Agricultura urbana ────────────────────────────────────────────────────
+  // Food, soil and organic waste. Real climate value, but not an answer to a
+  // water or heat MECHANISM — so neutral rather than tagged for the sake of it.
+  'hortas-urbanas': [],
+  'compostagem': [],
+  'cozinha-comunitaria-biodigestor': [],
+  'sistema-alimentar-local': [],
+};
+
+/**
+ * Solutions reordered so the ones answering the org's named mechanism come
+ * first. NEVER filters — see rule 1 above. Stable, so within each group the
+ * catalogue order survives.
+ */
+export function orderSolutionsByMechanism(
+  solutions: NbsSolution[],
+  worries: string[],
+): NbsSolution[] {
+  const named = worries.filter(w => w && w !== 'other');
+  if (named.length === 0) return solutions;
+  const answers = (s: NbsSolution) =>
+    (SOLUTION_MECHANISMS[s.id] ?? []).some(m => named.includes(m));
+  return [...solutions].sort((a, b) => Number(answers(b)) - Number(answers(a)));
+}
+
+/**
+ * The one-line reason a solution is near the top, in the org's own vocabulary —
+ * "pra água que desce com força" reuses the exact plain-language phrase from the
+ * chip they tapped, so the card and the question say the same thing.
+ * Null when the solution doesn't answer anything they named: no badge is better
+ * than a badge that says nothing.
+ */
+export function mechanismNote(
+  solutionId: string,
+  worries: string[],
+  lang: 'pt' | 'en' = 'pt',
+): string | null {
+  const tags = SOLUTION_MECHANISMS[solutionId] ?? [];
+  const hit = worries.find(w => tags.includes(w as WorryId));
+  if (!hit) return null;
+  const sub = WORRY_SUBTYPES.find(w => w.id === hit);
+  if (!sub) return null;
+  const phrase = (lang === 'pt' ? sub.dPt : sub.dEn).toLowerCase();
+  return lang === 'pt' ? `pra ${phrase}` : `for ${phrase}`;
 }
 
 export function solutionsForFamilia(familiaId: NbsFamiliaId): NbsSolution[] {

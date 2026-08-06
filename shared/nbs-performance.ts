@@ -32,6 +32,8 @@
 // from `NBS_EVENT_SCALE` must carry `estimated`-style marking, the same
 // discipline as `classificationEstimated` in nbs-catalog.ts.
 
+import { familiesOfWorries } from './site-knowledge';
+
 /** What a retention figure is measured in — these are NOT interchangeable. */
 export type RetentionUnit =
   /** Cubic metres held per m² of intervention, per rain event. */
@@ -294,7 +296,16 @@ export const NBS_SCALE_HONESTY = {
  * the everyday water, and that the big flood is an advocacy conversation.
  */
 export function needsScaleReframing(worry: string[], story: string): boolean {
-  if (!worry.includes('flood')) return false;
+  // Through the family — the worry ids now carry the mechanism (Alagamento /
+  // Inundação / Enxurrada), and a literal `includes('flood')` would stop firing
+  // for every one of them: the honesty beat would go quiet exactly when the org
+  // is describing the event it exists for.
+  if (!familiesOfWorries(worry).includes('flood')) return false;
+  // Naming Inundação IS the signal. This function was reverse-engineering it
+  // from story keywords because the chip could not say it — "the 2024 event or
+  // a river/dike" is the definition of Inundação. Now that they can pick the
+  // word, take them at it and don't wait for the story to mention the Guaíba.
+  if (worry.includes('inundacao')) return true;
   const s = story.toLowerCase();
   return /enchente|2024|guaíba|guaiba|dique|rio subiu|subiu o rio|inunda|the flood|dike|river rose/.test(s);
 }

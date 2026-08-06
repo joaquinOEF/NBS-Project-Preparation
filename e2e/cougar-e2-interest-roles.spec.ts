@@ -95,6 +95,14 @@ test.describe('COUGAR — E2 interest + role loops', () => {
     await expect(chip('Pronto ✓')).toBeVisible({ timeout: 8_000 });
     await chip('Pronto ✓').click();
 
+    // Two convening questions stand between the roles and the closing now
+    // (backlog #26): the Teia Sprint application, then whether they have worked
+    // with other orgs in the network.
+    await expect(chip('Não mandamos')).toBeVisible({ timeout: 8_000 });
+    await chip('Não mandamos').click();
+    await expect(chip('Ainda não')).toBeVisible({ timeout: 8_000 });
+    await chip('Ainda não').click();
+
     // Closing only now.
     await expect(page.getByText('por onde começar a estudar', { exact: false })).toBeVisible({ timeout: 8_000 });
 
