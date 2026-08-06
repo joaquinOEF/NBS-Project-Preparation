@@ -54,17 +54,35 @@ async function finishTour(page: Page): Promise<void> {
   await page.waitForTimeout(1200);
 }
 
-/** Centre of the largest bairro polygon currently on screen. */
+/**
+ * A point that genuinely lands ON a bairro — verified with elementFromPoint,
+ * not assumed from a bounding box.
+ *
+ * The old version took the biggest path's bbox centre. Two ways that lies: the
+ * biggest path in this pane is the municipal BOUNDARY outline (deliberately
+ * non-interactive since MAP-BOUNDARY-EATS-CLICKS), and a bairro's bbox centre
+ * can fall outside a concave shape. Both put the tap on empty map, which then
+ * reads as "clicking is broken" — it cost a full diagnosis cycle when the city
+ * refit merely changed which polygon happened to be largest.
+ */
 async function biggestZoneCentre(page: Page) {
   return page.evaluate(() => {
     const paths = Array.from(
-      document.querySelectorAll('.leaflet-overlay-pane path'),
+      document.querySelectorAll('.leaflet-overlay-pane path.leaflet-interactive'),
     ) as SVGPathElement[];
-    const big = paths
-      .map(p => p.getBoundingClientRect())
-      .filter(b => b.width > 15 && b.height > 15)
-      .sort((a, b) => b.width * b.height - a.width * a.height)[0];
-    return big ? { x: big.x + big.width / 2, y: big.y + big.height / 2 } : null;
+    const ranked = paths
+      .map(p => ({ p, b: p.getBoundingClientRect() }))
+      .filter(x => x.b.width > 15 && x.b.height > 15)
+      .sort((a, b) => b.b.width * b.b.height - a.b.width * a.b.height);
+    for (const { p, b } of ranked) {
+      for (const fx of [0.5, 0.35, 0.65]) {
+        for (const fy of [0.5, 0.35, 0.65]) {
+          const x = b.x + b.width * fx, y = b.y + b.height * fy;
+          if (document.elementFromPoint(x, y) === p) return { x, y };
+        }
+      }
+    }
+    return null;
   });
 }
 
@@ -164,6 +182,53 @@ test.describe('COUGAR — E2 Map 1 (e2_bairro)', () => {
     });
     expect(topIsOwnPath.checked, 'no bairro was big enough to probe').toBeGreaterThan(0);
     expect(topIsOwnPath.ok, 'a bairro tap must reach the bairro').toBe(topIsOwnPath.checked);
+  });
+
+  // ⚠️ MAP-CITY-AT-HALF-SIZE (JVP, 2026-08-04, in the screenshots he sent while
+  // reporting the click bug: Porto Alegre was a small clump in the middle).
+  //
+  // Leaflet snaps fitBounds to WHOLE zoom levels, and POA is a near-miss — the
+  // municipality needs ~568px of height and the panel offers ~564. Four pixels
+  // short, so the fit dropped a level, and a level is 2×. Measured here before
+  // the fix: the city filled 48% of the map, median bairro 15px across, the
+  // smallest tenth 8px, against a 44px minimum touch target.
+  //
+  // Every click test still passed, because a test clicks a computed centroid and
+  // does not care how big the target is. So this measures the thing a thumb
+  // cares about, at a real laptop window.
+  test.describe('at a laptop window', () => {
+    test.use({ viewport: { width: 1180, height: 800 } });
+
+    test('the city fills the panel — bairros are big enough to tap', async ({ page, request }) => {
+      test.setTimeout(120_000);
+      const api = new TestApi(request);
+      test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+
+      await bootToBairroMap(page, api);
+      await finishTour(page);
+      await page.waitForTimeout(1500); // staggered refits
+
+      const m = await page.evaluate(() => {
+        const paths = Array.from(document.querySelectorAll('.leaflet-overlay-pane path')) as SVGPathElement[];
+        const boxes = paths.map(p => p.getBoundingClientRect()).filter(b => b.width > 0);
+        const sizes = boxes.map(b => Math.sqrt(b.width * b.height)).sort((a, b) => a - b);
+        const mb = (document.querySelector('.leaflet-container') as HTMLElement).getBoundingClientRect();
+        return {
+          median: sizes[Math.floor(sizes.length / 2)],
+          p10: sizes[Math.floor(sizes.length * 0.1)],
+          fill: Math.max(
+            (Math.max(...boxes.map(b => b.right)) - Math.min(...boxes.map(b => b.left))) / mb.width,
+            (Math.max(...boxes.map(b => b.bottom)) - Math.min(...boxes.map(b => b.top))) / mb.height,
+          ),
+        };
+      });
+
+      // 48% before the fix, 85% after. A whole zoom level of slack sits between
+      // those, so this floor catches the snap-down without being brittle.
+      expect(m.fill, 'the city must fill the map, not sit in it as a clump').toBeGreaterThan(0.7);
+      expect(Math.round(m.median), 'median bairro was 15px — half a fingertip').toBeGreaterThan(22);
+      expect(Math.round(m.p10), 'the smallest tenth were 8px slivers').toBeGreaterThan(11);
+    });
   });
 
   test('one legend, no dead stepper, no risk choropleth', async ({ page, request }) => {

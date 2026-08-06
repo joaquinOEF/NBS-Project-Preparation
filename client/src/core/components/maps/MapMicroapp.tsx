@@ -479,6 +479,20 @@ export default function MapMicroapp({
       center: [-30.03, -51.22],
       zoom: 11,
       maxZoom: 19,
+      // ⚠️ MAP-CITY-AT-HALF-SIZE (JVP, 2026-08-04, while reporting the click
+      // bug: the bairros were unmissably tiny in his screenshots).
+      //
+      // Leaflet snaps fitBounds to WHOLE zoom levels by default, and Porto
+      // Alegre is a near-miss: the municipality needs ~568px of height at zoom
+      // 11 and the CBO panel offers ~564. Four pixels short, so the fit drops a
+      // full level — and a level is 2×. Measured at his window: the city filled
+      // 212×284 of a 590×596 map (36% of the width), median bairro 15px across,
+      // smallest tenth 8px. Apple's minimum touch target is 44px.
+      //
+      // zoomSnap:0 lets fitBounds pick 10.99 instead of falling to 10. Scoped to
+      // the CBO flow (allowDeferSite) — the city/concept-note maps are not in a
+      // half-width panel and were never asked to frame a whole municipality.
+      ...(params.allowDeferSite ? { zoomSnap: 0 } : {}),
     });
     // Two base layers; the swap effect below shows one. Esri World Imagery is
     // free (no key) and zooms to ~19 for site-level detail.
@@ -1164,7 +1178,14 @@ export default function MapMicroapp({
       try {
         map.invalidateSize();
         const b = zl.getBounds();
-        if (b.isValid()) map.fitBounds(b, { padding: [16, 16] });
+        // Asymmetric on purpose: the top of this map is occupied by an overlay
+        // the whole time — the hazard-tour caption during the tour, then the
+        // risk-ramp legend at the zone step. A symmetric fit tucks the northern
+        // bairros (Arquipélago, Sarandi, Anchieta) underneath it. They stay
+        // clickable — the legend is pointer-events-none — but "clickable while
+        // hidden behind a card" is not selectable in any sense a user cares
+        // about.
+        if (b.isValid()) map.fitBounds(b, { paddingTopLeft: [16, 76], paddingBottomRight: [16, 16] });
       } catch {}
     };
     fit();
