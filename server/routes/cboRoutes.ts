@@ -21,7 +21,8 @@ import {
   resetMemberProgressForCboState,
 } from "../services/cboPersistence";
 import { clearMaturityTierForCboState } from "../services/orgPersistence";
-import { createEmptyCboState, CBO_SECTIONS, type CboState } from "@shared/cbo-schema";
+import { createEmptyCboState, CBO_SECTIONS, isInternalCboField, type CboState } from "@shared/cbo-schema";
+import { cboFieldLabel, cboDisplayValue, CBO_SECTION_TITLES, CBO_PRIORITY_FLAG_LABELS } from "@shared/cbo-field-catalog";
 import {
   listDocumentsForScope,
   getDocumentForScope,
@@ -190,7 +191,10 @@ export function registerCboRoutes(app: Express): void {
       // but the agent legitimately re-reads the H×E×V numbers out of the decision
       // log on later turns; swapping those for the summary is a separate change.
       const displayText = typeof req.body.displayText === 'string' ? req.body.displayText : undefined;
-      const persistedUserText = turnKind === 'map_help' && displayText ? displayText : message;
+      // 'anchoring' joins map_help: its payload is machine text the agent
+      // parses (`Lead: … | Volunteers: …`), so persisting it verbatim put an
+      // English machine string in a pt-BR org's transcript, permanently.
+      const persistedUserText = (turnKind === 'map_help' || turnKind === 'anchoring') && displayText ? displayText : message;
       addCboMessage(req.params.id, { role: 'user', content: persistedUserText, messageType: 'content', timestamp: new Date().toISOString() });
 
       // A chip turn also records WHICH answer went with WHICH question, as an
@@ -484,38 +488,62 @@ export function registerCboRoutes(app: Express): void {
   });
 }
 
+/**
+ * The org's own document, downloaded. It was English end to end — headings,
+ * section titles, humanized field keys, raw enum ids — for a cohort that works
+ * in Portuguese (JVP, 2026-08-06). Same catalog the panel uses, so the file and
+ * the screen say the same words.
+ *
+ * It also dumped the `_`-prefixed internals (`_depth_json`, `_reco_json`) as
+ * raw JSON blobs into the middle of the profile; those are machinery, hidden
+ * everywhere else by isInternalCboField.
+ */
 function exportCboMarkdown(state: CboState): string {
+  const lang: 'pt' | 'en' = state.metadata?.language === 'en' ? 'en' : 'pt';
+  const isPt = lang === 'pt';
+  const T = isPt
+    ? { title: 'Perfil de Intervenção Comunitária', city: 'Cidade', gen: 'Gerado em',
+        empty: '*(Ainda não preenchido)*', unnamed: 'Organização sem nome',
+        scorecard: 'Placar de Maturidade', total: 'Total',
+        cols: '| Métrica | Nota | Justificativa |', flags: 'Prioridades' }
+    : { title: 'CBO Intervention Profile', city: 'City', gen: 'Generated',
+        empty: '*(Not yet filled)*', unnamed: 'Unnamed Organization',
+        scorecard: 'Maturity Scorecard', total: 'Total',
+        cols: '| Metric | Score | Justification |', flags: 'Priority Flags' };
+
   const lines = [
-    `# CBO Intervention Profile — ${state.orgName || 'Unnamed Organization'}`,
-    `> City: ${state.city} | Generated: ${new Date().toISOString()}`,
+    `# ${T.title} — ${state.orgName || T.unnamed}`,
+    `> ${T.city}: ${state.city} | ${T.gen}: ${new Date().toISOString()}`,
     '', '---', '',
   ];
 
   for (const sec of CBO_SECTIONS) {
     const section = state.sections[sec.id];
-    lines.push(`## ${sec.title}`, '');
-    const fields = Object.entries(section.fields);
-    if (fields.length === 0) { lines.push('*(Not yet filled)*', ''); continue; }
+    lines.push(`## ${CBO_SECTION_TITLES[sec.id]?.[lang] ?? sec.title}`, '');
+    const fields = Object.entries(section.fields).filter(([k]) => !isInternalCboField(k));
+    if (fields.length === 0) { lines.push(T.empty, ''); continue; }
     for (const [k, v] of fields) {
-      if (v.value) { lines.push(`**${k.replace(/_/g, ' ')}**: ${v.value}`, ''); }
+      if (v.value) {
+        lines.push(`**${cboFieldLabel(k, lang)}**: ${cboDisplayValue(sec.id, k, String(v.value), lang)}`, '');
+      }
     }
     lines.push('---', '');
   }
 
-  // Maturity scorecard
   if (state.maturityScores.length > 0) {
-    lines.push('## Maturity Scorecard', '', `**Total: ${state.totalMaturityScore}/27**`, '');
-    lines.push('| Metric | Score | Justification |', '|---|---|---|');
+    lines.push(`## ${T.scorecard}`, '', `**${T.total}: ${state.totalMaturityScore}/27**`, '');
+    lines.push(T.cols, '|---|---|---|');
     for (const s of state.maturityScores) {
-      lines.push(`| ${s.metric.replace(/_/g, ' ')} | ${'█'.repeat(s.score)}${'░'.repeat(3 - s.score)} ${s.score}/3 | ${s.justification} |`);
+      lines.push(`| ${cboFieldLabel(s.metric, lang)} | ${'█'.repeat(s.score)}${'░'.repeat(3 - s.score)} ${s.score}/3 | ${s.justification} |`);
     }
     lines.push('');
   }
 
   if (state.priorityFlags.length > 0) {
-    lines.push('## Priority Flags', '');
+    lines.push(`## ${T.flags}`, '');
     for (const f of state.priorityFlags) {
-      lines.push(`- ${f.met ? '✅' : '⬜'} ${f.flag}${f.notes ? ` — ${f.notes}` : ''}`);
+      const flag = CBO_PRIORITY_FLAG_LABELS[f.flag]?.[lang] ?? f.flag;
+      lines.push(`- ${f.met ? '✅' : '⬜'} ${flag}${f.notes ? ` — ${f.notes}` : ''}`);
     }
   }
 

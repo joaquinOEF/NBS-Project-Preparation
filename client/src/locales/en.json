@@ -1881,7 +1881,20 @@
     "cohortWelcomePrefix": "Welcome,",
     "cohortPhasesUnlocked": "Sections open: {{phases}}",
     "phaseLocked": "Your coordinator will unlock this after the next workshop.",
-    "mapHelpQuestion": "I have a question about the {{hazard}} map."
+    "mapHelpQuestion": "I have a question about the {{hazard}} map.",
+    "edit": "Edit",
+    "editedByYou": "Edited by you",
+    "cancel": "Cancel",
+    "save": "Save",
+    "interventionsEmpty": "The NBS Type Selector will open here when the agent asks you to choose your intervention type (Phase 3a).",
+    "sourceKinds": {
+      "document": "document",
+      "user": "conversation",
+      "invite": "invite",
+      "sample": "sample",
+      "agent": "agent",
+      "map": "map"
+    }
   },
   "mapMicroapp": {
     "tourNext": "Next risk",
