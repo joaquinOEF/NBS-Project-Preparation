@@ -423,6 +423,16 @@ It is *Teia* (the government open call). Don't propagate the transcript's spelli
 
     Deliberately does NOT touch: `HazardKey` in `shared/risk-display.ts`, the `risks` triple in `shared/nbs-recommendation.ts`, or the per-família hazard weights in `shared/nbs-catalog.ts` (`{flood: 1, heat: 0.2, landslide: 0.3}`). A fourth key there needs weights authored by someone qualified (Robson/Hesioni) *and* per-type data we don't have; splitting one without the other would make the ranking look more informed than it is.
 
+    **Refined further (JVP, 2026-08-06): the term also steers which SOLUTIONS appear.** Capturing it and doing nothing with it is decoration — if an org says Inundação, margin and várzea recovery should surface ahead of rain gardens, because a rain garden is an answer to Alagamento.
+
+    That needs something the catalog doesn't have: the 27 solutions carry only a `familiaId` (`shared/nbs-catalog.ts`), no hazard mechanism. So add a mechanism tag per solution.
+
+    ⚠️ **It must ORDER and EXPLAIN, never EXCLUDE.** The flow already promises, in its own words, *"Nada fica descartado — dá pra ver as 27 soluções quando quiser."* Keep that literally true: the sub-type reorders and annotates ("essa é pra água que junta, não pra água que transborda"), and every solution stays reachable. Then a wrong tag costs an org some scrolling instead of hiding the right answer from them.
+
+    Authoring the tags: a first pass is derivable from each solution's own `whatItIs`, which already states the mechanism — *jardins de chuva* reads "receber e infiltrar a água da chuva, reduzindo o escoamento superficial", which is Alagamento, not Inundação. Draft them in-repo from that text, mark every one **provisional**, and have Robson/Hesioni confirm. Do not block next week's launch on their availability — a provisional ordering that stays honest about being provisional beats no ordering.
+
+    The per-família weights in `nbs-catalog.ts` still do NOT change. This is a within-família ordering signal, not a re-scoring of the famílias.
+
     ⚠️ `HazardKey` is declared **twice** — `risk-display.ts:17` and `site-knowledge.ts:28`. Reconcile before adding a term to either.
     ⚠️ MAMUS omits Alagamento from its six-hazard framework — described in the meeting as a political choice — so official data may never split the way the orgs speak. Another reason the org's own word is a separate field from the measurement.
 
