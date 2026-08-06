@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { AlertTriangle, Lightbulb, Compass, Target } from 'lucide-react';
 import type { CboSectionState, CboGapEntry } from '@shared/cbo-schema';
-import { orgProfileDisplayValue } from '@shared/cbo-field-catalog';
+import { cboFieldLabel, orgProfileDisplayValue } from '@shared/cbo-field-catalog';
 
 type GroupKey = 'quem-somos' | 'equipe' | 'historico' | 'caminho' | 'outros';
 
@@ -86,7 +86,7 @@ export function E1Cards({
                       return (
                         <tr key={k} className="border-b last:border-b-0">
                           <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">
-                            {t(`cbo.fields.${k}`, k.replace(/_/g, ' '))}
+                            {t(`cbo.fields.${k}`, cboFieldLabel(k, isPt ? 'pt' : 'en'))}
                           </td>
                           <td className="px-3 py-1.5 text-sm">
                             <EditableField
@@ -149,7 +149,7 @@ export function E1Cards({
                   return (
                     <tr key={k} className="border-b last:border-b-0">
                       <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">
-                        {t(`cbo.fields.${k}`, k.replace(/_/g, ' '))}
+                        {t(`cbo.fields.${k}`, cboFieldLabel(k, isPt ? 'pt' : 'en'))}
                       </td>
                       <td className="px-3 py-1.5 text-sm">
                         <EditableField

@@ -295,3 +295,233 @@ export function orgProfileDisplayValue(field: string, stored: string, lang: 'pt'
   if (typeof stored !== 'string' || !ORG_PROFILE_ENUMS[field]) return stored;
   return mapValue(field, stored, opt => (lang === 'pt' ? opt.pt : opt.en));
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BEYOND org_profile — the rest of the document
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// JVP, 2026-08-06: "some fields in the doc (titles etc) in the tab of the CBO
+// are written in English, can you review?"
+//
+// Everything above solved exactly this, for section 1, and stopped there. So
+// the Documento tab rendered section 2 onward two ways at once:
+//
+//   LABELS — the panel does `t('cbo.fields.' + key, key.replace(/_/g,' '))`,
+//   and i18n's fallback chain is pt→pt (never pt→en), so a key missing from
+//   pt.json renders that English `defaultValue` verbatim. Of the 39 fields the
+//   agent actually writes, 37 had no key: "site worry", "current use",
+//   "community anchoring lead". Meanwhile pt.json carried ~20 names nothing
+//   writes — `neighborhood` (agent writes `bairro`), `current_conditions`
+//   (`current_use`), `baseline` (`baseline_condition`) — which is why the tab
+//   looked half-translated rather than plainly broken.
+//
+//   VALUES — `orgProfileDisplayValue` is applied ONLY to org_profile
+//   (cbo-profile.tsx), so everywhere else the raw machine id reached the
+//   screen: `private-owned`, `aguas-pluviais`, `under-construction`.
+//
+// The Portuguese already existed in every case — the chips the user tapped are
+// built from these very tables. The document simply never consulted them. So
+// this is wiring, not translation, and the tables move HERE (out of
+// cboAgent.ts) precisely so the chip, the panel, the coordinator drawer and
+// the export cannot drift apart again.
+//
+// ⚠️ Adding a field the agent can write? Add it to CBO_FIELD_LABELS. The locale
+// files still win when they define a key (nothing was deleted), but this is the
+// source of truth, and it is the only one the SERVER can read — the markdown
+// export has no i18next.
+
+/** current_use — what the place is today (E2 chips). */
+export const E2_CURRENT_USE: CboEnumOption[] = [
+  { id: 'vegetated', pt: 'Vegetação (área verde, mato, árvores)', en: 'Vegetation (green area, brush, trees)' },
+  { id: 'paved', pt: 'Pavimentado / impermeabilizado', en: 'Paved / sealed' },
+  { id: 'mixed', pt: 'Misto (vegetação + pavimentação)', en: 'Mixed (vegetation + paving)' },
+  { id: 'abandoned', pt: 'Abandonado / degradado', en: 'Abandoned / degraded' },
+  { id: 'under-construction', pt: 'Em construção', en: 'Under construction' },
+];
+
+/** land_tenure — what access the organization actually has. */
+export const E2_TENURE: CboEnumOption[] = [
+  { id: 'private-owned', pt: 'Sim, somos donas do terreno', en: 'Yes, we own the land' },
+  { id: 'formal-agreement', pt: 'Sim, com acordo formal', en: 'Yes, with a formal agreement' },
+  { id: 'public-informal', pt: 'É da prefeitura, mas a gente usa', en: "It's the city's, but we use it" },
+  { id: 'public-no-access', pt: 'É público mas não temos acesso garantido', en: "It's public but access isn't guaranteed" },
+  { id: 'mixed', pt: 'Misto / não sei certinho', en: 'Mixed / not sure' },
+];
+
+/** role_preference — the role the org wants to play (multi-pick). */
+export const E2_ROLES: CboEnumOption[] = [
+  { id: 'ser-consultada', pt: 'Ser consultada (dar opinião)', en: 'Be consulted (give input)' },
+  { id: 'escrever-projeto', pt: 'Escrever o projeto', en: 'Write the project' },
+  { id: 'receber-administrar', pt: 'Receber e administrar recursos', en: 'Receive and manage the funds' },
+  { id: 'executar', pt: 'Executar / implementar', en: 'Implement on the ground' },
+  { id: 'articular-parceiros', pt: 'Articular parceiros', en: 'Coordinate partners' },
+];
+
+/** The five NBS famílias, by id. Mirrors shared/nbs-catalog.ts labels. */
+const E2_FAMILIAS: CboEnumOption[] = [
+  { id: 'aguas-pluviais', pt: 'Gestão de Águas Pluviais', en: 'Stormwater Management' },
+  { id: 'verde-urbano', pt: 'Infraestrutura Verde Urbana', en: 'Urban Green Infrastructure' },
+  { id: 'agricultura-urbana', pt: 'Agricultura Urbana', en: 'Urban Agriculture' },
+  { id: 'encostas-e-solo', pt: 'Estabilização de Encostas e Solo', en: 'Slope & Soil Stabilization' },
+  { id: 'recuperacao-ecossistemas', pt: 'Recuperação de Ecossistemas Naturais', en: 'Ecosystem Restoration' },
+];
+
+/** The three hazards, as stored by the priority ranking and the worry chips. */
+const E2_HAZARDS: CboEnumOption[] = [
+  { id: 'flood', pt: 'Alagamento', en: 'Flooding', aliases: ['inundação', 'enchente'] },
+  { id: 'heat', pt: 'Calor', en: 'Heat' },
+  { id: 'landslide', pt: 'Deslizamento', en: 'Landslide', aliases: ['barranco', 'encosta'] },
+  { id: 'other', pt: 'Outra coisa', en: 'Something else' },
+];
+
+/** Enum tables per section+field, for every section past org_profile. */
+export const SECTION_ENUMS: Record<string, Record<string, CboEnumOption[]>> = {
+  intervention_site: {
+    current_use: E2_CURRENT_USE,
+    land_tenure: E2_TENURE,
+    role_preference: E2_ROLES,
+    nbs_interest: E2_FAMILIAS,
+    site_worry: E2_HAZARDS,
+    primary_hazard: E2_HAZARDS,
+    secondary_hazard: E2_HAZARDS,
+    tertiary_hazard: E2_HAZARDS,
+    site_photo_intent: [
+      { id: 'sent', pt: 'Enviou fotos', en: 'Sent photos' },
+      { id: 'later', pt: 'Vai enviar depois', en: 'Will send later' },
+      { id: 'skip', pt: 'Preferiu pular', en: 'Chose to skip' },
+    ],
+    // Written by computeSiteKnowledgeDepth — a coordinator-facing read, and it
+    // renders on the org's own document too, so it cannot stay in English.
+    site_knowledge_depth: [
+      { id: 'thin', pt: 'Pouco detalhe', en: 'Thin' },
+      { id: 'partial', pt: 'Detalhe parcial', en: 'Partial' },
+      { id: 'strong', pt: 'Bem detalhado', en: 'Strong' },
+    ],
+  },
+};
+
+/**
+ * Human labels for the fields the agent writes, in both languages.
+ *
+ * Only the ones the panel can actually show — `_`-prefixed internals are hidden
+ * by isInternalCboField and deliberately absent.
+ */
+export const CBO_FIELD_LABELS: Record<string, { pt: string; en: string }> = {
+  // ── 2. Onde atuamos (E2) ──────────────────────────────────────────────────
+  bairro: { pt: 'Bairro', en: 'Neighborhood' },
+  site_name: { pt: 'Lugar', en: 'Place' },
+  site_type_user: { pt: 'Tipo de lugar', en: 'Type of place' },
+  current_use: { pt: 'Como é o lugar hoje', en: 'What the place is like today' },
+  land_tenure: { pt: 'Acesso ao terreno', en: 'Access to the land' },
+  site_worry: { pt: 'O que mais preocupa', en: 'Main worry' },
+  site_story: { pt: 'Nas palavras de vocês', en: 'In your own words' },
+  site_photo_intent: { pt: 'Fotos do lugar', en: 'Photos of the place' },
+  site_knowledge_depth: { pt: 'Profundidade do que sabemos', en: 'Depth of what we know' },
+  primary_hazard: { pt: 'Risco principal', en: 'Main hazard' },
+  secondary_hazard: { pt: 'Risco secundário', en: 'Secondary hazard' },
+  tertiary_hazard: { pt: 'Terceiro risco', en: 'Third hazard' },
+  nbs_interest: { pt: 'Famílias de interesse', en: 'Famílias of interest' },
+  role_preference: { pt: 'Papel que querem ter', en: 'Role they want to play' },
+  site_lat: { pt: 'Latitude', en: 'Latitude' },
+  site_lng: { pt: 'Longitude', en: 'Longitude' },
+  site_area_m2: { pt: 'Área (m²)', en: 'Area (m²)' },
+  community_anchoring_lead: { pt: 'Quem puxa o trabalho', en: 'Who leads the work' },
+  community_volunteers: { pt: 'Voluntárias e voluntários', en: 'Volunteers' },
+  community_beneficiaries: { pt: 'Pessoas beneficiadas', en: 'People served' },
+  community_engagement_methods: { pt: 'Como mobilizam a comunidade', en: 'How they mobilize the community' },
+  // ── 3a/3b/3c ──────────────────────────────────────────────────────────────
+  intervention_types: { pt: 'Tipos de solução', en: 'Solution types' },
+  intervention_scale: { pt: 'Escala da intervenção', en: 'Scale of the intervention' },
+  intervention_area_m2: { pt: 'Área da intervenção (m²)', en: 'Intervention area (m²)' },
+  construction_model: { pt: 'Como será construído', en: 'How it will be built' },
+  species_preference: { pt: 'Espécies preferidas', en: 'Preferred species' },
+  substrate_type: { pt: 'Tipo de substrato', en: 'Substrate type' },
+  justification_why_here: { pt: 'Por que aqui', en: 'Why here' },
+  baseline_condition: { pt: 'Situação de partida', en: 'Starting condition' },
+  monitoring_capacity: { pt: 'Capacidade de monitorar', en: 'Monitoring capacity' },
+  maintenance_frequency: { pt: 'Frequência de manutenção', en: 'Maintenance frequency' },
+  project_timeframe: { pt: 'Prazo do projeto', en: 'Project timeframe' },
+  opex_estimate_year1: { pt: 'Custo de operação (ano 1)', en: 'Operating cost (year 1)' },
+  who_maintains: { pt: 'Quem faz a manutenção', en: 'Who maintains it' },
+  // ── 4 / 5 ─────────────────────────────────────────────────────────────────
+  online_presence: { pt: 'Presença online', en: 'Online presence' },
+  documents: { pt: 'Documentos', en: 'Documents' },
+  government_interest: { pt: 'Interesse do poder público', en: 'Government interest' },
+  co_financing: { pt: 'Contrapartida / cofinanciamento', en: 'Co-financing' },
+  scalability: { pt: 'Potencial de replicar', en: 'Potential to scale' },
+};
+
+/** The label for a field key, in the viewer's language. Falls back to the
+ *  humanized key — which is what every missing entry used to render. */
+export function cboFieldLabel(field: string, lang: 'pt' | 'en' = 'pt'): string {
+  const entry = CBO_FIELD_LABELS[field];
+  if (entry) return lang === 'pt' ? entry.pt : entry.en;
+  return field.replace(/_/g, ' ');
+}
+
+/**
+ * Render a stored value for ANY section, in the viewer's language.
+ *
+ * Multi-pick fields are stored comma-joined (`nbs_interest`, `role_preference`,
+ * `site_worry`), so each part is mapped on its own — a single lookup of
+ * "aguas-pluviais, verde-urbano" would miss and fall through to the raw ids.
+ * Anything unrecognized passes through untouched: free text is the user's, and
+ * a half-translated sentence is worse than an honest one.
+ */
+export function cboDisplayValue(
+  sectionId: string,
+  field: string,
+  stored: string,
+  lang: 'pt' | 'en' = 'pt',
+): string {
+  if (typeof stored !== 'string' || !stored) return stored;
+  if (sectionId === 'org_profile') return orgProfileDisplayValue(field, stored, lang);
+  const options = SECTION_ENUMS[sectionId]?.[field];
+  if (!options) return stored;
+  const label = (raw: string): string => {
+    const n = norm(raw);
+    const hit = options.find(
+      o => norm(o.id) === n || norm(o.pt) === n || norm(o.en) === n ||
+           (o.aliases ?? []).some(a => norm(a) === n),
+    );
+    return hit ? (lang === 'pt' ? hit.pt : hit.en) : raw;
+  };
+  return stored.split(',').map(part => label(part.trim())).filter(Boolean).join(', ');
+}
+
+/** Maturity metric names — the Placar reads these from pt.json, but the export
+ *  runs on the server where there is no i18next. Same strings, one place. */
+Object.assign(CBO_FIELD_LABELS, {
+  org_delivery_capacity: { pt: 'Capacidade de Execução', en: 'Delivery Capacity' },
+  team_technical_experience: { pt: 'Experiência Técnica', en: 'Technical Experience' },
+  site_control: { pt: 'Controle do Local', en: 'Site Control' },
+  community_anchoring: { pt: 'Ancoragem Comunitária', en: 'Community Anchoring' },
+  problem_clarity: { pt: 'Clareza do Problema', en: 'Problem Clarity' },
+  solution_clarity: { pt: 'Clareza da Solução', en: 'Solution Clarity' },
+  climate_nbs_impact: { pt: 'Impacto Climático / SbN', en: 'Climate / NBS Impact' },
+  financial_thinking: { pt: 'Planejamento Financeiro', en: 'Financial Thinking' },
+  regulatory_awareness: { pt: 'Consciência Regulatória', en: 'Regulatory Awareness' },
+});
+
+/** Section titles. CBO_SECTIONS carries English literals (they double as ids in
+ *  the prompt), and the client resolves them through `cbo.sections.*`; the
+ *  export had no such route and printed "## 2. Where We Work" on a pt document. */
+export const CBO_SECTION_TITLES: Record<string, { pt: string; en: string }> = {
+  org_profile: { pt: '1. Quem Somos', en: '1. Who We Are' },
+  intervention_site: { pt: '2. Onde Atuamos', en: '2. Where We Work' },
+  intervention_type: { pt: '3a. O Que Estamos Construindo', en: "3a. What We're Building" },
+  impact_monitoring: { pt: '3b. Impacto Esperado', en: '3b. Expected Impact' },
+  operations_sustain: { pt: '3c. Operação e Sustentabilidade', en: '3c. Operations & Sustainability' },
+  needs_assessment: { pt: '4. O Que Precisamos', en: '4. What We Need' },
+  results_evidence: { pt: '5. Resultados e Evidências', en: '5. Results & Evidence' },
+};
+
+/** Priority-flag sentences, keyed by the English flag text the agent stores. */
+export const CBO_PRIORITY_FLAG_LABELS: Record<string, { pt: string; en: string }> = {
+  'Land tenure secure or likely secure': { pt: 'Posse da terra segura ou provável', en: 'Land tenure secure or likely secure' },
+  'Baseline environmental data exists': { pt: 'Dados ambientais de referência existem', en: 'Baseline environmental data exists' },
+  'Local government expressed interest': { pt: 'Governo local expressou interesse', en: 'Local government expressed interest' },
+  'Potential buyers/payors identified': { pt: 'Compradores/pagadores potenciais identificados', en: 'Potential buyers/payors identified' },
+  'Co-financing possibility identified': { pt: 'Possibilidade de cofinanciamento identificada', en: 'Co-financing possibility identified' },
+  'Scalable beyond one site': { pt: 'Escalável além de um local', en: 'Scalable beyond one site' },
+};

@@ -2068,7 +2068,20 @@
     "selectAllThatApply": "(pode marcar várias)",
     "recommended": "recomendado",
     "confirmSelected": "Confirmar {{n}}",
-    "mapHelpQuestion": "Tenho uma dúvida sobre o mapa de {{hazard}}."
+    "mapHelpQuestion": "Tenho uma dúvida sobre o mapa de {{hazard}}.",
+    "edit": "Editar",
+    "editedByYou": "Editado por você",
+    "cancel": "Cancelar",
+    "save": "Salvar",
+    "interventionsEmpty": "O seletor de tipos de SbN abre aqui quando o agente pedir pra vocês escolherem a solução (Fase 3a).",
+    "sourceKinds": {
+      "document": "documento",
+      "user": "conversa",
+      "invite": "convite",
+      "sample": "exemplo",
+      "agent": "agente",
+      "map": "mapa"
+    }
   },
   "mapMicroapp": {
     "tourNext": "Próximo risco",

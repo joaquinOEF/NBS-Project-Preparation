@@ -31,7 +31,7 @@ import {
   type InterventionSelectorResult,
   isInternalCboField,
 } from '@shared/cbo-schema';
-import { orgProfileDisplayValue } from '@shared/cbo-field-catalog';
+import { cboFieldLabel, cboDisplayValue, orgProfileDisplayValue } from '@shared/cbo-field-catalog';
 import type { OpenMapParams, MapSelectionResult, SelectedAsset } from '@shared/concept-note-schema';
 import { e2SiteParams } from '@shared/cbo-map-presets';
 import {
@@ -188,7 +188,7 @@ function fixMarkdownTables(text: string): string {
 type ToolKind = 'map' | 'interventions';
 
 /** What kind of gesture produced a turn — a hint the server uses for model routing. */
-type TurnKind = 'chip' | 'text' | 'upload' | 'map' | 'map_help' | 'system';
+type TurnKind = 'chip' | 'text' | 'upload' | 'map' | 'map_help' | 'anchoring' | 'system';
 
 /** Everything needed to replay one chat turn verbatim (see `streamRetry`). */
 interface PendingTurn {
@@ -269,6 +269,10 @@ function toolReached(state: CboState | null, kind: ToolKind): boolean {
 
 // ── Inline editable field ────────────────────────────────────────────────────
 function EditableField({ value, onSave, userEdited }: { value: string; onSave: (v: string) => void; userEdited?: boolean }) {
+  // Its own hook: this component sits outside the page component, which is how
+  // "Edit" / "Save" / "Cancel" stayed hardcoded English on every field row of a
+  // pt-BR document (JVP, 2026-08-06).
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -286,11 +290,11 @@ function EditableField({ value, onSave, userEdited }: { value: string; onSave: (
         <button
           onClick={(e) => { e.stopPropagation(); setDraft(String(value || '')); setEditing(true); }}
           className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-0.5 rounded hover:bg-muted"
-          title="Edit"
+          title={t('cbo.edit', { defaultValue: 'Editar' })}
         >
           <Pencil className="w-3 h-3 text-muted-foreground" />
         </button>
-        {userEdited && <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5" title="Edited by you" />}
+        {userEdited && <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5" title={t('cbo.editedByYou', { defaultValue: 'Editado por você' })} />}
       </div>
     );
   }
@@ -310,10 +314,10 @@ function EditableField({ value, onSave, userEdited }: { value: string; onSave: (
       />
       <div className="flex gap-1 justify-end">
         <button onClick={() => { setDraft(String(value || '')); setEditing(false); }} className="text-[10px] px-2 py-0.5 rounded text-muted-foreground hover:bg-muted">
-          Cancel
+          {t('cbo.cancel', { defaultValue: 'Cancelar' })}
         </button>
         <button onClick={() => { if (draft !== value) onSave(draft); setEditing(false); }} className="text-[10px] px-2 py-0.5 rounded bg-green-600 text-white hover:bg-green-700">
-          Save
+          {t('cbo.save', { defaultValue: 'Salvar' })}
         </button>
       </div>
     </div>
@@ -2132,7 +2136,23 @@ export default function CboProfilePage() {
                   if (r.volunteers) parts.push(`Volunteers: ${r.volunteers}`);
                   if (r.beneficiaries) parts.push(`Beneficiaries: ${r.beneficiaries}`);
                   if (r.methods.length) parts.push(`Methods: ${r.methods.join(', ')}`);
-                  sendMessage(`Community anchoring — ${parts.join(' | ')}`);
+                  // The payload stays English — the agent parses these keys into
+                  // fields. What the ORG sees must not be a machine string:
+                  // "Community anchoring — Lead: Dona Marlene | Volunteers: 12"
+                  // was the user's own chat bubble on a pt-BR session, and it
+                  // persisted, so it came back on every reload. Same defect the
+                  // map payload had; displayText is the same cure.
+                  const human: string[] = [];
+                  if (r.lead) human.push(`${lang === 'pt' ? 'Quem puxa' : 'Who leads'}: ${r.lead}`);
+                  if (r.volunteers) human.push(`${lang === 'pt' ? 'Voluntárias(os)' : 'Volunteers'}: ${r.volunteers}`);
+                  if (r.beneficiaries) human.push(`${lang === 'pt' ? 'Pessoas beneficiadas' : 'People served'}: ${r.beneficiaries}`);
+                  if (r.methods.length) human.push(`${lang === 'pt' ? 'Como mobilizam' : 'How they mobilize'}: ${r.methods.join(', ')}`);
+                  sendMessage(
+                    `Community anchoring — ${parts.join(' | ')}`,
+                    false, false,
+                    `${lang === 'pt' ? 'Ancoragem comunitária' : 'Community anchoring'} — ${human.join(' · ')}`,
+                    'anchoring',
+                  );
                 }}
               />
             )}
@@ -2600,10 +2620,14 @@ export default function CboProfilePage() {
                             <tbody>
                               {fields.map(([k, v]) => (
                                 <tr key={k} className="border-b last:border-b-0">
-                                  <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">{t(`cbo.fields.${k}`, k.replace(/_/g, ' '))}</td>
+                                  {/* The catalog is the default, not the humanized key: i18n falls back
+                                      pt→pt (never pt→en), so a key missing from pt.json used to render
+                                      the ENGLISH defaultValue — 37 of the 39 fields the agent writes.
+                                      Locale entries still win where they exist. */}
+                                  <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">{t(`cbo.fields.${k}`, cboFieldLabel(k, lang === 'pt' ? 'pt' : 'en'))}</td>
                                   <td className="px-3 py-1.5 text-sm">
                                     <EditableField
-                                      value={sec.id === 'org_profile' ? orgProfileDisplayValue(k, String(v.value || ''), lang === 'pt' ? 'pt' : 'en') : String(v.value || '')}
+                                      value={cboDisplayValue(sec.id, k, String(v.value || ''), lang === 'pt' ? 'pt' : 'en')}
                                       userEdited={v.userEdited}
                                       onSave={(newVal) => handleFieldEdit(sec.id, k, newVal)}
                                     />
@@ -2613,7 +2637,7 @@ export default function CboProfilePage() {
                             </tbody>
                           </table>
                         </div>
-                        {section.sources.length > 0 && <p className="text-[10px] text-muted-foreground">📎 {section.sources.join(', ')}</p>}
+                        {section.sources.length > 0 && <p className="text-[10px] text-muted-foreground">📎 {section.sources.map(src => t(`cbo.sourceKinds.${src}`, src)).join(', ')}</p>}
                       </CardContent>
                     )}
                   </Card>
@@ -2723,7 +2747,7 @@ export default function CboProfilePage() {
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full text-sm text-muted-foreground p-8 text-center">
-                    {t('cbo.interventionsEmpty', 'The NBS Type Selector will open here when the agent asks you to choose your intervention type (Phase 3a).')}
+                    {t('cbo.interventionsEmpty', { defaultValue: 'O seletor de tipos de SbN abre aqui quando o agente pedir pra vocês escolherem a solução (Fase 3a).' })}
                   </div>
                 )}
               </Suspense>

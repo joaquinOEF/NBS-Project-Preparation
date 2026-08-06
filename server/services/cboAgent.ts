@@ -51,7 +51,12 @@ import { queryTerms, scoreText, extractExcerpt } from "./textSearch";
 import { isFakeModelEnabled, streamWithFakeModel } from "./fakeCboModel";
 import { isPhaseSkipEnabled } from "./runtimeEnv";
 import { emitAssistantText } from "./agentOutput";
-import { isKnownOrgProfileField, canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, orgProfileOptionLabels, orgProfileLabelsForIds, ORG_PROFILE_FIELDS, enumFieldsMatchingOptions } from "@shared/cbo-field-catalog";
+// The E2 chip tables (E2_CURRENT_USE/E2_TENURE/E2_ROLES) live in the catalog
+// now: the same rows build the chip the user taps AND render the stored value
+// on the document, so a label can never again exist as a chip but not as a
+// translation (JVP, 2026-08-06 — the Documento tab in English).
+import { isKnownOrgProfileField, canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, orgProfileOptionLabels, orgProfileLabelsForIds, ORG_PROFILE_FIELDS, enumFieldsMatchingOptions,
+  E2_CURRENT_USE, E2_TENURE, E2_ROLES } from "@shared/cbo-field-catalog";
 import { QUESTIONNAIRES, checkOptionRule, filterRuledOptions, missingRequiredForClose, type FieldReader, type QuestionnaireManifest } from "@shared/cbo-questionnaire";
 
 /** Manifests whose rules govern this section (today: E1 ↔ org_profile). */
@@ -1403,31 +1408,10 @@ const E2C: Record<string, { pt: string; en: string; desc?: { pt: string; en: str
 
 // current_use / land_tenure enum chips (un-deferred from the old Beat 2b/3b —
 // they ARE the "describe your site" questions of the sketch).
-const E2_CURRENT_USE: Array<{ id: string; pt: string; en: string }> = [
-  { id: 'vegetated', pt: 'Vegetação (área verde, mato, árvores)', en: 'Vegetation (green area, brush, trees)' },
-  { id: 'paved', pt: 'Pavimentado / impermeabilizado', en: 'Paved / sealed' },
-  { id: 'mixed', pt: 'Misto (vegetação + pavimentação)', en: 'Mixed (vegetation + paving)' },
-  { id: 'abandoned', pt: 'Abandonado / degradado', en: 'Abandoned / degraded' },
-  { id: 'under-construction', pt: 'Em construção', en: 'Under construction' },
-];
-const E2_TENURE: Array<{ id: string; pt: string; en: string }> = [
-  { id: 'private-owned', pt: 'Sim, somos donas do terreno', en: 'Yes, we own the land' },
-  { id: 'formal-agreement', pt: 'Sim, com acordo formal', en: 'Yes, with a formal agreement' },
-  { id: 'public-informal', pt: 'É da prefeitura, mas a gente usa', en: "It's the city's, but we use it" },
-  { id: 'public-no-access', pt: 'É público mas não temos acesso garantido', en: "It's public but access isn't guaranteed" },
-  { id: 'mixed', pt: 'Misto / não sei certinho', en: 'Mixed / not sure' },
-];
 // Implementation-role chips for the interest step (2026-07-16 biweekly: orgs
 // signal preferred roles before Workshop 3 so the coordination can cluster the
 // portfolio by role and scale). The taxonomy is the meeting's placeholder set —
 // pending Robson/Belén confirmation; labels are a data-only change.
-const E2_ROLES: Array<{ id: string; pt: string; en: string }> = [
-  { id: 'ser-consultada', pt: 'Ser consultada (dar opinião)', en: 'Be consulted (give input)' },
-  { id: 'escrever-projeto', pt: 'Escrever o projeto', en: 'Write the project' },
-  { id: 'receber-administrar', pt: 'Receber e administrar recursos', en: 'Receive and manage the funds' },
-  { id: 'executar', pt: 'Executar / implementar', en: 'Implement on the ground' },
-  { id: 'articular-parceiros', pt: 'Articular parceiros', en: 'Coordinate partners' },
-];
 
 const normChip = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
