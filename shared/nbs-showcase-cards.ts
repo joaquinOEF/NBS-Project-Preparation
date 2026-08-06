@@ -294,3 +294,25 @@ export function filterShowcaseCards(opts?: { hazard?: ShowcaseHazard; typeRefs?:
     return true;
   });
 }
+
+
+/**
+ * The same 13 cases, with the ones matching what the org named first.
+ *
+ * COUGAR convening 2026-08-06: orgs should be able to reference real cases WHILE
+ * they choose, instead of choosing blind. Ordering rather than filtering is
+ * deliberate — the ranking that would do the filtering runs on bairro averages,
+ * not on their site, and an org finding something we didn't predict for them is
+ * a feature. Same promise the flow makes out loud: nada fica descartado.
+ *
+ * `mixed` sits between: it speaks to their hazard among others.
+ */
+export function orderShowcaseCardsFor(
+  cards: typeof NBS_SHOWCASE_CARDS,
+  families: string[],
+): typeof NBS_SHOWCASE_CARDS {
+  if (families.length === 0) return cards;
+  const rank = (c: { hazard: string }) =>
+    families.includes(c.hazard) ? 0 : c.hazard === 'mixed' ? 1 : 2;
+  return [...cards].sort((a, b) => rank(a) - rank(b));
+}
