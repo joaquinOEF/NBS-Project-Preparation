@@ -6,6 +6,7 @@ import {
   listDocumentsForScope,
   getDocumentForScope,
   countDocumentsForMembers,
+  docPreviewForMembers,
   toDocumentMeta,
 } from '../services/documentPersistence';
 import {
@@ -194,12 +195,33 @@ async function buildMemberPayload(member: typeof cohortMembers.$inferSelect) {
 // no N+1) so the orchestrator cards can show a 📎 file-count chip.
 async function attachDocCounts<T extends { id: string; orgId: string | null; cboStateId: string | null }>(
   members: T[],
-): Promise<(T & { documentCount: number })[]> {
-  const counts = await countDocumentsForMembers(
+): Promise<(T & { documentCount: number; docPreview: DocPreview })[]> {
+  // One query for the whole roster — 10+ orgs load at once and must not fan out.
+  const preview = await docPreviewForMembers(
     members.map(m => ({ id: m.id, orgId: m.orgId, cboStateId: m.cboStateId })),
   );
-  return members.map(m => ({ ...m, documentCount: counts.get(m.id) ?? 0 }));
+  return members.map(m => {
+    const p = preview.get(m.id) ?? { total: 0, imageIds: [], filenames: [], teiaSprint: false };
+    return { ...m, documentCount: p.total, docPreview: p };
+  });
 }
+
+type DocPreview = { total: number; imageIds: string[]; filenames: string[]; teiaSprint: boolean };
+
+/** What the coordinator reads at a glance about an org's Encontro 2 (#25). */
+export type MemberW2Signal = {
+  /** The mechanism they named first — Alagamento / Inundação / Enxurrada / … */
+  worry: string | null;
+  worryCount: number;
+  depth: 'thin' | 'partial' | 'strong' | null;
+  bairro: string | null;
+  teiaSprint: string | null;
+  priorCollaboration: string | null;
+};
+const EMPTY_W2: MemberW2Signal = {
+  worry: null, worryCount: 0, depth: null, bairro: null,
+  teiaSprint: null, priorCollaboration: null,
+};
 
 // Roster progress derived from the LIVE cbo_state, not the pushed snapshot.
 // snapshotSectionsComplete is only written by the client PATCH, and no client
@@ -212,17 +234,32 @@ async function attachDocCounts<T extends { id: string; orgId: string | null; cbo
 // for members whose cbo_state hasn't been created yet.
 async function attachDerivedSections<
   T extends { cboStateId: string | null; snapshotSectionsComplete: number | null },
->(members: T[]): Promise<(T & { derivedSectionsComplete: number })[]> {
+>(members: T[]): Promise<(T & { derivedSectionsComplete: number; w2: MemberW2Signal })[]> {
   const ids = Array.from(new Set(members.map(m => m.cboStateId).filter((v): v is string => !!v)));
   const byState = new Map<string, number>();
+  const w2ByState = new Map<string, MemberW2Signal>();
   if (ids.length > 0) {
     const rows = await db
       .select({ id: cboStates.id, sections: cboStates.sections })
       .from(cboStates)
       .where(inArray(cboStates.id, ids));
     for (const row of rows) {
-      const n = cboSectionsFilledCount({ sections: (row.sections ?? {}) as CboState['sections'] });
-      byState.set(row.id, n);
+      const sections = (row.sections ?? {}) as CboState['sections'];
+      byState.set(row.id, cboSectionsFilledCount({ sections }));
+      // The W2 read the convening asked to see on the card (backlog #25): what
+      // worries them, how much we actually know, and the two new answers.
+      // Derived from the same rows we already fetched — no extra query.
+      const f: any = (sections as any)?.intervention_site?.fields ?? {};
+      const val = (k: string) => String(f[k]?.value ?? '').trim();
+      const worries = val('site_worry').split(',').map(w => w.trim()).filter(Boolean);
+      w2ByState.set(row.id, {
+        worry: worries[0] ?? null,
+        worryCount: worries.length,
+        depth: (val('site_knowledge_depth') || null) as MemberW2Signal['depth'],
+        bairro: val('bairro') || null,
+        teiaSprint: val('teia_sprint') || null,
+        priorCollaboration: val('prior_collaboration') || null,
+      });
     }
   }
   return members.map(m => ({
@@ -231,6 +268,7 @@ async function attachDerivedSections<
       m.cboStateId && byState.has(m.cboStateId)
         ? byState.get(m.cboStateId)!
         : (m.snapshotSectionsComplete ?? 0),
+    w2: (m.cboStateId && w2ByState.get(m.cboStateId)) || EMPTY_W2,
   }));
 }
 

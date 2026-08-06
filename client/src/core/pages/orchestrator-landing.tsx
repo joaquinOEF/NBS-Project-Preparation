@@ -13,6 +13,7 @@
  *
  * See docs/ROLE-ARCHITECTURE.md.
  */
+import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -111,6 +112,10 @@ type CboDemoProject = {
   supportPendingCount: number;
   /** How many files this CBO has uploaded — drives the 📎 chip + files drawer. */
   documentCount: number;
+  // The W2 read the convening asked to see at a glance (backlog #25).
+  w2: { worry: string | null; worryCount: number; depth: 'thin' | 'partial' | 'strong' | null;
+        teiaSprint: string | null; priorCollaboration: string | null };
+  docPreview: { total: number; imageIds: string[]; filenames: string[]; teiaSprint: boolean };
   /** Persisted org maturity tier (EF-5): set by the agent at E1 close,
    *  coordinator-overridable from the card. Null until E1 completes. */
   maturityTier: 'emerging' | 'developing' | 'advanced' | null;
@@ -149,6 +154,30 @@ const NEXT_ACTION_KEY: Record<number, string> = {
   5: 'orchestrator.demo.nextAction.publishScorecard',
 };
 
+/**
+ * The mechanism the org named, in the coordinator's language — reusing the very
+ * chip they tapped (WORRY_SUBTYPES), so the roster and the org's own screen say
+ * the same word. Unknown/free-text worries pass through as written: "Outra
+ * coisa" answers are the org's words and translating them would be a guess.
+ */
+function worryLabel(id: string, locale: 'pt' | 'en'): string {
+  const hit = WORRY_SUBTYPES.find(w => w.id === id);
+  if (hit) return locale === 'pt' ? hit.pt : hit.en;
+  // Legacy rows stored the family id before the split (backlog #24).
+  const legacy: Record<string, { pt: string; en: string }> = {
+    flood: { pt: '💧 Água', en: '💧 Water' },
+    heat: { pt: '🌡️ Calor', en: '🌡️ Heat' },
+    landslide: { pt: '⛰️ O barranco', en: '⛰️ The slope' },
+  };
+  const l = legacy[id];
+  return l ? (locale === 'pt' ? l.pt : l.en) : id;
+}
+
+/** No activity for this long, mid-workshop, and the board surfaces them. */
+const STUCK_AFTER_DAYS = 7;
+/** org_profile, intervention_site, 3a/3b/3c, needs, results. */
+const CBO_SECTION_COUNT = 7;
+
 function memberToView(m: CohortMember): CboDemoProject {
   const sm = m as CohortMember & {
     displayName?: { en: string; pt: string };
@@ -183,6 +212,8 @@ function memberToView(m: CohortMember): CboDemoProject {
       ? ((m as any).supportRequests as { resolvedAt: string | null }[]).filter(r => !r.resolvedAt).length
       : 0,
     documentCount: (m as any).documentCount ?? 0,
+    w2: (m as any).w2 ?? { worry: null, worryCount: 0, depth: null, teiaSprint: null, priorCollaboration: null },
+    docPreview: (m as any).docPreview ?? { total: 0, imageIds: [], filenames: [], teiaSprint: false },
     maturityTier: ((m as any).maturityTier as 'emerging' | 'developing' | 'advanced' | null) ?? null,
     siteDeferred: site?.deferred === true,
   };
@@ -675,6 +706,63 @@ function ProjectCard({
             </div>
           </div>
 
+          {/* Its own row: the W2 read is what the coordinator SCANS, and
+              interleaving it with Ver/Resetar/Remover made both harder to
+              read — the signal and the controls are different jobs. */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* ── W2 read, inline (backlog #25) ────────────────────────────
+                JVP asked for compact but INLINE, not behind an expand: the
+                coordinator should read an org without clicking. What they said
+                worries them, how much we actually know, and the two convening
+                answers. Everything degrades to nothing when absent — a card for
+                an org that hasn't started W2 must not sprout empty chips. */}
+            {project.w2.worry && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border border-blue-200/60 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/40"
+                title={t('orchestrator.w2.worryTitle', { defaultValue: 'What they said worries them at this place' })}
+                data-testid={`w2-worry-${project.id}`}
+              >
+                {worryLabel(project.w2.worry, locale)}
+                {project.w2.worryCount > 1 && ` +${project.w2.worryCount - 1}`}
+              </span>
+            )}
+            {project.w2.depth && (
+              <span
+                className={`inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+                  project.w2.depth === 'strong'
+                    ? 'border-emerald-200/60 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                    : project.w2.depth === 'partial'
+                      ? 'border-amber-200/60 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                      : 'border-foreground/15 bg-foreground/5 text-foreground/60'
+                }`}
+                title={t('orchestrator.w2.depthTitle', { defaultValue: 'How much we actually know about their site' })}
+                data-testid={`w2-depth-${project.id}`}
+              >
+                {t(`orchestrator.w2.depth.${project.w2.depth}`, {
+                  defaultValue: { thin: 'pouco detalhe', partial: 'detalhe parcial', strong: 'bem detalhado' }[project.w2.depth],
+                })}
+              </span>
+            )}
+            {project.docPreview.teiaSprint && (
+              <span
+                className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border border-violet-200/60 bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
+                title={t('orchestrator.w2.teiaTitle', { defaultValue: 'Teia Sprint application uploaded' })}
+                data-testid={`w2-teia-${project.id}`}
+              >
+                Teia Sprint
+              </span>
+            )}
+            {project.w2.priorCollaboration === 'sim' && (
+              <span
+                className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border border-foreground/15 bg-foreground/5 text-foreground/70"
+                title={t('orchestrator.w2.collabTitle', { defaultValue: 'Has worked with other organizations in the network' })}
+                data-testid={`w2-collab-${project.id}`}
+              >
+                {t('orchestrator.w2.collab', { defaultValue: 'já colaborou' })}
+              </span>
+            )}
+          </div>
+
           {/* Phase + Path + Intervention row */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full border border-foreground/10 bg-foreground/5 text-foreground/75">
@@ -837,6 +925,38 @@ function ProjectCard({
               <Check className="w-3 h-3 text-foreground/50" />
               <span className="text-foreground/80">{t(project.nextActionKey)}</span>
             </div>
+            {/* What they actually shared, on the face of the card — the point of
+                #25. Thumbnails only for images with a durable original; without
+                one the card shows the count instead of a broken frame. */}
+            {(project.docPreview.imageIds.length > 0 || project.docPreview.filenames.length > 0) && (
+              <div className="flex items-center gap-1.5 flex-wrap" data-testid={`doc-preview-${project.id}`}>
+                {project.docPreview.imageIds.map(id => (
+                  <img
+                    key={id}
+                    src={`/api/documents/${id}/original`}
+                    alt=""
+                    loading="lazy"
+                    className="w-9 h-9 rounded object-cover border border-foreground/10 bg-foreground/5"
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ))}
+                {project.docPreview.filenames.map(nm => (
+                  <span
+                    key={nm}
+                    className="text-[10px] text-foreground/60 px-1.5 py-0.5 rounded border border-foreground/10 bg-foreground/[0.03] max-w-[140px] truncate"
+                    title={nm}
+                  >
+                    {nm}
+                  </span>
+                ))}
+                {project.docPreview.total >
+                  project.docPreview.imageIds.length + project.docPreview.filenames.length && (
+                  <span className="text-[10px] text-muted-foreground">
+                    +{project.docPreview.total - project.docPreview.imageIds.length - project.docPreview.filenames.length}
+                  </span>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Clock className="w-3 h-3" />
               <span>
@@ -913,7 +1033,17 @@ export default function OrchestratorLandingPage() {
   } = useCohort();
   const cohortLanguage = (cohort?.settings as { language?: 'pt' | 'en' } | null)?.language ?? null;
 
-  const projects = useMemo(() => members.map(memberToView), [members]);
+  // Stuck orgs rise (backlog #25). "Stuck" = parked mid-workshop with nothing
+  // for a week — the signal that turns a roster into the thing that says who to
+  // call before the next convening. Deliberately a SORT, not a filter: an org
+  // never disappears from its own coordinator's board.
+  const projects = useMemo(() => {
+    const stuck = (p: CboDemoProject) =>
+      p.updatedDaysAgo >= STUCK_AFTER_DAYS && p.sectionsComplete < CBO_SECTION_COUNT;
+    return members
+      .map(memberToView)
+      .sort((a, b) => Number(stuck(b)) - Number(stuck(a)));
+  }, [members]);
 
   // Coordinator tier override (EF-5) — one tap on the card's tier select.
   const handleSetTier = async (p: CboDemoProject, tier: 'emerging' | 'developing' | 'advanced') => {
