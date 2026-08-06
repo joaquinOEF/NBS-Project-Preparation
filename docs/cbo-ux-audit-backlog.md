@@ -479,6 +479,20 @@ It is *Teia* (the government open call). Don't propagate the transcript's spelli
 
 29. **Two-stage readiness workflow in the orchestrator (P2, M)** — meeting decision: Stage 1 = Vila Flores/PxG eligibility screening, Stage 2 = OEF NBS Project Builder bankability. "Workflows will be mapped in Orchestrator view for the coordination team." Needs its own refinement — what a stage transition *is* (a coordinator action? a computed state?) is undefined.
 
-30. **Independent vs municipal-coordination distinction (P1, M)** — the convening found orgs already running gardens and composting but unsure which interventions they can do alone (mutirão, own team and resources) versus which need municipal/state co-design, permitting and funding. The agent should say which is which and name the partner to engage. This is the May-2026 finding restated: *"the gap is not projects but connective infrastructure between community, city priorities (PLAC), and finance."*
+30. **Independent vs municipal-coordination distinction — ⚠️ W3, NOT W2 (P1, M — refined 2026-08-06, deliberately not built)**
+
+    Refined and then declined for now, on the evidence:
+
+    · **The W2-visible half already ships.** Every solution card carries a delivery chip — *mutirão* / *parceria* / *licença ambiental* — authored across all 27 solutions (10/10/7) in `nbs-catalog.ts` and rendered by `NbsSolutionCard` via `DELIVERY_LABELS`. An org browsing famílias in W2 already sees who can build each one.
+
+    · **The missing half is inherently W3.** What's absent is (a) combining delivery with their `land_tenure` — a `mutirao` solution on land answered as `public-no-access` still needs the prefeitura for PERMISSION, not for building, and saying which half is the obstacle matters because those are different conversations — and (b) naming the partner to approach. Both concern a CHOSEN intervention and its permitting path. W2 never asks them to choose a solution: it captures famílias of interest and the role they'd play. Solution choice is phase 3a, and `InterventionSelector` is already `minPhase: 3`.
+
+    · **And W2's design argues against forcing it in.** The closing is explicitly *"não é veredito, é convite"*, with *"nada fica descartado"*. A "needs the prefeitura" verdict at the família stage would discourage precisely the orgs the May-2026 finding describes as blocked by connective infrastructure rather than by ambition.
+
+    **The design, so W3 inherits it instead of rediscovering it:** `delivery` (what the intervention needs) × `land_tenure` (what their access already permits) → one of *vocês conseguem sozinhas* / *precisa de parceria* / *precisa de autorização*, naming which of the two is the blocker. Then a `need → partner` map (prefeitura/SMAMUS, estado, financiador) authored with Robson/Hesioni, provisional like the mechanism tags in #24.
+
+    **Optional W2-appropriate slice if wanted sooner:** show access-secured on the *coordinator* card (#25) from `land_tenure`, so the coordination can see which orgs face a permitting wall — a read for staff, not a verdict shown to the org.
+
+    Original entry: — the convening found orgs already running gardens and composting but unsure which interventions they can do alone (mutirão, own team and resources) versus which need municipal/state co-design, permitting and funding. The agent should say which is which and name the partner to engage. This is the May-2026 finding restated: *"the gap is not projects but connective infrastructure between community, city priorities (PLAC), and finance."*
 
 31. **Data governance / terms of responsibility in-flow (P2, S)** — orgs voiced anxiety at the convening about how their data would be used; Ana drafted a terms-of-responsibility document. Today `CboDataNoticeDialog` answers this in the product — the drafted document should reach the org inside the flow, not only as a PDF the coordinator holds.
