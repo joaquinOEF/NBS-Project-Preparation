@@ -54,7 +54,7 @@ export type FakeOp =
   | { op: 'thinking_step'; label: string; status?: 'active' | 'complete' } // live tool-activity label (pair with 'wait' to hold it visible)
   | { op: 'update_section'; sectionId: string; field: string; value: string; confidence?: Confidence; source?: string }
   | { op: 'confirm_doc_fields'; fields?: string[] } // commit values staged by doc-sourced free-text update_section
-  | { op: 'ask_user'; question: string; options: { label: string; description?: string; recommended?: boolean; action?: 'upload' }[]; multiSelect?: boolean; showMap?: boolean; allowReask?: boolean }
+  | { op: 'ask_user'; question: string; options: { label: string; description?: string; recommended?: boolean; action?: 'upload' }[]; multiSelect?: boolean; showMap?: boolean; showExamples?: boolean; allowReask?: boolean }
   | { op: 'score_maturity'; metric: string; score: number; justification?: string }
   | { op: 'set_phase'; phase: number }
   | { op: 'set_path'; path: 'has-project' | 'has-idea' | 'needs-help' } // emits path_set (display mirror; standalone sessions have no member row)
@@ -213,7 +213,7 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
           break;
         }
       }
-      pushEvent({ type: 'ask_user', question: op.question, options, showMap: op.showMap, multiSelect: op.multiSelect });
+      pushEvent({ type: 'ask_user', question: op.question, options, showMap: op.showMap, showExamples: op.showExamples, multiSelect: op.multiSelect });
       break;
     }
     case 'score_maturity': {

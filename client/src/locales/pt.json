@@ -2089,7 +2089,8 @@
       "whatWeWillDo": "O que vamos fazer juntas",
       "youWillUse": "Vocês vão usar",
       "eyebrow": "Encontro {{n}}"
-    }
+    },
+    "seeRealCases": "Ver casos reais"
   },
   "mapMicroapp": {
     "tourNext": "Próximo risco",

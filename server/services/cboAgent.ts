@@ -1754,10 +1754,14 @@ async function serveE2Checkpoint(
     qPt: string,
     qEn: string,
     opts: Array<{ pt: string; en: string; dPt?: string; dEn?: string; action?: 'upload_then_answer'; uploadPurpose?: string }>,
+    /** Offer "ver exemplos reais" beside this question — a SECONDARY control,
+     *  not an option. See showExamples in the ask_user event. */
+    withExamples = false,
   ) =>
     pushEvent({
       type: 'ask_user',
       question: isPt ? qPt : qEn,
+      ...(withExamples ? { showExamples: true } : {}),
       options: opts.map(o => ({
         label: isPt ? o.pt : o.en,
         description: isPt ? (o.dPt ?? '') : (o.dEn ?? ''),
@@ -1791,6 +1795,9 @@ async function serveE2Checkpoint(
         ? 'Which famílias would you be interested in running a project on? You can pick more than one — tap one at a time.'
         : 'Noted ✓ Any other?',
       opts,
+      // Choosing famílias is exactly the moment the convening asked for: let
+      // them look at real cases without losing the question.
+      true,
     );
   };
   const askRoles = (picked: string[], intro: boolean) => {
@@ -1981,7 +1988,7 @@ async function serveE2Checkpoint(
     ask('Faz sentido pra vocês?', 'Does this make sense to you?', [
       { pt: E2C.fazSentido.pt, en: E2C.fazSentido.en },
       { pt: E2C.queroAjustar.pt, en: E2C.queroAjustar.en, dPt: 'Quero mexer na lista', dEn: 'I want to change the list' },
-    ]);
+    ], true);
     return finish('familia-reco');
   };
 

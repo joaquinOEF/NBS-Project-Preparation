@@ -49,6 +49,8 @@ import { getEncontroPreambleConfig, encontroForPhase } from '@/core/components/c
 import { E1Cards } from '@/core/components/cbo/E1Cards';
 import { RequestSupportDialog } from '@/core/components/cbo/RequestSupportDialog';
 import { NbsShowcaseCardStrip } from '@/core/components/cbo/NbsShowcaseCard';
+import { NbsExamplesSheet } from '@/core/components/cbo/NbsExamplesSheet';
+import { familiesOfWorries } from '@shared/site-knowledge';
 import { NbsTypeStrip } from '@/core/components/cbo/NbsTypeStrip';
 import { NbsFamiliaStrip } from '@/core/components/cbo/NbsFamiliaStrip';
 import { CboSiteCard } from '@/core/components/cbo/CboSiteCard';
@@ -417,7 +419,7 @@ export default function CboProfilePage() {
   // when they arrive in separate ticks, so this debounce is the cleanest
   // client-side cover.
   const [stableStreamEnded, setStableStreamEnded] = useState(false);
-  const [activeQuestions, setActiveQuestions] = useState<Array<{ id: string; question: string; options: any[]; multiSelect?: boolean }>>([]);
+  const [activeQuestions, setActiveQuestions] = useState<Array<{ id: string; question: string; options: any[]; multiSelect?: boolean; showExamples?: boolean }>>([]);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({});
   const [selectedOptionIdx, setSelectedOptionIdx] = useState(0);
@@ -477,6 +479,10 @@ export default function CboProfilePage() {
   // ask_user option). Consumed by the next upload and then cleared — untagged
   // is the normal case and has to stay the default.
   const pendingUploadPurposeRef = useRef<string | null>(null);
+  // Real cases, opened from a SECONDARY control on the question card — never an
+  // answer option, or the checkpoint machine would take it as the answer
+  // (backlog #27).
+  const [examplesOpen, setExamplesOpen] = useState(false);
   const handleSelectRef = useRef<(label: string) => void>(() => {});
 
   const currentQuestion = activeQuestions[currentQuestionIdx] || null;
@@ -535,7 +541,7 @@ export default function CboProfilePage() {
         let p: any = null;
         try { p = JSON.parse(m.content); } catch { break; }
         if (p?.kind !== 'ask_user' || !p.question) break;
-        restored.unshift({ id: `q_restored_${i}`, question: p.question, options: p.options ?? [], multiSelect: p.multiSelect, relatedSections: p.relatedSections });
+        restored.unshift({ id: `q_restored_${i}`, question: p.question, options: p.options ?? [], multiSelect: p.multiSelect, showExamples: p.showExamples, relatedSections: p.relatedSections });
       }
       setActiveQuestions(restored as any);
       setCurrentQuestionIdx(0); setQuestionAnswers({}); setSelectedOptionIdx(0);
@@ -1210,7 +1216,7 @@ export default function CboProfilePage() {
         const hasMap = !!(event as any).showMap;
         setActiveQuestions(prev => {
           if (prev.length === 0) { setCurrentQuestionIdx(0); setQuestionAnswers({}); }
-          return [...prev, { id: `q_${Date.now()}`, question: event.question, options: event.options, multiSelect: (event as any).multiSelect, relatedSections: (event as any).relatedSections }];
+          return [...prev, { id: `q_${Date.now()}`, question: event.question, options: event.options, multiSelect: (event as any).multiSelect, showExamples: (event as any).showExamples, relatedSections: (event as any).relatedSections }];
         });
         // Append the composer the server is persisting for this same event
         // (composers doc, Rule 1). `show_types`/`show_examples` always did this;
@@ -1219,7 +1225,7 @@ export default function CboProfilePage() {
         // reappeared on reload, from the persisted row. Now it never leaves.
         setMessages(prev => [...prev, {
           role: 'assistant',
-          content: JSON.stringify({ kind: 'ask_user', question: event.question, options: event.options, multiSelect: (event as any).multiSelect, showMap: (event as any).showMap, relatedSections: (event as any).relatedSections }),
+          content: JSON.stringify({ kind: 'ask_user', question: event.question, options: event.options, multiSelect: (event as any).multiSelect, showMap: (event as any).showMap, showExamples: (event as any).showExamples, relatedSections: (event as any).relatedSections }),
           messageType: 'composer',
           timestamp: new Date().toISOString(),
         }]);
@@ -2268,6 +2274,7 @@ export default function CboProfilePage() {
                     pendingUploadPurposeRef.current = purpose ?? null;
                     fileInputRef.current?.click();
                   }}
+                  onShowExamples={() => setExamplesOpen(true)}
                 />
               </div>
             )}
@@ -2489,6 +2496,20 @@ export default function CboProfilePage() {
                 <span>{voiceError}</span>
               </div>
             )}
+            <NbsExamplesSheet
+              open={examplesOpen}
+              onClose={() => setExamplesOpen(false)}
+              lang={lang.startsWith('pt') ? 'pt' : 'en'}
+              // Their hazard families, so the closest cases sort first. Read
+              // from the profile rather than the recommendation: the ranking
+              // runs on bairro averages, theirs is what they told us.
+              families={familiesOfWorries(
+                String(state?.sections?.intervention_site?.fields?.site_worry?.value ?? '')
+                  .split(',').map(w => w.trim()).filter(Boolean),
+              )}
+              savedIds={inspirationPicks}
+              onToggleSave={handleInspirationToggle}
+            />
             {streamRetry && !isStreaming && (
               <div className="mb-1.5">
                 <Button
@@ -3024,8 +3045,9 @@ function CboQuestionCard({
   onMultiConfirm,
   readOnly,
   onUploadAction,
+  onShowExamples,
 }: {
-  question: { question: string; options: any[]; multiSelect?: boolean };
+  question: { question: string; options: any[]; multiSelect?: boolean; showExamples?: boolean };
   selectedIdx: number;
   onSelect: (label: string) => void;
   disabled: boolean;
@@ -3038,6 +3060,9 @@ function CboQuestionCard({
   readOnly?: boolean;
   /** Opens the file picker — for options with action 'upload'. */
   onUploadAction?: (purpose?: string) => void;
+  /** Opens the real-cases sheet. Deliberately separate from onSelect: this must
+   *  never answer the question (backlog #27). */
+  onShowExamples?: () => void;
 }) {
   const { t } = useTranslation();
   const isMulti = question.multiSelect;
@@ -3144,6 +3169,20 @@ function CboQuestionCard({
         <Button size="sm" onClick={onMultiConfirm} disabled={disabled} className="w-full h-8 text-xs gap-1 bg-green-600 hover:bg-green-700">
           <Check className="w-3 h-3" /> {t('cbo.confirmSelected', { defaultValue: 'Confirm {{n}} selected', n: multiSet.size })}
         </Button>
+      )}
+      {/* ⚠️ SECONDARY control, deliberately outside the options list and styled
+          unlike them: choosing a família is the answer, looking at cases is not.
+          As an option it would either answer the question by accident or strand
+          the checkpoint machine, which reads its position from the answers. */}
+      {question.showExamples && !readOnly && onShowExamples && (
+        <button
+          type="button"
+          onClick={onShowExamples}
+          data-testid="cbo-show-examples"
+          className="mt-1 text-xs text-green-700 underline underline-offset-2 hover:text-green-800"
+        >
+          {t('cbo.seeRealCases', { defaultValue: 'Ver casos reais' })}
+        </button>
       )}
     </div>
   );
