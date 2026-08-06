@@ -20,11 +20,15 @@ export function NbsFamiliaStrip({
   familiaIds,
   intro,
   lang,
+  worries = [],
 }: {
   /** Which famílias to show; empty/undefined = all five. */
   familiaIds?: string[];
   intro?: string;
   lang: 'pt' | 'en';
+  /** Passed through so the variants inside a família are ordered by the
+   *  mechanism the org named (backlog #24). Ordering only — nothing hidden. */
+  worries?: string[];
 }) {
   const [openFamiliaId, setOpenFamiliaId] = useState<NbsFamiliaId | null>(null);
   const [croquiFamiliaId, setCroquiFamiliaId] = useState<NbsFamiliaId | null>(null);
@@ -59,6 +63,7 @@ export function NbsFamiliaStrip({
       </div>
 
       <NbsFamiliaSheet
+        worries={worries}
         openFamiliaId={openFamiliaId}
         onClose={() => setOpenFamiliaId(null)}
         lang={lang}

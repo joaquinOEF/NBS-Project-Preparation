@@ -1982,6 +1982,13 @@ export default function CboProfilePage() {
                         familiaIds={parsed.familiaIds}
                         intro={parsed.intro}
                         lang={lang.startsWith('pt') ? 'pt' : 'en'}
+                        // The mechanisms they named in the worry beat, so the
+                        // variants inside a família lead with what answers their
+                        // problem (backlog #24). Read live from the profile —
+                        // the strip persists as a composer and re-renders on
+                        // reload, when this prop must still be right.
+                        worries={String(state?.sections?.intervention_site?.fields?.site_worry?.value ?? '')
+                          .split(',').map(w => w.trim()).filter(Boolean)}
                       />
                     </div>
                   );
