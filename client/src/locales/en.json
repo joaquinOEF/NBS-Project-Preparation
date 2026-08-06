@@ -1876,7 +1876,10 @@
         "results": "Results & evidence"
       },
       "lockedWithWorkshop": "Opens after {{workshop}}{{date}}",
-      "lockedNoWorkshop": "Your coordinator will open this section."
+      "lockedNoWorkshop": "Your coordinator will open this section.",
+      "a11yLocked": "Phase {{num}} locked",
+      "a11yPhase": "Phase {{num}} ({{label}})",
+      "a11yGoTo": "Go to phase {{num}} ({{label}})"
     },
     "cohortWelcomePrefix": "Welcome,",
     "cohortPhasesUnlocked": "Sections open: {{phases}}",
@@ -1894,6 +1897,11 @@
       "sample": "sample",
       "agent": "agent",
       "map": "map"
+    },
+    "encontroPreamble": {
+      "whatWeWillDo": "What we'll do together",
+      "youWillUse": "You'll use",
+      "eyebrow": "Encontro {{n}}"
     }
   },
   "mapMicroapp": {
@@ -1971,5 +1979,9 @@
     "helpUnderstood": "Got it",
     "helpAskAgent": "I have another question",
     "tourHint": "See how each risk spreads across the city."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "This address doesn't exist — links sometimes arrive truncated. If you were sent an invitation, open it again using the whole link. If it still doesn't open, talk to whoever coordinates your group."
   }
 }

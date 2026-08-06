@@ -102,7 +102,7 @@ export function CboProgress({
                 <PopoverTrigger asChild>
                   <button
                     className={`flex-1 h-1.5 rounded-full ${bg} relative group cursor-help`}
-                    aria-label={`Phase ${p.num} locked`}
+                    aria-label={t('cbo.progress.a11yLocked', { defaultValue: `Fase ${p.num} bloqueada`, num: p.num })}
                     data-testid={`cbo-progress-locked-${p.num}`}
                   >
                     <Lock className="absolute -top-3 left-1/2 -translate-x-1/2 w-2.5 h-2.5 text-foreground/30" strokeWidth={2.5} />
@@ -114,9 +114,14 @@ export function CboProgress({
                     <p className="text-muted-foreground">
                       {workshop
                         ? t('cbo.progress.lockedWithWorkshop', {
+                            // The separator is joined HERE, not in the locale
+                            // string: the pt value carried a JS template literal
+                            // ({{date,select,…}}) that i18next has no formatter
+                            // for, so it warned every render and printed the date
+                            // glued to the workshop name.
                             defaultValue: `Opens after ${workshopName}${workshopDate ? ` · ${workshopDate}` : ''}`,
                             workshop: workshopName,
-                            date: workshopDate ?? '',
+                            date: workshopDate ? ` · ${workshopDate}` : '',
                           })
                         : t('cbo.progress.lockedNoWorkshop', { defaultValue: 'Your coordinator will open this section.' })}
                     </p>
@@ -134,7 +139,7 @@ export function CboProgress({
               <div
                 key={p.num}
                 className={`flex-1 h-1.5 rounded-full ${bg} ${isCompleted ? 'flex items-center justify-center' : ''}`}
-                aria-label={`Phase ${p.num} (${segmentLabel})`}
+                aria-label={t('cbo.progress.a11yPhase', { defaultValue: `Fase ${p.num} (${segmentLabel})`, num: p.num, label: segmentLabel })}
                 data-testid={`cbo-progress-unlocked-${p.num}`}
                 title={segmentLabel}
               >
@@ -147,7 +152,7 @@ export function CboProgress({
               key={p.num}
               className={`flex-1 h-1.5 rounded-full ${bg} ${ring} transition-all hover:opacity-80 ${isCompleted ? 'flex items-center justify-center' : ''}`}
               onClick={() => onJumpToPhase(p.num)}
-              aria-label={`Go to phase ${p.num} (${segmentLabel})`}
+              aria-label={t('cbo.progress.a11yGoTo', { defaultValue: `Ir para a fase ${p.num} (${segmentLabel})`, num: p.num, label: segmentLabel })}
               data-testid={`cbo-progress-unlocked-${p.num}`}
               title={segmentLabel}
             >
