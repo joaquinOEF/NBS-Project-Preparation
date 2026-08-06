@@ -405,3 +405,44 @@ Fixed: 15s heartbeat, deliberate-abort suppression on restart/unmount, stale-ses
 Open:
 9. **Same-session-in-two-tabs degrades (P3, M)** — `pushEventRegistry` is one slot per cboId, so two live streams for the same member hijack each other's tool events; the starved tab hits the watchdog. Not a real-user pattern (each CBO has one phone), hit only when testing with duplicated tabs. Fix would be per-connection pushers with broadcast.
 10. **Kickoff double-send under StrictMode (P3, S)** — dev-mode double-mount fires the auto-kickoff twice (doubled `sample/init`/`by-token` in logs); prod unaffected. A sent-once ref on the kickoff effect closes it.
+
+### Wave: COUGAR convening feedback — Vila Flores <> PxG <> OEF <> BwB, 2026-08-06
+
+Platform launch is **one week out**, at the next in-person meeting. #24, #26 and #27
+are JVP's committed action items with that deadline; the rest is captured from the
+same meeting and not yet refined.
+
+⚠️ The Fireflies summary transcribes **Teia Sprint** as "Thea Sprint" throughout.
+It is *Teia* (the government open call). Don't propagate the transcript's spelling.
+
+24. **Hazard language: Alagamento / Inundação / enxurrada (P0, M — committed for next week)** — the orgs do not experience "flood" as one thing, and the solution differs by mechanism: water that pools and won't drain, a river or arroio that overtops, and water coming down a slope with velocity are three different problems with three different answers. The meeting standardised: **Alagamento** (pluvial/drainage), **Inundação** (river), **enxurrada** (flash flood, high velocity), technical terms paired with plain language per the civil defense *Plano de Contingência* (Julia to send the link).
+
+    **Decision (refined with JVP, 2026-08-06): language + a stored field, ONE data key.** We hold exactly three rasters — `poa_flood_hazard`, `poa_heat_hazard`, `poa_landslide_hazard`. Alagamento, Inundação and enxurrada would be three names over **one** layer. So the org's chosen term is self-reported, stored as its own field, and shown everywhere they and the coordinator read (chat, document, card, export, bundle) — while the risk *number* stays the flood-family percentile and keeps saying so. We are not inventing per-type data.
+
+    Touches: `E2_WORRIES` + `orderWorriesByData` (`shared/site-knowledge.ts`), the worry chips and the diagnostic read-back, `site_worry` / `primary_hazard` storage, `shared/cbo-field-catalog.ts` labels, the coordinator card (#25), the export and the context bundle.
+
+    Deliberately does NOT touch: `HazardKey` in `shared/risk-display.ts`, the `risks` triple in `shared/nbs-recommendation.ts`, or the per-família hazard weights in `shared/nbs-catalog.ts` (`{flood: 1, heat: 0.2, landslide: 0.3}`). A fourth key there needs weights authored by someone qualified (Robson/Hesioni) *and* per-type data we don't have; splitting one without the other would make the ranking look more informed than it is.
+
+    ⚠️ `HazardKey` is declared **twice** — `risk-display.ts:17` and `site-knowledge.ts:28`. Reconcile before adding a term to either.
+    ⚠️ MAMUS omits Alagamento from its six-hazard framework — described in the meeting as a political choice — so official data may never split the way the orgs speak. Another reason the org's own word is a separate field from the measurement.
+
+25. **Richer organization cards in the orchestrator (P1, M)** — "progress per city". **Refined with JVP: not a new cross-city screen.** Stay on the current per-cohort board and put the signal on the cards, all four groups:
+    - **site photos + file names** — thumbnails of what they shared, and document names; today both sit behind the files button
+    - **priority hazard + depth read** — the hazard they chose, and how much we actually know about the site (`site_knowledge_depth`: thin/partial/strong)
+    - **workshop progress + last activity** — which encontro, what's unlocked, when they last did anything: the "who is stuck" signal
+    - **Teia Sprint + collaboration history** — from #26
+
+    The data already exists (`documents`, `site_photo_intent`, `_depth_json`, phase/unlock state); this is a card-rendering change in `orchestrator-landing.tsx` (`card-orchestrator-project-*`, `memberToView`).
+    ⚠️ Photo thumbnails read blob storage — the card must degrade to a count when `BLOB_BUCKET_ID` is unset, not render a broken frame.
+
+26. **Teia Sprint upload + prior-collaboration question (P0, S — committed for next week)** — orgs have applied to the Teia Sprint open call, which makes those applications semi-formalised project proposals that W3 refines into scope, partnerships and funding. Capture the application as its **own document kind** so W3 and the coordinator can find it, not as one more file in the pile. Alongside it, ask *"Vocês já fizeram algum projeto com outras organizações da rede?"* — the meeting wants to distinguish orgs with a cross-group track record from first-timers, because that shapes W3 partnership design. Both surface on the card (#25).
+
+27. **NBS família examples discoverable while choosing (P0, S/M — committed for next week)** — orgs should be able to jump back to real cases *while* selecting, instead of choosing blind. Needs an exploratory component that stays referenceable during selection rather than a one-shot strip. Julia is sending regeneration-network cases and examples from Hugo Du Su's network to include. Overlaps backlog **#23** — "ver exemplos" should be a deterministic chip action, not a ~10s model round trip.
+
+28. **Municipal risk data: MAMUS six hazards × three horizons (P1, L — blocked, not ours)** — historic / 2030 / 2050 risk maps per hazard and neighbourhood; Ana is requesting them at the MAMUS meeting, and Guilherme's community-level maps await Ministry authorisation. PDF-only today (we have `/pdf-to-geojson` experience). This is the data that could eventually put numbers behind #24 — until it lands, #24 must not imply per-type figures.
+
+29. **Two-stage readiness workflow in the orchestrator (P2, M)** — meeting decision: Stage 1 = Vila Flores/PxG eligibility screening, Stage 2 = OEF NBS Project Builder bankability. "Workflows will be mapped in Orchestrator view for the coordination team." Needs its own refinement — what a stage transition *is* (a coordinator action? a computed state?) is undefined.
+
+30. **Independent vs municipal-coordination distinction (P1, M)** — the convening found orgs already running gardens and composting but unsure which interventions they can do alone (mutirão, own team and resources) versus which need municipal/state co-design, permitting and funding. The agent should say which is which and name the partner to engage. This is the May-2026 finding restated: *"the gap is not projects but connective infrastructure between community, city priorities (PLAC), and finance."*
+
+31. **Data governance / terms of responsibility in-flow (P2, S)** — orgs voiced anxiety at the convening about how their data would be used; Ana drafted a terms-of-responsibility document. Today `CboDataNoticeDialog` answers this in the product — the drafted document should reach the org inside the flow, not only as a PDF the coordinator holds.
