@@ -433,6 +433,18 @@ It is *Teia* (the government open call). Don't propagate the transcript's spelli
 
     The per-família weights in `nbs-catalog.ts` still do NOT change. This is a within-família ordering signal, not a re-scoring of the famílias.
 
+    **Refined 2026-08-06 — chip design and launch scope.** Water splits, the rest waits.
+
+    Chips become six, ordered by the bairro data with "Outra coisa" last: *a água que junta e não escoa* (Alagamento) · *o rio ou arroio que transborda* (Inundação) · *a água que desce com força* (Enxurrada) · Calor · O barranco · Outra coisa. Flat, one tap, no drill-down — an extra turn is the thing the latency work has been removing, and the split lands exactly where today's copy already merges two ideas ("A água que junta **ou invade**" is Alagamento *and* Inundação under a chip labelled Alagamento).
+
+    Heat and slope keep today's wording until the Plano de Contingência lets us name them the way civil defense does — *ilha de calor* vs *onda de calor*, *deslizamento* / *erosão* / *queda de barreira* — then extend through the same mechanism.
+
+    Shape: `WORRY_SUBTYPES` in `shared/site-knowledge.ts` as `{id, family: HazardKey, pt, en, dPt, dEn}`, with `E2_WORRIES` derived from it and `familyOfWorry(id)` in front of every consumer — `orderWorriesByData`, `photoPromptsFor`, `hazardsToCheck`, `needsScaleReframing`, the depth read, `rankFamiliasForSite`. Nothing new reaches the raster layer.
+
+    The sub-type also earns its keep in the photo prompts: *enxurrada* makes "onde a água desce?" worth a photo, *inundação* makes the high-water mark worth one. A place the finer term changes what we ask for, at no data cost.
+
+    ⚠️ **Migration.** Existing sessions store `site_worry: 'flood'` — JVP's test orgs and the three test-kit orgs. Legacy `flood` must keep resolving as "water, mechanism unspecified" rather than becoming an unknown id, or the depth read and the photo prompts corrupt silently.
+
     ⚠️ `HazardKey` is declared **twice** — `risk-display.ts:17` and `site-knowledge.ts:28`. Reconcile before adding a term to either.
     ⚠️ MAMUS omits Alagamento from its six-hazard framework — described in the meeting as a political choice — so official data may never split the way the orgs speak. Another reason the org's own word is a separate field from the measurement.
 
@@ -445,9 +457,23 @@ It is *Teia* (the government open call). Don't propagate the transcript's spelli
     The data already exists (`documents`, `site_photo_intent`, `_depth_json`, phase/unlock state); this is a card-rendering change in `orchestrator-landing.tsx` (`card-orchestrator-project-*`, `memberToView`).
     ⚠️ Photo thumbnails read blob storage — the card must degrade to a count when `BLOB_BUCKET_ID` is unset, not render a broken frame.
 
+    **Refined 2026-08-06.** Compact and **inline** — not behind an expand. One dense card face: workshop progress, priority hazard, depth read, last activity, a prioritized couple of photo thumbnails and the first file names, with overflow counted ("+3"). The coordinator should read an org without clicking.
+
+    And the board actively surfaces who needs attention: orgs with no activity for N days, or parked mid-workshop, rise to the top with a marker. That is what turns a roster into the thing that tells Ana and Vila Flores who to call before the next convening.
+
 26. **Teia Sprint upload + prior-collaboration question (P0, S — committed for next week)** — orgs have applied to the Teia Sprint open call, which makes those applications semi-formalised project proposals that W3 refines into scope, partnerships and funding. Capture the application as its **own document kind** so W3 and the coordinator can find it, not as one more file in the pile. Alongside it, ask *"Vocês já fizeram algum projeto com outras organizações da rede?"* — the meeting wants to distinguish orgs with a cross-group track record from first-timers, because that shapes W3 partnership design. Both surface on the card (#25).
 
+    **Refined 2026-08-06.** The upload gets its **own named moment at the close of W2** — "Vocês mandaram algo pro Teia Sprint? Sobe aqui" — stored as its own document kind rather than buried among site photos, so W3 and the coordinator can find it. Asking at W3 would be too late: the coordination team wants the applications as baseline concepts *before* they plan W3.
+
+    The collaboration question is **yes/no plus free text**: *"Já fizeram algum projeto com outras organizações da rede?"*, and if yes they name who in their own words. Deliberately NOT a pick-list of the cohort roster — that would show every org who else is in their hub, days after they told us they were anxious about how their data is used (#31). The coordination team can map the graph from the names; the platform doesn't need to expose the roster to do it.
+
 27. **NBS família examples discoverable while choosing (P0, S/M — committed for next week)** — orgs should be able to jump back to real cases *while* selecting, instead of choosing blind. Needs an exploratory component that stays referenceable during selection rather than a one-shot strip. Julia is sending regeneration-network cases and examples from Hugo Du Su's network to include. Overlaps backlog **#23** — "ver exemplos" should be a deterministic chip action, not a ~10s model round trip.
+
+    **Refined 2026-08-06.** Reached **inline from the chip**, not from the panel tab — closest to the moment of choosing. Content is **browsable with theirs first**: all five famílias and all 13 cases available, the ones matching their bairro and chosen hazard on top. Same promise the flow already makes out loud ("nada fica descartado"), and it lets an org find something our ranking didn't predict for them — a ranking that runs on bairro averages, not their site.
+
+    ⚠️ **The examples affordance must be a secondary control on the question card, not one of the answer options.** The chip contract is "the chip still posts its message" — the checkpoint machine derives its position from the answers, so an option that only opens a sheet either strands the flow or answers the question by accident. This needs an action that explicitly does NOT answer, which is a new capability beyond `upload_then_answer` (#23).
+
+    Material already exists: 13 showcase cards, `NbsFamiliaSheet`, `NbsShowcaseCard`, `NbsDesktopGrids`. Julia is sending regeneration-network cases and Hugo Du Su examples — data-only additions once the surface is there.
 
 28. **Municipal risk data: MAMUS six hazards × three horizons (P1, L — blocked, not ours)** — historic / 2030 / 2050 risk maps per hazard and neighbourhood; Ana is requesting them at the MAMUS meeting, and Guilherme's community-level maps await Ministry authorisation. PDF-only today (we have `/pdf-to-geojson` experience). This is the data that could eventually put numbers behind #24 — until it lands, #24 must not imply per-type figures.
 
