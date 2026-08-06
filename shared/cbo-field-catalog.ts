@@ -525,3 +525,40 @@ export const CBO_PRIORITY_FLAG_LABELS: Record<string, { pt: string; en: string }
   'Co-financing possibility identified': { pt: 'Possibilidade de cofinanciamento identificada', en: 'Co-financing possibility identified' },
   'Scalable beyond one site': { pt: 'Escalável além de um local', en: 'Scalable beyond one site' },
 };
+
+/**
+ * Write path for a MANUAL edit in the document panel.
+ *
+ * Now that the panel shows "É da prefeitura, mas a gente usa" instead of
+ * `public-informal`, that label is what a person edits — and what would be
+ * saved back over the id. The E2 checkpoint machine keys off ids
+ * (`pickedFamilias.includes(f.id)`, `E2_ROLES.find(r => …)`), so a label in
+ * `nbs_interest` would silently make the multi-pick loop re-offer famílias the
+ * org already chose.
+ *
+ * ⚠️ The two halves of the document canonicalize in OPPOSITE directions, and
+ * that is deliberate: org_profile stores the human chip label (see this file's
+ * header — the panel, the drawer and the exports all want it), while
+ * intervention_site stores machine ids because the checkpoint machine compares
+ * against them. So this dispatches rather than picking one rule.
+ *
+ * Unrecognized input passes through untouched — free text is the user's.
+ */
+export function canonicalizeCboFieldValue(sectionId: string, field: string, raw: string): string {
+  if (typeof raw !== 'string' || !raw.trim()) return raw;
+  if (sectionId === 'org_profile') return canonicalizeOrgProfileValue(field, raw);
+  const options = SECTION_ENUMS[sectionId]?.[field];
+  if (!options) return raw;
+  return raw
+    .split(',')
+    .map(part => {
+      const n = norm(part.trim());
+      const hit = options.find(
+        o => norm(o.id) === n || norm(o.pt) === n || norm(o.en) === n ||
+             (o.aliases ?? []).some(a => norm(a) === n),
+      );
+      return hit ? hit.id : part.trim();
+    })
+    .filter(Boolean)
+    .join(',');
+}

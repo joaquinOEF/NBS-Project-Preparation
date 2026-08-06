@@ -2624,7 +2624,7 @@ export default function CboProfilePage() {
                                       pt→pt (never pt→en), so a key missing from pt.json used to render
                                       the ENGLISH defaultValue — 37 of the 39 fields the agent writes.
                                       Locale entries still win where they exist. */}
-                                  <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">{t(`cbo.fields.${k}`, cboFieldLabel(k, lang === 'pt' ? 'pt' : 'en'))}</td>
+                                  <td className="px-3 py-1.5 text-xs text-muted-foreground w-[150px] font-medium">{t(`cbo.fields.${k}`, cboFieldLabel(k, lang === 'pt' ? 'pt' : 'en'))}</td>
                                   <td className="px-3 py-1.5 text-sm">
                                     <EditableField
                                       value={cboDisplayValue(sec.id, k, String(v.value || ''), lang === 'pt' ? 'pt' : 'en')}

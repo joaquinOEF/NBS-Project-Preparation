@@ -128,3 +128,41 @@ test.describe('CBO document tab — a pt-BR org reads Portuguese', () => {
     expect(md, 'internal machinery must not be in the org-facing document').not.toContain('_depth_json');
   });
 });
+
+// The round trip the localization opens up: the panel shows a label, so a
+// manual edit sends that label back — and intervention_site stores IDS, which
+// the E2 checkpoint loops compare against.
+test.describe('editing a localized value keeps the stored form', () => {
+  test.use({ locale: 'pt-BR' });
+
+  test('a label edited in the panel is stored as the id again', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    const api = new TestApi(request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+
+    await page.goto('/cbo-profile');
+    const marker = page.getByTestId('cbo-stream-status');
+    await expect(marker).toHaveAttribute('data-cbo-id', /.+/, { timeout: 30_000 });
+    const cboId = (await marker.getAttribute('data-cbo-id'))!;
+
+    await api.seedState(cboId, {
+      phase: 2, language: 'pt',
+      sections: [{ sectionId: 'intervention_site', field: 'nbs_interest', value: 'aguas-pluviais' }],
+    });
+
+    // Exactly what the panel renders — a person editing this field is editing
+    // labels, because that is now all they can see.
+    await request.post(`/api/cbo/${cboId}/edit`, {
+      data: {
+        sectionId: 'intervention_site',
+        field: 'nbs_interest',
+        value: 'Gestão de Águas Pluviais, Agricultura Urbana',
+      },
+    });
+
+    const state = (await (await request.get(`/api/cbo/${cboId}`)).json()).state;
+    const stored = String(state.sections.intervention_site.fields.nbs_interest.value);
+    expect(stored, 'the checkpoint loops compare against ids, not labels')
+      .toBe('aguas-pluviais,agricultura-urbana');
+  });
+});

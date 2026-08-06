@@ -85,7 +85,7 @@ export function E1Cards({
                       const v = fields[k];
                       return (
                         <tr key={k} className="border-b last:border-b-0">
-                          <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">
+                          <td className="px-3 py-1.5 text-xs text-muted-foreground w-[150px] font-medium">
                             {t(`cbo.fields.${k}`, cboFieldLabel(k, isPt ? 'pt' : 'en'))}
                           </td>
                           <td className="px-3 py-1.5 text-sm">
@@ -148,7 +148,7 @@ export function E1Cards({
                   const v = fields[k];
                   return (
                     <tr key={k} className="border-b last:border-b-0">
-                      <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">
+                      <td className="px-3 py-1.5 text-xs text-muted-foreground w-[150px] font-medium">
                         {t(`cbo.fields.${k}`, cboFieldLabel(k, isPt ? 'pt' : 'en'))}
                       </td>
                       <td className="px-3 py-1.5 text-sm">
