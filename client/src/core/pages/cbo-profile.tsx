@@ -384,6 +384,19 @@ export default function CboProfilePage() {
   const [messages, setMessages] = useState<Array<CboChatMessage & { viaVoice?: boolean }>>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  // ⚠️ CHIP-TAP-LOST. sendMessage opens with
+  //   `if (!cboId || !text.trim() || isStreaming) return;`
+  // and its callers cleared the question BEFORE calling it. So a tap arriving
+  // while a turn was in flight erased the question and sent nothing: no
+  // request, no error, no toast, and a screen with no way forward. Same dead
+  // end JVP hit on 2026-08-04, through a different door (that time a 409).
+  //
+  // I could not pin the exact race that leaves a card up while streaming, so
+  // this deliberately does not depend on knowing it. The INVARIANT is that a
+  // tap is never both erased and unsent: callers ask first, and when the answer
+  // is no they leave the question alone and say so.
+  const isStreamingRef = useRef(false);
+  isStreamingRef.current = isStreaming;
   // Monotonic count of completed agent turns. Drives the e2e stream-complete
   // contract (see the hidden #cbo-stream-status marker near the root) so tests
   // can wait on "turn N finished" deterministically — networkidle never fires
@@ -1439,28 +1452,45 @@ export default function CboProfilePage() {
 
   // MC selection
   const handleSelectOption = useCallback((label: string) => {
-    setQuestionAnswers(prev => {
-      const updated = { ...prev, [currentQuestionIdx]: label };
-      if (Object.keys(updated).length === totalQuestions) {
-        const all = activeQuestions.map((_, i) => updated[i]).filter(Boolean);
-        // `pairs` keeps which answer belongs to which question - the joined string
-        // ("Associacao; 6-20") could not say that under two questions. The joined
-        // text still goes to the model, unchanged; `pairs` is only how the
-        // transcript renders the answered cards.
-        const pairs = activeQuestions
-          .map((q, i) => ({ question: q.question, answer: updated[i] }))
-          .filter(p => !!p.answer);
-        setActiveQuestions([]); setCurrentQuestionIdx(0); setSelectedOptionIdx(0);
-        // hidden=true: a chip turn renders as answered cards, not a green bubble.
-        sendMessage(all.join('; '), true, false, undefined, 'chip', pairs);
-        return {};
-      }
-      return updated;
-    });
+    // CHIP-TAP-LOST — ask before erasing anything. A turn is in flight, so
+    // sendMessage would drop this tap on the floor; clearing the question first
+    // is what turned a dropped tap into a dead screen. Keep the question, keep
+    // the partial answers, and tell them it's a moment, not a failure.
+    if (isStreamingRef.current) {
+      console.warn('[cbo] chip tap ignored — a turn is already streaming');
+      toast({
+        title: t('cbo.stillAnswering', {
+          defaultValue: 'Só um segundo — ainda estou respondendo a anterior.',
+        }),
+      });
+      return;
+    }
+    // Computed here rather than inside a setState updater: an updater must be
+    // pure, and this one called sendMessage + three setters from inside it.
+    // React invokes updaters twice under StrictMode, so that was a latent
+    // double-send — survived only because sendMessage's own guard swallowed the
+    // second one, which is the very guard whose silence caused this bug.
+    const updated = { ...questionAnswers, [currentQuestionIdx]: label };
+    if (Object.keys(updated).length === totalQuestions) {
+      const all = activeQuestions.map((_, i) => updated[i]).filter(Boolean);
+      // `pairs` keeps which answer belongs to which question - the joined string
+      // ("Associacao; 6-20") could not say that under two questions. The joined
+      // text still goes to the model, unchanged; `pairs` is only how the
+      // transcript renders the answered cards.
+      const pairs = activeQuestions
+        .map((q, i) => ({ question: q.question, answer: updated[i] }))
+        .filter(p => !!p.answer);
+      setQuestionAnswers({});
+      setActiveQuestions([]); setCurrentQuestionIdx(0); setSelectedOptionIdx(0);
+      // hidden=true: a chip turn renders as answered cards, not a green bubble.
+      void sendMessage(all.join('; '), true, false, undefined, 'chip', pairs);
+      return;
+    }
+    setQuestionAnswers(updated);
     setSelectedOptionIdx(0);
-    for (let i = currentQuestionIdx + 1; i < totalQuestions; i++) { if (!questionAnswers[i]) { setCurrentQuestionIdx(i); return; } }
-    for (let i = 0; i < currentQuestionIdx; i++) { if (!questionAnswers[i]) { setCurrentQuestionIdx(i); return; } }
-  }, [currentQuestionIdx, totalQuestions, activeQuestions, questionAnswers, sendMessage]);
+    for (let i = currentQuestionIdx + 1; i < totalQuestions; i++) { if (!updated[i]) { setCurrentQuestionIdx(i); return; } }
+    for (let i = 0; i < currentQuestionIdx; i++) { if (!updated[i]) { setCurrentQuestionIdx(i); return; } }
+  }, [currentQuestionIdx, totalQuestions, activeQuestions, questionAnswers, sendMessage, t]);
   handleSelectRef.current = handleSelectOption;
 
   // Edit a field in the document panel — updates locally + sends to server
@@ -2673,8 +2703,20 @@ export default function CboProfilePage() {
                       // Show the user a clean risk summary; send the raw payload
                       // to the agent as the message body (hidden context).
                       const summary = buildRiskSummary(result, lang);
+                      // Same invariant as the chips (CHIP-TAP-LOST), and here the
+                      // dropped payload is everything they just did on the map —
+                      // bairro, site, risk numbers. Never clear ahead of a send
+                      // that might not happen.
+                      if (isStreamingRef.current) {
+                        toast({
+                          title: t('cbo.stillAnswering', {
+                            defaultValue: 'Só um segundo — ainda estou respondendo a anterior.',
+                          }),
+                        });
+                        return;
+                      }
                       if (currentQuestion) setActiveQuestions([]);
-                      sendMessage(message, false, false, summary, 'map');
+                      void sendMessage(message, false, false, summary, 'map');
                       setOpenMapParams(null);
                       setRightTab('document'); setMapRelevant(false); setMobileActiveTab('chat'); setDesktopPanelOpen(false);
                     }}
