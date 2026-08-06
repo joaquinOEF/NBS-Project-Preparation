@@ -1,5 +1,6 @@
 import { test, expect, devices } from '@playwright/test';
 import { TestApi } from './helpers/testApi';
+import { familyOfWorry } from '../shared/site-knowledge';
 import { clickCenterZone } from './helpers/mapActions';
 
 // The W2 diagnostic beats (/refine 2026-07-31): frame → worry → story → photos
@@ -193,7 +194,10 @@ test.describe('COUGAR — W2 diagnostic beats', () => {
     // Everything the diagnostic captured actually persisted.
     const body = await (await request.get(`/api/cbo/${cboId}`)).json();
     const f = body.state?.sections?.intervention_site?.fields ?? {};
-    expect(String(f.site_worry?.value)).toContain('flood');
+    // Stores the MECHANISM the org tapped, not the layer it scores against
+    // (backlog #24). The guarantee that matters — that it still resolves to
+    // the one flood raster we hold — is pinned in cougar-hazard-subtypes.
+    expect(familyOfWorry(String(f.site_worry?.value).split(',')[0])).toBe('flood');
     expect(String(f.site_story?.value)).toContain('dois dias');
     expect(String(f.site_photo_intent?.value)).toBe('skip');
     expect(JSON.parse(String(f._hazard_check_json?.value))).toMatchObject({ flood: 'worse' });
@@ -228,7 +232,8 @@ test.describe('COUGAR — W2 diagnostic beats', () => {
     // never reached the interest/role loops or the close.
     const depth = JSON.parse(String(f._depth_json?.value ?? '{}'));
     expect(depth.level, 'a depth read must exist mid-session').toBeTruthy();
-    expect(String(f.site_worry?.value)).toContain('flood');   // what worries them
+    // what worries them, stored as the MECHANISM they tapped (backlog #24)
+    expect(familyOfWorry(String(f.site_worry?.value).split(',')[0])).toBe('flood');
     expect(String(f.current_use?.value)).toBeTruthy();        // what the place is
     expect(String(f.land_tenure?.value)).toBeTruthy();        // whether they can use it
     expect(String(f.site_name?.value)).toBeTruthy();          // where it is
@@ -366,7 +371,10 @@ test.describe('COUGAR — W2 degraded scenarios', () => {
 
     const body = await (await request.get(`/api/cbo/${cboId}`)).json();
     const f = body.state?.sections?.intervention_site?.fields ?? {};
-    expect(String(f.site_worry?.value)).toContain('flood');
+    // Stores the MECHANISM the org tapped, not the layer it scores against
+    // (backlog #24). The guarantee that matters — that it still resolves to
+    // the one flood raster we hold — is pinned in cougar-hazard-subtypes.
+    expect(familyOfWorry(String(f.site_worry?.value).split(',')[0])).toBe('flood');
     expect(String(f.bairro?.value ?? '')).not.toBe('');
   });
 

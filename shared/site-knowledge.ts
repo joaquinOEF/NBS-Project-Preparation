@@ -25,15 +25,80 @@
 // participant, while broad prompts surface what the facilitator never thought to
 // ask.
 
+/** The three layers we hold data for. One raster each; nothing finer exists. */
 export type HazardKey = 'flood' | 'heat' | 'landslide';
 
-/** What an organization can name as the thing that worries them at this place. */
-export const E2_WORRIES: Array<{ id: HazardKey | 'other'; pt: string; en: string; dPt: string; dEn: string }> = [
-  { id: 'flood', pt: '💧 Alagamento', en: '💧 Flooding', dPt: 'A água que junta ou invade', dEn: 'Water that pools or comes in' },
-  { id: 'heat', pt: '🌡️ Calor', en: '🌡️ Heat', dPt: 'Sol forte, falta de sombra', dEn: 'Harsh sun, no shade' },
-  { id: 'landslide', pt: '⛰️ O barranco', en: '⛰️ The slope', dPt: 'Terra que desce, erosão', dEn: 'Earth coming down, erosion' },
-  { id: 'other', pt: 'Outra coisa', en: 'Something else', dPt: 'Me conta o que é', dEn: 'Tell me what it is' },
+/**
+ * The MECHANISM an organization names — one level finer than the data.
+ *
+ * COUGAR convening, 2026-08-06 (Vila Flores / PxG / OEF / BwB): orgs do not
+ * experience "flood" as one thing. Water that pools and won't drain, a river
+ * that overtops, and water coming down a slope with velocity are three
+ * different problems that take three different solutions. The meeting
+ * standardised the civil-defense terms — Alagamento (pluvial/drainage),
+ * Inundação (river), Enxurrada (flash flood) — each paired with plain language.
+ *
+ * The old chip was already merging two of them out loud: "💧 Alagamento — A água
+ * que junta OU INVADE". "Junta" is Alagamento, "invade" is Inundação, and both
+ * sat under a label that named only the first. An org whose problem is the
+ * Guaíba was tapping a chip that called it the wrong thing.
+ *
+ * ⚠️ This is deliberately NOT a new data key. We hold exactly three rasters, so
+ * all three water mechanisms score against `flood`; `family` is how every
+ * consumer gets back to a key it has data for. The org's word is theirs and is
+ * stored as-is; the number stays the flood-family percentile and keeps saying
+ * so. See backlog #24.
+ */
+export type WorryId = 'alagamento' | 'inundacao' | 'enxurrada' | 'heat' | 'landslide' | 'other';
+
+export interface WorrySubtype {
+  id: WorryId;
+  /** The data key this mechanism is scored against. null = we have no layer. */
+  family: HazardKey | null;
+  pt: string;
+  en: string;
+  dPt: string;
+  dEn: string;
+}
+
+export const WORRY_SUBTYPES: WorrySubtype[] = [
+  { id: 'alagamento', family: 'flood', pt: '💧 Alagamento', en: '💧 Ponding', dPt: 'A água que junta e não escoa', dEn: "Water that pools and won't drain" },
+  { id: 'inundacao', family: 'flood', pt: '🌊 Inundação', en: '🌊 River flooding', dPt: 'O rio ou arroio que transborda', dEn: 'The river or stream overtopping' },
+  { id: 'enxurrada', family: 'flood', pt: '🌧️ Enxurrada', en: '🌧️ Flash flood', dPt: 'A água que desce com força', dEn: 'Water coming down with force' },
+  { id: 'heat', family: 'heat', pt: '🌡️ Calor', en: '🌡️ Heat', dPt: 'Sol forte, falta de sombra', dEn: 'Harsh sun, no shade' },
+  { id: 'landslide', family: 'landslide', pt: '⛰️ O barranco', en: '⛰️ The slope', dPt: 'Terra que desce, erosão', dEn: 'Earth coming down, erosion' },
+  { id: 'other', family: null, pt: 'Outra coisa', en: 'Something else', dPt: 'Me conta o que é', dEn: 'Tell me what it is' },
 ];
+
+/**
+ * The data key behind a worry, or null if we hold no layer for it.
+ *
+ * ⚠️ MIGRATION. Sessions that ran before the split stored the family id itself
+ * (`site_worry: 'flood'`), and those rows are still in the database — JVP's test
+ * orgs and the three W2 test-kit orgs. A legacy `flood` therefore has to keep
+ * resolving as "water, mechanism unspecified" rather than becoming an unknown
+ * id. Every consumer below filtered with `w === 'flood' || …`, which DROPS
+ * anything it doesn't recognise silently — so getting this wrong would not
+ * throw, it would quietly stop asking those orgs for photos.
+ */
+export function familyOfWorry(id: string): HazardKey | null {
+  const hit = WORRY_SUBTYPES.find(w => w.id === id);
+  if (hit) return hit.family;
+  return id === 'flood' || id === 'heat' || id === 'landslide' ? (id as HazardKey) : null;
+}
+
+/** The families behind a set of worries, deduped and order-preserving. */
+export function familiesOfWorries(worries: string[]): HazardKey[] {
+  const out: HazardKey[] = [];
+  for (const w of worries) {
+    const f = familyOfWorry(w);
+    if (f && !out.includes(f)) out.push(f);
+  }
+  return out;
+}
+
+/** What an organization can name as the thing that worries them at this place. */
+export const E2_WORRIES = WORRY_SUBTYPES;
 
 /**
  * Worry chips ordered by what the bairro data suggests, highest first — the
@@ -47,8 +112,12 @@ export const E2_WORRIES: Array<{ id: HazardKey | 'other'; pt: string; en: string
 export function orderWorriesByData(risks: Record<HazardKey, number>) {
   const hazards = E2_WORRIES.filter(w => w.id !== 'other');
   const other = E2_WORRIES.filter(w => w.id === 'other');
+  const riskOf = (w: WorrySubtype) => (w.family ? risks[w.family] ?? 0 : -1);
   return [
-    ...hazards.sort((a, b) => (risks[b.id as HazardKey] ?? 0) - (risks[a.id as HazardKey] ?? 0)),
+    // Array.prototype.sort is stable, so the three water mechanisms — which all
+    // score against the same `flood` number — keep the order they are declared
+    // in: Alagamento, Inundação, Enxurrada. Everyday first.
+    ...hazards.slice().sort((a, b) => riskOf(b) - riskOf(a)),
     ...other,
   ];
 }
@@ -87,6 +156,21 @@ const PHOTO_PROMPTS: Record<HazardKey | 'base', PhotoPrompt[]> = {
   ],
 };
 
+/**
+ * Prompts that only make sense for a named mechanism. Deliberately small: these
+ * are the questions a raster cannot answer and the generic flood prompts don't
+ * ask. See backlog #24 — this is where the finer term changes what we request,
+ * at no data cost.
+ */
+const MECHANISM_PROMPTS: Partial<Record<WorryId, PhotoPrompt[]>> = {
+  inundacao: [
+    { id: 'high-water-mark', pt: 'Até onde a água chegou — a marca na parede, se tiver', en: 'How high the water reached — the mark on the wall, if there is one' },
+  ],
+  enxurrada: [
+    { id: 'water-path', pt: 'Por onde a água desce quando vem com força', en: 'The path the water takes when it comes down hard' },
+  ],
+};
+
 /** Always offered last, and deliberately open — see the note on power imbalance. */
 export const PHOTO_PROMPT_OPEN: PhotoPrompt = {
   id: 'open',
@@ -100,11 +184,23 @@ export const PHOTO_PROMPT_OPEN: PhotoPrompt = {
  * about water.
  */
 export function photoPromptsFor(worries: string[]): PhotoPrompt[] {
-  const hazards = worries.filter((w): w is HazardKey => w === 'flood' || w === 'heat' || w === 'landslide');
+  const hazards = familiesOfWorries(worries);
   if (hazards.length === 0) return [...PHOTO_PROMPTS.base, PHOTO_PROMPT_OPEN];
 
   const picked: PhotoPrompt[] = [];
   const seen = new Set<string>();
+  // The mechanism earns its keep here: the shot that settles Inundação (how
+  // high did it get?) is not the shot that settles Enxurrada (where does it
+  // come down?), and neither is in the generic flood set. These go FIRST — a
+  // named mechanism is the most specific thing we know about the site.
+  for (const w of worries) {
+    for (const prompt of MECHANISM_PROMPTS[w as WorryId] ?? []) {
+      if (!seen.has(prompt.id) && picked.length < 3) {
+        seen.add(prompt.id);
+        picked.push(prompt);
+      }
+    }
+  }
   // Round-robin across the named hazards, so every worry is represented before
   // any one of them gets a second prompt.
   for (let round = 0; round < 3 && picked.length < 3; round++) {
@@ -177,7 +273,7 @@ export function hazardCheckQuestion(
 
 /** Which hazards are worth checking: what they named, plus anything our data calls high. */
 export function hazardsToCheck(worries: string[], risks: Record<HazardKey, number>): HazardKey[] {
-  const named = worries.filter((w): w is HazardKey => w === 'flood' || w === 'heat' || w === 'landslide');
+  const named = familiesOfWorries(worries);
   const dataHigh = (['flood', 'heat', 'landslide'] as HazardKey[]).filter(h => (risks[h] ?? 0) >= 66);
   // Cap at two — three checkpoints is where a conversation becomes a form.
   return Array.from(new Set([...named, ...dataHigh])).slice(0, 2);
