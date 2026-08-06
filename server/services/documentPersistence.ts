@@ -184,3 +184,51 @@ export async function getDocumentById(id: string): Promise<DocumentRow | null> {
 export async function updateDocumentStorageKey(id: string, storageKey: string): Promise<void> {
   await db.update(documents).set({ storageKey }).where(eq(documents.id, id));
 }
+
+
+/**
+ * What the coordinator's org card shows about a member's files (backlog #25):
+ * a couple of image ids to render as thumbnails, the newest filenames, and the
+ * total so the card can say "+3" instead of pretending it showed everything.
+ *
+ * Same one-query shape as countDocumentsForMembers — the roster loads 10+ orgs
+ * at once and must not fan out per member.
+ */
+export async function docPreviewForMembers(
+  members: { id: string; orgId: string | null; cboStateId: string | null }[],
+  opts: { images?: number; names?: number } = {},
+): Promise<Map<string, { total: number; imageIds: string[]; filenames: string[]; teiaSprint: boolean }>> {
+  const maxImages = opts.images ?? 3;
+  const maxNames = opts.names ?? 3;
+  const orgIds = Array.from(new Set(members.map(m => m.orgId).filter((x): x is string => !!x)));
+  const stateIds = Array.from(new Set(members.map(m => m.cboStateId).filter((x): x is string => !!x)));
+  const out = new Map<string, { total: number; imageIds: string[]; filenames: string[]; teiaSprint: boolean }>();
+  for (const m of members) out.set(m.id, { total: 0, imageIds: [], filenames: [], teiaSprint: false });
+  if (orgIds.length === 0 && stateIds.length === 0) return out;
+  const conds = [];
+  if (orgIds.length) conds.push(inArray(documents.orgId, orgIds));
+  if (stateIds.length) conds.push(inArray(documents.cboStateId, stateIds));
+  const rows = await db
+    .select({
+      id: documents.id, orgId: documents.orgId, cboStateId: documents.cboStateId,
+      filename: documents.filename, kind: documents.kind, purpose: documents.purpose,
+      storageKey: documents.storageKey, createdAt: documents.createdAt,
+    })
+    .from(documents)
+    .where(conds.length === 1 ? conds[0] : or(...conds))
+    .orderBy(desc(documents.createdAt));
+  for (const m of members) {
+    const mine = rows.filter(r =>
+      (m.orgId && r.orgId === m.orgId) || (m.cboStateId && r.cboStateId === m.cboStateId));
+    const seen = new Set(mine.map(r => r.id));
+    out.set(m.id, {
+      total: seen.size,
+      // Only images with a durable original can render — without a storageKey
+      // the card would show a broken frame, so it falls back to the count.
+      imageIds: mine.filter(r => r.kind === 'image' && r.storageKey).slice(0, maxImages).map(r => r.id),
+      filenames: mine.filter(r => r.kind !== 'image').slice(0, maxNames).map(r => r.filename),
+      teiaSprint: mine.some(r => r.purpose === 'teia_sprint'),
+    });
+  }
+  return out;
+}
