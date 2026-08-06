@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/core/components/ui/card';
 import { AlertTriangle, Lightbulb, Compass, Target } from 'lucide-react';
 import type { CboSectionState, CboGapEntry } from '@shared/cbo-schema';
+import { isInternalCboField } from '@shared/cbo-schema';
 import { cboFieldLabel, orgProfileDisplayValue } from '@shared/cbo-field-catalog';
 
 type GroupKey = 'quem-somos' | 'equipe' | 'historico' | 'caminho' | 'outros';
@@ -58,7 +59,12 @@ export function E1Cards({
   // Anything the agent wrote that isn't in our 4 groups → Outros so it's
   // visible. (Defensive: future agent versions may add fields we don't yet
   // know how to bucket.)
-  const otrosKeys = Object.keys(fields).filter(k => !ALL_KNOWN_FIELDS.has(k));
+  // isInternalCboField for symmetry with the flat table: this bucket catches
+  // ANY unknown key, so a future `_`-prefixed org_profile field would render
+  // its machinery here. Latent today (writeE2Fields only touches
+  // intervention_site) — but this is the W1/W2 layout, so it is the one that
+  // would show it.
+  const otrosKeys = Object.keys(fields).filter(k => !ALL_KNOWN_FIELDS.has(k) && !isInternalCboField(k));
 
   const renderGroup = (key: Exclude<GroupKey, 'outros'>, title: string, icon?: React.ReactNode, footer?: React.ReactNode) => {
     const keys = FIELD_GROUPS[key].filter(k => fields[k]);
@@ -85,7 +91,7 @@ export function E1Cards({
                       const v = fields[k];
                       return (
                         <tr key={k} className="border-b last:border-b-0">
-                          <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">
+                          <td className="px-3 py-1.5 text-xs text-muted-foreground w-[150px] font-medium">
                             {t(`cbo.fields.${k}`, cboFieldLabel(k, isPt ? 'pt' : 'en'))}
                           </td>
                           <td className="px-3 py-1.5 text-sm">
@@ -148,7 +154,7 @@ export function E1Cards({
                   const v = fields[k];
                   return (
                     <tr key={k} className="border-b last:border-b-0">
-                      <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">
+                      <td className="px-3 py-1.5 text-xs text-muted-foreground w-[150px] font-medium">
                         {t(`cbo.fields.${k}`, cboFieldLabel(k, isPt ? 'pt' : 'en'))}
                       </td>
                       <td className="px-3 py-1.5 text-sm">

@@ -138,6 +138,19 @@ test.describe('COUGAR — per-org context bundle export', () => {
       expect(context).toMatch(/Famílias recomendadas/);
     }
 
+    // ⚠️ The bundle is a PORTUGUESE document — every heading in it is pt — and
+    // "readable by you or another agent" was the whole ask. It was still
+    // printing the raw field key and the raw stored id: `- **site_worry**:
+    // heat`, under `### 2. Where We Work`. Missed in the first doc-tab pass
+    // (2026-08-06) because this is the fourth surface that renders a profile,
+    // and the other three had specs.
+    expect(context, 'the English section literal from CBO_SECTIONS').not.toContain('Where We Work');
+    expect(context).toContain('2. Onde Atuamos');
+    expect(context, 'raw field keys are not readable prose').not.toMatch(/\*\*(site_worry|current_use|land_tenure|site_story)\*\*/);
+    expect(context, 'raw enum ids are not readable prose').not.toMatch(/\*\*[^*]+\*\*: (public-informal|paved|heat)\b/);
+    expect(context).toContain('É da prefeitura, mas a gente usa');
+    expect(context).toContain('Pavimentado / impermeabilizado');
+
     // Internal checkpoint machinery stays out of the readable summary…
     expect(context).not.toMatch(/_worry_done|_photos_done|_reco_json/);
     // …but survives in the raw profile, which is the point of shipping both.

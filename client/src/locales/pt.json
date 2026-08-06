@@ -2059,8 +2059,11 @@
         "needs": "O que precisamos",
         "results": "Resultados e evidências"
       },
-      "lockedWithWorkshop": "Abre depois do {{workshop}}{{date,select, ?\\` · ${date}\\`:\\`\\`}}",
-      "lockedNoWorkshop": "Seu coordenador vai abrir esta seção."
+      "lockedWithWorkshop": "Abre depois do {{workshop}}{{date}}",
+      "lockedNoWorkshop": "Seu coordenador vai abrir esta seção.",
+      "a11yLocked": "Fase {{num}} bloqueada",
+      "a11yPhase": "Fase {{num}} ({{label}})",
+      "a11yGoTo": "Ir para a fase {{num}} ({{label}})"
     },
     "cohortWelcomePrefix": "Bem-vindo(a),",
     "cohortPhasesUnlocked": "Seções abertas: {{phases}}",
@@ -2081,6 +2084,11 @@
       "sample": "exemplo",
       "agent": "agente",
       "map": "mapa"
+    },
+    "encontroPreamble": {
+      "whatWeWillDo": "O que vamos fazer juntas",
+      "youWillUse": "Vocês vão usar",
+      "eyebrow": "Encontro {{n}}"
     }
   },
   "mapMicroapp": {
@@ -2198,5 +2206,9 @@
     "tabChat": "Conversa",
     "tabProfile": "Perfil",
     "tabInvite": "Convite"
+  },
+  "notFound": {
+    "title": "Página não encontrada",
+    "body": "Esse endereço não existe — às vezes o link chega cortado pelo WhatsApp. Se vocês receberam um convite, abre ele de novo pelo link inteiro. Se ainda assim não abrir, fala com quem coordena o grupo de vocês."
   }
 }

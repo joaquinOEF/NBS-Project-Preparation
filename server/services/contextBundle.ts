@@ -26,6 +26,7 @@
 
 import type { CboState, CboChatMessage } from '@shared/cbo-schema';
 import { CBO_SECTIONS, isInternalCboField } from '@shared/cbo-schema';
+import { cboFieldLabel, cboDisplayValue, CBO_SECTION_TITLES } from '@shared/cbo-field-catalog';
 import { NBS_FAMILIAS } from '@shared/nbs-catalog';
 
 export interface BundleDoc {
@@ -48,7 +49,14 @@ export interface BundleInput {
 
 const FAMILIA_LABEL = new Map<string, string>(NBS_FAMILIAS.map(f => [f.id as string, f.pt.label]));
 
-function fieldRows(fields: Record<string, any> | undefined): string[] {
+/**
+ * This bundle is a Portuguese document end to end (every heading below is pt),
+ * so labels and values resolve in pt — the same catalog the org's own screen
+ * uses. It used to print the raw key and the raw value: `- **site_worry**:
+ * flood,heat`. Readable by a machine, but the whole point of the bundle is that
+ * a person or another agent can read it without a decoder ring.
+ */
+function fieldRows(sectionId: string, fields: Record<string, any> | undefined): string[] {
   if (!fields) return [];
   return Object.entries(fields)
     // "_"-prefixed keys are checkpoint machinery (_bairro_flood_pct, _worry_done).
@@ -57,7 +65,8 @@ function fieldRows(fields: Record<string, any> | undefined): string[] {
     .filter(([, v]) => v?.value != null && String(v.value).trim() !== '')
     .map(([k, v]) => {
       const src = v.source ? ` _(${v.source}${v.userEdited ? ', edited' : ''})_` : '';
-      return `- **${k}**: ${String(v.value).replace(/\n+/g, ' ').trim()}${src}`;
+      const value = cboDisplayValue(sectionId, k, String(v.value), 'pt').replace(/\n+/g, ' ').trim();
+      return `- **${cboFieldLabel(k, 'pt')}**: ${value}${src}`;
     });
 }
 
@@ -170,15 +179,17 @@ export function buildContextMarkdown(input: BundleInput): string {
   // 4 · The profile, section by section.
   L.push('## Perfil', '');
   for (const sec of CBO_SECTIONS) {
-    const rows = fieldRows((state?.sections as any)?.[sec.id]?.fields);
+    const rows = fieldRows(sec.id, (state?.sections as any)?.[sec.id]?.fields);
     if (!rows.length) continue;
-    L.push(`### ${sec.title}`, '', ...rows, '');
+    // sec.title is the English literal from CBO_SECTIONS — "### 2. Where We
+    // Work" sat in the middle of an otherwise Portuguese document.
+    L.push(`### ${CBO_SECTION_TITLES[sec.id]?.pt ?? sec.title}`, '', ...rows, '');
   }
 
   // 5 · Maturity — coordinator-facing by decision; the org never sees it.
   if (state?.maturityScores?.length) {
     L.push('## Maturidade (visão da coordenação)', '');
-    for (const s of state.maturityScores) L.push(`- **${s.metric}**: ${s.score}/3 — ${s.justification}`);
+    for (const s of state.maturityScores) L.push(`- **${cboFieldLabel(s.metric, 'pt')}**: ${s.score}/3 — ${s.justification}`);
     L.push(`- **Total**: ${state.totalMaturityScore ?? 0}`, '');
   }
 

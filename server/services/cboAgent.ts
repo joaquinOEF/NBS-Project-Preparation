@@ -56,7 +56,7 @@ import { emitAssistantText } from "./agentOutput";
 // on the document, so a label can never again exist as a chip but not as a
 // translation (JVP, 2026-08-06 — the Documento tab in English).
 import { isKnownOrgProfileField, canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, orgProfileOptionLabels, orgProfileLabelsForIds, ORG_PROFILE_FIELDS, enumFieldsMatchingOptions,
-  E2_CURRENT_USE, E2_TENURE, E2_ROLES } from "@shared/cbo-field-catalog";
+  E2_CURRENT_USE, E2_TENURE, E2_ROLES, canonicalizeCboFieldValue } from "@shared/cbo-field-catalog";
 import { QUESTIONNAIRES, checkOptionRule, filterRuledOptions, missingRequiredForClose, type FieldReader, type QuestionnaireManifest } from "@shared/cbo-questionnaire";
 
 /** Manifests whose rules govern this section (today: E1 ↔ org_profile). */
@@ -3699,9 +3699,15 @@ export async function handleCboEdit(cboId: string, sectionId: string, field: str
   const section = state.sections[sectionId as keyof typeof state.sections];
   if (!section) { res.status(400).json({ error: `Unknown section: ${sectionId}` }); return; }
   const oldValue = section.fields[field]?.value ?? null;
-  section.fields[field] = { ...section.fields[field], value: newValue, userEdited: true };
+  // The panel now shows enum values as their human label, so that label is what
+  // a manual edit sends back. Map it to whatever form THIS section stores
+  // (ids for intervention_site, chip labels for org_profile) — otherwise an
+  // edit to nbs_interest/role_preference silently breaks the E2 multi-pick
+  // loops, which compare against ids. See canonicalizeCboFieldValue.
+  const canonical = canonicalizeCboFieldValue(sectionId, field, newValue);
+  section.fields[field] = { ...section.fields[field], value: canonical, userEdited: true };
   section.lastUpdatedBy = 'user';
   state.editLog.push({ timestamp: new Date().toISOString(), sectionId, field, oldValue, newValue, source: 'user' });
   setCboState(cboId, state);
-  await streamCboChat(cboId, `User edited ${sectionId}.${field} to: "${newValue}". Update related fields if needed.`, res, state);
+  await streamCboChat(cboId, `User edited ${sectionId}.${field} to: "${canonical}". Update related fields if needed.`, res, state);
 }

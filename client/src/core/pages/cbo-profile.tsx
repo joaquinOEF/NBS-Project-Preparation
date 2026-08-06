@@ -567,6 +567,9 @@ export default function CboProfilePage() {
   // Always replayed hidden — the optimistic user bubble/composer is already on
   // screen from the first attempt.
   const [streamRetry, setStreamRetry] = useState<PendingTurn | null>(null);
+  // processEvent has [] deps and cannot see the turn payload, so it raises a
+  // flag and sendMessage — which does have it — offers the retry.
+  const sawStreamErrorRef = useRef(false);
   // Live token-streaming draft (LT-4). Accumulates transient chat_delta
   // events into a draft bubble; the finalizing 'chat' (whole block, post
   // inline-options normalizer) REPLACES it, so persistence and conversion
@@ -1276,8 +1279,32 @@ export default function CboProfilePage() {
         break;
       case 'done':
         setStreamDraft(''); setActiveToolLabel(null); setIsStreaming(false); break;
-      case 'error':
-        setStreamDraft(''); setActiveToolLabel(null); setIsStreaming(false); setMessages(prev => [...prev, { role: 'assistant', content: `${i18n.resolvedLanguage === 'pt' ? 'Erro' : 'Error'}: ${event.message}`, messageType: 'content', timestamp: new Date().toISOString() }]); break;
+      case 'error': {
+        // Only the word "Erro" used to be localized; the payload was a raw SDK
+        // exception — "Overloaded", "fetch failed", "Agent error" — left as a
+        // permanent English bubble in a pt-BR org's transcript, with the
+        // coordinator watching. Overload and timeout are routine on a live
+        // workshop, so this is a sentence the cohort would actually read.
+        //
+        // The dropped-stream path a few lines below has said the human thing in
+        // both languages for months; this one just never got the same treatment.
+        // Same shape now, retry included — the turn did not happen, so offering
+        // to run it again is the honest affordance.
+        setStreamDraft(''); setActiveToolLabel(null); setIsStreaming(false);
+        const isPt = i18n.resolvedLanguage === 'pt';
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: isPt
+            ? 'Deu um problema aqui do meu lado e essa resposta não completou. Toca em "Tentar de novo" que eu retomo daqui.'
+            : "Something went wrong on my side and that answer didn't finish. Tap \"Try again\" and I'll pick it up.",
+          messageType: 'content', timestamp: new Date().toISOString(),
+        }]);
+        // The technical string still exists — in the console, for us, not in
+        // the org's document.
+        console.error('[cbo] stream error:', event.message);
+        sawStreamErrorRef.current = true;
+        break;
+      }
     }
   }, []);
 
@@ -1311,6 +1338,7 @@ export default function CboProfilePage() {
       setMessages(prev => [...prev, { role: 'user', content: JSON.stringify({ kind: 'answers', pairs: chipAnswers }), messageType: 'composer', timestamp: new Date().toISOString() }]);
     }
     setIsStreaming(true);
+    sawStreamErrorRef.current = false;
     setActiveToolLabel(null); // never carry a stale tool label into a new turn
     // Inactivity watchdog. On patchy mobile data the SSE socket can stall
     // silently — reader.read() then hangs forever, isStreaming stays true, and
@@ -1387,6 +1415,9 @@ export default function CboProfilePage() {
       // early `return` skipped it. Never move it back out.
       setIsStreaming(false);
     }
+    // An `error` event means the turn died server-side. Same offer as a dropped
+    // stream: replay the exact same turn.
+    if (sawStreamErrorRef.current) setStreamRetry({ text, displayText, turnKind, chipAnswers });
     // Stays below the try on purpose: the 409 path returns before it, because a
     // refused turn never ran and must not count toward the phase-advance gate.
     setCompletedTurns(n => n + 1);
@@ -2624,7 +2655,7 @@ export default function CboProfilePage() {
                                       pt→pt (never pt→en), so a key missing from pt.json used to render
                                       the ENGLISH defaultValue — 37 of the 39 fields the agent writes.
                                       Locale entries still win where they exist. */}
-                                  <td className="px-3 py-1.5 text-xs text-muted-foreground w-[120px] font-medium">{t(`cbo.fields.${k}`, cboFieldLabel(k, lang === 'pt' ? 'pt' : 'en'))}</td>
+                                  <td className="px-3 py-1.5 text-xs text-muted-foreground w-[150px] font-medium">{t(`cbo.fields.${k}`, cboFieldLabel(k, lang === 'pt' ? 'pt' : 'en'))}</td>
                                   <td className="px-3 py-1.5 text-sm">
                                     <EditableField
                                       value={cboDisplayValue(sec.id, k, String(v.value || ''), lang === 'pt' ? 'pt' : 'en')}
