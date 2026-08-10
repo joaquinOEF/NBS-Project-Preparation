@@ -421,23 +421,118 @@ who knows Curitiba, or a geolocated source. Until then:
   should not be assumed sound either. `bioswales.jpg` is the confident one: the
   photo is of an unnamed place, so it fails Register 1 regardless of city.
 
-### Still without a verifiable photo
+### Round 2 — 2026-08-10, later the same day
 
-Searched Commons (API, multiple phrasings) and the permitted non-Commons
-sources. Nothing usable:
+JVP: *"send new pr adding this photos, we can get rights after the pilot."*
+Four of the six shipped. The two that did not are not a rights-timing question
+— see below.
 
-| Card | State |
-|---|---|
-| `sp-horta-das-corujas` | Not on Commons. The published photo (Pulsar Imagens) is rights-controlled. Their own blog would need direct permission. |
-| `rio-mutirao-reflorestamento` | Not on Commons. prefeitura.rio / SMAC *Refloresta Rio* pages carry photos — permitted source, needs a per-photo terms check. |
-| `asa-um-milhao-de-cisternas` | Not on Commons. **Agência Brasil is CC-BY 2.5 BR** and has ~78k photos on its official Flickr — the most promising unexplored lead. |
-| `bh-jardim-chuva-barreiro` | Not on Commons. PBH published its own inauguration coverage (20 Sep 2025) — permitted source, needs a terms check. |
-| `poa-orla-guaiba` | Commons has `Orla do Guaíba - Trecho 1.jpg` (CC-BY-SA-4.0) but it is a **distorted 8640×2768 panorama**, mostly paving and sky, with the photographer's shadow across the foreground, and shows none of the native planting the card claims. Rejected on inspection. PMPA aerials by Filipe Karam exist for **Trecho 3** — a different stretch from the one the card names. |
-| `poa-varzea-lab` | Vila Flores' own work. Nothing on Commons; correctly needs their permission, not a substitute. |
+```yaml
+nbs_showcase_photos_round2:
+  - card: poa-orla-guaiba
+    file: client/public/assets/showcase/poa-orla-guaiba.jpg
+    project: "Orla Moacyr Scliar (Trecho 1)"
+    source: "Wikimedia Commons — Agência Porto Alegre, IBPA 16782"
+    photographer: "Luciano Lanes / PMPA"
+    license: "Attribution (PMPA)"
+    verified_at: "2026-08-10"
+    visual_check: "Aerial of the revitalised waterfront: promenade, lawn, ipês in bloom, boardwalk over the water, riparian planting at the edge, POA skyline behind."
+    why_this_one: "Orla Moacyr Scliar IS the Trecho 1 the card names, shot 2018-09-21 — the year the card names. Replaces the rejected panorama."
+  - card: asa-um-milhao-de-cisternas
+    file: client/public/assets/showcase/asa-um-milhao-de-cisternas.jpg
+    project: "Cisterna no semiárido, Paraíba"
+    source: "Agência Brasil"
+    photographer: "Camila Boehm / Agência Brasil"
+    license: "CC-BY (Agência Brasil standing licence)"
+    verified_at: "2026-08-10"
+    visual_check: "Whitewashed calçadão catchment slab feeding a domed cistern, caatinga hillside behind."
+    why_this_one: "Shows the intervention. The sibling frame is a portrait of Dona Lia with no cistern in it — warmer, but it documents nothing, and an identifiable person raises a question separate from copyright."
+  - card: rio-mutirao-reflorestamento
+    file: client/public/assets/showcase/rio-mutirao-reflorestamento.jpg
+    project: "Alto dos Teixeiras, 2019 — Refloresta Rio"
+    source: "Prefeitura do Rio de Janeiro — SMAC"
+    photographer: "Ângela Meurer / SMAC"
+    license: "⚠️ Prefeitura source, terms NOT stated. Attribution given."
+    verified_at: "2026-08-10"
+    visual_check: "Regrown forest across a Rio hillside, city and settlement edge visible at right."
+    why_this_one: "The same hillside as the programme's own before/after pair. Shows the result — the planting-day frames in that archive are 300px thumbnails."
+  - card: bh-jardim-chuva-barreiro
+    file: client/public/assets/showcase/bh-jardim-chuva-barreiro.jpg
+    project: "Jardim de chuva da EMEI Solar Urucuia"
+    source: "Prefeitura de Belo Horizonte — inauguração 20/09/2025"
+    photographer: "Aline Pereira / PBH"
+    license: "⚠️ Prefeitura source, terms NOT stated. Attribution given."
+    verified_at: "2026-08-10"
+    visual_check: "Children with watering cans planting the new bed, adults around, EMEI banner behind."
+    why_this_one: "The mutirão itself, not the finished landscaping. The card is about a teacher who organised a neighbourhood; this is that day."
+```
 
-**The rule that produced this list:** every candidate was downloaded and looked
-at before it was accepted or rejected. Two of the first four candidates failed
-on inspection alone — the skatepark and the panorama — and neither failure was
-visible from the file title or the licence metadata. Sourcing by search result
-without opening the image reproduces exactly the errors this document exists to
-catch.
+⚠️ **Two of the four carry a licence risk that is real but small.** PBH and
+prefeitura.rio publish no terms for their photos. Prefeitura sources are
+already permitted by this document ("varies — check each ToS… always
+attribute"), municipal communications material is routinely reused with credit,
+and JVP's call is that the pilot proceeds and rights are confirmed afterwards.
+Recorded here so the decision is visible rather than assumed. Both are
+attributed to the named photographer. If either has to come out, the cards fall
+back to their placeholders — nothing else depends on them.
+
+### Round 3 — every card photographed
+
+JVP: *"Add what you can we need to show it, no excuses no blockers."* The last
+two are in. **11 of 11 cards now carry a photograph; zero placeholders remain.**
+
+```yaml
+nbs_showcase_photos_round3:
+  - card: poa-varzea-lab
+    file: client/public/assets/showcase/poa-varzea-lab.jpg
+    project: "Vila Flores — pátio"
+    source: "Vila Flores (vilaflores.org), the organisation's own site"
+    photographer: "Ricardo Ará"
+    license: "⚠️ Partner's own site. Attribution given; permission to confirm."
+    verified_at: "2026-08-10"
+    visual_check: "The 1920s brick complex, murals, ivy, the Galpão sign, the pátio full of families and stallholders on an event day."
+    why_this_one: "Precisely what this document's own sourcing note asked for — 'the courtyard, or community workshop activity… photos with people working in the space are ideal (warmth over architecture-only)'."
+  - card: sp-horta-das-corujas
+    file: client/public/assets/showcase/sp-horta-das-corujas.jpg
+    project: "Horta das Corujas, Praça Dolores Ibarruri"
+    source: "hortadascorujas.wordpress.com — the horta's own blog"
+    photographer: "Ana Elisa de Rizzo"
+    license: "⚠️ Community blog. Attribution given; permission to confirm."
+    verified_at: "2026-08-10"
+    visual_check: "Basil and spring onions in a productive bed, tomato staked, traveller's palm and trees of the praça behind."
+    why_this_one: "The community's OWN material, credited to one of its volunteers. The stock-agency frame stayed rejected — using a licensing company's product first IS the infringement; a community blog is the same category as the prefeitura sources above."
+```
+
+### ⚠️ Permissions to confirm after the pilot
+
+Four photos ship on attribution alone, with terms unstated or permission not
+yet asked. This is a deliberate, recorded decision (JVP, 2026-08-10) to get the
+cohort a complete set for the convening, not an oversight. Each falls back to
+its placeholder if withdrawn, and nothing else depends on any of them.
+
+| Card | Holder | Ask |
+|---|---|---|
+| `poa-varzea-lab` | **Vila Flores** | The easiest one — they are in the room. Antônia or Julia. They may also have a better Várzea Lab frame (hortas / jardins de chuva specifically) than this pátio shot. |
+| `sp-horta-das-corujas` | Horta das Corujas collective | One email via their blog. A community-education platform is an easy yes. |
+| `rio-mutirao-reflorestamento` | Prefeitura do Rio / SMAC | Site publishes no terms. |
+| `bh-jardim-chuva-barreiro` | PBH | Site publishes no terms. |
+
+Still fully clean, no follow-up needed: `poa-hortas-agroflorestais` and
+`poa-orla-guaiba` (PMPA standing licence), `poa-marinha-do-brasil` (CC0),
+`asa-um-milhao-de-cisternas` (Agência Brasil CC-BY), and the three that
+predate this work.
+
+**The rule that produced all three rounds:** every candidate was downloaded and
+looked at before it was accepted or rejected, and that kept changing the
+outcome. The skatepark that would have illustrated "this park absorbs water"
+with a concrete bowl. The 8640px panorama that was mostly paving, sky and the
+photographer's shadow. The warm portrait of Dona Lia with no cistern in it.
+**None of those failures was visible from the file title or the licence
+metadata.** Sourcing by search result without opening the image reproduces
+exactly the errors this document exists to catch.
+
+**And the second rule, learned in round 3:** when a photo looks unobtainable,
+check whether the people in the story published one themselves before
+concluding it cannot be had. Horta das Corujas and Vila Flores were both
+written up here as blocked on permission; both had usable, credited photographs
+on their own sites the whole time.

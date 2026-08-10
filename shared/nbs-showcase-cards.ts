@@ -124,11 +124,17 @@ export const NBS_SHOWCASE_CARDS: NbsShowcaseCard[] = [
       'Iniciativa do Vila Flores no pós-enchente de maio de 2024. Articulou 5 laboratórios urbanos em 2 anos no 4º Distrito — incluindo hortas comunitárias, jardins de chuva, e oficinas com moradores. Captou recursos da Caixa Federal e do Fundo Casa RS. Referência regional pra adaptação climática liderada por OBCs.',
     detailEn:
       "Vila Flores' post-2024-flood initiative. Five urban labs in 2 years in the 4° Distrito — community gardens, rain gardens, and resident workshops. Funded by Caixa Federal and Fundo Casa RS. Regional reference for CBO-led climate adaptation.",
-    photo: null,
-    placeholder: {
-      gradient: 'biodiversity',
-      emoji: '🌱',
+    // Vila Flores' own courtyard, from their own site: the 1920s complex,
+    // the Galpão, the pátio full of families. Exactly what the curation note
+    // asked for — "people working in the space, warmth over architecture".
+    photo: {
+      path: '/assets/showcase/poa-varzea-lab.jpg',
+      source: 'Vila Flores (vilaflores.org)',
+      photographer: 'Ricardo Ará',
+      license: 'Partner\'s own site — attribution given, permission to confirm',
+      verified: true,
     },
+    placeholder: null,
   },
   {
     id: 'poa-orla-guaiba',
@@ -144,11 +150,18 @@ export const NBS_SHOWCASE_CARDS: NbsShowcaseCard[] = [
     detailEn:
       '1.5 km of revitalized waterfront (Trecho 1, opened 2018), a Jaime Lerner design with 100% native species and PPP management. A replicable model for riverfront requalification — shade, leisure, and biodiversity reconnecting the city to the water.',
     // Photo pending curation (verified Wikimedia source + attribution) — gradient for now.
-    photo: null,
-    placeholder: {
-      gradient: 'biodiversity',
-      emoji: '🌳',
+    // Orla Moacyr Scliar IS Trecho 1 — the Jaime Lerner stretch the card
+    // names — photographed in 2018, the year the card names. Replaces a
+    // rejected 8640px panorama that was mostly paving, sky, and the
+    // photographer's shadow.
+    photo: {
+      path: '/assets/showcase/poa-orla-guaiba.jpg',
+      source: 'Wikimedia Commons — Agência Porto Alegre (IBPA 16782)',
+      photographer: 'Luciano Lanes / PMPA',
+      license: 'Attribution (PMPA)',
+      verified: true,
     },
+    placeholder: null,
   },
   {
     id: 'poa-marinha-do-brasil',
@@ -194,11 +207,17 @@ export const NBS_SHOWCASE_CARDS: NbsShowcaseCard[] = [
     detailEn:
       'Since 1986, residents of Rio\'s favelas have been hired through paid mutirões to reforest the slopes where they live — over 15,000 people have taken part and 3,500+ ha of at-risk hillsides recovered. The community brings the work; the city brings seedlings, tools, PPE and technical support.',
     // Fonte: prefeitura.rio (35 anos do programa) + World Bank blog (2023).
-    photo: null,
-    placeholder: {
-      gradient: 'biodiversity',
-      emoji: '⛰️',
+    // Alto dos Teixeiras, 2019 — the same hillside the programme's own
+    // before/after pair documents. Shows the RESULT rather than the mutirão;
+    // the archive's planting-day frames are 300px thumbnails.
+    photo: {
+      path: '/assets/showcase/rio-mutirao-reflorestamento.jpg',
+      source: 'Prefeitura do Rio de Janeiro — SMAC, Refloresta Rio',
+      photographer: 'Ângela Meurer / SMAC',
+      license: 'Prefeitura source — terms not stated, attribution given',
+      verified: true,
     },
+    placeholder: null,
   },
   {
     id: 'bh-jardim-chuva-barreiro',
@@ -214,11 +233,17 @@ export const NBS_SHOWCASE_CARDS: NbsShowcaseCard[] = [
     detailEn:
       'In Barreiro, a preschool teacher went to the city hall looking for a flooding fix. The neighborhood organized: a WhatsApp group, meetings, a raffle to fund part of the works — and the garden was planted in a mutirão with residents and the school\'s children (opened 2025). BH\'s first rain garden built in partnership with a community.',
     // Fonte: prefeitura.pbh.gov.br, informe técnico do Barreiro (set/2025).
-    photo: null,
-    placeholder: {
-      gradient: 'flood',
-      emoji: '🌧️',
+    // The mutirão itself: the school's children watering the bed they just
+    // planted. The card is about a teacher who organised a neighbourhood —
+    // this is that day, not the finished landscaping.
+    photo: {
+      path: '/assets/showcase/bh-jardim-chuva-barreiro.jpg',
+      source: 'Prefeitura de Belo Horizonte — inauguração, 20/09/2025',
+      photographer: 'Aline Pereira / PBH',
+      license: 'Prefeitura source — terms not stated, attribution given',
+      verified: true,
     },
+    placeholder: null,
   },
   {
     id: 'sp-horta-das-corujas',
@@ -234,11 +259,17 @@ export const NBS_SHOWCASE_CARDS: NbsShowcaseCard[] = [
     detailEn:
       "Born in a Facebook group (Hortelões Urbanos), it became São Paulo's first major community garden: 800 m² in a public square in Vila Beatriz, run by volunteers with a watering rota and adopted beds. Along the way they recovered one of the springs feeding the Córrego das Corujas. No owner, no fence — running since 2012.",
     // Fonte: hortadascorujas.wordpress.com (Sobre a Horta) + Recicla Sampa.
-    photo: null,
-    placeholder: {
-      gradient: 'biodiversity',
-      emoji: '🥬',
+    // From the horta's OWN blog, credited to one of its volunteers — the
+    // community's material, not the stock-agency frame that was the only
+    // other published option.
+    photo: {
+      path: '/assets/showcase/sp-horta-das-corujas.jpg',
+      source: 'Horta das Corujas (hortadascorujas.wordpress.com)',
+      photographer: 'Ana Elisa de Rizzo',
+      license: 'Community blog — attribution given, permission to confirm',
+      verified: true,
     },
+    placeholder: null,
   },
   {
     id: 'poa-hortas-agroflorestais',
@@ -278,11 +309,18 @@ export const NBS_SHOWCASE_CARDS: NbsShowcaseCard[] = [
     detailEn:
       "Brazil's largest community-built water infrastructure: families across the Semiárido, with locally trained masons, built over 1 million 16,000-liter plate cisterns to harvest rainwater. Proof that organized mutirões reach a scale no contractor ever did — simple technology, owned by the family.",
     // Fonte: asabrasil.org.br (P1MC).
-    photo: null,
-    placeholder: {
-      gradient: 'flood',
-      emoji: '🛢️',
+    // A calçadão catchment slab feeding its cistern, in the caatinga. The
+    // sibling frame from the same story is a portrait of Dona Lia with no
+    // cistern in it — warmer, but it does not show the intervention, and an
+    // identifiable person raises a question separate from copyright.
+    photo: {
+      path: '/assets/showcase/asa-um-milhao-de-cisternas.jpg',
+      source: 'Agência Brasil',
+      photographer: 'Camila Boehm / Agência Brasil',
+      license: 'CC-BY (Agência Brasil standing licence)',
+      verified: true,
     },
+    placeholder: null,
   },
 ];
 
