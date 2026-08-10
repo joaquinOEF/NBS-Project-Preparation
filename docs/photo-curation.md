@@ -77,7 +77,7 @@ Visual audit completed 2026-05-15 by reading each JPG directly. **Three are wron
 | File | What the photo actually shows | Verdict |
 |---|---|---|
 | `bioswales.jpg` | Single-story brick building with white-trimmed windows, sidewalk, lawn, mixed grasses + shrubs, metal drainage grate. **North American suburban institutional landscaping** (school or community-center grounds). Matches the schema's "Portland USA" label. | ❌ **Replace** — not Brazilian. Breaks the premise that our library shows Brazilian community-scale NBS. |
-| `flood-parks.jpg` | Park with palms, small pond, and a prominent **industrial brick chimney** in the background. The chimney is the giveaway — Parque Barigui is dominated by the Barigui river/lake and has no chimney landmark. The photo looks like **Parque Tanguá** or **Parque das Pedreiras** (former quarry/industrial sites Curitiba reclaimed). | ❌ **Replace** — wrong project. Photo is genuinely Brazilian, just mislabeled. |
+| `flood-parks.jpg` | Park with palms, small pond, and a prominent **industrial brick chimney** in the background. The chimney is the giveaway — Parque Barigui is dominated by the Barigui river/lake and has no chimney landmark. The photo looks like **Parque Tanguá** or **Parque das Pedreiras** (former quarry/industrial sites Curitiba reclaimed). | ⚠️ **VERDICT CONTESTED 2026-08-10 — do not act on it.** See the correction below. |
 | `green-corridors.jpg` | Recife skyline across the Capibaribe river, with dense mangrove forest along the riverbank. Distinctively Recife — the mangrove + the specific high-rise cluster + the river width all match the Parque Capibaribe corridor. | ✅ **Looks correct.** Verify Wikimedia source for proper attribution. |
 | `green-roofs.jpg` | Rooftop garden viewed from above: pergola, lawn patches, benches, manicured paths. Surrounded by São Paulo residential buildings. **Not** the Fundação Cásper Líbero green roof — that's a famously dense 700m² Mata Atlântica forest with 130 native trees (designed by botanist Ricardo Cardim). This is a generic ornamental rooftop garden. | ❌ **Replace** — wrong project. Generic São Paulo rooftop, not the iconic Cásper Líbero forest. |
 | `urban-forests.jpg` | Tree-canopied cobblestone street with dense tipuana canopy forming a tunnel overhead, hanging epiphytes/bromeliads on the trunks, parked cars in the characteristic angled arrangement. Recognizably the famous "túnel verde." | ✅ **Correct.** Verify Wikimedia source for attribution. |
@@ -333,3 +333,111 @@ Before pilot launch (June 11):
 ## A word on tooling
 
 A tiny audit script could check that every photo referenced in `cbo-schema.ts` exists, has a non-null `photoCredit`, and matches an entry in this manifest. Worth ~30 lines of TypeScript if we end up adding photos faster than humans can review.
+
+## Sourcing round — 2026-08-10 (showcase cards)
+
+Goal: replace gradient placeholders on the 11 `NBS_SHOWCASE_CARDS` with verified
+photographs. Eight cards had no photo; three shipped this round is **two**, and
+the reason for the shortfall is written down below rather than quietly dropped.
+
+### ⭐ New permitted source: Agência Porto Alegre on Wikimedia Commons
+
+The Prefeitura de Porto Alegre's own photo agency has **30,000+ images on
+Commons**, filed as `IBPA <id> - <headline> - <date> - <Photographer>-PMPA.jpg`,
+with a standing licence: *"O uso das fotos produzidas pela Agência Porto Alegre
+é livre. Conforme a legislação vigente, é obrigatória a atribuição de
+créditos."* Credit format: `Photographer / PMPA`. Commons' `extmetadata`
+exposes licence + author per file, so verification is one API call:
+
+```bash
+curl -sS --get https://commons.wikimedia.org/w/api.php \
+  --data-urlencode action=query --data-urlencode format=json \
+  --data-urlencode 'titles=File:<name>' \
+  --data-urlencode prop=imageinfo \
+  --data-urlencode 'iiprop=url|extmetadata' --data-urlencode iiurlwidth=1280
+```
+
+⚠️ Use the `thumburl` the API returns. Hand-built thumb URLs at arbitrary widths
+return **HTTP 400**.
+
+This is the highest-yield source we have for Porto Alegre cases: the city
+photographs its own NBS programmes, and the orgs recognise the places.
+
+### Shipped
+
+```yaml
+nbs_showcase_photos:
+  - card: poa-hortas-agroflorestais
+    file: client/public/assets/showcase/poa-hortas-agroflorestais.jpg
+    project: "Hortas Comunitárias Agroflorestais"
+    city: "Porto Alegre, RS"
+    source: "Wikimedia Commons — Agência Porto Alegre, IBPA 141905"
+    source_url: "https://commons.wikimedia.org/wiki/File:IBPA_141905_-_PortoAlegre_já_tem_16_hortas_comunitárias_agroflorestais_implementadas_Nesta_-_2024-12-28_-_Marilia_Jung-SMGOV-PMPA.JPG"
+    photographer: "Marilia Jung / SMGOV / PMPA"
+    license: "Attribution (PMPA)"
+    verified_at: "2026-08-10"
+    visual_check: "Mulched agroforestry beds in rows, banana seedling, brassicas, mixed species; periurban POA street and modest housing behind the fence. Two people walking the rows for scale."
+    why_this_one: "Same PMPA release (dez/2024) the card's own facts cite. Sibling frames 141904/141908 are visit photos — people, no garden."
+  - card: poa-marinha-do-brasil
+    file: client/public/assets/showcase/poa-marinha-do-brasil.jpg
+    project: "Parque Marinha do Brasil — alameda"
+    city: "Porto Alegre, RS"
+    source: "Wikimedia Commons"
+    source_url: "https://commons.wikimedia.org/wiki/File:Alameda_no_Parque_Marinha_do_Brasil,_em_Porto_Alegre.jpg"
+    photographer: "Apesito.nomas"
+    license: "CC0"
+    verified_at: "2026-08-10"
+    visual_check: "Tree-lined alameda, mature canopy, unpaved leaf-littered ground, benches, city edge visible."
+    why_this_one: "Shows the two things the card claims — shade and absorption. ⚠️ The top-ranked Commons results for this park are the SKATEPARK: a concrete bowl illustrating 'absorbs water' argues against the card's text."
+```
+
+Both resized to 1200px wide, quality 78, stripped — under the ~500KB git limit
+(400KB / 349KB). Originals are larger on Commons if a rebuild is needed.
+
+### ⚠️ Correction to the 2026-05-15 audit — the `flood-parks.jpg` verdict is unsound
+
+The audit condemned `flood-parks.jpg` on the reasoning that *"the chimney is the
+giveaway — Parque Barigui … has no chimney landmark"*, and in the same document
+recommended replacing it with Commons file
+[`Parque Barigui - Curitiba DSC04494.JPG`](https://commons.wikimedia.org/wiki/File:Parque_Barigui_-_Curitiba_DSC04494.JPG)
+(CC-BY-SA-3.0, Agrinaldo Caires Fonseca).
+
+That file was downloaded and compared against ours on 2026-08-10. **They show
+the same place**: same rock cascade, same grass mounds, same cycad/palm
+plantings, same eucalyptus grove at left — and the same brick chimney. Different
+angle, one garden.
+
+So the chimney cannot simultaneously prove our photo is not Barigui and appear in
+the file we would replace it with. Either both are Barigui, or both carry the
+same mislabel. **The identification is unresolved** — resolving it needs someone
+who knows Curitiba, or a geolocated source. Until then:
+
+- `flood-parks.jpg` stays as it is. Swapping one unidentified photo for another
+  is motion, not curation.
+- The `curitiba-barigui` showcase card, which points at this same file, also
+  stays — flagged, not silently "fixed".
+- ⚠️ The audit's other two verdicts (`bioswales.jpg` = North American,
+  `green-roofs.jpg` = generic SP rooftop) were **not** re-checked this round and
+  should not be assumed sound either. `bioswales.jpg` is the confident one: the
+  photo is of an unnamed place, so it fails Register 1 regardless of city.
+
+### Still without a verifiable photo
+
+Searched Commons (API, multiple phrasings) and the permitted non-Commons
+sources. Nothing usable:
+
+| Card | State |
+|---|---|
+| `sp-horta-das-corujas` | Not on Commons. The published photo (Pulsar Imagens) is rights-controlled. Their own blog would need direct permission. |
+| `rio-mutirao-reflorestamento` | Not on Commons. prefeitura.rio / SMAC *Refloresta Rio* pages carry photos — permitted source, needs a per-photo terms check. |
+| `asa-um-milhao-de-cisternas` | Not on Commons. **Agência Brasil is CC-BY 2.5 BR** and has ~78k photos on its official Flickr — the most promising unexplored lead. |
+| `bh-jardim-chuva-barreiro` | Not on Commons. PBH published its own inauguration coverage (20 Sep 2025) — permitted source, needs a terms check. |
+| `poa-orla-guaiba` | Commons has `Orla do Guaíba - Trecho 1.jpg` (CC-BY-SA-4.0) but it is a **distorted 8640×2768 panorama**, mostly paving and sky, with the photographer's shadow across the foreground, and shows none of the native planting the card claims. Rejected on inspection. PMPA aerials by Filipe Karam exist for **Trecho 3** — a different stretch from the one the card names. |
+| `poa-varzea-lab` | Vila Flores' own work. Nothing on Commons; correctly needs their permission, not a substitute. |
+
+**The rule that produced this list:** every candidate was downloaded and looked
+at before it was accepted or rejected. Two of the first four candidates failed
+on inspection alone — the skatepark and the panorama — and neither failure was
+visible from the file title or the licence metadata. Sourcing by search result
+without opening the image reproduces exactly the errors this document exists to
+catch.
