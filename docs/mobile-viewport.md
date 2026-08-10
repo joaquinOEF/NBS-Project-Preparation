@@ -65,6 +65,28 @@ offset. Screenshot in the PR.
 9. **The lock is scoped to the chat shell** — welcome/preamble screens keep
    normal document scroll (a locked welcome stranded the CTA below the fold
    on short desktop viewports).
+10. **The shell is OUT OF FLOW** (`position: fixed`, `top: var(--cbo-vv-top)`).
+   In normal flow, any document scroll drags it out of the visible window:
+   the header ends up above the top edge — unreachable, because invariant 3
+   locks the document so the user cannot scroll back to it — and an equal dead
+   band opens under the tab bar. Round 3 (2026-08-10) was exactly this. Our
+   scroll lock is a REQUEST, not a guarantee; iOS scroll-into-view can still
+   move the scroll container. Fixed positioning makes that harmless instead of
+   fatal. Use `top`, not `translateY`: a transform makes the shell the
+   containing block for any `fixed` descendant.
+11. **Never a negative offset.** `top` is clamped to `>= 0`. There is no
+   recovery from a header above the visible top, so no reported value is
+   allowed to produce one.
+12. **A heartbeat reconciles, and never switches off.** Every 500ms, compare
+   the shell's real `getBoundingClientRect()` against what it should be and
+   re-apply. Rounds 1 and 2 both assumed "an event will tell us"; round 3
+   proved iOS can leave the viewport displaced and fire nothing at all. Do
+   NOT add an off switch after N stable ticks — a silent change arriving
+   afterwards is undetectable, which is the same hole one level up. The cost
+   is two rect reads per tick, and `apply()` writes the CSS variables ONLY
+   when a value actually changed (an unconditional write invalidates style
+   twice a second, forever, on every phone in the cohort).
+
 
 ## Do / Don't
 
@@ -78,6 +100,35 @@ offset. Screenshot in the PR.
 - ❌ Don't hand the document scroll back to the chat page "just for one
   screen" — rubber-banding moves the browser chrome and reopens the gap.
 
+## Round 3 — 2026-08-10
+
+Reported on a real iPhone: *"cant see the top section, cant scroll further up
+than that, and when I type the bottom part takes a big chunk."* Evidence:
+`docs/evidence/mobile-2026-08-10-*.png`.
+
+**Both existing tests passed while this was live**, which is the lesson. They
+could only express failures the shell's own two variables could produce — a
+wrong height, a wrong offset. The screenshots showed something else: the shell
+in the right *shape* but the wrong *place*, because the document underneath it
+had moved. Nothing measured where the shell actually painted.
+
+So round 3 changes the strategy rather than adding a fourth special case:
+
+| Round | Assumption | How it broke |
+|---|---|---|
+| 1 (2026-07 desktop pass) | height is enough | iOS also scrolls the visual viewport |
+| 2 (2026-07-15) | follow height + offset on every event | iOS stops firing events after dismissal |
+| 3 (2026-08-10) | events are unreliable — **converge anyway** | — |
+
+Invariant 12 is the substance: stop enumerating the events that must be caught,
+and instead compare painted geometry against intended geometry on a timer. It
+no longer matters which event was missed. Invariant 10 removes the failure mode
+that made a missed event catastrophic rather than cosmetic.
+
+⚠️ If there is a round 4, do not add a listener. Ask first why the heartbeat
+did not converge — that is a much smaller question than "which event did iOS
+skip this time".
+
 ## Regression net
 
 - `e2e/cbo-mobile-viewport-follower.spec.ts` stubs `window.visualViewport`
@@ -90,3 +141,21 @@ offset. Screenshot in the PR.
   2. Same on a low-end Android (Chrome + WhatsApp in-app browser).
   3. Rotate to landscape and back.
   4. Background the browser mid-keyboard, return.
+
+- Four round-3 cases in the same spec, each of which FAILS against the
+  pre-fix code (verified by checking out `origin/main`'s `cbo-profile.tsx` and
+  re-running): a document scroll cannot displace the shell · the shell
+  converges when no event ever fires · the header is never pushed above the
+  top · the shell stays out of flow.
+- ⚠️ Two traps when writing tests here, both of which produced a green test
+  that proved nothing:
+  · **`boundingBox()` does not move with document scroll.** Measure with
+    `getBoundingClientRect()` inside `page.evaluate` — viewport-relative by
+    definition.
+  · **`window.scrollTo` is a no-op under the lock.** With `height:100%` +
+    `overflow:hidden` on html, body and `#root`, BODY is the scroll box, and
+    the document's `scrollHeight` never exceeds its `clientHeight`. Scroll
+    `document.body.scrollTop` and assert it actually moved.
+  · Chromium fires a `visualViewport` scroll event when the page scrolls, which
+    silently rescues the defect. Stub a SILENT viewport when the point of the
+    test is that no event arrives.
