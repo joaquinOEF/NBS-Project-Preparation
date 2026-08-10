@@ -522,9 +522,17 @@ Still fully clean, no follow-up needed: `poa-hortas-agroflorestais` and
 `asa-um-milhao-de-cisternas` (Agência Brasil CC-BY), and the three that
 predate this work.
 
-**The rule that produced this list:** every candidate was downloaded and looked
-at before it was accepted or rejected. Two of the first four candidates failed
-on inspection alone — the skatepark and the panorama — and neither failure was
-visible from the file title or the licence metadata. Sourcing by search result
-without opening the image reproduces exactly the errors this document exists to
-catch.
+**The rule that produced all three rounds:** every candidate was downloaded and
+looked at before it was accepted or rejected, and that kept changing the
+outcome. The skatepark that would have illustrated "this park absorbs water"
+with a concrete bowl. The 8640px panorama that was mostly paving, sky and the
+photographer's shadow. The warm portrait of Dona Lia with no cistern in it.
+**None of those failures was visible from the file title or the licence
+metadata.** Sourcing by search result without opening the image reproduces
+exactly the errors this document exists to catch.
+
+**And the second rule, learned in round 3:** when a photo looks unobtainable,
+check whether the people in the story published one themselves before
+concluding it cannot be had. Horta das Corujas and Vila Flores were both
+written up here as blocked on permission; both had usable, credited photographs
+on their own sites the whole time.

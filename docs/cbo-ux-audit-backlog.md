@@ -496,3 +496,22 @@ It is *Teia* (the government open call). Don't propagate the transcript's spelli
     Original entry: — the convening found orgs already running gardens and composting but unsure which interventions they can do alone (mutirão, own team and resources) versus which need municipal/state co-design, permitting and funding. The agent should say which is which and name the partner to engage. This is the May-2026 finding restated: *"the gap is not projects but connective infrastructure between community, city priorities (PLAC), and finance."*
 
 31. **Data governance / terms of responsibility in-flow (P2, S)** — orgs voiced anxiety at the convening about how their data would be used; Ana drafted a terms-of-responsibility document. Today `CboDataNoticeDialog` answers this in the product — the drafted document should reach the org inside the flow, not only as a PDF the coordinator holds.
+
+### Wave: JVP, 2026-08-10
+
+32. **⚠️ Mobile viewport is broken again — the THIRD occurrence (P0, M)** — reported by JVP on an iPhone against the dev URL, 17:46–17:47. Evidence: [`docs/evidence/mobile-2026-08-10-idle.png`](evidence/mobile-2026-08-10-idle.png) and [`mobile-2026-08-10-keyboard.png`](evidence/mobile-2026-08-10-keyboard.png).
+
+    Three symptoms in the two shots:
+    - **The header is unreachable.** The first message starts flush under Safari's URL bar; the org name / progress chrome is above the visible window and *cannot be scrolled to* — the document is scroll-locked (invariant 3) while the shell sits higher than the visible viewport, so there is no way to recover it.
+    - **Idle state: the tab bar floats mid-screen** with a large dead band beneath it before Safari's toolbar. This is the exact 2026-07-15 signature — shell height right, shell *offset* wrong.
+    - **Keyboard state: the message is clipped mid-sentence** ("quem eu tô falando — seu nome e seu") and the dead band grows to roughly a third of the screen between the tab bar and the iOS autofill bar. The list is occluded rather than shortened.
+
+    ⚠️ **Read [`docs/mobile-viewport.md`](mobile-viewport.md) before touching this** — it documents the nine invariants and says plainly that this bug "has now been fixed twice". Shipping a third point-fix without establishing which invariant regressed, and adding a test that would have caught it, just buys the fourth occurrence. Invariant 2 (shell follows `visualViewport.offsetTop`) and 5b (keyboard state inferred from focus, never from the viewport) are the two most likely holes.
+
+    JVP's ask is explicitly research-first: establish what production mobile chat web apps do (WhatsApp Web, Telegram, Signal, Messenger), reproduce in an emulator with screenshots before and after, and land **no UX regressions** — the welcome/preamble scroll behaviour (invariant 9) and the ≥16px input rule (invariant 7) are the two things a naive rewrite breaks first.
+
+33. **Give Belen Ortiz orchestrator access to the production main cohort (P1, S — operational, not code)** — `belen.ortiz@bwb.earth` (BwB, financing/bankability). Requested verbatim: *"perfil de acceso al orchestrator view de COUGAR para Belen?"*
+
+    Provision as a **scoped coordinator on the live Vila Flores cohort** via the in-app admin panel — `/orchestrator` → "New cohort" is for new cohorts, so for an existing one use `scripts/create-coordinator.ts` with the cohort UUID, or the bootstrap endpoint against the **prod** URL (see [`docs/cougar-runbook.md`](cougar-runbook.md) §1). ⚠️ Replit's shell `DATABASE_URL` is the **dev** database — provisioning there creates an account that does not exist in production.
+
+    Scoped, not admin: she needs to read one cohort, not create or delete them. Related to #26 — she is the person the Teia Sprint applications and the collaboration history are being surfaced for, and Antônia is separately brokering her introduction to Hesioni.

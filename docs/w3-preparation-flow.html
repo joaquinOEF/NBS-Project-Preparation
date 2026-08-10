@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workshop 3 — From a chosen site to a validated project plan</title>
+<style>
+  :root{
+    --bg:#faf8f5; --card:#fff; --ink:#1c1a17; --ink-2:#4a463f; --ink-3:#78726a;
+    --line:#e6e0d6; --line-2:#d3ccbf;
+    --accent:#1f6f5c;
+    --investigate:#b4690e; --investigate-bg:#fdf3e3;
+    --contact:#1f5f9e; --contact-bg:#eaf2fb;
+    --gather:#0f7a6c; --gather-bg:#e6f5f2;
+    --document:#6b4ba1; --document-bg:#f2edfa;
+    --warn:#a63d2f; --warn-bg:#fdeeeb;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#16151a; --card:#1e1d23; --ink:#f0ece5; --ink-2:#c3bdb3; --ink-3:#8e8880;
+      --line:#31303a; --line-2:#3d3b47;
+      --accent:#5cc4a8;
+      --investigate:#e0a44a; --investigate-bg:#2e2415;
+      --contact:#75aee6; --contact-bg:#152233;
+      --gather:#4fc4b0; --gather-bg:#122a27;
+      --document:#b393e8; --document-bg:#241d33;
+      --warn:#e88a78; --warn-bg:#331915;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#16151a; --card:#1e1d23; --ink:#f0ece5; --ink-2:#c3bdb3; --ink-3:#8e8880;
+    --line:#31303a; --line-2:#3d3b47; --accent:#5cc4a8;
+    --investigate:#e0a44a; --investigate-bg:#2e2415;
+    --contact:#75aee6; --contact-bg:#152233;
+    --gather:#4fc4b0; --gather-bg:#122a27;
+    --document:#b393e8; --document-bg:#241d33;
+    --warn:#e88a78; --warn-bg:#331915;
+  }
+  :root[data-theme="light"]{
+    --bg:#faf8f5; --card:#fff; --ink:#1c1a17; --ink-2:#4a463f; --ink-3:#78726a;
+    --line:#e6e0d6; --line-2:#d3ccbf; --accent:#1f6f5c;
+    --investigate:#b4690e; --investigate-bg:#fdf3e3;
+    --contact:#1f5f9e; --contact-bg:#eaf2fb;
+    --gather:#0f7a6c; --gather-bg:#e6f5f2;
+    --document:#6b4ba1; --document-bg:#f2edfa;
+    --warn:#a63d2f; --warn-bg:#fdeeeb;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:56px 24px 120px}
+  h1{font-size:clamp(30px,4.4vw,46px);line-height:1.1;letter-spacing:-.02em;margin:0 0 14px;font-weight:680}
+  h2{font-size:clamp(21px,2.6vw,27px);line-height:1.2;letter-spacing:-.01em;margin:0 0 6px;font-weight:660}
+  h3{font-size:17px;margin:0 0 6px;font-weight:640;letter-spacing:-.005em}
+  p{margin:0 0 14px;color:var(--ink-2)}
+  .lede{font-size:19px;line-height:1.55;color:var(--ink-2);max-width:74ch}
+  a{color:var(--accent)}
+  code,.mono{font-family:var(--mono);font-size:.86em}
+  code{color:var(--ink);padding:1px 5px;border-radius:4px;
+       background:color-mix(in srgb,var(--line) 55%,transparent)}
+
+  .kicker{font:600 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 16px}
+  .sec{margin-top:72px}
+  .sec-head{border-top:2px solid var(--ink);padding-top:14px;margin-bottom:26px}
+  .sec-head .n{font:600 12px/1 var(--mono);color:var(--ink-3);letter-spacing:.12em;display:block;margin-bottom:10px}
+  .sec-head p{margin:8px 0 0;max-width:72ch}
+
+  .note{border:1px solid var(--line);border-left:3px solid var(--accent);background:var(--card);
+        border-radius:0 8px 8px 0;padding:12px 16px;font-size:14.5px;color:var(--ink-2);margin:0 0 8px}
+  .note.warn{border-left-color:var(--warn);background:var(--warn-bg)}
+  .note strong{color:var(--ink)}
+
+  /* ── inheritance rail ───────────────────────────── */
+  .rail{display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:10px}
+  .inh{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .inh b{display:block;font-family:var(--mono);font-size:12.5px;color:var(--ink);font-weight:600;margin-bottom:3px;overflow-wrap:anywhere}
+  .inh span{font-size:13.5px;color:var(--ink-3);line-height:1.45;display:block}
+
+  /* ── the flow spine ─────────────────────────────── */
+  .flow{position:relative;padding-left:56px}
+  .flow::before{content:"";position:absolute;left:17px;top:14px;bottom:34px;width:2px;background:var(--line-2)}
+  .stage{position:relative;margin-bottom:18px}
+  .stage::before{
+    content:attr(data-n);position:absolute;left:-56px;top:2px;width:36px;height:36px;border-radius:50%;
+    background:var(--card);border:2px solid var(--line-2);color:var(--ink-2);
+    display:flex;align-items:center;justify-content:center;font:600 14px/1 var(--mono);z-index:2;
+  }
+  .stage.key::before{background:var(--accent);border-color:var(--accent);color:#fff}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .card-top{padding:16px 18px 14px;border-bottom:1px solid var(--line)}
+  .card-top .meta{font:500 12px/1 var(--mono);color:var(--ink-3);letter-spacing:.06em;margin-bottom:7px}
+  .card-top p{margin:6px 0 0;font-size:15px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  @media (max-width:720px){.cols{grid-template-columns:1fr}}
+  .col{padding:14px 18px}
+  .col + .col{border-left:1px solid var(--line)}
+  @media (max-width:720px){.col + .col{border-left:0;border-top:1px solid var(--line)}}
+  .col h4{margin:0 0 9px;font:600 11.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+  .fields{display:flex;flex-wrap:wrap;gap:5px}
+  .f{font-family:var(--mono);font-size:12px;padding:3px 7px;border-radius:5px;
+     background:color-mix(in srgb,var(--line) 50%,transparent);color:var(--ink-2);overflow-wrap:anywhere}
+  ul.tight{margin:0;padding-left:0;list-style:none}
+  ul.tight li{font-size:14px;color:var(--ink-2);margin-bottom:7px;line-height:1.45;
+              padding-left:16px;position:relative}
+  ul.tight li::before{content:"";position:absolute;left:2px;top:8px;width:5px;height:5px;border-radius:50%;background:var(--line-2)}
+  ul.tight li.i::before{background:var(--investigate)} ul.tight li.c::before{background:var(--contact)}
+  ul.tight li.g::before{background:var(--gather)} ul.tight li.d::before{background:var(--document)}
+
+  .tag{display:inline-flex;align-items:center;gap:5px;font:600 11px/1 var(--mono);letter-spacing:.06em;
+       text-transform:uppercase;padding:4px 8px;border-radius:20px;white-space:nowrap}
+  .t-i{background:var(--investigate-bg);color:var(--investigate)}
+  .t-c{background:var(--contact-bg);color:var(--contact)}
+  .t-g{background:var(--gather-bg);color:var(--gather)}
+  .t-d{background:var(--document-bg);color:var(--document)}
+  .taglist{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+
+  /* ── four lists ─────────────────────────────────── */
+  .lists{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+  .list{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;border-top:3px solid}
+  .list.i{border-top-color:var(--investigate)} .list.c{border-top-color:var(--contact)}
+  .list.g{border-top-color:var(--gather)} .list.d{border-top-color:var(--document)}
+  .list h3{margin-bottom:4px}
+  .list > p{font-size:14px;margin-bottom:14px}
+  .rule{border-top:1px solid var(--line);padding-top:11px;margin-top:11px}
+  .rule .src{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);display:block;margin-top:5px;overflow-wrap:anywhere}
+  .rule b{font-size:14px;display:block;margin-bottom:3px}
+  .rule span.body{font-size:13.5px;color:var(--ink-2);display:block;line-height:1.5}
+
+  /* ── matrix ─────────────────────────────────────── */
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+  table{border-collapse:collapse;width:100%;min-width:660px;font-size:14px}
+  th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{font:600 11.5px/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);
+           background:color-mix(in srgb,var(--line) 30%,transparent)}
+  tbody tr:last-child td{border-bottom:0}
+  td.k{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+  .v{font-weight:640}
+  .v.ok{color:var(--gather)} .v.mid{color:var(--investigate)} .v.hard{color:var(--warn)}
+
+  /* ── worked example ─────────────────────────────── */
+  .ex{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .ex-head{padding:18px;border-bottom:1px solid var(--line)}
+  .ex-in{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .ex-in .f{background:var(--card);border:1px solid var(--line-2)}
+  .ex-body{padding:4px 0}
+  .item{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:start;
+        padding:13px 18px;border-bottom:1px solid var(--line)}
+  @media (max-width:720px){.item{grid-template-columns:auto 1fr;}.item .who{grid-column:2}}
+  .item:last-child{border-bottom:0}
+  .item .what{font-size:14.5px;color:var(--ink)}
+  .item .why{font-size:13px;color:var(--ink-3);display:block;margin-top:3px;line-height:1.45}
+  .item .who{font-family:var(--mono);font-size:12px;color:var(--ink-3);text-align:right;white-space:nowrap}
+
+  .gaps{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .gap{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:15px 17px}
+  .gap .st{font:600 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border-radius:5px;
+           display:inline-block;margin-bottom:9px}
+  .st.built{background:var(--gather-bg);color:var(--gather)}
+  .st.todo{background:var(--investigate-bg);color:var(--investigate)}
+  .st.blocked{background:var(--warn-bg);color:var(--warn)}
+  .gap p{font-size:13.5px;margin:0}
+  .gap h3{font-size:15px}
+
+  footer{margin-top:80px;padding-top:20px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">COUGAR · Porto Alegre · Workshop 3</p>
+  <h1>From a chosen site to a project someone can actually say yes to</h1>
+  <p class="lede">
+    W2 ends with an organization that has a place, a hazard in their own words, and a family of
+    solutions they are curious about. W3 turns that into a <strong>specific intervention, sized and
+    costed</strong> — and, just as importantly, into the <strong>list of what they still don't know</strong>:
+    what to investigate, who to call, what to measure on the ground, and what to write down.
+  </p>
+  <p class="note">
+    Working document, in English. The flow itself ships in <strong>pt-BR</strong> — every phrase quoted here
+    is a gloss of Portuguese copy, not the copy.
+  </p>
+
+  <!-- ═══════════ 1 · INHERITANCE ═══════════ -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="n">01 — WHAT W3 STARTS WITH</span>
+      <h2>W3 does not ask a single question W2 already answered</h2>
+      <p>
+        These fields arrive filled. They are not just context — each one is an input to a rule that
+        generates dossier items later. If one is empty, the dossier gets thinner in a specific, nameable way.
+      </p>
+    </div>
+    <div class="rail">
+      <div class="inh"><b>bairro · site polygon</b><span>Where. Drives which municipal bodies are even relevant, and the area in m².</span></div>
+      <div class="inh"><b>current_use</b><span>Vegetated / paved / abandoned / mixed. Decides whether demolition, de-paving or soil recovery is on the list.</span></div>
+      <div class="inh"><b>land_tenure</b><span>Own it / formal agreement / city's but we use it / no guaranteed access. <em>The single strongest predictor of the contact list.</em></span></div>
+      <div class="inh"><b>site_worry</b><span>Alagamento · Inundação · Enxurrada · heat · slope. Their word, not the raster. Decides which evidence is worth collecting.</span></div>
+      <div class="inh"><b>site_knowledge_depth</b><span>thin / partial / strong. A thin read means W3 opens by filling gaps, not by choosing.</span></div>
+      <div class="inh"><b>photos + documents</b><span>What they already shared. Anything already photographed is not asked for twice.</span></div>
+      <div class="inh"><b>Teia Sprint application</b><span><code>purpose: teia_sprint</code>. A semi-formal proposal already exists — W3 refines it rather than starting blank.</span></div>
+      <div class="inh"><b>prior_collaboration</b><span>Yes/no + who, in their words. Shapes whether a partner is someone they already know.</span></div>
+      <div class="inh"><b>nbs_interest</b><span>Famílias they were drawn to. Pre-filters (never excludes) the selector.</span></div>
+      <div class="inh"><b>role_preference</b><span>Consulted / write / manage funds / implement / coordinate. Decides who owns each dossier item.</span></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 2 · THE FLOW ═══════════ -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="n">02 — THE WORKSHOP, BEAT BY BEAT</span>
+      <h2>Six stages, one session</h2>
+      <p>
+        ~75 minutes with a facilitator in the room. The left column of each card is what the organization
+        experiences; the right is what the platform captures and what that answer <em>generates</em>.
+        Colour tells you which of the four lists an answer feeds.
+      </p>
+      <div class="taglist" style="margin-bottom:22px">
+        <span class="tag t-i">Investigate</span>
+        <span class="tag t-c">People to contact</span>
+        <span class="tag t-g">Gather &amp; measure</span>
+        <span class="tag t-d">Document</span>
+      </div>
+    </div>
+
+    <div class="flow">
+
+      <div class="stage" data-n="0">
+        <div class="card">
+          <div class="card-top">
+            <div class="meta">~5 MIN · NO NEW DATA</div>
+            <h3>Ground the room in what they already said</h3>
+            <p>The site, the hazard in their own words, and their photos come back on screen. "Is this still
+              the place?" If anything moved, it moves here — not silently later.</p>
+          </div>
+          <div class="cols">
+            <div class="col">
+              <h4>In the room</h4>
+              <ul class="tight">
+                <li>Their site on the map, their photos, their word for the hazard</li>
+                <li>One confirm chip, or a correction</li>
+              </ul>
+            </div>
+            <div class="col">
+              <h4>Captured</h4>
+              <div class="fields"><span class="f">site_confirmed_w3</span><span class="f">site changes, if any</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage key" data-n="1">
+        <div class="card">
+          <div class="card-top">
+            <div class="meta">3a · ~20 MIN · <span class="mono">open_intervention_selector</span></div>
+            <h3>Choose the solution — ordered by their mechanism, nothing hidden</h3>
+            <p>The 27-solution catalogue, ordered so the answers to <em>their</em> water reach the top: a river
+              that overtops surfaces margin and várzea recovery before rain gardens. Every solution stays
+              reachable — the flow promises "nada fica descartado" and that stays literally true. Real cases
+              are one tap away from the question itself.</p>
+          </div>
+          <div class="cols">
+            <div class="col">
+              <h4>In the room</h4>
+              <ul class="tight">
+                <li>Browse, compare, open examples without losing their place</li>
+                <li>Pick 1–2 solutions (a combination is normal)</li>
+                <li>"Why this one, here?" — one or two sentences, in their words</li>
+              </ul>
+            </div>
+            <div class="col">
+              <h4>Captured &amp; generated</h4>
+              <div class="fields" style="margin-bottom:11px">
+                <span class="f">intervention_types[]</span><span class="f">justification_why_here</span>
+                <span class="f">combination_rationale</span>
+              </div>
+              <ul class="tight">
+                <li class="c">The solution's <em>ficha</em> names who must approve it — that becomes the seed of the contact list</li>
+                <li class="i">Every technical prerequisite the ficha names ("needs an infiltration test", "needs a geotechnical study") becomes an investigation item</li>
+                <li class="d">Cost band per m² is now known, so a budget becomes a writable document</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage key" data-n="2">
+        <div class="card">
+          <div class="card-top">
+            <div class="meta">3a · ~20 MIN · SKETCH + CHIPS</div>
+            <h3>Size it, and say who builds it</h3>
+            <p>They drag a polygon over their own site — area in m² is computed, not asked. Then the build
+              model: mutirão, hired contractor, university/NGO partnership, mixed, undecided. This pair is
+              what turns "a rain garden" into something with a number and a crew.</p>
+          </div>
+          <div class="cols">
+            <div class="col">
+              <h4>In the room</h4>
+              <ul class="tight">
+                <li>Drag the corners of a footprint on the map</li>
+                <li>See where their size lands: small / medium / large, with a cost range</li>
+                <li>Tap the build model</li>
+              </ul>
+            </div>
+            <div class="col">
+              <h4>Captured &amp; generated</h4>
+              <div class="fields" style="margin-bottom:11px">
+                <span class="f">intervention_area_geojson</span><span class="f">intervention_area_m2</span>
+                <span class="f">intervention_scale_band</span><span class="f">construction_model</span>
+              </div>
+              <ul class="tight">
+                <li class="c"><strong>construction_model × land_tenure</strong> resolves the whole permission question — see the matrix below</li>
+                <li class="g">Area × cost band → a first budget figure to verify against a real quote</li>
+                <li class="i">A footprint crossing a slope, a sidewalk or a drainage line raises its own investigation item</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" data-n="3">
+        <div class="card">
+          <div class="card-top">
+            <div class="meta">3b · ~15 MIN · IMPACT &amp; BASELINE</div>
+            <h3>What is it like today, and what would change</h3>
+            <p>The agent brings the evidence base — comparable cases with ranges and a stated confidence,
+              never a single invented number. What it needs back is the <em>baseline</em>: how the place is
+              now, in their description, because nothing can be shown to have improved without it.</p>
+          </div>
+          <div class="cols">
+            <div class="col">
+              <h4>In the room</h4>
+              <ul class="tight">
+                <li>"How is the place today, before anything?" — free text</li>
+                <li>Timeframe: 6 months / 1 year / 2 years / phased</li>
+                <li>Who could measure: us / a university partner / nobody yet</li>
+              </ul>
+            </div>
+            <div class="col">
+              <h4>Captured &amp; generated</h4>
+              <div class="fields" style="margin-bottom:11px">
+                <span class="f">baseline_condition</span><span class="f">expected_impact</span>
+                <span class="f">project_timeframe</span><span class="f">monitoring_capacity</span>
+              </div>
+              <ul class="tight">
+                <li class="g">Baseline evidence to collect <em>before</em> anything is built — the mechanism decides what: a high-water mark for inundação, the water's path downhill for enxurrada, shade and surface temperature for heat</li>
+                <li class="c">"Nobody can measure" is not a dead end — it is a request for a monitoring partner, named as such</li>
+                <li class="d">A one-page baseline record, dated and photographed</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" data-n="4">
+        <div class="card">
+          <div class="card-top">
+            <div class="meta">3c · ~15 MIN · OPERATIONS &amp; MONEY</div>
+            <h3>Who keeps it alive after the mutirão goes home</h3>
+            <p>The failure mode for every one of these solutions is not construction — it is year two. The
+              fichas say it plainly: a clogged rain garden becomes a permanent puddle and, after three or
+              four days, a mosquito site. So maintenance is asked about as a named responsibility, not a hope.</p>
+          </div>
+          <div class="cols">
+            <div class="col">
+              <h4>In the room</h4>
+              <ul class="tight">
+                <li>Who maintains it: us / volunteers / city partnership / contractor / TBD</li>
+                <li>How often, and roughly what a year costs</li>
+                <li>Where recurring money would come from</li>
+              </ul>
+            </div>
+            <div class="col">
+              <h4>Captured &amp; generated</h4>
+              <div class="fields" style="margin-bottom:11px">
+                <span class="f">who_maintains</span><span class="f">maintenance_frequency</span>
+                <span class="f">opex_estimate_year1</span><span class="f">sustainability_model</span>
+              </div>
+              <ul class="tight">
+                <li class="d">A maintenance agreement — with the city if the land is theirs, internally if it is not</li>
+                <li class="c">"TBD" on maintenance names a conversation the coordination team has to broker</li>
+                <li class="i">Whether the chosen funding line actually covers maintenance, or only construction</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage key" data-n="5">
+        <div class="card">
+          <div class="card-top">
+            <div class="meta">~10 MIN · THE OUTPUT</div>
+            <h3>The dossier reads itself back, and gets owners</h3>
+            <p>Nothing here is new input. Every item was generated by a rule from an answer they already
+              gave, so the last ten minutes are spent on the only two questions that matter:
+              <strong>who does this, and by when</strong> — with <code>role_preference</code> proposing the owner and
+              the org overriding it.</p>
+          </div>
+          <div class="cols">
+            <div class="col">
+              <h4>In the room</h4>
+              <ul class="tight">
+                <li>Four short lists, read out loud</li>
+                <li>An owner per item, a date per item</li>
+                <li>"This one isn't us" → it moves to the coordination team's list, visibly</li>
+              </ul>
+            </div>
+            <div class="col">
+              <h4>Leaves with</h4>
+              <ul class="tight">
+                <li class="d">A shareable plan: what it is, how big, what it costs, who says yes, who maintains it</li>
+                <li class="i">A homework list they can work through between workshops</li>
+                <li class="c">Named people and bodies to approach, not "the city"</li>
+                <li class="g">A field checklist for the next visit to the site</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════ 3 · THE FOUR LISTS ═══════════ -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="n">03 — HOW THE LISTS ARE GENERATED</span>
+      <h2>Four lists, and the rules behind them</h2>
+      <p>
+        The dossier is <strong>derived, not authored</strong>. Every item traces to a rule over data the repo
+        already holds — the per-solution fichas already say who must approve each of the 27 solutions and
+        what technical study it needs. That is the difference between a checklist an agent improvised and
+        one a coordinator can audit.
+      </p>
+    </div>
+
+    <div class="lists">
+
+      <div class="list i">
+        <h3>Investigate</h3>
+        <p>Technical unknowns that decide whether the design survives contact with the ground.</p>
+        <div class="rule">
+          <b>Solution → its named prerequisite</b>
+          <span class="body">A rain garden needs a soil infiltration test, or it won't drain. A rain terrace needs a
+            geotechnical study before the wall material is chosen. These are stated per solution already.</span>
+          <span class="src">shared/nbs-solution-fichas.ts · quemPrecisaDizerSim</span>
+        </div>
+        <div class="rule">
+          <b>Mechanism → the physical question</b>
+          <span class="body">Enxurrada asks where the water enters and how fast. Inundação asks how high it got.
+            Alagamento asks where it pools and how long it stays.</span>
+          <span class="src">shared/site-knowledge.ts · WORRY_SUBTYPES</span>
+        </div>
+        <div class="rule">
+          <b>current_use → site preparation</b>
+          <span class="body">Paved means de-paving and a compaction check. Abandoned means finding out what was
+            there before, and whether the soil is contaminated.</span>
+          <span class="src">E2_CURRENT_USE</span>
+        </div>
+        <div class="rule">
+          <b>Funding line → what it actually covers</b>
+          <span class="body">Most community lines fund construction and not maintenance. Confirming that before
+            applying is cheaper than discovering it in year two.</span>
+          <span class="src">knowledge/_financing-sources/cbo-grants.md</span>
+        </div>
+      </div>
+
+      <div class="list c">
+        <h3>People to contact</h3>
+        <p>Named bodies and roles, with what each one is being asked for.</p>
+        <div class="rule">
+          <b>Who has to say yes</b>
+          <span class="body">Porto Alegre routing is already written per solution: <strong>SMAMUS</strong> for the urban
+            environment, <strong>DMAE</strong> for anything touching public drainage, <strong>EPTC</strong> when the work
+            touches roadway or sidewalk, <strong>Defesa Civil</strong> where slope stability is in play, <strong>FEPAM</strong>
+            at state scale.</span>
+          <span class="src">shared/nbs-solution-fichas.ts · flagged <code>autorizacaoEstimada</code> where routing is our inference</span>
+        </div>
+        <div class="rule">
+          <b>Landowner, when it isn't them</b>
+          <span class="body">Tenure of <code>public-informal</code> or <code>public-no-access</code> puts a permission
+            conversation ahead of everything else — before a budget, before a mutirão date.</span>
+          <span class="src">E2_TENURE × the matrix below</span>
+        </div>
+        <div class="rule">
+          <b>The technician the design needs</b>
+          <span class="body">A mutirão can dig and plant. It cannot calculate flow or slope. The dossier names which
+            half needs a professional, so the org isn't told a flat "you need an engineer".</span>
+          <span class="src">ficha · <em>"mutirão pode fazer … o projeto precisa de técnico"</em></span>
+        </div>
+        <div class="rule">
+          <b>People they already know</b>
+          <span class="body">If they named partners in W2, those names come back as the first place to look —
+            rather than the platform proposing strangers.</span>
+          <span class="src">prior_collaboration_detail · partnerships</span>
+        </div>
+      </div>
+
+      <div class="list g">
+        <h3>Gather &amp; measure</h3>
+        <p>What to bring back from the next visit to the site. Short, physical, doable with a phone.</p>
+        <div class="rule">
+          <b>Baseline before anything is built</b>
+          <span class="body">Dated photographs from fixed points, so "it used to flood here" becomes something
+            a funder can see. Nothing can be shown to have improved without this.</span>
+          <span class="src">3b · baseline_condition</span>
+        </div>
+        <div class="rule">
+          <b>Measurements the design needs</b>
+          <span class="body">Where the water enters and leaves, the drop across the site, the distance to the
+            nearest public drain, roof and paved area draining into it.</span>
+          <span class="src">solution ficha × intervention_area_m2</span>
+        </div>
+        <div class="rule">
+          <b>Who benefits, counted</b>
+          <span class="body">Households on the affected stretch. "About twelve families on Rua X" is the
+            difference between a level-1 and a level-3 problem statement in the maturity scoring.</span>
+          <span class="src">problem_clarity rubric</span>
+        </div>
+        <div class="rule">
+          <b>Existing paper</b>
+          <span class="body">Any land-use permission, association statute, previous project report or the Teia
+            Sprint application itself — collected as documents rather than described from memory.</span>
+          <span class="src">documents · purpose</span>
+        </div>
+      </div>
+
+      <div class="list d">
+        <h3>Document</h3>
+        <p>What they need to have written down before anyone can fund or authorise this.</p>
+        <div class="rule">
+          <b>The project sheet</b>
+          <span class="body">What it is, where, how big, what it costs, who builds it, who maintains it. Assembled
+            from what W3 captured — not a form they fill again.</span>
+          <span class="src">generated from sections 3a/3b/3c</span>
+        </div>
+        <div class="rule">
+          <b>The permission letter or use agreement</b>
+          <span class="body">Only appears when tenure says it is needed, addressed to the body the routing rule
+            named, stating the footprint and the duration.</span>
+          <span class="src">land_tenure × delivery</span>
+        </div>
+        <div class="rule">
+          <b>Budget and maintenance plan</b>
+          <span class="body">Construction from area × cost band, then a separate annual figure — kept separate
+            precisely because funders treat them differently.</span>
+          <span class="src">costBand · opex_estimate_year1</span>
+        </div>
+        <div class="rule">
+          <b>Terms of responsibility for their own data</b>
+          <span class="body">Ana's drafted document, reaching the org inside the flow rather than as a PDF a
+            coordinator holds. Raised by the orgs themselves at the convening.</span>
+          <span class="src">backlog #31 · CboDataNoticeDialog</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════ 4 · MATRIX ═══════════ -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="n">04 — THE RULE THAT DOES THE MOST WORK</span>
+      <h2>Access × build model → who has to say yes</h2>
+      <p>
+        The convening found orgs already running gardens and composting, unsure which interventions they can
+        do alone and which need the municipality. The useful answer is not "you need the prefeitura" — it is
+        <em>which half</em> they need it for. Permission and construction are different conversations, with
+        different people, on different timelines.
+      </p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Their access to the land</th>
+            <th>Solution can be self-built</th>
+            <th>Solution needs a partner</th>
+            <th>Solution needs a licence</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="k">private-owned</td>
+            <td><span class="v ok">On their own</span><br>Technician for the design only</td>
+            <td><span class="v mid">Find the partner</span><br>Access is not the obstacle</td>
+            <td><span class="v mid">Licence only</span><br>SMAMUS / FEPAM by scale</td>
+          </tr>
+          <tr>
+            <td class="k">formal-agreement</td>
+            <td><span class="v ok">On their own</span><br>Check the agreement covers works</td>
+            <td><span class="v mid">Find the partner</span></td>
+            <td><span class="v mid">Licence + owner's consent</span></td>
+          </tr>
+          <tr>
+            <td class="k">public-informal</td>
+            <td><span class="v mid">Permission first</span><br>They can build it — they may not be allowed to yet</td>
+            <td><span class="v hard">Permission + partner</span><br>Two tracks, run in parallel</td>
+            <td><span class="v hard">Permission + licence</span><br>Longest path; start now</td>
+          </tr>
+          <tr>
+            <td class="k">public-no-access</td>
+            <td><span class="v hard">Access is the project</span><br>Securing use comes before any design work</td>
+            <td><span class="v hard">Access + partner</span></td>
+            <td><span class="v hard">Access + licence</span></td>
+          </tr>
+          <tr>
+            <td class="k">mixed / not sure</td>
+            <td colspan="3"><span class="v mid">First item on the list is finding out</span> — who owns the lot, and on what terms they are there. Everything downstream depends on it.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note warn" style="margin-top:14px">
+      <strong>Provisional.</strong> The delivery classification across the 27 solutions is flagged in the
+      catalogue as our read, not verified against the source manuals; the same is true of the agency routing
+      in the fichas. The matrix is honest about being a first draft — Robson and Hesioni should confirm both
+      before it is presented as a verdict to an organization.
+    </p>
+  </section>
+
+  <!-- ═══════════ 5 · WORKED EXAMPLE ═══════════ -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="n">05 — WHAT IT LOOKS LIKE FOR ONE ORGANIZATION</span>
+      <h2>A worked example, end to end</h2>
+      <p>
+        Using the test-fixture organization, so nothing here is a real org's data. Everything below the
+        divider was generated by the rules above from the inputs above it — no item was written by hand.
+      </p>
+    </div>
+
+    <div class="ex">
+      <div class="ex-head">
+        <h3>Horta Raízes · Sarandi</h3>
+        <p style="margin:6px 0 0;font-size:14px">
+          Community garden on a city-owned lot they have used for six years. The street pools after every
+          heavy rain and takes two days to clear.
+        </p>
+        <div class="ex-in">
+          <span class="f">site_worry: alagamento</span>
+          <span class="f">land_tenure: public-informal</span>
+          <span class="f">current_use: mixed</span>
+          <span class="f">intervention: jardins-de-chuva</span>
+          <span class="f">delivery: mutirao</span>
+          <span class="f">area: 320 m²</span>
+          <span class="f">construction_model: mutirão</span>
+          <span class="f">who_maintains: our organization</span>
+          <span class="f">role_preference: executar</span>
+        </div>
+      </div>
+      <div class="ex-body">
+
+        <div class="item">
+          <span class="tag t-c">Contact</span>
+          <span class="what">Ask SMAMUS for written permission to build on the lot
+            <span class="why">The land is the city's. They can build a rain garden themselves — the obstacle is
+              permission, not capability, and this is the longest-lead item in the whole plan.</span></span>
+          <span class="who">org · 2 weeks</span>
+        </div>
+        <div class="item">
+          <span class="tag t-c">Contact</span>
+          <span class="what">Confirm with DMAE whether the garden may connect to the public drain
+            <span class="why">Only needed if the overflow ties into the network. If it infiltrates entirely on
+              site, this item disappears — worth establishing before drafting anything.</span></span>
+          <span class="who">org · 2 weeks</span>
+        </div>
+        <div class="item">
+          <span class="tag t-c">Contact</span>
+          <span class="what">Find a technician for the layer design and infiltration calculation
+            <span class="why">The mutirão can dig and plant. A badly calculated garden does not drain, and the
+              failure looks identical to the problem they are trying to fix.</span></span>
+          <span class="who">coordination · 3 weeks</span>
+        </div>
+        <div class="item">
+          <span class="tag t-i">Investigate</span>
+          <span class="what">Soil infiltration test at the proposed footprint
+            <span class="why">Named directly in the rain-garden ficha. Decides the depth of the stone layer and
+              whether 320 m² is the right size at all.</span></span>
+          <span class="who">technician · 4 weeks</span>
+        </div>
+        <div class="item">
+          <span class="tag t-i">Investigate</span>
+          <span class="what">What is under the paved half of the lot
+            <span class="why"><code>current_use: mixed</code> — de-paving cost and compaction are unknown until
+              someone lifts a corner and looks.</span></span>
+          <span class="who">org · next visit</span>
+        </div>
+        <div class="item">
+          <span class="tag t-i">Investigate</span>
+          <span class="what">Whether the Teia Sprint line funds maintenance or only construction
+            <span class="why">They plan to maintain it themselves, which is credible for trash and replanting but
+              not for restoring filter layers at year 5–10.</span></span>
+          <span class="who">org · 3 weeks</span>
+        </div>
+        <div class="item">
+          <span class="tag t-g">Gather</span>
+          <span class="what">Photograph where the water pools, and how long it stays
+            <span class="why">Alagamento is defined by pooling and drainage time. Two dated photos — during rain
+              and 48h later — are the baseline the whole impact claim rests on.</span></span>
+          <span class="who">org · next heavy rain</span>
+        </div>
+        <div class="item">
+          <span class="tag t-g">Gather</span>
+          <span class="what">Measure the paved area draining into the site, and the distance to the nearest drain
+            <span class="why">Both feed the sizing. A phone and a tape measure are enough.</span></span>
+          <span class="who">org · next visit</span>
+        </div>
+        <div class="item">
+          <span class="tag t-g">Gather</span>
+          <span class="what">Count the households on the stretch that floods
+            <span class="why">Turns "it floods here" into "it reaches about twelve families on Rua X" — the step
+              between a generic and a specific problem statement.</span></span>
+          <span class="who">org · 2 weeks</span>
+        </div>
+        <div class="item">
+          <span class="tag t-d">Document</span>
+          <span class="what">The permission request itself — footprint, duration, what is being built
+            <span class="why">Drafted from what W3 already captured; the org edits rather than composes.</span></span>
+          <span class="who">org + coordination</span>
+        </div>
+        <div class="item">
+          <span class="tag t-d">Document</span>
+          <span class="what">Budget at R$ 400–700/m² for 320 m², separated into build and annual upkeep
+            <span class="why">Kept as two figures because funders treat them differently, and because the second
+              is the one that decides whether this exists in three years.</span></span>
+          <span class="who">org · 4 weeks</span>
+        </div>
+        <div class="item">
+          <span class="tag t-d">Document</span>
+          <span class="what">Who clears the trash, and how often
+            <span class="why">The named failure mode: a clogged garden becomes standing water, and standing water
+              becomes a mosquito site within days. A name and a frequency, not an intention.</span></span>
+          <span class="who">org · at W4</span>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 6 · STATE ═══════════ -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="n">06 — WHAT EXISTS AND WHAT DOESN'T</span>
+      <h2>Honest build state</h2>
+      <p>The flow above is the design. Roughly half of it is already in the repo; the dossier itself is not.</p>
+    </div>
+    <div class="gaps">
+      <div class="gap">
+        <span class="st built">In the repo</span>
+        <h3>The permission knowledge</h3>
+        <p>All 27 solutions carry who-must-approve and who-maintains-after, with Porto Alegre agencies named
+          and inferences flagged. This is the hardest content in the whole dossier and it already exists.</p>
+      </div>
+      <div class="gap">
+        <span class="st built">In the repo</span>
+        <h3>Selector, mechanism ordering, delivery chips</h3>
+        <p>The intervention selector, the hazard-mechanism ordering, and the mutirão/parceria/licença
+          classification all shipped. W3's first beat has its machinery.</p>
+      </div>
+      <div class="gap">
+        <span class="st todo">Not built</span>
+        <h3>The dossier generator</h3>
+        <p>The rules in section 03 do not exist as code. This is the substantive new piece — deterministic,
+          testable, and independent of the model.</p>
+      </div>
+      <div class="gap">
+        <span class="st todo">Not built</span>
+        <h3>Sizing bands and the sketch tool</h3>
+        <p>The footprint sketcher and the small/medium/large bands with cost ranges per solution are specified
+          but unwritten. Area currently comes from the W2 pin, not a drawn polygon.</p>
+      </div>
+      <div class="gap">
+        <span class="st todo">Not built</span>
+        <h3><code>encontro-3.md</code></h3>
+        <p>Phase 3 still runs off the monolithic prompt rather than a dedicated skill file, unlike E1 and E2.</p>
+      </div>
+      <div class="gap">
+        <span class="st blocked">Blocking for launch</span>
+        <h3>The intervention detail pages are English-only</h3>
+        <p>Six detail documents, no Portuguese versions — so an org reading a solution in depth gets English
+          body text under Portuguese tabs. This is the largest volume of English a CBO will ever encounter,
+          and W3 is exactly where they meet it.</p>
+      </div>
+      <div class="gap">
+        <span class="st blocked">Needs a person</span>
+        <h3>Confirmation of the routing</h3>
+        <p>Delivery classification and agency routing are our reads. Robson and Hesioni should confirm before
+          any of it is presented to an organization as what they must do.</p>
+      </div>
+      <div class="gap">
+        <span class="st blocked">Needs a person</span>
+        <h3>The <em>need → partner</em> map</h3>
+        <p>Beyond the municipal bodies, naming <em>which</em> partner to approach for funding, technical design
+          or monitoring needs authoring with people who know the local ecosystem.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Sources in-repo: <span class="mono">shared/nbs-solution-fichas.ts</span> ·
+    <span class="mono">shared/nbs-catalog.ts</span> ·
+    <span class="mono">shared/site-knowledge.ts</span> ·
+    <span class="mono">shared/cbo-field-catalog.ts</span> ·
+    <span class="mono">knowledge/porto-alegre/regulatory-context.md</span> ·
+    <span class="mono">knowledge/_financing-sources/cbo-grants.md</span> ·
+    <span class="mono">knowledge/runs/2026-06-30-w3-refine/plan.md</span> ·
+    <span class="mono">docs/cbo-ux-audit-backlog.md</span> (#24, #26, #30, #31).
+  </footer>
+
+</div>
+</body>
+</html>

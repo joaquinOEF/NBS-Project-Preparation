@@ -909,32 +909,83 @@ export default function CboProfilePage() {
     const mount = document.getElementById('root');
     let raf = 0;
     let settle: ReturnType<typeof setTimeout> | undefined;
+    let watchdog: ReturnType<typeof setInterval> | undefined;
+    let lastH = -1;
+    let lastTop = -1;
+
+    // MEASURE + WRITE. Idempotent, so the watchdog can call it freely.
+    const apply = () => {
+      const v = window.visualViewport;
+      let h = v?.height ?? window.innerHeight;
+      let top = v?.offsetTop ?? 0;
+      // KEYBOARD STATE IS INFERRED FROM FOCUS, NOT FROM THE VIEWPORT. After
+      // the keyboard dismisses, iOS keeps REPORTING the stale smaller
+      // height/offset and often never fires another vv event (field report
+      // 2026-07-15 round 2: fine at session start, short shell + dead space
+      // after the first typed turn; known iOS 26 regression). No editable
+      // element focused ⇒ the keyboard cannot be open ⇒ trust the layout
+      // viewport. Skipped while pinch-zoomed (scale ≠ 1), where
+      // vv.height < innerHeight is legitimate.
+      const ae = document.activeElement as HTMLElement | null;
+      const editableFocused = !!ae && (
+        ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable
+      );
+      if (!editableFocused && (v?.scale ?? 1) === 1) {
+        h = Math.max(h, window.innerHeight);
+        top = 0;
+      }
+      // Clamp. A NEGATIVE offset would push the header above the visible top,
+      // and because the document is locked the user cannot scroll back to it —
+      // the app would simply have no header, with no recovery. Whatever iOS
+      // reports, the shell starts at or below the top of what's visible.
+      top = Math.max(0, top);
+      h = Math.max(1, h);
+      const rh = Math.round(h);
+      const rtop = Math.round(top);
+      // WRITE ONLY ON CHANGE. Setting a custom property invalidates style even
+      // when the value is identical, and the heartbeat below calls this twice a
+      // second for the whole session — an unconditional write would mean a
+      // style recalc every 500ms on every phone in the cohort, forever.
+      if (rh !== lastH) { root.style.setProperty('--cbo-vh', `${rh}px`); lastH = rh; }
+      if (rtop !== lastTop) { root.style.setProperty('--cbo-vv-top', `${rtop}px`); lastTop = rtop; }
+      if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
+      return { h: rh, top: rtop };
+    };
+
+    // SELF-HEALING WATCHDOG — the reason this is the third fix.
+    //
+    // Both previous fixes assumed "an event will tell us". The 2026-08-10 field
+    // report proves they don't always: iOS can leave the viewport displaced and
+    // fire nothing. So instead of trying to enumerate every event, compare what
+    // the shell ACTUALLY paints against what it should, and repair the drift.
+    // Convergence stops mattering which event was missed.
+    //
+    // It runs for the WHOLE life of the chat shell and never switches itself
+    // off. An earlier draft stopped after a few clean ticks — which reopens
+    // the same hole one level up, because a silent change arriving after it
+    // stopped would go undetected. A heartbeat with an off switch is not a
+    // heartbeat. The cost of leaving it on is two rect reads every 500ms:
+    // nothing next to the SSE stream and React's own work, even on the
+    // low-end Androids in the cohort. Skipped while backgrounded.
+    const reconcile = () => {
+      if (document.hidden) return;
+      const el = document.querySelector<HTMLElement>('[data-testid="cbo-shell"]');
+      const target = apply();
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const drift = Math.abs(r.top - target.top) > 1 || Math.abs(r.height - target.h) > 1;
+      // apply() has already rewritten the variables; the rect converges on the
+      // next frame. Nothing else to do — this branch exists so the condition
+      // is observable in a debugger and in the spec.
+      if (drift) root.setAttribute('data-cbo-vv-repaired', '1');
+    };
+    watchdog = setInterval(reconcile, 500);
+
     const setVH = () => {
       if (raf) return; // coalesce bursts (iOS fires resize+scroll together)
       raf = requestAnimationFrame(() => {
         raf = 0;
-        const v = window.visualViewport;
-        let h = v?.height ?? window.innerHeight;
-        let top = v?.offsetTop ?? 0;
-        // KEYBOARD STATE IS INFERRED FROM FOCUS, NOT FROM THE VIEWPORT. After
-        // the keyboard dismisses, iOS keeps REPORTING the stale smaller
-        // height/offset and often never fires another vv event (field report
-        // 2026-07-15 round 2: fine at session start, short shell + dead space
-        // after the first typed turn; known iOS 26 regression). No editable
-        // element focused ⇒ the keyboard cannot be open ⇒ trust the layout
-        // viewport. Skipped while pinch-zoomed (scale ≠ 1), where
-        // vv.height < innerHeight is legitimate.
-        const ae = document.activeElement as HTMLElement | null;
-        const editableFocused = !!ae && (
-          ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable
-        );
-        if (!editableFocused && (v?.scale ?? 1) === 1) {
-          h = Math.max(h, window.innerHeight);
-          top = 0;
-        }
-        root.style.setProperty('--cbo-vh', `${Math.round(h)}px`);
-        root.style.setProperty('--cbo-vv-top', `${Math.round(top)}px`);
-        if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
+        apply();
       });
     };
     // Focus changes are the reliable keyboard signal, but they land BEFORE the
@@ -954,6 +1005,15 @@ export default function CboProfilePage() {
     document.addEventListener('focusout', onFocusChange);
     window.addEventListener('orientationchange', setVH);
     window.addEventListener('resize', setVH);
+    // A document scroll used to be invisible here: the reset lived inside the
+    // vv handler, so a scroll that fired no vv event was never undone. With a
+    // fixed shell it can no longer displace anything, but the reset still runs
+    // — a scrolled locked document is a symptom worth clearing, not keeping.
+    window.addEventListener('scroll', setVH, { passive: true });
+    // Returning from the background, or a bfcache restore, is the other moment
+    // iOS hands back stale geometry with no resize event.
+    window.addEventListener('pageshow', setVH);
+    document.addEventListener('visibilitychange', setVH);
 
     // Lock document scroll the GENTLE way — overflow:hidden + full height on the
     // scroll chain (html → body → #root). NOT `position: fixed` on body: that
@@ -981,8 +1041,12 @@ export default function CboProfilePage() {
       document.removeEventListener('focusout', onFocusChange);
       window.removeEventListener('orientationchange', setVH);
       window.removeEventListener('resize', setVH);
+      window.removeEventListener('scroll', setVH);
+      window.removeEventListener('pageshow', setVH);
+      document.removeEventListener('visibilitychange', setVH);
       if (raf) cancelAnimationFrame(raf);
       clearTimeout(settle);
+      if (watchdog) clearInterval(watchdog);
       root.style.removeProperty('--cbo-vh');
       root.style.removeProperty('--cbo-vv-top');
       root.style.overflow = prev.htmlOverflow;
@@ -1807,7 +1871,15 @@ export default function CboProfilePage() {
   }
 
   return (
-    <div data-testid="cbo-shell" className="h-[100dvh] flex flex-col bg-background overflow-hidden" style={{ height: 'var(--cbo-vh, 100dvh)', transform: 'translateY(var(--cbo-vv-top, 0px))' }}>
+    // POSITION: FIXED, not in flow — see docs/mobile-viewport.md invariant 2.
+    // In flow, ANY document scroll drags the shell out of the visible window:
+    // the header goes above the top (unreachable, because the document is
+    // locked so the user cannot scroll back to it) and an equal dead band
+    // opens below the tab bar. Fixed makes the shell's paint position depend
+    // only on --cbo-vv-top, so document scroll — however it happened — cannot
+    // displace it. `top` rather than translateY: a transform would make the
+    // shell the containing block for any `fixed` descendant.
+    <div data-testid="cbo-shell" className="fixed inset-x-0 flex flex-col bg-background overflow-hidden" style={{ top: 'var(--cbo-vv-top, 0px)', height: 'var(--cbo-vh, 100dvh)' }}>
       {/* E2E stream-complete contract. SSE never goes network-idle, so Playwright
           waits on this hidden marker's attributes instead: data-streaming flips
           to 'false' when a turn ends, data-turns counts completed turns, and
