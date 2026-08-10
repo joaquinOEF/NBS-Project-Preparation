@@ -124,11 +124,17 @@ export const NBS_SHOWCASE_CARDS: NbsShowcaseCard[] = [
       'Iniciativa do Vila Flores no pós-enchente de maio de 2024. Articulou 5 laboratórios urbanos em 2 anos no 4º Distrito — incluindo hortas comunitárias, jardins de chuva, e oficinas com moradores. Captou recursos da Caixa Federal e do Fundo Casa RS. Referência regional pra adaptação climática liderada por OBCs.',
     detailEn:
       "Vila Flores' post-2024-flood initiative. Five urban labs in 2 years in the 4° Distrito — community gardens, rain gardens, and resident workshops. Funded by Caixa Federal and Fundo Casa RS. Regional reference for CBO-led climate adaptation.",
-    photo: null,
-    placeholder: {
-      gradient: 'biodiversity',
-      emoji: '🌱',
+    // Vila Flores' own courtyard, from their own site: the 1920s complex,
+    // the Galpão, the pátio full of families. Exactly what the curation note
+    // asked for — "people working in the space, warmth over architecture".
+    photo: {
+      path: '/assets/showcase/poa-varzea-lab.jpg',
+      source: 'Vila Flores (vilaflores.org)',
+      photographer: 'Ricardo Ará',
+      license: 'Partner\'s own site — attribution given, permission to confirm',
+      verified: true,
     },
+    placeholder: null,
   },
   {
     id: 'poa-orla-guaiba',
@@ -253,11 +259,17 @@ export const NBS_SHOWCASE_CARDS: NbsShowcaseCard[] = [
     detailEn:
       "Born in a Facebook group (Hortelões Urbanos), it became São Paulo's first major community garden: 800 m² in a public square in Vila Beatriz, run by volunteers with a watering rota and adopted beds. Along the way they recovered one of the springs feeding the Córrego das Corujas. No owner, no fence — running since 2012.",
     // Fonte: hortadascorujas.wordpress.com (Sobre a Horta) + Recicla Sampa.
-    photo: null,
-    placeholder: {
-      gradient: 'biodiversity',
-      emoji: '🥬',
+    // From the horta's OWN blog, credited to one of its volunteers — the
+    // community's material, not the stock-agency frame that was the only
+    // other published option.
+    photo: {
+      path: '/assets/showcase/sp-horta-das-corujas.jpg',
+      source: 'Horta das Corujas (hortadascorujas.wordpress.com)',
+      photographer: 'Ana Elisa de Rizzo',
+      license: 'Community blog — attribution given, permission to confirm',
+      verified: true,
     },
+    placeholder: null,
   },
   {
     id: 'poa-hortas-agroflorestais',
