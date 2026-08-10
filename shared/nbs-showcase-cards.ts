@@ -163,12 +163,17 @@ export const NBS_SHOWCASE_CARDS: NbsShowcaseCard[] = [
       'Maior parque da área central (67 ha, aberto em 1978), com grande cobertura arbórea, lazer e drenagem natural junto ao Guaíba. Foi parcialmente inundado na cheia de maio de 2024 — hoje peça-chave no debate sobre recuperação verde e convivência com a água.',
     detailEn:
       "The central area's largest park (67 ha, opened 1978) — extensive canopy, recreation, and natural drainage along the Guaíba. Partially flooded in the May 2024 flood, it's now central to the conversation on green recovery and living with water.",
-    // Photo pending curation — gradient for now.
-    photo: null,
-    placeholder: {
-      gradient: 'flood',
-      emoji: '🌊',
+    // Alameda: mature canopy over unpaved ground — the two things the card
+    // claims (shade, absorption). The park's skatepark shots are the trap here:
+    // a concrete bowl illustrating "absorbs water" argues against the text.
+    photo: {
+      path: '/assets/showcase/poa-marinha-do-brasil.jpg',
+      source: 'Wikimedia Commons',
+      photographer: 'Apesito.nomas',
+      license: 'CC0',
+      verified: true,
     },
+    placeholder: null,
   },
   // ── Community-led cases (biweekly 2026-07-16: "look at how the community
   // did it, how the process went") — the five below are organized/built by
@@ -248,12 +253,16 @@ export const NBS_SHOWCASE_CARDS: NbsShowcaseCard[] = [
       'Porto Alegre está implantando 68 hortas comunitárias agroflorestais — os locais são escolhidos com a população pelo Orçamento Participativo e a manutenção é das próprias comunidades, com apoio da OSC Ecos. Dezesseis já funcionavam no fim de 2024. A da Lomba do Pinheiro articula moradores, secretarias e universidades no mesmo espaço.',
     detailEn:
       'Porto Alegre is rolling out 68 agroforestry community gardens — sites are chosen with residents through Participatory Budgeting and maintenance is done by the communities themselves, supported by the CSO Ecos. Sixteen were running by late 2024. The Lomba do Pinheiro garden brings residents, city departments and universities into one space.',
-    // Fonte: prefeitura.poa.br/smgov (dez/2024).
-    photo: null,
-    placeholder: {
-      gradient: 'biodiversity',
-      emoji: '🌱',
+    // Fonte: prefeitura.poa.br/smgov (dez/2024). The photo comes from THAT
+    // release (IBPA 141905, 2024-12-28) — same source as the facts above.
+    photo: {
+      path: '/assets/showcase/poa-hortas-agroflorestais.jpg',
+      source: 'Wikimedia Commons — Agência Porto Alegre (IBPA 141905)',
+      photographer: 'Marilia Jung / SMGOV / PMPA',
+      license: 'Attribution (PMPA)',
+      verified: true,
     },
+    placeholder: null,
   },
   {
     id: 'asa-um-milhao-de-cisternas',
