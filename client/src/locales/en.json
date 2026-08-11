@@ -632,6 +632,8 @@
     "noAssetsErrorDescription": "Try selecting a different category or zone.",
     "zonePriority": "Zone Priority",
     "relativeToCity": "relative to Porto Alegre neighborhoods",
+    "landslideProne": "landslide-prone terrain",
+    "landslideProneShort": "slope",
     "noZonesLoaded": "Zones will appear here once loaded",
     "evidenceLayers": "Evidence Layers",
     "title": "Site Explorer",
