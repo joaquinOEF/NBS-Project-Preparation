@@ -322,6 +322,86 @@ export const NBS_SHOWCASE_CARDS: NbsShowcaseCard[] = [
     },
     placeholder: null,
   },
+  // ── Rede Sul de Restauração · Banco de Experiências (Julia Caon Froeder,
+  // 2026-08-10) ─────────────────────────────────────────────────────────────
+  // 27 entries, mostly restoration science on rural land and in protected
+  // areas — Pampa grassland management, invasive control in state parks, seed
+  // harvesting. Most does not transfer to an org working a school yard in a
+  // POA bairro. These three do. Photos and figures come from each project's
+  // own page in the portfolio; the network coordinates at redesulre@gmail.com.
+  {
+    id: 'poa-microflorestas-urbanas',
+    org: 'Microflorestas Urbanas · Virada Sustentável',
+    city: 'Porto Alegre, RS',
+    year: 2023,
+    hazard: 'mixed',
+    typeRefs: ['urban-forests'],
+    summaryPt: 'Mata densa em 100 m² — e em um ano já passa da cabeça',
+    summaryEn: 'Dense forest in 100 m² — head-high within a year',
+    detailPt:
+      'Método Miyawaki: plantio bem adensado de nativas que cresce cerca de 10 vezes mais rápido que o plantio tradicional. Precisa de no mínimo 100 m². Em Porto Alegre já são três. Na escola Alberto Torres, na zona sul, quem cuida são estudantes e professoras, e a microfloresta virou matéria de aula. No Foro 1 do TJRS foram 300 mudas de 34 espécies nativas, numa área que alagou em 2024 — ali o plantio serve pra absorver água e baixar a temperatura, e já apareceram pássaros. Na frente do CEIKA, mais 300 mudas de 30 espécies da Mata Atlântica, com irrigação automática e visita mensal no primeiro ano.',
+    detailEn:
+      'Miyawaki method: densely packed native planting that grows around 10 times faster than conventional planting. Needs at least 100 m². Porto Alegre has three. At Alberto Torres school in the south zone, students and teachers do the upkeep and the microforest became part of lessons. At the TJRS courthouse, 300 seedlings of 34 native species went into an area that flooded in 2024 — there the planting is for absorbing water and lowering temperature, and birds have already arrived. In front of CEIKA, another 300 seedlings of 30 Atlantic Forest species, with automatic irrigation and monthly visits through the first year.',
+    // The photo is the project's own labelled before/after — "2023 Plantio" /
+    // "2024 · 1 ano depois", same people, same spot, knee-high to overhead.
+    // It answers "does this work, and how fast" without a caption.
+    photo: {
+      path: '/assets/showcase/poa-microflorestas-urbanas.jpg',
+      source: 'Rede Sul de Restauração — Banco de Experiências',
+      photographer: 'Julia Caon Froeder / Virada Sustentável',
+      license: 'Shared for the COUGAR pilot — attribution given',
+      verified: true,
+    },
+    placeholder: null,
+  },
+  {
+    id: 'rs-muvuca-arroio-corupa',
+    org: 'Muvuca de sementes · Arroio Corupá',
+    city: 'Agudo, RS',
+    year: 2024,
+    hazard: 'flood',
+    typeRefs: ['wetland-restoration'],
+    summaryPt: 'Semear direto no chão, sem mudas — 330 m² num mutirão de 50 pessoas',
+    summaryEn: 'Direct seeding, no seedlings — 330 m² in a 50-person mutirão',
+    detailPt:
+      'A enchente de abril e maio de 2024 levou a mata da beira do Arroio Corupá. Em outubro, mais de 50 pessoas semearam 330 m² direto no chão: 3,9 kg de sementes de 22 espécies nativas misturadas com 6,8 kg de adubação verde — é isso que chamam de muvuca, e sai bem mais barato que plantar muda por muda. Nove meses depois, nove espécies de árvore tinham pegado e a crotalária já cobria o solo. O relato também conta o que deu errado: capim-elefante e mamona voltaram e disputam espaço até hoje.',
+    detailEn:
+      "The April–May 2024 flood took out the riparian forest along Arroio Corupá. In October, 50+ people direct-seeded 330 m²: 3.9 kg of seed from 22 native species mixed with 6.8 kg of green manure — that mix is the muvuca, and it costs far less than planting seedling by seedling. Nine months on, nine tree species had taken and crotalária had covered the ground. The write-up is equally clear about what went wrong: elephant grass and castor bean came back and are still competing.",
+    photo: {
+      path: '/assets/showcase/rs-muvuca-arroio-corupa.jpg',
+      source: 'Rede Sul de Restauração — Banco de Experiências',
+      photographer: 'Matheus Degrandi Gazzola / NEPRADE-UFSM',
+      license: 'Shared for the COUGAR pilot — attribution given',
+      verified: true,
+    },
+    placeholder: null,
+  },
+  {
+    id: 'rs-quarta-colonia-saf',
+    org: 'Restaura CEQC · Corredor Ecológico da Quarta Colônia',
+    city: 'Quarta Colônia, RS',
+    // ⚠️ The portfolio page states no date. 2024 is OUR inference: same
+    // NEPRADE-UFSM / TAESA programme as the Arroio Corupá muvuca above, and
+    // Agudo is one of the CEQC municipalities. Correct it if Pedro says
+    // otherwise — do not treat this year as sourced.
+    year: 2024,
+    hazard: 'biodiversity',
+    typeRefs: [],
+    summaryPt: 'Agrofloresta desenhada junto com quem mora e trabalha na terra',
+    summaryEn: 'Agroforestry designed together with the families who work the land',
+    detailPt:
+      'Sete sistemas agroflorestais em propriedades de agricultura familiar, em seis municípios do corredor ecológico. As espécies são nativas — araucária, juçara, cedro, canjerana, louro-pardo, camboatá-vermelho, aroeira-salso — junto com frutíferas exóticas não invasoras. O desenho de cada sistema é feito com a família que vai cuidar dele, não entregue pronto. A equipe técnica é da UFSM e acompanha em campo.',
+    detailEn:
+      'Seven agroforestry systems on family farms across six municipalities of the ecological corridor. The species are native — araucária, juçara, cedro, canjerana, louro-pardo, camboatá-vermelho, aroeira-salso — alongside non-invasive exotic fruit trees. Each system is designed with the family who will tend it rather than handed over finished. The technical team is from UFSM and follows up on site.',
+    photo: {
+      path: '/assets/showcase/rs-quarta-colonia-saf.jpg',
+      source: 'Rede Sul de Restauração — Banco de Experiências',
+      photographer: 'Pedro Braga Nunes / NEPRADE-UFSM',
+      license: 'Shared for the COUGAR pilot — attribution given',
+      verified: true,
+    },
+    placeholder: null,
+  },
 ];
 
 export function getShowcaseCard(id: string): NbsShowcaseCard | undefined {

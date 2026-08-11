@@ -536,3 +536,57 @@ check whether the people in the story published one themselves before
 concluding it cannot be had. Horta das Corujas and Vila Flores were both
 written up here as blocked on permission; both had usable, credited photographs
 on their own sites the whole time.
+
+## Rede Sul de Restauração — Banco de Experiências (2026-08-11)
+
+Julia Caon Froeder sent the portfolio she committed to at the convening:
+[27 entries](https://mailchi.mp/145ae888778e/27is2hhm23), each with its own
+page, coordinated by the network at `redesulre@gmail.com` /
+[@redesul_restauracao](https://instagram.com/redesul_restauracao/).
+
+**Most of it does not transfer to this cohort**, and that is worth saying
+plainly so nobody re-reads all 27 hoping otherwise. The bulk is restoration
+science on rural land and in protected areas — Pampa grassland management,
+invasive control in Parque Estadual de Itapuã, pine removal in Lagoa do Peixe,
+mechanised native-seed harvesting, rotational grazing on family livestock
+farms. Our orgs work a school yard or a praça in a Porto Alegre bairro.
+
+Three entries do transfer, and are now cards:
+
+```yaml
+nbs_showcase_photos_redesul:
+  - card: poa-microflorestas-urbanas
+    entry: "#7 — the author is Julia herself"
+    photographer: "Julia Caon Froeder / Virada Sustentável"
+    visual_check: "The project's OWN labelled before/after — '2023 Plantio' and '2024 · 1 ano depois', same group of people, same spot, knee-high seedlings then overhead growth."
+    why_this_one: "Porto Alegre, Miyawaki, minimum 100 m² — a scale a CBO actually has. The TJRS planting is in an area that flooded in 2024 and is framed as water absorption plus thermal reduction, which is both mechanisms at once. And the image answers 'does this work, how fast' with no caption."
+  - card: rs-muvuca-arroio-corupa
+    entry: "#11"
+    photographer: "Matheus Degrandi Gazzola / NEPRADE-UFSM"
+    visual_check: "Drone frame: ~40 people in a circle on the bare scoured floodplain beside the arroio, forest on the far bank."
+    why_this_one: "A mutirão in all but name, on a site the April–May 2024 event destroyed — the cohort's own flood. Real numbers (330 m², 3.9 kg of seed from 22 species) and, unusually, an honest account of what FAILED nine months on: Cenchrus purpureus and Ricinus communis returning. A case that admits a failure mode is worth more than three that don't."
+  - card: rs-quarta-colonia-saf
+    entry: "#12"
+    photographer: "Pedro Braga Nunes / NEPRADE-UFSM"
+    visual_check: "A técnico with clipboard and a seedling in a bag, talking with a landholder inside a working agroforestry plot — banana, palm, mulch, drip line."
+    why_this_one: "Not the intervention so much as the CONVERSATION W3 is about: technical support meeting a landholder on their own ground. The sibling frame is a team selfie with no intervention in it."
+    caveat: "⚠️ The page states NO date. The 2024 on the card is our inference — same NEPRADE/TAESA programme as the muvuca, and Agudo is a CEQC municipality. Not a sourced fact; correct it if Pedro says otherwise."
+```
+
+Photos are the projects' own, shared by the network for this pilot and
+attributed to the named author of each entry. Consistent with the pilot
+decision recorded above.
+
+### ⚠️ The more valuable thing in this file is not the cases
+
+It is **27 named restoration practitioners in Rio Grande do Sul, with contacts**.
+Julia raised at the convening that technical site validation may need expert
+visits between W2 and W3, and Ana parked it as a Pyxera scope question. W3's
+dossier has a "who do I call to check this is buildable" slot with nothing in
+it. This network is a candidate answer, and it is a directory, not a gallery.
+
+Three entries (#3 *Ar, água e terra* with aldeias guarani, #9 IECAM's planting,
+#15 *Ka'aguy Ete Rã*) are Guarani village projects — a concrete reason to call
+IECA, the indigenous-focused org that has not made the in-person meetings.
+⚠️ Their portfolio images are 269×177 thumbnails, unusable for a card; AEPIM's
+own material sits in SEMA-RS PDFs if anyone wants to go after it.
