@@ -1769,5 +1769,1589 @@
     "max": 1.0,
     "source": "classes",
     "note": "ARVC legend ramp, read off the published figure — reconstructed values"
+  },
+  "arvc_off_exposure_population": {
+    "layerId": "arvc_off_exposure_population",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5EB",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE7D1",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FDD4AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FDB97D",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FD9B50",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_exposure_black_population": {
+    "layerId": "arvc_off_exposure_black_population",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFFCDA",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#EFE0B4",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#E0C58E",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#D1AA69",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#C28F43",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_vulnerability_flood": {
+    "layerId": "arvc_off_vulnerability_flood",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FCFBFD",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#F0EEF5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#DEDEED",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#C6C6E1",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#ABA9D0",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_flood_historical": {
+    "layerId": "arvc_off_threat_flood_historical",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_flood_historical": {
+    "layerId": "arvc_off_risk_flood_historical",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_flood_2030": {
+    "layerId": "arvc_off_threat_flood_2030",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_flood_2030": {
+    "layerId": "arvc_off_risk_flood_2030",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_flood_2050": {
+    "layerId": "arvc_off_threat_flood_2050",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_flood_2050": {
+    "layerId": "arvc_off_risk_flood_2050",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_vulnerability_landslide": {
+    "layerId": "arvc_off_vulnerability_landslide",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FCFBFD",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#F0EEF5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#DEDEED",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#C6C6E1",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#ABA9D0",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_landslide_historical": {
+    "layerId": "arvc_off_threat_landslide_historical",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_landslide_historical": {
+    "layerId": "arvc_off_risk_landslide_historical",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_landslide_2030": {
+    "layerId": "arvc_off_threat_landslide_2030",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_landslide_2030": {
+    "layerId": "arvc_off_risk_landslide_2030",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_landslide_2050": {
+    "layerId": "arvc_off_threat_landslide_2050",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_landslide_2050": {
+    "layerId": "arvc_off_risk_landslide_2050",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_vulnerability_heat": {
+    "layerId": "arvc_off_vulnerability_heat",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FCFBFD",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#F0EEF5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#DEDEED",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#C6C6E1",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#ABA9D0",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_heat_historical": {
+    "layerId": "arvc_off_threat_heat_historical",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_heat_historical": {
+    "layerId": "arvc_off_risk_heat_historical",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_heat_2030": {
+    "layerId": "arvc_off_threat_heat_2030",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_heat_2030": {
+    "layerId": "arvc_off_risk_heat_2030",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_heat_2050": {
+    "layerId": "arvc_off_threat_heat_2050",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_heat_2050": {
+    "layerId": "arvc_off_risk_heat_2050",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_vulnerability_drought": {
+    "layerId": "arvc_off_vulnerability_drought",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FCFBFD",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#F0EEF5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#DEDEED",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#C6C6E1",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#ABA9D0",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_drought_historical": {
+    "layerId": "arvc_off_threat_drought_historical",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_drought_historical": {
+    "layerId": "arvc_off_risk_drought_historical",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_drought_2030": {
+    "layerId": "arvc_off_threat_drought_2030",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_drought_2030": {
+    "layerId": "arvc_off_risk_drought_2030",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_drought_2050": {
+    "layerId": "arvc_off_threat_drought_2050",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_drought_2050": {
+    "layerId": "arvc_off_risk_drought_2050",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_vulnerability_arbovirus": {
+    "layerId": "arvc_off_vulnerability_arbovirus",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FCFBFD",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#F0EEF5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#DEDEED",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#C6C6E1",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#ABA9D0",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_arbovirus_historical": {
+    "layerId": "arvc_off_threat_arbovirus_historical",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_arbovirus_historical": {
+    "layerId": "arvc_off_risk_arbovirus_historical",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_arbovirus_2030": {
+    "layerId": "arvc_off_threat_arbovirus_2030",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_arbovirus_2030": {
+    "layerId": "arvc_off_risk_arbovirus_2030",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_arbovirus_2050": {
+    "layerId": "arvc_off_threat_arbovirus_2050",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_arbovirus_2050": {
+    "layerId": "arvc_off_risk_arbovirus_2050",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_vulnerability_storm": {
+    "layerId": "arvc_off_vulnerability_storm",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FCFBFD",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#F0EEF5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#DEDEED",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#C6C6E1",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#ABA9D0",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_storm_historical": {
+    "layerId": "arvc_off_threat_storm_historical",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_storm_historical": {
+    "layerId": "arvc_off_risk_storm_historical",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_storm_2030": {
+    "layerId": "arvc_off_threat_storm_2030",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_storm_2030": {
+    "layerId": "arvc_off_risk_storm_2030",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_threat_storm_2050": {
+    "layerId": "arvc_off_threat_storm_2050",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#008080",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#4A988D",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#86B09A",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#B4C8A8",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#E0E0B6",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_off_risk_storm_2050": {
+    "layerId": "arvc_off_risk_storm_2050",
+    "kind": "gradient",
+    "unit": "índice 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFF5F0",
+        "label": "Muito Baixa"
+      },
+      {
+        "value": 0.2,
+        "color": "#FEE2D5",
+        "label": "Baixa"
+      },
+      {
+        "value": 0.4,
+        "color": "#FCC3AB",
+        "label": "Média"
+      },
+      {
+        "value": 0.6,
+        "color": "#FC9F81",
+        "label": "Alta"
+      },
+      {
+        "value": 0.8,
+        "color": "#FB7B5B",
+        "label": "Muito Alta"
+      }
+    ],
+    "min": 0.0,
+    "max": 1.0,
+    "source": "official",
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
   }
 }
