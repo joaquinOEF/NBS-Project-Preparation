@@ -254,7 +254,7 @@ const BAND_CHIP: Record<ReturnType<typeof maturityBand>, string> = {
 // ---------------------------------------------------------------------------
 // Risk layer styling — neighborhood choropleth keyed by priorityScore from
 // `porto-alegre-neighborhood-zones.json`. Bands are derived from the
-// distribution in that file (scores ~0..2.5+); colors progress from green to
+// distribution in that file (scores ~0..1 percentile rank+); colors progress from green to
 // red so the eye lands first on the urgent recruitment targets.
 // ---------------------------------------------------------------------------
 // The coordinator risk map shows ONE view at a time over the always-on bairro

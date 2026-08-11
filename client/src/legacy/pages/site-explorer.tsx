@@ -1118,7 +1118,7 @@ export default function SiteExplorerPage() {
         // Badge shows the dominant hazard's within-city percentile band (display).
         dominantPct: dominantPercentile(f.properties),
       }))
-      // ORDER by the absolute priorityScore — the same basis the orchestrator uses,
+      // ORDER by priorityScore (now a percentile rank) — the same basis the orchestrator uses,
       // so the two priority views can't drift. (Was max-of-ranks, which inflated
       // spatially-concentrated landslide; see risk-display.ts.)
       .sort((a: any, b: any) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0));

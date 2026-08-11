@@ -494,8 +494,14 @@ function SetupStep({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <h3 className="text-base font-semibold truncate">{zoneName}</h3>
+                          {/* Cut points track the distribution of max-of-means in
+                              porto-alegre-neighborhood-zones.json. The old 0.7/0.4
+                              pair was set when that ran 0.01–0.62, so nothing was
+                              ever red; the ARVC-sourced data runs 0.03–0.66 and
+                              clusters near 0.45, where 0.4 made almost the whole
+                              city amber. */}
                           {zone.riskScore && (
-                            <span className={`text-sm font-semibold shrink-0 ${zone.riskScore > 0.7 ? 'text-red-600' : zone.riskScore > 0.4 ? 'text-amber-600' : 'text-green-600'}`}>
+                            <span className={`text-sm font-semibold shrink-0 ${zone.riskScore > 0.55 ? 'text-red-600' : zone.riskScore > 0.42 ? 'text-amber-600' : 'text-green-600'}`}>
                               {(zone.riskScore * 100).toFixed(0)}%
                             </span>
                           )}

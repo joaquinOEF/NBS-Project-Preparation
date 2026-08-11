@@ -5,7 +5,10 @@ server/public
 vite.config.ts.*
 *.tar.gz
 .env
-# Generated 250m grid (run generate-grid-250m.ts to create)
+# Generated 250m grid — a build artifact, not source.
+#   from the ARVC rasters:  .venv-geo/bin/python scripts/sample-arvc-grid.py
+#   from the OEF catalog:   npx tsx scripts/generate-grid-250m.ts
+#                           (needs S3 tile access; 403s outside the deploy env)
 client/public/sample-data/porto-alegre-grid-250m.json
 scripts/output/
 

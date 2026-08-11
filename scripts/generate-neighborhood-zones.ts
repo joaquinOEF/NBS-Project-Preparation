@@ -165,8 +165,14 @@ interface NeighborhoodZone {
   // catalog-scale flood competes fairly with old-scale heat/landslide. See playbook §5.
   floodRank: number;
   heatRank: number;
-  landslideRank: number;             // (display only — tooltip percentile bands; not classification)
-  priorityScore: number;             // = the primary hazard's ABSOLUTE catalog risk (0 for LOW)
+  landslideRank: number;             // ranks now drive BOTH the bands and the classification
+  p90Flood: number;                  // 90th-percentile cell risk within the bairro
+  p90Heat: number;
+  p90Landslide: number;
+  flood2024Pct: number;              // fraction of the bairro inside the observed May 2024 extent
+  sgbLandslidePeople: number;        // residents in SGB-surveyed landslide-type sectors
+  sgbFloodPeople: number;            // residents in SGB-surveyed flood-type sectors
+  priorityScore: number;             // = percentile rank (0–1) of the bairro's strongest hazard
   geometry: any;
 }
 
@@ -174,13 +180,25 @@ interface NeighborhoodZone {
 // CONSTANTS
 // ============================================================================
 
-// Hazard classification thresholds — on the ABSOLUTE catalog H×E×V risk scale
-// (0–1, comparable across flood/heat/landslide now they share the same catalog
-// scale). A hazard is "active" (counts toward the bairro's typology) when its
-// mean risk ≥ T_ACTIVE. Calibrated to the city distribution: heat median ≈0.34,
-// flood maxes ≈0.24 (riverside), landslide risk maxes ≈0.077 — so landslide is
-// never a primary RISK (it's surfaced as a susceptibility flag instead).
-const T_ACTIVE = 0.10;
+// Hazard classification threshold — on the PERCENTILE-RANKED risk scale, so it
+// means the same thing for every hazard regardless of that hazard's absolute
+// range. A hazard is "active" (counts toward the bairro's typology) when the
+// bairro sits in the top ~40% of the city for it.
+//
+// This replaces an absolute threshold of 0.10, which could not work across three
+// surfaces whose city medians were 0.34 (heat), ~0.02 (flood) and ~0.00
+// (landslide): one threshold was simultaneously far too low for heat and
+// unreachable for landslide. See the note on classifyHazards.
+const T_ACTIVE_RANK = 0.40;
+// Chosen by sweep, not by feel. The SGB arbiter is flat across the range — top-20
+// reach is 42.9% at 0.40, 0.50, 0.55 and 0.60 alike — because the threshold only
+// decides where LOW begins, not how the top of the list is ordered. So it was
+// picked on product grounds: how many bairros get specific guidance rather than a
+// generic multi_benefit.
+//     T     LOW     cooling  sponge  slope  multi
+//    0.40   29/94      25      23     17     29     <- chosen (prior behaviour: 18 LOW)
+//    0.50   38/94      21      19     16     38
+//    0.60   43/94      18      18     15     43     <- 46% of the city with no guidance
 
 // Landslide SUSCEPTIBILITY (terrain) — separate from risk. The catalog landslide
 // HAZARD gates slope<15°→0, so any non-trivial value means genuinely steep,
@@ -216,35 +234,65 @@ function slugify(name: string): string {
 }
 
 /** Determine intervention type from hazard typology */
-function getInterventionType(typology: TypologyLabel): InterventionType {
-  if (typology === 'LOW') return 'multi_benefit';
-  if (typology === 'FLOOD' || typology === 'FLOOD_HEAT' || typology === 'FLOOD_LANDSLIDE') return 'sponge_network';
-  if (typology === 'HEAT') return 'cooling_network';
-  if (typology === 'LANDSLIDE' || typology === 'HEAT_LANDSLIDE') return 'slope_stabilization';
+/**
+ * Intervention follows the PRIMARY hazard, not the typology label.
+ *
+ * The old version keyed on the typology string, which meant FLOOD_HEAT always
+ * returned sponge_network even when HEAT was the dominant hazard — a bairro whose
+ * top risk was heat got told to build a sponge network. That was invisible while
+ * combos were rare (8 of 94), but the ranked classification produces many more of
+ * them, which is what surfaced it.
+ *
+ * The secondary hazard is not dropped: it becomes an "also recommended"
+ * intervention alongside the slope-stabilization co-benefit flag.
+ */
+function interventionForHazard(h: HazardType | null): InterventionType {
+  if (h === 'FLOOD') return 'sponge_network';
+  if (h === 'HEAT') return 'cooling_network';
+  if (h === 'LANDSLIDE') return 'slope_stabilization';
   return 'multi_benefit';
 }
 
 /**
- * Classify a bairro's hazard profile from its ABSOLUTE catalog risk means.
- * "Catalog leads, app shows": since flood/heat/landslide share the same 0–1
- * H×E×V scale, we compare them directly — NO percentile ranking (which used to
- * distort, inflating spatially-concentrated hazards like landslide).
- *   - A hazard is ACTIVE when its mean risk ≥ T_ACTIVE.
+ * Classify a bairro's hazard profile from PERCENTILE-RANKED risk.
+ *
+ * ── Why this reverted to ranking, having previously moved away from it ────────
+ * The earlier note here said ranking "distorted, inflating spatially-concentrated
+ * hazards like landslide", and it was right about the data it had: our landslide
+ * risk peaked at 0.077 and was zero in 62 of 94 bairros, so percentile-ranking a
+ * mostly-zero column handed high ranks to bairros with a rounding error of risk.
+ *
+ * Comparing the raw values instead fixed that, but introduced a worse failure.
+ * The three are NOT on a comparable scale in practice — heat averaged 0.305,
+ * flood 0.028, landslide 0.006 — so the argmax picked HEAT in 74 of 94 bairros
+ * and priorityScore became, in effect, the heat value. The resulting portfolio
+ * order was inverted on equity: correlation with poverty −0.53, and the top 20
+ * (Bela Vista, Moinhos de Vento, Auxiliadora, Higienópolis…) contained 196 of the
+ * 84,604 people SGB surveyed as living in high-risk sectors. Arquipélago, with
+ * 18,520 of them, sat at rank 61.
+ *
+ * The ARVC rasters remove the original objection: their landslide risk is dense
+ * (4,506 of 7,523 cells scored, not a sparse sliver), so ranking it no longer
+ * amplifies noise. Ranking also makes the comparison scale-free by construction,
+ * which is the actual defect — a geometric-mean composite is always won by
+ * whichever term has the widest spread. See docs/arvc-official.md.
+ *
+ *   - A hazard is ACTIVE when its ranked risk ≥ T_ACTIVE_RANK.
  *   - 0 active → LOW; 1 active → that single hazard; 2+ active → a combo of the
  *     top two (FEMA/INFORM "independently high" multi-hazard, not a tie-gap).
- * Landslide RISK is structurally tiny here (low exposure on the slopes) so it's
- * rarely/never active — landslide-prone terrain is surfaced via the separate
- * SUSCEPTIBILITY flag, not by faking that it outranks heat.
+ *
+ * Landslide-prone terrain is still surfaced independently via the SUSCEPTIBILITY
+ * flag, so a CBO on a morro sees it even when another hazard dominates.
  */
 function classifyHazards(
-  meanFlood: number, meanHeat: number, meanLandslide: number
+  rankFlood: number, rankHeat: number, rankLandslide: number
 ): { typology: TypologyLabel; primary: HazardType | null; secondary: HazardType | null } {
   const active = ([
-    ['FLOOD', meanFlood],
-    ['HEAT', meanHeat],
-    ['LANDSLIDE', meanLandslide],
+    ['FLOOD', rankFlood],
+    ['HEAT', rankHeat],
+    ['LANDSLIDE', rankLandslide],
   ] as [HazardType, number][])
-    .filter(([, v]) => v >= T_ACTIVE)
+    .filter(([, v]) => v >= T_ACTIVE_RANK)
     .sort((a, b) => b[1] - a[1]);
 
   if (active.length === 0) return { typology: 'LOW', primary: null, secondary: null };
@@ -282,6 +330,19 @@ async function main() {
 
   const gridCells = gridData.geoJson.features;
   console.log(`Grid: ${gridLabel}`);
+
+  // ── Load SGB surveyed risk sectors ─────────────────────────────────────────
+  // 145 polygons walked by SGB/CPRM geologists, each typed by mechanism and with
+  // the resident count recorded. This is observation, not modelling, and it is
+  // used below as a FLOOR on the hazards it evidences — never as a cap. Absence
+  // of a sector means "never surveyed here", not "safe" (see shared/official-risk.ts),
+  // so it can only ever promote a hazard, not demote one.
+  const sgbPath = path.join(process.cwd(), 'knowledge/official-risk/porto-alegre/sgb-setorizacao.json');
+  const sgbRaw = fs.existsSync(sgbPath) ? JSON.parse(fs.readFileSync(sgbPath, 'utf-8')) : null;
+  const sgbFeatures: any[] = sgbRaw ? (sgbRaw.features ?? sgbRaw.geoJson?.features ?? []) : [];
+  const SGB_LANDSLIDE = new Set(['Deslizamento', 'Queda', 'Rolamento', 'Tombamento', 'Corrida']);
+  const SGB_FLOOD = new Set(['Inundação', 'Enxurrada', 'Alagamento']);
+  console.log(`SGB surveyed sectors loaded: ${sgbFeatures.length}`);
 
   // ── Load IBGE neighborhoods ────────────────────────────────────────────────
   const ibgePath = path.join(sampleDataDir, 'porto-alegre-ibge-indicators.json');
@@ -383,6 +444,9 @@ async function main() {
     props: NeighborhoodFeature['properties'];
     geometry: any;
     cellCount: number;
+    flood2024Pct: number;
+    sgbLandslidePeople: number; sgbFloodPeople: number;
+    p90Flood: number; p90Heat: number; p90Landslide: number;
     meanFlood: number; meanHeat: number; meanLandslide: number;
     meanFloodHazard: number; meanFloodExposure: number; meanFloodVulnerability: number;
     meanHeatHazard: number; meanHeatExposure: number; meanHeatVulnerability: number;
@@ -415,11 +479,28 @@ async function main() {
     let landslideSusceptibleCells = 0; // cells on landslide-prone terrain (hazard ≥ T_SUSCEPT_CELL)
     let floodLitCells = 0;  // cells with catalog flood_risk > 0 (the modeled fluvial footprint)
 
+    // Peak-ish representation of each hazard, kept alongside the means.
+    //
+    // A bairro is ~500 ha; the settlements SGB actually surveys are two or three
+    // blocks. A MEAN over the bairro dilutes exactly the hotspot that matters —
+    // this file already knows that, which is why landslideSusceptible is flagged
+    // on maxLandslideHazard rather than the mean. Measured against the 145 SGB
+    // surveyed sectors (84,604 people), switching the bairro statistic from mean
+    // to p90 is what makes the ARVC surfaces competitive at all: reaching SGB
+    // landslide people in a top-20 goes from 12% (mean) to ~80% (p90).
+    //
+    // p90 rather than max, because max is one pixel and would make any bairro
+    // containing a single steep cell look uniformly dangerous.
+    const fScores: number[] = [], hScores: number[] = [], lScores: number[] = [];
+    let obs2024Cells = 0;   // cells touched by the observed May 2024 inundation
+
     for (const cell of cells) {
       const m = cell.properties.metrics;
       const f = m.flood_score ?? 0;
       const h = m.heat_score ?? 0;
       const l = m.landslide_score ?? 0;
+      fScores.push(f); hScores.push(h); lScores.push(l);
+      if ((m.flood_observed_2024 ?? 0) > 0.5) obs2024Cells++;
       sumFlood += f; sumHeat += h; sumLandslide += l;
       maxFlood = Math.max(maxFlood, f);
       maxHeat = Math.max(maxHeat, h);
@@ -449,8 +530,37 @@ async function main() {
       VULN_W_EXPOSURE * clamp01((props.pop_density_km2 ?? 0) / maxPopDensity)
     ));
 
+    // SGB sectors whose representative point falls in this bairro.
+    let sgbLandslidePeople = 0, sgbFloodPeople = 0;
+    for (const sf of sgbFeatures) {
+      try {
+        const pt = turf.pointOnFeature(sf as any);
+        if (!turf.booleanPointInPolygon(pt, n as any)) continue;
+        const sp = sf.properties ?? {};
+        const people = Number(sp.num_pess) || 0;
+        const tips: string[] = [];
+        for (let i = 1; i <= 5; i++) {
+          if (sp[`tipolo_g${i}`]) tips.push(sp[`tipolo_g${i}`]);
+          if (sp[`tipolo_e${i}`]) tips.push(sp[`tipolo_e${i}`]);
+        }
+        if (tips.some(t => SGB_LANDSLIDE.has(t))) sgbLandslidePeople += people;
+        if (tips.some(t => SGB_FLOOD.has(t))) sgbFloodPeople += people;
+      } catch { /* malformed geometry — skip */ }
+    }
+
+    const p90 = (xs: number[]) => {
+      if (xs.length === 0) return 0;
+      const s = [...xs].sort((a, b) => a - b);
+      return round3(s[Math.min(s.length - 1, Math.floor(0.9 * (s.length - 1)))]);
+    };
+
     aggs.push({
       props, geometry: n.geometry, cellCount: cells.length,
+      flood2024Pct: round3(obs2024Cells / cells.length),
+      sgbLandslidePeople, sgbFloodPeople,
+      p90Flood: p90(fScores),
+      p90Heat: p90(hScores),
+      p90Landslide: p90(lScores),
       meanFlood: round3(sumFlood / cells.length),  // = meanFloodRisk
       meanHeat: round3(sumHeat / cells.length),
       meanLandslide: round3(sumLandslide / cells.length),
@@ -486,28 +596,66 @@ async function main() {
       return sorted.length > 1 ? round3(lo / (sorted.length - 1)) : 0;
     };
   };
-  const rankFlood = pctRanker(aggs.map(a => a.meanFlood));
-  const rankHeat = pctRanker(aggs.map(a => a.meanHeat));
-  const rankLandslide = pctRanker(aggs.map(a => a.meanLandslide));
+  // Ranked on the p90 (peak-ish) risk, not the mean: the mean answers "how bad is
+  // this bairro on average", the p90 answers "does this bairro contain somewhere
+  // genuinely dangerous" — which is the question both surfaces are really asking.
+  // FLOOD RANKS ON THE UNION OF TWO FLOOD SIGNALS, NOT ONE.
+  //
+  // ARVC models "inundação fluvial" — the arroios. The May 2024 catastrophe was
+  // the Guaíba rising, a different mechanism entirely, and 41% of the observed
+  // extent falls outside ARVC's flood footprint. Ranking on ARVC flood alone put
+  // Navegantes (100% flooded in 2024), Anchieta (96%), Humaitá (89%), Praia de
+  // Belas (74%) and Arquipélago (70%, and the largest SGB at-risk population in
+  // the city at 18,520 people) all in the LOW class with priority 0 — the exact
+  // bairros the city lost in 2024, ranked last.
+  //
+  // So a bairro's flood standing is the HIGHER of its modelled fluvial rank and
+  // its observed-2024 rank. A place is flood-relevant if EITHER the model says so
+  // or it demonstrably went under.
+  const rankFloodModelled = pctRanker(aggs.map(a => a.p90Flood));
+  const rankFloodObserved = pctRanker(aggs.map(a => a.flood2024Pct));
+  const rankFlood = (a: ZoneAgg) =>
+    Math.max(rankFloodModelled(a.p90Flood), rankFloodObserved(a.flood2024Pct));
+  const rankHeat = pctRanker(aggs.map(a => a.p90Heat));
+  const rankLandslide = pctRanker(aggs.map(a => a.p90Landslide));
 
   // ── Pass 2: classify + prioritize on ABSOLUTE risk ───────────────────────────
   const zones: NeighborhoodZone[] = [];
   for (const a of aggs) {
     const props = a.props;
-    // Ranks kept for the tooltip percentile-band display only (not classification).
-    const floodRank = rankFlood(a.meanFlood);
-    const heatRank = rankHeat(a.meanHeat);
-    const landslideRank = rankLandslide(a.meanLandslide);
+    // Ranks now drive BOTH the tooltip percentile bands and the classification,
+    // so a bairro's displayed percentile and its typology can no longer disagree.
+    // Raw ranks from the surfaces…
+    const floodRankRaw = rankFlood(a);
+    const heatRank = rankHeat(a.p90Heat);
+    const landslideRankRaw = rankLandslide(a.p90Landslide);
 
-    // Dominant hazard + combo from ABSOLUTE catalog risk (same-scale comparison).
-    const { typology, primary, secondary } = classifyHazards(a.meanFlood, a.meanHeat, a.meanLandslide);
+    // …then floored by what SGB actually found on the ground. A bairro where
+    // geologists surveyed landslide-type sectors cannot be told it has no
+    // landslide concern, however the 250 m surfaces average out. Floored AT the
+    // activation threshold, not above it, so this makes the hazard count without
+    // letting it outrank a genuinely higher one.
+    const floodRank = a.sgbFloodPeople > 0 ? Math.max(floodRankRaw, T_ACTIVE_RANK) : floodRankRaw;
+    const landslideRank = a.sgbLandslidePeople > 0
+      ? Math.max(landslideRankRaw, T_ACTIVE_RANK) : landslideRankRaw;
 
-    // Priority = the primary hazard's absolute risk (0 for LOW). Drives the
-    // choropleth opacity + the priority-list ordering, in both views.
-    const priorityScore = primary === 'FLOOD' ? a.meanFlood
-      : primary === 'HEAT' ? a.meanHeat
-      : primary === 'LANDSLIDE' ? a.meanLandslide
-      : 0;
+    // Dominant hazard + combo from RANKED risk — scale-free, so no hazard wins by
+    // virtue of having a wider numeric range than the others.
+    const { typology, primary, secondary } = classifyHazards(floodRank, heatRank, landslideRank);
+
+    // Priority = the rank of the strongest hazard, ALWAYS — including for LOW.
+    //
+    // This used to be 0 for LOW. With 29 LOW bairros that put a third of the city
+    // on exactly the same value, which broke three things downstream at once: the
+    // RISK_BANDS quintiles collapsed (the 'low' band went empty while 'very_high'
+    // took a third of the city), the min/max opacity ramp rendered all of them at
+    // 0.05 — effectively invisible and hard to tap — and the tail of every
+    // priority-sorted list became arbitrary input order.
+    //
+    // A LOW bairro is still LOW: the typology, the intervention and the copy all
+    // come from `typology`/`primary`, which are unchanged. This only means its
+    // position at the bottom of the list is ordered rather than tied.
+    const priorityScore = Math.max(floodRank, heatRank, landslideRank);
 
     // Landslide-prone terrain flag — SUSCEPTIBILITY (catalog hazard), independent
     // of the risk classification. Flagged on the bairro's PEAK landslide hazard
@@ -518,11 +666,19 @@ async function main() {
     // follows the dominant RISK). Slope stabilization is recommended wherever the
     // terrain is landslide-prone, even when heat is the dominant risk, so a CBO on
     // a morro can choose it. (IUCN-style co-benefit planning, not winner-take-all.)
-    const primaryIntervention = getInterventionType(typology);
-    const secondaryInterventions: InterventionType[] =
-      landslideSusceptible && primaryIntervention !== 'slope_stabilization'
-        ? ['slope_stabilization']
-        : [];
+    const primaryIntervention = interventionForHazard(primary);
+    const secondaryInterventions: InterventionType[] = [];
+    // The second-ranked hazard earns its own "also recommended" intervention —
+    // previously it was folded into the typology label and then lost.
+    const secondaryIntervention = interventionForHazard(secondary);
+    if (secondary && secondaryIntervention !== primaryIntervention) {
+      secondaryInterventions.push(secondaryIntervention);
+    }
+    if (landslideSusceptible
+        && primaryIntervention !== 'slope_stabilization'
+        && !secondaryInterventions.includes('slope_stabilization')) {
+      secondaryInterventions.push('slope_stabilization');
+    }
 
     zones.push({
       zoneId: slugify(props.neighbourhood_name),
@@ -533,6 +689,12 @@ async function main() {
       secondaryHazard: secondary,
       interventionType: primaryIntervention,
       secondaryInterventions,
+      p90Flood: a.p90Flood,
+      p90Heat: a.p90Heat,
+      p90Landslide: a.p90Landslide,
+      flood2024Pct: a.flood2024Pct,
+      sgbLandslidePeople: a.sgbLandslidePeople,
+      sgbFloodPeople: a.sgbFloodPeople,
       meanFlood: a.meanFlood,
       meanHeat: a.meanHeat,
       meanLandslide: a.meanLandslide,
@@ -616,27 +778,31 @@ async function main() {
       description: 'Neighborhood-based intervention zones using IBGE bairros with vulnerability-weighted priority',
       spatialJoin: 'Point-in-polygon (grid cell centroid → neighborhood boundary), nearest-centroid fallback for edge cells',
       hazardClassification: {
-        T_ACTIVE,
+        T_ACTIVE_RANK,
         T_SUSCEPT_CELL,
         T_SUSCEPT_ZONE_MAX,
-        description: 'Primary hazard from ABSOLUTE catalog risk (≥ T_ACTIVE); ranks are display-only. Landslide surfaced as a susceptibility flag (peak hazard ≥ T_SUSCEPT_ZONE_MAX).',
+        description: 'Primary hazard from PERCENTILE-RANKED p90 risk (≥ T_ACTIVE_RANK), so no hazard wins by having a wider numeric range. Landslide additionally surfaced as a susceptibility flag (peak hazard ≥ T_SUSCEPT_ZONE_MAX).',
       },
       vulnerabilityWeights: {
         poverty: VULN_W_POVERTY,
         infrastructure: VULN_W_INFRASTRUCTURE,
         exposure: VULN_W_EXPOSURE,
         formula: 'vulnerability = 0.50 × poverty_rate + 0.30 × (1 - pct_formal_sewage) + 0.20 × pop_density_norm',
-        priorityFormula: 'priority = dominant_hazard_score × (1 + vulnerability_factor)',
+        priorityFormula: 'priority = percentile rank of the dominant hazard\'s p90 risk (0 for LOW)',
         rationale: 'Climate justice: high-poverty neighborhoods with poor infrastructure are more vulnerable and less able to recover from climate shocks. BPJP/C40 funding criteria explicitly reward equity-informed prioritization.',
       },
+      // Intervention follows the PRIMARY hazard, not the typology label — so a
+      // FLOOD_HEAT bairro whose dominant hazard is heat gets a cooling network,
+      // not a sponge. The old typology→intervention table that used to sit here
+      // no longer described the data and has been removed rather than corrected.
       interventionMapping: {
-        FLOOD: 'sponge_network',
-        FLOOD_HEAT: 'sponge_network',
-        FLOOD_LANDSLIDE: 'sponge_network',
-        HEAT: 'cooling_network',
-        LANDSLIDE: 'slope_stabilization',
-        HEAT_LANDSLIDE: 'slope_stabilization',
-        LOW: 'multi_benefit',
+        byPrimaryHazard: {
+          FLOOD: 'sponge_network',
+          HEAT: 'cooling_network',
+          LANDSLIDE: 'slope_stabilization',
+          null: 'multi_benefit',
+        },
+        secondary: 'the second-ranked hazard\'s intervention, plus slope_stabilization on landslide-prone terrain',
       },
     },
     statistics: {

@@ -11,7 +11,9 @@
 // anchor, labelled "relative to <city>". Ranking uses the same percentile basis.
 //
 // The 0–1 ranks are precomputed per zone (generate-neighborhood-zones.ts:
-// floodRank / heatRank / landslideRank). This module is the single source of
+// floodRank / heatRank / landslideRank). Since 2026-08 they rank the bairro's
+// p90 cell risk rather than its mean, and they drive the hazard classification
+// as well as these display bands. This module is the single source of
 // truth for turning them into bands/scores. See docs/risk-catalog-migration-playbook.md.
 
 export type HazardKey = 'flood' | 'heat' | 'landslide';
@@ -107,11 +109,15 @@ export function isLandslideProne(zone: any): boolean {
  * e.g. "12% risk · 14% of area in flood zone".
  */
 export function riskAnchor(zone: any, hazard: HazardKey): string {
-  const mean = hazard === 'flood' ? zone?.meanFloodRisk ?? zone?.meanFlood
-    : hazard === 'heat' ? zone?.meanHeat
-    : zone?.meanLandslide;
+  // Anchor on the SAME statistic the percentile band is computed from — the p90,
+  // not the mean. Printing a mean beside a p90-derived band made the two disagree
+  // for every bairro: "moderate" next to a number from a different distribution.
+  // Falls back to the mean for older zone files that predate the p90 fields.
+  const value = hazard === 'flood' ? zone?.p90Flood ?? zone?.meanFloodRisk ?? zone?.meanFlood
+    : hazard === 'heat' ? zone?.p90Heat ?? zone?.meanHeat
+    : zone?.p90Landslide ?? zone?.meanLandslide;
   const parts: string[] = [];
-  if (mean != null) parts.push(`${Math.round(mean * 100)}% risk`);
+  if (value != null) parts.push(`${Math.round(value * 100)}% risk`);
   if (hazard === 'flood' && zone?.floodExtentPct != null) {
     parts.push(`${Math.round(zone.floodExtentPct * 100)}% of area in flood zone`);
   }

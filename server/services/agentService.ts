@@ -1099,8 +1099,14 @@ export async function executeAgentTool(
             if (pointInPolygon([lng, lat], polygon)) {
               const props = feature.properties || {};
               
-              // Determine compatible intervention categories based on zone's primary hazard
-              const hazard = props.primaryHazard?.toUpperCase() || '';
+              // Compatible categories from EVERY hazard the bairro carries, not
+              // only the primary. `typologyLabel` holds the combo (e.g.
+              // FLOOD_LANDSLIDE) while `primaryHazard` holds one of them; keying
+              // on the primary alone meant a flood+landslide bairro was never
+              // offered slope stabilization, while the Site Explorer — which keys
+              // on the typology — did offer it. The two disagreed on 24 of 94
+              // bairros once the ranked classification produced real combos.
+              const hazard = `${props.typologyLabel ?? ''} ${props.primaryHazard ?? ''}`.toUpperCase();
               const compatibleCategories: { id: string; name: string; examples: string[] }[] = [];
               
               if (hazard.includes('FLOOD')) {

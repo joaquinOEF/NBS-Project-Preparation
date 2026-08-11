@@ -124,7 +124,9 @@ function buildPrompt(ctx: FamiliaRankerContext): Message[] {
 
   const facts = [
     `Bairro: ${ctx.baseline.bairro}`,
-    `Bairro-wide hazard means (0-100, NOT measured at the site): flood ${r.flood}, heat ${r.heat}, landslide ${r.landslide}`,
+    `Bairro-wide hazard PERCENTILES vs the rest of Porto Alegre (0-100, NOT measured at the site): `
+      + `flood ${r.flood}, heat ${r.heat}, landslide ${r.landslide}. `
+      + `These are the bairro's rank among 94, not an absolute severity.`,
     ctx.baseline.siteName ? `Site: ${ctx.baseline.siteName}` : null,
     ctx.baseline.currentUse ? `What the place is like today: ${ctx.baseline.currentUse}` : null,
     ctx.landTenure ? `Access / tenure: ${ctx.landTenure}` : null,
