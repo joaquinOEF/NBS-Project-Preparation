@@ -131,6 +131,61 @@ official *risco* layers.
 This is visible without any statistics: put official heat risk and official
 landslide risk side by side and they are nearly the same picture.
 
+### Why they are the same picture
+
+```bash
+.venv-geo/bin/python scripts/arvc-risk-decomposition.py
+```
+
+The cause is arithmetic, not anything about Porto Alegre. Risk is a geometric
+mean, so `log R = (log A + log E + log V)/3` — a plain sum whose variance
+decomposes. Measured at 29 m:
+
+| term | log-variance | range |
+|---|---|---|
+| **exposure** (one surface, shared by all six) | **1.01** | 0.0018 – 0.9936 |
+| vulnerability (per hazard) | 0.054 – 0.091 | |
+| **ameaça** (per hazard) | **0.0000 – 0.0124** | e.g. heat 0.4 – 0.88 |
+
+**Exposure carries 92–95% of the variance for every one of the six hazards.** Not
+because it matters more, but because it is the only term spanning orders of
+magnitude — ameaça sits in a narrow high band. Both were normalised to 0–1, which
+hides that completely.
+
+What it costs, per pair:
+
+| pair | ameaça | their risco | rank-balanced |
+|---|---|---|---|
+| landslide / flood | **−0.55** | **+0.98** | +0.38 |
+| storm / arbovirus | −0.65 | +0.96 | +0.23 |
+| drought / arbovirus | −0.58 | +0.99 | +0.30 |
+| heat / landslide | −0.21 | +0.93 | +0.43 |
+
+Landslide and flood *ameaça* are **strongly opposite** — hillsides versus
+floodplains, as you would expect — and their published risk maps are **+0.98
+identical**. The composite does not weaken the hazard signal; it erases it.
+
+### What fixes it, and what does not
+
+**Substituting our own exposure and vulnerability makes it worse.** Ours have
+log-variance 2.34 and 1.38 — roughly three times theirs — and they enter as
+bairro constants, so they are the *same* multiplier for every hazard. Hybrid heat
+vs hybrid landslide comes out at **+0.99**.
+
+**Percentile-ranking the three terms before combining works**, and changes
+nothing about the data or the formula. Equalising the variances by construction
+takes heat vs landslide from +0.93 to **+0.43**, and every erased pair recovers.
+The composite still points at people — correlation with exposure stays at +0.58
+to +0.62, down from +0.92 — it is simply no longer *only* pointing at people.
+
+The residual +0.4-ish is real shared signal: both hazards genuinely are worse
+where more vulnerable people live. The point is that the hazard term becomes
+visible at all.
+
+**Caveat before anyone ships this.** A rank-balanced composite is our arithmetic,
+not the municipality's, so it is not citable as "the PLAC says". It belongs in our
+own ranking, with their *ameaça* layers as the citable evidence underneath it.
+
 **One correction to carry forward.** PR #451 states that our own layers are
 similarly exposure×vulnerability-dominated, at 0.82. That number came from the PDF
 reconstruction, before this data existed. Measured now at bairro level, our three
