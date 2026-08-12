@@ -696,7 +696,7 @@ export default function MapMicroapp({
             // top band and 84 in the top two — the same "everything is one
             // colour" failure as the typology choropleth, in a new costume.
             //
-            // Ranking priorityScore is uniform by construction: 20/18/19/18/19
+            // Ranking priorityScore is a near-identity now (see below): 20/18/19/18/19
             // across the five bands. It is also the ordering the coordinator's
             // priority list already uses, so the two views agree on which
             // bairros are worst.

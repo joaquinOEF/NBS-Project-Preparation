@@ -27,13 +27,54 @@ const byName = (n: string) =>
   props.find((p: any) => (p.neighbourhoodName || '').toLowerCase().includes(n));
 
 test.describe('CBO risk scale — the same statistic the coordinator sees', () => {
-  test('the absolute means CANNOT express risk — this is why the bug existed', () => {
-    // Documenting the trap so nobody reintroduces it. If a future change starts
-    // reading meanFlood again, these numbers explain why it looks broken.
-    const over = (k: string, t: number) => props.filter((p: any) => (p[k] ?? 0) >= t).length;
-    expect(over('meanFlood', 0.33), 'no POA bairro clears a 0.33 flood threshold').toBe(0);
-    expect(over('meanLandslide', 0.33), 'nor landslide').toBe(0);
-    expect(Math.max(...props.map((p: any) => p.meanFlood ?? 0))).toBeLessThan(0.25);
+  test('the absolute means and the percentiles are NOT interchangeable', () => {
+    // ⚠️ This test used to assert absolute numbers — "no bairro clears 0.33
+    // meanFlood", "max meanFlood < 0.25". Those were true of the OEF catalog data
+    // that fed this file until 2026-08. The zones now come from the municipality's
+    // own ARVC rasters, where 24 bairros clear 0.33 on flood and the max is 0.66,
+    // so the old assertions would fail while the BUG THEY GUARD AGAINST is
+    // untouched. Pinning the property instead of the snapshot.
+    //
+    // The property: banding the raw means gives a materially different answer from
+    // banding the within-city percentile, so the two cannot be swapped. Whichever
+    // dataset is loaded, the CBO must read the same statistic as the coordinator.
+    const bandOfMean = (p: any, k: string) => {
+      const v = p[k] ?? 0;
+      return v >= 0.66 ? 'alto' : v >= 0.33 ? 'medio' : 'baixo';
+    };
+    const bandOfPct = (p: any, hz: 'flood' | 'heat' | 'landslide') => {
+      const v = hazardPercentile(p, hz);
+      return v >= 66 ? 'alto' : v >= 33 ? 'medio' : 'baixo';
+    };
+    const disagreements = props.filter(
+      (p: any) => bandOfMean(p, 'meanFlood') !== bandOfPct(p, 'flood'),
+    ).length;
+    expect(
+      disagreements,
+      'if these ever agree everywhere, one of them stopped being computed',
+    ).toBeGreaterThan(10);
+
+    // And the means must not be capable of standing in for a city-relative read:
+    // a single absolute cut cannot reproduce the percentile split.
+    for (const [meanKey, hz] of [
+      ['meanFlood', 'flood'],
+      ['meanLandslide', 'landslide'],
+    ] as const) {
+      const topByPct = new Set(
+        props.filter((p: any) => hazardPercentile(p, hz) >= 80).map((p: any) => p.neighbourhoodName),
+      );
+      const topByMean = new Set(
+        [...props]
+          .sort((a: any, b: any) => (b[meanKey] ?? 0) - (a[meanKey] ?? 0))
+          .slice(0, topByPct.size)
+          .map((p: any) => p.neighbourhoodName),
+      );
+      const overlap = [...topByPct].filter(n => topByMean.has(n)).length;
+      expect(
+        overlap,
+        `${hz}: the mean-ranked and percentile-ranked top sets must not be identical`,
+      ).toBeLessThan(topByPct.size);
+    }
   });
 
   test('Floresta reads high on flood, as the Site Explorer says', () => {

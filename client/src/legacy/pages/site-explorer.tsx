@@ -366,6 +366,9 @@ interface InterventionsData {
 
 interface ZoneProperties {
   zoneId: string;
+  /** The bairro's real name, accents intact — prefer this over deriving one
+   *  from the ASCII zoneId slug. Optional only for the legacy synthetic zones. */
+  neighbourhoodName?: string;
   typologyLabel: string;
   primaryHazard: string;
   secondaryHazard?: string;
@@ -378,6 +381,12 @@ interface ZoneProperties {
   populationSum?: number;
 }
 
+/**
+ * Fallback display name derived from a zone SLUG. The slug is ASCII, so this
+ * strips accents — "arquipelago" can never come back as "Arquipélago". Prefer
+ * `zone.neighbourhoodName` wherever the zone object is in hand; this is only for
+ * the synthetic `zone_N` ids and for callers that genuinely have nothing else.
+ */
 function formatZoneName(zoneId: string): string {
   if (zoneId.startsWith('zone_')) {
     return `Zone ${zoneId.replace('zone_', '')}`;
@@ -1167,7 +1176,7 @@ export default function SiteExplorerPage() {
         // Badge shows the dominant hazard's within-city percentile band (display).
         dominantPct: dominantPercentile(f.properties),
       }))
-      // ORDER by the absolute priorityScore — the same basis the orchestrator uses,
+      // ORDER by priorityScore (now a percentile rank) — the same basis the orchestrator uses,
       // so the two priority views can't drift. (Was max-of-ranks, which inflated
       // spatially-concentrated landslide; see risk-display.ts.)
       .sort((a: any, b: any) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0));
@@ -2273,7 +2282,7 @@ export default function SiteExplorerPage() {
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm truncate text-white">{formatZoneName(zone.zoneId)}</span>
+                            <span className="font-medium text-sm truncate text-white min-w-0 flex-1">{zone.neighbourhoodName || formatZoneName(zone.zoneId)}</span>
                             {(() => {
                               const band = riskBand(zone.dominantPct);
                               return (
@@ -2286,18 +2295,24 @@ export default function SiteExplorerPage() {
                                 </span>
                               );
                             })()}
+                          </div>
+                          {/* The slope chip sits on the second line, beside the
+                              typology. On the first line it competed with the
+                              risk badge for space and — both being flex-shrink-0
+                              — squeezed the bairro NAME to zero width. */}
+                          <div className="text-xs text-zinc-400 flex items-center gap-2 min-w-0">
+                            <span className="truncate">
+                              {t(`interventionZones.typologies.${zone.typologyLabel}`)}
+                            </span>
                             {zone.landslideSusceptible && (
                               <span
-                                className="text-xs px-1.5 py-0.5 rounded flex-shrink-0 font-medium border border-dashed"
+                                className="text-[10px] px-1.5 rounded flex-shrink-0 font-medium border border-dashed"
                                 style={{ borderColor: TYPOLOGY_COLORS.LANDSLIDE, color: TYPOLOGY_COLORS.LANDSLIDE }}
-                                title={t('siteExplorer.landslideProne') || 'landslide-prone terrain'}
+                                title={t('siteExplorer.landslideProne')}
                               >
-                                ▨ {t('siteExplorer.landslideProneShort') || 'slope'}
+                                ▨ {t('siteExplorer.landslideProneShort')}
                               </span>
                             )}
-                          </div>
-                          <div className="text-xs text-zinc-400">
-                            {t(`interventionZones.typologies.${zone.typologyLabel}`)}
                           </div>
                         </div>
                         {portfolio.length > 0 && (
@@ -2470,7 +2485,7 @@ export default function SiteExplorerPage() {
                       style={{ backgroundColor: TYPOLOGY_COLORS[selectedZone.typologyLabel] || '#10b981' }}
                     />
                     <div>
-                      <h3 className="font-semibold">{formatZoneName(selectedZone.zoneId)}</h3>
+                      <h3 className="font-semibold">{selectedZone.neighbourhoodName || formatZoneName(selectedZone.zoneId)}</h3>
                       <p className="text-sm text-muted-foreground">
                         {t(`interventionZones.typologies.${selectedZone.typologyLabel}`)}
                       </p>

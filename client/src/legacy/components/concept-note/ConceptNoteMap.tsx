@@ -250,7 +250,11 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
         });
       } else {
         // Normal: intervention color fill if priority is on, boundary if zones is on
-        const normalizedPriority = (p.priorityScore ?? 0) / 1.3; // max priority ~1.2
+        // priorityScore is a percentile rank on [0,1]; no rescaling needed. The
+        // old `/1.3` came from a "max priority ~1.2" that was never true (the
+        // previous max was 0.618), and it silently compressed every zone's
+        // opacity to 77% of its intended range.
+        const normalizedPriority = p.priorityScore ?? 0;
         const fillOpacity = showPriority ? 0.05 + Math.min(normalizedPriority, 1) * 0.65 : 0;
         layer.setStyle({
           color: '#1e293b',

@@ -827,6 +827,8 @@
     "noAssetsErrorDescription": "Tente selecionar uma categoria ou zona diferente.",
     "zonePriority": "Prioridade das Zonas",
     "relativeToCity": "relativo aos bairros de Porto Alegre",
+    "landslideProne": "terreno suscetível a deslizamento",
+    "landslideProneShort": "encosta",
     "noZonesLoaded": "As zonas aparecerão aqui após carregamento",
     "evidenceLayers": "Camadas de Evidência",
     "title": "Explorador de Terreno",
