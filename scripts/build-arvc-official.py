@@ -302,6 +302,67 @@ def grid_values(src_path: str, cell_ids: np.ndarray, cols: np.ndarray, rows: np.
     return out
 
 
+# The three surfaces served as XYZ tiles to the CBO tour and the orchestrator also
+# need VALUE tiles, so a click can read the number at a point rather than guess it
+# from a colour. Emitted as an ordinary 24-bit encoded PNG — the same convention
+# the OEF catalog uses (raw = R + 256·G + 65536·B, value = raw / scale) — so the
+# existing decodePixelNumeric path reads them with no special case.
+#
+# Separate from the display PNG on purpose. That one is paletted and carries the
+# published ramp; inverting a colour back to a value is ambiguous wherever the ramp
+# flattens (it defines no stop above 0.8). This carries the value directly.
+VALUE_TILE_LAYERS = [
+    'arvc_off_threat_flood_2050',
+    'arvc_off_threat_heat_2050',
+    'arvc_off_threat_landslide_2050',
+]
+# Single channel at 1/254, not the catalog's 24-bit 1/10000. Two reasons: it is
+# the SAME precision the display PNG already quantises to, so the two artifacts
+# cannot disagree; and a 24-bit encoding puts a noisy low byte in every pixel,
+# which pushed the landslide layer to 877 KB — over the ~500 KB that this repo's
+# CLAUDE.md records as the `git push` failure threshold. One channel compresses
+# like a greyscale: 385 KB worst case.
+#
+# raw = R + 256·G + 65536·B, so valid pixels (G=B=0) decode to raw = R and
+# value = R / 254. Nodata writes (255,255,255) → raw 0xFFFFFF, which cannot
+# collide: the highest value in any of the three layers is 0.883 → R = 224.
+VALUE_SCALE = 254
+VALUE_NODATA = 0xFFFFFF
+
+
+def render_value_png(src_path: str, out_png: str) -> None:
+    """24-bit encoded value raster, warped to EPSG:3857 like the display PNG."""
+    with rasterio.open(src_path) as d:
+        transform, width, height = calculate_default_transform(
+            d.crs, 'EPSG:3857', d.width, d.height, *d.bounds)
+        scale = min(1.0, 2400 / max(width, height))
+        if scale < 1.0:
+            transform = transform * rasterio.Affine.scale(1 / scale, 1 / scale)
+            width, height = int(width * scale), int(height * scale)
+        vals = np.full((height, width), np.nan, dtype=np.float32)
+        reproject(source=rasterio.band(d, 1), destination=vals,
+                  src_transform=d.transform, src_crs=d.crs,
+                  dst_transform=transform, dst_crs='EPSG:3857',
+                  src_nodata=d.nodata, dst_nodata=np.nan,
+                  resampling=Resampling.bilinear)
+        src_valid = (d.read(1) != d.nodata).astype(np.uint8)
+        mask = np.zeros((height, width), dtype=np.uint8)
+        reproject(source=src_valid, destination=mask,
+                  src_transform=d.transform, src_crs=d.crs,
+                  dst_transform=transform, dst_crs='EPSG:3857',
+                  resampling=Resampling.nearest)
+
+    valid = (mask == 1) & np.isfinite(vals)
+    r = np.where(valid,
+                 np.clip(np.nan_to_num(vals, nan=0.0) * VALUE_SCALE, 0, VALUE_SCALE).round(),
+                 255).astype(np.uint8)
+    rgb = np.zeros((height, width, 3), dtype=np.uint8)
+    rgb[..., 0] = r
+    rgb[..., 1] = np.where(valid, 0, 255)
+    rgb[..., 2] = np.where(valid, 0, 255)
+    Image.fromarray(rgb).save(out_png, optimize=True)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--src', default=os.path.expanduser('~/Downloads/PORTO_ALEGRE_ARVC_2023'))
@@ -335,6 +396,10 @@ def main() -> int:
             bounds, stats = render_png(tif, qml, os.path.join(png_dir, f'{L.id}.png'))
             entry['bounds'] = bounds
             entry['stats'] = stats
+            if L.id in VALUE_TILE_LAYERS:
+                render_value_png(tif, os.path.join(png_dir, f'{L.id}.value.png'))
+                entry['valueScale'] = VALUE_SCALE
+                entry['valueNodata'] = VALUE_NODATA
         if values_path:
             values[L.id] = grid_values(tif, cell_ids, cols, rows, half_px)
         manifest[L.id] = entry

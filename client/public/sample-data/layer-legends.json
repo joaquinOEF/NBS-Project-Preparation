@@ -1912,7 +1912,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_flood_historical": {
     "layerId": "arvc_off_risk_flood_historical",
@@ -1984,7 +1984,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_flood_2030": {
     "layerId": "arvc_off_risk_flood_2030",
@@ -2056,7 +2056,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_flood_2050": {
     "layerId": "arvc_off_risk_flood_2050",
@@ -2164,7 +2164,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_landslide_historical": {
     "layerId": "arvc_off_risk_landslide_historical",
@@ -2236,7 +2236,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_landslide_2030": {
     "layerId": "arvc_off_risk_landslide_2030",
@@ -2308,7 +2308,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_landslide_2050": {
     "layerId": "arvc_off_risk_landslide_2050",
@@ -2416,7 +2416,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_heat_historical": {
     "layerId": "arvc_off_risk_heat_historical",
@@ -2488,7 +2488,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_heat_2030": {
     "layerId": "arvc_off_risk_heat_2030",
@@ -2560,7 +2560,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_heat_2050": {
     "layerId": "arvc_off_risk_heat_2050",
@@ -2668,7 +2668,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_drought_historical": {
     "layerId": "arvc_off_risk_drought_historical",
@@ -2740,7 +2740,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_drought_2030": {
     "layerId": "arvc_off_risk_drought_2030",
@@ -2812,7 +2812,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_drought_2050": {
     "layerId": "arvc_off_risk_drought_2050",
@@ -2920,7 +2920,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_arbovirus_historical": {
     "layerId": "arvc_off_risk_arbovirus_historical",
@@ -2992,7 +2992,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_arbovirus_2030": {
     "layerId": "arvc_off_risk_arbovirus_2030",
@@ -3064,7 +3064,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_arbovirus_2050": {
     "layerId": "arvc_off_risk_arbovirus_2050",
@@ -3172,7 +3172,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_storm_historical": {
     "layerId": "arvc_off_risk_storm_historical",
@@ -3244,7 +3244,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_storm_2030": {
     "layerId": "arvc_off_risk_storm_2030",
@@ -3316,7 +3316,7 @@
     "min": 0.0,
     "max": 1.0,
     "source": "official",
-    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+    "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8. ⚠️ Polaridade invertida em relação ao resto do app: o teal é BAIXO e o olive claro é ALTO. É a escala publicada no plano, mantida aqui de propósito para que a figura seja reconhecível; os rótulos de classe (Muito Baixa → Muito Alta) são a leitura autoritativa. As camadas de ameaça servidas ao tour e ao orchestrator usam a rampa do app (escuro = maior)."
   },
   "arvc_off_risk_storm_2050": {
     "layerId": "arvc_off_risk_storm_2050",
@@ -3353,5 +3353,98 @@
     "max": 1.0,
     "source": "official",
     "note": "Official PLAC/ARVC ramp, read from the .qml WayCarbon shipped with the raster. The top class is flat by design: the ramp defines no stop above 0.8."
+  },
+  "arvc_flood_hazard": {
+    "layerId": "arvc_flood_hazard",
+    "kind": "gradient",
+    "unit": "índice de ameaça 0–1",
+    "stops": [
+      {
+        "value": 0.637,
+        "color": "#FFFFB2"
+      },
+      {
+        "value": 0.68,
+        "color": "#FECC5C"
+      },
+      {
+        "value": 0.723,
+        "color": "#FD8D3C"
+      },
+      {
+        "value": 0.767,
+        "color": "#F03B20"
+      },
+      {
+        "value": 0.81,
+        "color": "#BD0026"
+      }
+    ],
+    "min": 0.637,
+    "max": 0.81,
+    "source": "official",
+    "note": "Ameaça — Inundação fluvial, PLAC/ARVC 2050 (Prefeitura de Porto Alegre). Painted on the app’s shared hazard ramp (dark = higher) rather than the plan’s teal→olive, and contrast-stretched across this layer’s observed range 0.637–0.810; the Site Explorer overlay keeps the published ramp and absolute classes."
+  },
+  "arvc_heat_hazard": {
+    "layerId": "arvc_heat_hazard",
+    "kind": "gradient",
+    "unit": "índice de ameaça 0–1",
+    "stops": [
+      {
+        "value": 0.014,
+        "color": "#FFFFB2"
+      },
+      {
+        "value": 0.231,
+        "color": "#FECC5C"
+      },
+      {
+        "value": 0.448,
+        "color": "#FD8D3C"
+      },
+      {
+        "value": 0.665,
+        "color": "#F03B20"
+      },
+      {
+        "value": 0.882,
+        "color": "#BD0026"
+      }
+    ],
+    "min": 0.014,
+    "max": 0.882,
+    "source": "official",
+    "note": "Ameaça — Ondas de calor, PLAC/ARVC 2050 (Prefeitura de Porto Alegre). Painted on the app’s shared hazard ramp (dark = higher) rather than the plan’s teal→olive, and contrast-stretched across this layer’s observed range 0.014–0.882; the Site Explorer overlay keeps the published ramp and absolute classes."
+  },
+  "arvc_landslide_hazard": {
+    "layerId": "arvc_landslide_hazard",
+    "kind": "gradient",
+    "unit": "índice de ameaça 0–1",
+    "stops": [
+      {
+        "value": 0.0,
+        "color": "#FFFFB2"
+      },
+      {
+        "value": 0.161,
+        "color": "#FECC5C"
+      },
+      {
+        "value": 0.322,
+        "color": "#FD8D3C"
+      },
+      {
+        "value": 0.483,
+        "color": "#F03B20"
+      },
+      {
+        "value": 0.644,
+        "color": "#BD0026"
+      }
+    ],
+    "min": 0.0,
+    "max": 0.644,
+    "source": "official",
+    "note": "Ameaça — Deslizamento, PLAC/ARVC 2050 (Prefeitura de Porto Alegre). Painted on the app’s shared hazard ramp (dark = higher) rather than the plan’s teal→olive, and contrast-stretched across this layer’s observed range 0.000–0.644; the Site Explorer overlay keeps the published ramp and absolute classes."
   }
 }

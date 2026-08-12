@@ -368,6 +368,51 @@ export const TOTAL_TILE_LAYERS = TILE_LAYERS.length;
 // component indices. The map microapps resolve a requested `tileLayers` id
 // against THIS, not just TILE_LAYERS, so hazard overlays (poa_flood_hazard,
 // poa_heat_hazard, risk_landslide_250m) actually render in the CBO/E2 flow.
+// ── ARVC ameaça as XYZ tiles ────────────────────────────────────────────────
+// Cut on demand from the official PNGs by server/routes/arvcTileRoutes.ts, so the
+// CBO tour and the orchestrator show the municipality's own hazard maps rather
+// than the OEF catalog's. Declared as ordinary TileLayerDefs with a
+// visualUrlTemplate, which means every existing consumer resolves them through
+// tileVisualUrl() with no special-casing.
+//
+// No value tiles: the palette is the value (index ÷ 254) but a canvas hands back
+// expanded RGBA, and the ramp is flat above 0.8, so a hover readout would be an
+// interval rather than a number. ValueTooltip stays off these — see
+// decodeArvcFromRgb in shared/arvc-official.ts.
+export const ARVC_HAZARD_TILE_LAYERS: TileLayerDef[] = [
+  {
+    id: 'arvc_flood_hazard',
+    name: 'River Flood Hazard (PLAC/ARVC 2050)',
+    group: 'arvc_official',
+    color: '#4A988D',
+    available: true,
+    tileLayerId: 'arvc_flood_hazard',
+    visualUrlTemplate: '/api/geospatial/arvc/arvc_flood_hazard/{z}/{x}/{y}.png',
+    hasValueTiles: false,
+  },
+  {
+    id: 'arvc_heat_hazard',
+    name: 'Heat Wave Hazard (PLAC/ARVC 2050)',
+    group: 'arvc_official',
+    color: '#86B09A',
+    available: true,
+    tileLayerId: 'arvc_heat_hazard',
+    visualUrlTemplate: '/api/geospatial/arvc/arvc_heat_hazard/{z}/{x}/{y}.png',
+    hasValueTiles: false,
+  },
+  {
+    id: 'arvc_landslide_hazard',
+    name: 'Landslide Hazard (PLAC/ARVC 2050)',
+    group: 'arvc_official',
+    color: '#B4C8A8',
+    available: true,
+    tileLayerId: 'arvc_landslide_hazard',
+    visualUrlTemplate: '/api/geospatial/arvc/arvc_landslide_hazard/{z}/{x}/{y}.png',
+    hasValueTiles: false,
+  },
+];
+
+
 export const ALL_TILE_LAYERS: TileLayerDef[] = [
   ...TILE_LAYERS,
   ...LOCAL_RISK_LAYERS,
@@ -375,6 +420,7 @@ export const ALL_TILE_LAYERS: TileLayerDef[] = [
   ...HEAT_INDEX_LAYERS,
   ...LANDSLIDE_INDEX_LAYERS,
   ...OFFICIAL_RISK_LAYERS,
+  ...ARVC_HAZARD_TILE_LAYERS,
 ];
 
 /** The visual (RGB) tile URL template for a layer — its local override when set,

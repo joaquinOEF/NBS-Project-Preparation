@@ -409,7 +409,9 @@
             "color": "#E0E0B6"
           }
         ]
-      }
+      },
+      "valueScale": 254,
+      "valueNodata": 16777215
     },
     "arvc_off_risk_flood_2050": {
       "id": "arvc_off_risk_flood_2050",
@@ -752,7 +754,9 @@
             "color": "#E0E0B6"
           }
         ]
-      }
+      },
+      "valueScale": 254,
+      "valueNodata": 16777215
     },
     "arvc_off_risk_landslide_2050": {
       "id": "arvc_off_risk_landslide_2050",
@@ -1095,7 +1099,9 @@
             "color": "#E0E0B6"
           }
         ]
-      }
+      },
+      "valueScale": 254,
+      "valueNodata": 16777215
     },
     "arvc_off_risk_heat_2050": {
       "id": "arvc_off_risk_heat_2050",

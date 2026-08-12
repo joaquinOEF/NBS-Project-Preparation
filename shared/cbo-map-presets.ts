@@ -33,7 +33,12 @@ export type CboMapPresetId =
 const E2_OSM_LAYERS = ['osm_parks', 'osm_schools', 'osm_wetlands', 'osm_hospitals'];
 
 /** Hazard rasters, NOT the H×E×V risk cards — the tour teaches one hazard at a time. */
-const E2_HAZARD_TILES = ['poa_flood_hazard', 'poa_heat_hazard', 'poa_landslide_hazard'];
+// The municipality's own ameaça maps (PLAC/ARVC 2050), not the OEF catalog's.
+// Ameaça and not risco deliberately: the published risk composites cross-correlate
+// at 0.85 because one shared exposure surface dominates them, so heat risk and
+// landslide risk are nearly the same picture — useless for a tour whose whole job
+// is teaching one hazard at a time. Served as tiles by arvcTileRoutes.ts.
+const E2_HAZARD_TILES = ['arvc_flood_hazard', 'arvc_heat_hazard', 'arvc_landslide_hazard'];
 
 interface PresetDef {
   /** Everything except the prompt, which is copy and therefore localized. */
