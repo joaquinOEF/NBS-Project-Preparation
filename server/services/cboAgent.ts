@@ -658,19 +658,57 @@ function createCboMcpTools(cboId: string) {
     },
     async (args: any) => {
       const showcase = await import("@shared/nbs-showcase-cards");
-      let cards: { id: string }[];
+
+      // WIDEN RATHER THAN SHOW NOTHING.
+      //
+      // Reported from the 2026-08-11 mobile test: the user tapped "Ver exemplos",
+      // the agent said "Vou mostrar alguns exemplos reais…", nothing rendered, and
+      // it carried straight on with "Pronto! Esses são projetos que já tão
+      // acontecendo". The strip was empty and the client renders an empty strip as
+      // `null` — a silent gap the agent then narrated over.
+      //
+      // It was not a rare edge. Measured over the 6 intervention types × 3
+      // hazards, SEVEN of the 18 filter combinations matched zero cards, and
+      // `green-roofs-walls` matches zero on its own because no showcase card
+      // carries that typeRef. A filter that excludes everything is a filter
+      // problem, not an answer, so fall back a step at a time and tell the model
+      // exactly what it ended up showing.
+      const attempts: Array<{ cards: { id: string }[]; note: string }> = [];
       if (Array.isArray(args.cardIds) && args.cardIds.length > 0) {
-        cards = args.cardIds
-          .map((id: string) => showcase.getShowcaseCard(id))
-          .filter(Boolean) as { id: string }[];
-      } else if (args.hazardFilter || (Array.isArray(args.typeRefs) && args.typeRefs.length > 0)) {
-        cards = showcase.filterShowcaseCards({ hazard: args.hazardFilter, typeRefs: args.typeRefs });
-      } else {
-        cards = showcase.filterShowcaseCards();
+        attempts.push({
+          cards: args.cardIds.map((id: string) => showcase.getShowcaseCard(id)).filter(Boolean) as { id: string }[],
+          note: 'the requested cardIds',
+        });
       }
-      const ids = cards.map(c => c.id);
+      if (args.hazardFilter || (Array.isArray(args.typeRefs) && args.typeRefs.length > 0)) {
+        attempts.push({
+          cards: showcase.filterShowcaseCards({ hazard: args.hazardFilter, typeRefs: args.typeRefs }),
+          note: 'the requested hazard + type filter',
+        });
+        if (args.hazardFilter && Array.isArray(args.typeRefs) && args.typeRefs.length > 0) {
+          attempts.push({
+            cards: showcase.filterShowcaseCards({ typeRefs: args.typeRefs }),
+            note: 'the type filter with the hazard dropped',
+          });
+        }
+      }
+      attempts.push({ cards: showcase.filterShowcaseCards(), note: 'the full set' });
+
+      const chosen = attempts.find(a => a.cards.length > 0) ?? attempts[attempts.length - 1];
+      const widened = chosen !== attempts[0];
+      const ids = chosen.cards.map(c => c.id);
+
+      // Last line of defence: never emit an empty strip. If even the full set is
+      // empty the catalog itself is broken, and saying so beats a blank screen.
+      if (ids.length === 0) {
+        return { content: [{ type: "text" as const, text: `FAILED: no showcase cards are available at all, so nothing was rendered. Do NOT tell the user you showed examples. Say you could not load them and move on with an \`ask_user\`.` }] };
+      }
+
       pushEvent({ type: 'show_examples', cardIds: ids, mode: args.mode ?? 'browse', intro: args.intro });
-      return { content: [{ type: "text" as const, text: `Showed ${ids.length} example(s) in ${args.mode ?? 'browse'} mode. The strip has NO continue button. In browse mode, follow IN THE SAME TURN with a short message and an \`ask_user\` (e.g. "✓ Entendi" / "Tenho uma dúvida") so the user can continue. In favorites mode, let them save first — your next turn ends with that \`ask_user\`. Never leave the strip as the last thing in a turn.` }] };
+      const widenNote = widened
+        ? ` NOTE: your filter matched no cards, so this fell back to ${chosen.note} — describe what is on screen, not what you asked for.`
+        : '';
+      return { content: [{ type: "text" as const, text: `Showed ${ids.length} example(s) in ${args.mode ?? 'browse'} mode.${widenNote} The strip has NO continue button. In browse mode, follow IN THE SAME TURN with a short message and an \`ask_user\` (e.g. "✓ Entendi" / "Tenho uma dúvida") so the user can continue. In favorites mode, let them save first — your next turn ends with that \`ask_user\`. Never leave the strip as the last thing in a turn.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
@@ -690,11 +728,16 @@ function createCboMcpTools(cboId: string) {
     async (args: any) => {
       const schema = await import("@shared/cbo-schema");
       const all = schema.NBS_INTERVENTION_TYPES.map((t: any) => t.id);
-      const ids = Array.isArray(args.typeIds) && args.typeIds.length > 0
+      const requested = Array.isArray(args.typeIds) && args.typeIds.length > 0
         ? args.typeIds.filter((id: string) => all.includes(id))
         : all;
+      // Same failure mode as show_examples: filtering to nothing renders an empty
+      // strip, which the client draws as a gap and the agent narrates over. If
+      // every requested id was unknown, show them all rather than nothing.
+      const ids = requested.length > 0 ? requested : all;
+      const widenedTypes = requested.length === 0;
       pushEvent({ type: 'show_types', typeIds: ids, intro: args.intro });
-      return { content: [{ type: "text" as const, text: `Showed ${ids.length} NBS type(s). The strip is read-only and has NO buttons — in this SAME turn you MUST follow with a short message and an \`ask_user\` (e.g. options "Ver exemplos" / "Já conheço, pular") so the user has a way to continue. Do not end the turn on the strip alone.` }] };
+      return { content: [{ type: "text" as const, text: `Showed ${ids.length} NBS type(s).${widenedTypes ? ' NOTE: none of the ids you passed exist, so all types are shown — describe what is on screen.' : ''} The strip is read-only and has NO buttons — in this SAME turn you MUST follow with a short message and an \`ask_user\` (e.g. options "Ver exemplos" / "Já conheço, pular") so the user has a way to continue. Do not end the turn on the strip alone.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
