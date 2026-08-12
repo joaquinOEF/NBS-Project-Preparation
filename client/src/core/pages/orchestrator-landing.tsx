@@ -44,6 +44,7 @@ import { useCohort } from '@/core/hooks/useCohort';
 import { useLocation } from 'wouter';
 import type { CohortMember, WorkshopConfig } from '@shared/cohort-schema';
 import { TYPOLOGY_COLORS, zoneRiskOpacity } from '@shared/risk-display';
+import { HAZARD_TILE_RAMP } from '@shared/arvc-official';
 import {
   InviteCboDialog,
   ShareLinkDialog,
@@ -263,23 +264,39 @@ const BAND_CHIP: Record<ReturnType<typeof maturityBand>, string> = {
 // clicking the active one turns it off (just the outlines + CBO markers remain).
 type RiskView = 'flood' | 'heat' | 'landslide' | 'risk';
 
-// Hazard raster overlays, fed LIVE from the data catalog via the tile proxy.
-// All three = the catalog poa_<haz>_HAZARD (gap-free, covers the whole territory,
-// unlike the sparse H×E×V risk composite). The landslide hazard tiles are now
-// published publicly (they were briefly 403 — fixed on the catalog side).
+// Hazard raster overlays — the municipality's own ameaça maps from the Plano de
+// Ação Climática (produto P3 / ARVC, 2050), cut into tiles from the official
+// rasters by server/routes/arvcTileRoutes.ts.
+//
+// These replaced the OEF catalog's poa_<haz>_hazard layers, for two reasons.
+// The catalog rasters cover a bounding box that spills into Canoas, Alvorada and
+// Viamão, so the map showed hazard outside the city it is about; the ARVC rasters
+// are clipped to the municipal boundary. And the bairro ranking underneath this
+// choropleth is now derived from ARVC, so showing a catalog tile on top of it
+// meant a coordinator could read a low-hazard tile under a bairro ranked
+// FLOOD-primary. One source on both layers now.
+//
+// AMEAÇA, not RISCO: the published risk composites cross-correlate at 0.85
+// (exposure carries 92–95% of the log-variance and is shared across all six
+// hazards), so the three risk maps would be near-identical. See docs/arvc-official.md.
 const HAZARD_RASTER: Record<'flood' | 'heat' | 'landslide', { url: string; attribution: string }> = {
-  flood:     { url: '/api/geospatial/tiles/poa_flood_hazard/{z}/{x}/{y}.png',     attribution: 'OEF catalog · flood hazard (interpolated)' },
-  heat:      { url: '/api/geospatial/tiles/poa_heat_hazard/{z}/{x}/{y}.png',      attribution: 'OEF catalog · heat hazard' },
-  landslide: { url: '/api/geospatial/tiles/poa_landslide_hazard/{z}/{x}/{y}.png', attribution: 'OEF catalog · landslide hazard' },
+  flood:     { url: '/api/geospatial/arvc/arvc_flood_hazard/{z}/{x}/{y}.png',     attribution: 'PLAC/ARVC · ameaça de inundação fluvial 2050' },
+  heat:      { url: '/api/geospatial/arvc/arvc_heat_hazard/{z}/{x}/{y}.png',      attribution: 'PLAC/ARVC · ameaça de ondas de calor 2050' },
+  landslide: { url: '/api/geospatial/arvc/arvc_landslide_hazard/{z}/{x}/{y}.png', attribution: 'PLAC/ARVC · ameaça de deslizamento 2050' },
 };
 
-// Legend color ramps that MATCH each catalog overlay's actual colormap (sampled
-// from the tiles), so the intensity bar reflects what's painted on the map:
-// flood = viridis (purple→yellow); heat + landslide = green→yellow→red (RdYlGn).
+// Legend ramps must MATCH what is painted on the map. All three overlays are now
+// the ARVC ameaça rasters, repainted onto ONE shared sequential ramp by
+// arvcTileRoutes.ts — see HAZARD_TILE_RAMP for why not WayCarbon's teal→olive
+// (pale = dangerous reads backwards, and washes out on a light basemap).
+//
+// The previous per-hazard ramps (viridis for flood, RdYlGn for heat/landslide)
+// described the OEF catalog tiles that used to be here; leaving them would have
+// put a purple-to-yellow key under a teal-to-olive map.
 const HAZARD_RAMPS: Record<'flood' | 'heat' | 'landslide', string[]> = {
-  flood:     ['#440154', '#414487', '#2a788e', '#22a884', '#7ad151', '#fde725'],
-  heat:      ['#1a9850', '#a6d96a', '#ffffbf', '#fdae61', '#d73027'],
-  landslide: ['#1a9641', '#a6d96a', '#ffffbf', '#fdae61', '#d7191c'],
+  flood:     [...HAZARD_TILE_RAMP],
+  heat:      [...HAZARD_TILE_RAMP],
+  landslide: [...HAZARD_TILE_RAMP],
 };
 
 // City-wide min/max of the per-zone max-hazard mean, for normalizing the 'risk'

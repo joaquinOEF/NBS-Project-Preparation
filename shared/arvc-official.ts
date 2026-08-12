@@ -98,6 +98,27 @@ export const ARVC_RAMPS: Record<string, ArvcRamp> = {
   exposure_black_population: { colors: ['#FFFCDA', '#EFE0B4', '#E0C58E', '#D1AA69', '#C28F43'], labels: CLASS_LABELS_PT },
 };
 
+/**
+ * The ramp the CBO tour and the orchestrator paint the ameaça layers with.
+ *
+ * NOT WayCarbon's. Theirs runs teal → pale olive, which is faithful to the plan
+ * and right for the Site Explorer, where the point is to reproduce the published
+ * figure. It is wrong for a tour, for two reasons: the dangerous end is the PALE
+ * one, which reads backwards to anyone who has seen a hazard map before; and pale
+ * olive on a light basemap is close to invisible.
+ *
+ * ColorBrewer YlOrRd — sequential, perceptually ordered, dark = worse. Applying
+ * it to all three hazards also settles something older: shared/hazard-legend.ts
+ * documents that the previous catalog ramps disagreed with each other about which
+ * end was dangerous (green was SAFE on heat and landslide, DANGEROUS on flood),
+ * and that its warning would "disappear on its own if the tiles are ever re-baked
+ * onto a shared ramp". They now are.
+ *
+ * The Site Explorer overlays keep ARVC_RAMPS — same data, different question, and
+ * a legend that prints the published class values rather than "low → high".
+ */
+export const HAZARD_TILE_RAMP = ['#FFFFB2', '#FECC5C', '#FD8D3C', '#F03B20', '#BD0026'];
+
 export function arvcRampFor(layer: ArvcOfficialLayer): ArvcRamp {
   if (layer.component === 'exposure') return ARVC_RAMPS[layer.id.replace('arvc_off_', '')];
   return ARVC_RAMPS[layer.component];
@@ -223,6 +244,25 @@ export function isArvcOfficialLayer(id: string): boolean {
 export function arvcOfficialLayer(id: string): ArvcOfficialLayer | undefined {
   return ARVC_OFFICIAL_LAYERS.find(l => l.id === id);
 }
+
+/**
+ * The three ARVC surfaces published as XYZ tiles, for the CBO hazard tour and the
+ * orchestrator — both of which consume tiles, not image overlays.
+ *
+ * AMEAÇA, not RISCO, and that is the whole point. The published risk composites
+ * cross-correlate at 0.85 because exposure carries 92–95% of the log-variance and
+ * is one surface shared by all six hazards — heat risk and landslide risk come out
+ * as nearly the same map. The ameaça layers are the ones that actually separate
+ * one hazard from another (heat vs landslide ameaça correlate −0.21). See
+ * docs/arvc-official.md.
+ *
+ * Maps tile-layer id → the underlying ARVC layer whose PNG gets cut.
+ */
+export const ARVC_TILE_SOURCES: Record<string, string> = {
+  arvc_flood_hazard: 'arvc_off_threat_flood_2050',
+  arvc_heat_hazard: 'arvc_off_threat_heat_2050',
+  arvc_landslide_hazard: 'arvc_off_threat_landslide_2050',
+};
 
 export function arvcOfficialPngUrl(id: string): string {
   return `${ARVC_OFFICIAL_BASE}/${id}.png`;
