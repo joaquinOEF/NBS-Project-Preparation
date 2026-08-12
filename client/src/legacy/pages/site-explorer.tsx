@@ -36,7 +36,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
 import { apiRequest } from '@/core/lib/queryClient';
-import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS, OFFICIAL_RISK_LAYERS, OFFICIAL_VECTOR_LAYERS, ARVC_LAYERS, ARVC_ENDPOINT, tileVisualUrl } from '@shared/geospatial-layers';
+import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QUERIES, LOCAL_RISK_LAYERS, FLOOD_INDEX_LAYERS, HEAT_INDEX_LAYERS, LANDSLIDE_INDEX_LAYERS, OFFICIAL_RISK_LAYERS, OFFICIAL_VECTOR_LAYERS, ARVC_LAYERS, ARVC_ENDPOINT, tileVisualUrl, type LayerSource as SharedLayerSource } from '@shared/geospatial-layers';
 import { sectorColors, sectorPopupHtml, SECTOR_POPUP_LABELS_EN as SECTOR_POPUP_LABELS } from '@shared/official-risk';
 import {
   arvcColor,
@@ -48,6 +48,17 @@ import {
   type ArvcHazardId,
   type ArvcPayload,
 } from '@shared/arvc';
+import {
+  ARVC_OFFICIAL_LAYERS,
+  ARVC_OFFICIAL_MANIFEST,
+  ARVC_OFFICIAL_BOUNDS,
+  ARVC_OFFICIAL_NOTE,
+  arvcOfficialPngUrl,
+  arvcOfficialLayer,
+  decodeArvcFromRgb,
+  formatArvcReading,
+  type ArvcOfficialManifest,
+} from '@shared/arvc-official';
 import { riskBand, pct100, dominantPercentile, hazardPercentile, riskAnchor, TYPOLOGY_COLORS, type HazardKey } from '@shared/risk-display';
 import { LayerLegend } from '@/core/components/map/LayerLegend';
 import type { LegendIndex } from '@shared/legend-types';
@@ -91,8 +102,15 @@ interface CityInfo {
   country: string;
 }
 
-type LayerSource = 'geojson' | 'tiles';
-type LayerGroupId = 'analysis' | 'environment' | 'reference_data' | 'osm_reference' | 'spatial_queries' | 'risk_250m' | 'flood_indices' | 'heat_indices' | 'landslide_indices' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections' | 'official_risk' | 'arvc';
+// Re-exported from the shared catalog rather than re-declared: a local copy had
+// already drifted, and silently narrowed 'image' out of existence — the layers
+// still rendered, because the group id was being cast, and only the source
+// comparison failed to typecheck.
+type LayerSource = SharedLayerSource;
+// A superset of the shared LayerGroup: the site explorer has its own groups
+// (analysis, reference_data, osm_reference, spatial_queries, risk_250m) that no
+// other surface knows about.
+type LayerGroupId = 'analysis' | 'environment' | 'reference_data' | 'osm_reference' | 'spatial_queries' | 'risk_250m' | 'flood_indices' | 'heat_indices' | 'landslide_indices' | 'urban_land' | 'ecology' | 'population' | 'hydrology' | 'climate_extreme' | 'climate_projections' | 'official_risk' | 'arvc_official' | 'arvc';
 
 interface LayerState {
   id: string;
@@ -218,6 +236,18 @@ const LAYER_CONFIGS: LayerConfig[] = [
     hasValueTiles: l.hasValueTiles,
     valueEncoding: l.valueEncoding,
   })),
+  // ARVC official rasters — the real 29 m surfaces SMAMUS supplied, one PNG
+  // overlay each. Reference layers only: nothing here feeds the CBO flow or the
+  // orchestrator view. See shared/arvc-official.ts.
+  ...ARVC_OFFICIAL_LAYERS.map(l => ({
+    id: l.id,
+    name: l.name,
+    icon: AlertTriangle,
+    color: l.color,
+    source: 'image' as LayerSource,
+    group: 'arvc_official' as LayerGroupId,
+    available: true,
+  })),
   // ARVC climate-risk surfaces, reconstructed from the municipal plan's PDF
   // figures. All six share one grid and one fetch — see shared/arvc.ts.
   ...ARVC_LAYERS.map(l => ({
@@ -248,6 +278,25 @@ const LAYER_CONFIGS: LayerConfig[] = [
 // must not mean six downloads of the same ~890 KB. Cached at module scope; a
 // failed attempt clears the cache so the next toggle can retry rather than
 // leaving the layers permanently dead.
+// The official-raster manifest carries per-layer bounds, stats and the published
+// legend. One small fetch shared by all 44 overlays; cached at module scope for
+// the same reason as the reconstruction payload below. A failure is not fatal —
+// the overlays fall back to the shared constant bounds and simply lose the
+// stats line in the popup.
+let arvcOfficialManifestPromise: Promise<ArvcOfficialManifest | null> | null = null;
+function loadArvcOfficialManifest(): Promise<ArvcOfficialManifest | null> {
+  if (!arvcOfficialManifestPromise) {
+    arvcOfficialManifestPromise = fetch(ARVC_OFFICIAL_MANIFEST)
+      .then(res => (res.ok ? res.json() : null))
+      .catch(() => null)
+      .then((data: ArvcOfficialManifest | null) => {
+        if (!data) arvcOfficialManifestPromise = null;
+        return data;
+      });
+  }
+  return arvcOfficialManifestPromise;
+}
+
 let arvcPayloadPromise: Promise<ArvcPayload | null> | null = null;
 function loadArvcPayload(): Promise<ArvcPayload | null> {
   if (!arvcPayloadPromise) {
@@ -1798,6 +1847,87 @@ export default function SiteExplorerPage() {
     });
   }, []);
 
+  // ARVC official raster — one georeferenced PNG per layer, drawn as an image
+  // overlay at full 29 m detail. The pixels are also the values (palette index
+  // ÷ 254), so the same image answers "what is it here?" on hover; see
+  // shared/arvc-official.ts for why that readout is an interval rather than a
+  // single number at the top of the ramp.
+  const createArvcOfficialLayer = useCallback((layerId: string): L.ImageOverlay | null => {
+    const def = arvcOfficialLayer(layerId);
+    if (!def) return null;
+
+    const overlay = L.imageOverlay(arvcOfficialPngUrl(layerId), ARVC_OFFICIAL_BOUNDS, {
+      opacity: 0.75,
+      interactive: true,
+      className: 'arvc-official-layer',
+      alt: def.name,
+    });
+
+    // Prefer the manifest's bounds once it lands; they are computed from the
+    // warp that produced the PNG, so they cannot disagree with the pixels.
+    loadArvcOfficialManifest().then(man => {
+      const b = man?.layers?.[layerId]?.bounds;
+      if (b && overlay.setBounds) overlay.setBounds(L.latLngBounds(b[0], b[1]));
+    });
+
+    // Hover readout. The image is sampled through an offscreen canvas, which is
+    // why decodeArvcFromRgb works on colour rather than palette index.
+    let ctx: CanvasRenderingContext2D | null = null;
+    let imgW = 0;
+    let imgH = 0;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      imgW = img.naturalWidth;
+      imgH = img.naturalHeight;
+      const canvas = document.createElement('canvas');
+      canvas.width = imgW;
+      canvas.height = imgH;
+      const c = canvas.getContext('2d', { willReadFrequently: true });
+      if (!c) return;
+      c.drawImage(img, 0, 0);
+      ctx = c;
+    };
+    img.src = arvcOfficialPngUrl(layerId);
+
+    const readAt = (latlng: L.LatLng): string => {
+      const head = `<strong>${def.name}</strong>`;
+      if (!ctx) return head;
+      const bounds = overlay.getBounds();
+      const s = bounds.getSouth();
+      const n = bounds.getNorth();
+      const w = bounds.getWest();
+      const e = bounds.getEast();
+      if (latlng.lat < s || latlng.lat > n || latlng.lng < w || latlng.lng > e) return head;
+      // The PNG is in EPSG:3857, so x is linear in longitude but y is linear in
+      // the Mercator projection of latitude — not in latitude itself. Using lat
+      // directly would drift by hundreds of metres across the city.
+      const mercY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
+      const px = Math.floor(((latlng.lng - w) / (e - w)) * imgW);
+      const py = Math.floor(((mercY(n) - mercY(latlng.lat)) / (mercY(n) - mercY(s))) * imgH);
+      if (px < 0 || py < 0 || px >= imgW || py >= imgH) return head;
+      const d = ctx.getImageData(px, py, 1, 1).data;
+      const reading = decodeArvcFromRgb(def, d[0], d[1], d[2], d[3]);
+      if (!reading) {
+        return (
+          `${head}<br/><span style="color:#6b7280">Outside the analysed area — ` +
+          `not the same as low risk.</span>`
+        );
+      }
+      return (
+        `${head}<br/><strong>${reading.className}</strong> — ${formatArvcReading(reading)}` +
+        `<br/><span style="color:#6b7280">${def.namePt}</span>` +
+        `<br/><span style="color:#166534">Official — PLAC / SMAMUS, 29 m</span>`
+      );
+    };
+
+    overlay.bindTooltip('', { sticky: true });
+    overlay.on('mousemove', (ev: L.LeafletMouseEvent) => {
+      overlay.setTooltipContent(`<div style="font-size:11px;max-width:250px">${readAt(ev.latlng)}</div>`);
+    });
+    return overlay;
+  }, []);
+
   const toggleLayer = useCallback(async (layerId: string) => {
     setLayers(prev => {
       const layer = prev.find(l => l.id === layerId);
@@ -1843,6 +1973,17 @@ export default function SiteExplorerPage() {
               setLayers(cur => cur.map(l => l.id === layerId ? { ...l, enabled: false } : l));
             });
             return prev.map(l => l.id === layerId ? { ...l, enabled: true } : l);
+          }
+          return prev;
+        }
+
+        if (layer.source === 'image') {
+          if (!mapRef.current) return prev;
+          const overlay = createArvcOfficialLayer(layerId);
+          if (overlay) {
+            overlay.addTo(mapRef.current);
+            layerRefs.current.set(layerId, overlay);
+            return prev.map(l => l.id === layerId ? { ...l, enabled: true, loaded: true } : l);
           }
           return prev;
         }
@@ -1927,7 +2068,7 @@ export default function SiteExplorerPage() {
         return prev.map(l => l.id === layerId ? { ...l, enabled: true } : l);
       }
     });
-  }, [loadLayerData, createLayerFromData, createTileLayer]);
+  }, [loadLayerData, createLayerFromData, createTileLayer, createArvcOfficialLayer]);
 
   // Cache elevation data when it arrives (don't auto-add to map)
   useEffect(() => {

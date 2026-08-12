@@ -3,7 +3,10 @@
 // Ported from Geo-Layer-Viewer (joaquinOEF/Geo-Layer-Viewer)
 // ============================================================================
 
-export type LayerSource = 'geojson' | 'tiles';
+// 'image' is a single georeferenced PNG drawn with L.imageOverlay, rather than a
+// tile pyramid. Used by the ARVC official rasters: the city fits in one ~350 KB
+// image at full 29 m detail, so a pyramid would be thousands of files for no gain.
+export type LayerSource = 'geojson' | 'tiles' | 'image';
 export type LayerGroup =
   | 'risk_analysis'    // Existing: flood/heat/landslide from grid
   | 'flood_indices'    // Catalog poa_flood_hazard overlay
@@ -17,6 +20,7 @@ export type LayerGroup =
   | 'climate_extreme'  // New: CHIRPS, ERA5
   | 'climate_projections' // New: FRI, HWM projections
   | 'official_risk'    // SGB/CPRM — the published municipal risk cartography
+  | 'arvc_official'    // Municipal climate plan risk surfaces (official rasters)
   | 'arvc';            // Municipal climate plan risk surfaces (reconstructed)
 
 // Value-tile encoding from OEF GitHub catalog (datasets.yaml).
@@ -234,6 +238,9 @@ export const OFFICIAL_RISK_LAYERS: TileLayerDef[] = [
 // Groups for the layer selector UI
 export const TILE_LAYER_GROUPS: Array<{ id: LayerGroup; label: string }> = [
   { id: 'official_risk', label: 'Official Risk Cartography (SGB)' },
+  // The official rasters sit directly above the reconstruction they supersede, so
+  // it is obvious at a glance which of the two you are looking at.
+  { id: 'arvc_official', label: 'Municipal Climate Plan — ARVC (official rasters)' },
   { id: 'arvc', label: 'Municipal Climate Plan — ARVC 2050 (reconstructed)' },
   { id: 'urban_land', label: 'Land Use & Urban Form' },
   { id: 'ecology', label: 'Environment & Ecology' },
