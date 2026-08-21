@@ -29,7 +29,7 @@ test.describe('COUGAR — instant E2 entry', () => {
     await input.press('Enter');
 
     // The full templated turn: greeting, famílias strip, follow-up line, chips.
-    await expect(page.getByText('famílias de Solução baseada na Natureza', { exact: false })).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText('grupos de Solução baseada na Natureza', { exact: false })).toBeVisible({ timeout: 8_000 });
     await expect(page.locator('[data-testid^="familia-card-"]').first()).toBeVisible();
     expect(await page.locator('[data-testid^="familia-card-"]').count()).toBe(5);
     await expect(page.getByTestId('cbo-option-0')).toHaveAttribute('data-option-label', 'Ver exemplos');

@@ -11,8 +11,13 @@ import { TestApi } from './helpers/testApi';
 // and answered every one of them twice — the existing re-ask guard only catches
 // fields that are already ANSWERED.
 //
-// The words now live in the manifest. The model still decides which field to
-// ask and when; it no longer decides how.
+// The manifest owns the wording of the questions that broke — handed over at
+// the CLOSE GATE, which is where the broken one actually lives:
+// nbs_experience_detail is asked as prose and never reaches ask_user.
+//
+// ask_user itself deliberately does NOT rewrite questions. Chip labels cannot
+// identify a field reliably enough for that, and an earlier attempt silently
+// rewrote questions nobody had complained about.
 test.describe('COUGAR — E1 question wording comes from the manifest', () => {
   const bootstrap = async (page: any) => {
     await page.goto('/cbo-profile');
@@ -22,30 +27,7 @@ test.describe('COUGAR — E1 question wording comes from the manifest', () => {
     return { cboId: (await marker.getAttribute('data-cbo-id'))!, marker };
   };
 
-  test('a question the manifest owns is asked in its words, not the model\'s', async ({ page, request }) => {
-    const api = new TestApi(request);
-    const ping = await api.ping();
-    test.skip(!ping.fakeModel, 'CBO_FAKE_MODEL is not enabled — skipping deterministic spec.');
-    const { cboId } = await bootstrap(page);
-
-    const res = await request.post(`/__test/cbo/${cboId}/ask-guards`, {
-      data: {
-        lang: 'pt',
-        questions: [{
-          // Improvised wording, of the kind the model actually produces.
-          question: 'Como vocês estão organizados juridicamente aí?',
-          options: [{ label: 'ONG / Associação' }, { label: 'Cooperativa' }, { label: 'Coletivo informal' }],
-        }],
-      },
-    });
-    const body = await res.json();
-    expect(body.items).toHaveLength(1);
-    expect(body.items[0].kind).toBe('render');
-    expect(body.items[0].question, 'the manifest owns the wording').toBe('Qual é a forma jurídica de vocês?');
-    expect(body.copyNotes.join(' ')).toContain('legal_form');
-  });
-
-  test('an unlisted field keeps the model\'s wording — adoption is per field', async ({ request }) => {
+  test('ask_user never rewrites the question — the model owns chat wording', async ({ request }) => {
     const api = new TestApi(request);
     const ping = await api.ping();
     test.skip(!ping.fakeModel, 'CBO_FAKE_MODEL is not enabled — skipping deterministic spec.');
@@ -56,14 +38,17 @@ test.describe('COUGAR — E1 question wording comes from the manifest', () => {
       data: {
         lang: 'pt',
         questions: [{
-          question: 'Quantas pessoas tocam a organização?',
-          options: [{ label: '1–2' }, { label: '3–5' }, { label: '6–15' }],
+          question: 'Como é a estrutura da equipe?',
+          options: [{ label: 'Todas voluntárias' }, { label: 'Maioria pagas' }],
         }],
       },
     });
     const body = await res.json();
-    expect(body.items[0].question, 'team_size has no manifest copy, so nothing changes')
-      .toBe('Quantas pessoas tocam a organização?');
+    // Chip labels cannot identify a field reliably ("Sim"/"Ainda não" belong to
+    // has_cnpj AND nbs_experience), so this tool must never rewrite a question.
+    // The manifest's wording is handed over at the close gate instead.
+    expect(body.items[0].question, 'the question reaches the org exactly as asked')
+      .toBe('Como é a estrutura da equipe?');
   });
 
   // The bug this whole change exists for. nbs_experience_detail is asked as

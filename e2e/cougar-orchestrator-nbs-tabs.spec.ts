@@ -73,7 +73,7 @@ test.describe('COUGAR — orchestrator NBS tabs', () => {
     // from "real photos"; clicking enlarges the pair in the lightbox.
     expect(await page.locator('[data-testid^="familia-croqui-panel-"]').count()).toBe(5);
     const panel = page.getByTestId('familia-croqui-panel-encostas-e-solo');
-    await expect(panel.getByText(/Croqui da família|Família croqui/)).toBeVisible();
+    await expect(panel.getByText(/Croqui do grupo|Grupo croqui/)).toBeVisible();
     await expect(panel.getByText(/ANTES|BEFORE/)).toBeVisible();
     await expect(panel.getByText(/DEPOIS|AFTER/)).toBeVisible();
     await expect(
