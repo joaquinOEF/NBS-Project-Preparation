@@ -962,10 +962,16 @@ export default function ConceptNotePage() {
                   fetch(`/api/upload/concept-note/${noteId}`, { method: 'POST', body: formData })
                     .then(r => r.json())
                     .then(data => {
+                      // Parse failures return 200 with the file stored — say so
+                      // rather than sending an empty "Parsed content:" block.
+                      if (data.parsed === false) {
+                        sendMessage(`I uploaded "${file.name}". It is stored, but its text could not be read automatically, so nothing was filled in from it. Acknowledge it arrived and continue.`);
+                        return;
+                      }
                       const content = data.content || `[File: ${file.name}]`;
                       sendMessage(`I'm uploading: "${file.name}".\n\nParsed content:\n${content.slice(0, 8000)}\n\nPlease extract relevant information and auto-fill sections.`);
                     })
-                    .catch(() => sendMessage(`Uploaded "${file.name}" but could not parse it.`));
+                    .catch(() => sendMessage(`Uploaded "${file.name}" but it did not reach us.`));
                 }
                 e.target.value = '';
               }}

@@ -72,6 +72,8 @@ export async function createDocument(input: {
   summary?: string | null;
   droppedInPhase?: number | null;
   source?: 'upload' | 'agent';
+  parseStatus?: 'parsed' | 'failed' | null;
+  parseError?: string | null;
 }): Promise<DocumentRow> {
   const [doc] = await db.insert(documents).values({
     orgId: input.orgId ?? null,
@@ -83,6 +85,8 @@ export async function createDocument(input: {
     sizeBytes: input.sizeBytes ?? null,
     fullText: input.fullText ?? null,
     summary: input.summary ?? null,
+    parseStatus: input.parseStatus ?? null,
+    parseError: input.parseError ?? null,
     droppedInPhase: input.droppedInPhase ?? null,
     source: input.source ?? 'upload',
   }).returning();

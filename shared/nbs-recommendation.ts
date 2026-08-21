@@ -234,8 +234,8 @@ export function rankFamiliasForSite(input: FamiliaRecoInput): RankedFamilia[] {
     // heat. Phrase it as what this família works on, never as a ranking claim.
     const tail = primary === top.h
       ? {
-          pt: ` Essa família age principalmente ${HAZARD_WORDS[top.h].em} ${HAZARD_WORDS[top.h].pt}.`,
-          en: ` This família acts mainly on ${HAZARD_WORDS[top.h].en}.`,
+          pt: ` Esse grupo age principalmente ${HAZARD_WORDS[top.h].em} ${HAZARD_WORDS[top.h].pt}.`,
+          en: ` This grupo acts mainly on ${HAZARD_WORDS[top.h].en}.`,
         }
       : {
           pt: ` Ela age mais ${HAZARD_WORDS[primary].em} ${HAZARD_WORDS[primary].pt} e ajuda também ${HAZARD_WORDS[top.h].em} ${HAZARD_WORDS[top.h].pt}.`,
