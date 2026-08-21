@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import multer from "multer";
 import path from "path";
 import { saveAndParseUpload } from "../services/fileParser";
@@ -27,9 +27,11 @@ const RUNS_DIR = path.join(process.cwd(), 'knowledge', 'runs');
 // Multer config — store in memory, then save to run folder. The allow-list
 // mirrors what fileExtract.ts can actually turn into grounding text:
 // documents, spreadsheets, images (vision), and audio (transcription).
+const MAX_UPLOAD_MB = 25;
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB — audio recordings run larger than docs
+  limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024 }, // audio recordings run larger than docs
   fileFilter: (_req, file, cb) => {
     const allowed = [
       '.pdf', '.docx', '.xlsx', '.txt', '.md', '.csv', '.tsv', '.json',      // docs
@@ -61,6 +63,35 @@ const audioUpload = multer({
   },
 });
 
+// Multer rejects a file BEFORE the route body runs — over the size limit, or an
+// extension the filter refuses. Without a handler those surface as a generic
+// 500, and the CBO client reported every one of them as "could not parse",
+// which is both wrong and unactionable: an org whose 30MB portfolio was refused
+// was told their PDF was corrupt. Ksa Rosa re-sent the same file, tried
+// another, then left the session (W2, 15 July).
+//
+// These are the only two ways multer can refuse, and each has a fix the org can
+// actually act on.
+function uploadErrorHandler(err: any, _req: Request, res: Response, next: NextFunction) {
+  if (!err) return next();
+  if (err?.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({
+      error: 'file too large',
+      reason: `That file is over the ${MAX_UPLOAD_MB}MB limit.`,
+      fix: 'Send a smaller version, or split it into parts.',
+    });
+  }
+  if (typeof err?.message === 'string' && err.message.includes('not supported')) {
+    return res.status(415).json({
+      error: 'unsupported type',
+      reason: err.message,
+      fix: 'Try a PDF, Word doc, spreadsheet, image, or audio recording.',
+    });
+  }
+  console.error('[upload] rejected:', err?.message || err);
+  return res.status(500).json({ error: String(err?.message ?? err) });
+}
+
 export function registerUploadRoutes(app: Express): void {
   // Upload a file for a concept note or CBO session
   // POST /api/upload/:type/:sessionId
@@ -77,7 +108,7 @@ export function registerUploadRoutes(app: Express): void {
       const runPrefix = type === 'cbo' ? `cbo-${sessionId}` : sessionId;
       const runDir = path.join(RUNS_DIR, runPrefix);
 
-      const { savedPath, content } = await saveAndParseUpload(
+      const { savedPath, content, parseError } = await saveAndParseUpload(
         file.buffer,
         file.originalname,
         runDir,
@@ -97,7 +128,7 @@ export function registerUploadRoutes(app: Express): void {
             name: file.originalname,
             path: savedPath,
             parsedAt: new Date().toISOString(),
-            summary: content.slice(0, 280),
+            summary: parseError ? '' : content.slice(0, 280),
           });
           setCboState(sessionId, state);
           debouncedPersist(sessionId);
@@ -117,10 +148,12 @@ export function registerUploadRoutes(app: Express): void {
             // to find it among the site photos.
             purpose: req.body?.purpose === 'teia_sprint' ? 'teia_sprint' : null,
             sizeBytes: file.size,
-            fullText: content,
-            summary: content.slice(0, 280),
+            fullText: parseError ? null : content,
+            summary: parseError ? null : content.slice(0, 280),
             droppedInPhase: state?.phase ?? null,
             source: 'upload',
+            parseStatus: parseError ? 'failed' : 'parsed',
+            parseError,
           });
           // Phase 2b: persist the ORIGINAL file durably (object storage) so it
           // survives container recycle and can be re-opened/re-processed.
@@ -140,12 +173,16 @@ export function registerUploadRoutes(app: Express): void {
         // Return first 10K chars of parsed content
         content: content.slice(0, 10000),
         truncated: content.length > 10000,
+        // A file we could not read is still a file we KEPT. The client says so
+        // rather than reporting a loss, and the doc row carries the reason.
+        parsed: !parseError,
+        parseError,
       });
     } catch (error: any) {
       console.error('[upload] Error:', error.message);
       res.status(500).json({ error: error.message });
     }
-  });
+  }, uploadErrorHandler);
 
   // Voice-note transcription for the chat composer. Unlike /api/upload/cbo/:id
   // (which stores a durable evidence document), this is a throwaway: the user
