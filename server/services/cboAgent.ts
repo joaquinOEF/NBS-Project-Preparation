@@ -62,6 +62,7 @@ import { QUESTIONNAIRES, checkOptionRule, filterRuledOptions, missingRequiredFor
 import { prepareAskUser } from "./askUserGuards";
 import { commitConfirmedStagedFields, isAffirmativeReply } from "./e1ConfirmCommit";
 import { parseNbsInventory } from "@shared/nbs-inventory";
+import { isImplementationNarration } from "./assistantNoise";
 
 /** Manifests whose rules govern this section (today: E1 ↔ org_profile). */
 function manifestsForSection(sectionId: string): QuestionnaireManifest[] {
@@ -2987,6 +2988,13 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     if (event.type === 'chat') {
       if (isTurnDuplicate(event.content)) {
         console.log(`[cbo] dropped near-duplicate chat block for ${cboId} (${event.content.length} chars)`);
+        return;
+      }
+      // Our machinery, narrated to the org — "vou persistir as respostas do
+      // Batch A", five times in one W2 session. Dropped here rather than asked
+      // for in the prompt, because the skill has asked for months.
+      if (isImplementationNarration(event.content)) {
+        console.log(`[cbo] dropped implementation narration for ${cboId}: ${event.content.slice(0, 80)}`);
         return;
       }
       turnChatTexts.push(normChat(event.content));
