@@ -2150,7 +2150,16 @@ export default function CboProfilePage() {
                 if (parsed.kind === 'familia_reco' && Array.isArray(parsed.items)) {
                   return (
                     <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
-                      <CboFamiliaRecommendation items={parsed.items} intro={parsed.intro} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
+                      <CboFamiliaRecommendation
+                        items={parsed.items}
+                        intro={parsed.intro}
+                        lang={lang.startsWith('pt') ? 'pt' : 'en'}
+                        // Same live read as the família strip: the sheet opened
+                        // from a reco row orders variants by the mechanism the
+                        // org named (backlog #24).
+                        worries={String(state?.sections?.intervention_site?.fields?.site_worry?.value ?? '')
+                          .split(',').map(w => w.trim()).filter(Boolean)}
+                      />
                     </div>
                   );
                 }

@@ -785,7 +785,7 @@ function createCboMcpTools(cboId: string) {
       if (!state) return { content: [{ type: "text" as const, text: "Error: not found" }], isError: true };
       const items = buildFamiliaRecoItems(state, getActiveCboLang(cboId), args.items);
       pushEvent({ type: 'show_familia_recommendation', items, intro: args.intro } as any);
-      return { content: [{ type: "text" as const, text: `Showed ${items.length} famílias (${items.map(i => i.familiaId).join(', ')}). The card is read-only — follow with an ask_user in this SAME turn.` }] };
+      return { content: [{ type: "text" as const, text: `Showed ${items.length} famílias (${items.map(i => i.familiaId).join(', ')}). Each row expands into that família's solutions on tap; expanding is NOT an answer, so follow with an ask_user in this SAME turn.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
