@@ -72,7 +72,7 @@ test.describe('COUGAR — E2 interest + role loops', () => {
 
     // "Faz sentido" now opens the interest question instead of closing.
     await chip('Faz sentido').click();
-    await expect(page.getByText('famílias vocês teriam interesse', { exact: false })).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText('grupos vocês teriam interesse', { exact: false })).toBeVisible({ timeout: 8_000 });
     await expect(page.getByText('por onde começar a estudar', { exact: false })).toHaveCount(0);
 
     // Interest loop: two picks, then Pronto — each pick re-offers what's left.

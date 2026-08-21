@@ -2923,7 +2923,7 @@ export default function CboProfilePage() {
                     onConfirm={(result: InterventionSelectorResult) => {
                       const hasSolutions = (result.solutionIds?.length ?? 0) > 0;
                       const message = hasSolutions
-                        ? `Selected NBS solution${result.solutionIds!.length > 1 ? 's' : ''}: ${result.labels.join(' + ')} (${result.solutionIds!.join(', ')}). Família${(result.familias?.length ?? 0) > 1 ? 's' : ''}: ${(result.familias ?? []).join(', ')}.${result.interventionTypes.length > 0 ? ` Mapped NBS types: ${result.interventionTypes.join(', ')}. Knowledge files: ${result.knowledgeFiles.join(', ')}` : ''}`
+                        ? `Selected NBS solution${result.solutionIds!.length > 1 ? 's' : ''}: ${result.labels.join(' + ')} (${result.solutionIds!.join(', ')}). Grupo${(result.familias?.length ?? 0) > 1 ? 's' : ''}: ${(result.familias ?? []).join(', ')}.${result.interventionTypes.length > 0 ? ` Mapped NBS types: ${result.interventionTypes.join(', ')}. Knowledge files: ${result.knowledgeFiles.join(', ')}` : ''}`
                         : result.label; // "I don't know — help me decide"
                       if (currentQuestion) handleSelectOption(message); else sendMessage(message);
                       setInterventionSelectorParams(null);
@@ -3252,7 +3252,7 @@ function CboQuestionCard({
         </Button>
       )}
       {/* ⚠️ SECONDARY control, deliberately outside the options list and styled
-          unlike them: choosing a família is the answer, looking at cases is not.
+          unlike them: choosing a grupo is the answer, looking at cases is not.
           As an option it would either answer the question by accident or strand
           the checkpoint machine, which reads its position from the answers. */}
       {question.showExamples && !readOnly && onShowExamples && (
