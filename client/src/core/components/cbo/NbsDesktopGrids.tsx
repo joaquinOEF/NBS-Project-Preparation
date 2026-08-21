@@ -30,14 +30,14 @@ import {
 const GRID = 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3';
 const STRINGS = {
   pt: {
-    croquiEyebrow: 'Croqui da família · ilustração esquemática',
+    croquiEyebrow: 'Croqui do grupo · ilustração esquemática',
     solutionsEyebrow: (n: number) => `As ${n} soluções · fotos reais`,
     ampliar: 'Toque para ampliar',
     antes: 'ANTES',
     depois: 'DEPOIS',
   },
   en: {
-    croquiEyebrow: 'Família croqui · schematic illustration',
+    croquiEyebrow: 'Grupo croqui · schematic illustration',
     solutionsEyebrow: (n: number) => `The ${n} solutions · real photos`,
     ampliar: 'Click to enlarge',
     antes: 'BEFORE',
@@ -68,7 +68,7 @@ export function NbsSolutionsGrid({ lang }: { lang: 'pt' | 'en' }) {
   return (
     <div className='space-y-8'>
       {/* Catalog-wide "o que a gente consegue fazer?" filter (Julia, biweekly
-          2026-07-16) — famílias with no matching solution collapse away. */}
+          2026-07-16) — grupos with no matching solution collapse away. */}
       <NbsSolutionFilterChips value={filter} onChange={setFilter} lang={lang} />
       {isFilterActive(filter) && !anyVisible && (
         <p

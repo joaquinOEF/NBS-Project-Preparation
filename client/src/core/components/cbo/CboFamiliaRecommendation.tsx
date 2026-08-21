@@ -43,7 +43,7 @@ export function CboFamiliaRecommendation({
       data-testid='cbo-familia-reco'
     >
       <div className='text-[9px] font-extrabold uppercase tracking-widest text-[#8a7d5c] dark:text-stone-400 mb-1.5'>
-        {s.eyebrow} · {items.length} famílias
+        {s.eyebrow} · {items.length} grupos
       </div>
       {intro && <p className='text-[11.5px] text-muted-foreground mb-1.5'>{intro}</p>}
       <div className='space-y-1.5'>

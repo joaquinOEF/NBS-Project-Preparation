@@ -420,7 +420,7 @@ export const CBO_FIELD_LABELS: Record<string, { pt: string; en: string }> = {
   primary_hazard: { pt: 'Risco principal', en: 'Main hazard' },
   secondary_hazard: { pt: 'Risco secundário', en: 'Secondary hazard' },
   tertiary_hazard: { pt: 'Terceiro risco', en: 'Third hazard' },
-  nbs_interest: { pt: 'Famílias de interesse', en: 'Famílias of interest' },
+  nbs_interest: { pt: 'Grupos de interesse', en: 'Grupos of interest' },
   role_preference: { pt: 'Papel que querem ter', en: 'Role they want to play' },
   site_lat: { pt: 'Latitude', en: 'Latitude' },
   site_lng: { pt: 'Longitude', en: 'Longitude' },
