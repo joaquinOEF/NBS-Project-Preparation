@@ -28,7 +28,7 @@ import { resolveOpenMapParams } from "@shared/cbo-map-presets";
 import { rankFamiliasForSite, inferSiteTypeLabel } from "@shared/nbs-recommendation";
 import { rankFamiliasWithContext, rankerCanRun, type FamiliaRankingResult } from "./familiaRanker";
 import { getObject } from "./blobStorage";
-import { reverseGeocode, isPlaceholderSiteName } from "./geocodeService";
+import { reverseGeocode, forwardGeocode, isPlaceholderSiteName } from "./geocodeService";
 import {
   E2_WORRIES,
   orderWorriesByData,
@@ -1186,6 +1186,20 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
   // These read the org's accumulated documents across ALL sessions, scoped to
   // the org that owns this CBO profile, so Encontro 4 can reference the budget
   // dropped in Encontro 1. See docs/cbo-platform-architecture.md.
+  // The escape hatch for a map that will not open, and the fast path for an org
+  // that would simply rather type. Resolves the address, then hands the result
+  // to the SAME site checkpoint the map feeds — so the site card, the risk
+  // pinning and the coordinates are identical either way.
+  const locateSiteByAddress = sdkTool(
+    "locate_site_by_address",
+    "Place the org's site from an ADDRESS or landmark they typed, instead of a map pin. Use when the map will not open for them, when they say it is not loading, or when they simply give you a street address — do NOT keep re-opening the map at them. Pass their words as-is ('Voluntários da Pátria 1039', 'Assentamento 20 de Novembro, rua Doutor Barros Cassal 161'). The bairro must already be confirmed. On success the normal site card appears for them to confirm, exactly as if they had dropped a pin.",
+    { address: z.string().describe("The address or landmark the org gave, in their own words") },
+    async (args: any) => {
+      const r = await placeSiteFromAddress(cboId, String(args.address ?? ''), pushEvent);
+      return { content: [{ type: "text" as const, text: r.agentMessage }] };
+    },
+  );
+
   const listOrgDocuments = sdkTool(
     "list_org_documents",
     "List the documents this organization has shared so far (across all sessions) — proposals, budgets, photos, voice memos, prior-project docs. Use this to recall what evidence already exists before asking the user to re-explain something. Returns an id, filename, kind, and short summary for each.",
@@ -1297,7 +1311,7 @@ STOP and wait for the user's selection after calling this tool.`,
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, confirmDocFields, flagGap, setPhase, setPath, setMaturityTier, showInterventionTypes, showNbsFamilias, showFamiliaRecommendation, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector],
+    tools: [updateSection, confirmDocFields, flagGap, setPhase, setPath, setMaturityTier, showInterventionTypes, showNbsFamilias, showFamiliaRecommendation, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector, locateSiteByAddress],
   });
 }
 
@@ -1758,6 +1772,83 @@ async function createSiteSupportRequest(cboId: string, lang: string): Promise<bo
   } catch {
     return false;
   }
+}
+
+/**
+ * Turn an address the org TYPED into the exact message the map emits, so the
+ * site checkpoint runs unchanged.
+ *
+ * The checkpoint keys off `Map selection (composite mode):` and parses zones
+ * and sites out of it with two regexes. That text is effectively the map's
+ * protocol — which means an address only has to be rendered INTO it to get the
+ * whole path for free: bairro risk pinning, site_name, coordinates, the site
+ * card, the confirm chip. No second write path, no duplicated card.
+ *
+ * The zone line is rebuilt from _bairros_json, which the bairro checkpoint
+ * already wrote before the map was ever opened — so this works precisely in the
+ * case that motivated it, where the map then failed to render.
+ *
+ * Returns null when we cannot resolve the address or have no confirmed bairro
+ * yet; the caller keeps today's behaviour rather than inventing a location.
+ */
+async function mapSelectionFromAddress(
+  address: string,
+  state: CboState,
+): Promise<string | null> {
+  const fields = state.sections.intervention_site?.fields ?? ({} as Record<string, any>);
+  let zones: Array<{ name: string; flood: number; heat: number; landslide: number }> = [];
+  try {
+    zones = JSON.parse(String(fields._bairros_json?.value ?? '[]'));
+  } catch {
+    zones = [];
+  }
+  if (!zones.length) return null;
+
+  const hit = await forwardGeocode(address);
+  if (!hit) return null;
+
+  const z = zones[0];
+  return [
+    'Map selection (composite mode):',
+    `- [zone] ${z.name}: FLOOD_HEAT risk, flood: ${z.flood}%, heat: ${z.heat}%, landslide: ${z.landslide}%`,
+    `- [osm] ${hit.label} at (${hit.lat}, ${hit.lng})`,
+    'Total: 2 assets, 0 sampled points',
+  ].join('\n');
+}
+
+/**
+ * Place the E2 site from an address the org typed, by routing it through the
+ * SAME checkpoint a map pin uses. Shared by the `locate_site_by_address` tool
+ * and the e2e test route so there is one implementation, not two.
+ */
+export async function placeSiteFromAddress(
+  cboId: string,
+  address: string,
+  pushEvent: EventPusher,
+): Promise<{ ok: boolean; agentMessage: string }> {
+  const st = getCboState(cboId);
+  if (!st) return { ok: false, agentMessage: 'No session state.' };
+
+  const selection = await mapSelectionFromAddress(address, st);
+  if (!selection) {
+    return {
+      ok: false,
+      agentMessage: `Could not place "${address}". Do NOT invent coordinates and do NOT ask them to open the map again. Record the address as you understood it with update_section (site_name), tell them it is noted, and carry on with the next question.`,
+    };
+  }
+
+  const lang = (st as any)?.metadata?.language === 'en' ? 'en' : 'pt';
+  const served = await serveE2Checkpoint(cboId, selection, st, pushEvent, lang, 'map');
+  if (!served) {
+    return {
+      ok: false,
+      agentMessage: 'Resolved the address but the site step did not accept it. Record it with update_section (site_name) and continue.',
+    };
+  }
+  return {
+    ok: true,
+    agentMessage: 'Placed the site from the address and showed the site card. STOP — wait for them to confirm it.',
+  };
 }
 
 async function serveE2Checkpoint(
@@ -3720,9 +3811,11 @@ Score: Org Delivery Capacity (0-3), Team Technical Experience (0-3).`;
       return isPt
         ? `**Fase 2: Onde Atuamos** (intervention_site)
 ⚠️ O fluxo linear do E2 é conduzido por checkpoints do servidor (mapas, cartão do lugar, uso atual, posse, fotos, grupos). Você só cuida do que a skill lista: exemplos, dúvidas, uploads, ajustes. NUNCA abra mapa por conta própria nem refaça perguntas dos checkpoints.
+⚠️ Se a organização disser que o mapa não abre/não carrega, ou se ela simplesmente digitar um endereço, use a ferramenta locate_site_by_address com as palavras dela. NUNCA insista em reabrir o mapa depois que ela disse que não está funcionando, e nunca invente coordenadas.
 Avaliar Controle do Local (0-3) quando land_tenure aparecer no estado.`
         : `**Phase 2: Where We Work** (intervention_site)
 ⚠️ The linear E2 flow is driven by server checkpoints (maps, site card, current use, tenure, photos, grupos). You only handle what the skill lists: examples, doubts, uploads, adjustments. NEVER open a map on your own or redo checkpoint questions.
+⚠️ If the org says the map will not open or load, or simply types an address, use the locate_site_by_address tool with their words. NEVER keep re-opening the map after they said it is not working, and never invent coordinates.
 Score Site Control (0-3) once land_tenure appears in state.`;
 
     case 3:
