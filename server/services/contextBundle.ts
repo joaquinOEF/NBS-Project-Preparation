@@ -28,6 +28,7 @@ import type { CboState, CboChatMessage } from '@shared/cbo-schema';
 import { CBO_SECTIONS, isInternalCboField } from '@shared/cbo-schema';
 import { cboFieldLabel, cboDisplayValue, CBO_SECTION_TITLES } from '@shared/cbo-field-catalog';
 import { NBS_FAMILIAS } from '@shared/nbs-catalog';
+import { summarizeNbsInventory } from '@shared/nbs-inventory';
 
 export interface BundleDoc {
   filename: string;
@@ -129,6 +130,22 @@ export function buildContextMarkdown(input: BundleInput): string {
   const story = v('site_story');
   L.push('## Nas palavras da organização', '');
   L.push(story ? `> ${story.replace(/\n+/g, '\n> ')}` : '_A organização não deixou uma descrição do lugar com as próprias palavras._', '');
+
+  // What the org told us solution by solution, if they sent the checklist.
+  // Not asked for — absorbed when it arrives (shared/nbs-inventory.ts).
+  const inventoryRaw = v('_nbs_inventory_json');
+  if (inventoryRaw) {
+    try {
+      const rows = JSON.parse(inventoryRaw);
+      if (Array.isArray(rows) && rows.length > 0) {
+        L.push('## O que a organização já tem, solução por solução', '');
+        L.push('_Enviado pela própria organização, no formato do checklist das 27 soluções._', '');
+        L.push(summarizeNbsInventory(rows, 'pt'), '');
+      }
+    } catch {
+      /* a malformed blob is not worth failing the whole pack over */
+    }
+  }
 
   // 2 · The place.
   L.push('## O lugar', '');

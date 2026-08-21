@@ -61,6 +61,7 @@ import { isKnownOrgProfileField, canonicalizeOrgProfileValue, isEnumOrgProfileFi
 import { QUESTIONNAIRES, checkOptionRule, filterRuledOptions, missingRequiredForClose, askCopyFor, type FieldReader, type QuestionnaireManifest } from "@shared/cbo-questionnaire";
 import { prepareAskUser } from "./askUserGuards";
 import { commitConfirmedStagedFields, isAffirmativeReply } from "./e1ConfirmCommit";
+import { parseNbsInventory } from "@shared/nbs-inventory";
 
 /** Manifests whose rules govern this section (today: E1 ↔ org_profile). */
 function manifestsForSection(sectionId: string): QuestionnaireManifest[] {
@@ -3158,6 +3159,36 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       res.end();
       return;
     }
+  }
+
+  // If the org sends the 27-solution checklist, keep it as rows.
+  //
+  // SDV Reciclando pasted roughly four thousand characters of it into the
+  // free-text NbS question — a filled grid running through our own catalog,
+  // solution by solution, with locations and years. The richest structured data
+  // anyone in the cohort produced, and it landed in one paragraph that nothing
+  // could read.
+  //
+  // This asks the org for NOTHING and is not a workshop step. If it arrives, we
+  // recognise it. Ordinary prose that mentions a few solutions does not qualify
+  // (see MIN_ROWS_FOR_INVENTORY), and neither does the blank template.
+  try {
+    const inventory = parseNbsInventory(userMessage);
+    if (inventory.length > 0) {
+      const site = state.sections.intervention_site;
+      if (site) {
+        site.fields._nbs_inventory_json = {
+          value: JSON.stringify(inventory),
+          confidence: 'high',
+          source: 'user',
+          userEdited: false,
+        } as any;
+        setCboState(cboId, state);
+        console.log(`[cbo] absorbed NbS inventory for ${cboId}: ${inventory.length} solution(s)`);
+      }
+    }
+  } catch (err) {
+    console.error(`[cbo] nbs inventory parse failed for ${cboId} (continuing):`, err);
   }
 
   // E1: commit what the org just confirmed, before the model gets the turn.
