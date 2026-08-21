@@ -39,6 +39,8 @@ import { isReplitDeployment } from './runtimeEnv';
 import { canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, enumFieldsMatchingOptions } from '@shared/cbo-field-catalog';
 import { QUESTIONNAIRES, checkOptionRule } from '@shared/cbo-questionnaire';
 import { prepareAskUser } from './askUserGuards';
+import { checkCloseGate } from './cboCloseGate';
+import { commitConfirmedStagedFields } from './e1ConfirmCommit';
 
 export function isFakeModelEnabled(): boolean {
   // Deployment backstop: Replit shares App secrets with Deployments by
@@ -92,6 +94,9 @@ interface FakeDeps {
   // Passed in from streamCboChat (same module that owns the real path) so this
   // module never has to import from cboAgent — avoids a circular import.
   setCboState: (id: string, state: CboState) => void;
+  /** The real user-turn count. The staging gate is defined in terms of it, and
+   *  hardcoding 0 here is what made that gate untestable. */
+  countUserContentTurns: (id: string) => number;
 }
 
 // ── Driver ──────────────────────────────────────────────────────────────────
@@ -162,7 +167,7 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
         state.stagedDocFields = state.stagedDocFields ?? {};
         state.stagedDocFields[`${op.sectionId}.${op.field}`] = {
           sectionId: op.sectionId as any, field: op.field, value: String(value),
-          confidence: (op.confidence ?? 'high') as Confidence, stagedAtUserTurns: 0,
+          confidence: (op.confidence ?? 'high') as Confidence, stagedAtUserTurns: deps.countUserContentTurns(cboId),
         };
         deps.setCboState(cboId, state);
         break;
@@ -182,15 +187,19 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
       break;
     }
     case 'confirm_doc_fields': {
-      const stagedAll = Object.values(state.stagedDocFields ?? {});
-      const wanted = op.fields?.length ? stagedAll.filter(s => op.fields!.includes(s.field)) : stagedAll;
-      for (const s of wanted) {
-        const sec = state.sections[s.sectionId as keyof typeof state.sections];
-        if (!sec) continue;
-        sec.fields[s.field] = { value: s.value, confidence: s.confidence, source: 'document', userEdited: false };
-        sec.lastUpdatedBy = 'agent';
-        delete state.stagedDocFields![`${s.sectionId}.${s.field}`];
-        pushEvent({ type: 'field_update', sectionId: s.sectionId, field: s.field, value: s.value, confidence: s.confidence, source: 'document' });
+      // The crawl-trust gate, from the same module the server-side commit uses.
+      // This used to commit unconditionally, so the rule that a recap and its
+      // confirmation can never be the same turn had no test — the whole point
+      // of staging was unenforced in the suite.
+      const before = Object.keys(state.stagedDocFields ?? {});
+      const outcome = commitConfirmedStagedFields(state, deps.countUserContentTurns(cboId));
+      for (const field of outcome.committed) {
+        const sec = state.sections.org_profile;
+        const v = sec?.fields?.[field]?.value;
+        pushEvent({ type: 'field_update', sectionId: 'org_profile', field, value: String(v ?? ''), confidence: 'high', source: 'document' });
+      }
+      if (outcome.committed.length === 0 && before.length > 0) {
+        pushEvent({ type: 'chat', content: '[staging] nothing committed — the user has not replied since these were staged', role: 'assistant' } as any);
       }
       deps.setCboState(cboId, state);
       break;
@@ -236,7 +245,21 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
     case 'score_maturity': {
       if (!isValidMaturityMetric(op.metric)) break;
       const score = Math.max(0, Math.min(3, Math.round(Number(op.score) || 0))) as 0 | 1 | 2 | 3;
-      // Replace any existing score for this metric (mirror real upsert intent).
+      // The close gate, from the same module the real tool uses. This used to
+      // be absent here entirely: the fake model wrote the score unconditionally,
+      // so no spec could trip the rule that stops an encontro closing with
+      // required fields missing. hasPath is null — a scripted session has no
+      // cohort member row, which is exactly how the real tool treats it.
+      const gate = checkCloseGate({
+        phase: state.phase,
+        section: state.sections[(QUESTIONNAIRES[state.phase]?.sectionId ?? 'org_profile') as keyof typeof state.sections],
+        hasPath: null,
+        lang: lang === 'en' ? 'en' : 'pt',
+      });
+      if (gate.message) {
+        pushEvent({ type: 'chat', content: `[close gate] ${gate.missing.join(', ')}`, role: 'assistant' } as any);
+        break;
+      }
       state.maturityScores = state.maturityScores.filter(s => s.metric !== op.metric);
       state.maturityScores.push({ metric: op.metric, score, justification: op.justification ?? 'fake' });
       state.totalMaturityScore = state.maturityScores.reduce((sum, s) => sum + s.score, 0);
