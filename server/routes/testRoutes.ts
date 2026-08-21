@@ -18,6 +18,7 @@
 import type { Express, Request, Response, RequestHandler, NextFunction } from 'express';
 import { eq, like, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { placeSiteFromAddress } from '../services/cboAgent';
 import { db } from '../db';
 import {
   createEmptyCboState,
@@ -180,6 +181,20 @@ export function registerTestRoutes(app: Express): void {
         ? askCopyFor(QUESTIONNAIRES[1], forField, read, req.body?.lang === 'en' ? 'en' : 'pt')
         : null,
     });
+  }));
+
+  // Drive the address→site path without a model in the loop. Exercises exactly
+  // what the locate_site_by_address tool calls, so the spec covers the real
+  // implementation rather than a re-creation of it. Pair with CBO_FAKE_GEOCODE=1
+  // so no Nominatim call is made.
+  app.post('/__test/cbo/:id/locate-by-address', wrap(async (req, res) => {
+    const events: any[] = [];
+    const r = await placeSiteFromAddress(
+      req.params.id,
+      String(req.body?.address ?? ''),
+      (e: any) => { events.push(e); },
+    );
+    res.json({ ...r, events });
   }));
 
   app.post('/__test/cbo/:id/evict', wrap(async (req, res) => {

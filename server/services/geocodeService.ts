@@ -21,6 +21,8 @@
 //  - 1 request/second, which is Nominatim's published limit. At cohort volume
 //    the queue never actually holds anything.
 
+import { isFakeGeocodeEnabled } from './runtimeEnv';
+
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
 
 // Nominatim refuses anonymous traffic. Kept in one place so it can't drift from
@@ -127,6 +129,68 @@ export async function reverseGeocode(
  * user chose or that OSM already supplied ("Praça da Encol", "EMEF Vila Nova").
  * Matches both MapMicroapp fallbacks, pt and en.
  */
+// ============================================================================
+// FORWARD GEOCODING — an address becomes a coordinate
+// ============================================================================
+// W2 (Aug 2026): the map failed for two of the three orgs that reached it. Ksa
+// Rosa reported "não abre o mapa" three times across nine minutes; COOP20
+// marked and rejected four pins within ~20m over thirteen minutes. Both gave up
+// and typed the address instead, and both were understood immediately — but
+// only as TEXT. The site checkpoint fires on map output, so a typed address
+// produced no coordinates at all: Ksa Rosa completed E2 with a site_address and
+// no _site_lat/_site_lng, while Misturaí, whose map worked, has both.
+//
+// The same Nominatim lane serves /search. Constraints match /reverse: one
+// identifying User-Agent, one request per second, cached, and fails SOFT —
+// losing the geocode must never cost us the address the org just gave us.
+//
+// Bounded to Porto Alegre. "Voluntários da Pátria 1039" is a real street in
+// several Brazilian cities, and an unbounded search happily returns the wrong
+// one — silently, with confident coordinates.
+const POA_VIEWBOX = '-51.32,-29.93,-51.01,-30.27'; // W,N,E,S
+const fwdCache = new Map<string, { lat: number; lng: number; label: string } | null>();
+
+export async function forwardGeocode(
+  query: string,
+  cityHint = 'Porto Alegre, Rio Grande do Sul, Brasil',
+): Promise<{ lat: number; lng: number; label: string } | null> {
+  const q = query.trim();
+  if (q.length < 4) return null;
+  // e2e seam: a fixed POA coordinate, so the address path is testable without
+  // reaching Nominatim. Refuses in a deployment (see runtimeEnv).
+  if (isFakeGeocodeEnabled()) {
+    return { lat: -30.0267, lng: -51.2173, label: q };
+  }
+  const cacheKey = q.toLowerCase();
+  if (fwdCache.has(cacheKey)) return fwdCache.get(cacheKey)!;
+
+  try {
+    const result = await schedule(async () => {
+      const url =
+        `${NOMINATIM_URL}/search?format=jsonv2&limit=1&addressdetails=1` +
+        `&countrycodes=br&bounded=1&viewbox=${POA_VIEWBOX}` +
+        `&q=${encodeURIComponent(`${q}, ${cityHint}`)}`;
+      const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+      if (!res.ok) return null;
+      const rows = (await res.json()) as Array<{ lat: string; lon: string; address?: Record<string, string> }>;
+      const hit = rows?.[0];
+      if (!hit) return null;
+      const lat = Number(hit.lat);
+      const lng = Number(hit.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      // Prefer the tidy street+number form the reverse path already produces,
+      // so a site named this way reads the same however it was resolved.
+      return { lat, lng, label: shortAddress(hit.address) ?? q };
+    });
+    fwdCache.set(cacheKey, result);
+    return result;
+  } catch (e: any) {
+    console.error(`[geocode] forward lookup failed for "${q}":`, e?.message || e);
+    fwdCache.set(cacheKey, null);
+    return null;
+  }
+}
+
 export function isPlaceholderSiteName(name: string | undefined | null): boolean {
   if (!name) return false;
   return /^(ponto marcado|área desenhada|area desenhada|marked point|drawn area)\b/i.test(

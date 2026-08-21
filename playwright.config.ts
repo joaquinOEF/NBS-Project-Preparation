@@ -121,6 +121,7 @@ export default defineConfig({
           // every other spec's timeout budget.
           CBO_TURN_QUEUE_WAIT_MS: '3000',
           CBO_FAKE_MODEL: '1',
+          CBO_FAKE_GEOCODE: '1',
           NODE_ENV: 'development',
           PORT,
           OAUTH_CLIENT_ID: 'e2e-dummy',

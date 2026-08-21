@@ -28,7 +28,8 @@ import { resolveOpenMapParams } from "@shared/cbo-map-presets";
 import { rankFamiliasForSite, inferSiteTypeLabel } from "@shared/nbs-recommendation";
 import { rankFamiliasWithContext, rankerCanRun, type FamiliaRankingResult } from "./familiaRanker";
 import { getObject } from "./blobStorage";
-import { reverseGeocode, isPlaceholderSiteName } from "./geocodeService";
+import { reverseGeocode, forwardGeocode, isPlaceholderSiteName } from "./geocodeService";
+import { recordCboEvent } from "./cboEvents";
 import {
   E2_WORRIES,
   orderWorriesByData,
@@ -749,9 +750,9 @@ function createCboMcpTools(cboId: string) {
   // printed cards the cohort holds in the encontros.
   const showNbsFamilias = sdkTool(
     "show_nbs_familias",
-    "Render the educational NBS FAMÍLIAS strip inline in chat (5 famílias from the Rede SCbN POA card deck, each opening into its solution variants). Use as the FIRST action in E2 to build vocabulary. Optionally pass familiaIds for a subset; omit for all 5. STOP and wait for the user to read/react.",
+    "Render the educational NBS GRUPOS strip inline in chat (5 grupos from the Rede SCbN POA card deck, each opening into its solution variants). Use as the FIRST action in E2 to build vocabulary. Optionally pass familiaIds for a subset; omit for all 5. STOP and wait for the user to read/react.",
     {
-      familiaIds: z.array(z.string()).optional().describe("Subset of família ids: aguas-pluviais, verde-urbano, agricultura-urbana, encostas-e-solo, recuperacao-ecossistemas; omit for all 5"),
+      familiaIds: z.array(z.string()).optional().describe("Subset of grupo ids: aguas-pluviais, verde-urbano, agricultura-urbana, encostas-e-solo, recuperacao-ecossistemas; omit for all 5"),
       intro: z.string().optional().describe("Optional 1-line lead text rendered above the strip"),
     },
     async (args: any) => {
@@ -761,7 +762,7 @@ function createCboMcpTools(cboId: string) {
         ? args.familiaIds.filter((id: string) => all.includes(id))
         : undefined; // undefined = all five
       pushEvent({ type: 'show_familias', familiaIds: ids, intro: args.intro } as any);
-      return { content: [{ type: "text" as const, text: `Showed the famílias strip (${ids ? ids.length : 5} família(s)). It is read-only and has NO buttons — in this SAME turn you MUST follow with a short message and an \`ask_user\` (e.g. options "Ver exemplos" / "Já conheço, pular") so the user has a way to continue. Do not end the turn on the strip alone.` }] };
+      return { content: [{ type: "text" as const, text: `Showed the grupos strip (${ids ? ids.length : 5} grupo(s)). It is read-only and has NO buttons — in this SAME turn you MUST follow with a short message and an \`ask_user\` (e.g. options "Ver exemplos" / "Já conheço, pular") so the user has a way to continue. Do not end the turn on the strip alone.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
@@ -773,7 +774,7 @@ function createCboMcpTools(cboId: string) {
   // lines when it has context the server doesn't (photos, free-text answers).
   const showFamiliaRecommendation = sdkTool(
     "show_familia_recommendation",
-    "Render the closing 'famílias pra estudar' card for the captured site (always ≥2 famílias, ranked by the bairro's risks + what the org shared). Optionally pass per-família `why` lines grounded in what the USER said/uploaded; the server fills ranking, example variants, and any missing whys. In this SAME turn follow with an ask_user (e.g. 'Faz sentido' / 'Quero ajustar').",
+    "Render the closing 'grupos pra estudar' card for the captured site (always ≥2 grupos, ranked by the bairro's risks + what the org shared). Optionally pass per-grupo `why` lines grounded in what the USER said/uploaded; the server fills ranking, example variants, and any missing whys. In this SAME turn follow with an ask_user (e.g. 'Faz sentido' / 'Quero ajustar').",
     {
       items: z.array(z.object({
         familiaId: z.string().describe("aguas-pluviais | verde-urbano | agricultura-urbana | encostas-e-solo | recuperacao-ecossistemas"),
@@ -786,7 +787,7 @@ function createCboMcpTools(cboId: string) {
       if (!state) return { content: [{ type: "text" as const, text: "Error: not found" }], isError: true };
       const items = buildFamiliaRecoItems(state, getActiveCboLang(cboId), args.items);
       pushEvent({ type: 'show_familia_recommendation', items, intro: args.intro } as any);
-      return { content: [{ type: "text" as const, text: `Showed ${items.length} famílias (${items.map(i => i.familiaId).join(', ')}). The card is read-only — follow with an ask_user in this SAME turn.` }] };
+      return { content: [{ type: "text" as const, text: `Showed ${items.length} grupos (${items.map(i => i.familiaId).join(', ')}). Each row expands into that grupo's solutions on tap; expanding is NOT an answer, so follow with an ask_user in this SAME turn.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
@@ -1178,6 +1179,20 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
   // These read the org's accumulated documents across ALL sessions, scoped to
   // the org that owns this CBO profile, so Encontro 4 can reference the budget
   // dropped in Encontro 1. See docs/cbo-platform-architecture.md.
+  // The escape hatch for a map that will not open, and the fast path for an org
+  // that would simply rather type. Resolves the address, then hands the result
+  // to the SAME site checkpoint the map feeds — so the site card, the risk
+  // pinning and the coordinates are identical either way.
+  const locateSiteByAddress = sdkTool(
+    "locate_site_by_address",
+    "Place the org's site from an ADDRESS or landmark they typed, instead of a map pin. Use when the map will not open for them, when they say it is not loading, or when they simply give you a street address — do NOT keep re-opening the map at them. Pass their words as-is ('Voluntários da Pátria 1039', 'Assentamento 20 de Novembro, rua Doutor Barros Cassal 161'). The bairro must already be confirmed. On success the normal site card appears for them to confirm, exactly as if they had dropped a pin.",
+    { address: z.string().describe("The address or landmark the org gave, in their own words") },
+    async (args: any) => {
+      const r = await placeSiteFromAddress(cboId, String(args.address ?? ''), pushEvent);
+      return { content: [{ type: "text" as const, text: r.agentMessage }] };
+    },
+  );
+
   const listOrgDocuments = sdkTool(
     "list_org_documents",
     "List the documents this organization has shared so far (across all sessions) — proposals, budgets, photos, voice memos, prior-project docs. Use this to recall what evidence already exists before asking the user to re-explain something. Returns an id, filename, kind, and short summary for each.",
@@ -1237,13 +1252,13 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
 
   const openInterventionSelector = sdkTool(
     "open_intervention_selector",
-    `Open the NBS Solution Selector micro-app — TWO-LEVEL: 5 famílias (from the Rede SCbN POA card deck) that expand into their 27 solution variants, each with the deck's real photo. YOU recommend at the FAMÍLIA level; the ORGANIZATION picks the variant (terrain, tenure and politics are theirs to know).
+    `Open the NBS Solution Selector micro-app — TWO-LEVEL: 5 grupos (from the Rede SCbN POA card deck) that expand into their 27 solution variants, each with the deck's real photo. YOU recommend at the FAMÍLIA level; the ORGANIZATION picks the variant (terrain, tenure and politics are theirs to know).
 
-Use this in Phase 3a after collecting site information. Pass siteHazards from Phase 2 data (or recommendedFamilias from guidance mode) to badge and pre-open the most relevant famílias. Only the top 2 famílias get the "Recommended" badge.
+Use this in Phase 3a after collecting site information. Pass siteHazards from Phase 2 data (or recommendedFamilias from guidance mode) to badge and pre-open the most relevant grupos. Only the top 2 grupos get the "Recommended" badge.
 
 ⚠️ siteHazards.landslide MUST be the site's landslide HAZARD (terrain susceptibility, 0–1) sampled on the E2 map (the poa_landslide_hazard layer value at the chosen point), NOT the landslide RISK. Landslide RISK is structurally tiny in POA (low exposure on the slopes ≈ 0), but the HAZARD is high on the morros — and it's what should drive slope-stabilizing NbS (urban forests, green corridors, whose roots stabilize slopes). If the E2 site sits on landslide-prone terrain (landslide hazard ≳ 0.2), pass that hazard value so those types surface as Recommended; a near-zero value would wrongly hide them.
 
-If the user went through guidance mode first (asked about problems, site conditions), pass recommendedFamilias with your recommended order — the selector will sort and badge accordingly. (recommendedTypes still works and maps to famílias.)
+If the user went through guidance mode first (asked about problems, site conditions), pass recommendedFamilias with your recommended order — the selector will sort and badge accordingly. (recommendedTypes still works and maps to grupos.)
 
 The user can select MULTIPLE solutions (e.g., wetland construído + biovaletas combo).
 
@@ -1258,9 +1273,9 @@ STOP and wait for the user's selection after calling this tool.`,
         heat: z.number().min(0).max(1),
         landslide: z.number().min(0).max(1),
       }).optional().describe("Hazard scores from Phase 2 to rank types by relevance. landslide = the site's landslide HAZARD (terrain susceptibility), NOT the risk — so slope-stabilizing NbS surface on the morros."),
-      recommendedTypes: z.array(z.string()).optional().describe("Legacy: ordered list of recommended TYPE ids; mapped to famílias. Prefer recommendedFamilias."),
+      recommendedTypes: z.array(z.string()).optional().describe("Legacy: ordered list of recommended TYPE ids; mapped to grupos. Prefer recommendedFamilias."),
       recommendedFamilias: z.array(z.string()).optional().describe("Ordered list of recommended FAMÍLIA ids from guidance mode: aguas-pluviais, verde-urbano, agricultura-urbana, encostas-e-solo, recuperacao-ecossistemas. First 2 get 'Recommended' badge and start expanded."),
-      maxRecommendations: z.number().optional().default(2).describe("How many famílias to badge as Recommended (default 2)"),
+      maxRecommendations: z.number().optional().default(2).describe("How many grupos to badge as Recommended (default 2)"),
     },
     async (args: any) => {
       // Same engine fence as open_map: the selector is an Encontro 3+ tool.
@@ -1289,7 +1304,7 @@ STOP and wait for the user's selection after calling this tool.`,
   return sdkCreateMcpServer({
     name: "cbo",
     version: "1.0.0",
-    tools: [updateSection, confirmDocFields, flagGap, setPhase, setPath, setMaturityTier, showInterventionTypes, showNbsFamilias, showFamiliaRecommendation, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector],
+    tools: [updateSection, confirmDocFields, flagGap, setPhase, setPath, setMaturityTier, showInterventionTypes, showNbsFamilias, showFamiliaRecommendation, showExamples, askPriorityRank, askCommunityAnchoring, askUser, openMap, scoreMaturity, setPriorityFlag, readKnowledge, searchKnowledge, listOrgDocuments, readOrgDocument, searchOrgDocuments, openInterventionSelector, locateSiteByAddress],
   });
 }
 
@@ -1752,6 +1767,83 @@ async function createSiteSupportRequest(cboId: string, lang: string): Promise<bo
   }
 }
 
+/**
+ * Turn an address the org TYPED into the exact message the map emits, so the
+ * site checkpoint runs unchanged.
+ *
+ * The checkpoint keys off `Map selection (composite mode):` and parses zones
+ * and sites out of it with two regexes. That text is effectively the map's
+ * protocol — which means an address only has to be rendered INTO it to get the
+ * whole path for free: bairro risk pinning, site_name, coordinates, the site
+ * card, the confirm chip. No second write path, no duplicated card.
+ *
+ * The zone line is rebuilt from _bairros_json, which the bairro checkpoint
+ * already wrote before the map was ever opened — so this works precisely in the
+ * case that motivated it, where the map then failed to render.
+ *
+ * Returns null when we cannot resolve the address or have no confirmed bairro
+ * yet; the caller keeps today's behaviour rather than inventing a location.
+ */
+async function mapSelectionFromAddress(
+  address: string,
+  state: CboState,
+): Promise<string | null> {
+  const fields = state.sections.intervention_site?.fields ?? ({} as Record<string, any>);
+  let zones: Array<{ name: string; flood: number; heat: number; landslide: number }> = [];
+  try {
+    zones = JSON.parse(String(fields._bairros_json?.value ?? '[]'));
+  } catch {
+    zones = [];
+  }
+  if (!zones.length) return null;
+
+  const hit = await forwardGeocode(address);
+  if (!hit) return null;
+
+  const z = zones[0];
+  return [
+    'Map selection (composite mode):',
+    `- [zone] ${z.name}: FLOOD_HEAT risk, flood: ${z.flood}%, heat: ${z.heat}%, landslide: ${z.landslide}%`,
+    `- [osm] ${hit.label} at (${hit.lat}, ${hit.lng})`,
+    'Total: 2 assets, 0 sampled points',
+  ].join('\n');
+}
+
+/**
+ * Place the E2 site from an address the org typed, by routing it through the
+ * SAME checkpoint a map pin uses. Shared by the `locate_site_by_address` tool
+ * and the e2e test route so there is one implementation, not two.
+ */
+export async function placeSiteFromAddress(
+  cboId: string,
+  address: string,
+  pushEvent: EventPusher,
+): Promise<{ ok: boolean; agentMessage: string }> {
+  const st = getCboState(cboId);
+  if (!st) return { ok: false, agentMessage: 'No session state.' };
+
+  const selection = await mapSelectionFromAddress(address, st);
+  if (!selection) {
+    return {
+      ok: false,
+      agentMessage: `Could not place "${address}". Do NOT invent coordinates and do NOT ask them to open the map again. Record the address as you understood it with update_section (site_name), tell them it is noted, and carry on with the next question.`,
+    };
+  }
+
+  const lang = (st as any)?.metadata?.language === 'en' ? 'en' : 'pt';
+  const served = await serveE2Checkpoint(cboId, selection, st, pushEvent, lang, 'map');
+  if (!served) {
+    return {
+      ok: false,
+      agentMessage: 'Resolved the address but the site step did not accept it. Record it with update_section (site_name) and continue.',
+    };
+  }
+  return {
+    ok: true,
+    agentMessage: 'Placed the site from the address and showed the site card. STOP — wait for them to confirm it.',
+  };
+}
+
 async function serveE2Checkpoint(
   cboId: string,
   userMessage: string,
@@ -1810,6 +1902,13 @@ async function serveE2Checkpoint(
   const finish = (detail: string): true => {
     pushEvent({ type: 'done', summary: `E2 checkpoint (${detail})` } as any);
     console.log(`[cbo] timing for ${cboId}: model=template rounds=0 first_event=0ms total=0ms kind=system detail=e2-${detail}`);
+    // Every E2 beat already passes through here and already names itself, so
+    // this one line instruments the whole funnel — no new taxonomy, no call
+    // sites to keep in sync. Drop-off per beat becomes a GROUP BY.
+    //
+    // Fire-and-forget by construction: recordCboEvent returns void, so it
+    // cannot be awaited onto the turn's critical path.
+    recordCboEvent({ cboStateId: cboId, name: 'checkpoint', phase: state.phase, step: detail });
     return true;
   };
   const openMapPreset = (args: Record<string, unknown>) =>
@@ -1824,10 +1923,10 @@ async function serveE2Checkpoint(
     if (picked.length > 0) opts.push({ pt: E2C.prontoLista.pt, en: E2C.prontoLista.en, dPt: 'Fechar a lista', dEn: 'Close the list' });
     ask(
       picked.length === 0
-        ? 'Em quais famílias vocês teriam interesse em tocar um projeto? Pode marcar mais de uma — toca numa por vez.'
+        ? 'Em quais grupos vocês teriam interesse em tocar um projeto? Pode marcar mais de uma — toca numa por vez.'
         : 'Marcado ✓ Mais alguma?',
       picked.length === 0
-        ? 'Which famílias would you be interested in running a project on? You can pick more than one — tap one at a time.'
+        ? 'Which grupos would you be interested in running a project on? You can pick more than one — tap one at a time.'
         : 'Noted ✓ Any other?',
       opts,
       // Choosing famílias is exactly the moment the convening asked for: let
@@ -2016,8 +2115,8 @@ async function serveE2Checkpoint(
     } as any);
     const items = ranking.items;
     say(
-      'Pra esse lugar, com o que você me contou, vale estudar essas famílias — não é veredito, é convite. **Nada fica descartado**: dá pra ver as 27 soluções quando quiser.',
-      "For this place, with what you've told me, these famílias are worth studying — not a verdict, an invitation. **Nothing is ruled out**: you can see all 27 solutions whenever you like.",
+      'Pra esse lugar, com o que você me contou, vale estudar esses grupos — não é veredito, é convite. **Nada fica descartado**: dá pra ver as 27 soluções quando quiser.',
+      "For this place, with what you've told me, these grupos are worth studying — not a verdict, an invitation. **Nothing is ruled out**: you can see all 27 solutions whenever you like.",
     );
     pushEvent({ type: 'show_familia_recommendation', items } as any);
     ask('Faz sentido pra vocês?', 'Does this make sense to you?', [
@@ -2822,7 +2921,7 @@ async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: Ev
     if (getCboMessages(cboId).some(m => m.messageType === 'composer' && (m.content.includes('"kind":"types"') || m.content.includes('"kind":"familias"')))) return false;
 
     const greeting = isPt
-      ? `Oi${nome ? `, ${nome}` : ''}. Antes de falar do seu território, dois minutos sobre as famílias de Solução baseada na Natureza — pra gente falar a mesma língua.`
+      ? `Oi${nome ? `, ${nome}` : ''}. Antes de falar do seu território, dois minutos sobre os grupos de Solução baseada na Natureza — pra gente falar a mesma língua.`
       : `Hi${nome ? `, ${nome}` : ''}. Before we talk about your territory, two minutes on the families of Nature-based Solutions — so we speak the same language.`;
     pushEvent({ type: 'chat', content: greeting, role: 'assistant' } as any);
     // The 5 famílias of the Rede SCbN POA deck (shared/nbs-catalog.ts) — the
@@ -2834,7 +2933,7 @@ async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: Ev
     pushEvent({
       type: 'chat', role: 'assistant',
       content: isPt
-        ? 'Essas são as 5 famílias de SbN — as mesmas das cartas que vocês vão usar nos encontros. Não precisa decorar: dá uma olhada nas que têm a ver com o seu território e, quando terminar, é só tocar abaixo.'
+        ? 'Esses são os 5 grupos de SbN — as mesmas das cartas que vocês vão usar nos encontros. Não precisa decorar: dá uma olhada nas que têm a ver com o seu território e, quando terminar, é só tocar abaixo.'
         : "These are the 5 families of NbS — the same ones on the cards you'll use in the encontros. No need to memorize them: look at the ones that match your territory and tap below when you're done.",
     } as any);
     const options = [
@@ -3497,10 +3596,10 @@ function buildDecisionLog(cboId: string): string {
         if (p.kind === 'priority') return '- You (agent) asked the user to rank the hazards by priority.';
         if (p.kind === 'anchoring') return '- You (agent) asked the community-anchoring questions.';
         if (p.kind === 'types') return '- You (agent) showed the NBS types strip.';
-        if (p.kind === 'familias') return '- You (agent) showed the NBS famílias strip (5 famílias, expandable into variants).';
+        if (p.kind === 'familias') return '- You (agent) showed the NBS grupos strip (5 grupos, expandable into variants).';
         if (p.kind === 'examples') return '- You (agent) showed real project examples.';
         if (p.kind === 'site_card') return `- You (agent) showed the site card: "${String(p.card?.name ?? '')}" in ${String(p.card?.bairro ?? '')} — and asked the user to confirm it.`;
-        if (p.kind === 'familia_reco') return `- You (agent) showed the famílias recommendation card: ${(p.items ?? []).map((i: any) => i.familiaId).join(', ')}.`;
+        if (p.kind === 'familia_reco') return `- You (agent) showed the grupos recommendation card: ${(p.items ?? []).map((i: any) => i.familiaId).join(', ')}.`;
       } catch {}
       return null;
     }
@@ -3711,10 +3810,12 @@ Score: Org Delivery Capacity (0-3), Team Technical Experience (0-3).`;
     case 2:
       return isPt
         ? `**Fase 2: Onde Atuamos** (intervention_site)
-⚠️ O fluxo linear do E2 é conduzido por checkpoints do servidor (mapas, cartão do lugar, uso atual, posse, fotos, famílias). Você só cuida do que a skill lista: exemplos, dúvidas, uploads, ajustes. NUNCA abra mapa por conta própria nem refaça perguntas dos checkpoints.
+⚠️ O fluxo linear do E2 é conduzido por checkpoints do servidor (mapas, cartão do lugar, uso atual, posse, fotos, grupos). Você só cuida do que a skill lista: exemplos, dúvidas, uploads, ajustes. NUNCA abra mapa por conta própria nem refaça perguntas dos checkpoints.
+⚠️ Se a organização disser que o mapa não abre/não carrega, ou se ela simplesmente digitar um endereço, use a ferramenta locate_site_by_address com as palavras dela. NUNCA insista em reabrir o mapa depois que ela disse que não está funcionando, e nunca invente coordenadas.
 Avaliar Controle do Local (0-3) quando land_tenure aparecer no estado.`
         : `**Phase 2: Where We Work** (intervention_site)
-⚠️ The linear E2 flow is driven by server checkpoints (maps, site card, current use, tenure, photos, famílias). You only handle what the skill lists: examples, doubts, uploads, adjustments. NEVER open a map on your own or redo checkpoint questions.
+⚠️ The linear E2 flow is driven by server checkpoints (maps, site card, current use, tenure, photos, grupos). You only handle what the skill lists: examples, doubts, uploads, adjustments. NEVER open a map on your own or redo checkpoint questions.
+⚠️ If the org says the map will not open or load, or simply types an address, use the locate_site_by_address tool with their words. NEVER keep re-opening the map after they said it is not working, and never invent coordinates.
 Score Site Control (0-3) once land_tenure appears in state.`;
 
     case 3:

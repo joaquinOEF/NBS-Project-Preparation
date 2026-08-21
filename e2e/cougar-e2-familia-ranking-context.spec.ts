@@ -73,6 +73,18 @@ test.describe('COUGAR — E2 família ranking reads the org context', () => {
     await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 30_000 });
     await expect(chip('Faz sentido')).toBeVisible({ timeout: 15_000 });
 
+    // Ana's W2 ask: the summary must open the solutions BEHIND a família, not
+    // only jump to real cases. Each ranked row carries its own expand control.
+    const expanders = page.locator('[data-testid^="reco-expand-"]');
+    expect(await expanders.count(), 'every strong família row offers its options').toBeGreaterThanOrEqual(1);
+    await expanders.first().click();
+    await expect(page.getByTestId('nbs-familia-sheet')).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId('nbs-familia-sheet-close').click();
+    await expect(page.getByTestId('nbs-familia-sheet')).toBeHidden({ timeout: 10_000 });
+
+    // Expanding must NOT answer the question — the chips are still waiting.
+    await expect(chip('Faz sentido')).toBeVisible();
+
     const body = await (await request.get(`/api/cbo/${cboId}`)).json();
     const f = body.state?.sections?.intervention_site?.fields ?? {};
 
