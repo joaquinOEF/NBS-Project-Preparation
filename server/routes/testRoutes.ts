@@ -38,6 +38,8 @@ import { createOrganization, linkCboStateToOrg } from '../services/orgPersistenc
 import { getOrgIdForCboState, listDocumentsByOrg } from '../services/documentPersistence';
 import { cohorts, cohortMembers, DEFAULT_WORKSHOPS } from '@shared/cohort-schema';
 import { coordinators, coordinatorSessions } from '@shared/coordinator-schema';
+import { prepareAskUser } from '../services/askUserGuards';
+import { QUESTIONNAIRES, askCopyFor } from '@shared/cbo-questionnaire';
 
 // Namespacing prefixes — cleanup keys off these so we never touch real data.
 const E2E_COHORT_PREFIX = 'e2e-';
@@ -148,6 +150,38 @@ export function registerTestRoutes(app: Express): void {
   // Simulate a cold load / Replit recycle: flush to DB, then drop the in-memory
   // maps. The next read hydrates from DB — so a spec can prove state survives a
   // process restart, not just a warm page reload (which keeps the Map).
+  // Run the ask_user guards over a scripted batch, against a session's real
+  // stored answers. Exercises the SAME module the tool and the fake model use
+  // (askUserGuards.ts) — the point of extracting it was that a rule can be
+  // asserted once instead of mirrored per caller.
+  app.post('/__test/cbo/:id/ask-guards', wrap(async (req, res) => {
+    const st = getCboState(req.params.id);
+    const prepared = prepareAskUser(req.body?.questions ?? [], {
+      phase: st?.phase ?? 1,
+      lang: req.body?.lang === 'en' ? 'en' : 'pt',
+      read: (field: string) => {
+        const v = st?.sections?.org_profile?.fields?.[field]?.value;
+        return v == null ? undefined : String(v);
+      },
+    });
+    // Also resolve the close-gate wording for a named field. The branch that
+    // broke in W2 (nbs_experience_detail) is asked as PROSE, so it never passes
+    // through ask_user — the gate is where its wording is now handed over.
+    const read = (field: string) => {
+      const v = st?.sections?.org_profile?.fields?.[field]?.value;
+      return v == null ? undefined : String(v);
+    };
+    const forField = typeof req.body?.copyForField === 'string' ? req.body.copyForField : null;
+    res.json({
+      items: prepared.items.map((i: any) => ({ kind: i.kind, question: i.question, note: i.note, labels: (i.options ?? []).map((o: any) => o.label) })),
+      copyNotes: prepared.copyNotes,
+      filteredNotes: prepared.filteredNotes,
+      copyForField: forField
+        ? askCopyFor(QUESTIONNAIRES[1], forField, read, req.body?.lang === 'en' ? 'en' : 'pt')
+        : null,
+    });
+  }));
+
   app.post('/__test/cbo/:id/evict', wrap(async (req, res) => {
     await flushNow(req.params.id);
     setCboState(req.params.id, undefined as any);

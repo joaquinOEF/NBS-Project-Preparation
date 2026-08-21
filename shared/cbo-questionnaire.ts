@@ -34,6 +34,28 @@ export interface OptionRule {
   allow: Record<string, string[]>;
 }
 
+/** The exact words to ask a field with.
+ *
+ *  W2 showed why this cannot live in the model's memory. Two orgs answered
+ *  nbs_experience = "Ainda não". Desabafa got the right follow-up ("vocês têm
+ *  alguma iniciativa que acham que pode estar relacionada com SbN?"); Periferia
+ *  Feminista got the yes-presuming one ("que tipo de solução baseada na
+ *  natureza vocês JÁ TRABALHARAM?") — the exact wording the skill tells it not
+ *  to use on that branch. Same input, different output, and hers cost a real
+ *  answer: she used the turn to correct the previous question instead.
+ *
+ *  `variants` selects by the stored option id of `dependsOn`, so a branch's
+ *  wording is data rather than something recalled correctly most of the time. */
+export interface AskCopy {
+  pt: string;
+  en: string;
+  /** Wording that depends on an earlier answer, keyed by that answer's id. */
+  variants?: {
+    dependsOn: string;
+    by: Record<string, { pt: string; en: string }>;
+  };
+}
+
 /** A field that must be filled before the encontro closes. `requiredIf` makes
  *  it conditional on another field's answer (by option id); `orField` accepts
  *  a legacy/alternate field as satisfying the requirement. */
@@ -49,6 +71,9 @@ export interface QuestionnaireManifest {
   phase: number;
   sectionId: string;
   optionRules: Record<string, OptionRule>;
+  /** Canonical question copy per field. Optional: a field with no entry keeps
+   *  today's behaviour exactly, so this can be adopted field by field. */
+  ask?: Record<string, AskCopy>;
   requiredToClose: (string | RequiredEntry)[];
   /** The E1 triage (set_path) must have run before closing. */
   requiresPath?: boolean;
@@ -69,6 +94,53 @@ export const E1_QUESTIONNAIRE: QuestionnaireManifest = {
         'no': ['informal', 'other'],
         'not-sure': ['ngo', 'cooperativa', 'informal', 'other'],
       },
+    },
+  },
+  // The words E1 asks with. Sourced from knowledge/_skills/encontro-1.md so the
+  // skill and the manifest cannot drift — the skill remains the place the flow
+  // is explained; this is the place the wording is enforced.
+  //
+  // Only the fields whose wording actually went wrong in W2, plus the two the
+  // duplicate-batch bug hit. The rest are unlisted on purpose: an unlisted
+  // field behaves exactly as it does today.
+  ask: {
+    nbs_experience: {
+      pt: 'Vocês já trabalharam com alguma solução baseada na natureza?',
+      en: 'Have you already worked with any nature-based solution?',
+    },
+    // The branch that broke. "Ainda não" must never be answered with a
+    // question that presumes a yes.
+    nbs_experience_detail: {
+      pt: 'Que tipo de solução baseada na natureza vocês já trabalharam?',
+      en: 'What kind of nature-based solution have you worked with?',
+      variants: {
+        dependsOn: 'nbs_experience',
+        by: {
+          'not-sure': {
+            pt: 'Me conta um pouco da iniciativa que vocês acham que pode ser SbN.',
+            en: 'Tell me a bit about the initiative you think might be an NbS.',
+          },
+          // A clean "Ainda não" should not reach this field at all — the
+          // requiredToClose rule excludes it. Worded defensively anyway, so
+          // that if it is ever asked it is not asked as a yes.
+          'none': {
+            pt: 'Tem alguma iniciativa de vocês que vocês acham que pode estar relacionada com SbN? Ou é bem nova essa exploração?',
+            en: 'Is there anything you do that you think might relate to NbS? Or is this exploration new for you?',
+          },
+        },
+      },
+    },
+    legal_form: {
+      pt: 'Qual é a forma jurídica de vocês?',
+      en: 'What is your legal form?',
+    },
+    groups_served: {
+      pt: 'Quem vocês atendem?',
+      en: 'Who do you serve?',
+    },
+    paid_vs_volunteer: {
+      pt: 'A equipe é paga ou voluntária?',
+      en: 'Is the team paid or voluntary?',
     },
   },
   requiredToClose: [
@@ -203,3 +275,39 @@ for (const m of Object.values(QUESTIONNAIRES)) {
     }
   }
 }
+
+/** The canonical wording for a field, in one language, resolving any branch
+ *  variant against what the org has already answered.
+ *
+ *  Null when the manifest declares no copy for the field — the caller then
+ *  keeps whatever it was going to do, which is how this stays adoptable field
+ *  by field rather than as a flag day. */
+export function askCopyFor(
+  manifest: QuestionnaireManifest,
+  field: string,
+  read: FieldReader,
+  lang: 'pt' | 'en',
+): string | null {
+  const entry = manifest.ask?.[field];
+  if (!entry) return null;
+  const v = entry.variants;
+  if (v) {
+    const dep = storedId(read, v.dependsOn);
+    if (dep && v.by[dep]) return v.by[dep][lang];
+  }
+  return entry[lang];
+}
+
+/** Same, across every manifest, for callers that only know a field name. */
+export function askCopyForField(
+  field: string,
+  read: FieldReader,
+  lang: 'pt' | 'en',
+): string | null {
+  for (const m of Object.values(QUESTIONNAIRES)) {
+    const copy = askCopyFor(m, field, read, lang);
+    if (copy) return copy;
+  }
+  return null;
+}
+

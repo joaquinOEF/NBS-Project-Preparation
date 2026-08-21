@@ -38,6 +38,7 @@ import { emitAssistantText } from './agentOutput';
 import { isReplitDeployment } from './runtimeEnv';
 import { canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, enumFieldsMatchingOptions } from '@shared/cbo-field-catalog';
 import { QUESTIONNAIRES, checkOptionRule } from '@shared/cbo-questionnaire';
+import { prepareAskUser } from './askUserGuards';
 
 export function isFakeModelEnabled(): boolean {
   // Deployment backstop: Replit shares App secrets with Deployments by
@@ -195,25 +196,41 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
       break;
     }
     case 'ask_user': {
-      // Mirror of the real tool's phase-1 "recommended" strip: E1 facts have
-      // no recommendable answer (Perfect Demo 2026-07-14).
-      const stripRecommended = (state.phase ?? 1) <= 1;
-      const options = (op.options ?? []).map(o => ({ label: o.label, description: o.description ?? '', recommended: stripRecommended ? undefined : o.recommended, action: o.action }));
-      // Mirror of the real ask_user re-ask guard (cboAgent.ts): a chip list
-      // that resolves to enum field(s) the state already answers is a
-      // duplicate and is dropped instead of rendered. `allowReask` bypasses,
-      // same as the real tool.
-      if (!op.allowReask) {
-        const fieldsHit = enumFieldsMatchingOptions(options.filter(o => !o.action).map(o => o.label));
-        const fields = state.sections.org_profile?.fields ?? {};
-        if (
-          fieldsHit.length > 0 &&
-          fieldsHit.every(f => String(fields[f]?.value ?? '').trim().length > 0)
-        ) {
-          break;
+      // Same guards as the real tool, from the same module — see
+      // askUserGuards.ts. This used to be a hand-written mirror, which meant
+      // the deterministic suite validated a copy of the rules rather than the
+      // rules, and a guard added to the tool was untested until someone
+      // remembered to duplicate it here.
+      const prepared = prepareAskUser([{
+        question: op.question,
+        options: (op.options ?? []) as any,
+        multiSelect: op.multiSelect,
+        showMap: op.showMap,
+        showExamples: op.showExamples,
+        allowReask: op.allowReask,
+      }], {
+        phase: state.phase ?? 1,
+        lang: (state as any)?.metadata?.language === 'en' ? 'en' : 'pt',
+        read: (field: string) => {
+          const v = state.sections.org_profile?.fields?.[field]?.value;
+          return v == null ? undefined : String(v);
+        },
+      });
+      for (const item of prepared.items) {
+        if (item.kind === 'blocked') continue;
+        if (item.kind === 'prose') {
+          pushEvent({ type: 'chat', content: item.question, role: 'assistant' } as any);
+          continue;
         }
+        pushEvent({
+          type: 'ask_user',
+          question: item.question,
+          options: item.options as any,
+          showMap: op.showMap,
+          showExamples: op.showExamples,
+          multiSelect: op.multiSelect,
+        });
       }
-      pushEvent({ type: 'ask_user', question: op.question, options, showMap: op.showMap, showExamples: op.showExamples, multiSelect: op.multiSelect });
       break;
     }
     case 'score_maturity': {
