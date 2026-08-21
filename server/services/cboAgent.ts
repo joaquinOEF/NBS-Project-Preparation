@@ -58,7 +58,8 @@ import { emitAssistantText } from "./agentOutput";
 // translation (JVP, 2026-08-06 — the Documento tab in English).
 import { isKnownOrgProfileField, canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, orgProfileOptionLabels, orgProfileLabelsForIds, ORG_PROFILE_FIELDS, enumFieldsMatchingOptions,
   E2_CURRENT_USE, E2_TENURE, E2_ROLES, canonicalizeCboFieldValue } from "@shared/cbo-field-catalog";
-import { QUESTIONNAIRES, checkOptionRule, filterRuledOptions, missingRequiredForClose, type FieldReader, type QuestionnaireManifest } from "@shared/cbo-questionnaire";
+import { QUESTIONNAIRES, checkOptionRule, filterRuledOptions, missingRequiredForClose, askCopyFor, type FieldReader, type QuestionnaireManifest } from "@shared/cbo-questionnaire";
+import { prepareAskUser } from "./askUserGuards";
 
 /** Manifests whose rules govern this section (today: E1 ↔ org_profile). */
 function manifestsForSection(sectionId: string): QuestionnaireManifest[] {
@@ -867,63 +868,40 @@ Include showMap: true on a question only when the user genuinely needs the map t
       // still does it, so convert server-side: deliver the question as plain
       // chat prose instead of a composer. No isError — the question DID reach
       // the user; an error retry would double-ask it.
-      let converted = 0;
-      const filteredNotes: string[] = [];
+      // One implementation of these rules, shared with the fake model — see
+      // askUserGuards.ts. They used to exist twice, so the e2e suite exercised
+      // a copy and a guard added here was invisible to every test.
+      const qState0 = getCboState(cboId);
+      const guarded = prepareAskUser(args.questions || [], {
+        phase: qState0?.phase ?? 1,
+        lang: (qState0 as any)?.metadata?.language === 'en' ? 'en' : 'pt',
+        read: qState0?.sections?.org_profile
+          ? sectionFieldReader(qState0.sections.org_profile)
+          : () => undefined,
+      });
+      const filteredNotes = guarded.filteredNotes;
+      const copyNotes = guarded.copyNotes;
       const blockedNotes: string[] = [];
+      let converted = 0;
       let shown = 0;
-      for (const q of args.questions || []) {
-        if ((q.options?.length ?? 0) === 1) {
-          pushEvent({ type: 'chat', content: q.question, role: 'assistant' } as any);
+      for (const item of guarded.items) {
+        if (item.kind === 'prose') {
+          pushEvent({ type: 'chat', content: item.question, role: 'assistant' } as any);
           converted++;
           continue;
         }
-        // Re-ask guard (COUGAR Perfect Demo 2026-07-14): the model re-asked
-        // already-answered questions ("How is your team structured?" twice in
-        // a row). ask_user carries no field id, so infer the target field(s)
-        // by resolving the chip labels against the enum catalog; when every
-        // plausible field already holds an answer, this is a duplicate — drop
-        // it and teach the model instead of rendering it. `allowReask: true`
-        // (a deliberate act, reserved for a user-requested change) bypasses.
-        if (!q.allowReask) {
-          const chipLabels = (q.options || []).filter((o: any) => !o.action).map((o: any) => o.label);
-          const fieldsHit = enumFieldsMatchingOptions(chipLabels);
-          if (fieldsHit.length > 0) {
-            const orgSection = getCboState(cboId)?.sections?.org_profile;
-            if (orgSection) {
-              const read = sectionFieldReader(orgSection);
-              const answered = fieldsHit.map(f => ({ field: f, value: read(f) })).filter(x => (x.value ?? '').trim().length > 0);
-              if (answered.length === fieldsHit.length) {
-                blockedNotes.push(`"${q.question}" — ${answered.map(a => `${a.field} is already answered ("${a.value}")`).join(' and ')}`);
-                continue;
-              }
-            }
-          }
+        if (item.kind === 'blocked') {
+          blockedNotes.push(item.note);
+          continue;
         }
-        let options = q.options || [];
-        const qState = getCboState(cboId);
-        // E1 asks FACTS about the org (team size, CNPJ, experience) — there is
-        // no answer to "recommend", and a ⭐ badge on "Sim" reads as pressure
-        // to self-inflate (Perfect Demo 2026-07-14: "por que dice
-        // recomendado?"). Strip the flag in phase 1; later encontros (real
-        // recommendations, e.g. NBS types) keep it.
-        if ((qState?.phase ?? 1) <= 1) {
-          options = options.map(({ recommended: _r, ...rest }: any) => rest);
-        }
-        // Manifest rule: when this is recognizably a rule-governed enum
-        // question (e.g. legal_form), drop the options the stored dependency
-        // answer excludes — a CNPJ-less org must never see "ONG" as a chip.
-        // Only applied when ≥2 options survive; otherwise the original list
-        // renders and the write-path rule still backstops the answer.
-        for (const m of Object.values(QUESTIONNAIRES)) {
-          const qSection = qState?.sections[m.sectionId as keyof typeof qState.sections];
-          if (!qSection) continue;
-          const filtered = filterRuledOptions(m, options, sectionFieldReader(qSection));
-          if (filtered && filtered.droppedLabels.length > 0 && filtered.kept.length >= 2) {
-            options = filtered.kept as typeof options;
-            filteredNotes.push(`dropped ${filtered.droppedLabels.length} ${filtered.field} option(s) inconsistent with the stored ${m.optionRules[filtered.field].dependsOn} answer: ${filtered.droppedLabels.join(' · ')}`);
-          }
-        }
-        pushEvent({ type: 'ask_user', question: q.question, options, relatedSections: q.relatedSections, showMap: q.showMap, multiSelect: q.multiSelect });
+        pushEvent({
+          type: 'ask_user',
+          question: item.question,
+          options: item.options as any,
+          relatedSections: item.source.relatedSections as string[] | undefined,
+          showMap: item.source.showMap,
+          multiSelect: item.source.multiSelect,
+        });
         shown++;
       }
       // Everything was a blocked duplicate and nothing reached the user →
@@ -934,8 +912,9 @@ Include showMap: true on a question only when the user genuinely needs the map t
       }
       const note = converted > 0 ? ` (${converted} single-option question(s) delivered as plain text instead — a one-option list is a free-text question; next time ask it as prose with no tool call)` : '';
       const filterNote = filteredNotes.length > 0 ? ` (${filteredNotes.join('; ')} — the user only saw the valid chips)` : '';
+      const copyNote = copyNotes.length > 0 ? ` (${copyNotes.join('; ')} — the manifest owns that wording; use it verbatim next time)` : '';
       const blockedNote = blockedNotes.length > 0 ? ` (${blockedNotes.length} duplicate question(s) NOT shown: ${blockedNotes.join('; ')} — never re-ask answered fields)` : '';
-      return { content: [{ type: "text" as const, text: `${shown + converted} question(s) shown.${note}${filterNote}${blockedNote} STOP and wait.` }] };
+      return { content: [{ type: "text" as const, text: `${shown + converted} question(s) shown.${note}${filterNote}${copyNote}${blockedNote} STOP and wait.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );
@@ -1080,10 +1059,23 @@ STOP and wait for the user's map selection after calling this tool.`,
         }
         const missing = gateSection ? missingRequiredForClose(closeManifest, sectionFieldReader(gateSection), hasPath) : [];
         if (missing.length > 0) {
+          // Hand back the WORDS, not just the field names. nbs_experience_detail
+          // is asked as prose, so it never passes through ask_user and never
+          // gets the canonical copy that way — and prose is exactly where the
+          // branch broke: an org that answered "Ainda não" was asked what kind
+          // of NbS they had already worked with. Where the manifest declares
+          // wording, the model is given the sentence rather than asked to
+          // remember which variant applies.
+          const gateRead = sectionFieldReader(gateSection!);
+          const gateLang = (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
+          const lines = missing.map(field => {
+            const copy = askCopyFor(closeManifest, field, gateRead, gateLang);
+            return copy ? `${field} — ask it EXACTLY like this: "${copy}"` : field;
+          });
           return {
             content: [{
               type: "text" as const,
-              text: `NOT scored — Encontro ${state.phase} can't close yet, these are still missing: ${missing.join(', ')}. Ask the user for each of them (chips for enum fields, prose for free-text), store the answers, and only then re-run the closing calls.`,
+              text: `NOT scored — Encontro ${state.phase} can't close yet, these are still missing:\n${lines.map(l => `- ${l}`).join('\n')}\nAsk the user for each of them (chips for enum fields, prose for free-text), store the answers, and only then re-run the closing calls.`,
             }],
             isError: true,
           };
