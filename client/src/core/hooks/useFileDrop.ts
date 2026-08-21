@@ -67,8 +67,18 @@ export function useFileDrop({ sessionId, sessionType, onFileProcessed, onError }
           }
 
           const data = await res.json();
-          const content = data.content || `[File uploaded: ${file.name}, ${data.contentLength} chars extracted]`;
-          onFileProcessed(file.name, content);
+          // A parse failure now returns 200 with the file safely stored, so it
+          // no longer trips the !res.ok branch above. Report it as kept-but-
+          // unread rather than as "0 chars extracted", which reads as success.
+          if (data.parsed === false) {
+            onFileProcessed(
+              file.name,
+              `[File "${file.name}" was received and stored, but its text could not be read automatically — nothing was extracted from it.]`,
+            );
+          } else {
+            const content = data.content || `[File uploaded: ${file.name}, ${data.contentLength} chars extracted]`;
+            onFileProcessed(file.name, content);
+          }
         } catch (err: any) {
           onError?.(err.message || 'Upload failed');
         } finally {

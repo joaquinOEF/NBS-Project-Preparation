@@ -23,3 +23,12 @@ export function isReplitDeployment(): boolean {
 export function isPhaseSkipEnabled(): boolean {
   return process.env.ENABLE_PHASE_SKIP === '1' && !isReplitDeployment();
 }
+
+/** Deterministic geocoding for the e2e suite: address lookups resolve to a
+ *  fixed Porto Alegre coordinate instead of calling Nominatim, so the site-
+ *  from-address path can be tested without network. Same structural guard as
+ *  the other seams — flag AND non-deployment. */
+export function isFakeGeocodeEnabled(): boolean {
+  return process.env.CBO_FAKE_GEOCODE === '1' && !isReplitDeployment();
+}
+

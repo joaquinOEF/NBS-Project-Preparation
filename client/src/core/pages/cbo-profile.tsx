@@ -461,6 +461,35 @@ export default function CboProfilePage() {
   useEffect(() => { refreshFileCount(); }, [refreshFileCount]);
   const [mapRelevant, setMapRelevant] = useState(false);
   const [openMapParams, setOpenMapParams] = useState<OpenMapParams | null>(null);
+  // "Não abre o mapa" — Ksa Rosa, three times in nine minutes, and we had no
+  // way to know. A map that is asked for and never renders now says so.
+  // Resolved by MapMicroapp's onReady; unresolved after the grace period is
+  // reported as failed. Best-effort throughout: telemetry must never be able
+  // to interrupt the session it is measuring.
+  const mapRenderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reportMapRender = useCallback((outcome: 'ok' | 'failed') => {
+    if (mapRenderTimerRef.current) {
+      clearTimeout(mapRenderTimerRef.current);
+      mapRenderTimerRef.current = null;
+    }
+    if (!cboId) return;
+    fetch(`/api/cbo/${cboId}/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'map_render', outcome, phase: state?.phase ?? null }),
+    }).catch(() => {});
+  }, [cboId, state?.phase]);
+
+  useEffect(() => {
+    if (openMapParams == null) return;
+    if (mapRenderTimerRef.current) clearTimeout(mapRenderTimerRef.current);
+    // Long enough that a slow tile server is not called a failure; short enough
+    // that a real failure is still attributable to the beat it happened in.
+    mapRenderTimerRef.current = setTimeout(() => reportMapRender('failed'), 12_000);
+    return () => {
+      if (mapRenderTimerRef.current) clearTimeout(mapRenderTimerRef.current);
+    };
+  }, [openMapParams, reportMapRender]);
   // The E2 hazard tour's position lives HERE, not in MapMicroapp. Any trip to
   // another right-panel tab sets rightTab and unmounts the map, which would
   // otherwise reset the tour to Enchente 1/3 — and asking the agent a question
@@ -2150,7 +2179,16 @@ export default function CboProfilePage() {
                 if (parsed.kind === 'familia_reco' && Array.isArray(parsed.items)) {
                   return (
                     <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
-                      <CboFamiliaRecommendation items={parsed.items} intro={parsed.intro} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
+                      <CboFamiliaRecommendation
+                        items={parsed.items}
+                        intro={parsed.intro}
+                        lang={lang.startsWith('pt') ? 'pt' : 'en'}
+                        // Same live read as the família strip: the sheet opened
+                        // from a reco row orders variants by the mechanism the
+                        // org named (backlog #24).
+                        worries={String(state?.sections?.intervention_site?.fields?.site_worry?.value ?? '')
+                          .split(',').map(w => w.trim()).filter(Boolean)}
+                      />
                     </div>
                   );
                 }
@@ -2619,7 +2657,18 @@ export default function CboProfilePage() {
                       if (pendingUploadPurposeRef.current) {
                         formData.append('purpose', pendingUploadPurposeRef.current);
                       }
-                      const data = await fetch(`/api/upload/cbo/${cboId}`, { method: 'POST', body: formData }).then(r => r.json());
+                      const res = await fetch(`/api/upload/cbo/${cboId}`, { method: 'POST', body: formData });
+                      const data = await res.json();
+                      // Refused before it was ever read — too large, or a type
+                      // we don't take. Say which, with the fix. This used to be
+                      // reported to the org as "could not parse", i.e. as if
+                      // their document were corrupt.
+                      if (!res.ok) {
+                        await sendMessage(
+                          `I tried to upload "${file.name}" and it was refused. ${data.reason ?? ''} ${data.fix ?? ''} Tell them this plainly and continue with the current question.`.replace(/\s+/g, ' ').trim(),
+                        );
+                        continue;
+                      }
                       // Gap 4 — link a site photo to the chosen site (best-effort;
                       // the server no-ops until a site exists). Images only.
                       if (file.type.startsWith('image/') && data.savedPath && memberSlug) {
@@ -2629,9 +2678,22 @@ export default function CboProfilePage() {
                           body: JSON.stringify({ path: data.savedPath }),
                         }).catch(() => {});
                       }
-                      await sendMessage(`I'm uploading: "${file.name}".\n\nParsed content:\n${(data.content || '').slice(0, 8000)}\n\nPlease extract info, auto-fill sections, and score maturity.`);
+                      if (data.parsed === false) {
+                        // The file IS stored — original kept, doc row written,
+                        // retryable — we just cannot read it yet. Say that, so
+                        // the org is not told their document was lost when it
+                        // was not, and does not re-upload the same file hoping
+                        // for a different result (Ksa Rosa did, twice, and then
+                        // left the session).
+                        await sendMessage(
+                          `I uploaded "${file.name}". It is saved and the coordination team can open it, but the text could not be read automatically, so nothing was filled in from it. Acknowledge that it arrived and is on file, do NOT ask them to send it again, and continue with the current question.`,
+                        );
+                      } else {
+                        await sendMessage(`I'm uploading: "${file.name}".\n\nParsed content:\n${(data.content || '').slice(0, 8000)}\n\nPlease extract info, auto-fill sections, and score maturity.`);
+                      }
                     } catch {
-                      await sendMessage(`Uploaded "${file.name}" but could not parse.`);
+                      // Genuine transport failure — nothing reached the server.
+                      await sendMessage(`Uploaded "${file.name}" but it did not reach us. Ask them to try again.`);
                     }
                   }
                   setUploadingName(null);
@@ -2826,6 +2888,7 @@ export default function CboProfilePage() {
                 {(openMapParams ?? (toolReached(state, 'map') && state ? RIGHT_PANEL_TOOLS.map.defaultParams(state) : null)) ? (
                   <MapMicroapp
                     params={(openMapParams ?? RIGHT_PANEL_TOOLS.map.defaultParams(state!)) as OpenMapParams}
+                    onReady={() => reportMapRender('ok')}
                     tourIdx={tourIdx}
                     onTourIdxChange={handleTourIdxChange}
                     onAskMapHelp={handleAskMapHelp}
@@ -2914,7 +2977,7 @@ export default function CboProfilePage() {
                     onConfirm={(result: InterventionSelectorResult) => {
                       const hasSolutions = (result.solutionIds?.length ?? 0) > 0;
                       const message = hasSolutions
-                        ? `Selected NBS solution${result.solutionIds!.length > 1 ? 's' : ''}: ${result.labels.join(' + ')} (${result.solutionIds!.join(', ')}). Família${(result.familias?.length ?? 0) > 1 ? 's' : ''}: ${(result.familias ?? []).join(', ')}.${result.interventionTypes.length > 0 ? ` Mapped NBS types: ${result.interventionTypes.join(', ')}. Knowledge files: ${result.knowledgeFiles.join(', ')}` : ''}`
+                        ? `Selected NBS solution${result.solutionIds!.length > 1 ? 's' : ''}: ${result.labels.join(' + ')} (${result.solutionIds!.join(', ')}). Grupo${(result.familias?.length ?? 0) > 1 ? 's' : ''}: ${(result.familias ?? []).join(', ')}.${result.interventionTypes.length > 0 ? ` Mapped NBS types: ${result.interventionTypes.join(', ')}. Knowledge files: ${result.knowledgeFiles.join(', ')}` : ''}`
                         : result.label; // "I don't know — help me decide"
                       if (currentQuestion) handleSelectOption(message); else sendMessage(message);
                       setInterventionSelectorParams(null);
@@ -3243,7 +3306,7 @@ function CboQuestionCard({
         </Button>
       )}
       {/* ⚠️ SECONDARY control, deliberately outside the options list and styled
-          unlike them: choosing a família is the answer, looking at cases is not.
+          unlike them: choosing a grupo is the answer, looking at cases is not.
           As an option it would either answer the question by accident or strand
           the checkpoint machine, which reads its position from the answers. */}
       {question.showExamples && !readOnly && onShowExamples && (

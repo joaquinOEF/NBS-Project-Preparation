@@ -104,6 +104,11 @@ interface Props {
    * hazard and its actual color ramp so the agent reasons from the real stops.
    */
   onAskMapHelp?: (family: HazardFamily, rampNote: string) => void;
+  /** Fired once the Leaflet instance is live. The CBO page uses it to tell
+   *  a map that rendered from one that never appeared — "não abre o mapa",
+   *  reported three times in one W2 session and invisible to us until someone
+   *  read the transcript six weeks later. */
+  onReady?: () => void;
 }
 
 // Composite mode has two steps: 1) pick zone, 2) pick assets within it
@@ -198,6 +203,7 @@ export default function MapMicroapp({
   tourIdx: tourIdxProp,
   onTourIdxChange,
   onAskMapHelp,
+  onReady,
 }: Props) {
   const { t, i18n } = useTranslation();
   const provLang: 'en' | 'pt' = i18n.language?.startsWith('pt') ? 'pt' : 'en';
@@ -507,6 +513,7 @@ export default function MapMicroapp({
     politicalBaseRef.current.addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     mapRef.current = map;
+    onReady?.();
     setMapReady(true);
     return () => {
       // Neutralise a zoom animation still in flight, or unmounting throws.

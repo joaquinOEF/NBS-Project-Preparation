@@ -87,7 +87,7 @@ export const NBS_SOLUTION_FICHAS: Record<string, NbsSolutionFicha> = {
       comoFunciona:
         'A biovaleta é uma vala rasa e comprida, com laterais em rampa (não paredes retas), plantada com vegetação. Em vez de só acumular água num ponto, ela conduz a água de um lugar a outro — de uma rua até um jardim de chuva, por exemplo — infiltrando parte dela pelo caminho. Em trechos mais inclinados, usa pequenas barreiras dentro da vala para frear a água e evitar erosão.',
       quantoCusta:
-        'R$ 200–500 por m² (referência GIZ, 2023) — a faixa mais barata da família, porque é rasa (até 60 cm) e não tem paredes de contenção.',
+        'R$ 200–500 por m² (referência GIZ, 2023) — a faixa mais barata do grupo, porque é rasa (até 60 cm) e não tem paredes de contenção.',
       quemPrecisaDizerSim:
         'Normalmente fica em canteiro central, estacionamento ou faixa pública estreita — depende de aprovação da prefeitura: EPTC se mexer em via/calçada, SMAMUS para o ambiente urbano, e DMAE se conectar à drenagem pública. Escavação e plantio dá para fazer em mutirão; o cálculo de vazão e a inclinação das barreiras (para não erodir) pedem um técnico.',
       quemCuidaDepois:
@@ -135,7 +135,7 @@ export const NBS_SOLUTION_FICHAS: Record<string, NbsSolutionFicha> = {
       comoFunciona:
         'A escada hidráulica vegetada é uma sequência de degraus construídos num trecho muito inclinado (acima de 5% de declive), geralmente com gabiões, para a água descer em degraus em vez de escorrer direto pelo barranco. Cada degrau quebra a força da água (dissipa energia) e, quando plantado, a vegetação aumenta o atrito da superfície e filtra um pouco a água que passa. Serve para levar a água de um jardim de chuva ou canteiro pluvial lá em cima até um ponto de saída lá embaixo, sem erodir o caminho.',
       quantoCusta:
-        'R$ 600–1.200 por m² (referência GIZ, 2023) — das mais caras da família, porque é obra estrutural (gabião, escavação com maquinário), não só paisagismo.',
+        'R$ 600–1.200 por m² (referência GIZ, 2023) — das mais caras do grupo, porque é obra estrutural (gabião, escavação com maquinário), não só paisagismo.',
       quemPrecisaDizerSim:
         'Envolve cálculo hidráulico e estrutural — o catálogo GIZ pede as mesmas normas técnicas de uma escada hidráulica convencional. Não é projeto de mutirão puro: precisa de técnico ou engenheiro para o dimensionamento, mesmo que a execução (colocar pedra no gabião, plantar) seja feita em mutirão depois. Em terreno público, a aprovação é da prefeitura — SMAMUS pelo ambiente urbano, EPTC se mexer em via — e o DMAE entra se a escada deságua na rede pública de drenagem.',
       quemCuidaDepois:
@@ -286,9 +286,9 @@ export const NBS_SOLUTION_FICHAS: Record<string, NbsSolutionFicha> = {
       quantoCusta:
         'Cisterna de placas de 16 mil litros, modelo padrão do Programa Cisternas: R$ 4.500 quando construída em mutirão com mão de obra capacitada pelo programa (ASA/P1MC); R$ 8.000 a R$ 10.500 quando contratada por edital público (MDS, 2024). Para reservatórios urbanos menores, de 500 a 5.000 litros em polietileno pronto, o preço fica entre R$ 1 e R$ 4 por litro de capacidade (estimativa de mercado).',
       quemPrecisaDizerSim:
-        'Captar água de telhado e guardar numa cisterna doméstica ou comunitária não exige licenciamento ambiental — é uma instalação predial simples. Se o uso for coletivo, numa sede comunitária ou escola, o recomendado é conversar com a Vigilância Sanitária municipal sobre o desenho do sistema (água não potável) e, se a cisterna estiver ligada à rede pluvial do terreno, avisar o DMAE. É a solução mais fácil de aprovar da família.',
+        'Captar água de telhado e guardar numa cisterna doméstica ou comunitária não exige licenciamento ambiental — é uma instalação predial simples. Se o uso for coletivo, numa sede comunitária ou escola, o recomendado é conversar com a Vigilância Sanitária municipal sobre o desenho do sistema (água não potável) e, se a cisterna estiver ligada à rede pluvial do terreno, avisar o DMAE. É a solução mais fácil de aprovar do grupo.',
       quemCuidaDepois:
-        'Limpeza da calha e do filtro antes de cada estação chuvosa, porque folhas entopem; limpeza da cisterna a cada 6 a 12 meses para tirar sedimento do fundo; e a cisterna precisa ficar sempre bem tampada, senão vira criadouro de mosquito da dengue. É a manutenção mais simples da família — pode ficar com a própria família ou o zelador do espaço comunitário.',
+        'Limpeza da calha e do filtro antes de cada estação chuvosa, porque folhas entopem; limpeza da cisterna a cada 6 a 12 meses para tirar sedimento do fundo; e a cisterna precisa ficar sempre bem tampada, senão vira criadouro de mosquito da dengue. É a manutenção mais simples do grupo — pode ficar com a própria família ou o zelador do espaço comunitário.',
     },
     en: {
       comoFunciona:
@@ -616,7 +616,7 @@ export const NBS_SOLUTION_FICHAS: Record<string, NbsSolutionFicha> = {
   'muro-de-arrimo-verde': {
     pt: {
       comoFunciona:
-        "É um muro de pedra ou de gabião (caixa de tela metálica cheia de pedra) que segura o empuxo do terreno atrás dele. Entre as pedras ou nas frestas do gabião, plantam-se mudas: as raízes crescem nos vãos e reforçam a estrutura com o tempo. É a solução mais 'dura' da família — funciona como um muro convencional, só que com vida dentro.",
+        "É um muro de pedra ou de gabião (caixa de tela metálica cheia de pedra) que segura o empuxo do terreno atrás dele. Entre as pedras ou nas frestas do gabião, plantam-se mudas: as raízes crescem nos vãos e reforçam a estrutura com o tempo. É a solução mais 'dura' do grupo — funciona como um muro convencional, só que com vida dentro.",
       quantoCusta:
         'R$ 200 a R$ 300 por m² para pedra ou gabião (base GIZ, 2023); a versão pré-fabricada tipo cribwall chega a R$ 1.000–2.000 por m². É custo alto em qualquer variante — envolve avaliação geotécnica, fundação e mão de obra especializada.',
       quemPrecisaDizerSim:
@@ -644,7 +644,7 @@ export const NBS_SOLUTION_FICHAS: Record<string, NbsSolutionFicha> = {
       comoFunciona:
         'Grampos de metal são cravados fundo na encosta em furos e fixados com calda de cimento injetada — como pinos grandes segurando o barranco por dentro. Uma tela cobre a face do talude e recebe plantio de grama ou trepadeiras. Suporta até 70° de inclinação e 20 m de altura, exceto onde a rocha está exposta.',
       quantoCusta:
-        'R$ 800 a R$ 1.000 por m² (base GIZ, 2023). É a opção mais cara da família: exige perfuração mecanizada, grampos e injeção de calda de cimento — equipamento e mão de obra especializada, não dá para mutirão.',
+        'R$ 800 a R$ 1.000 por m² (base GIZ, 2023). É a opção mais cara do grupo: exige perfuração mecanizada, grampos e injeção de calda de cimento — equipamento e mão de obra especializada, não dá para mutirão.',
       quemPrecisaDizerSim:
         'Nível licença, sem exceção. Precisa de projeto assinado por engenheiro com ART registrada no CREA, perfuração mecanizada e injeção de calda de cimento — o próprio catálogo GIZ cita a falta de técnicos qualificados como um desafio real para essa solução. Área de risco passa por liberação da Defesa Civil; a obra passa por licenciamento da SMAMUS. Não existe versão mutirão desta solução: a comunidade não deve tocar em grampo, perfuração ou tela estrutural.',
       quemCuidaDepois:
