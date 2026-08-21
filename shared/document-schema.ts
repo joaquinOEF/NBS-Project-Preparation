@@ -47,6 +47,13 @@ export const documents = pgTable('documents', {
   // later sessions read back via read_org_document.
   fullText: text('full_text'),
   summary: text('summary'),
+  // Whether extraction succeeded. Null on every pre-existing row, which reads
+  // as 'parsed' — those rows only exist because extraction had succeeded.
+  // 'failed' means the original is stored and readable but has no text yet:
+  // retryable, and surfaced to the coordinator rather than silently dropped.
+  // ⚠️ NEW COLUMNS — needs `npm run db:push` before deploy.
+  parseStatus: text('parse_status').$type<'parsed' | 'failed'>(),
+  parseError: text('parse_error'),
   // Provenance: which phase the upload arrived in, and who added it.
   droppedInPhase: integer('dropped_in_phase'),
   source: text('source').$type<'upload' | 'agent'>().default('upload'),
