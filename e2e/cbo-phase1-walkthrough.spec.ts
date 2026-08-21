@@ -24,9 +24,9 @@ const PHASE1_SCRIPT = [
   ],
   // Turn 3 — record the mission, ask legal form (chips).
   [
-    { op: 'update_section', sectionId: 'org_profile', field: 'mission', value: 'Cultivar alimento e reduzir alagamentos no bairro Cascata.' },
+    { op: 'say', text: 'Anotado.' },
     { op: 'ask_user', question: 'Qual é a forma jurídica da organização?', options: [
-      { label: 'Associação comunitária' },
+      { label: 'ONG / Associação' },
       { label: 'Coletivo informal' },
       { label: 'Estúdio / empresa' },
       { label: 'Escola' },
@@ -34,19 +34,41 @@ const PHASE1_SCRIPT = [
   ],
   // Turn 4 — record legal form, ask team size (chips).
   [
-    { op: 'update_section', sectionId: 'org_profile', field: 'legal_form', value: 'Associação comunitária' },
+    { op: 'update_section', sectionId: 'org_profile', field: 'legal_form', value: 'ONG / Associação' },
     { op: 'ask_user', question: 'Quantas pessoas fazem parte da equipe?', options: [
-      { label: '1–5' }, { label: '6–20' }, { label: 'Mais de 20' },
+      { label: '1–5' }, { label: '6–15' }, { label: '16+' },
     ] },
   ],
   // Turn 5 — record team size, ask years active (free text).
   [
-    { op: 'update_section', sectionId: 'org_profile', field: 'team_size', value: '6–20' },
+    { op: 'update_section', sectionId: 'org_profile', field: 'team_size', value: '6–15' },
     { op: 'say', text: 'Há quantos anos a organização existe?' },
   ],
-  // Turn 6 — record years, score the two Phase-1 metrics, advance to Phase 2.
+  // Turn 6 — the rest of what E1 actually requires, then score and advance.
+  //
+  // This spec used to fill five fields and call that "a full org profile". It
+  // passed only because the fake model wrote maturity scores unconditionally;
+  // the real tool has always refused to close while requiredToClose fields are
+  // missing. Now that both share cboCloseGate, the spec has to build a profile
+  // the product would genuinely accept — which is what its name claims.
+  //
+  // It also used field names that do not exist (`mission`, `years_active`) and
+  // an off-list legal_form. Those are corrected here; the canonical labels come
+  // from ORG_PROFILE_ENUMS.
   [
-    { op: 'update_section', sectionId: 'org_profile', field: 'years_active', value: '8 anos' },
+    { op: 'update_section', sectionId: 'org_profile', field: 'year_founded', value: '5 a 10 anos' },
+    { op: 'update_section', sectionId: 'org_profile', field: 'mission_summary', value: 'Cultivar alimento e reduzir alagamentos no bairro Cascata.' },
+    { op: 'update_section', sectionId: 'org_profile', field: 'contact_name', value: 'Ana Souza' },
+    { op: 'update_section', sectionId: 'org_profile', field: 'contact_role', value: 'Coordenação' },
+    { op: 'update_section', sectionId: 'org_profile', field: 'main_activities', value: 'Hortas e segurança alimentar' },
+    { op: 'update_section', sectionId: 'org_profile', field: 'has_cnpj', value: 'Sim, temos CNPJ' },
+    { op: 'update_section', sectionId: 'org_profile', field: 'paid_vs_volunteer', value: 'Todas voluntárias' },
+    { op: 'update_section', sectionId: 'org_profile', field: 'nbs_experience', value: 'Ainda não' },
+    { op: 'update_section', sectionId: 'org_profile', field: 'groups_served', value: 'Mulheres, Jovens' },
+    { op: 'update_section', sectionId: 'org_profile', field: 'funding_history', value: 'Sim, já recebemos' },
+    { op: 'update_section', sectionId: 'org_profile', field: 'funded_project_count', value: '2 a 5 projetos' },
+    { op: 'update_section', sectionId: 'org_profile', field: 'biggest_project_budget', value: 'R$ 10 a 50 mil' },
+    { op: 'set_path', path: 'has-idea' },
     { op: 'say', text: 'Perfeito — já tenho um bom retrato de vocês. Vou registrar a maturidade da Fase 1.' },
     { op: 'score_maturity', metric: 'org_delivery_capacity', score: 2, justification: 'Equipe estabelecida, 8 anos de atuação.' },
     { op: 'score_maturity', metric: 'team_technical_experience', score: 2, justification: 'Experiência prática em horta comunitária.' },
@@ -85,8 +107,8 @@ test('Phase 1 walkthrough: a full org profile is built and advances to Phase 2',
   await sendText('Horta Comunitária Cascata', 2);                            // → name recorded, asks mission
   await expect(marker).toHaveAttribute('data-org-name', 'Horta Comunitária Cascata');
   await sendText('Cultivar alimento e reduzir alagamentos no bairro Cascata.', 3); // → mission, asks legal form
-  await clickChip('Associação comunitária', 4);                              // → legal form, asks team size
-  await clickChip('6–20', 5);                                                // → team size, asks years
+  await clickChip('ONG / Associação', 4);                              // → legal form, asks team size
+  await clickChip('6–15', 5);                                                // → team size, asks years
   await sendText('8 anos', 6);                                               // → years, scores, advances
 
   // The flow advanced to Phase 2 and the document panel shows the org name.
@@ -98,7 +120,11 @@ test('Phase 1 walkthrough: a full org profile is built and advances to Phase 2',
   // Phase-1 metrics scored + phase advanced.
   const state = await (await request.get(`/api/cbo/${cboId}`)).json();
   const fields = state.state.sections.org_profile.fields;
-  for (const f of ['org_name', 'mission', 'legal_form', 'team_size', 'years_active']) {
+  // The real field names. This list previously asserted `mission` and
+  // `years_active`, which the product does not have — so it was checking that
+  // two fields nobody writes were "filled", and passing because the fake model
+  // wrote whatever it was handed.
+  for (const f of ['org_name', 'mission_summary', 'legal_form', 'team_size', 'year_founded', 'has_cnpj', 'nbs_experience', 'groups_served']) {
     expect(fields[f]?.value, `org_profile.${f} should be filled`).toBeTruthy();
   }
   expect(state.state.maturityScores.length).toBe(2);

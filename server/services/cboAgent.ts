@@ -63,6 +63,7 @@ import { prepareAskUser } from "./askUserGuards";
 import { commitConfirmedStagedFields, isAffirmativeReply } from "./e1ConfirmCommit";
 import { parseNbsInventory } from "@shared/nbs-inventory";
 import { isImplementationNarration } from "./assistantNoise";
+import { checkCloseGate } from "./cboCloseGate";
 
 /** Manifests whose rules govern this section (today: E1 ↔ org_profile). */
 function manifestsForSection(sectionId: string): QuestionnaireManifest[] {
@@ -1048,38 +1049,27 @@ STOP and wait for the user's map selection after calling this tool.`,
       // what makes "edit an earlier answer near the end → the model jumps to
       // the closing and skips the project-status question" structurally
       // impossible (field report 2026-07).
+      // CLOSE GATE (manifest): scoring IS the closing signal for E1, so refuse
+      // it while required questionnaire fields (or the set_path triage) are
+      // missing. Shared with the fake model — see cboCloseGate.ts. It used to
+      // live only here, which meant no spec could trip it.
       const closeManifest = QUESTIONNAIRES[state.phase];
       if (closeManifest) {
-        const gateSection = state.sections[closeManifest.sectionId as keyof typeof state.sections];
-        let hasPath: boolean | null = null; // null = standalone session, path not persistable
+        let hasPath: boolean | null = null; // null = standalone session
         if (closeManifest.requiresPath) {
           try {
             const rows = await db.select({ path: cohortMembers.path }).from(cohortMembers).where(eq(cohortMembers.cboStateId, cboId)).limit(1);
             hasPath = rows.length === 0 ? null : rows[0].path != null;
           } catch { hasPath = null; }
         }
-        const missing = gateSection ? missingRequiredForClose(closeManifest, sectionFieldReader(gateSection), hasPath) : [];
-        if (missing.length > 0) {
-          // Hand back the WORDS, not just the field names. nbs_experience_detail
-          // is asked as prose, so it never passes through ask_user and never
-          // gets the canonical copy that way — and prose is exactly where the
-          // branch broke: an org that answered "Ainda não" was asked what kind
-          // of NbS they had already worked with. Where the manifest declares
-          // wording, the model is given the sentence rather than asked to
-          // remember which variant applies.
-          const gateRead = sectionFieldReader(gateSection!);
-          const gateLang = (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
-          const lines = missing.map(field => {
-            const copy = askCopyFor(closeManifest, field, gateRead, gateLang);
-            return copy ? `${field} — ask it EXACTLY like this: "${copy}"` : field;
-          });
-          return {
-            content: [{
-              type: "text" as const,
-              text: `NOT scored — Encontro ${state.phase} can't close yet, these are still missing:\n${lines.map(l => `- ${l}`).join('\n')}\nAsk the user for each of them (chips for enum fields, prose for free-text), store the answers, and only then re-run the closing calls.`,
-            }],
-            isError: true,
-          };
+        const gate = checkCloseGate({
+          phase: state.phase,
+          section: state.sections[closeManifest.sectionId as keyof typeof state.sections],
+          hasPath,
+          lang: (state as any)?.metadata?.language === 'en' ? 'en' : 'pt',
+        });
+        if (gate.message) {
+          return { content: [{ type: "text" as const, text: gate.message }], isError: true };
         }
       }
       state.maturityScores = state.maturityScores.filter(s => s.metric !== args.metric);
@@ -3245,7 +3235,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   // fake instead of the live SDK — fast, free, and reproducible. The real path
   // below is byte-for-byte untouched. See server/services/fakeCboModel.ts.
   if (isFakeModelEnabled()) {
-    await streamWithFakeModel(cboId, userMessage, state, pushEvent, lang, { setCboState });
+    await streamWithFakeModel(cboId, userMessage, state, pushEvent, lang, { setCboState, countUserContentTurns });
     res.end();
     return;
   }
