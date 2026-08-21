@@ -58,6 +58,7 @@ import { emitAssistantText } from "./agentOutput";
 import { isKnownOrgProfileField, canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, orgProfileOptionLabels, orgProfileLabelsForIds, ORG_PROFILE_FIELDS, enumFieldsMatchingOptions,
   E2_CURRENT_USE, E2_TENURE, E2_ROLES, canonicalizeCboFieldValue } from "@shared/cbo-field-catalog";
 import { QUESTIONNAIRES, checkOptionRule, filterRuledOptions, missingRequiredForClose, type FieldReader, type QuestionnaireManifest } from "@shared/cbo-questionnaire";
+import { commitConfirmedStagedFields, isAffirmativeReply } from "./e1ConfirmCommit";
 
 /** Manifests whose rules govern this section (today: E1 ↔ org_profile). */
 function manifestsForSection(sectionId: string): QuestionnaireManifest[] {
@@ -3065,6 +3066,34 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     if (await serveEncontro2Entry(cboId, state, pushEvent, lang)) {
       res.end();
       return;
+    }
+  }
+
+  // E1: commit what the org just confirmed, before the model gets the turn.
+  //
+  // Staging is right; relying on the model to finish the transaction is not.
+  // Adriana confirmed her website-extracted mission with "✅ Tá tudo certo" and
+  // it was re-asked as missing five minutes later, because confirm_doc_fields
+  // was never called. She retyped a worse one, and that is what her profile
+  // carries.
+  //
+  // Same guard as the tool: only values staged on an EARLIER user turn, so a
+  // recap and its confirmation can never be the same turn. Falls through to the
+  // model either way — this commits, it does not take the turn.
+  if (state.phase === 1 && isAffirmativeReply(userMessage)) {
+    try {
+      const outcome = commitConfirmedStagedFields(state, countUserContentTurns(cboId));
+      if (outcome.committed.length > 0) {
+        setCboState(cboId, state);
+        for (const field of outcome.committed) {
+          const sectionId = 'org_profile';
+          const value = state.sections.org_profile?.fields?.[field]?.value;
+          pushEvent({ type: 'field_update', sectionId, field, value, confidence: 'medium', source: 'document' } as any);
+        }
+        console.log(`[cbo] e1 auto-committed confirmed staged fields for ${cboId}: ${outcome.committed.join(', ')}`);
+      }
+    } catch (err) {
+      console.error(`[cbo] e1 confirm-commit failed for ${cboId} (continuing):`, err);
     }
   }
 
