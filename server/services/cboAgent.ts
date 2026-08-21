@@ -29,6 +29,7 @@ import { rankFamiliasForSite, inferSiteTypeLabel } from "@shared/nbs-recommendat
 import { rankFamiliasWithContext, rankerCanRun, type FamiliaRankingResult } from "./familiaRanker";
 import { getObject } from "./blobStorage";
 import { reverseGeocode, forwardGeocode, isPlaceholderSiteName } from "./geocodeService";
+import { recordCboEvent } from "./cboEvents";
 import {
   E2_WORRIES,
   orderWorriesByData,
@@ -1909,6 +1910,13 @@ async function serveE2Checkpoint(
   const finish = (detail: string): true => {
     pushEvent({ type: 'done', summary: `E2 checkpoint (${detail})` } as any);
     console.log(`[cbo] timing for ${cboId}: model=template rounds=0 first_event=0ms total=0ms kind=system detail=e2-${detail}`);
+    // Every E2 beat already passes through here and already names itself, so
+    // this one line instruments the whole funnel — no new taxonomy, no call
+    // sites to keep in sync. Drop-off per beat becomes a GROUP BY.
+    //
+    // Fire-and-forget by construction: recordCboEvent returns void, so it
+    // cannot be awaited onto the turn's critical path.
+    recordCboEvent({ cboStateId: cboId, name: 'checkpoint', phase: state.phase, step: detail });
     return true;
   };
   const openMapPreset = (args: Record<string, unknown>) =>

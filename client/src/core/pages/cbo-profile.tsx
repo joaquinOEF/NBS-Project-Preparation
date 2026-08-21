@@ -461,6 +461,35 @@ export default function CboProfilePage() {
   useEffect(() => { refreshFileCount(); }, [refreshFileCount]);
   const [mapRelevant, setMapRelevant] = useState(false);
   const [openMapParams, setOpenMapParams] = useState<OpenMapParams | null>(null);
+  // "Não abre o mapa" — Ksa Rosa, three times in nine minutes, and we had no
+  // way to know. A map that is asked for and never renders now says so.
+  // Resolved by MapMicroapp's onReady; unresolved after the grace period is
+  // reported as failed. Best-effort throughout: telemetry must never be able
+  // to interrupt the session it is measuring.
+  const mapRenderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reportMapRender = useCallback((outcome: 'ok' | 'failed') => {
+    if (mapRenderTimerRef.current) {
+      clearTimeout(mapRenderTimerRef.current);
+      mapRenderTimerRef.current = null;
+    }
+    if (!cboId) return;
+    fetch(`/api/cbo/${cboId}/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'map_render', outcome, phase: state?.phase ?? null }),
+    }).catch(() => {});
+  }, [cboId, state?.phase]);
+
+  useEffect(() => {
+    if (openMapParams == null) return;
+    if (mapRenderTimerRef.current) clearTimeout(mapRenderTimerRef.current);
+    // Long enough that a slow tile server is not called a failure; short enough
+    // that a real failure is still attributable to the beat it happened in.
+    mapRenderTimerRef.current = setTimeout(() => reportMapRender('failed'), 12_000);
+    return () => {
+      if (mapRenderTimerRef.current) clearTimeout(mapRenderTimerRef.current);
+    };
+  }, [openMapParams, reportMapRender]);
   // The E2 hazard tour's position lives HERE, not in MapMicroapp. Any trip to
   // another right-panel tab sets rightTab and unmounts the map, which would
   // otherwise reset the tour to Enchente 1/3 — and asking the agent a question
@@ -2859,6 +2888,7 @@ export default function CboProfilePage() {
                 {(openMapParams ?? (toolReached(state, 'map') && state ? RIGHT_PANEL_TOOLS.map.defaultParams(state) : null)) ? (
                   <MapMicroapp
                     params={(openMapParams ?? RIGHT_PANEL_TOOLS.map.defaultParams(state!)) as OpenMapParams}
+                    onReady={() => reportMapRender('ok')}
                     tourIdx={tourIdx}
                     onTourIdxChange={handleTourIdxChange}
                     onAskMapHelp={handleAskMapHelp}

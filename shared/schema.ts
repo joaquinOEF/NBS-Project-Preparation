@@ -10,6 +10,7 @@ export * from './coordinator-schema';  // coordinator accounts + sessions
 export * from './cohort-schema';       // cohorts, members, workshops, sites
 export * from './cbo-db-schema';       // cbo_states + cbo_messages (chat truth)
 export * from './document-schema';     // uploaded evidence / documents
+export * from './cbo-event-schema';    // funnel events — where orgs actually stop
 
 // ── SHARED (both surfaces) ──────────────────────────────────────────────────
 export * from './sample-constants';
