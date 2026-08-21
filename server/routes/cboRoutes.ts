@@ -22,6 +22,7 @@ import {
 } from "../services/cboPersistence";
 import { clearMaturityTierForCboState } from "../services/orgPersistence";
 import { createEmptyCboState, CBO_SECTIONS, isInternalCboField, type CboState } from "@shared/cbo-schema";
+import { recordCboEvent, getFunnelSummary } from "../services/cboEvents";
 import { cboFieldLabel, cboDisplayValue, CBO_SECTION_TITLES, CBO_PRIORITY_FLAG_LABELS } from "@shared/cbo-field-catalog";
 import {
   listDocumentsForScope,
@@ -384,6 +385,38 @@ export function registerCboRoutes(app: Express): void {
   });
 
   // User edit
+  // Client-observed outcomes the server cannot see for itself — today only
+  // whether a map actually rendered. Deliberately tiny and unauthenticated in
+  // the same way the rest of the CBO capability-token surface is: it writes one
+  // row to a telemetry table and returns nothing.
+  // The funnel, as a request. This is the thing whose absence cost us six
+  // weeks: drop-off per beat, and how often the map fails to appear.
+  //
+  // Deliberately NOT /api/cbo/_funnel — that sits under the "/api/cbo/:id"
+  // GET registered above and would be served as an id lookup, which is how it
+  // first failed here. Same shadowing trap as the tile routes.
+  app.get("/api/cbo-funnel", async (_req: Request, res: Response) => {
+    try {
+      res.json(await getFunnelSummary());
+    } catch (e: any) {
+      res.status(500).json({ error: e?.message ?? String(e) });
+    }
+  });
+
+  app.post("/api/cbo/:id/event", (req: Request, res: Response) => {
+    const { name, step, outcome, detail, phase } = req.body ?? {};
+    if (name !== 'map_render') return res.status(400).json({ error: 'unknown event' });
+    recordCboEvent({
+      cboStateId: req.params.id,
+      name: 'map_render',
+      phase: typeof phase === 'number' ? phase : null,
+      step: typeof step === 'string' ? step.slice(0, 60) : null,
+      outcome: outcome === 'failed' ? 'failed' : 'ok',
+      detail: typeof detail === 'string' ? detail : null,
+    });
+    res.json({ ok: true });
+  });
+
   app.post("/api/cbo/:id/edit", async (req: Request, res: Response) => {
     const { sectionId, field, value } = req.body;
     if (!sectionId || !field || value === undefined) return res.status(400).json({ error: "sectionId, field, value required" });
