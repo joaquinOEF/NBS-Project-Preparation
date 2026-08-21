@@ -544,6 +544,49 @@ export const CBO_PRIORITY_FLAG_LABELS: Record<string, { pt: string; en: string }
  *
  * Unrecognized input passes through untouched — free text is the user's.
  */
+/** The enum options for any section+field, or null when the field is free
+ *  text. One lookup for both halves of the document — org_profile and the
+ *  SECTION_ENUMS sections — so callers don't have to know which is which. */
+export function cboFieldEnumOptions(sectionId: string, field: string): CboEnumOption[] | null {
+  if (sectionId === 'org_profile') return ORG_PROFILE_ENUMS[field] ?? null;
+  return SECTION_ENUMS[sectionId]?.[field] ?? null;
+}
+
+/** True when `value` sits on the closed list for section+field (multi-select:
+ *  every part must). Free-text fields are always valid.
+ *
+ *  ⚠️ Guards the MANUAL edit path. canonicalizeCboFieldValue deliberately lets
+ *  unrecognized input pass through — that is right for free text, but on a
+ *  closed list it let the profile tab store anything, so the orchestrator could
+ *  no longer compare orgs against standard categories (Ana, W2). Callers that
+ *  accept a user-supplied value for an enum field must reject on false. */
+export function isCanonicalCboFieldValue(sectionId: string, field: string, value: string): boolean {
+  const options = cboFieldEnumOptions(sectionId, field);
+  if (!options || typeof value !== 'string') return true;
+  if (!value.trim()) return true; // clearing a field is allowed
+  if (sectionId === 'org_profile') return isCanonicalOrgProfileValue(field, value);
+  const parts = value.split(',').map(p => p.trim()).filter(Boolean);
+  return parts.length > 0 && parts.every(part => {
+    const n = norm(part);
+    return options.some(
+      o => norm(o.id) === n || norm(o.pt) === n || norm(o.en) === n ||
+           (o.aliases ?? []).some(a => norm(a) === n),
+    );
+  });
+}
+
+/** The labels a manual editor should offer for section+field, in one language.
+ *  Empty when the field is free text. */
+export function cboFieldOptionLabels(sectionId: string, field: string, lang: 'pt' | 'en' = 'pt'): string[] {
+  return (cboFieldEnumOptions(sectionId, field) ?? []).map(o => (lang === 'pt' ? o.pt : o.en));
+}
+
+/** Multi-select fields store several values in one string. */
+export function isMultiValueCboField(sectionId: string, field: string): boolean {
+  if (sectionId === 'org_profile') return MULTI_FIELDS.has(field);
+  return field === 'nbs_interest' || field === 'site_worry';
+}
+
 export function canonicalizeCboFieldValue(sectionId: string, field: string, raw: string): string {
   if (typeof raw !== 'string' || !raw.trim()) return raw;
   if (sectionId === 'org_profile') return canonicalizeOrgProfileValue(field, raw);

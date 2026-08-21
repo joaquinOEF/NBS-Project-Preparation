@@ -89,6 +89,55 @@ test.describe('COUGAR — E1 enum fields render human labels, never machine ids'
     await expect(page.getByText('Oficinas de reciclagem', { exact: false })).toHaveCount(0);
   });
 
+  // Ana (W2): the profile tab accepted any prose even on banded/closed answers,
+  // so the orchestrator could not compare orgs against standard categories.
+  test('a closed-list field rejects an off-list manual edit, and offers the list instead', async ({ page, request }) => {
+    const api = new TestApi(request);
+    const ping = await api.ping();
+    test.skip(!ping.fakeModel, 'CBO_FAKE_MODEL is not enabled on the target — skipping deterministic spec.');
+
+    await page.goto('/cbo-profile');
+    const marker = page.getByTestId('cbo-stream-status');
+    await expect(marker).toHaveAttribute('data-cbo-id', /.+/);
+    const cboId = (await marker.getAttribute('data-cbo-id'))!;
+
+    await api.scriptCbo(cboId, [
+      [
+        { op: 'update_section', sectionId: 'org_profile', field: 'legal_form', value: 'ONG / Associação' },
+        { op: 'say', text: 'Anotei.' },
+      ],
+    ]);
+    const input = page.getByTestId('cbo-chat-input');
+    await input.fill('oi');
+    await input.press('Enter');
+    await expect(marker).toHaveAttribute('data-streaming', 'false');
+
+    // Prose on a closed list is refused, and the response teaches the options.
+    const bad = await request.post(`/api/cbo/${cboId}/edit`, {
+      data: { sectionId: 'org_profile', field: 'legal_form', value: 'Associação de moradores da Vila' },
+    });
+    expect(bad.status(), 'an off-list value must not be accepted').toBe(400);
+    const body = await bad.json();
+    expect(body.field).toBe('legal_form');
+    expect(Array.isArray(body.allowed) && body.allowed.length > 0, 'the refusal must carry the allowed list').toBe(true);
+
+    // The stored value is untouched by the refused write.
+    const after = await (await request.get(`/api/cbo/${cboId}`)).json();
+    expect(String(after.state?.sections?.org_profile?.fields?.legal_form?.value ?? ''))
+      .toBe('ONG / Associação');
+
+    // An on-list value still goes through.
+    const good = await request.post(`/api/cbo/${cboId}/edit`, {
+      data: { sectionId: 'org_profile', field: 'legal_form', value: 'Cooperativa' },
+    });
+    expect(good.status()).toBe(200);
+
+    // And the panel offers a picker rather than a free-text box.
+    await page.getByTestId('cbo-strip-document').click();
+    await page.getByTestId('cbo-enum-edit-legal_form').click();
+    await expect(page.getByTestId('cbo-enum-legal_form')).toBeVisible();
+  });
+
   test('a free-text value that matches no option passes through untouched', async ({ page, request }) => {
     const api = new TestApi(request);
     const ping = await api.ping();
