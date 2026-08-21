@@ -22,7 +22,7 @@ import {
 } from "../services/cboPersistence";
 import { clearMaturityTierForCboState } from "../services/orgPersistence";
 import { createEmptyCboState, CBO_SECTIONS, isInternalCboField, type CboState } from "@shared/cbo-schema";
-import { cboFieldLabel, cboDisplayValue, CBO_SECTION_TITLES, CBO_PRIORITY_FLAG_LABELS } from "@shared/cbo-field-catalog";
+import { cboFieldLabel, cboDisplayValue, CBO_SECTION_TITLES, CBO_PRIORITY_FLAG_LABELS, isCanonicalCboFieldValue, cboFieldOptionLabels } from "@shared/cbo-field-catalog";
 import {
   listDocumentsForScope,
   getDocumentForScope,
@@ -387,6 +387,19 @@ export function registerCboRoutes(app: Express): void {
   app.post("/api/cbo/:id/edit", async (req: Request, res: Response) => {
     const { sectionId, field, value } = req.body;
     if (!sectionId || !field || value === undefined) return res.status(400).json({ error: "sectionId, field, value required" });
+    // Closed lists stay closed on the manual path too. canonicalizeCboFieldValue
+    // lets unrecognized input through — correct for free text, but it meant the
+    // profile tab could store any prose on a banded/closed field, and the
+    // orchestrator then had nothing standard to compare orgs against (Ana, W2).
+    // The client offers a picker; this is the guard behind it.
+    if (!isCanonicalCboFieldValue(sectionId, field, String(value))) {
+      const lang = String(req.body?.lang ?? 'pt').startsWith('en') ? 'en' : 'pt';
+      return res.status(400).json({
+        error: `\"${value}\" is not an option for ${field}`,
+        field,
+        allowed: cboFieldOptionLabels(sectionId, field, lang),
+      });
+    }
     await handleCboEdit(req.params.id, sectionId, field, value, res);
     debouncedPersist(req.params.id);
   });
