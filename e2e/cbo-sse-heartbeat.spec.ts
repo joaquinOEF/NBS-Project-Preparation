@@ -75,7 +75,11 @@ test.describe('CBO — SSE heartbeat keeps slow turns alive', () => {
     await api.scriptCbo(cboId, [[
       { op: 'wait', ms: 1_400 } as any,
       { op: 'say', text: 'Pensei bastante nessa.' },
-      { op: 'ask_user', question: 'Tudo certo?', options: [{ label: 'Sim' }] },
+      // Two options on purpose. A one-option list is converted to prose before
+      // it reaches the user — the real tool has always done that, and since the
+      // fake model started sharing those guards it does too. A card scripted
+      // with one option would be asserting a state production cannot produce.
+      { op: 'ask_user', question: 'Tudo certo?', options: [{ label: 'Sim' }, { label: 'Quero ajustar' }] },
     ]]);
 
     const input = page.getByTestId('cbo-chat-input');

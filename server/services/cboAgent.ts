@@ -882,7 +882,6 @@ Include showMap: true on a question only when the user genuinely needs the map t
           : () => undefined,
       });
       const filteredNotes = guarded.filteredNotes;
-      const copyNotes = guarded.copyNotes;
       const blockedNotes: string[] = [];
       let converted = 0;
       let shown = 0;
@@ -914,9 +913,8 @@ Include showMap: true on a question only when the user genuinely needs the map t
       }
       const note = converted > 0 ? ` (${converted} single-option question(s) delivered as plain text instead — a one-option list is a free-text question; next time ask it as prose with no tool call)` : '';
       const filterNote = filteredNotes.length > 0 ? ` (${filteredNotes.join('; ')} — the user only saw the valid chips)` : '';
-      const copyNote = copyNotes.length > 0 ? ` (${copyNotes.join('; ')} — the manifest owns that wording; use it verbatim next time)` : '';
       const blockedNote = blockedNotes.length > 0 ? ` (${blockedNotes.length} duplicate question(s) NOT shown: ${blockedNotes.join('; ')} — never re-ask answered fields)` : '';
-      return { content: [{ type: "text" as const, text: `${shown + converted} question(s) shown.${note}${filterNote}${copyNote}${blockedNote} STOP and wait.` }] };
+      return { content: [{ type: "text" as const, text: `${shown + converted} question(s) shown.${note}${filterNote}${blockedNote} STOP and wait.` }] };
     },
     { annotations: { readOnlyHint: true } }
   );

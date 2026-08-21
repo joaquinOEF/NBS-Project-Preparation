@@ -22,7 +22,6 @@ import {
 import {
   QUESTIONNAIRES,
   filterRuledOptions,
-  askCopyForField,
   type FieldReader,
 } from '@shared/cbo-questionnaire';
 
@@ -128,19 +127,19 @@ export function prepareAskUser(questions: AskQuestion[], ctx: AskGuardContext): 
       }
     }
 
-    // Canonical wording, where the manifest declares it. The model still
-    // decides WHICH field to ask and when; it no longer decides the words,
-    // because the words are where the branch bug lived.
-    let question = q.question;
-    if (targetFields.length === 1) {
-      const canonical = askCopyForField(targetFields[0], ctx.read, ctx.lang);
-      if (canonical && canonical !== question) {
-        copyNotes.push(`${targetFields[0]} asked with its canonical wording`);
-        question = canonical;
-      }
-    }
-
-    items.push({ kind: 'render', question, options, source: q });
+    // NOTE: no canonical-wording substitution here, deliberately.
+    //
+    // It was tried and removed. Chip labels cannot identify a field reliably
+    // enough to rewrite its question: "Sim / Ainda não" belongs to has_cnpj AND
+    // nbs_experience, so the two fields whose wording actually broke can never
+    // be disambiguated from their chips — the substitution was inert exactly
+    // where it was needed. Where it DID fire, it silently rewrote questions
+    // nobody had complained about, which is how it landed three red specs.
+    //
+    // The wording fix lives in the close gate instead (score_maturity), which
+    // is where the broken question actually was: nbs_experience_detail is asked
+    // as prose and never reaches this tool at all.
+    items.push({ kind: 'render', question: q.question, options, source: q });
   }
 
   return { items, filteredNotes, copyNotes };

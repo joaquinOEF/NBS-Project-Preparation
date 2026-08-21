@@ -100,9 +100,14 @@ export const E1_QUESTIONNAIRE: QuestionnaireManifest = {
   // skill and the manifest cannot drift — the skill remains the place the flow
   // is explained; this is the place the wording is enforced.
   //
-  // Only the fields whose wording actually went wrong in W2, plus the two the
-  // duplicate-batch bug hit. The rest are unlisted on purpose: an unlisted
-  // field behaves exactly as it does today.
+  // ONLY the fields whose wording actually went wrong in W2. Everything else
+  // is unlisted on purpose and keeps the model's own phrasing.
+  //
+  // I first listed five, including paid_vs_volunteer and legal_form — fields
+  // nobody had complained about. That silently rewrote questions three existing
+  // specs assert on ("Como é a estrutura da equipe?"), which is the tell: if
+  // taking a field over changes what an org is asked without a report behind it,
+  // the manifest is being used to standardise rather than to fix.
   ask: {
     nbs_experience: {
       pt: 'Vocês já trabalharam com alguma solução baseada na natureza?',
@@ -129,18 +134,6 @@ export const E1_QUESTIONNAIRE: QuestionnaireManifest = {
           },
         },
       },
-    },
-    legal_form: {
-      pt: 'Qual é a forma jurídica de vocês?',
-      en: 'What is your legal form?',
-    },
-    groups_served: {
-      pt: 'Quem vocês atendem?',
-      en: 'Who do you serve?',
-    },
-    paid_vs_volunteer: {
-      pt: 'A equipe é paga ou voluntária?',
-      en: 'Is the team paid or voluntary?',
     },
   },
   requiredToClose: [
