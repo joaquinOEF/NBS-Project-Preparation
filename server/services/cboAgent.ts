@@ -24,6 +24,7 @@ import {
 } from "./cboPersistence";
 import { db } from "../db";
 import { cohortMembers, type SupportRequest } from "@shared/cohort-schema";
+import { classifyUploadNotice, isUnreadableUploadNotice } from '@shared/cbo-upload-notices';
 import { resolveOpenMapParams } from "@shared/cbo-map-presets";
 import { rankFamiliasForSite, inferSiteTypeLabel } from "@shared/nbs-recommendation";
 import { rankFamiliasWithContext, rankerCanRun, type FamiliaRankingResult } from "./familiaRanker";
@@ -2438,6 +2439,42 @@ async function serveE2Checkpoint(
     }, pushEvent);
     say('Anotado — isso ajuda a montar as duplas no Encontro 3.', 'Noted — that helps shape the pairings in Encontro 3.');
     return await closeE2();
+  }
+
+  // ── An upload that produced no readable text ───────────────────────────────
+  // These arrive as FREE TEXT, so they must be handled before the chip-only
+  // guard below — which is exactly why they were falling through to the model.
+  //
+  // The photo beat already documents the consequence, for the "Anexar mais"
+  // case: "Left unhandled it would fall through to the model, whose turn
+  // replaces the pending composer — so the 'Pronto, pode seguir' chip would
+  // vanish and the org would be stranded mid-upload." Three unreadable photos
+  // did precisely that: the chip went away, `_photos_done` was never set, and
+  // Beat 4's read-back never ran (w2-scenarios org 1).
+  //
+  // `parsed` notices are deliberately NOT caught — those carry a document the
+  // model needs to read and fill sections from.
+  if (
+    val('_story_done') === 'yes' &&
+    val('_photos_done') !== 'yes' &&
+    isUnreadableUploadNotice(raw)
+  ) {
+    const kind = classifyUploadNotice(raw);
+    if (kind === 'transport') {
+      say('Esse arquivo não chegou aqui. Dá pra tentar de novo?',
+          "That file didn't reach us. Could you try again?");
+    } else if (kind === 'refused') {
+      say('Esse arquivo eu não consegui aceitar — mas segue, dá pra mandar outro.',
+          "I couldn't accept that file — but carry on, you can send another.");
+    } else {
+      say('Recebi. Não consegui ler o conteúdo automaticamente, mas o arquivo está guardado e a coordenação abre.',
+          "Got it. I couldn't read the contents automatically, but the file is stored and the coordination team can open it.");
+    }
+    ask('Quando terminar de anexar:', 'When you finish attaching:', [
+      { pt: E2C.prontoSeguir.pt, en: E2C.prontoSeguir.en },
+      { pt: 'Anexar mais', en: 'Attach more', dPt: 'Abre de novo', dEn: 'Opens it again', action: 'upload_then_answer' },
+    ]);
+    return finish('await-uploads');
   }
 
   // ── Chip taps ──────────────────────────────────────────────────────────────

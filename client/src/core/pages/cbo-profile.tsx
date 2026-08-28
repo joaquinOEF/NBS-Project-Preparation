@@ -49,6 +49,7 @@ import { getEncontroPreambleConfig, encontroForPhase } from '@/core/components/c
 import { E1Cards } from '@/core/components/cbo/E1Cards';
 import { RequestSupportDialog } from '@/core/components/cbo/RequestSupportDialog';
 import { NbsShowcaseCardStrip } from '@/core/components/cbo/NbsShowcaseCard';
+import { uploadNotice } from '@shared/cbo-upload-notices';
 import { NbsExamplesSheet } from '@/core/components/cbo/NbsExamplesSheet';
 import { familiesOfWorries } from '@shared/site-knowledge';
 import { NbsTypeStrip } from '@/core/components/cbo/NbsTypeStrip';
@@ -2664,9 +2665,7 @@ export default function CboProfilePage() {
                       // reported to the org as "could not parse", i.e. as if
                       // their document were corrupt.
                       if (!res.ok) {
-                        await sendMessage(
-                          `I tried to upload "${file.name}" and it was refused. ${data.reason ?? ''} ${data.fix ?? ''} Tell them this plainly and continue with the current question.`.replace(/\s+/g, ' ').trim(),
-                        );
+                        await sendMessage(uploadNotice.refused(file.name, data.reason, data.fix));
                         continue;
                       }
                       // Gap 4 — link a site photo to the chosen site (best-effort;
@@ -2685,15 +2684,13 @@ export default function CboProfilePage() {
                         // was not, and does not re-upload the same file hoping
                         // for a different result (Ksa Rosa did, twice, and then
                         // left the session).
-                        await sendMessage(
-                          `I uploaded "${file.name}". It is saved and the coordination team can open it, but the text could not be read automatically, so nothing was filled in from it. Acknowledge that it arrived and is on file, do NOT ask them to send it again, and continue with the current question.`,
-                        );
+                        await sendMessage(uploadNotice.storedUnread(file.name));
                       } else {
-                        await sendMessage(`I'm uploading: "${file.name}".\n\nParsed content:\n${(data.content || '').slice(0, 8000)}\n\nPlease extract info, auto-fill sections, and score maturity.`);
+                        await sendMessage(uploadNotice.parsed(file.name, (data.content || '').slice(0, 8000)));
                       }
                     } catch {
                       // Genuine transport failure — nothing reached the server.
-                      await sendMessage(`Uploaded "${file.name}" but it did not reach us. Ask them to try again.`);
+                      await sendMessage(uploadNotice.transport(file.name));
                     }
                   }
                   setUploadingName(null);
