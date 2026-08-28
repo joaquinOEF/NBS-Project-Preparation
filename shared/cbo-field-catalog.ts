@@ -374,8 +374,79 @@ const E2_HAZARDS: CboEnumOption[] = [
   { id: 'other', pt: 'Outra coisa', en: 'Something else' },
 ];
 
+// ── Encontro 3 · scoping a project ──────────────────────────────────────────
+// Stored as machine ids, like intervention_site and for the same reason: the
+// W3 checkpoint machine and shared/w3-dossier.ts both compare against ids, so a
+// label in construction_model would silently stop matching.
+
+const E3_CONSTRUCTION: CboEnumOption[] = [
+  { id: 'mutirao', pt: 'Mutirão', en: 'Community work party', aliases: ['nós mesmos', 'a gente faz'] },
+  { id: 'contratada', pt: 'Empresa contratada', en: 'Hired contractor' },
+  { id: 'parceria', pt: 'Parceria com universidade ou ONG', en: 'University or NGO partnership' },
+  { id: 'mista', pt: 'Mutirão com apoio técnico', en: 'Mutirão with technical support' },
+  { id: 'indefinido', pt: 'Ainda não sabemos', en: 'Not decided yet' },
+];
+
+const E3_SCALE: CboEnumOption[] = [
+  { id: 'pequeno', pt: 'Pequeno', en: 'Small' },
+  { id: 'medio', pt: 'Médio', en: 'Medium' },
+  { id: 'grande', pt: 'Grande', en: 'Large' },
+];
+
+const E3_TIMEFRAME: CboEnumOption[] = [
+  { id: '6-meses', pt: '6 meses', en: '6 months' },
+  { id: '1-ano', pt: '1 ano', en: '1 year' },
+  { id: '2-anos', pt: '2 anos', en: '2 years' },
+  { id: 'faseado', pt: 'Por etapas', en: 'Phased' },
+];
+
+const E3_MONITORING: CboEnumOption[] = [
+  { id: 'nos', pt: 'A gente mesmo', en: 'Us' },
+  { id: 'parceiro', pt: 'Com uma universidade ou parceiro', en: 'With a university or partner' },
+  // Not a dead end. It is a request for a monitoring partner, and the dossier
+  // reads it as one.
+  { id: 'ninguem-ainda', pt: 'Ninguém ainda', en: 'Nobody yet' },
+];
+
+const E3_MAINTAINS: CboEnumOption[] = [
+  { id: 'nos', pt: 'A gente mesmo', en: 'Us' },
+  { id: 'voluntarios', pt: 'Voluntários da comunidade', en: 'Community volunteers' },
+  { id: 'parceria-prefeitura', pt: 'Parceria com a prefeitura', en: 'City partnership' },
+  { id: 'contratada', pt: 'Empresa contratada', en: 'Hired contractor' },
+  { id: 'indefinido', pt: 'Ainda não sabemos', en: 'Not decided yet' },
+];
+
+const E3_FREQUENCY: CboEnumOption[] = [
+  { id: 'mensal', pt: 'Todo mês', en: 'Monthly' },
+  { id: 'trimestral', pt: 'A cada três meses', en: 'Quarterly' },
+  { id: 'semestral', pt: 'Duas vezes por ano', en: 'Twice a year' },
+  { id: 'anual', pt: 'Uma vez por ano', en: 'Yearly' },
+  { id: 'indefinido', pt: 'Ainda não sabemos', en: 'Not decided yet' },
+];
+
+const E3_SUSTAINABILITY: CboEnumOption[] = [
+  { id: 'recursos-proprios', pt: 'Recursos próprios', en: 'Our own resources' },
+  { id: 'edital', pt: 'Editais e projetos', en: 'Grants and calls' },
+  { id: 'parceria-publica', pt: 'Parceria pública', en: 'Public partnership' },
+  { id: 'doacoes', pt: 'Doações e apoio local', en: 'Donations and local support' },
+  { id: 'indefinido', pt: 'Ainda não sabemos', en: 'Not decided yet' },
+];
+
 /** Enum tables per section+field, for every section past org_profile. */
 export const SECTION_ENUMS: Record<string, Record<string, CboEnumOption[]>> = {
+  intervention_type: {
+    construction_model: E3_CONSTRUCTION,
+    intervention_scale_band: E3_SCALE,
+  },
+  impact_monitoring: {
+    project_timeframe: E3_TIMEFRAME,
+    monitoring_capacity: E3_MONITORING,
+  },
+  operations_sustain: {
+    who_maintains: E3_MAINTAINS,
+    maintenance_frequency: E3_FREQUENCY,
+    sustainability_model: E3_SUSTAINABILITY,
+  },
   intervention_site: {
     current_use: E2_CURRENT_USE,
     land_tenure: E2_TENURE,

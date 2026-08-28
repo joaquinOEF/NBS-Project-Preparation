@@ -25,12 +25,23 @@
 // values in rules are stable option IDS from ORG_PROFILE_ENUMS, never labels,
 // so label copy edits and language never break a rule.
 
-import { ORG_PROFILE_ENUMS, resolveOrgProfileOptionId } from './cbo-field-catalog';
+import { ORG_PROFILE_ENUMS, cboFieldEnumOptions, resolveOrgProfileOptionId } from './cbo-field-catalog';
 
 /** The option list for `field` is a function of an earlier answer:
  *  allow[<dependency option id>] = the option ids offerable for `field`. */
 export interface OptionRule {
   dependsOn: string;
+  /**
+   * Section the dependency lives in, when it is not this manifest's own.
+   *
+   * Real dependencies cross workshops: what an organisation may do in W3
+   * depends on what it answered in W2. `who_maintains` (operations_sustain)
+   * turns on `land_tenure` (intervention_site) — a city maintenance partnership
+   * is only on the table for land the city owns. Without this the validator
+   * looked the dependency up in the wrong section, found no ids, and threw at
+   * module load.
+   */
+  dependsOnSection?: string;
   allow: Record<string, string[]>;
 }
 
@@ -52,6 +63,8 @@ export interface AskCopy {
   /** Wording that depends on an earlier answer, keyed by that answer's id. */
   variants?: {
     dependsOn: string;
+    /** Section the dependency lives in, when it is not this manifest's own. */
+    dependsOnSection?: string;
     by: Record<string, { pt: string; en: string }>;
   };
 }
@@ -62,7 +75,8 @@ export interface AskCopy {
 export interface RequiredEntry {
   field: string;
   orField?: string;
-  requiredIf?: { field: string; isAnyOf?: string[]; isNoneOf?: string[] };
+  /** `section` names where the dependency lives when it is not this manifest's. */
+  requiredIf?: { field: string; section?: string; isAnyOf?: string[]; isNoneOf?: string[] };
 }
 
 export interface QuestionnaireManifest {
@@ -154,17 +168,81 @@ export const E1_QUESTIONNAIRE: QuestionnaireManifest = {
 
 /** Manifests by the phase they close. E2+ get entries as their skills gain
  *  enforceable structure. */
+
+/**
+ * Encontro 3 — scoping one solution onto one site.
+ *
+ * Deliberately short. W3's job is a defensible project, and three answers are
+ * what make a project defensible in words: why this solution here, what the
+ * place is like before anything is built, and who looks after it afterwards.
+ * Everything else W3 captures — the footprint, the cost band, the timeframe —
+ * either falls out of a drawing or is allowed to stay open.
+ *
+ * That is not laxity. `shared/w3-dossier.ts` reports every unanswered thing as
+ * a named gap rather than a blank, and an honest "ainda não sabemos" on money
+ * is the single most useful answer in the session: it is the gap the portfolio
+ * carries to the municipality. Requiring it to close would turn it into a
+ * guess.
+ */
+export const E3_QUESTIONNAIRE: QuestionnaireManifest = {
+  workshop: 'e3',
+  phase: 3,
+  sectionId: 'operations_sustain',
+  optionRules: {
+    // Straight out of the rain-garden ficha: "quem cuida é a associação de
+    // moradores ou a prefeitura, dependendo de quem é o dono do terreno." On
+    // land the organisation owns, a city maintenance partnership is not on the
+    // table — offering it invites an agreement nobody can sign.
+    who_maintains: {
+      dependsOn: 'land_tenure',
+      dependsOnSection: 'intervention_site',
+      allow: {
+        'private-owned': ['nos', 'voluntarios', 'contratada', 'indefinido'],
+        'formal-agreement': ['nos', 'voluntarios', 'contratada', 'indefinido'],
+        'public-informal': ['nos', 'voluntarios', 'parceria-prefeitura', 'indefinido'],
+        'public-no-access': ['nos', 'voluntarios', 'indefinido'],
+        'mixed': ['nos', 'voluntarios', 'parceria-prefeitura', 'contratada', 'indefinido'],
+      },
+    },
+  },
+  ask: {
+    who_maintains: {
+      pt: 'Depois que o mutirão vai embora, quem cuida disso no dia a dia?',
+      en: 'After the mutirão goes home, who looks after this day to day?',
+    },
+    baseline_condition: {
+      pt: 'Antes de qualquer obra: como é o lugar hoje? Isso é o que vai mostrar depois que mudou alguma coisa.',
+      en: 'Before any work: what is the place like today? This is what will show that anything changed.',
+    },
+  },
+  requiredToClose: ['justification_why_here', 'baseline_condition', 'who_maintains'],
+};
+
 export const QUESTIONNAIRES: Record<number, QuestionnaireManifest> = {
   1: E1_QUESTIONNAIRE,
+  3: E3_QUESTIONNAIRE,
 };
 
 /** Raw stored value of a field, or undefined — the caller adapts its state shape. */
 export type FieldReader = (field: string) => string | undefined;
 
-function storedId(read: FieldReader, field: string): string | null {
+/** Resolve a stored value (id, label or alias) to its option id, in any section. */
+function optionIdIn(sectionId: string, field: string, raw: string): string | null {
+  if (sectionId === 'org_profile') return resolveOrgProfileOptionId(field, raw);
+  const opts = cboFieldEnumOptions(sectionId, field);
+  if (!opts) return raw.trim() || null; // free text stands for itself
+  const norm = (v: string) => v.trim().toLowerCase();
+  const n = norm(raw);
+  const hit = opts.find(
+    o => norm(o.id) === n || norm(o.pt) === n || norm(o.en) === n || (o.aliases ?? []).some(a => norm(a) === n),
+  );
+  return hit ? hit.id : null;
+}
+
+function storedId(read: FieldReader, field: string, sectionId: string): string | null {
   const raw = read(field);
   if (raw == null || String(raw).trim() === '') return null;
-  return resolveOrgProfileOptionId(field, String(raw));
+  return optionIdIn(sectionId, field, String(raw));
 }
 
 /** The option ids currently offerable for `field`, or null when unconstrained
@@ -176,7 +254,7 @@ export function allowedOptionIds(
 ): string[] | null {
   const rule = manifest.optionRules[field];
   if (!rule) return null;
-  const dep = storedId(read, rule.dependsOn);
+  const dep = storedId(read, rule.dependsOn, rule.dependsOnSection ?? manifest.sectionId);
   if (!dep) return null;
   return rule.allow[dep] ?? null;
 }
@@ -191,7 +269,7 @@ export function checkOptionRule(
 ): { ok: true } | { ok: false; dependsOn: string; allowedIds: string[] } {
   const allowed = allowedOptionIds(manifest, field, read);
   if (!allowed) return { ok: true };
-  const id = resolveOrgProfileOptionId(field, value);
+  const id = optionIdIn(manifest.sectionId, field, value);
   // Unresolvable values are someone else's problem (the canonicalization /
   // off-list rules) — this rule only rejects a KNOWN option that the
   // dependency answer excludes.
@@ -242,7 +320,7 @@ export function missingRequiredForClose(
   for (const entry of manifest.requiredToClose) {
     const req: RequiredEntry = typeof entry === 'string' ? { field: entry } : entry;
     if (req.requiredIf) {
-      const dep = storedId(read, req.requiredIf.field);
+      const dep = storedId(read, req.requiredIf.field, req.requiredIf.section ?? manifest.sectionId);
       if (!dep) continue; // dependency itself unanswered → reported on its own line
       if (req.requiredIf.isAnyOf && !req.requiredIf.isAnyOf.includes(dep)) continue;
       if (req.requiredIf.isNoneOf && req.requiredIf.isNoneOf.includes(dep)) continue;
@@ -256,10 +334,15 @@ export function missingRequiredForClose(
 
 // Sanity: every id referenced by a rule must exist in the catalog — a typo'd
 // id would silently never match. Fails fast at module load in dev/tests.
+// Resolve through the section the manifest actually gates. The first version
+// of this read ORG_PROFILE_ENUMS directly, which made the header's promise —
+// "E2–E6 opt in by adding a manifest, no new code" — untrue in practice: any
+// manifest for another section found zero ids and threw at module load.
 for (const m of Object.values(QUESTIONNAIRES)) {
   for (const [field, rule] of Object.entries(m.optionRules)) {
-    const ids = new Set((ORG_PROFILE_ENUMS[field] ?? []).map(o => o.id));
-    const depIds = new Set((ORG_PROFILE_ENUMS[rule.dependsOn] ?? []).map(o => o.id));
+    const ids = new Set((cboFieldEnumOptions(m.sectionId, field) ?? []).map(o => o.id));
+    const depSection = rule.dependsOnSection ?? m.sectionId;
+    const depIds = new Set((cboFieldEnumOptions(depSection, rule.dependsOn) ?? []).map(o => o.id));
     for (const [dep, allowed] of Object.entries(rule.allow)) {
       if (!depIds.has(dep)) throw new Error(`cbo-questionnaire: ${m.workshop}.${field} rule keys unknown ${rule.dependsOn} id "${dep}"`);
       for (const id of allowed) {
@@ -285,7 +368,7 @@ export function askCopyFor(
   if (!entry) return null;
   const v = entry.variants;
   if (v) {
-    const dep = storedId(read, v.dependsOn);
+    const dep = storedId(read, v.dependsOn, v.dependsOnSection ?? manifest.sectionId);
     if (dep && v.by[dep]) return v.by[dep][lang];
   }
   return entry[lang];
