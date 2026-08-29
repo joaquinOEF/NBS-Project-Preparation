@@ -99,7 +99,7 @@ test.describe('COUGAR — E3 paths', () => {
   });
 
   test('a city partnership is not offered on land the organisation owns', async ({ page, request }) => {
-    await start(page, request, [
+    const cboId = await start(page, request, [
       ...SITED,
       { sectionId: 'intervention_site', field: 'land_tenure', value: 'private-owned' },
     ]);
@@ -125,14 +125,28 @@ test.describe('COUGAR — E3 paths', () => {
     await expect(chip('A gente mesmo')).toBeVisible();
     await expect(chip('Empresa contratada')).toBeVisible();
     await expect(chip('Parceria com a prefeitura')).toHaveCount(0);
+    // ⚠️ And the rule is not only a chip filter. Typed (or relayed by the
+    // model), the same answer reached the write path with the label intact and
+    // was stored — so the org would have left W3 with a maintenance agreement
+    // the city cannot sign. The engine now refuses the value itself.
+    await page.getByTestId('cbo-chat-input').fill('Parceria com a prefeitura');
+    await page.getByTestId('cbo-chat-input').press('Enter');
+    await page.waitForTimeout(2500);
+    const body = await (await request.get(`/api/cbo/${cboId}`)).json();
+    expect(body.state?.sections?.operations_sustain?.fields?.who_maintains?.value).not.toBe('parceria-prefeitura');
   });
 
   test('no place marked means no project — and W3 says exactly that', async ({ page, request }) => {
     await start(page, request, BASE);
     const chip = chipFor(page);
 
-    await expect(chip('É isso ✓')).toBeVisible({ timeout: 15_000 });
-    await chip('É isso ✓').click();
+    // ⚠️ An org with no pin is NOT asked to confirm a place it never marked.
+    // The opening used to say "no Encontro 2 vocês marcaram Rubem Berta" to an
+    // organisation that had marked nothing — claiming something that did not
+    // happen, to the org least able to argue with us about its own record.
+    await expect(chip('Marcar o lugar agora')).toBeVisible({ timeout: 15_000 });
+    await expect(chip('É isso ✓')).toHaveCount(0);
+    await chip('Seguir sem o lugar').click();
     await expect(page.getByTestId('cbo-solution-options')).toBeVisible({ timeout: 10_000 });
     // Nothing is filtered even here: the full catalogue is still reachable.
     await chip('Ver todas as soluções').click();
@@ -158,6 +172,8 @@ test.describe('COUGAR — E3 paths', () => {
     await chip('Todo mês').click();
     await expect(chip('Ainda não sabemos')).toBeVisible({ timeout: 10_000 });
     await chip('Ainda não sabemos').click();
+    await expect(chip('Só essa por enquanto')).toBeVisible({ timeout: 10_000 });
+    await chip('Só essa por enquanto').click();
 
     // The dossier is short, and honest about why: it does not manufacture a
     // scoped project over a place nobody has chosen.

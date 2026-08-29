@@ -54,7 +54,11 @@ até a frase da ficha de onde ela veio.
    base). Ambas aceitam "Prefiro pular".
 5. **Depois do mutirão** — quem cuida → com que frequência → de onde vem o
    dinheiro recorrente.
-6. **O dossiê** — `show_dossier`: veredito por solução, as quatro listas
+6. **Mais uma solução?** — um lugar às vezes pede duas coisas (uma horta e uma
+   vala), cada uma com o seu caminho e o seu custo. Oferecido UMA vez, depois da
+   primeira estar fechada. A segunda reaproveita tudo o que já foi respondido
+   sobre o lugar — só o preço, que é por solução, é dito de novo.
+7. **O dossiê** — `show_dossier`: veredito por solução, as quatro listas
    (investigar / falar com / registrar / documentar) com dono proposto, a faixa
    de preço, e as pendências.
 
@@ -129,10 +133,22 @@ gente, não de documento.
 
 ### 5 · Uma organização que chega sem lugar marcado
 
-Acontece, e não é fracasso. O dossiê já trata isso: o veredito vira
-**"falta marcar o lugar"** e a única pendência é marcar um. Não force um projeto
-por cima de um vazio — diga com todas as letras que o resto fecha rápido assim
-que houver um ponto no mapa, e ofereça o mapa.
+Acontece, e não é fracasso. O platform já trata isso: a abertura NÃO finge que
+existe um ponto — ela diz que falta um e oferece `[Marcar o lugar agora]` /
+`[Seguir sem o lugar]`. Se a pessoa seguir sem, o veredito no fim vira
+**"falta marcar o lugar"**, e o dossiê já diz o que a solução escolhida vai
+exigir quando houver um ponto.
+
+Se a conversa cair em você aqui: nunca force um projeto por cima de um vazio, e
+nunca diga que elas "marcaram" alguma coisa que não marcaram. Diga com todas as
+letras que o resto fecha rápido assim que houver um ponto no mapa.
+
+### 6 · "Parceria com a prefeitura" em terreno próprio
+
+O servidor **recusa** esse valor em terreno próprio — não só tira o chip, recusa
+a escrita, venha ela de onde vier. Se a pessoa insistir, explique por quê (seria
+combinar um acordo que ninguém pode assinar) e ofereça as opções que sobram.
+Nunca contorne a recusa gravando outro campo no lugar.
 
 ## Don't re-ask — anything, ever
 

@@ -158,3 +158,27 @@ the comment at the top of the cost section for what and why.
 - `e2e/w3-questionnaire-cross-section.spec.ts` — the manifest rules across
   sections.
 - `docs/w3-test-kit/` — four hand-run scenarios, one per verdict state.
+
+## What six simulations found
+
+`scripts/w3-sim-run.ts` drives six organisations through the real engine — no
+browser, no model, no database. Every one of these was invisible to a passing
+test suite, because a test asserts what you thought to assert and a transcript
+shows you what you actually said.
+
+| | what broke |
+|---|---|
+| **The manifest rule was a chip filter, not a rule.** | "Parceria com a prefeitura" is correctly absent on land the organisation owns — but the answer does not only arrive by tapping a chip. Typed, or relayed by the model, it reached the write path with the label intact and was stored. The org would have left W3 with a maintenance agreement the city cannot sign. |
+| **One site could only carry one solution.** | The entire four-state verdict is argued from an org that wants a garden it can fund now beside a swale that needs a study — and the flow had no beat for adding the second. |
+| **Beats read state from before their own writes.** | `chosen` and `areaM2` are snapshotted when the turn starts. `confirmSolution` appends and closes in the same turn, so the closing dossier showed the *previous* solution list. The same bug had already sent per-unit solutions to trace a footprint. |
+| **An org with no pin was told it had marked a place.** | *"No Encontro 2 vocês marcaram Rubem Berta"* — to an organisation that marked nothing, and the one least able to argue with us about its own record. It was then offered "Desenhar no mapa", which bailed with an apology and handed the turn to the model: a dead end in exactly the scenario the workshop most needs to handle. |
+| **A machine id was printed to the organisation.** | *"Confirmar no lugar se o problema é mesmo landslide"* — an English id, mid-Portuguese-sentence, describing their own hillside back to them. |
+| **Three contact rows for one door.** | Every ficha that names SMAMUS or DMAE uses the word *prefeitura* in the same breath, so all three matched. One of the three named nobody, and a coordinator had to work out which was real. |
+| **Every price printed twice.** | Once under "Quanto custa" and again, word for word, under "Documentar". |
+| **The board and the dossier disagreed about who finds a técnico.** | The `needs_study` pile exists because a cohort commissioning several studies at once is a procurement and a single org hiring one is not. The dossier assigned the study to the *org*. |
+| **`capacity` had collapsed into one signal.** | `established` required "a named person", read from `contact_name` — which E1 captures from everybody. So the grade was just `site_knowledge_depth` wearing a second name. It now reads `community_anchoring_lead` or a funding history: a name on a form is evidence that a form was filled in. |
+| **A site-less org learned nothing about its own choice.** | It spent the session choosing a solution and got a dossier that never mentioned it. |
+
+Two of these — the rule bypass and the stale reads — are the same shape, and it
+is the shape to watch for in this file: **a guard that only covers the path you
+were looking at**, and **a value read before the write that changes it**.

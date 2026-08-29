@@ -34,7 +34,7 @@ import { topShortlist } from '@shared/w3-solutions';
 import { budgetLineFor, roundAreaM2 } from '@shared/w3-sizing';
 import { getSolution } from '@shared/nbs-catalog';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
-import { E3_QUESTIONNAIRE, allowedOptionIds, askCopyFor, sectionsFieldReader } from '@shared/cbo-questionnaire';
+import { E3_QUESTIONNAIRE, allowedOptionIds, checkOptionRule, askCopyFor, sectionsFieldReader } from '@shared/cbo-questionnaire';
 import { cboFieldEnumOptions } from '@shared/cbo-field-catalog';
 import { resolveOpenMapParams } from '@shared/cbo-map-presets';
 
@@ -62,6 +62,13 @@ const E3C = {
   redesenhar: { pt: 'Quero desenhar de novo', en: 'I want to draw it again' },
   pular: { pt: 'Prefiro pular', en: "I'd rather skip" },
   verDossie: { pt: 'Ver o resumo do projeto', en: 'See the project summary' },
+  // An organisation with no pin used to be offered "Desenhar no mapa", which
+  // bailed with an apology and handed the turn to the model — a dead end in
+  // exactly the scenario the workshop most needs to handle well.
+  marcarAgora: { pt: 'Marcar o lugar agora', en: 'Mark the place now' },
+  seguirSemLugar: { pt: 'Seguir sem o lugar', en: 'Carry on without it' },
+  outraSolucao: { pt: 'Levar mais uma solução', en: 'Take one more solution' },
+  soEssa: { pt: 'Só essa por enquanto', en: 'Just this one for now' },
 } as const;
 
 /**
@@ -137,6 +144,21 @@ export async function serveE3Checkpoint(
     return true;
   };
 
+  /**
+   * The solutions and the area AS THEY STAND, not as they stood when the turn
+   * began.
+   *
+   * `chosen` and `areaM2` above are a snapshot taken at the top of this
+   * function, and several beats write before they read: confirmSolution appends
+   * a second solution and closes in the same turn. Reading the snapshot there
+   * built the dossier from the previous list — an organisation that added a
+   * bioswale beside its garden got a closing card showing only the garden,
+   * which is precisely the case the four-state verdict exists to handle.
+   */
+  const liveSolutions = () =>
+    read(TYPE)('chosen_solutions').split(',').map(v => v.trim()).filter(Boolean);
+  const liveArea = () => Number(read(SITE)('site_area_m2')) || 0;
+
   const w3Input = (): W3Input => ({
     site: Object.fromEntries(
       Object.entries(fieldsOf(SITE)).map(([k, v]) => [k, String(v?.value ?? '')]),
@@ -144,8 +166,8 @@ export async function serveE3Checkpoint(
     org: Object.fromEntries(
       Object.entries(fieldsOf('org_profile')).map(([k, v]) => [k, String(v?.value ?? '')]),
     ),
-    solutions: chosen,
-    ...(areaM2 ? { areaM2 } : {}),
+    solutions: liveSolutions(),
+    ...(liveArea() ? { areaM2: liveArea() } : {}),
     w3: {
       ...Object.fromEntries(Object.entries(fieldsOf(TYPE)).map(([k, v]) => [k, String(v?.value ?? '')])),
       ...Object.fromEntries(Object.entries(fieldsOf(IMPACT)).map(([k, v]) => [k, String(v?.value ?? '')])),
@@ -171,18 +193,52 @@ export async function serveE3Checkpoint(
     ask(copy ?? qPt, copy ?? qEn, opts.map(o => ({ pt: o.pt, en: o.en })));
     return finish(`ask-${field}`);
   };
-  /** Resolve a chip label back to the option id it came from. */
+  /**
+   * Resolve a chip label back to the option id it came from — and refuse an id
+   * the stored W2 answer excludes.
+   *
+   * ⚠️ Filtering the chips is not enough, and a simulation proved it: the
+   * "Parceria com a prefeitura" chip is correctly absent on land the
+   * organisation owns, but the answer does not only arrive by tapping a chip.
+   * A typed reply, or the model relaying one, reaches this function with the
+   * label intact — and the first version wrote it straight through, so the one
+   * guarantee the manifest layer exists to give was bypassed by the very flow
+   * that renders it. The organisation would have left W3 with a maintenance
+   * agreement the city cannot sign.
+   */
   const enumIdFromChip = (sectionId: string, field: string, chip: string): string | null => {
     const n = deps.normChip(chip);
     const hit = (cboFieldEnumOptions(sectionId, field) ?? []).find(
       o => deps.normChip(o.pt) === n || deps.normChip(o.en) === n,
     );
-    return hit ? hit.id : null;
+    if (!hit) return null;
+    if (sectionId === OPS && !checkOptionRule(E3_QUESTIONNAIRE, field, hit.id, manifestRead).ok) {
+      return null;
+    }
+    return hit.id;
   };
 
   // ── Beat 0 · pick up where W2 left off ────────────────────────────────────
   const openW3 = (): true => {
-    const place = siteName || bairro || (isPt ? 'o lugar de vocês' : 'your place');
+    // ⚠️ An organisation that never pinned a place has a BAIRRO, not a site.
+    // Telling it "no Encontro 2 vocês marcaram Rubem Berta" claims something
+    // that did not happen, and it is the org least able to argue with us about
+    // its own record. Name what actually exists, and say plainly what W3 will
+    // do about the gap rather than opening on a fiction.
+    if (!hasSitePin) {
+      const where = bairro.split(',')[0].trim();
+      say(
+        `Bem-vindas ao Encontro 3. Hoje a gente transforma o que vocês contaram num projeto: uma solução, um tamanho, uma faixa de preço, e quem precisa dizer sim.\n\nUma coisa só: ${where ? `vocês falaram do **${where}**, mas` : ''} ainda não tem um lugar marcado no mapa. Dá pra seguir mesmo assim — o que der pra fechar hoje fica fechado, e o resto espera o ponto.`,
+        `Welcome to Encontro 3. Today we turn what you told us into a project: one solution, a size, a price range, and who has to say yes.\n\nOne thing first: ${where ? `you told us about **${where}**, but ` : ''}there is still no place marked on the map. We can carry on anyway — whatever can be settled today gets settled, and the rest waits for the pin.`,
+      );
+      ask('Como prefere?', 'How would you like to do it?', [
+        { pt: E3C.marcarAgora.pt, en: E3C.marcarAgora.en, dPt: 'Abre o mapa', dEn: 'Opens the map' },
+        { pt: E3C.seguirSemLugar.pt, en: E3C.seguirSemLugar.en, dPt: 'A gente marca depois', dEn: 'We will mark it later' },
+      ]);
+      deps.writeFields(TYPE, { _e3_opened: 'yes' });
+      return finish('open-no-site');
+    }
+    const place = siteName || bairro;
     say(
       `Bem-vindas ao Encontro 3. No Encontro 2 vocês marcaram **${place}** e me contaram o que preocupa ali. Hoje a gente transforma isso num projeto: uma solução, um tamanho, uma faixa de preço, e quem precisa dizer sim.\n\nSó pra começar do lugar certo — ainda é **${place}**?`,
       `Welcome to Encontro 3. In Encontro 2 you marked **${place}** and told me what worries you there. Today we turn that into a project: one solution, a size, a price range, and who has to say yes.\n\nJust so we start in the right place — is it still **${place}**?`,
@@ -193,6 +249,18 @@ export async function serveE3Checkpoint(
     ]);
     deps.writeFields(TYPE, { _e3_opened: 'yes' });
     return finish('open');
+  };
+
+  /** Send them to E2's own site map. W3 does not reinvent that step. */
+  const openSiteMap = (detail: string): true => {
+    pushEvent({
+      type: 'open_map',
+      params: resolveOpenMapParams(
+        { preset: 'e2_site_focused', focusZone: bairro.split(',')[0].trim() },
+        isPt ? 'pt' : 'en',
+      ),
+    } as any);
+    return finish(detail);
   };
 
   // ── Beat 1 · the solution ─────────────────────────────────────────────────
@@ -227,15 +295,28 @@ export async function serveE3Checkpoint(
   };
 
   /** They picked one. Say what it will need, from its own ficha, before sizing. */
-  const confirmSolution = (solutionId: string): true => {
+  const confirmSolution = async (solutionId: string): Promise<true> => {
     const sol = getSolution(solutionId);
     const ficha = getSolutionFicha(solutionId);
-    deps.writeFields(TYPE, { chosen_solutions: solutionId });
+    const adding = type('_adding_solution') === 'yes';
+    deps.writeFields(TYPE, {
+      chosen_solutions: [...chosen, solutionId].join(','),
+      ...(adding ? { _adding_solution: '' } : {}),
+    });
     if (sol && ficha) {
       say(
         `**${sol.pt.label}** ✓\n\n${sol.pt.whatItIs}\n\n_Quem precisa dizer sim:_ ${ficha.pt.quemPrecisaDizerSim}`,
         `**${sol.en.label}** ✓\n\n${sol.en.whatItIs}\n\n_Who has to say yes:_ ${ficha.en.quemPrecisaDizerSim}`,
       );
+    }
+    // A second solution reuses everything already answered about the place —
+    // the footprint, why here, the baseline, who maintains it. Re-asking any of
+    // that would be the "you weren't listening" signal in its purest form. Only
+    // the price, which is per solution, is restated.
+    if (adding) {
+      const line = budgetLineFor(solutionId, areaM2 || undefined);
+      if (line) say(line.notePt, line.noteEn);
+      return await closeE3();
     }
     return askArea(solutionId);
   };
@@ -276,6 +357,23 @@ export async function serveE3Checkpoint(
       ]);
       deps.writeFields(SITE, { _area_asked: 'yes' });
       return finish('confirm-area');
+    }
+    // Offering "Desenhar no mapa" to an organisation with no pin is offering a
+    // step that cannot run: the draw session opens AT the site. It used to bail
+    // with an apology and hand the turn to the model. Offer the thing that would
+    // actually unblock it instead — marking the place — with the honest
+    // alternative beside it.
+    if (!hasSitePin) {
+      say(
+        `Sobre o tamanho: ${line ? line.notePt : 'a ficha cobra por m²'}, e pra fechar um total falta o lugar no mapa.`,
+        `On size: ${line ? line.noteEn : 'the ficha prices this per m²'}, and closing a total needs the place on the map.`,
+      );
+      ask('Quer marcar agora?', 'Want to mark it now?', [
+        { pt: E3C.marcarAgora.pt, en: E3C.marcarAgora.en, dPt: 'Abre o mapa', dEn: 'Opens the map' },
+        { pt: E3C.naoSeiTamanho.pt, en: E3C.naoSeiTamanho.en, dPt: 'Fica registrado como pendente', dEn: 'Recorded as still open' },
+      ]);
+      deps.writeFields(SITE, { _area_asked: 'yes' });
+      return finish('ask-area-no-site');
     }
     say(
       'Agora o tamanho. Contorne no mapa a área onde o projeto vai — não precisa ser exato, é pra ter uma ordem de grandeza e uma faixa de preço.',
@@ -343,6 +441,29 @@ export async function serveE3Checkpoint(
     askEnum(OPS, 'who_maintains', 'Depois que o mutirão vai embora, quem cuida disso no dia a dia?', 'After the mutirão goes home, who looks after this day to day?');
   const askFrequency = (): true =>
     askEnum(OPS, 'maintenance_frequency', 'Com que frequência isso precisa de cuidado?', 'How often does it need looking after?');
+  /**
+   * One site, more than one solution.
+   *
+   * The whole four-state verdict rests on this being possible: a community
+   * garden that can take money now, beside a stormwater intervention that
+   * cannot be sized without a study, is what broke the two-way split agreed on
+   * 27 August. Until this beat existed the flow could not express the case its
+   * own design was argued from — the first six simulations closed Partenon
+   * with a single solution.
+   */
+  const askAnotherSolution = (): true => {
+    say(
+      'Antes de fechar: às vezes um lugar pede mais de uma coisa — uma horta e uma vala, por exemplo. Cada uma tem o seu próprio caminho e o seu próprio custo, e a gente separa isso no resumo.',
+      'Before we close: sometimes a place needs more than one thing — a garden and a swale, say. Each has its own route and its own cost, and the summary keeps them separate.',
+    );
+    ask('Querem levar mais alguma solução nesse mesmo lugar?', 'Do you want to take another solution on this same place?', [
+      { pt: E3C.soEssa.pt, en: E3C.soEssa.en },
+      { pt: E3C.outraSolucao.pt, en: E3C.outraSolucao.en, dPt: 'Volta pra lista', dEn: 'Back to the list' },
+    ]);
+    deps.writeFields(TYPE, { _second_asked: 'yes' });
+    return finish('ask-second-solution');
+  };
+
   const askSustainability = (): true => {
     say(
       'E o dinheiro que volta todo ano — o da manutenção, não o da obra. **"Ainda não sabemos" é uma resposta válida aqui**: é justamente a conversa que a coordenação leva para a prefeitura.',
@@ -479,11 +600,20 @@ export async function serveE3Checkpoint(
 
   // A solution name, from either list. Matched against the whole catalogue so
   // the "ver todas" sheet can be answered by typing a name we never chipped.
-  if (!chosen.length) {
+  // Accepted while the first is unchosen AND while a second is being added.
+  if (!chosen.length || type('_adding_solution') === 'yes') {
     const hit = topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 27)
       .find(e => deps.normChip(e.solution.pt.label) === msg || deps.normChip(e.solution.en.label) === msg);
-    if (hit) return confirmSolution(hit.solution.id);
+    if (hit && !chosen.includes(hit.solution.id)) return await confirmSolution(hit.solution.id);
   }
+
+  if (is(E3C.outraSolucao)) {
+    deps.writeFields(TYPE, { _adding_solution: 'yes' });
+    return askSolution();
+  }
+  if (is(E3C.soEssa)) return await closeE3();
+  if (is(E3C.marcarAgora)) return openSiteMap('open-site-map-from-e3');
+  if (is(E3C.seguirSemLugar)) return askSolution();
 
   if (is(E3C.desenhar) || is(E3C.redesenhar)) {
     if (!hasSitePin) {
@@ -511,7 +641,9 @@ export async function serveE3Checkpoint(
   for (const [sectionId, field, next] of [
     [OPS, 'who_maintains', askFrequency],
     [OPS, 'maintenance_frequency', askSustainability],
-    [OPS, 'sustainability_model', closeE3],
+    // A second solution is offered once, after the first is fully scoped —
+    // asking earlier would interrupt the one thing they came to do.
+    [OPS, 'sustainability_model', () => (type('_second_asked') ? closeE3() : askAnotherSolution())],
   ] as Array<[string, string, () => true | Promise<true>]>) {
     if (read(sectionId)(field)) continue;
     const id = enumIdFromChip(sectionId, field, raw);

@@ -54,6 +54,7 @@ const LANGS = [
     freq: 'A cada três meses',
     moneyText: 'dinheiro que volta todo ano',
     money: 'Ainda não sabemos', // E3_SUSTAINABILITY.indefinido
+    onlyThis: 'Só essa por enquanto',
     closingText: 'Pronto',
   },
   {
@@ -79,6 +80,7 @@ const LANGS = [
     freq: 'Quarterly',
     moneyText: 'money that comes back every year',
     money: 'Not decided yet', // E3_SUSTAINABILITY.indefinido
+    onlyThis: 'Just this one for now',
     closingText: 'Done',
   },
 ] as const;
@@ -148,6 +150,12 @@ for (const L of LANGS) {
       //     close — it is the gap the portfolio carries to the municipality.
       await expect(page.getByText(L.moneyText, { exact: false }).last()).toBeVisible({ timeout: 10_000 });
       await chip(L.money).click();
+
+      // 7b · One site can carry more than one solution, and that is offered
+      //      once, after the first is fully scoped — the case the four-state
+      //      verdict was argued from could not otherwise be expressed at all.
+      await expect(chip(L.onlyThis)).toBeVisible({ timeout: 10_000 });
+      await chip(L.onlyThis).click();
 
       // 8 · The dossier. Public-informal tenure with no technical marker on
       //     this solution… except the rain garden ficha DOES name a soil
