@@ -72,6 +72,8 @@ import { LifeBuoy, ShieldCheck } from 'lucide-react';
 import { CboDataNoticeDialog } from '@/core/components/cbo/CboDataNoticeDialog';
 import { NBS_SHOWCASE_CARDS, getShowcaseCard } from '@shared/nbs-showcase-cards';
 import { polygonAreaM2, roundAreaM2 } from '@shared/w3-sizing';
+import { CboSolutionOptions } from '@/core/components/cbo/CboSolutionOptions';
+import { CboDossier } from '@/core/components/cbo/CboDossier';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 import { localizedWorkshopName } from '@/lib/workshopHelpers';
 
@@ -1385,6 +1387,17 @@ export default function CboProfilePage() {
         setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify(payload), messageType: 'composer', timestamp: new Date().toISOString() }]);
         break;
       }
+      case 'show_solution_options':
+      case 'show_dossier': {
+        // E3 composers — same persist-inline contract as the E2 ones below:
+        // mid-turn, so no setIsStreaming(false); the paired ask_user follows in
+        // this same turn, and ending early flashes the encontro banner.
+        const payload = event.type === 'show_solution_options'
+          ? { kind: 'solution_options', items: (event as any).items, full: (event as any).full }
+          : { kind: 'dossier', dossier: (event as any).dossier };
+        setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify(payload), messageType: 'composer', timestamp: new Date().toISOString() }]);
+        break;
+      }
       case 'show_site_card':
       case 'show_familia_recommendation': {
         // E2 linear-flow composers — same persist-inline pattern as the strips
@@ -2199,6 +2212,31 @@ export default function CboProfilePage() {
                         // org named (backlog #24).
                         worries={String(state?.sections?.intervention_site?.fields?.site_worry?.value ?? '')
                           .split(',').map(w => w.trim()).filter(Boolean)}
+                      />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'solution_options' && Array.isArray(parsed.items)) {
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <CboSolutionOptions
+                        items={parsed.items}
+                        full={parsed.full}
+                        lang={lang.startsWith('pt') ? 'pt' : 'en'}
+                        // Only while a question is actually pending — a
+                        // "choose this" button in a transcript nobody is being
+                        // asked anything by would send an answer into nothing.
+                        onChoose={currentQuestion ? handleSelectOption : undefined}
+                      />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'dossier' && parsed.dossier) {
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <CboDossier
+                        dossier={parsed.dossier}
+                        lang={lang.startsWith('pt') ? 'pt' : 'en'}
                       />
                     </div>
                   );

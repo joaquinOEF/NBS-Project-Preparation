@@ -30,7 +30,7 @@
 // ============================================================================
 
 import { getSolutionFicha } from './nbs-solution-fichas';
-import { SOLUTION_MECHANISMS } from './nbs-catalog';
+import { SOLUTION_MECHANISMS, getSolution } from './nbs-catalog';
 import { budgetLineFor, type BudgetLine } from './w3-sizing';
 import type { WorryId } from './site-knowledge';
 
@@ -140,9 +140,21 @@ export interface Verdict {
  */
 const STUDY_MARKERS: { re: RegExp; pt: string; en: string }[] = [
   { re: /teste de infiltraç/i, pt: 'um teste de infiltração do solo', en: 'a soil infiltration test' },
-  { re: /estudo geot[eé]cnic/i, pt: 'um estudo geotécnico', en: 'a geotechnical study' },
+  { re: /(estudo|avaliaç[aã]o) geot[eé]cnic/i, pt: 'uma avaliação geotécnica', en: 'a geotechnical assessment' },
   { re: /estudo hidrol[oó]gic/i, pt: 'um estudo hidrológico', en: 'a hydrological study' },
-  { re: /precisa de um t[eé]cnic|precisa de t[eé]cnic/i, pt: 'um técnico para o desenho', en: 'a technician for the design' },
+  { re: /estudo hidr[aá]ulic/i, pt: 'um estudo hidráulico', en: 'a hydraulic study' },
+  // ART (Anotação de Responsabilidade Técnica) / RRT is the Brazilian
+  // instrument that makes an engineer or architect legally answerable for a
+  // structure. Where a ficha names it, the design is not a community decision
+  // — and five fichas name it in prose my first regex set walked straight past.
+  { re: /\bART\b|\bRRT\b|\bCREA\b/, pt: 'um responsável técnico com ART', en: 'a licensed technical lead (ART)' },
+  { re: /respons[aá]vel t[eé]cnico|projeto (assinado por|de) engenheiro|engenheiro\/arquiteto/i, pt: 'um responsável técnico', en: 'a licensed technical lead' },
+  // "precisa de um técnico" is only one of the ways a ficha says this. Biovaletas
+  // says "o cálculo de vazão e a inclinação das barreiras (para não erodir)
+  // pedem um técnico" — same requirement, different verb, and the first version
+  // of this list walked past it and printed "dá pra construir com o que vocês já
+  // sabem" on the card.
+  { re: /(precisa|pede|pedem|exige|exigem|requer)\s+(de\s+)?(um\s+)?t[eé]cnic/i, pt: 'um técnico para o desenho', en: 'a technician for the design' },
   { re: /projeto de engenharia|laudo/i, pt: 'um laudo técnico', en: 'a technical report' },
 ];
 
@@ -159,8 +171,63 @@ const PUBLIC_TENURE = new Set([
   'public_land', 'public-land', 'public', // legacy
 ]);
 
+/**
+ * The sentence a marker matched, so a CONDITIONAL requirement can be reported
+ * as one.
+ *
+ * The green-roof ficha is the case that forces this: "É a sua própria laje —
+ * não precisa de licença pro método bidim. Se for encher de terra, sim: peso a
+ * mais pode rachar a estrutura, e aí precisa de ART ou RRT de um engenheiro."
+ * Reporting that flatly would tell an organisation planning the R$ 5/m² bidim
+ * roof — the one Teto Verde Favela built twenty of with no outside money — that
+ * it needs a registered engineer. Saying it depends is both true and the
+ * difference between a project they can start and one they cannot.
+ */
 function studyMarkerIn(prose: string): { pt: string; en: string } | null {
-  for (const m of STUDY_MARKERS) if (m.re.test(prose)) return { pt: m.pt, en: m.en };
+  for (const m of STUDY_MARKERS) {
+    const hit = m.re.exec(prose);
+    if (!hit) continue;
+    const sentence = prose.slice(prose.lastIndexOf('.', hit.index) + 1, prose.indexOf('.', hit.index) + 1 || undefined);
+    const conditional = /\bse (for|a |o |vai|for[ae]m)|\bcaso\b|depend/i.test(sentence);
+    return conditional
+      ? { pt: `${m.pt} — a ficha diz que depende de como for feito`, en: `${m.en} — the ficha says it depends how it is built` }
+      : { pt: m.pt, en: m.en };
+  }
+  return null;
+}
+
+/**
+ * What this solution needs before it can be designed, or null when community
+ * knowledge is enough.
+ *
+ * Exported because the W3 shortlist shows the same fact one beat EARLIER, on
+ * the card — and a card that says "dá pra fazer em mutirão" followed by a
+ * verdict that says "precisa de um técnico" would be the platform contradicting
+ * itself inside one session. One read, two surfaces.
+ */
+export function studyRequirement(solutionId: string): { pt: string; en: string } | null {
+  const ficha = getSolutionFicha(solutionId);
+  if (!ficha) return null;
+  const named = studyMarkerIn(`${ficha.pt.quemPrecisaDizerSim} ${ficha.pt.comoFunciona}`);
+  if (named) return named;
+
+  // ⚠️ The prose is where the SPECIFIC requirement is named; `delivery` is
+  // where the catalogue already classified how it can be built at all, and it
+  // is the reviewed structured field. Reading only the prose was a real defect
+  // in the first version of this file: muro-de-arrimo-verde, solo-grampeado
+  // and contenções em geocélulas are all `licenca` — their fichas say "nível
+  // licença, sem exceção", with an ART registered at CREA — and every one of
+  // them came back as needing nothing, so the verdict would have told an
+  // organisation that a retaining wall on a mapped risk slope was buildable
+  // once someone signed a permission slip. Of everything this system can get
+  // wrong, that is the one that hurts somebody.
+  //
+  // So `licenca` is a floor, not an inference: it cannot make a solution look
+  // easier than the catalogue already says it is.
+  const sol = getSolution(solutionId);
+  if (sol?.delivery === 'licenca') {
+    return { pt: 'um responsável técnico com ART', en: 'a licensed technical lead (ART)' };
+  }
   return null;
 }
 
@@ -184,9 +251,7 @@ export function computeVerdict(
     };
   }
 
-  const ficha = solutionId ? getSolutionFicha(solutionId) : undefined;
-  const prose = ficha ? `${ficha.pt.quemPrecisaDizerSim} ${ficha.pt.comoFunciona}` : '';
-  const marker = prose ? studyMarkerIn(prose) : null;
+  const marker = solutionId ? studyRequirement(solutionId) : null;
 
   // A technical unknown outranks a paperwork one: a permission for something
   // that cannot yet be designed would be asking for the wrong thing.
@@ -222,7 +287,7 @@ export function computeVerdict(
       ? 'Nada trava daqui: o desenho cabe no que vocês já sabem e o terreno está resolvido.'
       : 'Nothing blocks this: the design fits what you already know and the land is settled.',
     unblockedBy: pt ? 'nada — pode ser orçado' : 'nothing — it can be quoted',
-    source: ficha ? `ficha ${solutionId}` : 'intervention_site',
+    source: solutionId ? `ficha ${solutionId} · delivery + quemPrecisaDizerSim` : 'intervention_site',
   };
 }
 
@@ -324,7 +389,7 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
     const approve = ficha.pt.quemPrecisaDizerSim;
     const upkeep = ficha.pt.quemCuidaDepois;
 
-    const marker = studyMarkerIn(`${approve} ${ficha.pt.comoFunciona}`);
+    const marker = studyRequirement(id);
     if (marker) {
       add({
         list: 'investigate',

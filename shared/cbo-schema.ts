@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Dossier as W3Dossier } from './w3-dossier';
 import type { OpenMapParams } from './concept-note-schema';
 
 // ============================================================================
@@ -367,6 +368,11 @@ export type CboEvent =
   // never a single verdict), each with a one-line why in the session language
   // and concrete example variants from the 27-solution catalog.
   | { type: 'show_familia_recommendation'; items: FamiliaRecoItem[]; intro?: string }
+  // E3 — the shortlist (ordered, never filtered: `full` is the "ver todas" view)
+  // and the closing dossier. Both are computed server-side with no model in the
+  // path; see shared/w3-solutions.ts and shared/w3-dossier.ts.
+  | { type: 'show_solution_options'; items: Array<{ solutionId: string; reason: string; caveat?: string }>; full?: boolean }
+  | { type: 'show_dossier'; dossier: W3Dossier }
   | { type: 'ask_priority_rank'; prompt: string; minRanked: number }
   | { type: 'ask_community_anchoring'; prompt: string }
   | { type: 'done'; summary: string }

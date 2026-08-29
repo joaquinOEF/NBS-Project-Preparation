@@ -1,0 +1,61 @@
+═══════════════════════════════════════════════════════════════════════════
+ORG 4 — REDE PARTENON
+Roteiro de teste do Encontro 3 · cenário "um lugar, dois projetos"
+═══════════════════════════════════════════════════════════════════════════
+
+O QUE ESTE CENÁRIO TESTA
+──────────────────────────────────────────────────────────────────────────
+  Esta é a organização que quebrou a decisão de 27 de agosto.
+
+  A reunião tinha fechado num veredito de dois estados por ORGANIZAÇÃO:
+  ou o projeto é sabidamente viável, ou precisa de estudo especializado.
+  A Rede Partenon não cabe nisso, e não por ser um caso raro: ela quer
+  duas coisas no mesmo terreno, e as duas estão em estados diferentes.
+
+      a horta        →  dá para orçar hoje
+      a biovaleta    →  o cálculo de vazão pede um técnico
+
+  Um veredito por organização tem que arredondar isso para um dos dois, e
+  os dois arredondamentos estão errados. Dizer "precisa de estudo" congela
+  uma horta que podia receber dinheiro amanhã; dizer "viável" manda alguém
+  cavar uma vala dimensionada no olho, na beira de um barranco.
+
+  Por isso o veredito é por SOLUÇÃO-NO-LUGAR, e por isso são quatro
+  estados e não dois. Este cenário é a prova disso, e é o que precisa ser
+  reexplicado ao grupo — é a única mudança em relação ao que foi acordado.
+
+QUEM É A ORGANIZAÇÃO
+──────────────────────────────────────────────────────────────────────────
+  Rede Partenon · terreno próprio, escriturado
+  No E2 registrou a preocupação como "flood" (id antigo de família, não de
+  mecanismo) e o relato fala de água descendo com força — enxurrada.
+
+
+═══════════════════════════════════════════════════════════════════════════
+PASSO A PASSO
+═══════════════════════════════════════════════════════════════════════════
+
+1 · ABRIR com a fase 3 e o E2 desta organização.
+
+2 · ABERTURA → "É isso ✓"
+
+3 · PRIMEIRA SOLUÇÃO → "Hortas urbanas"
+   Siga até o fim: tamanho, por que aqui, linha de base, quem cuida.
+
+   ⚠️ EM QUEM CUIDA: o terreno é PRÓPRIO, então "Parceria com a
+      prefeitura" NÃO pode aparecer na lista. Seria combinar um acordo que
+      ninguém pode assinar. Se aparecer, é bug — e é o bug que a regra de
+      dependência entre encontros existe para impedir.
+
+4 · SEGUNDA SOLUÇÃO
+   Peça no chat para incluir também a biovaleta.
+
+5 · O DOSSIÊ
+   ⚠️ DOIS VEREDITOS, DIFERENTES, no mesmo card. Se o dossiê mostrar um
+      selo só, a decisão de 27 de agosto voltou.
+
+   ⚠️ A pendência do mecanismo tem que aparecer: a preocupação está
+      gravada como "flood", que é a família e não o mecanismo, e o
+      mecanismo é o que decide tanto a evidência a coletar quanto a
+      solução. O dossiê tem que pedir para perguntar se é alagamento,
+      inundação ou enxurrada — não adivinhar.

@@ -23,6 +23,12 @@ import {
 import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } from '../services/orgPersistence';
 import { cboStates } from '@shared/cbo-db-schema';
 import { cboSectionsFilledCount, type CboState } from '@shared/cbo-schema';
+import {
+  buildDossier,
+  portfolioState,
+  type CapacityGrade,
+  type VerdictState,
+} from '@shared/w3-dossier';
 import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist } from '../services/cboAgent';
 import JSZip from 'jszip';
 import { getObject } from '../services/blobStorage';
@@ -223,6 +229,74 @@ const EMPTY_W2: MemberW2Signal = {
   teiaSprint: null, priorCollaboration: null,
 };
 
+/**
+ * What the coordinator reads at a glance about an org's Encontro 3.
+ *
+ * ⚠️ Four states, not two. The 27 August meeting agreed a two-way split —
+ * known-feasible vs requires-expert-study — and four real W2 records broke it:
+ * only one of the four was blocked by a technical unknown, one had never chosen
+ * a place, one was engineering-trivial and blocked entirely by paperwork, and
+ * one was two projects with two different answers. Rounding those to two
+ * columns freezes a garden that could take money tomorrow, or sends someone to
+ * dig a swale sized by eye at the foot of a slope. See docs/w3-flow.md.
+ *
+ * `state` is the WORST verdict across the org's chosen solutions, because a
+ * list row can only carry one badge and the worst one is the only honest
+ * single answer. The per-solution verdicts are on the org's own card.
+ */
+export type MemberW3Signal = {
+  state: VerdictState | null;
+  /** The single thing that would move it on, in the coordinator's language. */
+  unblockedBy: string | null;
+  capacity: CapacityGrade | null;
+  solutions: string[];
+  areaM2: number | null;
+  /** Named gaps — an honest count of what W3 could not produce, never zeroed. */
+  gapCount: number;
+  /** Items proposed for the COORDINATION rather than the organisation: the
+   *  coordinator's actual queue out of this workshop. */
+  coordinationItems: number;
+};
+const EMPTY_W3: MemberW3Signal = {
+  state: null, unblockedBy: null, capacity: null,
+  solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0,
+};
+
+/** The dossier, computed from a member's live state — the same pure function the
+ *  org's own closing card renders, so the two can never disagree. */
+function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
+  const asRecord = (id: string) =>
+    Object.fromEntries(
+      Object.entries(((sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
+        .map(([k, v]) => [k, String(v?.value ?? '')]),
+    );
+  const site = asRecord('intervention_site');
+  const type = asRecord('intervention_type');
+  const solutions = (type.chosen_solutions ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  // Nothing chosen and no place marked = this org has not started W3. Reporting
+  // a verdict for it would put a badge on a row that has no project behind it.
+  if (!solutions.length && !site._site_lat && !site.site_lat) return EMPTY_W3;
+
+  const areaM2 = Number(site.site_area_m2) || 0;
+  const dossier = buildDossier({
+    site,
+    org: asRecord('org_profile'),
+    solutions,
+    ...(areaM2 ? { areaM2 } : {}),
+    w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
+  }, 'pt');
+  const state = portfolioState(dossier.verdicts);
+  return {
+    state,
+    unblockedBy: dossier.verdicts.find(v => v.state === state)?.unblockedBy ?? null,
+    capacity: dossier.capacity.grade,
+    solutions,
+    areaM2: areaM2 || null,
+    gapCount: dossier.gaps.length,
+    coordinationItems: dossier.items.filter(i => i.owner === 'coordination').length,
+  };
+}
+
 // Roster progress derived from the LIVE cbo_state, not the pushed snapshot.
 // snapshotSectionsComplete is only written by the client PATCH, and no client
 // code sends that field — so the coordinator's sections ring and the
@@ -234,10 +308,11 @@ const EMPTY_W2: MemberW2Signal = {
 // for members whose cbo_state hasn't been created yet.
 async function attachDerivedSections<
   T extends { cboStateId: string | null; snapshotSectionsComplete: number | null },
->(members: T[]): Promise<(T & { derivedSectionsComplete: number; w2: MemberW2Signal })[]> {
+>(members: T[]): Promise<(T & { derivedSectionsComplete: number; w2: MemberW2Signal; w3: MemberW3Signal })[]> {
   const ids = Array.from(new Set(members.map(m => m.cboStateId).filter((v): v is string => !!v)));
   const byState = new Map<string, number>();
   const w2ByState = new Map<string, MemberW2Signal>();
+  const w3ByState = new Map<string, MemberW3Signal>();
   if (ids.length > 0) {
     const rows = await db
       .select({ id: cboStates.id, sections: cboStates.sections })
@@ -260,6 +335,14 @@ async function attachDerivedSections<
         teiaSprint: val('teia_sprint') || null,
         priorCollaboration: val('prior_collaboration') || null,
       });
+      // Same rows, no extra query. Wrapped because a dossier that throws must
+      // not take down the whole roster — a coordinator with no board is worse
+      // off than one with a blank column.
+      try {
+        w3ByState.set(row.id, w3SignalFrom(sections));
+      } catch (err) {
+        console.error(`[cohort] w3 signal failed for ${row.id}:`, err);
+      }
     }
   }
   return members.map(m => ({
@@ -269,6 +352,7 @@ async function attachDerivedSections<
         ? byState.get(m.cboStateId)!
         : (m.snapshotSectionsComplete ?? 0),
     w2: (m.cboStateId && w2ByState.get(m.cboStateId)) || EMPTY_W2,
+    w3: (m.cboStateId && w3ByState.get(m.cboStateId)) || EMPTY_W3,
   }));
 }
 

@@ -230,6 +230,16 @@ export interface OpenMapParams {
     lng?: number;
     neighborhood?: string; // bairro-only hint (pre-select the zone)
   };
+  // E3 — the footprint session. The site is already known, so the map has ONE
+  // job: get a polygon around it. Opens at the pin in satellite, arms polygon
+  // drawing, hides the zone step and every selection affordance that is not
+  // drawing. Without this the org would be asked to find its own place again
+  // and then hunt for a draw tool, on a phone, in order to answer "how big".
+  drawFootprint?: {
+    lat: number;
+    lng: number;
+    name?: string;
+  };
 }
 
 export interface SelectedAsset {

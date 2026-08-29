@@ -1,0 +1,71 @@
+═══════════════════════════════════════════════════════════════════════════
+ORG 3 — ASSOCIAÇÃO CULTURAL VILA NOVA
+Roteiro de teste do Encontro 3 · cenário "veredito: precisa de autorização"
+═══════════════════════════════════════════════════════════════════════════
+
+O QUE ESTE CENÁRIO TESTA
+──────────────────────────────────────────────────────────────────────────
+  Três coisas que só aparecem juntas neste cenário:
+
+  1 · UMA SOLUÇÃO QUE NÃO SE ORÇA POR M². A ficha da horta urbana cobra
+      por projeto, não por metro quadrado. A pergunta do tamanho TEM que
+      mudar — pedir um desenho que não compra número nenhum é teatro.
+
+  2 · UM VEREDITO DE PAPEL, NÃO TÉCNICO. Plantar não precisa de estudo.
+      O que falta é alguém registrar por escrito que elas podem usar o
+      terreno. É a organização mais próxima de começar, e a que parece mais
+      travada — e a diferença entre esses dois vereditos é a diferença
+      entre contratar um técnico e escrever um ofício.
+
+  3 · UMA REGRA QUE A FICHA NÃO SABE. A ficha roteia pelo tipo de terreno;
+      ela não sabe que tem uma escola em cima dele. O registro do lugar
+      sabe. A lista "falar com" tem que incluir a direção da escola.
+
+QUEM É A ORGANIZAÇÃO
+──────────────────────────────────────────────────────────────────────────
+  Vila Nova · pátio da EMEF, terreno público que usam há anos sem nada
+  escrito. Grupo marcado no E2: Sistema Alimentar.
+
+
+═══════════════════════════════════════════════════════════════════════════
+PASSO A PASSO
+═══════════════════════════════════════════════════════════════════════════
+
+1 · ABRIR com a fase 3 e o E2 desta organização (lugar marcado, terreno
+    público-informal, nome do lugar com "EMEF").
+
+2 · ABERTURA → "É isso ✓"
+
+3 · A SOLUÇÃO → "Hortas urbanas"
+
+4 · O TAMANHO — o teste
+   ⚠️ NÃO PODE aparecer "Desenhar no mapa". A ficha da horta diz
+      R$ 300–1.200 para uma horta pequena de 10 a 50 m², com material
+      reaproveitado — é um preço de conjunto. A conversa tem que ir direto
+      para essa faixa e seguir em frente.
+
+   ⚠️ Se ela pedir para desenhar uma área, é bug: o desenho não compraria
+      nada, e ainda daria a impressão de que o preço sai do m².
+
+5 · POR QUE AQUI
+   "É o pátio da escola do bairro, onde as crianças já passam todo dia."
+
+6 · COMO É O LUGAR HOJE
+   "Metade cimento, metade terra pisada. Só tem uma árvore no canto."
+
+7 · QUEM CUIDA / FREQUÊNCIA / DINHEIRO
+   → "Parceria com a prefeitura" (terreno público, então aparece)
+   → "Todo mês" → "Editais e projetos"
+
+8 · O DOSSIÊ
+   ⚠️ VEREDITO = PRECISA DE AUTORIZAÇÃO. Não "precisa de estudo".
+
+   ⚠️ Em "falar com" tem que aparecer a DIREÇÃO DA ESCOLA, com o nome do
+      lugar. Se aparecer só SMAMUS, a regra do site_name não rodou.
+
+   ⚠️ Em "falar com" tem que aparecer também quem transforma "sempre
+      usamos" em autorização escrita.
+
+   ⚠️ O preço tem que aparecer como faixa de projeto, com a frase da ficha
+      sobre a horta comunitária de porte médio (perto de R$ 25.000). Nunca
+      como R$/m².

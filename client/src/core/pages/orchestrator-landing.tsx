@@ -116,6 +116,20 @@ type CboDemoProject = {
   // The W2 read the convening asked to see at a glance (backlog #25).
   w2: { worry: string | null; worryCount: number; depth: 'thin' | 'partial' | 'strong' | null;
         teiaSprint: string | null; priorCollaboration: string | null };
+  // The W3 read. ⚠️ FOUR states, not the two the 27 August meeting agreed —
+  // see MemberW3Signal in server/routes/cohortRoutes.ts and docs/w3-flow.md for
+  // the four real records that broke the two-way split. This is the one change
+  // to what was decided, and it needs re-explaining to the group rather than
+  // just reviewing.
+  w3: {
+    state: 'ready' | 'needs_study' | 'needs_permission' | 'needs_site' | null;
+    unblockedBy: string | null;
+    capacity: 'exploratory' | 'emerging' | 'established' | null;
+    solutions: string[];
+    areaM2: number | null;
+    gapCount: number;
+    coordinationItems: number;
+  };
   docPreview: { total: number; imageIds: string[]; filenames: string[]; teiaSprint: boolean };
   /** Persisted org maturity tier (EF-5): set by the agent at E1 close,
    *  coordinator-overridable from the card. Null until E1 completes. */
@@ -124,6 +138,44 @@ type CboDemoProject = {
    *  exact site (coords are the bairro centroid). Drives an amber chip and is
    *  excluded from the sites-mapped KPI. */
   siteDeferred: boolean;
+};
+
+// ── W3 verdicts ─────────────────────────────────────────────────────────────
+// The coordinator's actual question out of Encontro 3 is not "how far along is
+// each org" — it is "which pile is this project in, and who has to move next".
+// Four piles, and each one routes to a different person:
+//
+//   ready             → the ORG, to get a quote and a signature
+//   needs_permission  → the COORDINATION, to open a door with an owner or a
+//                       secretariat. Cheap, and unblocks a whole project.
+//   needs_study       → the COORDINATION, to find a técnico. This is the pile
+//                       that becomes a shared procurement, which is the single
+//                       biggest thing the programme can do that an individual
+//                       organisation cannot.
+//   needs_site        → back to the map, with support.
+//
+// Ordered worst-first: the piles that need someone else to act come before the
+// pile that is already moving.
+const W3_STATES = ['needs_site', 'needs_study', 'needs_permission', 'ready'] as const;
+type W3State = (typeof W3_STATES)[number];
+
+const W3_META: Record<W3State, { pt: string; en: string; cls: string }> = {
+  needs_site: {
+    pt: 'falta o lugar', en: 'no place yet',
+    cls: 'border-stone-300 bg-stone-100 text-stone-700 dark:bg-stone-900 dark:text-stone-300 dark:border-stone-700',
+  },
+  needs_study: {
+    pt: 'precisa de estudo', en: 'needs a study',
+    cls: 'border-sky-200/60 bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900/40',
+  },
+  needs_permission: {
+    pt: 'precisa de autorização', en: 'needs permission',
+    cls: 'border-amber-200/60 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/40',
+  },
+  ready: {
+    pt: 'pronto pra orçar', en: 'ready to quote',
+    cls: 'border-emerald-200/60 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/40',
+  },
 };
 
 const TOTAL_SECTIONS = 7;
@@ -214,6 +266,7 @@ function memberToView(m: CohortMember): CboDemoProject {
       : 0,
     documentCount: (m as any).documentCount ?? 0,
     w2: (m as any).w2 ?? { worry: null, worryCount: 0, depth: null, teiaSprint: null, priorCollaboration: null },
+    w3: (m as any).w3 ?? { state: null, unblockedBy: null, capacity: null, solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0 },
     docPreview: (m as any).docPreview ?? { total: 0, imageIds: [], filenames: [], teiaSprint: false },
     maturityTier: ((m as any).maturityTier as 'emerging' | 'developing' | 'advanced' | null) ?? null,
     siteDeferred: site?.deferred === true,
@@ -760,6 +813,38 @@ function ProjectCard({
                 })}
               </span>
             )}
+            {/* W3: the verdict, and what would move it. A row can only carry one
+                badge, so it carries the WORST verdict across the org's chosen
+                solutions — the only single answer that is honest. The
+                per-solution split lives on the org's own card. */}
+            {project.w3.state && (
+              <span
+                className={`inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border ${W3_META[project.w3.state].cls}`}
+                title={
+                  project.w3.unblockedBy
+                    ? t('orchestrator.w3.unblockTitle', {
+                        defaultValue: 'Destrava com: {{what}}',
+                        what: project.w3.unblockedBy,
+                      })
+                    : t('orchestrator.w3.verdictTitle', { defaultValue: 'What is blocking this project' })
+                }
+                data-testid={`w3-verdict-${project.id}`}
+              >
+                {W3_META[project.w3.state][locale.startsWith('pt') ? 'pt' : 'en']}
+              </span>
+            )}
+            {/* An honest count of what W3 could not produce. Never hidden to
+                make a row look finished — these gaps ARE the coordinator's
+                agenda with the municipality. */}
+            {project.w3.gapCount > 0 && (
+              <span
+                className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border border-foreground/15 bg-foreground/5 text-foreground/70"
+                title={t('orchestrator.w3.gapsTitle', { defaultValue: 'Open questions W3 named rather than left blank' })}
+                data-testid={`w3-gaps-${project.id}`}
+              >
+                {t('orchestrator.w3.gaps', { defaultValue: '{{n}} em aberto', n: project.w3.gapCount })}
+              </span>
+            )}
             {project.docPreview.teiaSprint && (
               <span
                 className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border border-violet-200/60 bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
@@ -1107,6 +1192,25 @@ export default function OrchestratorLandingPage() {
     ).length;
     const profilesComplete = projects.filter(p => p.sectionsComplete === TOTAL_SECTIONS).length;
     return { sitesMapped, profilesInProgress, profilesComplete, total: projects.length };
+  }, [projects]);
+
+  // The W3 portfolio, in the four piles. Only orgs that actually started W3
+  // count — a cohort mid-W2 must not read as "0 pronto pra orçar", which would
+  // frame an unstarted workshop as a failing one.
+  const w3Stats = useMemo(() => {
+    const scoped = projects.filter(p => p.w3.state);
+    const by = Object.fromEntries(
+      W3_STATES.map(st => [st, scoped.filter(p => p.w3.state === st)]),
+    ) as Record<W3State, CboDemoProject[]>;
+    return {
+      scoped,
+      by,
+      // What the coordination itself has to move, across the whole cohort.
+      // This is the number that turns a roster into a work queue: the studies
+      // and the doors, pooled, are the thing the programme can do that no
+      // single organisation can.
+      coordinationItems: scoped.reduce((n, p) => n + p.w3.coordinationItems, 0),
+    };
   }, [projects]);
 
   // Dialog state
@@ -1539,6 +1643,66 @@ export default function OrchestratorLandingPage() {
             </motion.div>
           ))}
         </motion.div>
+
+        {/* ── The W3 portfolio ─────────────────────────────────────────────
+            Four piles, worst-first, because each routes to a different person:
+            needs_study and needs_permission are the COORDINATION's queue, and
+            pooling the studies across the cohort is the single biggest thing
+            the programme can do that an individual organisation cannot.
+
+            Hidden until at least one org has been through W3 — an empty
+            "0 pronto pra orçar" on a cohort still in W2 reads as failure. */}
+        {w3Stats.scoped.length > 0 && (
+          <div className="mb-8" data-testid="w3-portfolio">
+            <div className="mb-2 flex flex-wrap items-baseline gap-x-2">
+              <TitleLarge className="!text-xl tracking-tight mb-0">
+                {t('orchestrator.w3.portfolioTitle', { defaultValue: 'Projetos do Encontro 3' })}
+              </TitleLarge>
+              <BodySmall className="text-muted-foreground">
+                {t('orchestrator.w3.portfolioSubtitle', {
+                  defaultValue: '{{n}} de {{total}} organizações · {{items}} itens na fila da coordenação',
+                  n: w3Stats.scoped.length,
+                  total: stats.total,
+                  items: w3Stats.coordinationItems,
+                })}
+              </BodySmall>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {W3_STATES.map(st => {
+                const rows = w3Stats.by[st];
+                const meta = W3_META[st];
+                return (
+                  <Card key={st} data-testid={`w3-pile-${st}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-baseline gap-2">
+                        <div className="text-2xl font-semibold tracking-tight tabular-nums">
+                          {rows.length}
+                        </div>
+                        <span className={`inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border ${meta.cls}`}>
+                          {meta[locale.startsWith('pt') ? 'pt' : 'en']}
+                        </span>
+                      </div>
+                      {rows.length > 0 && (
+                        <ul className="mt-2 space-y-0.5">
+                          {rows.slice(0, 4).map(r => (
+                            <li key={r.id} className="truncate text-[11px] text-muted-foreground">
+                              {r.name[locale.startsWith('pt') ? 'pt' : 'en']}
+                            </li>
+                          ))}
+                          {rows.length > 4 && (
+                            <li className="text-[11px] text-muted-foreground/70">
+                              +{rows.length - 4}
+                            </li>
+                          )}
+                        </ul>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Section heading */}
         <div className="mb-5">

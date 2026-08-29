@@ -56,6 +56,7 @@ import {
   type HazardKey,
 } from '@shared/risk-display';
 import { normalizeZoneName } from '@shared/bairro-match';
+import { polygonAreaM2, roundAreaM2 } from '@shared/w3-sizing';
 import { RISK_BANDS } from '@shared/risk-display';
 import type { LegendSpec } from '@shared/legend-types';
 import { describeRamp } from '@shared/hazard-legend';
@@ -277,7 +278,18 @@ export default function MapMicroapp({
   // "marcar no mapa"; everything else (mode picker, stepper, lat/lng input,
   // area drawing, selection trash) is hidden. One pin at a time: a new tap
   // replaces the previous one.
-  const simpleSite = !!params.focusZone && isComposite;
+  // ── E3 footprint mode ─────────────────────────────────────────────────────
+  // The site is already settled; this session exists only to get an area out of
+  // it. Opens at the saved pin in satellite, arms polygon drawing, and hides
+  // every affordance that is not "trace the shape" — on a phone, the two things
+  // that kill this step are being asked to find your own place again and having
+  // to hunt for a draw tool.
+  const footprint = params.drawFootprint;
+  const footprintMode = !!footprint && isComposite;
+  // e3_footprint passes focusZone too (it wants the zone-skip and the fit), so
+  // this has to be excluded explicitly — otherwise the site chooser overlay
+  // ("como você quer achar o lugar?") covers a map whose place is already known.
+  const simpleSite = !!params.focusZone && isComposite && !footprintMode;
   const [simpleChoice, setSimpleChoice] = useState<'none' | 'search' | 'map'>(
     'none'
   );
@@ -327,7 +339,12 @@ export default function MapMicroapp({
   const showAssets =
     !tourActive && (!isComposite || compositeStep === 'assets');
   const polygonHelp =
-    drawMode === 'polygon' ? t('mapMicroapp.polygonHelp') : '';
+    drawMode === 'polygon'
+      // "Click vertices, double-click to close" is desktop copy, and the
+      // footprint step is a phone step by design — the org is standing in the
+      // yard, or sitting with the coordinator's tablet.
+      ? t(params.drawFootprint ? 'mapMicroapp.footprintHelp' : 'mapMicroapp.polygonHelp')
+      : '';
   const tourFamily = tourActive ? hazardFamilyOf(tourLayers[tourIdx]) : null;
   const advanceTour = useCallback(() => {
     setHelpOpen(false);
@@ -563,8 +580,12 @@ export default function MapMicroapp({
   // Fires on step change only, so a manual toggle within a step isn't overridden.
   useEffect(() => {
     if (!params.allowDeferSite) return;
+    // Footprint mode owns its basemap: you cannot trace a schoolyard on a
+    // political map, and this effect fires on the step change that mode
+    // triggers — so without the guard it would flip satellite off again.
+    if (params.drawFootprint) return;
     setBasemap('political');
-  }, [compositeStep, params.allowDeferSite]);
+  }, [compositeStep, params.allowDeferSite, params.drawFootprint]);
 
   // CBO site step: draw mode starts OFF — the user arms "Um ponto" / "Desenhar
   // a área" explicitly. Auto-arming 'point' here meant the first thing every
@@ -1900,6 +1921,39 @@ export default function MapMicroapp({
     selectedHighlightsRef.current.clear();
   };
 
+  // E3 footprint mode: satellite, zoomed onto the saved pin, polygon drawing
+  // already armed, and a small marker showing the place they confirmed in W2 so
+  // they are tracing around something they recognise rather than a bare tile.
+  // One-shot (ref latch): re-running it would fight a user who panned away or
+  // switched the basemap deliberately.
+  const footprintArmedRef = useRef(false);
+  useEffect(() => {
+    if (!footprintMode || footprintArmedRef.current) return;
+    if (!mapReady || !mapRef.current || compositeStep !== 'assets') return;
+    const map = mapRef.current;
+    const { lat, lng, name } = footprint!;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    footprintArmedRef.current = true;
+    setBasemap('satellite');
+    // 18 shows a schoolyard end to end on a phone; 19 is the imagery's limit
+    // and leaves no context around the edge to place the corners against.
+    map.setView([lat, lng], 18);
+    const pin = L.circleMarker([lat, lng], {
+      radius: 5,
+      color: '#ffffff',
+      weight: 2,
+      fillColor: '#8b5cf6',
+      fillOpacity: 1,
+      // The pin is a reference, not a target — left interactive it would eat
+      // the first tap of the polygon the user is being asked to draw.
+      interactive: false,
+    });
+    pin.addTo(map);
+    if (name) pin.bindTooltip(name, { permanent: false, direction: 'top' });
+    setDrawMode('polygon');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [footprintMode, mapReady, compositeStep]);
+
   // Simple site mode: "Marcar no mapa" arms point-dropping and KEEPS it armed
   // (the generic point handler disarms after each drop), so a second tap moves
   // the pin instead of requiring a re-tap on a mode button.
@@ -1924,6 +1978,18 @@ export default function MapMicroapp({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [simpleSite, nonZoneCount]);
+
+  // The area traced so far, on the confirm button — "Confirmar" over a shape
+  // you drew with a finger tells you nothing about whether you drew the size
+  // you meant, and the number is the entire point of this step. Same rounding
+  // the server stores, so the button and the chat cannot disagree.
+  const footprintM2 = footprintMode
+    ? roundAreaM2(
+        selectedAssets
+          .filter(a => a.type !== 'zone' && a.geometry?.type === 'Polygon')
+          .reduce((acc, a) => acc + polygonAreaM2(a.geometry as any), 0),
+      )
+    : 0;
 
   const totalSelections = selectedAssets.length + sampledPoints.length;
   const availableTileLayers = (params.tileLayers || [])
@@ -2055,7 +2121,8 @@ export default function MapMicroapp({
         isComposite &&
         compositeStep === 'assets' &&
         !tourActive &&
-        !simpleSite && (
+        !simpleSite &&
+        !footprintMode && (
           <div className='px-3 py-2 border-b bg-muted/10 shrink-0'>
             <p className='text-[10px] text-muted-foreground mb-1'>
               {t('mapMicroapp.siteHowToMark', {
@@ -2288,7 +2355,7 @@ export default function MapMicroapp({
           for sites the OSM suggestions miss. Mobile-friendly: collapsed to a
           single chip until tapped. Simple site mode has its own search in the
           chooser overlay instead. */}
-      {canDraw && !simpleSite && (
+      {canDraw && !simpleSite && !footprintMode && (
         <div className='border-b bg-muted/10 shrink-0'>
           {!addSiteOpen ? (
             <button
@@ -2947,11 +3014,16 @@ export default function MapMicroapp({
                   data-testid='map-confirm-site'
                 >
                   <Check className='w-3 h-3' />{' '}
-                  {simpleSite
-                    ? t('mapMicroapp.confirmPlace', {
-                        defaultValue: 'Confirmar lugar',
+                  {footprintMode
+                    ? t('mapMicroapp.confirmFootprint', {
+                        defaultValue: 'Confirmar {{m2}} m²',
+                        m2: footprintM2,
                       })
-                    : t('mapMicroapp.confirm', { count: totalSelections })}
+                    : simpleSite
+                      ? t('mapMicroapp.confirmPlace', {
+                          defaultValue: 'Confirmar lugar',
+                        })
+                      : t('mapMicroapp.confirm', { count: totalSelections })}
                 </Button>
               ) : params.focusZone ? (
                 /* Focused site session (E2 linear): the user already said they
@@ -2964,9 +3036,13 @@ export default function MapMicroapp({
                   data-testid='map-confirm-site'
                 >
                   <Check className='w-3 h-3' />{' '}
-                  {t('mapMicroapp.confirmPlace', {
-                    defaultValue: 'Confirmar lugar',
-                  })}
+                  {footprintMode
+                    ? t('mapMicroapp.tracePending', {
+                        defaultValue: 'Contorne a área',
+                      })
+                    : t('mapMicroapp.confirmPlace', {
+                        defaultValue: 'Confirmar lugar',
+                      })}
                 </Button>
               ) : (
                 <Button
