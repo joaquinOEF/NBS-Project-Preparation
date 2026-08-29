@@ -65,6 +65,7 @@ import { commitConfirmedStagedFields, isAffirmativeReply } from "./e1ConfirmComm
 import { parseNbsInventory } from "@shared/nbs-inventory";
 import { isImplementationNarration } from "./assistantNoise";
 import { checkCloseGate } from "./cboCloseGate";
+import { serveE3Checkpoint } from "./cboE3Checkpoint";
 
 /** Manifests whose rules govern this section (today: E1 ↔ org_profile). */
 function manifestsForSection(sectionId: string): QuestionnaireManifest[] {
@@ -1486,6 +1487,33 @@ function writeE2Fields(cboId: string, state: CboState, fields: Record<string, st
     state.editLog.push({ timestamp: new Date().toISOString(), sectionId: 'intervention_site', field: k, oldValue, newValue: v, source: 'agent' });
     state.gaps = state.gaps.filter(g => !(g.sectionId === 'intervention_site' && g.field === k));
     pushEvent({ type: 'field_update', sectionId: 'intervention_site', field: k, value: v, confidence: 'high', source });
+  }
+  section.lastUpdatedBy = 'agent';
+  setCboState(cboId, state);
+  debouncedPersist(cboId);
+}
+
+/**
+ * writeE2Fields for any section — E3 writes into three of them (what is being
+ * built, its expected impact, how it is kept alive), and copying the function
+ * per section is how the two would drift.
+ */
+function writeSectionFields(
+  cboId: string,
+  state: CboState,
+  sectionId: string,
+  fields: Record<string, string>,
+  pushEvent: EventPusher,
+  source = 'user',
+) {
+  const section = (state.sections as any)[sectionId];
+  if (!section) return;
+  for (const [k, v] of Object.entries(fields)) {
+    const oldValue = section.fields[k]?.value ?? null;
+    section.fields[k] = { value: v, confidence: 'high', source, userEdited: false };
+    state.editLog.push({ timestamp: new Date().toISOString(), sectionId, field: k, oldValue, newValue: v, source: 'agent' });
+    state.gaps = state.gaps.filter(g => !(g.sectionId === sectionId && g.field === k));
+    pushEvent({ type: 'field_update', sectionId, field: k, value: v, confidence: 'high', source });
   }
   section.lastUpdatedBy = 'agent';
   setCboState(cboId, state);
@@ -3073,6 +3101,13 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'site_card', card: (event as any).card }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_familia_recommendation') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'familia_reco', items: (event as any).items, intro: (event as any).intro }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_solution_options') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'solution_options', items: (event as any).items, full: (event as any).full }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_dossier') {
+      // The dossier is the whole point of E3 — an org that reloads the page
+      // after the session must still find the project it left with, not an
+      // empty transcript.
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'dossier', dossier: (event as any).dossier }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'ask_user') {
       // Persist every user-prompting question (PERSIST-PROMPTS). Before this,
       // ask_user was SSE-only: a reload mid-question dropped the prompt and the
@@ -3280,6 +3315,26 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       }
     } catch (err) {
       console.error(`[cbo] e2 checkpoint error for ${cboId} \u2014 falling through to the model:`, err);
+    }
+  }
+
+  // E3 checkpoints \u2014 same architecture, one workshop on. The dependencies are
+  // passed rather than imported so the arrow points one way: cboE3Checkpoint
+  // knows nothing about this file.
+  if (state.phase === 3) {
+    try {
+      const served = await serveE3Checkpoint(cboId, userMessage, state, pushEvent, lang, turnKind, {
+        writeFields: (sectionId, fields) => writeSectionFields(cboId, state, sectionId, fields, pushEvent),
+        recordCheckpoint: (step) =>
+          recordCboEvent({ cboStateId: cboId, name: 'checkpoint', phase: state.phase, step }),
+        normChip,
+      });
+      if (served) {
+        res.end();
+        return;
+      }
+    } catch (err) {
+      console.error(`[cbo] e3 checkpoint error for ${cboId} \u2014 falling through to the model:`, err);
     }
   }
 

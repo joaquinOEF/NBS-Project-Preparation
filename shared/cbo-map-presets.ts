@@ -27,7 +27,8 @@ export type CboMapPresetId =
   | 'e2_site'
   | 'e2_browse'
   | 'e2_bairro'
-  | 'e2_site_focused';
+  | 'e2_site_focused'
+  | 'e3_footprint';
 
 /** The OSM place types a CBO picks their intervention site from, in step 2. */
 const E2_OSM_LAYERS = ['osm_parks', 'osm_schools', 'osm_wetlands', 'osm_hospitals'];
@@ -130,6 +131,23 @@ const PRESETS: Record<CboMapPresetId, PresetDef> = {
     prompt: {
       pt: 'Marque o lugar exato onde vocês querem atuar.',
       en: 'Mark the exact place where you want to work.',
+    },
+  },
+
+  // E3 Beat 2 — the footprint. The site is settled; this session exists only to
+  // get an area out of it, so there is no hazard tour, no OSM layers, no zone
+  // step and no risk shading: everything that is not "trace the shape" is
+  // noise here, and the caller passes drawFootprint with the saved pin.
+  e3_footprint: {
+    params: {
+      selectionMode: 'composite',
+      zoneSource: 'neighborhood_zones',
+      hazardTour: false,
+      allowDeferSite: true,
+    },
+    prompt: {
+      pt: 'Contorne a área onde o projeto vai. Não precisa ser exato.',
+      en: 'Trace the area the project will cover. It does not have to be exact.',
     },
   },
 

@@ -803,7 +803,13 @@ export function mechanismNote(
   const sub = WORRY_SUBTYPES.find(w => w.id === hit);
   if (!sub) return null;
   const phrase = (lang === 'pt' ? sub.dPt : sub.dEn).toLowerCase();
-  return lang === 'pt' ? `pra ${phrase}` : `for ${phrase}`;
+  if (lang !== 'pt') return `for ${phrase}`;
+  // "pra" + "a água" is "pra a água", which nobody says. The subtype
+  // descriptions are written as standalone chip captions ("A água que junta e
+  // não escoa"), so the article is theirs and the contraction is ours.
+  if (phrase.startsWith('a ')) return `pra ${phrase.slice(2)}`;
+  if (phrase.startsWith('o ')) return `pro ${phrase.slice(2)}`;
+  return `pra ${phrase}`;
 }
 
 export function solutionsForFamilia(familiaId: NbsFamiliaId): NbsSolution[] {

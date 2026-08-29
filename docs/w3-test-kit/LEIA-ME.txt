@@ -1,0 +1,105 @@
+═══════════════════════════════════════════════════════════════════════════
+KIT DE TESTE DO ENCONTRO 3 — quatro organizações fictícias
+NBS Project Builder · COUGAR · preparado em 28/08/2026
+═══════════════════════════════════════════════════════════════════════════
+
+Quatro cenários para rodar antes do alinhamento de 10 de setembro. Cada
+pasta tem um roteiro passo a passo. Dá para rodar os quatro em uns 40
+minutos.
+
+Rode no CELULAR se possível — é onde as organizações vão estar, e o
+Encontro 3 pede uma coisa que o 2 não pedia: desenhar uma área com o dedo,
+em cima de uma imagem de satélite.
+
+
+O QUE MUDA DO ENCONTRO 2 PARA O 3
+──────────────────────────────────────────────────────────────────────────
+  O Encontro 2 fechava numa leitura: "a gente sabe onde vocês querem
+  atuar". Isso era honesto porque era tudo o que ele prometia.
+
+  O Encontro 3 não pode fechar numa sensação. Ele devolve um projeto que
+  alguém consegue tocar na manhã seguinte:
+
+      uma solução  ·  um tamanho  ·  uma faixa de preço
+      quem precisa dizer sim  ·  quem cuida depois
+      e um veredito: o que exatamente está travando
+
+  Tudo isso é calculado no servidor a partir das respostas do E2 e das
+  fichas das 27 soluções. Não tem modelo de linguagem no caminho — o que
+  significa que a coordenação consegue auditar cada linha até a frase da
+  ficha de onde ela saiu, e que a mesma resposta sempre gera o mesmo
+  dossiê.
+
+
+AS QUATRO ORGANIZAÇÕES E O QUE CADA UMA TESTA
+──────────────────────────────────────────────────────────────────────────
+
+  1 · HORTA RAÍZES DO SARANDI              veredito: PRECISA DE ESTUDO
+      Vem do E2 com tudo: lugar marcado, relato, fotos, terreno público.
+      Escolhe jardim de chuva — e a ficha do jardim de chuva diz que o
+      desenho precisa de teste de infiltração do solo.
+      Esperado: o veredito é "precisa de estudo técnico", NÃO "precisa de
+      autorização", mesmo o terreno sendo público-informal. Um desconhecido
+      técnico vem antes de um de papel: pedir autorização para uma coisa
+      que ainda não dá para desenhar é pedir a coisa errada.
+
+  2 · COLETIVO ENCOSTA VIVA                veredito: FALTA O LUGAR
+      Nunca marcou um ponto no mapa.
+      Esperado: o dossiê é curto DE PROPÓSITO e diz por quê. Ele não
+      inventa um projeto por cima de um vazio. A única pendência é marcar
+      um lugar, e a mensagem final diz que o resto fecha rápido depois
+      disso.
+
+  3 · ASSOCIAÇÃO CULTURAL VILA NOVA        veredito: PRECISA DE AUTORIZAÇÃO
+      Terreno público que elas usam há anos, sem nada escrito.
+      Escolhe horta urbana — que se orça pelo conjunto, não por m².
+      Esperado: (a) a pergunta do tamanho MUDA — ninguém pede desenho para
+      uma solução que a ficha cobra por projeto; (b) o veredito é de papel,
+      não técnico; (c) a lista "falar com" inclui a direção da escola, uma
+      regra que a ficha não sabe e o registro do lugar sabe.
+
+  4 · REDE PARTENON                        veredito: DOIS PROJETOS
+      Escolhe DUAS soluções no mesmo lugar: uma horta (dá para orçar já) e
+      uma biovaleta (o cálculo de vazão pede um técnico).
+      Esperado: DOIS vereditos no mesmo dossiê, diferentes. É por isso que
+      o veredito não é um selo por organização — foi essa organização que
+      quebrou a decisão de 27 de agosto de ter só dois estados.
+
+
+O QUE VOCÊ ESTÁ TESTANDO, NO FUNDO
+──────────────────────────────────────────────────────────────────────────
+  Uma regra, com duas metades:
+
+      NADA FICA DESCARTADO, E NADA É MAQUIADO.
+
+  Primeira metade: nenhuma solução some da lista por causa de um palpite
+  nosso sobre o terreno. Se o registro do lugar contradiz uma solução, isso
+  vira uma frase de ressalva no card — nunca uma exclusão. A escolha
+  continua sendo delas. Teste isso no cenário 2, onde a organização não tem
+  lugar nenhum e ainda assim alcança as 27.
+
+  Segunda metade: nenhuma pendência é escondida para o dossiê parecer
+  pronto. "Ainda não sabemos" sobre dinheiro recorrente é a resposta mais
+  útil da sessão inteira — é exatamente a lacuna que a coordenação leva
+  para a prefeitura. Se o dossiê esconder isso para parecer completo, ele
+  jogou fora a única coisa acionável que a sessão produziu.
+
+  Então a pergunta que vale em cada cenário é:
+
+      "O dossiê está dizendo a verdade sobre o que falta?"
+
+
+TRÊS COISAS QUE VALE OLHAR COM ATENÇÃO
+──────────────────────────────────────────────────────────────────────────
+  · O PREÇO. Toda faixa vem da ficha da solução, e toda linha termina
+    apontando para a próxima ação — uma cotação a pedir, uma quantidade a
+    dizer, uma área a desenhar. Se alguma linha parecer um orçamento
+    fechado, é bug.
+
+  · A ÁREA. Ela é arredondada de propósito (487 m² vira 500). É um desenho
+    de dedo em cima de satélite, não um levantamento topográfico, e o
+    número tem que parecer o que é.
+
+  · QUEM CUIDA. Em terreno próprio, "Parceria com a prefeitura" NÃO
+    aparece na lista — seria combinar um acordo que ninguém pode assinar.
+    Em terreno público, aparece. Vale testar os dois.

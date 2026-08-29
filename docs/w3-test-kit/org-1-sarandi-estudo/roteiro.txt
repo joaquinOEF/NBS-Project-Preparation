@@ -1,0 +1,117 @@
+═══════════════════════════════════════════════════════════════════════════
+ORG 1 — HORTA COMUNITÁRIA RAÍZES DO SARANDI
+Roteiro de teste do Encontro 3 · cenário "veredito: precisa de estudo"
+═══════════════════════════════════════════════════════════════════════════
+
+O QUE ESTE CENÁRIO TESTA
+──────────────────────────────────────────────────────────────────────────
+  · o caminho completo, com desenho de área no mapa
+  · se a faixa de preço sai certa do m² desenhado
+  · e a regra que mais importa aqui:
+
+    UM DESCONHECIDO TÉCNICO VEM ANTES DE UM DE PAPEL.
+
+    O terreno é público-informal — elas usam há anos, sem nada escrito.
+    Isso sozinho daria "precisa de autorização". Mas a ficha do jardim de
+    chuva diz que o desenho (camadas de brita, areia, terra, e o teste de
+    infiltração) precisa de um técnico, "porque um jardim de chuva mal
+    calculado não drena".
+
+    O veredito tem que ser PRECISA DE ESTUDO TÉCNICO. Pedir autorização
+    para uma coisa que ainda não dá para desenhar é pedir a coisa errada.
+
+QUEM É A ORGANIZAÇÃO (para você responder no personagem)
+──────────────────────────────────────────────────────────────────────────
+  Vem do kit do Encontro 2, com o E2 já completo:
+  Marlene Duarte · Sarandi · terreno da prefeitura ao lado da horta
+  Preocupação: alagamento — a água junta e demora dias para ir embora
+  Grupo marcado no E2: Gestão de Águas Pluviais
+
+
+═══════════════════════════════════════════════════════════════════════════
+PASSO A PASSO
+═══════════════════════════════════════════════════════════════════════════
+
+1 · ABRIR
+   Abra /cbo-profile com a fase 3 liberada e o E2 desta organização já
+   preenchido. Se precisar destravar: Vamos começar o Encontro 3.
+
+2 · ABERTURA
+   A primeira mensagem tem que dizer o NOME DO LUGAR que vocês marcaram no
+   Encontro 2. Se ela perguntar onde vocês querem atuar, é bug — foi
+   respondido vinte minutos atrás.
+   → toque em "É isso ✓"
+
+3 · A SOLUÇÃO
+   Aparecem 4 soluções, não 5 famílias. Cada card tem duas informações:
+   por que está ali, e o que vai custar em esforço.
+
+   ⚠️ OLHE OS QUATRO MOTIVOS. Eles têm que ser DIFERENTES entre si. Se os
+      quatro disserem a mesma frase, a lista não está ajudando a escolher.
+      Jardim de chuva deve dizer que precisa de teste de infiltração;
+      biovaleta, que o cálculo de vazão pede um técnico.
+
+   → toque em "Jardins de chuva"
+
+   A resposta imediata traz "quem precisa dizer sim", direto da ficha —
+   com SMAMUS e DMAE nomeados. Leia: é isso que vai virar a lista de
+   contatos no fim.
+
+4 · O TAMANHO — O MAPA DE FOOTPRINT
+   → toque em "Desenhar no mapa"
+
+   O mapa abre JÁ no lugar de vocês, em satélite, com o desenho armado.
+   Não deve aparecer a tela de "como você quer achar o lugar?" — o lugar
+   já é conhecido.
+
+   Toque em cada canto da área (4 toques) e dê dois toques para fechar.
+
+   ⚠️ O BOTÃO DE CONFIRMAR MOSTRA O NÚMERO ("Confirmar 500 m²"). Confira
+      se bate com o que você desenhou. Se disser só "Confirmar", é bug.
+
+   → toque em confirmar
+
+5 · A FAIXA DE PREÇO
+   Volta pro chat com a área e um valor.
+
+   ⚠️ CONFIRA A CONTA. A ficha do jardim de chuva diz R$ 400–700 por m².
+      Para 500 m², a faixa tem que ser R$ 200.000–350.000.
+
+   ⚠️ E CONFIRA O TOM. Tem que dizer que é uma faixa para PEDIR COTAÇÃO,
+      não um orçamento. Se soar como orçamento fechado, é bug.
+
+6 · POR QUE AQUI
+   Escreva (ou grave):
+   "É o único terreno livre do quarteirão e é onde a água toda desce. As
+    famílias já cuidam da horta do lado há onze anos."
+
+7 · COMO É O LUGAR HOJE
+   "Terra batida com entulho de obra, sem drenagem nenhuma. Depois da
+    chuva fica poça por três, quatro dias."
+
+8 · QUEM CUIDA DEPOIS
+   ⚠️ O terreno é PÚBLICO, então "Parceria com a prefeitura" TEM que estar
+      na lista.
+   → toque em "Parceria com a prefeitura"
+   → frequência: "A cada três meses"
+
+9 · O DINHEIRO
+   → toque em "Ainda não sabemos"
+   Isso não é falha. É a lacuna que a coordenação leva para a prefeitura, e
+   o dossiê tem que tratar como tal.
+
+10 · O DOSSIÊ
+   ⚠️ VEREDITO = PRECISA DE UM ESTUDO TÉCNICO (não "precisa de
+      autorização"). Esse é o teste central deste cenário.
+
+   Confira também:
+   · "investigar" traz o teste de infiltração do solo
+   · "falar com" traz SMAMUS e DMAE
+   · "falar com" traz a direção da escola — regra que a ficha não sabe e o
+     registro do lugar sabe
+   · o dinheiro em aberto aparece como pendência da COORDENAÇÃO, não delas
+   · a faixa de preço está lá com a área
+
+11 · RECARREGUE A PÁGINA
+   O dossiê tem que continuar lá. Se sumir, a organização perdeu o projeto
+   que acabou de montar.

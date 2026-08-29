@@ -1,0 +1,526 @@
+// ============================================================================
+// E3 linear flow — server-templated checkpoints
+// ============================================================================
+// Encontro 3 turns a chosen site into a scoped project. Same architecture as
+// E2 (see serveE2Checkpoint in cboAgent.ts): every stage boundary is a
+// deterministic template, and the step is DERIVED from the saved fields rather
+// than counted — so resume, park-and-return, and a session someone abandons
+// halfway through all come free, and no beat can be skipped by a model that
+// forgot where it was.
+//
+// The difference from E2 is what the workshop OWES at the end. W2 could close
+// honestly on "we know where you want to work". W3 cannot close on a feeling:
+// it has to hand back a project someone can act on — a solution, an area, a
+// price range, an approving body, a maintenance answer, and a plain statement
+// of what is still blocking it. All of that is computed in shared/w3-dossier.ts
+// and shared/w3-sizing.ts, from the answers below plus what the fichas already
+// say, with no model in the path. This file is the conversation that collects
+// the missing half.
+//
+// ── Capacity ────────────────────────────────────────────────────────────────
+// Organisations arrive at W3 in very different states — one has run financed
+// projects and described its site in detail, another has never marked a place
+// on a map. The dossier grades that (exploratory / emerging / established) and
+// it changes two things only: who is proposed as the owner of each item, and
+// what W3 claims to have produced. It never changes what is offered. An
+// exploratory organisation leaves with a site visit to arrange rather than a
+// project with a hole in it, which is more use to them and to the portfolio
+// than a thin dossier that looks scoped.
+// ============================================================================
+
+import type { CboState } from '@shared/cbo-schema';
+import { buildDossier, portfolioState, type W3Input } from '@shared/w3-dossier';
+import { topShortlist } from '@shared/w3-solutions';
+import { budgetLineFor, roundAreaM2 } from '@shared/w3-sizing';
+import { getSolution } from '@shared/nbs-catalog';
+import { getSolutionFicha } from '@shared/nbs-solution-fichas';
+import { E3_QUESTIONNAIRE, allowedOptionIds, askCopyFor, sectionsFieldReader } from '@shared/cbo-questionnaire';
+import { cboFieldEnumOptions } from '@shared/cbo-field-catalog';
+import { resolveOpenMapParams } from '@shared/cbo-map-presets';
+
+type EventPusher = (event: any) => void;
+
+/** Everything the engine needs from cboAgent, passed in rather than imported —
+ *  cboAgent already imports this module, so the arrow only points one way. */
+export interface E3Deps {
+  /** Persist fields into a section, emitting field_update and saving state. */
+  writeFields(sectionId: string, fields: Record<string, string>): void;
+  /** Instrumentation: one row per beat, so drop-off is a GROUP BY. */
+  recordCheckpoint(step: string): void;
+  /** Chip-label normalisation, shared with E2 so the two match identically. */
+  normChip(s: string): string;
+}
+
+/** The chips E3 speaks, in one table — same rationale as E2C. */
+const E3C = {
+  confirmar: { pt: 'É isso ✓', en: "That's it ✓" },
+  mudou: { pt: 'Mudou alguma coisa', en: 'Something changed' },
+  verTodas: { pt: 'Ver todas as soluções', en: 'See all the solutions' },
+  desenhar: { pt: 'Desenhar no mapa', en: 'Draw it on the map' },
+  naoSeiTamanho: { pt: 'Ainda não sei o tamanho', en: "I don't know the size yet" },
+  areaConfere: { pt: 'Confere ✓', en: 'That is right ✓' },
+  redesenhar: { pt: 'Quero desenhar de novo', en: 'I want to draw it again' },
+  pular: { pt: 'Prefiro pular', en: "I'd rather skip" },
+  verDossie: { pt: 'Ver o resumo do projeto', en: 'See the project summary' },
+} as const;
+
+/**
+ * The message the "Começar Encontro 3" button sends, in both languages.
+ * Deliberately narrow — see the gate at the entry beat for why anything looser
+ * swallows the other phase-3 surface.
+ */
+const E3_ENTRY = /^\s*(vamos come[çc]ar o encontro 3|let'?s start encontro 3)\b/i;
+
+const SITE = 'intervention_site';
+const TYPE = 'intervention_type';
+const IMPACT = 'impact_monitoring';
+const OPS = 'operations_sustain';
+
+/**
+ * Serve one E3 beat, or return false to let the model take the turn.
+ *
+ * Returns true when it has fully handled the turn (and pushed a `done`).
+ */
+export async function serveE3Checkpoint(
+  cboId: string,
+  userMessage: string,
+  state: CboState,
+  pushEvent: EventPusher,
+  lang: string,
+  turnKind: string | undefined,
+  deps: E3Deps,
+): Promise<boolean> {
+  if (state.phase !== 3) return false;
+  const isPt = lang === 'pt';
+  const raw = userMessage.split('\n[LANGUAGE:')[0].trim();
+
+  const fieldsOf = (sectionId: string) =>
+    ((state.sections as any)[sectionId]?.fields ?? {}) as Record<string, { value?: unknown }>;
+  const read = (sectionId: string) => (k: string) =>
+    String(fieldsOf(sectionId)[k]?.value ?? '').trim();
+  const site = read(SITE);
+  const type = read(TYPE);
+  const impact = read(IMPACT);
+  const ops = read(OPS);
+
+  const siteName = site('site_name');
+  const bairro = site('bairro');
+  const worry = site('site_worry');
+  // W2 stores the coordinates under the private names; the dossier accepts both.
+  const hasSitePin = !!site('_site_lat') && !!site('_site_lng');
+  const chosen = type('chosen_solutions')
+    ? type('chosen_solutions').split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+  const areaM2 = Number(site('site_area_m2')) || 0;
+
+  const say = (pt: string, en: string) =>
+    pushEvent({ type: 'chat', content: isPt ? pt : en, role: 'assistant' } as any);
+
+  const ask = (
+    qPt: string,
+    qEn: string,
+    opts: Array<{ pt: string; en: string; dPt?: string; dEn?: string }>,
+  ) =>
+    pushEvent({
+      type: 'ask_user',
+      question: isPt ? qPt : qEn,
+      options: opts.map(o => ({
+        label: isPt ? o.pt : o.en,
+        description: isPt ? (o.dPt ?? '') : (o.dEn ?? ''),
+      })),
+    } as any);
+
+  const finish = (detail: string): true => {
+    pushEvent({ type: 'done', summary: `E3 checkpoint (${detail})` } as any);
+    console.log(`[cbo] timing for ${cboId}: model=template rounds=0 first_event=0ms total=0ms kind=system detail=e3-${detail}`);
+    deps.recordCheckpoint(detail);
+    return true;
+  };
+
+  const w3Input = (): W3Input => ({
+    site: Object.fromEntries(
+      Object.entries(fieldsOf(SITE)).map(([k, v]) => [k, String(v?.value ?? '')]),
+    ),
+    org: Object.fromEntries(
+      Object.entries(fieldsOf('org_profile')).map(([k, v]) => [k, String(v?.value ?? '')]),
+    ),
+    solutions: chosen,
+    ...(areaM2 ? { areaM2 } : {}),
+    w3: {
+      ...Object.fromEntries(Object.entries(fieldsOf(TYPE)).map(([k, v]) => [k, String(v?.value ?? '')])),
+      ...Object.fromEntries(Object.entries(fieldsOf(IMPACT)).map(([k, v]) => [k, String(v?.value ?? '')])),
+      ...Object.fromEntries(Object.entries(fieldsOf(OPS)).map(([k, v]) => [k, String(v?.value ?? '')])),
+    },
+  });
+
+  // ── Enum chips, from the manifest ──────────────────────────────────────────
+  // The option list is whatever the catalog holds MINUS whatever the stored W2
+  // answer excludes — so a city maintenance partnership is simply not offered
+  // on land the organisation owns, rather than offered and then rejected on the
+  // write. The rule itself lives in shared/cbo-questionnaire.ts.
+  const manifestRead = sectionsFieldReader(state.sections as any, OPS);
+  const enumChips = (sectionId: string, field: string) => {
+    const all = cboFieldEnumOptions(sectionId, field) ?? [];
+    const allowed = sectionId === OPS ? allowedOptionIds(E3_QUESTIONNAIRE, field, manifestRead) : null;
+    const kept = allowed ? all.filter(o => allowed.includes(o.id)) : all;
+    return kept.length >= 2 ? kept : all;
+  };
+  const askEnum = (sectionId: string, field: string, qPt: string, qEn: string): true => {
+    const copy = askCopyFor(E3_QUESTIONNAIRE, field, manifestRead, isPt ? 'pt' : 'en');
+    const opts = enumChips(sectionId, field);
+    ask(copy ?? qPt, copy ?? qEn, opts.map(o => ({ pt: o.pt, en: o.en })));
+    return finish(`ask-${field}`);
+  };
+  /** Resolve a chip label back to the option id it came from. */
+  const enumIdFromChip = (sectionId: string, field: string, chip: string): string | null => {
+    const n = deps.normChip(chip);
+    const hit = (cboFieldEnumOptions(sectionId, field) ?? []).find(
+      o => deps.normChip(o.pt) === n || deps.normChip(o.en) === n,
+    );
+    return hit ? hit.id : null;
+  };
+
+  // ── Beat 0 · pick up where W2 left off ────────────────────────────────────
+  const openW3 = (): true => {
+    const place = siteName || bairro || (isPt ? 'o lugar de vocês' : 'your place');
+    say(
+      `Bem-vindas ao Encontro 3. No Encontro 2 vocês marcaram **${place}** e me contaram o que preocupa ali. Hoje a gente transforma isso num projeto: uma solução, um tamanho, uma faixa de preço, e quem precisa dizer sim.\n\nSó pra começar do lugar certo — ainda é **${place}**?`,
+      `Welcome to Encontro 3. In Encontro 2 you marked **${place}** and told me what worries you there. Today we turn that into a project: one solution, a size, a price range, and who has to say yes.\n\nJust so we start in the right place — is it still **${place}**?`,
+    );
+    ask('Confere?', 'Is that right?', [
+      { pt: E3C.confirmar.pt, en: E3C.confirmar.en },
+      { pt: E3C.mudou.pt, en: E3C.mudou.en, dPt: 'Me conta o que mudou', dEn: 'Tell me what changed' },
+    ]);
+    deps.writeFields(TYPE, { _e3_opened: 'yes' });
+    return finish('open');
+  };
+
+  // ── Beat 1 · the solution ─────────────────────────────────────────────────
+  const askSolution = (): true => {
+    const entries = topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 4);
+    say(
+      'Os grupos que vocês marcaram viram isto aqui. Não é uma lista fechada — **nada fica descartado**, e dá pra ver as 27 quando quiser.',
+      "The grupos you marked become these. It is not a closed list — **nothing is ruled out**, and you can see all 27 whenever you like.",
+    );
+    pushEvent({
+      type: 'show_solution_options',
+      items: entries.map(e => ({
+        solutionId: e.solution.id,
+        reason: isPt ? e.reasonPt : e.reasonEn,
+        ...(e.caveatPt ? { caveat: isPt ? e.caveatPt : e.caveatEn } : {}),
+      })),
+    } as any);
+    ask(
+      'Qual delas vocês querem levar adiante?',
+      'Which one do you want to take forward?',
+      [
+        ...entries.map(e => ({
+          pt: e.solution.pt.label,
+          en: e.solution.en.label,
+          dPt: e.caveatPt ? '⚠ ' + e.caveatPt : e.reasonPt,
+          dEn: e.caveatEn ? '⚠ ' + e.caveatEn : e.reasonEn,
+        })),
+        { pt: E3C.verTodas.pt, en: E3C.verTodas.en, dPt: 'As 27 do catálogo', dEn: 'All 27 in the catalogue' },
+      ],
+    );
+    return finish('ask-solution');
+  };
+
+  /** They picked one. Say what it will need, from its own ficha, before sizing. */
+  const confirmSolution = (solutionId: string): true => {
+    const sol = getSolution(solutionId);
+    const ficha = getSolutionFicha(solutionId);
+    deps.writeFields(TYPE, { chosen_solutions: solutionId });
+    if (sol && ficha) {
+      say(
+        `**${sol.pt.label}** ✓\n\n${sol.pt.whatItIs}\n\n_Quem precisa dizer sim:_ ${ficha.pt.quemPrecisaDizerSim}`,
+        `**${sol.en.label}** ✓\n\n${sol.en.whatItIs}\n\n_Who has to say yes:_ ${ficha.en.quemPrecisaDizerSim}`,
+      );
+    }
+    return askArea(solutionId);
+  };
+
+  // ── Beat 2 · the size ─────────────────────────────────────────────────────
+  /**
+   * `solutionId` is passed rather than read from `chosen`, which is captured at
+   * the top of this function from the state as it was when the turn STARTED.
+   * confirmSolution writes the choice and calls straight into here, so on that
+   * path `chosen` is still empty — and the whole point of this beat is to ask
+   * the question the chosen solution's ficha actually asks. Without the
+   * argument, an organisation picking hortas urbanas (priced per project) or
+   * corredores verdes (priced per planted tree) was sent to trace a footprint
+   * that buys nothing.
+   */
+  const askArea = (solutionId?: string): true => {
+    const id = solutionId ?? chosen[0];
+    const line = id ? budgetLineFor(id) : null;
+    // A per-m² solution is the only case where the drawing buys a number. For
+    // one priced per tree or per cistern, asking for a footprint would be
+    // theatre — so the question becomes the one its ficha actually asks.
+    if (line && line.basis !== 'm2') {
+      say(
+        `Sobre o tamanho: ${line.notePt}`,
+        `On size: ${line.noteEn}`,
+      );
+      deps.writeFields(SITE, { _area_asked: 'not-applicable' });
+      return askJustification();
+    }
+    if (areaM2 > 0) {
+      say(
+        `Vocês já desenharam **${areaM2} m²** no mapa no Encontro 2.`,
+        `You already drew **${areaM2} m²** on the map back in Encontro 2.`,
+      );
+      ask('Ainda é esse o tamanho?', 'Is that still the size?', [
+        { pt: E3C.areaConfere.pt, en: E3C.areaConfere.en },
+        { pt: E3C.redesenhar.pt, en: E3C.redesenhar.en, dPt: 'Abre o mapa', dEn: 'Opens the map' },
+      ]);
+      deps.writeFields(SITE, { _area_asked: 'yes' });
+      return finish('confirm-area');
+    }
+    say(
+      'Agora o tamanho. Contorne no mapa a área onde o projeto vai — não precisa ser exato, é pra ter uma ordem de grandeza e uma faixa de preço.',
+      'Now the size. Trace the area the project will cover on the map — it does not have to be exact; it is for an order of magnitude and a price range.',
+    );
+    ask('Como prefere?', 'How would you like to do it?', [
+      { pt: E3C.desenhar.pt, en: E3C.desenhar.en, dPt: 'Abre o mapa no lugar de vocês', dEn: 'Opens the map at your place' },
+      { pt: E3C.naoSeiTamanho.pt, en: E3C.naoSeiTamanho.en, dPt: 'Fica registrado como pendente', dEn: 'Recorded as still open' },
+    ]);
+    deps.writeFields(SITE, { _area_asked: 'yes' });
+    return finish('ask-area');
+  };
+
+  const openFootprintMap = (): true => {
+    pushEvent({
+      type: 'open_map',
+      params: resolveOpenMapParams(
+        {
+          preset: 'e3_footprint',
+          focusZone: bairro.split(',')[0].trim(),
+          drawFootprint: {
+            lat: Number(site('_site_lat')),
+            lng: Number(site('_site_lng')),
+            name: siteName,
+          },
+        } as any,
+        isPt ? 'pt' : 'en',
+      ),
+    } as any);
+    return finish('open-footprint-map');
+  };
+
+  // ── Beat 3 · why here, and what it is like now ────────────────────────────
+  const askJustification = (): true => {
+    deps.writeFields(TYPE, { _why_pending: 'yes' });
+    say(
+      `Por que **aqui**? Uma ou duas frases nas palavras de vocês — pode gravar um áudio.\n\n_Isso é o que um edital lê primeiro, e é a parte que só vocês sabem responder._`,
+      `Why **here**? A sentence or two in your own words — you can record a voice note.\n\n_This is the first thing a funding call reads, and the part only you can answer._`,
+    );
+    ask('Quando quiser:', 'Whenever you like:', [
+      { pt: E3C.pular.pt, en: E3C.pular.en, dPt: 'Fica como pendência', dEn: 'Recorded as still open' },
+    ]);
+    return finish('ask-why');
+  };
+
+  const askBaseline = (): true => {
+    deps.writeFields(IMPACT, { _baseline_pending: 'yes' });
+    const copy = askCopyFor(E3_QUESTIONNAIRE, 'baseline_condition', manifestRead, isPt ? 'pt' : 'en');
+    say(
+      copy ?? 'Antes de qualquer obra: como é o lugar hoje?',
+      copy ?? 'Before any work: what is the place like today?',
+    );
+    say(
+      '_Uma foto com data vale mais que qualquer descrição aqui — é o que prova depois que alguma coisa mudou._',
+      '_A dated photo is worth more than any description here — it is what later proves anything changed._',
+    );
+    ask('Quando quiser:', 'Whenever you like:', [
+      { pt: E3C.pular.pt, en: E3C.pular.en, dPt: 'Fica como pendência', dEn: 'Recorded as still open' },
+    ]);
+    return finish('ask-baseline');
+  };
+
+  // ── Beat 4 · after the mutirão goes home ──────────────────────────────────
+  const askMaintains = (): true =>
+    askEnum(OPS, 'who_maintains', 'Depois que o mutirão vai embora, quem cuida disso no dia a dia?', 'After the mutirão goes home, who looks after this day to day?');
+  const askFrequency = (): true =>
+    askEnum(OPS, 'maintenance_frequency', 'Com que frequência isso precisa de cuidado?', 'How often does it need looking after?');
+  const askSustainability = (): true => {
+    say(
+      'E o dinheiro que volta todo ano — o da manutenção, não o da obra. **"Ainda não sabemos" é uma resposta válida aqui**: é justamente a conversa que a coordenação leva para a prefeitura.',
+      "And the money that comes back every year — upkeep, not construction. **\"We don't know yet\" is a real answer here**: it is exactly the conversation the coordination takes to the city.",
+    );
+    return askEnum(OPS, 'sustainability_model', 'De onde sai esse dinheiro?', 'Where does that money come from?');
+  };
+
+  // ── The close · the dossier ───────────────────────────────────────────────
+  const closeE3 = async (): Promise<true> => {
+    const input = w3Input();
+    const dossier = buildDossier(input, isPt ? 'pt' : 'en');
+    const state4 = portfolioState(dossier.verdicts);
+    deps.writeFields(TYPE, {
+      _e3_closed: 'yes',
+      project_verdict: state4,
+      project_capacity_grade: dossier.capacity.grade,
+    });
+    pushEvent({ type: 'show_dossier', dossier } as any);
+
+    const nome = String((state.sections as any).org_profile?.fields?.contact_name?.value || '')
+      .trim().split(/\s+/)[0];
+    // The closing line says what they HAVE, not what they are missing — the
+    // gaps are on the card above and they are the portfolio's job, not a
+    // report card on the organisation.
+    const closing: Record<string, { pt: string; en: string }> = {
+      ready: {
+        pt: 'Nada trava esse projeto daqui. O que falta é uma cotação de verdade e a assinatura de quem precisa dizer sim.',
+        en: 'Nothing blocks this project from here. What is left is a real quote and a signature from whoever has to say yes.',
+      },
+      needs_study: {
+        pt: 'Esse projeto tem um pedaço que não se resolve com o que a comunidade sabe — e isso não é um problema de vocês, é um técnico a contratar. A coordenação leva essa lista adiante.',
+        en: 'This project has a piece that community knowledge cannot settle — and that is not your problem to solve, it is a technician to bring in. The coordination takes that list forward.',
+      },
+      needs_permission: {
+        pt: 'Tecnicamente esse projeto está de pé. O que falta é papel: alguém registrar por escrito que vocês podem usar o terreno.',
+        en: 'Technically this project stands up. What is missing is paperwork: someone putting in writing that you may use the land.',
+      },
+      needs_site: {
+        pt: 'Ainda falta o lugar. Assim que vocês marcarem um, o resto disso aqui fecha rápido — é só voltar.',
+        en: 'The place is still missing. As soon as you mark one, the rest of this closes fast — just come back.',
+      },
+    };
+    say(
+      `✓ **Pronto${nome ? `, ${nome}` : ''}.** ${closing[state4].pt}`,
+      `✓ **Done${nome ? `, ${nome}` : ''}.** ${closing[state4].en}`,
+    );
+    return finish(`closing-${state4}`);
+  };
+
+  // ══ Free text the beats are explicitly waiting for ═══════════════════════
+  // Above the chip gate, exactly as E2 does: a dictated answer posts as 'text'
+  // and a typed one posts as 'chip' (the client routes anything typed while a
+  // question is pending through handleSelectOption), so keying off turnKind
+  // would capture spoken answers and silently drop typed ones.
+  const isSkip = (s: string) =>
+    deps.normChip(s) === deps.normChip(E3C.pular.pt) || deps.normChip(s) === deps.normChip(E3C.pular.en);
+
+  if (type('_why_pending') === 'yes' && raw && !raw.startsWith('Map selection (')) {
+    deps.writeFields(TYPE, {
+      _why_pending: '',
+      ...(isSkip(raw) ? {} : { justification_why_here: raw.slice(0, 4000) }),
+    });
+    if (!isSkip(raw)) say('Anotado — com as palavras de vocês.', 'Noted — in your own words.');
+    return askBaseline();
+  }
+
+  if (impact('_baseline_pending') === 'yes' && raw && !raw.startsWith('Map selection (')) {
+    deps.writeFields(IMPACT, {
+      _baseline_pending: '',
+      ...(isSkip(raw) ? {} : { baseline_condition: raw.slice(0, 4000) }),
+    });
+    if (!isSkip(raw)) say('Guardado como linha de base.', 'Stored as the baseline.');
+    return askMaintains();
+  }
+
+  // ══ The very first turn of the workshop ══════════════════════════════════
+  // Placed after the pending-answer handlers and before everything else, so it
+  // cannot hijack an answer — and above the chip gate, because "Começar
+  // Encontro 3" arrives as an ordinary user message, not a chip.
+  //
+  // ⚠️ Gated on that exact entry rather than on "nothing recorded yet". Phase 3
+  // is not only this journey: the older two-level intervention selector also
+  // runs at phase 3, driven by the model, and its confirm round-trips as a
+  // chat message. Opening the workshop on ANY unrecognised phase-3 turn swallowed
+  // that confirm and left the selector's own follow-up unsent. The checkpoint
+  // machine owns the linear journey from its entry onward, and stands aside
+  // before it.
+  if (!type('_e3_opened')) {
+    if (E3_ENTRY.test(raw)) return openW3();
+    return false;
+  }
+
+  // ══ Map results ══════════════════════════════════════════════════════════
+  if (turnKind === 'map' || raw.startsWith('Map selection (')) {
+    const m = /· (\d+) m²/.exec(raw);
+    if (!m) return false; // not a footprint session — let E2/the model have it
+    const drawn = roundAreaM2(Number(m[1]));
+    deps.writeFields(SITE, { site_area_m2: String(drawn) });
+    const line = chosen[0] ? budgetLineFor(chosen[0], drawn) : null;
+    say(
+      `**${drawn} m²** ✓${line ? `\n\n${line.notePt}` : ''}`,
+      `**${drawn} m²** ✓${line ? `\n\n${line.noteEn}` : ''}`,
+    );
+    return askJustification();
+  }
+
+  // ══ Chip taps ════════════════════════════════════════════════════════════
+  // Anything else that is not a chip is free conversation — the model's job.
+  if (turnKind !== 'chip') return false;
+
+  const msg = deps.normChip(raw);
+  const is = (c: { pt: string; en: string }) => msg === deps.normChip(c.pt) || msg === deps.normChip(c.en);
+
+  if (is(E3C.confirmar) && !chosen.length) return askSolution();
+  if (is(E3C.mudou)) return false; // free conversation — the model repairs it
+
+  if (is(E3C.verTodas)) {
+    pushEvent({
+      type: 'show_solution_options',
+      items: topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 27).map(e => ({
+        solutionId: e.solution.id,
+        reason: isPt ? e.reasonPt : e.reasonEn,
+        ...(e.caveatPt ? { caveat: isPt ? e.caveatPt : e.caveatEn } : {}),
+      })),
+      full: true,
+    } as any);
+    ask('Qual delas?', 'Which one?', topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 8).map(e => ({
+      pt: e.solution.pt.label,
+      en: e.solution.en.label,
+    })));
+    return finish('all-solutions');
+  }
+
+  // A solution name, from either list. Matched against the whole catalogue so
+  // the "ver todas" sheet can be answered by typing a name we never chipped.
+  if (!chosen.length) {
+    const hit = topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 27)
+      .find(e => deps.normChip(e.solution.pt.label) === msg || deps.normChip(e.solution.en.label) === msg);
+    if (hit) return confirmSolution(hit.solution.id);
+  }
+
+  if (is(E3C.desenhar) || is(E3C.redesenhar)) {
+    if (!hasSitePin) {
+      say(
+        'Pra desenhar eu preciso do lugar marcado primeiro — a gente resolve isso e volta pra cá.',
+        'To draw it I need the place marked first — we will sort that and come back here.',
+      );
+      return false;
+    }
+    return openFootprintMap();
+  }
+  if (is(E3C.areaConfere)) return askJustification();
+  if (is(E3C.naoSeiTamanho)) {
+    // Not a failure. The dossier reports it as a named gap with the rate
+    // attached, which is the actionable form of "we don't know".
+    deps.writeFields(SITE, { _area_deferred: 'yes' });
+    say(
+      'Sem problema — fica registrado que falta medir, e a ficha já tem o preço por m² pra quando vocês souberem.',
+      "No problem — it is recorded that the measurement is still missing, and the ficha already has the per-m² price for when you know.",
+    );
+    return askJustification();
+  }
+
+  // Enum answers, resolved back to their catalog ids.
+  for (const [sectionId, field, next] of [
+    [OPS, 'who_maintains', askFrequency],
+    [OPS, 'maintenance_frequency', askSustainability],
+    [OPS, 'sustainability_model', closeE3],
+  ] as Array<[string, string, () => true | Promise<true>]>) {
+    if (read(sectionId)(field)) continue;
+    const id = enumIdFromChip(sectionId, field, raw);
+    if (!id) continue;
+    deps.writeFields(sectionId, { [field]: id });
+    return await next();
+  }
+
+  if (is(E3C.verDossie)) return await closeE3();
+
+  return false;
+}

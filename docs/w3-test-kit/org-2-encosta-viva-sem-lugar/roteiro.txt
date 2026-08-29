@@ -1,0 +1,79 @@
+═══════════════════════════════════════════════════════════════════════════
+ORG 2 — COLETIVO ENCOSTA VIVA
+Roteiro de teste do Encontro 3 · cenário "veredito: falta o lugar"
+═══════════════════════════════════════════════════════════════════════════
+
+O QUE ESTE CENÁRIO TESTA
+──────────────────────────────────────────────────────────────────────────
+  A organização chega no Encontro 3 sem nunca ter marcado um ponto no
+  mapa. Isso acontece, e não é fracasso.
+
+  O que está sendo testado é a tentação de fingir que está tudo bem: o
+  Encontro 3 NÃO pode montar um projeto por cima de um vazio só para o
+  dossiê parecer completo. Ele tem que dizer o que falta, dizer que o
+  resto fecha rápido depois disso, e oferecer o mapa.
+
+  Também testa a primeira metade da regra: mesmo sem lugar, sem grupo
+  marcado e sem preocupação registrada, AS 27 SOLUÇÕES continuam
+  alcançáveis. Nada fica descartado.
+
+QUEM É A ORGANIZAÇÃO
+──────────────────────────────────────────────────────────────────────────
+  Antônia Reis · Coletivo Encosta Viva
+  Preocupação: o barranco atrás das casas
+  No Encontro 2 ela discordou do nosso dado e não mandou nada.
+  Nunca marcou um lugar.
+
+
+═══════════════════════════════════════════════════════════════════════════
+PASSO A PASSO
+═══════════════════════════════════════════════════════════════════════════
+
+1 · ABRIR com a fase 3 liberada e SEM lugar marcado no E2.
+
+2 · ABERTURA
+   Sem lugar, a abertura fala do bairro. Ela não pode fingir que existe um
+   ponto marcado.
+   → "É isso ✓"
+
+3 · AS SOLUÇÕES — E O CATÁLOGO INTEIRO
+   Aparecem 4 sugestões genéricas.
+   → toque em "Ver todas as soluções"
+
+   ⚠️ TÊM QUE APARECER AS 27. Se a lista vier filtrada por qualquer
+      palpite nosso, é bug — é exatamente a promessa que o Encontro 2 fez
+      ("nada fica descartado") e que o 3 tem que honrar.
+
+   Abra uma solução do meio da lista (Muro de arrimo verde, por exemplo).
+   ⚠️ Dentro da ficha tem que existir um botão "Escolher esta solução".
+      Sem ele, 19 das 27 soluções são inescolhíveis pelo celular — os
+      chips só cabem umas oito.
+
+   → escolha "Grade viva"
+
+4 · O TAMANHO
+   → "Ainda não sei o tamanho"
+   Tem que ser aceito sem drama, e virar pendência nomeada.
+
+5 · POR QUE AQUI
+   → "Prefiro pular"
+   Também tem que ser aceito.
+
+6 · COMO É O LUGAR HOJE
+   "O barranco fica logo atrás das casas e desce um pouco a cada chuva."
+
+7 · QUEM CUIDA / FREQUÊNCIA / DINHEIRO
+   → "Voluntários da comunidade" · "Todo mês" · "Ainda não sabemos"
+
+8 · O DOSSIÊ — o teste principal
+   ⚠️ VEREDITO = FALTA MARCAR O LUGAR.
+
+   ⚠️ O dossiê tem que ser CURTO. Se ele vier cheio de itens sobre um
+      terreno que ninguém escolheu, ele está inventando.
+
+   ⚠️ A pendência principal tem que ser "marcar um lugar no mapa, mesmo
+      que aproximado — tudo o mais depende disso".
+
+   ⚠️ A mensagem final tem que dizer que o resto fecha rápido assim que
+      houver um ponto. Se ela soar como reprovação, o tom está errado: a
+      organização não fez nada de errado.

@@ -78,10 +78,15 @@ test.describe('solution mechanisms — ordering, never hiding', () => {
   test('the note speaks the org\'s words back, or says nothing', () => {
     // Reuses the exact plain-language phrase from the chip they tapped, so the
     // card and the question agree.
+    // The subtype descriptions are written as standalone chip captions ("A água
+    // que desce com força"), so the article belongs to them and the contraction
+    // is ours: "pra a" and "pra o" are things nobody says. This spec pinned the
+    // uncontracted strings until W3 became the first caller to actually render
+    // the note.
     expect(mechanismNote('escada-hidraulica-vegetada', ['enxurrada'], 'pt'))
-      .toBe('pra a água que desce com força');
+      .toBe('pra água que desce com força');
     expect(mechanismNote('parques-lineares', ['inundacao'], 'pt'))
-      .toBe('pra o rio ou arroio que transborda');
+      .toBe('pro rio ou arroio que transborda');
     // No match → no badge. A badge that says nothing is worse than none.
     expect(mechanismNote('jardins-de-chuva', ['inundacao'], 'pt')).toBeNull();
     expect(mechanismNote('hortas-urbanas', ['alagamento'], 'pt')).toBeNull();
