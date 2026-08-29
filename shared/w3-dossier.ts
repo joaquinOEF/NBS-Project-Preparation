@@ -32,7 +32,7 @@
 import { getSolutionFicha } from './nbs-solution-fichas';
 import { SOLUTION_MECHANISMS, getSolution } from './nbs-catalog';
 import { budgetLineFor, type BudgetLine } from './w3-sizing';
-import type { WorryId } from './site-knowledge';
+import { WORRY_SUBTYPES, type WorryId } from './site-knowledge';
 
 // ── Capacity ────────────────────────────────────────────────────────────────
 
@@ -89,8 +89,15 @@ export function gradeCapacity(input: W3Input): CapacityRead {
   const richDepth = depth === 'strong' || depth === 'rich';
   const hasStory = has(site.site_story);
   const tenureKnown = has(site.land_tenure);
-  const funded = org.prior_project_scale === 'funded';
-  const named = has(org.contact_name) || has(site.community_anchoring_lead);
+  const funded = org.prior_project_scale === 'funded' || org.funding_history === 'yes';
+  // ⚠️ NOT contact_name. Every organisation has one — E1 captures it from
+  // everybody — so including it made `named` true almost always, and the grade
+  // collapsed into "does this record have a strong depth read", which
+  // site_knowledge_depth already says on its own. A name on a form is evidence
+  // that a form was filled in. What this is trying to read is whether there is
+  // a person who carries THIS project, which is a different question and has
+  // its own field.
+  const named = has(site.community_anchoring_lead);
 
   if (!sited) {
     because.push('no place marked yet');
@@ -101,7 +108,12 @@ export function gradeCapacity(input: W3Input): CapacityRead {
   if (richDepth) because.push(`site described in their own words (${depth})`);
   if (hasStory) because.push('an account of the place, not just a pin');
   if (funded) because.push('has run a financed project before');
-  if (named) because.push('a named person who carries it');
+  if (named) because.push('a named person who carries this project');
+  if (!funded && !named) {
+    cannotYet.push(
+      'a clear owner — no funding history, and nobody is recorded as carrying this project',
+    );
+  }
 
   if (!tenureKnown) cannotYet.push('the approval route — land tenure is unanswered');
   if (!hasStory) cannotYet.push('a mechanism read, so the baseline evidence stays generic');
@@ -183,6 +195,21 @@ const PUBLIC_TENURE = new Set([
  * it needs a registered engineer. Saying it depends is both true and the
  * difference between a project they can start and one they cannot.
  */
+/** The words an organisation used for a worry, never the id we store it under. */
+function worryLabel(id: string, pt: boolean): string {
+  const first = id.split(',')[0].trim();
+  const sub = WORRY_SUBTYPES.find(w => w.id === first);
+  if (sub) return (pt ? sub.dPt : sub.dEn).toLowerCase();
+  // Legacy family ids ('flood') predate the mechanism split and are still in
+  // the database. They name a family, so say so in words rather than in code.
+  const family: Record<string, { pt: string; en: string }> = {
+    flood: { pt: 'a água', en: 'water' },
+    heat: { pt: 'o calor', en: 'heat' },
+    landslide: { pt: 'o barranco', en: 'the slope' },
+  };
+  return family[first] ? (pt ? family[first].pt : family[first].en) : first;
+}
+
 function studyMarkerIn(prose: string): { pt: string; en: string } | null {
   for (const m of STUDY_MARKERS) {
     const hit = m.re.exec(prose);
@@ -365,13 +392,35 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
     });
     const worry = site.site_worry;
     if (has(worry)) {
+      // ⚠️ Never the raw id. This line reached the organisation reading
+      // "se o problema é mesmo landslide" — an English machine id, in the middle
+      // of a Portuguese sentence, describing their own hillside back to them.
+      const label = worryLabel(worry, pt);
       add({
         list: 'investigate',
         text: pt
-          ? `Confirmar no lugar se o problema é mesmo ${worry} — a palavra de vocês decide a solução, não o nosso mapa`
-          : `Confirm on site whether the problem really is ${worry} — your word decides the solution, not our map`,
+          ? `Confirmar no lugar se o problema é mesmo ${label} — a palavra de vocês decide a solução, não o nosso mapa`
+          : `Confirm on site whether the problem really is ${label} — your word decides the solution, not our map`,
         source: `intervention_site · site_worry = ${worry}`,
         owner: 'coordination',
+      });
+    }
+    // They chose something. Even with no place, the ficha already knows what
+    // that choice will demand — and telling them now is the difference between
+    // "come back when you have a site" and a workshop they got something out
+    // of. The first version returned a dossier that never mentioned the
+    // solution they had just spent the session choosing.
+    for (const id of solutions) {
+      const marker = studyRequirement(id);
+      if (!marker) continue;
+      add({
+        list: 'investigate',
+        text: pt
+          ? `Quando houver um lugar: ${id.replace(/-/g, ' ')} vai precisar de ${marker.pt}`
+          : `Once there is a place: ${id.replace(/-/g, ' ')} will need ${marker.en}`,
+        source: `ficha ${id} · quemPrecisaDizerSim`,
+        owner: 'coordination',
+        blockedBy: pt ? 'marcar o lugar' : 'marking the place',
       });
     }
     gaps.push(
@@ -395,15 +444,31 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
         list: 'investigate',
         text: pt ? `Providenciar ${marker.pt}` : `Arrange ${marker.en}`,
         source: `ficha ${id} · quemPrecisaDizerSim`,
-        owner: 'org',
+        // The COORDINATION's, at every capacity grade. This is the whole
+        // argument for having a `needs_study` pile on the coordinator's board:
+        // one organisation hiring one geotechnical engineer is expensive and
+        // slow; a cohort commissioning several at once is a procurement, and it
+        // is the single biggest thing the programme can do that no individual
+        // organisation can. Assigning it to the org (as the first version did
+        // for `established` orgs) put the board and the dossier in direct
+        // disagreement about who moves next.
+        owner: 'coordination',
       });
     }
 
     // Approving bodies, read out of the ficha's own prose.
+    //
+    // ⚠️ "a prefeitura" is a FALLBACK, not a third body. Every ficha that names
+    // SMAMUS or DMAE also uses the word prefeitura in the same breath — the
+    // rain-garden entry reads "a aprovação é da prefeitura (SMAMUS…)" — so
+    // matching all three produced three contact rows for one approval route,
+    // one of which named nobody. A coordinator reading that has to work out
+    // which of the three is a real door.
+    const named = /SMAMUS|DMAE/i.test(approve);
     for (const [re, body] of [
       [/SMAMUS/i, 'SMAMUS'],
       [/DMAE/i, 'DMAE'],
-      [/prefeitura/i, pt ? 'a prefeitura' : 'the city'],
+      ...(named ? [] : [[/prefeitura/i, pt ? 'a prefeitura' : 'the city'] as [RegExp, string]]),
     ] as [RegExp, string][]) {
       if (re.test(approve) && !items.some(i => i.text.includes(body))) {
         const conditional = /se .{0,40}(rede|drenagem)/i.test(approve) && /DMAE/i.test(body);
@@ -503,13 +568,18 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
   });
 
   // ── Site preparation, from what the place is today ────────────────────────
-  if (site.current_use === 'paved') {
+  // Only for solutions that actually break the ground. A horta in raised beds
+  // on a concrete schoolyard does not de-pave anything, and telling that
+  // organisation to find out what runs under the slab is one more item on a
+  // list that is only useful while every line on it is real.
+  const BREAKS_GROUND = /jardins-de-chuva|biovaletas|canteiro-pluvial|bacia-de-retencao|wetland|pavimentos-permeaveis|terracos|escada-hidraulica|reflorestamento|parque/;
+  if (site.current_use === 'paved' && solutions.some(id => BREAKS_GROUND.test(id))) {
     add({
       list: 'investigate',
       text: pt
         ? 'Descobrir o que existe sob o piso antes de despavimentar, e de quem é o que passa por baixo'
         : 'Find out what lies under the paving before de-paving it, and who owns what runs beneath',
-      source: 'intervention_site · current_use = paved',
+      source: 'intervention_site · current_use = paved × solução que mexe no solo',
       owner: 'org',
     });
   }
@@ -524,13 +594,10 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
   for (const id of solutions) {
     const line = budgetLineFor(id, areaM2);
     if (!line) continue;
+    // The budget rides in `budget[]` only. Adding the identical sentence as a
+    // `document` item printed every price twice on the card — once under
+    // "Quanto custa" and again under "Documentar", word for word.
     budget.push(line);
-    add({
-      list: 'document',
-      text: pt ? line.notePt : line.noteEn,
-      source: `ficha ${id} · quantoCusta${line.areaM2 ? ` × ${line.areaM2} m²` : ''}`,
-      owner: 'org',
-    });
     // Naming the missing half is the point: "no cost band" is not actionable,
     // "we have a price per m² and no area" is.
     if (line.basis === 'm2' && !line.areaM2) {

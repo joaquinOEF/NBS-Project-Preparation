@@ -90,8 +90,20 @@ test.describe('W3 dossier — four records, four verdicts', () => {
     const d = buildDossier(ENCOSTA_VIVA);
     expect(d.capacity.grade).toBe('exploratory');
     expect(d.verdicts[0].state).toBe('needs_site');
-    // The disagreement is the reason to visit, not a missing field.
-    expect(d.items.some(i => i.list === 'investigate' && /enxurrada/.test(i.text))).toBe(true);
+    // The disagreement is the reason to visit, not a missing field — and it is
+    // named in THEIR words. This line used to print the stored id back at them
+    // ("se o problema é mesmo enxurrada"), and for a legacy record it printed
+    // an English one ("é mesmo landslide") in the middle of a Portuguese
+    // sentence, describing their own hillside.
+    expect(d.items.some(i => i.list === 'investigate' && /água que desce com força/.test(i.text))).toBe(true);
+    expect(d.items.every(i => !/\b(enxurrada|landslide|alagamento)\b/.test(i.text))).toBe(true);
+    // Even with no place, once they HAVE chosen something the ficha already
+    // knows what that choice will demand. The first version returned a dossier
+    // that never mentioned the solution they had just spent the session
+    // choosing — technically correct, and useless to take home.
+    const chosen = buildDossier({ ...ENCOSTA_VIVA, solutions: ['grade-viva'] });
+    expect(chosen.items.some(i => i.blockedBy && /marcar o lugar/.test(i.blockedBy))).toBe(true);
+    expect(chosen.items.some(i => /ART/.test(i.text))).toBe(true);
     // And it names what it could not produce.
     expect(d.gaps.join(' ')).toMatch(/área|area/i);
   });
