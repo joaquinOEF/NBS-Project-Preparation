@@ -223,8 +223,31 @@ export const QUESTIONNAIRES: Record<number, QuestionnaireManifest> = {
   3: E3_QUESTIONNAIRE,
 };
 
-/** Raw stored value of a field, or undefined — the caller adapts its state shape. */
-export type FieldReader = (field: string) => string | undefined;
+/**
+ * Raw stored value of a field, or undefined — the caller adapts its state shape.
+ *
+ * `sectionId` is passed whenever a rule names a section other than the
+ * manifest's own. A reader that ignores it answers from a single section, which
+ * is right for E1 (every dependency it has is inside org_profile) and silently
+ * WRONG for E3, whose `who_maintains` rule turns on `land_tenure` over in
+ * intervention_site: a single-section reader returns undefined, `storedId`
+ * returns null, and `allowedOptionIds` reports "unconstrained" — the rule is
+ * inert rather than failing. Callers with the whole state should build their
+ * reader with `sectionsFieldReader` below.
+ */
+export type FieldReader = (field: string, sectionId?: string) => string | undefined;
+
+/** A section-aware reader over a CboState-shaped `sections` map. */
+export function sectionsFieldReader(
+  sections: Record<string, { fields?: Record<string, { value?: unknown } | undefined> } | undefined> | undefined,
+  defaultSectionId: string,
+): FieldReader {
+  return (field: string, sectionId?: string) => {
+    const sec = sections?.[sectionId ?? defaultSectionId];
+    const v = sec?.fields?.[field]?.value;
+    return v == null ? undefined : String(v);
+  };
+}
 
 /** Resolve a stored value (id, label or alias) to its option id, in any section. */
 function optionIdIn(sectionId: string, field: string, raw: string): string | null {
@@ -240,7 +263,7 @@ function optionIdIn(sectionId: string, field: string, raw: string): string | nul
 }
 
 function storedId(read: FieldReader, field: string, sectionId: string): string | null {
-  const raw = read(field);
+  const raw = read(field, sectionId);
   if (raw == null || String(raw).trim() === '') return null;
   return optionIdIn(sectionId, field, String(raw));
 }
@@ -286,7 +309,12 @@ export function filterRuledOptions(
   read: FieldReader,
 ): { field: string; kept: { label: string }[]; droppedLabels: string[] } | null {
   for (const field of Object.keys(manifest.optionRules)) {
-    const resolved = options.map(o => resolveOrgProfileOptionId(field, o.label));
+    // Through the manifest's OWN section, not org_profile. Resolving E3's
+    // who_maintains chips against ORG_PROFILE_ENUMS returned null for every
+    // one of them, so `resolved.filter(Boolean).length < 2` always continued
+    // and the guard was inert for every manifest but E1 — the same
+    // wrong-section bug the validator had, one function further down.
+    const resolved = options.map(o => optionIdIn(manifest.sectionId, field, o.label));
     if (resolved.filter(Boolean).length < 2) continue;
     const allowed = allowedOptionIds(manifest, field, read);
     if (!allowed) return null; // it IS the ruled question, but nothing to filter by

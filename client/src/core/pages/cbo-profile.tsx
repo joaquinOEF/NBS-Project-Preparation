@@ -71,6 +71,7 @@ function parseUploadFilename(content: string): string | null {
 import { LifeBuoy, ShieldCheck } from 'lucide-react';
 import { CboDataNoticeDialog } from '@/core/components/cbo/CboDataNoticeDialog';
 import { NBS_SHOWCASE_CARDS, getShowcaseCard } from '@shared/nbs-showcase-cards';
+import { polygonAreaM2, roundAreaM2 } from '@shared/w3-sizing';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 import { localizedWorkshopName } from '@/lib/workshopHelpers';
 
@@ -91,7 +92,16 @@ function formatMapResult(result: MapSelectionResult): string {
         ? Object.entries(asset.rasterValues).map(([k, v]) => `${k}: ${v.toFixed(3)}`).join(', ')
         : '';
       const geomType = asset.geometry?.type === 'Polygon' ? ' (drawn area)' : '';
-      lines.push(`- [${asset.type}] ${asset.name}${geomType} at (${asset.coordinates[0].toFixed(4)}, ${asset.coordinates[1].toFixed(4)})${rasterInfo ? ` | ${rasterInfo}` : ''}`);
+      // The footprint's own size. Drawing a polygon has been possible since the
+      // map shipped, and the m² it implies was thrown away at exactly this
+      // line — so W3 could ask an organization to draw the area and still have
+      // nothing to multiply a per-m² price by. Appended AFTER the coordinates
+      // so the server's existing site parser matches unchanged.
+      const areaM2 = asset.geometry?.type === 'Polygon'
+        ? roundAreaM2(polygonAreaM2(asset.geometry as any))
+        : 0;
+      const areaInfo = areaM2 > 0 ? ` · ${areaM2} m²` : '';
+      lines.push(`- [${asset.type}] ${asset.name}${geomType} at (${asset.coordinates[0].toFixed(4)}, ${asset.coordinates[1].toFixed(4)})${areaInfo}${rasterInfo ? ` | ${rasterInfo}` : ''}`);
     }
   }
   for (const pt of result.sampledPoints) {
