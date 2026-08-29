@@ -31,6 +31,7 @@
 
 import { getSolutionFicha } from './nbs-solution-fichas';
 import { SOLUTION_MECHANISMS } from './nbs-catalog';
+import { budgetLineFor, type BudgetLine } from './w3-sizing';
 import type { WorryId } from './site-knowledge';
 
 // ── Capacity ────────────────────────────────────────────────────────────────
@@ -244,6 +245,8 @@ export interface Dossier {
   capacity: CapacityRead;
   verdicts: Verdict[];
   items: DossierItem[];
+  /** One line per chosen solution, traceable to its ficha's published price. */
+  budget: BudgetLine[];
   /** Items W3 could not generate, and the answer that would unlock each. */
   gaps: string[];
 }
@@ -311,7 +314,7 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
         ? 'Sem lugar marcado não há área, custo, aprovação nem manutenção a calcular'
         : 'With no place marked there is no area, cost, approval or maintenance to compute',
     );
-    return { capacity, verdicts, items, gaps };
+    return { capacity, verdicts, items, budget: [], gaps };
   }
 
   // ── Per solution, from its ficha ──────────────────────────────────────────
@@ -447,22 +450,49 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
   }
 
   // ── Money ─────────────────────────────────────────────────────────────────
-  if (input.areaM2) {
+  // A number, from the ficha's own published price, over the footprint they
+  // drew. Not a budget — a range to take to a supplier, which is the thing an
+  // organisation cannot produce on its own and the thing every funder asks for
+  // first.
+  const areaM2 = input.areaM2 ?? (Number(site.site_area_m2) || undefined);
+  const budget: BudgetLine[] = [];
+  for (const id of solutions) {
+    const line = budgetLineFor(id, areaM2);
+    if (!line) continue;
+    budget.push(line);
     add({
       list: 'document',
-      text: pt
-        ? `Orçamento para ${input.areaM2} m², para ser substituído por uma cotação real`
-        : `Budget for ${input.areaM2} m², to be replaced by a real quote`,
-      source: 'W3 stage 3 · intervention_area_m2 × ficha cost band',
+      text: pt ? line.notePt : line.noteEn,
+      source: `ficha ${id} · quantoCusta${line.areaM2 ? ` × ${line.areaM2} m²` : ''}`,
       owner: 'org',
     });
-  } else {
+    // Naming the missing half is the point: "no cost band" is not actionable,
+    // "we have a price per m² and no area" is.
+    if (line.basis === 'm2' && !line.areaM2) {
+      gaps.push(
+        pt
+          ? `${id.replace(/-/g, ' ')} tem preço por m² na ficha, mas ninguém desenhou a área — sem isso não sai um total`
+          : `${id.replace(/-/g, ' ')} has a per-m² price in its ficha, but no footprint was drawn — without one there is no total`,
+      );
+    }
+    if (line.basis === 'none') {
+      gaps.push(
+        pt
+          ? `A ficha de ${id.replace(/-/g, ' ')} não fecha preço — esta é uma cotação a pedir, não um campo a preencher`
+          : `The ${id.replace(/-/g, ' ')} ficha closes no price — this is a quote to request, not a field to fill`,
+      );
+    }
+  }
+  if (!areaM2 && solutions.length === 0) {
     gaps.push(pt ? 'Sem área desenhada não há faixa de custo' : 'Without a drawn footprint there is no cost band');
   }
 
   // An honest "not yet" is the most useful answer in the session: it is the gap
   // the portfolio carries to the municipality. Never treat it as incomplete.
-  if (w3.sustainability_model === 'indefinido' || w3.opex_estimate_year1 === 'unknown') {
+  // Both ids are from E3_SUSTAINABILITY / E3_MAINTAINS in the field catalog. An
+  // earlier version of this line also tested `opex_estimate_year1`, a field
+  // that exists nowhere — so half the condition could never fire.
+  if (w3.sustainability_model === 'indefinido' || w3.who_maintains === 'indefinido') {
     add({
       list: 'contact',
       text: pt
@@ -480,7 +510,7 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
   }
 
   for (const c of capacity.cannotYet) gaps.push(c);
-  return { capacity, verdicts, items, gaps };
+  return { capacity, verdicts, items, budget, gaps };
 }
 
 /** The list a portfolio sorts on: the worst verdict across a project's solutions. */

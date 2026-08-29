@@ -37,7 +37,7 @@ import { resolveOpenMapParams } from '@shared/cbo-map-presets';
 import { emitAssistantText } from './agentOutput';
 import { isReplitDeployment } from './runtimeEnv';
 import { canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, enumFieldsMatchingOptions } from '@shared/cbo-field-catalog';
-import { QUESTIONNAIRES, checkOptionRule } from '@shared/cbo-questionnaire';
+import { QUESTIONNAIRES, checkOptionRule, sectionsFieldReader } from '@shared/cbo-questionnaire';
 import { prepareAskUser } from './askUserGuards';
 import { checkCloseGate } from './cboCloseGate';
 import { commitConfirmedStagedFields } from './e1ConfirmCommit';
@@ -152,13 +152,14 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
       ) break;
       // Same conditional-option rule as the real tool (manifest): a known
       // option excluded by the stored dependency answer is not stored.
-      if (op.sectionId === 'org_profile') {
+      // Every manifest section, not only org_profile — the real tool applies
+      // the rule wherever a manifest claims the section, and a fake that only
+      // checked E1's meant no spec could observe an E3 rule.
+      {
+        const read = sectionsFieldReader(state.sections as any, op.sectionId);
         const blocked = Object.values(QUESTIONNAIRES)
           .filter(m => m.sectionId === op.sectionId)
-          .some(m => !checkOptionRule(m, op.field, value, (f) => {
-            const v = section.fields[f]?.value;
-            return v == null ? undefined : String(v);
-          }).ok);
+          .some(m => !checkOptionRule(m, op.field, value, read).ok);
         if (blocked) break;
       }
       // Crawl-trust gate (mirror of the real tool): doc-sourced FREE-TEXT
@@ -253,6 +254,7 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
       const gate = checkCloseGate({
         phase: state.phase,
         section: state.sections[(QUESTIONNAIRES[state.phase]?.sectionId ?? 'org_profile') as keyof typeof state.sections],
+        sections: state.sections as any,
         hasPath: null,
         lang: lang === 'en' ? 'en' : 'pt',
       });

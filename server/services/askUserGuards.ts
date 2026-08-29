@@ -47,7 +47,12 @@ export interface AskQuestion {
 export interface AskGuardContext {
   phase: number;
   lang: 'pt' | 'en';
-  /** Reads the org_profile section the manifest rules are written against. */
+  /**
+   * Reads whatever section a manifest rule names. Build it with
+   * `sectionsFieldReader(state.sections, <the phase's section>)` — a reader
+   * closed over ONE section makes every cross-workshop rule silently inert
+   * (see the FieldReader doc in shared/cbo-questionnaire.ts).
+   */
   read: FieldReader;
 }
 

@@ -21,6 +21,7 @@ import {
   QUESTIONNAIRES,
   missingRequiredForClose,
   askCopyFor,
+  sectionsFieldReader,
   type FieldReader,
 } from '@shared/cbo-questionnaire';
 
@@ -35,6 +36,12 @@ export interface CloseGateResult {
 export function checkCloseGate(input: {
   phase: number;
   section: { fields: Record<string, { value: unknown } | undefined> } | undefined;
+  /**
+   * The whole state.sections map, when the caller has it. E3's requirements
+   * branch on W2 answers, so a gate that can only see its own section reads
+   * every cross-section dependency as unanswered and skips the rule.
+   */
+  sections?: Record<string, { fields?: Record<string, { value?: unknown } | undefined> } | undefined>;
   /** null = standalone session, path not persistable, so not gated on. */
   hasPath: boolean | null;
   lang: 'pt' | 'en';
@@ -42,10 +49,12 @@ export function checkCloseGate(input: {
   const manifest = QUESTIONNAIRES[input.phase];
   if (!manifest || !input.section) return { missing: [], message: null };
 
-  const read: FieldReader = (field: string) => {
-    const v = input.section!.fields[field]?.value;
-    return v == null ? undefined : String(v);
-  };
+  const read: FieldReader = input.sections
+    ? sectionsFieldReader(input.sections, manifest.sectionId)
+    : (field: string) => {
+        const v = input.section!.fields[field]?.value;
+        return v == null ? undefined : String(v);
+      };
 
   const missing = missingRequiredForClose(manifest, read, input.hasPath);
   if (missing.length === 0) return { missing: [], message: null };

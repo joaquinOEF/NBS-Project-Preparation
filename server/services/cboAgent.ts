@@ -59,7 +59,7 @@ import { emitAssistantText } from "./agentOutput";
 // translation (JVP, 2026-08-06 — the Documento tab in English).
 import { isKnownOrgProfileField, canonicalizeOrgProfileValue, isEnumOrgProfileField, isCanonicalOrgProfileValue, orgProfileOptionLabels, orgProfileLabelsForIds, ORG_PROFILE_FIELDS, enumFieldsMatchingOptions,
   E2_CURRENT_USE, E2_TENURE, E2_ROLES, canonicalizeCboFieldValue } from "@shared/cbo-field-catalog";
-import { QUESTIONNAIRES, checkOptionRule, filterRuledOptions, missingRequiredForClose, askCopyFor, type FieldReader, type QuestionnaireManifest } from "@shared/cbo-questionnaire";
+import { QUESTIONNAIRES, checkOptionRule, filterRuledOptions, missingRequiredForClose, askCopyFor, sectionsFieldReader, type FieldReader, type QuestionnaireManifest } from "@shared/cbo-questionnaire";
 import { prepareAskUser } from "./askUserGuards";
 import { commitConfirmedStagedFields, isAffirmativeReply } from "./e1ConfirmCommit";
 import { parseNbsInventory } from "@shared/nbs-inventory";
@@ -455,8 +455,12 @@ function createCboMcpTools(cboId: string) {
         // excludes (e.g. legal_form "ONG" after has_cnpj "Ainda não") is
         // rejected for every source — user chips included, since a wrong
         // stored combination is wrong no matter who produced it.
+        // Across ALL sections, not just this one: E3's who_maintains rule turns
+        // on land_tenure, which lives in intervention_site. A reader closed
+        // over the section being written finds nothing, and the rule passes
+        // every value — inert rather than failing, which is the worse mode.
         const ruleHit = manifests
-          .map(m => checkOptionRule(m, fieldName, finalValue, sectionFieldReader(section)))
+          .map(m => checkOptionRule(m, fieldName, finalValue, sectionsFieldReader(state.sections as any, args.sectionId)))
           .find(r => !r.ok) as { ok: false; dependsOn: string; allowedIds: string[] } | undefined;
         if (ruleHit) {
           ruleBlocked.push({ field: fieldName, dependsOn: ruleHit.dependsOn, allowedIds: ruleHit.allowedIds });
@@ -880,8 +884,13 @@ Include showMap: true on a question only when the user genuinely needs the map t
       const guarded = prepareAskUser(args.questions || [], {
         phase: qState0?.phase ?? 1,
         lang: (qState0 as any)?.metadata?.language === 'en' ? 'en' : 'pt',
-        read: qState0?.sections?.org_profile
-          ? sectionFieldReader(qState0.sections.org_profile)
+        // Section-aware, defaulting to the manifest section for this phase —
+        // an ask_user in E3 has to resolve land_tenure out of intervention_site.
+        read: qState0?.sections
+          ? sectionsFieldReader(
+              qState0.sections as any,
+              QUESTIONNAIRES[qState0.phase ?? 1]?.sectionId ?? 'org_profile',
+            )
           : () => undefined,
       });
       const filteredNotes = guarded.filteredNotes;
@@ -1066,6 +1075,7 @@ STOP and wait for the user's map selection after calling this tool.`,
         const gate = checkCloseGate({
           phase: state.phase,
           section: state.sections[closeManifest.sectionId as keyof typeof state.sections],
+          sections: state.sections as any,
           hasPath,
           lang: (state as any)?.metadata?.language === 'en' ? 'en' : 'pt',
         });
@@ -2221,8 +2231,11 @@ async function serveE2Checkpoint(
     if (raw.includes('- [site] DEFERRED')) return false; // legacy "bairro todo" flow → model
     const zones = Array.from(raw.matchAll(/^- \[zone\] (.+?): .*?flood: (\d+)%, heat: (\d+)%, landslide: (\d+)%/gm))
       .map(m => ({ name: m[1].trim(), flood: +m[2], heat: +m[3], landslide: +m[4] }));
-    const sites = Array.from(raw.matchAll(/^- \[(osm|custom)\] (.+?)(?: \(drawn area\))? at \((-?[\d.]+), (-?[\d.]+)\)/gm))
-      .map(m => ({ kind: m[1] as 'osm' | 'custom', name: m[2].trim(), lat: +m[3], lng: +m[4] }));
+    // The trailing "· 480 m²" is only present when they drew a polygon rather
+    // than dropping a pin. Optional by construction: a pin has no footprint,
+    // and W3 asks for one later rather than treating its absence as an error.
+    const sites = Array.from(raw.matchAll(/^- \[(osm|custom)\] (.+?)(?: \(drawn area\))? at \((-?[\d.]+), (-?[\d.]+)\)(?: · (\d+) m²)?/gm))
+      .map(m => ({ kind: m[1] as 'osm' | 'custom', name: m[2].trim(), lat: +m[3], lng: +m[4], areaM2: m[5] ? +m[5] : 0 }));
     if (zones.length === 0) return false;
 
     if (sites.length === 0) {
@@ -2291,6 +2304,9 @@ async function serveE2Checkpoint(
       site_name: s.name,
       _site_lat: String(s.lat),
       _site_lng: String(s.lng),
+      // Kept whenever it exists so W3 can open on "vocês já desenharam 480 m²
+      // — é isso?" instead of asking for the drawing a second time.
+      ...(s.areaM2 > 0 ? { site_area_m2: String(s.areaM2) } : {}),
     }, pushEvent);
     // A dropped pin is stored as "Ponto marcado (-30.0577, -51.1936)" — and the
     // next thing we do is ask the org to confirm it. Nobody can confirm a
