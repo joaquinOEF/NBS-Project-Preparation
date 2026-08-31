@@ -9,6 +9,8 @@
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push",
+    "db:preflight": "tsx scripts/db-preflight.ts",
+    "w3:sweep": "tsx scripts/w3-sweep.ts",
     "osm:refresh": "tsx scripts/refresh-osm-snapshots.ts",
     "official-risk:refresh": "tsx scripts/refresh-official-risk.ts",
     "format": "prettier --write .",

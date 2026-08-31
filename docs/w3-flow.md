@@ -190,6 +190,55 @@ Two of these — the rule bypass and the stale reads — are the same shape, and
 is the shape to watch for in this file: **a guard that only covers the path you
 were looking at**, and **a value read before the write that changes it**.
 
+## Finding these before a session instead of during one
+
+Three of the defects in this file were found by a person driving a scenario a
+person thought to write. That is why they were found at all — and also why the
+size hole survived four simulations: nobody happened to script an organisation
+that picked one of the nine solutions priced per unit.
+
+Two checks now do the mechanical half.
+
+### `npm run w3:sweep`
+
+Every solution in the catalogue, on a site and without one — 54 walks — driven
+by **replying to whatever the engine asks** rather than by a scripted answer
+list, because a script only ever walks the path its author imagined. It asserts
+what must hold on any path:
+
+| | |
+|---|---|
+| `turn-not-served` | a turn that falls through reaches the model, which in a deployment with no key is silence |
+| `size-never-asked` | a footprint, a count, or an explicit "we cannot price this" — one of the three, always |
+| `count-never-collected` | a solution priced per unit that was never asked how many |
+| `machine-id-in-copy` | `landslide` in a Portuguese sentence about someone's own hillside |
+| `beat-does-not-advance` | three answers in a row that write nothing |
+| `no-closing` | a session that produces neither a dossier nor a roadmap |
+| `silent-about-money` | no total, and no gap saying why |
+
+Progress is measured by **fields written**, not by the question text: two beats
+legitimately share the words "Quando quiser:", and counting those as a repeat
+invents a stall that is not there. Anything that opens a map is skipped — the
+draw session needs a browser.
+
+It passes clean. That is only worth something because deleting the `askUnits`
+call makes it name all 14 affected walks, which is how it was checked.
+
+### `npm run db:preflight`
+
+⚠️ Drizzle's `db.select().from(t)` names **every** column in the schema, so a
+column that exists in code and not in the database does not degrade one feature
+— it 500s every route doing a full select on that table. `exclude_from_portfolio`
+takes down the coordinator roster *and* the member-by-slug lookups behind each
+org's join link; `documents.parse_status` did the same before it. The blast
+radius is never visible in the diff, and the symptom is a blank board that names
+no column.
+
+So the check runs against the deployed database and lists what is missing.
+Verified by dropping the column and watching it name it.
+
+**Run both after a pull and before a session**, not during one.
+
 ## What a four-organisation cohort simulation found
 
 `scripts/w3-sim-run.ts` drives one organisation at a time and stops at its hoja
