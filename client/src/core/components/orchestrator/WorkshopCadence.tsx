@@ -152,6 +152,7 @@ function WorkshopRow({
   state,
   index,
   disabled,
+  access,
   onOpenForCohort,
   onCloseForCohort,
   onUpdateDate,
@@ -160,6 +161,8 @@ function WorkshopRow({
   state: WorkshopState;
   index: number;
   disabled?: boolean;
+  /** How many organisations can actually enter this encontro, out of how many. */
+  access?: { withAccess: number; total: number };
   onOpenForCohort: () => void;
   onCloseForCohort: () => void;
   onUpdateDate: (date: string | null) => void;
@@ -464,6 +467,20 @@ function WorkshopRow({
               onSave={onUpdateDate}
             />
           )}
+          {workshop.openedAt && access && access.total > 0 && (
+            <span
+              className={`text-[10px] font-medium ${
+                access.withAccess < access.total ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'
+              }`}
+              data-testid={`workshop-access-${index}`}
+            >
+              {t('orchestrator.cohort.withAccess', {
+                defaultValue: '{{n}} of {{total}} orgs have access',
+                n: access.withAccess,
+                total: access.total,
+              })}
+            </span>
+          )}
           <span className="text-[10px] text-muted-foreground">
             {isPhaseOne
               ? t('orchestrator.cohort.phaseOneLabel', {
@@ -486,6 +503,29 @@ function WorkshopRow({
           >
             <CtaIcon className="w-3.5 h-3.5 mr-1.5" />
             {ctaLabel}
+          </Button>
+        )}
+        {/* ⚠️ An open encontro with organisations locked out of it. The rail
+            reads the cohort's `openedAt`; the gate an org hits reads its own
+            `unlockedPhases`, and a row that missed the opening is told to wait
+            for an encontro this board calls AO VIVO. The server heals such a
+            row the moment the org loads — this is so the coordinator sees it
+            BEFORE the meeting, and can repair every one of them at once by
+            re-running the opening, which keeps the recorded date. */}
+        {workshop.openedAt && access && access.withAccess < access.total && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            className="h-8 text-xs whitespace-nowrap border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+            onClick={onOpenForCohort}
+            data-testid={`button-grant-access-${index}`}
+          >
+            <Unlock className="w-3 h-3 mr-1.5" />
+            {t('orchestrator.cohort.grantAccess', {
+              defaultValue: 'Give access to the remaining {{n}}',
+              n: access.total - access.withAccess,
+            })}
           </Button>
         )}
         {canClose && (
@@ -523,11 +563,14 @@ function WorkshopRow({
 export function WorkshopCadence({
   workshops,
   disabled,
+  accessByPhase,
   onOpenWorkshop,
   onCloseWorkshop,
   onUpdateWorkshops,
 }: {
   workshops: WorkshopConfig[];
+  /** Per phase: how many organisations can actually enter it, out of how many. */
+  accessByPhase?: Map<number, { withAccess: number; total: number }>;
   /** True in sample mode — actions are no-ops with a toast handled by caller. */
   disabled?: boolean;
   /**
@@ -556,7 +599,10 @@ export function WorkshopCadence({
         </span>
         <span className="text-[10px] text-muted-foreground">
           {(() => {
-            const heldCount = workshops.filter(w => w.date).length;
+            // ⚠️ This counted `date` — a SCHEDULED date — while the cards badge
+            // REALIZADO off `openedAt`. The rail read "0 de 6 realizados" with
+            // two cards showing REALIZADO right underneath it.
+            const heldCount = workshops.filter(w => w.openedAt).length;
             return t('orchestrator.cohort.heldOf', {
               defaultValue: '{{held}} of {{total}} held',
               held: heldCount,
@@ -574,6 +620,7 @@ export function WorkshopCadence({
             state={states[i]}
             index={i}
             disabled={disabled}
+            access={accessByPhase?.get(Number(w.unlocksPhase))}
             onOpenForCohort={async () => {
               const today = new Date().toISOString().slice(0, 10);
               await onOpenWorkshop(i, today);

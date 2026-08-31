@@ -13,6 +13,7 @@ import {
   cohorts,
   cohortMembers,
   DEFAULT_WORKSHOPS,
+  effectiveUnlockedPhases,
   SUPPORT_REQUEST_TYPES,
   type CohortSettings,
   type SupportRequest,
@@ -154,7 +155,9 @@ async function buildMemberPayload(member: typeof cohortMembers.$inferSelect) {
   const [cohort] = await db.select().from(cohorts).where(eq(cohorts.id, member.cohortId)).limit(1);
   const workshops = (cohort?.settings as CohortSettings | null)?.workshops ?? [];
 
-  const unlocked = (member.unlockedPhases as number[] | null) ?? [1];
+  // Union with what the cohort opened — the same rule the gate applies, so the
+  // banner an org sees and the phase it is allowed into can never disagree.
+  const unlocked = effectiveUnlockedPhases(member.unlockedPhases, cohort?.settings as CohortSettings | null);
   const maxUnlocked = Math.max(0, ...unlocked);
   const nextPhase = maxUnlocked + 1;
   const nextWorkshop = workshops.find(w => w.unlocksPhase === nextPhase) ?? null;

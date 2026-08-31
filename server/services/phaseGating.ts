@@ -2,12 +2,19 @@
 //
 // A CBO that is part of a coordinator-managed cohort can only advance to
 // phases that the coordinator has unlocked (via "Open Workshop" on the
-// orchestrator dashboard). The cohort_members.unlockedPhases column is the
-// source of truth. CBOs not in any cohort are ungated — full backwards
+// orchestrator dashboard). CBOs not in any cohort are ungated — full backwards
 // compatibility for standalone usage.
+//
+// ⚠️ Access is the UNION of two records, not one. `cohort_members.unlockedPhases`
+// is the per-member grant; `cohorts.settings.workshops[].openedAt` is the
+// coordinator opening an encontro for everyone. They are written together, and
+// a row that missed that write is an organisation locked out of an encontro its
+// own board says is AO VIVO — with no repair available, because the card stops
+// offering "Abrir para o grupo" once it is open. Reading both, and healing the
+// row when they differ, is what keeps that from being possible.
 
 import { db } from '../db';
-import { cohortMembers } from '@shared/cohort-schema';
+import { cohortMembers, cohorts, effectiveUnlockedPhases, type CohortSettings } from '@shared/cohort-schema';
 import { eq } from 'drizzle-orm';
 
 export type PhasePolicy = {
@@ -38,15 +45,38 @@ const UNGATED: PhasePolicy = {
 export async function getPhasePolicyForCbo(cboStateId: string): Promise<PhasePolicy> {
   if (!cboStateId) return UNGATED;
   try {
-    const [member] = await db
-      .select()
+    // Joined, because access is the union of what this member was granted and
+    // what the coordinator opened for the whole cohort. Reading only the member
+    // row is what let an organisation be told "o coordenador vai abrir o acesso
+    // ao Encontro 3 em breve" while the board showed Encontro 3 as AO VIVO.
+    const [row] = await db
+      .select({ member: cohortMembers, settings: cohorts.settings })
       .from(cohortMembers)
+      .innerJoin(cohorts, eq(cohorts.id, cohortMembers.cohortId))
       .where(eq(cohortMembers.cboStateId, cboStateId))
       .limit(1);
-    if (!member) return UNGATED;
-    const unlocked = Array.isArray(member.unlockedPhases) && member.unlockedPhases.length > 0
+    if (!row) return UNGATED;
+    const { member } = row;
+    const stored = Array.isArray(member.unlockedPhases) && member.unlockedPhases.length > 0
       ? (member.unlockedPhases as number[])
       : [1];
+    const unlocked = effectiveUnlockedPhases(stored, row.settings as CohortSettings | null);
+
+    // Heal the row, so the coordinator's roster and the org's own page agree
+    // with the answer this function just gave. Deliberately additive: closing an
+    // encontro clears `openedAt` AND re-locks every member, so nothing here can
+    // resurrect access the coordination took away.
+    if (unlocked.length !== stored.length) {
+      console.warn(
+        `[phaseGating] member ${member.id} had ${JSON.stringify(stored)} but the cohort has ` +
+        `${JSON.stringify(unlocked)} open — healing the row`,
+      );
+      await db.update(cohortMembers)
+        .set({ unlockedPhases: unlocked })
+        .where(eq(cohortMembers.id, member.id))
+        .catch(e => console.error('[phaseGating] heal failed:', e?.message || e));
+    }
+
     return {
       gated: true,
       unlockedPhases: unlocked,
