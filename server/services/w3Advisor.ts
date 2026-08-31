@@ -35,7 +35,7 @@
 // ============================================================================
 
 import { z } from 'zod';
-import { createStructuredResponse, type ContentPart } from './openaiClient';
+import { createStructured, structuredProvider, type ContentPart } from './structuredModel';
 import { buildContextMarkdown } from './contextBundle';
 import { eligibleQuestions, W3_QUESTION_IDS, type QuestionContext } from '@shared/w3-questions';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
@@ -51,7 +51,7 @@ import type { CboState } from '@shared/cbo-schema';
  * questions matter for this organisation, what a funder will push back on) is
  * exactly the kind that gets better with a stronger model.
  */
-const ADVISOR_MODEL = process.env.CBO_ADVISOR_MODEL || 'gpt-5.2';
+const ADVISOR_MODEL = process.env.CBO_ADVISOR_MODEL || '';
 const ADVISOR_TIMEOUT_MS = Number(process.env.CBO_ADVISOR_TIMEOUT_MS || 25_000);
 
 const DraftSchema = z.object({
@@ -281,7 +281,10 @@ function buildUserContent(input: AdvisorInput): ContentPart[] {
  * blocks a beat.
  */
 export async function adviseW3(input: AdvisorInput): Promise<{ advice: W3Advice; reason?: string }> {
-  if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+  // Any provider will do — Anthropic in the deployment, OpenAI where that is
+  // what is configured. See structuredModel.ts for why this used to say
+  // OPENAI_API_KEY and why that silently disabled the feature in production.
+  if (!structuredProvider()) {
     return { advice: EMPTY_ADVICE, reason: 'no API key' };
   }
   const eligible = eligibleQuestions(input.questionCtx);
@@ -289,13 +292,13 @@ export async function adviseW3(input: AdvisorInput): Promise<{ advice: W3Advice;
 
   try {
     const raced = await Promise.race([
-      createStructuredResponse(
+      createStructured(
         {
           input: [
             { role: 'system', content: SYSTEM },
             { role: 'user', content: buildUserContent(input) },
           ],
-          config: { model: ADVISOR_MODEL, reasoningEffort: 'medium', maxCompletionTokens: 4096 },
+          config: { ...(ADVISOR_MODEL ? { model: ADVISOR_MODEL } : {}), reasoningEffort: 'medium', maxCompletionTokens: 4096 },
         },
         AdviceSchema,
         'w3_advice',

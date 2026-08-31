@@ -1,5 +1,10 @@
 # Encontro 3 — from a marked place to a scoped project
 
+> **Standing rule: every step from W3 onwards reads everything the organisation
+> has shared, and so does the synergy report.** See `docs/full-context-rule.md`
+> — including the three times it was violated by changes that each looked
+> sensible on their own.
+
 W2 ends with a pin and a diagnostic read. W3 has to end with something an
 organisation can act on the next morning. This is how it is built, and why it is
 built this way rather than as an agent conversation.

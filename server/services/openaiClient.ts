@@ -209,7 +209,13 @@ export async function createStructuredResponse<T>(
   }
 }
 
-function zodToJsonSchema(schema: z.ZodSchema<any>): Record<string, unknown> {
+/**
+ * Exported for the Anthropic path (server/services/structuredModel.ts), which
+ * needs the same shape. Two converters drifting is how the two providers end up
+ * being sent subtly different schemas and only one of them failing — the
+ * hardest kind of bug to see.
+ */
+export function zodToJsonSchema(schema: z.ZodSchema<any>): Record<string, unknown> {
   const typeName = (schema._def as any)?.typeName as string | undefined;
   
   if (typeName === "ZodObject") {

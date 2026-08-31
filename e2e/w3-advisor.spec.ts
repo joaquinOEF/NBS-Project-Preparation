@@ -89,14 +89,19 @@ test.describe('the question bank — authored wording, chosen selection', () => 
 });
 
 test.describe('the advisor never blocks and never decides', () => {
-  test('no API key degrades to exactly today behaviour', async () => {
+  test('no provider at all degrades to exactly today behaviour', async () => {
+    // All three, not just the OpenAI pair. Since structuredModel prefers
+    // Anthropic, leaving that key set would have made this assert nothing —
+    // the test would still pass, for the wrong reason.
     const key = process.env.OPENAI_API_KEY;
     const alt = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+    const ant = process.env.ANTHROPIC_API_KEY;
     delete process.env.OPENAI_API_KEY;
     delete process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
     try {
       const { advice, reason } = await adviseW3({
-        state: { sections: {} } as any, orgName: 'Teste', messages: [], docs: [],
+        state: { sections: {} } as any, orgName: 'Teste', messages: [], docs: [], photos: [],
         questionCtx: { solutions: [], familias: [], tenure: '', currentUse: '', siteName: '', worry: '', areaM2: 0, hasFundingHistory: false, needsStudy: false },
         cohort: [],
       });
@@ -105,6 +110,7 @@ test.describe('the advisor never blocks and never decides', () => {
     } finally {
       if (key) process.env.OPENAI_API_KEY = key;
       if (alt) process.env.AI_INTEGRATIONS_OPENAI_API_KEY = alt;
+      if (ant) process.env.ANTHROPIC_API_KEY = ant;
     }
   });
 
