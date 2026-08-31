@@ -17,7 +17,7 @@
 // Content and copy: shared/w3-roadmap.ts. Nothing is rendered here that was not
 // computed there.
 
-import { ArrowRight, CircleAlert, RefreshCw } from 'lucide-react';
+import { ArrowRight, CircleAlert, Printer, RefreshCw } from 'lucide-react';
 import type { Roadmap, RoadmapBlock } from '@shared/w3-roadmap';
 
 type VerdictState = 'ready' | 'needs_study' | 'needs_permission' | 'needs_site';
@@ -53,6 +53,7 @@ const S = {
     coord: 'coordenação',
     openTag: 'em aberto',
     note: 'Nada aqui está fechado. Cada bloco diz de onde veio e o que muda ele.',
+    print: 'Baixar pra imprimir ou levar',
   },
   en: {
     eyebrow: 'Draft — for you to check and adjust',
@@ -65,6 +66,7 @@ const S = {
     coord: 'coordination',
     openTag: 'open',
     note: 'Nothing here is settled. Every block says where it came from and what would change it.',
+    print: 'Download to print or take with you',
   },
 };
 
@@ -96,7 +98,16 @@ function Block({ b, lang }: { b: RoadmapBlock; lang: 'pt' | 'en' }) {
   );
 }
 
-export function CboRoadmap({ roadmap, lang }: { roadmap: Roadmap; lang: 'pt' | 'en' }) {
+export function CboRoadmap({
+  roadmap,
+  lang,
+  cboId,
+}: {
+  roadmap: Roadmap;
+  lang: 'pt' | 'en';
+  /** Enables the download. Absent in previews, where there is nothing to fetch. */
+  cboId?: string;
+}) {
   const s = S[lang];
   const st = STATE[(roadmap.state as VerdictState) ?? 'needs_site'];
 
@@ -156,7 +167,7 @@ export function CboRoadmap({ roadmap, lang }: { roadmap: Roadmap; lang: 'pt' | '
                   <span className="block text-[12.5px] leading-snug">{step.title}</span>
                   <span className="mt-0.5 flex items-center gap-1 text-[10.5px] text-muted-foreground">
                     <ArrowRight className="h-2.5 w-2.5 shrink-0" />
-                    {step.owner === 'org' ? s.org : s.coord}
+                    {step.owner === 'org' ? (step.ownerName ?? s.org) : s.coord}
                     {step.blockedBy && ` · ${step.blockedBy}`}
                   </span>
                 </span>
@@ -179,6 +190,24 @@ export function CboRoadmap({ roadmap, lang }: { roadmap: Roadmap; lang: 'pt' | '
           </ul>
           <p className="mt-1.5 text-[10.5px] italic leading-snug text-muted-foreground">{s.openWhy}</p>
         </section>
+      )}
+
+      {/* The copy that leaves the phone. Opens the printable page in a new tab —
+          Share → Print → Save as PDF from there. A new tab rather than a
+          download because a .pdf arriving in Downloads on Android is a file
+          most people never find again, and this is a document they need to
+          hand to someone. */}
+      {cboId && (
+        <a
+          href={`/api/cbo/${cboId}/roadmap?lang=${lang}`}
+          target="_blank"
+          rel="noreferrer"
+          data-testid="roadmap-print"
+          className="flex items-center justify-center gap-2 rounded-lg border border-[#c9bd9a] bg-card px-3 py-2.5 text-[12.5px] font-semibold text-[#6b5f3c] hover:bg-muted/50 dark:border-stone-600 dark:text-stone-300"
+        >
+          <Printer className="h-3.5 w-3.5" />
+          {s.print}
+        </a>
       )}
 
       <p className="border-t border-border/60 pt-2 text-[10.5px] italic leading-snug text-muted-foreground">

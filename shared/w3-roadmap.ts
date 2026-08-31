@@ -48,6 +48,8 @@ export interface RoadmapStep {
   title: string;
   /** Who is proposed to carry it. The organisation can always override. */
   owner: 'org' | 'coordination';
+  /** The named person on their side, when we know one. */
+  ownerName?: string;
   detail?: string;
   blockedBy?: string;
 }
@@ -89,6 +91,10 @@ export interface Roadmap {
 const S = {
   pt: {
     draft: 'Rascunho para validar',
+    proponent: 'Quem está propondo',
+    context: 'O bairro',
+    contribution: 'O que a organização entra',
+    moneyIsNot: 'Essa faixa não é dinheiro que alguém já tem. É a ordem de grandeza pra pedir cotação e pra escrever num edital.',
     what: 'O que é',
     where: 'Onde',
     size: 'Tamanho',
@@ -108,6 +114,10 @@ const S = {
   },
   en: {
     draft: 'Draft to validate',
+    proponent: 'Who is proposing this',
+    context: 'The neighbourhood',
+    contribution: 'What the organisation brings',
+    moneyIsNot: 'This range is not money anyone already has. It is the order of magnitude for requesting a quote and for writing into a funding call.',
     what: 'What it is',
     where: 'Where',
     size: 'Size',
@@ -136,6 +146,9 @@ function label(sectionId: string, field: string, id: string | undefined, lang: '
 
 const has = (v: string | undefined) => !!v && v.trim() !== '';
 
+/** Tenure where the organisation already has the land in hand, one way or another. */
+const PUBLIC_OR_OWN = new Set(['private-owned', 'formal-agreement', 'public-informal', 'mixed', 'public_land']);
+
 export function buildRoadmap(
   input: W3Input,
   lang: 'pt' | 'en' = 'pt',
@@ -159,6 +172,41 @@ export function buildRoadmap(
   const how: RoadmapBlock[] = [];
 
   // ── Page one ──────────────────────────────────────────────────────────────
+  const org = input.org ?? {};
+
+  // Who is asking. Captured in its entirety at Encontro 1 and, until now, never
+  // shown on the document the organisation actually takes anywhere — which is
+  // the paragraph that decides whether a reviewer reads the rest.
+  const founded = org.year_founded;
+  const team = org.team_size;
+  const bits: string[] = [];
+  if (has(org.mission_summary)) bits.push(org.mission_summary!);
+  const facts: string[] = [];
+  if (has(founded)) facts.push(pt ? `atua desde ${founded}` : `active since ${founded}`);
+  if (has(team)) facts.push(pt ? `${team} pessoas` : `${team} people`);
+  if (org.has_cnpj === 'yes') facts.push(pt ? 'com CNPJ' : 'with a CNPJ');
+  if (org.prior_project_scale === 'funded' || org.funding_history === 'yes') {
+    facts.push(
+      has(org.biggest_project_budget)
+        ? (pt ? `já executou projeto financiado (maior: ${org.biggest_project_budget})` : `has delivered a funded project (largest: ${org.biggest_project_budget})`)
+        : (pt ? 'já executou projeto financiado' : 'has delivered a funded project'),
+    );
+  }
+  if (facts.length) bits.push(facts.join(' · '));
+  if (bits.length) {
+    what.push({
+      title: t.proponent,
+      lines: [
+        `**${org.org_name ?? ''}**${has(org.contact_name) ? ` — ${org.contact_name}${has(org.contact_role) ? `, ${org.contact_role}` : ''}` : ''}`,
+        ...bits,
+      ].filter(l => l.trim() !== '**' && l.trim() !== ''),
+      from: pt ? 'Encontro 1' : 'Encontro 1',
+      changedBy: pt
+        ? 'Se algo aqui mudou desde o primeiro encontro, é só dizer — a gente atualiza.'
+        : 'If anything here changed since the first encontro, just say so and we update it.',
+    });
+  }
+
   const names = solutions.map(id => getSolution(id)?.[lang].label ?? id);
   what.push({
     title: t.what,
@@ -192,6 +240,49 @@ export function buildRoadmap(
       : 'The outline is finger-drawn and deliberately rounded. Redrawing changes the area and the price range with it.',
     open: !areaM2,
   });
+
+  // The territory, in the municipality's own numbers. Population and priority
+  // come off the map the organisation confirmed in Encontro 2 — public data
+  // about a place, never a count of their members.
+  const popN = Number(site.bairro_population);
+  const povN = Number(site.bairro_poverty_pct);
+  const ctxLines: string[] = [];
+  if (Number.isFinite(popN) && popN > 0) {
+    ctxLines.push(
+      pt
+        ? `${bairroName} tem cerca de ${popN.toLocaleString('pt-BR')} moradores.`
+        : `${bairroName} has around ${popN.toLocaleString('en-US')} residents.`,
+    );
+  }
+  if (Number.isFinite(povN) && povN > 0) {
+    // Decimal comma. The figure arrives from toFixed(1) with a dot, and a
+    // Portuguese document that writes "23.4%" reads as a translation.
+    ctxLines.push(
+      pt
+        ? `${povN.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% em situação de pobreza.`
+        : `${povN.toFixed(1)}% living in poverty.`,
+    );
+  }
+  const floodPct = Number(site._bairro_flood_pct);
+  if (Number.isFinite(floodPct) && floodPct > 0) {
+    ctxLines.push(
+      pt
+        ? `No risco de alagamento, o bairro está entre os ${100 - floodPct}% mais expostos de Porto Alegre.`
+        : `On flood risk the neighbourhood is in the most-exposed ${100 - floodPct}% of Porto Alegre.`,
+    );
+  }
+  if (ctxLines.length) {
+    what.push({
+      title: t.context,
+      lines: ctxLines,
+      from: pt
+        ? 'dados oficiais do município, no mapa que vocês confirmaram no Encontro 2'
+        : 'official municipal data, on the map you confirmed in Encontro 2',
+      changedBy: pt
+        ? '⚠️ Isso é a média do bairro inteiro, não do lugar de vocês. Serve pra situar o projeto num edital — não pra descrever o terreno.'
+        : '⚠️ This is the whole-neighbourhood average, not your place. It situates the project in a funding call; it does not describe the site.',
+    });
+  }
 
   const worry = site.site_worry;
   what.push({
@@ -256,9 +347,17 @@ export function buildRoadmap(
   // ── Page two ──────────────────────────────────────────────────────────────
   how.push({
     title: t.cost,
-    lines: budget.length
-      ? budget.map(b => (pt ? b.notePt : b.noteEn))
-      : [pt ? 'Sem solução escolhida, não há faixa de custo.' : 'With no solution chosen there is no cost range.'],
+    lines: [
+      ...(budget.length
+        ? budget.map(b => (pt ? b.notePt : b.noteEn))
+        : [pt ? 'Sem solução escolhida, não há faixa de custo.' : 'With no solution chosen there is no cost range.']),
+      // ⚠️ A neighbour who reads "R$ 350 mil" on a page about a horta and not
+      // the caveat around it now believes the association is receiving three
+      // hundred and fifty thousand reais. That specific misunderstanding has
+      // ended projects. The disclaimer travels with the figure, in the same
+      // weight of type, wherever the page goes.
+      ...(budget.some(b => b.lowBrl != null) ? [t.moneyIsNot] : []),
+    ],
     from: pt ? 'preço publicado na ficha × área desenhada' : "the ficha's published price × the drawn area",
     changedBy: pt
       ? 'Uma cotação real de fornecedor. Essa faixa existe pra vocês conseguirem pedir uma.'
@@ -280,6 +379,32 @@ export function buildRoadmap(
     open: !construction,
   });
 
+  // What they put in. Named, never priced — a figure attached to volunteer
+  // labour is a figure somebody can subtract from what they are given, and the
+  // point here is that a funder reads commitment rather than a discount.
+  const contribution: string[] = [];
+  if (construction) contribution.push(construction);
+  if (has(org.team_size)) contribution.push(pt ? `${org.team_size} pessoas na organização` : `${org.team_size} people in the organisation`);
+  if (has(org.year_founded)) {
+    const yrs = new Date().getFullYear() - Number(org.year_founded);
+    if (Number.isFinite(yrs) && yrs > 0) {
+      contribution.push(pt ? `${yrs} anos de presença no território` : `${yrs} years present in the território`);
+    }
+  }
+  if (PUBLIC_OR_OWN.has(site.land_tenure ?? '')) {
+    contribution.push(pt ? 'terreno já em uso pela organização' : 'land already in use by the organisation');
+  }
+  if (contribution.length) {
+    how.push({
+      title: t.contribution,
+      lines: contribution,
+      from: pt ? 'Encontros 1 e 3' : 'Encontros 1 and 3',
+      changedBy: pt
+        ? 'Isso é contrapartida — vale dizer em qualquer edital, e não está no preço acima.'
+        : 'This is counterpart contribution — worth stating in any funding call, and it is not in the price above.',
+    });
+  }
+
   const approvals: string[] = [];
   for (const id of solutions) {
     const f = getSolutionFicha(id);
@@ -287,7 +412,15 @@ export function buildRoadmap(
   }
   how.push({
     title: t.yes,
-    lines: approvals.length ? approvals : [pt ? 'Depende da solução.' : 'Depends on the solution.'],
+    // Split into bullets. The ficha's paragraph is five lines of conditional
+    // clauses about SMAMUS, DMAE, particular versus público — the most
+    // important text on the page and the least readable, and in a room people
+    // stop at the second comma.
+    lines: approvals.length
+      ? approvals.flatMap(a =>
+          a.split(/(?<=\.)\s+/).map(sentence => sentence.trim()).filter(x => x.length > 3),
+        )
+      : [pt ? 'Depende da solução.' : 'Depends on the solution.'],
     from: pt ? 'ficha de cada solução' : "each solution's ficha",
     changedBy: pt
       ? 'A coordenação pode abrir essas portas junto — várias organizações batem na mesma.'
@@ -330,12 +463,19 @@ export function buildRoadmap(
   // The dossier's four lists, flattened into one numbered sequence — because a
   // route is walked in order, and four parallel columns are a filing system.
   const order = { investigate: 0, contact: 1, gather: 2, document: 3 } as const;
+  // A person, not an institution. "Vocês" does not photograph a puddle, and a
+  // route with no names is a route nobody walks — their contact was captured at
+  // Encontro 1 and had never reached the page.
+  const ownerName = has(org.contact_name)
+    ? `${org.contact_name}${has(org.contact_role) ? ` (${org.contact_role})` : ''}`
+    : null;
   const steps: RoadmapStep[] = [...dossier.items]
     .sort((a, b) => order[a.list] - order[b.list])
     .map((i, idx) => ({
       n: idx + 1,
       title: i.text,
       owner: i.owner,
+      ...(i.owner === 'org' && ownerName ? { ownerName } : {}),
       detail: i.source,
       ...(i.blockedBy ? { blockedBy: i.blockedBy } : {}),
     }));

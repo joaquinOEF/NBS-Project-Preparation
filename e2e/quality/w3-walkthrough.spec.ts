@@ -25,6 +25,12 @@ const beat = (page: Page, ms = READ) => page.waitForTimeout(ms);
 const W2_COMPLETE = [
   { sectionId: 'org_profile', field: 'org_name', value: 'Horta Comunitária Raízes do Sarandi' },
   { sectionId: 'org_profile', field: 'contact_name', value: 'Marlene Duarte' },
+  { sectionId: 'org_profile', field: 'contact_role', value: 'coordenadora' },
+  { sectionId: 'org_profile', field: 'mission_summary', value: 'Cultivo comunitário e segurança alimentar no Sarandi.' },
+  { sectionId: 'org_profile', field: 'year_founded', value: '2014' },
+  { sectionId: 'org_profile', field: 'team_size', value: '22' },
+  { sectionId: 'org_profile', field: 'has_cnpj', value: 'yes' },
+  { sectionId: 'org_profile', field: 'biggest_project_budget', value: 'R$ 80.000' },
   { sectionId: 'org_profile', field: 'prior_project_scale', value: 'funded' },
   { sectionId: 'intervention_site', field: 'bairro', value: 'Sarandi' },
   { sectionId: 'intervention_site', field: 'site_name', value: 'Terreno ao lado da horta' },
@@ -40,6 +46,10 @@ const W2_COMPLETE = [
   },
   { sectionId: 'intervention_site', field: 'site_knowledge_depth', value: 'strong' },
   { sectionId: 'intervention_site', field: 'nbs_interest', value: 'aguas-pluviais' },
+  // The territorial context the map already knew and the server used to discard.
+  { sectionId: 'intervention_site', field: 'bairro_population', value: '59707' },
+  { sectionId: 'intervention_site', field: 'bairro_poverty_pct', value: '23.4' },
+  { sectionId: 'intervention_site', field: '_bairro_flood_pct', value: '80' },
 ];
 
 test.describe('W3 walkthrough — a recording', () => {
@@ -200,10 +210,30 @@ test.describe('W3 walkthrough — a recording', () => {
     // Scroll through slowly. This is the deliverable — every block carries where
     // it came from and what would change it, and that only reads if it is on
     // screen long enough to read.
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 20; i++) {
       await page.mouse.wheel(0, 200);
-      await beat(page, 1250);
+      await beat(page, 1150);
     }
-    await beat(page, READ + 2200);
+    await beat(page, READ);
+
+    // ── 11 · The copy that leaves the phone ─────────────────────────────────
+    // Opens the printable page — Share → Print → Save as PDF from there. This
+    // is the artefact they take into a room, so the recording ends on it.
+    const printLink = page.getByTestId('roadmap-print');
+    await expect(printLink).toBeVisible({ timeout: 15_000 });
+    await printLink.scrollIntoViewIfNeeded();
+    await beat(page, READ + 900);
+    const printed = await Promise.all([
+      page.context().waitForEvent('page'),
+      printLink.click(),
+    ]).then(([p]) => p);
+    await printed.waitForLoadState('domcontentloaded');
+    await printed.setViewportSize({ width: 390, height: 844 });
+    await beat(page, READ + 1400);
+    for (let i = 0; i < 10; i++) {
+      await printed.mouse.wheel(0, 260);
+      await printed.waitForTimeout(1000);
+    }
+    await printed.waitForTimeout(READ);
   });
 });

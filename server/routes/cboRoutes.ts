@@ -1,4 +1,6 @@
 import type { Express, Request, Response } from "express";
+import { buildRoadmap } from '@shared/w3-roadmap';
+import { renderRoadmapHtml } from '../services/roadmapPrint';
 import {
   streamCboChat,
   handleCboEdit,
@@ -526,6 +528,52 @@ export function registerCboRoutes(app: Express): void {
     res.setHeader("Content-Type", "text/markdown");
     res.setHeader("Content-Disposition", `attachment; filename="cbo-profile-${state.orgName || state.id}.md"`);
     res.send(md);
+  });
+
+  /**
+   * The printable hoja de ruta. Opens in the phone's browser; Share → Print →
+   * Save as PDF makes it something you can hand round a table.
+   *
+   * Rebuilt from the live state on every request rather than served from a
+   * stored blob: the organisation may have corrected an answer after the
+   * session closed, and a printed route that disagrees with the screen is worse
+   * than no printed route. Same buildRoadmap() the chat card renders, so the
+   * two cannot say different things.
+   */
+  app.get("/api/cbo/:id/roadmap", async (req: Request, res: Response) => {
+    let state = getCboState(req.params.id);
+    if (!state) {
+      const persisted = await loadPersistedCboState(req.params.id);
+      if (persisted) state = persisted.state;
+    }
+    if (!state) return res.status(404).send("Not found");
+
+    const lang = req.query.lang === 'en' || (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
+    const asRecord = (id: string) =>
+      Object.fromEntries(
+        Object.entries(((state!.sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
+          .map(([k, v]) => [k, String(v?.value ?? '')]),
+      );
+    const site = asRecord('intervention_site');
+    const type = asRecord('intervention_type');
+    const areaM2 = Number(site.site_area_m2) || 0;
+
+    let observations: any[] = [];
+    try {
+      const advice = type._advice_json ? JSON.parse(type._advice_json) : null;
+      observations = (advice?.observations ?? []).map((o: any) => ({ kind: o.kind, text: o.textPt, basedOn: o.basedOn }));
+    } catch { observations = []; }
+
+    const roadmap = buildRoadmap({
+      site,
+      org: asRecord('org_profile'),
+      solutions: (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean),
+      ...(areaM2 ? { areaM2 } : {}),
+      w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
+    }, lang, observations);
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(renderRoadmapHtml(roadmap, lang));
   });
 
   // Section registry

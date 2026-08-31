@@ -359,3 +359,60 @@ re-reads state before writing so it cannot clobber a newer answer. **No key, a
 timeout, a malformed answer or a failed quote check all leave the session
 behaving exactly as it did before this existed** — the fallback is the current
 product, not a degraded one.
+
+
+## The printed copy, and the context that was already there
+
+### `GET /api/cbo/:id/roadmap`
+
+A document, not a file. It opens in the phone's browser; Share → Print → Save as
+PDF turns it into something you can hand round a table. That last use shaped it:
+the organisation will defend this in front of neighbours who did not sit through
+the workshop.
+
+- **RASCUNHO is the first thing in the body**, and prints at the top of every
+  sheet. A draft mistaken for a decision is the failure that costs most here.
+- **"Essa faixa não é dinheiro que alguém já tem"** sits in the same weight of
+  type as the figure it qualifies, never as a footnote. A neighbour who reads
+  "R$ 350 mil" on a page about a horta and not the caveat now believes the
+  association is receiving three hundred and fifty thousand reais.
+- **← and ↻ survive onto paper.** Being able to say "this line came from the
+  ficha, not from us" is what makes the document arguable rather than official.
+- **Rebuilt from live state on every request**, never served from a stored blob:
+  an organisation may correct an answer after the session, and a printed route
+  that disagrees with the screen is worse than no printed route.
+- **Self-contained** — no external CSS, fonts or scripts. It has to render on a
+  six-year-old Android with no data left in the month.
+
+### Five things Encontros 1 and 2 captured and Encontro 3 never showed
+
+Straight from the three-reviewer audit, and none of them needed a new question:
+
+| | |
+|---|---|
+| **the proponent** | founded, team size, CNPJ, the funded project they already delivered — the paragraph that decides whether a reviewer reads the rest |
+| **the territory** | population, poverty rate and flood percentile, carrying the whole-bairro coarseness warning |
+| **a person's name** | on every step the organisation owns. "Vocês" does not photograph a puddle |
+| **what they bring** | construction model, team, years in the território, land in hand — named, never priced, because a figure on volunteer labour is a figure someone can deduct |
+| **the approval block** | split into sentences. In a room people stop reading at the second comma |
+
+### ⚠️ ZONE-LINE-TWO-FORMATS
+
+The map's zone line carries **two number formats**, and the first version of the
+capture conflated them:
+
+```
+pop: 59.707      toLocaleString()  → locale separators; "59,707" in en-US
+poverty: 23.4%   toFixed(1)        → a plain decimal point, always
+priority: 0.91   toFixed(2)        → likewise
+```
+
+Stripping every dot is correct for the first and destroys the other two — it
+turned 23.4 into **234** and 0.91 into **91**, and would have documented Sarandi
+as 234% poor. Parsed with two helpers now (`int` strips separators, `dec` never
+does), pinned by string tests, and tolerant of a zone line that omits the
+optional fields entirely.
+
+The same line had already lost these three fields once: the original regex read
+the hazard percentiles and dropped the rest on the floor, exactly as
+`formatMapResult` had dropped the footprint area.

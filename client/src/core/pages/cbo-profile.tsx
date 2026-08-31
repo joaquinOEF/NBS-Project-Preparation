@@ -2239,7 +2239,11 @@ export default function CboProfilePage() {
                 if (parsed.kind === 'roadmap' && parsed.roadmap) {
                   return (
                     <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
-                      <CboRoadmap roadmap={parsed.roadmap} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
+                      <CboRoadmap
+                        roadmap={parsed.roadmap}
+                        lang={lang.startsWith('pt') ? 'pt' : 'en'}
+                        cboId={cboId ?? undefined}
+                      />
                     </div>
                   );
                 }
