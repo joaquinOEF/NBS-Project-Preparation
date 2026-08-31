@@ -33,7 +33,7 @@
 // see "our data said X; after reading your story the agent said Y".
 
 import { z } from 'zod';
-import { createStructuredResponse, type ContentPart, type Message } from './openaiClient';
+import { createStructured, structuredProvider, type ContentPart, type Message } from './structuredModel';
 import { NBS_FAMILIAS, type NbsFamiliaId } from '@shared/nbs-catalog';
 import {
   rankFamiliasForSite,
@@ -107,7 +107,12 @@ export interface FamiliaRankingResult {
  * to fall back — including every e2e run and every deployment without a key.
  */
 export function rankerCanRun(): boolean {
-  return !!process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  // Any structured provider. This used to name the OpenAI key specifically,
+  // which meant a deployment carrying only an Anthropic key would skip
+  // assembling the context and silently fall back — the photos an organisation
+  // was asked to walk its own site for would inform nothing, and nothing would
+  // look broken. See server/services/structuredModel.ts.
+  return !!structuredProvider();
 }
 
 function catalogueBrief(lang: 'pt' | 'en'): string {
@@ -255,7 +260,7 @@ export async function rankFamiliasWithContext(
 
   try {
     const result = await Promise.race([
-      createStructuredResponse(
+      createStructured(
         { input: buildPrompt(ctx), config: { reasoningEffort: 'low', maxCompletionTokens: 2000 } },
         RankingSchema,
         'familia_ranking',
