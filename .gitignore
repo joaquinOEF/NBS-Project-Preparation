@@ -27,3 +27,6 @@ knowledge/runs/cbo-*/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# screenshots produced by the synergy shot harness (scratch)
+shots/

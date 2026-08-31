@@ -1,5 +1,5 @@
 import type { Express, Request, Response, RequestHandler } from 'express';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '../db';
 import {
@@ -26,9 +26,14 @@ import { cboSectionsFilledCount, type CboState } from '@shared/cbo-schema';
 import {
   buildDossier,
   portfolioState,
+  studyRequirement,
   type CapacityGrade,
   type VerdictState,
 } from '@shared/w3-dossier';
+import { getSolutionFicha } from '@shared/nbs-solution-fichas';
+import { buildSynergyReport } from '../services/synergyReport';
+import { synergyReports } from '@shared/cohort-schema';
+import { renderSynergyHtml } from '../services/synergyPrint';
 import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist } from '../services/cboAgent';
 import JSZip from 'jszip';
 import { getObject } from '../services/blobStorage';
@@ -262,6 +267,83 @@ const EMPTY_W3: MemberW3Signal = {
   solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0,
 };
 
+/**
+ * The raw facts the portfolio analysis groups on — deliberately separate from
+ * the roster signals, which are shaped for a card rather than for reasoning.
+ */
+export type SynergyFacts = {
+  ownWords: { story: string | null; whyHere: string | null; baseline: string | null };
+  correctionsPt: string | null;
+  siteName: string | null;
+  hasSite: boolean;
+  tenure: string | null;
+  currentUse: string | null;
+  familias: string[];
+  solutions: string[];
+  roles: string[];
+  priorCollaborationDetail: string | null;
+  nbsExperience: string | null;
+  fundingScale: string | null;
+  biggestBudget: string | null;
+  studyNeeds: string[];
+  bodies: string[];
+};
+
+function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
+  const f = (id: string, k: string) =>
+    String(((sections as any)?.[id]?.fields ?? {})[k]?.value ?? '').trim();
+  const list = (v: string) => v.split(',').map(x => x.trim()).filter(Boolean);
+  const solutions = list(f('intervention_type', 'chosen_solutions'));
+
+  // The pooling opportunities: what each chosen solution needs before it can be
+  // designed, and who has to approve it. Both come from the fichas, so five
+  // organisations needing the same study is a fact rather than an impression.
+  const studyNeeds: string[] = [];
+  const bodies: string[] = [];
+  for (const id of solutions) {
+    const req = studyRequirement(id);
+    if (req) studyNeeds.push(req.pt);
+    const ficha = getSolutionFicha(id);
+    if (!ficha) continue;
+    for (const [re, body] of [[/SMAMUS/i, 'SMAMUS'], [/DMAE/i, 'DMAE'], [/EPTC/i, 'EPTC'], [/Defesa Civil/i, 'Defesa Civil']] as [RegExp, string][]) {
+      if (re.test(ficha.pt.quemPrecisaDizerSim) && !bodies.includes(body)) bodies.push(body);
+    }
+  }
+
+  // What they said, not what we filed it under.
+  const hazardChecks = (() => {
+    try {
+      const j = JSON.parse(f('intervention_site', '_hazard_check_json') || '{}');
+      const disagreed = Object.entries(j)
+        .filter(([, v]) => /pior|worse|melhor|better/i.test(String(v)))
+        .map(([k, v]) => `${k}: ${v}`);
+      return disagreed.length ? disagreed.join('; ') : null;
+    } catch { return null; }
+  })();
+
+  return {
+    ownWords: {
+      story: f('intervention_site', 'site_story') || null,
+      whyHere: f('intervention_type', 'justification_why_here') || null,
+      baseline: f('impact_monitoring', 'baseline_condition') || null,
+    },
+    correctionsPt: hazardChecks,
+    siteName: f('intervention_site', 'site_name') || null,
+    hasSite: !!f('intervention_site', '_site_lat') || !!f('intervention_site', 'site_lat'),
+    tenure: f('intervention_site', 'land_tenure') || null,
+    currentUse: f('intervention_site', 'current_use') || null,
+    familias: list(f('intervention_site', 'nbs_interest')),
+    solutions,
+    roles: list(f('intervention_site', 'role_preference')),
+    priorCollaborationDetail: f('intervention_site', 'prior_collaboration_detail') || null,
+    nbsExperience: f('org_profile', 'nbs_experience') || null,
+    fundingScale: f('org_profile', 'prior_project_scale') || f('org_profile', 'funding_history') || null,
+    biggestBudget: f('org_profile', 'biggest_project_budget') || null,
+    studyNeeds,
+    bodies,
+  };
+}
+
 /** The dossier, computed from a member's live state — the same pure function the
  *  org's own closing card renders, so the two can never disagree. */
 function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
@@ -313,6 +395,7 @@ async function attachDerivedSections<
   const byState = new Map<string, number>();
   const w2ByState = new Map<string, MemberW2Signal>();
   const w3ByState = new Map<string, MemberW3Signal>();
+  const synergyByState = new Map<string, SynergyFacts>();
   if (ids.length > 0) {
     const rows = await db
       .select({ id: cboStates.id, sections: cboStates.sections })
@@ -339,6 +422,11 @@ async function attachDerivedSections<
       // not take down the whole roster — a coordinator with no board is worse
       // off than one with a blank column.
       try {
+        synergyByState.set(row.id, synergyFactsFrom(sections));
+      } catch (err) {
+        console.error(`[cohort] synergy facts failed for ${row.id}:`, err);
+      }
+      try {
         w3ByState.set(row.id, w3SignalFrom(sections));
       } catch (err) {
         console.error(`[cohort] w3 signal failed for ${row.id}:`, err);
@@ -347,6 +435,7 @@ async function attachDerivedSections<
   }
   return members.map(m => ({
     ...m,
+    synergy: (m.cboStateId && synergyByState.get(m.cboStateId)) || null,
     derivedSectionsComplete:
       m.cboStateId && byState.has(m.cboStateId)
         ? byState.get(m.cboStateId)!
@@ -404,6 +493,121 @@ export function registerCohortRoutes(app: Express): void {
   // the hardcoded /default). A scoped coordinator gets their own cohort; an
   // admin opens the default singleton. `isAdmin` lets the UI decide whether to
   // ever show a cohort switcher (deferred until a 2nd cohort exists).
+  /**
+   * The synergy pass. Ricardo does this by hand today, for ten organisations,
+   * and it goes stale the moment anyone answers another question.
+   *
+   * POST rather than GET because it costs a model call and a coordinator
+   * pressing it is an intentional act — and because a re-run after three more
+   * sessions should give a different answer, which is the entire point.
+   */
+  /** The last completed report, opened instantly. Survives a redeploy. */
+  app.get('/api/cohort/:cohortId/synergies', wrap(async (req, res) => {
+    const [row] = await db
+      .select()
+      .from(synergyReports)
+      .where(eq(synergyReports.cohortId, req.params.cohortId))
+      .orderBy(desc(synergyReports.startedAt))
+      .limit(1);
+    if (!row) return res.json({ report: null });
+    res.json({
+      id: row.id,
+      status: row.status,
+      error: row.error,
+      startedAt: row.startedAt,
+      finishedAt: row.finishedAt,
+      report: row.payload ?? null,
+    });
+  }));
+
+  /** The same report as a printable document, for the in-person meeting. */
+  app.get('/api/cohort/:cohortId/synergies/print', wrap(async (req, res) => {
+    const [row] = await db
+      .select()
+      .from(synergyReports)
+      .where(and(eq(synergyReports.cohortId, req.params.cohortId), eq(synergyReports.status, 'done')))
+      .orderBy(desc(synergyReports.startedAt))
+      .limit(1);
+    if (!row?.payload) return res.status(404).send('Nenhum relatório gerado ainda.');
+    const [cohort] = await db.select().from(cohorts).where(eq(cohorts.id, req.params.cohortId)).limit(1);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(renderSynergyHtml(row.payload as any, cohort?.name ?? 'a Rede'));
+  }));
+
+  app.post('/api/cohort/:cohortId/synergies', wrap(async (req, res) => {
+    const rows = await db
+      .select()
+      .from(cohortMembers)
+      .where(eq(cohortMembers.cohortId, req.params.cohortId));
+    const withDocs = await attachDocCounts(rows as any);
+    const enriched = await attachDerivedSections(withDocs as any);
+
+    const members = (enriched as any[])
+      // The test organisation stays on the roster and out of the analysis.
+      .filter(m => !m.excludeFromPortfolio)
+      .map(m => {
+        const s = m.synergy ?? {};
+        return {
+          id: m.id,
+          orgName: m.orgName,
+          bairro: m.w2?.bairro ?? m.neighborhood ?? null,
+          siteName: s.siteName ?? null,
+          hasSite: !!s.hasSite,
+          tenure: s.tenure ?? null,
+          currentUse: s.currentUse ?? null,
+          worry: m.w2?.worry ?? null,
+          familias: s.familias ?? [],
+          solutions: s.solutions ?? [],
+          roles: s.roles ?? [],
+          priorCollaboration: m.w2?.priorCollaboration ?? null,
+          priorCollaborationDetail: s.priorCollaborationDetail ?? null,
+          nbsExperience: s.nbsExperience ?? null,
+          fundingScale: s.fundingScale ?? null,
+          biggestBudget: s.biggestBudget ?? null,
+          maturityScore: m.snapshotMaturityScore ?? 0,
+          verdict: m.w3?.state ?? null,
+          studyNeeds: s.studyNeeds ?? [],
+          bodies: s.bodies ?? [],
+          docCount: m.documentCount ?? 0,
+          ownWords: s.ownWords ?? { story: null, whyHere: null, baseline: null },
+          correctionsPt: s.correctionsPt ?? null,
+          docs: (m.docPreview?.filenames ?? []).map((filename: string) => ({
+            filename, purpose: null, summary: null,
+          })),
+          // "Started" means a real answer exists, not that a row does. Three of
+          // the ten in the hand-written report had an invite and nothing else.
+          started: (m.derivedSectionsComplete ?? 0) > 0,
+        };
+      });
+
+    // A row first, so the coordinator can close the tab. The pass takes tens of
+    // seconds over ten organisations' full records, and a button that holds a
+    // request open for a minute is a button that fails on the venue wifi.
+    const [row] = await db
+      .insert(synergyReports)
+      .values({ cohortId: req.params.cohortId, status: 'running', requestedBy: (req as any).coordinator?.id ?? null })
+      .returning();
+    res.status(202).json({ id: row.id, status: 'running' });
+
+    // Deliberately after the response. Nothing waits on it, and a failure is
+    // recorded rather than thrown into a closed socket.
+    void (async () => {
+      try {
+        const report = await buildSynergyReport(members);
+        await db.update(synergyReports)
+          .set({ status: 'done', payload: report as any, finishedAt: new Date() })
+          .where(eq(synergyReports.id, row.id));
+        console.log(`[synergy] ${req.params.cohortId}: ${report.analysis.groups.length} grouping(s), ${report.narrative?.lines.length ?? 0} line(s)${report.narrativeReason ? ` — ${report.narrativeReason}` : ''}`);
+      } catch (err: any) {
+        console.error(`[synergy] ${req.params.cohortId} failed:`, err?.message || err);
+        await db.update(synergyReports)
+          .set({ status: 'failed', error: String(err?.message ?? 'erro desconhecido'), finishedAt: new Date() })
+          .where(eq(synergyReports.id, row.id))
+          .catch(() => {});
+      }
+    })();
+  }));
+
   app.get('/api/cohort/mine', wrap(async (req, res) => {
     const coordinator = reqCoordinator(req);
     let cohort: Awaited<ReturnType<typeof getOrCreateDefaultCohort>> | undefined;

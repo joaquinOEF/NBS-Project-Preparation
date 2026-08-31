@@ -14,7 +14,7 @@
  * See docs/ROLE-ARCHITECTURE.md.
  */
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
@@ -177,6 +177,138 @@ const W3_META: Record<W3State, { pt: string; en: string; cls: string }> = {
     cls: 'border-emerald-200/60 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/40',
   },
 };
+
+/**
+ * "Mapear sinergias" — the button that replaces a hand-written document.
+ *
+ * The report it produces was written by hand for ten organisations on 21 August
+ * and went stale the moment anyone answered another question. Three things
+ * about how it behaves matter more than how it looks:
+ *
+ *  · It is EXPLICIT. Nothing runs on page load — a pass over every
+ *    organisation's full record costs a model call, and a coordinator pressing
+ *    it is choosing to spend it.
+ *  · It SURVIVES. The last completed report is a row, so it opens instantly and
+ *    is still there after a redeploy — which matters because it is the input to
+ *    an in-person meeting, and Replit recycles when it feels like it.
+ *  · It is HYPOTHESES. The panel says so before it says anything else. A
+ *    cluster an organisation did not agree to falls apart in the room.
+ */
+function SynergyPanel({ cohortId }: { cohortId: string | null }) {
+  const { t, i18n } = useTranslation();
+  const isPt = i18n.language?.startsWith('pt');
+  const [state, setState] = useState<{ status: string; report: any; finishedAt?: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!cohortId) return;
+    try {
+      const r = await fetch(`/api/cohort/${cohortId}/synergies`, { credentials: 'include' });
+      if (r.ok) setState(await r.json());
+    } catch { /* a missing report is a normal state, not an error to surface */ }
+  }, [cohortId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  // Poll only while a pass is actually running, and stop the moment it lands.
+  useEffect(() => {
+    if (state?.status !== 'running') return;
+    const id = setInterval(() => { void load(); }, 4000);
+    return () => clearInterval(id);
+  }, [state?.status, load]);
+
+  const run = async () => {
+    if (!cohortId || busy) return;
+    setBusy(true);
+    try {
+      await fetch(`/api/cohort/${cohortId}/synergies`, { method: 'POST', credentials: 'include' });
+      setState({ status: 'running', report: null });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!cohortId) return null;
+  const running = state?.status === 'running';
+  const report = state?.report;
+  const groups = report?.analysis?.groups?.length ?? 0;
+  const lines = report?.narrative?.lines?.length ?? 0;
+
+  return (
+    <Card className="mb-8" data-testid="synergy-panel">
+      <CardContent className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <TitleLarge className="!text-lg tracking-tight mb-0.5">
+              {t('orchestrator.synergy.title', { defaultValue: isPt ? 'Mapear sinergias' : 'Map synergies' })}
+            </TitleLarge>
+            <BodySmall className="text-muted-foreground max-w-[60ch]">
+              {t('orchestrator.synergy.lede', {
+                defaultValue: isPt
+                  ? 'Cruza territórios, riscos, soluções e capacidades de todas as organizações. São hipóteses para validar no encontro — não decisões.'
+                  : 'Crosses territories, hazards, solutions and capacities across every organisation. These are hypotheses to validate in the meeting — not decisions.',
+              })}
+            </BodySmall>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {report && (
+              <a
+                href={`/api/cohort/${cohortId}/synergies/print`}
+                target="_blank"
+                rel="noreferrer"
+                data-testid="synergy-print"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted/50"
+              >
+                {isPt ? 'Abrir relatório' : 'Open report'}
+              </a>
+            )}
+            <Button size="sm" onClick={run} disabled={running || busy} data-testid="synergy-run">
+              {running
+                ? (isPt ? 'Analisando…' : 'Analysing…')
+                : report
+                  ? (isPt ? 'Rodar de novo' : 'Run again')
+                  : (isPt ? 'Mapear sinergias' : 'Map synergies')}
+            </Button>
+          </div>
+        </div>
+
+        {running && (
+          <p className="mt-3 text-xs text-muted-foreground" data-testid="synergy-running">
+            {isPt
+              ? 'Lendo o registro de cada organização — o que contaram, o que enviaram e o que escolheram. Pode fechar esta página; o relatório fica salvo.'
+              : 'Reading every organisation\'s record — what they told us, sent us and chose. You can close this page; the report is saved.'}
+          </p>
+        )}
+
+        {report && !running && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground" data-testid="synergy-summary">
+            <span>{isPt ? `${groups} agrupamento(s) calculado(s)` : `${groups} calculated grouping(s)`}</span>
+            {lines > 0 && <span>{isPt ? `${lines} linha(s) de programa propostas` : `${lines} proposed programme line(s)`}</span>}
+            {report.analysis?.pooledStudies?.length > 0 && (
+              <span className="font-medium text-foreground">
+                {isPt
+                  ? `${report.analysis.pooledStudies.length} necessidade(s) técnica(s) em comum`
+                  : `${report.analysis.pooledStudies.length} shared technical need(s)`}
+              </span>
+            )}
+            {state?.finishedAt && (
+              <span>
+                {isPt ? 'gerado em ' : 'generated '}
+                {new Date(state.finishedAt).toLocaleDateString(isPt ? 'pt-BR' : 'en-GB')}
+              </span>
+            )}
+          </div>
+        )}
+
+        {state?.status === 'failed' && (
+          <p className="mt-3 text-xs text-destructive" data-testid="synergy-failed">
+            {isPt ? 'A análise falhou. Dá pra rodar de novo.' : 'The analysis failed. You can run it again.'}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 const TOTAL_SECTIONS = 7;
 const TOTAL_FLAGS = 6;
@@ -1643,6 +1775,8 @@ export default function OrchestratorLandingPage() {
             </motion.div>
           ))}
         </motion.div>
+
+        <SynergyPanel cohortId={cohort?.id ?? null} />
 
         {/* ── The W3 portfolio ─────────────────────────────────────────────
             Four piles, worst-first, because each routes to a different person:

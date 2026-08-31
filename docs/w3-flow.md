@@ -416,3 +416,83 @@ optional fields entirely.
 The same line had already lost these three fields once: the original regex read
 the hazard percentiles and dropped the rest on the floor, exactly as
 `formatMapResult` had dropped the footprint area.
+
+
+## Mapear sinergias — the button that replaces a hand-written document
+
+The report already exists. It was written by hand for ten organisations on
+21 August ("Onde queremos atuar: territórios, recursos e sinergias da Rede"), it
+fed the coordination's planning, and it went stale the moment anyone answered
+another question. Ricardo, 31 August: *"sería genial que pudiera hacer eso,
+porque ahí toda vez que una organización sube la información, no necesitas
+hacer[lo] todo la vez."*
+
+Reading that document back is what settled the design.
+
+### Three axes, because the hand-written version used three
+
+Its **Agrupamento A** is geographic. Its **B is not** — it is *"água em alta
+velocidade"*, a hazard **mechanism** shared by two bairros nowhere near each
+other, and its stated reason is that this *"pede soluções distintas das de
+alagamento em área plana"*. Its **C** is a land **arrangement** — public land
+held informally — which is a governance theme with no geography at all.
+
+**Grouping only by territory would have found one of those three.**
+
+`shared/w3-synergies.ts` derives all three, plus the pooling that is the actual
+argument for a programme: shared study needs (one org hiring one geotechnical
+engineer is expensive; a cohort commissioning several is a procurement) and
+shared approving bodies (one conversation with SMAMUS instead of five).
+
+### Derived first, narrated second
+
+Same split as the rest of W3. The groupings are computed so a coordinator can
+check *why* two organisations were put together; the model writes the programme
+lines and the portfolio thread on top, and may only name organisations that
+appear in the analysis. A line naming an org outside the cohort is the one error
+nobody would catch by reading.
+
+### What it reads
+
+Not just the enum answers. The hand-written report quotes organisations
+throughout — *"Lugar muito próximo do rio, a uns 300 metros. É uma área aterrada
+— com pouca chuva já fica úmido e alagado"* — and those sentences place an
+organisation in a cluster that no canonicalised field would. So the pass sends
+each org's own words (story, why here, baseline), what they uploaded, and where
+they **corrected our risk numbers**, which outranks the map.
+
+### How it behaves
+
+- **Explicit.** Nothing runs on page load; the pass costs a model call and
+  pressing the button is choosing to spend it.
+- **Asynchronous.** POST returns `202` with a row id and the work continues
+  after the response — a button that holds a request open for a minute is a
+  button that fails on venue wifi. The panel polls only while it is running.
+- **Persisted.** `synergy_reports` is a table, so the last report opens
+  instantly and survives a redeploy. It is the input to an in-person meeting and
+  Replit recycles when it feels like it.
+- **Downloadable.** `/api/cohort/:id/synergies/print` — the same print treatment
+  the hoja de ruta gets, for the same reason: the version people argue over is
+  the one on the table.
+- **Degrades.** No key, a timeout or a bad answer leaves the calculated report
+  standing, and says so.
+
+### Two rules carried over from the hand-written report
+
+1. **"São hipóteses para validar com as organizações no encontro, não decisões
+   prontas."** A cluster an organisation did not agree to falls apart in the
+   room, and the validation *is* the value of the meeting. The banner says so
+   before the title does.
+2. **The gaps are a section, not a footnote.** Three of the ten had no data at
+   all. A partial reading presented as complete is a lie, and the risk-average
+   caveat rides along every time.
+
+⚠️ Two details caught in review of the generated output: it leaked a provider
+401 verbatim onto a coordinator's page (complete with the rejected key and a
+link to an OpenAI settings screen), and it wrote *"1 organizações"* — the tell
+that nobody read the output. Failures are now phrased as something a coordinator
+can act on, and Portuguese agrees.
+
+⚠️ `excludeFromPortfolio` on `cohort_members` keeps Vila Flores's own test
+organisation out of the **analysis** while leaving it on the roster — hiding it
+from the board would just lose track of it.
