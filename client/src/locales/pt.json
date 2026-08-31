@@ -111,6 +111,8 @@
       "deleteTooltip": "Excluir este grupo por completo",
       "expectedOutput": "Resultado esperado",
       "heldOf": "{{held}} de {{total}} realizados",
+      "withAccess": "{{n}} de {{total}} organizações com acesso",
+      "grantAccess": "Liberar acesso para as {{n}} que faltam",
       "heldOn": "Realizado em {{date}}",
       "invite": "Convidar CBO",
       "inviteAll": "Convidar {{n}}",

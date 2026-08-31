@@ -147,6 +147,40 @@ export type CohortMember = typeof cohortMembers.$inferSelect;
 
 // Default workshops seed — Vila Flores 6-meeting convening series.
 // W6 is the wrap-up; doesn't unlock new content (unlocksPhase = 5 = no-op).
+/**
+ * The phases an encontro being open implies, from the cohort's own record.
+ *
+ * ⚠️ Two records back one fact. The coordinator's rail reads
+ * `settings.workshops[].openedAt`; the gate an organisation actually hits reads
+ * `cohort_members.unlockedPhases`. `/open-workshop` writes both in one
+ * transaction — but a row that missed that transaction (created by another
+ * route, restored from before it, written by a build that predates the
+ * inherit-on-invite fix) is locked out while the board says AO VIVO, and the
+ * card stops offering "Abrir para o grupo" once open, so there is no way to
+ * repair it from the board at all.
+ *
+ * `openedAt` is the intent: the coordinator opened this encontro for the
+ * cohort. Everything that reads access unions this in, so the two cannot
+ * disagree for longer than one read.
+ */
+export function openPhasesFrom(settings: CohortSettings | null | undefined): number[] {
+  return (settings?.workshops ?? [])
+    .filter(w => !!w.openedAt)
+    .map(w => Number(w.unlocksPhase))
+    .filter(n => Number.isFinite(n) && n >= 1);
+}
+
+/** A member's effective access: what they were granted, plus what the cohort opened. */
+export function effectiveUnlockedPhases(
+  memberUnlocked: unknown,
+  settings: CohortSettings | null | undefined,
+): number[] {
+  const own = Array.isArray(memberUnlocked) && memberUnlocked.length
+    ? (memberUnlocked as number[])
+    : [1];
+  return Array.from(new Set([1, ...own, ...openPhasesFrom(settings)])).sort((a, b) => a - b);
+}
+
 export const DEFAULT_WORKSHOPS: WorkshopConfig[] = [
   {
     name: 'Workshop 1 — Who We Are',

@@ -1428,6 +1428,28 @@ export default function OrchestratorLandingPage() {
 
   const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
 
+  // ⚠️ How many organisations can actually enter each encontro. The rail reads
+  // the cohort's `openedAt`; the gate an org hits reads its own
+  // `unlockedPhases`. An org whose row missed the opening is told "o coordenador
+  // vai abrir o acesso em breve" while this board says AO VIVO — and the card
+  // stops offering "Abrir para o grupo" once open, so the coordinator had
+  // neither a symptom nor a repair. The server heals a row the moment the org
+  // loads; this is so the coordinator can see it before the meeting instead of
+  // during it.
+  const accessByPhase = useMemo(() => {
+    const by = new Map<number, { withAccess: number; total: number }>();
+    for (const m of members) {
+      const unlocked = Array.isArray(m.unlockedPhases) ? (m.unlockedPhases as number[]) : [1];
+      for (let phase = 1; phase <= 6; phase++) {
+        const row = by.get(phase) ?? { withAccess: 0, total: 0 };
+        row.total += 1;
+        if (unlocked.includes(phase)) row.withAccess += 1;
+        by.set(phase, row);
+      }
+    }
+    return by;
+  }, [members]);
+
   // Initialize the inbox badge from already-loaded members so it lights up
   // before the user opens the drawer. SupportInbox re-counts on open.
   useEffect(() => {
@@ -1874,6 +1896,7 @@ export default function OrchestratorLandingPage() {
 
           <WorkshopCadence
             workshops={workshops}
+            accessByPhase={accessByPhase}
             onOpenWorkshop={handleOpenWorkshop}
             onCloseWorkshop={handleCloseWorkshop}
             onUpdateWorkshops={handleUpdateWorkshops}
