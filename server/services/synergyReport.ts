@@ -30,7 +30,7 @@
 // ============================================================================
 
 import { z } from 'zod';
-import { createStructuredResponse } from './openaiClient';
+import { createStructured, structuredProvider } from './structuredModel';
 import { analyseSynergies, type SynergyAnalysis, type SynergyMember } from '@shared/w3-synergies';
 
 const LineSchema = z.object({
@@ -156,19 +156,19 @@ export async function buildSynergyReport(members: SynergyMember[]): Promise<Syne
       generatedAt,
     };
   }
-  if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+  if (!structuredProvider()) {
     return { analysis, narrative: null, narrativeReason: 'a leitura automática não está configurada neste ambiente', generatedAt };
   }
 
   try {
     const raw = await Promise.race([
-      createStructuredResponse(
+      createStructured(
         {
           input: [
             { role: 'system', content: SYSTEM },
             { role: 'user', content: analysisForModel(analysis) },
           ],
-          config: { model: process.env.CBO_ADVISOR_MODEL || 'gpt-5.2', reasoningEffort: 'medium', maxCompletionTokens: 6000 },
+          config: { ...(process.env.CBO_ADVISOR_MODEL ? { model: process.env.CBO_ADVISOR_MODEL } : {}), reasoningEffort: 'medium', maxCompletionTokens: 6000 },
         },
         NarrativeSchema,
         'synergy_narrative',
