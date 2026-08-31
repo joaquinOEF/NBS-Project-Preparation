@@ -201,7 +201,7 @@ const W3_META: Record<W3State, { pt: string; en: string; cls: string }> = {
 function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; excluded?: number }) {
   const { t, i18n } = useTranslation();
   const isPt = i18n.language?.startsWith('pt');
-  const [state, setState] = useState<{ status: string; report: any; finishedAt?: string } | null>(null);
+  const [state, setState] = useState<{ status: string; report: any; finishedAt?: string; stale?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -310,8 +310,8 @@ function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; exc
               <p className="mt-3 flex items-center gap-2 text-[12.5px] text-white/85" data-testid="synergy-running">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 {isPt
-                  ? 'Lendo o registro de cada organização. Pode fechar esta página — o relatório fica salvo.'
-                  : "Reading every organisation's record. You can close this page — the report is saved."}
+                  ? `Lendo o registro de cada organização. Pode fechar esta página — o relatório fica salvo.${report ? ' O relatório anterior segue aberto ao lado.' : ''}`
+                  : `Reading every organisation's record. You can close this page — the report is saved.${report ? ' The previous report is still open beside this.' : ''}`}
               </p>
             )}
 
@@ -359,7 +359,9 @@ function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; exc
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-white/10 px-3.5 py-2 text-[13px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20"
             >
               <FileText className="h-3.5 w-3.5" />
-              {isPt ? 'Abrir relatório' : 'Open report'}
+              {state?.stale
+                ? (isPt ? 'Abrir relatório anterior' : 'Open previous report')
+                : (isPt ? 'Abrir relatório' : 'Open report')}
             </a>
           )}
           <button

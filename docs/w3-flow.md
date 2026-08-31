@@ -163,6 +163,8 @@ the comment at the top of the cost section for what and why.
 - `e2e/w3-questionnaire-cross-section.spec.ts` — the manifest rules across
   sections.
 - `docs/w3-test-kit/` — four hand-run scenarios, one per verdict state.
+- `scripts/w3-cohort-sim.ts` — four organisations end to end, then the
+  portfolio pass over what W3 actually wrote. No browser, no model, no DB.
 
 ## What six simulations found
 
@@ -187,6 +189,67 @@ shows you what you actually said.
 Two of these — the rule bypass and the stale reads — are the same shape, and it
 is the shape to watch for in this file: **a guard that only covers the path you
 were looking at**, and **a value read before the write that changes it**.
+
+## What a four-organisation cohort simulation found
+
+`scripts/w3-sim-run.ts` drives one organisation at a time and stops at its hoja
+de ruta. `scripts/w3-cohort-sim.ts` runs **four with deliberately different
+capacities and different paths** and then does what nothing had simulated: it
+takes the states W3 actually wrote and runs the portfolio pass over them,
+through the same pure mapping the coordinator's button uses.
+
+| org | capacity | path it takes |
+|---|---|---|
+| Rede Solidária Humaitá | already ran a financed project, prior SbN work | marks the footprint, takes **two** solutions |
+| Mães do Humaitá | first-timer, no funding history | same bairro, per-project solution, never asked a size |
+| Coletivo Morro Santa Teresa | mid, own land | slope, **hired contractor**, licenca solution |
+| Ação Cavalhada | thin | **no place marked**, same mechanism as Santa Teresa in another bairro |
+
+Four is the smallest cohort that can exercise all three grouping axes at once —
+territory (the two in Humaitá), mechanism (enxurrada across two bairros), and
+arrangement (public land held informally, which crosses both). A fifth org is a
+test organisation that must stay out of the analysis, and a sixth was invited
+and never answered.
+
+The join is the part that fails in silence. The analysis reads
+`intervention_type.chosen_solutions`, `intervention_site.role_preference`,
+`impact_monitoring.baseline_condition`; W3 writes them. Rename either side and
+nothing throws — the report just comes back thinner, and a coordinator reads
+"sem local marcado" about an organisation that marked one. The simulation prints
+what the analysis read from each org for exactly this reason.
+
+| | what broke |
+|---|---|
+| **An organisation pooled with itself.** | Pooling counted one entry per match rather than one per organisation, so an org carrying two solutions that need the same thing came out as `['a','a']` — printed as "Org A, Org A" and counted in the banner's one number that means money. It is reachable: the flow actively offers a second solution, and four slope solutions share a single requirement (`um responsável técnico com ART`). |
+| **A hired contractor was asked about a mutirão.** | *"Depois que o mutirão vai embora, quem cuida disso?"* — to the organisation that had answered "empresa contratada" one beat earlier. |
+| **The question text lives in two places, and the manifest wins.** | The obvious fix — editing the string in `cboE3Checkpoint.ts` — changes nothing, because `askEnum` resolves `ask.who_maintains` from the manifest first. The branch now lives in the manifest, where `variants` already existed for exactly this, with a load-time guard so a variant keyed on an id that does not exist fails at boot instead of silently never matching. |
+| **Nine of the 27 solutions are never asked any size at all.** | Not a break — a hole. `askArea` correctly skips the footprint for a solution priced per unit or per project, and then nothing asks the question that *does* apply. `budgetLineFor` even prints *"quantas vocês querem?"* and no beat collects the answer, so those organisations leave W3 with a price per cistern and no number of cisterns: no total, no scale, and nothing to put under "dimensões" in a concept note. Ricardo asked for exactly that on 31 August. |
+
+### And what a redeploy does to the synergy pass
+
+Three of these are about the report's lifecycle rather than its content, and all
+three were found by reading the route rather than running it.
+
+- **A `running` row never expired.** The pass caps at 45s but the process
+  holding it does not survive a republish — and a row left `running` disabled
+  the button *forever*, with a spinner and no way back. Anything older than ten
+  minutes is now recorded as interrupted.
+- **A run in flight hid the last good report.** `GET` returned the newest row,
+  whose payload is null while it runs, so pressing "Rodar de novo" during the
+  meeting made the current report unreachable until the new one landed — and
+  permanently if it failed. Status now comes from the newest run, the payload
+  from the newest *done* one, and the button says "Abrir relatório anterior"
+  when those differ.
+- **Nothing stopped two passes at once.** A double tap started two model calls
+  over the same records and left the loser running forever.
+
+### ⚠️ Push the schema before anyone opens the board
+
+`exclude_from_portfolio` is selected by every `db.select().from(cohortMembers)`
+— which includes the roster, and the member-by-slug lookups that resolve an
+organisation's own join link. Without `npm run db:push` the missing column does
+not degrade the synergy button; it 500s the entire coordinator surface and the
+orgs' entry points with it. Same shape as the `parse_status` error from #484.
 
 ## ⚠️ FOOTPRINT-ZOOM — what a recording caught that the tests did not
 

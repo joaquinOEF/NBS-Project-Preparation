@@ -654,9 +654,20 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     return askEnum(IMPACT, 'monitoring_capacity', 'Quem consegue medir?', 'Who can measure it?');
   };
 
-  // ── Beat 4 · after the mutirão goes home ──────────────────────────────────
+  // ── Beat 4 · after the work is done ───────────────────────────────────────
+  /**
+   * ⚠️ The question used to say "depois que o mutirão vai embora" to everyone,
+   * including the organisation that had just answered "empresa contratada" two
+   * beats earlier. There is no mutirão in that project.
+   *
+   * The branch is in the MANIFEST (`ask.who_maintains.variants`), not here —
+   * askEnum resolves the manifest's copy and it beats this string, so editing
+   * this one changes nothing. That is worth knowing before spending an
+   * afternoon on it, which is why the fallback below is the neutral wording
+   * rather than a second version of the branch.
+   */
   const askMaintains = (): true =>
-    askEnum(OPS, 'who_maintains', 'Depois que o mutirão vai embora, quem cuida disso no dia a dia?', 'After the mutirão goes home, who looks after this day to day?');
+    askEnum(OPS, 'who_maintains', 'Depois que a obra terminar, quem cuida disso no dia a dia?', 'Once the work is finished, who looks after this day to day?');
   const askFrequency = (): true =>
     askEnum(OPS, 'maintenance_frequency', 'Com que frequência isso precisa de cuidado?', 'How often does it need looking after?');
   /**
