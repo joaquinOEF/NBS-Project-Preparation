@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
+import { TestApi } from './helpers/testApi';
 import { analyseSynergies, type SynergyMember } from '../shared/w3-synergies';
 
 // COHORT SYNERGIES — the grouping pass behind the "mapear sinergias" button.
@@ -112,5 +114,66 @@ test.describe('the grouping is derived, and it groups on three axes', () => {
   test('a cohort this size still produces a readable common denominator', () => {
     expect(a.commonPt.length).toBeGreaterThan(0);
     expect(a.commonPt.join(' ')).toMatch(/organizações/);
+  });
+});
+
+// ⚠️ EXCLUSION-NEEDS-A-SWITCH. The column and the filter shipped without any
+// way to set the flag — no endpoint, no control, no rule — so Vila Flores's own
+// test organisation appeared in the report as a real member of the network. A
+// half-built guard is worse than none: it reads as handled.
+
+test.describe('keeping a test organisation out of the analysis', () => {
+  test.use({ locale: 'pt-BR' });
+
+  test('the flag can actually be set, and it changes the report', async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+
+    const cohort = (await api.createCohort(`Excl ${randomUUID().slice(0, 6)}`)).cohort;
+    await api.createCoordinator({
+      email: `excl-${randomUUID()}@e2e.test`, password: 'pw-123456', cohortId: cohort.id,
+    });
+    // The slug that guards the member routes belongs to the COHORT, not the
+    // coordinator — /api/cohort/:coordinatorSlug/member/…
+    const slug = cohort.coordinatorSlug;
+
+    const real = (await api.inviteMember(cohort.id, { orgName: 'Ksa Rosa', neighborhood: 'Floresta', withSession: true })).member;
+    const test_ = (await api.inviteMember(cohort.id, { orgName: 'Vila Flores', neighborhood: 'Floresta', withSession: true })).member;
+    for (const m of [real, test_]) {
+      await api.seedState(m.cboStateId, {
+        phase: 3, language: 'pt',
+        sections: [
+          { sectionId: 'intervention_site', field: 'bairro', value: 'Floresta' },
+          { sectionId: 'intervention_site', field: 'site_worry', value: 'alagamento' },
+        ],
+      });
+    }
+
+    // Both in: Floresta groups them together.
+    await page.request.post(`/api/cohort/${cohort.id}/synergies`);
+    await expect.poll(async () => {
+      const r = await (await page.request.get(`/api/cohort/${cohort.id}/synergies`)).json();
+      return r.status;
+    }, { timeout: 60_000 }).toBe('done');
+    const before = await (await page.request.get(`/api/cohort/${cohort.id}/synergies`)).json();
+    expect(before.report.analysis.members.map((m: any) => m.orgName)).toContain('Vila Flores');
+
+    // Flip the switch — the thing that did not exist.
+    const patch = await page.request.patch(`/api/cohort/${slug}/member/${test_.id}/portfolio`, {
+      data: { exclude: true },
+    });
+    expect(patch.ok()).toBe(true);
+
+    await page.request.post(`/api/cohort/${cohort.id}/synergies`);
+    await expect.poll(async () => {
+      const r = await (await page.request.get(`/api/cohort/${cohort.id}/synergies`)).json();
+      return r.report?.analysis?.members?.some((m: any) => m.orgName === 'Vila Flores') === false ? 'gone' : 'still';
+    }, { timeout: 60_000 }).toBe('gone');
+
+    // It leaves the ANALYSIS, never the roster — a coordinator who cannot see
+    // their own test org on the board is worse off, not better.
+    await page.goto('/orchestrator');
+    await expect(page.getByTestId(`card-orchestrator-project-${test_.id}`)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('synergy-excluded')).toContainText('fora desta análise');
   });
 });

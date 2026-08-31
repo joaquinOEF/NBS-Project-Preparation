@@ -1261,6 +1261,29 @@ export function registerCohortRoutes(app: Express): void {
     res.json({ ok: true, tier, orgName });
   }));
 
+  /**
+   * Keep a member out of the portfolio analysis — or put it back.
+   *
+   * ⚠️ The column and the filter shipped without this. Nothing could set the
+   * flag, so Vila Flores's own test organisation appeared in the synergy report
+   * as a real member of the network: a grouping built partly on an org that
+   * does not exist, presented to the room that would be validating it.
+   *
+   * Deliberately narrow. It hides the member from ANALYSIS and never from the
+   * roster — a coordinator who loses sight of their own test org on the board
+   * is worse off, not better.
+   */
+  app.patch('/api/cohort/:coordinatorSlug/member/:memberId/portfolio', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const exclude = req.body?.exclude;
+    if (typeof exclude !== 'boolean') { res.status(400).json({ error: 'exclude must be a boolean' }); return; }
+    await db.update(cohortMembers)
+      .set({ excludeFromPortfolio: exclude })
+      .where(eq(cohortMembers.id, member.id));
+    res.json({ ok: true, excludeFromPortfolio: exclude, orgName: member.orgName });
+  }));
+
   // Reset ONE organization's profile (field report 2026-07-08: the console
   // could only wipe the whole cohort at once). Deletes the member's working
   // session (state + transcript, DB and memory) and clears every run-derived
