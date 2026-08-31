@@ -502,6 +502,16 @@ can act on, and Portuguese agrees.
 organisation out of the **analysis** while leaving it on the roster — hiding it
 from the board would just lose track of it.
 
+⚠️⚠️ That column and its filter shipped with **nothing that could set the
+flag** — no endpoint, no control, no rule — so the test organisation still
+appeared in the report as a real member of the network, and the PR described the
+guard as working. A half-built guard is worse than none: it reads as handled.
+There is now a chip on the card (`Fora do portfólio` / `No portfólio`), a
+`PATCH …/member/:id/portfolio` behind it, and a line in the banner saying how
+many organisations are being left out — an excluded member must never be
+*silently* missing, because a report built on nine of ten with nothing saying so
+is the kind of thing someone discovers in the room.
+
 
 ## Full context, and the alignment rule
 

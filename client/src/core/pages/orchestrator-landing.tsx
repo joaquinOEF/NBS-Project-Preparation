@@ -22,7 +22,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, BookOpen, Check, Clock, Compass, Copy, Droplets, Eye, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
   Map as MapIcon, Mountain, Network, Paperclip, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Waves,
-  FileText, Loader2, Share2, Sparkles,
+  FileText, Loader2, Share2, Sparkles, EyeOff,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
@@ -135,6 +135,9 @@ type CboDemoProject = {
   /** Persisted org maturity tier (EF-5): set by the agent at E1 close,
    *  coordinator-overridable from the card. Null until E1 completes. */
   maturityTier: 'emerging' | 'developing' | 'advanced' | null;
+  /** Kept out of the portfolio synergy analysis — a test/demo member. Still on
+   *  the roster: hiding it from the board would just lose track of it. */
+  excludeFromPortfolio: boolean;
   /** E2 "usar o bairro todo": the org committed a neighborhood but deferred the
    *  exact site (coords are the bairro centroid). Drives an amber chip and is
    *  excluded from the sites-mapped KPI. */
@@ -195,7 +198,7 @@ const W3_META: Record<W3State, { pt: string; en: string; cls: string }> = {
  *  · It is HYPOTHESES. The panel says so before it says anything else. A
  *    cluster an organisation did not agree to falls apart in the room.
  */
-function SynergyPanel({ cohortId }: { cohortId: string | null }) {
+function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; excluded?: number }) {
   const { t, i18n } = useTranslation();
   const isPt = i18n.language?.startsWith('pt');
   const [state, setState] = useState<{ status: string; report: any; finishedAt?: string } | null>(null);
@@ -325,6 +328,17 @@ function SynergyPanel({ cohortId }: { cohortId: string | null }) {
                   </span>
                 )}
               </div>
+            )}
+
+            {/* An excluded member must never be silently missing. A report
+                built on nine of ten organisations, with nothing saying so, is
+                the kind of thing someone discovers in the room. */}
+            {excluded > 0 && (
+              <p className="mt-2 text-[11.5px] text-white/60" data-testid="synergy-excluded">
+                {isPt
+                  ? `${excluded === 1 ? '1 organização está' : `${excluded} organizações estão`} fora desta análise (marcadas no quadro abaixo).`
+                  : `${excluded === 1 ? '1 organisation is' : `${excluded} organisations are`} kept out of this analysis (marked on the board below).`}
+              </p>
             )}
 
             {state?.status === 'failed' && (
@@ -463,6 +477,7 @@ function memberToView(m: CohortMember): CboDemoProject {
     docPreview: (m as any).docPreview ?? { total: 0, imageIds: [], filenames: [], teiaSprint: false },
     maturityTier: ((m as any).maturityTier as 'emerging' | 'developing' | 'advanced' | null) ?? null,
     siteDeferred: site?.deferred === true,
+    excludeFromPortfolio: (m as any).excludeFromPortfolio === true,
   };
 }
 
@@ -900,6 +915,7 @@ function ProjectCard({
   onSetTier,
   onResetProfile,
   onRemove,
+  onTogglePortfolio,
 }: {
   project: CboDemoProject;
   locale: 'en' | 'pt';
@@ -910,6 +926,7 @@ function ProjectCard({
   onSetTier: (p: CboDemoProject, tier: 'emerging' | 'developing' | 'advanced') => void;
   onResetProfile: (p: CboDemoProject) => void;
   onRemove: (p: CboDemoProject) => void;
+  onTogglePortfolio: (p: CboDemoProject) => void;
 }) {
   const { t } = useTranslation();
   const hasIntervention = project.interventionKey !== null;
@@ -1151,6 +1168,29 @@ function ProjectCard({
               <RotateCcw className="w-3 h-3" strokeWidth={2} />
               {t('orchestrator.memberReset.chip', { defaultValue: 'Reset' })}
             </button>
+            {/* Keep this org out of the portfolio synergy analysis.
+                Reversible, and NOT destructive — it changes what the report
+                reads, never what the roster shows. A test organisation left in
+                produces a grouping built partly on an org that does not exist,
+                shown to the room that would be validating it. */}
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); onTogglePortfolio(project); }}
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                project.excludeFromPortfolio
+                  ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300'
+                  : 'border-foreground/15 text-foreground/70 hover:bg-muted/60'
+              }`}
+              title={t('orchestrator.portfolioExclude.tooltip', {
+                defaultValue: 'Keep this organization out of the synergy report (it stays on the board)',
+              })}
+              data-testid={`button-portfolio-exclude-${project.id}`}
+            >
+              {project.excludeFromPortfolio ? <EyeOff className="w-3 h-3" strokeWidth={2} /> : <Share2 className="w-3 h-3" strokeWidth={2} />}
+              {project.excludeFromPortfolio
+                ? t('orchestrator.portfolioExclude.on', { defaultValue: 'Fora do portfólio' })
+                : t('orchestrator.portfolioExclude.off', { defaultValue: 'No portfólio' })}
+            </button>
             {/* Remove the org from the cohort entirely (invite link dies).
                 Opens a confirm dialog — unlike Reset, the member is gone. */}
             <button
@@ -1354,6 +1394,36 @@ export default function OrchestratorLandingPage() {
     }
     await refresh();
   };
+  /**
+   * In or out of the portfolio analysis. Reversible, and never destructive —
+   * the member stays on the board either way.
+   */
+  const handleTogglePortfolio = async (p: CboDemoProject) => {
+    if (!cohort?.coordinatorSlug) return;
+    const exclude = !p.excludeFromPortfolio;
+    const r = await fetch(`/api/cohort/${cohort.coordinatorSlug}/member/${p.id}/portfolio`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exclude }),
+    });
+    if (!r.ok) {
+      toast({ title: t('orchestrator.portfolioExclude.failed', { defaultValue: 'Could not update that' }) });
+      return;
+    }
+    toast({
+      title: exclude
+        ? t('orchestrator.portfolioExclude.doneOut', {
+            defaultValue: '{{org}} fica fora do relatório de sinergias',
+            org: p.name[locale.startsWith('pt') ? 'pt' : 'en'],
+          })
+        : t('orchestrator.portfolioExclude.doneIn', {
+            defaultValue: '{{org}} volta para o relatório de sinergias',
+            org: p.name[locale.startsWith('pt') ? 'pt' : 'en'],
+          }),
+    });
+    await refresh();
+  };
+
   const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
 
   // Initialize the inbox badge from already-loaded members so it lights up
@@ -1837,7 +1907,7 @@ export default function OrchestratorLandingPage() {
           ))}
         </motion.div>
 
-        <SynergyPanel cohortId={cohort?.id ?? null} />
+        <SynergyPanel cohortId={cohort?.id ?? null} excluded={projects.filter(p => p.excludeFromPortfolio).length} />
 
         {/* ── The W3 portfolio ─────────────────────────────────────────────
             Four piles, worst-first, because each routes to a different person:
@@ -1993,6 +2063,7 @@ export default function OrchestratorLandingPage() {
                     onSetTier={handleSetTier}
                     onResetProfile={setMemberResetTarget}
                     onRemove={setMemberRemoveTarget}
+                    onTogglePortfolio={handleTogglePortfolio}
                   />
                   {member && (
                     <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
