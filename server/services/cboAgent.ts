@@ -1479,6 +1479,15 @@ const E2C: Record<string, { pt: string; en: string; desc?: { pt: string; en: str
 const normChip = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
+/** The territorial context a zone carries, when the map supplied it. */
+function zoneContextFields(z: { population?: number; povertyPct?: number; priority?: number }): Record<string, string> {
+  return {
+    ...(z.population != null ? { bairro_population: String(Math.round(z.population)) } : {}),
+    ...(z.povertyPct != null ? { bairro_poverty_pct: z.povertyPct.toFixed(1) } : {}),
+    ...(z.priority != null ? { bairro_priority: z.priority.toFixed(2) } : {}),
+  };
+}
+
 function writeE2Fields(cboId: string, state: CboState, fields: Record<string, string>, pushEvent: EventPusher, source = 'user') {
   const section = state.sections.intervention_site;
   if (!section) return;
@@ -2258,8 +2267,53 @@ async function serveE2Checkpoint(
   if (turnKind === 'map' || raw.startsWith('Map selection (')) {
     if (!raw.startsWith('Map selection (composite mode):')) return false;
     if (raw.includes('- [site] DEFERRED')) return false; // legacy "bairro todo" flow → model
-    const zones = Array.from(raw.matchAll(/^- \[zone\] (.+?): .*?flood: (\d+)%, heat: (\d+)%, landslide: (\d+)%/gm))
-      .map(m => ({ name: m[1].trim(), flood: +m[2], heat: +m[3], landslide: +m[4] }));
+    // ⚠️ The client sends far more than three percentiles on this line —
+    // population, poverty rate and priority score come with every zone — and
+    // the old single regex read the hazards and dropped the rest on the floor.
+    // Those three ARE the territorial context a funder asks for first, and the
+    // W2 site card already showed them to the organisation on screen. Same
+    // class of loss as the discarded footprint area.
+    //
+    // Matched in two steps rather than one long expression: a single pattern
+    // mixing greedy and lazy segments across six optional fields is how the
+    // next field to be added gets silently dropped too.
+    const zones = Array.from(raw.matchAll(/^- \[zone\] (.+?): (.*)$/gm)).map(m => {
+      const name = m[1].trim();
+      const rest = m[2];
+      // ⚠️ TWO number formats share this one line, and conflating them is how
+      // a neighbourhood ends up documented as 234% poor.
+      //
+      //   pop      → toLocaleString(), so locale separators: "59.707" in pt-BR,
+      //              "59,707" in en-US. Both mean 59707. Strip every separator.
+      //   poverty  → toFixed(1) — a plain decimal point, always. "23.4".
+      //   priority → toFixed(2) — likewise. "0.91".
+      //
+      // Stripping dots from the last two turned 23.4 into 234 and 0.91 into 91.
+      /** An integer written with locale thousands separators. */
+      const int = (re: RegExp) => {
+        const hit = re.exec(rest);
+        if (!hit) return undefined;
+        const v = Number(hit[1].replace(/[.,\s]/g, ''));
+        return Number.isFinite(v) ? v : undefined;
+      };
+      /** A plain decimal from toFixed — never separator-stripped. */
+      const dec = (re: RegExp) => {
+        const hit = re.exec(rest);
+        if (!hit) return undefined;
+        const v = Number(hit[1]);
+        return Number.isFinite(v) ? v : undefined;
+      };
+      return {
+        name,
+        // The hazard percentiles are integers written by String(Math.round(...)).
+        flood: dec(/flood: (\d+)%/) ?? 0,
+        heat: dec(/heat: (\d+)%/) ?? 0,
+        landslide: dec(/landslide: (\d+)%/) ?? 0,
+        population: int(/pop: ([\d.,]+)/),
+        povertyPct: dec(/poverty: ([\d.]+)%/),
+        priority: dec(/priority: ([\d.]+)/),
+      };
+    }).filter(z => /flood: /.test(raw));
     // The trailing "· 480 m²" is only present when they drew a polygon rather
     // than dropping a pin. Optional by construction: a pin has no footprint,
     // and W3 asks for one later rather than treating its absence as an error.
@@ -2280,6 +2334,7 @@ async function serveE2Checkpoint(
         _bairro_flood_pct: String(z.flood),
         _bairro_heat_pct: String(z.heat),
         _bairro_landslide_pct: String(z.landslide),
+        ...zoneContextFields(z),
       }, pushEvent);
       say(`✓ **${names}** confirmado.`, `✓ **${names}** confirmed.`);
       // E1's closing triage already answered this for two of the three paths:
@@ -2330,6 +2385,7 @@ async function serveE2Checkpoint(
       _bairro_flood_pct: String(z.flood),
       _bairro_heat_pct: String(z.heat),
       _bairro_landslide_pct: String(z.landslide),
+      ...zoneContextFields(z),
       site_name: s.name,
       _site_lat: String(s.lat),
       _site_lng: String(s.lng),
