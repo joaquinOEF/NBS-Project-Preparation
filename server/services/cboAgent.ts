@@ -66,6 +66,7 @@ import { parseNbsInventory } from "@shared/nbs-inventory";
 import { isImplementationNarration } from "./assistantNoise";
 import { checkCloseGate } from "./cboCloseGate";
 import { serveE3Checkpoint } from "./cboE3Checkpoint";
+import { serveStartNext } from "./cboNextEncontroGate";
 import { adviseW3 } from "./w3Advisor";
 
 /** Manifests whose rules govern this section (today: E1 ↔ org_profile). */
@@ -3362,6 +3363,37 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     } catch (err) {
       console.error(`[cbo] e1 confirm-commit failed for ${cboId} (continuing):`, err);
     }
+  }
+
+  // ── The way forward, before anything can walk them backwards ────────────
+  // An organisation that has finished its encontro and SAYS it wants the next
+  // one must never be handed back into the one it just finished. This runs
+  // above the per-phase checkpoints for exactly that reason: below it, a
+  // request to leave Encontro 2 is read by the Encontro 2 flow.
+  try {
+    const outcome = await serveStartNext(cboId, userMessage, state, {
+      lang: lang === 'en' ? 'en' : 'pt',
+      say: (pt, en) => pushEvent({ type: 'chat', content: lang === 'en' ? en : pt, role: 'assistant' } as any),
+      advanceTo: async (phase) => {
+        const r = await advanceCboPhase(cboId, phase);
+        if (r.ok) pushEvent({ type: 'phase_change', phase } as any);
+      },
+    });
+    if (outcome.kind === 'not-finished' || outcome.kind === 'not-open') {
+      pushEvent({ type: 'done', summary: `next-encontro (${outcome.kind})` } as any);
+      console.log(`[cbo] next-encontro gate for ${cboId}: ${outcome.kind} at phase ${outcome.phase}`);
+      res.end();
+      return;
+    }
+    if (outcome.kind === 'advanced') {
+      // Deliberately NOT ending the turn: the phase moved, so the encontro's
+      // own opener below serves it in the same breath. Anything else would
+      // make them ask twice.
+      state.phase = outcome.phase;
+      console.log(`[cbo] next-encontro gate for ${cboId}: advanced to phase ${outcome.phase}`);
+    }
+  } catch (err) {
+    console.error(`[cbo] next-encontro gate failed for ${cboId} — falling through:`, err);
   }
 
   // E2 linear-flow checkpoints \u2014 every stage boundary of the chat\u2192mapa\u2192chat
