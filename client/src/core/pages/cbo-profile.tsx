@@ -734,6 +734,8 @@ export default function CboProfilePage() {
   // Per-encontro preamble — once dismissed, the encontro's first session reveals
   // the chat. State is encontro number 1-6 OR null (no preamble showing).
   const [preambleEncontro, setPreambleEncontro] = useState<number | null>(null);
+  // One notice per session — the card is a state, not a way to page someone.
+  const [readySent, setReadySent] = useState(false);
 
   /**
    * The encontro this organisation should ENTER — which is not always the phase
@@ -1898,6 +1900,13 @@ export default function CboProfilePage() {
     // CBO doesn't see E1's preamble twice, but they DO see E2's the first
     // time they come back after the coordinator unlocked Workshop 2.
     const tryShowPreamble = () => {
+      // ⚠️ Never offer the door to an encontro that is already finished. With a
+      // later one open, `entryPhase` has already moved past it; with nothing
+      // open, this is the org that finished and has nowhere to go — and showing
+      // "Encontro 2 · Começar" to them reopens the encontro they just closed.
+      // Falling through to the chat puts them in front of the honest wait
+      // instead.
+      if (state && phaseComplete(state, entryPhase)) return false;
       const encontro = encontroForPhase(entryPhase);
       if (encontro == null) return false;
       const cfg = getEncontroPreambleConfig(encontro, lang as 'pt' | 'en', memberPath);
@@ -2555,7 +2564,54 @@ export default function CboProfilePage() {
               if (!phaseComplete(state, state.phase)) return null;
 
               const nextUnlockedPhase = unlockedPhases.find(p => p > state.phase);
-              if (nextUnlockedPhase == null) return null;
+              // ⚠️ Finished, and the next encontro is not open. This used to
+              // `return null` — so an organisation that had done everything
+              // asked of it saw NOTHING, and the only thing left to talk to was
+              // a chat that walks back into the encontro it just closed. An
+              // honest wait is a state; a blank screen is an accident.
+              if (nextUnlockedPhase == null) {
+                return (
+                  <div className="text-center py-4" data-testid="cbo-waiting-for-coordination">
+                    <div className="inline-flex flex-col items-center gap-2 p-4 rounded-lg border border-foreground/10 bg-muted/40 max-w-md">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                        {lang === 'pt' ? `✓ Encontro ${state.phase} concluído` : `✓ Encontro ${state.phase} complete`}
+                      </span>
+                      <p className="text-sm text-foreground/80 leading-snug">
+                        {lang === 'pt'
+                          ? `O Encontro ${state.phase + 1} ainda não foi aberto pela coordenação. Assim que abrir, ele aparece aqui.`
+                          : `Encontro ${state.phase + 1} has not been opened by the coordination yet. As soon as it is, it shows up here.`}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-1"
+                        disabled={readySent}
+                        onClick={async () => {
+                          if (!memberSlug) return;
+                          setReadySent(true);
+                          try {
+                            await fetch(`/api/cbo-member/${memberSlug}/support-request`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                type: 'coordinator-chat',
+                                message: lang === 'pt'
+                                  ? `Terminamos o Encontro ${state.phase} e estamos prontas para o ${state.phase + 1}.`
+                                  : `We finished Encontro ${state.phase} and are ready for ${state.phase + 1}.`,
+                              }),
+                            });
+                          } catch { /* the card still says what is true */ }
+                        }}
+                        data-testid="button-tell-coordination-ready"
+                      >
+                        {readySent
+                          ? (lang === 'pt' ? 'Avisamos a coordenação ✓' : 'Coordination notified ✓')
+                          : (lang === 'pt' ? 'Avisar que estamos prontas' : 'Tell them we are ready')}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              }
               const ws = workshops.find(w => w.unlocksPhase === nextUnlockedPhase);
               const wsName = ws
                 ? localizedWorkshopName(t, workshops, ws)

@@ -196,3 +196,56 @@ test.describe('saying it moves them on', () => {
     }
   });
 });
+
+// ⚠️ FINISHED, AND NOTHING ON SCREEN. An org that had done everything asked of
+// it, with the next encontro not yet open, saw NOTHING — the banner returned
+// null and the only thing left to talk to was a chat that walks back into the
+// encontro it just closed. An honest wait is a state; a blank screen is an
+// accident.
+
+test.describe('a finished org that must wait is told so', () => {
+  test.use({ locale: 'pt-BR' });
+
+  test('the card says where they are, and one tap tells the coordination', async ({ page, request }) => {
+    const api = new TestApi(request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model env (for seeding)');
+    const cohort = (await api.createCohort(`Wait ${randomUUID().slice(0, 6)}`)).cohort;
+    await api.createCoordinator({
+      email: `wait-${randomUUID()}@e2e.test`, password: 'pw-123456', cohortId: cohort.id,
+    });
+    const m = (await api.inviteMember(cohort.id, {
+      orgName: 'Prontas', neighborhood: 'Sarandi', withSession: true,
+    })).member;
+    // Encontro 2 done. Encontro 3 deliberately NOT opened.
+    await api.seedState(m.cboStateId, {
+      phase: 2, language: 'pt',
+      sections: [
+        { sectionId: 'intervention_site', field: 'bairro', value: 'Sarandi' },
+        { sectionId: 'intervention_site', field: '_site_lat', value: '-30.09' },
+        { sectionId: 'intervention_site', field: '_site_lng', value: '-51.17' },
+      ],
+    });
+
+    await page.goto(`/cbo-profile?t=${m.capabilityToken}`);
+    const enter = page.getByTestId('button-cbo-welcome-cta');
+    await expect(enter).toBeVisible({ timeout: 30_000 });
+    await enter.click();
+
+    const card = page.getByTestId('cbo-waiting-for-coordination');
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await expect(card).toContainText('Encontro 2 concluído');
+    await expect(card).toContainText('ainda não foi aberto');
+
+    await page.getByTestId('button-tell-coordination-ready').click();
+    await expect(page.getByTestId('button-tell-coordination-ready')).toContainText('Avisamos');
+
+    // And it lands where the coordination already looks, rather than in a place
+    // only this card knows about.
+    await expect.poll(async () => {
+      // `request`, not `page.request` — the coordinator cookie lives on the
+      // fixture context that created the coordinator.
+      const r = await (await request.get(`/api/cohort/${cohort.coordinatorSlug}/support-requests?status=pending`)).json();
+      return JSON.stringify(r).includes('prontas para o 3');
+    }, { timeout: 20_000 }).toBe(true);
+  });
+});
