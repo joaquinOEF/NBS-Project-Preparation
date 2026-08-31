@@ -98,6 +98,23 @@ test.describe('COUGAR — E3 paths', () => {
     await expect(
       page.getByText('pedir cotação', { exact: false }).last(),
     ).toBeVisible({ timeout: 15_000 });
+    // And straight into who builds it — the pair that turns "a bioswale" into
+    // something with a number and a crew.
+    await expect(chip('Mutirão')).toBeVisible({ timeout: 15_000 });
+    await chip('Mutirão').click();
+
+    // ⚠️ Bioswales are quoted per LINEAR metre, so even WITH a drawn area there
+    // is no volume for this yard — the flow states the rate, says what is
+    // missing, and does NOT ask them to react to it.
+    const inThread = (t: string) =>
+      page.getByTestId('cbo-chat-thread').getByText(t, { exact: false }).last();
+    await page.getByTestId('cbo-chat-input').fill('É onde a água desce.');
+    await page.getByTestId('cbo-chat-input').press('Enter');
+    await expect(inThread('como é o lugar hoje')).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId('cbo-chat-input').fill('Vala de terra batida.');
+    await page.getByTestId('cbo-chat-input').press('Enter');
+    await expect(inThread('comprimento')).toBeVisible({ timeout: 15_000 });
+    await expect(chip('Faz sentido')).toHaveCount(0);
 
     // ⚠️ FOOTPRINT-ZOOM. `> 0` is the assertion that let a four-orders-of-
     // magnitude bug ship: the draw session opened fitted to the whole bairro at
@@ -125,6 +142,8 @@ test.describe('COUGAR — E3 paths', () => {
     await chip('Biovaletas').click();
     await expect(chip('Ainda não sei o tamanho')).toBeVisible({ timeout: 10_000 });
     await chip('Ainda não sei o tamanho').click();
+    await expect(chip('Mutirão')).toBeVisible({ timeout: 10_000 });
+    await chip('Mutirão').click();
 
     const input = page.getByTestId('cbo-chat-input');
     await expect(page.getByText('Por que', { exact: false }).last()).toBeVisible({ timeout: 10_000 });
@@ -133,6 +152,12 @@ test.describe('COUGAR — E3 paths', () => {
     await expect(page.getByText('como é o lugar hoje', { exact: false }).last()).toBeVisible({ timeout: 10_000 });
     await input.fill('Cimento, sem sombra.');
     await input.press('Enter');
+    // Permeable paving is quoted as an infiltration RATE, so there is no litre
+    // headline to react to — the flow goes straight on rather than inventing one.
+    await expect(chip('6 meses')).toBeVisible({ timeout: 15_000 });
+    await chip('6 meses').click();
+    await expect(chip('A gente mesmo')).toBeVisible({ timeout: 10_000 });
+    await chip('A gente mesmo').click();
 
     // The land is theirs, so an agreement with the prefeitura is one nobody
     // could sign — it is absent from the chips, not offered and then refused.
@@ -174,6 +199,8 @@ test.describe('COUGAR — E3 paths', () => {
 
     // Hortas are priced per project, so the footprint question is skipped
     // rather than performed — asking for a drawing that buys nothing is theatre.
+    await expect(chip('Mutirão')).toBeVisible({ timeout: 15_000 });
+    await chip('Mutirão').click();
     await expect(page.getByText('Por que', { exact: false }).last()).toBeVisible({ timeout: 10_000 });
     const input = page.getByTestId('cbo-chat-input');
     await input.fill('A gente quer plantar onde hoje é entulho.');
@@ -181,6 +208,12 @@ test.describe('COUGAR — E3 paths', () => {
     await expect(page.getByText('como é o lugar hoje', { exact: false }).last()).toBeVisible({ timeout: 10_000 });
     await chip('Prefiro pular').click();
 
+    // Hortas have no quantified benefit in the repo, so no number is offered to
+    // react to — the flow says so and carries on to the timeframe.
+    await expect(chip('6 meses')).toBeVisible({ timeout: 15_000 });
+    await chip('6 meses').click();
+    await expect(chip('Ninguém ainda')).toBeVisible({ timeout: 10_000 });
+    await chip('Ninguém ainda').click();
     await expect(page.getByText('quem cuida disso no dia a dia', { exact: false }).last()).toBeVisible({ timeout: 10_000 });
     await chip('Voluntários da comunidade').click();
     await expect(chip('Todo mês')).toBeVisible({ timeout: 10_000 });
@@ -192,10 +225,10 @@ test.describe('COUGAR — E3 paths', () => {
 
     // The dossier is short, and honest about why: it does not manufacture a
     // scoped project over a place nobody has chosen.
-    const dossier = page.getByTestId('cbo-dossier');
-    await expect(dossier).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId('dossier-verdict-needs_site')).toBeVisible();
-    await expect(dossier.getByText('Marcar um lugar no mapa', { exact: false })).toBeVisible();
-    await expect(dossier.getByTestId('dossier-gaps')).toBeVisible();
+    const roadmap = page.getByTestId('cbo-roadmap');
+    await expect(roadmap).toBeVisible({ timeout: 15_000 });
+    await expect(roadmap).toContainText('falta marcar o lugar');
+    await expect(roadmap.getByText('Marcar um lugar no mapa', { exact: false })).toBeVisible();
+    await expect(roadmap.getByTestId('roadmap-open')).toBeVisible();
   });
 });

@@ -3103,6 +3103,10 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'familia_reco', items: (event as any).items, intro: (event as any).intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_solution_options') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'solution_options', items: (event as any).items, full: (event as any).full }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_roadmap') {
+      // The roadmap IS the workshop's product — an org that reloads must still
+      // find the route it left with, not an empty transcript.
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'roadmap', roadmap: (event as any).roadmap }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_dossier') {
       // The dossier is the whole point of E3 — an org that reloads the page
       // after the session must still find the project it left with, not an

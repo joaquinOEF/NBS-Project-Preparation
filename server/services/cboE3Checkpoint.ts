@@ -30,8 +30,11 @@
 
 import type { CboState } from '@shared/cbo-schema';
 import { buildDossier, portfolioState, type W3Input } from '@shared/w3-dossier';
+import { buildRoadmap } from '@shared/w3-roadmap';
 import { topShortlist } from '@shared/w3-solutions';
 import { budgetLineFor, roundAreaM2 } from '@shared/w3-sizing';
+import { benefitFor } from '@shared/w3-benefits';
+import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
 import { getSolution } from '@shared/nbs-catalog';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { E3_QUESTIONNAIRE, allowedOptionIds, checkOptionRule, askCopyFor, sectionsFieldReader } from '@shared/cbo-questionnaire';
@@ -69,6 +72,12 @@ const E3C = {
   seguirSemLugar: { pt: 'Seguir sem o lugar', en: 'Carry on without it' },
   outraSolucao: { pt: 'Levar mais uma solução', en: 'Take one more solution' },
   soEssa: { pt: 'Só essa por enquanto', en: 'Just this one for now' },
+  // The impact beat's answers. Nobody is asked to produce a number — we state
+  // the range and they react to it, which is the only part of it they are
+  // actually the authority on.
+  fazSentido: { pt: 'Faz sentido', en: 'That makes sense' },
+  pareceMuito: { pt: 'Parece muito', en: 'Sounds like a lot' },
+  parecePouco: { pt: 'Parece pouco', en: 'Sounds like little' },
 } as const;
 
 /**
@@ -344,7 +353,7 @@ export async function serveE3Checkpoint(
         `On size: ${line.noteEn}`,
       );
       deps.writeFields(SITE, { _area_asked: 'not-applicable' });
-      return askJustification();
+      return askConstruction();
     }
     if (areaM2 > 0) {
       say(
@@ -406,6 +415,26 @@ export async function serveE3Checkpoint(
     return finish('open-footprint-map');
   };
 
+  /**
+   * Who builds it. Asked immediately after the size, because the two together
+   * are what turn "a rain garden" into something with a number and a crew —
+   * and because mutirão versus empresa contratada moves the cost more than any
+   * other single answer in the workshop.
+   *
+   * The scale band is NOT asked: it falls out of the area they drew. Asking an
+   * organisation to classify its own project as pequeno/médio/grande after it
+   * has just traced the outline is asking it to do arithmetic we already did.
+   */
+  const askConstruction = (): true => {
+    const a = liveArea();
+    if (a > 0) {
+      deps.writeFields(TYPE, {
+        intervention_scale_band: a < 100 ? 'pequeno' : a < 1000 ? 'medio' : 'grande',
+      });
+    }
+    return askEnum(TYPE, 'construction_model', 'E quem constrói isso?', 'And who builds it?');
+  };
+
   // ── Beat 3 · why here, and what it is like now ────────────────────────────
   const askJustification = (): true => {
     deps.writeFields(TYPE, { _why_pending: 'yes' });
@@ -434,6 +463,87 @@ export async function serveE3Checkpoint(
       { pt: E3C.pular.pt, en: E3C.pular.en, dPt: 'Fica como pendência', dEn: 'Recorded as still open' },
     ]);
     return finish('ask-baseline');
+  };
+
+  /**
+   * Beat 3c · what we expect it to do.
+   *
+   * The one beat where the platform brings the number and the organisation
+   * brings the judgement. Asking "quantos litros vocês esperam segurar?" would
+   * get a blank or a guess, and a guess we store becomes data. So we state a
+   * sourced range over the footprint they drew, say plainly that it is a design
+   * estimate and not a measurement, and capture what they make of it.
+   *
+   * "Parece pouco" from an organisation that lived through 2024 is not a
+   * complaint to be smoothed over — it is the most accurate thing anyone says
+   * all session, and it is why the scale honesty note is attached to exactly
+   * that answer.
+   */
+  const askImpact = (): true => {
+    const id = liveSolutions()[0];
+    const line = id ? benefitFor(id, liveArea() || undefined) : null;
+    if (!line) return askTimeframe();
+
+    const conf = { alta: 'confiança alta', 'média': 'confiança média', baixa: 'confiança baixa' } as const;
+    const confEn = { alta: 'high confidence', 'média': 'medium confidence', baixa: 'low confidence' } as const;
+
+    if (line.headlinePt && line.siteSpecific) {
+      say(
+        `Uma coisa que a gente pode trazer pra vocês: **${line.headlinePt}**
+
+${line.claimPt}
+
+_Isso é estimativa de projeto, não medição — ${line.sourcePt}, ${conf[line.confidence]}. Serve pra pedir, não pra prometer._`,
+        `Something we can bring you: **${line.headlineEn}**
+
+${line.claimEn}
+
+_This is a design estimate, not a measurement — ${line.sourceEn}, ${confEn[line.confidence]}. It is for asking with, not for promising._`,
+      );
+      if (line.notaPt) say(`_${line.notaPt}_`, `_${line.notaEn ?? line.notaPt}_`);
+      line.extrasPt.forEach((e, i) => say(`· ${e}`, `· ${line.extrasEn[i] ?? e}`));
+      ask('O que vocês acham desse número?', 'What do you make of that number?', [
+        { pt: E3C.fazSentido.pt, en: E3C.fazSentido.en },
+        { pt: E3C.pareceMuito.pt, en: E3C.pareceMuito.en, dPt: 'Fica registrado', dEn: 'Noted on the record' },
+        { pt: E3C.parecePouco.pt, en: E3C.parecePouco.en, dPt: 'Fica registrado', dEn: 'Noted on the record' },
+      ]);
+      deps.writeFields(IMPACT, { expected_impact: line.headlinePt });
+      return finish('ask-impact');
+    }
+
+    // Either no number exists for this solution, or the one that exists is a
+    // property of the technique rather than of their site. State it and move on
+    // — asking them to react to a figure they have no standing to judge, and we
+    // have no way to act on, is a question for the sake of a question.
+    if (line.headlinePt) {
+      say(
+        `${line.claimPt}\n\n**${line.headlinePt}**${line.notaPt ? `\n\n_${line.notaPt}_` : ''}`,
+        `${line.claimEn}\n\n**${line.headlineEn}**${line.notaEn ? `\n\n_${line.notaEn}_` : ''}`,
+      );
+      deps.writeFields(IMPACT, { expected_impact: line.headlinePt });
+      return askTimeframe();
+    }
+    say(
+      `${line.claimPt}
+
+_Pra essa solução a gente ainda não tem um número de referência — o que a ficha diz é o que está acima. Isso também vira pendência: é uma medição que vale procurar._`,
+      `${line.claimEn}
+
+_For this one we do not yet have a reference figure — what the ficha says is above. That is a gap too: a measurement worth going after._`,
+    );
+    deps.writeFields(IMPACT, { expected_impact: line.claimPt });
+    return askTimeframe();
+  };
+
+  const askTimeframe = (): true =>
+    askEnum(IMPACT, 'project_timeframe', 'Em quanto tempo vocês imaginam fazer isso?', 'Over what time do you imagine doing this?');
+
+  const askMonitoring = (): true => {
+    say(
+      'E depois de pronto — quem consegue acompanhar se funcionou? **"Ninguém ainda" é uma resposta**: vira um pedido de parceiro pra coordenação, não um problema de vocês.',
+      'And once it is built — who can keep track of whether it worked? **"Nobody yet" is an answer**: it becomes a request for a partner, not a problem of yours.',
+    );
+    return askEnum(IMPACT, 'monitoring_capacity', 'Quem consegue medir?', 'Who can measure it?');
   };
 
   // ── Beat 4 · after the mutirão goes home ──────────────────────────────────
@@ -482,7 +592,10 @@ export async function serveE3Checkpoint(
       project_verdict: state4,
       project_capacity_grade: dossier.capacity.grade,
     });
-    pushEvent({ type: 'show_dossier', dossier } as any);
+    // The hoja de ruta, not just the dossier. Same data, assembled as a route
+    // they can follow and argue with — see shared/w3-roadmap.ts for why every
+    // block carries where it came from and what would change it.
+    pushEvent({ type: 'show_roadmap', roadmap: buildRoadmap(input, isPt ? 'pt' : 'en') } as any);
 
     const nome = String((state.sections as any).org_profile?.fields?.contact_name?.value || '')
       .trim().split(/\s+/)[0];
@@ -537,7 +650,7 @@ export async function serveE3Checkpoint(
       ...(isSkip(raw) ? {} : { baseline_condition: raw.slice(0, 4000) }),
     });
     if (!isSkip(raw)) say('Guardado como linha de base.', 'Stored as the baseline.');
-    return askMaintains();
+    return askImpact();
   }
 
   // ══ The very first turn of the workshop ══════════════════════════════════
@@ -592,7 +705,7 @@ export async function serveE3Checkpoint(
       `**${drawn} m²** ✓${line ? `\n\n${line.notePt}` : ''}`,
       `**${drawn} m²** ✓${line ? `\n\n${line.noteEn}` : ''}`,
     );
-    return askJustification();
+    return askConstruction();
   }
 
   // ══ Chip taps ════════════════════════════════════════════════════════════
@@ -631,6 +744,31 @@ export async function serveE3Checkpoint(
     if (hit && !chosen.includes(hit.solution.id)) return await confirmSolution(hit.solution.id);
   }
 
+  // The impact reaction. Stored as their words, and "parece pouco" gets the
+  // scale honesty note attached — NBS absorb ~0.03% of a 2024-scale event but
+  // ~11.5% of a microbasin flood, and an organisation that lived through the
+  // first deserves to hear the difference rather than be reassured.
+  for (const [c, id] of [
+    [E3C.fazSentido, 'faz-sentido'],
+    [E3C.pareceMuito, 'parece-muito'],
+    [E3C.parecePouco, 'parece-pouco'],
+  ] as Array<[{ pt: string; en: string }, string]>) {
+    if (!is(c)) continue;
+    deps.writeFields(IMPACT, { expected_impact_reaction: id });
+    if (id === 'parece-pouco') {
+      say(
+        `Anotado — e vocês têm razão em desconfiar.\n\n${NBS_SCALE_HONESTY.framing.pt}`,
+        `Noted — and you are right to be sceptical.\n\n${NBS_SCALE_HONESTY.framing.en}`,
+      );
+    } else if (id === 'parece-muito') {
+      say(
+        'Anotado. Fica registrado como número a conferir com um técnico antes de virar promessa.',
+        'Noted. Recorded as a figure to check with a technician before it becomes a promise.',
+      );
+    }
+    return askTimeframe();
+  }
+
   if (is(E3C.outraSolucao)) {
     deps.writeFields(TYPE, { _adding_solution: 'yes' });
     return askSolution();
@@ -649,7 +787,7 @@ export async function serveE3Checkpoint(
     }
     return openFootprintMap();
   }
-  if (is(E3C.areaConfere)) return askJustification();
+  if (is(E3C.areaConfere)) return askConstruction();
   if (is(E3C.naoSeiTamanho)) {
     // Not a failure. The dossier reports it as a named gap with the rate
     // attached, which is the actionable form of "we don't know".
@@ -658,11 +796,14 @@ export async function serveE3Checkpoint(
       'Sem problema — fica registrado que falta medir, e a ficha já tem o preço por m² pra quando vocês souberem.',
       "No problem — it is recorded that the measurement is still missing, and the ficha already has the per-m² price for when you know.",
     );
-    return askJustification();
+    return askConstruction();
   }
 
   // Enum answers, resolved back to their catalog ids.
   for (const [sectionId, field, next] of [
+    [TYPE, 'construction_model', askJustification],
+    [IMPACT, 'project_timeframe', askMonitoring],
+    [IMPACT, 'monitoring_capacity', askMaintains],
     [OPS, 'who_maintains', askFrequency],
     [OPS, 'maintenance_frequency', askSustainability],
     // A second solution is offered once, after the first is fully scoped —

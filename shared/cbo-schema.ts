@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Dossier as W3Dossier } from './w3-dossier';
+import type { Roadmap as W3Roadmap } from './w3-roadmap';
 import type { OpenMapParams } from './concept-note-schema';
 
 // ============================================================================
@@ -373,6 +374,7 @@ export type CboEvent =
   // path; see shared/w3-solutions.ts and shared/w3-dossier.ts.
   | { type: 'show_solution_options'; items: Array<{ solutionId: string; reason: string; caveat?: string }>; full?: boolean }
   | { type: 'show_dossier'; dossier: W3Dossier }
+  | { type: 'show_roadmap'; roadmap: W3Roadmap }
   | { type: 'ask_priority_rank'; prompt: string; minRanked: number }
   | { type: 'ask_community_anchoring'; prompt: string }
   | { type: 'done'; summary: string }

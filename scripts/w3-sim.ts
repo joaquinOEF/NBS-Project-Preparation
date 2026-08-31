@@ -36,6 +36,7 @@ async function run(name: string, state: any, turns: Turn[], lang = 'pt') {
     else if (e.type === 'ask_user') log.push(`   ❓ ${e.question}\n      ${e.options.map((o: any) => `[${o.label}]${o.description ? ' — ' + o.description : ''}`).join('\n      ')}`);
     else if (e.type === 'show_solution_options') log.push(`   📋 solution options (${e.items.length}${e.full ? ', FULL' : ''}):\n${e.items.slice(0, 5).map((i: any) => `      • ${i.solutionId}: ${i.reason}${i.caveat ? '\n        ⚠ ' + i.caveat : ''}`).join('\n')}`);
     else if (e.type === 'show_dossier') log.push('   📄 DOSSIER');
+    else if (e.type === 'show_roadmap') log.push('   🗺  HOJA DE RUTA');
     else if (e.type === 'open_map') log.push(`   🗺  open_map preset=e3_footprint drawFootprint=${JSON.stringify(e.params.drawFootprint)}`);
     else if (e.type === 'done') { /* quiet */ }
     else if (e.type !== 'field_update') log.push(`   ⚙ ${e.type}`);
@@ -48,6 +49,24 @@ async function run(name: string, state: any, turns: Turn[], lang = 'pt') {
     const served = await serveE3Checkpoint('sim', t.msg, state, push, lang, t.kind ?? 'text', deps as any);
     if (!served) console.log('   ⚠️  NOT SERVED — falls through to the model');
     console.log(log.join('\n'));
+  }
+  const roadmap = events.filter(e => e.type === 'show_roadmap').pop()?.roadmap;
+  if (roadmap) {
+    console.log(`\n   ══ RASCUNHO — HOJA DE RUTA ═════════════════════════════════`);
+    console.log(`   ${roadmap.orgName} · ${roadmap.siteName || roadmap.bairro} · ${roadmap.solutions.join(' + ')} · [${roadmap.state}]`);
+    for (const [name, blocks] of [['PÁGINA 1', roadmap.what], ['PÁGINA 2', roadmap.how]] as any[]) {
+      console.log(`\n   ── ${name} ──`);
+      for (const b of blocks) {
+        console.log(`   ▸ ${b.title}${b.open ? '  [em aberto]' : ''}`);
+        for (const l of b.lines) console.log(`       ${l}`);
+        if (b.from) console.log(`       ← ${b.from}`);
+        if (b.changedBy) console.log(`       ↻ ${b.changedBy}`);
+      }
+    }
+    console.log(`\n   ── O CAMINHO (${roadmap.steps.length} passos) ──`);
+    for (const st of roadmap.steps) console.log(`   ${String(st.n).padStart(2)}. (${st.owner}) ${st.title}${st.blockedBy ? `\n       ⤷ depende de: ${st.blockedBy}` : ''}`);
+    if (roadmap.open.length) { console.log(`\n   ── EM ABERTO ──`); for (const g of roadmap.open) console.log(`   ! ${g}`); }
+    return { state, roadmap, events };
   }
   const dossier = events.filter(e => e.type === 'show_dossier').pop()?.dossier;
   if (dossier) {
