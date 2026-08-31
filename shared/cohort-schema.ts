@@ -5,7 +5,7 @@
 // foundation-block-plan.md for the full design.
 
 import { sql } from 'drizzle-orm';
-import { pgTable, text, varchar, jsonb, timestamp, integer } from 'drizzle-orm/pg-core';
+import { pgTable, text, varchar, jsonb, timestamp, integer, boolean } from 'drizzle-orm/pg-core';
 
 export type WorkshopConfig = {
   name: string;       // "Workshop 1"
@@ -96,6 +96,18 @@ export const cohortMembers = pgTable('cohort_members', {
   orgName: text('org_name').notNull(),
   neighborhood: text('neighborhood'),
   role: text('role').$type<'priority' | 'alternate'>().default('priority'),
+  // ⚠️ NEW COLUMN — needs `npm run db:push`.
+  //
+  // Keep this member out of the portfolio synergy analysis. Vila Flores has a
+  // test organisation on the platform for their own walkthroughs, and it would
+  // otherwise appear in the report as a real member of the network — inventing
+  // a synergy with an organisation that does not exist (JVP/Ricardo, 31 Aug:
+  // "filtramos la de Vilaflores entonces, para que no aparezca ahí").
+  //
+  // Deliberately narrower than a general "demo" flag: it hides the member from
+  // ANALYSIS, never from the roster. A coordinator must still see the test org
+  // on their own board, or they lose track of it.
+  excludeFromPortfolio: boolean('exclude_from_portfolio').default(false),
   origin: text('origin').$type<'cohort' | 'external'>().default('cohort'),
   // Project-readiness triage captured at E1. Three self-reported buckets that
   // double as a maturity signal:
@@ -179,3 +191,31 @@ export const DEFAULT_WORKSHOPS: WorkshopConfig[] = [
     expectedOutput: 'An exported project concept note (PDF or markdown) ready to share. A clear next-step plan: which funders to approach, which permissions to seek, which technical partners to bring in.',
   },
 ];
+
+
+// ============================================================================
+// SYNERGY REPORTS — persisted, because a coordinator must find it again
+// ============================================================================
+// The pass reads every organisation's record and costs a model call, so it is
+// not something to re-run because a page reloaded. It is also the input to an
+// in-person meeting: the coordination opens it on the day, and Replit recycles
+// its process whenever it feels like it.
+//
+// So the report is a row, not a response. The last completed one opens
+// instantly; a new run is an explicit act with a visible status.
+export const synergyReports = pgTable('synergy_reports', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  cohortId: varchar('cohort_id').notNull(),
+  /** 'running' while the pass is in flight — the UI polls this. */
+  status: text('status').$type<'running' | 'done' | 'failed'>().notNull().default('running'),
+  /** The whole SynergyReport, once it lands. */
+  payload: jsonb('payload'),
+  /** Why it failed, in words a coordinator can act on. */
+  error: text('error'),
+  /** Who pressed the button. */
+  requestedBy: varchar('requested_by'),
+  startedAt: timestamp('started_at').defaultNow(),
+  finishedAt: timestamp('finished_at'),
+});
+
+export type SynergyReportRow = typeof synergyReports.$inferSelect;
