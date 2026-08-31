@@ -590,9 +590,12 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
   // organisation cannot produce on its own and the thing every funder asks for
   // first.
   const areaM2 = input.areaM2 ?? (Number(site.site_area_m2) || undefined);
+  // How many of them, for a solution counted rather than measured. Same role
+  // the footprint plays for a per-m² price: without it there is no total.
+  const units = Number(input.w3?.intervention_units) || undefined;
   const budget: BudgetLine[] = [];
   for (const id of solutions) {
-    const line = budgetLineFor(id, areaM2);
+    const line = budgetLineFor(id, areaM2, units);
     if (!line) continue;
     // The budget rides in `budget[]` only. Adding the identical sentence as a
     // `document` item printed every price twice on the card — once under
@@ -605,6 +608,15 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
         pt
           ? `${id.replace(/-/g, ' ')} tem preço por m² na ficha, mas ninguém desenhou a área — sem isso não sai um total`
           : `${id.replace(/-/g, ' ')} has a per-m² price in its ficha, but no footprint was drawn — without one there is no total`,
+      );
+    }
+    // The same sentence for a solution counted per unit: the ficha has a price
+    // per cistern and nobody said how many cisterns.
+    if ((line.basis === 'unit' || line.basis === 'project') && !line.units) {
+      gaps.push(
+        pt
+          ? `${id.replace(/-/g, ' ')} se conta por unidade, e ainda não sabemos quantas — sem isso não sai um total`
+          : `${id.replace(/-/g, ' ')} is counted per unit, and how many is still unknown — without it there is no total`,
       );
     }
     if (line.basis === 'none') {

@@ -31,6 +31,7 @@ import {
   type VerdictState,
 } from '@shared/w3-dossier';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
+import { synergyFactsFrom, type SynergyFacts } from '@shared/w3-synergies';
 import { buildSynergyReport } from '../services/synergyReport';
 import { synergyReports } from '@shared/cohort-schema';
 import { renderSynergyHtml } from '../services/synergyPrint';
@@ -267,83 +268,6 @@ const EMPTY_W3: MemberW3Signal = {
   solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0,
 };
 
-/**
- * The raw facts the portfolio analysis groups on — deliberately separate from
- * the roster signals, which are shaped for a card rather than for reasoning.
- */
-export type SynergyFacts = {
-  ownWords: { story: string | null; whyHere: string | null; baseline: string | null };
-  correctionsPt: string | null;
-  siteName: string | null;
-  hasSite: boolean;
-  tenure: string | null;
-  currentUse: string | null;
-  familias: string[];
-  solutions: string[];
-  roles: string[];
-  priorCollaborationDetail: string | null;
-  nbsExperience: string | null;
-  fundingScale: string | null;
-  biggestBudget: string | null;
-  studyNeeds: string[];
-  bodies: string[];
-};
-
-function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
-  const f = (id: string, k: string) =>
-    String(((sections as any)?.[id]?.fields ?? {})[k]?.value ?? '').trim();
-  const list = (v: string) => v.split(',').map(x => x.trim()).filter(Boolean);
-  const solutions = list(f('intervention_type', 'chosen_solutions'));
-
-  // The pooling opportunities: what each chosen solution needs before it can be
-  // designed, and who has to approve it. Both come from the fichas, so five
-  // organisations needing the same study is a fact rather than an impression.
-  const studyNeeds: string[] = [];
-  const bodies: string[] = [];
-  for (const id of solutions) {
-    const req = studyRequirement(id);
-    if (req) studyNeeds.push(req.pt);
-    const ficha = getSolutionFicha(id);
-    if (!ficha) continue;
-    for (const [re, body] of [[/SMAMUS/i, 'SMAMUS'], [/DMAE/i, 'DMAE'], [/EPTC/i, 'EPTC'], [/Defesa Civil/i, 'Defesa Civil']] as [RegExp, string][]) {
-      if (re.test(ficha.pt.quemPrecisaDizerSim) && !bodies.includes(body)) bodies.push(body);
-    }
-  }
-
-  // What they said, not what we filed it under.
-  const hazardChecks = (() => {
-    try {
-      const j = JSON.parse(f('intervention_site', '_hazard_check_json') || '{}');
-      const disagreed = Object.entries(j)
-        .filter(([, v]) => /pior|worse|melhor|better/i.test(String(v)))
-        .map(([k, v]) => `${k}: ${v}`);
-      return disagreed.length ? disagreed.join('; ') : null;
-    } catch { return null; }
-  })();
-
-  return {
-    ownWords: {
-      story: f('intervention_site', 'site_story') || null,
-      whyHere: f('intervention_type', 'justification_why_here') || null,
-      baseline: f('impact_monitoring', 'baseline_condition') || null,
-    },
-    correctionsPt: hazardChecks,
-    siteName: f('intervention_site', 'site_name') || null,
-    hasSite: !!f('intervention_site', '_site_lat') || !!f('intervention_site', 'site_lat'),
-    tenure: f('intervention_site', 'land_tenure') || null,
-    currentUse: f('intervention_site', 'current_use') || null,
-    familias: list(f('intervention_site', 'nbs_interest')),
-    solutions,
-    roles: list(f('intervention_site', 'role_preference')),
-    priorCollaborationDetail: f('intervention_site', 'prior_collaboration_detail') || null,
-    nbsExperience: f('org_profile', 'nbs_experience') || null,
-    fundingScale: f('org_profile', 'prior_project_scale') || f('org_profile', 'funding_history') || null,
-    biggestBudget: f('org_profile', 'biggest_project_budget') || null,
-    studyNeeds,
-    bodies,
-  };
-}
-
 /** The dossier, computed from a member's live state — the same pure function the
  *  org's own closing card renders, so the two can never disagree. */
 function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
@@ -462,6 +386,34 @@ async function attachOrgTiers<T extends { orgId: string | null }>(
   return members.map(m => ({ ...m, maturityTier: (m.orgId && byOrg.get(m.orgId)) || null }));
 }
 
+/**
+ * A synergy pass that outlives the process that started it is a stuck button.
+ * Ten minutes is far longer than the pass can legitimately take (the model call
+ * itself is capped at 45s) and short enough that a coordinator who republished
+ * mid-meeting can just press the button again.
+ */
+const STALE_RUN_MS = 10 * 60 * 1000;
+
+/** The newest run for a cohort, with an abandoned one recorded as interrupted. */
+async function reapStaleRun(cohortId: string) {
+  const [row] = await db
+    .select()
+    .from(synergyReports)
+    .where(eq(synergyReports.cohortId, cohortId))
+    .orderBy(desc(synergyReports.startedAt))
+    .limit(1);
+  if (!row) return null;
+  const startedAt = row.startedAt ? new Date(row.startedAt).getTime() : 0;
+  if (row.status !== 'running' || Date.now() - startedAt < STALE_RUN_MS) return row;
+  const error = 'a análise foi interrompida antes de terminar — pode rodar de novo';
+  await db.update(synergyReports)
+    .set({ status: 'failed', error, finishedAt: new Date() })
+    .where(eq(synergyReports.id, row.id))
+    .catch(() => {});
+  console.warn(`[synergy] ${cohortId}: run ${row.id} abandoned after ${Math.round((Date.now() - startedAt) / 1000)}s — marked failed`);
+  return { ...row, status: 'failed' as const, error };
+}
+
 export function registerCohortRoutes(app: Express): void {
   // Phase 3c-ii — gate the entire coordinator surface behind a coordinator
   // session. Every /api/cohort/* route is coordinator-facing (the CBO-facing
@@ -501,22 +453,43 @@ export function registerCohortRoutes(app: Express): void {
    * pressing it is an intentional act — and because a re-run after three more
    * sessions should give a different answer, which is the entire point.
    */
-  /** The last completed report, opened instantly. Survives a redeploy. */
+  /**
+   * The last completed report, opened instantly. Survives a redeploy.
+   *
+   * Two rules learned from reading what a redeploy does to this row:
+   *
+   * ⚠️ A `running` row is only believable for so long. The pass itself caps at
+   * 45s, but the process holding it does not survive a republish — and a row
+   * left `running` forever disables the button forever, with a spinner and no
+   * way back. Anything older than STALE_RUN_MS is recorded as interrupted, so
+   * the coordinator gets a button instead of a permanent animation.
+   *
+   * ⚠️ A run in flight must never hide the last good report. Returning only the
+   * newest row meant that pressing "Rodar de novo" during the meeting made the
+   * current report unreachable until the new one landed — and permanently if it
+   * failed. Status comes from the newest run; the payload comes from the newest
+   * DONE one.
+   */
   app.get('/api/cohort/:cohortId/synergies', wrap(async (req, res) => {
-    const [row] = await db
-      .select()
-      .from(synergyReports)
-      .where(eq(synergyReports.cohortId, req.params.cohortId))
-      .orderBy(desc(synergyReports.startedAt))
-      .limit(1);
-    if (!row) return res.json({ report: null });
+    const latest = await reapStaleRun(req.params.cohortId);
+    if (!latest) return res.json({ report: null });
+    const done = latest.status === 'done'
+      ? latest
+      : (await db
+          .select()
+          .from(synergyReports)
+          .where(and(eq(synergyReports.cohortId, req.params.cohortId), eq(synergyReports.status, 'done')))
+          .orderBy(desc(synergyReports.startedAt))
+          .limit(1))[0];
     res.json({
-      id: row.id,
-      status: row.status,
-      error: row.error,
-      startedAt: row.startedAt,
-      finishedAt: row.finishedAt,
-      report: row.payload ?? null,
+      id: latest.id,
+      status: latest.status,
+      error: latest.error,
+      startedAt: latest.startedAt,
+      finishedAt: done?.finishedAt ?? latest.finishedAt,
+      report: done?.payload ?? null,
+      /** True when the payload below is an earlier run than the status above. */
+      stale: !!done && done.id !== latest.id,
     });
   }));
 
@@ -535,6 +508,13 @@ export function registerCohortRoutes(app: Express): void {
   }));
 
   app.post('/api/cohort/:cohortId/synergies', wrap(async (req, res) => {
+    // One pass at a time. A double-tap on a slow connection used to start two
+    // model calls over the same records and leave the loser `running` forever.
+    const inFlight = await reapStaleRun(req.params.cohortId);
+    if (inFlight?.status === 'running') {
+      res.status(202).json({ id: inFlight.id, status: 'running', alreadyRunning: true });
+      return;
+    }
     const rows = await db
       .select()
       .from(cohortMembers)

@@ -24,7 +24,7 @@
 // ============================================================================
 
 import { buildDossier, portfolioState, type Dossier, type VerdictState, type W3Input } from './w3-dossier';
-import { budgetLineFor, type BudgetLine } from './w3-sizing';
+import { budgetLineFor, SOLUTION_COSTS, type BudgetLine } from './w3-sizing';
 import { benefitFor, type BenefitLine } from './w3-benefits';
 import { getSolution } from './nbs-catalog';
 import { getSolutionFicha } from './nbs-solution-fichas';
@@ -149,6 +149,18 @@ const has = (v: string | undefined) => !!v && v.trim() !== '';
 /** Tenure where the organisation already has the land in hand, one way or another. */
 const PUBLIC_OR_OWN = new Set(['private-owned', 'formal-agreement', 'public-informal', 'mixed', 'public_land']);
 
+/** The noun the count is in, from the first counted solution on the list. */
+function unitNoun(solutions: string[], units: number, lang: 'pt' | 'en'): string | null {
+  for (const id of solutions) {
+    const c = SOLUTION_COSTS[id];
+    if (!c?.unitPt) continue;
+    return lang === 'pt'
+      ? (units === 1 ? c.unitPt : c.unitPluralPt) ?? null
+      : (units === 1 ? c.unitEn : c.unitPluralEn) ?? null;
+  }
+  return null;
+}
+
 export function buildRoadmap(
   input: W3Input,
   lang: 'pt' | 'en' = 'pt',
@@ -165,8 +177,9 @@ export function buildRoadmap(
 
   const dossier = buildDossier(input, lang);
   const state = portfolioState(dossier.verdicts);
-  const budget = solutions.map(id => budgetLineFor(id, areaM2 || undefined)).filter(Boolean) as BudgetLine[];
-  const benefits = solutions.map(id => benefitFor(id, areaM2 || undefined)).filter(Boolean) as BenefitLine[];
+  const units = Number(w3.intervention_units) || 0;
+  const budget = solutions.map(id => budgetLineFor(id, areaM2 || undefined, units || undefined)).filter(Boolean) as BudgetLine[];
+  const benefits = solutions.map(id => benefitFor(id, areaM2 || undefined, units || undefined)).filter(Boolean) as BenefitLine[];
 
   const what: RoadmapBlock[] = [];
   const how: RoadmapBlock[] = [];
@@ -230,15 +243,20 @@ export function buildRoadmap(
         : bairroName
           ? `${bairroName} — ${pt ? 'sem um ponto marcado ainda' : 'no point marked yet'}`
           : pt ? 'ainda não definido' : 'not defined yet',
+      // A solution counted per unit has no footprint to draw, and saying "falta
+      // desenhar a área" to an organisation that answered "5 cisternas" reads
+      // as a tool that lost the answer.
       ...(areaM2
         ? [pt ? `Área desenhada: aproximadamente ${areaM2} m².` : `Drawn area: roughly ${areaM2} m².`]
-        : [pt ? 'Falta desenhar a área.' : 'The area is still to be drawn.']),
+        : units
+          ? [pt ? `Escala: ${units} ${unitNoun(solutions, units, 'pt') ?? 'unidade(s)'}.` : `Scale: ${units} ${unitNoun(solutions, units, 'en') ?? 'unit(s)'}.`]
+          : [pt ? 'Falta desenhar a área.' : 'The area is still to be drawn.']),
     ],
     from: pt ? 'mapa do Encontro 2 e o contorno do Encontro 3' : 'the Encontro 2 map and the Encontro 3 outline',
     changedBy: pt
       ? 'O contorno é a dedo, arredondado de propósito. Redesenhar muda a área e a faixa de preço junto.'
       : 'The outline is finger-drawn and deliberately rounded. Redrawing changes the area and the price range with it.',
-    open: !areaM2,
+    open: !areaM2 && !units,
   });
 
   // The territory, in the municipality's own numbers. Population and priority

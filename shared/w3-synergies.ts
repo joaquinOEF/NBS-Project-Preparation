@@ -29,6 +29,9 @@
 
 import { NBS_FAMILIAS } from './nbs-catalog';
 import { familyOfWorry } from './site-knowledge';
+import { studyRequirement } from './w3-dossier';
+import { getSolutionFicha } from './nbs-solution-fichas';
+import type { CboState } from './cbo-schema';
 
 export interface SynergyMember {
   id: string;
@@ -274,9 +277,17 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
 
   // ── Pooling: where the programme saves money an org cannot save alone ──────
   const poolBy = (get: (m: SynergyMember) => string[]) => {
-    const map = new Map<string, string[]>();
-    for (const m of members) for (const v of get(m)) map.set(v, [...(map.get(v) ?? []), m.id]);
-    return Array.from(map).filter(([, ids]) => ids.length > 1).sort((a, b) => b[1].length - a[1].length);
+    // ⚠️ One org, counted once per key. An organisation carrying two solutions
+    // that need the same thing — biovaletas + canteiro pluvial both want "um
+    // técnico para o desenho", and the flow actively offers that second
+    // solution — used to pool with ITSELF: `memberIds: ['a','a']`, printed as
+    // "Org A, Org A", and counted in the banner's one number that means money.
+    const map = new Map<string, Set<string>>();
+    for (const m of members) for (const v of get(m)) map.set(v, (map.get(v) ?? new Set()).add(m.id));
+    return Array.from(map)
+      .map(([k, ids]) => [k, Array.from(ids)] as [string, string[]])
+      .filter(([, ids]) => ids.length > 1)
+      .sort((a, b) => b[1].length - a[1].length);
   };
   const pooledStudies = poolBy(m => m.studyNeeds).map(([need, memberIds]) => ({ need, memberIds }));
   const pooledBodies = poolBy(m => m.bodies).map(([body, memberIds]) => ({ body, memberIds }));
@@ -316,4 +327,92 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
   gapsPt.push('Os índices de risco são médias de bairro, calculadas em células que cobrem quarteirões. Onde a organização discordou, a percepção dela vale mais.');
 
   return { members, groups, transversal, commonPt, pooledStudies, pooledBodies, gapsPt };
+}
+
+// ============================================================================
+// STATE → FACTS — the one reading of a saved record the analysis runs on
+// ============================================================================
+// This lived inside server/routes/cohortRoutes.ts, which meant the mapping
+// between what an organisation answered and what the portfolio analysis sees
+// could only be exercised by standing up a database and an HTTP server. It is
+// pure, it is the place field names go stale, and a silent rename here empties
+// the report rather than breaking it — so it belongs where a simulation and a
+// unit test can both read it.
+// ============================================================================
+
+/**
+ * The raw facts the portfolio analysis groups on — deliberately separate from
+ * the roster signals, which are shaped for a card rather than for reasoning.
+ */
+export type SynergyFacts = {
+  ownWords: { story: string | null; whyHere: string | null; baseline: string | null };
+  correctionsPt: string | null;
+  siteName: string | null;
+  hasSite: boolean;
+  tenure: string | null;
+  currentUse: string | null;
+  familias: string[];
+  solutions: string[];
+  roles: string[];
+  priorCollaborationDetail: string | null;
+  nbsExperience: string | null;
+  fundingScale: string | null;
+  biggestBudget: string | null;
+  studyNeeds: string[];
+  bodies: string[];
+};
+
+export function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
+  const f = (id: string, k: string) =>
+    String(((sections as any)?.[id]?.fields ?? {})[k]?.value ?? '').trim();
+  const list = (v: string) => v.split(',').map(x => x.trim()).filter(Boolean);
+  const solutions = list(f('intervention_type', 'chosen_solutions'));
+
+  // The pooling opportunities: what each chosen solution needs before it can be
+  // designed, and who has to approve it. Both come from the fichas, so five
+  // organisations needing the same study is a fact rather than an impression.
+  const studyNeeds: string[] = [];
+  const bodies: string[] = [];
+  for (const id of solutions) {
+    const req = studyRequirement(id);
+    if (req && !studyNeeds.includes(req.pt)) studyNeeds.push(req.pt);
+    const ficha = getSolutionFicha(id);
+    if (!ficha) continue;
+    for (const [re, body] of [[/SMAMUS/i, 'SMAMUS'], [/DMAE/i, 'DMAE'], [/EPTC/i, 'EPTC'], [/Defesa Civil/i, 'Defesa Civil']] as [RegExp, string][]) {
+      if (re.test(ficha.pt.quemPrecisaDizerSim) && !bodies.includes(body)) bodies.push(body);
+    }
+  }
+
+  // What they said, not what we filed it under.
+  const hazardChecks = (() => {
+    try {
+      const j = JSON.parse(f('intervention_site', '_hazard_check_json') || '{}');
+      const disagreed = Object.entries(j)
+        .filter(([, v]) => /pior|worse|melhor|better/i.test(String(v)))
+        .map(([k, v]) => `${k}: ${v}`);
+      return disagreed.length ? disagreed.join('; ') : null;
+    } catch { return null; }
+  })();
+
+  return {
+    ownWords: {
+      story: f('intervention_site', 'site_story') || null,
+      whyHere: f('intervention_type', 'justification_why_here') || null,
+      baseline: f('impact_monitoring', 'baseline_condition') || null,
+    },
+    correctionsPt: hazardChecks,
+    siteName: f('intervention_site', 'site_name') || null,
+    hasSite: !!f('intervention_site', '_site_lat') || !!f('intervention_site', 'site_lat'),
+    tenure: f('intervention_site', 'land_tenure') || null,
+    currentUse: f('intervention_site', 'current_use') || null,
+    familias: list(f('intervention_site', 'nbs_interest')),
+    solutions,
+    roles: list(f('intervention_site', 'role_preference')),
+    priorCollaborationDetail: f('intervention_site', 'prior_collaboration_detail') || null,
+    nbsExperience: f('org_profile', 'nbs_experience') || null,
+    fundingScale: f('org_profile', 'prior_project_scale') || f('org_profile', 'funding_history') || null,
+    biggestBudget: f('org_profile', 'biggest_project_budget') || null,
+    studyNeeds,
+    bodies,
+  };
 }

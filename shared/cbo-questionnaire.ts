@@ -206,9 +206,38 @@ export const E3_QUESTIONNAIRE: QuestionnaireManifest = {
     },
   },
   ask: {
+    // ⚠️ The wording presumed a mutirão for everyone. A simulation put an
+    // organisation that had just answered "empresa contratada" in front of
+    // "depois que o mutirão vai embora" — a sentence about a work party that
+    // does not exist in their project, asked one beat after they said so.
+    //
+    // The neutral wording is the default so every other surface is safe, and
+    // the warm one survives where it is actually true.
     who_maintains: {
-      pt: 'Depois que o mutirão vai embora, quem cuida disso no dia a dia?',
-      en: 'After the mutirão goes home, who looks after this day to day?',
+      pt: 'Depois que a obra terminar, quem cuida disso no dia a dia?',
+      en: 'Once the work is finished, who looks after this day to day?',
+      variants: {
+        dependsOn: 'construction_model',
+        dependsOnSection: 'intervention_type',
+        by: {
+          mutirao: {
+            pt: 'Depois que o mutirão vai embora, quem cuida disso no dia a dia?',
+            en: 'After the mutirão goes home, who looks after this day to day?',
+          },
+          mista: {
+            pt: 'Depois que o mutirão vai embora, quem cuida disso no dia a dia?',
+            en: 'After the mutirão goes home, who looks after this day to day?',
+          },
+          contratada: {
+            pt: 'Depois que a empresa entregar a obra, quem cuida disso no dia a dia?',
+            en: 'Once the contractor hands the work over, who looks after this day to day?',
+          },
+          parceria: {
+            pt: 'Depois que a parceria entregar a obra, quem cuida disso no dia a dia?',
+            en: 'Once the partnership hands the work over, who looks after this day to day?',
+          },
+        },
+      },
     },
     baseline_condition: {
       pt: 'Antes de qualquer obra: como é o lugar hoje? Isso é o que vai mostrar depois que mudou alguma coisa.',
@@ -376,6 +405,20 @@ for (const m of Object.values(QUESTIONNAIRES)) {
       for (const id of allowed) {
         if (!ids.has(id)) throw new Error(`cbo-questionnaire: ${m.workshop}.${field} allow-list has unknown ${field} id "${id}"`);
       }
+    }
+  }
+  // Same guard for branched copy. A variant keyed on an id that does not exist
+  // never matches, and the failure is silent: everyone gets the default wording
+  // and nobody finds out until an organisation reads a sentence about a mutirão
+  // it never planned.
+  for (const [field, entry] of Object.entries(m.ask ?? {})) {
+    const v = entry.variants;
+    if (!v) continue;
+    const depSection = v.dependsOnSection ?? m.sectionId;
+    const depIds = new Set((cboFieldEnumOptions(depSection, v.dependsOn) ?? []).map(o => o.id));
+    if (!depIds.size) throw new Error(`cbo-questionnaire: ${m.workshop}.${field} copy variants depend on unknown field "${depSection}.${v.dependsOn}"`);
+    for (const dep of Object.keys(v.by)) {
+      if (!depIds.has(dep)) throw new Error(`cbo-questionnaire: ${m.workshop}.${field} copy variant keys unknown ${v.dependsOn} id "${dep}"`);
     }
   }
 }

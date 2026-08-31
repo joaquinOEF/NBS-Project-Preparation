@@ -72,6 +72,16 @@ export interface SolutionBenefit {
   high?: number;
   unitPt?: string;
   unitEn?: string;
+  /**
+   * What the number is measured IN. `unitPt` is the denominator ("por árvore");
+   * this is the numerator.
+   *
+   * ⚠️ Without it, corredores-verdes read "Entre 0,5 e 2 por árvore, ao longo
+   * da vida" — a bare number shown to an organisation with nothing saying it
+   * means tonnes of CO₂. captação supplies its own through `litres()`.
+   */
+  measurePt?: string;
+  measureEn?: string;
   /** What it does, in words. Always present — the number is never alone. */
   claimPt: string;
   claimEn: string;
@@ -236,6 +246,7 @@ export const SOLUTION_BENEFITS: Record<string, SolutionBenefit> = {
   'corredores-verdes': {
     basis: 'per_unit', low: 0.5, high: 2,
     unitPt: 'árvore, ao longo da vida', unitEn: 'tree, over its lifetime',
+    measurePt: 'toneladas de CO₂', measureEn: 'tonnes of CO₂',
     claimPt: 'Uma fita de árvores que liga dois verdes e faz sombra no caminho que as pessoas já fazem.',
     claimEn: 'A ribbon of trees linking two green spaces, shading a route people already walk.',
     sourcePt: 'sequestro por árvore urbana (tCO₂ ao longo da vida)', sourceEn: 'urban tree sequestration (tCO₂ over lifetime)', confidence: 'média',
@@ -395,7 +406,7 @@ const numEn = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 
  * missing — which is itself useful: "falta o comprimento da vala" is a next
  * step, and a silently absent number is not.
  */
-export function benefitFor(solutionId: string, areaM2?: number): BenefitLine | null {
+export function benefitFor(solutionId: string, areaM2?: number, units?: number): BenefitLine | null {
   const b = SOLUTION_BENEFITS[solutionId];
   if (!b) return null;
 
@@ -454,14 +465,34 @@ export function benefitFor(solutionId: string, areaM2?: number): BenefitLine | n
 
   if (b.basis === 'per_unit' && b.low != null && b.high != null) {
     const v = b.low === b.high;
+    // A count closes the total, exactly as a footprint does for a per-m² claim.
+    // Five cisterns is 80 thousand litres, and that is the sentence that goes
+    // on the page — "16 mil litros por cisterna" is a specification.
+    if (units && units > 0) {
+      const isLitres = solutionId === 'captacao-agua-da-chuva';
+      const fmt = (n: number) => (isLitres ? litres(n) : `${num(n)}${b.measurePt ? ` ${b.measurePt}` : ''}`);
+      const fmtEn = (n: number) => (isLitres ? litresEn(n) : `${numEn(n)}${b.measureEn ? ` ${b.measureEn}` : ''}`);
+      const lo = b.low * units;
+      const hi = b.high * units;
+      return {
+        ...base,
+        siteSpecific: true,
+        headlinePt: lo === hi
+          ? `Com ${units}, ${fmt(lo)} no total — ${b.unitPt} guarda ${fmt(b.low)}.`
+          : `Com ${units}, entre ${isLitres ? fmt(lo) : num(lo)} e ${fmt(hi)} no total.`,
+        headlineEn: lo === hi
+          ? `With ${units}, ${fmtEn(lo)} in total — each ${b.unitEn} holds ${fmtEn(b.low)}.`
+          : `With ${units}, between ${isLitres ? fmtEn(lo) : numEn(lo)} and ${fmtEn(hi)} in total.`,
+      };
+    }
     return {
       ...base,
       headlinePt: v
-        ? `${b.low >= 1 && solutionId === 'captacao-agua-da-chuva' ? `${litres(b.low)}` : num(b.low)} por ${b.unitPt}.`
-        : `Entre ${num(b.low)} e ${num(b.high)} por ${b.unitPt}.`,
+        ? `${b.low >= 1 && solutionId === 'captacao-agua-da-chuva' ? `${litres(b.low)}` : `${num(b.low)}${b.measurePt ? ` ${b.measurePt}` : ''}`} por ${b.unitPt}.`
+        : `Entre ${num(b.low)} e ${num(b.high)}${b.measurePt ? ` ${b.measurePt}` : ''} por ${b.unitPt}.`,
       headlineEn: v
-        ? `${b.low >= 1 && solutionId === 'captacao-agua-da-chuva' ? `${litresEn(b.low)}` : numEn(b.low)} per ${b.unitEn}.`
-        : `Between ${numEn(b.low)} and ${numEn(b.high)} per ${b.unitEn}.`,
+        ? `${b.low >= 1 && solutionId === 'captacao-agua-da-chuva' ? `${litresEn(b.low)}` : `${numEn(b.low)}${b.measureEn ? ` ${b.measureEn}` : ''}`} per ${b.unitEn}.`
+        : `Between ${numEn(b.low)} and ${numEn(b.high)}${b.measureEn ? ` ${b.measureEn}` : ''} per ${b.unitEn}.`,
     };
   }
 
@@ -492,6 +523,12 @@ for (const s of NBS_SOLUTIONS) {
     if (b.low == null || b.high == null || b.low > b.high) {
       throw new Error(`w3-benefits: ${s.id} declares basis "${b.basis}" without a valid range`);
     }
+  }
+  // A number with no unit is not a benefit, it is a digit. 'rate' says m³ in the
+  // renderer and captação prints litres; everything counted per unit has to say
+  // what it counts.
+  if (b.basis === 'per_unit' && s.id !== 'captacao-agua-da-chuva' && !(b.measurePt && b.measureEn)) {
+    throw new Error(`w3-benefits: ${s.id} is per-unit but never says what the number measures`);
   }
   // A per-m² or rate figure must still be the one nbs-performance states, unless
   // it declares itself borrowed. Drift between the two would put a different

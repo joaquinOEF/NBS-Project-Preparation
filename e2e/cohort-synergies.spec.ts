@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { TestApi } from './helpers/testApi';
 import { analyseSynergies, type SynergyMember } from '../shared/w3-synergies';
+import { E3_QUESTIONNAIRE, askCopyFor, sectionsFieldReader } from '../shared/cbo-questionnaire';
 
 // COHORT SYNERGIES — the grouping pass behind the "mapear sinergias" button.
 //
@@ -121,6 +122,67 @@ test.describe('the grouping is derived, and it groups on three axes', () => {
 // way to set the flag — no endpoint, no control, no rule — so Vila Flores's own
 // test organisation appeared in the report as a real member of the network. A
 // half-built guard is worse than none: it reads as handled.
+
+// ⚠️ SELF-POOLING. Pooling counted an organisation once per matching entry
+// rather than once per organisation, so an org carrying two solutions that need
+// the same thing pooled with ITSELF — printed as "Org A, Org A" and counted in
+// the banner's one number that means money. The flow actively offers that
+// second solution, and four of the slope solutions share a single requirement.
+
+test.describe('pooling is between organisations, never inside one', () => {
+  test('two solutions needing the same study do not make a cluster of one', () => {
+    const twoSolutions = analyseSynergies([
+      m({ id: 'a', orgName: 'A', bairro: 'X',
+          studyNeeds: ['um responsável técnico com ART', 'um responsável técnico com ART'],
+          bodies: ['SMAMUS', 'SMAMUS'] }),
+      m({ id: 'b', orgName: 'B', bairro: 'Y' }),
+      m({ id: 'c', orgName: 'C', bairro: 'Z' }),
+    ]);
+    expect(twoSolutions.pooledStudies, 'one org is not a joint procurement').toEqual([]);
+    expect(twoSolutions.pooledBodies).toEqual([]);
+  });
+
+  test('the same need across two organisations still pools, once each', () => {
+    const shared = analyseSynergies([
+      m({ id: 'a', orgName: 'A', bairro: 'X',
+          studyNeeds: ['uma avaliação geotécnica', 'uma avaliação geotécnica'] }),
+      m({ id: 'b', orgName: 'B', bairro: 'Y', studyNeeds: ['uma avaliação geotécnica'] }),
+      m({ id: 'c', orgName: 'C', bairro: 'Z' }),
+    ]);
+    expect(shared.pooledStudies[0].memberIds).toEqual(['a', 'b']);
+  });
+});
+
+// ⚠️ MUTIRÃO-FOR-EVERYONE. The maintenance question presumed a work party for
+// every organisation, including the one that had answered "empresa contratada"
+// one beat earlier. The branch belongs in the manifest, where askEnum reads it
+// — the engine's own string is a fallback that never wins.
+
+test.describe('the maintenance question matches how the thing gets built', () => {
+  const copyFor = (model: string) =>
+    askCopyFor(
+      E3_QUESTIONNAIRE,
+      'who_maintains',
+      sectionsFieldReader({ intervention_type: { fields: { construction_model: { value: model } } } } as any),
+      'pt',
+    );
+
+  test('a hired contractor is never asked about a mutirão', () => {
+    expect(copyFor('contratada')).toMatch(/empresa entregar a obra/i);
+    expect(copyFor('contratada')).not.toMatch(/mutirão/i);
+    expect(copyFor('parceria')).not.toMatch(/mutirão/i);
+  });
+
+  test('a mutirão still hears its own word', () => {
+    expect(copyFor('mutirao')).toMatch(/mutirão/i);
+    expect(copyFor('mista')).toMatch(/mutirão/i);
+  });
+
+  test('the default presumes nothing', () => {
+    expect(copyFor('')).toMatch(/a obra terminar/i);
+    expect(copyFor('indefinido')).not.toMatch(/mutirão/i);
+  });
+});
 
 test.describe('keeping a test organisation out of the analysis', () => {
   test.use({ locale: 'pt-BR' });
