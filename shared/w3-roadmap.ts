@@ -52,6 +52,12 @@ export interface RoadmapStep {
   blockedBy?: string;
 }
 
+export interface RoadmapObservation {
+  kind: 'strength' | 'gap' | 'cohort';
+  text: string;
+  basedOn: string;
+}
+
 export interface Roadmap {
   /** "Rascunho" — never a finished plan, and the header says so. */
   orgName: string;
@@ -70,6 +76,14 @@ export interface Roadmap {
   dossier: Dossier;
   budget: BudgetLine[];
   benefits: BenefitLine[];
+  /**
+   * What the advisor noticed. `strength` is for the organisation — something
+   * their project has that they may not know counts. `gap` and `cohort` are
+   * for the coordination and are NOT rendered on the org's page: a list of what
+   * a funder will push back on belongs in the hands of whoever will do the
+   * pushing back, not on the document someone reads to their assembly.
+   */
+  observations: RoadmapObservation[];
 }
 
 const S = {
@@ -122,7 +136,11 @@ function label(sectionId: string, field: string, id: string | undefined, lang: '
 
 const has = (v: string | undefined) => !!v && v.trim() !== '';
 
-export function buildRoadmap(input: W3Input, lang: 'pt' | 'en' = 'pt'): Roadmap {
+export function buildRoadmap(
+  input: W3Input,
+  lang: 'pt' | 'en' = 'pt',
+  observations: RoadmapObservation[] = [],
+): Roadmap {
   const t = S[lang];
   const pt = lang === 'pt';
   const site = input.site ?? {};
@@ -291,6 +309,23 @@ export function buildRoadmap(input: W3Input, lang: 'pt' | 'en' = 'pt'): Roadmap 
     open: !maintains || !money || money === (pt ? 'Ainda não sabemos' : 'Not decided yet'),
   });
 
+  // A strength the organisation may not know is one. Placed last on page one,
+  // after the evidence rather than before it — a compliment that arrives before
+  // the substance reads as flattery.
+  const strengths = observations.filter(o => o.kind === 'strength');
+  if (strengths.length) {
+    what.push({
+      title: pt ? 'O que esse projeto já tem de forte' : 'What this project already has going for it',
+      lines: strengths.map(o => o.text),
+      from: pt
+        ? 'leitura do que vocês contaram e mandaram, nos três encontros'
+        : 'a read of what you told and sent us, across the three encontros',
+      changedBy: pt
+        ? 'Se alguma dessas frases não é verdade, ela sai — foi lida por nós, não dita por vocês.'
+        : 'If any of these is not true it comes out — we read it, you did not say it.',
+    });
+  }
+
   // ── The road ahead ────────────────────────────────────────────────────────
   // The dossier's four lists, flattened into one numbered sequence — because a
   // route is walked in order, and four parallel columns are a filing system.
@@ -318,5 +353,6 @@ export function buildRoadmap(input: W3Input, lang: 'pt' | 'en' = 'pt'): Roadmap 
     dossier,
     budget,
     benefits,
+    observations,
   };
 }
