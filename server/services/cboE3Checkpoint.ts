@@ -30,7 +30,7 @@
 
 import type { CboState } from '@shared/cbo-schema';
 import { buildDossier, portfolioState, type W3Input } from '@shared/w3-dossier';
-import { buildRoadmap } from '@shared/w3-roadmap';
+import { buildRoadmap, type RoadmapObservation } from '@shared/w3-roadmap';
 import { eligibleQuestions, getW3Question, type QuestionContext } from '@shared/w3-questions';
 import type { W3Advice } from './w3Advisor';
 import { mergeShortlist, topShortlist } from '@shared/w3-solutions';
@@ -777,7 +777,15 @@ _For this one we do not yet have a reference figure — what the ficha says is a
       roadmap: buildRoadmap(
         input,
         isPt ? 'pt' : 'en',
-        (advice?.observations ?? []).map(o => ({ kind: o.kind, text: o.textPt, basedOn: o.basedOn })),
+        // `kind` is a plain string on the wire — the advisor's schema is
+        // deliberately loose so one unrecognised value cannot discard the whole
+        // reply — and its guards have already dropped anything outside the
+        // three. Narrowed here rather than widening the roadmap's own type.
+        (advice?.observations ?? []).map(o => ({
+          kind: o.kind as RoadmapObservation['kind'],
+          text: o.textPt,
+          basedOn: o.basedOn,
+        })),
       ),
     } as any);
 

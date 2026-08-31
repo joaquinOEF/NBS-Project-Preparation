@@ -33,11 +33,24 @@ import { z } from 'zod';
 import { createStructured, structuredProvider } from './structuredModel';
 import { analyseSynergies, type SynergyAnalysis, type SynergyMember } from '@shared/w3-synergies';
 
+// ⚠️ NOTHING HERE CONSTRAINS THE MODEL'S SHAPE — that is enforced below, after
+// parsing, where a bad element can be DROPPED instead of taking the reply with
+// it.
+//
+// This schema used to say `orgNames.min(2)` and `lines.max(4)`, and in front of
+// a real cohort the model returned four good lines where the third named one
+// organisation. Validation failed on that one field, the exception discarded
+// the whole reply, and the coordinator got "a leitura automática falhou desta
+// vez" — losing three usable programme lines and the portfolio thread to a
+// single over-eager sentence.
+//
+// A validation rule that can only pass or fail the entire response is the wrong
+// tool for a model's output. Parse loosely; enforce strictly in code.
 const LineSchema = z.object({
   /** e.g. "Eixo 4º Distrito" — a handle people can say out loud in the room. */
   namePt: z.string(),
   /** Org names, exactly as given in the input. Anything else is dropped. */
-  orgNames: z.array(z.string()).min(2),
+  orgNames: z.array(z.string()),
   /** Two or three sentences: what holds them together, in pt-BR. */
   rationalePt: z.string(),
   /** Why it matters to a funder or to the city. One sentence. */
@@ -47,10 +60,14 @@ const LineSchema = z.object({
 const NarrativeSchema = z.object({
   /** The shared thread the coordination could propose for the whole portfolio. */
   portfolioThreadPt: z.string(),
-  lines: z.array(LineSchema).max(4),
+  lines: z.array(LineSchema),
   /** Questions worth putting to the room, from what the data leaves open. */
-  questionsForTheRoomPt: z.array(z.string()).max(5),
+  questionsForTheRoomPt: z.array(z.string()),
 });
+
+/** The caps the schema used to enforce, applied where overshooting is survivable. */
+const MAX_LINES = 4;
+const MAX_QUESTIONS = 5;
 
 export type SynergyNarrative = z.infer<typeof NarrativeSchema>;
 
@@ -141,6 +158,37 @@ function coordinatorReason(err: any): string {
   return 'a leitura automática falhou desta vez';
 }
 
+/**
+ * Everything the schema is deliberately not enforcing, applied where an
+ * overshoot costs the extra item instead of the whole answer.
+ *
+ * Two rules, in this order:
+ *  · only organisations that exist in THIS cohort, by exact name — a programme
+ *    line naming an org that is not in the room is the one error a coordinator
+ *    would not catch by reading;
+ *  · then only lines that still join two of them, because a line with one
+ *    organisation on it is not a line.
+ *
+ * Null when nothing survives and there is no portfolio thread either — an empty
+ * section under a heading reads worse than an honest absence.
+ */
+export function shapeNarrative(
+  raw: SynergyNarrative,
+  knownOrgNames: string[],
+): SynergyNarrative | null {
+  const known = new Set(knownOrgNames);
+  const lines = raw.lines
+    .map(l => ({ ...l, orgNames: l.orgNames.filter(n => known.has(n)) }))
+    .filter(l => l.orgNames.length >= 2)
+    .slice(0, MAX_LINES);
+  const dropped = raw.lines.length - lines.length;
+  if (dropped > 0) {
+    console.warn(`[synergy] dropped ${dropped} of ${raw.lines.length} line(s): fewer than two known organisations`);
+  }
+  if (!lines.length && !raw.portfolioThreadPt.trim()) return null;
+  return { ...raw, lines, questionsForTheRoomPt: raw.questionsForTheRoomPt.slice(0, MAX_QUESTIONS) };
+}
+
 export async function buildSynergyReport(members: SynergyMember[]): Promise<SynergyReport> {
   const analysis = analyseSynergies(members);
   const generatedAt = new Date().toISOString();
@@ -177,15 +225,16 @@ export async function buildSynergyReport(members: SynergyMember[]): Promise<Syne
     ]);
     if (!raw) return { analysis, narrative: null, narrativeReason: 'a leitura automática demorou demais e foi interrompida', generatedAt };
 
-    // Only organisations that exist, and only lines that still have two after
-    // the filter. A programme line naming an org that is not in this cohort is
-    // the one error a coordinator would not catch by reading.
-    const known = new Set(analysis.members.map(m => m.orgName));
-    const lines = raw.lines
-      .map(l => ({ ...l, orgNames: l.orgNames.filter(n => known.has(n)) }))
-      .filter(l => l.orgNames.length >= 2);
-
-    return { analysis, narrative: { ...raw, lines }, generatedAt };
+    const shaped = shapeNarrative(raw, analysis.members.map(m => m.orgName));
+    if (!shaped) {
+      return {
+        analysis,
+        narrative: null,
+        narrativeReason: 'a leitura automática não encontrou nenhuma linha que ligue duas organizações desta rede',
+        generatedAt,
+      };
+    }
+    return { analysis, narrative: shaped, generatedAt };
   } catch (err: any) {
     // ⚠️ The reason is rendered on a page a coordinator opens, so it says what
     // they can do — never the provider's message. A 401 came through verbatim

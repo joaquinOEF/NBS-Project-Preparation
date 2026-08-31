@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { TestApi } from './helpers/testApi';
 import { analyseSynergies, type SynergyMember } from '../shared/w3-synergies';
 import { E3_QUESTIONNAIRE, askCopyFor, sectionsFieldReader } from '../shared/cbo-questionnaire';
+import { shapeNarrative } from '../server/services/synergyReport';
 
 // COHORT SYNERGIES — the grouping pass behind the "mapear sinergias" button.
 //
@@ -237,5 +238,60 @@ test.describe('keeping a test organisation out of the analysis', () => {
     await page.goto('/orchestrator');
     await expect(page.getByTestId(`card-orchestrator-project-${test_.id}`)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('synergy-excluded')).toContainText('fora desta análise');
+  });
+});
+
+// ⚠️ ONE-ORG-LINE-KILLS-THE-NARRATIVE. Live, on a real cohort: the model
+// returned four programme lines where the third named one organisation. The
+// schema said `orgNames.min(2)`, so Zod rejected the whole reply, the exception
+// discarded it, and the coordinator got "a leitura automática falhou desta vez"
+// — losing three usable lines and the portfolio thread to a single over-eager
+// sentence, on the artefact the in-person meeting is built around.
+//
+// The rules did not change. Where they run did: parse loosely, enforce in code,
+// so a bad element is dropped instead of taking the answer with it.
+
+test.describe('a bad line is dropped, never fatal', () => {
+  const line = (namePt: string, orgNames: string[]) => ({
+    namePt, orgNames, rationalePt: 'porque sim', whyItMattersPt: 'importa',
+  });
+  const raw = (lines: any[], thread = 'o fio condutor') => ({
+    portfolioThreadPt: thread, lines, questionsForTheRoomPt: ['e agora?'],
+  });
+
+  test('the line with one organisation goes; the other three stay', () => {
+    const out = shapeNarrative(raw([
+      line('Eixo A', ['Ksa Rosa', 'COOP20']),
+      line('Eixo B', ['Misturaí', 'SDV Reciclando']),
+      line('Eixo C', ['Periferia Feminista']),
+      line('Eixo D', ['Ksa Rosa', 'Misturaí']),
+    ]), ['Ksa Rosa', 'COOP20', 'Misturaí', 'SDV Reciclando', 'Periferia Feminista'])!;
+    expect(out.lines.map(l => l.namePt)).toEqual(['Eixo A', 'Eixo B', 'Eixo D']);
+    expect(out.portfolioThreadPt, 'the thread survives too').toBe('o fio condutor');
+  });
+
+  test('an organisation that is not in this cohort is not in the line', () => {
+    const out = shapeNarrative(raw([
+      line('Eixo A', ['Ksa Rosa', 'Instituto Inventado', 'COOP20']),
+    ]), ['Ksa Rosa', 'COOP20'])!;
+    expect(out.lines[0].orgNames).toEqual(['Ksa Rosa', 'COOP20']);
+  });
+
+  test('a line left with one real organisation is no longer a line', () => {
+    const out = shapeNarrative(raw([
+      line('Eixo A', ['Ksa Rosa', 'Instituto Inventado']),
+    ]), ['Ksa Rosa', 'COOP20'])!;
+    expect(out.lines).toEqual([]);
+    // The thread is still worth printing, so this is not a failure.
+    expect(out.portfolioThreadPt).toBe('o fio condutor');
+  });
+
+  test('six lines are capped, not rejected', () => {
+    const many = Array.from({ length: 6 }, (_, i) => line(`Eixo ${i}`, ['Ksa Rosa', 'COOP20']));
+    expect(shapeNarrative(raw(many), ['Ksa Rosa', 'COOP20'])!.lines).toHaveLength(4);
+  });
+
+  test('nothing left and nothing to say is an honest absence', () => {
+    expect(shapeNarrative(raw([line('Eixo A', ['Ninguém'])], '  '), ['Ksa Rosa'])).toBeNull();
   });
 });
