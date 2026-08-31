@@ -624,6 +624,25 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
   // Both ids are from E3_SUSTAINABILITY / E3_MAINTAINS in the field catalog. An
   // earlier version of this line also tested `opex_estimate_year1`, a field
   // that exists nowhere — so half the condition could never fire.
+  // An honest "ainda não sabemos" belongs in the NAMED gaps, not only in the
+  // coordination's item list. The roadmap reads its open questions as the next
+  // stretch of the route, and recurring money is the one the portfolio actually
+  // carries to the municipality — leaving it out made a fully-answered
+  // organisation's route look like it had nothing left to resolve.
+  if (w3.sustainability_model === 'indefinido') {
+    gaps.push(
+      pt
+        ? 'De onde vem o dinheiro da manutenção ficou em aberto — é a conversa que a coordenação leva pra prefeitura, não um campo pra vocês preencherem'
+        : 'Where upkeep money comes from is open — that is the conversation the coordination takes to the city, not a field for you to fill',
+    );
+  }
+  if (w3.monitoring_capacity === 'ninguem-ainda') {
+    gaps.push(
+      pt
+        ? 'Ninguém consegue medir ainda — isso é um pedido de parceiro de monitoramento, e vale registrar como tal'
+        : 'Nobody can measure it yet — that is a request for a monitoring partner, worth recording as one',
+    );
+  }
   if (w3.sustainability_model === 'indefinido' || w3.who_maintains === 'indefinido') {
     add({
       list: 'contact',

@@ -54,6 +54,11 @@ const LANGS = [
     freq: 'A cada três meses',
     moneyText: 'dinheiro que volta todo ano',
     money: 'Ainda não sabemos', // E3_SUSTAINABILITY.indefinido
+    build: 'Mutirão com apoio técnico',
+    impactText: 'por metro quadrado',
+    impactPick: 'Faz sentido',
+    timeframe: '1 ano',
+    monitor: 'Com uma universidade ou parceiro',
     onlyThis: 'Só essa por enquanto',
     closingText: 'Pronto',
   },
@@ -80,6 +85,11 @@ const LANGS = [
     freq: 'Quarterly',
     moneyText: 'money that comes back every year',
     money: 'Not decided yet', // E3_SUSTAINABILITY.indefinido
+    build: 'Mutirão with technical support',
+    impactText: 'per square metre',
+    impactPick: 'That makes sense',
+    timeframe: '1 year',
+    monitor: 'With a university or partner',
     onlyThis: 'Just this one for now',
     closingText: 'Done',
   },
@@ -102,6 +112,8 @@ for (const L of LANGS) {
       const chip = (label: string) =>
         page.locator(`[data-testid^="cbo-option-"][data-option-label="${label}"]`);
       const input = page.getByTestId('cbo-chat-input');
+      const inThreadJ = (text: string) =>
+        page.getByTestId('cbo-chat-thread').getByText(text, { exact: false }).last();
 
       // 1 · The opening recap names the place W2 marked, rather than asking
       //     for it again — the clearest "we weren't listening" signal there is.
@@ -128,6 +140,10 @@ for (const L of LANGS) {
       await expect(page.getByText(L.sizeText, { exact: false }).last()).toBeVisible({ timeout: 10_000 });
       await chip(L.deferSize).click();
 
+      // 4b · Who builds it — the answer that moves the cost more than any other.
+      await expect(chip(L.build)).toBeVisible({ timeout: 15_000 });
+      await chip(L.build).click();
+
       // 5 · Why here (free text) → baseline (free text).
       await expect(page.getByText(L.whyPlain, { exact: false }).first()).toBeVisible({ timeout: 10_000 });
       await input.fill(L.why);
@@ -135,6 +151,19 @@ for (const L of LANGS) {
       await expect(page.getByText(L.baselineText, { exact: false }).last()).toBeVisible({ timeout: 10_000 });
       await input.fill(L.baseline);
       await input.press('Enter');
+
+      // 5b · The impact beat. This org DEFERRED the size, so the figure we can
+      //      state is a per-m² rate, not a volume for their yard — and a rate is
+      //      a property of the technique, not of their site. It is stated and the
+      //      flow moves on, rather than asking them to judge a number they have
+      //      no standing to judge. (cougar-e3-paths covers the drawn-area path,
+      //      where the reaction chips DO appear.)
+      await expect(inThreadJ(L.impactText)).toBeVisible({ timeout: 15_000 });
+      await expect(chip(L.impactPick)).toHaveCount(0);
+      await expect(chip(L.timeframe)).toBeVisible({ timeout: 15_000 });
+      await chip(L.timeframe).click();
+      await expect(chip(L.monitor)).toBeVisible({ timeout: 15_000 });
+      await chip(L.monitor).click();
 
       // 6 · Upkeep. ⚠️ The land is public-informal, so "Parceria com a
       //     prefeitura" IS offered here — on private land the manifest rule
@@ -163,11 +192,12 @@ for (const L of LANGS) {
       //     needs_permission: a technical unknown outranks a paperwork one,
       //     because asking permission for something that cannot yet be
       //     designed is asking for the wrong thing.
-      const dossier = page.getByTestId('cbo-dossier');
+      const dossier = page.getByTestId('cbo-roadmap');
       await expect(dossier).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByTestId('dossier-verdict-needs_study')).toBeVisible();
-      await expect(dossier.getByTestId('dossier-budget-jardins-de-chuva')).toBeVisible();
-      await expect(dossier.getByTestId('dossier-gaps')).toBeVisible();
+      await expect(dossier).toContainText(L.name === 'pt' ? 'precisa de um estudo' : 'needs a study');
+      // The benefit range, over the footprint — the half W3 supplies.
+      await expect(dossier.getByTestId('roadmap-open')).toBeVisible();
+      await expect(dossier.getByTestId('roadmap-steps')).toBeVisible();
       // The school is on public land, so its direction has to be approached —
       // a rule the ficha cannot know and the site record does.
       await expect(dossier.getByText('EMEI', { exact: false }).first()).toBeVisible();
@@ -175,7 +205,7 @@ for (const L of LANGS) {
       // 9 · It survives a reload: the dossier is a persisted composer, not a
       //     one-shot render.
       await page.reload();
-      await expect(page.getByTestId('cbo-dossier')).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByTestId('cbo-roadmap')).toBeVisible({ timeout: 20_000 });
 
       // 10 · And it is on the record, not only on the screen.
       const body = await (await request.get(`/api/cbo/${cboId}`)).json();

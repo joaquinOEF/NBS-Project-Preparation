@@ -219,3 +219,75 @@ wrong for reasons no zoom fix prevents — a mis-tap, a polygon closed early.
 Above two hectares W3 shows the number, says it looks large and why, and offers
 to redraw. **It does not price it.** An organisation can tell instantly that its
 yard is not twenty football pitches; arithmetic cannot.
+
+
+## The hoja de ruta, and the half W3 supplies
+
+Two additions after the 31 August review — *"this looks like W2 extended"*, which
+was right. W3 was refining and confirming a solution; it was not producing a
+project.
+
+### The beats the original design had, and the build had lost
+
+`construction_model` and `intervention_scale_band` (after the size),
+`project_timeframe` and `monitoring_capacity` (after the baseline). All four
+were already in the field catalog with reviewed option lists, and nothing asked
+them. The scale band is **not** asked — it falls out of the area they drew, and
+asking an organisation to classify its own project as pequeno/médio/grande right
+after tracing the outline is asking it to do arithmetic we already did.
+
+### The benefit beat — where we bring the number
+
+`shared/w3-benefits.ts`. **We state a sourced range over their own footprint;
+they react to it.** An organisation asked *"quantos litros vocês esperam
+segurar?"* answers with a blank or a guess, and a guess we store becomes data.
+
+> Uma coisa que a gente pode trazer pra vocês: **Numa chuva forte, segura entre
+> 75.000 e 175.000 litros de água que hoje vai pra rua.**
+> *Isso é estimativa de projeto, não medição — faixa de projeto (GIZ / conteúdo
+> COUGAR), confiança média. Serve pra pedir, não pra prometer.*
+>
+> `[Faz sentido]` `[Parece muito]` `[Parece pouco]`
+
+*"Parece pouco"* from an organisation that lived through 2024 is the most
+accurate thing anyone says all session, so it gets `NBS_SCALE_HONESTY` attached
+rather than reassurance — and the reaction is carried into the roadmap.
+
+**Coverage is the honest constraint, and it is severe.** Only 5 of the 27 have a
+quantified effect anywhere in the repo, and of those only 3 convert from a drawn
+area: bioswales are quoted per **linear metre** and permeable paving as a flow
+**rate per hour**. 15 have nothing at all — including the entire slope family
+and the entire agriculture family, because the co-benefit KB holds no erosion or
+stability figure. Those carry a sentence and no number, and the flow says so.
+
+Three rules keep it honest, and each exists because the alternative was tried:
+- **Only figures that exist**, never interpolated from a neighbouring solution.
+  The stormwater planter borrows the rain garden's range because its own ficha
+  calls it *"um jardim de chuva compactado"* — and it says so on the page.
+- **A unit is not a suggestion.** Neither the linear-metre nor the per-hour
+  figure is multiplied by an area.
+- **A rate is not a site.** The reaction chips appear only when the number is
+  about *their* footprint. Asking someone to judge a property of the technique
+  invites an opinion they have no standing to give and we have no way to act on.
+
+⚠️ A cubic metre is a thousand litres. The first version divided where it should
+have multiplied, and a 20,000 m² footprint holding 3,000 m³ printed as *"3 mil
+litros"* — a thousand times under, in the one figure an organisation says out
+loud.
+
+### The output is a draft route, not a verdict
+
+`shared/w3-roadmap.ts`. Two pages: what the project is and what it should do,
+then what it costs, who says yes, who keeps it alive, and what is open. Three
+things are structural rather than decorative:
+
+1. **Every block cites where it came from**, so a line can be disagreed with
+   specifically. *"This is wrong"* is not actionable; *"the ficha says a técnico
+   and we already have one"* is.
+2. **Every block says what would change it** (↻). A route you cannot redirect is
+   a verdict wearing a friendlier word.
+3. **The open questions are numbered into the route**, not filed at the back.
+   They are the next stretch of road, and most of them belong to the
+   coordination rather than to the organisation.
+
+Nothing in it asks a new question — the last beat of W3 is reading, not filling.

@@ -74,6 +74,7 @@ import { NBS_SHOWCASE_CARDS, getShowcaseCard } from '@shared/nbs-showcase-cards'
 import { polygonAreaM2, roundAreaM2 } from '@shared/w3-sizing';
 import { CboSolutionOptions } from '@/core/components/cbo/CboSolutionOptions';
 import { CboDossier } from '@/core/components/cbo/CboDossier';
+import { CboRoadmap } from '@/core/components/cbo/CboRoadmap';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 import { localizedWorkshopName } from '@/lib/workshopHelpers';
 
@@ -1387,6 +1388,10 @@ export default function CboProfilePage() {
         setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify(payload), messageType: 'composer', timestamp: new Date().toISOString() }]);
         break;
       }
+      case 'show_roadmap': {
+        setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify({ kind: 'roadmap', roadmap: (event as any).roadmap }), messageType: 'composer', timestamp: new Date().toISOString() }]);
+        break;
+      }
       case 'show_solution_options':
       case 'show_dossier': {
         // E3 composers — same persist-inline contract as the E2 ones below:
@@ -2228,6 +2233,13 @@ export default function CboProfilePage() {
                         // asked anything by would send an answer into nothing.
                         onChoose={currentQuestion ? handleSelectOption : undefined}
                       />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'roadmap' && parsed.roadmap) {
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <CboRoadmap roadmap={parsed.roadmap} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
                     </div>
                   );
                 }
