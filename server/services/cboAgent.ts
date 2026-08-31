@@ -44,7 +44,7 @@ import {
   type HazardCheckAnswer,
 } from "@shared/site-knowledge";
 import { NBS_SCALE_HONESTY, needsScaleReframing } from "@shared/nbs-performance";
-import { NBS_FAMILIAS } from "@shared/nbs-catalog";
+import { NBS_FAMILIAS, getSolution } from "@shared/nbs-catalog";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { getOrgIdForCboState, listDocumentsByOrg, listDocumentSummariesByOrg, getDocumentForOrg, listDocumentsForScope } from "./documentPersistence";
@@ -66,6 +66,7 @@ import { parseNbsInventory } from "@shared/nbs-inventory";
 import { isImplementationNarration } from "./assistantNoise";
 import { checkCloseGate } from "./cboCloseGate";
 import { serveE3Checkpoint } from "./cboE3Checkpoint";
+import { adviseW3 } from "./w3Advisor";
 
 /** Manifests whose rules govern this section (today: E1 ↔ org_profile). */
 function manifestsForSection(sectionId: string): QuestionnaireManifest[] {
@@ -3332,6 +3333,10 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
         recordCheckpoint: (step) =>
           recordCboEvent({ cboStateId: cboId, name: 'checkpoint', phase: state.phase, step }),
         normChip,
+        // Fire-and-forget, and deliberately so. It re-reads the state when it
+        // lands rather than closing over the copy this turn is holding — by
+        // then the organisation has traced a polygon and the state has moved.
+        startAdvisor: () => { void runW3Advisor(cboId); },
       });
       if (served) {
         res.end();
@@ -3361,6 +3366,80 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   }
 
   res.end();
+}
+
+/**
+ * One advisor pass per W3 session, persisted onto the state for the beats to
+ * find.
+ *
+ * Everything about this is defensive. It is fired when the organisation opens
+ * the footprint map — the one moment they are guaranteed to be busy for the
+ * better part of a minute — and nothing ever waits on it. It runs once (a
+ * second call is a no-op), it re-reads the state before writing so it cannot
+ * clobber a newer answer, and every failure path leaves the session behaving
+ * exactly as it did before this file existed.
+ */
+const advisorRuns = new Set<string>();
+
+async function runW3Advisor(cboId: string): Promise<void> {
+  if (advisorRuns.has(cboId)) return;
+  advisorRuns.add(cboId);
+  const started = Date.now();
+  try {
+    const state = getCboState(cboId);
+    if (!state) return;
+    const orgId = await getOrgIdForCboState(cboId).catch(() => null);
+    const docs = await listDocumentsForScope({ cboStateId: cboId, orgId }).catch(() => []);
+    const site: any = state.sections?.intervention_site?.fields ?? {};
+    const type: any = state.sections?.intervention_type?.fields ?? {};
+    const org: any = state.sections?.org_profile?.fields ?? {};
+    const v = (f: any, k: string) => String(f?.[k]?.value ?? '').trim();
+    const solutions = v(type, 'chosen_solutions').split(',').map(x => x.trim()).filter(Boolean);
+
+    const { advice, reason } = await adviseW3({
+      state,
+      orgName: state.orgName || v(org, 'org_name') || 'organização',
+      messages: getCboMessages(cboId) as any,
+      docs: docs.map((d: any) => ({
+        filename: d.filename,
+        purpose: d.purpose ?? null,
+        fullText: d.fullText ?? null,
+        summary: d.summary ?? null,
+      })),
+      questionCtx: {
+        solutions,
+        familias: solutions.map(id => getSolution(id)?.familiaId).filter(Boolean) as string[],
+        tenure: v(site, 'land_tenure'),
+        currentUse: v(site, 'current_use'),
+        siteName: v(site, 'site_name'),
+        worry: v(site, 'site_worry'),
+        areaM2: Number(v(site, 'site_area_m2')) || 0,
+        hasFundingHistory: v(org, 'prior_project_scale') === 'funded' || v(org, 'funding_history') === 'yes',
+        needsStudy: false,
+      },
+      // The cohort layer is deliberately left empty for now: it is the one
+      // input that leaves this org's own record, and it ships behind its own
+      // review rather than riding in on this change.
+      cohort: [],
+    });
+
+    const fresh = getCboState(cboId);
+    if (!fresh?.sections?.intervention_type) return;
+    fresh.sections.intervention_type.fields._advice_json = {
+      value: JSON.stringify(advice),
+      confidence: 'medium',
+      source: 'agent',
+      userEdited: false,
+    } as any;
+    setCboState(cboId, fresh);
+    debouncedPersist(cboId);
+    console.log(
+      `[w3-advisor] ${cboId}: ${advice.drafts.length} draft(s), ${advice.questionIds.length} question(s), ` +
+      `${advice.observations.length} observation(s) in ${Date.now() - started}ms${reason ? ` — ${reason}` : ''}`,
+    );
+  } catch (err: any) {
+    console.error(`[w3-advisor] ${cboId} failed (session continues unchanged):`, err?.message || err);
+  }
 }
 
 // Default model for the CBO chat. Mirrors the conceptNoteAgent (CT) choice that

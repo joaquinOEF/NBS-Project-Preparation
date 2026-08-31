@@ -291,3 +291,71 @@ things are structural rather than decorative:
    coordination rather than to the organisation.
 
 Nothing in it asks a new question — the last beat of W3 is reading, not filling.
+
+
+## The model, put back where it belongs
+
+W3 shipped calling **no model at all**. Removing it from the *judging* was right
+and is not changing — the verdict, the price and the benefit ranges stay pure
+functions so any line can be audited back to a ficha sentence. Removing it from
+the *listening* was an accident, and an expensive one: by Encontro 3 an
+organisation may have uploaded a Teia Sprint application — a project proposal
+they already wrote, sitting in the documents table with its full text — and W3
+asked *"por que aqui?"* as though we had never seen it.
+
+The split `server/services/w3Advisor.ts` draws:
+
+> **The model reads, selects and observes. The functions decide and compute.**
+
+It never writes a field, never sets a verdict, never produces a number.
+
+### Three layers of context
+
+| | |
+|---|---|
+| **theirs** | `buildContextMarkdown()` — which already existed, written explicitly for *"an agent given the folder as context"*, and until now was only ever downloaded by a coordinator. Plus the full text of what they uploaded. |
+| **ours** | the chosen solution's ficha — the reviewed content, not a summary of it |
+| **the cohort** | what the other organisations are doing. Not shipped yet: it is the one input that leaves this org's own record, so it goes behind its own review. |
+
+For scale: the chat agent's working memory is the last 10 messages at 300
+characters each. The bundle is everything two workshops produced.
+
+### What it returns, and every way it is caught being wrong
+
+**Drafts.** A *literal passage* from a document they uploaded, for the two
+free-text beats. Verified against the stored text before it can be shown — no
+match, no draft, and the beat falls back to its blank prompt. That is what makes
+"we read what you sent" checkable rather than promised, and it makes fabrication
+structurally impossible instead of discouraged.
+
+The distinction is the point: **confirming your own sentence is recognition;
+confirming our paraphrase of it is replacement.** `[Escrever do zero]` is offered
+with equal weight, and the answer is stored with `justification_source` so a
+route built from confirmations is legible as one.
+
+**Questions.** At most three ids from an authored bank
+(`shared/w3-questions.ts`), filtered again through the eligibility rule — the
+model cannot surface a slope question for a flat schoolyard even if it asks to.
+The *wording* is reviewed; only the *selection* is chosen. A model writing
+questions live to organisations we have spent two workshops building trust with
+is the one place the risk is not worth taking: a question tells someone what we
+think matters, and can imply an obligation they never agreed to.
+
+The bank comes from the three-reviewer audit, and every entry names the reviewer
+whose gap it closes, so a question nobody needed can be removed by tracing it to
+a claim.
+
+**Observations.** `strength` goes to the organisation, placed *after* the
+evidence — a compliment that arrives before the substance reads as flattery.
+`gap` and `cohort` go to the coordination only: a list of what a funder will
+push back on belongs with whoever will do the pushing back, not on the page
+someone reads to their assembly.
+
+### It never blocks
+
+Fired the instant the footprint map opens — the one moment the organisation is
+guaranteed to be busy for the better part of a minute. Timeboxed, run once,
+re-reads state before writing so it cannot clobber a newer answer. **No key, a
+timeout, a malformed answer or a failed quote check all leave the session
+behaving exactly as it did before this existed** — the fallback is the current
+product, not a degraded one.

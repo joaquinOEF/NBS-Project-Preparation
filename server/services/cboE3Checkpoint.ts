@@ -31,6 +31,8 @@
 import type { CboState } from '@shared/cbo-schema';
 import { buildDossier, portfolioState, type W3Input } from '@shared/w3-dossier';
 import { buildRoadmap } from '@shared/w3-roadmap';
+import { eligibleQuestions, getW3Question, type QuestionContext } from '@shared/w3-questions';
+import type { W3Advice } from './w3Advisor';
 import { topShortlist } from '@shared/w3-solutions';
 import { budgetLineFor, roundAreaM2 } from '@shared/w3-sizing';
 import { benefitFor } from '@shared/w3-benefits';
@@ -52,6 +54,17 @@ export interface E3Deps {
   recordCheckpoint(step: string): void;
   /** Chip-label normalisation, shared with E2 so the two match identically. */
   normChip(s: string): string;
+  /**
+   * Kick off the advisor pass and persist whatever it returns.
+   *
+   * Fire-and-forget by design, and fired at the one moment the organisation is
+   * guaranteed to be busy: the instant they open the footprint map. They then
+   * spend thirty to sixty seconds tracing a shape, which is longer than the
+   * call takes — so the drafts are waiting by the time the next beat needs
+   * them, and nothing ever waits on the model. A session where it fails, times
+   * out or was never configured runs exactly as it does today.
+   */
+  startAdvisor?(): void;
 }
 
 /** The chips E3 speaks, in one table — same rationale as E2C. */
@@ -78,6 +91,8 @@ const E3C = {
   fazSentido: { pt: 'Faz sentido', en: 'That makes sense' },
   pareceMuito: { pt: 'Parece muito', en: 'Sounds like a lot' },
   parecePouco: { pt: 'Parece pouco', en: 'Sounds like little' },
+  serve: { pt: 'Serve, é isso mesmo', en: "That works, that's it" },
+  escreverZero: { pt: 'Prefiro escrever do zero', en: "I'd rather write it fresh" },
 } as const;
 
 /**
@@ -167,6 +182,33 @@ export async function serveE3Checkpoint(
   const liveSolutions = () =>
     read(TYPE)('chosen_solutions').split(',').map(v => v.trim()).filter(Boolean);
   const liveArea = () => Number(read(SITE)('site_area_m2')) || 0;
+
+  /** Whatever the advisor returned, if it finished in time. Never required. */
+  const advice = ((): W3Advice | null => {
+    try {
+      const raw = read(TYPE)('_advice_json');
+      return raw ? (JSON.parse(raw) as W3Advice) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const questionCtx = (): QuestionContext => {
+    const sols = liveSolutions();
+    return {
+      solutions: sols,
+      familias: sols.map(id => getSolution(id)?.familiaId).filter(Boolean) as string[],
+      tenure: site('land_tenure'),
+      currentUse: site('current_use'),
+      siteName: siteName,
+      worry: site('site_worry'),
+      areaM2: liveArea(),
+      hasFundingHistory:
+        String((state.sections as any).org_profile?.fields?.prior_project_scale?.value ?? '') === 'funded' ||
+        String((state.sections as any).org_profile?.fields?.funding_history?.value ?? '') === 'yes',
+      needsStudy: false,
+    };
+  };
 
   const w3Input = (): W3Input => ({
     site: Object.fromEntries(
@@ -397,6 +439,7 @@ export async function serveE3Checkpoint(
   };
 
   const openFootprintMap = (): true => {
+    deps.startAdvisor?.();
     pushEvent({
       type: 'open_map',
       params: resolveOpenMapParams(
@@ -436,33 +479,62 @@ export async function serveE3Checkpoint(
   };
 
   // ── Beat 3 · why here, and what it is like now ────────────────────────────
+  /**
+   * A free-text beat, opened with their OWN sentence when a document has one.
+   *
+   * The passage is verified against the stored file before it can reach here
+   * (w3Advisor.verifyQuote), so this is always something they wrote, never a
+   * summary of it. That distinction is the whole point: confirming your own
+   * sentence is recognition, confirming our paraphrase of it is replacement.
+   *
+   * "Escrever do zero" is offered with equal weight for the same reason. At
+   * minute forty, a tired organisation will tap whatever looks like agreement.
+   */
+  const askFreeText = (
+    field: 'justification_why_here' | 'baseline_condition',
+    promptPt: string,
+    promptEn: string,
+    detail: string,
+  ): true => {
+    const draft = advice?.drafts.find(d => d.field === field);
+    say(promptPt, promptEn);
+    if (draft) {
+      say(
+        `Só uma coisa antes: em **${draft.sourceFilename}**, que vocês mandaram, está escrito:\n\n> ${draft.quote}\n\n_${draft.whyPt}_`,
+        `One thing first: in **${draft.sourceFilename}**, which you sent, it says:\n\n> ${draft.quote}\n\n_${draft.whyPt}_`,
+      );
+      ask('Isso já responde, ou vocês querem dizer de outro jeito?', 'Does that already answer it, or would you rather say it differently?', [
+        { pt: E3C.serve.pt, en: E3C.serve.en, dPt: 'Usa o que vocês já escreveram', dEn: 'Uses what you already wrote' },
+        { pt: E3C.escreverZero.pt, en: E3C.escreverZero.en, dPt: 'Responde aqui do seu jeito', dEn: 'Answer here in your own way' },
+        { pt: E3C.pular.pt, en: E3C.pular.en, dPt: 'Fica como pendência', dEn: 'Recorded as still open' },
+      ]);
+    } else {
+      ask('Quando quiser:', 'Whenever you like:', [
+        { pt: E3C.pular.pt, en: E3C.pular.en, dPt: 'Fica como pendência', dEn: 'Recorded as still open' },
+      ]);
+    }
+    return finish(detail);
+  };
+
   const askJustification = (): true => {
     deps.writeFields(TYPE, { _why_pending: 'yes' });
-    say(
+    return askFreeText(
+      'justification_why_here',
       `Por que **aqui**? Uma ou duas frases nas palavras de vocês — pode gravar um áudio.\n\n_Isso é o que um edital lê primeiro, e é a parte que só vocês sabem responder._`,
       `Why **here**? A sentence or two in your own words — you can record a voice note.\n\n_This is the first thing a funding call reads, and the part only you can answer._`,
+      'ask-why',
     );
-    ask('Quando quiser:', 'Whenever you like:', [
-      { pt: E3C.pular.pt, en: E3C.pular.en, dPt: 'Fica como pendência', dEn: 'Recorded as still open' },
-    ]);
-    return finish('ask-why');
   };
 
   const askBaseline = (): true => {
     deps.writeFields(IMPACT, { _baseline_pending: 'yes' });
     const copy = askCopyFor(E3_QUESTIONNAIRE, 'baseline_condition', manifestRead, isPt ? 'pt' : 'en');
-    say(
-      copy ?? 'Antes de qualquer obra: como é o lugar hoje?',
-      copy ?? 'Before any work: what is the place like today?',
+    return askFreeText(
+      'baseline_condition',
+      `${copy ?? 'Antes de qualquer obra: como é o lugar hoje?'}\n\n_Uma foto com data vale mais que qualquer descrição aqui — é o que prova depois que alguma coisa mudou._`,
+      `${copy ?? 'Before any work: what is the place like today?'}\n\n_A dated photo is worth more than any description here — it is what later proves anything changed._`,
+      'ask-baseline',
     );
-    say(
-      '_Uma foto com data vale mais que qualquer descrição aqui — é o que prova depois que alguma coisa mudou._',
-      '_A dated photo is worth more than any description here — it is what later proves anything changed._',
-    );
-    ask('Quando quiser:', 'Whenever you like:', [
-      { pt: E3C.pular.pt, en: E3C.pular.en, dPt: 'Fica como pendência', dEn: 'Recorded as still open' },
-    ]);
-    return finish('ask-baseline');
   };
 
   /**
@@ -552,6 +624,31 @@ _For this one we do not yet have a reference figure — what the ficha says is a
   const askFrequency = (): true =>
     askEnum(OPS, 'maintenance_frequency', 'Com que frequência isso precisa de cuidado?', 'How often does it need looking after?');
   /**
+   * The two or three questions that only make sense for THIS organisation.
+   *
+   * The model chose which; the wording is authored (shared/w3-questions.ts) and
+   * the eligibility rule already excluded anything nonsensical for this site.
+   * Asked here, after the generic beats, because they are the ones most likely
+   * to be cut when a session runs long — and cutting them costs less than
+   * cutting who-maintains-it.
+   */
+  const askExtras = (): true => {
+    const ids = (advice?.questionIds ?? []).filter(id => !type(`_extra_${id}`));
+    const q = ids.map(getW3Question).find(Boolean);
+    if (!q) return askAnotherSolution();
+    deps.writeFields(TYPE, { _extra_pending: q.id });
+    if (q.kind === 'chips' && q.options?.length) {
+      ask(q.askPt, q.askEn, q.options.map(o => ({ pt: o.pt, en: o.en })));
+    } else {
+      say(q.askPt, q.askEn);
+      ask('Quando quiser:', 'Whenever you like:', [
+        { pt: E3C.pular.pt, en: E3C.pular.en, dPt: 'Fica como pendência', dEn: 'Recorded as still open' },
+      ]);
+    }
+    return finish(`ask-extra-${q.id}`);
+  };
+
+  /**
    * One site, more than one solution.
    *
    * The whole four-state verdict rests on this being possible: a community
@@ -595,7 +692,14 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     // The hoja de ruta, not just the dossier. Same data, assembled as a route
     // they can follow and argue with — see shared/w3-roadmap.ts for why every
     // block carries where it came from and what would change it.
-    pushEvent({ type: 'show_roadmap', roadmap: buildRoadmap(input, isPt ? 'pt' : 'en') } as any);
+    pushEvent({
+      type: 'show_roadmap',
+      roadmap: buildRoadmap(
+        input,
+        isPt ? 'pt' : 'en',
+        (advice?.observations ?? []).map(o => ({ kind: o.kind, text: o.textPt, basedOn: o.basedOn })),
+      ),
+    } as any);
 
     const nome = String((state.sections as any).org_profile?.fields?.contact_name?.value || '')
       .trim().split(/\s+/)[0];
@@ -634,8 +738,15 @@ _For this one we do not yet have a reference figure — what the ficha says is a
   // would capture spoken answers and silently drop typed ones.
   const isSkip = (s: string) =>
     deps.normChip(s) === deps.normChip(E3C.pular.pt) || deps.normChip(s) === deps.normChip(E3C.pular.en);
+  /** The two chips the draft beat adds. Neither is the answer — one commits the
+   *  quote, the other reopens the box — so the free-text handlers below have to
+   *  let them through rather than storing the label as their reply. */
+  const isDraftChip = (s: string) => {
+    const n = deps.normChip(s);
+    return [E3C.serve, E3C.escreverZero].some(c => n === deps.normChip(c.pt) || n === deps.normChip(c.en));
+  };
 
-  if (type('_why_pending') === 'yes' && raw && !raw.startsWith('Map selection (')) {
+  if (type('_why_pending') === 'yes' && raw && !raw.startsWith('Map selection (') && !isDraftChip(raw)) {
     deps.writeFields(TYPE, {
       _why_pending: '',
       ...(isSkip(raw) ? {} : { justification_why_here: raw.slice(0, 4000) }),
@@ -644,13 +755,39 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     return askBaseline();
   }
 
-  if (impact('_baseline_pending') === 'yes' && raw && !raw.startsWith('Map selection (')) {
+  if (impact('_baseline_pending') === 'yes' && raw && !raw.startsWith('Map selection (') && !isDraftChip(raw)) {
     deps.writeFields(IMPACT, {
       _baseline_pending: '',
       ...(isSkip(raw) ? {} : { baseline_condition: raw.slice(0, 4000) }),
     });
     if (!isSkip(raw)) say('Guardado como linha de base.', 'Stored as the baseline.');
     return askImpact();
+  }
+
+  // ══ An extra question, waiting for its answer ════════════════════════════
+  // Above the chip gate: a text extra is answered in prose, and a chip extra
+  // arrives as one. Both land here, and both mark the question done so the next
+  // one can be served — including when the answer is "não sei", which is a
+  // finding rather than a skip.
+  {
+    const pendingId = type('_extra_pending');
+    if (pendingId && raw && !raw.startsWith('Map selection (')) {
+      const q = getW3Question(pendingId);
+      if (q) {
+        const answered = isSkip(raw)
+          ? ''
+          : q.kind === 'chips'
+            ? (q.options ?? []).find(o => deps.normChip(o.pt) === deps.normChip(raw) || deps.normChip(o.en) === deps.normChip(raw))?.id ?? raw.slice(0, 400)
+            : raw.slice(0, 1200);
+        deps.writeFields(q.sectionId, {
+          ...(answered ? { [q.field]: answered } : {}),
+          [`_extra_${q.id}`]: 'done',
+        });
+        if (q.sectionId !== TYPE) deps.writeFields(TYPE, { [`_extra_${q.id}`]: 'done', _extra_pending: '' });
+        else deps.writeFields(TYPE, { _extra_pending: '' });
+        return askExtras();
+      }
+    }
   }
 
   // ══ The very first turn of the workshop ══════════════════════════════════
@@ -769,6 +906,38 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     return askTimeframe();
   }
 
+  // Their own sentence, confirmed. Stored with provenance so the roadmap and
+  // the coordinator can always tell what they wrote here from what they
+  // approved from a file they wrote earlier.
+  if (is(E3C.serve)) {
+    const pendingField = type('_why_pending') === 'yes'
+      ? 'justification_why_here'
+      : impact('_baseline_pending') === 'yes' ? 'baseline_condition' : null;
+    const draft = pendingField ? advice?.drafts.find(d => d.field === pendingField) : null;
+    if (pendingField && draft) {
+      if (pendingField === 'justification_why_here') {
+        deps.writeFields(TYPE, {
+          justification_why_here: draft.quote,
+          justification_source: `confirmed-draft:${draft.sourceFilename}`,
+          _why_pending: '',
+        });
+        say('Fechado — com as palavras de vocês mesmo.', 'Settled — in your own words.');
+        return askBaseline();
+      }
+      deps.writeFields(IMPACT, {
+        baseline_condition: draft.quote,
+        baseline_source: `confirmed-draft:${draft.sourceFilename}`,
+        _baseline_pending: '',
+      });
+      say('Guardado como linha de base.', 'Stored as the baseline.');
+      return askImpact();
+    }
+  }
+  if (is(E3C.escreverZero)) {
+    say('Claro — pode escrever ou gravar aí embaixo.', 'Of course — write or record below.');
+    return finish('write-fresh');
+  }
+
   if (is(E3C.outraSolucao)) {
     deps.writeFields(TYPE, { _adding_solution: 'yes' });
     return askSolution();
@@ -792,6 +961,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     // Not a failure. The dossier reports it as a named gap with the rate
     // attached, which is the actionable form of "we don't know".
     deps.writeFields(SITE, { _area_deferred: 'yes' });
+    deps.startAdvisor?.();
     say(
       'Sem problema — fica registrado que falta medir, e a ficha já tem o preço por m² pra quando vocês souberem.',
       "No problem — it is recorded that the measurement is still missing, and the ficha already has the per-m² price for when you know.",
@@ -808,7 +978,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     [OPS, 'maintenance_frequency', askSustainability],
     // A second solution is offered once, after the first is fully scoped —
     // asking earlier would interrupt the one thing they came to do.
-    [OPS, 'sustainability_model', () => (type('_second_asked') ? closeE3() : askAnotherSolution())],
+    [OPS, 'sustainability_model', () => (type('_second_asked') ? closeE3() : askExtras())],
   ] as Array<[string, string, () => true | Promise<true>]>) {
     if (read(sectionId)(field)) continue;
     const id = enumIdFromChip(sectionId, field, raw);
