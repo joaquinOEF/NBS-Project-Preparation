@@ -140,12 +140,36 @@ test.describe('W3 walkthrough — a recording', () => {
       .toBeVisible({ timeout: 20_000 });
     await beat(page, READ + 1800);
 
+    // ── 5b · Who builds it. The answer that moves the cost more than any
+    //         other, and the one the original W3 design had and the build lost.
+    await expect(chip('Mutirão com apoio técnico')).toBeVisible({ timeout: 15_000 });
+    await beat(page, READ + 900);
+    await chip('Mutirão com apoio técnico').click();
+
     // ── 6 · Why here, and what the place is like now ─────────────────────────
     await say('É o único terreno livre do quarteirão e é onde a água toda desce quando chove.');
     await expect(inThread('como é o lugar hoje'))
       .toBeVisible({ timeout: 20_000 });
     await beat(page, READ);
     await say('Terra batida com entulho de obra, sem drenagem nenhuma. Depois da chuva fica poça três dias.');
+
+    // ── 6b · THE BEAT THAT MAKES W3 MORE THAN W2 EXTENDED.
+    //          We state a sourced range over the footprint they just drew, and
+    //          ask what they make of it. Nobody is asked to produce a number.
+    await expect(inThread('estimativa de projeto')).toBeVisible({ timeout: 20_000 });
+    await beat(page, READ + 2600);
+    // "Parece pouco" from an org that lived through 2024 is the most accurate
+    // thing said all session — and it is answered with the scale honesty note,
+    // not with reassurance.
+    await chip('Parece pouco').click();
+    await expect(inThread('macrodrenagem')).toBeVisible({ timeout: 20_000 });
+    await beat(page, READ + 2600);
+
+    await expect(chip('1 ano')).toBeVisible({ timeout: 15_000 });
+    await chip('1 ano').click();
+    await expect(chip('Com uma universidade ou parceiro')).toBeVisible({ timeout: 15_000 });
+    await beat(page, READ);
+    await chip('Com uma universidade ou parceiro').click();
 
     // ── 7 · Upkeep — and the rule that only shows on public land ─────────────
     await expect(inThread('quem cuida disso no dia a dia'))
@@ -164,20 +188,22 @@ test.describe('W3 walkthrough — a recording', () => {
 
     // ── 9 · One site can carry two solutions ─────────────────────────────────
     await expect(chip('Só essa por enquanto')).toBeVisible({ timeout: 20_000 });
-    await beat(page, READ + 800);
+    await beat(page, READ + 900);
     await chip('Só essa por enquanto').click();
 
-    // ── 10 · The dossier — read it the way an organisation would ─────────────
-    const dossier = page.getByTestId('cbo-dossier');
-    await expect(dossier).toBeVisible({ timeout: 25_000 });
+    // ── 10 · The hoja de ruta — read it the way an organisation would ────────
+    const roadmap = page.getByTestId('cbo-roadmap');
+    await expect(roadmap).toBeVisible({ timeout: 25_000 });
     await beat(page, READ);
-    await dossier.scrollIntoViewIfNeeded();
+    await roadmap.scrollIntoViewIfNeeded();
     await beat(page, READ);
-    // Scroll through it in steps, holding on each block.
-    for (let i = 0; i < 9; i++) {
-      await page.mouse.wheel(0, 190);
-      await beat(page, 1300);
+    // Scroll through slowly. This is the deliverable — every block carries where
+    // it came from and what would change it, and that only reads if it is on
+    // screen long enough to read.
+    for (let i = 0; i < 16; i++) {
+      await page.mouse.wheel(0, 200);
+      await beat(page, 1250);
     }
-    await beat(page, READ + 2000);
+    await beat(page, READ + 2200);
   });
 });
