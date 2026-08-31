@@ -33,7 +33,7 @@ import { buildDossier, portfolioState, type W3Input } from '@shared/w3-dossier';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { eligibleQuestions, getW3Question, type QuestionContext } from '@shared/w3-questions';
 import type { W3Advice } from './w3Advisor';
-import { topShortlist } from '@shared/w3-solutions';
+import { mergeShortlist, topShortlist } from '@shared/w3-solutions';
 import { budgetLineFor, roundAreaM2 } from '@shared/w3-sizing';
 import { benefitFor } from '@shared/w3-benefits';
 import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
@@ -65,6 +65,14 @@ export interface E3Deps {
    * out or was never configured runs exactly as it does today.
    */
   startAdvisor?(): void;
+  /**
+   * Resolve once the advisor pass has settled, or after a short cap.
+   *
+   * Only the solution beat awaits it, because that is the only beat whose
+   * output would be materially worse without it. Everything else reads whatever
+   * happens to be there.
+   */
+  awaitAdvisor?(): Promise<void>;
 }
 
 /** The chips E3 speaks, in one table — same rationale as E2C. */
@@ -183,15 +191,16 @@ export async function serveE3Checkpoint(
     read(TYPE)('chosen_solutions').split(',').map(v => v.trim()).filter(Boolean);
   const liveArea = () => Number(read(SITE)('site_area_m2')) || 0;
 
-  /** Whatever the advisor returned, if it finished in time. Never required. */
-  const advice = ((): W3Advice | null => {
+  /** Whatever the advisor returned, if it finished. Never required. */
+  const readAdvice = (): W3Advice | null => {
     try {
       const raw = read(TYPE)('_advice_json');
       return raw ? (JSON.parse(raw) as W3Advice) : null;
     } catch {
       return null;
     }
-  })();
+  };
+  const advice = readAdvice();
 
   const questionCtx = (): QuestionContext => {
     const sols = liveSolutions();
@@ -287,6 +296,7 @@ export async function serveE3Checkpoint(
         { pt: E3C.seguirSemLugar.pt, en: E3C.seguirSemLugar.en, dPt: 'A gente marca depois', dEn: 'We will mark it later' },
       ]);
       deps.writeFields(TYPE, { _e3_opened: 'yes' });
+      deps.startAdvisor?.();
       return finish('open-no-site');
     }
     const place = siteName || bairro;
@@ -299,6 +309,12 @@ export async function serveE3Checkpoint(
       { pt: E3C.mudou.pt, en: E3C.mudou.en, dPt: 'Me conta o que mudou', dEn: 'Tell me what changed' },
     ]);
     deps.writeFields(TYPE, { _e3_opened: 'yes' });
+    // ⚠️ HERE, not at the footprint map. The pass was firing when the map
+    // opened — which is AFTER the solution is chosen — so the model read their
+    // photos and their Teia Sprint proposal one beat too late to inform the one
+    // decision they were relevant to. It now runs while they read this recap
+    // and reach for the confirm chip.
+    deps.startAdvisor?.();
     return finish('open');
   };
 
@@ -315,8 +331,29 @@ export async function serveE3Checkpoint(
   };
 
   // ── Beat 1 · the solution ─────────────────────────────────────────────────
-  const askSolution = (): true => {
-    const entries = topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 4);
+  const askSolution = async (): Promise<true> => {
+    // Give the reading a moment to land, and say what is happening.
+    //
+    // The pass started when this workshop opened, so it usually has a head
+    // start of however long they took to read the recap and tap a chip. When it
+    // has not finished, waiting a few seconds beats serving a list that ignored
+    // their photos — and an unexplained pause after someone uploaded six
+    // photographs reads as the app hanging, while a named one reads as being
+    // listened to.
+    if (deps.awaitAdvisor && !advice) {
+      const label = isPt
+        ? 'Olhando as fotos e o que vocês mandaram sobre o lugar…'
+        : 'Looking at your photos and what you sent about the place…';
+      pushEvent({ type: 'thinking_step', step: { id: 'w3-advisor', label, status: 'active' } } as any);
+      await deps.awaitAdvisor();
+      pushEvent({ type: 'thinking_step', step: { id: 'w3-advisor', label, status: 'complete' } } as any);
+    }
+
+    const fresh = readAdvice();
+    const base = topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 27);
+    // Their Encontro 2 picks lead; the agent reorders inside them and may add
+    // one below with the tension named. See mergeShortlist.
+    const entries = mergeShortlist(base, fresh?.shortlist ?? [], isPt ? 'pt' : 'en').slice(0, 4);
     say(
       'Os grupos que vocês marcaram viram isto aqui. Não é uma lista fechada — **nada fica descartado**, e dá pra ver as 27 quando quiser.',
       "The grupos you marked become these. It is not a closed list — **nothing is ruled out**, and you can see all 27 whenever you like.",
@@ -439,7 +476,6 @@ export async function serveE3Checkpoint(
   };
 
   const openFootprintMap = (): true => {
-    deps.startAdvisor?.();
     pushEvent({
       type: 'open_map',
       params: resolveOpenMapParams(
@@ -852,7 +888,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
   const msg = deps.normChip(raw);
   const is = (c: { pt: string; en: string }) => msg === deps.normChip(c.pt) || msg === deps.normChip(c.en);
 
-  if (is(E3C.confirmar) && !chosen.length) return askSolution();
+  if (is(E3C.confirmar) && !chosen.length) return await askSolution();
   if (is(E3C.mudou)) return false; // free conversation — the model repairs it
 
   if (is(E3C.verTodas)) {
@@ -940,11 +976,11 @@ _For this one we do not yet have a reference figure — what the ficha says is a
 
   if (is(E3C.outraSolucao)) {
     deps.writeFields(TYPE, { _adding_solution: 'yes' });
-    return askSolution();
+    return await askSolution();
   }
   if (is(E3C.soEssa)) return await closeE3();
   if (is(E3C.marcarAgora)) return openSiteMap('open-site-map-from-e3');
-  if (is(E3C.seguirSemLugar)) return askSolution();
+  if (is(E3C.seguirSemLugar)) return await askSolution();
 
   if (is(E3C.desenhar) || is(E3C.redesenhar)) {
     if (!hasSitePin) {
@@ -961,7 +997,6 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     // Not a failure. The dossier reports it as a named gap with the rate
     // attached, which is the actionable form of "we don't know".
     deps.writeFields(SITE, { _area_deferred: 'yes' });
-    deps.startAdvisor?.();
     say(
       'Sem problema — fica registrado que falta medir, e a ficha já tem o preço por m² pra quando vocês souberem.',
       "No problem — it is recorded that the measurement is still missing, and the ficha already has the per-m² price for when you know.",

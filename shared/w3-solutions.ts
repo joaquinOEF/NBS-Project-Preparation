@@ -158,3 +158,75 @@ export function shortlistForSite(input: ShortlistInput, lang: 'pt' | 'en' = 'pt'
 export function topShortlist(input: ShortlistInput, lang: 'pt' | 'en' = 'pt', n = 4): ShortlistEntry[] {
   return shortlistForSite(input, lang).slice(0, n);
 }
+
+
+// ── Merging the agent's reading with their own choice ────────────────────────
+
+export interface AgentPick {
+  solutionId: string;
+  reasonPt: string;
+  /** Outside the famílias they marked in Encontro 2. */
+  outsideTheirPicks: boolean;
+}
+
+/**
+ * The shortlist an organisation actually sees.
+ *
+ * ⚠️ THE ALIGNMENT RULE. What they chose in Encontro 2 leads, always. They
+ * chose with intention, in a session whose details they may not remember, and a
+ * platform that quietly reorders that choice because a photo suggested
+ * otherwise has taken the decision while appearing to offer one.
+ *
+ * So the agent's reading does two things and never a third:
+ *   · it REORDERS within their own picks, and replaces the generic reason with
+ *     one citing their photo or their words;
+ *   · it may APPEND a solution from outside those picks, below everything they
+ *     chose, with the tension said out loud;
+ *   · it never promotes an outside solution above one they marked.
+ *
+ * With no agent picks this returns exactly what it returned before — the
+ * deterministic order — which is what makes the model optional rather than
+ * load-bearing.
+ */
+export function mergeShortlist(
+  base: ShortlistEntry[],
+  picks: AgentPick[],
+  lang: 'pt' | 'en' = 'pt',
+): ShortlistEntry[] {
+  if (!picks.length) return base;
+  const byId = new Map(base.map(e => [e.solution.id, e]));
+  const inside = picks.filter(p => !p.outsideTheirPicks);
+  const outside = picks.filter(p => p.outsideTheirPicks);
+
+  /** Their reason, in place of ours — but only ours carried the caveat. */
+  const withReason = (e: ShortlistEntry, p: AgentPick): ShortlistEntry => ({
+    ...e,
+    reasonPt: lang === 'pt' ? p.reasonPt : e.reasonEn,
+    reasonEn: lang === 'en' ? p.reasonPt : e.reasonEn,
+  });
+
+  const lifted: ShortlistEntry[] = [];
+  for (const p of inside) {
+    const e = byId.get(p.solutionId);
+    if (!e) continue;
+    lifted.push(withReason(e, p));
+    byId.delete(p.solutionId);
+  }
+
+  const appended: ShortlistEntry[] = [];
+  for (const p of outside) {
+    const e = byId.get(p.solutionId);
+    if (!e) continue;
+    appended.push({
+      ...withReason(e, p),
+      // Not a caveat about the site — a caveat about US. It says plainly that
+      // this is our reading arriving from outside their choice.
+      caveatPt: 'Isso está fora dos grupos que vocês marcaram no Encontro 2 — é leitura nossa, e quem decide são vocês.',
+      caveatEn: 'This sits outside the grupos you marked in Encontro 2 — it is our reading, and the decision is yours.',
+    });
+    byId.delete(p.solutionId);
+  }
+
+  const rest = base.filter(e => byId.has(e.solution.id));
+  return [...lifted, ...rest, ...appended];
+}

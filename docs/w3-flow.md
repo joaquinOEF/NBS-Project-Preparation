@@ -496,3 +496,63 @@ can act on, and Portuguese agrees.
 ⚠️ `excludeFromPortfolio` on `cohort_members` keeps Vila Flores's own test
 organisation out of the **analysis** while leaving it on the roster — hiding it
 from the board would just lose track of it.
+
+
+## Full context, and the alignment rule
+
+An audit of what W3 actually reads, prompted by *"w3 should start making sure it
+got full context from the CBO on all they shared"*. The answer was no, and
+specifically:
+
+- **The shortlist read five fields** — `nbs_interest`, `site_worry`,
+  `current_use`, `site_name`, `site_story`. That was all.
+- **The advisor fired after the solution was chosen.** It started when the
+  footprint map opened; the pick happens several beats earlier. So the model
+  read their photos and their Teia Sprint proposal one beat too late to inform
+  the one decision they were relevant to.
+- **Nine W2 artefacts were never opened**, including `_hazard_check_json` —
+  where they *corrected our risk numbers*. Encontro 2 tells them plainly that
+  their word counts for more than our figure, and nothing downstream ever read
+  the answer. Also `role_preference`, `teia_sprint`, and the W2 recommendation
+  actually served.
+- **No photograph ever reached a model.** The loader existed
+  (`sitePhotosForRanking`, written for the W2 família ranking) and W3 — the
+  workshop that most needed it — never called it.
+
+### What changed
+
+The pass now fires when the workshop **opens**, while they read the recap and
+reach for the confirm chip, and it receives their photos, their corrections,
+their role preference, the depth read, their picked famílias and the full
+catalogue. The solution beat waits for it — visibly, *"Olhando as fotos e o que
+vocês mandaram sobre o lugar…"* — capped at 12 s, well under the pass's own
+timeout. Slower than that and they get the deterministic list; the pass carries
+on regardless and its result still reaches the drafts, the extra questions and
+the observations.
+
+**The catch-up is silent.** No extra beat: the session stays 13, and the reading
+shows up as a better list rather than as a summary of themselves they have to
+confirm.
+
+### ⚠️ THE ALIGNMENT RULE
+
+Ricardo, 31 August: Vila Flores cannot narrow to a solution technically either,
+so the tool should propose *"como tres opciones posibles"* from the photos and
+the audio. But an organisation's Encontro 2 choice was made with intention, in a
+session whose details they may not remember, and **a platform that quietly
+reorders that because a photo suggested otherwise has taken the decision while
+appearing to offer one.**
+
+So `mergeShortlist` does exactly two things and never a third:
+
+1. It **reorders inside their picks**, replacing our generic reason with one
+   citing their own evidence — *"na foto do fundo dá pra ver por onde a água
+   entra"*.
+2. It may **append** a solution from outside those picks, **below everything
+   they chose**, with the tension said out loud: *"isso está fora dos grupos que
+   vocês marcaram no Encontro 2 — é leitura nossa, e quem decide são vocês."*
+3. It **never** promotes an outside solution above one they marked. There is a
+   test named for this.
+
+With no agent picks it returns exactly the deterministic order, which is what
+keeps the model optional rather than load-bearing.

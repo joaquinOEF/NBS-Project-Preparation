@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { verifyQuote, EMPTY_ADVICE, adviseW3 } from '../server/services/w3Advisor';
 import { W3_QUESTIONS, eligibleQuestions, getW3Question } from '../shared/w3-questions';
+import { mergeShortlist, topShortlist } from '../shared/w3-solutions';
 
 // W3 ADVISOR — the model reads, selects and observes. It never decides.
 //
@@ -113,5 +114,62 @@ test.describe('the advisor never blocks and never decides', () => {
     expect(EMPTY_ADVICE.drafts).toEqual([]);
     expect(EMPTY_ADVICE.questionIds).toEqual([]);
     expect(EMPTY_ADVICE.observations).toEqual([]);
+  });
+});
+
+test.describe('the alignment rule — their Encontro 2 choice leads', () => {
+  const base = topShortlist(
+    { site: { nbs_interest: 'aguas-pluviais', site_worry: 'alagamento', site_name: 'Pátio' } } as any,
+    'pt',
+    27,
+  );
+
+  test('with no agent picks, the order is exactly what it was', () => {
+    // The model is optional, not load-bearing. A session where it never ran
+    // must produce the list it produced before any of this existed.
+    expect(mergeShortlist(base, [], 'pt').map(e => e.solution.id))
+      .toEqual(base.map(e => e.solution.id));
+  });
+
+  test('the agent reorders INSIDE their picks, and cites their evidence', () => {
+    const merged = mergeShortlist(base, [
+      { solutionId: 'biovaletas', reasonPt: 'Na foto do fundo dá pra ver por onde a água entra.', outsideTheirPicks: false },
+    ], 'pt');
+    expect(merged[0].solution.id).toBe('biovaletas');
+    // Its reason is now theirs, not our generic one.
+    expect(merged[0].reasonPt).toMatch(/foto do fundo/);
+  });
+
+  test('⚠️ an outside solution NEVER outranks one they marked', () => {
+    // They chose Águas Pluviais with intention, in a session whose details they
+    // may not remember. A platform that quietly reorders that because a photo
+    // suggested otherwise has taken the decision while appearing to offer one.
+    const merged = mergeShortlist(base, [
+      { solutionId: 'grade-viva', reasonPt: 'Na foto 2 dá pra ver o barranco exposto.', outsideTheirPicks: true },
+    ], 'pt');
+    const ids = merged.map(e => e.solution.id);
+    const slope = ids.indexOf('grade-viva');
+    const theirs = ids.indexOf('jardins-de-chuva');
+    expect(slope).toBeGreaterThan(theirs);
+    // And the tension is said out loud rather than left implicit.
+    expect(merged[slope].caveatPt).toMatch(/fora dos grupos que vocês marcaram/);
+    expect(merged[slope].reasonPt).toMatch(/barranco/);
+  });
+
+  test('an invented solution id is dropped rather than rendered', () => {
+    const merged = mergeShortlist(base, [
+      { solutionId: 'jardim-magico', reasonPt: 'inventado', outsideTheirPicks: false },
+    ], 'pt');
+    expect(merged.map(e => e.solution.id)).not.toContain('jardim-magico');
+    expect(merged).toHaveLength(base.length);
+  });
+
+  test('nothing is duplicated or lost in the merge', () => {
+    const merged = mergeShortlist(base, [
+      { solutionId: 'biovaletas', reasonPt: 'a', outsideTheirPicks: false },
+      { solutionId: 'grade-viva', reasonPt: 'b', outsideTheirPicks: true },
+    ], 'pt');
+    expect(merged).toHaveLength(base.length);
+    expect(new Set(merged.map(e => e.solution.id)).size).toBe(base.length);
   });
 });
