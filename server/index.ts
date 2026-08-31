@@ -1,8 +1,21 @@
+import { execSync } from 'node:child_process';
 import express, { type Request, Response, NextFunction } from 'express';
 import cookieParser from 'cookie-parser';
 import { registerRoutes } from './routes';
 import { setupVite, serveStatic, log } from './vite';
 import { autoSeedKnowledgeBase } from './services/knowledgeService';
+
+/** The commit this process is running, best-effort. Absent in a build with no
+ *  .git (a Replit Deployment), where the env stamp is the next best thing. */
+function buildStamp(): string {
+  try {
+    const sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().trim();
+    if (sha) return sha;
+  } catch { /* no git here — fall through */ }
+  return process.env.REPL_DEPLOYMENT_ID || process.env.REPLIT_DEPLOYMENT || 'unknown (no git)';
+}
+
 
 const app = express();
 app.use(express.json({ limit: '5mb' }));
@@ -72,6 +85,11 @@ app.use((req, res, next) => {
     },
     async () => {
       log(`serving on port ${port}`);
+      // WHICH BUILD IS THIS? A deployment running older code looks exactly like
+      // a broken fix: three separate rounds of "still not working" turned out
+      // to be a server that had not picked up the merge. One line at boot ends
+      // that question — compare it against `git log --oneline -1` on main.
+      log(`build ${buildStamp()}`);
 
       // Probe for CBO tables — logs a loud message if `npm run db:push`
       // hasn't been run yet so the dev catches it on boot, not on first chat.
