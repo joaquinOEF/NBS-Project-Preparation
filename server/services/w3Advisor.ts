@@ -54,8 +54,20 @@ import type { CboState } from '@shared/cbo-schema';
 const ADVISOR_MODEL = process.env.CBO_ADVISOR_MODEL || '';
 const ADVISOR_TIMEOUT_MS = Number(process.env.CBO_ADVISOR_TIMEOUT_MS || 25_000);
 
+// ⚠️ These two were `z.enum([...])`, and an enum in a ONE-SHOT schema is the
+// same trap as a `.min(2)`: the call is a single forced tool use with no retry
+// loop, so a draft aimed at a third field, or an observation typed 'risk'
+// instead of 'gap', threw — and the whole advice went with it. W3 then fell
+// back to the deterministic flow for that organisation's entire session: no
+// photos read, no drafts offered, no custom questions, one log line.
+//
+// The allowed values have not changed. They are enforced in the guards below,
+// where an unrecognised one costs that element rather than the answer.
+const DRAFT_FIELDS = ['justification_why_here', 'baseline_condition'] as const;
+const OBSERVATION_KINDS = ['strength', 'gap', 'cohort'] as const;
+
 const DraftSchema = z.object({
-  field: z.enum(['justification_why_here', 'baseline_condition']),
+  field: z.string(),
   /**
    * A LITERAL passage from one of their own documents. Not a paraphrase, not a
    * summary, not a synthesis of two sentences — the words they wrote.
@@ -74,7 +86,7 @@ const DraftSchema = z.object({
 
 const ObservationSchema = z.object({
   /** 'strength' is shown to the org; 'gap' and 'cohort' go to the coordination. */
-  kind: z.enum(['strength', 'gap', 'cohort']),
+  kind: z.string(),
   /** One sentence, pt-BR, in the platform's register — plain, no jargon. */
   textPt: z.string(),
   /** What in the record it is based on. Shown to the coordinator, not the org. */
@@ -321,6 +333,8 @@ export async function adviseW3(input: AdvisorInput): Promise<{ advice: W3Advice;
     // ── The guards. Everything below here assumes the model got it wrong. ────
     const byName = new Map(input.docs.map(d => [d.filename, d.fullText ?? '']));
     const drafts = raced.drafts.filter(d => {
+      // A draft for a field no beat asks would be written into nothing.
+      if (!(DRAFT_FIELDS as readonly string[]).includes(d.field)) return false;
       const text = byName.get(d.sourceFilename);
       if (!text) return false;
       return verifyQuote(d.quote, text);
@@ -355,6 +369,9 @@ export async function adviseW3(input: AdvisorInput): Promise<{ advice: W3Advice;
         questionIds: keptCapped.map(i => raced.questionIds[i]),
         questionReasons: keptCapped.map(i => raced.questionReasons[i] ?? ''),
         observations: raced.observations
+          // `kind` decides who sees it — 'strength' goes to the organisation,
+          // the rest to the coordination. An unrecognised kind has no audience.
+          .filter(o => (OBSERVATION_KINDS as readonly string[]).includes(o.kind))
           .filter(o => o.textPt.trim().length > 12)
           .slice(0, CAP.observations),
       },
