@@ -104,6 +104,26 @@ export interface SolutionCost {
   scalePt?: string;
   scaleEn?: string;
   /**
+   * The short noun the count question uses — "Quantas **cisternas**?" — and the
+   * counts worth offering as chips.
+   *
+   * ⚠️ Without these there was no size question at all for a solution priced
+   * per unit or per project. The footprint is correctly skipped (tracing an
+   * outline buys nothing when the price is per tree), and then nothing asked
+   * the question that DOES apply — while `notePt` below printed "quantas vocês
+   * querem?" and no beat ever collected the answer. Those organisations left
+   * W3 with a price per cistern and no number of cisterns: no total, no scale,
+   * and nothing to put under "dimensões" in a concept note.
+   */
+  unitPt?: string;
+  unitEn?: string;
+  unitPluralPt?: string;
+  unitPluralEn?: string;
+  /** Counts worth offering. Trees come in dozens; biodigesters do not. */
+  unitChips?: number[];
+  /** Portuguese agrees: "Quantas hortas?" but "Quantos biodigestores?". */
+  unitFemininePt?: boolean;
+  /**
    * Set when the figures are NOT literal in the ficha (a sum of two lines, a
    * rate worked back from a total). Required in that case, and always shown —
    * derived arithmetic an organisation cannot see is arithmetic it cannot
@@ -143,11 +163,17 @@ export const SOLUTION_COSTS: Record<string, SolutionCost> = {
   'barraginha': {
     basis: 'unit', low: 70, high: 200,
     scalePt: 'barraginha', scaleEn: 'barraginha',
+    unitPt: 'barraginha', unitEn: 'barraginha', unitPluralPt: 'barraginhas', unitPluralEn: 'barraginhas',
+    unitChips: [1, 2, 5, 10],
+    unitFemininePt: true,
   },
   'captacao-agua-da-chuva': {
     basis: 'unit', low: 4500, high: 10500,
     scalePt: 'cisterna de 16 mil litros — o piso é em mutirão, o teto é contratada por edital',
     scaleEn: 'a 16,000-litre cistern — the floor is mutirão-built, the ceiling is contracted through a public call',
+    unitPt: 'cisterna', unitEn: 'cistern', unitPluralPt: 'cisternas', unitPluralEn: 'cisterns',
+    unitChips: [1, 2, 5, 10],
+    unitFemininePt: true,
   },
 
   // ── Áreas verdes ──────────────────────────────────────────────────────────
@@ -161,12 +187,17 @@ export const SOLUTION_COSTS: Record<string, SolutionCost> = {
     basis: 'unit', low: 250, high: 500,
     scalePt: 'árvore plantada, com berço, tutor e protetor até o 3º ano',
     scaleEn: 'planted tree, with pit, stake and guard through year 3',
+    unitPt: 'árvore', unitEn: 'tree', unitPluralPt: 'árvores', unitPluralEn: 'trees',
+    unitChips: [10, 25, 50, 100],
+    unitFemininePt: true,
   },
   'parques-lineares': { basis: 'none' },
   'escola-verde': {
     basis: 'project', low: 5000, high: 20000,
     scalePt: 'um pátio pequeno com um jardim de chuva e algumas árvores',
     scaleEn: 'a small schoolyard with a rain garden and a few trees',
+    unitPt: 'pátio de escola', unitEn: 'school yard', unitPluralPt: 'pátios de escola', unitPluralEn: 'school yards',
+    unitChips: [1, 2, 3],
   },
   'parque-naturalizado': { basis: 'm2', low: 100, high: 230 },
 
@@ -175,16 +206,24 @@ export const SOLUTION_COSTS: Record<string, SolutionCost> = {
     basis: 'project', low: 300, high: 1200,
     scalePt: 'uma horta pequena de 10 a 50 m², com material reaproveitado. Uma horta comunitária de porte médio, com cercamento e irrigação, soma perto de R$ 25.000',
     scaleEn: 'a small garden of 10–50 m² using reclaimed materials. A mid-sized community garden with fencing and irrigation comes to around R$ 25,000',
+    unitPt: 'horta', unitEn: 'garden', unitPluralPt: 'hortas', unitPluralEn: 'gardens',
+    unitChips: [1, 2, 3, 5],
+    unitFemininePt: true,
   },
   'compostagem': {
     basis: 'project', low: 300, high: 2000,
     scalePt: 'de uma composteira doméstica pronta até uma estrutura comunitária com tambores reaproveitados',
     scaleEn: 'from a ready-made household composter up to a community setup with reclaimed drums',
+    unitPt: 'composteira', unitEn: 'composter', unitPluralPt: 'composteiras', unitPluralEn: 'composters',
+    unitChips: [1, 2, 5, 10],
+    unitFemininePt: true,
   },
   'cozinha-comunitaria-biodigestor': {
     basis: 'project', low: 300, high: 8900,
     scalePt: 'o biodigestor sozinho — caseiro com tambores no piso, kit comercial no teto. A cozinha completa é outra conta: hoje financiada pelo governo federal em até R$ 350 mil por unidade',
     scaleEn: 'the biodigester alone — home-built from drums at the floor, a commercial kit at the ceiling. The full kitchen is a separate matter: currently federally financed up to R$ 350,000 per unit',
+    unitPt: 'biodigestor', unitEn: 'biodigester', unitPluralPt: 'biodigestores', unitPluralEn: 'biodigesters',
+    unitChips: [1, 2],
   },
   'sistema-alimentar-local': { basis: 'none' },
 
@@ -214,6 +253,8 @@ export interface BudgetLine {
   lowBrl: number | null;
   highBrl: number | null;
   areaM2?: number;
+  /** How many of them — the size question for a solution counted per unit. */
+  units?: number;
   /** The one line an organisation puts on a page. */
   notePt: string;
   noteEn: string;
@@ -234,7 +275,7 @@ const brlEn = (v: number) => `R$ ${Math.round(v).toLocaleString('en-US', { maxim
  * is for: getting a supplier to quote against. W3's job is to get an
  * organisation into that conversation, not to stand in for it.
  */
-export function budgetLineFor(solutionId: string, areaM2?: number): BudgetLine | null {
+export function budgetLineFor(solutionId: string, areaM2?: number, units?: number): BudgetLine | null {
   const ficha = getSolutionFicha(solutionId);
   const cost = SOLUTION_COSTS[solutionId];
   if (!ficha || !cost) return null;
@@ -277,6 +318,51 @@ export function budgetLineFor(solutionId: string, areaM2?: number): BudgetLine |
   if ((cost.basis === 'unit' || cost.basis === 'project') && cost.low != null && cost.high != null) {
     const per = cost.basis === 'unit' ? 'por' : 'para';
     const perEn = cost.basis === 'unit' ? 'per' : 'for';
+    // ⚠️ Only a per-UNIT band multiplies. A 'project' band prices one instance
+    // at a particular size, and its prose often names a much larger figure for
+    // a bigger one — hortas urbanas is R$ 300–1.200 for a small bed and "perto
+    // de R$ 25.000" for a proper community garden in the same sentence.
+    // Multiplying the small end by a count would hand an organisation a total
+    // that reads authoritative and is wrong by an order of magnitude. The count
+    // is still recorded and shown; only the arithmetic is withheld.
+    if (units && units > 0 && cost.basis === 'project') {
+      const nounPt = units === 1 ? cost.unitPt : cost.unitPluralPt;
+      const nounEn = units === 1 ? cost.unitEn : cost.unitPluralEn;
+      return {
+        ...base,
+        lowBrl: null,
+        highBrl: null,
+        units,
+        ...(areaM2 ? { areaM2 } : {}),
+        notePt:
+          `${units} ${nounPt ?? 'unidade(s)'}. A ficha orça ${brl(cost.low)}–${brl(cost.high)} ${per} ${cost.scalePt}. ` +
+          `O total depende do porte de cada uma, então aqui fica a referência e não uma conta fechada.${nota(true)}`,
+        noteEn:
+          `${units} ${nounEn ?? 'unit(s)'}. The ficha prices ${brlEn(cost.low)}–${brlEn(cost.high)} ${perEn} ${cost.scaleEn}. ` +
+          `The total depends on how big each one is, so this is the reference rather than a closed sum.${nota(false)}`,
+      };
+    }
+    if (units && units > 0) {
+      const lo = cost.low * units;
+      const hi = cost.high * units;
+      const nounPt = units === 1 ? cost.unitPt : cost.unitPluralPt;
+      const nounEn = units === 1 ? cost.unitEn : cost.unitPluralEn;
+      return {
+        ...base,
+        lowBrl: lo,
+        highBrl: hi,
+        units,
+        ...(areaM2 ? { areaM2 } : {}),
+        notePt:
+          `Cerca de ${lo === hi ? brl(lo) : `${brl(lo)}–${brl(hi)}`} para ${units} ${nounPt ?? 'unidade(s)'}, ` +
+          `à referência da ficha (${brl(cost.low)}–${brl(cost.high)} ${per} ${cost.scalePt}). ` +
+          `É uma faixa para pedir cotação, não um orçamento fechado.${nota(true)}`,
+        noteEn:
+          `About ${lo === hi ? brlEn(lo) : `${brlEn(lo)}–${brlEn(hi)}`} for ${units} ${nounEn ?? 'unit(s)'}, ` +
+          `at the ficha's reference price (${brlEn(cost.low)}–${brlEn(cost.high)} ${perEn} ${cost.scaleEn}). ` +
+          `A range to request quotes against, not a closed budget.${nota(false)}`,
+      };
+    }
     return {
       ...base,
       lowBrl: null,
@@ -342,6 +428,17 @@ for (const [id, cost] of Object.entries(SOLUTION_COSTS)) {
   }
   if ((cost.basis === 'unit' || cost.basis === 'project') && !(cost.scalePt && cost.scaleEn)) {
     throw new Error(`w3-sizing: ${id} is priced per ${cost.basis} but never says what one ${cost.basis} is`);
+  }
+  // A solution counted rather than measured needs the words to ask the count
+  // with. Without them the flow silently falls back to asking nothing, which is
+  // the hole this pair of fields was added to close.
+  if ((cost.basis === 'unit' || cost.basis === 'project')) {
+    if (!cost.unitPt || !cost.unitEn || !cost.unitPluralPt || !cost.unitPluralEn) {
+      throw new Error(`w3-sizing: ${id} is counted, not measured, but has no unit noun to ask "how many" with`);
+    }
+    if (!cost.unitChips?.length) {
+      throw new Error(`w3-sizing: ${id} is counted, not measured, but offers no counts to choose from`);
+    }
   }
   if (cost.notaPt || cost.notaEn) {
     if (!(cost.notaPt && cost.notaEn)) throw new Error(`w3-sizing: ${id} has a derivation note in only one language`);

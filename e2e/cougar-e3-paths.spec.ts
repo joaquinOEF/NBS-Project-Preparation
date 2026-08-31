@@ -130,6 +130,41 @@ test.describe('COUGAR — E3 paths', () => {
     expect(area, 'a traced yard, not a neighbourhood').toBeLessThan(20_000);
   });
 
+  // ⚠️ NO-SIZE-QUESTION-AT-ALL. The footprint is correctly skipped for a
+  // solution priced per unit — tracing an outline buys nothing when the price
+  // is per cistern — and then nothing asked the question that DOES apply. The
+  // note printed above it even ended "quantas vocês querem?".
+  test('a solution counted per unit is asked how many, and the count closes a total', async ({ page, request }) => {
+    await start(page, request, [
+      ...SITED,
+      { sectionId: 'intervention_site', field: 'land_tenure', value: 'private-owned' },
+    ]);
+    const chip = chipFor(page);
+    const inThread = (t: string) =>
+      page.getByTestId('cbo-chat-thread').getByText(t, { exact: false }).last();
+
+    await expect(chip('É isso ✓')).toBeVisible({ timeout: 15_000 });
+    await chip('É isso ✓').click();
+    await expect(page.getByTestId('cbo-solution-options')).toBeVisible({ timeout: 10_000 });
+    await expect(chip('Ver todas as soluções')).toBeVisible({ timeout: 10_000 });
+    await chip('Ver todas as soluções').click();
+    await expect(page.getByTestId('cbo-solution-options').last()).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId('solution-option-captacao-agua-da-chuva').last().click();
+    await page.getByTestId('solution-choose-captacao-agua-da-chuva').click();
+
+    // Not a footprint — a count, in the ficha's own noun, agreeing in Portuguese.
+    await expect(inThread('Quantas cisternas')).toBeVisible({ timeout: 15_000 });
+    await expect(chip('Desenhar no mapa'), 'nothing to trace when the price is per cistern').toHaveCount(0);
+    await expect(chip('5')).toBeVisible({ timeout: 10_000 });
+    await chip('5').click();
+
+    // The count does for a per-unit price what the footprint does for a per-m²
+    // one: it closes a total, with the reference still visible behind it.
+    await expect(inThread('5 cisternas')).toBeVisible({ timeout: 15_000 });
+    await expect(inThread('pedir cotação')).toBeVisible({ timeout: 10_000 });
+    await expect(chip('Mutirão')).toBeVisible({ timeout: 15_000 });
+  });
+
   test('a city partnership is not offered on land the organisation owns', async ({ page, request }) => {
     const cboId = await start(page, request, [
       ...SITED,
@@ -197,8 +232,14 @@ test.describe('COUGAR — E3 paths', () => {
     await page.getByTestId('solution-option-hortas-urbanas').last().click();
     await page.getByTestId('solution-choose-hortas-urbanas').click();
 
-    // Hortas are priced per project, so the footprint question is skipped
-    // rather than performed — asking for a drawing that buys nothing is theatre.
+    // Hortas are priced per project, so the footprint question is skipped rather
+    // than performed — asking for a drawing that buys nothing is theatre. What
+    // used to follow was NOTHING: straight to who builds it, with the size never
+    // asked in any form. The count is the question that applies here.
+    await expect(
+      page.getByTestId('cbo-chat-thread').getByText('Quantas hortas', { exact: false }).last(),
+    ).toBeVisible({ timeout: 15_000 });
+    await chip('2').click();
     await expect(chip('Mutirão')).toBeVisible({ timeout: 15_000 });
     await chip('Mutirão').click();
     await expect(page.getByText('Por que', { exact: false }).last()).toBeVisible({ timeout: 10_000 });

@@ -141,3 +141,60 @@ test.describe('W3 sizing — cost', () => {
     expect(budgetLineFor('no-such-solution', 300)).toBeNull();
   });
 });
+
+// ⚠️ NO-SIZE-QUESTION-AT-ALL. `askArea` correctly skips the footprint for a
+// solution priced per unit or per project — tracing an outline buys nothing
+// when the price is per tree — and then nothing asked the question that DOES
+// apply. `budgetLineFor` even ended its own note with "quantas vocês querem?"
+// and no beat ever collected the answer, so nine of the 27 solutions left W3
+// with a price per cistern, no number of cisterns, no total, and nothing to put
+// under "dimensões" in a concept note.
+
+test.describe('W3 sizing — the count, for what is counted rather than measured', () => {
+  test('every counted solution can be asked about', () => {
+    // The question needs a noun and some counts to offer. Without them the flow
+    // silently falls back to asking nothing, which is the hole itself.
+    for (const [id, cost] of Object.entries(SOLUTION_COSTS)) {
+      if (cost.basis !== 'unit' && cost.basis !== 'project') continue;
+      expect(cost.unitPt, `${id} has no unit noun`).toBeTruthy();
+      expect(cost.unitPluralPt, `${id} has no plural`).toBeTruthy();
+      expect(cost.unitChips?.length, `${id} offers no counts`).toBeGreaterThan(0);
+    }
+  });
+
+  test('a per-unit band times a count closes a total', () => {
+    const five = budgetLineFor('captacao-agua-da-chuva', undefined, 5)!;
+    expect(five.lowBrl).toBe(4500 * 5);
+    expect(five.highBrl).toBe(10500 * 5);
+    expect(five.units).toBe(5);
+    expect(five.notePt).toContain('5 cisternas');
+    // The reference stays visible: a total nobody can trace back is a total
+    // nobody can defend in front of a secretariat.
+    expect(five.notePt).toContain('R$ 4.500');
+    expect(five.notePt).toMatch(/não um orçamento fechado/);
+  });
+
+  test('one of something is singular', () => {
+    expect(budgetLineFor('barraginha', undefined, 1)!.notePt).toContain('1 barraginha');
+    expect(budgetLineFor('barraginha', undefined, 2)!.notePt).toContain('2 barraginhas');
+  });
+
+  test('⚠️ a per-PROJECT band never multiplies', () => {
+    // hortas urbanas is "R$ 300–1.200 for a small bed" and "perto de R$ 25.000"
+    // for a proper community garden — in the same ficha sentence. Multiplying
+    // the small end by a count would hand an organisation a total that reads
+    // authoritative and is wrong by an order of magnitude.
+    const three = budgetLineFor('hortas-urbanas', undefined, 3)!;
+    expect(three.units).toBe(3);
+    expect(three.lowBrl, 'no computed total for a per-project band').toBeNull();
+    expect(three.highBrl).toBeNull();
+    expect(three.notePt).toContain('3 hortas');
+    expect(three.notePt).toMatch(/depende do porte/);
+  });
+
+  test('without a count, the note still says what one costs', () => {
+    const none = budgetLineFor('corredores-verdes')!;
+    expect(none.lowBrl).toBeNull();
+    expect(none.notePt).toContain('R$ 250');
+  });
+});

@@ -223,7 +223,41 @@ what the analysis read from each org for exactly this reason.
 | **An organisation pooled with itself.** | Pooling counted one entry per match rather than one per organisation, so an org carrying two solutions that need the same thing came out as `['a','a']` — printed as "Org A, Org A" and counted in the banner's one number that means money. It is reachable: the flow actively offers a second solution, and four slope solutions share a single requirement (`um responsável técnico com ART`). |
 | **A hired contractor was asked about a mutirão.** | *"Depois que o mutirão vai embora, quem cuida disso?"* — to the organisation that had answered "empresa contratada" one beat earlier. |
 | **The question text lives in two places, and the manifest wins.** | The obvious fix — editing the string in `cboE3Checkpoint.ts` — changes nothing, because `askEnum` resolves `ask.who_maintains` from the manifest first. The branch now lives in the manifest, where `variants` already existed for exactly this, with a load-time guard so a variant keyed on an id that does not exist fails at boot instead of silently never matching. |
-| **Nine of the 27 solutions are never asked any size at all.** | Not a break — a hole. `askArea` correctly skips the footprint for a solution priced per unit or per project, and then nothing asks the question that *does* apply. `budgetLineFor` even prints *"quantas vocês querem?"* and no beat collects the answer, so those organisations leave W3 with a price per cistern and no number of cisterns: no total, no scale, and nothing to put under "dimensões" in a concept note. Ricardo asked for exactly that on 31 August. |
+| **Nine of the 27 solutions were never asked any size at all.** | `askArea` correctly skips the footprint for a solution priced per unit or per project, and then nothing asked the question that *does* apply. `budgetLineFor` even printed *"quantas vocês querem?"* and no beat collected the answer, so those organisations left W3 with a price per cistern and no number of cisterns. Fixed below. |
+
+### The count, for what is counted rather than measured
+
+Ricardo, 31 August: *"algunos indicadores de impacto, beneficios, co-beneficios,
+**dimensiones de qué se quiere hacer en aquel lugar**"*. An organisation whose
+solution is priced per unit was leaving W3 with no dimension of any kind.
+
+`askUnits` is the counterpart of the footprint map. It asks in the ficha's own
+noun, agreeing in Portuguese — *"Quantas cisternas?"*, *"Quantos
+biodigestores?"* — offers counts that suit the thing (trees come in dozens,
+biodigesters do not), and accepts a typed number as readily as a chip. Not
+knowing is an answer: it is recorded as a named gap with the per-unit price
+attached, exactly as "ainda não sei o tamanho" is.
+
+What the count then closes:
+
+- **The cost band.** Five cisterns at the ficha's R$ 4.500–10.500 is
+  R$ 22.500–52.500, with the reference still printed behind it.
+- **The benefit figure.** "16 mil litros por cisterna" is a specification;
+  "com 5, 80.000 litros no total" is the sentence that goes on a page.
+- **The roadmap's own scale line**, which used to say *"falta desenhar a área"*
+  to an organisation that had just answered "3 hortas".
+
+⚠️ **A per-project band never multiplies.** `hortas-urbanas` reads
+"R$ 300–1.200 for a small bed" and "perto de R$ 25.000" for a proper community
+garden — in the same ficha sentence. Multiplying the small end by a count would
+hand an organisation a total that reads authoritative and is wrong by an order
+of magnitude. The count is recorded and shown; only the arithmetic is withheld,
+and the note says why.
+
+One more thing fell out of it: `corredores-verdes` read *"Entre 0,5 e 2 por
+árvore, ao longo da vida"* — a bare number with nothing saying it means tonnes
+of CO₂. Every per-unit benefit now has to declare what it measures, checked at
+module load.
 
 ### And what a redeploy does to the synergy pass
 

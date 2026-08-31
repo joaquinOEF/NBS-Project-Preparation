@@ -34,7 +34,7 @@ import { buildRoadmap } from '@shared/w3-roadmap';
 import { eligibleQuestions, getW3Question, type QuestionContext } from '@shared/w3-questions';
 import type { W3Advice } from './w3Advisor';
 import { mergeShortlist, topShortlist } from '@shared/w3-solutions';
-import { budgetLineFor, roundAreaM2 } from '@shared/w3-sizing';
+import { budgetLineFor, roundAreaM2, SOLUTION_COSTS } from '@shared/w3-sizing';
 import { benefitFor } from '@shared/w3-benefits';
 import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
 import { getSolution } from '@shared/nbs-catalog';
@@ -82,6 +82,7 @@ const E3C = {
   verTodas: { pt: 'Ver todas as soluções', en: 'See all the solutions' },
   desenhar: { pt: 'Desenhar no mapa', en: 'Draw it on the map' },
   naoSeiTamanho: { pt: 'Ainda não sei o tamanho', en: "I don't know the size yet" },
+  naoSeiQuantas: { pt: 'Ainda não sei quantas', en: "I don't know how many yet" },
   areaConfere: { pt: 'Confere ✓', en: 'That is right ✓' },
   redesenhar: { pt: 'Quero desenhar de novo', en: 'I want to draw it again' },
   pular: { pt: 'Prefiro pular', en: "I'd rather skip" },
@@ -190,6 +191,7 @@ export async function serveE3Checkpoint(
   const liveSolutions = () =>
     read(TYPE)('chosen_solutions').split(',').map(v => v.trim()).filter(Boolean);
   const liveArea = () => Number(read(SITE)('site_area_m2')) || 0;
+  const liveUnits = () => Number(read(TYPE)('intervention_units')) || 0;
 
   /** Whatever the advisor returned, if it finished. Never required. */
   const readAdvice = (): W3Advice | null => {
@@ -432,6 +434,13 @@ export async function serveE3Checkpoint(
         `On size: ${line.noteEn}`,
       );
       deps.writeFields(SITE, { _area_asked: 'not-applicable' });
+      // ⚠️ And then it asked nothing at all. Skipping the footprint is right —
+      // tracing an outline buys nothing when the price is per tree — but the
+      // question that DOES apply was never asked, while the very note printed
+      // above ended "quantas vocês querem?" and no beat collected the answer.
+      // Nine of the 27 solutions left W3 with a price per unit, no count, no
+      // total and nothing to put under "dimensões" in a concept note.
+      if (id && SOLUTION_COSTS[id]?.unitChips?.length) return askUnits(id);
       return askConstruction();
     }
     if (areaM2 > 0) {
@@ -473,6 +482,27 @@ export async function serveE3Checkpoint(
     ]);
     deps.writeFields(SITE, { _area_asked: 'yes' });
     return finish('ask-area');
+  };
+
+  /**
+   * How many of them. The counterpart of the footprint for a solution that is
+   * counted rather than measured, and the thing that closes both the cost band
+   * and — for a cistern or a tree — the benefit figure.
+   */
+  const askUnits = (solutionId: string): true => {
+    const cost = SOLUTION_COSTS[solutionId];
+    const nounPt = cost?.unitPluralPt ?? 'unidades';
+    const nounEn = cost?.unitPluralEn ?? 'units';
+    deps.writeFields(TYPE, { _units_pending: solutionId });
+    ask(
+      `${cost?.unitFemininePt ? 'Quantas' : 'Quantos'} ${nounPt}?`,
+      `How many ${nounEn}?`,
+      [
+        ...(cost?.unitChips ?? []).map(n => ({ pt: String(n), en: String(n) })),
+        { pt: E3C.naoSeiQuantas.pt, en: E3C.naoSeiQuantas.en, dPt: 'Fica registrado como pendente', dEn: 'Recorded as still open' },
+      ],
+    );
+    return finish('ask-units');
   };
 
   const openFootprintMap = (): true => {
@@ -589,7 +619,10 @@ export async function serveE3Checkpoint(
    */
   const askImpact = (): true => {
     const id = liveSolutions()[0];
-    const line = id ? benefitFor(id, liveArea() || undefined) : null;
+    // Live, and including the count: the beat runs after askUnits wrote it, and
+    // "5 cisternas guardam 80 mil litros" is the sentence that goes on a page —
+    // "16 mil litros por cisterna" is a specification.
+    const line = id ? benefitFor(id, liveArea() || undefined, liveUnits() || undefined) : null;
     if (!line) return askTimeframe();
 
     const conf = { alta: 'confiança alta', 'média': 'confiança média', baixa: 'confiança baixa' } as const;
@@ -792,6 +825,33 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     const n = deps.normChip(s);
     return [E3C.serve, E3C.escreverZero].some(c => n === deps.normChip(c.pt) || n === deps.normChip(c.en));
   };
+
+  // ══ How many, waiting for its answer ═════════════════════════════════════
+  // Above everything else that reads a bare reply: a count arrives as "5", and
+  // every generic handler below would rather have it than leave it alone.
+  const unitsPending = type('_units_pending');
+  if (unitsPending && raw && !raw.startsWith('Map selection (')) {
+    const nChip = deps.normChip(raw);
+    const saidNoIdea =
+      nChip === deps.normChip(E3C.naoSeiQuantas.pt) || nChip === deps.normChip(E3C.naoSeiQuantas.en);
+    if (saidNoIdea || isSkip(raw)) {
+      deps.writeFields(TYPE, { _units_pending: '', _units_deferred: 'yes' });
+      say(
+        'Sem problema — fica registrado que falta definir quantas, e a ficha já tem o preço de cada uma pra quando vocês souberem.',
+        'No problem — it is recorded that the number is still open, and the ficha already has the price of each one for when you know.',
+      );
+      return askConstruction();
+    }
+    // "umas 5", "5 cisternas", "5". Anything with no number at all is left to
+    // fall through rather than guessed at.
+    const n = Number((raw.match(/\d{1,5}/) ?? [])[0]);
+    if (Number.isFinite(n) && n > 0) {
+      deps.writeFields(TYPE, { _units_pending: '', intervention_units: String(n), _units_deferred: '' });
+      const line = budgetLineFor(unitsPending, liveArea() || undefined, n);
+      if (line) say(line.notePt, line.noteEn);
+      return askConstruction();
+    }
+  }
 
   if (type('_why_pending') === 'yes' && raw && !raw.startsWith('Map selection (') && !isDraftChip(raw)) {
     deps.writeFields(TYPE, {

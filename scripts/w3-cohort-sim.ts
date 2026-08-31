@@ -85,7 +85,11 @@ async function drive(org: Org) {
 
   console.log(`\n  ── saiu do Encontro 3 com ──`);
   console.log(`     soluções   : ${solutions.join(' + ') || '(nenhuma)'}`);
-  console.log(`     área       : ${areaM2 ? `${areaM2.toLocaleString('pt-BR')} m²` : '(não sabe ainda)'}`);
+  const units = Number(type.intervention_units) || 0;
+  console.log(`     área       : ${areaM2 ? `${areaM2.toLocaleString('pt-BR')} m²` : units ? `(contada, não medida) ${units} unidade(s)` : '(não sabe ainda)'}`);
+  const where = roadmap?.what?.find((b: any) => /onde|where/i.test(b.title));
+  if (where) console.log(`     onde       : ${where.lines.join(' | ')}`);
+  for (const b of dossier.budget) console.log(`     custo      : ${b.notePt.slice(0, 120)}`);
   console.log(`     veredito   : ${verdict ?? '(nenhum)'}${dossier.verdicts[0]?.unblockedBy ? ` — destrava com: ${dossier.verdicts[0].unblockedBy}` : ''}`);
   console.log(`     capacidade : ${dossier.capacity.grade} (${dossier.capacity.because.join('; ') || 'nada declarado'})`);
   console.log(`     hoja de ruta: ${roadmap ? `${roadmap.steps.length} passos, ${roadmap.open.length} em aberto` : '⚠️ NÃO PRODUZIDA'}`);
@@ -169,7 +173,9 @@ const ORGS: Org[] = [
       { msg: 'Vamos começar o Encontro 3.' },
       { msg: 'É isso ✓', kind: 'chip' },
       { msg: 'Hortas urbanas', kind: 'chip' },
-      { msg: 'Ainda não sei o tamanho', kind: 'chip' },
+      // Priced per horta, so the footprint is skipped and the COUNT is the size
+      // question — the beat that did not exist.
+      { msg: '3', kind: 'chip' },
       { msg: 'Mutirão', kind: 'chip' },
       { msg: 'Porque é onde as crianças já ficam todo dia e onde a água entra primeiro.' },
       { msg: 'Cimento quebrado, uma horta pequena num canto que a gente já cuida.' },

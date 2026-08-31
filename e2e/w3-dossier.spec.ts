@@ -180,3 +180,25 @@ test.describe('W3 dossier — four records, four verdicts', () => {
     expect(en.verdicts.map(v => v.state)).toEqual(pt.verdicts.map(v => v.state));
   });
 });
+
+test.describe('the count is the footprint, for a solution counted per unit', () => {
+  test('not knowing how many is a named gap, not a silence', () => {
+    const d = buildDossier({
+      site: { bairro: 'Humaitá', _site_lat: '-30.01', _site_lng: '-51.20', land_tenure: 'private-owned' },
+      solutions: ['captacao-agua-da-chuva'],
+      w3: {},
+    }, 'pt');
+    expect(d.gaps.join(' ')).toMatch(/quantas/i);
+    expect(d.budget[0].lowBrl).toBeNull();
+  });
+
+  test('with a count, the gap closes and a total appears', () => {
+    const d = buildDossier({
+      site: { bairro: 'Humaitá', _site_lat: '-30.01', _site_lng: '-51.20', land_tenure: 'private-owned' },
+      solutions: ['captacao-agua-da-chuva'],
+      w3: { intervention_units: '5' },
+    }, 'pt');
+    expect(d.gaps.join(' ')).not.toMatch(/quantas/i);
+    expect(d.budget[0].lowBrl).toBe(4500 * 5);
+  });
+});
