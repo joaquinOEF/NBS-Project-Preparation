@@ -22,6 +22,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, BookOpen, Check, Clock, Compass, Copy, Droplets, Eye, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
   Map as MapIcon, Mountain, Network, Paperclip, Plus, RotateCcw, Sprout, Trash2, Trees, Unlock, Waves,
+  FileText, Loader2, Share2, Sparkles,
 } from 'lucide-react';
 import { Card, CardContent } from '@/core/components/ui/card';
 import { Button } from '@/core/components/ui/button';
@@ -233,80 +234,140 @@ function SynergyPanel({ cohortId }: { cohortId: string | null }) {
   const report = state?.report;
   const groups = report?.analysis?.groups?.length ?? 0;
   const lines = report?.narrative?.lines?.length ?? 0;
+  const pooled = report?.analysis?.pooledStudies?.length ?? 0;
+
+  const stat = (value: number, labelPt: string, labelEn: string, emphasis = false) => (
+    <div className="flex items-baseline gap-1.5">
+      <span className={`text-lg font-semibold tabular-nums ${emphasis ? 'text-emerald-200' : 'text-white'}`}>
+        {value}
+      </span>
+      <span className="text-[11px] leading-tight text-white/70">{isPt ? labelPt : labelEn}</span>
+    </div>
+  );
 
   return (
-    <Card className="mb-8" data-testid="synergy-panel">
-      <CardContent className="p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+    <div
+      className="relative mb-8 overflow-hidden rounded-2xl border border-[#1a3da6]/40 shadow-sm"
+      data-testid="synergy-panel"
+    >
+      {/* Aurora. Two soft radial blooms over the CityCatalyst blue, drifting
+          toward the NBS green — the two colours the product already means
+          something with (blue = the platform, green = nature-based solutions),
+          rather than a decorative palette borrowed from nowhere.
+          aria-hidden and pointer-events-none: it is atmosphere, not content. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(125% 150% at 4% 0%, #2f66e8 0%, #1a3da6 38%, #001444 100%)',
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            // Three blooms rather than one: a single radial reads as a corner
+            // vignette, and the whole banner came out flat blue. Overlapping
+            // greens and cyans at different sizes is what makes it move.
+            'radial-gradient(70% 150% at 72% 0%, rgba(22,163,74,.85) 0%, rgba(22,163,74,0) 62%),' +
+            'radial-gradient(48% 110% at 92% 88%, rgba(103,232,249,.55) 0%, rgba(103,232,249,0) 70%),' +
+            'radial-gradient(38% 95% at 55% 110%, rgba(35,81,220,.75) 0%, rgba(35,81,220,0) 70%)',
+        }}
+      />
+      {/* A hairline of light along the top edge, which is what stops a
+          saturated panel reading as a flat block of colour. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent"
+      />
+
+      <div className="relative flex flex-wrap items-start justify-between gap-x-8 gap-y-5 p-6">
+        <div className="flex min-w-0 flex-1 items-start gap-4">
+          <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-inset ring-white/20 backdrop-blur-sm">
+            <Share2 className="h-5 w-5 text-white" />
+          </div>
           <div className="min-w-0">
-            <TitleLarge className="!text-lg tracking-tight mb-0.5">
+            <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-200/90">
+              {isPt ? 'Portfólio da Rede' : 'Network portfolio'}
+            </div>
+            <h3 className="text-xl font-semibold leading-tight tracking-tight text-white">
               {t('orchestrator.synergy.title', { defaultValue: isPt ? 'Mapear sinergias' : 'Map synergies' })}
-            </TitleLarge>
-            <BodySmall className="text-muted-foreground max-w-[60ch]">
+            </h3>
+            <p className="mt-1 max-w-[62ch] text-[13px] leading-snug text-white/75">
               {t('orchestrator.synergy.lede', {
                 defaultValue: isPt
-                  ? 'Cruza territórios, riscos, soluções e capacidades de todas as organizações. São hipóteses para validar no encontro — não decisões.'
-                  : 'Crosses territories, hazards, solutions and capacities across every organisation. These are hypotheses to validate in the meeting — not decisions.',
+                  ? 'Cruza territórios, riscos, soluções e capacidades de todas as organizações — e mostra onde uma contratação conjunta economiza de verdade. São hipóteses para validar no encontro, não decisões.'
+                  : 'Crosses territories, hazards, solutions and capacities across every organisation — and shows where commissioning together actually saves. These are hypotheses to validate in the meeting, not decisions.',
               })}
-            </BodySmall>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {report && (
-              <a
-                href={`/api/cohort/${cohortId}/synergies/print`}
-                target="_blank"
-                rel="noreferrer"
-                data-testid="synergy-print"
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted/50"
-              >
-                {isPt ? 'Abrir relatório' : 'Open report'}
-              </a>
+            </p>
+
+            {running && (
+              <p className="mt-3 flex items-center gap-2 text-[12.5px] text-white/85" data-testid="synergy-running">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                {isPt
+                  ? 'Lendo o registro de cada organização. Pode fechar esta página — o relatório fica salvo.'
+                  : "Reading every organisation's record. You can close this page — the report is saved."}
+              </p>
             )}
-            <Button size="sm" onClick={run} disabled={running || busy} data-testid="synergy-run">
-              {running
-                ? (isPt ? 'Analisando…' : 'Analysing…')
-                : report
-                  ? (isPt ? 'Rodar de novo' : 'Run again')
-                  : (isPt ? 'Mapear sinergias' : 'Map synergies')}
-            </Button>
+
+            {report && !running && (
+              <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2" data-testid="synergy-summary">
+                {stat(groups, 'agrupamentos', 'groupings')}
+                {lines > 0 && stat(lines, 'linhas de programa', 'programme lines')}
+                {/* The one number that is money rather than description. */}
+                {pooled > 0 && stat(pooled, 'necessidades técnicas em comum', 'shared technical needs', true)}
+                {state?.finishedAt && (
+                  <span className="text-[11px] text-white/55">
+                    {isPt ? 'gerado em ' : 'generated '}
+                    {new Date(state.finishedAt).toLocaleDateString(isPt ? 'pt-BR' : 'en-GB')}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {state?.status === 'failed' && (
+              <p className="mt-3 text-[12.5px] text-rose-200" data-testid="synergy-failed">
+                {isPt ? 'A análise falhou. Dá pra rodar de novo.' : 'The analysis failed. You can run it again.'}
+              </p>
+            )}
           </div>
         </div>
 
-        {running && (
-          <p className="mt-3 text-xs text-muted-foreground" data-testid="synergy-running">
-            {isPt
-              ? 'Lendo o registro de cada organização — o que contaram, o que enviaram e o que escolheram. Pode fechar esta página; o relatório fica salvo.'
-              : 'Reading every organisation\'s record — what they told us, sent us and chose. You can close this page; the report is saved.'}
-          </p>
-        )}
-
-        {report && !running && (
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground" data-testid="synergy-summary">
-            <span>{isPt ? `${groups} agrupamento(s) calculado(s)` : `${groups} calculated grouping(s)`}</span>
-            {lines > 0 && <span>{isPt ? `${lines} linha(s) de programa propostas` : `${lines} proposed programme line(s)`}</span>}
-            {report.analysis?.pooledStudies?.length > 0 && (
-              <span className="font-medium text-foreground">
-                {isPt
-                  ? `${report.analysis.pooledStudies.length} necessidade(s) técnica(s) em comum`
-                  : `${report.analysis.pooledStudies.length} shared technical need(s)`}
-              </span>
+        <div className="flex shrink-0 items-center gap-2">
+          {report && (
+            <a
+              href={`/api/cohort/${cohortId}/synergies/print`}
+              target="_blank"
+              rel="noreferrer"
+              data-testid="synergy-print"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-white/10 px-3.5 py-2 text-[13px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              {isPt ? 'Abrir relatório' : 'Open report'}
+            </a>
+          )}
+          <button
+            onClick={run}
+            disabled={running || busy}
+            data-testid="synergy-run"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-[13px] font-semibold text-[#001EA7] shadow-sm transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {running ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
             )}
-            {state?.finishedAt && (
-              <span>
-                {isPt ? 'gerado em ' : 'generated '}
-                {new Date(state.finishedAt).toLocaleDateString(isPt ? 'pt-BR' : 'en-GB')}
-              </span>
-            )}
-          </div>
-        )}
-
-        {state?.status === 'failed' && (
-          <p className="mt-3 text-xs text-destructive" data-testid="synergy-failed">
-            {isPt ? 'A análise falhou. Dá pra rodar de novo.' : 'The analysis failed. You can run it again.'}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+            {running
+              ? (isPt ? 'Analisando…' : 'Analysing…')
+              : report
+                ? (isPt ? 'Rodar de novo' : 'Run again')
+                : (isPt ? 'Mapear sinergias' : 'Map synergies')}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
