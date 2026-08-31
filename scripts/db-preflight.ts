@@ -51,6 +51,26 @@ const MODULES: Record<string, any> = {
 
 type Missing = { table: string; column: string; from: string };
 
+/**
+ * WHICH database this just checked — host and name, never the credentials.
+ *
+ * ⚠️ On Replit the shell's DATABASE_URL is the workspace (dev) database, and
+ * the published Deployment runs against a different one. A green run in the
+ * shell says the workspace is fine; it says nothing about production. A check
+ * whose whole job is "is this database missing something" is worse than
+ * useless if you cannot tell which database it looked at.
+ */
+function target(): string {
+  const raw = process.env.DATABASE_URL ?? '';
+  if (!raw) return 'no DATABASE_URL set';
+  try {
+    const u = new URL(raw);
+    return `${u.hostname}${u.port ? `:${u.port}` : ''}${u.pathname}`;
+  } catch {
+    return 'DATABASE_URL (unparseable)';
+  }
+}
+
 async function main() {
   // Every pg table the app declares, wherever it is declared.
   const declared: Array<{ table: string; columns: string[]; from: string }> = [];
@@ -93,11 +113,14 @@ async function main() {
   // missing when nothing is.
   const distinct = new Set(declared.map(d => d.table));
   console.log(`\n${'═'.repeat(72)}`);
-  console.log(`DB PREFLIGHT — ${distinct.size} tables declared, ${byTable.size} present in the database`);
+  console.log(`DB PREFLIGHT — ${target()}`);
+  console.log(`${distinct.size} tables declared, ${byTable.size} present`);
   console.log('═'.repeat(72));
 
   if (!missingTables.length && !missing.length) {
-    console.log('\n✅ the database has everything this build reads.\n');
+    console.log('\n✅ this database has everything this build reads.');
+    console.log('   On Replit: the shell runs against the WORKSPACE database. The published');
+    console.log('   Deployment uses a different one — check that separately before a session.\n');
     return;
   }
   if (missingTables.length) {
@@ -112,7 +135,7 @@ async function main() {
       console.log(`   · ${table}: ${Array.from(new Set(ms.map(m => m.column))).join(', ')}`);
     }
   }
-  console.log(`\n→ npm run db:push, then run this again.\n`);
+  console.log(`\n→ npm run db:push against ${target()}, then run this again.\n`);
   process.exitCode = 1;
 }
 main().then(() => process.exit(process.exitCode ?? 0));
