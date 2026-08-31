@@ -182,3 +182,40 @@ shows you what you actually said.
 Two of these — the rule bypass and the stale reads — are the same shape, and it
 is the shape to watch for in this file: **a guard that only covers the path you
 were looking at**, and **a value read before the write that changes it**.
+
+## ⚠️ FOOTPRINT-ZOOM — what a recording caught that the tests did not
+
+Recording a full pass (`docs/w3-walkthrough.mp4`) put this on screen:
+
+> **9 986 500 m² ✓**
+> Cerca de R$ 3.994.600.000–R$ 6.990.550.000 para 9986500 m²…
+
+A rain garden of ten square kilometres, priced at four billion reais, stated in
+exactly the same voice as a correct number. Three separate faults stacked, and
+each one is worth keeping:
+
+1. **The draw session opened fitted to the whole bairro.** `focusZone`'s
+   staggered refits (0/350/1000 ms — they exist because a single `fitBounds`
+   lands against a stale container size) ran *after* the footprint effect's
+   `setView`, zooming straight back out over it. Four taps then traced a
+   district.
+2. **The fix depended on the same lookup that fails.** Moving the site fit
+   inside the `focusZone` effect made it conditional on the bairro polygon
+   matching — and when it did not match, the session opened at *city* scale:
+   147 km². The footprint session is the one map step that needs nothing looked
+   up; it already has the coordinates. It now holds its own view, on `mapReady`,
+   independent of zones and of `compositeStep`.
+3. **A full-screen loading overlay swallowed every tap.** The focus effect
+   raises `setLoading(true)` for the site fetch, and the effect that clears it
+   keys on a `compositeStep` change that footprint mode has already made. The
+   map was fully visible under an `inset-0 z-[1000]` sheet, and drawing simply
+   never happened — no error, nothing.
+
+**The test that let it through asserted `expect(area).toBeGreaterThan(0)`.** The
+area was, technically, greater than zero. It is now bounded on both sides.
+
+There is also a guard in the checkpoint itself, because a traced shape can be
+wrong for reasons no zoom fix prevents — a mis-tap, a polygon closed early.
+Above two hectares W3 shows the number, says it looks large and why, and offers
+to redraw. **It does not price it.** An organisation can tell instantly that its
+yard is not twenty football pitches; arithmetic cannot.
