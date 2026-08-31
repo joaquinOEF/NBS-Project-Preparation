@@ -10,6 +10,7 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "db:preflight": "tsx scripts/db-preflight.ts",
+    "cohort:doctor": "tsx scripts/cohort-doctor.ts",
     "w3:sweep": "tsx scripts/w3-sweep.ts",
     "osm:refresh": "tsx scripts/refresh-osm-snapshots.ts",
     "official-risk:refresh": "tsx scripts/refresh-official-risk.ts",
