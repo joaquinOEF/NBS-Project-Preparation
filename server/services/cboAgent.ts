@@ -3393,6 +3393,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
         // lands rather than closing over the copy this turn is holding — by
         // then the organisation has traced a polygon and the state has moved.
         startAdvisor: () => { void runW3Advisor(cboId); },
+        awaitAdvisor: () => waitForW3Advisor(cboId),
       });
       if (served) {
         res.end();
@@ -3436,10 +3437,34 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
  * exactly as it did before this file existed.
  */
 const advisorRuns = new Set<string>();
+/** In-flight passes, so the solution beat can wait on one rather than re-running it. */
+const advisorInFlight = new Map<string, Promise<void>>();
+
+/**
+ * Wait for the advisor, but never for long.
+ *
+ * Capped well below the pass's own timeout: if it is going to be slow, the
+ * organisation gets today's deterministic list rather than a spinner. The pass
+ * carries on regardless and its result lands for every later beat — the drafts,
+ * the extra questions and the observations all still get it.
+ */
+const ADVISOR_WAIT_MS = Number(process.env.CBO_ADVISOR_WAIT_MS || 12_000);
+
+async function waitForW3Advisor(cboId: string): Promise<void> {
+  const inFlight = advisorInFlight.get(cboId);
+  if (!inFlight) return;
+  await Promise.race([inFlight, new Promise<void>(r => setTimeout(r, ADVISOR_WAIT_MS))]);
+}
 
 async function runW3Advisor(cboId: string): Promise<void> {
   if (advisorRuns.has(cboId)) return;
   advisorRuns.add(cboId);
+  const done = runW3AdvisorInner(cboId).finally(() => advisorInFlight.delete(cboId));
+  advisorInFlight.set(cboId, done);
+  return done;
+}
+
+async function runW3AdvisorInner(cboId: string): Promise<void> {
   const started = Date.now();
   try {
     const state = getCboState(cboId);
@@ -3452,10 +3477,15 @@ async function runW3Advisor(cboId: string): Promise<void> {
     const v = (f: any, k: string) => String(f?.[k]?.value ?? '').trim();
     const solutions = v(type, 'chosen_solutions').split(',').map(x => x.trim()).filter(Boolean);
 
+    // Their own photographs. The loader already existed for the W2 família
+    // ranking; W3 was the workshop that most needed it and never called it.
+    const photos = await sitePhotosForRanking(cboId).catch(() => []);
+
     const { advice, reason } = await adviseW3({
       state,
       orgName: state.orgName || v(org, 'org_name') || 'organização',
       messages: getCboMessages(cboId) as any,
+      photos,
       docs: docs.map((d: any) => ({
         filename: d.filename,
         purpose: d.purpose ?? null,
@@ -3491,7 +3521,8 @@ async function runW3Advisor(cboId: string): Promise<void> {
     debouncedPersist(cboId);
     console.log(
       `[w3-advisor] ${cboId}: ${advice.drafts.length} draft(s), ${advice.questionIds.length} question(s), ` +
-      `${advice.observations.length} observation(s) in ${Date.now() - started}ms${reason ? ` — ${reason}` : ''}`,
+      `${advice.observations.length} observation(s), ${advice.shortlist.length} shortlisted, ` +
+      `${photos.length} photo(s) read, in ${Date.now() - started}ms${reason ? ` — ${reason}` : ''}`,
     );
   } catch (err: any) {
     console.error(`[w3-advisor] ${cboId} failed (session continues unchanged):`, err?.message || err);

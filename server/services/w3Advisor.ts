@@ -35,10 +35,11 @@
 // ============================================================================
 
 import { z } from 'zod';
-import { createStructuredResponse } from './openaiClient';
+import { createStructuredResponse, type ContentPart } from './openaiClient';
 import { buildContextMarkdown } from './contextBundle';
 import { eligibleQuestions, W3_QUESTION_IDS, type QuestionContext } from '@shared/w3-questions';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
+import { getSolution, NBS_FAMILIAS, NBS_SOLUTIONS } from '@shared/nbs-catalog';
 import type { CboState } from '@shared/cbo-schema';
 
 /**
@@ -80,7 +81,35 @@ const ObservationSchema = z.object({
   basedOn: z.string(),
 });
 
+const ShortlistPickSchema = z.object({
+  /** A catalogue solution id. Anything not in the catalogue is dropped. */
+  solutionId: z.string(),
+  /**
+   * Why, citing what it actually saw or read — "na foto do fundo dá pra ver o
+   * barranco exposto", "vocês escreveram que a água fica dias parada".
+   * A reason that could have been written without looking at their material is
+   * a reason the deterministic ranker already gives for free.
+   */
+  reasonPt: z.string(),
+  /**
+   * True when this sits outside the famílias they chose in Encontro 2.
+   *
+   * Those picks are never overridden — they made them deliberately, in a
+   * session they may not remember in detail. A solution the evidence argues for
+   * from outside them appears BELOW their choices, with the tension said out
+   * loud, and they decide.
+   */
+  outsideTheirPicks: z.boolean(),
+});
+
 const AdviceSchema = z.object({
+  /**
+   * Two or three worth testing, in order. Ricardo, 31 Aug: "puede ser que no
+   * lleguemos a una opción, pero como tres opciones posibles… a funilar un poco
+   * más" — Vila Flores cannot narrow this technically either, so narrowing to
+   * one is not the goal. Narrowing from a família to a handful is.
+   */
+  shortlist: z.array(ShortlistPickSchema).max(3),
   drafts: z.array(DraftSchema).max(2),
   /** Ids from the eligible bank only. Anything else is dropped. */
   questionIds: z.array(z.string()).max(3),
@@ -97,12 +126,22 @@ export interface AdvisorInput {
   messages: Array<{ role: string; content: string; messageType?: string }>;
   /** Uploaded documents with their extracted text. */
   docs: Array<{ filename: string; purpose?: string | null; fullText?: string | null; summary?: string | null }>;
+  /**
+   * The site photos, as data URLs.
+   *
+   * We asked them to walk their own site and photograph it, and until now those
+   * photos informed the W2 família ranking and nothing else. Ricardo asked for
+   * exactly this: "del análisis de las fotos que suban, de la inscripción de
+   * audio, el agente pueda decir, me parece que para testear podría ser opción
+   * A o B."
+   */
+  photos: Array<{ filename: string; dataUrl: string }>;
   questionCtx: QuestionContext;
   /** One line per other org in the cohort: what they chose and what blocks it. */
   cohort: string[];
 }
 
-export const EMPTY_ADVICE: W3Advice = { drafts: [], questionIds: [], questionReasons: [], observations: [] };
+export const EMPTY_ADVICE: W3Advice = { shortlist: [], drafts: [], questionIds: [], questionReasons: [], observations: [] };
 
 /**
  * A quote is only usable if it is actually in the document.
@@ -150,9 +189,37 @@ function buildPrompt(input: AdvisorInput): string {
     .map(q => `- ${q.id}: "${q.askPt}"\n  desbloqueia: ${q.whyPt}`)
     .join('\n');
 
+  const site: any = (state as any)?.sections?.intervention_site?.fields ?? {};
+  const v = (k: string) => String(site[k]?.value ?? '').trim();
+
+  // ⚠️ Where they DISAGREED with our risk figures. Encontro 2 told them plainly
+  // that their word counts for more than our number, and until now nothing
+  // downstream of that beat ever read the answer.
+  const corrections = (() => {
+    try {
+      const j = JSON.parse(v('_hazard_check_json') || '{}');
+      const e = Object.entries(j);
+      return e.length ? e.map(([h, a]) => `${h}: disseram "${a}"`).join(' · ') : '';
+    } catch { return ''; }
+  })();
+
+  const picked = v('nbs_interest').split(',').map(x => x.trim()).filter(Boolean);
+  const pickedLabels = picked
+    .map(id => NBS_FAMILIAS.find(f => (f.id as string) === id)?.pt.label ?? id)
+    .join(', ');
+
+  const catalogue = NBS_SOLUTIONS
+    .map(s => `- ${s.id} (${NBS_FAMILIAS.find(f => f.id === s.familiaId)?.pt.label ?? s.familiaId}): ${s.pt.label} — ${s.pt.whatItIs.slice(0, 140)}`)
+    .join('\n');
+
   return [
     '# O QUE ESTA ORGANIZAÇÃO JÁ NOS CONTOU',
     theirs,
+    picked.length ? `\n# O QUE ELES ESCOLHERAM NO ENCONTRO 2 (isto lidera a lista, sempre)\n${pickedLabels}` : '',
+    corrections ? `\n# ONDE ELES CORRIGIRAM OS NOSSOS DADOS DE RISCO\n${corrections}\n(a percepção deles vale mais que a nossa média de bairro)` : '',
+    v('role_preference') ? `\n# PAPEL QUE A ORGANIZAÇÃO QUER TER\n${v('role_preference')}` : '',
+    v('site_knowledge_depth') ? `\n# QUANTO SABEMOS DESTE LUGAR\n${v('site_knowledge_depth')}` : '',
+    `\n# CATÁLOGO DE SOLUÇÕES (use apenas estes ids)\n${catalogue}`,
     docText ? '\n# O QUE ELES MESMOS ESCREVERAM (arquivos enviados)\n' + docText : '',
     fichas ? '\n# A SOLUÇÃO QUE ESCOLHERAM (nosso conteúdo revisado)\n' + fichas : '',
     cohort.length ? '\n# AS OUTRAS ORGANIZAÇÕES DESTE GRUPO\n' + cohort.map(c => `- ${c}`).join('\n') : '',
@@ -163,22 +230,51 @@ function buildPrompt(input: AdvisorInput): string {
 
 const SYSTEM = `Você apoia uma equipe que ajuda organizações comunitárias de Porto Alegre a transformar uma ideia em um projeto de solução baseada na natureza.
 
-Três tarefas, e nada além delas:
+Quatro tarefas, e nada além delas:
 
-1. RASCUNHOS. Duas perguntas do Encontro 3 são de texto livre: "por que aqui?" (justification_why_here) e "como é o lugar hoje?" (baseline_condition). Se algum arquivo que ELES enviaram já responde uma delas, devolva a PASSAGEM LITERAL — copiada exatamente, sem reescrever, sem juntar frases separadas, sem corrigir português. Se nenhum arquivo responde, não devolva rascunho. Um rascunho inventado é pior que nenhum: a pessoa vai confirmar sem ler, e a voz dela some do documento.
+1. LISTA CURTA. Escolha 2 ou 3 soluções do catálogo que valeria a pena testar neste lugar. Não precisa chegar a uma — quem coordena a rede também não consegue definir tecnicamente qual é, e afunilar de "família" para duas ou três já é o ganho.
 
-2. PERGUNTAS. Escolha no máximo 3 ids da lista fornecida — só ids da lista. Escolha pelo que falta para ESTE projeto, não pelo que é interessante em geral. Se duas perguntam quase a mesma coisa, escolha uma.
+   Para cada uma, diga POR QUE citando o que você viu ou leu no material DELES: "na foto do fundo dá pra ver o barranco exposto", "vocês escreveram que a água fica dias parada". Um motivo que você poderia ter escrito sem olhar o material deles não serve — isso o cálculo já faz sozinho.
 
-3. OBSERVAÇÕES. No máximo 4, uma frase cada, em português simples e direto:
+   ⚠️ REGRA DE ALINHAMENTO: o que eles escolheram no Encontro 2 lidera. Eles escolheram com intenção, e você não passa por cima disso. Se a evidência aponta para uma solução de fora dos grupos que eles marcaram, você pode propor — marque "outsideTheirPicks: true" e diga a tensão em voz alta no motivo ("encostas não estava nos grupos que vocês marcaram, mas na foto dá pra ver o barranco"). Quem decide são eles.
+
+2. RASCUNHOS. Duas perguntas do Encontro 3 são de texto livre: "por que aqui?" (justification_why_here) e "como é o lugar hoje?" (baseline_condition). Se algum arquivo que ELES enviaram já responde uma delas, devolva a PASSAGEM LITERAL — copiada exatamente, sem reescrever, sem juntar frases separadas, sem corrigir português. Se nenhum arquivo responde, não devolva rascunho. Um rascunho inventado é pior que nenhum: a pessoa vai confirmar sem ler, e a voz dela some do documento.
+
+3. PERGUNTAS. Escolha no máximo 3 ids da lista fornecida — só ids da lista. Escolha pelo que falta para ESTE projeto, não pelo que é interessante em geral. Se duas perguntam quase a mesma coisa, escolha uma.
+
+4. OBSERVAÇÕES. No máximo 4, uma frase cada, em português simples e direto:
    - "strength": algo que o projeto tem de forte e que eles talvez não saibam que é forte. Isso é mostrado a eles.
    - "gap": algo que um financiador ou a prefeitura vai perguntar e que hoje não tem resposta. Isso vai para a coordenação.
    - "cohort": algo que só se enxerga olhando as outras organizações do grupo (mesma necessidade técnica, mesmo órgão, mesmo bairro). Isso vai para a coordenação.
 
 Regras que não se quebram:
 - Nunca invente número, prazo, custo ou benefício. Os números do Encontro 3 são calculados por fórmula e não são sua tarefa.
+- Use só ids que existem no catálogo fornecido.
 - Nunca escreva como se soubesse algo que a organização não contou.
 - Nunca julgue a organização. Uma lacuna é uma lacuna do documento, não uma falha das pessoas.
 - Português do Brasil, segunda pessoa do plural informal ("vocês"), sem jargão de projeto.`;
+
+/**
+ * Text plus their own photographs.
+ *
+ * `detail: 'low'` and at most three, matching the W2 ranker: the question here
+ * is "what is this place like" rather than "read the sign in the background",
+ * and full-detail images across three photos costs more than the answer is
+ * worth.
+ */
+function buildUserContent(input: AdvisorInput): ContentPart[] {
+  const parts: ContentPart[] = [{ type: 'input_text', text: buildPrompt(input) }];
+  if (input.photos.length) {
+    parts.push({
+      type: 'input_text',
+      text: `\n# FOTOS QUE ELES MESMOS TIRARAM DO LUGAR (${input.photos.map(p => p.filename).join(', ')})\nOlhe o que está nelas: o tipo de chão, se tem sombra, se tem barranco, por onde a água entraria. Cite o que viu.`,
+    });
+    for (const p of input.photos.slice(0, 3)) {
+      parts.push({ type: 'input_image', image_url: p.dataUrl, detail: 'low' });
+    }
+  }
+  return parts;
+}
 
 /**
  * Read everything, propose a little. Always resolves — never throws, never
@@ -197,7 +293,7 @@ export async function adviseW3(input: AdvisorInput): Promise<{ advice: W3Advice;
         {
           input: [
             { role: 'system', content: SYSTEM },
-            { role: 'user', content: buildPrompt(input) },
+            { role: 'user', content: buildUserContent(input) },
           ],
           config: { model: ADVISOR_MODEL, reasoningEffort: 'medium', maxCompletionTokens: 4096 },
         },
@@ -227,8 +323,19 @@ export async function adviseW3(input: AdvisorInput): Promise<{ advice: W3Advice;
       kept.push(i);
     });
 
+    // Only real catalogue ids, deduped. A hallucinated solution would render as
+    // a card with no photo and no ficha, which is the one failure a coordinator
+    // would not spot by reading.
+    const seenSol = new Set<string>();
+    const shortlist = raced.shortlist.filter(p => {
+      if (!getSolution(p.solutionId) || seenSol.has(p.solutionId)) return false;
+      seenSol.add(p.solutionId);
+      return true;
+    });
+
     return {
       advice: {
+        shortlist,
         drafts,
         questionIds: kept.map(i => raced.questionIds[i]),
         questionReasons: kept.map(i => raced.questionReasons[i] ?? ''),
