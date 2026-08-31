@@ -563,6 +563,30 @@ export async function serveE3Checkpoint(
     if (!m) return false; // not a footprint session — let E2/the model have it
     const drawn = roundAreaM2(Number(m[1]));
     deps.writeFields(SITE, { site_area_m2: String(drawn) });
+
+    // ⚠️ A traced shape can be wrong by orders of magnitude — a zoomed-out map,
+    // a mis-tap, a finger that closed the polygon early — and a per-m² rate
+    // multiplies the mistake instead of catching it. This is not hypothetical:
+    // a bug that opened the draw session fitted to the whole bairro produced a
+    // 9,986,500 m² rain garden priced at four billion reais, stated with the
+    // same confidence as a correct number.
+    //
+    // Above two hectares, show the number and QUESTION it. Never price it. An
+    // organisation can tell instantly that its yard is not twenty football
+    // pitches; arithmetic cannot.
+    const ABSURD_M2 = 20_000;
+    if (drawn > ABSURD_M2) {
+      say(
+        `Marquei **${drawn.toLocaleString('pt-BR')} m²** — isso é bem grande para uma intervenção, uns ${(drawn / 10000).toFixed(1)} hectares. Pode ter sido o mapa estar afastado na hora de desenhar.\n\nAntes de calcular preço em cima disso, confere: é esse o tamanho mesmo?`,
+        `I have **${drawn.toLocaleString('en-US')} m²** — that is very large for an intervention, about ${(drawn / 10000).toFixed(1)} hectares. The map may have been zoomed out while you were drawing.\n\nBefore I price anything off that, can you confirm: is that really the size?`,
+      );
+      ask('Confere?', 'Is that right?', [
+        { pt: E3C.redesenhar.pt, en: E3C.redesenhar.en, dPt: 'Abre o mapa de novo', dEn: 'Opens the map again' },
+        { pt: E3C.areaConfere.pt, en: E3C.areaConfere.en, dPt: 'É esse tamanho mesmo', dEn: 'That is the size' },
+      ]);
+      return finish('area-implausible');
+    }
+
     const line = chosen[0] ? budgetLineFor(chosen[0], drawn) : null;
     say(
       `**${drawn} m²** ✓${line ? `\n\n${line.notePt}` : ''}`,

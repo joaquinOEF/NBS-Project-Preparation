@@ -1355,6 +1355,24 @@ export default function MapMicroapp({
     // computes the wrong zoom and leaves the user staring at the whole metro
     // region (JVP video 2026-07-16). invalidateSize + staggered refits make it
     // land once layout settles; the calls are idempotent.
+    // ⚠️ FOOTPRINT-ZOOM. In footprint mode the target is the SITE, not the
+    // bairro — and it has to go through this same staggered machinery rather
+    // than being set once elsewhere, because these refits fire at 0/350/1000ms
+    // and would otherwise zoom straight back out over the top of it.
+    //
+    // That is exactly what happened, and a passing test did not catch it: the
+    // draw session opened fitted to the whole of Sarandi at zoom 16, so four
+    // taps traced ten square kilometres. The org was told its rain garden
+    // covered 9,986,500 m² and would cost about four billion reais. The spec
+    // asserted `area > 0`.
+    const fitTarget = () => {
+      // Footprint mode owns the view — its own effect holds it at the site with
+      // the same staggered refits, and fitting the bairro here would zoom back
+      // out over the top of it at 0/350/1000ms.
+      if (params.drawFootprint) return;
+      const bounds = L.geoJSON(feature.geometry).getBounds();
+      if (bounds.isValid()) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+    };
     const fitToBairro = () => {
       // The map may already be gone: confirming the site closes the panel and
       // unmounts it, and a refit landing after that reaches into a torn-down
@@ -1366,18 +1384,25 @@ export default function MapMicroapp({
       if (mapRef.current !== map) return;
       try {
         map.invalidateSize();
-        const bounds = L.geoJSON(feature.geometry).getBounds();
-        if (bounds.isValid())
-          map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+        fitTarget();
       } catch {}
     };
     fitToBairro();
     const refitTimers = [setTimeout(fitToBairro, 350), setTimeout(fitToBairro, 1000)];
     setCompositeStep('assets');
-    setLoading(true);
-    setLoadingStatus(
-      t('mapMicroapp.loadingSites', { defaultValue: 'Loading sites...' })
-    );
+    // ⚠️ A footprint session has nothing to load: no OSM layers, no spatial
+    // queries, no site suggestions — just a satellite tile and a shape to draw.
+    // Raising the loading overlay here left an `inset-0 z-[1000]` sheet over the
+    // map that nothing subsequently cleared (the effect that clears it keys on
+    // a compositeStep change, and footprint mode has already made that change),
+    // so every tap of the polygon hit the overlay instead of the map. Silent:
+    // the map is fully visible underneath, and drawing simply never happens.
+    if (!params.drawFootprint) {
+      setLoading(true);
+      setLoadingStatus(
+        t('mapMicroapp.loadingSites', { defaultValue: 'Loading sites...' })
+      );
+    }
     return () => refitTimers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zonesLoaded, mapReady]);
@@ -1929,15 +1954,35 @@ export default function MapMicroapp({
   const footprintArmedRef = useRef(false);
   useEffect(() => {
     if (!footprintMode || footprintArmedRef.current) return;
-    if (!mapReady || !mapRef.current || compositeStep !== 'assets') return;
+    // ⚠️ Deliberately NOT gated on compositeStep or on the zone layer. The
+    // footprint session already knows the coordinates — it is the one map step
+    // that needs nothing looked up — and gating it on the bairro polygon
+    // matching made the whole thing conditional on a lookup that can miss. When
+    // it missed, the session opened at CITY scale and four taps traced 147 km².
+    if (!mapReady || !mapRef.current) return;
     const map = mapRef.current;
     const { lat, lng, name } = footprint!;
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
     footprintArmedRef.current = true;
     setBasemap('satellite');
-    // 18 shows a schoolyard end to end on a phone; 19 is the imagery's limit
-    // and leaves no context around the edge to place the corners against.
-    map.setView([lat, lng], 18);
+    setCompositeStep('assets');
+    // Same staggered treatment the bairro fit needs, for the same reason: this
+    // fires while the panel is still opening, so a single setView lands against
+    // a stale container size. Idempotent, and late enough to win the race with
+    // any bairro refit still in flight.
+    const holdView = () => {
+      if (mapRef.current !== map) return;
+      // Once a corner is down, the view belongs to the user: re-centring
+      // underneath a half-drawn polygon moves the ground out from under the
+      // vertices they have already placed.
+      if (polygonPointsRef.current.length > 0) return;
+      try {
+        map.invalidateSize();
+        map.setView([lat, lng], 18);
+      } catch {}
+    };
+    holdView();
+    const timers = [setTimeout(holdView, 400), setTimeout(holdView, 1100)];
     const pin = L.circleMarker([lat, lng], {
       radius: 5,
       color: '#ffffff',
@@ -1951,8 +1996,9 @@ export default function MapMicroapp({
     pin.addTo(map);
     if (name) pin.bindTooltip(name, { permanent: false, direction: 'top' });
     setDrawMode('polygon');
+    return () => timers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [footprintMode, mapReady, compositeStep]);
+  }, [footprintMode, mapReady]);
 
   // Simple site mode: "Marcar no mapa" arms point-dropping and KEEPS it armed
   // (the generic point handler disarms after each drop), so a second tap moves

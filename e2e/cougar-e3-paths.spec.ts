@@ -70,6 +70,12 @@ test.describe('COUGAR — E3 paths', () => {
     const confirm = page.getByTestId('map-confirm-site');
     await expect(confirm).toBeDisabled({ timeout: 10_000 });
 
+    // Let the view settle before tracing. The session re-centres on the site a
+    // couple of times while the panel finishes opening (a single setView lands
+    // against a stale container size), and a corner placed mid-settle lands
+    // somewhere else entirely.
+    await page.waitForTimeout(2000);
+
     // Trace four corners and double-click to close.
     const box = (await map.boundingBox())!;
     const cx = box.x + box.width / 2;
@@ -93,9 +99,18 @@ test.describe('COUGAR — E3 paths', () => {
       page.getByText('pedir cotação', { exact: false }).last(),
     ).toBeVisible({ timeout: 15_000 });
 
+    // ⚠️ FOOTPRINT-ZOOM. `> 0` is the assertion that let a four-orders-of-
+    // magnitude bug ship: the draw session opened fitted to the whole bairro at
+    // zoom 16, so four taps traced ten square kilometres and the org was told
+    // its rain garden covered 9,986,500 m² and cost about four billion reais.
+    // The area was, technically, greater than zero.
+    //
+    // The trace here spans about a third of the viewport at zoom 18, which is
+    // a yard, not a district. Bound it on both sides.
     const body = await (await request.get(`/api/cbo/${cboId}`)).json();
     const area = Number(body.state?.sections?.intervention_site?.fields?.site_area_m2?.value);
     expect(area).toBeGreaterThan(0);
+    expect(area, 'a traced yard, not a neighbourhood').toBeLessThan(20_000);
   });
 
   test('a city partnership is not offered on land the organisation owns', async ({ page, request }) => {
