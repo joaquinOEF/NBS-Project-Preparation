@@ -104,6 +104,16 @@ const PHASES_SCORED_AT_CLOSE = new Set([1]);
  * `_role_done` is the last beat before it and covers every organisation that
  * closed before this existed.
  */
+/**
+ * The markers that mean "Encontro 2 reached its close".
+ *
+ * `_e2_closed` is written at the closing beat from now on. `_collab_done` is
+ * what the close is GATED on (closeOrAsk refuses until it is set), and
+ * `_role_done` is the last beat before it — between them they cover every
+ * organisation that finished before `_e2_closed` existed.
+ */
+export const E2_CLOSE_MARKERS = ['_e2_closed', '_collab_done', '_role_done'] as const;
+
 export function encontroClosed(
   state: Pick<CboState, 'sections' | 'maturityScores'>,
   phase: number,
@@ -111,7 +121,12 @@ export function encontroClosed(
   if (phase === 2) {
     const f = (state.sections as any)?.intervention_site?.fields ?? {};
     const val = (k: string) => String(f[k]?.value ?? '').trim();
-    return val('_e2_closed') === 'yes' || val('_role_done') === 'yes';
+    // Any end-of-encontro marker. Which one an organisation carries depends on
+    // WHEN it went through — the teia/collab beats shipped after some orgs had
+    // already finished, so an August export has `_role_done` and no
+    // `_collab_done`. All three are written at or immediately before the
+    // closing beat, and an org still mid-encontro has none of them.
+    return E2_CLOSE_MARKERS.some(k => val(k) === 'yes');
   }
   return phaseComplete(state, phase);
 }

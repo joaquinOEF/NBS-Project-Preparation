@@ -198,6 +198,81 @@ const W3_META: Record<W3State, { pt: string; en: string; cls: string }> = {
  *  · It is HYPOTHESES. The panel says so before it says anything else. A
  *    cluster an organisation did not agree to falls apart in the room.
  */
+
+/**
+ * ⚠️ The organisation that finished and cannot move is invisible from this
+ * board. The rail shows the encontro open, the card shows a phase, and nothing
+ * says "this one is done and stuck" — a coordinator only found out because an
+ * org said so, a week later.
+ *
+ * Reads the same verdicts the pre-session script does, from the database this
+ * deployment is actually using (which is why it is an endpoint and not a
+ * script: `npm run cohort:doctor` can only reach the workspace DB).
+ */
+function CohortDoctorPanel({ coordinatorSlug }: { coordinatorSlug: string | null }) {
+  const { i18n } = useTranslation();
+  const isPt = i18n.language?.startsWith('pt');
+  const [data, setData] = useState<any>(null);
+
+  useEffect(() => {
+    if (!coordinatorSlug) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const r = await fetch(`/api/cohort/${coordinatorSlug}/doctor`, { credentials: 'include' });
+        if (r.ok && alive) setData(await r.json());
+      } catch { /* a missing report is not an error to shout about */ }
+    })();
+    return () => { alive = false; };
+  }, [coordinatorSlug]);
+
+  if (!data) return null;
+  const waiting = (data.orgs ?? []).filter((o: any) => o.verdict === 'ready-waiting');
+  const stuckLabel = isPt ? 'terminou e está esperando' : 'finished, waiting on you';
+
+  return (
+    <div className="mb-6 rounded-xl border border-foreground/10 p-4" data-testid="cohort-doctor">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {isPt ? 'Diagnóstico do grupo' : 'Cohort check'}
+        </span>
+        <span className="text-[11px] text-muted-foreground tabular-nums">
+          {isPt
+            ? `${data.total} organizações · encontros abertos: ${data.openPhases?.length ? data.openPhases.map((p: number) => `Fase ${p}`).join(', ') : 'nenhum'}`
+            : `${data.total} orgs · open: ${data.openPhases?.length ? data.openPhases.map((p: number) => `Phase ${p}`).join(', ') : 'none'}`}
+        </span>
+      </div>
+
+      {waiting.length === 0 ? (
+        <p className="mt-2 text-[12.5px] text-muted-foreground" data-testid="doctor-all-clear">
+          {isPt
+            ? 'Ninguém está travado: toda organização que terminou tem para onde ir.'
+            : 'Nobody is stuck: every org that finished has somewhere to go.'}
+        </p>
+      ) : (
+        <div className="mt-2" data-testid="doctor-waiting">
+          <p className="text-[12.5px] font-medium text-amber-800 dark:text-amber-300">
+            {isPt
+              ? `${waiting.length === 1 ? '1 organização terminou o encontro' : `${waiting.length} organizações terminaram o encontro`} e não têm o próximo aberto.`
+              : `${waiting.length} finished their encontro and have no next one open.`}
+          </p>
+          <ul className="mt-1.5 flex flex-wrap gap-1.5">
+            {waiting.map((o: any) => (
+              <li
+                key={o.id}
+                className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+                title={`${stuckLabel} — fase ${o.phase}`}
+              >
+                {o.orgName}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SynergyPanel({ cohortId, excluded = 0 }: { cohortId: string | null; excluded?: number }) {
   const { t, i18n } = useTranslation();
   const isPt = i18n.language?.startsWith('pt');
@@ -1932,6 +2007,7 @@ export default function OrchestratorLandingPage() {
           ))}
         </motion.div>
 
+        <CohortDoctorPanel coordinatorSlug={cohort?.coordinatorSlug ?? null} />
         <SynergyPanel cohortId={cohort?.id ?? null} excluded={projects.filter(p => p.excludeFromPortfolio).length} />
 
         {/* ── The W3 portfolio ─────────────────────────────────────────────
