@@ -41,6 +41,7 @@ import {
   Check, Circle, AlertCircle, Pencil, Mic, Square, Map as MapIcon, Layers,
   ChevronsRight, ClipboardList, BarChart3,
   type LucideIcon,
+  ArrowDown,
 } from 'lucide-react';
 import { useVoiceRecorder, type RecorderError } from '@/core/hooks/useVoiceRecorder';
 import { CboWelcome } from '@/core/components/cbo/CboWelcome';
@@ -535,6 +536,10 @@ export default function CboProfilePage() {
   const tourIdxHydrated = useRef(false);
   const [interventionSelectorParams, setInterventionSelectorParams] = useState<OpenInterventionSelectorParams | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
+  /** Following the end of the thread, as opposed to reading something further up. */
+  const atBottomRef = useRef(true);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Why the picker was opened, when a chip said so (`uploadPurpose` on the
@@ -1204,7 +1209,79 @@ export default function CboProfilePage() {
     init();
   }, []);
 
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isStreaming]);
+  /**
+   * ⚠️ Opening a returning session landed at the TOP of the thread — at the
+   * start of Encontro 2, weeks of conversation above the live question.
+   *
+   * The effect below only ran when `messages` changed, and messages are loaded
+   * while the organisation is still on the welcome screen: it fired once
+   * against an unmounted thread (ref null, no-op), and entering the chat
+   * changed nothing it watched, so it never ran again.
+   *
+   * Landing is therefore keyed on the thread MOUNTING, not on the data
+   * arriving. Instantly, not smoothly — a smooth scroll across a long
+   * transcript is a second of travel that late-loading content can interrupt
+   * halfway, and the destination is the point, not the journey. Repeated on
+   * two animation frames because composers and photos settle after first
+   * paint and push the end further down.
+   */
+  const jumpToEnd = useCallback((behavior: ScrollBehavior = 'auto') => {
+    // Scroll the CONTAINER, not the sentinel. `scrollIntoView({block:'end'})`
+    // aligns the element to the bottom of the visible box, which here sits
+    // behind the composer bar — it lands close to the end but reliably short of
+    // it, and "close to the end" is what this exists to avoid.
+    const go = () => {
+      const el = threadRef.current;
+      if (el) el.scrollTo({ top: el.scrollHeight, behavior });
+      else chatEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+      atBottomRef.current = true;
+    };
+    go();
+    // The turn is usually still arriving: a message lands, the thread grows,
+    // and a single scroll leaves a gap the scroll listener then reads as "they
+    // have scrolled away" — which puts the pill straight back on screen after
+    // they just dismissed it. Two retries let the content settle.
+    requestAnimationFrame(go);
+    window.setTimeout(go, 300);
+    setShowJumpToLatest(false);
+  }, []);
+
+  useEffect(() => {
+    if (preChatScreen || !messages.length) return;
+    jumpToEnd('auto');
+    const a = requestAnimationFrame(() => jumpToEnd('auto'));
+    const b = window.setTimeout(() => jumpToEnd('auto'), 250);
+    return () => { cancelAnimationFrame(a); window.clearTimeout(b); };
+    // Deliberately not [messages]: this is about the thread becoming visible.
+  }, [preChatScreen, jumpToEnd, messages.length > 0]);
+
+  /** Are they at the end, or reading something above it? */
+  useEffect(() => {
+    const el = threadRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+      atBottomRef.current = gap < 80;
+      if (atBottomRef.current) setShowJumpToLatest(false);
+    };
+    onScroll();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [preChatScreen]);
+
+  /**
+   * New content: follow it only if they were already at the end. Yanking the
+   * view away from something someone is reading is worse than making them tap
+   * — and the agent posts several messages per turn.
+   */
+  useEffect(() => {
+    if (preChatScreen || !messages.length) return;
+    if (atBottomRef.current) {
+      const el = threadRef.current;
+      if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      else chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    } else setShowJumpToLatest(true);
+  }, [messages, isStreaming, preChatScreen]);
 
   // Keyboard nav
   useEffect(() => {
@@ -2217,7 +2294,7 @@ export default function CboProfilePage() {
               type/example strips' min-content width escapes the flex chain and
               drags the WHOLE page sideways on a phone (header cut off, question
               card clipped) — the strips scroll internally (overflow-x-auto). */}
-          <div data-testid="cbo-chat-thread" className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3">
+          <div ref={threadRef} data-testid="cbo-chat-thread" className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3">
             {messages.length === 0 && state.phase === 0 && (
               <div className="text-center text-muted-foreground py-8 sm:py-10 max-w-xs sm:max-w-sm mx-auto px-2">
                 <div className="inline-flex w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 items-center justify-center mb-3 sm:mb-4">
@@ -2811,6 +2888,22 @@ export default function CboProfilePage() {
 
             <div ref={chatEndRef} />
           </div>
+
+          {/* Never move the view out from under someone who is reading. */}
+          {showJumpToLatest && (
+            <div className="pointer-events-none relative">
+              <div className="pointer-events-auto absolute inset-x-0 -top-12 flex justify-center">
+                <button
+                  onClick={() => jumpToEnd('smooth')}
+                  data-testid="button-jump-to-latest"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-emerald-600/30 bg-white px-3.5 py-1.5 text-[12px] font-medium text-emerald-800 shadow-md transition-colors hover:bg-emerald-50 dark:bg-emerald-950 dark:text-emerald-200"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                  {lang === 'pt' ? 'Nova mensagem' : 'New message'}
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className={`p-3 border-t transition-colors ${isStreaming ? 'bg-muted/50' : currentQuestion ? 'bg-green-50 border-t-green-200' : ''}`}>
             {!isStreaming && currentQuestion && <p className="text-[10px] text-green-700 mb-1 font-medium">{t('cbo.yourTurn')}</p>}
