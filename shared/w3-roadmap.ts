@@ -26,6 +26,7 @@
 import { buildDossier, portfolioState, type Dossier, type VerdictState, type W3Input } from './w3-dossier';
 import { budgetLineFor, SOLUTION_COSTS, type BudgetLine } from './w3-sizing';
 import { benefitFor, type BenefitLine } from './w3-benefits';
+import { scaleStatement } from './w3-scale';
 import { getSolution } from './nbs-catalog';
 import { getSolutionFicha } from './nbs-solution-fichas';
 import { cboFieldEnumOptions } from './cbo-field-catalog';
@@ -180,6 +181,7 @@ export function buildRoadmap(
   const units = Number(w3.intervention_units) || 0;
   const budget = solutions.map(id => budgetLineFor(id, areaM2 || undefined, units || undefined)).filter(Boolean) as BudgetLine[];
   const benefits = solutions.map(id => benefitFor(id, areaM2 || undefined, units || undefined)).filter(Boolean) as BenefitLine[];
+  const scale = scaleStatement(solutions, areaM2, site.site_worry);
 
   const what: RoadmapBlock[] = [];
   const how: RoadmapBlock[] = [];
@@ -326,6 +328,12 @@ export function buildRoadmap(
     const nota = pt ? b.notaPt : b.notaEn;
     if (nota) expectLines.push(`⚠ ${nota}`);
   }
+  // ⚠️ The denominator. A volume with no comparison reads as an answer to
+  // whatever flood the reader has in mind, and for this cohort that is 2024 —
+  // which none of these solutions touches. It is also where the programme's
+  // case lives: alone a fraction of a percent, together a number.
+  if (scale) expectLines.push('', ...(pt ? scale.linesPt : scale.linesEn));
+
   const reaction = w3.expected_impact_reaction;
   if (reaction === 'parece-pouco') {
     expectLines.push(

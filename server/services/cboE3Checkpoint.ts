@@ -35,6 +35,7 @@ import { eligibleQuestions, getW3Question, type QuestionContext } from '@shared/
 import type { W3Advice } from './w3Advisor';
 import { mergeShortlist, topShortlist } from '@shared/w3-solutions';
 import { budgetLineFor, roundAreaM2, SOLUTION_COSTS } from '@shared/w3-sizing';
+import { scaleStatement } from '@shared/w3-scale';
 import { benefitFor } from '@shared/w3-benefits';
 import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
 import { getSolution } from '@shared/nbs-catalog';
@@ -703,6 +704,13 @@ _This is a design estimate, not a measurement — ${line.sourceEn}, ${confEn[lin
         { pt: E3C.parecePouco.pt, en: E3C.parecePouco.en, dPt: 'Fica registrado', dEn: 'Noted on the record' },
       ]);
       deps.writeFields(IMPACT, { expected_impact: line.headlinePt });
+      // ⚠️ And what that number is a fraction OF. A volume with no denominator
+      // reads as an answer to whatever flood they have in mind — and for an
+      // organisation in Sarandi that is 2024, which this cannot touch. The
+      // comparison also carries the argument for the programme: alone a project
+      // is a fraction of a percent, together the network is a number.
+      const scale = scaleStatement(liveSolutions(), liveArea(), site('site_worry'));
+      if (scale) say(scale.linesPt.join('\n'), scale.linesEn.join('\n'));
       return finish('ask-impact');
     }
 
