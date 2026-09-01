@@ -92,3 +92,46 @@ on the same provider — one bill, one set of model behaviours, and no dependenc
 on a host-specific gateway for the features that decide what an organisation is
 shown. `CBO_STRUCTURED_PROVIDER` forces either one if that trade ever needs
 revisiting per environment.
+
+## ⚠️ And the rule that was missing: never ASK what an earlier encontro answered
+
+Reading the record is half of it. The other half is what you do with what you
+read — and until September this file said the first without the second, so
+Encontro 3 asked *"Antes de qualquer obra: como é o lugar hoje?"* of an
+organisation whose Encontro 2 answer was:
+
+> *"no hay árboles… pega el sol directo y hay bastante pavimento… cuando llueve
+> se inunda porque no drena el agua y se llena de agua de barro y a los días
+> aparecen muchos mosquitos."*
+
+Three weeks earlier, at more length, with photos attached.
+
+**The rule.** An encontro may confirm what an earlier one captured. It may not
+ask for it again. Quoting someone's own sentence back and offering to keep,
+change or skip it is recognition; asking the same question cold is telling them
+nobody read the answer.
+
+**Why it kept happening, stated plainly.** This document already said "read the
+whole record", and the bug shipped anyway — twice, by the same author. A
+principle with no check is a reminder, and reminders lose to the next feature.
+The two places that decide what Encontro 3 asks both had a narrower frame than
+the rule:
+
+- drafts could only quote **uploaded files**, because the feature was scoped as
+  "read the files they sent" — so an answer typed in the chat could never
+  pre-fill the question it answered, however exactly it answered it;
+- question selection was told to pick *"pelo que falta para ESTE projeto"* —
+  about the question bank, never about the record.
+
+**So the rule now fails a run.** `npm run w3:sweep` carries
+`asks-what-w2-answered`: it drives an organisation with a full Encontro 2 record
+through every solution and flags any beat that asks for something the record
+already holds — unless the same beat quotes it back, which is the distinction
+that matters. Removing the fix makes it report 27 violations; restoring it goes
+silent. That is the difference between this page and a check.
+
+**When adding a beat to any encontro**, the question to answer first is not
+"what do I need to ask" but "what has already been answered, and by whom" —
+and if the answer exists, the beat's job is to confirm it and spend the turn on
+something the record does not have. `docs/w2-w3-overlap-audit.md` is the
+field-by-field comparison for E2↔E3; E1↔E3 has not been done.
