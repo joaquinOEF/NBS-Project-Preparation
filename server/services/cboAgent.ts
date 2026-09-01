@@ -2274,8 +2274,13 @@ async function serveE2Checkpoint(
       ask('Quando souberem o lugar:', 'When you know the place:', [
         { pt: E2C.jaTenho.pt, en: E2C.jaTenho.en },
       ]);
+      writeE2Fields(cboId, state, { _e2_closed: 'yes' }, pushEvent);
       return finish('closing-no-site');
     }
+    // The encontro's own record that it CLOSED. Without it, "finished" had to be
+    // inferred from field counts — and one answered question looked the same as
+    // a completed workshop.
+    writeE2Fields(cboId, state, { _e2_closed: 'yes' }, pushEvent);
     say(
       `✓ **Pronto${nome ? `, ${nome}` : ''}!** Marcamos **${siteName || bairro}** e já sabemos por onde começar a estudar.\n\nNo próximo encontro a gente escolhe juntas a solução que mais combina com esse lugar. Até lá! 🌱`,
       `✓ **Done${nome ? `, ${nome}` : ''}!** We've marked **${siteName || bairro}** and we know where to start studying.\n\nIn the next encontro we'll pick together the solution that best fits this place. See you! 🌱`,

@@ -19,6 +19,7 @@ import { hazardPercentile, riskBand, dominantPercentile } from '@shared/risk-dis
 import {
   CBO_SECTIONS,
   phaseComplete,
+  encontroClosed,
   cboSectionsFilledCount,
   type CboState,
   type CboEvent,
@@ -773,7 +774,7 @@ export default function CboProfilePage() {
    */
   const entryPhase = useMemo(() => {
     const current = Math.max(1, state?.phase ?? 1);
-    if (!state || !phaseComplete(state, current)) return current;
+    if (!state || !encontroClosed(state, current)) return current;
     return unlockedPhases.find(p => p > current) ?? current;
   }, [state, unlockedPhases]);
 
@@ -1927,7 +1928,7 @@ export default function CboProfilePage() {
       // "Encontro 2 · Começar" to them reopens the encontro they just closed.
       // Falling through to the chat puts them in front of the honest wait
       // instead.
-      if (state && phaseComplete(state, entryPhase)) return false;
+      if (state && encontroClosed(state, entryPhase)) return false;
       const encontro = encontroForPhase(entryPhase);
       if (encontro == null) return false;
       const cfg = getEncontroPreambleConfig(encontro, lang as 'pt' | 'en', memberPath);
@@ -2593,7 +2594,7 @@ export default function CboProfilePage() {
               // (scored metrics OR section-fill), so Encontro 2 — whose maturity
               // scores are intentionally deferred (site_control / community_
               // anchoring) — advances instead of dead-ending with no way forward.
-              const encontroClosed = phaseComplete(state, state.phase);
+              const closed = encontroClosed(state, state.phase);
               const nextUnlockedPhase = unlockedPhases.find(p => p > state.phase);
 
               // ⚠️ NOTHING PENDING OUTRANKS THE WAY FORWARD.
@@ -2610,7 +2611,7 @@ export default function CboProfilePage() {
               // on any screen. There is nothing to derail in a finished encontro
               // — so when it is closed and the next one is open, the way forward
               // wins over whatever is still rendered above it.
-              if (!(encontroClosed && nextUnlockedPhase != null)) {
+              if (!(closed && nextUnlockedPhase != null)) {
                 if (currentQuestion || priorityRankPrompt || anchoringPrompt || mapHolds || selHolds) return null;
                 // Also suppress while a persisted right-panel tool step is
                 // pending (isDone-aware — pendingTool clears itself once the
@@ -2618,7 +2619,7 @@ export default function CboProfilePage() {
                 // Covers pre-composer-persistence transcripts where activeTool
                 // {kind} exists but no composer row was written to restore params.
                 if (pendingTool(state)) return null;
-                if (!encontroClosed) return null;
+                if (!closed) return null;
               }
               // ⚠️ Finished, and the next encontro is not open. This used to
               // `return null` — so an organisation that had done everything
