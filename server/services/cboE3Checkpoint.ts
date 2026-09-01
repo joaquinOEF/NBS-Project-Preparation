@@ -214,6 +214,7 @@ export async function serveE3Checkpoint(
       siteName: siteName,
       worry: site('site_worry'),
       areaM2: liveArea(),
+      siteStory: site('site_story'),
       hasFundingHistory:
         String((state.sections as any).org_profile?.fields?.prior_project_scale?.value ?? '') === 'funded' ||
         String((state.sections as any).org_profile?.fields?.funding_history?.value ?? '') === 'yes',
