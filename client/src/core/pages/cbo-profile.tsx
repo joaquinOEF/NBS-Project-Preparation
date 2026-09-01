@@ -2548,22 +2548,39 @@ export default function CboProfilePage() {
               // must not hide the banner that performs the REAL entry.
               const mapHolds = openMapParams != null && (state.phase ?? 0) >= RIGHT_PANEL_TOOLS.map.minPhase;
               const selHolds = interventionSelectorParams != null && (state.phase ?? 0) >= RIGHT_PANEL_TOOLS.interventions.minPhase;
-              if (currentQuestion || priorityRankPrompt || anchoringPrompt || mapHolds || selHolds) return null;
-              // Also suppress while a persisted right-panel tool step is
-              // pending (isDone-aware — pendingTool clears itself once the
-              // step's fields are filled, so this can never stick forever).
-              // Covers pre-composer-persistence transcripts where activeTool
-              // {kind} exists but no composer row was written to restore params.
-              if (pendingTool(state)) return null;
 
               // Forward-progress gate — the phase must be complete before we
               // offer the next workshop. Uses the shared phaseComplete() predicate
               // (scored metrics OR section-fill), so Encontro 2 — whose maturity
               // scores are intentionally deferred (site_control / community_
               // anchoring) — advances instead of dead-ending with no way forward.
-              if (!phaseComplete(state, state.phase)) return null;
-
+              const encontroClosed = phaseComplete(state, state.phase);
               const nextUnlockedPhase = unlockedPhases.find(p => p > state.phase);
+
+              // ⚠️ NOTHING PENDING OUTRANKS THE WAY FORWARD.
+              //
+              // These suppressors exist so the banner cannot render under a live
+              // question and derail an answer mid-encontro. Sound while the
+              // encontro is running. But they ran BEFORE the completeness check,
+              // so a composer restored from the transcript — the E2 roles
+              // multi-select, already answered, "Pronto ✓" and all — kept
+              // `currentQuestion` set forever and hid the banner permanently.
+              //
+              // A real organisation (test aug 4 456, Azenha) sat in exactly that:
+              // Encontro 2 closed, Encontro 3 open to it, and no way to reach it
+              // on any screen. There is nothing to derail in a finished encontro
+              // — so when it is closed and the next one is open, the way forward
+              // wins over whatever is still rendered above it.
+              if (!(encontroClosed && nextUnlockedPhase != null)) {
+                if (currentQuestion || priorityRankPrompt || anchoringPrompt || mapHolds || selHolds) return null;
+                // Also suppress while a persisted right-panel tool step is
+                // pending (isDone-aware — pendingTool clears itself once the
+                // step's fields are filled, so this can never stick forever).
+                // Covers pre-composer-persistence transcripts where activeTool
+                // {kind} exists but no composer row was written to restore params.
+                if (pendingTool(state)) return null;
+                if (!encontroClosed) return null;
+              }
               // ⚠️ Finished, and the next encontro is not open. This used to
               // `return null` — so an organisation that had done everything
               // asked of it saw NOTHING, and the only thing left to talk to was
