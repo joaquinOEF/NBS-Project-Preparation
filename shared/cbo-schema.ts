@@ -90,16 +90,40 @@ export function cboSectionsFilledCount(
 const PHASES_SCORED_AT_CLOSE = new Set([1]);
 
 /**
- * Whether a phase's work is done — the single forward-progress predicate used by
- * the next-workshop advance banner (and available to the server phase gate).
- * A phase is complete when EITHER signal holds:
- *   (a) every maturity metric for the phase is scored (the legacy signal — still
- *       true for phases that DO score), OR
+ * Is this encontro actually FINISHED — as opposed to merely started?
+ *
+ * ⚠️ `phaseComplete` answers a weaker question than its name suggests. For
+ * Encontro 2 it resolves to "intervention_site has at least one non-invite
+ * field", which is true after a single answer. That was harmless while it only
+ * gated a banner suppressed by every live question — and became dangerous the
+ * moment it decided which encontro the entry screen offers: an organisation one
+ * answer into Encontro 2 was shown "Começar Encontro 3".
+ *
+ * Encontro 2 has no questionnaire manifest, so its close is read from the flow's
+ * own markers. `_e2_closed` is written at the closing beat from now on;
+ * `_role_done` is the last beat before it and covers every organisation that
+ * closed before this existed.
+ */
+export function encontroClosed(
+  state: Pick<CboState, 'sections' | 'maturityScores'>,
+  phase: number,
+): boolean {
+  if (phase === 2) {
+    const f = (state.sections as any)?.intervention_site?.fields ?? {};
+    const val = (k: string) => String(f[k]?.value ?? '').trim();
+    return val('_e2_closed') === 'yes' || val('_role_done') === 'yes';
+  }
+  return phaseComplete(state, phase);
+}
+
+/**
+ * Whether a phase's work is done — the weaker, older predicate. Still the right
+ * answer for phases whose skill scores its metrics at the close; for Encontro 2
+ * it resolves to "one non-invite field", so anything deciding where an
+ * organisation GOES should ask `encontroClosed` instead.
+ *   (a) every maturity metric for the phase is scored, OR
  *   (b) every section belonging to the phase has at least one filled field —
  *       UNLESS the phase is in PHASES_SCORED_AT_CLOSE, where (a) is the contract.
- * (b) is what unblocks Encontro 2, whose skill intentionally DEFERS its two
- * maturity scores (site_control / community_anchoring) — so (a) is never
- * satisfiable there and the advance banner used to dead-end with no way forward.
  */
 export function phaseComplete(
   state: Pick<CboState, 'sections' | 'maturityScores'>,

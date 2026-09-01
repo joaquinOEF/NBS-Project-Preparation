@@ -109,3 +109,43 @@ test.describe('an org that finished Encontro 2, from a real export', () => {
     await expect(page.getByTestId('encontro-marker-3')).toBeVisible({ timeout: 30_000 });
   });
 });
+
+// ⚠️ THE OTHER DIRECTION, AND THE ONE THAT NEARLY SHIPPED. `phaseComplete`
+// answers a weaker question than its name suggests: for Encontro 2 it means
+// "intervention_site has one non-invite field". Harmless while it only gated a
+// banner that every live question suppressed — and dangerous the moment it
+// decided which encontro the entry screen offers. An organisation ONE ANSWER
+// into Encontro 2 was shown "Começar Encontro 3", which would have hit every
+// org mid-encontro in production: worse than the bug being fixed.
+
+test.describe('an org still doing Encontro 2', () => {
+  test.use({ locale: 'pt-BR' });
+
+  test('is not offered Encontro 3 after a single answer', async ({ page, request }) => {
+    const api = new TestApi(request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const cohort = (await api.createCohort(`Mid ${randomUUID().slice(0, 6)}`)).cohort;
+    await api.createCoordinator({ email: `mid-${randomUUID()}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const m = (await api.inviteMember(cohort.id, { orgName: 'Mid W2', neighborhood: 'Azenha', withSession: true })).member;
+    // One answer: the bairro. Encontro 2 is very much in progress.
+    await api.seedState(m.cboStateId, {
+      phase: 2, language: 'pt',
+      sections: [{ sectionId: 'intervention_site', field: 'bairro', value: 'Azenha' }],
+    });
+    // Encontro 3 IS open for the cohort — access is not what should hold them.
+    await request.patch(`/api/cohort/${cohort.coordinatorSlug}/open-workshop`, { data: { phase: 3 } });
+    await request.post(`/__test/cbo/${m.cboStateId}/script`, {
+      data: { turns: [[{ op: 'say', text: 'E onde fica exatamente?' }]] },
+    });
+
+    await page.goto(`/cbo-profile?t=${m.capabilityToken}`);
+    const cta = page.getByTestId('button-cbo-welcome-cta');
+    await expect(cta).toBeVisible({ timeout: 30_000 });
+    await cta.click();
+
+    // The door is the encontro they are in, and nothing offers to skip it.
+    await expect(page.getByTestId('button-encontro-2-start')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('button-start-encontro-3')).toHaveCount(0);
+    await expect(page.getByTestId('cbo-waiting-for-coordination')).toHaveCount(0);
+  });
+});

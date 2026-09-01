@@ -133,6 +133,10 @@ test.describe('the button appears on its own', () => {
         { sectionId: 'intervention_site', field: '_site_lat', value: '-30.0906' },
         { sectionId: 'intervention_site', field: '_site_lng', value: '-51.1726' },
         { sectionId: 'intervention_site', field: 'site_worry', value: 'alagamento' },
+        // The encontro's own record that it closed. Seeding a pile of fields
+        // and calling that "finished" is what let a barely-started org look
+        // complete — the fixture has to mean the same thing the flow means.
+        { sectionId: 'intervention_site', field: '_e2_closed', value: 'yes' },
       ],
     });
 
@@ -223,6 +227,7 @@ test.describe('a finished org that must wait is told so', () => {
         { sectionId: 'intervention_site', field: 'bairro', value: 'Sarandi' },
         { sectionId: 'intervention_site', field: '_site_lat', value: '-30.09' },
         { sectionId: 'intervention_site', field: '_site_lng', value: '-51.17' },
+        { sectionId: 'intervention_site', field: '_e2_closed', value: 'yes' },
       ],
     });
 
