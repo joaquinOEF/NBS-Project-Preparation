@@ -3556,6 +3556,7 @@ async function runW3AdvisorInner(cboId: string): Promise<void> {
         siteName: v(site, 'site_name'),
         worry: v(site, 'site_worry'),
         areaM2: Number(v(site, 'site_area_m2')) || 0,
+        siteStory: v(site, 'site_story'),
         hasFundingHistory: v(org, 'prior_project_scale') === 'funded' || v(org, 'funding_history') === 'yes',
         needsStudy: false,
       },

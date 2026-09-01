@@ -61,6 +61,30 @@ export interface QuestionContext {
   hasFundingHistory: boolean;
   /** Solutions whose ficha names a technical requirement. */
   needsStudy: boolean;
+  /**
+   * What they wrote about the place in Encontro 2. Present so a question can
+   * disqualify ITSELF when the record already answers it — see
+   * docs/w2-w3-overlap-audit.md. Model-side instructions cover this too, but
+   * this deployment runs the deterministic fallback often enough that a
+   * model-only guard is not a guard.
+   */
+  siteStory: string;
+}
+
+/**
+ * Does the Encontro 2 story already say who uses the place?
+ *
+ * The E2 prompt asks for it explicitly — "o que acontece quando chove forte,
+ * quem usa o espaço, o que já tem plantado" — but an organisation may not have
+ * answered that part, so this reads the answer rather than assuming it.
+ *
+ * Deliberately conservative: it takes a named group of people, not any mention
+ * of a person. Asking a question that was already answered is rude; skipping
+ * one that was not is a hole in the record, and of the two the hole is worse.
+ */
+export function storyNamesWhoUses(story: string): boolean {
+  const s = story.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return /(crianc|jovens|idosos|moradores|vizinh|comunidade|familias|alunos|escola|feira|catador|frequenta|se reune|se reunem|passam por|usam o|quem usa)/.test(s);
 }
 
 const NAO_SEI = { id: 'nao-sei', pt: 'Não sei dizer', en: "I can't say" };
@@ -154,7 +178,11 @@ export const W3_QUESTIONS: W3Question[] = [
     kind: 'text',
     askPt: 'Quem mais usa esse lugar hoje, além de vocês?',
     askEn: 'Who else uses this place today, besides you?',
-    eligible: c => /public|informal|mixed/.test(c.tenure),
+    // ⚠️ Not when Encontro 2 already answered it. The E2 story prompt asks for
+    // "quem usa o espaço" in so many words, so for a large share of
+    // organisations this question was a second interview about a sentence they
+    // had already written.
+    eligible: c => /public|informal|mixed/.test(c.tenure) && !storyNamesWhoUses(c.siteStory),
     whyPt: 'Em terreno público quem já usa o espaço decide se o projeto é bem-vindo ou uma invasão — e é quem a prefeitura pergunta.',
     whyEn: 'On public land whoever already uses the space decides whether the project is welcome or an intrusion — and they are who the city asks.',
     from: 'Reviewer C · popular educator',
