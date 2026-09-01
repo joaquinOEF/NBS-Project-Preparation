@@ -541,6 +541,20 @@ export async function serveE3Checkpoint(
         intervention_scale_band: a < 100 ? 'pequeno' : a < 1000 ? 'medio' : 'grande',
       });
     }
+    // ⚠️ Asked blind, when Encontro 2 already answered the neighbouring question.
+    // An organisation that said "Executar / implementar" there has told us it
+    // intends to build this itself; asking "e quem constrói isso?" with no
+    // reference to that is a second interview about the same intention. The
+    // question stays — the answer set is genuinely different and they may have
+    // changed their mind — but it opens by naming what they already said.
+    // See docs/w2-w3-overlap-audit.md.
+    const roles = read(SITE)('role_preference');
+    const echo = /executar/.test(roles)
+      ? { pt: 'No Encontro 2 vocês disseram que querem **executar**. Vale ainda pra esta obra?', en: 'In Encontro 2 you said you want to **implement** it. Does that still hold for this one?' }
+      : /receber-administrar/.test(roles)
+        ? { pt: 'No Encontro 2 vocês disseram que querem **receber e administrar os recursos**. Quem põe a mão na obra?', en: 'In Encontro 2 you said you want to **receive and manage the funds**. Who does the building?' }
+        : null;
+    if (echo) say(echo.pt, echo.en);
     return askEnum(TYPE, 'construction_model', 'E quem constrói isso?', 'And who builds it?');
   };
 
@@ -556,18 +570,57 @@ export async function serveE3Checkpoint(
    * "Escrever do zero" is offered with equal weight for the same reason. At
    * minute forty, a tired organisation will tap whatever looks like agreement.
    */
+  /**
+   * Their own Encontro 2 answer, offered as the draft for the Encontro 3
+   * question it already answers.
+   *
+   * `site_story` is asked in Encontro 2 as "me conta desse lugar com as
+   * palavras de vocês — o que acontece quando chove forte, quem usa o espaço, o
+   * que já tem plantado ou construído ali". That is the baseline question,
+   * asked earlier, with the place fresh and photos attached. Quoting it back is
+   * recognition; asking again is telling them nobody read it.
+   *
+   * Only for `baseline_condition`. "Por que aqui?" is genuinely new — Encontro
+   * 2 asked what worries them, never why this place — and offering a draft for
+   * it would put words in their mouth.
+   */
+  const derivedDraftFor = (field: string) => {
+    if (field !== 'baseline_condition') return undefined;
+    const story = site('site_story').trim();
+    if (story.length < 25) return undefined;
+    return {
+      field,
+      quote: story,
+      sourceFilename: 'Encontro 2',
+      whyPt: 'Isso já descreve como o lugar está hoje — dá pra confirmar, completar ou escrever de outro jeito.',
+    };
+  };
+
   const askFreeText = (
     field: 'justification_why_here' | 'baseline_condition',
     promptPt: string,
     promptEn: string,
     detail: string,
   ): true => {
-    const draft = advice?.drafts.find(d => d.field === field);
+    // ⚠️ A draft used to require a MODEL and an uploaded FILE. So an
+    // organisation that had answered this exact question in Encontro 2 — in the
+    // chat, three weeks earlier, at more length — was asked it cold, and in a
+    // deployment running the deterministic fallback there was no draft at all.
+    // Their own prior answer is a better source than a document, and needs
+    // neither: see docs/w2-w3-overlap-audit.md.
+    const derived = derivedDraftFor(field);
+    const draft = advice?.drafts.find(d => d.field === field) ?? derived;
     say(promptPt, promptEn);
     if (draft) {
+      const fromE2 = draft === derived;
+      deps.writeFields(IMPACT, { _draft_quote: draft.quote, _draft_source: draft.sourceFilename });
       say(
-        `Só uma coisa antes: em **${draft.sourceFilename}**, que vocês mandaram, está escrito:\n\n> ${draft.quote}\n\n_${draft.whyPt}_`,
-        `One thing first: in **${draft.sourceFilename}**, which you sent, it says:\n\n> ${draft.quote}\n\n_${draft.whyPt}_`,
+        fromE2
+          ? `Só uma coisa antes: no **Encontro 2** vocês já escreveram isto sobre o lugar:\n\n> ${draft.quote}\n\n_${draft.whyPt}_`
+          : `Só uma coisa antes: em **${draft.sourceFilename}**, que vocês mandaram, está escrito:\n\n> ${draft.quote}\n\n_${draft.whyPt}_`,
+        fromE2
+          ? `One thing first: back in **Encontro 2** you already wrote this about the place:\n\n> ${draft.quote}\n\n_${draft.whyPt}_`
+          : `One thing first: in **${draft.sourceFilename}**, which you sent, it says:\n\n> ${draft.quote}\n\n_${draft.whyPt}_`,
       );
       ask('Isso já responde, ou vocês querem dizer de outro jeito?', 'Does that already answer it, or would you rather say it differently?', [
         { pt: E3C.serve.pt, en: E3C.serve.en, dPt: 'Usa o que vocês já escreveram', dEn: 'Uses what you already wrote' },
@@ -1028,7 +1081,15 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     const pendingField = type('_why_pending') === 'yes'
       ? 'justification_why_here'
       : impact('_baseline_pending') === 'yes' ? 'baseline_condition' : null;
-    const draft = pendingField ? advice?.drafts.find(d => d.field === pendingField) : null;
+    // The stored quote covers BOTH sources: a model draft from a file, and the
+    // Encontro 2 answer offered deterministically. Reading only `advice.drafts`
+    // here would confirm nothing when the draft came from their own record.
+    const storedQuote = read(IMPACT)('_draft_quote');
+    const storedSource = read(IMPACT)('_draft_source');
+    const draft = pendingField
+      ? (advice?.drafts.find(d => d.field === pendingField)
+        ?? (storedQuote ? { field: pendingField, quote: storedQuote, sourceFilename: storedSource || 'Encontro 2', whyPt: '' } : null))
+      : null;
     if (pendingField && draft) {
       if (pendingField === 'justification_why_here') {
         deps.writeFields(TYPE, {

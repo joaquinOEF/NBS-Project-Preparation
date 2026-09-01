@@ -64,6 +64,25 @@ const ADVISOR_TIMEOUT_MS = Number(process.env.CBO_ADVISOR_TIMEOUT_MS || 25_000);
 // The allowed values have not changed. They are enforced in the guards below,
 // where an unrecognised one costs that element rather than the answer.
 const DRAFT_FIELDS = ['justification_why_here', 'baseline_condition'] as const;
+
+/**
+ * Encontro 2 answers that can stand as a draft for an Encontro 3 question.
+ *
+ * `site_story` is prompted with "o que acontece quando chove forte, quem usa o
+ * espaço, o que já tem plantado ou construído ali" — which is the Encontro 3
+ * baseline question almost word for word, asked three weeks earlier with the
+ * place fresh and photos attached. See docs/w2-w3-overlap-audit.md.
+ */
+const E2_ANSWER_SOURCES = [
+  {
+    field: 'site_story',
+    label: 'Encontro 2 — o relato do lugar',
+    askedAs: 'me conta desse lugar com as palavras de vocês (o que acontece quando chove forte, quem usa o espaço, o que já tem plantado)',
+  },
+] as const;
+
+/** A draft citing this instead of a filename is quoting them back to themselves. */
+export const E2_SOURCE_NAME = 'Encontro 2';
 const OBSERVATION_KINDS = ['strength', 'gap', 'cohort'] as const;
 
 const DraftSchema = z.object({
@@ -235,9 +254,26 @@ function buildPrompt(input: AdvisorInput): string {
     .map(s => `- ${s.id} (${NBS_FAMILIAS.find(f => f.id === s.familiaId)?.pt.label ?? s.familiaId}): ${s.pt.label} — ${s.pt.whatItIs.slice(0, 140)}`)
     .join('\n');
 
+  // ⚠️ The Encontro 2 answers that can already answer an Encontro 3 question,
+  // set out verbatim and named as quotable. They were in `theirs` all along —
+  // buried in a context dump, with nothing telling the model it could USE them
+  // as a draft. Drafts were scoped to uploaded files, so an organisation that
+  // had written the answer in the chat three weeks earlier got asked again.
+  const e2Answers = E2_ANSWER_SOURCES
+    .map(src => ({ ...src, text: v(src.field) }))
+    .filter(a => a.text.length > 20);
+  const e2Block = e2Answers
+    .map(a => `### ${a.label}
+(perguntado no Encontro 2 como: "${a.askedAs}")
+${a.text}`)
+    .join('\n\n');
+
   return [
     '# O QUE ESTA ORGANIZAÇÃO JÁ NOS CONTOU',
     theirs,
+    e2Block
+      ? '\n# O QUE ELES JÁ RESPONDERAM NO ENCONTRO 2 (citável como rascunho, e motivo para NÃO perguntar de novo)\n' + e2Block
+      : '',
     picked.length ? `\n# O QUE ELES ESCOLHERAM NO ENCONTRO 2 (isto lidera a lista, sempre)\n${pickedLabels}` : '',
     corrections ? `\n# ONDE ELES CORRIGIRAM OS NOSSOS DADOS DE RISCO\n${corrections}\n(a percepção deles vale mais que a nossa média de bairro)` : '',
     v('role_preference') ? `\n# PAPEL QUE A ORGANIZAÇÃO QUER TER\n${v('role_preference')}` : '',
@@ -261,9 +297,11 @@ Quatro tarefas, e nada além delas:
 
    ⚠️ REGRA DE ALINHAMENTO: o que eles escolheram no Encontro 2 lidera. Eles escolheram com intenção, e você não passa por cima disso. Se a evidência aponta para uma solução de fora dos grupos que eles marcaram, você pode propor — marque "outsideTheirPicks: true" e diga a tensão em voz alta no motivo ("encostas não estava nos grupos que vocês marcaram, mas na foto dá pra ver o barranco"). Quem decide são eles.
 
-2. RASCUNHOS. Duas perguntas do Encontro 3 são de texto livre: "por que aqui?" (justification_why_here) e "como é o lugar hoje?" (baseline_condition). Se algum arquivo que ELES enviaram já responde uma delas, devolva a PASSAGEM LITERAL — copiada exatamente, sem reescrever, sem juntar frases separadas, sem corrigir português. Se nenhum arquivo responde, não devolva rascunho. Um rascunho inventado é pior que nenhum: a pessoa vai confirmar sem ler, e a voz dela some do documento.
+2. RASCUNHOS. Duas perguntas do Encontro 3 são de texto livre: "por que aqui?" (justification_why_here) e "como é o lugar hoje?" (baseline_condition). Se algum arquivo que ELES enviaram — OU alguma resposta que eles já deram no Encontro 2 — já responde uma delas, devolva a PASSAGEM LITERAL — copiada exatamente, sem reescrever, sem juntar frases separadas, sem corrigir português. Se nenhum arquivo responde, não devolva rascunho. Um rascunho inventado é pior que nenhum: a pessoa vai confirmar sem ler, e a voz dela some do documento.
 
 3. PERGUNTAS. Escolha no máximo 3 ids da lista fornecida — só ids da lista. Escolha pelo que falta para ESTE projeto, não pelo que é interessante em geral. Se duas perguntam quase a mesma coisa, escolha uma.
+
+   ⚠️ E NÃO PERGUNTE O QUE ELES JÁ RESPONDERAM. Se o Encontro 2 já traz a resposta — quem usa o lugar, o que acontece quando chove, o que já tem plantado ali — descarte essa pergunta e use a vaga para algo que o registro não responde. Perguntar de novo o que a pessoa já escreveu é dizer a ela que ninguém leu.
 
 4. OBSERVAÇÕES. No máximo 4, uma frase cada, em português simples e direto:
    - "strength": algo que o projeto tem de forte e que eles talvez não saibam que é forte. Isso é mostrado a eles.
@@ -331,7 +369,15 @@ export async function adviseW3(input: AdvisorInput): Promise<{ advice: W3Advice;
     if (!raced) return { advice: EMPTY_ADVICE, reason: 'timeout' };
 
     // ── The guards. Everything below here assumes the model got it wrong. ────
+    const site: any = (input.state as any)?.sections?.intervention_site?.fields ?? {};
     const byName = new Map(input.docs.map(d => [d.filename, d.fullText ?? '']));
+    // Their own Encontro 2 answers are quotable sources too, and verified the
+    // same way: a draft that does not appear in what they actually wrote is
+    // discarded, whichever record it claims to come from.
+    for (const src of E2_ANSWER_SOURCES) {
+      const text = String(site[src.field]?.value ?? '').trim();
+      if (text.length > 20) byName.set(E2_SOURCE_NAME, `${byName.get(E2_SOURCE_NAME) ?? ''}\n${text}`.trim());
+    }
     const drafts = raced.drafts.filter(d => {
       // A draft for a field no beat asks would be written into nothing.
       if (!(DRAFT_FIELDS as readonly string[]).includes(d.field)) return false;

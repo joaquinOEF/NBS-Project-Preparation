@@ -180,6 +180,15 @@ Layer definitions (with value encodings) live in `shared/geospatial-layers.ts`. 
 
 ## Lessons Learned
 
+### ⚠️ Build for the journey, not the component — `docs/building-for-the-journey.md`
+The app is one organisation walking through six encontros. A piece that works
+while the path is broken has not worked. Read that file before changing anything
+in the encontro flow: it lists four defects shipped in one session, each
+correctly fixed and each leaving the organisation still stuck, and the rules
+that follow from them (walk the whole path; look at the room past the door; ask
+who else is on this path; verify a landing on `main`, not in the PR list).
+
+
 ### CBO chat composers (inline widgets) — see `docs/cbo-chat-composers.md`
 Rules for any interactive widget rendered **inside the CBO chat** (NBS type/example
 strips, priority chips, anchoring): persist it as a `composer` transcript message or

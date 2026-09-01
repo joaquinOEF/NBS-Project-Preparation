@@ -152,6 +152,34 @@ async function walk(solutionId: string, withSite: boolean): Promise<Violation[]>
     v.push({ solutionId, rule: 'count-never-collected', detail: `basis=${cost.basis} but intervention_units is empty` });
   }
 
+  // 6 · nothing is asked that Encontro 2 already answered. The org seeded above
+  // has a full W2 record, `site_story` included — so a beat that asks for the
+  // state of the place, or who uses it, is asking for a paragraph they already
+  // wrote. Matched on what the beat SAYS, because that is what the organisation
+  // reads; a field name would miss a question worded around it.
+  const W2_ALREADY_ANSWERED: Array<[RegExp, string]> = [
+    [/como e o lugar hoje|como é o lugar hoje|antes de qualquer obra/i, 'site_story'],
+    [/quem mais usa esse lugar|quem usa o espaco|quem usa o espaço/i, 'site_story'],
+    [/o que mais preocupa/i, 'site_worry'],
+    [/em qual bairro/i, 'bairro'],
+  ];
+  // Asking is fine when the beat QUOTES their earlier answer back and offers to
+  // confirm it — that is recognition, not repetition. The rule is "never ask
+  // cold what they already answered", so the check has to know the difference.
+  const quotedBackFromE2 = said.some(l => /no \*\*Encontro 2\*\* voc[eê]s j[aá] escreveram|back in \*\*Encontro 2\*\* you already wrote/i.test(l));
+  for (const line of said) {
+    for (const [re, field] of W2_ALREADY_ANSWERED) {
+      if (!re.test(line)) continue;
+      if (!String(site[field] ?? '').trim()) continue;
+      if (quotedBackFromE2) continue;
+      v.push({
+        solutionId,
+        rule: 'asks-what-w2-answered',
+        detail: `“${line.replace(/\s+/g, ' ').slice(0, 66)}…” — já respondido por ${field}`,
+      });
+    }
+  }
+
   // 3 · nothing an organisation reads contains a machine id.
   for (const line of said) {
     for (const hit of line.match(MACHINE_ID) ?? []) {
