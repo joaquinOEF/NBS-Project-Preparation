@@ -698,19 +698,18 @@ _This is a design estimate, not a measurement — ${line.sourceEn}, ${confEn[lin
       );
       if (line.notaPt) say(`_${line.notaPt}_`, `_${line.notaEn ?? line.notaPt}_`);
       line.extrasPt.forEach((e, i) => say(`· ${e}`, `· ${line.extrasEn[i] ?? e}`));
+      // ⚠️ BEFORE the reaction chips, not after. Introduced in the same change
+      // that added it: the organisation was asked "o que vocês acham desse
+      // número?" and only then told what the number is a fraction of — which is
+      // asking for a judgement while withholding the thing it turns on.
+      const scale = scaleStatement(liveSolutions(), liveArea(), site('site_worry'));
+      if (scale) say(scale.linesPt.join('\n'), scale.linesEn.join('\n'));
       ask('O que vocês acham desse número?', 'What do you make of that number?', [
         { pt: E3C.fazSentido.pt, en: E3C.fazSentido.en },
         { pt: E3C.pareceMuito.pt, en: E3C.pareceMuito.en, dPt: 'Fica registrado', dEn: 'Noted on the record' },
         { pt: E3C.parecePouco.pt, en: E3C.parecePouco.en, dPt: 'Fica registrado', dEn: 'Noted on the record' },
       ]);
       deps.writeFields(IMPACT, { expected_impact: line.headlinePt });
-      // ⚠️ And what that number is a fraction OF. A volume with no denominator
-      // reads as an answer to whatever flood they have in mind — and for an
-      // organisation in Sarandi that is 2024, which this cannot touch. The
-      // comparison also carries the argument for the programme: alone a project
-      // is a fraction of a percent, together the network is a number.
-      const scale = scaleStatement(liveSolutions(), liveArea(), site('site_worry'));
-      if (scale) say(scale.linesPt.join('\n'), scale.linesEn.join('\n'));
       return finish('ask-impact');
     }
 
