@@ -14,6 +14,7 @@ import {
   cohortMembers,
   DEFAULT_WORKSHOPS,
   effectiveUnlockedPhases,
+  openPhasesFrom,
   SUPPORT_REQUEST_TYPES,
   type CohortSettings,
   type SupportRequest,
@@ -33,6 +34,7 @@ import {
 } from '@shared/w3-dossier';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { synergyFactsFrom, type SynergyFacts } from '@shared/w3-synergies';
+import { orgHealth, VERDICT_ORDER } from '@shared/cohort-doctor';
 import { buildSynergyReport } from '../services/synergyReport';
 import { synergyReports } from '@shared/cohort-schema';
 import { renderSynergyHtml } from '../services/synergyPrint';
@@ -1242,6 +1244,68 @@ export function registerCohortRoutes(app: Express): void {
     const orgName = await setMaturityTierForCboState(member.cboStateId, tier);
     if (!orgName) { res.status(409).json({ error: 'member has no linked organization yet' }); return; }
     res.json({ ok: true, tier, orgName });
+  }));
+
+  /**
+   * ⚠️ THE PROD CHECK. `npm run cohort:doctor` reads whatever database the shell
+   * is pointed at — on Replit, the workspace one, never the Deployment's. So the
+   * one environment whose answer matters is the one the script cannot reach.
+   *
+   * Same verdicts, same shared function, behind the coordinator login: open it
+   * in the browser and you are reading the database that is actually serving
+   * organisations.
+   *
+   * It also backfills `_e2_closed` on any record that finished before that
+   * marker existed, so a close inferred from older markers is recorded once
+   * rather than re-derived forever.
+   */
+  app.get('/api/cohort/:coordinatorSlug/doctor', wrap(async (req, res) => {
+    const cohort = (req as any).cohort as typeof cohorts.$inferSelect;
+    const settings = cohort.settings as CohortSettings | null;
+    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    const stateIds = members.map(m => m.cboStateId).filter((v): v is string => !!v);
+    const rows = stateIds.length
+      ? await db.select({ id: cboStates.id, phase: cboStates.phase, sections: cboStates.sections })
+          .from(cboStates).where(inArray(cboStates.id, stateIds))
+      : [];
+    const byId = new Map(rows.map(r => [r.id, r]));
+
+    let backfilled = 0;
+    const orgs = [];
+    for (const m of members) {
+      const row = m.cboStateId ? byId.get(m.cboStateId) : undefined;
+      const state = row ? { phase: row.phase ?? 0, sections: (row.sections ?? {}) as CboState['sections'], maturityScores: [] } : null;
+      const health = orgHealth(state as any, m.unlockedPhases, settings);
+
+      // Record the close once, where it was only inferable before.
+      if (state && health.closed && state.phase === 2) {
+        const site: any = (state.sections as any).intervention_site ?? { fields: {} };
+        if (String(site.fields?._e2_closed?.value ?? '') !== 'yes') {
+          site.fields = { ...(site.fields ?? {}), _e2_closed: { value: 'yes', confidence: 'high', source: 'derived', userEdited: false } };
+          await db.update(cboStates)
+            .set({ sections: { ...(state.sections as any), intervention_site: site } as any })
+            .where(eq(cboStates.id, row!.id))
+            .then(() => { backfilled++; })
+            .catch(e => console.error('[doctor] backfill failed:', e?.message || e));
+        }
+      }
+
+      orgs.push({
+        id: m.id, orgName: m.orgName, memberSlug: m.memberSlug,
+        excludeFromPortfolio: !!m.excludeFromPortfolio, ...health,
+      });
+    }
+    orgs.sort((a, b) => VERDICT_ORDER.indexOf(a.verdict) - VERDICT_ORDER.indexOf(b.verdict));
+    const waiting = orgs.filter(o => o.verdict === 'ready-waiting');
+    if (backfilled) console.log(`[doctor] ${cohort.id}: recorded _e2_closed on ${backfilled} record(s) that finished before the marker existed`);
+    res.json({
+      cohort: { id: cohort.id, name: cohort.name },
+      openPhases: openPhasesFrom(settings).sort((a, b) => a - b),
+      total: orgs.length,
+      waiting: waiting.length,
+      backfilled,
+      orgs,
+    });
   }));
 
   /**

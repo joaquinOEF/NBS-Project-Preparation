@@ -16,24 +16,10 @@
 // ============================================================================
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '../server/db';
-import { cohorts, cohortMembers, effectiveUnlockedPhases, type CohortSettings } from '@shared/cohort-schema';
+import { cohorts, cohortMembers, openPhasesFrom, type CohortSettings } from '@shared/cohort-schema';
 import { cboStates } from '@shared/cbo-db-schema';
-import { phaseComplete, cboSectionsFilledCount, type CboState } from '@shared/cbo-schema';
-
-type Verdict =
-  | 'never-started'
-  | 'in-progress'
-  | 'ready-waiting'   // ⚠️ finished, and the next encontro is not open
-  | 'ready-to-enter'  // finished, next is open — one tap away
-  | 'finished';
-
-const LABEL: Record<Verdict, string> = {
-  'never-started': 'sem nenhuma resposta',
-  'in-progress': 'no meio do encontro',
-  'ready-waiting': '⚠️  TERMINOU E ESTÁ ESPERANDO',
-  'ready-to-enter': 'pronta pra entrar no próximo',
-  'finished': 'chegou ao fim do percurso',
-};
+import { type CboState } from '@shared/cbo-schema';
+import { orgHealth, VERDICT_ORDER, VERDICT_PT, type OrgVerdict } from '@shared/cohort-doctor';
 
 async function main() {
   const wanted = process.argv[2];
@@ -49,7 +35,7 @@ async function main() {
   let waiting = 0;
   for (const cohort of list) {
     const settings = cohort.settings as CohortSettings | null;
-    const open = (settings?.workshops ?? []).filter(w => w.openedAt).map(w => Number(w.unlocksPhase));
+    const open = openPhasesFrom(settings);
     const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
     const stateIds = members.map(m => m.cboStateId).filter((v): v is string => !!v);
     const states = stateIds.length
@@ -63,42 +49,30 @@ async function main() {
     console.log(`encontros abertos: ${open.length ? open.sort((a, b) => a - b).map(p => `Fase ${p}`).join(', ') : 'nenhum'}`);
     console.log('═'.repeat(78));
 
-    const rows: Array<{ name: string; line: string; verdict: Verdict }> = [];
+    const rows: Array<{ name: string; line: string; verdict: OrgVerdict }> = [];
     for (const m of members) {
       const st = m.cboStateId ? byId.get(m.cboStateId) : undefined;
-      const sections = ((st?.sections ?? {}) as CboState['sections']);
-      const filled = st ? cboSectionsFilledCount({ sections } as any) : 0;
-      const phase = st?.phase ?? 0;
-      // The same union the gate applies, so this reads what the ORG will get,
-      // not what the row happens to say.
-      const unlocked = effectiveUnlockedPhases(m.unlockedPhases, settings);
-      const complete = st && phase >= 1 ? phaseComplete({ sections, maturityScores: [] } as any, phase) : false;
-      const next = unlocked.find(p => p > phase);
-
-      let verdict: Verdict;
-      if (!st || filled === 0) verdict = 'never-started';
-      else if (!complete) verdict = 'in-progress';
-      else if (phase >= 5) verdict = 'finished';
-      else if (next == null) verdict = 'ready-waiting';
-      else verdict = 'ready-to-enter';
-      if (verdict === 'ready-waiting') waiting++;
-
+      const state = st
+        ? { phase: st.phase ?? 0, sections: ((st.sections ?? {}) as CboState['sections']), maturityScores: [] }
+        : null;
+      const h = orgHealth(state as any, m.unlockedPhases, settings);
+      if (h.verdict === 'ready-waiting') waiting++;
       rows.push({
         name: m.orgName ?? m.memberSlug ?? m.id,
-        verdict,
+        verdict: h.verdict,
         line:
-          `fase ${phase} · ${filled}/7 seções · acesso [${unlocked.join(',')}]` +
-          `${complete ? ' · encontro fechado' : ''}${next ? ` · próximo aberto: ${next}` : ''}` +
+          `fase ${h.phase} · ${h.sectionsFilled}/7 seções · acesso [${h.unlockedPhases.join(',')}]` +
+          `${h.closed ? ' · encontro fechado' : ''}${h.nextOpen ? ` · próximo aberto: ${h.nextOpen}` : ''}` +
           `${m.excludeFromPortfolio ? ' · fora do portfólio' : ''}`,
       });
     }
 
     // Worst first — the whole point is that the waiting ones are impossible to
     // miss in a list of eighteen.
-    const order: Verdict[] = ['ready-waiting', 'in-progress', 'never-started', 'ready-to-enter', 'finished'];
-    rows.sort((a, b) => order.indexOf(a.verdict) - order.indexOf(b.verdict));
+    rows.sort((a, b) => VERDICT_ORDER.indexOf(a.verdict) - VERDICT_ORDER.indexOf(b.verdict));
     for (const r of rows) {
-      console.log(`\n  ${r.name}\n    ${LABEL[r.verdict]}\n    ${r.line}`);
+      const label = r.verdict === 'ready-waiting' ? `⚠️  ${VERDICT_PT[r.verdict].toUpperCase()}` : VERDICT_PT[r.verdict];
+      console.log(`\n  ${r.name}\n    ${label}\n    ${r.line}`);
     }
   }
 
