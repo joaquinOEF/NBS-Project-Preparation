@@ -18,7 +18,7 @@ import { TestApi } from './helpers/testApi';
 test.describe('an org that finished Encontro 2, from a real export', () => {
   test.use({ locale: 'pt-BR' });
 
-  test('what an org in this exact state is offered', async ({ page, request }) => {
+  test('is shown the way into Encontro 3, even with an answered composer above it', async ({ page, request }) => {
     const api = new TestApi(request);
     test.skip(!(await api.ping()).fakeModel, 'needs the fake model env');
     const cohort = (await api.createCohort(`Real ${randomUUID().slice(0, 6)}`)).cohort;
@@ -50,15 +50,40 @@ test.describe('an org that finished Encontro 2, from a real export', () => {
     });
     // The coordination opened Encontro 3, exactly as the export shows.
     await request.patch(`/api/cohort/${cohort.coordinatorSlug}/open-workshop`, { data: { phase: 3 } });
-    // A closed W2 turn in the thread, so messages.length > 0.
+    // ⚠️ The thread as it really ends: the roles composer — ANSWERED, "Pronto ✓"
+    // — and then the closing line. That composer is restored on load and kept
+    // `currentQuestion` set, which hid the banner permanently. Seeding a bare
+    // `say` here is what made the first version of this test pass against a
+    // build where the real organisation was still stuck.
     await request.post(`/__test/cbo/${m.cboStateId}/script`, {
-      data: { turns: [[{ op: 'say', text: '✓ Pronto, Maria! Marcamos Praça Paulo Coelho. Até lá! 🌱' }]] },
+      data: {
+        turns: [[
+          { op: 'ask_user', question: 'Mais algum papel?', multiSelect: true, options: [
+            { label: 'Ser consultada (dar opinião)' },
+            { label: 'Escrever o projeto' },
+            { label: 'Articular parceiros' },
+          ] },
+        ], [
+          { op: 'say', text: '✓ Pronto, Maria! Marcamos Praça Paulo Coelho. Até lá! 🌱' },
+        ]],
+      },
     });
 
     await page.goto(`/cbo-profile?t=${m.capabilityToken}`);
     const cta = page.getByTestId('button-cbo-welcome-cta');
     await expect(cta).toBeVisible({ timeout: 30_000 });
     await cta.click();
+
+    // Answer the composer, exactly as she did, and let the encontro close.
+    const input = page.getByTestId('cbo-chat-input');
+    await expect(input).toBeVisible({ timeout: 30_000 });
+    await input.fill('oi');
+    await input.press('Enter');
+    const pronto = page.locator('[data-testid^="cbo-option-"]').filter({ hasText: 'Escrever o projeto' }).first();
+    if (await pronto.count()) await pronto.click();
+    await input.fill('terminamos');
+    await input.press('Enter');
+    await page.waitForTimeout(2000);
 
     // The door it must NOT be: the encontro it just finished.
     await expect(page.getByTestId('button-encontro-2-start')).toHaveCount(0);
