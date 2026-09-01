@@ -247,8 +247,27 @@ export async function advanceCboPhase(cboId: string, target: number): Promise<Ad
       return { ok: false, reason: 'locked', currentPhase: state.phase, unlockedPhases: policy.unlockedPhases };
     }
   }
+  const previous = state.phase;
   state.phase = target;
   setCboState(cboId, state);
+
+  // ⚠️ A new encontro started and the transcript did not say so. The E3 opener
+  // was appended straight after the E2 closing line — "Até lá! 🌱Bem-vindas ao
+  // Encontro 3." ran together in one bubble — so the one moment the workshop
+  // changes was the one moment with no marker on it.
+  //
+  // Persisted as a composer row for the same reason every other inline widget
+  // is: a divider that only exists in the live stream is gone on reload, which
+  // is exactly when someone is trying to work out where they are.
+  if (target > previous && target >= 1 && target <= 5) {
+    addCboMessage(cboId, {
+      role: 'assistant',
+      content: JSON.stringify({ kind: 'encontro_marker', encontro: target }),
+      messageType: 'composer',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   await flushNow(cboId);
   return { ok: true, phase: target };
 }
@@ -2255,8 +2274,13 @@ async function serveE2Checkpoint(
       ask('Quando souberem o lugar:', 'When you know the place:', [
         { pt: E2C.jaTenho.pt, en: E2C.jaTenho.en },
       ]);
+      writeE2Fields(cboId, state, { _e2_closed: 'yes' }, pushEvent);
       return finish('closing-no-site');
     }
+    // The encontro's own record that it CLOSED. Without it, "finished" had to be
+    // inferred from field counts — and one answered question looked the same as
+    // a completed workshop.
+    writeE2Fields(cboId, state, { _e2_closed: 'yes' }, pushEvent);
     say(
       `✓ **Pronto${nome ? `, ${nome}` : ''}!** Marcamos **${siteName || bairro}** e já sabemos por onde começar a estudar.\n\nNo próximo encontro a gente escolhe juntas a solução que mais combina com esse lugar. Até lá! 🌱`,
       `✓ **Done${nome ? `, ${nome}` : ''}!** We've marked **${siteName || bairro}** and we know where to start studying.\n\nIn the next encontro we'll pick together the solution that best fits this place. See you! 🌱`,

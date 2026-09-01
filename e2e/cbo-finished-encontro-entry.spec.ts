@@ -89,8 +89,63 @@ test.describe('an org that finished Encontro 2, from a real export', () => {
     await expect(page.getByTestId('button-encontro-2-start')).toHaveCount(0);
     // The door it must be — either the E3 preamble (once E3 has one) or the
     // in-chat banner. The guarantee is a way forward, not a given widget.
-    await expect(
-      page.getByTestId('button-encontro-3-start').or(page.getByTestId('button-start-encontro-3')),
-    ).toBeVisible({ timeout: 30_000 });
+    const door = page.getByTestId('button-encontro-3-start').or(page.getByTestId('button-start-encontro-3'));
+    await expect(door).toBeVisible({ timeout: 30_000 });
+
+    // ⚠️ And crossing it has to LOOK like crossing it. The Encontro 3 opener
+    // was appended straight onto the Encontro 2 closing line — "Até lá!
+    // 🌱Bem-vindas ao Encontro 3." in one bubble — so the single moment the
+    // workshop changes was the one moment with nothing marking it.
+    await door.click();
+    await expect(page.getByTestId('encontro-marker-3')).toBeVisible({ timeout: 30_000 });
+    // Persisted, not just streamed: a boundary that vanishes on reload is gone
+    // exactly when someone is trying to work out where they are.
+    await page.reload();
+    // The welcome screen is where a reload lands; `count()` does not wait for
+    // it, which is how the previous version of this step silently did nothing.
+    const back = page.getByTestId('button-cbo-welcome-cta');
+    await back.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
+    if (await back.isVisible().catch(() => false)) await back.click();
+    await expect(page.getByTestId('encontro-marker-3')).toBeVisible({ timeout: 30_000 });
+  });
+});
+
+// ⚠️ THE OTHER DIRECTION, AND THE ONE THAT NEARLY SHIPPED. `phaseComplete`
+// answers a weaker question than its name suggests: for Encontro 2 it means
+// "intervention_site has one non-invite field". Harmless while it only gated a
+// banner that every live question suppressed — and dangerous the moment it
+// decided which encontro the entry screen offers. An organisation ONE ANSWER
+// into Encontro 2 was shown "Começar Encontro 3", which would have hit every
+// org mid-encontro in production: worse than the bug being fixed.
+
+test.describe('an org still doing Encontro 2', () => {
+  test.use({ locale: 'pt-BR' });
+
+  test('is not offered Encontro 3 after a single answer', async ({ page, request }) => {
+    const api = new TestApi(request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const cohort = (await api.createCohort(`Mid ${randomUUID().slice(0, 6)}`)).cohort;
+    await api.createCoordinator({ email: `mid-${randomUUID()}@e2e.test`, password: 'pw-123456', cohortId: cohort.id });
+    const m = (await api.inviteMember(cohort.id, { orgName: 'Mid W2', neighborhood: 'Azenha', withSession: true })).member;
+    // One answer: the bairro. Encontro 2 is very much in progress.
+    await api.seedState(m.cboStateId, {
+      phase: 2, language: 'pt',
+      sections: [{ sectionId: 'intervention_site', field: 'bairro', value: 'Azenha' }],
+    });
+    // Encontro 3 IS open for the cohort — access is not what should hold them.
+    await request.patch(`/api/cohort/${cohort.coordinatorSlug}/open-workshop`, { data: { phase: 3 } });
+    await request.post(`/__test/cbo/${m.cboStateId}/script`, {
+      data: { turns: [[{ op: 'say', text: 'E onde fica exatamente?' }]] },
+    });
+
+    await page.goto(`/cbo-profile?t=${m.capabilityToken}`);
+    const cta = page.getByTestId('button-cbo-welcome-cta');
+    await expect(cta).toBeVisible({ timeout: 30_000 });
+    await cta.click();
+
+    // The door is the encontro they are in, and nothing offers to skip it.
+    await expect(page.getByTestId('button-encontro-2-start')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('button-start-encontro-3')).toHaveCount(0);
+    await expect(page.getByTestId('cbo-waiting-for-coordination')).toHaveCount(0);
   });
 });

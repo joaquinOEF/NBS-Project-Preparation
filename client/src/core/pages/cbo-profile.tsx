@@ -19,6 +19,7 @@ import { hazardPercentile, riskBand, dominantPercentile } from '@shared/risk-dis
 import {
   CBO_SECTIONS,
   phaseComplete,
+  encontroClosed,
   cboSectionsFilledCount,
   type CboState,
   type CboEvent,
@@ -402,6 +403,24 @@ export default function CboProfilePage() {
   // reads as "came from voice." It's not persisted — reloaded history shows the
   // plain text, which is fine.
   const [messages, setMessages] = useState<Array<CboChatMessage & { viaVoice?: boolean }>>([]);
+
+  /**
+   * Draw the encontro boundary in the live thread.
+   *
+   * The server persists the same row inside advanceCboPhase, so it survives a
+   * reload — but a stored row is not streamed, and the moment that most needs
+   * the marker is the moment it happens. Idempotent: the reload renders the
+   * server's row, this renders the live one, and neither doubles up.
+   */
+  const noteEncontroStart = useCallback((n: number) => {
+    if (!n || n < 1 || n > 5) return;
+    const payload = JSON.stringify({ kind: 'encontro_marker', encontro: n });
+    setMessages(prev =>
+      prev.some(m => m.messageType === 'composer' && m.content === payload)
+        ? prev
+        : [...prev, { role: 'assistant', content: payload, messageType: 'composer', timestamp: new Date().toISOString() }],
+    );
+  }, []);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   // ⚠️ CHIP-TAP-LOST. sendMessage opens with
@@ -755,7 +774,7 @@ export default function CboProfilePage() {
    */
   const entryPhase = useMemo(() => {
     const current = Math.max(1, state?.phase ?? 1);
-    if (!state || !phaseComplete(state, current)) return current;
+    if (!state || !encontroClosed(state, current)) return current;
     return unlockedPhases.find(p => p > current) ?? current;
   }, [state, unlockedPhases]);
 
@@ -1326,7 +1345,10 @@ export default function CboProfilePage() {
         // socket delivered the event, so progress made during a dead stream
         // never reached the coordinator. The PATCH route itself stays — the
         // cboStateId-link effect and the unlock clamp still use it.
-        setState(prev => prev ? { ...prev, phase: event.phase } : prev);
+        setState(prev => {
+          if (prev && event.phase > prev.phase) noteEncontroStart(event.phase);
+          return prev ? { ...prev, phase: event.phase } : prev;
+        });
         break;
       case 'path_set':
         // The E1 closing set_path writes cohort_members.path — mirror it
@@ -1906,7 +1928,7 @@ export default function CboProfilePage() {
       // "Encontro 2 · Começar" to them reopens the encontro they just closed.
       // Falling through to the chat puts them in front of the honest wait
       // instead.
-      if (state && phaseComplete(state, entryPhase)) return false;
+      if (state && encontroClosed(state, entryPhase)) return false;
       const encontro = encontroForPhase(entryPhase);
       if (encontro == null) return false;
       const cfg = getEncontroPreambleConfig(encontro, lang as 'pt' | 'en', memberPath);
@@ -1967,6 +1989,7 @@ export default function CboProfilePage() {
                 if (r.ok) {
                   const data = await r.json();
                   if (data?.state) setState(migrateCboState(data.state));
+                  noteEncontroStart(preambleEncontro);
                 }
               } catch {}
               sendMessage(
@@ -2225,6 +2248,23 @@ export default function CboProfilePage() {
                 let parsed: any = null;
                 try { parsed = JSON.parse(msg.content); } catch { /* malformed — skip */ }
                 if (!parsed) return null;
+                // A new encontro began. The one moment the workshop changes
+                // used to run together with the previous encontro's closing
+                // line, in the same bubble — this is the boundary, drawn.
+                if (parsed.kind === 'encontro_marker') {
+                  const n = Number(parsed.encontro) || 0;
+                  const ws = workshops.find(w => Number(w.unlocksPhase) === n);
+                  const name = ws ? localizedWorkshopName(t, workshops, ws) : `Encontro ${n}`;
+                  return (
+                    <div key={i} className="my-4 flex items-center gap-3" data-testid={`encontro-marker-${n}`}>
+                      <span className="h-px flex-1 bg-emerald-600/25" />
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-600/30 bg-emerald-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        🌱 {name}
+                      </span>
+                      <span className="h-px flex-1 bg-emerald-600/25" />
+                    </div>
+                  );
+                }
                 if (parsed.kind === 'types') {
                   return (
                     <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
@@ -2554,7 +2594,7 @@ export default function CboProfilePage() {
               // (scored metrics OR section-fill), so Encontro 2 — whose maturity
               // scores are intentionally deferred (site_control / community_
               // anchoring) — advances instead of dead-ending with no way forward.
-              const encontroClosed = phaseComplete(state, state.phase);
+              const closed = encontroClosed(state, state.phase);
               const nextUnlockedPhase = unlockedPhases.find(p => p > state.phase);
 
               // ⚠️ NOTHING PENDING OUTRANKS THE WAY FORWARD.
@@ -2571,7 +2611,7 @@ export default function CboProfilePage() {
               // on any screen. There is nothing to derail in a finished encontro
               // — so when it is closed and the next one is open, the way forward
               // wins over whatever is still rendered above it.
-              if (!(encontroClosed && nextUnlockedPhase != null)) {
+              if (!(closed && nextUnlockedPhase != null)) {
                 if (currentQuestion || priorityRankPrompt || anchoringPrompt || mapHolds || selHolds) return null;
                 // Also suppress while a persisted right-panel tool step is
                 // pending (isDone-aware — pendingTool clears itself once the
@@ -2579,7 +2619,7 @@ export default function CboProfilePage() {
                 // Covers pre-composer-persistence transcripts where activeTool
                 // {kind} exists but no composer row was written to restore params.
                 if (pendingTool(state)) return null;
-                if (!encontroClosed) return null;
+                if (!closed) return null;
               }
               // ⚠️ Finished, and the next encontro is not open. This used to
               // `return null` — so an organisation that had done everything
@@ -2663,6 +2703,7 @@ export default function CboProfilePage() {
                           if (r.ok) {
                             const data = await r.json();
                             if (data?.state) setState(migrateCboState(data.state));
+                            noteEncontroStart(nextUnlockedPhase);
                           }
                         } catch {}
                         sendMessage(

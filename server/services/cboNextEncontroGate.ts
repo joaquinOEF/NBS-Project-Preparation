@@ -23,7 +23,7 @@
 // handed back into the previous encontro.
 // ============================================================================
 
-import { phaseComplete, type CboState } from '@shared/cbo-schema';
+import { encontroClosed, type CboState } from '@shared/cbo-schema';
 import { getPhasePolicyForCbo } from './phaseGating';
 
 /**
@@ -76,7 +76,7 @@ export async function serveStartNext(
 
   // Not finished is not a refusal — it is the honest reason, and it names the
   // thing that would change it rather than saying "no".
-  if (!phaseComplete(state, current)) {
+  if (!encontroClosed(state, current)) {
     deps.say(
       `Ainda falta fechar o Encontro ${current} — quando isso estiver pronto, o ${next} abre em seguida.`,
       `Encontro ${current} is not closed yet — once it is, ${next} opens right after.`,
