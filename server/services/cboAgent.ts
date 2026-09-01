@@ -247,8 +247,27 @@ export async function advanceCboPhase(cboId: string, target: number): Promise<Ad
       return { ok: false, reason: 'locked', currentPhase: state.phase, unlockedPhases: policy.unlockedPhases };
     }
   }
+  const previous = state.phase;
   state.phase = target;
   setCboState(cboId, state);
+
+  // ⚠️ A new encontro started and the transcript did not say so. The E3 opener
+  // was appended straight after the E2 closing line — "Até lá! 🌱Bem-vindas ao
+  // Encontro 3." ran together in one bubble — so the one moment the workshop
+  // changes was the one moment with no marker on it.
+  //
+  // Persisted as a composer row for the same reason every other inline widget
+  // is: a divider that only exists in the live stream is gone on reload, which
+  // is exactly when someone is trying to work out where they are.
+  if (target > previous && target >= 1 && target <= 5) {
+    addCboMessage(cboId, {
+      role: 'assistant',
+      content: JSON.stringify({ kind: 'encontro_marker', encontro: target }),
+      messageType: 'composer',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   await flushNow(cboId);
   return { ok: true, phase: target };
 }

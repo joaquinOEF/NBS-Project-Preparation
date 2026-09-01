@@ -89,8 +89,23 @@ test.describe('an org that finished Encontro 2, from a real export', () => {
     await expect(page.getByTestId('button-encontro-2-start')).toHaveCount(0);
     // The door it must be — either the E3 preamble (once E3 has one) or the
     // in-chat banner. The guarantee is a way forward, not a given widget.
-    await expect(
-      page.getByTestId('button-encontro-3-start').or(page.getByTestId('button-start-encontro-3')),
-    ).toBeVisible({ timeout: 30_000 });
+    const door = page.getByTestId('button-encontro-3-start').or(page.getByTestId('button-start-encontro-3'));
+    await expect(door).toBeVisible({ timeout: 30_000 });
+
+    // ⚠️ And crossing it has to LOOK like crossing it. The Encontro 3 opener
+    // was appended straight onto the Encontro 2 closing line — "Até lá!
+    // 🌱Bem-vindas ao Encontro 3." in one bubble — so the single moment the
+    // workshop changes was the one moment with nothing marking it.
+    await door.click();
+    await expect(page.getByTestId('encontro-marker-3')).toBeVisible({ timeout: 30_000 });
+    // Persisted, not just streamed: a boundary that vanishes on reload is gone
+    // exactly when someone is trying to work out where they are.
+    await page.reload();
+    // The welcome screen is where a reload lands; `count()` does not wait for
+    // it, which is how the previous version of this step silently did nothing.
+    const back = page.getByTestId('button-cbo-welcome-cta');
+    await back.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
+    if (await back.isVisible().catch(() => false)) await back.click();
+    await expect(page.getByTestId('encontro-marker-3')).toBeVisible({ timeout: 30_000 });
   });
 });
