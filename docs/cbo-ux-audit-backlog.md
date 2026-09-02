@@ -523,3 +523,17 @@ It is *Teia* (the government open call). Don't propagate the transcript's spelli
     Neither behaviour is obviously wrong — a unit price with the missing area named is arguably the more useful of the two — but the two surfaces have to agree, and today an organisation is told two different things about the same project ten seconds apart. This is a product call, not a bug fix: **does an organisation with no place marked see a price per m²?** Decide it once and make both surfaces read from the same answer, the way the verdict already does.
 
     Same-shape risk as the `dossier.studies` line, which the no-site early return also drops: the roadmap names the study as a step ("Quando houver um lugar: Grade viva vai precisar de um responsável técnico com ART") while the card carries nothing about it.
+
+35. **⚠️ The bairro risk percentiles stored in W2 disagree with the catalogue and with what the org was shown (P1, M)** — found while investigating the E3 footprint session for the test org `test w2 3 326` (Partenon), 2026-09-02.
+
+    | source | flood | heat | landslide |
+    |---|---|---|---|
+    | `porto-alegre-neighborhood-zones.json` (`floodRank`×100 etc.) | **88** | **83** | **85** |
+    | the chat bubble the org read in E3 | muito alto | muito alto | muito alto |
+    | `_bairro_*_pct` stored on the org's record (`_bairros_json`) | **0** | **43** | **1** |
+
+    The stored numbers are the ones that matter: they drive `rankFamiliasForSite` (which NBS families are recommended), the site card, the hazard read-back (*"nosso mapa diz que o risco de enchente é baixo"*) and the roadmap's *"está entre os X% mais expostos"*. With flood = 0 for a bairro in the city's top 12%, águas-pluviais is systematically down-ranked for that org — the exact failure [`CBO-RISK-SCALE`](../client/src/core/pages/cbo-profile.tsx) was fixed to end in August.
+
+    **What is known:** `flood 0` and `landslide 1` match `flood2024Pct = 0` and `landslideSusceptiblePct = 1` exactly, so some path reads those absolute-exposure fields where the rest of the system reads the within-city rank. **What is not:** nothing in this repo produces `heat = 43` for Partenon — neither the current formatter (`hazardPercentile` → 83) nor the pre-August one (`meanHeat × 100` → 52) — and no sample-data file contains that value. So the writer is either a deployed build that differs from `main` or a computation over a filtered set.
+
+    **Diagnostic next step:** dump `_bairros_json` for every member of the live cohort and compare against `floodRank/heatRank/landslideRank` from the zones file. If the drift is cohort-wide, the fix is a backfill plus a single write path; if it is only this org, it is a legacy record from before 33ae4b19 and the fix is the backfill alone. Either way `_bairro_*_pct` needs one writer and a load-time check that it is a rank percentile, not an exposure percentage.
