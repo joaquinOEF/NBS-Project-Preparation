@@ -714,3 +714,131 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
     facts: f,
   };
 }
+
+// ── The authoring contract ──────────────────────────────────────────────────
+// Phase 2 lets a model WRITE three sections. Everything below is the part that
+// does not trust it: what it may write, what it may cite, and what happens to a
+// paragraph that fails either test. It is pure, so it is testable without a
+// model — which is the only way to know the guards bite.
+
+/** The sections worth writing rather than assembling. */
+export const AUTHORABLE_SECTIONS: ConceptSectionId[] = ['resumo', 'porque', 'resultados'];
+
+/** A paragraph proposed by the authoring pass, before any of it is believed. */
+export interface AuthoredCandidate {
+  section: string;
+  text: string;
+  sources: string[];
+}
+
+export interface AuthoringResult {
+  note: ConceptNote;
+  accepted: number;
+  /** Every rejection, with the reason — this is what gets logged and read. */
+  rejected: Array<{ text: string; why: string }>;
+}
+
+/** Digits as the fact base holds them: no thousands separators, decimal point. */
+const normNum = (s: string) => s.replace(/\.(?=\d{3}\b)/g, '').replace(',', '.').replace(/\.$/, '');
+
+/**
+ * Every figure the facts actually contain, in normalised form.
+ *
+ * ⚠️ The guard that matters most. A model writing a funder document will reach
+ * for a number to make a sentence land — "atende cerca de 400 crianças" — and
+ * nobody reading the page can tell an invented figure from a sourced one. So a
+ * numeral that does not appear in the fact base disqualifies the paragraph that
+ * carries it, rather than being corrected or trusted.
+ */
+export function factNumbers(facts: ConceptNoteFacts): Set<string> {
+  const out = new Set<string>();
+  const walk = (v: unknown) => {
+    if (v == null) return;
+    if (typeof v === 'number') { out.add(normNum(String(v))); return; }
+    if (typeof v === 'string') {
+      for (const m of v.match(/\d[\d.,]*/g) ?? []) out.add(normNum(m));
+      return;
+    }
+    if (Array.isArray(v)) { v.forEach(walk); return; }
+    if (typeof v === 'object') { Object.values(v as Record<string, unknown>).forEach(walk); }
+  };
+  walk(facts);
+  return out;
+}
+
+/** The only citations the pass may use: the sources the assembly already found. */
+export function allowedSources(note: ConceptNote): Set<string> {
+  return new Set(note.sections.flatMap(s => s.paragraphs.flatMap(p => p.sources)));
+}
+
+/**
+ * Take what survives, keep what does not.
+ *
+ * Rules, in order — and every one drops a PARAGRAPH, never the reply. A schema
+ * constraint on a one-shot call is a total-loss constraint: it is how an
+ * `orgNames.min(2)` once discarded an entire cohort narrative.
+ *
+ * A section for which nothing survives keeps its assembled paragraphs, so the
+ * document never gets shorter for having tried.
+ */
+export function acceptAuthored(
+  note: ConceptNote,
+  candidates: AuthoredCandidate[],
+  lang: Lang = 'pt',
+): AuthoringResult {
+  const numbers = factNumbers(note.facts);
+  const sources = allowedSources(note);
+  const rejected: AuthoringResult['rejected'] = [];
+  const kept = new Map<ConceptSectionId, Paragraph[]>();
+
+  for (const c of candidates ?? []) {
+    const text = String(c?.text ?? '').trim();
+    const id = String(c?.section ?? '').trim() as ConceptSectionId;
+    const drop = (why: string) => rejected.push({ text: text.slice(0, 80), why });
+
+    if (!AUTHORABLE_SECTIONS.includes(id)) { drop(`seção fora do contrato: "${c?.section}"`); continue; }
+    if (text.length < 20) { drop('parágrafo vazio ou curto demais'); continue; }
+    if (text.length > 1600) { drop('parágrafo longo demais para um bloco'); continue; }
+    // The register is not negotiable — docs/document-register.md.
+    if (/\bvoc[eê]s\b|\bvcs\b|\ba gente\b|\byour\b|\byou\b/i.test(text)) { drop('segunda pessoa'); continue; }
+    // A number nobody handed it.
+    const invented = (text.match(/\d[\d.,]*/g) ?? []).map(normNum).filter(n => n.length > 0 && !numbers.has(n));
+    if (invented.length) { drop(`número que não está no registro: ${invented.join(', ')}`); continue; }
+    const cited = (c.sources ?? []).map(String).filter(s => sources.has(s));
+    if (!cited.length) { drop('sem fonte reconhecida'); continue; }
+
+    kept.set(id, [...(kept.get(id) ?? []), { text, kind: 'written', sources: cited, authored: true }]);
+  }
+
+  const sections = note.sections.map(s =>
+    kept.has(s.id) ? { ...s, paragraphs: kept.get(s.id)! } : s,
+  );
+  return {
+    note: { ...note, sections },
+    accepted: Array.from(kept.values()).reduce((n, ps) => n + ps.length, 0),
+    rejected,
+  };
+}
+
+/**
+ * Re-apply prose written at the close of the session to a note rebuilt now.
+ *
+ * ⚠️ Run through the same guards, not trusted because it passed once. The note
+ * is rebuilt from live state on every request, so an organisation that
+ * corrected its area after the session gets a new cost band — and an authored
+ * sentence quoting the old one is a sentence that is now wrong. Re-validating
+ * against the CURRENT facts drops exactly those and keeps the rest, so paper
+ * and screen cannot disagree in prose either.
+ */
+export function applyStoredAuthoring(note: ConceptNote, stored: string | undefined, lang: Lang = 'pt'): AuthoringResult {
+  if (!stored?.trim()) return { note, accepted: 0, rejected: [] };
+  try {
+    const parsed = JSON.parse(stored) as Array<{ section: string; paragraphs: Array<{ text: string; sources: string[] }> }>;
+    const candidates: AuthoredCandidate[] = (parsed ?? []).flatMap(s =>
+      (s?.paragraphs ?? []).map(p => ({ section: s.section, text: p.text, sources: p.sources ?? [] })),
+    );
+    return acceptAuthored(note, candidates, lang);
+  } catch {
+    return { note, accepted: 0, rejected: [{ text: '', why: 'stored authoring did not parse' }] };
+  }
+}

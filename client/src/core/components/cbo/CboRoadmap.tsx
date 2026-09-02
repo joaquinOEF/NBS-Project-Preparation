@@ -17,7 +17,7 @@
 // Content and copy: shared/w3-roadmap.ts. Nothing is rendered here that was not
 // computed there.
 
-import { ArrowRight, CircleAlert, Printer, RefreshCw } from 'lucide-react';
+import { FileText, ArrowRight, CircleAlert, Printer, RefreshCw } from 'lucide-react';
 import type { Roadmap, RoadmapBlock } from '@shared/w3-roadmap';
 
 type VerdictState = 'ready' | 'needs_study' | 'needs_permission' | 'needs_site';
@@ -55,7 +55,8 @@ const S = {
     source: 'Fonte',
     review: 'Revisar com',
     note: 'Nenhum valor está fechado. Cada bloco indica a sua fonte e o que o revisaria.',
-    print: 'Baixar pra imprimir ou levar',
+    print: 'Baixar o caminho pra imprimir ou levar',
+    note2: 'Nota de conceito — para financiador ou prefeitura',
   },
   en: {
     eyebrow: 'Draft — to check and adjust',
@@ -70,7 +71,8 @@ const S = {
     source: 'Source',
     review: 'Revise with',
     note: 'No figure is settled. Every block states its source and what would revise it.',
-    print: 'Download to print or take with you',
+    print: 'Download the route to print or take with you',
+    note2: 'Concept note — for a funder or the city',
   },
 };
 
@@ -213,6 +215,23 @@ export function CboRoadmap({
         >
           <Printer className="h-3.5 w-3.5" />
           {s.print}
+        </a>
+      )}
+
+      {/* The other document, and the one that goes outward. The route above is
+          what the organisation walks; this is what it hands to someone who was
+          not in the room — the project argued, with every figure sourced.
+          Same rebuilt-from-live-state contract, so the two cannot disagree. */}
+      {cboId && (
+        <a
+          href={`/api/cbo/${cboId}/concept-note?lang=${lang}`}
+          target="_blank"
+          rel="noreferrer"
+          data-testid="concept-note-print"
+          className="mt-1.5 flex items-center justify-center gap-2 rounded-lg border border-[#9fb3a6] bg-card px-3 py-2.5 text-[12.5px] font-semibold text-[#24493a] hover:bg-muted/50 dark:border-emerald-900 dark:text-emerald-200"
+        >
+          <FileText className="h-3.5 w-3.5" />
+          {s.note2}
         </a>
       )}
 

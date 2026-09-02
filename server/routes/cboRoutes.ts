@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { renderRoadmapHtml } from '../services/roadmapPrint';
 import { renderConceptNoteHtml } from '../services/conceptNotePrint';
-import { buildConceptNote } from '@shared/concept-note';
+import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
 import {
   streamCboChat,
   handleCboEdit,
@@ -612,8 +612,19 @@ export function registerCboRoutes(app: Express): void {
       w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
     }, lang);
 
+    // Prose written at the close, re-checked against the facts as they stand
+    // now — a sentence quoting an area they corrected afterwards is dropped and
+    // its assembled version stands. `?plain=1` serves the deterministic
+    // document, which is how the two are compared side by side.
+    const authored = req.query.plain === '1'
+      ? { note, accepted: 0, rejected: [] }
+      : applyStoredAuthoring(note, type._concept_note_json, lang);
+    if (authored.rejected.length) {
+      console.log(`[concept-note] ${req.params.id}: ${authored.rejected.length} parágrafo(s) recusados na leitura — ${authored.rejected.map(r => r.why).join(' | ')}`);
+    }
+
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(renderConceptNoteHtml(note, lang));
+    res.send(renderConceptNoteHtml(authored.note, lang));
   });
 
   // Section registry

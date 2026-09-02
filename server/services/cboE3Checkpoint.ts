@@ -77,6 +77,15 @@ export interface E3Deps {
    */
   startAdvisor?(): void;
   /**
+   * Write the concept note's authored sections, once, at the close.
+   *
+   * Fire-and-forget for the same reason as the advisor: the organisation is
+   * reading its closing card while it runs, and nothing waits on it. A session
+   * where it fails, times out or was never configured downloads the
+   * deterministic document, which is whole rather than degraded.
+   */
+  startConceptNote?(): void;
+  /**
    * Resolve once the advisor pass has settled, or after a short cap.
    *
    * Only the solution beat awaits it, because that is the only beat whose
@@ -913,6 +922,9 @@ _For this one we do not yet have a reference figure — what the ficha says is a
         })),
       ),
     } as any);
+
+    // The prose the download will carry, written while they read the card.
+    deps.startConceptNote?.();
 
     const nome = String((state.sections as any).org_profile?.fields?.contact_name?.value || '')
       .trim().split(/\s+/)[0];

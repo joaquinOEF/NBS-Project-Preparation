@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { buildConceptNote, conceptNoteFacts, type ConceptNote } from '../shared/concept-note';
+import {
+  buildConceptNote, conceptNoteFacts, acceptAuthored, applyStoredAuthoring, factNumbers,
+  type ConceptNote, type AuthoredCandidate,
+} from '../shared/concept-note';
 import type { W3Input } from '../shared/w3-dossier';
 
 // ⚠️ "the pdf and final proto concept note, it's mostly verbatim what the user
@@ -133,5 +136,105 @@ test.describe('the concept note — phase 1, deterministic', () => {
     const pt = buildConceptNote(ESCOLA, 'pt');
     expect(en.sections.map(s => s.id)).toEqual(pt.sections.map(s => s.id));
     expect(prose(en)).not.toMatch(/\bvocês\b/);
+  });
+});
+
+// ── Phase 2: the part that does not trust the model ─────────────────────────
+// The authoring pass writes three sections. These are the guards, tested
+// without a model — the only way to know they bite. A rejection always costs
+// ONE PARAGRAPH and never the reply: a schema constraint on a one-shot call is
+// a total-loss constraint, and an `orgNames.min(2)` once threw away a whole
+// cohort narrative that way.
+
+test.describe('the concept note — phase 2 guards', () => {
+  const note = () => buildConceptNote(ESCOLA, 'pt');
+  const src = () => note().sections[0].paragraphs[0].sources[0];
+  const good = (over: Partial<AuthoredCandidate> = {}): AuthoredCandidate => ({
+    section: 'resumo',
+    text: 'A organização propõe uma intervenção de drenagem no pátio de uma escola do Partenon, sobre a área que delimitou no Encontro 3.',
+    sources: [src()],
+    ...over,
+  });
+
+  test('a number nobody handed it disqualifies the paragraph', () => {
+    // ⚠️ The failure that matters: a model reaches for a figure to make a
+    // sentence land, and no reader can tell it from a sourced one.
+    const r = acceptAuthored(note(), [good({ text: 'A escola atende cerca de 437 crianças por dia, e o pátio alaga a cada chuva forte registrada.' })]);
+    expect(r.accepted).toBe(0);
+    expect(r.rejected[0].why).toMatch(/n[úu]mero que n[ãa]o est[áa] no registro.*437/);
+  });
+
+  test('a number the facts DO contain is allowed through', () => {
+    const f = conceptNoteFacts(ESCOLA, 'pt');
+    expect(factNumbers(f).has('2100')).toBe(true);
+    const r = acceptAuthored(note(), [good({ text: 'A intervenção cobre 2100 m² do pátio, área delimitada pela organização no Encontro 3 sobre o mapa.' })]);
+    expect(r.accepted).toBe(1);
+  });
+
+  test('second person is refused however well it reads', () => {
+    const r = acceptAuthored(note(), [good({ text: 'O projeto que vocês montaram responde ao problema que vocês descreveram no Encontro 2, e segue para cotação.' })]);
+    expect(r.accepted).toBe(0);
+    expect(r.rejected[0].why).toBe('segunda pessoa');
+  });
+
+  test('a source it invented is not a source', () => {
+    const r = acceptAuthored(note(), [good({ sources: ['relatório interno da coordenação'] })]);
+    expect(r.accepted).toBe(0);
+    expect(r.rejected[0].why).toBe('sem fonte reconhecida');
+  });
+
+  test('a section outside the contract is refused', () => {
+    // Only three sections are writable; the rest stay computed.
+    const r = acceptAuthored(note(), [good({ section: 'custo' })]);
+    expect(r.accepted).toBe(0);
+    expect(r.rejected[0].why).toMatch(/se[çc][ãa]o fora do contrato/);
+  });
+
+  test('one bad paragraph never costs the good ones', () => {
+    const r = acceptAuthored(note(), [
+      good(),
+      good({ text: 'Atende 437 crianças, número que ninguém informou em nenhum momento do processo de escuta.' }),
+      good({ section: 'porque', text: 'O jardim de chuva infiltra no próprio terreno a água que hoje corre para a rua, que é o mecanismo que o pátio pavimentado pede.' }),
+      good({ sources: [] }),
+    ]);
+    expect(r.accepted).toBe(2);
+    expect(r.rejected.length).toBe(2);
+  });
+
+  test('a section where nothing survives keeps what was assembled', () => {
+    const before = note();
+    const r = acceptAuthored(before, [good({ text: 'Atende 437 crianças e nada mais pode ser dito sobre isso aqui.' })]);
+    const resumo = r.note.sections.find(s => s.id === 'resumo')!;
+    expect(resumo.paragraphs).toEqual(before.sections.find(s => s.id === 'resumo')!.paragraphs);
+    // The document never gets shorter for having tried.
+    expect(r.note.sections.length).toBe(before.sections.length);
+  });
+
+  test('accepted prose replaces the assembled paragraphs and is marked as authored', () => {
+    const r = acceptAuthored(note(), [good(), good({ text: 'O que falta para começar é uma cotação de fornecedor e a autorização de quem responde pelo terreno.' })]);
+    const resumo = r.note.sections.find(s => s.id === 'resumo')!;
+    expect(resumo.paragraphs.length).toBe(2);
+    expect(resumo.paragraphs.every(p => p.authored)).toBe(true);
+    expect(resumo.paragraphs.every(p => p.sources.length > 0)).toBe(true);
+  });
+
+  test('stored prose is re-checked against the facts as they stand now', () => {
+    // ⚠️ Written at the close over 2100 m². If the area is corrected
+    // afterwards, the cost band moves and a sentence quoting the old figure is
+    // now wrong — so it is dropped on read and the assembled version stands.
+    const stored = JSON.stringify([
+      { section: 'resumo', paragraphs: [{ text: 'A intervenção cobre 2100 m² do pátio da escola, conforme delimitado no Encontro 3.', sources: [src()] }] },
+    ]);
+    expect(applyStoredAuthoring(buildConceptNote(ESCOLA, 'pt'), stored).accepted).toBe(1);
+
+    const smaller = { ...ESCOLA, areaM2: 600, site: { ...ESCOLA.site, site_area_m2: '600' } };
+    expect(applyStoredAuthoring(buildConceptNote(smaller, 'pt'), stored).accepted).toBe(0);
+  });
+
+  test('nothing stored, or stored garbage, leaves the document intact', () => {
+    const before = buildConceptNote(ESCOLA, 'pt');
+    expect(applyStoredAuthoring(before, undefined).note.sections).toEqual(before.sections);
+    expect(applyStoredAuthoring(before, 'not json').accepted).toBe(0);
+    expect(applyStoredAuthoring(before, 'not json').note.sections).toEqual(before.sections);
   });
 });
