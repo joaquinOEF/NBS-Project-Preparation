@@ -359,9 +359,21 @@ export async function serveE3Checkpoint(
     // Their Encontro 2 picks lead; the agent reorders inside them and may add
     // one below with the tension named. See mergeShortlist.
     const entries = mergeShortlist(base, fresh?.shortlist ?? [], isPt ? 'pt' : 'en').slice(0, 4);
+    // ⚠️ Say the shared half ONCE. Every card used to open with the same eight
+    // words — "Responde ao que vocês contaram — pra água que junta e não escoa"
+    // — so four options read as one, and the choice got made by ordering. When
+    // they all share a reason it belongs above the list; the cards then carry
+    // only what separates them, which is what each one demands.
+    const shared = entries.length > 1 && entries.every(e => e.whyPt === entries[0].whyPt)
+      ? (isPt ? entries[0].whyPluralPt : entries[0].whyPluralEn)
+      : null;
     say(
-      'Os grupos que vocês marcaram viram isto aqui. Não é uma lista fechada — **nada fica descartado**, e dá pra ver as 27 quando quiser.',
-      "The grupos you marked become these. It is not a closed list — **nothing is ruled out**, and you can see all 27 whenever you like.",
+      shared
+        ? `Os grupos que vocês marcaram viram isto aqui. **Todas ${shared}** — o que muda entre elas é o que cada uma exige. Não é uma lista fechada: **nada fica descartado**, e dá pra ver as 27 quando quiser.`
+        : 'Os grupos que vocês marcaram viram isto aqui. Não é uma lista fechada — **nada fica descartado**, e dá pra ver as 27 quando quiser.',
+      shared
+        ? `The grupos you marked become these. **They all ${shared}** — what differs is what each one demands. It is not a closed list: **nothing is ruled out**, and you can see all 27 whenever you like.`
+        : "The grupos you marked become these. It is not a closed list — **nothing is ruled out**, and you can see all 27 whenever you like.",
     );
     pushEvent({
       type: 'show_solution_options',
