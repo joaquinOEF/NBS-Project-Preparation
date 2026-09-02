@@ -24,8 +24,9 @@
 // ============================================================================
 
 import { buildDossier, portfolioState, type Dossier, type VerdictState, type W3Input } from './w3-dossier';
-import { budgetLineFor, SOLUTION_COSTS, type BudgetLine } from './w3-sizing';
+import { budgetLineFor, SOLUTION_COSTS, type BudgetLine, type BuildModel } from './w3-sizing';
 import { benefitFor, type BenefitLine } from './w3-benefits';
+import { scaleStatement } from './w3-scale';
 import { getSolution } from './nbs-catalog';
 import { getSolutionFicha } from './nbs-solution-fichas';
 import { cboFieldEnumOptions } from './cbo-field-catalog';
@@ -178,7 +179,9 @@ export function buildRoadmap(
   const dossier = buildDossier(input, lang);
   const state = portfolioState(dossier.verdicts);
   const units = Number(w3.intervention_units) || 0;
-  const budget = solutions.map(id => budgetLineFor(id, areaM2 || undefined, units || undefined)).filter(Boolean) as BudgetLine[];
+  const buildModel = (w3.construction_model || undefined) as BuildModel | undefined;
+  const scale = scaleStatement(solutions, areaM2, site.site_worry);
+  const budget = solutions.map(id => budgetLineFor(id, areaM2 || undefined, units || undefined, buildModel)).filter(Boolean) as BudgetLine[];
   const benefits = solutions.map(id => benefitFor(id, areaM2 || undefined, units || undefined)).filter(Boolean) as BenefitLine[];
 
   const what: RoadmapBlock[] = [];
@@ -326,6 +329,12 @@ export function buildRoadmap(
     const nota = pt ? b.notaPt : b.notaEn;
     if (nota) expectLines.push(`⚠ ${nota}`);
   }
+  // ⚠️ The denominator. A volume with no comparison reads as an answer to
+  // whatever flood the reader has in mind, and for this cohort that is 2024 —
+  // which none of these solutions touches. It is also where the programme's
+  // case lives: alone a fraction of a percent, together a number.
+  if (scale) expectLines.push('', ...(pt ? scale.linesPt : scale.linesEn));
+
   const reaction = w3.expected_impact_reaction;
   if (reaction === 'parece-pouco') {
     expectLines.push(
@@ -374,6 +383,10 @@ export function buildRoadmap(
       // hundred and fifty thousand reais. That specific misunderstanding has
       // ended projects. The disclaimer travels with the figure, in the same
       // weight of type, wherever the page goes.
+      // ⚠️ What the works cost does not include. A concept note with a
+      // construction figure and no study line is incomplete in the one place a
+      // funder checks — and the study is what the coordination pools.
+      ...(dossier.studies.length ? ['', ...dossier.studies] : []),
       ...(budget.some(b => b.lowBrl != null) ? [t.moneyIsNot] : []),
     ],
     from: pt ? 'preço publicado na ficha × área desenhada' : "the ficha's published price × the drawn area",

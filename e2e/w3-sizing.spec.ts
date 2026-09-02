@@ -198,3 +198,73 @@ test.describe('W3 sizing — the count, for what is counted rather than measured
     expect(none.notePt).toContain('R$ 250');
   });
 });
+
+// ⚠️ THE PRICE IGNORED WHO BUILDS IT, AND W3 ASKS WHO BUILDS IT — one beat
+// after showing the band. The fichas already knew it mattered: a cistern is
+// R$ 4.500 in a Programa Cisternas mutirão against R$ 8.000–10.500 contracted
+// by edital; a teto verde is R$ 5/m² built bidim against R$ 150–350 bought in.
+// An organisation that answered "mutirão" printed a contractor's price.
+
+test.describe('W3 sizing — who builds it moves the number', () => {
+  test('a self-build band replaces the contracted one', () => {
+    const bought = budgetLineFor('teto-verde', 100, undefined, 'contratada')!;
+    const built = budgetLineFor('teto-verde', 100, undefined, 'mutirao')!;
+    expect(bought.lowBrl).toBe(150 * 100);
+    expect(built.lowBrl).toBe(5 * 100);
+    // …and says which one it is, so nobody quotes the wrong band at a supplier.
+    expect(built.notePt).toMatch(/faixa de mutirão da própria ficha/);
+  });
+
+  test('⚠️ the note describing the OTHER model does not print beside this one', () => {
+    // teto-verde's nota opens "Faixa do sistema comprado pronto", which is
+    // false once R$ 5/m² is the band on screen.
+    expect(budgetLineFor('teto-verde', 100, undefined, 'mutirao')!.notePt)
+      .not.toMatch(/Faixa do sistema comprado pronto/);
+    expect(budgetLineFor('teto-verde', 100, undefined, 'contratada')!.notePt)
+      .toMatch(/Faixa do sistema comprado pronto/);
+  });
+
+  test('the ficha reference stays the ficha range — only the total moves', () => {
+    const three = budgetLineFor('captacao-agua-da-chuva', undefined, 3, 'mutirao')!;
+    expect(three.lowBrl).toBe(4500 * 3);
+    // The parenthetical is labelled "à referência da ficha", so it cites what
+    // the ficha says, not the narrowed band.
+    expect(three.notePt).toContain('R$ 4.500–R$ 10.500');
+  });
+
+  test('a solution the ficha says cannot be self-built says so', () => {
+    const note = budgetLineFor('solo-grampeado-verde', 200, undefined, 'mutirao')!.notePt;
+    expect(note).toMatch(/Vocês disseram mutirão/);
+    expect(note).toMatch(/não dá pra mutirão/);
+    // The band does NOT move — there is no self-build price to move it to.
+    expect(budgetLineFor('solo-grampeado-verde', 200, undefined, 'mutirao')!.lowBrl)
+      .toBe(budgetLineFor('solo-grampeado-verde', 200, undefined, 'contratada')!.lowBrl);
+  });
+
+  test('⚠️ where the ficha states nothing, no multiplier is invented', () => {
+    // Rain gardens are the most-chosen solution and no source gives a
+    // self-build figure — checked, including the Recife per-m³ study, which is
+    // a different basis. So the band stands, says what it assumes, and the
+    // missing number becomes a named gap rather than a guess.
+    const built = budgetLineFor('jardins-de-chuva', 500, undefined, 'mutirao')!;
+    const hired = budgetLineFor('jardins-de-chuva', 500, undefined, 'contratada')!;
+    expect(built.lowBrl).toBe(hired.lowBrl);
+    expect(built.notePt).toMatch(/Esta faixa é de execução contratada/);
+    expect(built.builtBySelfWithoutFigure).toBe(true);
+  });
+
+  test('every self-build figure is literal in its own ficha', () => {
+    // The invariant that makes the mutirão band trustworthy — it is not a
+    // discount rate somebody chose. Enforced at module load; asserted here so
+    // the reason is written down where it is read.
+    for (const [id, cost] of Object.entries(SOLUTION_COSTS)) {
+      const bm = cost.buildModel;
+      if (!bm?.mutiraoLow) continue;
+      const source = NBS_SOLUTION_FICHAS[id].pt.quantoCusta;
+      expect(
+        source.includes(String(bm.mutiraoLow)) || source.includes(bm.mutiraoLow.toLocaleString('pt-BR')),
+        `${id}: ${bm.mutiraoLow} not found in its quantoCusta`,
+      ).toBe(true);
+    }
+  });
+});

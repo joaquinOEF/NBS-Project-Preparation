@@ -30,8 +30,9 @@
 // ============================================================================
 
 import { getSolutionFicha } from './nbs-solution-fichas';
-import { SOLUTION_MECHANISMS, getSolution } from './nbs-catalog';
-import { budgetLineFor, type BudgetLine } from './w3-sizing';
+import { SOLUTION_MECHANISMS, getSolution, NBS_SOLUTIONS } from './nbs-catalog';
+import { budgetLineFor, type BudgetLine, type BuildModel } from './w3-sizing';
+import { studyCostLine, STUDY_COSTS } from './w3-studies';
 import { WORRY_SUBTYPES, type WorryId } from './site-knowledge';
 
 // ── Capacity ────────────────────────────────────────────────────────────────
@@ -339,6 +340,12 @@ export interface Dossier {
   items: DossierItem[];
   /** One line per chosen solution, traceable to its ficha's published price. */
   budget: BudgetLine[];
+  /**
+   * What the works cost does NOT include — the study, who does it, what it
+   * costs where that is citable, and the source. Named in the verdict and on
+   * the shortlist card long before it reached the budget.
+   */
+  studies: string[];
   /** Items W3 could not generate, and the answer that would unlock each. */
   gaps: string[];
 }
@@ -428,7 +435,7 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
         ? 'Sem lugar marcado não há área, custo, aprovação nem manutenção a calcular'
         : 'With no place marked there is no area, cost, approval or maintenance to compute',
     );
-    return { capacity, verdicts, items, budget: [], gaps };
+    return { capacity, verdicts, items, budget: [], studies: [], gaps };
   }
 
   // ── Per solution, from its ficha ──────────────────────────────────────────
@@ -593,14 +600,22 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
   // How many of them, for a solution counted rather than measured. Same role
   // the footprint plays for a per-m² price: without it there is no total.
   const units = Number(input.w3?.intervention_units) || undefined;
+  // Who builds it changes the band — and W3 asks it one beat after showing it.
+  const buildModel = (input.w3?.construction_model || undefined) as BuildModel | undefined;
   const budget: BudgetLine[] = [];
+  const studies: string[] = [];
   for (const id of solutions) {
-    const line = budgetLineFor(id, areaM2, units);
+    const line = budgetLineFor(id, areaM2, units, buildModel);
     if (!line) continue;
     // The budget rides in `budget[]` only. Adding the identical sentence as a
     // `document` item printed every price twice on the card — once under
     // "Quanto custa" and again under "Documentar", word for word.
     budget.push(line);
+    // ⚠️ What the works cost does not include. The study is named in the verdict
+    // and on the card and was missing from the only place a funder looks for it.
+    const req = studyRequirement(id);
+    const studyLine = req ? studyCostLine(req.pt, pt ? 'pt' : 'en') : null;
+    if (studyLine && !studies.includes(studyLine)) studies.push(studyLine);
     // Naming the missing half is the point: "no cost band" is not actionable,
     // "we have a price per m² and no area" is.
     if (line.basis === 'm2' && !line.areaM2) {
@@ -617,6 +632,17 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
         pt
           ? `${id.replace(/-/g, ' ')} se conta por unidade, e ainda não sabemos quantas — sem isso não sai um total`
           : `${id.replace(/-/g, ' ')} is counted per unit, and how many is still unknown — without it there is no total`,
+      );
+    }
+    // ⚠️ They said they will build it, and the ficha prices a contractor. Naming
+    // that is the actionable form: the band on the page is not their band, and
+    // finding the real one is a thing the coordination can help with — the same
+    // shape as pooling a study.
+    if (line.builtBySelfWithoutFigure) {
+      gaps.push(
+        pt
+          ? `${id.replace(/-/g, ' ')} vai ser feito em mutirão, e a faixa da ficha é de execução contratada — falta levantar quanto custa feito por vocês`
+          : `${id.replace(/-/g, ' ')} will be built by mutirão, and the ficha's range is for contracted work — what it costs built by you is still to be found`,
       );
     }
     if (line.basis === 'none') {
@@ -673,7 +699,7 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
   }
 
   for (const c of capacity.cannotYet) gaps.push(c);
-  return { capacity, verdicts, items, budget, gaps };
+  return { capacity, verdicts, items, budget, studies, gaps };
 }
 
 /** The list a portfolio sorts on: the worst verdict across a project's solutions. */
@@ -681,4 +707,29 @@ export function portfolioState(verdicts: Verdict[]): VerdictState {
   const order: VerdictState[] = ['needs_site', 'needs_study', 'needs_permission', 'ready'];
   for (const s of order) if (verdicts.some(v => v.state === s)) return s;
   return 'ready';
+}
+
+// ── The study-line invariant ────────────────────────────────────────────────
+// Every requirement `studyRequirement` produces must have a study line, and
+// every study line must answer a requirement that exists. A renamed string on
+// either side would silently drop the study from every budget that needs it —
+// the exact failure w3-studies was written to end.
+//
+// Lives here rather than in w3-studies because that file would have to import
+// this one to check itself, and this one already imports it: the cycle left
+// STUDY_MARKERS uninitialised at load.
+{
+  const produced = new Set(
+    NBS_SOLUTIONS.map(s => studyRequirement(s.id)?.pt).filter((v): v is string => !!v),
+  );
+  for (const key of Object.keys(STUDY_COSTS)) {
+    if (!produced.has(key)) {
+      throw new Error(`w3-studies: "${key}" is not a requirement any solution produces — renamed?`);
+    }
+  }
+  for (const need of Array.from(produced)) {
+    if (!STUDY_COSTS[need]) {
+      throw new Error(`w3-studies: solutions require "${need}" and no study line answers it`);
+    }
+  }
 }

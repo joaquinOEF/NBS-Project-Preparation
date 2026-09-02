@@ -82,8 +82,14 @@ export interface QuestionContext {
  * of a person. Asking a question that was already answered is rude; skipping
  * one that was not is a hole in the record, and of the two the hole is worse.
  */
-export function storyNamesWhoUses(story: string): boolean {
-  const s = story.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+export function storyNamesWhoUses(story: string | null | undefined): boolean {
+  // ⚠️ Defensive on purpose. `siteStory` is new on QuestionContext, so every
+  // caller that predates it passes undefined — and a predicate that throws
+  // takes `eligibleQuestions` with it, which means NO custom question reaches
+  // the organisation. tsc caught the two server callers; a context built
+  // anywhere looser did not, and that is what a crash in the middle of an
+  // encontro is made of.
+  const s = String(story ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   return /(crianc|jovens|idosos|moradores|vizinh|comunidade|familias|alunos|escola|feira|catador|frequenta|se reune|se reunem|passam por|usam o|quem usa)/.test(s);
 }
 

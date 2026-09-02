@@ -34,9 +34,21 @@ export interface ShortlistInput {
 
 export interface ShortlistEntry {
   solution: NbsSolution;
-  /** Why it is where it is — shown on the card, in their own vocabulary. */
+  /**
+   * What choosing THIS one demands — what distinguishes it from the card above.
+   * Leads the card, because what they all share cannot help anyone choose.
+   */
   reasonPt: string;
   reasonEn: string;
+  /**
+   * Why it is on the list at all — usually identical across the shortlist,
+   * which is exactly why it belongs above the list rather than on every card.
+   */
+  whyPt: string;
+  whyEn: string;
+  /** The same, said of the whole list — "Todas respondem…". */
+  whyPluralPt: string;
+  whyPluralEn: string;
   /** True when the site's own physical state argues against it. Still offered. */
   caveatPt?: string;
   caveatEn?: string;
@@ -53,6 +65,8 @@ const splitList = (v: string | undefined) =>
  * option — it is a sentence on the card, so the choice stays theirs and the
  * reason is visible.
  */
+const up = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
 function siteFit(s: NbsSolution, site: Record<string, string | undefined>): Pick<ShortlistEntry, 'caveatPt' | 'caveatEn'> {
   const use = site.current_use ?? '';
   const name = site.site_name ?? '';
@@ -118,6 +132,21 @@ export function shortlistForSite(input: ShortlistInput, lang: 'pt' | 'en' = 'pt'
     // the SAME read the closing verdict uses, so the card and the verdict can
     // never contradict each other inside one session.
     const note = mechanismNote(s.id, worries, lang);
+    // Both numbers, authored rather than derived. The shared line reads "Todas
+    // …" and Portuguese does not let you pluralise a verb by prefixing a word:
+    // "Todas responde ao que vocês contaram" is what string surgery produces.
+    const whyPlural = {
+      pt: answersMechanism && note
+        ? `respondem ao que vocês contaram — ${note}`
+        : inInterest
+          ? 'estão no grupo que vocês marcaram no Encontro 2'
+          : 'são do catálogo completo — nada fica descartado',
+      en: answersMechanism && note
+        ? `answer what you described — ${note}`
+        : inInterest
+          ? 'are in the grupo you marked in Encontro 2'
+          : 'are from the full catalogue — nothing is ruled out',
+    };
     const why = {
       pt: answersMechanism && note
         ? `Responde ao que vocês contaram — ${note}`
@@ -135,10 +164,19 @@ export function shortlistForSite(input: ShortlistInput, lang: 'pt' | 'en' = 'pt'
     const effort = study
       ? { pt: `precisa de ${study.pt}`, en: `needs ${study.en}` }
       : { pt: 'dá pra construir com o que vocês já sabem', en: 'buildable with what you already know' };
-    const reasonPt = `${why.pt} · ${effort.pt}, ${cost.pt}.`;
-    const reasonEn = `${why.en} · ${effort.en}, ${cost.en}.`;
+    // ⚠️ THE DIFFERENTIATOR GOES FIRST. Appending it was not enough: four cards
+    // opened with the identical eight words — "Responde ao que vocês contaram —
+    // pra água que junta e não escoa" — and a reader who scans the first line of
+    // four options sees the same sentence four times and stops reading. The
+    // choice this whole encontro exists to make was being made by ordering.
+    //
+    // What differs is what each one demands, so that leads. The shared half is
+    // still carried — as `whyPt`, which the caller says ONCE above the list
+    // instead of four times inside it.
+    const reasonPt = `${up(effort.pt)}, ${cost.pt}.`;
+    const reasonEn = `${up(effort.en)}, ${cost.en}.`;
 
-    return { solution: s, score, reasonPt, reasonEn, ...fit };
+    return { solution: s, score, reasonPt, reasonEn, whyPt: why.pt, whyEn: why.en, whyPluralPt: whyPlural.pt, whyPluralEn: whyPlural.en, ...fit };
   });
 
   // Stable within a score, so the catalogue's own order survives — the deck's
@@ -150,6 +188,10 @@ export function shortlistForSite(input: ShortlistInput, lang: 'pt' | 'en' = 'pt'
       solution: e.solution,
       reasonPt: e.reasonPt,
       reasonEn: e.reasonEn,
+      whyPt: e.whyPt,
+      whyEn: e.whyEn,
+      whyPluralPt: e.whyPluralPt,
+      whyPluralEn: e.whyPluralEn,
       ...(e.caveatPt ? { caveatPt: e.caveatPt, caveatEn: e.caveatEn } : {}),
     }));
 }
@@ -203,6 +245,10 @@ export function mergeShortlist(
     ...e,
     reasonPt: lang === 'pt' ? p.reasonPt : e.reasonEn,
     reasonEn: lang === 'en' ? p.reasonPt : e.reasonEn,
+    whyPt: e.whyPt,
+    whyEn: e.whyEn,
+    whyPluralPt: e.whyPluralPt,
+    whyPluralEn: e.whyPluralEn,
   });
 
   const lifted: ShortlistEntry[] = [];

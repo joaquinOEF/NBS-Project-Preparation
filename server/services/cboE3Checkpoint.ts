@@ -34,12 +34,15 @@ import { buildRoadmap, type RoadmapObservation } from '@shared/w3-roadmap';
 import { eligibleQuestions, getW3Question, type QuestionContext } from '@shared/w3-questions';
 import type { W3Advice } from './w3Advisor';
 import { mergeShortlist, topShortlist } from '@shared/w3-solutions';
-import { budgetLineFor, roundAreaM2, SOLUTION_COSTS } from '@shared/w3-sizing';
+import { budgetLineFor, roundAreaM2, SOLUTION_COSTS, type BuildModel } from '@shared/w3-sizing';
+import { scaleStatement } from '@shared/w3-scale';
 import { benefitFor } from '@shared/w3-benefits';
 import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
 import { getSolution } from '@shared/nbs-catalog';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { E3_QUESTIONNAIRE, allowedOptionIds, checkOptionRule, askCopyFor, sectionsFieldReader } from '@shared/cbo-questionnaire';
+import { scoreW3Maturity } from '@shared/w3-maturity';
+import type { MaturityScore } from '@shared/cbo-schema';
 import { cboFieldEnumOptions } from '@shared/cbo-field-catalog';
 import { resolveOpenMapParams } from '@shared/cbo-map-presets';
 
@@ -54,6 +57,14 @@ export interface E3Deps {
   recordCheckpoint(step: string): void;
   /** Chip-label normalisation, shared with E2 so the two match identically. */
   normChip(s: string): string;
+  /**
+   * Persist the encontro's maturity scores and tell the client.
+   *
+   * Optional so the simulation harness — which has no state store — runs
+   * unchanged. In the server it is wired to the same path the score_maturity
+   * tool uses, so the coordinator's roster sees these exactly as it sees E1's.
+   */
+  recordMaturity?(scores: MaturityScore[]): void;
   /**
    * Kick off the advisor pass and persist whatever it returns.
    *
@@ -192,6 +203,7 @@ export async function serveE3Checkpoint(
     read(TYPE)('chosen_solutions').split(',').map(v => v.trim()).filter(Boolean);
   const liveArea = () => Number(read(SITE)('site_area_m2')) || 0;
   const liveUnits = () => Number(read(TYPE)('intervention_units')) || 0;
+  const liveBuild = () => (read(TYPE)('construction_model') || undefined) as BuildModel | undefined;
 
   /** Whatever the advisor returned, if it finished. Never required. */
   const readAdvice = (): W3Advice | null => {
@@ -357,9 +369,21 @@ export async function serveE3Checkpoint(
     // Their Encontro 2 picks lead; the agent reorders inside them and may add
     // one below with the tension named. See mergeShortlist.
     const entries = mergeShortlist(base, fresh?.shortlist ?? [], isPt ? 'pt' : 'en').slice(0, 4);
+    // ⚠️ Say the shared half ONCE. Every card used to open with the same eight
+    // words — "Responde ao que vocês contaram — pra água que junta e não escoa"
+    // — so four options read as one, and the choice got made by ordering. When
+    // they all share a reason it belongs above the list; the cards then carry
+    // only what separates them, which is what each one demands.
+    const shared = entries.length > 1 && entries.every(e => e.whyPt === entries[0].whyPt)
+      ? (isPt ? entries[0].whyPluralPt : entries[0].whyPluralEn)
+      : null;
     say(
-      'Os grupos que vocês marcaram viram isto aqui. Não é uma lista fechada — **nada fica descartado**, e dá pra ver as 27 quando quiser.',
-      "The grupos you marked become these. It is not a closed list — **nothing is ruled out**, and you can see all 27 whenever you like.",
+      shared
+        ? `Os grupos que vocês marcaram viram isto aqui. **Todas ${shared}** — o que muda entre elas é o que cada uma exige. Não é uma lista fechada: **nada fica descartado**, e dá pra ver as 27 quando quiser.`
+        : 'Os grupos que vocês marcaram viram isto aqui. Não é uma lista fechada — **nada fica descartado**, e dá pra ver as 27 quando quiser.',
+      shared
+        ? `The grupos you marked become these. **They all ${shared}** — what differs is what each one demands. It is not a closed list: **nothing is ruled out**, and you can see all 27 whenever you like.`
+        : "The grupos you marked become these. It is not a closed list — **nothing is ruled out**, and you can see all 27 whenever you like.",
     );
     pushEvent({
       type: 'show_solution_options',
@@ -405,7 +429,7 @@ export async function serveE3Checkpoint(
     // that would be the "you weren't listening" signal in its purest form. Only
     // the price, which is per solution, is restated.
     if (adding) {
-      const line = budgetLineFor(solutionId, areaM2 || undefined);
+      const line = budgetLineFor(solutionId, areaM2 || undefined, undefined, liveBuild());
       if (line) say(line.notePt, line.noteEn);
       return await closeE3();
     }
@@ -637,6 +661,19 @@ export async function serveE3Checkpoint(
   };
 
   const askJustification = (): true => {
+    // ⚠️ The price was shown BEFORE this question was asked, so for anything the
+    // build model moves, the number on screen is now the wrong one. A cistern
+    // just went from R$ 8.000–10.500 to R$ 4.500; a teto verde from R$ 150–350
+    // per m² to R$ 5. Restating it here is the difference between a concept
+    // note that survives a quote and one that does not.
+    const built = liveBuild();
+    for (const id of liveSolutions()) {
+      if (!SOLUTION_COSTS[id]?.buildModel) continue;
+      const before = budgetLineFor(id, liveArea() || undefined, liveUnits() || undefined);
+      const after = budgetLineFor(id, liveArea() || undefined, liveUnits() || undefined, built);
+      if (!after || !before || after.notePt === before.notePt) continue;
+      say(`Com isso o número muda: ${after.notePt}`, `That changes the number: ${after.noteEn}`);
+    }
     deps.writeFields(TYPE, { _why_pending: 'yes' });
     return askFreeText(
       'justification_why_here',
@@ -697,6 +734,12 @@ _This is a design estimate, not a measurement — ${line.sourceEn}, ${confEn[lin
       );
       if (line.notaPt) say(`_${line.notaPt}_`, `_${line.notaEn ?? line.notaPt}_`);
       line.extrasPt.forEach((e, i) => say(`· ${e}`, `· ${line.extrasEn[i] ?? e}`));
+      // ⚠️ BEFORE the reaction chips, not after. Introduced in the same change
+      // that added it: the organisation was asked "o que vocês acham desse
+      // número?" and only then told what the number is a fraction of — which is
+      // asking for a judgement while withholding the thing it turns on.
+      const scale = scaleStatement(liveSolutions(), liveArea(), site('site_worry'));
+      if (scale) say(scale.linesPt.join('\n'), scale.linesEn.join('\n'));
       ask('O que vocês acham desse número?', 'What do you make of that number?', [
         { pt: E3C.fazSentido.pt, en: E3C.fazSentido.en },
         { pt: E3C.pareceMuito.pt, en: E3C.pareceMuito.en, dPt: 'Fica registrado', dEn: 'Noted on the record' },
@@ -823,6 +866,22 @@ _For this one we do not yet have a reference figure — what the ficha says is a
       project_verdict: state4,
       project_capacity_grade: dossier.capacity.grade,
     });
+
+    // ⚠️ The four scores Encontro 3 owes. `PHASE_COMPLETION_METRICS[3]` has
+    // named them since the schema was written and NOTHING ever called
+    // score_maturity — so every organisation left the encontro that produces
+    // the most with an unscored record and a blank cell on the coordinator's
+    // roster. Derived, like the verdict, because a model asked to grade an
+    // organisation gives a different answer each run and cannot say why — and
+    // this number decides where a coordinator spends their week.
+    deps.recordMaturity?.(scoreW3Maturity({
+      site: input.site,
+      w3: input.w3 ?? {},
+      solutions: liveSolutions(),
+      ...(liveArea() ? { areaM2: liveArea() } : {}),
+      ...(liveUnits() ? { units: liveUnits() } : {}),
+      hasCostBand: dossier.budget.some(b => b.lowBrl != null),
+    }));
     // The hoja de ruta, not just the dossier. Same data, assembled as a route
     // they can follow and argue with — see shared/w3-roadmap.ts for why every
     // block carries where it came from and what would change it.
@@ -909,7 +968,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     const n = Number((raw.match(/\d{1,5}/) ?? [])[0]);
     if (Number.isFinite(n) && n > 0) {
       deps.writeFields(TYPE, { _units_pending: '', intervention_units: String(n), _units_deferred: '' });
-      const line = budgetLineFor(unitsPending, liveArea() || undefined, n);
+      const line = budgetLineFor(unitsPending, liveArea() || undefined, n, liveBuild());
       if (line) say(line.notePt, line.noteEn);
       return askConstruction();
     }
