@@ -30,7 +30,15 @@ import {
 } from '@shared/concept-note';
 
 const AUTHOR_MODEL = process.env.CBO_AUTHOR_MODEL || '';
-const AUTHOR_TIMEOUT_MS = Number(process.env.CBO_AUTHOR_TIMEOUT_MS || 30_000);
+/**
+ * ⚠️ 90 s, not 30. Measured: a real pass over a two-solution record takes ~45 s
+ * — ~12 kB of facts in, six paragraphs of argued Portuguese out — and the first
+ * live run of this file timed out on every organisation at the 30 s default it
+ * shipped with. Nothing waits on this (it is fired at the close while the
+ * organisation reads its card), so the cap exists to bound a hang, not to keep
+ * anyone waiting, and it was set an order of magnitude too tight for that job.
+ */
+const AUTHOR_TIMEOUT_MS = Number(process.env.CBO_AUTHOR_TIMEOUT_MS || 90_000);
 
 // ⚠️ Plain strings, never z.enum. This is a ONE-SHOT forced tool call with no
 // retry loop, so every schema constraint is a total-loss constraint: one

@@ -48,11 +48,22 @@ import { buildRoadmap, type Roadmap } from '../shared/w3-roadmap';
 import { renderRoadmapHtml } from '../server/services/roadmapPrint';
 import { renderConceptNoteHtml } from '../server/services/conceptNotePrint';
 import { buildConceptNote } from '../shared/concept-note';
+import { authorConceptNote } from '../server/services/conceptNoteAuthor';
+import { structuredProvider } from '../server/services/structuredModel';
 import { SOLUTION_COSTS } from '../shared/w3-sizing';
 import { getSolution } from '../shared/nbs-catalog';
 import type { MaturityScore } from '../shared/cbo-schema';
 
 const OUT = process.env.W3_SIM_OUT || path.join(os.tmpdir(), 'w3-fullsim');
+
+// ⚠️ Read .env here rather than relying on the shell. The authoring pass is the
+// one part of the concept note that cannot be exercised without a provider, and
+// a run that silently skipped it would look identical to a run that passed —
+// which is exactly the shape of failure this harness exists to refuse.
+for (const line of (fs.existsSync('.env') ? fs.readFileSync('.env', 'utf8') : '').split('\n')) {
+  const m = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
+  if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
+}
 
 const normChip = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -978,6 +989,22 @@ async function main() {
     const noteParsed = await parsePdfBuffer(Buffer.from(noteBuf));
     const unsourced = note.sections.flatMap(sec => sec.paragraphs).filter(par => !par.sources.length);
 
+    // ── The authored version, beside the deterministic one ──────────────────
+    // Both are printed so they can be read against each other. Every guard is
+    // already unit-tested; what cannot be unit-tested is whether the prose is
+    // actually better, and whether the pass reaches for a figure nobody gave it.
+    // ⚠️ Opt-in. Eight organisations is eight model calls at ~45 s each, so the
+    // default run stays fast and free — the guards around the pass are unit
+    // tested without a provider, and it is only the PROSE that needs a key.
+    //   W3_SIM_AUTHOR=1 npm run w3:fullsim
+    let authored: Awaited<ReturnType<typeof authorConceptNote>> | null = null;
+    if (process.env.W3_SIM_AUTHOR === '1' && structuredProvider()) {
+      authored = await authorConceptNote(note, 'pt');
+      if (authored.accepted) {
+        await printPdf(renderConceptNoteHtml(authored.note, 'pt'), 'nota-conceito-escrita');
+      }
+    }
+
     const r: Run = {
       persona: p, state: d.state, events: d.events, said: d.said, asked: d.asked,
       beats: d.beats, maturity: d.maturity, problems: d.problems, turns: d.turns,
@@ -1012,6 +1039,16 @@ async function main() {
     console.log(`  hoja de ruta : ${roadmap ? `${roadmap.steps.length} passos · ${roadmap.open.length} em aberto` : '⚠️ NÃO PRODUZIDA'}`);
     console.log(`  PDF          : ${pdfPages} página(s), ${(pdfBytes / 1024).toFixed(0)} KB, ${pdfText.replace(/\s+/g, ' ').trim().split(' ').length} palavras lidas de volta`);
     console.log(`  nota-conceito: ${note.sections.length} seções, ${note.sections.flatMap(sec => sec.paragraphs).length} parágrafos, ${noteParsed.numPages} página(s)${unsourced.length ? `  ⚠️ ${unsourced.length} SEM FONTE` : ''}`);
+    if (authored) {
+      console.log(`  escrita       : ${authored.accepted} parágrafo(s) aceitos, ${authored.rejected.length} recusado(s)${authored.reason ? ` — ${authored.reason}` : ''}`);
+      for (const rj of authored.rejected) console.log(`     ✗ ${rj.why} — “${rj.text.slice(0, 60)}…”`);
+      for (const sec of authored.note.sections.filter(x => x.paragraphs.some(pp => pp.authored))) {
+        console.log(`     ── ${sec.title} ──`);
+        for (const pp of sec.paragraphs) console.log(`     ${pp.text.replace(/\s+/g, ' ')}`);
+      }
+    } else {
+      console.log(`  escrita       : (só a determinística — ${structuredProvider() ? 'defina W3_SIM_AUTHOR=1 para exercitar a escrita' : 'sem provider configurado'})`);
+    }
     if (unsourced.length) fails.push(`${unsourced.length} parágrafo(s) da nota de conceito sem fonte`);
     if (fails.length) {
       console.log(`  ❌ ${fails.length} falha(s):`);
