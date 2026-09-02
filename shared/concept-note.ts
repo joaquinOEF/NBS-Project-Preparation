@@ -454,10 +454,23 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
 
   const names = f.solutions.map(s => s.label);
   const where = [f.place.siteName, f.place.bairro].filter(Boolean).join(', ');
+  // "3 unidade(s)" is what a form says. The ficha knows the noun — hortas,
+  // cisternas, árvores — and a document that has it should use it.
+  const unitNoun = (n: number): string => {
+    for (const s of f.solutions) {
+      const c = SOLUTION_COSTS[s.id];
+      if (!c?.unitPt) continue;
+      const word = pt
+        ? (n === 1 ? c.unitPt : c.unitPluralPt)
+        : (n === 1 ? c.unitEn : c.unitPluralEn);
+      if (word) return word;
+    }
+    return pt ? (n === 1 ? 'unidade' : 'unidades') : (n === 1 ? 'unit' : 'units');
+  };
   const size = f.place.areaM2
     ? pt ? `${f.place.areaM2.toLocaleString('pt-BR')} m²` : `${f.place.areaM2.toLocaleString('en-US')} m²`
     : f.place.units
-      ? pt ? `${f.place.units} unidade(s)` : `${f.place.units} unit(s)`
+      ? `${f.place.units} ${unitNoun(f.place.units)}`
       : null;
 
   // ── 1 · Resumo ────────────────────────────────────────────────────────────
