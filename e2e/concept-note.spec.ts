@@ -4,6 +4,9 @@ import {
   type ConceptNote, type AuthoredCandidate,
 } from '../shared/concept-note';
 import type { W3Input } from '../shared/w3-dossier';
+import { APPROVAL_ROUTES, routeForInstrument, approvalRouteLine } from '../shared/nbs-knowledge';
+import { approvalRequirement } from '../shared/nbs-approvals';
+import { NBS_SOLUTIONS } from '../shared/nbs-catalog';
 
 // ⚠️ "the pdf and final proto concept note, it's mostly verbatim what the user
 // shared. i would expect we use a smart agent to use all the context of what
@@ -236,5 +239,93 @@ test.describe('the concept note — phase 2 guards', () => {
     expect(applyStoredAuthoring(before, undefined).note.sections).toEqual(before.sections);
     expect(applyStoredAuthoring(before, 'not json').accepted).toBe(0);
     expect(applyStoredAuthoring(before, 'not json').note.sections).toEqual(before.sections);
+  });
+});
+
+// ── Phase 3: the knowledge slice ────────────────────────────────────────────
+// The fichas say WHO has to say yes. This says what the organisation does on
+// Monday morning. It is the only part of the W3 stack whose facts do not come
+// from a ficha, so every entry carries a URL and the date it was read.
+
+test.describe('the concept note — phase 3, how a permission is asked for', () => {
+  const publicLand = (solutions: string[]): W3Input => ({
+    ...ESCOLA,
+    solutions,
+    site: { ...ESCOLA.site, land_tenure: 'public-informal' },
+  });
+
+  test('the door, and then the desk behind it', () => {
+    // ⚠️ The ficha names SMAMUS for a Termo de Adoção. The Carta de Serviços
+    // says the Secretaria de PARCERIAS processes it. Both are true — SMAMUS
+    // chooses species and location, SMP handles the adoption — and an
+    // organisation that only knows the first writes to the wrong department.
+    const n = buildConceptNote(publicLand(['parques-e-florestas-urbanas']), 'pt');
+    const exige = n.sections.find(s => s.id === 'exige')!.paragraphs.map(p => p.text).join(' ');
+    expect(exige).toContain('SMAMUS');
+    expect(exige).toContain('Secretaria Municipal de Parcerias');
+    expect(exige).toContain('apoiepoa@portoalegre.rs.gov.br');
+    expect(exige).toContain('30 dias');
+    // Every claim from outside a ficha carries its source AND when it was read.
+    expect(exige).toMatch(/Carta de Servi[çc]os.*lido em 2026-09-02/);
+  });
+
+  test('the horta route says the portal is the only channel, and that it is free', () => {
+    const n = buildConceptNote(publicLand(['hortas-urbanas']), 'pt');
+    const exige = n.sections.find(s => s.id === 'exige')!.paragraphs.map(p => p.text).join(' ');
+    expect(exige).toMatch(/SOMENTE em formato digital/);
+    expect(exige).toContain('Portal de Licenciamento');
+    expect(exige).toMatch(/sem custo para a organiza[çc][ãa]o/);
+    expect(exige).toMatch(/50 m²/);
+  });
+
+  test('no published route is a silence, not an apology', () => {
+    // Most instruments have no route published in a form worth quoting. The
+    // section still names the body and what it does; it does not say sorry.
+    expect(routeForInstrument('Alvará de Saúde')).toBeNull();
+    expect(approvalRouteLine('Alvará de Saúde')).toBeNull();
+    expect(approvalRouteLine(undefined)).toBeNull();
+  });
+
+  test('the route reaches the FACT BASE, not only the paragraph', () => {
+    // ⚠️ Otherwise the authoring pass gets a paragraph rejected for citing "30
+    // dias" — a true, sourced figure the number guard would read as invented.
+    const f = conceptNoteFacts(publicLand(['parques-e-florestas-urbanas']), 'pt');
+    expect(f.solutions[0].approval?.route).toContain('30 dias');
+    expect(factNumbers(f).has('30')).toBe(true);
+    const note = buildConceptNote(publicLand(['parques-e-florestas-urbanas']), 'pt');
+    const r = acceptAuthored(note, [{
+      section: 'resumo',
+      text: 'A autorização passa pela Secretaria de Parcerias, que declara analisar o pedido em 30 dias.',
+      sources: [note.sections[0].paragraphs[0].sources[0]],
+    }]);
+    expect(r.accepted).toBe(1);
+  });
+
+  test('no route is dead config', () => {
+    // A route matching an instrument no ficha can produce would never print,
+    // and nobody would notice for a year. The load-time invariant in
+    // nbs-knowledge.ts throws on import; this states the contract where a
+    // reader looks for it.
+    const reachable = new Set<string>();
+    for (const s of NBS_SOLUTIONS) {
+      for (const tenure of ['public-informal', 'private-owned', 'formal-agreement']) {
+        const r = approvalRequirement(s.id, tenure);
+        if (r?.instrumentPt) reachable.add(r.instrumentPt);
+      }
+    }
+    for (const route of APPROVAL_ROUTES) {
+      expect(
+        Array.from(reachable).some(i => route.instrument.test(i)),
+        `${route.labelPt} matches no instrument any ficha produces`,
+      ).toBe(true);
+    }
+  });
+
+  test('every entry carries a source and a date it was read', () => {
+    for (const r of APPROVAL_ROUTES) {
+      expect(r.url).toMatch(/^https:\/\//);
+      expect(r.sourcePt.length).toBeGreaterThan(10);
+      expect(r.readOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
   });
 });

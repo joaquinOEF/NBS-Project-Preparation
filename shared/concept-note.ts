@@ -40,6 +40,7 @@ import {
   type W3Input, type VerdictState,
 } from './w3-dossier';
 import { approvalRequirement, type ApprovalBody } from './nbs-approvals';
+import { approvalRouteLine } from './nbs-knowledge';
 import { budgetLineFor, SOLUTION_COSTS, type BuildModel } from './w3-sizing';
 import { benefitFor } from './w3-benefits';
 import { studyCostLine } from './w3-studies';
@@ -84,6 +85,16 @@ export interface SolutionFacts {
     prohibition?: string;
     /** The sentence carrying a season, a month or a duration. */
     timing?: string;
+    /**
+     * How the permission is actually asked for — channel, department, stated
+     * processing time. From the knowledge slice, not from the ficha.
+     *
+     * ⚠️ It belongs in the FACT BASE, not only in the assembled paragraph:
+     * everything the note may assert has to be here, or the authoring pass gets
+     * a paragraph rejected for citing "30 dias" — a true, sourced figure the
+     * guard would treat as invented because it never saw it.
+     */
+    route?: string;
   };
   cost?: {
     lowBrl?: number;
@@ -204,6 +215,7 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
               ...(appr.instrumentPt ? { instrument: pt ? appr.instrumentPt : appr.instrumentEn } : {}),
               ...(appr.prohibitionPt ? { prohibition: pt ? appr.prohibitionPt : appr.prohibitionEn } : {}),
               ...(appr.timingPt ? { timing: pt ? appr.timingPt : appr.timingEn } : {}),
+              ...(approvalRouteLine(appr.instrumentPt, lang) ? { route: approvalRouteLine(appr.instrumentPt, lang)! } : {}),
             },
           }
         : {}),
@@ -634,6 +646,16 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
           : `**${s.label} — authorisation.** ${doors}.${s.approval.instrument ? ` The instrument is ${s.approval.instrument}.` : ''}`,
         [`ficha ${s.id} · quemPrecisaDizerSim`],
       ));
+      // ⚠️ How the permission is actually asked for — the channel, the
+      // department that really handles it, the stated processing time. Not in
+      // any ficha, and the difference between an organisation knocking on the
+      // right door and the wrong one. See nbs-knowledge.ts.
+      if (s.approval.route) {
+        exige.push(P(
+          pt ? `**Como se pede.** ${s.approval.route}` : `**How it is requested.** ${s.approval.route}`,
+          [pt ? 'base de conhecimento — rota de aprovação publicada' : 'knowledge base — published approval route'],
+        ));
+      }
       if (s.approval.prohibition) exige.push(P(s.approval.prohibition, [`ficha ${s.id}`]));
       if (s.approval.timing) {
         exige.push(P(
