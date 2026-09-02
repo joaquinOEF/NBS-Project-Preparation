@@ -33,6 +33,7 @@ import { getSolutionFicha } from './nbs-solution-fichas';
 import { SOLUTION_MECHANISMS, getSolution, NBS_SOLUTIONS } from './nbs-catalog';
 import { budgetLineFor, type BudgetLine, type BuildModel } from './w3-sizing';
 import { studyCostLine, STUDY_COSTS } from './w3-studies';
+import { approvalRequirement } from './nbs-approvals';
 import { WORRY_SUBTYPES, type WorryId } from './site-knowledge';
 
 // ── Capacity ────────────────────────────────────────────────────────────────
@@ -303,6 +304,31 @@ export function computeVerdict(
   }
 
   const tenure = site.land_tenure ?? '';
+
+  // ⚠️ The ficha's own approval requirement, which tenure does not answer.
+  //
+  // A real run closed `ready` — "Nada trava esse projeto daqui" — three lines
+  // under its own ficha saying "a rua é pública — plantar sem autorização da
+  // SMAMUS é proibido", because the organisation held a formal agreement over
+  // the land and `land_tenure` was the only thing consulted. Tenure answers
+  // *may we use this land*; the ficha answers *may we do this thing here*, and
+  // for a street planting those are different questions with different doors.
+  // See shared/nbs-approvals.ts and backlog #42.
+  const approval = solutionId ? approvalRequirement(solutionId, tenure) : null;
+  if (approval) {
+    const doors = approval.bodies.map(b => b.name).join(', ');
+    const inst = pt ? approval.instrumentPt : approval.instrumentEn;
+    return {
+      solutionId,
+      state: 'needs_permission',
+      why: pt
+        ? `Tecnicamente dá para fazer. O que falta é autorização: ${doors} ${approval.bodies.length > 1 ? 'precisam' : 'precisa'} dizer sim${inst ? `, pelo ${inst}` : ''}.`
+        : `Technically this can be done. What is missing is authorisation: ${doors} ${approval.bodies.length > 1 ? 'have' : 'has'} to say yes${inst ? `, through ${inst}` : ''}.`,
+      unblockedBy: inst ?? (pt ? `autorização de ${doors}` : `authorisation from ${doors}`),
+      source: approval.source,
+    };
+  }
+
   if (INFORMAL_TENURE.has(tenure)) {
     return {
       solutionId,
