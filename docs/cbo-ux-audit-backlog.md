@@ -552,7 +552,9 @@ It is *Teia* (the government open call). Don't propagate the transcript's spelli
 
     An organisation that wants to add one sentence to a good paragraph has to retype the paragraph — so it takes the quote unchanged and the extra detail is lost.
 
-    **Decided (/refine, 2026-09-02):** add **"Quero completar"**, which seeds the input with the Encontro 2 paragraph, editable, cursor at the end. One box, no new rule to learn: they can append a sentence, fix a word, or rewrite the lot. The accidental-deletion risk is real and accepted — the original stays recorded against Encontro 2, so nothing is lost for good. Pairs with #36: same beat, same composer.
+    **Decided (/refine, 2026-09-02, revised by JVP the same day):** add **"Quero completar"**, which leaves the Encontro 2 paragraph where it is and **asks for a second input — the two are then merged**. Not seeding the field with the old text to be edited: on a phone that means scrolling through a paragraph to reach its end, and one careless clear wipes words they will not retype. Asking "o que falta dizer?" is also a smaller question than "edit this", which is the difference between an added sentence and an abandoned beat.
+
+    The three chips then read as one coherent choice — **confirm it** / **add to it** / **rewrite it** — with `Prefiro escrever do zero` still there for the case where the Encontro 2 text is wrong rather than incomplete. Storage keeps both halves so the original stays attributable to Encontro 2 and the addition to Encontro 3. Pairs with #36: same beat, same composer.
 
 ### Wave: full-run audit of `test w2 3 326`, 2026-09-02
 
