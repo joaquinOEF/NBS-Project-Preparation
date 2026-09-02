@@ -31,7 +31,7 @@
 
 import { getSolutionFicha } from './nbs-solution-fichas';
 import { SOLUTION_MECHANISMS, getSolution } from './nbs-catalog';
-import { budgetLineFor, type BudgetLine } from './w3-sizing';
+import { budgetLineFor, type BudgetLine, type BuildModel } from './w3-sizing';
 import { WORRY_SUBTYPES, type WorryId } from './site-knowledge';
 
 // ── Capacity ────────────────────────────────────────────────────────────────
@@ -593,9 +593,11 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
   // How many of them, for a solution counted rather than measured. Same role
   // the footprint plays for a per-m² price: without it there is no total.
   const units = Number(input.w3?.intervention_units) || undefined;
+  // Who builds it changes the band — and W3 asks it one beat after showing it.
+  const buildModel = (input.w3?.construction_model || undefined) as BuildModel | undefined;
   const budget: BudgetLine[] = [];
   for (const id of solutions) {
-    const line = budgetLineFor(id, areaM2, units);
+    const line = budgetLineFor(id, areaM2, units, buildModel);
     if (!line) continue;
     // The budget rides in `budget[]` only. Adding the identical sentence as a
     // `document` item printed every price twice on the card — once under
@@ -617,6 +619,17 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
         pt
           ? `${id.replace(/-/g, ' ')} se conta por unidade, e ainda não sabemos quantas — sem isso não sai um total`
           : `${id.replace(/-/g, ' ')} is counted per unit, and how many is still unknown — without it there is no total`,
+      );
+    }
+    // ⚠️ They said they will build it, and the ficha prices a contractor. Naming
+    // that is the actionable form: the band on the page is not their band, and
+    // finding the real one is a thing the coordination can help with — the same
+    // shape as pooling a study.
+    if (line.builtBySelfWithoutFigure) {
+      gaps.push(
+        pt
+          ? `${id.replace(/-/g, ' ')} vai ser feito em mutirão, e a faixa da ficha é de execução contratada — falta levantar quanto custa feito por vocês`
+          : `${id.replace(/-/g, ' ')} will be built by mutirão, and the ficha's range is for contracted work — what it costs built by you is still to be found`,
       );
     }
     if (line.basis === 'none') {

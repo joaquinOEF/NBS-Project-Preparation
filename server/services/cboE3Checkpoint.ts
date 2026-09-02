@@ -34,7 +34,7 @@ import { buildRoadmap, type RoadmapObservation } from '@shared/w3-roadmap';
 import { eligibleQuestions, getW3Question, type QuestionContext } from '@shared/w3-questions';
 import type { W3Advice } from './w3Advisor';
 import { mergeShortlist, topShortlist } from '@shared/w3-solutions';
-import { budgetLineFor, roundAreaM2, SOLUTION_COSTS } from '@shared/w3-sizing';
+import { budgetLineFor, roundAreaM2, SOLUTION_COSTS, type BuildModel } from '@shared/w3-sizing';
 import { scaleStatement } from '@shared/w3-scale';
 import { benefitFor } from '@shared/w3-benefits';
 import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
@@ -193,6 +193,7 @@ export async function serveE3Checkpoint(
     read(TYPE)('chosen_solutions').split(',').map(v => v.trim()).filter(Boolean);
   const liveArea = () => Number(read(SITE)('site_area_m2')) || 0;
   const liveUnits = () => Number(read(TYPE)('intervention_units')) || 0;
+  const liveBuild = () => (read(TYPE)('construction_model') || undefined) as BuildModel | undefined;
 
   /** Whatever the advisor returned, if it finished. Never required. */
   const readAdvice = (): W3Advice | null => {
@@ -406,7 +407,7 @@ export async function serveE3Checkpoint(
     // that would be the "you weren't listening" signal in its purest form. Only
     // the price, which is per solution, is restated.
     if (adding) {
-      const line = budgetLineFor(solutionId, areaM2 || undefined);
+      const line = budgetLineFor(solutionId, areaM2 || undefined, undefined, liveBuild());
       if (line) say(line.notePt, line.noteEn);
       return await closeE3();
     }
@@ -638,6 +639,19 @@ export async function serveE3Checkpoint(
   };
 
   const askJustification = (): true => {
+    // ⚠️ The price was shown BEFORE this question was asked, so for anything the
+    // build model moves, the number on screen is now the wrong one. A cistern
+    // just went from R$ 8.000–10.500 to R$ 4.500; a teto verde from R$ 150–350
+    // per m² to R$ 5. Restating it here is the difference between a concept
+    // note that survives a quote and one that does not.
+    const built = liveBuild();
+    for (const id of liveSolutions()) {
+      if (!SOLUTION_COSTS[id]?.buildModel) continue;
+      const before = budgetLineFor(id, liveArea() || undefined, liveUnits() || undefined);
+      const after = budgetLineFor(id, liveArea() || undefined, liveUnits() || undefined, built);
+      if (!after || !before || after.notePt === before.notePt) continue;
+      say(`Com isso o número muda: ${after.notePt}`, `That changes the number: ${after.noteEn}`);
+    }
     deps.writeFields(TYPE, { _why_pending: 'yes' });
     return askFreeText(
       'justification_why_here',
@@ -916,7 +930,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     const n = Number((raw.match(/\d{1,5}/) ?? [])[0]);
     if (Number.isFinite(n) && n > 0) {
       deps.writeFields(TYPE, { _units_pending: '', intervention_units: String(n), _units_deferred: '' });
-      const line = budgetLineFor(unitsPending, liveArea() || undefined, n);
+      const line = budgetLineFor(unitsPending, liveArea() || undefined, n, liveBuild());
       if (line) say(line.notePt, line.noteEn);
       return askConstruction();
     }

@@ -124,6 +124,38 @@ export interface SolutionCost {
   /** Portuguese agrees: "Quantas hortas?" but "Quantos biodigestores?". */
   unitFemininePt?: boolean;
   /**
+   * What the band assumes about WHO BUILDS IT, and what changes if they build
+   * it themselves.
+   *
+   * ⚠️ Encontro 3 asks "e quem constrói isso?" one beat after showing the price,
+   * and the price never moved. The fichas already know it matters — a cistern
+   * is R$ 4.500 in mutirão and R$ 8.000–10.500 contracted by edital; a teto
+   * verde is ~R$ 5/m² bidim-built against R$ 150–350 bought in. So an
+   * organisation that answered "mutirão" was printing a contractor's price.
+   *
+   * Every figure here is LITERAL in that solution's `quantoCusta` — checked at
+   * module load. Where the ficha states nothing this is absent, and the band is
+   * shown with what it assumes rather than scaled by a multiplier we invented.
+   */
+  buildModel?: {
+    /** The band when they build it themselves. Both ends literal in the ficha. */
+    mutiraoLow?: number;
+    mutiraoHigh?: number;
+    /** The ficha rules self-building out — said plainly, since they just chose it. */
+    mutiraoImpossiblePt?: string;
+    mutiraoImpossibleEn?: string;
+    /** Which model the headline band describes, so the caveat can name it. */
+    bandAssumesPt?: string;
+    bandAssumesEn?: string;
+    /**
+     * The entry's `notaPt` describes the CONTRACTED model, so printing it
+     * beside an applied self-build band contradicts it — teto-verde's nota
+     * opens "Faixa do sistema comprado pronto", which is false once the R$ 5/m²
+     * band is the one on screen.
+     */
+    notaDescribesTheOtherModel?: boolean;
+  };
+  /**
    * Set when the figures are NOT literal in the ficha (a sum of two lines, a
    * rate worked back from a total). Required in that case, and always shown —
    * derived arithmetic an organisation cannot see is arithmetic it cannot
@@ -169,6 +201,13 @@ export const SOLUTION_COSTS: Record<string, SolutionCost> = {
   },
   'captacao-agua-da-chuva': {
     basis: 'unit', low: 4500, high: 10500,
+    buildModel: {
+      // "R$ 4.500 quando construída em mutirão com mão de obra capacitada pelo
+      // programa (ASA/P1MC); R$ 8.000 a R$ 10.500 quando contratada por edital."
+      mutiraoLow: 4500, mutiraoHigh: 4500,
+      bandAssumesPt: 'do mutirão do Programa Cisternas até a contratação por edital',
+      bandAssumesEn: 'from a Programa Cisternas mutirão up to contracting by public call',
+    },
     scalePt: 'cisterna de 16 mil litros — o piso é em mutirão, o teto é contratada por edital',
     scaleEn: 'a 16,000-litre cistern — the floor is mutirão-built, the ceiling is contracted through a public call',
     unitPt: 'cisterna', unitEn: 'cistern', unitPluralPt: 'cisternas', unitPluralEn: 'cisterns',
@@ -180,6 +219,13 @@ export const SOLUTION_COSTS: Record<string, SolutionCost> = {
   'parques-e-florestas-urbanas': { basis: 'm2', low: 100, high: 230 },
   'teto-verde': {
     basis: 'm2', low: 150, high: 350,
+    buildModel: {
+      // "Método bidim: cerca de R$ 5 por m² de material… o Teto Verde Favela,
+      // no Rio, já cobriu mais de 20 lajes a R$ 5 o metro, sem dinheiro de fora."
+      mutiraoLow: 5, mutiraoHigh: 5,
+      bandAssumesPt: 'sistema comprado pronto', bandAssumesEn: 'a bought-in system',
+      notaDescribesTheOtherModel: true,
+    },
     notaPt: 'Faixa do sistema comprado pronto. Feito pelo método bidim, em mutirão, cai para cerca de R$ 5 por m² — foi assim que o Teto Verde Favela cobriu mais de 20 lajes.',
     notaEn: 'Range for a bought-in system. Built bidim-style in a mutirão it drops to about R$ 5 per m² — that is how Teto Verde Favela covered more than 20 roofs.',
   },
@@ -231,14 +277,39 @@ export const SOLUTION_COSTS: Record<string, SolutionCost> = {
   'grade-viva': { basis: 'm2', low: 500, high: 600 },
   'muro-de-arrimo-verde': {
     basis: 'm2', low: 200, high: 300,
+    buildModel: {
+      // "É custo alto em qualquer variante — envolve avaliação geotécnica,
+      // fundação e mão de obra especializada."
+      mutiraoImpossiblePt: 'a ficha diz que envolve avaliação geotécnica, fundação e mão de obra especializada — é custo alto em qualquer variante',
+      mutiraoImpossibleEn: 'the ficha says it involves a geotechnical assessment, foundations and specialised labour — high cost in every variant',
+      bandAssumesPt: 'execução especializada', bandAssumesEn: 'specialised contracting',
+    },
     notaPt: 'Faixa da pedra ou gabião. A versão pré-fabricada tipo cribwall chega a R$ 1.000–2.000 por m².',
     notaEn: 'Range for stone or gabion. The prefabricated cribwall version reaches R$ 1,000–2,000 per m².',
   },
-  'solo-grampeado-verde': { basis: 'm2', low: 800, high: 1000 },
+  'solo-grampeado-verde': {
+    basis: 'm2', low: 800, high: 1000,
+    buildModel: {
+      // "exige perfuração mecanizada, grampos e injeção de calda de cimento —
+      // equipamento e mão de obra especializada, não dá para mutirão."
+      mutiraoImpossiblePt: 'a ficha é explícita: exige perfuração mecanizada, grampos e injeção de calda de cimento — equipamento e mão de obra especializada, não dá pra mutirão',
+      mutiraoImpossibleEn: 'the ficha is explicit: it needs mechanised drilling, soil nails and cement grout injection — specialised equipment and labour, not something a mutirão can build',
+      bandAssumesPt: 'execução especializada', bandAssumesEn: 'specialised contracting',
+    },
+  },
   'contencoes-em-geocelulas': { basis: 'm2', low: 500, high: 700 },
 
   // ── Restauração ───────────────────────────────────────────────────────────
-  'reflorestamento': { basis: 'm2', low: 100, high: 230 },
+  'reflorestamento': {
+    basis: 'm2', low: 100, high: 230,
+    buildModel: {
+      // "Em terreno pequeno, feito em mutirão: R$ 100 a R$ 230 por m²" — the
+      // headline band IS the mutirão figure, so nothing changes. What the
+      // caveat must not do is imply a discount that is already applied.
+      mutiraoLow: 100, mutiraoHigh: 230,
+      bandAssumesPt: 'terreno pequeno feito em mutirão', bandAssumesEn: 'a small plot built by mutirão',
+    },
+  },
   'restauracao-areas-umidas': {
     basis: 'm2', low: 10, high: 60,
     notaPt: 'Vem do total da ficha — R$ 20 mil a R$ 120 mil para recuperar 2.000 m² de banhado já existente. Construir um jardim filtrante novo é outra ordem de grandeza: R$ 540 a R$ 1.410 por m².',
@@ -255,6 +326,8 @@ export interface BudgetLine {
   areaM2?: number;
   /** How many of them — the size question for a solution counted per unit. */
   units?: number;
+  /** They will build it themselves and the ficha prices only a contractor. */
+  builtBySelfWithoutFigure?: boolean;
   /** The one line an organisation puts on a page. */
   notePt: string;
   noteEn: string;
@@ -275,25 +348,71 @@ const brlEn = (v: number) => `R$ ${Math.round(v).toLocaleString('en-US', { maxim
  * is for: getting a supplier to quote against. W3's job is to get an
  * organisation into that conversation, not to stand in for it.
  */
-export function budgetLineFor(solutionId: string, areaM2?: number, units?: number): BudgetLine | null {
+/** How the organisation answered "e quem constrói isso?". */
+export type BuildModel = 'mutirao' | 'mista' | 'contratada' | 'parceria' | 'indefinido';
+const SELF_BUILT = new Set<BuildModel>(['mutirao', 'mista']);
+
+export function budgetLineFor(
+  solutionId: string,
+  areaM2?: number,
+  units?: number,
+  buildModel?: BuildModel,
+): BudgetLine | null {
   const ficha = getSolutionFicha(solutionId);
   const cost = SOLUTION_COSTS[solutionId];
   if (!ficha || !cost) return null;
+  const bm = cost.buildModel;
+  const selfBuilt = !!buildModel && SELF_BUILT.has(buildModel);
+  const builtBySelfWithoutFigure = selfBuilt && !bm?.mutiraoLow && !bm?.mutiraoImpossiblePt;
+
   const base = {
     solutionId,
     basis: cost.basis,
+    ...(builtBySelfWithoutFigure ? { builtBySelfWithoutFigure: true } : {}),
     sourcePt: ficha.pt.quantoCusta,
     sourceEn: ficha.en.quantoCusta,
     estimado: !!ficha.custoEstimado,
   };
+  // ⚠️ WHO BUILDS IT MOVES THE NUMBER, and W3 asks one beat after showing it.
+  // A cistern is R$ 4.500 in mutirão against R$ 8.000–10.500 contracted; a teto
+  // verde is R$ 5/m² bidim-built against R$ 150–350 bought in. Printing the
+  // contracted band to an organisation that just said "mutirão" is printing the
+  // wrong number — and it is the number that reaches a funder.
+  //
+  // Only ever from figures the ficha states. Where it states none, the band
+  // stands and says what it assumes; a multiplier we invented would be worse
+  // than the mismatch it replaces.
+  const buildNote = (pt: boolean): string => {
+    if (!selfBuilt) return '';
+    if (bm?.mutiraoImpossiblePt) {
+      return pt
+        ? ` ⚠️ Vocês disseram mutirão, e ${bm.mutiraoImpossiblePt}. Vale conversar com a coordenação sobre execução contratada — isso não invalida o projeto, muda quem põe a mão.`
+        : ` ⚠️ You said mutirão, and ${bm.mutiraoImpossibleEn}. Worth talking to the coordination about contracting it — this does not invalidate the project, it changes who does the building.`;
+    }
+    if (bm?.mutiraoLow != null) return '';
+    return pt
+      ? ` ⚠️ Esta faixa é de execução contratada. Em mutirão o custo cai — a ficha não fecha quanto, então isso fica como número a levantar.`
+      : ` ⚠️ This range is for contracted work. Built by mutirão it drops — the ficha does not close how much, so it stays a figure to find out.`;
+  };
+  const useMutiraoBand = selfBuilt && bm?.mutiraoLow != null && bm?.mutiraoHigh != null;
+  const lowV = useMutiraoBand ? bm!.mutiraoLow! : cost.low;
+  const highV = useMutiraoBand ? bm!.mutiraoHigh! : cost.high;
+
   const nota = (pt: boolean) => {
-    const n = pt ? cost.notaPt : cost.notaEn;
-    return n ? ` ${n}` : '';
+    const suppressed = useMutiraoBand && bm?.notaDescribesTheOtherModel;
+    const n = suppressed ? '' : (pt ? cost.notaPt : cost.notaEn);
+    const b = buildNote(pt);
+    const m = useMutiraoBand
+      ? (pt
+        ? ` Esta é a faixa de mutirão da própria ficha — a de ${bm!.bandAssumesPt ?? 'execução contratada'} é outra.`
+        : ` This is the ficha's own self-build range — the ${bm!.bandAssumesEn ?? 'contracted'} one is different.`)
+      : '';
+    return `${n ? ` ${n}` : ''}${m}${b}`;
   };
 
-  if (cost.basis === 'm2' && cost.low != null && cost.high != null) {
-    const rate = cost.low === cost.high ? brl(cost.low) : `${brl(cost.low)}–${brl(cost.high)}`;
-    const rateEn = cost.low === cost.high ? brlEn(cost.low) : `${brlEn(cost.low)}–${brlEn(cost.high)}`;
+  if (cost.basis === 'm2' && lowV != null && highV != null) {
+    const rate = lowV === highV ? brl(lowV) : `${brl(lowV)}–${brl(highV)}`;
+    const rateEn = lowV === highV ? brlEn(lowV) : `${brlEn(lowV)}–${brlEn(highV)}`;
     if (!areaM2) {
       return {
         ...base,
@@ -303,8 +422,8 @@ export function budgetLineFor(solutionId: string, areaM2?: number, units?: numbe
         noteEn: `${rateEn} per m². The footprint is still undrawn, so there is no total.${nota(false)}`,
       };
     }
-    const lo = cost.low * areaM2;
-    const hi = cost.high * areaM2;
+    const lo = lowV! * areaM2;
+    const hi = highV! * areaM2;
     return {
       ...base,
       lowBrl: lo,
@@ -315,7 +434,7 @@ export function budgetLineFor(solutionId: string, areaM2?: number, units?: numbe
     };
   }
 
-  if ((cost.basis === 'unit' || cost.basis === 'project') && cost.low != null && cost.high != null) {
+  if ((cost.basis === 'unit' || cost.basis === 'project') && lowV != null && highV != null) {
     const per = cost.basis === 'unit' ? 'por' : 'para';
     const perEn = cost.basis === 'unit' ? 'per' : 'for';
     // ⚠️ Only a per-UNIT band multiplies. A 'project' band prices one instance
@@ -335,16 +454,16 @@ export function budgetLineFor(solutionId: string, areaM2?: number, units?: numbe
         units,
         ...(areaM2 ? { areaM2 } : {}),
         notePt:
-          `${units} ${nounPt ?? 'unidade(s)'}. A ficha orça ${brl(cost.low)}–${brl(cost.high)} ${per} ${cost.scalePt}. ` +
+          `${units} ${nounPt ?? 'unidade(s)'}. A ficha orça ${brl(lowV)}–${brl(highV)} ${per} ${cost.scalePt}. ` +
           `O total depende do porte de cada uma, então aqui fica a referência e não uma conta fechada.${nota(true)}`,
         noteEn:
-          `${units} ${nounEn ?? 'unit(s)'}. The ficha prices ${brlEn(cost.low)}–${brlEn(cost.high)} ${perEn} ${cost.scaleEn}. ` +
+          `${units} ${nounEn ?? 'unit(s)'}. The ficha prices ${brlEn(lowV)}–${brlEn(highV)} ${perEn} ${cost.scaleEn}. ` +
           `The total depends on how big each one is, so this is the reference rather than a closed sum.${nota(false)}`,
       };
     }
     if (units && units > 0) {
-      const lo = cost.low * units;
-      const hi = cost.high * units;
+      const lo = lowV * units;
+      const hi = highV * units;
       const nounPt = units === 1 ? cost.unitPt : cost.unitPluralPt;
       const nounEn = units === 1 ? cost.unitEn : cost.unitPluralEn;
       return {
@@ -355,11 +474,11 @@ export function budgetLineFor(solutionId: string, areaM2?: number, units?: numbe
         ...(areaM2 ? { areaM2 } : {}),
         notePt:
           `Cerca de ${lo === hi ? brl(lo) : `${brl(lo)}–${brl(hi)}`} para ${units} ${nounPt ?? 'unidade(s)'}, ` +
-          `à referência da ficha (${brl(cost.low)}–${brl(cost.high)} ${per} ${cost.scalePt}). ` +
+          `à referência da ficha (${brl(cost.low!)}–${brl(cost.high!)} ${per} ${cost.scalePt}). ` +
           `É uma faixa para pedir cotação, não um orçamento fechado.${nota(true)}`,
         noteEn:
           `About ${lo === hi ? brlEn(lo) : `${brlEn(lo)}–${brlEn(hi)}`} for ${units} ${nounEn ?? 'unit(s)'}, ` +
-          `at the ficha's reference price (${brlEn(cost.low)}–${brlEn(cost.high)} ${perEn} ${cost.scaleEn}). ` +
+          `at the ficha's reference price (${brlEn(cost.low!)}–${brlEn(cost.high!)} ${perEn} ${cost.scaleEn}). ` +
           `A range to request quotes against, not a closed budget.${nota(false)}`,
       };
     }
@@ -369,13 +488,13 @@ export function budgetLineFor(solutionId: string, areaM2?: number, units?: numbe
       highBrl: null,
       ...(areaM2 ? { areaM2 } : {}),
       notePt:
-        `${brl(cost.low)}–${brl(cost.high)} ${per} ${cost.scalePt}. ` +
+        `${brl(lowV)}–${brl(highV)} ${per} ${cost.scalePt}. ` +
         (cost.basis === 'unit'
           ? 'Esta solução se conta por unidade, não por metro quadrado — quantas vocês querem?'
           : 'Esta solução se orça pelo conjunto, não por metro quadrado.') +
         nota(true),
       noteEn:
-        `${brlEn(cost.low)}–${brlEn(cost.high)} ${perEn} ${cost.scaleEn}. ` +
+        `${brlEn(lowV)}–${brlEn(highV)} ${perEn} ${cost.scaleEn}. ` +
         (cost.basis === 'unit'
           ? 'This one is counted per unit, not per square metre — how many do you want?'
           : 'This one is budgeted as a whole, not per square metre.') +
@@ -422,6 +541,32 @@ function amountsIn(prose: string): Set<number> {
 for (const [id, cost] of Object.entries(SOLUTION_COSTS)) {
   const ficha = getSolutionFicha(id);
   if (!ficha) throw new Error(`w3-sizing: SOLUTION_COSTS has "${id}", which is not a ficha`);
+  // ⚠️ Every self-build figure has to be LITERAL in that solution's own
+  // quantoCusta. This is the whole reason the mutirão band is trustworthy: it
+  // is not a discount rate someone chose, it is the number the ficha states for
+  // the method — teto verde's R$ 5/m² bidim, the cistern's R$ 4.500 in the
+  // Programa Cisternas mutirão. A figure that cannot be found in the source is
+  // a figure nobody can defend in front of a secretariat.
+  if (cost.buildModel) {
+    const bm = cost.buildModel;
+    const source = ficha.pt.quantoCusta;
+    for (const value of [bm.mutiraoLow, bm.mutiraoHigh]) {
+      if (value == null) continue;
+      const plain = String(value);
+      const dotted = value.toLocaleString('pt-BR');
+      if (!source.includes(plain) && !source.includes(dotted)) {
+        throw new Error(
+          `w3-sizing: ${id} claims a self-build figure of ${value}, which does not appear in its own quantoCusta`,
+        );
+      }
+    }
+    if ((bm.mutiraoImpossiblePt && !bm.mutiraoImpossibleEn) || (bm.mutiraoImpossibleEn && !bm.mutiraoImpossiblePt)) {
+      throw new Error(`w3-sizing: ${id} says self-building is impossible in only one language`);
+    }
+    if (bm.mutiraoLow != null && bm.mutiraoImpossiblePt) {
+      throw new Error(`w3-sizing: ${id} both prices a mutirão and says one is impossible`);
+    }
+  }
   if (cost.basis === 'none') continue;
   if (cost.low == null || cost.high == null || cost.low > cost.high) {
     throw new Error(`w3-sizing: ${id} declares basis "${cost.basis}" without a valid low/high band`);

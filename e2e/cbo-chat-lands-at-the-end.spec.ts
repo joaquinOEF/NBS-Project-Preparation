@@ -34,6 +34,13 @@ test.describe('opening a returning session', () => {
     const cta = page.getByTestId('button-cbo-welcome-cta');
     await expect(cta).toBeVisible({ timeout: 30_000 });
     await cta.click();
+    // The Encontro 2 preamble sits between the welcome and the thread for an
+    // org that has not closed the encontro — which this one has not, by design.
+    // (It used to be skipped here because `phaseComplete` counted one answered
+    // field as a finished encontro; `encontroClosed` no longer does.)
+    const preamble = page.getByTestId('button-encontro-2-start');
+    await preamble.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
+    if (await preamble.isVisible().catch(() => false)) await preamble.click();
     const input = page.getByTestId('cbo-chat-input');
     await expect(input).toBeVisible({ timeout: 30_000 });
     for (let i = 0; i < 20; i++) {
@@ -77,6 +84,13 @@ test.describe('opening a returning session', () => {
     const cta = page.getByTestId('button-cbo-welcome-cta');
     await expect(cta).toBeVisible({ timeout: 30_000 });
     await cta.click();
+    // The Encontro 2 preamble sits between the welcome and the thread for an
+    // org that has not closed the encontro — which this one has not, by design.
+    // (It used to be skipped here because `phaseComplete` counted one answered
+    // field as a finished encontro; `encontroClosed` no longer does.)
+    const preamble = page.getByTestId('button-encontro-2-start');
+    await preamble.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
+    if (await preamble.isVisible().catch(() => false)) await preamble.click();
     const input = page.getByTestId('cbo-chat-input');
     await expect(input).toBeVisible({ timeout: 30_000 });
     for (let i = 0; i < 14; i++) {

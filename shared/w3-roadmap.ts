@@ -24,7 +24,7 @@
 // ============================================================================
 
 import { buildDossier, portfolioState, type Dossier, type VerdictState, type W3Input } from './w3-dossier';
-import { budgetLineFor, SOLUTION_COSTS, type BudgetLine } from './w3-sizing';
+import { budgetLineFor, SOLUTION_COSTS, type BudgetLine, type BuildModel } from './w3-sizing';
 import { benefitFor, type BenefitLine } from './w3-benefits';
 import { scaleStatement } from './w3-scale';
 import { getSolution } from './nbs-catalog';
@@ -179,9 +179,10 @@ export function buildRoadmap(
   const dossier = buildDossier(input, lang);
   const state = portfolioState(dossier.verdicts);
   const units = Number(w3.intervention_units) || 0;
-  const budget = solutions.map(id => budgetLineFor(id, areaM2 || undefined, units || undefined)).filter(Boolean) as BudgetLine[];
-  const benefits = solutions.map(id => benefitFor(id, areaM2 || undefined, units || undefined)).filter(Boolean) as BenefitLine[];
+  const buildModel = (w3.construction_model || undefined) as BuildModel | undefined;
   const scale = scaleStatement(solutions, areaM2, site.site_worry);
+  const budget = solutions.map(id => budgetLineFor(id, areaM2 || undefined, units || undefined, buildModel)).filter(Boolean) as BudgetLine[];
+  const benefits = solutions.map(id => benefitFor(id, areaM2 || undefined, units || undefined)).filter(Boolean) as BenefitLine[];
 
   const what: RoadmapBlock[] = [];
   const how: RoadmapBlock[] = [];
