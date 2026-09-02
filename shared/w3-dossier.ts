@@ -80,7 +80,8 @@ export function hasSite(site: Record<string, string | undefined>): boolean {
   return has(site.site_lat ?? site._site_lat) && has(site.site_lng ?? site._site_lng);
 }
 
-export function gradeCapacity(input: W3Input): CapacityRead {
+export function gradeCapacity(input: W3Input, lang: 'pt' | 'en' = 'pt'): CapacityRead {
+  const ptLang = lang === 'pt';
   const { site, org = {} } = input;
   const because: string[] = [];
   const cannotYet: string[] = [];
@@ -101,23 +102,29 @@ export function gradeCapacity(input: W3Input): CapacityRead {
   const named = has(site.community_anchoring_lead);
 
   if (!sited) {
-    because.push('no place marked yet');
-    cannotYet.push('a footprint, so no area, no cost band and no approval route');
+    because.push(ptLang ? 'ainda sem lugar marcado' : 'no place marked yet');
+    cannotYet.push(
+      ptLang
+        ? 'o contorno do lugar — sem ele não há área, nem faixa de preço, nem caminho de aprovação'
+        : 'a footprint, so no area, no cost band and no approval route',
+    );
     return { grade: 'exploratory', because, cannotYet };
   }
 
-  if (richDepth) because.push(`site described in their own words (${depth})`);
-  if (hasStory) because.push('an account of the place, not just a pin');
-  if (funded) because.push('has run a financed project before');
-  if (named) because.push('a named person who carries this project');
+  if (richDepth) because.push(ptLang ? `lugar descrito com as palavras de vocês (${depth})` : `site described in their own words (${depth})`);
+  if (hasStory) because.push(ptLang ? 'um relato do lugar, não só um ponto no mapa' : 'an account of the place, not just a pin');
+  if (funded) because.push(ptLang ? 'já executou um projeto financiado' : 'has run a financed project before');
+  if (named) because.push(ptLang ? 'uma pessoa com nome que carrega este projeto' : 'a named person who carries this project');
   if (!funded && !named) {
     cannotYet.push(
-      'a clear owner — no funding history, and nobody is recorded as carrying this project',
+      ptLang
+        ? 'quem carrega este projeto — não há histórico de projeto financiado nem uma pessoa registrada como responsável'
+        : 'a clear owner — no funding history, and nobody is recorded as carrying this project',
     );
   }
 
-  if (!tenureKnown) cannotYet.push('the approval route — land tenure is unanswered');
-  if (!hasStory) cannotYet.push('a mechanism read, so the baseline evidence stays generic');
+  if (!tenureKnown) cannotYet.push(ptLang ? 'o caminho de aprovação — a situação do terreno ficou sem resposta' : 'the approval route — land tenure is unanswered');
+  if (!hasStory) cannotYet.push(ptLang ? 'uma leitura do mecanismo — sem ela a linha de base fica genérica' : 'a mechanism read, so the baseline evidence stays generic');
 
   // Established needs both the site knowledge AND someone who has done this
   // before or is clearly accountable — one alone is not enough to hand over a
@@ -376,12 +383,26 @@ const MECHANISM_EVIDENCE: Partial<Record<WorryId | string, { pt: string; en: str
 
 export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier {
   const pt = lang === 'pt';
+  /**
+   * ⚠️ The catalogue label, never `id.replace(/-/g, ' ')`.
+   *
+   * Taking the dashes out of a slug looks like a name for `muro-de-arrimo-verde`
+   * and stops looking like one the moment the slug is unaccented:
+   * `captacao-agua-da-chuva` printed as "captacao agua da chuva" in a document
+   * an organisation takes to an assembly. It read as a name in the four
+   * scenarios anyone happened to write, which is exactly why it survived.
+   */
+  const solLabel = (id: string) =>
+    (pt ? getSolution(id)?.pt.label : getSolution(id)?.en.label) ?? id.replace(/-/g, ' ');
   const { site, w3 = {} } = input;
   const solutions = input.solutions ?? [];
-  const capacity = gradeCapacity(input);
+  const capacity = gradeCapacity(input, lang);
   const items: DossierItem[] = [];
   const gaps: string[] = [];
   const add = (i: DossierItem) => items.push(i);
+
+  /** Who builds it — the item copy needs it as much as the budget does. */
+  const buildModelForItems = (w3.construction_model || '') as string;
 
   const verdicts: Verdict[] = solutions.length
     ? solutions.map(s => computeVerdict(s, input, lang))
@@ -423,8 +444,8 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
       add({
         list: 'investigate',
         text: pt
-          ? `Quando houver um lugar: ${id.replace(/-/g, ' ')} vai precisar de ${marker.pt}`
-          : `Once there is a place: ${id.replace(/-/g, ' ')} will need ${marker.en}`,
+          ? `Quando houver um lugar: ${solLabel(id)} vai precisar de ${marker.pt}`
+          : `Once there is a place: ${solLabel(id)} will need ${marker.en}`,
         source: `ficha ${id} · quemPrecisaDizerSim`,
         owner: 'coordination',
         blockedBy: pt ? 'marcar o lugar' : 'marking the place',
@@ -506,11 +527,24 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
       });
     }
 
+    // ⚠️ "depois do mutirão" was printed to everybody, including the
+    // organisation that answered "empresa contratada" three beats earlier and
+    // takes this page to an assembly. Same defect the who-maintains question
+    // had — fixed there in the manifest, still hardcoded here, because the two
+    // live in different files and nobody walked the printed page afterwards.
+    const afterWho =
+      buildModelForItems === 'contratada'
+        ? { pt: 'depois que a empresa entregar', en: 'once the contractor hands it over' }
+        : buildModelForItems === 'parceria'
+          ? { pt: 'depois que o parceiro entregar', en: 'once the partner hands it over' }
+          : buildModelForItems === 'mutirao' || buildModelForItems === 'mista'
+            ? { pt: 'depois do mutirão', en: 'after the mutirão' }
+            : { pt: 'depois que a obra terminar', en: 'once the work is finished' };
     add({
       list: 'document',
       text: pt
-        ? `Acordo de manutenção — quem cuida de ${id.replace(/-/g, ' ')} depois do mutirão`
-        : `Maintenance agreement — who looks after ${id.replace(/-/g, ' ')} after the mutirão`,
+        ? `Acordo de manutenção — quem cuida de ${solLabel(id)} ${afterWho.pt}`
+        : `Maintenance agreement — who looks after ${solLabel(id)} ${afterWho.en}`,
       source: `ficha ${id} · quemCuidaDepois × land_tenure`,
       owner: PUBLIC_TENURE.has(site.land_tenure ?? '') ? 'coordination' : 'org',
     });
@@ -621,8 +655,8 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
     if (line.basis === 'm2' && !line.areaM2) {
       gaps.push(
         pt
-          ? `${id.replace(/-/g, ' ')} tem preço por m² na ficha, mas ninguém desenhou a área — sem isso não sai um total`
-          : `${id.replace(/-/g, ' ')} has a per-m² price in its ficha, but no footprint was drawn — without one there is no total`,
+          ? `${solLabel(id)} tem preço por m² na ficha, mas ninguém desenhou a área — sem isso não sai um total`
+          : `${solLabel(id)} has a per-m² price in its ficha, but no footprint was drawn — without one there is no total`,
       );
     }
     // The same sentence for a solution counted per unit: the ficha has a price
@@ -630,8 +664,8 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
     if ((line.basis === 'unit' || line.basis === 'project') && !line.units) {
       gaps.push(
         pt
-          ? `${id.replace(/-/g, ' ')} se conta por unidade, e ainda não sabemos quantas — sem isso não sai um total`
-          : `${id.replace(/-/g, ' ')} is counted per unit, and how many is still unknown — without it there is no total`,
+          ? `${solLabel(id)} se conta por unidade, e ainda não sabemos quantas — sem isso não sai um total`
+          : `${solLabel(id)} is counted per unit, and how many is still unknown — without it there is no total`,
       );
     }
     // ⚠️ They said they will build it, and the ficha prices a contractor. Naming
@@ -641,8 +675,8 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
     if (line.builtBySelfWithoutFigure) {
       gaps.push(
         pt
-          ? `${id.replace(/-/g, ' ')} vai ser feito em mutirão, e a faixa da ficha é de execução contratada — falta levantar quanto custa feito por vocês`
-          : `${id.replace(/-/g, ' ')} will be built by mutirão, and the ficha's range is for contracted work — what it costs built by you is still to be found`,
+          ? `${solLabel(id)} vai ser feito em mutirão, e a faixa da ficha é de execução contratada — falta levantar quanto custa feito por vocês`
+          : `${solLabel(id)} will be built by mutirão, and the ficha's range is for contracted work — what it costs built by you is still to be found`,
       );
     }
     if (line.basis === 'none') {

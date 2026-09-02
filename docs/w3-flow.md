@@ -224,6 +224,63 @@ draw session needs a browser.
 It passes clean. That is only worth something because deleting the `askUnits`
 call makes it name all 14 affected walks, which is how it was checked.
 
+### `npm run w3:fullsim`
+
+The sweep proves every solution has a path. This proves four organisations get
+all the way to **the document they download** — and then reads that document
+back.
+
+Four archetypes, each a POLICY rather than a script: they read the question they
+were actually asked and pick from the chips they were actually offered, and a
+question nobody anticipated is reported instead of silently answered. That
+distinction is the whole point. A scripted turn list cannot fail in the way that
+matters — when a beat changes, the next scripted line still gets sent, lands on
+the wrong beat, and the run prints a plausible transcript.
+
+| | |
+|---|---|
+| Rede Solidária Humaitá | public land, no papers · draws 820 m² · **two** solutions on one place · mutirão com apoio técnico |
+| Mães do Humaitá | hortas urbanas — priced per project, so the **count** is the size question · "ainda não sabemos" about upkeep money |
+| Coletivo Morro Santa Teresa | slope, own land · muro de arrimo verde (`delivery: licenca`) · **empresa contratada** · does not know the size |
+| Ação Cavalhada | **no place marked** — the frailest path, and the one that most has to end somewhere |
+
+Each organisation's expectations are derived from the CATALOGUE, not from the
+engine: muro-de-arrimo-verde is `licenca` and its ficha names a geotechnical
+assessment, so that organisation must come out `needs_study` with a geotechnical
+line in its budget, whatever the engine happens to do.
+
+It then renders the roadmap through the same `renderRoadmapHtml` the server
+serves, prints it to PDF through headless Chromium exactly as *Compartilhar →
+Imprimir → Salvar em PDF* does on the phone, **and reads the PDF text back**. A
+number that renders but does not print is a number the organisation does not
+have. Artefacts land in `$W3_SIM_OUT` (transcript, HTML, PDF per organisation).
+
+Three defects on its first run, none of which any test or sweep had:
+
+1. **The last beat of the workshop dead-ended.** "Levar mais uma solução"
+   re-offered the solution they had just chosen; tapping it fell through to the
+   model — silence. Fixed in three places: the shortlist and the "ver todas"
+   sheet now exclude what is already taken, and a recognised name that arrives
+   any other way (typed, dictated, a stale card) is answered rather than
+   dropped.
+2. **English in a document a Portuguese organisation takes to an assembly.**
+   Every sentence in `gradeCapacity` was English-only and `cannotYet` goes
+   straight into "O que ficou em aberto" on the printed page: *"a clear owner —
+   no funding history, and nobody is recorded as carrying this project"*.
+3. **A mutirão the project does not have**, and a slug wearing a name. The
+   maintenance-agreement item read "quem cuida de … depois do mutirão" to the
+   organisation that answered *empresa contratada* three beats earlier — the
+   same defect the who-maintains question had, fixed there in the manifest and
+   still hardcoded here. Beside it, `id.replace(/-/g, ' ')` passes for a name
+   only while the slug happens to carry its accents: `captacao-agua-da-chuva`
+   printed as "captacao agua da chuva".
+
+⚠️ PDF text checks compare with **all whitespace removed**. Chromium stores
+letter-spaced type as real gaps, so the RASCUNHO badge comes back from the text
+layer as `R A S C U N H O`. The word is on the page; only a naive match misses
+it — worth knowing for anything that feeds this PDF to a search box or an OCR
+pass.
+
 ### `npm run db:preflight`
 
 ⚠️ Drizzle's `db.select().from(t)` names **every** column in the schema, so a

@@ -368,7 +368,19 @@ export async function serveE3Checkpoint(
     const base = topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 27);
     // Their Encontro 2 picks lead; the agent reorders inside them and may add
     // one below with the tension named. See mergeShortlist.
-    const entries = mergeShortlist(base, fresh?.shortlist ?? [], isPt ? 'pt' : 'en').slice(0, 4);
+    //
+    // ⚠️ Minus what they already took. This beat runs a second time when an
+    // organisation taps "Levar mais uma solução", and the list came back
+    // identical — the garden they had just chosen still sitting at the top of
+    // it. Tapping it fell through to the model, which in a deployment with no
+    // key is silence, at the last beat of the workshop. A simulation found it;
+    // no test did, because every scripted organisation politely picked a
+    // different second solution.
+    const already = liveSolutions();
+    const entries = mergeShortlist(base, fresh?.shortlist ?? [], isPt ? 'pt' : 'en')
+      .filter(e => !already.includes(e.solution.id))
+      .slice(0, 4);
+    if (!entries.length) return await closeE3();
     // ⚠️ Say the shared half ONCE. Every card used to open with the same eight
     // words — "Responde ao que vocês contaram — pra água que junta e não escoa"
     // — so four options read as one, and the choice got made by ordering. When
@@ -1093,10 +1105,10 @@ _For this one we do not yet have a reference figure — what the ficha says is a
       })),
       full: true,
     } as any);
-    ask('Qual delas?', 'Which one?', topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 8).map(e => ({
-      pt: e.solution.pt.label,
-      en: e.solution.en.label,
-    })));
+    ask('Qual delas?', 'Which one?', topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 12)
+      .filter(e => !liveSolutions().includes(e.solution.id))
+      .slice(0, 8)
+      .map(e => ({ pt: e.solution.pt.label, en: e.solution.en.label })));
     return finish('all-solutions');
   }
 
@@ -1107,6 +1119,19 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     const hit = topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 27)
       .find(e => deps.normChip(e.solution.pt.label) === msg || deps.normChip(e.solution.en.label) === msg);
     if (hit && !chosen.includes(hit.solution.id)) return await confirmSolution(hit.solution.id);
+    // ⚠️ Filtering the list is not enough: the answer does not only arrive by
+    // tapping a chip. A typed name, a dictated one, or a stale card still on
+    // screen reaches here with the label intact, and returning false hands the
+    // turn to the model. Say what is true and put the choice back in front of
+    // them instead.
+    if (hit) {
+      const label = isPt ? hit.solution.pt.label : hit.solution.en.label;
+      say(
+        `**${label}** já está no projeto de vocês — não precisa escolher de novo.`,
+        `**${label}** is already in your project — no need to choose it again.`,
+      );
+      return await askSolution();
+    }
   }
 
   // The impact reaction. Stored as their words, and "parece pouco" gets the
