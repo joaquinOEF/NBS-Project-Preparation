@@ -383,6 +383,10 @@ export function buildRoadmap(
       // hundred and fifty thousand reais. That specific misunderstanding has
       // ended projects. The disclaimer travels with the figure, in the same
       // weight of type, wherever the page goes.
+      // ⚠️ What the works cost does not include. A concept note with a
+      // construction figure and no study line is incomplete in the one place a
+      // funder checks — and the study is what the coordination pools.
+      ...(dossier.studies.length ? ['', ...dossier.studies] : []),
       ...(budget.some(b => b.lowBrl != null) ? [t.moneyIsNot] : []),
     ],
     from: pt ? 'preço publicado na ficha × área desenhada' : "the ficha's published price × the drawn area",

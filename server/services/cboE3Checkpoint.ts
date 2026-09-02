@@ -41,6 +41,8 @@ import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
 import { getSolution } from '@shared/nbs-catalog';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { E3_QUESTIONNAIRE, allowedOptionIds, checkOptionRule, askCopyFor, sectionsFieldReader } from '@shared/cbo-questionnaire';
+import { scoreW3Maturity } from '@shared/w3-maturity';
+import type { MaturityScore } from '@shared/cbo-schema';
 import { cboFieldEnumOptions } from '@shared/cbo-field-catalog';
 import { resolveOpenMapParams } from '@shared/cbo-map-presets';
 
@@ -55,6 +57,14 @@ export interface E3Deps {
   recordCheckpoint(step: string): void;
   /** Chip-label normalisation, shared with E2 so the two match identically. */
   normChip(s: string): string;
+  /**
+   * Persist the encontro's maturity scores and tell the client.
+   *
+   * Optional so the simulation harness — which has no state store — runs
+   * unchanged. In the server it is wired to the same path the score_maturity
+   * tool uses, so the coordinator's roster sees these exactly as it sees E1's.
+   */
+  recordMaturity?(scores: MaturityScore[]): void;
   /**
    * Kick off the advisor pass and persist whatever it returns.
    *
@@ -856,6 +866,22 @@ _For this one we do not yet have a reference figure — what the ficha says is a
       project_verdict: state4,
       project_capacity_grade: dossier.capacity.grade,
     });
+
+    // ⚠️ The four scores Encontro 3 owes. `PHASE_COMPLETION_METRICS[3]` has
+    // named them since the schema was written and NOTHING ever called
+    // score_maturity — so every organisation left the encontro that produces
+    // the most with an unscored record and a blank cell on the coordinator's
+    // roster. Derived, like the verdict, because a model asked to grade an
+    // organisation gives a different answer each run and cannot say why — and
+    // this number decides where a coordinator spends their week.
+    deps.recordMaturity?.(scoreW3Maturity({
+      site: input.site,
+      w3: input.w3 ?? {},
+      solutions: liveSolutions(),
+      ...(liveArea() ? { areaM2: liveArea() } : {}),
+      ...(liveUnits() ? { units: liveUnits() } : {}),
+      hasCostBand: dossier.budget.some(b => b.lowBrl != null),
+    }));
     // The hoja de ruta, not just the dossier. Same data, assembled as a route
     // they can follow and argue with — see shared/w3-roadmap.ts for why every
     // block carries where it came from and what would change it.

@@ -3448,6 +3448,18 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
         // Fire-and-forget, and deliberately so. It re-reads the state when it
         // lands rather than closing over the copy this turn is holding — by
         // then the organisation has traced a polygon and the state has moved.
+        // The four scores the encontro owes, written the same way the tool
+        // writes E1's — so the coordinator's roster reads them identically and
+        // the close gate that has always checked for them finally finds them.
+        recordMaturity: (scores) => {
+          for (const sc of scores) {
+            state.maturityScores = state.maturityScores.filter(m => m.metric !== sc.metric);
+            state.maturityScores.push(sc);
+          }
+          state.totalMaturityScore = state.maturityScores.reduce((sum, m) => sum + m.score, 0);
+          setCboState(cboId, state);
+          pushEvent({ type: 'maturity_update', scores: state.maturityScores, total: state.totalMaturityScore, flags: state.priorityFlags } as any);
+        },
         startAdvisor: () => { void runW3Advisor(cboId); },
         awaitAdvisor: () => waitForW3Advisor(cboId),
       });
