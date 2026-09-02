@@ -290,6 +290,42 @@ function universal(r: Run): string[] {
     }
   }
 
+  // ⚠️ The document may not speak in the second person.
+  //
+  // The printed page is a nota técnica: it states what the project is, where
+  // each figure came from, and what would revise it. It is not the workshop
+  // talking to the organisation — that register belongs in the conversation,
+  // where it already lives. Every sentence that said "vocês" was either our own
+  // decision rule narrated at the reader ("essa parte é de vocês… é ela que
+  // manda, não o nosso mapa") or reassurance competing with a number
+  // ("isso não é falha de vocês"). See docs/document-register.md.
+  //
+  // The organisation's OWN passages are exempt, and are the one place their
+  // voice belongs — they are quoted, so they are removed before matching.
+  const verbatim = [
+    r.site.site_story, r.type.justification_why_here,
+    r.impact.baseline_condition, r.site.site_name, r.persona.name,
+  ].filter(v => String(v ?? '').trim().length > 3).map(String);
+  const stripQuotes = (text: string) =>
+    verbatim.reduce((acc, v) => acc.split(v).join(' '), String(text));
+  // ⚠️ `nos` is deliberately absent — it is a preposition contraction in
+  // Portuguese ("nos três encontros") and would fire on ordinary prose.
+  const SECOND_PERSON = /\b(voc[eê]s|vcs|sabemos|nosso|nossa|nossos|nossas)\b|\ba gente\b/i;
+  const authored = [
+    ...(r.roadmap ? [...r.roadmap.what, ...r.roadmap.how].flatMap(b =>
+      [b.title, ...b.lines, b.from ?? '', b.changedBy ?? '']) : []),
+    ...(r.roadmap?.steps ?? []).map(s => s.title),
+    ...(r.roadmap?.open ?? []),
+  ];
+  for (const line of authored) {
+    const hit = SECOND_PERSON.exec(stripQuotes(line));
+    if (hit) f.push(`segunda pessoa num documento técnico ("${hit[0]}"): “${String(line).slice(0, 66)}…”`);
+  }
+  // And the printed sheet itself, which carries its own headings and footer.
+  for (const m of stripQuotes(r.pdfText).match(new RegExp(SECOND_PERSON.source, 'gi')) ?? []) {
+    f.push(`segunda pessoa no PDF: "${m}"`);
+  }
+
   // ⚠️ English, in a document a Portuguese organisation takes to an assembly.
   // Three of the capacity read's sentences were English-only and went straight
   // into "O que ficou em aberto" on the printed page. Whole words only — none
@@ -373,7 +409,7 @@ function universal(r: Run): string[] {
   add(/Gerado em/.test(r.pdfText), 'o PDF não diz quando foi gerado');
   // Every priced page has to carry the caveat next to the figure.
   if (r.dossier.budget.some(b => b.lowBrl != null)) {
-    add(inPdf('não é dinheiro que alguém já tem'),
+    add(inPdf('não representa recurso disponível'),
       'o PDF traz uma faixa de preço sem a ressalva de que não é dinheiro garantido');
   }
   return f;

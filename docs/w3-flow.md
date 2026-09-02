@@ -275,6 +275,10 @@ Three defects on its first run, none of which any test or sweep had:
    only while the slug happens to carry its accents: `captacao-agua-da-chuva`
    printed as "captacao agua da chuva".
 
+It also fails on **second person in any authored line** of the document — see
+[`document-register.md`](document-register.md) for why the printed page is a
+nota técnica in the third person and what came off it.
+
 ⚠️ PDF text checks compare with **all whitespace removed**. Chromium stores
 letter-spaced type as real gaps, so the RASCUNHO badge comes back from the text
 layer as `R A S C U N H O`. The word is on the page; only a naive match misses

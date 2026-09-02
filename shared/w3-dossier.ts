@@ -111,7 +111,7 @@ export function gradeCapacity(input: W3Input, lang: 'pt' | 'en' = 'pt'): Capacit
     return { grade: 'exploratory', because, cannotYet };
   }
 
-  if (richDepth) because.push(ptLang ? `lugar descrito com as palavras de vocês (${depth})` : `site described in their own words (${depth})`);
+  if (richDepth) because.push(ptLang ? `lugar descrito nas palavras da organização (${depth})` : `site described in their own words (${depth})`);
   if (hasStory) because.push(ptLang ? 'um relato do lugar, não só um ponto no mapa' : 'an account of the place, not just a pin');
   if (funded) because.push(ptLang ? 'já executou um projeto financiado' : 'has run a financed project before');
   if (named) because.push(ptLang ? 'uma pessoa com nome que carrega este projeto' : 'a named person who carries this project');
@@ -445,8 +445,8 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
       add({
         list: 'investigate',
         text: pt
-          ? `Confirmar no lugar se o problema é mesmo ${label} — a palavra de vocês decide a solução, não o nosso mapa`
-          : `Confirm on site whether the problem really is ${label} — your word decides the solution, not our map`,
+          ? `Confirmar no lugar qual é o mecanismo dominante — o mapa indica ${label}, e a leitura de quem mora ali é a que prevalece`
+          : `Confirm on site which mechanism dominates — the map indicates ${label}, and the reading of whoever lives there prevails`,
         source: `intervention_site · site_worry = ${worry}`,
         owner: 'coordination',
       });
@@ -693,7 +693,7 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
     if (line.builtBySelfWithoutFigure) {
       gaps.push(
         pt
-          ? `${solLabel(id)} vai ser feito em mutirão, e a faixa da ficha é de execução contratada — falta levantar quanto custa feito por vocês`
+          ? `${solLabel(id)} vai ser feito em mutirão, e a faixa da ficha é de execução contratada — falta levantar o custo em execução própria`
           : `${solLabel(id)} will be built by mutirão, and the ficha's range is for contracted work — what it costs built by you is still to be found`,
       );
     }
@@ -722,7 +722,7 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
   if (w3.sustainability_model === 'indefinido') {
     gaps.push(
       pt
-        ? 'De onde vem o dinheiro da manutenção ficou em aberto — é a conversa que a coordenação leva pra prefeitura, não um campo pra vocês preencherem'
+        ? 'De onde vem o dinheiro da manutenção ficou em aberto — item que a coordenação leva à prefeitura'
         : 'Where upkeep money comes from is open — that is the conversation the coordination takes to the city, not a field for you to fill',
     );
   }

@@ -490,13 +490,13 @@ export function budgetLineFor(
       notePt:
         `${brl(lowV)}–${brl(highV)} ${per} ${cost.scalePt}. ` +
         (cost.basis === 'unit'
-          ? 'Esta solução se conta por unidade, não por metro quadrado — quantas vocês querem?'
+          ? 'Esta solução se conta por unidade, não por metro quadrado — falta definir quantas.'
           : 'Esta solução se orça pelo conjunto, não por metro quadrado.') +
         nota(true),
       noteEn:
         `${brlEn(lowV)}–${brlEn(highV)} ${perEn} ${cost.scaleEn}. ` +
         (cost.basis === 'unit'
-          ? 'This one is counted per unit, not per square metre — how many do you want?'
+          ? 'This one is counted per unit, not per square metre — the number is still to be set.'
           : 'This one is budgeted as a whole, not per square metre.') +
         nota(false),
     };

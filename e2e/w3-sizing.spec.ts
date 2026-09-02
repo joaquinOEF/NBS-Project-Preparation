@@ -124,7 +124,7 @@ test.describe('W3 sizing — cost', () => {
       expect(line.notePt.length).toBeGreaterThan(20);
       // Every line points at the next action — a quote, a count, a drawing.
       expect(line.notePt).toMatch(/cotação|quantas|orça|Falta desenhar/i);
-      expect(line.noteEn).toMatch(/quote|how many|budgeted|footprint/i);
+      expect(line.noteEn).toMatch(/quote|how many|budgeted|footprint|still to be set/i);
     }
   });
 

@@ -129,8 +129,10 @@ test.describe('W3 roadmap — a draft route, not a verdict', () => {
 
   test('"parece pouco" is honoured, not smoothed over', () => {
     const r = buildRoadmap(SARANDI as any, 'pt');
-    const expect_ = r.what.find(b => /espera que aconteça/.test(b.title))!;
-    expect(expect_.lines.join(' ')).toMatch(/parece pouco/);
+    const expect_ = r.what.find(b => /Efeito esperado/i.test(b.title))!;
+    // ⚠️ Third person: the printed document reports what the organisation
+    // judged, it does not address them. See docs/document-register.md.
+    expect(expect_.lines.join(' ')).toMatch(/considerou a faixa pouca/);
     // And it carries the reason they are right — the 2024 scale note.
     expect(expect_.lines.join(' ')).toMatch(/2024/);
   });
