@@ -615,7 +615,15 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
     ...f.solutions.map(s =>
       s.benefit
         ? P(
-            `**${s.label}.** ${s.benefit.headline ? `${s.benefit.headline} ` : ''}${s.benefit.claim}`,
+            // ⚠️ A claim with no figure has to SAY it has no figure. Printed
+            // beside a solution that does carry one, an unqualified sentence
+            // reads as a measured result rather than a description.
+            `**${s.label}.** ${s.benefit.headline ? `${s.benefit.headline} ` : ''}${s.benefit.claim}` +
+              (s.benefit.headline
+                ? ''
+                : pt
+                  ? ' A base de evidências não traz um número de referência para esta solução — fica registrado como medição a buscar.'
+                  : ' The evidence base carries no reference figure for this solution — recorded as a measurement to seek.'),
             [s.benefit.source],
             s.benefit.headline ? 'figure' : 'written',
           )

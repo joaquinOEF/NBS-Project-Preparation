@@ -685,6 +685,240 @@ const PERSONAS: Persona[] = [
       return f;
     },
   },
+
+  // ── The second wave, 2026-09-02 ───────────────────────────────────────────
+  // Four more, aimed at the paths the audit of a real run broke open. Each one
+  // exists because something went wrong on it, or because nothing had ever
+  // walked it.
+
+  {
+    id: 'escola-partenon',
+    name: 'Associação Escola do Partenon',
+    profile:
+      'O RUN QUE QUEBROU · duas preocupações nomeadas (calor E água) · diz que a água vem primeiro · terreno com acordo formal · escolhe um jardim de chuva e DEPOIS acrescenta cisternas, que se contam por unidade.',
+    state: mkState({
+      org_profile: { org_name: 'Associação Escola do Partenon', contact_name: 'Maria Silva' },
+      intervention_site: {
+        bairro: 'Partenon', site_name: 'Pátio da escola', _site_lat: '-30.0577', _site_lng: '-51.1936',
+        current_use: 'paved', land_tenure: 'formal-agreement',
+        // ⚠️ Two worries, heat first — the exact record whose shortlist opened
+        // on "sol forte, falta de sombra" after the organisation had said the
+        // water came first.
+        site_worry: 'heat, alagamento',
+        site_story: 'O pátio alaga quando chove e no verão o cimento esquenta tanto que as crianças ficam dentro.',
+        site_knowledge_depth: 'strong', nbs_interest: 'verde-urbano, aguas-pluviais',
+        role_preference: 'executar',
+      },
+    }),
+    drawM2: 2100,
+    leanings: [
+      { pick: /^É isso ✓$/ },
+      // The beat that did not exist: which risk this project takes on first.
+      { when: /pesa mais no dia a dia/i, pick: /Alagamento/ },
+      { when: /qual delas|adiante/i, pick: /Jardins de chuva/ },
+      { when: /mais alguma solução/i, pick: /Levar mais uma/ },
+      { when: /qual delas|adiante/i, pick: /Captação de água da chuva/ },
+      { when: /qual delas|adiante/i, pick: /Ver todas as soluções/ },
+      { when: /quantas|quantos/i, pick: /^2$/ },
+      { pick: /^Desenhar no mapa$/ },
+      { when: /quem constr/i, pick: /^Mutirão$/ },
+      { when: /medir|acompanh/i, pick: /Com uma universidade ou parceiro/ },
+      { when: /cuida disso|quem cuida/i, pick: /Voluntários da comunidade/ },
+      { when: /frequ|cuidado/i, pick: /Todo mês/ },
+      { when: /dinheiro/i, pick: /Doações e apoio local/ },
+      { pick: /^Faz sentido$/ },
+      { pick: /^Serve, é isso mesmo$/ },
+      { pick: /1 ano/ },
+    ],
+    prose: [
+      'É onde as crianças já ficam todo dia e onde a água entra primeiro.',
+      'Cimento quebrado, sem escoamento, e nenhuma sombra no pátio inteiro.',
+      'As professoras, as famílias e as crianças da creche ao lado.',
+    ],
+    expect(r) {
+      const f: string[] = [];
+      // ⚠️ #39. They said the water comes first; the record has to say so, and
+      // the shortlist ranks on the first value.
+      if (!/^alagamento/.test(r.site.site_worry ?? '')) {
+        f.push(`site_worry = "${r.site.site_worry}" — a resposta de que a água vem primeiro não foi gravada`);
+      }
+      if (r.site._worry_focus_done !== 'yes') f.push('a pergunta sobre qual risco vem primeiro não foi feita');
+      // ⚠️ And the shortlist must FOLLOW that answer. It ranks on the first
+      // value of site_worry, which is why the real run opened on heat.
+      if (!r.said.some(l => /que junta e n[ãa]o escoa|para a água|pra água/i.test(l))) {
+        f.push('a lista de soluções não reflete a água como prioridade');
+      }
+      // ⚠️ #38. The second solution is counted per unit; the footprint drawn for
+      // a per-m² solution buys nothing for it.
+      if (r.solutions.length !== 2) f.push(`esperava 2 soluções, saiu com ${r.solutions.length}`);
+      if (!r.solutions.includes('captacao-agua-da-chuva')) f.push('a segunda solução não ficou registrada');
+      if (r.units !== 2) f.push(`intervention_units = ${r.units || '(vazio)'} — a segunda solução fechou sem a contagem`);
+      const second = budgetOf(r, 'captacao-agua-da-chuva');
+      if (!second) f.push('nenhuma linha de custo para a segunda solução');
+      else if (second.lowBrl == null) f.push('contagem dada e mesmo assim sem faixa de preço');
+      return f;
+    },
+  },
+  {
+    id: 'cisterna-restinga',
+    name: 'Grupo de Mulheres da Restinga',
+    profile:
+      'A SOLUÇÃO MAIS FÁCIL DE APROVAR · cisternas no próprio terreno · a ficha diz que não exige licenciamento · nunca ninguém tinha simulado um caminho que fecha em `ready`.',
+    state: mkState({
+      org_profile: { org_name: 'Grupo de Mulheres da Restinga', contact_name: 'Sirlei Machado', prior_project_scale: 'small' },
+      intervention_site: {
+        bairro: 'Restinga', site_name: 'Sede do grupo', _site_lat: '-30.1560', _site_lng: '-51.1390',
+        current_use: 'built', land_tenure: 'private-owned', site_worry: 'alagamento',
+        site_story: 'A água do telhado da sede desce toda pro pátio e alaga a entrada.',
+        site_knowledge_depth: 'strong', nbs_interest: 'aguas-pluviais', role_preference: 'executar',
+      },
+    }),
+    leanings: [
+      { pick: /^É isso ✓$/ },
+      { when: /qual delas|adiante/i, pick: /Captação de água da chuva/ },
+      { when: /qual delas|adiante/i, pick: /Ver todas as soluções/ },
+      { when: /quantas|quantos/i, pick: /^2$/ },
+      { when: /quem constr/i, pick: /^Mutirão$/ },
+      { when: /medir|acompanh/i, pick: /A gente mesmo/ },
+      { when: /cuida disso|quem cuida/i, pick: /A gente mesmo/ },
+      { when: /frequ|cuidado/i, pick: /Duas vezes por ano/ },
+      { when: /dinheiro/i, pick: /Recursos próprios/ },
+      { pick: /^Faz sentido$/ },
+      { pick: /^Serve, é isso mesmo$/ },
+      { pick: /6 meses/ },
+      { when: /mais alguma solução/i, pick: /Só essa/ },
+    ],
+    prose: [
+      'É a nossa sede, a água entra pela porta toda chuva forte.',
+      'Telhado grande, calha estourada e o pátio de terra batida embaixo.',
+      'As vinte mulheres do grupo e quem vem pras oficinas.',
+    ],
+    expect(r) {
+      const f: string[] = [];
+      if (!r.solutions.includes('captacao-agua-da-chuva')) f.push('captação não ficou registrada');
+      if (r.units !== 2) f.push(`intervention_units = ${r.units || '(vazio)'}, esperava 2`);
+      // ⚠️ The ficha says outright that this needs no environmental licence, and
+      // the land is theirs. Nothing external blocks it — a verdict of anything
+      // but `ready` here would mean the approval reader is over-firing.
+      if (r.verdict !== 'ready') f.push(`veredito ${r.verdict} — a ficha diz que não exige licenciamento e o terreno é próprio`);
+      if (!r.roadmap?.steps.length) f.push('nenhum passo para um projeto pronto pra orçar');
+      const b = budgetOf(r, 'captacao-agua-da-chuva');
+      if (b?.lowBrl == null) f.push('duas cisternas contadas e sem total');
+      return f;
+    },
+  },
+  {
+    id: 'encosta-cavalhada',
+    name: 'Moradores da Encosta da Cavalhada',
+    profile:
+      'A FICHA DIZ QUE NÃO DÁ PRA MUTIRÃO · solo grampeado em encosta ocupada · a organização responde mutirão mesmo assim · o caminho onde dizer não é a coisa mais útil que se pode fazer.',
+    state: mkState({
+      org_profile: { org_name: 'Moradores da Encosta da Cavalhada', contact_name: 'Jair Nunes' },
+      intervention_site: {
+        bairro: 'Cavalhada', site_name: 'Talude atrás das casas', _site_lat: '-30.1120', _site_lng: '-51.2400',
+        current_use: 'slope', land_tenure: 'public-informal', site_worry: 'landslide',
+        site_story: 'Depois da chuva a terra desce e já bateu no muro dos fundos de três casas.',
+        site_knowledge_depth: 'strong', nbs_interest: 'encostas-e-solo', role_preference: 'executar',
+      },
+    }),
+    drawM2: 300,
+    leanings: [
+      { pick: /^É isso ✓$/ },
+      { when: /qual delas|adiante/i, pick: /Solo grampeado verde/ },
+      { when: /qual delas|adiante/i, pick: /Ver todas as soluções/ },
+      { pick: /^Desenhar no mapa$/ },
+      { when: /quem constr/i, pick: /^Mutirão$/ },
+      { when: /medir|acompanh/i, pick: /Ninguém ainda/ },
+      { when: /cuida disso|quem cuida/i, pick: /Voluntários da comunidade/ },
+      { when: /frequ|cuidado/i, pick: /A cada três meses/ },
+      { when: /dinheiro/i, pick: /Ainda não sabemos/ },
+      { pick: /^Parece pouco$/ },
+      { pick: /^Faz sentido$/ },
+      { pick: /^Serve, é isso mesmo$/ },
+      { pick: /2 anos/ },
+      { when: /mais alguma solução/i, pick: /Só essa/ },
+    ],
+    prose: [
+      'Porque se ceder de novo é em cima das três casas de baixo.',
+      'Terra exposta, sem nada plantado, com sulco de água no meio do talude.',
+      'As três famílias de baixo e quem passa pela viela.',
+    ],
+    expect(r) {
+      const f: string[] = [];
+      if (!r.solutions.includes('solo-grampeado-verde')) f.push('solo-grampeado-verde não ficou registrado');
+      if (r.verdict !== 'needs_study') f.push(`veredito ${r.verdict} — nível licença, sem exceção`);
+      // ⚠️ They answered mutirão and the ficha rules it out. Saying so plainly is
+      // the most useful thing available: it is a wall that falls on houses.
+      if (r.type.construction_model !== 'mutirao') f.push(`quem constrói = "${r.type.construction_model}", esperava mutirao`);
+      const b = budgetOf(r, 'solo-grampeado-verde');
+      if (!b) f.push('nenhuma linha de custo');
+      else if (!/n[ãa]o d[áa] pra mutir[ãa]o|perfura[çc][ãa]o mecanizada/i.test(b.notePt)) {
+        f.push('a ficha exclui mutirão e a linha de custo não diz isso');
+      }
+      if (!has(r, 'Defesa Civil')) f.push('encosta de risco e a Defesa Civil não aparece no PDF');
+      // ⚠️ Found by READING the page, not by a check: the route said "quem cuida
+      // disto depois do mutirão" two sections after the budget said the ficha
+      // rules a mutirão out. A document that contradicts itself on the one
+      // question that decides who touches a retaining wall is worse than one
+      // that says nothing.
+      if ((r.roadmap?.steps ?? []).some(st => /depois do mutir[ãa]o/i.test(st.title))) {
+        f.push('a rota fala em "depois do mutirão" para uma solução que a ficha exclui do mutirão');
+      }
+      return f;
+    },
+  },
+  {
+    id: 'teto-sarandi',
+    name: 'Coletivo Teto Verde Sarandi',
+    profile:
+      'A FAIXA DE MUTIRÃO EXISTE · teto verde na própria laje · a única solução com número publicado de execução própria, e a ficha condiciona a ART ao método.',
+    state: mkState({
+      org_profile: { org_name: 'Coletivo Teto Verde Sarandi', contact_name: 'Alessandra Rocha', prior_project_scale: 'small' },
+      intervention_site: {
+        bairro: 'Sarandi', site_name: 'Laje da sede', _site_lat: '-29.9930', _site_lng: '-51.1200',
+        current_use: 'built', land_tenure: 'private-owned', site_worry: 'heat',
+        site_story: 'A laje pega sol o dia todo e a sala embaixo fica insuportável no verão.',
+        site_knowledge_depth: 'strong', nbs_interest: 'verde-urbano', role_preference: 'executar',
+      },
+    }),
+    drawM2: 60,
+    leanings: [
+      { pick: /^É isso ✓$/ },
+      { when: /qual delas|adiante/i, pick: /Teto verde/ },
+      { when: /qual delas|adiante/i, pick: /Ver todas as soluções/ },
+      { pick: /^Desenhar no mapa$/ },
+      { when: /quem constr/i, pick: /^Mutirão$/ },
+      { when: /medir|acompanh/i, pick: /A gente mesmo/ },
+      { when: /cuida disso|quem cuida/i, pick: /A gente mesmo/ },
+      { when: /frequ|cuidado/i, pick: /A cada três meses/ },
+      { when: /dinheiro/i, pick: /Recursos próprios/ },
+      { pick: /^Faz sentido$/ },
+      { pick: /^Serve, é isso mesmo$/ },
+      { pick: /6 meses/ },
+      { when: /mais alguma solução/i, pick: /Só essa/ },
+    ],
+    prose: [
+      'É a nossa laje, e a sala de baixo é onde acontece tudo.',
+      'Laje de concreto nua, sem nenhuma sombra, com infiltração num canto.',
+      'O coletivo e as oficinas que acontecem na sala de baixo.',
+    ],
+    expect(r) {
+      const f: string[] = [];
+      if (!r.solutions.includes('teto-verde')) f.push('teto-verde não ficou registrado');
+      // ⚠️ The one solution whose ficha publishes a self-build figure. An
+      // organisation told "esta faixa é de execução contratada" here would be
+      // reading a caveat about a number that does not apply to it.
+      const b = budgetOf(r, 'teto-verde');
+      if (!b) f.push('nenhuma linha de custo para teto-verde');
+      else if (/faixa [ée] de execu[çc][ãa]o contratada/i.test(b.notePt)) {
+        f.push('a ficha publica a faixa de mutirão e a linha ainda avisa que o preço é de empresa');
+      }
+      if (Math.abs(r.areaM2 - 60) > 10) f.push(`área ${r.areaM2} m², esperava ~60`);
+      // Their own laje: no external body, and the ART is conditional on method.
+      if (!has(r, 'ART')) f.push('a ficha condiciona a ART ao método e o PDF não menciona');
+      return f;
+    },
+  },
 ];
 
 // ── Run ─────────────────────────────────────────────────────────────────────

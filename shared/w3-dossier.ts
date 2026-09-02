@@ -31,7 +31,7 @@
 
 import { getSolutionFicha } from './nbs-solution-fichas';
 import { SOLUTION_MECHANISMS, getSolution, NBS_SOLUTIONS } from './nbs-catalog';
-import { budgetLineFor, type BudgetLine, type BuildModel } from './w3-sizing';
+import { budgetLineFor, SOLUTION_COSTS, type BudgetLine, type BuildModel } from './w3-sizing';
 import { studyCostLine, STUDY_COSTS } from './w3-studies';
 import { approvalRequirement } from './nbs-approvals';
 import { WORRY_SUBTYPES, type WorryId } from './site-knowledge';
@@ -576,12 +576,19 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
     // takes this page to an assembly. Same defect the who-maintains question
     // had — fixed there in the manifest, still hardcoded here, because the two
     // live in different files and nobody walked the printed page afterwards.
+    //
+    // ⚠️ And it keys off what the FICHA ALLOWS, not only off what they answered.
+    // An organisation can answer "mutirão" for a solution whose ficha rules a
+    // mutirão out — solo grampeado is explicit about it — and the document then
+    // said "quem cuida disto depois do mutirão" two sections after saying a
+    // mutirão cannot build it. Found by reading the page, not by a check.
+    const selfBuildRuledOut = !!SOLUTION_COSTS[id]?.buildModel?.mutiraoImpossiblePt;
     const afterWho =
       buildModelForItems === 'contratada'
         ? { pt: 'depois que a empresa entregar', en: 'once the contractor hands it over' }
         : buildModelForItems === 'parceria'
           ? { pt: 'depois que o parceiro entregar', en: 'once the partner hands it over' }
-          : buildModelForItems === 'mutirao' || buildModelForItems === 'mista'
+          : (buildModelForItems === 'mutirao' || buildModelForItems === 'mista') && !selfBuildRuledOut
             ? { pt: 'depois do mutirão', en: 'after the mutirão' }
             : { pt: 'depois que a obra terminar', en: 'once the work is finished' };
     add({
