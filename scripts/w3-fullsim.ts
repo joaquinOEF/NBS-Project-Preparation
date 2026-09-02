@@ -333,6 +333,22 @@ function universal(r: Run): string[] {
     }
   }
 
+  // ⚠️ The same instruction twice. The item loop runs once per solution and
+  // several of its lines do not name one, so an organisation taking two
+  // solutions got the identical sentence as two steps of its route. Two
+  // identical lines read as a mistake in the document.
+  const stepTitles = (r.roadmap?.steps ?? []).map(s => s.title);
+  for (const [i, t] of stepTitles.entries()) {
+    if (stepTitles.indexOf(t) !== i) f.push(`passo repetido palavra por palavra: “${t.slice(0, 70)}…”`);
+  }
+
+  // Markdown delimiters that reached the paper. The chat renders **bold** and
+  // _italics_; the printed page has to as well, or the scale statement's own
+  // caveat prints with its underscores showing.
+  if (/\*\*/.test(r.pdfText) || /(^|\s)_[^_\n]{3,}_(\s|$)/.test(r.pdfText)) {
+    f.push('marcação de markdown crua no PDF (** ou _..._)');
+  }
+
   // Nothing asked cold that Encontro 2 already answered.
   const quotedBack = r.said.some(l =>
     /no \*\*Encontro 2\*\* voc[eê]s j[aá] escreveram|back in \*\*Encontro 2\*\* you already wrote/i.test(l));

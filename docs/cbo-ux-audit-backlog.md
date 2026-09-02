@@ -515,3 +515,11 @@ It is *Teia* (the government open call). Don't propagate the transcript's spelli
     Provision as a **scoped coordinator on the live Vila Flores cohort** via the in-app admin panel — `/orchestrator` → "New cohort" is for new cohorts, so for an existing one use `scripts/create-coordinator.ts` with the cohort UUID, or the bootstrap endpoint against the **prod** URL (see [`docs/cougar-runbook.md`](cougar-runbook.md) §1). ⚠️ Replit's shell `DATABASE_URL` is the **dev** database — provisioning there creates an account that does not exist in production.
 
     Scoped, not admin: she needs to read one cohort, not create or delete them. Related to #26 — she is the person the Teia Sprint applications and the collaboration history are being surfaced for, and Antônia is separately brokering her introduction to Hesioni.
+
+### Wave: full-encontro simulation, 2026-09-02
+
+34. **The chat card and the printed page disagree about money for an organisation with no place (P2, S)** — found by `npm run w3:fullsim` (Ação Cavalhada). `buildDossier` returns early when `hasSite` is false and hands back `budget: []`, so the closing card in the chat shows no cost at all. `buildRoadmap` computes its own budget from `budgetLineFor` regardless, so the PDF the same organisation downloads prints **"R$ 500–R$ 600 por m². Falta desenhar a área para fechar um total."**
+
+    Neither behaviour is obviously wrong — a unit price with the missing area named is arguably the more useful of the two — but the two surfaces have to agree, and today an organisation is told two different things about the same project ten seconds apart. This is a product call, not a bug fix: **does an organisation with no place marked see a price per m²?** Decide it once and make both surfaces read from the same answer, the way the verdict already does.
+
+    Same-shape risk as the `dossier.studies` line, which the no-site early return also drops: the roadmap names the study as a step ("Quando houver um lugar: Grade viva vai precisar de um responsável técnico com ART") while the card carries nothing about it.

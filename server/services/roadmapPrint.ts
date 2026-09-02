@@ -30,9 +30,21 @@ const esc = (s: unknown): string =>
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
-/** The chat copy uses **bold**; the page should too rather than printing asterisks. */
+/**
+ * The chat copy uses **bold** and _italics_; the page should too rather than
+ * printing the delimiters.
+ *
+ * ⚠️ The italic half was missing, so the scale statement's own caveat — the one
+ * sentence saying the reference volumes are for comparing scales and not for
+ * sizing the works — printed as "_Ordem de grandeza: … não pra dimensionar a
+ * obra._" on a page an organisation takes to a meeting. Underscores are matched
+ * only at word boundaries, so nothing that merely contains one is touched.
+ */
 const md = (s: unknown): string =>
-  esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+  esc(s)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[\s(])_([^_\n]{1,400}?)_(?=[\s.,;:)!?]|$)/g, '$1<em>$2</em>')
+    .replace(/\n/g, '<br>');
 
 const STATE_LABEL: Record<string, { pt: string; en: string }> = {
   ready: { pt: 'Pronto pra orçar', en: 'Ready to quote' },

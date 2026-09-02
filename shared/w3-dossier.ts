@@ -399,7 +399,25 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
   const capacity = gradeCapacity(input, lang);
   const items: DossierItem[] = [];
   const gaps: string[] = [];
-  const add = (i: DossierItem) => items.push(i);
+  /**
+   * ⚠️ Deduplicated on the sentence itself.
+   *
+   * The item loop runs once per solution, and several of its lines do not name
+   * one — an organisation that took a rain garden AND a bioswale got "Definir
+   * quem paga a limpeza ou troca das camadas filtrantes quando elas entopem"
+   * printed twice, word for word, as steps 2 and 4 of its route. Two identical
+   * instructions read as a mistake in the document, which is the one thing this
+   * page cannot afford. Where the line DOES name its solution (the maintenance
+   * agreement) the two texts differ and both survive, which is correct.
+   *
+   * The sources merge rather than the second being dropped: "why does this say
+   * that" has to stay answerable for both fichas.
+   */
+  const add = (i: DossierItem) => {
+    const twin = items.find(x => x.list === i.list && x.text === i.text);
+    if (!twin) { items.push(i); return; }
+    if (!twin.source.includes(i.source)) twin.source = `${twin.source} · ${i.source}`;
+  };
 
   /** Who builds it — the item copy needs it as much as the budget does. */
   const buildModelForItems = (w3.construction_model || '') as string;
