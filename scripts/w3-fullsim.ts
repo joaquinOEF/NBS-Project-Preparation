@@ -46,6 +46,8 @@ import { mkState } from './w3-sim';
 import { buildDossier, portfolioState, studyRequirement, type Dossier } from '../shared/w3-dossier';
 import { buildRoadmap, type Roadmap } from '../shared/w3-roadmap';
 import { renderRoadmapHtml } from '../server/services/roadmapPrint';
+import { renderConceptNoteHtml } from '../server/services/conceptNotePrint';
+import { buildConceptNote } from '../shared/concept-note';
 import { SOLUTION_COSTS } from '../shared/w3-sizing';
 import { getSolution } from '../shared/nbs-catalog';
 import type { MaturityScore } from '../shared/cbo-schema';
@@ -713,21 +715,34 @@ async function main() {
     const dossier = buildDossier(input, 'pt');
     const roadmap: Roadmap | null = d.events.filter(e => e.type === 'show_roadmap').pop()?.roadmap ?? null;
 
-    // The artefact, exactly as the server serves it and the phone prints it.
-    const html = roadmap ? renderRoadmapHtml(roadmap, 'pt') : '';
-    let pdfBytes = 0, pdfPages = 0, pdfText = '';
-    if (html) {
+    // The artefacts, exactly as the server serves them and the phone prints
+    // them: the route, and the concept note assembled from the same record.
+    const printPdf = async (html: string, name: string) => {
       const page = await browser.newPage();
       await page.setContent(html, { waitUntil: 'load' });
       const buf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '16mm', bottom: '16mm', left: '14mm', right: '14mm' } });
       await page.close();
-      fs.writeFileSync(path.join(OUT, `${p.id}-roadmap.pdf`), buf);
-      fs.writeFileSync(path.join(OUT, `${p.id}-roadmap.html`), html);
+      fs.writeFileSync(path.join(OUT, `${p.id}-${name}.pdf`), buf);
+      fs.writeFileSync(path.join(OUT, `${p.id}-${name}.html`), html);
+      return buf;
+    };
+
+    const html = roadmap ? renderRoadmapHtml(roadmap, 'pt') : '';
+    let pdfBytes = 0, pdfPages = 0, pdfText = '';
+    if (html) {
+      const buf = await printPdf(html, 'roadmap');
       pdfBytes = buf.length;
       const parsed = await parsePdfBuffer(Buffer.from(buf));
       pdfPages = parsed.numPages;
       pdfText = parsed.text;
     }
+
+    // The concept note. Built with no model in the path — this is the floor the
+    // authored version can never fall below (docs/concept-note-authoring.md).
+    const note = buildConceptNote(input, 'pt');
+    const noteBuf = await printPdf(renderConceptNoteHtml(note, 'pt'), 'nota-conceito');
+    const noteParsed = await parsePdfBuffer(Buffer.from(noteBuf));
+    const unsourced = note.sections.flatMap(sec => sec.paragraphs).filter(par => !par.sources.length);
 
     const r: Run = {
       persona: p, state: d.state, events: d.events, said: d.said, asked: d.asked,
@@ -736,6 +751,12 @@ async function main() {
       verdict: portfolioState(dossier.verdicts), html, pdfBytes, pdfPages, pdfText,
     };
     const fails = [...universal(r), ...p.expect(r)];
+    for (const par of note.sections.flatMap(sec => sec.paragraphs)) {
+      if (!par.sources.length) fails.push(`nota de conceito: parágrafo sem fonte — “${par.text.slice(0, 50)}…”`);
+      if (par.kind !== 'quote' && /\bvoc[eê]s\b|\ba gente\b/i.test(par.text)) {
+        fails.push(`nota de conceito: segunda pessoa — “${par.text.slice(0, 50)}…”`);
+      }
+    }
     results.push({ p, r, fails });
 
     fs.writeFileSync(
@@ -756,6 +777,8 @@ async function main() {
     console.log(`  maturidade   : ${d.maturity.map(m => `${m.metric}=${m.score}`).join('  ') || '(nenhuma)'}`);
     console.log(`  hoja de ruta : ${roadmap ? `${roadmap.steps.length} passos · ${roadmap.open.length} em aberto` : '⚠️ NÃO PRODUZIDA'}`);
     console.log(`  PDF          : ${pdfPages} página(s), ${(pdfBytes / 1024).toFixed(0)} KB, ${pdfText.replace(/\s+/g, ' ').trim().split(' ').length} palavras lidas de volta`);
+    console.log(`  nota-conceito: ${note.sections.length} seções, ${note.sections.flatMap(sec => sec.paragraphs).length} parágrafos, ${noteParsed.numPages} página(s)${unsourced.length ? `  ⚠️ ${unsourced.length} SEM FONTE` : ''}`);
+    if (unsourced.length) fails.push(`${unsourced.length} parágrafo(s) da nota de conceito sem fonte`);
     if (fails.length) {
       console.log(`  ❌ ${fails.length} falha(s):`);
       for (const x of fails) console.log(`     · ${x}`);

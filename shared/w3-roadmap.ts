@@ -150,11 +150,23 @@ const S = {
  * Keyed on the option id, so a change to either wording cannot silently
  * mismatch the other.
  */
-const REPORT_LABEL: Record<string, { pt?: string; en?: string }> = {
+export const REPORT_LABEL: Record<string, { pt?: string; en?: string }> = {
   nos: { pt: 'A própria organização', en: 'The organisation itself' },
   indefinido: { pt: 'Ainda não definido', en: 'Not yet defined' },
   'recursos-proprios': { en: "The organisation's own resources" },
+  // The tenure answers are written as replies to a spoken question — "Sim,
+  // somos donas do terreno", "É da prefeitura, mas a gente usa". On a page that
+  // states facts they have to be the fact.
+  'private-owned': { pt: 'Próprio da organização', en: 'Owned by the organisation' },
+  'formal-agreement': { pt: 'Uso formalizado por acordo escrito', en: 'Use formalised by written agreement' },
+  'public-informal': { pt: 'Público, em uso pela organização sem documento', en: 'Public, used by the organisation without a document' },
+  'public-no-access': { pt: 'Público, sem acesso garantido', en: 'Public, with no guaranteed access' },
+  mixed: { pt: 'Situação ainda indefinida', en: 'Situation still undefined' },
 };
+
+/** The written form of a catalogue option, when the chip's wording is spoken. */
+export const reportLabel = (id: string | undefined, lang: 'pt' | 'en'): string | undefined =>
+  (id ? REPORT_LABEL[id]?.[lang] : undefined);
 
 /** An enum's label in the reader's language, or null when it is unanswered. */
 function label(sectionId: string, field: string, id: string | undefined, lang: 'pt' | 'en'): string | null {

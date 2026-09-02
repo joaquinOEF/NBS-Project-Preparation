@@ -205,7 +205,7 @@ const PUBLIC_TENURE = new Set([
  * difference between a project they can start and one they cannot.
  */
 /** The words an organisation used for a worry, never the id we store it under. */
-function worryLabel(id: string, pt: boolean): string {
+export function worryLabel(id: string, pt: boolean): string {
   const first = id.split(',')[0].trim();
   const sub = WORRY_SUBTYPES.find(w => w.id === first);
   if (sub) return (pt ? sub.dPt : sub.dEn).toLowerCase();
