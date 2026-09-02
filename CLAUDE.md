@@ -189,6 +189,15 @@ that follow from them (walk the whole path; look at the room past the door; ask
 who else is on this path; verify a landing on `main`, not in the PR list).
 
 
+### ⚠️ The workshop speaks, the document is written — `docs/document-register.md`
+Anything an organisation downloads is a nota técnica in the third person. Our
+own design principles — "nada fica descartado", "the map does not lead", "the
+gaps are not a report card" — belong in this repo, not narrated at the reader in
+11px grey type under a cost table. Read that file before writing any string that
+reaches the hoja de ruta or the dossier card; it lists the seven sentences that
+had to come off the page and why each one was written in good faith.
+`npm run w3:fullsim` fails on second person in any authored line.
+
 ### CBO chat composers (inline widgets) — see `docs/cbo-chat-composers.md`
 Rules for any interactive widget rendered **inside the CBO chat** (NBS type/example
 strips, priority chips, anchoring): persist it as a `composer` transcript message or

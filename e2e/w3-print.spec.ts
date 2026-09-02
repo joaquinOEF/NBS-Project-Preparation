@@ -104,7 +104,7 @@ test.describe('the printed hoja de ruta', () => {
 
     // The money disclaimer travels with the figure, not as a footnote.
     expect(html).toContain('R$ 200.000');
-    expect(html).toContain('não é dinheiro que alguém já tem');
+    expect(html).toContain('não representa recurso disponível');
 
     // The five things Encontros 1 and 2 captured and the card never showed.
     expect(html, 'proponent').toContain('Marlene Duarte');
@@ -115,8 +115,10 @@ test.describe('the printed hoja de ruta', () => {
     expect(html).toMatch(/→ Marlene Duarte \(coordenadora\)/);
 
     // Provenance survives onto paper — it is what makes a line arguable.
-    expect(html).toContain('←');
-    expect(html).toContain('↻');
+    // ⚠️ Spelled out, not glyphed: `←` and `↻` were our own shorthand, legible
+    // to whoever built the page and to nobody reading it in an assembly.
+    expect(html).toContain('Fonte:');
+    expect(html).toContain('Revisar com:');
 
     // Self-contained: it has to render on an old phone with no data left.
     expect(html).not.toMatch(/<link[^>]+stylesheet/);
@@ -157,6 +159,6 @@ test.describe('the printed hoja de ruta', () => {
     const html = await (await request.get(`/api/cbo/${cboId}/roadmap?lang=en`)).text();
     expect(html).toContain('DRAFT');
     expect(html).toContain('Rain gardens');
-    expect(html).toContain('not money anyone already has');
+    expect(html).toContain('does not represent available funds');
   });
 });

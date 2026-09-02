@@ -92,18 +92,18 @@ export interface Roadmap {
 const S = {
   pt: {
     draft: 'Rascunho para validar',
-    proponent: 'Quem está propondo',
+    proponent: 'Organização proponente',
     context: 'O bairro',
-    contribution: 'O que a organização entra',
-    moneyIsNot: 'Essa faixa não é dinheiro que alguém já tem. É a ordem de grandeza pra pedir cotação e pra escrever num edital.',
+    contribution: 'Contrapartida da organização',
+    moneyIsNot: 'A faixa não representa recurso disponível. É a ordem de grandeza para pedir cotação e para inscrever o projeto num edital.',
     what: 'O que é',
     where: 'Onde',
     size: 'Tamanho',
-    problem: 'O problema, nas palavras de vocês',
+    problem: 'O problema — descrito pela organização',
     why: 'Por que aqui',
-    expect: 'O que a gente espera que aconteça',
+    expect: 'Efeito esperado',
     baseline: 'Como está hoje',
-    cost: 'Quanto custa',
+    cost: 'Custo estimado',
     who: 'Quem constrói',
     yes: 'Quem precisa dizer sim',
     care: 'Quem cuida depois',
@@ -115,18 +115,18 @@ const S = {
   },
   en: {
     draft: 'Draft to validate',
-    proponent: 'Who is proposing this',
+    proponent: 'Proposing organisation',
     context: 'The neighbourhood',
-    contribution: 'What the organisation brings',
-    moneyIsNot: 'This range is not money anyone already has. It is the order of magnitude for requesting a quote and for writing into a funding call.',
+    contribution: "The organisation's contribution",
+    moneyIsNot: 'The range does not represent available funds. It is the order of magnitude for requesting a quote and for entering the project into a funding call.',
     what: 'What it is',
     where: 'Where',
     size: 'Size',
-    problem: 'The problem, in your words',
+    problem: 'The problem — as described by the organisation',
     why: 'Why here',
-    expect: 'What we expect it to do',
+    expect: 'Expected effect',
     baseline: 'How it is today',
-    cost: 'What it costs',
+    cost: 'Estimated cost',
     who: 'Who builds it',
     yes: 'Who has to say yes',
     care: 'Who looks after it',
@@ -138,9 +138,29 @@ const S = {
   },
 };
 
+/**
+ * ⚠️ The chip is SPOKEN, the document is WRITTEN.
+ *
+ * A few catalogue options are phrased as the organisation answering out loud —
+ * "A gente mesmo", "Ainda não sabemos", "Our own resources" — which is exactly
+ * right on a chip they tap in the middle of a conversation, and wrong on a
+ * nota técnica that a funder or the prefeitura reads. The chip keeps its
+ * wording; the document gets the written form of the same answer.
+ *
+ * Keyed on the option id, so a change to either wording cannot silently
+ * mismatch the other.
+ */
+const REPORT_LABEL: Record<string, { pt?: string; en?: string }> = {
+  nos: { pt: 'A própria organização', en: 'The organisation itself' },
+  indefinido: { pt: 'Ainda não definido', en: 'Not yet defined' },
+  'recursos-proprios': { en: "The organisation's own resources" },
+};
+
 /** An enum's label in the reader's language, or null when it is unanswered. */
 function label(sectionId: string, field: string, id: string | undefined, lang: 'pt' | 'en'): string | null {
   if (!id) return null;
+  const written = REPORT_LABEL[id]?.[lang];
+  if (written) return written;
   const hit = (cboFieldEnumOptions(sectionId, field) ?? []).find(o => o.id === id);
   return hit ? (lang === 'pt' ? hit.pt : hit.en) : id;
 }
@@ -217,9 +237,6 @@ export function buildRoadmap(
         ...bits,
       ].filter(l => l.trim() !== '**' && l.trim() !== ''),
       from: pt ? 'Encontro 1' : 'Encontro 1',
-      changedBy: pt
-        ? 'Se algo aqui mudou desde o primeiro encontro, é só dizer — a gente atualiza.'
-        : 'If anything here changed since the first encontro, just say so and we update it.',
     });
   }
 
@@ -232,10 +249,10 @@ export function buildRoadmap(
           return sol ? `${sol[lang].label} — ${sol[lang].whatItIs}` : id;
         })
       : [pt ? 'Nenhuma solução escolhida ainda.' : 'No solution chosen yet.'],
-    from: pt ? 'escolha de vocês no Encontro 3' : 'your choice in Encontro 3',
+    from: pt ? 'escolha da organização no Encontro 3' : "the organisation's choice in Encontro 3",
     changedBy: pt
-      ? 'Dá pra trocar a qualquer momento — as 27 continuam abertas, e nada aqui fecha essa porta.'
-      : 'Changeable at any point — all 27 stay open, and nothing here closes that door.',
+      ? 'nova escolha no catálogo — as 27 soluções seguem disponíveis'
+      : 'a new choice from the catalogue — all 27 solutions remain available',
   });
 
   what.push({
@@ -257,8 +274,8 @@ export function buildRoadmap(
     ],
     from: pt ? 'mapa do Encontro 2 e o contorno do Encontro 3' : 'the Encontro 2 map and the Encontro 3 outline',
     changedBy: pt
-      ? 'O contorno é a dedo, arredondado de propósito. Redesenhar muda a área e a faixa de preço junto.'
-      : 'The outline is finger-drawn and deliberately rounded. Redrawing changes the area and the price range with it.',
+      ? 'novo contorno no mapa — altera a área e a faixa de custo'
+      : 'a new outline on the map — changes the area and the cost range with it',
     open: !areaM2 && !units,
   });
 
@@ -295,27 +312,39 @@ export function buildRoadmap(
   if (ctxLines.length) {
     what.push({
       title: t.context,
-      lines: ctxLines,
+      lines: [
+        ...ctxLines,
+        // A caveat about a figure belongs BESIDE the figure, not in the review
+        // field: it is not something anyone can go and change.
+        pt
+          ? '⚠️ Média do bairro inteiro, não do lugar da intervenção. Situa o projeto num edital; não descreve o terreno.'
+          : '⚠️ Whole-neighbourhood average, not the intervention site. It situates the project in a funding call; it does not describe the land.',
+      ],
       from: pt
-        ? 'dados oficiais do município, no mapa que vocês confirmaram no Encontro 2'
-        : 'official municipal data, on the map you confirmed in Encontro 2',
-      changedBy: pt
-        ? '⚠️ Isso é a média do bairro inteiro, não do lugar de vocês. Serve pra situar o projeto num edital — não pra descrever o terreno.'
-        : '⚠️ This is the whole-neighbourhood average, not your place. It situates the project in a funding call; it does not describe the site.',
+        ? 'dados oficiais do município, sobre o mapa confirmado no Encontro 2'
+        : 'official municipal data, over the map confirmed in Encontro 2',
     });
   }
 
   const worry = site.site_worry;
   what.push({
     title: t.problem,
+    // Quoted, because the heading says the organisation described it and a
+    // report that attributes a sentence has to show where the sentence ends.
     lines: [
-      has(site.site_story) ? site.site_story! : pt ? 'Ainda não registrado.' : 'Not recorded yet.',
-      ...(has(w3.justification_why_here) ? [`${t.why}: ${w3.justification_why_here}`] : []),
+      has(site.site_story) ? `“${site.site_story!.trim()}”` : pt ? 'Ainda não registrado.' : 'Not recorded yet.',
+      ...(has(w3.justification_why_here) ? [`${t.why}: “${w3.justification_why_here!.trim()}”`] : []),
     ],
-    from: pt ? `o que vocês contaram${has(worry) ? '' : ''}` : 'what you told us',
-    changedBy: pt
-      ? 'Essa parte é de vocês. Se a descrição não está certa, é ela que manda — não o nosso mapa.'
-      : 'This part is yours. If the description is not right, it is what counts — not our map.',
+    // ⚠️ No `changedBy` here, deliberately. The line that stood here said "essa
+    // parte é de vocês… é ela que manda, não o nosso mapa" — our own rule about
+    // whose account governs, narrated at the reader. Naming the source as the
+    // organisation's own words states the same fact without the reassurance.
+    // Both encontros when both sentences are there: the account of the place
+    // comes from E2, the reason for choosing it from E3, and a source line that
+    // names the wrong one is exactly the sloppiness this register is for.
+    from: has(w3.justification_why_here)
+      ? (pt ? 'palavras da organização, Encontros 2 e 3' : "the organisation's own words, Encontros 2 and 3")
+      : (pt ? 'palavras da organização, no Encontro 2' : "the organisation's own words, in Encontro 2"),
     open: !has(site.site_story),
   });
 
@@ -339,14 +368,14 @@ export function buildRoadmap(
   if (reaction === 'parece-pouco') {
     expectLines.push(
       pt
-        ? '⚑ Vocês disseram que parece pouco — isso ficou registrado, e com razão: nenhuma dessas soluções resolve uma enchente do porte de 2024 sozinha.'
-        : '⚑ You said it sounds like little — recorded, and rightly: none of these solves a 2024-scale flood on its own.',
+        ? '⚑ A organização considerou a faixa pouca. Registrado, e com razão: nenhuma dessas soluções resolve sozinha uma enchente do porte de 2024.'
+        : '⚑ The organisation judged the range small. Recorded, and rightly: none of these solves a 2024-scale flood on its own.',
     );
   } else if (reaction === 'parece-muito') {
     expectLines.push(
       pt
-        ? '⚑ Vocês acharam alto — fica marcado como número a conferir com um técnico antes de virar promessa.'
-        : '⚑ You thought it high — flagged as a figure to check with a technician before it becomes a promise.',
+        ? '⚑ A organização considerou a faixa alta. Fica marcada como número a conferir com um técnico antes de virar promessa.'
+        : '⚑ The organisation judged the range high. Flagged as a figure to check with a technician before it becomes a promise.',
     );
   }
   what.push({
@@ -356,18 +385,18 @@ export function buildRoadmap(
       ? 'faixas de projeto das fichas e da base de evidências — estimativa, não medição'
       : 'design ranges from the fichas and the evidence base — estimate, not measurement',
     changedBy: pt
-      ? 'Um estudo técnico troca essa faixa por um número do lugar de vocês. Até lá ela serve pra pedir, não pra prometer.'
-      : 'A technical study replaces this range with a figure for your own site. Until then it is for asking with, not promising.',
+      ? 'estudo técnico no local — substitui a faixa por um número medido'
+      : 'a technical study on site — replaces the range with a measured figure',
   });
 
   if (has(w3.baseline_condition)) {
     what.push({
       title: t.baseline,
-      lines: [w3.baseline_condition!],
-      from: pt ? 'descrição de vocês, antes de qualquer obra' : 'your description, before any work',
+      lines: [`“${w3.baseline_condition!.trim()}”`],
+      from: pt ? 'descrição da organização, antes de qualquer obra' : "the organisation's description, before any work",
       changedBy: pt
-        ? 'Uma foto com data vale mais do que essa frase — é o que prova depois que alguma coisa mudou.'
-        : 'A dated photo is worth more than this sentence — it is what later proves anything changed.',
+        ? 'registro fotográfico datado, antes da obra'
+        : 'a dated photographic record, before the works',
     });
   }
 
@@ -390,9 +419,7 @@ export function buildRoadmap(
       ...(budget.some(b => b.lowBrl != null) ? [t.moneyIsNot] : []),
     ],
     from: pt ? 'preço publicado na ficha × área desenhada' : "the ficha's published price × the drawn area",
-    changedBy: pt
-      ? 'Uma cotação real de fornecedor. Essa faixa existe pra vocês conseguirem pedir uma.'
-      : 'A real supplier quote. This range exists so you can go and ask for one.',
+    changedBy: pt ? 'cotação de fornecedor' : 'a supplier quote',
     open: budget.some(b => b.lowBrl == null),
   });
 
@@ -406,7 +433,7 @@ export function buildRoadmap(
   how.push({
     title: t.who,
     lines: [construction ?? t.unknown, ...(timeframe ? [`${t.when}: ${timeframe}`] : [])],
-    from: pt ? 'resposta de vocês' : 'your answer',
+    from: pt ? 'resposta da organização' : "the organisation's answer",
     open: !construction,
   });
 
@@ -414,7 +441,11 @@ export function buildRoadmap(
   // labour is a figure somebody can subtract from what they are given, and the
   // point here is that a funder reads commitment rather than a discount.
   const contribution: string[] = [];
-  if (construction) contribution.push(construction);
+  // ⚠️ Only when the organisation itself supplies the labour. Listing "Empresa
+  // contratada" under what the organisation BRINGS is simply false, and it is
+  // false on the page a funder reads: a hired contractor is a cost, not a
+  // counterpart contribution.
+  if (construction && /mutirao|mista/.test(w3.construction_model ?? '')) contribution.push(construction);
   if (has(org.team_size)) contribution.push(pt ? `${org.team_size} pessoas na organização` : `${org.team_size} people in the organisation`);
   if (has(org.year_founded)) {
     const yrs = new Date().getFullYear() - Number(org.year_founded);
@@ -428,11 +459,13 @@ export function buildRoadmap(
   if (contribution.length) {
     how.push({
       title: t.contribution,
-      lines: contribution,
+      lines: [
+        ...contribution,
+        pt
+          ? 'Não incluída na faixa de custo acima.'
+          : 'Not included in the cost range above.',
+      ],
       from: pt ? 'Encontros 1 e 3' : 'Encontros 1 and 3',
-      changedBy: pt
-        ? 'Isso é contrapartida — vale dizer em qualquer edital, e não está no preço acima.'
-        : 'This is counterpart contribution — worth stating in any funding call, and it is not in the price above.',
     });
   }
 
@@ -453,9 +486,6 @@ export function buildRoadmap(
         )
       : [pt ? 'Depende da solução.' : 'Depends on the solution.'],
     from: pt ? 'ficha de cada solução' : "each solution's ficha",
-    changedBy: pt
-      ? 'A coordenação pode abrir essas portas junto — várias organizações batem na mesma.'
-      : 'The coordination can open these doors alongside you — several organisations knock on the same ones.',
   });
 
   how.push({
@@ -466,11 +496,12 @@ export function buildRoadmap(
       `${t.money}: ${money ?? t.unknown}`,
       ...(monitoring ? [`${t.measure}: ${monitoring}`] : []),
     ],
-    from: pt ? 'respostas de vocês' : 'your answers',
-    changedBy: pt
-      ? 'Se o dinheiro do ano que vem ficou em aberto, isso não é falha — é a conversa que a coordenação leva pra prefeitura.'
-      : 'If next year\'s money is open, that is not a failing — it is the conversation the coordination takes to the city.',
-    open: !maintains || !money || money === (pt ? 'Ainda não sabemos' : 'Not decided yet'),
+    from: pt ? 'respostas da organização' : "the organisation's answers",
+    // ⚠️ Compared on the stored id, never on the rendered label. REPORT_LABEL
+    // rewrites "Ainda não sabemos" into "Ainda não definido" for the document,
+    // and a comparison against the spoken wording silently stopped flagging the
+    // block the moment that map was added.
+    open: !maintains || !money || w3.sustainability_model === 'indefinido',
   });
 
   // A strength the organisation may not know is one. Placed last on page one,
@@ -479,14 +510,13 @@ export function buildRoadmap(
   const strengths = observations.filter(o => o.kind === 'strength');
   if (strengths.length) {
     what.push({
-      title: pt ? 'O que esse projeto já tem de forte' : 'What this project already has going for it',
+      title: pt ? 'Pontos fortes já identificados' : 'Strengths already identified',
       lines: strengths.map(o => o.text),
+      // The provenance IS the caveat here: this is a reading, not a statement
+      // the organisation made. Saying so once, as a source, beats an apology.
       from: pt
-        ? 'leitura do que vocês contaram e mandaram, nos três encontros'
-        : 'a read of what you told and sent us, across the three encontros',
-      changedBy: pt
-        ? 'Se alguma dessas frases não é verdade, ela sai — foi lida por nós, não dita por vocês.'
-        : 'If any of these is not true it comes out — we read it, you did not say it.',
+        ? 'leitura da coordenação sobre os três encontros — não é declaração da organização'
+        : 'a reading by the coordination across the three encontros — not a statement by the organisation',
     });
   }
 
@@ -520,7 +550,10 @@ export function buildRoadmap(
     what,
     how,
     steps,
-    open: dossier.gaps,
+    // Sentence case: these are bullets in a Pendências list, and half of them
+    // begin with a lower-case fragment while the other half begin with a
+    // solution name.
+    open: dossier.gaps.map(g => (g ? g.charAt(0).toUpperCase() + g.slice(1) : g)),
     dossier,
     budget,
     benefits,

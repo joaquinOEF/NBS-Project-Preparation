@@ -104,7 +104,7 @@ export function scaleStatement(
     ...rows.map(r =>
       `- ${r.labelPt}: este projeto sozinho, ${pctLabel(r.pct, 'pt')} · a rede inteira junta, cerca de ${pctLabel(r.portfolioPct, 'pt')} — ${r.verdictPt}`),
     `\nÉ em **${best.labelPt.toLowerCase()}** que isto pesa. E pesa junto: sozinho o projeto é uma fração de por cento de qualquer um desses eventos — é somado ao das outras organizações da rede que vira número.`,
-    `\nJá ${worst.labelPt.toLowerCase()} é outra escala. ${up(NBS_SCALE_HONESTY.doesNotSolve.pt.slice(0, 2).join(' e '))} não se resolvem com soluções baseadas na natureza — dizer isso num edital é o que separa um projeto sério de um otimista.`,
+    `\nJá ${worst.labelPt.toLowerCase()} é outra escala. ${up(NBS_SCALE_HONESTY.doesNotSolve.pt.slice(0, 2).join(' e '))} não se resolvem com soluções baseadas na natureza. Registrar esse limite faz parte da fundamentação técnica do projeto.`,
     '_Ordem de grandeza: os volumes de referência são da Bacia do Sarandi, do material técnico que uma organização da rede enviou. Servem pra comparar escalas, não pra dimensionar a obra._',
   ];
   const linesEn = [
@@ -112,7 +112,7 @@ export function scaleStatement(
     ...rows.map(r =>
       `- ${r.labelEn}: this project alone, ${pctLabel(r.pct, 'en')} · the whole network together, about ${pctLabel(r.portfolioPct, 'en')} — ${r.verdictEn}`),
     `\nIt is at **${best.labelEn.toLowerCase()}** that this weighs. And it weighs together: alone the project is a fraction of a percent of any of these events — it becomes a number when added to the others in the network.`,
-    `\n${worst.labelEn} is another scale. ${up(NBS_SCALE_HONESTY.doesNotSolve.en.slice(0, 2).join(' and '))} are not solved by nature-based solutions — saying so in a funding application is what separates a serious project from an optimistic one.`,
+    `\n${worst.labelEn} is another scale. ${up(NBS_SCALE_HONESTY.doesNotSolve.en.slice(0, 2).join(' and '))} are not solved by nature-based solutions. Stating that limit is part of the project's technical grounding.`,
     '_Order of magnitude: the reference volumes are for the Bacia do Sarandi, from technical material one of the network organisations sent. They compare scales; they do not size the works._',
   ];
 

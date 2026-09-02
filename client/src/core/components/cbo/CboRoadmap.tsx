@@ -43,29 +43,33 @@ const STATE: Record<VerdictState, { pt: string; en: string; cls: string }> = {
 
 const S = {
   pt: {
-    eyebrow: 'Rascunho — pra vocês conferirem e ajustarem',
+    eyebrow: 'Rascunho — para conferir e ajustar',
     p1: 'O projeto',
-    p2: 'O que ele pede',
-    road: 'O caminho daqui',
-    open: 'O que ficou em aberto',
-    openWhy: 'Isso não é falha de vocês. É o próximo trecho do caminho — e boa parte dele é da coordenação.',
-    org: 'vocês',
+    p2: 'O que o projeto exige',
+    road: 'Próximos passos',
+    open: 'Pendências',
+    openWhy: 'Itens pendentes no fechamento do Encontro 3. O responsável indicado consta em cada passo.',
+    org: 'a organização',
     coord: 'coordenação',
     openTag: 'em aberto',
-    note: 'Nada aqui está fechado. Cada bloco diz de onde veio e o que muda ele.',
+    source: 'Fonte',
+    review: 'Revisar com',
+    note: 'Nenhum valor está fechado. Cada bloco indica a sua fonte e o que o revisaria.',
     print: 'Baixar pra imprimir ou levar',
   },
   en: {
-    eyebrow: 'Draft — for you to check and adjust',
+    eyebrow: 'Draft — to check and adjust',
     p1: 'The project',
-    p2: 'What it asks for',
-    road: 'The road from here',
-    open: 'What is still open',
-    openWhy: 'This is not a failing on your side. It is the next stretch of the road — and much of it belongs to the coordination.',
-    org: 'you',
+    p2: 'What the project requires',
+    road: 'Next steps',
+    open: 'Open items',
+    openWhy: 'Items still open at the close of Encontro 3. The proposed owner of each one appears in the steps.',
+    org: 'the organisation',
     coord: 'coordination',
     openTag: 'open',
-    note: 'Nothing here is settled. Every block says where it came from and what would change it.',
+    source: 'Source',
+    review: 'Revise with',
+    note: 'No figure is settled. Every block states its source and what would revise it.',
     print: 'Download to print or take with you',
   },
 };
@@ -82,16 +86,18 @@ function Block({ b, lang }: { b: RoadmapBlock; lang: 'pt' | 'en' }) {
           </span>
         )}
       </div>
-      {b.lines.map((l, i) => (
+      {b.lines.filter(l => String(l).trim() !== '').map((l, i) => (
         <p key={i} className="mb-1 text-[12.5px] leading-snug last:mb-0">{l}</p>
       ))}
+      {/* Labelled, not glyphed — see the note on block() in roadmapPrint.ts.
+          The card and the printed sheet are the same document. */}
       {b.from && (
-        <p className="mt-1.5 text-[10.5px] italic leading-snug text-muted-foreground">← {b.from}</p>
+        <p className="mt-1.5 text-[10.5px] italic leading-snug text-muted-foreground">{s.source}: {b.from}</p>
       )}
       {b.changedBy && (
         <p className="mt-1 flex items-start gap-1 text-[10.5px] leading-snug text-muted-foreground">
           <RefreshCw className="mt-[2px] h-2.5 w-2.5 shrink-0" />
-          {b.changedBy}
+          {s.review}: {b.changedBy}
         </p>
       )}
     </div>
