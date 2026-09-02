@@ -100,15 +100,33 @@ calls use. Naming that now avoids designing against a KB we cannot reach.
 
 ## Phases
 
-1. **P1 — the fact base.** `conceptNoteFacts()` + the ten-section skeleton,
-   deterministic only. Proves the facts and the renderer with no model in the
-   path; the output should already beat today's document on structure alone.
-2. **P2 — write three sections.** Resumo, *Por que esta solução aqui*,
-   Resultados esperados — the three where writing adds most — with sources and
-   the fallback.
+1. **P1 — the fact base. ✅ shipped (PR #518).** `conceptNoteFacts()` + the ten
+   sections, deterministic. `shared/concept-note.ts`, rendered by
+   `server/services/conceptNotePrint.ts`, served at `/api/cbo/:id/concept-note`,
+   printed per archetype by `npm run w3:fullsim`.
+2. **P2 — write three sections. ✅ shipped (PR #518).** Resumo, *Por que esta
+   solução aqui*, Resultados esperados. `server/services/conceptNoteAuthor.ts`
+   fires at the close of Encontro 3 — fire-and-forget, like the advisor — and
+   persists the accepted paragraphs to `_concept_note_json`. The download
+   re-validates them against the facts as they stand at that moment.
 3. **P3 — the rest, plus the knowledge slice**, section 7 first.
-4. **P4 — the guards**, and a side-by-side of authored vs today's across the
-   four `w3:fullsim` archetypes, read rather than asserted.
+4. **P4** — a side-by-side of authored vs deterministic across the four
+   `w3:fullsim` archetypes, read rather than asserted. `?plain=1` on the route
+   serves the deterministic document for exactly that comparison.
+
+### The guards, as built
+
+Every one drops **a paragraph**, never the reply, and each is tested without a
+model in `e2e/concept-note.spec.ts`:
+
+| | |
+|---|---|
+| a numeral absent from the fact base | the paragraph goes — *"atende cerca de 437 crianças"* is indistinguishable from a sourced figure to whoever reads the page |
+| second person | the register is not negotiable |
+| a citation not in the closed source list | invented provenance is worse than none |
+| a section outside the three | the other seven stay computed |
+| nothing survives in a section | its assembled paragraphs stand — the document never gets shorter for having tried |
+| the facts changed after the session | stored prose is re-validated on read, so a sentence quoting a corrected area is dropped |
 
 ## Risks
 
