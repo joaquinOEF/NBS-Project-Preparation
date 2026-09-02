@@ -189,6 +189,12 @@ that follow from them (walk the whole path; look at the room past the door; ask
 who else is on this path; verify a landing on `main`, not in the PR list).
 
 
+### The authored concept note — `docs/concept-note-authoring.md`
+The deliverable is meant to be BETTER than what the organisation could write
+itself, not a tidy transcript of its answers. That plan (facts computed, prose
+written, every paragraph sourced, deterministic floor) is agreed and unbuilt;
+read it before adding anything to the W3 document.
+
 ### ⚠️ The workshop speaks, the document is written — `docs/document-register.md`
 Anything an organisation downloads is a nota técnica in the third person. Our
 own design principles — "nada fica descartado", "the map does not lead", "the
