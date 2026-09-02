@@ -544,11 +544,15 @@ It is *Teia* (the government open call). Don't propagate the transcript's spelli
 
 36. **A free-text beat offers "Prefiro pular" as its only tappable option (P1, M)** — JVP, 2026-09-02: *"this prefiero pular… is weird as only option"*. Every open question in E3 (`askFreeText`'s no-draft branch, `askExtras`' prose branch) renders `ask('Quando quiser:', [Prefiro pular])`. The input box and the mic are right below, but the only thing that *looks* like an answer is the skip — so the affordance the eye lands on is the one that abandons the question. These are the beats that produce the sentences a funder reads first; a skip here is expensive.
 
-    JVP's proposal: the composer offers **"Quero escrever"** and **"Quero gravar um áudio"**, and tapping either performs a client action — focus the text input, or start the recorder — rather than sending a message. Needs a way for an `ask_user` option to carry an action instead of a payload; `useVoiceRecorder` already exists and the mic button already starts/stops it, so the recording half is wiring, not new capability. See the /refine plan.
+    JVP's proposal: the composer offers **"Quero escrever"** and **"Quero gravar um áudio"**, and tapping either performs a client action — focus the text input, or start the recorder — rather than sending a message. Needs a way for an `ask_user` option to carry an action instead of a payload; `useVoiceRecorder` already exists and the mic button already starts/stops it, so the recording half is wiring, not new capability.
+
+    **Decided (/refine, 2026-09-02):** three options, skip last — `✍️ Quero escrever` → focuses the input · `🎤 Quero gravar um áudio` → starts recording · `Prefiro pular`. Skip stays a peer option rather than becoming a hidden link: a recorded pendency is a legitimate outcome, and on a long session someone who needs it should not have to hunt. Worth it in one number: sessions using quick-reply buttons see ~2.4× the response rate of open text alone, and today the only quick reply on these beats is the one that abandons the question.
 
 37. **The draft beat offers "escrever do zero" but not "completar" — while its own sentence promises exactly that (P2, S)** — JVP, 2026-09-02. The agent says *"Isso já descreve como o lugar está hoje — dá pra confirmar, **completar** ou escrever de outro jeito"*, and the chips are `Serve, é isso mesmo` / `Prefiro escrever do zero` / `Prefiro pular`. There is no way to *add to* what they wrote in Encontro 2: the choice is take it whole or replace it whole.
 
-    An organisation that wants to add one sentence to a good paragraph has to retype the paragraph — so it takes the quote unchanged and the extra detail is lost. Add **"Quero completar"**, which seeds the input with their Encontro 2 text and puts the cursor at the end (or appends to it), instead of clearing it. Pairs with #36: both are about the same beat and the same composer.
+    An organisation that wants to add one sentence to a good paragraph has to retype the paragraph — so it takes the quote unchanged and the extra detail is lost.
+
+    **Decided (/refine, 2026-09-02):** add **"Quero completar"**, which seeds the input with the Encontro 2 paragraph, editable, cursor at the end. One box, no new rule to learn: they can append a sentence, fix a word, or rewrite the lot. The accidental-deletion risk is real and accepted — the original stays recorded against Encontro 2, so nothing is lost for good. Pairs with #36: same beat, same composer.
 
 ### Wave: full-run audit of `test w2 3 326`, 2026-09-02
 
