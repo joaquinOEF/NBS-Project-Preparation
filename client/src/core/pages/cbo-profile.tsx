@@ -1405,12 +1405,19 @@ export default function CboProfilePage() {
           // (the SSE stream emits the response in pieces as the model
           // generates it).
           if (last?.role === 'assistant' && last.messageType === 'content') {
-            // Join consecutive whole-block chat chunks with a paragraph break ONLY
-            // at a sentence boundary (prev ends with . ! ? : ; and next starts
-            // non-space), so two distinct sentences can't fuse ("profile:A few…")
-            // while a sub-block token split (mid-word) is never separated.
-            const sep = /[.!?:;]$/.test(last.content) && !/^\s/.test(event.content) ? '\n\n' : '';
-            return [...prev.slice(0, -1), { ...last, content: last.content + sep + event.content }];
+            // ⚠️ Always a paragraph break. A `chat` event is a WHOLE BLOCK,
+            // post-normalizer — token streaming arrives as `chat_delta` and
+            // never lands here (see the CboEvent union in shared/cbo-schema.ts).
+            // So there is no mid-word split to protect, and the sentence-boundary
+            // heuristic that used to guard one was corrupting real blocks: it
+            // required the previous block to END in . ! ? : ;, and a block that
+            // ends in a closing markdown marker does not.
+            //
+            // Seen by JVP, 2026-09-02: "…prova depois que alguma coisa
+            // mudou._Só uma coisa antes:" — two beats fused, and the closing
+            // underscore became intraword, so CommonMark stopped reading it as
+            // emphasis and the org saw the markers printed on screen.
+            return [...prev.slice(0, -1), { ...last, content: `${last.content}\n\n${event.content}` }];
           }
           return [...prev, { role: 'assistant' as const, content: event.content, messageType: 'content', timestamp: new Date().toISOString() }];
         });
