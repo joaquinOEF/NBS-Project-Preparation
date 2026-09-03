@@ -3628,7 +3628,7 @@ async function runW3AdvisorInner(cboId: string): Promise<void> {
  * id, so it is never told that one other organisation shares its need when that
  * organisation is itself.
  */
-async function cohortLinesFor(cboId: string): Promise<string[]> {
+export async function cohortLinesFor(cboId: string, lang: 'pt' | 'en' = 'pt'): Promise<string[]> {
   const [membership] = await db
     .select({ cohortId: cohortMembers.cohortId })
     .from(cohortMembers)
@@ -3666,7 +3666,7 @@ async function cohortLinesFor(cboId: string): Promise<string[]> {
     const p = await read(m.cboStateId).catch(() => null);
     if (p) peers.push(p);
   }
-  return cohortLines(mine, peers);
+  return cohortLines(mine, peers, lang);
 }
 
 async function runConceptNoteAuthor(cboId: string): Promise<void> {
@@ -3686,12 +3686,18 @@ async function runConceptNoteAuthor(cboId: string): Promise<void> {
     const areaM2 = Number(site.site_area_m2) || 0;
     const lang = (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
 
+    // ⚠️ The cohort layer has to be here AND on every path that later prints
+    // this document. `applyStoredAuthoring` re-validates authored prose against
+    // the facts as they stand at print time, so a sentence written with the
+    // cohort counts and printed without them is a sentence dropped for citing a
+    // number "nobody handed it" — the fix being silent, which is worse.
     const note = buildConceptNote({
       site,
       org: asRecord('org_profile'),
       solutions,
       ...(areaM2 ? { areaM2 } : {}),
       w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
+      cohort: await cohortLinesFor(cboId, lang).catch(() => []),
     }, lang);
 
     const out = await authorConceptNote(note, lang);

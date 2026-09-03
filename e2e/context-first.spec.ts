@@ -67,8 +67,10 @@ test.describe('every model pass declares what it does with every source', () => 
     // 13 → 10 (the synergy pass gained the cohort's own artefacts) → 7 (photos
     // and documents reach the concept note pre-digested as observations).
     // 13 → 10 (the cohort's own artefacts) → 7 (photos and documents,
-    // pre-digested) → 6 (the cohort layer, as counts through an allowlist).
-    expect(gaps.length, 'gaps rose — either close it or change the ceiling on purpose').toBeLessThanOrEqual(6);
+    // pre-digested) → 6 (the cohort layer, as counts through an allowlist) → 5
+    // (the concept note carries those counts too, which is where a funder
+    // actually reads the programme's argument).
+    expect(gaps.length, 'gaps rose — either close it or change the ceiling on purpose').toBeLessThanOrEqual(5);
   });
 
   test('the pass that finds what a cohort shares reads what the cohort produced', () => {
@@ -295,5 +297,105 @@ test.describe('what the group has in common, without naming anyone', () => {
   test('it stays bounded — a context, not a list nobody reads', () => {
     const many = Array.from({ length: 30 }, () => peer());
     expect(cohortLines(peer(), many).length).toBeLessThanOrEqual(6);
+  });
+
+  test('⚠️ it speaks the language of the document it lands on', () => {
+    // These lines used to be advisor-only context, where Portuguese in, English
+    // out is fine — the advisor rewrites. They now reach the concept note
+    // itself, and the note printed in English is the one a funder reads.
+    const en = cohortLines(peer(), [peer(), peer()], 'en').join(' ');
+    expect(en).toMatch(/2 other organisations/);
+    expect(en).toMatch(/need the same study/);
+    expect(en).not.toMatch(/organizações|mesmo|barreira/);
+  });
+});
+
+// ── The programme's argument, on the page a funder reads ───────────────────
+import { conceptNoteFacts, acceptAuthored, claimedOrgCounts } from '../shared/concept-note';
+
+test.describe('the cohort reaches the concept note', () => {
+  const LINES = [
+    '2 outras organizações do grupo precisam do mesmo estudo: um teste de infiltração do solo. Isso é contratável em conjunto.',
+    '3 outras organizações esbarram na mesma barreira de financiamento (Teia de Soluções). É exatamente o caso que a agregação num portfólio resolve.',
+  ];
+  const input = (cohort: string[] = LINES) => ({
+    site: { site_lat: '-30.05', site_lng: '-51.20', bairro: 'Partenon', land_tenure: 'public-informal', site_worry: 'alagamento' },
+    org: { org_name: 'Associação Teste' },
+    solutions: ['jardins-de-chuva'],
+    areaM2: 500,
+    w3: { construction_model: 'mutirao' },
+    cohort,
+  });
+
+  test('the counts are on the page, under a citation that says they are counts', () => {
+    // ⚠️ The one fact an organisation cannot reach from inside its own record,
+    // and the reason there is a programme rather than eighteen applications.
+    const note = buildConceptNote(input(), 'pt');
+    const funding = note.sections.find(s => s.id === 'financiamento')!;
+    const text = funding.paragraphs.map(p => p.text).join(' ');
+    expect(text).toMatch(/não chega sozinho/);
+    expect(text).toMatch(/mesmo estudo: um teste de infiltração do solo/);
+    const cited = funding.paragraphs.find(p => /não chega sozinho/.test(p.text))!.sources.join(' ');
+    expect(cited).toMatch(/sem identificação/);
+  });
+
+  test('an organisation alone in its cohort gets no such paragraph — not an empty one', () => {
+    const note = buildConceptNote(input([]), 'pt');
+    const text = note.sections.find(s => s.id === 'financiamento')!.paragraphs.map(p => p.text).join(' ');
+    expect(text).not.toMatch(/não chega sozinho/);
+    expect(conceptNoteFacts(input([]) as any, 'pt').cohort).toEqual([]);
+  });
+
+  test('⚠️ the counts are numbers the writing pass may then use', () => {
+    // The number guard drops any figure absent from the fact base. If the
+    // cohort counts did not enter it, a sentence making the programme's
+    // argument would be rejected for citing a number nobody handed it — the
+    // rejection being silent, which is the failure mode this whole file is
+    // about.
+    const note = buildConceptNote(input(), 'pt');
+    const src = note.sections.find(s => s.id === 'financiamento')!
+      .paragraphs.find(p => /não chega sozinho/.test(p.text))!.sources[0];
+    const out = acceptAuthored(note, [{
+      section: 'resumo',
+      text: 'O projeto não chega sozinho: 2 outras organizações do grupo precisam do mesmo teste de infiltração, o que torna o estudo contratável de uma vez só.',
+      sources: [src],
+    }], 'pt');
+    expect(out.rejected, JSON.stringify(out.rejected)).toHaveLength(0);
+    expect(out.accepted).toBe(1);
+  });
+
+  test('⚠️ a count of other organisations that nobody made is dropped — in words too', () => {
+    // Found in a live run, not in a test: handed counts of 2 and 3, the writing
+    // pass wrote "outras oito organizações". Every digit check passed it —
+    // "oito" has no digits — and the sentence is a claim about organisations
+    // that never saw the page it appears on.
+    const note = buildConceptNote(input(), 'pt');
+    const src = note.sections.find(s => s.id === 'financiamento')!
+      .paragraphs.find(p => /não chega sozinho/.test(p.text))!.sources[0];
+    const out = acceptAuthored(note, [
+      { section: 'resumo', text: 'Outras oito organizações do mesmo grupo esbarram nas mesmas barreiras de financiamento identificadas aqui.', sources: [src] },
+      { section: 'resumo', text: 'Outras 3 organizações do grupo esbarram na mesma barreira de financiamento, o que torna a inscrição conjunta mais eficiente.', sources: [src] },
+    ], 'pt');
+    expect(out.accepted).toBe(1);
+    expect(out.rejected).toHaveLength(1);
+    expect(out.rejected[0].why).toMatch(/contagem de organizações/);
+  });
+
+  test('the guard reads counts, not every numeral in the sentence', () => {
+    // ⚠️ Deliberately narrow. "As duas soluções combinadas atuam sobre essa
+    // superfície" is a true, useful sentence, and a blanket word-number rule
+    // would throw it away for a cardinality nobody needs to source.
+    expect(claimedOrgCounts('As duas soluções combinadas atuam sobre essa superfície.')).toEqual([]);
+    expect(claimedOrgCounts('três outras organizações precisam do mesmo estudo')).toEqual(['3']);
+    expect(claimedOrgCounts('1 outra organização trabalha no mesmo bairro')).toEqual(['1']);
+    expect(claimedOrgCounts('seven other organisations hit the same barrier')).toEqual(['7']);
+  });
+
+  test('⚠️ and a peer named in authored prose still has nowhere to come from', () => {
+    // Structural, not a filter: no peer name is ever in the fact base, so an
+    // invented one is an invented noun — which the number guard cannot catch.
+    // What CAN be asserted is that the layer itself carries none.
+    const facts = conceptNoteFacts(input() as any, 'pt');
+    expect(facts.cohort.join(' ')).not.toMatch(/Associação|Coletivo|Rede /);
   });
 });

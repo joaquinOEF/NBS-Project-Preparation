@@ -147,7 +147,12 @@ export const MODEL_PASSES: ModelPass[] = [
       docSummary: uses,
       docFullText: uses,
       photos: uses,
-      cohort: gap('“três outras organizações da rede precisam do mesmo estudo” belongs in a funder document and is the programme’s whole argument'),
+      // ⚠️ As COUNTS, through the same allowlist the advisor uses — the lines
+      // arrive from cohortContext.ts already de-identified, and the fact base
+      // passes them through untouched. Section 9 states them under a citation
+      // that says so out loud, so a reader knows the count was made without
+      // identifying anybody. See docs/context-first.md.
+      cohort: uses,
       artefacts: uses,
     },
   },

@@ -71,6 +71,15 @@ export interface W3Input {
   areaM2?: number;
   /** Stage 3–5 answers, once given. */
   w3?: Record<string, string | undefined>;
+  /**
+   * What this organisation shares with the rest of its cohort — as COUNTS.
+   *
+   * ⚠️ Produced only by `cohortLines()` in server/services/cohortContext.ts,
+   * which is an allowlist over de-identified peers. Never a name, never a
+   * quote, never another organisation's site or verdict. Anything assembled by
+   * hand into this field crosses a record boundary that file exists to hold.
+   */
+  cohort?: string[];
 }
 
 const has = (v: string | undefined | null): v is string =>

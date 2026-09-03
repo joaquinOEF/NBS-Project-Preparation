@@ -53,6 +53,8 @@ import { structuredProvider } from '../server/services/structuredModel';
 import { SOLUTION_COSTS } from '../shared/w3-sizing';
 import { getSolution } from '../shared/nbs-catalog';
 import type { MaturityScore } from '../shared/cbo-schema';
+import { synergyFactsFrom } from '../shared/w3-synergies';
+import { cohortLines, peerFrom, type CohortPeer } from '../server/services/cohortContext';
 
 const OUT = process.env.W3_SIM_OUT || path.join(os.tmpdir(), 'w3-fullsim');
 
@@ -978,8 +980,27 @@ async function main() {
   const browser = await chromium.launch();
   const results: Array<{ p: Persona; r: Run; fails: string[] }> = [];
 
+  // ── Phase 1: everybody talks, before anybody's document is written ───────
+  // ⚠️ The cohort layer is why this is two passes now. An organisation's
+  // concept note carries what it SHARES with the group — the same study, the
+  // same approval instrument, the same funding barrier — and that cannot be
+  // computed while walking the group one at a time: the first organisation
+  // would have an empty cohort and the last a full one, which is an artefact of
+  // iteration order and not a fact about anybody.
+  const driven = new Map<string, Awaited<ReturnType<typeof drive>>>();
+  for (const p of PERSONAS) driven.set(p.id, await drive(p));
+
+  const peerOf = (id: string): CohortPeer | null => {
+    const d = driven.get(id);
+    if (!d) return null;
+    const facts = synergyFactsFrom(d.state.sections as any);
+    const site: any = (d.state.sections as any)?.intervention_site?.fields ?? {};
+    const val = (k: string) => String(site[k]?.value ?? '').trim() || null;
+    return peerFrom(facts, val('bairro'), val('site_worry'));
+  };
+
   for (const p of PERSONAS) {
-    const d = await drive(p);
+    const d = driven.get(p.id)!;
     const asRecord = (id: string) =>
       Object.fromEntries(
         Object.entries(d.state.sections[id].fields).map(([k, v]: any) => [k, String(v.value ?? '')]),
@@ -991,10 +1012,17 @@ async function main() {
     const solutions = (type.chosen_solutions ?? '').split(',').map(s => s.trim()).filter(Boolean);
     const areaM2 = Number(site.site_area_m2) || 0;
     const units = Number(type.intervention_units) || 0;
+    // The other seven, de-identified. Exactly what the server computes at the
+    // close of a real session — same allowlist, same counts.
+    const mine = peerOf(p.id);
+    const cohort = mine
+      ? cohortLines(mine, PERSONAS.filter(x => x.id !== p.id).map(x => peerOf(x.id)).filter(Boolean) as CohortPeer[])
+      : [];
     const input = {
       site, org: asRecord('org_profile'), solutions,
       ...(areaM2 ? { areaM2 } : {}),
       w3: { ...type, ...impact, ...ops },
+      cohort,
     };
     const dossier = buildDossier(input, 'pt');
     const roadmap: Roadmap | null = d.events.filter(e => e.type === 'show_roadmap').pop()?.roadmap ?? null;
@@ -1078,6 +1106,7 @@ async function main() {
     console.log(`  hoja de ruta : ${roadmap ? `${roadmap.steps.length} passos · ${roadmap.open.length} em aberto` : '⚠️ NÃO PRODUZIDA'}`);
     console.log(`  PDF          : ${pdfPages} página(s), ${(pdfBytes / 1024).toFixed(0)} KB, ${pdfText.replace(/\s+/g, ' ').trim().split(' ').length} palavras lidas de volta`);
     console.log(`  nota-conceito: ${note.sections.length} seções, ${note.sections.flatMap(sec => sec.paragraphs).length} parágrafos, ${noteParsed.numPages} página(s)${unsourced.length ? `  ⚠️ ${unsourced.length} SEM FONTE` : ''}`);
+    console.log(`  grupo        : ${cohort.length ? cohort.map(l => l.replace(/\s+/g, ' ')).join('\n                 ') : '(nada em comum com as outras sete)'}`);
     if (authored) {
       console.log(`  escrita       : ${authored.accepted} parágrafo(s) aceitos, ${authored.rejected.length} recusado(s)${authored.reason ? ` — ${authored.reason}` : ''}`);
       for (const rj of authored.rejected) console.log(`     ✗ ${rj.why} — “${rj.text.slice(0, 60)}…”`);
