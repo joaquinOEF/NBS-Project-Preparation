@@ -11,6 +11,7 @@
     "db:push": "drizzle-kit push",
     "db:preflight": "tsx scripts/db-preflight.ts",
     "cohort:doctor": "tsx scripts/cohort-doctor.ts",
+    "backfill:bairro-risk": "tsx scripts/backfill-bairro-risk.ts",
     "w3:sweep": "tsx scripts/w3-sweep.ts",
     "w3:fullsim": "tsx scripts/w3-fullsim.ts",
     "osm:refresh": "tsx scripts/refresh-osm-snapshots.ts",

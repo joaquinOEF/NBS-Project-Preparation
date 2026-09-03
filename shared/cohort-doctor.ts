@@ -9,6 +9,7 @@
 
 import { encontroClosed, cboSectionsFilledCount, type CboState } from './cbo-schema';
 import { effectiveUnlockedPhases, type CohortSettings } from './cohort-schema';
+import { riskDrift, type RiskDrift } from './bairro-risk';
 
 export type OrgVerdict =
   | 'never-started'
@@ -28,6 +29,15 @@ export interface OrgHealth {
   unlockedPhases: number[];
   closed: boolean;
   nextOpen: number | null;
+  /**
+   * Stored bairro hazard percentiles that disagree with the published ranks.
+   *
+   * ⚠️ Not a blocker and not part of the verdict — an organisation with drifted
+   * risk numbers can still walk the whole journey. It is here because this is
+   * the one report a coordinator actually opens, and a wrong number that never
+   * throws is otherwise found only by accident. See shared/bairro-risk.ts.
+   */
+  riskDrift: RiskDrift[];
 }
 
 export function orgHealth(
@@ -48,7 +58,12 @@ export function orgHealth(
   else if (nextOpen == null) verdict = 'ready-waiting';
   else verdict = 'ready-to-enter';
 
-  return { verdict, phase, sectionsFilled, unlockedPhases, closed, nextOpen };
+  const siteFields = Object.fromEntries(
+    Object.entries(((state?.sections as any)?.intervention_site?.fields ?? {}) as Record<string, { value?: unknown }>)
+      .map(([k, v]) => [k, String(v?.value ?? '')]),
+  );
+
+  return { verdict, phase, sectionsFilled, unlockedPhases, closed, nextOpen, riskDrift: riskDrift(siteFields) };
 }
 
 /** Worst first — in a list of eighteen the waiting ones must be impossible to miss. */
