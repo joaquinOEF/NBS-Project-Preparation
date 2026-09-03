@@ -106,6 +106,18 @@ app.use((req, res, next) => {
       } catch (error) {
         console.error('Failed to auto-seed knowledge base:', error);
       }
+
+      // ⚠️ Repair the bairro risk percentiles frozen before the 2026-08-03 fix.
+      // Runs on every boot rather than waiting for someone to remember a script
+      // against the right database — the failure being repaired is a number
+      // nobody noticed for a month, and it decides which solutions an
+      // organisation is offered. Only writes records that actually disagree
+      // with the published rank, so a healthy database is untouched and the
+      // second boot says so in one line. Never blocks and never throws.
+      // SKIP_RISK_BACKFILL=1 turns it off.
+      void import('./services/bairroRiskBackfill')
+        .then(m => m.runBairroRiskBackfillAtBoot())
+        .catch(err => console.error('[bairro-risk] boot hook failed:', err?.message || err));
     }
   );
 })();
