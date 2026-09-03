@@ -40,6 +40,8 @@ import { benefitFor } from '@shared/w3-benefits';
 import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { siteInSentence } from '@shared/site-name';
+import { GAP_RETRIES, areaBandFor, ROUGH_AREA_SOURCE, CANNOT_GUESS } from '@shared/w3-gap-questions';
+import { detailQuestionFor } from '@shared/w3-detail-questions';
 import { getSolution } from '@shared/nbs-catalog';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { E3_QUESTIONNAIRE, allowedOptionIds, checkOptionRule, askCopyFor, sectionsFieldReader } from '@shared/cbo-questionnaire';
@@ -908,6 +910,39 @@ _For this one we do not yet have a reference figure — what the ficha says is a
    * to be cut when a session runs long — and cutting them costs less than
    * cutting who-maintains-it.
    */
+  /**
+   * The one detail the chosen solution's own ficha says decides whether it
+   * works here — or, failing that, the one concrete instance behind a story
+   * they already wrote.
+   *
+   * ⚠️ Placed here, after the solution and its size and before the generic
+   * beats, because it is about the SOLUTION and they are still thinking about
+   * it. Asked at most once per session, and skipped entirely when there is
+   * nothing worth asking. See shared/w3-detail-questions.ts.
+   */
+  const askDetail = (): true | null => {
+    if (type('_detail_asked')) return null;
+    const q = detailQuestionFor({
+      solutions: liveSolutions(),
+      worry: site('site_worry'),
+      hasStory: !!site('site_story').trim(),
+      alreadyAsked: type('_detail_asked').split(',').filter(Boolean),
+    });
+    if (!q) return null;
+    deps.writeFields(TYPE, { _detail_asked: q.id, _detail_pending: q.id });
+    say(q.askPt, q.askEn);
+    if (q.options?.length) {
+      ask('Qual dessas?', 'Which of these?', q.options);
+    } else {
+      ask('Quando quiser:', 'Whenever you like:', [
+        { pt: E3C.escrever.pt, en: E3C.escrever.en, dPt: 'Abre o teclado aqui embaixo', dEn: 'Opens the keyboard below', action: 'write' },
+        { pt: E3C.gravar.pt, en: E3C.gravar.en, dPt: 'Começa a gravar agora', dEn: 'Starts recording now', action: 'record' },
+        { pt: E3C.pular.pt, en: E3C.pular.en, dPt: 'Fica como pendência', dEn: 'Recorded as still open' },
+      ]);
+    }
+    return finish(`ask-detail-${q.id}`);
+  };
+
   const askExtras = (): true => {
     const ids = (advice?.questionIds ?? []).filter(id => !type(`_extra_${id}`));
     const q = ids.map(getW3Question).find(Boolean);
@@ -945,6 +980,20 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     ]);
     deps.writeFields(TYPE, { _second_asked: 'yes' });
     return finish('ask-second-solution');
+  };
+
+  /**
+   * ⚠️ "Ainda não sabemos" is a real answer and it scores — but it is also the
+   * single gap the coordination carries to the prefeitura, so it is worth one
+   * more attempt by another road. Who pays the water and the mowing TODAY is a
+   * fact the organisation holds, and it is the honest beginning of the same
+   * conversation. Asked once. See shared/w3-gap-questions.ts.
+   */
+  const askWhoPaysToday = (): true => {
+    const retry = GAP_RETRIES['recurring-money'];
+    deps.writeFields(OPS, { [retry.askedFlag]: 'yes' });
+    ask(retry.askPt, retry.askEn, retry.options);
+    return finish('money-retry');
   };
 
   const askSustainability = (): true => {
@@ -1096,6 +1145,19 @@ _For this one we do not yet have a reference figure — what the ficha says is a
       if (line) say(line.notePt, line.noteEn);
       return secondSizing ? await closeE3() : askConstruction();
     }
+  }
+
+  // The detail beat's answer. Kept as its own record — question and reply —
+  // because "mais barro, a água empoça" means nothing without the question it
+  // answers, and the concept note prints both.
+  if (type('_detail_pending') && raw && !raw.startsWith('Map selection (')) {
+    const qid = type('_detail_pending');
+    deps.writeFields(TYPE, { _detail_pending: '' });
+    if (!isSkip(raw)) {
+      deps.writeFields(TYPE, { detail_answer: raw.slice(0, 1000), detail_question_id: qid });
+      say('Anotado — isso muda o que a gente escreve sobre a solução.', 'Noted — that changes what we write about the solution.');
+    }
+    return askJustification();
   }
 
   if (type('_why_pending') === 'yes' && raw && !raw.startsWith('Map selection (') && !isDraftChip(raw)) {
@@ -1388,8 +1450,19 @@ _For this one we do not yet have a reference figure — what the ficha says is a
   }
   if (is(E3C.areaConfere)) return askConstruction();
   if (is(E3C.naoSeiTamanho)) {
-    // Not a failure. The dossier reports it as a named gap with the rate
-    // attached, which is the actionable form of "we don't know".
+    // ⚠️ Once more, by another road. "Ainda não sei o tamanho" is an honest
+    // answer to "how many square metres" — and the area is the single number
+    // that decides whether this session produces a total at all. A person would
+    // not accept it and move on; they would ask the question differently. Asked
+    // exactly once, and never again. See shared/w3-gap-questions.ts.
+    const retry = GAP_RETRIES.area;
+    if (!site(retry.askedFlag)) {
+      deps.writeFields(SITE, { [retry.askedFlag]: 'yes' });
+      ask(retry.askPt, retry.askEn, retry.options);
+      return finish('area-retry');
+    }
+    // It was already asked. Now it is a named gap with the rate attached,
+    // which is the actionable form of "we don't know".
     deps.writeFields(SITE, { _area_deferred: 'yes' });
     say(
       'Sem problema — fica registrado que falta medir, e a ficha já tem o preço por m² pra quando vocês souberem.',
@@ -1398,22 +1471,90 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     return askConstruction();
   }
 
+  // Their comparison, turned into a band. ⚠️ Recorded with its provenance: an
+  // area obtained this way is rougher than one they traced, and it is about to
+  // be multiplied by a price per square metre.
+  if (site(GAP_RETRIES.area.askedFlag) === 'yes' && !liveArea()) {
+    // The way out, taken. It is a pendency, exactly as before the retry existed.
+    const declined =
+      deps.normChip(raw) === deps.normChip(CANNOT_GUESS.pt) ||
+      deps.normChip(raw) === deps.normChip(CANNOT_GUESS.en) ||
+      isSkip(raw);
+    if (declined) {
+      deps.writeFields(SITE, { _area_deferred: 'yes' });
+      say(
+        'Tudo bem — fica registrado que falta medir, e a ficha já tem o preço por m² pra quando vocês souberem.',
+        'That is fine — it is recorded that the measurement is still missing, and the ficha already has the per-m² price for when you know.',
+      );
+      return askConstruction();
+    }
+    const band = areaBandFor(raw, deps.normChip);
+    if (band) {
+      deps.writeFields(SITE, {
+        site_area_m2: String(band),
+        site_area_source: isPt ? ROUGH_AREA_SOURCE.pt : ROUGH_AREA_SOURCE.en,
+      });
+      const line = liveSolutions()[0] ? budgetLineFor(liveSolutions()[0], band, liveUnits() || undefined, liveBuild()) : null;
+      say(
+        `Anotei **cerca de ${band} m²** — por comparação, não por medida. Dá pra refazer a conta quando alguém medir.${line ? `\n\n${line.notePt}` : ''}`,
+        `Noted: **about ${band} m²** — by comparison, not by measurement. The arithmetic can be redone when someone measures.${line ? `\n\n${line.noteEn}` : ''}`,
+      );
+      return askConstruction();
+    }
+  }
+
   // Enum answers, resolved back to their catalog ids.
   for (const [sectionId, field, next] of [
-    [TYPE, 'construction_model', askJustification],
+    // ⚠️ The detail beat runs BEFORE "por que aqui" — it is about the solution,
+    // and they have just finished choosing and sizing it. Returns null when
+    // there is nothing worth asking, and the flow is unchanged.
+    [TYPE, 'construction_model', () => askDetail() ?? askJustification()],
     [IMPACT, 'project_timeframe', askMonitoring],
     [IMPACT, 'monitoring_capacity', askMaintains],
     [OPS, 'who_maintains', askFrequency],
     [OPS, 'maintenance_frequency', askSustainability],
     // A second solution is offered once, after the first is fully scoped —
     // asking earlier would interrupt the one thing they came to do.
-    [OPS, 'sustainability_model', () => (type('_second_asked') ? closeE3() : askExtras())],
+    // ⚠️ "Ainda não sabemos" gets one more road before the flow moves on — and
+    // only once. Every other answer carries straight through.
+    [OPS, 'sustainability_model', () => {
+      if (ops('sustainability_model') === 'indefinido' && !ops(GAP_RETRIES['recurring-money'].askedFlag)) {
+        return askWhoPaysToday();
+      }
+      return type('_second_asked') ? closeE3() : askExtras();
+    }],
   ] as Array<[string, string, () => true | Promise<true>]>) {
     if (read(sectionId)(field)) continue;
     const id = enumIdFromChip(sectionId, field, raw);
     if (!id) continue;
     deps.writeFields(sectionId, { [field]: id });
     return await next();
+  }
+
+  // What they pay for today. ⚠️ Stored as its own field, never written into
+  // sustainability_model: "a prefeitura paga a roçada" is a fact about the
+  // present, not a declared funding model for the project, and conflating the
+  // two would put a funding source in a concept note that nobody committed to.
+  if (ops(GAP_RETRIES['recurring-money'].askedFlag) === 'yes' && !ops('who_pays_today') && raw) {
+    const opt = GAP_RETRIES['recurring-money'].options.find(
+      o => deps.normChip(o.pt) === deps.normChip(raw) || deps.normChip(o.en) === deps.normChip(raw),
+    );
+    // ⚠️ Declining is not an answer. "Não sei dizer" recorded as who_pays_today
+    // would put a non-fact in the record and, worse, read on the page as though
+    // somebody had told us something.
+    if (opt && !/n[ãa]o sei dizer|could not say/i.test(opt.pt + opt.en)) {
+      deps.writeFields(OPS, { who_pays_today: isPt ? opt.pt : opt.en });
+      say(
+        `Anotado: hoje quem banca é **${(isPt ? opt.pt : opt.en).toLowerCase()}**. Isso não fecha o dinheiro do projeto, mas é por onde a conversa com a prefeitura começa.`,
+        `Noted: today it is **${(isPt ? opt.pt : opt.en).toLowerCase()}** who covers it. That does not settle the project's money, but it is where the conversation with the city starts.`,
+      );
+      return type('_second_asked') ? await closeE3() : askExtras();
+    }
+    if (opt) {
+      // Declined. The gap stands, named, exactly as it did before the retry.
+      deps.writeFields(OPS, { who_pays_today: '' });
+      return type('_second_asked') ? await closeE3() : askExtras();
+    }
   }
 
   if (is(E3C.verDossie)) return await closeE3();

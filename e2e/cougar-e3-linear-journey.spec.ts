@@ -42,6 +42,8 @@ const LANGS = [
     approvalText: 'Quem precisa dizer sim',
     sizeText: 'Contorne no mapa',
     deferSize: 'Ainda não sei o tamanho',
+    sizeByComparison: 'Do tamanho de uma quadra de vôlei',
+    detailPick: 'Mais barro — a água empoça',
     whyText: 'Por que **aqui**',
     whyPlain: 'Por que',
     why: 'É o único pátio do bairro e alaga em toda chuva forte.',
@@ -54,8 +56,13 @@ const LANGS = [
     freq: 'A cada três meses',
     moneyText: 'dinheiro que volta todo ano',
     money: 'Ainda não sabemos', // E3_SUSTAINABILITY.indefinido
+    moneyRetryText: 'quem paga as contas desse lugar',
+    moneyRetry: 'A prefeitura',
     build: 'Mutirão com apoio técnico',
-    impactText: 'por metro quadrado',
+    // ⚠️ Was 'por metro quadrado' — the RATE, which is what an organisation with
+    // no area gets. It gave one by comparison at 4a, so the beat now states a
+    // volume for its own site. That is the retry paying off, end to end.
+    impactText: 'litros de água que hoje vai pra rua',
     impactPick: 'Faz sentido',
     timeframe: '1 ano',
     monitor: 'Com uma universidade ou parceiro',
@@ -73,6 +80,8 @@ const LANGS = [
     approvalText: 'Who has to say yes',
     sizeText: 'Trace the area',
     deferSize: "I don't know the size yet",
+    sizeByComparison: 'About the size of a volleyball court',
+    detailPick: 'More clay — water pools',
     whyText: 'Why **here**',
     whyPlain: 'Why',
     why: 'It is the only yard in the neighbourhood and it floods in every heavy rain.',
@@ -85,8 +94,10 @@ const LANGS = [
     freq: 'Quarterly',
     moneyText: 'money that comes back every year',
     money: 'Not decided yet', // E3_SUSTAINABILITY.indefinido
+    moneyRetryText: 'who pays for that place',
+    moneyRetry: 'The city',
     build: 'Mutirão with technical support',
-    impactText: 'per square metre',
+    impactText: 'litres of water that today goes to the street',
     impactPick: 'That makes sense',
     timeframe: '1 year',
     monitor: 'With a university or partner',
@@ -140,9 +151,23 @@ for (const L of LANGS) {
       await expect(page.getByText(L.sizeText, { exact: false }).last()).toBeVisible({ timeout: 10_000 });
       await chip(L.deferSize).click();
 
+      // 4a · ⚠️ The gap asks once more, by another road. "I don't know the size"
+      //      is an honest answer to "how many square metres", and the area is the
+      //      one number that decides whether this session produces a total at
+      //      all — so it is offered a comparison instead of a measurement, once.
+      //      shared/w3-gap-questions.ts.
+      await expect(chip(L.sizeByComparison)).toBeVisible({ timeout: 15_000 });
+      await chip(L.sizeByComparison).click();
+
       // 4b · Who builds it — the answer that moves the cost more than any other.
       await expect(chip(L.build)).toBeVisible({ timeout: 15_000 });
       await chip(L.build).click();
+
+      // 4c · The one detail this solution's ficha says decides whether it works
+      //      here. Specific and one tap, instead of an open question at minute
+      //      forty. shared/w3-detail-questions.ts.
+      await expect(chip(L.detailPick)).toBeVisible({ timeout: 15_000 });
+      await chip(L.detailPick).click();
 
       // 5 · Why here (free text) → baseline (free text).
       await expect(page.getByText(L.whyPlain, { exact: false }).first()).toBeVisible({ timeout: 10_000 });
@@ -158,8 +183,15 @@ for (const L of LANGS) {
       //      flow moves on, rather than asking them to judge a number they have
       //      no standing to judge. (cougar-e3-paths covers the drawn-area path,
       //      where the reaction chips DO appear.)
+      // ⚠️ Rewritten when the area retry landed. This path used to reach here
+      // with NO area, so the benefit was a rate — a property of the technique,
+      // not of their site — and asking them to judge it would have been asking
+      // for an opinion they have no standing to give. Having compared their site
+      // to a volleyball court at 4a, the figure is now about THEIR place, rough
+      // but theirs, and the reaction is a fair question again.
       await expect(inThreadJ(L.impactText)).toBeVisible({ timeout: 15_000 });
-      await expect(chip(L.impactPick)).toHaveCount(0);
+      await expect(chip(L.impactPick)).toBeVisible({ timeout: 10_000 });
+      await chip(L.impactPick).click();
       await expect(chip(L.timeframe)).toBeVisible({ timeout: 15_000 });
       await chip(L.timeframe).click();
       await expect(chip(L.monitor)).toBeVisible({ timeout: 15_000 });
@@ -179,6 +211,16 @@ for (const L of LANGS) {
       //     close — it is the gap the portfolio carries to the municipality.
       await expect(page.getByText(L.moneyText, { exact: false }).last()).toBeVisible({ timeout: 10_000 });
       await chip(L.money).click();
+
+      // 7a · ⚠️ "We don't know yet" is a real answer, and it is also the one
+      //      answer worth asking a second time by another road — not "where
+      //      will the money come from" again, but who pays the water and the
+      //      mowing TODAY, which is a fact they hold. Asked once. The answer
+      //      is stored on its own field: what the city pays for now is a fact
+      //      about the present, not a funding model anybody committed to, and
+      //      the money gap stays open on the record either way.
+      await expect(page.getByText(L.moneyRetryText, { exact: false }).last()).toBeVisible({ timeout: 10_000 });
+      await chip(L.moneyRetry).click();
 
       // 7b · One site can carry more than one solution, and that is offered
       //      once, after the first is fully scoped — the case the four-state
@@ -214,6 +256,14 @@ for (const L of LANGS) {
       expect(f('intervention_type', 'project_verdict')).toBe('needs_study');
       expect(f('operations_sustain', 'who_maintains')).toBe('parceria-prefeitura');
       expect(f('operations_sustain', 'sustainability_model')).toBe('indefinido');
+      // ⚠️ The retry's answer lands on its OWN field. If it ever appears as a
+      // sustainability_model, a concept note will name a funder nobody
+      // committed to — "a prefeitura paga a roçada hoje" is not "a prefeitura
+      // financia o projeto".
+      expect(f('operations_sustain', 'who_pays_today')).toBe(L.moneyRetry);
+      // And the site got a size from the comparison, so the impact figure the
+      // page stated was about this place.
+      expect(Number(f('intervention_site', 'site_area_m2'))).toBeGreaterThan(0);
       expect(String(f('intervention_type', 'justification_why_here'))).toContain(
         L.name === 'pt' ? 'único pátio' : 'only yard',
       );

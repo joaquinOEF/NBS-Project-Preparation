@@ -180,6 +180,38 @@ test.describe('the concept note — phase 2 guards', () => {
     expect(r.rejected[0].why).toBe('segunda pessoa');
   });
 
+  test('⚠️ it may not name our machinery to someone who has never seen it', () => {
+    // "Não consta do registro", "o veredito do processo" — words from inside
+    // the system. A funder reading the page does not know what a registro is,
+    // and the same fact has a plain form. The live run produced six of these
+    // across eight organisations; a prompt rule took it to one, and this takes
+    // it to none. Same rule as the ↻ lines, in a new place.
+    const n = note();
+    for (const bad of [
+      'O veredito do processo é de que o projeto requer estudo antes de avançar em qualquer frente.',
+      'Não consta do registro a área efetivamente desimpermeabilizada em cada canteiro proposto.',
+      'A base de dados não traz número de referência para esta solução em contexto comparável.',
+    ]) {
+      const r = acceptAuthored(n, [good({ text: bad })]);
+      expect(r.accepted, bad).toBe(0);
+      expect(r.rejected[0].why).toMatch(/nomeia a máquina/);
+    }
+  });
+
+  test('the plain form of the same fact passes, and so does a real document', () => {
+    const n = note();
+    for (const ok of [
+      'A organização não informou a área efetivamente desimpermeabilizada em cada canteiro proposto.',
+      'Não há medição disponível para essa redução, e o dado precisa ser levantado antes da obra.',
+      // The ficha is a real document the organisation saw; naming it is correct.
+      'A ficha técnica da solução não traz número de referência para esse efeito.',
+      // And a photographic record is not our machinery.
+      'Recomenda-se um registro fotográfico datado do pátio antes de qualquer obra.',
+    ]) {
+      expect(acceptAuthored(n, [good({ text: ok })]).accepted, ok).toBe(1);
+    }
+  });
+
   test('a source it invented is not a source', () => {
     const r = acceptAuthored(note(), [good({ sources: ['relatório interno da coordenação'] })]);
     expect(r.accepted).toBe(0);

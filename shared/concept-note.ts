@@ -41,6 +41,7 @@ import {
 } from './w3-dossier';
 import { approvalRequirement, type ApprovalBody } from './nbs-approvals';
 import { approvalRouteLine } from './nbs-knowledge';
+import { DECISIVE_DETAIL, CONCRETE_INSTANCE } from './w3-detail-questions';
 import {
   fundingMatches, FUNDING_CAVEAT, AGGREGATION_ARGUMENT, FUNDER_KIND_LABEL,
   PHILANTHROPIC_VS_COMMERCIAL,
@@ -719,7 +720,17 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
   const siteClause = pt
     ? `No terreno da organização${f.place.currentUse ? ` — ${f.place.currentUse.toLowerCase()}` : ''}${size ? `, ${size}` : ''}`
     : `On the organisation's site${f.place.currentUse ? ` — ${f.place.currentUse.toLowerCase()}` : ''}${size ? `, ${size}` : ''}`;
-  push('porque', f.solutions.map(s =>
+  // ⚠️ The decisive detail, printed as the exchange it was. "Mais barro, a água
+  // empoça" means nothing without the question it answers, and this is the
+  // sentence that turns a description of a solution into an argument about THIS
+  // site. See shared/w3-detail-questions.ts.
+  const detailAsked = String(input.w3?.detail_question_id ?? '').trim();
+  const detailAnswer = String(input.w3?.detail_answer ?? '').trim();
+  const detailQ = detailAsked
+    ? Object.values({ ...DECISIVE_DETAIL, ...CONCRETE_INSTANCE }).find(q => q.id === detailAsked)
+    : null;
+
+  push('porque', [...f.solutions.map(s =>
     s.howItWorks
       ? P(
           `**${s.label}.** ${s.howItWorks}${
@@ -734,7 +745,16 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
           [`ficha ${s.id} · comoFunciona`, pt ? 'mecanismos catalogados × registro do lugar' : 'catalogued mechanisms × the site record'],
         )
       : null,
-  ));
+  ),
+    // ⚠️ The document's framing, never the chat's question. The chat asks "o chão
+    // aí, quando VOCÊS cavam"; the page states what the organisation described.
+    detailQ && detailAnswer
+      ? P(
+          (pt ? detailQ.notePt : detailQ.noteEn).replace('{answer}', detailAnswer),
+          [pt ? 'pergunta do Encontro 3 e resposta da organização' : 'an Encontro 3 question and the organisation’s answer'],
+        )
+      : null,
+  ]);
 
   // ── 6 · Resultados esperados ──────────────────────────────────────────────
   push('resultados', [
@@ -1021,6 +1041,13 @@ export function acceptAuthored(
     if (text.length > 1600) { drop('parágrafo longo demais para um bloco'); continue; }
     // The register is not negotiable — docs/document-register.md.
     if (/\bvoc[eê]s\b|\bvcs\b|\ba gente\b|\byour\b|\byou\b/i.test(text)) { drop('segunda pessoa'); continue; }
+    // ⚠️ Our machinery, named to someone who has never seen it. "Não consta do
+    // registro" and "o veredito do processo" are words from inside the system;
+    // a funder reading the page does not know what registro or veredito mean,
+    // and the same fact has a plain form — "a organização não informou", "não há
+    // medição disponível". Same rule as the ↻ lines, in a new place.
+    const machine = /\bveredito\b|\bbase de dados\b|(^|\s)(o|do|no)\s+registro(?!\s+(fotogr[áa]fico|de\b))/i.exec(text);
+    if (machine) { drop(`nomeia a máquina: "${machine[0].trim()}"`); continue; }
     // A number nobody handed it.
     const invented = (text.match(/\d[\d.,]*/g) ?? []).map(normNum).filter(n => n.length > 0 && !numbers.has(n));
     if (invented.length) { drop(`número que não está no registro: ${invented.join(', ')}`); continue; }
