@@ -540,7 +540,11 @@ It is *Teia* (the government open call). Don't propagate the transcript's spelli
 
     So the writer is correct today and the stored values are frozen wrong for **every org whose Encontro 2 ran before 2026-08-03 20:05**. Those values still drive `rankFamiliasForSite`, the site card, the hazard read-back and the roadmap's exposure sentence — this org's flood shows as 0 for a bairro in the city's top 12%.
 
-    **The work:** a one-off backfill recomputing `_bairro_*_pct` and `_bairros_json` from `floodRank/heatRank/landslideRank` for every member, keyed on `bairro`; plus a load-time assertion that a stored `_bairro_*_pct` is a rank percentile (a bairro reading 0 on all three hazards is not a real bairro).
+    **✅ BUILT (PR #518).** `npm run backfill:bairro-risk` reports, `--apply` writes — same code path both ways, so the dry run is what the write would do. It compares every stored record against `shared/bairro-risk-table.ts`: 94 rows generated out of the 2.5 MB zones file by `scripts/generate-bairro-risk-table.ts`, so the server, the doctor and the backfill all check against the same numbers without loading a map. `_bairros_json` is corrected alongside the three fields, because the E2 checkpoint rebuilds a map payload from it and a stale copy would put the wrong figures straight back.
+
+    `cohort:doctor` now reports drift per organisation — beside the verdict, never inside it: drifted numbers do not stop anyone walking the journey, they change what the journey offers, and the doctor is the one report a coordinator actually opens.
+
+    ⚠️ **Still to be run against production.** On Replit the shell's `DATABASE_URL` is the DEV database; the backfill has to be pointed at the deployment's.
 
 36. **A free-text beat offers "Prefiro pular" as its only tappable option (P1, M)** — JVP, 2026-09-02: *"this prefiero pular… is weird as only option"*. Every open question in E3 (`askFreeText`'s no-draft branch, `askExtras`' prose branch) renders `ask('Quando quiser:', [Prefiro pular])`. The input box and the mic are right below, but the only thing that *looks* like an answer is the skip — so the affordance the eye lands on is the one that abandons the question. These are the beats that produce the sentences a funder reads first; a skip here is expensive.
 
