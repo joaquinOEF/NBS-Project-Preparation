@@ -74,3 +74,105 @@ test.describe('every model pass declares what it does with every source', () => 
     expect((synergy.sources.artefacts as any).because).toMatch(/concept note|nota de conceito/i);
   });
 });
+
+// ── The funding landscape, as the workshop taught it ────────────────────────
+// "Como Desbloquear Financiamento para SbN em Nível Local — Do Piloto ao
+// Portfólio", COUGAR · PxG ↔ OEF ↔ BwB, 26 de agosto de 2026. The workshop told
+// eighteen organisations, once, in a room. The record already holds what decides
+// eligibility for most of it.
+import { FUNDING_PATHS, fundingMatches, FUNDING_CAVEAT, AGGREGATION_ARGUMENT } from '../shared/funding-sources';
+import { buildConceptNote } from '../shared/concept-note';
+import { buildContextMarkdown } from '../server/services/contextBundle';
+
+test.describe('the funding landscape reaches the organisation', () => {
+  const org = (extra: Record<string, string>) => ({
+    site: { bairro: 'Partenon', site_name: 'Pátio', _site_lat: '-30.05', _site_lng: '-51.19',
+      current_use: 'paved', land_tenure: 'formal-agreement', site_worry: 'alagamento',
+      site_story: 'Alaga.', site_knowledge_depth: 'strong', site_area_m2: '400' },
+    org: { org_name: 'Org', contact_name: 'Ana', ...extra },
+    solutions: ['hortas-urbanas'],
+    w3: { construction_model: 'mutirao', intervention_units: '2' },
+  }) as any;
+
+  const funding = (extra: Record<string, string>) =>
+    buildConceptNote(org(extra), 'pt').sections.find(s => s.id === 'financiamento')!;
+
+  test('⚠️ a closed call is never presented as an option', () => {
+    // Sending an organisation to a door that is not there is worse than naming
+    // no door: the deck's own caveat, and it travels with every path.
+    const text = funding({}).paragraphs.map(p => p.text).join(' ');
+    expect(text).toContain(FUNDING_CAVEAT.pt);
+    for (const p of FUNDING_PATHS.filter(x => x.status !== 'aberta')) {
+      if (!text.includes(p.name)) continue;
+      expect(text, p.name).toMatch(/confirmar antes de preparar/);
+    }
+  });
+
+  test('the record decides eligibility, and the barrier is named', () => {
+    // ⚠️ The consulting the deck asks for: match what the organisation already
+    // told us against what the deck says, and say which criterion blocks it.
+    const novice = funding({ has_cnpj: 'Ainda não' }).paragraphs.map(p => p.text).join(' ');
+    expect(novice).toMatch(/Fora de alcance por enquanto/);
+    expect(novice).toMatch(/exige hist[óo]rico comprovado/);
+    expect(novice).toMatch(/o registro n[ãa]o indica CNPJ/);
+
+    const veteran = funding({ has_cnpj: 'Sim, temos CNPJ', funding_history: 'yes' })
+      .paragraphs.map(p => p.text).join(' ');
+    expect(veteran).toMatch(/j[áa] executou projeto financiado, que é o hist[óo]rico comprovado/);
+    expect(veteran).toContain('BNDES Periferias Verdes');
+  });
+
+  test('a fund whose calls do not reach this state is not offered', () => {
+    // The deck is explicit: "Nenhuma chamada confirmada cobriu o Rio Grande do
+    // Sul, o Pampa ou o bioma Mata Atlântica."
+    const ecos = fundingMatches({ hasTrackRecord: true }).find(m => m.path.id === 'fundo-ecos')!;
+    expect(ecos.blocked).toBe(true);
+    expect(ecos.fit).toMatch(/Cerrado, Caatinga e Amaz[ôo]nia Legal/);
+  });
+
+  test('the aggregation argument travels with the note', () => {
+    // A note asking for R$ 20–40k reads as too small to process until the reader
+    // knows it is one of eighteen in a pipeline. That is the programme's own
+    // reason for existing and it belongs in the document, not only in a slide.
+    expect(funding({}).paragraphs.map(p => p.text)).toContain(AGGREGATION_ARGUMENT.pt);
+  });
+
+  test('every funding line says where it came from', () => {
+    for (const p of funding({}).paragraphs) {
+      expect(p.sources.join(' ')).toMatch(/oficina de financiamento COUGAR/);
+    }
+  });
+
+  test('the deck vocabulary is the document vocabulary', () => {
+    // The workshop and the document have to say the same words, or an
+    // organisation has to translate between them.
+    const text = funding({}).paragraphs.map(p => p.text).join(' ')
+      + ' ' + FUNDING_PATHS.map(p => p.notePt).join(' ');
+    // ⚠️ Matched as forms, not as substrings: "edital" pluralises to "editais",
+    // which does not contain it. The first version of this check failed against
+    // a document that used the word correctly.
+    for (const [label, re] of [
+      ['não reembolsável', /n[ãa]o reembols[áa]ve(l|is)/i],
+      ['edital', /edita(l|is)/i],
+      ['Termo de Fomento', /Termo de Fomento/i],
+      ['contrapartida', /contrapartida/i],
+      ['histórico comprovado', /hist[óo]rico comprovado/i],
+    ] as Array<[string, RegExp]>) {
+      expect(re.test(text), label).toBe(true);
+    }
+  });
+
+  test('the context bundle carries it as programme knowledge, not as their record', () => {
+    // ⚠️ An agent handed only one organisation's answers can summarise them; it
+    // cannot advise. What turns the folder into advice is the material the
+    // organisation does not have. See docs/context-first.md.
+    const md = buildContextMarkdown({
+      orgName: 'Org', state: null, messages: [], docs: [], generatedAt: '2026-09-03',
+    });
+    expect(md).toContain('## Base de conhecimento do programa');
+    expect(md).toMatch(/não é o registro desta organização/);
+    expect(md).toMatch(/n[ãa]o reembols[áa]veis/i);
+    expect(md).toContain('BNDES Periferias Verdes');
+    expect(md).toContain(FUNDING_CAVEAT.pt);
+  });
+});

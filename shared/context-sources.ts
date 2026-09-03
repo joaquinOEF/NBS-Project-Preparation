@@ -39,7 +39,7 @@ export const CONTEXT_SOURCES = {
   geo: 'the map layer: coordinates, drawn footprint, bairro risk percentiles',
   fichas: 'the 27 solution fichas — mechanism, cost, approvals, upkeep',
   evidence: 'the benefit figures and the scale reference volumes',
-  knowledge: 'the knowledge slice: approval routes, timings, precedent',
+  knowledge: 'the knowledge slice: approval routes and their timings, and the funding landscape from the 26 Aug workshop',
   cohort: 'what the other organisations in this cohort are doing',
   artefacts: 'what earlier passes produced — the dossier, roadmap, concept note',
 } as const;
@@ -96,7 +96,7 @@ export const MODEL_PASSES: ModelPass[] = [
       geo: uses,
       fichas: uses,
       evidence: no('it selects and observes; it never produces a number — the benefit figures are computed'),
-      knowledge: gap('the approval routes and their timings would sharpen its observations about what a project needs'),
+      knowledge: gap('the approval routes with their timings, and the funding landscape, would sharpen its observations about what a project needs and what it could realistically apply to'),
       cohort: gap('`cohort: []` is passed deliberately — the one input that leaves this org’s own record, held back for its own review. Three other organisations needing the same infiltration test is advice no single org can reach.'),
       artefacts: no('it runs BEFORE the dossier and the note exist'),
     },

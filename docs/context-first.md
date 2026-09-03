@@ -118,6 +118,44 @@ before it is written from.
 4. A source you want and cannot reach yet is `missing`, with the reason — and it
    shows up in the count until someone closes it.
 
+## Worked example: the funding workshop (2026-09-03)
+
+The 26 August deck — *"Como Desbloquear Financiamento para SbN em Nível Local"*,
+PxG ↔ OEF ↔ BwB — told eighteen organisations, once, in a room, what the funding
+landscape actually looks like. That is the shape this rule is about: knowledge
+the organisation does not have and cannot assemble, sitting outside the product.
+
+It now lives in `shared/funding-sources.ts` and reaches two places:
+
+- **The concept note**, as section 9 — *Caminhos de financiamento*. Not a list.
+  The record already holds what decides eligibility for most of these: whether
+  there is a CNPJ, whether they have run a funded project before, how big this
+  one is. The section matches one against the other and **names the barrier**
+  where there is one — "⚠️ exige histórico comprovado, e o registro não mostra
+  projeto financiado anterior" — because that is the part the organisation
+  cannot do alone.
+- **The context bundle**, under *Base de conhecimento do programa*, explicitly
+  marked as not being that organisation's record. An agent handed only one
+  organisation's answers can summarise them; it cannot advise.
+
+Three rules the example fixed in place:
+
+1. ⚠️ **A closed call is never presented as an option.** The deck's own caveat
+   travels with every path, and every non-open status carries "confirmar antes de
+   preparar candidatura". Sending an organisation to a door that is not there is
+   worse than naming no door.
+2. **The vocabulary is the deck's.** Financiamento filantrópico (não
+   reembolsável) versus comercial, edital, Termo de Fomento, contrapartida,
+   histórico comprovado, agregação. One string for the philanthropic/commercial
+   distinction, shared by the note and the bundle, so nobody has to translate
+   between the room and the page. A test checks the word FORMS — "edital"
+   pluralises to "editais", and the first version of that check failed against a
+   document using the word correctly.
+3. **The aggregation argument belongs in the document.** A note asking for
+   R$ 20–40k reads as too small to process until the reader knows it is one of
+   eighteen in a pipeline. That is the programme's own reason for existing, and
+   it was only ever said out loud in a workshop.
+
 ## What this becomes
 
 The workshops ahead ask more of this, not less. An organisation that has told us

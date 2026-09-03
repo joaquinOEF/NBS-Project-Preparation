@@ -29,6 +29,10 @@ import { CBO_SECTIONS, isInternalCboField } from '@shared/cbo-schema';
 import { cboFieldLabel, cboDisplayValue, CBO_SECTION_TITLES } from '@shared/cbo-field-catalog';
 import { NBS_FAMILIAS } from '@shared/nbs-catalog';
 import { summarizeNbsInventory } from '@shared/nbs-inventory';
+import {
+  FUNDING_PATHS, FUNDING_CAVEAT, AGGREGATION_ARGUMENT, FUNDER_KIND_LABEL,
+  PHILANTHROPIC_VS_COMMERCIAL,
+} from '@shared/funding-sources';
 
 export interface BundleDoc {
   filename: string;
@@ -216,6 +220,37 @@ export function buildContextMarkdown(input: BundleInput): string {
   for (const d of docs) {
     L.push(`- \`arquivos/${d.filename}\`${d.kind ? ` (${d.kind})` : ''}${d.droppedInPhase ? ` · Encontro ${d.droppedInPhase}` : ''}`);
     if (d.summary) L.push(`  - ${d.summary.replace(/\s+/g, ' ').trim().slice(0, 400)}`);
+  }
+  L.push('');
+
+  // ── The programme's own knowledge, not this organisation's record ─────────
+  // ⚠️ The bundle's header says it is written for "an agent given the folder as
+  // context". An agent handed only one organisation's answers can summarise
+  // them; it cannot advise. What turns the folder into advice is the material
+  // the organisation does not have — the funding landscape the 26 August
+  // workshop taught once, in a room, and the approval routes with their real
+  // timings. Both are carried here so that any reader of this bundle, human or
+  // model, has what the workshop had. See docs/context-first.md.
+  L.push('## Base de conhecimento do programa', '');
+  L.push(
+    'O que segue não é o registro desta organização: é o que o programa sabe e ela normalmente não tem à mão. Origem: oficina de financiamento COUGAR · PxG ↔ OEF ↔ BwB, 26 de agosto de 2026.',
+    '',
+  );
+  L.push('### Filantrópico e comercial', '');
+  // One string, shared with the concept note, so the workshop, the folder and
+  // the document say the same words.
+  L.push(PHILANTHROPIC_VS_COMMERCIAL.pt, '');
+  L.push('### Agregação', '');
+  L.push(`- ${AGGREGATION_ARGUMENT.pt}`, '');
+  L.push('### Caminhos mapeados', '');
+  L.push(`_${FUNDING_CAVEAT.pt}_`, '');
+  for (const path of FUNDING_PATHS) {
+    L.push(
+      `- **${path.name}** — ${FUNDER_KIND_LABEL[path.kind].pt}${path.reembolsavel ? '' : ', não reembolsável'} · ${path.status}` +
+        (path.sizePt ? ` · ${path.sizePt}` : ''),
+    );
+    L.push(`  - ${path.notePt}`);
+    if (path.cautionPt) L.push(`  - ⚠️ ${path.cautionPt}`);
   }
   L.push('');
 

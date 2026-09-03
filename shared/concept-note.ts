@@ -41,6 +41,10 @@ import {
 } from './w3-dossier';
 import { approvalRequirement, type ApprovalBody } from './nbs-approvals';
 import { approvalRouteLine } from './nbs-knowledge';
+import {
+  fundingMatches, FUNDING_CAVEAT, AGGREGATION_ARGUMENT, FUNDER_KIND_LABEL,
+  PHILANTHROPIC_VS_COMMERCIAL,
+} from './funding-sources';
 import { budgetLineFor, SOLUTION_COSTS, type BuildModel } from './w3-sizing';
 import { benefitFor } from './w3-benefits';
 import { studyCostLine } from './w3-studies';
@@ -404,7 +408,7 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
 
 export type ConceptSectionId =
   | 'resumo' | 'organizacao' | 'problema' | 'intervencao' | 'porque'
-  | 'resultados' | 'exige' | 'custo' | 'manutencao' | 'pendencias';
+  | 'resultados' | 'exige' | 'custo' | 'financiamento' | 'manutencao' | 'pendencias';
 
 export interface Paragraph {
   text: string;
@@ -438,7 +442,8 @@ const T = {
     resumo: 'Resumo', organizacao: 'A organização e o território', problema: 'O problema',
     intervencao: 'A intervenção proposta', porque: 'Por que esta solução aqui',
     resultados: 'Resultados esperados', exige: 'O que o projeto exige',
-    custo: 'Custo estimado e contrapartida', manutencao: 'Manutenção e recursos recorrentes',
+    custo: 'Custo estimado e contrapartida', financiamento: 'Caminhos de financiamento',
+    manutencao: 'Manutenção e recursos recorrentes',
     pendencias: 'Pendências e próximos passos',
     draft: 'RASCUNHO — para validar e ajustar',
   },
@@ -446,7 +451,8 @@ const T = {
     resumo: 'Summary', organizacao: 'The organisation and the territory', problema: 'The problem',
     intervencao: 'The proposed intervention', porque: 'Why this solution here',
     resultados: 'Expected results', exige: 'What the project requires',
-    custo: 'Estimated cost and counterpart contribution', manutencao: 'Upkeep and recurring resources',
+    custo: 'Estimated cost and counterpart contribution', financiamento: 'Funding paths',
+    manutencao: 'Upkeep and recurring resources',
     pendencias: 'Open items and next steps',
     draft: 'DRAFT — to validate and adjust',
   },
@@ -803,7 +809,58 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
       : null,
   ], f.totals.lowBrl == null);
 
-  // ── 9 · Manutenção e recursos recorrentes ─────────────────────────────────
+  // ── 9 · Caminhos de financiamento ─────────────────────────────────────────
+  // ⚠️ The workshop of 26 August told eighteen organisations, once, in a room,
+  // what the funding landscape actually looks like. The record already holds
+  // what decides eligibility for most of it — a CNPJ, a previous funded
+  // project, the size of this one. Matching one against the other is the
+  // consulting the deck asks for and no organisation can do alone, because it
+  // requires knowing what the deck knows. See shared/funding-sources.ts.
+  const matches = fundingMatches(
+    {
+      ...(input.org?.has_cnpj != null ? { hasCnpj: /^(sim|yes)/i.test(String(input.org.has_cnpj)) } : {}),
+      hasTrackRecord: f.org.fundedBefore,
+      ...(f.totals.lowBrl != null ? { costLowBrl: f.totals.lowBrl, costHighBrl: f.totals.highBrl } : {}),
+    },
+    lang,
+  );
+  const open = matches.filter(m => !m.blocked);
+  const blocked = matches.filter(m => m.blocked);
+  const fundingSource = [
+    pt
+      ? 'oficina de financiamento COUGAR · PxG ↔ OEF ↔ BwB, 26 de agosto de 2026'
+      : 'COUGAR funding workshop · PxG ↔ OEF ↔ BwB, 26 August 2026',
+  ];
+  push('financiamento', [
+    // Which KIND of money this asks for, in the deck's own words — the first
+    // thing a funder reading a concept note needs settled about it.
+    P(pt ? PHILANTHROPIC_VS_COMMERCIAL.pt : PHILANTHROPIC_VS_COMMERCIAL.en, fundingSource),
+    P(pt ? AGGREGATION_ARGUMENT.pt : AGGREGATION_ARGUMENT.en, fundingSource),
+    ...open.map(m =>
+      P(
+        `**${m.path.name}** (${pt ? FUNDER_KIND_LABEL[m.path.kind].pt : FUNDER_KIND_LABEL[m.path.kind].en}${m.path.reembolsavel ? '' : pt ? ', não reembolsável' : ', non-reimbursable'}). ` +
+          `${pt ? m.path.notePt : m.path.noteEn}` +
+          ((pt ? m.path.sizePt : m.path.sizeEn) ? ` ${pt ? 'Porte' : 'Size'}: ${pt ? m.path.sizePt : m.path.sizeEn}.` : '') +
+          (m.fit ? ` ${m.fit}` : ''),
+        fundingSource,
+      ),
+    ),
+    // ⚠️ Named, not hidden. An organisation that cannot yet meet a criterion is
+    // better off knowing which one and why — "histórico comprovado" is a thing
+    // this project itself starts to build.
+    blocked.length
+      ? P(
+          (pt
+            ? 'Fora de alcance por enquanto, e por um motivo que o próprio projeto começa a resolver: '
+            : 'Out of reach for now, for a reason this project itself starts to solve: ') +
+            blocked.map(m => `**${m.path.name}** — ${m.fit}`).join(' '),
+          fundingSource,
+        )
+      : null,
+    P(pt ? FUNDING_CAVEAT.pt : FUNDING_CAVEAT.en, fundingSource),
+  ]);
+
+  // ── 10 · Manutenção e recursos recorrentes ────────────────────────────────
   const upkeep: string[] = [];
   if (f.delivery.maintainer) upkeep.push(pt ? `Quem cuida: ${f.delivery.maintainer}` : `Who looks after it: ${f.delivery.maintainer}`);
   if (f.delivery.frequency) upkeep.push(pt ? `Frequência: ${f.delivery.frequency}` : `How often: ${f.delivery.frequency}`);
