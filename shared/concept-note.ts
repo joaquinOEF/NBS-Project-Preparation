@@ -47,6 +47,7 @@ import { studyCostLine } from './w3-studies';
 import { scaleStatement, type ScaleStatement } from './w3-scale';
 import { buildRoadmap, reportLabel, type RoadmapStep } from './w3-roadmap';
 import { cboFieldEnumOptions } from './cbo-field-catalog';
+import { siteLabel } from './site-name';
 
 type Lang = 'pt' | 'en';
 
@@ -281,7 +282,9 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
     },
     place: {
       ...(has(site.bairro) ? { bairro: site.bairro.split(',')[0].trim() } : {}),
-      ...(has(site.site_name) ? { siteName: site.site_name } : {}),
+      // ⚠️ Never the raw coordinate string. It is the document's title, its
+      // browser-tab name, and the first line a funder reads.
+      ...(siteLabel(site.site_name, lang) ? { siteName: siteLabel(site.site_name, lang)! } : {}),
       hasPin: hasSite(site),
       ...(areaM2 ? { areaM2 } : {}),
       ...(units ? { units } : {}),

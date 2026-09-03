@@ -39,6 +39,7 @@ import { scaleStatement } from '@shared/w3-scale';
 import { benefitFor } from '@shared/w3-benefits';
 import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
+import { siteInSentence } from '@shared/site-name';
 import { getSolution } from '@shared/nbs-catalog';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { E3_QUESTIONNAIRE, allowedOptionIds, checkOptionRule, askCopyFor, sectionsFieldReader } from '@shared/cbo-questionnaire';
@@ -324,7 +325,12 @@ export async function serveE3Checkpoint(
       deps.startAdvisor?.();
       return finish('open-no-site');
     }
-    const place = siteName || bairro;
+    // ⚠️ Never the raw coordinate string. A pin dropped without a search result
+    // is stored as "Ponto marcado (-30.0577, -51.1936)" and the reverse-geocode
+    // that repairs it fails soft — so this sentence asked a real organisation to
+    // confirm a latitude, twice, in the line that opens the workshop.
+    // See shared/site-name.ts (backlog #40).
+    const place = siteInSentence(siteName, bairro, isPt ? 'pt' : 'en');
     say(
       `Bem-vindas ao Encontro 3. No Encontro 2 vocês marcaram **${place}** e me contaram o que preocupa ali. Hoje a gente transforma isso num projeto: uma solução, um tamanho, uma faixa de preço, e quem precisa dizer sim.\n\nSó pra começar do lugar certo — ainda é **${place}**?`,
       `Welcome to Encontro 3. In Encontro 2 you marked **${place}** and told me what worries you there. Today we turn that into a project: one solution, a size, a price range, and who has to say yes.\n\nJust so we start in the right place — is it still **${place}**?`,

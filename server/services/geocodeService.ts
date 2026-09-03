@@ -22,6 +22,7 @@
 //    the queue never actually holds anything.
 
 import { isFakeGeocodeEnabled } from './runtimeEnv';
+import { isCoordinateSiteName } from '@shared/site-name';
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
 
@@ -191,9 +192,10 @@ export async function forwardGeocode(
   }
 }
 
-export function isPlaceholderSiteName(name: string | undefined | null): boolean {
-  if (!name) return false;
-  return /^(ponto marcado|área desenhada|area desenhada|marked point|drawn area)\b/i.test(
-    name.trim(),
-  );
-}
+/**
+ * ⚠️ One implementation, in shared/site-name.ts. This predicate decides whether
+ * to spend a geocode; the same question decides how the name is PRINTED when
+ * the geocode fails, and two copies of it would drift on the day someone adds a
+ * third placeholder shape.
+ */
+export const isPlaceholderSiteName = isCoordinateSiteName;

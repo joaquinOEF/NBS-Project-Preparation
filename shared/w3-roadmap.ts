@@ -30,6 +30,7 @@ import { scaleStatement } from './w3-scale';
 import { getSolution } from './nbs-catalog';
 import { getSolutionFicha } from './nbs-solution-fichas';
 import { cboFieldEnumOptions } from './cbo-field-catalog';
+import { siteLabel } from './site-name';
 
 export interface RoadmapBlock {
   /** Short heading, in the reader's language. */
@@ -270,8 +271,10 @@ export function buildRoadmap(
   what.push({
     title: t.where,
     lines: [
+      // ⚠️ Never the raw coordinate string — this is the header of the printed
+      // page and the PDF's filename. See shared/site-name.ts.
       has(site.site_name)
-        ? `${site.site_name}${bairroName ? `, ${bairroName}` : ''}`
+        ? `${siteLabel(site.site_name, lang)}${bairroName ? `, ${bairroName}` : ''}`
         : bairroName
           ? `${bairroName} — ${pt ? 'sem um ponto marcado ainda' : 'no point marked yet'}`
           : pt ? 'ainda não definido' : 'not defined yet',
@@ -555,7 +558,7 @@ export function buildRoadmap(
 
   return {
     orgName: input.org?.org_name ?? '',
-    siteName: site.site_name ?? '',
+    siteName: siteLabel(site.site_name, lang) ?? '',
     bairro: bairroName,
     solutions: names,
     state,

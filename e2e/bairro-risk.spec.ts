@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test';
 import { BAIRRO_RISK } from '../shared/bairro-risk-table';
 import { bairroRisk, riskDrift, correctedRiskFields } from '../shared/bairro-risk';
 import { orgHealth } from '../shared/cohort-doctor';
+import { buildConceptNote } from '../shared/concept-note';
+import { buildRoadmap } from '../shared/w3-roadmap';
 
 // ⚠️ THE RECORD THAT READ FLOOD 0 FOR A BAIRRO IN THE CITY'S TOP 12%.
 //
@@ -96,5 +98,71 @@ test.describe('the bairro risk a record stores, against the published rank', () 
     );
     expect(h.riskDrift.length).toBe(3);
     expect(h.verdict).not.toBe('never-started');
+  });
+});
+
+// ── The name of the place, when there isn't one ─────────────────────────────
+// A pin dropped without a search result is stored as "Ponto marcado
+// (-30.0577, -51.1936)". The reverse-geocode that repairs it fails soft against
+// a rate-limited public service, and when it fails that string becomes the
+// name — in the sentence that opens Encontro 3, twice, and on the header of
+// both printed documents. (backlog #40)
+import { isCoordinateSiteName, siteLabel, siteInSentence } from '../shared/site-name';
+import { isPlaceholderSiteName } from '../server/services/geocodeService';
+
+test.describe('the name of the place, when there is not one', () => {
+  test('a coordinate is recognised however it was produced', () => {
+    expect(isCoordinateSiteName('Ponto marcado (-30.0577, -51.1936)')).toBe(true);
+    expect(isCoordinateSiteName('Área desenhada (4 pontos)')).toBe(true);
+    expect(isCoordinateSiteName('Marked point (-30.05, -51.19)')).toBe(true);
+    expect(isCoordinateSiteName('-30.0577, -51.1936')).toBe(true);
+    expect(isCoordinateSiteName('(-30.0577, -51.1936)')).toBe(true);
+    // A real name is left alone — it is better than any address we would fetch.
+    expect(isCoordinateSiteName('Praça da Encol')).toBe(false);
+    expect(isCoordinateSiteName('EMEF Vila Nova')).toBe(false);
+    expect(isCoordinateSiteName('')).toBe(false);
+  });
+
+  test('the geocode predicate and the display rule are one implementation', () => {
+    // Two copies would drift the day someone adds a third placeholder shape.
+    expect(isPlaceholderSiteName).toBe(isCoordinateSiteName);
+  });
+
+  test('on a page it becomes readable, without repeating the bairro', () => {
+    // Every caller prints the bairro beside this, and "o ponto marcado no
+    // Partenon · Partenon" is its own kind of machine output.
+    expect(siteLabel('Ponto marcado (-30.0577, -51.1936)', 'pt')).toBe('Ponto marcado no mapa');
+    expect(siteLabel('Ponto marcado (-30.0577, -51.1936)', 'en')).toBe('Point marked on the map');
+    expect(siteLabel('Praça da Encol', 'pt')).toBe('Praça da Encol');
+    expect(siteLabel('', 'pt')).toBeNull();
+  });
+
+  test('in a sentence the bairro carries it, so they can actually confirm it', () => {
+    expect(siteInSentence('Ponto marcado (-30.05, -51.19)', 'Partenon', 'pt')).toBe('um ponto no Partenon');
+    expect(siteInSentence('Ponto marcado (-30.05, -51.19)', 'Partenon, Lomba', 'pt')).toBe('um ponto no Partenon');
+    expect(siteInSentence(null, null, 'pt')).toBe('um ponto no mapa');
+    expect(siteInSentence('Praça da Encol', 'Partenon', 'pt')).toBe('Praça da Encol');
+  });
+
+  test('no coordinate reaches either document', () => {
+    const input: any = {
+      site: { bairro: 'Partenon', site_name: 'Ponto marcado (-30.0577, -51.1936)',
+        _site_lat: '-30.0577', _site_lng: '-51.1936', current_use: 'paved',
+        land_tenure: 'formal-agreement', site_worry: 'alagamento', site_story: 'Alaga.',
+        site_knowledge_depth: 'strong', site_area_m2: '800' },
+      org: { org_name: 'Org', contact_name: 'Maria' },
+      solutions: ['jardins-de-chuva'], areaM2: 800, w3: { construction_model: 'mutirao' },
+    };
+    const note = buildConceptNote(input, 'pt');
+    const roadmap = buildRoadmap(input, 'pt');
+    const everything = [
+      note.title, note.subtitle,
+      ...note.sections.flatMap(s => s.paragraphs.map(p => p.text)),
+      roadmap.siteName,
+      ...[...roadmap.what, ...roadmap.how].flatMap(b => [b.title, ...b.lines]),
+      ...roadmap.steps.map(s => s.title),
+    ].join(' ');
+    expect(everything).not.toMatch(/-30\.05|−30,05|Ponto marcado \(/);
+    expect(everything).toContain('Ponto marcado no mapa');
   });
 });
