@@ -193,6 +193,18 @@ export interface ConceptNoteFacts {
    */
   observations: Array<{ text: string; basedOn: string; kind: string }>;
 
+  /**
+   * What this organisation shares with the rest of the cohort, in counts.
+   *
+   * ⚠️ The programme's whole argument, and the one fact a single organisation
+   * cannot reach from inside its own record: "três outras organizações do
+   * grupo precisam do mesmo estudo" is what turns eighteen small requests into
+   * one portfolio a funder can act on. It reaches the page as counts through
+   * the allowlist in server/services/cohortContext.ts — a peer is never named
+   * on another organisation's document.
+   */
+  cohort: string[];
+
   /** What the organisation itself puts in. Named, never priced. */
   contribution: string[];
   verdict: VerdictState;
@@ -422,6 +434,10 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
         : {}),
     },
     observations,
+    // ⚠️ Passed through untouched, never assembled here. The lines arrive
+    // already de-identified from cohortContext.ts; building any of them from a
+    // peer's record at this layer would put a name on someone else's document.
+    cohort: (input.cohort ?? []).map(l => String(l).trim()).filter(Boolean),
     contribution,
     verdict: portfolioState(dossier.verdicts),
     gaps: dossier.gaps,
@@ -893,11 +909,36 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
       ? 'oficina de financiamento COUGAR · PxG ↔ OEF ↔ BwB, 26 de agosto de 2026'
       : 'COUGAR funding workshop · PxG ↔ OEF ↔ BwB, 26 August 2026',
   ];
+  // ⚠️ Its own citation, and deliberately not the funding workshop's. A reader
+  // who wants to check the count is asking about the cohort, not about the
+  // deck — and naming the source as counts states, on the page, that no
+  // organisation was identified to produce it.
+  const cohortSource = [
+    pt
+      ? 'grupo COUGAR — contagens do próprio grupo, sem identificação das organizações'
+      : 'COUGAR group — counts across the group itself, no organisation identified',
+  ];
   push('financiamento', [
     // Which KIND of money this asks for, in the deck's own words — the first
     // thing a funder reading a concept note needs settled about it.
     P(pt ? PHILANTHROPIC_VS_COMMERCIAL.pt : PHILANTHROPIC_VS_COMMERCIAL.en, fundingSource),
     P(pt ? AGGREGATION_ARGUMENT.pt : AGGREGATION_ARGUMENT.en, fundingSource),
+    // ⚠️ And here the argument stops being general. The paragraph above is the
+    // deck's case for aggregating a portfolio; these lines are the evidence
+    // that THIS project is part of one — the same study three organisations
+    // need, the same approval instrument, the same barrier. It is the one thing
+    // an organisation cannot write about itself, and the reason the programme
+    // exists rather than eighteen separate applications.
+    f.cohort.length
+      ? P(
+          pt ? 'Este projeto não chega sozinho. No mesmo grupo:' : 'This project does not arrive alone. Within the same group:',
+          cohortSource,
+        )
+      : null,
+    // ⚠️ Bullets, not one paragraph. Six counts run together read as a wall and
+    // the third one is lost; a funder scanning the page is counting, and each
+    // line is a separate count of a separate thing.
+    ...f.cohort.map(line => P(line, cohortSource, 'bullet')),
     ...open.map(m =>
       P(
         `**${m.path.name}** (${pt ? FUNDER_KIND_LABEL[m.path.kind].pt : FUNDER_KIND_LABEL[m.path.kind].en}${m.path.reembolsavel ? '' : pt ? ', não reembolsável' : ', non-reimbursable'}). ` +
@@ -982,6 +1023,47 @@ export interface AuthoringResult {
 const normNum = (s: string) => s.replace(/\.(?=\d{3}\b)/g, '').replace(',', '.').replace(/\.$/, '');
 
 /**
+ * Numbers written as words, because a guard that only reads digits is half a
+ * guard.
+ *
+ * ⚠️ Found live: the writing pass, handed cohort counts of 7 and 6, wrote
+ * "outras oito organizações do mesmo grupo esbarram nas mesmas barreiras" — in
+ * a cohort of eight, where seven others is the ceiling. Every digit-based check
+ * passed it, because "oito" has no digits, and the sentence is a claim about
+ * OTHER organisations in a document that goes to a funder.
+ */
+const NUMBER_WORDS: Record<string, string> = {
+  um: '1', uma: '1', dois: '2', duas: '2', 'três': '3', tres: '3', quatro: '4', cinco: '5',
+  seis: '6', sete: '7', oito: '8', nove: '9', dez: '10', onze: '11', doze: '12', treze: '13',
+  quatorze: '14', catorze: '14', quinze: '15', dezesseis: '16', dezessete: '17', dezoito: '18',
+  dezenove: '19', vinte: '20',
+  one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8',
+  nine: '9', ten: '10', eleven: '11', twelve: '12', thirteen: '13', fourteen: '14',
+  fifteen: '15', sixteen: '16', seventeen: '17', eighteen: '18', nineteen: '19', twenty: '20',
+};
+
+/**
+ * How many organisations a sentence claims, whether it says 3 or "três".
+ *
+ * Only counts of ORGANISATIONS. This is not a general word-number guard — "as
+ * duas soluções combinadas" is a true and useful sentence, and a blanket rule
+ * would throw it away for a cardinality nobody needs to source. What cannot be
+ * loose is a count of other people: it is the programme's whole argument, and
+ * an inflated one is a false statement about organisations that never saw the
+ * page it appears on.
+ */
+export function claimedOrgCounts(text: string): string[] {
+  const out: string[] = [];
+  const re = /(\d+|[a-zà-ú]+)\s+(?:outr[ao]s?\s+|other\s+)?(organiza[çc][õo]es|organiza[çc][ãa]o|organisations?|organizations?)\b/gi;
+  for (const m of Array.from(text.matchAll(re))) {
+    const raw = m[1].toLowerCase();
+    const n = /^\d+$/.test(raw) ? raw : NUMBER_WORDS[raw.normalize('NFC')];
+    if (n) out.push(n);
+  }
+  return out;
+}
+
+/**
  * Every figure the facts actually contain, in normalised form.
  *
  * ⚠️ The guard that matters most. A model writing a funder document will reach
@@ -1028,6 +1110,10 @@ export function acceptAuthored(
 ): AuthoringResult {
   const numbers = factNumbers(note.facts);
   const sources = allowedSources(note);
+  // The only counts of other organisations that exist: the ones the cohort
+  // lines state. Empty when this organisation has nothing in common with the
+  // group — and then any such claim is invented, which is right.
+  const orgCounts = new Set((note.facts.cohort ?? []).flatMap(l => claimedOrgCounts(l)));
   const rejected: AuthoringResult['rejected'] = [];
   const kept = new Map<ConceptSectionId, Paragraph[]>();
 
@@ -1051,6 +1137,12 @@ export function acceptAuthored(
     // A number nobody handed it.
     const invented = (text.match(/\d[\d.,]*/g) ?? []).map(normNum).filter(n => n.length > 0 && !numbers.has(n));
     if (invented.length) { drop(`número que não está no registro: ${invented.join(', ')}`); continue; }
+    // ⚠️ A count of OTHER organisations, checked against the cohort layer and
+    // nothing else. "8" appearing somewhere in the fact base does not license
+    // "outras oito organizações" — the number has to be one of the counts the
+    // cohort lines actually state, or there is no such group.
+    const claimed = claimedOrgCounts(text).filter(n => !orgCounts.has(n));
+    if (claimed.length) { drop(`contagem de organizações que ninguém apurou: ${claimed.join(', ')}`); continue; }
     const cited = (c.sources ?? []).map(String).filter(s => sources.has(s));
     if (!cited.length) { drop('sem fonte reconhecida'); continue; }
 

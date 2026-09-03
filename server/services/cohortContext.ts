@@ -55,7 +55,21 @@ const countBy = (peers: CohortPeer[], get: (p: CohortPeer) => string[]): Array<[
   return Array.from(n).filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1]);
 };
 
-const orgs = (n: number) => (n === 1 ? '1 outra organização' : `${n} outras organizações`);
+const orgs = (n: number, pt: boolean) =>
+  pt
+    ? n === 1 ? '1 outra organização' : `${n} outras organizações`
+    : n === 1 ? '1 other organisation' : `${n} other organisations`;
+
+/**
+ * ⚠️ Agreement, because these lines are printed now.
+ *
+ * The first version wrote "1 outra organização precisam do mesmo estudo" onto a
+ * concept note. Nobody's test caught it — every guard here is about what may
+ * leak, and none about whether the sentence is grammatical. It was found by
+ * running the simulation and reading the page, which is the only way this class
+ * of defect is ever found.
+ */
+const agree = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 /**
  * The cohort in lines an advisor can use, computed against THIS organisation.
@@ -63,30 +77,61 @@ const orgs = (n: number) => (n === 1 ? '1 outra organização' : `${n} outras or
  * Only what this organisation shares is reported: a study nobody else needs
  * says nothing useful to it, and listing the group's every need would be the
  * spread this file exists to avoid, in prose.
+ *
+ * ⚠️ Bilingual since these lines stopped being advisor-only context and started
+ * reaching the page. An advisor can be handed Portuguese and write English; a
+ * concept note printed in English cannot carry a Portuguese sentence, and the
+ * organisations that read the English document are the funders.
  */
-export function cohortLines(mine: CohortPeer, peers: CohortPeer[]): string[] {
+export function cohortLines(mine: CohortPeer, peers: CohortPeer[], lang: 'pt' | 'en' = 'pt'): string[] {
   if (!peers.length) return [];
+  const pt = lang === 'pt';
   const out: string[] = [];
+  const n_ = (n: number) => orgs(n, pt);
 
   for (const [need, n] of countBy(peers, p => p.studyNeeds)) {
     if (!mine.studyNeeds.includes(need)) continue;
-    out.push(`${orgs(n)} do grupo precisam do mesmo estudo: ${need}. Isso é contratável em conjunto.`);
+    out.push(pt
+      ? `${n_(n)} ${agree(n, 'precisa', 'precisam')} do mesmo estudo: ${need} — contratável em conjunto.`
+      : `${n_(n)} ${agree(n, 'needs', 'need')} the same study: ${need} — contractable jointly.`);
   }
   for (const [inst, n] of countBy(peers, p => p.approvalInstruments)) {
     if (!mine.approvalInstruments.includes(inst)) continue;
-    out.push(`${orgs(n)} passam pelo mesmo instrumento de aprovação (${inst}) — uma conversa com o órgão, não uma por organização.`);
+    out.push(pt
+      ? `${n_(n)} ${agree(n, 'passa', 'passam')} pelo mesmo instrumento de aprovação (${inst}) — uma conversa com o órgão, não uma por organização.`
+      : `${n_(n)} ${agree(n, 'goes', 'go')} through the same approval instrument (${inst}) — one conversation with the authority, not one per organisation.`);
   }
+  // ⚠️ ONE aggregation clause, on the first barrier only. Two funding paths
+  // blocked for the same reason produced the same closing sentence twice in a
+  // row inside a single paragraph — true both times, and it read as padding.
+  let saidWhyItMatters = false;
   for (const [path, n] of countBy(peers, p => p.fundingBlocked)) {
     if (!mine.fundingBlocked.includes(path)) continue;
-    out.push(`${orgs(n)} esbarram na mesma barreira de financiamento (${path}). É exatamente o caso que a agregação num portfólio resolve.`);
+    const why = saidWhyItMatters
+      ? ''
+      : pt
+        ? ' É exatamente o caso que a agregação num portfólio resolve.'
+        : ' That is precisely the case aggregation into a portfolio solves.';
+    saidWhyItMatters = true;
+    out.push(pt
+      ? `${n_(n)} ${agree(n, 'esbarra', 'esbarram')} na mesma barreira de financiamento (${path}).${why}`
+      : `${n_(n)} ${agree(n, 'hits', 'hit')} the same funding barrier (${path}).${why}`);
   }
   for (const [bairro, n] of countBy(peers, p => (p.bairro ? [p.bairro] : []))) {
     if (!mine.bairro || bairro !== mine.bairro) continue;
-    out.push(`${orgs(n)} trabalham no mesmo bairro (${bairro}).`);
+    out.push(pt
+      ? `${n_(n)} ${agree(n, 'trabalha', 'trabalham')} no mesmo bairro (${bairro}).`
+      : `${n_(n)} ${agree(n, 'works', 'work')} in the same bairro (${bairro}).`);
   }
   for (const [worry, n] of countBy(peers, p => (p.worry ? [p.worry.split(',')[0].trim()] : []))) {
     if (!mine.worry || !mine.worry.startsWith(worry)) continue;
-    out.push(`${orgs(n)} nomearam o mesmo risco principal.`);
+    // ⚠️ The risk itself is named. It is this organisation's own risk too —
+    // saying "o mesmo risco principal" and leaving it unnamed made the sentence
+    // read as though something were being withheld, when nothing is: naming a
+    // hazard the reader already saw in section 3 identifies nobody.
+    out.push(pt
+      ? `${n_(n)} ${agree(n, 'nomeou', 'nomearam')} o mesmo risco principal (${worry}).`
+      : `${n_(n)} named the same main risk (${worry}).`);
   }
   // Bounded. Four lines is a context; twenty is a list nobody reads, and the
   // advisor's own observation cap is four.

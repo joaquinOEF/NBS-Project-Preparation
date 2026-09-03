@@ -17,6 +17,7 @@ import {
   endTurn,
   getFlushedMessageCount,
   hasPendingFlush,
+  cohortLinesFor,
 } from "../services/cboAgent";
 import {
   deleteCboState as dbDeleteCboState,
@@ -610,6 +611,8 @@ export function registerCboRoutes(app: Express): void {
       solutions: (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean),
       ...(areaM2 ? { areaM2 } : {}),
       w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
+      // Same layer the authoring pass saw. See runConceptNoteAuthor.
+      cohort: await cohortLinesFor(req.params.id, lang).catch(() => []),
     }, lang);
 
     // Prose written at the close, re-checked against the facts as they stand

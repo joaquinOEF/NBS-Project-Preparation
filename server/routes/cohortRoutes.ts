@@ -42,7 +42,7 @@ import { renderRoadmapHtml } from '../services/roadmapPrint';
 import { renderConceptNoteHtml } from '../services/conceptNotePrint';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
-import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist } from '../services/cboAgent';
+import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist, cohortLinesFor } from '../services/cboAgent';
 import JSZip from 'jszip';
 import { getObject } from '../services/blobStorage';
 import { buildContextMarkdown, buildTranscriptMarkdown, type BundleDoc } from '../services/contextBundle';
@@ -890,6 +890,9 @@ export function registerCohortRoutes(app: Express): void {
       solutions: (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean),
       ...(areaM2 ? { areaM2 } : {}),
       w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
+      // The coordinator's copy is the SAME document the organisation gets, and
+      // that includes the cohort layer the authored prose may have cited.
+      cohort: await cohortLinesFor(member.cboStateId, lang).catch(() => []),
     };
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

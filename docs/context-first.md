@@ -246,6 +246,49 @@ spread this avoids, in prose.
 
 Gap ratchet: 13 → 10 → 7 → **6**.
 
+## The fourth gap closed: the cohort, on the page (2026-09-03)
+
+The advisor had the counts. The **document a funder reads** did not — and that
+is where the programme's argument belongs. Eighteen small requests that each
+need the same soil test, pass through the same secretariat and are blocked at
+the same funder are one portfolio; the same eighteen, read one at a time, are
+eighteen reasons to say no.
+
+So `conceptNoteFacts()` now carries `cohort: string[]`, passed through untouched
+from the same `cohortLines()` the advisor uses, and section 9 states the counts
+as bullets under a citation that says what they are:
+
+> *grupo COUGAR — contagens do próprio grupo, sem identificação das organizações*
+
+Three things had to be got right, and two of them were only found by printing
+the page and reading it.
+
+1. **The lines had to learn English.** They were advisor-only context before,
+   where Portuguese in and English out is fine because the advisor rewrites.
+   A concept note printed in English cannot carry a Portuguese sentence, and
+   the reader of the English document is the funder.
+
+2. **Agreement.** The first printed run said *"1 outra organização precisam do
+   mesmo estudo"*. No test failed: every guard here is about what may leak, none
+   about whether the sentence is grammatical.
+
+3. **⚠️ The pass added the counts up.** Handed 7 on one line and 6 on another,
+   it wrote *"outras oito organizações do mesmo grupo esbarram nas mesmas
+   barreiras"* — in a cohort of eight, where seven others is the ceiling. Every
+   digit check passed it, because *oito* has no digits. It is now a guard of its
+   own: a count of ORGANISATIONS, in words or digits, must be one the cohort
+   lines actually state, or the paragraph is dropped. Deliberately narrow —
+   "as duas soluções combinadas" is a true sentence and a blanket word-number
+   rule would throw it away — because what cannot be loose is a count of other
+   people, in a document that goes to a funder.
+
+The prompt rule that fixed (3) then leaked into the prose: one note explained on
+the page that the counts were *"não somáveis entre si"*. Our rules are ours;
+the reader wants the right number, not the rule that produced it — the same
+lesson as `docs/document-register.md`, in a new place.
+
+Gap ratchet: 13 → 10 → 7 → 6 → **5**.
+
 ## What this becomes
 
 The workshops ahead ask more of this, not less. An organisation that has told us

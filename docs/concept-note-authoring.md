@@ -127,6 +127,7 @@ model in `e2e/concept-note.spec.ts`:
 | a section outside the three | the other seven stay computed |
 | nothing survives in a section | its assembled paragraphs stand — the document never gets shorter for having tried |
 | the facts changed after the session | stored prose is re-validated on read, so a sentence quoting a corrected area is dropped |
+| a count of OTHER organisations that no cohort line states | in words as well as digits — see below |
 
 ⚠️ **What no guard catches, and the prompt rule that answers it.** The number
 guard checks whether a figure is IN the fact base, not whether it is being used
@@ -151,6 +152,30 @@ reads:
 The general lesson, worth carrying into any future pass: **a number is in the
 record to answer a specific question, and using it to answer a different one is
 invention even when the number is correct.**
+
+⚠️ **The counts of other people, and a guard that only read digits.** The second
+live run — the first with the cohort layer in the fact base — produced this:
+
+> *"Outras oito organizações do mesmo grupo esbarram nas mesmas barreiras de
+> financiamento identificadas para este projeto."*
+
+The lines it was handed said seven on one and six on another. It added them, got
+thirteen, and rounded the claim to eight; the cohort has eight organisations
+total, so seven others is the ceiling. Nothing caught it, because *oito* has no
+digits and the numeral guard reads `\d`.
+
+`claimedOrgCounts()` now reads both forms and checks them against the cohort
+lines alone — not against the fact base, where an `8` sitting in some unrelated
+figure would have licensed the sentence anyway. It is deliberately narrow: it
+matches counts of ORGANISATIONS and nothing else, because *"as duas soluções
+combinadas atuam sobre essa superfície"* is a true, useful sentence and a
+blanket word-number rule would throw it away. What cannot be loose is a count of
+other people, on a page that goes to a funder and that those people never see.
+
+And the prompt rule that fixed it then leaked into the prose — one note
+explained on the page that the counts were *"não somáveis entre si"*. The rule
+is ours. The reader wants the right number, not the rule that produced it
+(`docs/document-register.md`, again).
 
 ## Risks
 
