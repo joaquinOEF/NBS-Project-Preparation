@@ -154,10 +154,13 @@ export const MODEL_PASSES: ModelPass[] = [
       transcript: no('eighteen transcripts is not a context that fits, and the fields plus their own words carry the substance'),
       evidence: no('it groups organisations; it states no impact figure'),
       // ⚠️ The three that make this pass thinner than the record it reads.
-      docFullText: gap('it reads the 280-character SUMMARY where the advisor reads the whole document. A Teia Sprint proposal is exactly the artefact that shows two organisations proposing the same thing.'),
-      photos: gap('two organisations photographing the same kind of failing wall is a synergy no field expresses'),
-      knowledge: gap('shared approval routes are the most poolable thing in the cohort — same Termo de Adoção, same 30-day analysis, one conversation'),
-      artefacts: gap('⚠️ JVP’s own hypothesis, confirmed: the concept notes never reach this pass. Section 7’s approval routes and section 5’s argument are precisely the pooling material, and SynergyMember has no field for either.'),
+      // ⚠️ It was handed `docPreview.filenames` — names, no summary, no text —
+      // while its own prompt asks it to notice two organisations proposing the
+      // same thing. Now the documents themselves, truncated per document.
+      docFullText: uses,
+      knowledge: uses,
+      artefacts: uses,
+      photos: gap('two organisations photographing the same kind of failing wall is a synergy no field expresses, and the images are already loaded for the W2 ranking'),
     },
   },
   {

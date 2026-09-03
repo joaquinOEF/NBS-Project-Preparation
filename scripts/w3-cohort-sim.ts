@@ -349,6 +349,11 @@ async function main() {
       f.tenure ? '' : 'posse',
     ].filter(Boolean);
     console.log(`  ${r.member.orgName}: ${f.solutions.length} solução(ões), ${f.studyNeeds.length} estudo(s), ${f.bodies.length} órgão(s)${missing.length ? `  ⚠️ vazio: ${missing.join(', ')}` : ''}`);
+    // ⚠️ What Encontro 3 concluded, which this join could not see until the
+    // context audit. The instrument and the funding barrier are the two most
+    // poolable facts a cohort has. See docs/context-first.md.
+    if (f.approvalInstruments.length) console.log(`     instrumento: ${f.approvalInstruments.join(', ')}`);
+    if (f.fundingBlocked.length) console.log(`     financiamento bloqueado: ${f.fundingBlocked.join(', ')}`);
   }
 
   const problems = results.flatMap(r => r.problems.map(p => `${r.member.orgName}: ${p}`));

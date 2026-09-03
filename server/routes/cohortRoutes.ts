@@ -531,6 +531,32 @@ export function registerCohortRoutes(app: Express): void {
     const withDocs = await attachDocCounts(rows as any);
     const enriched = await attachDerivedSections(withDocs as any);
 
+    // ⚠️ The documents themselves, not their filenames. This pass was handed
+    // `docPreview.filenames` — a list of names, with no summary and no text —
+    // while its own prompt asks it to notice two organisations proposing the
+    // same thing. A Teia Sprint proposal is exactly that artefact, and the pass
+    // could see that one existed and nothing of what it said.
+    // See docs/context-first.md.
+    const docsByMember = new Map<string, Array<{ filename: string; purpose: string | null; summary: string | null; fullText: string | null }>>();
+    await Promise.all(
+      (enriched as any[])
+        .filter(m => !m.excludeFromPortfolio)
+        .map(async m => {
+          try {
+            const rows = await listDocumentsForScope({ orgId: m.orgId, cboStateId: m.cboStateId });
+            docsByMember.set(m.id, rows.map((d: any) => ({
+              filename: d.filename,
+              purpose: d.purpose ?? null,
+              summary: d.summary ?? null,
+              fullText: d.fullText ?? null,
+            })));
+          } catch {
+            // A document store that will not answer costs this pass one input,
+            // never the whole report.
+          }
+        }),
+    );
+
     const members = (enriched as any[])
       // The test organisation stays on the roster and out of the analysis.
       .filter(m => !m.excludeFromPortfolio)
@@ -560,9 +586,13 @@ export function registerCohortRoutes(app: Express): void {
           docCount: m.documentCount ?? 0,
           ownWords: s.ownWords ?? { story: null, whyHere: null, baseline: null },
           correctionsPt: s.correctionsPt ?? null,
-          docs: (m.docPreview?.filenames ?? []).map((filename: string) => ({
-            filename, purpose: null, summary: null,
-          })),
+          docs: docsByMember.get(m.id)
+            ?? (m.docPreview?.filenames ?? []).map((filename: string) => ({
+              filename, purpose: null, summary: null, fullText: null,
+            })),
+          approvalInstruments: s.approvalInstruments ?? [],
+          fundingOpen: s.fundingOpen ?? [],
+          fundingBlocked: s.fundingBlocked ?? [],
           // "Started" means a real answer exists, not that a row does. Three of
           // the ten in the hand-written report had an invite and nothing else.
           started: (m.derivedSectionsComplete ?? 0) > 0,

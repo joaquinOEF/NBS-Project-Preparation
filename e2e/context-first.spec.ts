@@ -62,16 +62,19 @@ test.describe('every model pass declares what it does with every source', () => 
     console.log(`\n[context-first] ${gaps.length} fonte(s) que um passe deveria usar e ainda não usa:`);
     for (const g of gaps) console.log(`  · ${g.pass} ← ${g.source}: ${g.because}`);
     // The ratchet: this number may fall freely and may only rise deliberately.
-    expect(gaps.length, 'gaps rose — either close it or change the ceiling on purpose').toBeLessThanOrEqual(13);
+    // The ratchet, lowered as gaps close: 13 → 10 when the synergy pass gained
+    // the concept notes, the knowledge slice and the documents themselves.
+    expect(gaps.length, 'gaps rose — either close it or change the ceiling on purpose').toBeLessThanOrEqual(10);
   });
 
   test('the pass that finds what a cohort shares reads what the cohort produced', () => {
-    // JVP’s own hypothesis, kept as a named expectation until it is true: the
-    // concept notes never reach the synergy pass, and section 7’s approval
-    // routes are precisely the pooling material.
+    // Was JVP’s hypothesis and a named gap: the concept notes never reached the
+    // synergy pass, though section 7’s approval routes and the funding paths are
+    // precisely the pooling material. Closed — and asserted so it stays closed.
     const synergy = MODEL_PASSES.find(p => p.id === 'synergyReport')!;
-    expect(synergy.sources.artefacts.state).not.toBe('uses');
-    expect((synergy.sources.artefacts as any).because).toMatch(/concept note|nota de conceito/i);
+    expect(synergy.sources.artefacts.state).toBe('uses');
+    expect(synergy.sources.knowledge.state).toBe('uses');
+    expect(synergy.sources.docFullText.state).toBe('uses');
   });
 });
 
@@ -174,5 +177,60 @@ test.describe('the funding landscape reaches the organisation', () => {
     expect(md).toMatch(/n[ãa]o reembols[áa]veis/i);
     expect(md).toContain('BNDES Periferias Verdes');
     expect(md).toContain(FUNDING_CAVEAT.pt);
+  });
+});
+
+// ── The cohort pass, now reading what the cohort produced ───────────────────
+import { analyseSynergies, synergyFactsFrom } from '../shared/w3-synergies';
+
+test.describe('what a cohort has in common, from what Encontro 3 concluded', () => {
+  const member = (id: string, over: any = {}) => ({
+    id, orgName: `Org ${id.toUpperCase()}`, bairro: 'Partenon', siteName: 'X', hasSite: true,
+    tenure: 'public-informal', currentUse: 'paved', worry: 'alagamento',
+    familias: ['aguas-pluviais'], solutions: ['hortas-urbanas'], roles: [],
+    priorCollaboration: null, priorCollaborationDetail: null, nbsExperience: null,
+    fundingScale: null, biggestBudget: null, maturityScore: 5, verdict: 'needs_permission',
+    studyNeeds: [], bodies: ['SMAMUS'], docCount: 0, started: true,
+    ownWords: { story: 'Alaga.', whyHere: null, baseline: null }, docs: [], correctionsPt: null,
+    approvalInstruments: ['Termo de Permissão de Uso'],
+    fundingOpen: [], fundingBlocked: ['Teia de Soluções'],
+    ...over,
+  });
+
+  test('the same instrument across organisations is one conversation, not seven', () => {
+    const a = analyseSynergies([member('a'), member('b'), member('c')] as any);
+    expect(a.pooledInstruments).toEqual([
+      { instrument: 'Termo de Permissão de Uso', memberIds: ['a', 'b', 'c'] },
+    ]);
+  });
+
+  test('⚠️ the same funding barrier is the aggregation argument, in numbers', () => {
+    // The programme-level finding no organisation can reach alone — and the
+    // answer to it is exactly what the 26 August workshop spent an hour on.
+    const a = analyseSynergies([member('a'), member('b'), member('c', { fundingBlocked: [] })] as any);
+    expect(a.sharedFundingBarriers).toEqual([
+      { path: 'Teia de Soluções', memberIds: ['a', 'b'] },
+    ]);
+  });
+
+  test('a barrier only one organisation has is not a cohort finding', () => {
+    const a = analyseSynergies([member('a'), member('b', { fundingBlocked: [] })] as any);
+    expect(a.sharedFundingBarriers).toEqual([]);
+  });
+
+  test('the facts are derived from the record, not passed in by hand', () => {
+    // ⚠️ Same projection the coordinator's button uses. The eligibility criteria
+    // are the funding deck's; what decides them was already in the record.
+    const sections: any = {
+      org_profile: { fields: { has_cnpj: { value: 'Ainda não' } } },
+      intervention_site: { fields: { land_tenure: { value: 'public-informal' }, bairro: { value: 'Partenon' } } },
+      intervention_type: { fields: { chosen_solutions: { value: 'hortas-urbanas' } } },
+      impact_monitoring: { fields: {} },
+      operations_sustain: { fields: {} },
+    };
+    const f = synergyFactsFrom(sections);
+    expect(f.approvalInstruments).toContain('Termo de Permissão de Uso');
+    expect(f.fundingBlocked.join(' ')).toMatch(/Teia de Soluções/);
+    expect(f.fundingBlocked.join(' ')).toMatch(/BNDES/);
   });
 });

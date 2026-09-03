@@ -121,7 +121,28 @@ function analysisForModel(a: SynergyAnalysis): string {
     if (m.ownWords.whyHere) L.push(`    "por que aqui": ${m.ownWords.whyHere.slice(0, 500)}`);
     if (m.ownWords.baseline) L.push(`    "como está hoje": ${m.ownWords.baseline.slice(0, 400)}`);
     if (m.correctionsPt) L.push(`    ⚠️ corrigiu nossos dados de risco: ${m.correctionsPt} — a percepção dela vale mais que a nossa média`);
-    if (m.docs.length) L.push(`    arquivos enviados: ${m.docs.map(d => d.filename).join(', ')}`);
+    // ⚠️ What Encontro 3 concluded. Until now this pass read the fields and
+    // their own words and NOTHING the workshop produced — so the two most
+    // poolable things a cohort has, the instrument each project goes through
+    // and the funding path each one can or cannot reach, never arrived at the
+    // pass whose entire job is pooling. See docs/context-first.md.
+    if (m.approvalInstruments.length) {
+      L.push(`    instrumento de aprovação: ${m.approvalInstruments.join(', ')}`);
+    }
+    if (m.fundingBlocked.length) {
+      L.push(`    ⚠️ financiamento fora de alcance hoje: ${m.fundingBlocked.join(', ')}`);
+    }
+    if (m.fundingOpen.length) {
+      L.push(`    caminhos de financiamento possíveis: ${m.fundingOpen.slice(0, 4).join(', ')}`);
+    }
+    // The full text, not the 280-character summary. A Teia Sprint proposal is
+    // exactly the artefact that shows two organisations proposing the same
+    // thing, and this pass was reading a précis of it.
+    for (const d of m.docs) {
+      const body = (d.fullText ?? d.summary ?? '').replace(/\s+/g, ' ').trim();
+      if (!body) { L.push(`    arquivo: ${d.filename}`); continue; }
+      L.push(`    arquivo ${d.filename}${d.purpose ? ` (${d.purpose})` : ''}: ${body.slice(0, 1200)}`);
+    }
   }
 
   if (a.groups.length) {
@@ -135,6 +156,16 @@ function analysisForModel(a: SynergyAnalysis): string {
   if (a.pooledStudies.length) {
     L.push('\n# NECESSIDADES TÉCNICAS EM COMUM (onde uma contratação conjunta economiza de verdade)');
     for (const p of a.pooledStudies) L.push(`- ${p.need}: ${p.memberIds.map(name).join(', ')}`);
+  }
+  if (a.pooledInstruments.length) {
+    L.push('\n# INSTRUMENTO DE APROVAÇÃO EM COMUM (uma conversa, não sete)');
+    for (const p of a.pooledInstruments) L.push(`- ${p.instrument}: ${p.memberIds.map(name).join(', ')}`);
+  }
+  if (a.sharedFundingBarriers.length) {
+    // ⚠️ The programme-level finding no organisation can reach alone — and the
+    // answer to it is the aggregation the funding workshop spent an hour on.
+    L.push('\n# MESMA BARREIRA DE FINANCIAMENTO (o argumento da agregação, em números)');
+    for (const p of a.sharedFundingBarriers) L.push(`- ${p.path}: ${p.memberIds.map(name).join(', ')}`);
   }
   if (a.pooledBodies.length) {
     L.push('\n# ÓRGÃOS EM COMUM (uma conversa em vez de várias)');

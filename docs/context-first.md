@@ -156,6 +156,31 @@ Three rules the example fixed in place:
    eighteen in a pipeline. That is the programme's own reason for existing, and
    it was only ever said out loud in a workshop.
 
+## The first gap closed (2026-09-03)
+
+The synergy pass now reads what the cohort produced. Four sources moved from
+`missing` to `uses`, and the gap count fell from 13 to 10:
+
+- **`artefacts`** — the approval instrument each project goes through, and the
+  funding paths each organisation is eligible for or blocked from.
+- **`knowledge`** — the funding landscape, as eligibility rather than as a list.
+- **`docFullText`** — ⚠️ the route was passing `docPreview.filenames`. Not the
+  full text, not even the summary: **a list of names**, to a pass whose own
+  prompt asks it to notice two organisations proposing the same thing.
+
+What that produces is the thing no organisation can reach alone. Across five
+simulated organisations: **three blocked by the same "histórico comprovado"** on
+the same call, and **two needing the same ART**. Both are now deterministic
+outputs — `pooledInstruments` and `sharedFundingBarriers` — printed in the
+report and on the coordinator's page:
+
+> **Mesma barreira de financiamento.** O argumento da agregação, em números:
+> nenhuma dessas organizações resolve isto sozinha, e juntas viram uma proposta
+> que um financiador consegue processar.
+
+That sentence is the funding workshop's central argument, computed from the
+cohort's own records rather than asserted in a slide.
+
 ## What this becomes
 
 The workshops ahead ask more of this, not less. An organisation that has told us
