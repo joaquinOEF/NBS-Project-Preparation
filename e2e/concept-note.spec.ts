@@ -394,3 +394,72 @@ test.describe('the concept note — what Encontro 1 knows', () => {
     expect(bare.paragraphs[0].text).toContain('Só o nome');
   });
 });
+
+// ── How the photographs reach a pass that must stay auditable ───────────────
+// The organisation walked its own site and photographed the ground, and sent the
+// proposal it had already written. Those reach the concept note PRE-DIGESTED:
+// the advisor reads them and emits one-sentence observations carrying what each
+// was based on, which enter the fact base like any other fact and pass the same
+// guards. See docs/context-first.md.
+
+test.describe('the concept note — what a reading pass saw', () => {
+  const withAdvice = (observations: any[]): W3Input => ({
+    ...ESCOLA,
+    w3: { ...ESCOLA.w3, _advice_json: JSON.stringify({ observations }) },
+  });
+  const OBS = [
+    { kind: 'gap', textPt: 'O piso do pátio é cimento liso e não há ralo visível em nenhuma das fotos.', basedOn: 'foto 02-onde-a-agua-fica-parada.jpg' },
+    { kind: 'strength', textPt: 'A proposta enviada ao Teia Sprint já descreve a mesma área e o mesmo problema.', basedOn: 'proposta-teia-sprint.pdf' },
+  ];
+
+  test('an observation reaches the note carrying what it was based on', () => {
+    const problema = buildConceptNote(withAdvice(OBS), 'pt').sections.find(s => s.id === 'problema')!;
+    const text = problema.paragraphs.map(p => p.text).join(' ');
+    expect(text).toContain('cimento liso');
+    expect(text).toContain('foto 02-onde-a-agua-fica-parada.jpg');
+    expect(text).toContain('proposta-teia-sprint.pdf');
+  });
+
+  test('⚠️ it is attributed as OUR reading, never as something they said', () => {
+    // Their sentences are quoted; this is inferred from material they sent, and
+    // blending the two would put words in their mouth. docs/document-register.md.
+    const problema = buildConceptNote(withAdvice(OBS), 'pt').sections.find(s => s.id === 'problema')!;
+    const observed = problema.paragraphs.filter(p => /leitura nossa/.test(p.text));
+    expect(observed.length).toBe(2);
+    expect(observed.every(p => p.kind !== 'quote')).toBe(true);
+    expect(observed.every(p => /leitura do material enviado/.test(p.sources.join(' ')))).toBe(true);
+  });
+
+  test('an observation with no provenance is dropped', () => {
+    // A claim read off a photograph, with no photograph named, is indistinguishable
+    // from an invented one — and the number guard cannot catch an invented noun.
+    const f = conceptNoteFacts(withAdvice([
+      { kind: 'gap', textPt: 'Uma frase perfeitamente plausível sobre o terreno.', basedOn: '' },
+    ]), 'pt');
+    expect(f.observations).toEqual([]);
+  });
+
+  test('its figures become quotable by the authoring pass', () => {
+    // An observation is a fact with a source, so a number inside one is a number
+    // the writer may use — which is the whole point of pre-digesting rather than
+    // handing over the image.
+    const note = buildConceptNote(withAdvice([
+      { kind: 'gap', textPt: 'Nas fotos, 3 bocas de lobo aparecem cobertas por sedimento.', basedOn: 'foto 01-por-onde-a-agua-entra.jpg' },
+    ]), 'pt');
+    expect(factNumbers(note.facts).has('3')).toBe(true);
+  });
+
+  test('no advisor run, no observations, and the note is whole', () => {
+    // A deployment with no key produces the deterministic document, not a
+    // degraded one — nothing here depends on the reading pass having run.
+    const bare = buildConceptNote(ESCOLA, 'pt');
+    expect(bare.facts.observations).toEqual([]);
+    expect(bare.sections.find(s => s.id === 'problema')!.paragraphs.length).toBeGreaterThan(0);
+  });
+
+  test('a malformed advice blob costs nothing', () => {
+    const broken = buildConceptNote({ ...ESCOLA, w3: { ...ESCOLA.w3, _advice_json: 'not json' } }, 'pt');
+    expect(broken.facts.observations).toEqual([]);
+    expect(broken.sections.length).toBeGreaterThan(5);
+  });
+});

@@ -181,6 +181,41 @@ report and on the coordinator's page:
 That sentence is the funding workshop's central argument, computed from the
 cohort's own records rather than asserted in a slide.
 
+## The second gap closed: the photographs (2026-09-03)
+
+They walked their own site and photographed the ground. Those images informed
+the W2 família ranking and nothing else.
+
+⚠️ **And the fix was not to build a second vision pass.** The advisor already
+reads the images and the full text of what was uploaded, and already emits
+one-sentence observations carrying `basedOn` — what each was based on. That is
+exactly the pre-digested shape this document prescribes, and it was already
+being produced and thrown away by everything downstream of the roadmap.
+
+So the concept note reads the observations, not the images:
+
+```
+foto 02 ─▶ [advisor, already running] ─▶ «O piso do pátio é cimento liso e não
+                                          há ralo visível em nenhuma das fotos.»
+                                          basedOn: "foto 02-onde-a-agua…jpg"
+                                       ─▶ conceptNoteFacts().observations
+                                       ─▶ [authoring pass] — still facts only
+```
+
+Three properties make this the architecture rather than a shortcut:
+
+- **An observation is a fact with a source**, so it passes every guard the rest
+  of the fact base does — and a figure inside one becomes quotable by the
+  writing pass, which is the whole reason to pre-digest rather than hand over
+  the image.
+- **One with no provenance is dropped.** A claim read off a photograph, with no
+  photograph named, is indistinguishable from an invented one.
+- **It is attributed as ours.** "…_(leitura nossa — foto 02)_" sits beside their
+  quoted sentences and is never blended into them. Their words are quoted; this
+  is inferred from material they sent.
+
+Gap ratchet: 13 → 10 → **7**.
+
 ## What this becomes
 
 The workshops ahead ask more of this, not less. An organisation that has told us

@@ -175,6 +175,23 @@ export interface ConceptNoteFacts {
     recurringMoney?: string;
     monitoring?: string;
   };
+  /**
+   * ⚠️ What a reading pass SAW, each carrying what it was based on.
+   *
+   * This is how the photographs and the uploaded documents reach a pass that
+   * must stay auditable. The organisation walked its own site and photographed
+   * the ground; the advisor reads those images and the full text of what they
+   * uploaded, and emits one-sentence observations with their provenance. Those
+   * are facts with a source, so they enter the fact base like any other and
+   * pass the same guards — while the writing pass still sees only facts.
+   *
+   * Handing the images to the writer instead would widen the reach and lose the
+   * guarantee: the number guard cannot catch an invented noun, and "o pátio tem
+   * um ralo entupido" read off an ambiguous photograph is not a figure.
+   * See docs/context-first.md.
+   */
+  observations: Array<{ text: string; basedOn: string; kind: string }>;
+
   /** What the organisation itself puts in. Named, never priced. */
   contribution: string[];
   verdict: VerdictState;
@@ -315,6 +332,20 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
     contribution.push(pt ? 'terreno já em uso pela organização' : 'land already in use by the organisation');
   }
 
+  // The advisor's reading of the photographs and the documents, if it ran.
+  // Absent in a deployment with no key, which is why nothing here depends on it.
+  const observations: ConceptNoteFacts['observations'] = (() => {
+    try {
+      const advice = JSON.parse(String(w3._advice_json ?? '') || '{}');
+      return (advice.observations ?? [])
+        .filter((o: any) => typeof o?.textPt === 'string' && o.textPt.trim().length > 12)
+        .map((o: any) => ({ text: String(o.textPt).trim(), basedOn: String(o.basedOn ?? '').trim(), kind: String(o.kind ?? '') }))
+        .filter((o: any) => o.basedOn);
+    } catch {
+      return [];
+    }
+  })();
+
   const priced = solutions.map(s => s.cost).filter(c => c?.lowBrl != null);
   const roadmap = buildRoadmap(input, lang);
 
@@ -389,6 +420,7 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
         ? { monitoring: enumLabel('impact_monitoring', 'monitoring_capacity', w3.monitoring_capacity, lang) }
         : {}),
     },
+    observations,
     contribution,
     verdict: portfolioState(dossier.verdicts),
     gaps: dossier.gaps,
@@ -636,6 +668,16 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
     f.problem.baseline && f.problem.baseline !== f.problem.story
       ? P(f.problem.baseline, [pt ? 'linha de base registrada antes da obra' : 'baseline recorded before any works'], 'quote')
       : null,
+    // ⚠️ Our reading, said to be ours. The organisation photographed the ground
+    // and sent what it had already written; this is what a pass saw in that
+    // material, and it is attributed rather than blended into their account.
+    // Never presented as a statement they made — see docs/document-register.md.
+    ...f.observations.map(o =>
+      P(
+        pt ? `${o.text} _(leitura nossa — ${o.basedOn})_` : `${o.text} _(our reading — ${o.basedOn})_`,
+        [pt ? `leitura do material enviado · ${o.basedOn}` : `a reading of what was sent · ${o.basedOn}`],
+      ),
+    ),
   ], !f.problem.story);
 
   // ── 4 · A intervenção proposta ────────────────────────────────────────────

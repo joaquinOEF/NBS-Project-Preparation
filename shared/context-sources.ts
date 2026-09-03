@@ -133,9 +133,16 @@ export const MODEL_PASSES: ModelPass[] = [
       knowledge: uses,
       // ⚠️ The rule that keeps this pass auditable, stated as a refusal.
       transcript: no('it receives the FACT BASE and never raw state — a fact absent from conceptNoteFacts() cannot reach the page, which is what stops an invented figure in a funder document'),
-      docSummary: gap('should reach it as a sourced OBSERVATION in the fact base, not as raw text'),
-      docFullText: gap('same: pre-digested into observations carrying "proposta Teia, p.3", so the writing pass still sees only facts'),
-      photos: gap('the richest thing they sent — they walked the site and photographed it — and it informs the W2 ranking and nothing else. Pre-digest into observations with "foto 02" as the source.'),
+      // ⚠️ Reached PRE-DIGESTED, which is the architecture rather than a
+      // shortcut: the advisor reads the images and the full text and emits
+      // one-sentence observations carrying what each was based on. Those are
+      // facts with a source, so they enter the fact base and pass the same
+      // guards — and the writing pass still sees only facts. Handing it the
+      // images directly would widen the reach and lose the guarantee, because
+      // the number guard cannot catch an invented noun.
+      docSummary: uses,
+      docFullText: uses,
+      photos: uses,
       cohort: gap('“três outras organizações da rede precisam do mesmo estudo” belongs in a funder document and is the programme’s whole argument'),
       artefacts: uses,
     },

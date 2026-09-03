@@ -64,7 +64,9 @@ test.describe('every model pass declares what it does with every source', () => 
     // The ratchet: this number may fall freely and may only rise deliberately.
     // The ratchet, lowered as gaps close: 13 → 10 when the synergy pass gained
     // the concept notes, the knowledge slice and the documents themselves.
-    expect(gaps.length, 'gaps rose — either close it or change the ceiling on purpose').toBeLessThanOrEqual(10);
+    // 13 → 10 (the synergy pass gained the cohort's own artefacts) → 7 (photos
+    // and documents reach the concept note pre-digested as observations).
+    expect(gaps.length, 'gaps rose — either close it or change the ceiling on purpose').toBeLessThanOrEqual(7);
   });
 
   test('the pass that finds what a cohort shares reads what the cohort produced', () => {
