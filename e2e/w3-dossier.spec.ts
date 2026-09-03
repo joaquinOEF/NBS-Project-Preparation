@@ -111,7 +111,14 @@ test.describe('W3 dossier — four records, four verdicts', () => {
   test('engineering-trivial can still be blocked, by paperwork', () => {
     const d = buildDossier(VILA_NOVA);
     expect(d.verdicts[0].state).toBe('needs_permission');
-    expect(d.verdicts[0].source).toContain('land_tenure');
+    // ⚠️ Attributed to the DOOR, not to the tenure field. The ficha for parques
+    // e florestas says the land has to be a public square and that it goes
+    // through the Termo de Adoção — a more specific and more useful answer than
+    // "land_tenure = public-informal", and the one an organisation can act on.
+    // See shared/nbs-approvals.ts.
+    expect(d.verdicts[0].source).toMatch(/quemPrecisaDizerSim|land_tenure/);
+    expect(d.verdicts[0].why).toContain('SMAMUS');
+    expect(d.verdicts[0].unblockedBy).toContain('Termo de Adoção');
     // Paved surfaces earn their own investigation.
     expect(d.items.some(i => /sob o piso|under the paving/i.test(i.text))).toBe(true);
     // Heat decides the evidence, not flooding.

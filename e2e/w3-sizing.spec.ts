@@ -234,7 +234,11 @@ test.describe('W3 sizing — who builds it moves the number', () => {
 
   test('a solution the ficha says cannot be self-built says so', () => {
     const note = budgetLineFor('solo-grampeado-verde', 200, undefined, 'mutirao')!.notePt;
-    expect(note).toMatch(/Vocês disseram mutirão/);
+    // ⚠️ Third person: this note is spoken in the chat AND printed in the budget
+    // of both documents, and "Vocês disseram mutirão" reached a nota técnica
+    // that way. Naming the answer rather than the answerer works in both.
+    expect(note).toMatch(/A execução indicada foi mutirão/);
+    expect(note).not.toMatch(/\bVoc[eê]s\b/);
     expect(note).toMatch(/não dá pra mutirão/);
     // The band does NOT move — there is no self-build price to move it to.
     expect(budgetLineFor('solo-grampeado-verde', 200, undefined, 'mutirao')!.lowBrl)

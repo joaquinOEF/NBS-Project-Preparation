@@ -31,8 +31,9 @@
 
 import { getSolutionFicha } from './nbs-solution-fichas';
 import { SOLUTION_MECHANISMS, getSolution, NBS_SOLUTIONS } from './nbs-catalog';
-import { budgetLineFor, type BudgetLine, type BuildModel } from './w3-sizing';
+import { budgetLineFor, SOLUTION_COSTS, type BudgetLine, type BuildModel } from './w3-sizing';
 import { studyCostLine, STUDY_COSTS } from './w3-studies';
+import { approvalRequirement } from './nbs-approvals';
 import { WORRY_SUBTYPES, type WorryId } from './site-knowledge';
 
 // ── Capacity ────────────────────────────────────────────────────────────────
@@ -204,7 +205,7 @@ const PUBLIC_TENURE = new Set([
  * difference between a project they can start and one they cannot.
  */
 /** The words an organisation used for a worry, never the id we store it under. */
-function worryLabel(id: string, pt: boolean): string {
+export function worryLabel(id: string, pt: boolean): string {
   const first = id.split(',')[0].trim();
   const sub = WORRY_SUBTYPES.find(w => w.id === first);
   if (sub) return (pt ? sub.dPt : sub.dEn).toLowerCase();
@@ -303,6 +304,31 @@ export function computeVerdict(
   }
 
   const tenure = site.land_tenure ?? '';
+
+  // ⚠️ The ficha's own approval requirement, which tenure does not answer.
+  //
+  // A real run closed `ready` — "Nada trava esse projeto daqui" — three lines
+  // under its own ficha saying "a rua é pública — plantar sem autorização da
+  // SMAMUS é proibido", because the organisation held a formal agreement over
+  // the land and `land_tenure` was the only thing consulted. Tenure answers
+  // *may we use this land*; the ficha answers *may we do this thing here*, and
+  // for a street planting those are different questions with different doors.
+  // See shared/nbs-approvals.ts and backlog #42.
+  const approval = solutionId ? approvalRequirement(solutionId, tenure) : null;
+  if (approval) {
+    const doors = approval.bodies.map(b => b.name).join(', ');
+    const inst = pt ? approval.instrumentPt : approval.instrumentEn;
+    return {
+      solutionId,
+      state: 'needs_permission',
+      why: pt
+        ? `Tecnicamente dá para fazer. O que falta é autorização: ${doors} ${approval.bodies.length > 1 ? 'precisam' : 'precisa'} dizer sim${inst ? `, pelo ${inst}` : ''}.`
+        : `Technically this can be done. What is missing is authorisation: ${doors} ${approval.bodies.length > 1 ? 'have' : 'has'} to say yes${inst ? `, through ${inst}` : ''}.`,
+      unblockedBy: inst ?? (pt ? `autorização de ${doors}` : `authorisation from ${doors}`),
+      source: approval.source,
+    };
+  }
+
   if (INFORMAL_TENURE.has(tenure)) {
     return {
       solutionId,
@@ -550,12 +576,19 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
     // takes this page to an assembly. Same defect the who-maintains question
     // had — fixed there in the manifest, still hardcoded here, because the two
     // live in different files and nobody walked the printed page afterwards.
+    //
+    // ⚠️ And it keys off what the FICHA ALLOWS, not only off what they answered.
+    // An organisation can answer "mutirão" for a solution whose ficha rules a
+    // mutirão out — solo grampeado is explicit about it — and the document then
+    // said "quem cuida disto depois do mutirão" two sections after saying a
+    // mutirão cannot build it. Found by reading the page, not by a check.
+    const selfBuildRuledOut = !!SOLUTION_COSTS[id]?.buildModel?.mutiraoImpossiblePt;
     const afterWho =
       buildModelForItems === 'contratada'
         ? { pt: 'depois que a empresa entregar', en: 'once the contractor hands it over' }
         : buildModelForItems === 'parceria'
           ? { pt: 'depois que o parceiro entregar', en: 'once the partner hands it over' }
-          : buildModelForItems === 'mutirao' || buildModelForItems === 'mista'
+          : (buildModelForItems === 'mutirao' || buildModelForItems === 'mista') && !selfBuildRuledOut
             ? { pt: 'depois do mutirão', en: 'after the mutirão' }
             : { pt: 'depois que a obra terminar', en: 'once the work is finished' };
     add({

@@ -385,9 +385,13 @@ export function budgetLineFor(
   const buildNote = (pt: boolean): string => {
     if (!selfBuilt) return '';
     if (bm?.mutiraoImpossiblePt) {
+      // ⚠️ Third person. This note is spoken in the chat AND printed in the
+      // budget of both documents, and "Vocês disseram mutirão" reached a nota
+      // técnica that way. Naming the answer rather than the answerer reads
+      // correctly out loud and on paper. See docs/document-register.md.
       return pt
-        ? ` ⚠️ Vocês disseram mutirão, e ${bm.mutiraoImpossiblePt}. Vale conversar com a coordenação sobre execução contratada — isso não invalida o projeto, muda quem põe a mão.`
-        : ` ⚠️ You said mutirão, and ${bm.mutiraoImpossibleEn}. Worth talking to the coordination about contracting it — this does not invalidate the project, it changes who does the building.`;
+        ? ` ⚠️ A execução indicada foi mutirão, e ${bm.mutiraoImpossiblePt}. Vale conversar com a coordenação sobre execução contratada — isso não invalida o projeto, muda quem põe a mão.`
+        : ` ⚠️ The delivery model given was mutirão, and ${bm.mutiraoImpossibleEn}. Worth talking to the coordination about contracting it — this does not invalidate the project, it changes who does the building.`;
     }
     if (bm?.mutiraoLow != null) return '';
     return pt

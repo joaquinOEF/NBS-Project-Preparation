@@ -38,6 +38,7 @@ import { budgetLineFor, roundAreaM2, SOLUTION_COSTS, type BuildModel } from '@sh
 import { scaleStatement } from '@shared/w3-scale';
 import { benefitFor } from '@shared/w3-benefits';
 import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
+import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { getSolution } from '@shared/nbs-catalog';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { E3_QUESTIONNAIRE, allowedOptionIds, checkOptionRule, askCopyFor, sectionsFieldReader } from '@shared/cbo-questionnaire';
@@ -76,6 +77,15 @@ export interface E3Deps {
    * out or was never configured runs exactly as it does today.
    */
   startAdvisor?(): void;
+  /**
+   * Write the concept note's authored sections, once, at the close.
+   *
+   * Fire-and-forget for the same reason as the advisor: the organisation is
+   * reading its closing card while it runs, and nothing waits on it. A session
+   * where it fails, times out or was never configured downloads the
+   * deterministic document, which is whole rather than degraded.
+   */
+  startConceptNote?(): void;
   /**
    * Resolve once the advisor pass has settled, or after a short cap.
    *
@@ -333,6 +343,43 @@ export async function serveE3Checkpoint(
     return finish('open');
   };
 
+  /**
+   * Beat 0b · which of the named risks this project is for.
+   *
+   * ⚠️ Asked here, deterministically, because the model asked it and threw the
+   * answer away. A real run: the organisation said "a água — alaga, fica
+   * parada, entra na escola", the agent replied "Água é a prioridade 💧", and
+   * nothing wrote it. `site_worry` stayed "heat, flood", the shortlist ranks on
+   * its FIRST value, and twenty-four hours later Encontro 3 opened with "todas
+   * respondem ao que vocês contaram — pra sol forte, falta de sombra" and led
+   * with a heat solution. (backlog #39)
+   *
+   * Only when they named more than one. An organisation with a single worry has
+   * already answered this, and asking again is the repetition the W2/W3 overlap
+   * audit exists to stop.
+   */
+  const namedWorries = () =>
+    read(SITE)('site_worry').split(',').map(v => v.trim()).filter(Boolean);
+
+  const askWhichWorry = (): true => {
+    const ids = namedWorries();
+    const opts = ids
+      .map(id => WORRY_SUBTYPES.find(w => w.id === id))
+      .filter((w): w is (typeof WORRY_SUBTYPES)[number] => !!w);
+    if (opts.length < 2) return false as unknown as true;
+    deps.writeFields(SITE, { _worry_focus_pending: 'yes' });
+    say(
+      'No Encontro 2 vocês marcaram mais de uma coisa que preocupa nesse lugar. Pra escolher a solução certa, preciso saber qual delas esse projeto vai enfrentar primeiro.',
+      'In Encontro 2 you marked more than one thing that worries you about this place. To pick the right solution I need to know which one this project takes on first.',
+    );
+    ask(
+      'Qual delas pesa mais no dia a dia?',
+      'Which one weighs most day to day?',
+      opts.map(w => ({ pt: `${w.pt} — ${w.dPt}`, en: `${w.en} — ${w.dEn}` })),
+    );
+    return finish('ask-worry-focus');
+  };
+
   /** Send them to E2's own site map. W3 does not reinvent that step. */
   const openSiteMap = (detail: string): true => {
     pushEvent({
@@ -441,7 +488,19 @@ export async function serveE3Checkpoint(
     // that would be the "you weren't listening" signal in its purest form. Only
     // the price, which is per solution, is restated.
     if (adding) {
-      const line = budgetLineFor(solutionId, areaM2 || undefined, undefined, liveBuild());
+      // ⚠️ …but the SIZE is per solution too, whenever the two are priced on
+      // different bases. A real run added corredores verdes — priced per
+      // planted tree — to a project whose 2.100 m² footprint had been drawn for
+      // a per-m² solution, and this branch printed the ficha, printed a price
+      // per tree, and closed. Nine seconds from picking it to "✓ Pronto,
+      // Maria", with no count, not even a recorded pendency. The footprint buys
+      // nothing for a solution counted rather than measured. (backlog #38)
+      const needsCount = !!SOLUTION_COSTS[solutionId]?.unitChips?.length && !liveUnits();
+      if (needsCount) {
+        deps.writeFields(TYPE, { _second_sizing: 'yes' });
+        return askUnits(solutionId);
+      }
+      const line = budgetLineFor(solutionId, areaM2 || undefined, liveUnits() || undefined, liveBuild());
       if (line) say(line.notePt, line.noteEn);
       return await closeE3();
     }
@@ -914,6 +973,9 @@ _For this one we do not yet have a reference figure — what the ficha says is a
       ),
     } as any);
 
+    // The prose the download will carry, written while they read the card.
+    deps.startConceptNote?.();
+
     const nome = String((state.sections as any).org_profile?.fields?.contact_name?.value || '')
       .trim().split(/\s+/)[0];
     // The closing line says what they HAVE, not what they are missing — the
@@ -967,22 +1029,26 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     const nChip = deps.normChip(raw);
     const saidNoIdea =
       nChip === deps.normChip(E3C.naoSeiQuantas.pt) || nChip === deps.normChip(E3C.naoSeiQuantas.en);
+    // Who builds it, and everything else about the place, was answered before
+    // the second solution was added — so that path closes here instead of
+    // interviewing them a second time about the same site.
+    const secondSizing = type('_second_sizing') === 'yes';
     if (saidNoIdea || isSkip(raw)) {
-      deps.writeFields(TYPE, { _units_pending: '', _units_deferred: 'yes' });
+      deps.writeFields(TYPE, { _units_pending: '', _units_deferred: 'yes', _second_sizing: '' });
       say(
         'Sem problema — fica registrado que falta definir quantas, e a ficha já tem o preço de cada uma pra quando vocês souberem.',
         'No problem — it is recorded that the number is still open, and the ficha already has the price of each one for when you know.',
       );
-      return askConstruction();
+      return secondSizing ? await closeE3() : askConstruction();
     }
     // "umas 5", "5 cisternas", "5". Anything with no number at all is left to
     // fall through rather than guessed at.
     const n = Number((raw.match(/\d{1,5}/) ?? [])[0]);
     if (Number.isFinite(n) && n > 0) {
-      deps.writeFields(TYPE, { _units_pending: '', intervention_units: String(n), _units_deferred: '' });
+      deps.writeFields(TYPE, { _units_pending: '', intervention_units: String(n), _units_deferred: '', _second_sizing: '' });
       const line = budgetLineFor(unitsPending, liveArea() || undefined, n, liveBuild());
       if (line) say(line.notePt, line.noteEn);
-      return askConstruction();
+      return secondSizing ? await closeE3() : askConstruction();
     }
   }
 
@@ -1092,13 +1158,53 @@ _For this one we do not yet have a reference figure — what the ficha says is a
   const msg = deps.normChip(raw);
   const is = (c: { pt: string; en: string }) => msg === deps.normChip(c.pt) || msg === deps.normChip(c.en);
 
-  if (is(E3C.confirmar) && !chosen.length) return await askSolution();
+  if (is(E3C.confirmar) && !chosen.length) {
+    // Which risk first, when they named more than one — before the shortlist,
+    // because the shortlist ranks on it.
+    if (namedWorries().length > 1 && !site('_worry_focus_done')) {
+      const asked = askWhichWorry();
+      if (asked) return asked;
+    }
+    return await askSolution();
+  }
+
+  // Their answer to it. Reordered rather than replaced: the other worries are
+  // still true about the place and still belong in the record — what changes is
+  // which one leads, and the ranking reads the first value.
+  if (site('_worry_focus_pending') === 'yes' && raw) {
+    const n = deps.normChip(raw);
+    const hit = WORRY_SUBTYPES.find(
+      w => n === deps.normChip(`${w.pt} — ${w.dPt}`) || n === deps.normChip(`${w.en} — ${w.dEn}`)
+        || n === deps.normChip(w.pt) || n === deps.normChip(w.en) || n === deps.normChip(w.dPt),
+    );
+    if (hit) {
+      const rest = namedWorries().filter(v => v !== hit.id);
+      deps.writeFields(SITE, {
+        site_worry: [hit.id, ...rest].join(', '),
+        _worry_focus_pending: '',
+        _worry_focus_done: 'yes',
+      });
+      say(
+        `Anotado: **${hit.dPt.toLowerCase()}** é o que esse projeto enfrenta primeiro. O resto continua registrado sobre o lugar.`,
+        `Noted: **${hit.dEn.toLowerCase()}** is what this project takes on first. The rest stays on the record about the place.`,
+      );
+      return await askSolution();
+    }
+  }
   if (is(E3C.mudou)) return false; // free conversation — the model repairs it
 
   if (is(E3C.verTodas)) {
+    // ⚠️ Minus what they already took, on the CARDS as well as on the chips.
+    // The chip list was filtered when the second-solution dead end was fixed and
+    // this card list was not — so the solution they had just chosen was still
+    // shown, with no chip under it. A simulation caught it; a person would have
+    // tapped the card and wondered why nothing happened.
+    const taken = liveSolutions();
     pushEvent({
       type: 'show_solution_options',
-      items: topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 27).map(e => ({
+      items: topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 27)
+        .filter(e => !taken.includes(e.solution.id))
+        .map(e => ({
         solutionId: e.solution.id,
         reason: isPt ? e.reasonPt : e.reasonEn,
         ...(e.caveatPt ? { caveat: isPt ? e.caveatPt : e.caveatEn } : {}),

@@ -1,6 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { renderRoadmapHtml } from '../services/roadmapPrint';
+import { renderConceptNoteHtml } from '../services/conceptNotePrint';
+import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
 import {
   streamCboChat,
   handleCboEdit,
@@ -574,6 +576,55 @@ export function registerCboRoutes(app: Express): void {
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(renderRoadmapHtml(roadmap, lang));
+  });
+
+  /**
+   * The concept note, as a document.
+   *
+   * Same contract as the roadmap route above — rebuilt from live state on every
+   * request, so paper and screen cannot disagree — and the same failure mode
+   * avoided: it is assembled with no model in the path, so a deployment with no
+   * key serves the whole document rather than nothing.
+   */
+  app.get("/api/cbo/:id/concept-note", async (req: Request, res: Response) => {
+    let state = getCboState(req.params.id);
+    if (!state) {
+      const persisted = await loadPersistedCboState(req.params.id);
+      if (persisted) state = persisted.state;
+    }
+    if (!state) return res.status(404).send("Not found");
+
+    const lang = req.query.lang === 'en' || (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
+    const asRecord = (id: string) =>
+      Object.fromEntries(
+        Object.entries(((state!.sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
+          .map(([k, v]) => [k, String(v?.value ?? '')]),
+      );
+    const site = asRecord('intervention_site');
+    const type = asRecord('intervention_type');
+    const areaM2 = Number(site.site_area_m2) || 0;
+
+    const note = buildConceptNote({
+      site,
+      org: asRecord('org_profile'),
+      solutions: (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean),
+      ...(areaM2 ? { areaM2 } : {}),
+      w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
+    }, lang);
+
+    // Prose written at the close, re-checked against the facts as they stand
+    // now — a sentence quoting an area they corrected afterwards is dropped and
+    // its assembled version stands. `?plain=1` serves the deterministic
+    // document, which is how the two are compared side by side.
+    const authored = req.query.plain === '1'
+      ? { note, accepted: 0, rejected: [] }
+      : applyStoredAuthoring(note, type._concept_note_json, lang);
+    if (authored.rejected.length) {
+      console.log(`[concept-note] ${req.params.id}: ${authored.rejected.length} parágrafo(s) recusados na leitura — ${authored.rejected.map(r => r.why).join(' | ')}`);
+    }
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(renderConceptNoteHtml(authored.note, lang));
   });
 
   // Section registry

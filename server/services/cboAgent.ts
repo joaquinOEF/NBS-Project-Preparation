@@ -45,6 +45,8 @@ import {
 } from "@shared/site-knowledge";
 import { NBS_SCALE_HONESTY, needsScaleReframing } from "@shared/nbs-performance";
 import { NBS_FAMILIAS, getSolution } from "@shared/nbs-catalog";
+import { buildConceptNote } from "@shared/concept-note";
+import { authorConceptNote } from "./conceptNoteAuthor";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { getOrgIdForCboState, listDocumentsByOrg, listDocumentSummariesByOrg, getDocumentForOrg, listDocumentsForScope } from "./documentPersistence";
@@ -3461,6 +3463,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
           pushEvent({ type: 'maturity_update', scores: state.maturityScores, total: state.totalMaturityScore, flags: state.priorityFlags } as any);
         },
         startAdvisor: () => { void runW3Advisor(cboId); },
+        startConceptNote: () => { void runConceptNoteAuthor(cboId); },
         awaitAdvisor: () => waitForW3Advisor(cboId),
       });
       if (served) {
@@ -3595,6 +3598,73 @@ async function runW3AdvisorInner(cboId: string): Promise<void> {
     );
   } catch (err: any) {
     console.error(`[w3-advisor] ${cboId} failed (session continues unchanged):`, err?.message || err);
+  }
+}
+
+/**
+ * Write the concept note's three authored sections, once, at the close.
+ *
+ * ⚠️ Fired the moment Encontro 3 closes rather than when the download is
+ * tapped. The organisation is reading its closing card at that instant; the
+ * pass takes seconds and nothing waits on it. By the time anyone opens the
+ * document it is there, and if it is not — no key, a timeout, nothing surviving
+ * the guards — the route serves the deterministic document, which is a whole
+ * document rather than a degraded one.
+ *
+ * Persists the ACCEPTED PARAGRAPHS, not the note: the note is rebuilt from live
+ * state on every request, so a figure corrected after the session still flows
+ * through. Only the prose is stored.
+ */
+async function runConceptNoteAuthor(cboId: string): Promise<void> {
+  const started = Date.now();
+  try {
+    const state = getCboState(cboId);
+    if (!state?.sections?.intervention_type) return;
+    const asRecord = (id: string) =>
+      Object.fromEntries(
+        Object.entries(((state.sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
+          .map(([k, v]) => [k, String(v?.value ?? '')]),
+      );
+    const site = asRecord('intervention_site');
+    const type = asRecord('intervention_type');
+    const solutions = (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean);
+    if (!solutions.length) return;
+    const areaM2 = Number(site.site_area_m2) || 0;
+    const lang = (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
+
+    const note = buildConceptNote({
+      site,
+      org: asRecord('org_profile'),
+      solutions,
+      ...(areaM2 ? { areaM2 } : {}),
+      w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
+    }, lang);
+
+    const out = await authorConceptNote(note, lang);
+    if (!out.accepted) {
+      console.log(`[concept-note] ${cboId}: deterministic stands${out.reason ? ` — ${out.reason}` : ''}`);
+      return;
+    }
+    const authored = out.note.sections
+      .filter(sec => sec.paragraphs.some(p => p.authored))
+      .map(sec => ({ section: sec.id, paragraphs: sec.paragraphs.filter(p => p.authored) }));
+
+    const fresh = getCboState(cboId);
+    if (!fresh?.sections?.intervention_type) return;
+    fresh.sections.intervention_type.fields._concept_note_json = {
+      value: JSON.stringify(authored),
+      confidence: 'medium',
+      source: 'agent',
+      userEdited: false,
+    } as any;
+    setCboState(cboId, fresh);
+    debouncedPersist(cboId);
+    console.log(
+      `[concept-note] ${cboId}: ${out.accepted} parágrafo(s) escritos em ${authored.length} seção(ões), ` +
+      `${out.rejected.length} recusado(s), em ${Date.now() - started}ms`,
+    );
+  } catch (err: any) {
+    console.error(`[concept-note] ${cboId} failed (the deterministic document stands):`, err?.message || err);
   }
 }
 

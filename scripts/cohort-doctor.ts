@@ -33,6 +33,7 @@ async function main() {
   }
 
   let waiting = 0;
+  let drifted = 0;
   for (const cohort of list) {
     const settings = cohort.settings as CohortSettings | null;
     const open = openPhasesFrom(settings);
@@ -60,6 +61,11 @@ async function main() {
       rows.push({
         name: m.orgName ?? m.memberSlug ?? m.id,
         verdict: h.verdict,
+        // ⚠️ Reported, never counted as "waiting". Drifted risk numbers do not
+        // stop an organisation walking the journey — they quietly change which
+        // solutions it is offered, which is why the one report a coordinator
+        // opens is where they have to appear. `npm run backfill:bairro-risk`.
+        drift: h.riskDrift.map(d => `${d.field.replace('_bairro_', '').replace('_pct', '')} ${d.stored ?? '—'}→${d.correct}`),
         line:
           `fase ${h.phase} · ${h.sectionsFilled}/7 seções · acesso [${h.unlockedPhases.join(',')}]` +
           `${h.closed ? ' · encontro fechado' : ''}${h.nextOpen ? ` · próximo aberto: ${h.nextOpen}` : ''}` +
@@ -73,6 +79,10 @@ async function main() {
     for (const r of rows) {
       const label = r.verdict === 'ready-waiting' ? `⚠️  ${VERDICT_PT[r.verdict].toUpperCase()}` : VERDICT_PT[r.verdict];
       console.log(`\n  ${r.name}\n    ${label}\n    ${r.line}`);
+      if (r.drift.length) {
+        drifted++;
+        console.log(`    ⚠️  risco do bairro fora do publicado: ${r.drift.join(' · ')}`);
+      }
     }
   }
 
@@ -83,6 +93,10 @@ async function main() {
     process.exitCode = 1;
   } else {
     console.log('✅ ninguém está esperando: toda organização que terminou tem para onde ir.\n');
+  }
+  if (drifted) {
+    console.log(`⚠️  ${drifted} organização(ões) com percentis de risco do bairro divergentes do publicado.`);
+    console.log('   Isso muda quais soluções aparecem primeiro. Corrija com: npm run backfill:bairro-risk --apply\n');
   }
 }
 main().then(() => process.exit(process.exitCode ?? 0));
