@@ -38,6 +38,10 @@ import { orgHealth, VERDICT_ORDER } from '@shared/cohort-doctor';
 import { buildSynergyReport } from '../services/synergyReport';
 import { synergyReports } from '@shared/cohort-schema';
 import { renderSynergyHtml } from '../services/synergyPrint';
+import { renderRoadmapHtml } from '../services/roadmapPrint';
+import { renderConceptNoteHtml } from '../services/conceptNotePrint';
+import { buildRoadmap } from '@shared/w3-roadmap';
+import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
 import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist } from '../services/cboAgent';
 import JSZip from 'jszip';
 import { getObject } from '../services/blobStorage';
@@ -817,6 +821,62 @@ export function registerCohortRoutes(app: Express): void {
   // Ownership-gated by the :coordinatorSlug param guard + memberInCohort, like
   // every other member read here.
   // ──────────────────────────────────────────────────────────────────────
+  /**
+   * The two documents the organisation itself downloads, for the coordinator.
+   *
+   * ⚠️ Until now nobody on the coordination side could read what an
+   * organisation actually left Encontro 3 with. The portfolio's whole purpose
+   * is carrying these forward — pooling the studies, taking the recurring-money
+   * gap to the prefeitura — and the only way to see one was to be the org.
+   *
+   * Cohort-scoped and coordinator-authenticated rather than linking to
+   * /api/cbo/:id, so reading a member's document never requires handing a
+   * coordinator that member's cbo id. Same builders, rebuilt from live state,
+   * so what a coordinator reads is exactly what the organisation has.
+   */
+  app.get('/api/cohort/:coordinatorSlug/member/:memberId/document/:kind', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const kind = String(req.params.kind);
+    if (kind !== 'nota' && kind !== 'rota') { res.status(404).json({ error: 'unknown document' }); return; }
+    if (!member.cboStateId) { res.status(404).send('sem registro'); return; }
+
+    let state = getCboState(member.cboStateId) ?? null;
+    if (!state) state = (await loadCboFromDb(member.cboStateId))?.state ?? null;
+    if (!state) { res.status(404).send('sem registro'); return; }
+
+    const lang = req.query.lang === 'en' || (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
+    const asRecord = (id: string) =>
+      Object.fromEntries(
+        Object.entries(((state!.sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
+          .map(([k, v]) => [k, String(v?.value ?? '')]),
+      );
+    const site = asRecord('intervention_site');
+    const type = asRecord('intervention_type');
+    const areaM2 = Number(site.site_area_m2) || 0;
+    const input = {
+      site,
+      org: asRecord('org_profile'),
+      solutions: (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean),
+      ...(areaM2 ? { areaM2 } : {}),
+      w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
+    };
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    if (kind === 'rota') {
+      let observations: any[] = [];
+      try {
+        const advice = type._advice_json ? JSON.parse(type._advice_json) : null;
+        observations = (advice?.observations ?? []).map((o: any) => ({ kind: o.kind, text: o.textPt, basedOn: o.basedOn }));
+      } catch { observations = []; }
+      res.send(renderRoadmapHtml(buildRoadmap(input as any, lang, observations), lang));
+      return;
+    }
+    const note = buildConceptNote(input as any, lang);
+    const authored = applyStoredAuthoring(note, type._concept_note_json, lang);
+    res.send(renderConceptNoteHtml(authored.note, lang));
+  }));
+
   app.get('/api/cohort/:coordinatorSlug/member/:memberId/export', wrap(async (req, res) => {
     const member = await memberInCohort(req);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
