@@ -215,8 +215,14 @@ function choose(ask: any, p: Persona, prose: string[], problems: string[]) {
     const hit = opts.find(o => l.pick.test(o));
     if (hit) return { msg: hit, kind: 'chip' };
   }
-  // A beat whose only way out is "Prefiro pular" is a free-text beat.
-  const onlySkip = !opts.length || (opts.length === 1 && /pular|skip/i.test(opts[0]));
+  // A free-text beat, identified by what its options DO rather than by how many
+  // there are: an option carrying a `write` or `record` action hands the turn to
+  // the composer instead of answering. (Counting them broke the moment those two
+  // options were added — which is the harness catching its own assumption.)
+  // A spoken answer arrives as the same text after transcription, so both are
+  // answered in prose.
+  const composes = (ask.options ?? []).some((o: any) => o?.action === 'write' || o?.action === 'record');
+  const onlySkip = composes || !opts.length || (opts.length === 1 && /pular|skip/i.test(opts[0]));
   if (onlySkip) {
     const line = prose.shift();
     if (!line) {

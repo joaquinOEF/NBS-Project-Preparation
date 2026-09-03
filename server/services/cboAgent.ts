@@ -47,6 +47,8 @@ import { NBS_SCALE_HONESTY, needsScaleReframing } from "@shared/nbs-performance"
 import { NBS_FAMILIAS, getSolution } from "@shared/nbs-catalog";
 import { buildConceptNote } from "@shared/concept-note";
 import { authorConceptNote } from "./conceptNoteAuthor";
+import { cohortLines, peerFrom, type CohortPeer } from "./cohortContext";
+import { synergyFactsFrom } from "@shared/w3-synergies";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { getOrgIdForCboState, listDocumentsByOrg, listDocumentSummariesByOrg, getDocumentForOrg, listDocumentsForScope } from "./documentPersistence";
@@ -3575,10 +3577,13 @@ async function runW3AdvisorInner(cboId: string): Promise<void> {
         hasFundingHistory: v(org, 'prior_project_scale') === 'funded' || v(org, 'funding_history') === 'yes',
         needsStudy: false,
       },
-      // The cohort layer is deliberately left empty for now: it is the one
-      // input that leaves this org's own record, and it ships behind its own
-      // review rather than riding in on this change.
-      cohort: [],
+      // ⚠️ The cohort layer, as COUNTS and nothing else. It is the only input
+      // that leaves this organisation's own record, so it goes through an
+      // allowlist (server/services/cohortContext.ts) rather than a spread: no
+      // names, no quotes, no site, no peer's verdict. "Três outras organizações
+      // precisam do mesmo estudo" is the advice; who they are is the
+      // coordination's business and lives in the synergy report.
+      cohort: await cohortLinesFor(cboId).catch(() => []),
     });
 
     const fresh = getCboState(cboId);
@@ -3615,6 +3620,55 @@ async function runW3AdvisorInner(cboId: string): Promise<void> {
  * state on every request, so a figure corrected after the session still flows
  * through. Only the prose is stored.
  */
+/**
+ * The cohort in lines, for one organisation's advisor pass.
+ *
+ * Resolves to [] on any failure — a peer lookup that will not answer costs this
+ * pass one input, never the run. The organisation's own record is excluded by
+ * id, so it is never told that one other organisation shares its need when that
+ * organisation is itself.
+ */
+async function cohortLinesFor(cboId: string): Promise<string[]> {
+  const [membership] = await db
+    .select({ cohortId: cohortMembers.cohortId })
+    .from(cohortMembers)
+    .where(eq(cohortMembers.cboStateId, cboId))
+    .limit(1);
+  if (!membership?.cohortId) return [];
+
+  const siblings = await db
+    .select({
+      id: cohortMembers.id,
+      cboStateId: cohortMembers.cboStateId,
+      neighborhood: cohortMembers.neighborhood,
+      excludeFromPortfolio: cohortMembers.excludeFromPortfolio,
+    })
+    .from(cohortMembers)
+    .where(eq(cohortMembers.cohortId, membership.cohortId));
+
+  const read = async (stateId: string) => {
+    const st = getCboState(stateId) ?? (await loadCboFromDb(stateId))?.state ?? null;
+    if (!st?.sections) return null;
+    const facts = synergyFactsFrom(st.sections as any);
+    const site: any = (st.sections as any)?.intervention_site?.fields ?? {};
+    const val = (k: string) => String(site[k]?.value ?? '').trim() || null;
+    return peerFrom(facts, val('bairro'), val('site_worry'));
+  };
+
+  const mine = await read(cboId);
+  if (!mine) return [];
+
+  const peers: CohortPeer[] = [];
+  for (const m of siblings) {
+    // The test organisation stays on the roster and out of the analysis, here
+    // as everywhere.
+    if (!m.cboStateId || m.cboStateId === cboId || m.excludeFromPortfolio) continue;
+    const p = await read(m.cboStateId).catch(() => null);
+    if (p) peers.push(p);
+  }
+  return cohortLines(mine, peers);
+}
+
 async function runConceptNoteAuthor(cboId: string): Promise<void> {
   const started = Date.now();
   try {

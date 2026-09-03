@@ -329,3 +329,137 @@ test.describe('the concept note — phase 3, how a permission is asked for', () 
     }
   });
 });
+
+// ── What Encontro 1 collected and the document ignored ──────────────────────
+// The E1↔E3 audit found the inverse of the W2↔W3 one: E3 asks almost nothing E1
+// already answered, and the document that argues FOR the organisation ignored
+// eleven of the eighteen facts that workshop spends an hour collecting.
+// See docs/e1-e3-overlap-audit.md.
+
+test.describe('the concept note — what Encontro 1 knows', () => {
+  const RICH: W3Input = {
+    ...ESCOLA,
+    org: {
+      ...ESCOLA.org,
+      mission_summary: 'Cuidar das crianças do bairro e do espaço onde elas ficam.',
+      main_activities: 'Hortas e segurança alimentar, Educação ambiental',
+      has_cnpj: 'Sim, temos CNPJ', legal_form: 'Associação',
+      paid_vs_volunteer: 'Todas voluntárias',
+      nbs_experience: 'Sim', nbs_experience_detail: 'uma horta comunitária na creche',
+      groups_served: 'mulheres, jovens, comunidade do bairro',
+    },
+  };
+  const orgSection = (i: W3Input) =>
+    buildConceptNote(i, 'pt').sections.find(s => s.id === 'organizacao')!;
+
+  test('⚠️ legal status leads — it is what decides eligibility', () => {
+    // Most editais open by asking whether there is a CNPJ, and the answer had
+    // been in the record since the first workshop.
+    const text = orgSection(RICH).paragraphs.map(p => p.text).join(' ');
+    expect(text).toContain('Associação');
+    expect(text).toContain('com CNPJ');
+  });
+
+  test('a chip is an answer; a document states a fact', () => {
+    // The chip reads "Sim, temos CNPJ", so the first version printed
+    // "CNPJ: Sim, temos CNPJ" — the chip-versus-document confusion in a new
+    // place. See docs/document-register.md.
+    expect(orgSection(RICH).paragraphs.map(p => p.text).join(' ')).not.toMatch(/Sim, temos CNPJ/);
+  });
+
+  test('the mission is quoted, not paraphrased', () => {
+    const mission = orgSection(RICH).paragraphs.find(p => p.kind === 'quote');
+    expect(mission?.text).toBe('Cuidar das crianças do bairro e do espaço onde elas ficam.');
+    expect(mission?.sources.join(' ')).toMatch(/Encontro 1/);
+  });
+
+  test('what it works on, who it serves, and what it has built before', () => {
+    const text = orgSection(RICH).paragraphs.map(p => p.text).join(' ');
+    expect(text).toMatch(/Hortas e segurança alimentar/);
+    expect(text).toMatch(/mulheres, jovens/);
+    expect(text).toMatch(/horta comunitária na creche/);
+  });
+
+  test('an all-volunteer team is a contribution only where they build', () => {
+    const building = buildConceptNote(RICH, 'pt');
+    expect(building.facts.contribution.join(' ')).toMatch(/Todas voluntárias/);
+    // Hiring a contractor does not make the volunteers a counterpart to it.
+    const hiring = buildConceptNote({ ...RICH, w3: { ...RICH.w3, construction_model: 'contratada' } }, 'pt');
+    expect(hiring.facts.contribution.join(' ')).not.toMatch(/Todas voluntárias/);
+  });
+
+  test('a record with none of it still produces the section', () => {
+    const bare = orgSection({ ...ESCOLA, org: { org_name: 'Só o nome' } });
+    expect(bare.paragraphs.length).toBeGreaterThan(0);
+    expect(bare.paragraphs[0].text).toContain('Só o nome');
+  });
+});
+
+// ── How the photographs reach a pass that must stay auditable ───────────────
+// The organisation walked its own site and photographed the ground, and sent the
+// proposal it had already written. Those reach the concept note PRE-DIGESTED:
+// the advisor reads them and emits one-sentence observations carrying what each
+// was based on, which enter the fact base like any other fact and pass the same
+// guards. See docs/context-first.md.
+
+test.describe('the concept note — what a reading pass saw', () => {
+  const withAdvice = (observations: any[]): W3Input => ({
+    ...ESCOLA,
+    w3: { ...ESCOLA.w3, _advice_json: JSON.stringify({ observations }) },
+  });
+  const OBS = [
+    { kind: 'gap', textPt: 'O piso do pátio é cimento liso e não há ralo visível em nenhuma das fotos.', basedOn: 'foto 02-onde-a-agua-fica-parada.jpg' },
+    { kind: 'strength', textPt: 'A proposta enviada ao Teia Sprint já descreve a mesma área e o mesmo problema.', basedOn: 'proposta-teia-sprint.pdf' },
+  ];
+
+  test('an observation reaches the note carrying what it was based on', () => {
+    const problema = buildConceptNote(withAdvice(OBS), 'pt').sections.find(s => s.id === 'problema')!;
+    const text = problema.paragraphs.map(p => p.text).join(' ');
+    expect(text).toContain('cimento liso');
+    expect(text).toContain('foto 02-onde-a-agua-fica-parada.jpg');
+    expect(text).toContain('proposta-teia-sprint.pdf');
+  });
+
+  test('⚠️ it is attributed as OUR reading, never as something they said', () => {
+    // Their sentences are quoted; this is inferred from material they sent, and
+    // blending the two would put words in their mouth. docs/document-register.md.
+    const problema = buildConceptNote(withAdvice(OBS), 'pt').sections.find(s => s.id === 'problema')!;
+    const observed = problema.paragraphs.filter(p => /leitura nossa/.test(p.text));
+    expect(observed.length).toBe(2);
+    expect(observed.every(p => p.kind !== 'quote')).toBe(true);
+    expect(observed.every(p => /leitura do material enviado/.test(p.sources.join(' ')))).toBe(true);
+  });
+
+  test('an observation with no provenance is dropped', () => {
+    // A claim read off a photograph, with no photograph named, is indistinguishable
+    // from an invented one — and the number guard cannot catch an invented noun.
+    const f = conceptNoteFacts(withAdvice([
+      { kind: 'gap', textPt: 'Uma frase perfeitamente plausível sobre o terreno.', basedOn: '' },
+    ]), 'pt');
+    expect(f.observations).toEqual([]);
+  });
+
+  test('its figures become quotable by the authoring pass', () => {
+    // An observation is a fact with a source, so a number inside one is a number
+    // the writer may use — which is the whole point of pre-digesting rather than
+    // handing over the image.
+    const note = buildConceptNote(withAdvice([
+      { kind: 'gap', textPt: 'Nas fotos, 3 bocas de lobo aparecem cobertas por sedimento.', basedOn: 'foto 01-por-onde-a-agua-entra.jpg' },
+    ]), 'pt');
+    expect(factNumbers(note.facts).has('3')).toBe(true);
+  });
+
+  test('no advisor run, no observations, and the note is whole', () => {
+    // A deployment with no key produces the deterministic document, not a
+    // degraded one — nothing here depends on the reading pass having run.
+    const bare = buildConceptNote(ESCOLA, 'pt');
+    expect(bare.facts.observations).toEqual([]);
+    expect(bare.sections.find(s => s.id === 'problema')!.paragraphs.length).toBeGreaterThan(0);
+  });
+
+  test('a malformed advice blob costs nothing', () => {
+    const broken = buildConceptNote({ ...ESCOLA, w3: { ...ESCOLA.w3, _advice_json: 'not json' } }, 'pt');
+    expect(broken.facts.observations).toEqual([]);
+    expect(broken.sections.length).toBeGreaterThan(5);
+  });
+});

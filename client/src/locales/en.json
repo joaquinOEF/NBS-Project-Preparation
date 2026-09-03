@@ -1989,5 +1989,13 @@
   "notFound": {
     "title": "Page not found",
     "body": "This address doesn't exist — links sometimes arrive truncated. If you were sent an invitation, open it again using the whole link. If it still doesn't open, talk to whoever coordinates your group."
+  },
+  "cboView": {
+    "tabDocuments": "Documents",
+    "documentsHint": "The documents the organisation takes away from Encontro 3. They open in a new tab, exactly as it sees them.",
+    "docConceptNote": "Concept note",
+    "docConceptNoteHint": "For a funder or the city",
+    "docRoadmap": "Route",
+    "docRoadmapHint": "The road ahead, with owners"
   }
 }

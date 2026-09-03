@@ -32,6 +32,8 @@ import { familyOfWorry } from './site-knowledge';
 import { studyRequirement } from './w3-dossier';
 import { getSolutionFicha } from './nbs-solution-fichas';
 import type { CboState } from './cbo-schema';
+import { approvalRequirement } from './nbs-approvals';
+import { fundingMatches } from './funding-sources';
 
 export interface SynergyMember {
   id: string;
@@ -63,6 +65,22 @@ export interface SynergyMember {
   studyNeeds: string[];
   /** Approving bodies named by its fichas. */
   bodies: string[];
+  /**
+   * ⚠️ What the CONCEPT NOTE established — the artefact the workshop produces
+   * and this pass could not see.
+   *
+   * The pass whose entire job is finding what a cohort has in common was
+   * reading fields and their own words, and nothing that Encontro 3 concluded.
+   * These three are the poolable half of that document: the named legal
+   * instrument (seven organisations needing the same Termo de Adoção is one
+   * conversation with the Secretaria de Parcerias, not seven), and the funding
+   * paths each is eligible for or blocked from (five blocked by the same
+   * "histórico comprovado" is a programme-level finding no organisation can
+   * reach alone). See docs/context-first.md.
+   */
+  approvalInstruments: string[];
+  fundingOpen: string[];
+  fundingBlocked: string[];
   docCount: number;
   /** Nothing recorded at all — counted, never grouped. */
   started: boolean;
@@ -76,8 +94,12 @@ export interface SynergyMember {
    * only the enum answers is reading the thinnest version of the record.
    */
   ownWords: { story: string | null; whyHere: string | null; baseline: string | null };
-  /** Filenames + summaries of what they uploaded, Teia Sprint proposals included. */
-  docs: Array<{ filename: string; purpose: string | null; summary: string | null }>;
+  /**
+   * What they uploaded. ⚠️ `fullText` where we have it, not only the summary:
+   * this pass was reading a 280-character précis of a Teia Sprint proposal —
+   * the one artefact that shows two organisations proposing the same thing.
+   */
+  docs: Array<{ filename: string; purpose: string | null; summary: string | null; fullText?: string | null }>;
   /** Where the organisation corrected our risk numbers. Outranks the map. */
   correctionsPt: string | null;
 }
@@ -109,6 +131,18 @@ export interface SynergyAnalysis {
   commonPt: string[];
   /** Shared study needs, which is where pooling actually saves money. */
   pooledStudies: Array<{ need: string; memberIds: string[] }>;
+  /**
+   * ⚠️ The two most poolable facts a cohort has, and neither existed here until
+   * the context audit found the concept notes never reached this pass.
+   *
+   * Seven organisations needing the same Termo de Adoção is one conversation
+   * with the Secretaria de Parcerias rather than seven. Five blocked by the same
+   * "histórico comprovado" is a programme-level finding no organisation can
+   * reach alone — and the answer to it is the aggregation the funding workshop
+   * spent an hour on. See docs/context-first.md.
+   */
+  pooledInstruments: Array<{ instrument: string; memberIds: string[] }>;
+  sharedFundingBarriers: Array<{ path: string; memberIds: string[] }>;
   /** Shared approving bodies — one conversation instead of five. */
   pooledBodies: Array<{ body: string; memberIds: string[] }>;
   /** Stated plainly, because a partial reading presented as complete is a lie. */
@@ -291,6 +325,8 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
   };
   const pooledStudies = poolBy(m => m.studyNeeds).map(([need, memberIds]) => ({ need, memberIds }));
   const pooledBodies = poolBy(m => m.bodies).map(([body, memberIds]) => ({ body, memberIds }));
+  const pooledInstruments = poolBy(m => m.approvalInstruments ?? []).map(([instrument, memberIds]) => ({ instrument, memberIds }));
+  const sharedFundingBarriers = poolBy(m => m.fundingBlocked ?? []).map(([path, memberIds]) => ({ path, memberIds }));
 
   // ── Common denominators ───────────────────────────────────────────────────
   const commonPt: string[] = [];
@@ -326,7 +362,7 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
   }
   gapsPt.push('Os índices de risco são médias de bairro, calculadas em células que cobrem quarteirões. Onde a organização discordou, a percepção dela vale mais.');
 
-  return { members, groups, transversal, commonPt, pooledStudies, pooledBodies, gapsPt };
+  return { members, groups, transversal, commonPt, pooledStudies, pooledBodies, pooledInstruments, sharedFundingBarriers, gapsPt };
 }
 
 // ============================================================================
@@ -347,6 +383,10 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
 export type SynergyFacts = {
   ownWords: { story: string | null; whyHere: string | null; baseline: string | null };
   correctionsPt: string | null;
+  /** What Encontro 3 concluded, and this pass could not previously see. */
+  approvalInstruments: string[];
+  fundingOpen: string[];
+  fundingBlocked: string[];
   siteName: string | null;
   hasSite: boolean;
   tenure: string | null;
@@ -383,6 +423,25 @@ export function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
     }
   }
 
+  // The named instrument each solution goes through, for THIS organisation's
+  // land — the thing a cohort can queue together.
+  const tenure = f('intervention_site', 'land_tenure');
+  const approvalInstruments: string[] = [];
+  for (const id of solutions) {
+    const inst = approvalRequirement(id, tenure)?.instrumentPt;
+    if (inst && !approvalInstruments.includes(inst)) approvalInstruments.push(inst);
+  }
+
+  // Which funding paths this record opens or closes. The eligibility criteria
+  // are the deck's; what decides them is already in the record.
+  const org = (k: string) => f('org_profile', k);
+  const matches = fundingMatches({
+    ...(org('has_cnpj') ? { hasCnpj: /^(sim|yes)/i.test(org('has_cnpj')) } : {}),
+    hasTrackRecord: org('prior_project_scale') === 'funded' || org('funding_history') === 'yes',
+  }, 'pt');
+  const fundingOpen = matches.filter(m => !m.blocked).map(m => m.path.name);
+  const fundingBlocked = matches.filter(m => m.blocked).map(m => m.path.name);
+
   // What they said, not what we filed it under.
   const hazardChecks = (() => {
     try {
@@ -401,6 +460,9 @@ export function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
       baseline: f('impact_monitoring', 'baseline_condition') || null,
     },
     correctionsPt: hazardChecks,
+    approvalInstruments,
+    fundingOpen,
+    fundingBlocked,
     siteName: f('intervention_site', 'site_name') || null,
     hasSite: !!f('intervention_site', '_site_lat') || !!f('intervention_site', 'site_lat'),
     tenure: f('intervention_site', 'land_tenure') || null,

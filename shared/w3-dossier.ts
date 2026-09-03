@@ -422,6 +422,16 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
     (pt ? getSolution(id)?.pt.label : getSolution(id)?.en.label) ?? id.replace(/-/g, ' ');
   const { site, w3 = {} } = input;
   const solutions = input.solutions ?? [];
+  /**
+   * Who builds it — the item copy needs it as much as the budget does.
+   *
+   * Declared up here because the no-site path prices solutions too, and a
+   * `const` below the early return would be a temporal-dead-zone error rather
+   * than a missing caveat.
+   */
+  const buildModelForItems = (w3.construction_model || '') as string;
+  /** How many of them, for a solution counted rather than measured. */
+  const units = Number(w3.intervention_units) || undefined;
   const capacity = gradeCapacity(input, lang);
   const items: DossierItem[] = [];
   const gaps: string[] = [];
@@ -444,9 +454,6 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
     if (!twin) { items.push(i); return; }
     if (!twin.source.includes(i.source)) twin.source = `${twin.source} · ${i.source}`;
   };
-
-  /** Who builds it — the item copy needs it as much as the budget does. */
-  const buildModelForItems = (w3.construction_model || '') as string;
 
   const verdicts: Verdict[] = solutions.length
     ? solutions.map(s => computeVerdict(s, input, lang))
@@ -500,7 +507,28 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
         ? 'Sem lugar marcado não há área, custo, aprovação nem manutenção a calcular'
         : 'With no place marked there is no area, cost, approval or maintenance to compute',
     );
-    return { capacity, verdicts, items, budget: [], studies: [], gaps };
+    // ⚠️ The UNIT price still stands, and the two surfaces have to agree.
+    //
+    // This used to return `budget: []`, so the closing card in the chat showed
+    // no cost at all — while `buildRoadmap` computed its own budget regardless
+    // and the PDF the same organisation downloaded printed "R$ 500–R$ 600 por
+    // m². Falta desenhar a área para fechar um total." Two documents, ten
+    // seconds apart, saying different things about money. (backlog #34)
+    //
+    // Resolved toward the roadmap: a published rate with the missing area named
+    // beside it is more useful than silence, and it is what an organisation
+    // needs in order to know whether marking the place is worth the trip. There
+    // is still no total, and the gap above says why.
+    const noSiteBudget = solutions
+      .map(id => budgetLineFor(id, undefined, units, buildModelForItems as BuildModel | undefined))
+      .filter((b): b is BudgetLine => !!b);
+    const noSiteStudies: string[] = [];
+    for (const id of solutions) {
+      const req = studyRequirement(id);
+      const line = req ? studyCostLine(req.pt, pt ? 'pt' : 'en') : null;
+      if (line && !noSiteStudies.includes(line)) noSiteStudies.push(line);
+    }
+    return { capacity, verdicts, items, budget: noSiteBudget, studies: noSiteStudies, gaps };
   }
 
   // ── Per solution, from its ficha ──────────────────────────────────────────
@@ -682,9 +710,6 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
   // organisation cannot produce on its own and the thing every funder asks for
   // first.
   const areaM2 = input.areaM2 ?? (Number(site.site_area_m2) || undefined);
-  // How many of them, for a solution counted rather than measured. Same role
-  // the footprint plays for a per-m² price: without it there is no total.
-  const units = Number(input.w3?.intervention_units) || undefined;
   // Who builds it changes the band — and W3 asks it one beat after showing it.
   const buildModel = (input.w3?.construction_model || undefined) as BuildModel | undefined;
   const budget: BudgetLine[] = [];

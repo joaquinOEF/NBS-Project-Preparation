@@ -630,19 +630,7 @@ export default function MapMicroapp({
           // zones-bounds fit below owns the view there. (Both are async, so
           // this raced rather than lost outright, which is worse: the framing
           // depended on which fetch returned first.)
-          // ⚠️ FOOTPRINT-ZOOM, second occurrence. This fit is ASYNC — it lands
-          // whenever the boundary JSON returns — and it frames the whole
-          // municipality. In an e3_footprint session the view belongs to the
-          // footprint effect, which holds the site at zoom 18 with refits at
-          // 0/400/1100ms; whenever this fetch resolved after 1100ms it won the
-          // race and the org was asked to trace a schoolyard on a map showing
-          // all of Porto Alegre and the Guaíba. Reported by JVP, 2026-09-02.
-          //
-          // The `confirmAtZone` guard was written for the bairro step and never
-          // extended when the footprint preset was added — the same oversight
-          // as the fitTarget guard further down, which WAS extended. One fit
-          // guarded, one not, and only the unguarded one is async.
-          if (!params.confirmAtZone && !params.drawFootprint) {
+          if (!params.confirmAtZone) {
             mapRef.current!.fitBounds(bl.getBounds(), { padding: [20, 20] });
           }
         }
@@ -1147,11 +1135,8 @@ export default function MapMicroapp({
     // Hide zones layer
     if (zonesLayerRef.current) map.removeLayer(zonesLayerRef.current);
 
-    // Zoom to fit all selected zones — except in footprint mode, where the
-    // target is the site at zoom 18 and a bairro fit at maxZoom 14 is a zoom
-    // OUT of four levels.
+    // Zoom to fit all selected zones
     try {
-      if (params.drawFootprint) throw new Error('footprint owns the view');
       const allBounds = L.latLngBounds([]);
       for (const asset of zoneAssets) {
         if (asset.geometry)

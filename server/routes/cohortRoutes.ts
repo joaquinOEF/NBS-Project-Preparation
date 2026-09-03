@@ -38,6 +38,10 @@ import { orgHealth, VERDICT_ORDER } from '@shared/cohort-doctor';
 import { buildSynergyReport } from '../services/synergyReport';
 import { synergyReports } from '@shared/cohort-schema';
 import { renderSynergyHtml } from '../services/synergyPrint';
+import { renderRoadmapHtml } from '../services/roadmapPrint';
+import { renderConceptNoteHtml } from '../services/conceptNotePrint';
+import { buildRoadmap } from '@shared/w3-roadmap';
+import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
 import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist } from '../services/cboAgent';
 import JSZip from 'jszip';
 import { getObject } from '../services/blobStorage';
@@ -527,6 +531,32 @@ export function registerCohortRoutes(app: Express): void {
     const withDocs = await attachDocCounts(rows as any);
     const enriched = await attachDerivedSections(withDocs as any);
 
+    // ⚠️ The documents themselves, not their filenames. This pass was handed
+    // `docPreview.filenames` — a list of names, with no summary and no text —
+    // while its own prompt asks it to notice two organisations proposing the
+    // same thing. A Teia Sprint proposal is exactly that artefact, and the pass
+    // could see that one existed and nothing of what it said.
+    // See docs/context-first.md.
+    const docsByMember = new Map<string, Array<{ filename: string; purpose: string | null; summary: string | null; fullText: string | null }>>();
+    await Promise.all(
+      (enriched as any[])
+        .filter(m => !m.excludeFromPortfolio)
+        .map(async m => {
+          try {
+            const rows = await listDocumentsForScope({ orgId: m.orgId, cboStateId: m.cboStateId });
+            docsByMember.set(m.id, rows.map((d: any) => ({
+              filename: d.filename,
+              purpose: d.purpose ?? null,
+              summary: d.summary ?? null,
+              fullText: d.fullText ?? null,
+            })));
+          } catch {
+            // A document store that will not answer costs this pass one input,
+            // never the whole report.
+          }
+        }),
+    );
+
     const members = (enriched as any[])
       // The test organisation stays on the roster and out of the analysis.
       .filter(m => !m.excludeFromPortfolio)
@@ -556,9 +586,13 @@ export function registerCohortRoutes(app: Express): void {
           docCount: m.documentCount ?? 0,
           ownWords: s.ownWords ?? { story: null, whyHere: null, baseline: null },
           correctionsPt: s.correctionsPt ?? null,
-          docs: (m.docPreview?.filenames ?? []).map((filename: string) => ({
-            filename, purpose: null, summary: null,
-          })),
+          docs: docsByMember.get(m.id)
+            ?? (m.docPreview?.filenames ?? []).map((filename: string) => ({
+              filename, purpose: null, summary: null, fullText: null,
+            })),
+          approvalInstruments: s.approvalInstruments ?? [],
+          fundingOpen: s.fundingOpen ?? [],
+          fundingBlocked: s.fundingBlocked ?? [],
           // "Started" means a real answer exists, not that a row does. Three of
           // the ten in the hand-written report had an invite and nothing else.
           started: (m.derivedSectionsComplete ?? 0) > 0,
@@ -817,6 +851,62 @@ export function registerCohortRoutes(app: Express): void {
   // Ownership-gated by the :coordinatorSlug param guard + memberInCohort, like
   // every other member read here.
   // ──────────────────────────────────────────────────────────────────────
+  /**
+   * The two documents the organisation itself downloads, for the coordinator.
+   *
+   * ⚠️ Until now nobody on the coordination side could read what an
+   * organisation actually left Encontro 3 with. The portfolio's whole purpose
+   * is carrying these forward — pooling the studies, taking the recurring-money
+   * gap to the prefeitura — and the only way to see one was to be the org.
+   *
+   * Cohort-scoped and coordinator-authenticated rather than linking to
+   * /api/cbo/:id, so reading a member's document never requires handing a
+   * coordinator that member's cbo id. Same builders, rebuilt from live state,
+   * so what a coordinator reads is exactly what the organisation has.
+   */
+  app.get('/api/cohort/:coordinatorSlug/member/:memberId/document/:kind', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const kind = String(req.params.kind);
+    if (kind !== 'nota' && kind !== 'rota') { res.status(404).json({ error: 'unknown document' }); return; }
+    if (!member.cboStateId) { res.status(404).send('sem registro'); return; }
+
+    let state = getCboState(member.cboStateId) ?? null;
+    if (!state) state = (await loadCboFromDb(member.cboStateId))?.state ?? null;
+    if (!state) { res.status(404).send('sem registro'); return; }
+
+    const lang = req.query.lang === 'en' || (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
+    const asRecord = (id: string) =>
+      Object.fromEntries(
+        Object.entries(((state!.sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
+          .map(([k, v]) => [k, String(v?.value ?? '')]),
+      );
+    const site = asRecord('intervention_site');
+    const type = asRecord('intervention_type');
+    const areaM2 = Number(site.site_area_m2) || 0;
+    const input = {
+      site,
+      org: asRecord('org_profile'),
+      solutions: (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean),
+      ...(areaM2 ? { areaM2 } : {}),
+      w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
+    };
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    if (kind === 'rota') {
+      let observations: any[] = [];
+      try {
+        const advice = type._advice_json ? JSON.parse(type._advice_json) : null;
+        observations = (advice?.observations ?? []).map((o: any) => ({ kind: o.kind, text: o.textPt, basedOn: o.basedOn }));
+      } catch { observations = []; }
+      res.send(renderRoadmapHtml(buildRoadmap(input as any, lang, observations), lang));
+      return;
+    }
+    const note = buildConceptNote(input as any, lang);
+    const authored = applyStoredAuthoring(note, type._concept_note_json, lang);
+    res.send(renderConceptNoteHtml(authored.note, lang));
+  }));
+
   app.get('/api/cohort/:coordinatorSlug/member/:memberId/export', wrap(async (req, res) => {
     const member = await memberInCohort(req);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }

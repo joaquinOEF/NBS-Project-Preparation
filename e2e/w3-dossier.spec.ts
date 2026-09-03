@@ -1,3 +1,4 @@
+import { buildRoadmap } from '../shared/w3-roadmap';
 import { test, expect } from '@playwright/test';
 import {
   buildDossier,
@@ -207,5 +208,44 @@ test.describe('the count is the footprint, for a solution counted per unit', () 
     }, 'pt');
     expect(d.gaps.join(' ')).not.toMatch(/quantas/i);
     expect(d.budget[0].lowBrl).toBe(4500 * 5);
+  });
+});
+
+// ── The card and the page had to agree about money ──────────────────────────
+// buildDossier returned `budget: []` for an organisation with no place, so the
+// closing card in the chat showed no cost at all — while buildRoadmap computed
+// its own budget regardless and the PDF the same organisation downloaded printed
+// "R$ 500–R$ 600 por m². Falta desenhar a área para fechar um total." Two
+// documents, ten seconds apart, saying different things. (backlog #34)
+test.describe('no place marked, and one answer about money', () => {
+  const NO_SITE = {
+    org: { org_name: 'Ação Cavalhada', contact_name: 'Rosana' },
+    site: { bairro: 'Cavalhada', site_worry: 'enxurrada', land_tenure: 'public-informal' },
+    solutions: ['grade-viva'],
+    w3: { construction_model: 'mutirao' },
+  };
+
+  test('the published rate stands; only the total is missing', () => {
+    const d = buildDossier(NO_SITE as any, 'pt');
+    expect(d.verdicts[0].state).toBe('needs_site');
+    expect(d.budget.length).toBe(1);
+    // A rate, never a total — there is no area to multiply it by.
+    expect(d.budget[0].lowBrl).toBeNull();
+    expect(d.budget[0].notePt).toMatch(/por m²/);
+    // And the reason is named rather than left as a silence.
+    expect(d.gaps.join(' ')).toMatch(/Sem lugar marcado/);
+  });
+
+  test('the study line survives too — it is what the coordination pools', () => {
+    const d = buildDossier(NO_SITE as any, 'pt');
+    expect(d.studies.join(' ')).toMatch(/ART|CREA/);
+  });
+
+  test('the card and the printed page now say the same thing', () => {
+    // The failure was never either number: it was that a reader saw one of them
+    // in the chat and the other on paper.
+    const d = buildDossier(NO_SITE as any, 'pt');
+    const r = buildRoadmap(NO_SITE as any, 'pt');
+    expect(r.budget.map(b => b.notePt)).toEqual(d.budget.map(b => b.notePt));
   });
 });

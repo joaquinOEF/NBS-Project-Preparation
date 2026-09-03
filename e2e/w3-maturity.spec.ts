@@ -58,3 +58,46 @@ test.describe('the four scores Encontro 3 owes', () => {
     expect(phaseComplete(state, 3)).toBe(true);
   });
 });
+
+// ── The gap that is ours, not theirs ────────────────────────────────────────
+// Fifteen of the twenty-seven solutions have no reference figure in the evidence
+// base. For those the impact beat returns early — nothing is stated, so nothing
+// can be reacted to — and the score read 2 with the justification "ainda sem
+// reação registrada", grading an organisation on a question nobody asked.
+// (backlog #43)
+test.describe('a beat that never ran does not cost a point', () => {
+  const impactOf = (input: any) =>
+    scoreW3Maturity(input).find(s => s.metric === 'climate_nbs_impact')!;
+
+  test('a solution with no published figure is not held against them', () => {
+    const withFigure = impactOf({
+      site: {}, w3: { baseline_condition: 'Cimento quebrado.' },
+      solutions: ['jardins-de-chuva'], areaM2: 800, hasCostBand: true,
+    });
+    const without = impactOf({
+      site: {}, w3: { baseline_condition: 'Cimento quebrado.' },
+      solutions: ['parques-e-florestas-urbanas'], areaM2: 800, hasCostBand: true,
+    });
+    // Same record, same effort, and the one the evidence base can price is the
+    // only one that could ever have been asked the question.
+    expect(withFigure.score).toBe(1);
+    expect(without.score).toBe(2);
+    // And the justification says WHOSE gap it is.
+    expect(without.justification).toMatch(/base de evid[êe]ncias n[ãa]o tem n[úu]mero/);
+    expect(without.justification).not.toMatch(/sem rea[çc][ãa]o registrada/);
+  });
+
+  test('⚠️ but nothing chosen is still zero — that beat was never reached', () => {
+    // The relief applies to a solution our evidence base cannot price, never to
+    // a record that never got as far as choosing one.
+    expect(impactOf({ site: {}, w3: {}, solutions: [], hasCostBand: false }).score).toBe(0);
+  });
+
+  test('a figure that was shown and weighed still scores full', () => {
+    const weighed = impactOf({
+      site: {}, w3: { expected_impact: 'Segura 300 mil litros.', expected_impact_reaction: 'faz-sentido' },
+      solutions: ['jardins-de-chuva'], areaM2: 800, hasCostBand: true,
+    });
+    expect(weighed.score).toBe(3);
+  });
+});
