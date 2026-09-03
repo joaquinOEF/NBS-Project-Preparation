@@ -449,7 +449,7 @@ const squeeze = (s: string) => s.replace(/\s+/g, '').toLowerCase();
 const has = (r: Run, s: string) => squeeze(r.pdfText).includes(squeeze(s));
 const budgetOf = (r: Run, id: string) => r.dossier.budget.find(b => b.solutionId === id);
 
-const PERSONAS: Persona[] = [
+export const PERSONAS: Persona[] = [
   {
     id: 'humaita-rede',
     name: 'Rede Solidária Humaitá',
@@ -1074,4 +1074,27 @@ async function main() {
   if (failed.length) process.exitCode = 1;
 }
 
-main();
+// ⚠️ Only when run directly. `export const PERSONAS` made this module
+// importable, and importing it ran the whole simulation as a side effect — a
+// second full run inside another script, before that script had done anything.
+if (process.argv[1]?.endsWith('w3-fullsim.ts')) void main();
+
+
+/**
+ * The same drive, for a caller that wants only the finished state.
+ *
+ * ⚠️ Exported so scripts/w3-synergy-live.ts reuses these eight organisations
+ * rather than keeping a second copy of them — two sets of archetypes drift, and
+ * the whole point of the cohort pass is that it reads what these produced.
+ */
+export async function driveForSynergy(p: Persona): Promise<any> {
+  // ⚠️ A FRESH state. Each persona holds ONE mutable state object, created when
+  // the module loads and written into by the engine as it walks — so driving the
+  // same persona twice replays it against a session that has already finished,
+  // and every turn falls through as unserved. The first run of the synergy
+  // script hit exactly that and reported thirteen failures that were entirely
+  // its own doing.
+  const fresh = { ...p, state: structuredClone(p.state) };
+  const d = await drive(fresh);
+  return d.state;
+}

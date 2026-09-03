@@ -1021,6 +1021,13 @@ export function acceptAuthored(
     if (text.length > 1600) { drop('parágrafo longo demais para um bloco'); continue; }
     // The register is not negotiable — docs/document-register.md.
     if (/\bvoc[eê]s\b|\bvcs\b|\ba gente\b|\byour\b|\byou\b/i.test(text)) { drop('segunda pessoa'); continue; }
+    // ⚠️ Our machinery, named to someone who has never seen it. "Não consta do
+    // registro" and "o veredito do processo" are words from inside the system;
+    // a funder reading the page does not know what registro or veredito mean,
+    // and the same fact has a plain form — "a organização não informou", "não há
+    // medição disponível". Same rule as the ↻ lines, in a new place.
+    const machine = /\bveredito\b|\bbase de dados\b|(^|\s)(o|do|no)\s+registro(?!\s+(fotogr[áa]fico|de\b))/i.exec(text);
+    if (machine) { drop(`nomeia a máquina: "${machine[0].trim()}"`); continue; }
     // A number nobody handed it.
     const invented = (text.match(/\d[\d.,]*/g) ?? []).map(normNum).filter(n => n.length > 0 && !numbers.has(n));
     if (invented.length) { drop(`número que não está no registro: ${invented.join(', ')}`); continue; }

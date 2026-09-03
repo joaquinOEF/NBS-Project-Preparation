@@ -32,6 +32,9 @@
 import { z } from 'zod';
 import { createStructured, structuredProvider } from './structuredModel';
 import { analyseSynergies, type SynergyAnalysis, type SynergyMember } from '@shared/w3-synergies';
+import { WORRY_SUBTYPES } from '@shared/site-knowledge';
+import { cboDisplayValue } from '@shared/cbo-field-catalog';
+import { getSolution, NBS_SOLUTIONS, NBS_FAMILIAS } from '@shared/nbs-catalog';
 
 // ⚠️ NOTHING HERE CONSTRAINS THE MODEL'S SHAPE — that is enforced below, after
 // parsing, where a bad element can be DROPPED instead of taking the reply with
@@ -104,13 +107,13 @@ function analysisForModel(a: SynergyAnalysis): string {
     L.push(
       `- ${m.orgName} · ${m.bairro ?? 'bairro não informado'}` +
       `${m.siteName ? ` · local: ${m.siteName}` : ' · sem local marcado'}` +
-      `${m.worry ? ` · preocupa: ${m.worry}` : ''}` +
-      `${m.familias.length ? ` · famílias: ${m.familias.join(', ')}` : ''}` +
-      `${m.solutions.length ? ` · solução escolhida: ${m.solutions.join(', ')}` : ''}` +
+      `${m.worry ? ` · preocupa: ${worryWords(m.worry)}` : ''}` +
+      `${m.familias.length ? ` · famílias: ${m.familias.map(familiaWords).join(', ')}` : ''}` +
+      `${m.solutions.length ? ` · solução escolhida: ${m.solutions.map(solutionWords).join(', ')}` : ''}` +
       `${m.roles.length ? ` · papéis: ${m.roles.join(', ')}` : ''}` +
-      `${m.tenure ? ` · terreno: ${m.tenure}` : ''}` +
+      `${m.tenure ? ` · terreno: ${tenureWords(m.tenure)}` : ''}` +
       `${m.nbsExperience ? ` · experiência SbN: ${m.nbsExperience}` : ''}` +
-      `${m.fundingScale ? ` · financiamento: ${m.fundingScale}${m.biggestBudget ? ` (maior: ${m.biggestBudget})` : ''}` : ''}` +
+      `${m.fundingScale ? ` · financiamento: ${fundingScaleWords(m.fundingScale)}${m.biggestBudget ? ` (maior: ${m.biggestBudget})` : ''}` : ''}` +
       `${m.priorCollaboration ? ` · colaboração anterior: ${m.priorCollaboration}${m.priorCollaborationDetail ? ` — ${m.priorCollaborationDetail}` : ''}` : ''}`,
     );
     // Verbatim. The hand-written report quotes these throughout, and they carry
@@ -203,6 +206,79 @@ function coordinatorReason(err: any): string {
  * Null when nothing survives and there is no portfolio thread either — an empty
  * section under a heading reads worse than an honest absence.
  */
+/**
+ * ⚠️ Words, never ids. The first live run of this pass — the first ever — wrote
+ * "as únicas duas organizações que nomearam calor (heat)" and "diferente da
+ * Associação Escola do Partenon (formal-agreement)" into a narrative a
+ * coordinator reads. The model did not invent those: it was handed
+ * `preocupa: heat` and `terreno: formal-agreement` and repeated them, correctly.
+ *
+ * The context bundle learned this same lesson in August — "it used to print the
+ * raw key and the raw value" — and a pass written after it still sent ids.
+ */
+/** The stored values that must never be printed. Not a general slug matcher —
+ *  these are the exact ids the record holds for the two fields that leaked. */
+const MACHINE_IDS = new RegExp(
+  '\\b(' +
+    [
+      // ⚠️ Minus the ids that ARE the word. `biovaletas` is this solution's id
+      // and also the ordinary Portuguese plural, so flagging it reports a
+      // correct sentence as a leak — and a guard that cries wolf on correct
+      // output is one people learn to scroll past.
+      ...NBS_SOLUTIONS
+        .filter(s => s.id.replace(/-/g, ' ') !== s.pt.label.toLowerCase())
+        .map(s => s.id),
+      'formal-agreement', 'public-informal', 'public-no-access', 'private-owned',
+      'needs_study', 'needs_permission', 'needs_site',
+      'small', 'funded', 'medium', 'large',
+    ]
+      .map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('|') +
+    ')\\b',
+);
+
+function worryWords(raw: string): string {
+  return raw
+    .split(',')
+    .map(v => v.trim())
+    .filter(Boolean)
+    .map(id => {
+      const sub = WORRY_SUBTYPES.find(w => w.id === id);
+      if (sub) return sub.dPt.toLowerCase();
+      const family: Record<string, string> = { flood: 'a água', heat: 'o calor', landslide: 'o barranco' };
+      return family[id] ?? id;
+    })
+    .join('; ');
+}
+
+function tenureWords(raw: string): string {
+  return cboDisplayValue('intervention_site', 'land_tenure', raw, 'pt') || raw;
+}
+
+/**
+ * ⚠️ EVERY field, not the two that leaked first.
+ *
+ * The first fix here translated `worry` and `tenure`, because those were the
+ * two ids the first live run printed. The very next run wrote
+ * "muro-de-arrimo-verde, grade-viva, solo-grampeado-verde" and "financiamento
+ * classificado como 'small'" — the same defect in the fields nobody had looked
+ * at yet. Whatever is handed to the model in an id is what comes back in the
+ * narrative, so nothing is handed to it in an id.
+ */
+function solutionWords(id: string): string {
+  return getSolution(id)?.pt.label ?? id;
+}
+
+function familiaWords(id: string): string {
+  return NBS_FAMILIAS.find(f => (f.id as string) === id)?.pt.label ?? id;
+}
+
+function fundingScaleWords(raw: string): string {
+  return cboDisplayValue('org_profile', 'prior_project_scale', raw, 'pt')
+    || cboDisplayValue('org_profile', 'funding_history', raw, 'pt')
+    || raw;
+}
+
 export function shapeNarrative(
   raw: SynergyNarrative,
   knownOrgNames: string[],
@@ -219,6 +295,19 @@ export function shapeNarrative(
   if (!lines.length && !raw.portfolioThreadPt.trim()) return null;
   return { ...raw, lines, questionsForTheRoomPt: raw.questionsForTheRoomPt.slice(0, MAX_QUESTIONS) };
 }
+
+/**
+ * ⚠️ Measured, not guessed. The pass had never been run with a model at all
+ * until 2026-09-03, and the first real call — eight organisations, their own
+ * words, their documents, their approval instruments and funding barriers —
+ * took longer than the 45 s this shipped with, so the first thing the first run
+ * produced was "a leitura automática demorou demais". The concept note's
+ * authoring pass shipped with exactly the same defect and the same symptom.
+ *
+ * Nothing waits on this: the coordinator gets a row immediately and the pass
+ * writes into it. The cap exists to bound a hang, not to keep anyone waiting.
+ */
+const SYNERGY_TIMEOUT_MS = Number(process.env.CBO_SYNERGY_TIMEOUT_MS || 180_000);
 
 export async function buildSynergyReport(members: SynergyMember[]): Promise<SynergyReport> {
   const analysis = analyseSynergies(members);
@@ -252,11 +341,19 @@ export async function buildSynergyReport(members: SynergyMember[]): Promise<Syne
         NarrativeSchema,
         'synergy_narrative',
       ),
-      new Promise<null>(resolve => setTimeout(() => resolve(null), 45_000)),
+      new Promise<null>(resolve => setTimeout(() => resolve(null), SYNERGY_TIMEOUT_MS)),
     ]);
     if (!raw) return { analysis, narrative: null, narrativeReason: 'a leitura automática demorou demais e foi interrompida', generatedAt };
 
-    const shaped = shapeNarrative(raw, analysis.members.map(m => m.orgName));
+    // ⚠️ And a guard behind the fix. An id can reach the prompt by a route nobody
+  // is looking at — a new field, a new caller — and the failure is silent: the
+  // narrative reads correctly to anyone who does not know that `formal-agreement`
+  // is a database value.
+  const leaked = MACHINE_IDS.exec(JSON.stringify(raw));
+  if (leaked) {
+    console.error(`[synergy] machine id in the narrative: "${leaked[0]}" — a raw value reached the prompt`);
+  }
+  const shaped = shapeNarrative(raw, analysis.members.map(m => m.orgName));
     if (!shaped) {
       return {
         analysis,
