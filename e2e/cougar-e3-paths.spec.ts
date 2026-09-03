@@ -177,6 +177,11 @@ test.describe('COUGAR — E3 paths', () => {
     await chip('Biovaletas').click();
     await expect(chip('Ainda não sei o tamanho')).toBeVisible({ timeout: 10_000 });
     await chip('Ainda não sei o tamanho').click();
+    // ⚠️ The gap asks once more, by another road: it could not give metres, so
+    // it is offered a comparison. Declining leaves the pendency exactly as
+    // before the retry existed. See shared/w3-gap-questions.ts.
+    await expect(chip('Não dá pra chutar')).toBeVisible({ timeout: 10_000 });
+    await chip('Não dá pra chutar').click();
     await expect(chip('Mutirão')).toBeVisible({ timeout: 10_000 });
     await chip('Mutirão').click();
 
@@ -261,6 +266,11 @@ test.describe('COUGAR — E3 paths', () => {
     await chip('Todo mês').click();
     await expect(chip('Ainda não sabemos')).toBeVisible({ timeout: 10_000 });
     await chip('Ainda não sabemos').click();
+    // ⚠️ The recurring money is the one gap the coordination carries to the
+    // prefeitura, so it is worth one more road: who pays the bills there TODAY
+    // is a fact the organisation holds. Declined here, and the gap stands.
+    await expect(chip('Não sei dizer')).toBeVisible({ timeout: 10_000 });
+    await chip('Não sei dizer').click();
     await expect(chip('Só essa por enquanto')).toBeVisible({ timeout: 10_000 });
     await chip('Só essa por enquanto').click();
 

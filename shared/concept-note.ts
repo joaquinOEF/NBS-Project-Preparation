@@ -41,6 +41,7 @@ import {
 } from './w3-dossier';
 import { approvalRequirement, type ApprovalBody } from './nbs-approvals';
 import { approvalRouteLine } from './nbs-knowledge';
+import { DECISIVE_DETAIL, CONCRETE_INSTANCE } from './w3-detail-questions';
 import {
   fundingMatches, FUNDING_CAVEAT, AGGREGATION_ARGUMENT, FUNDER_KIND_LABEL,
   PHILANTHROPIC_VS_COMMERCIAL,
@@ -719,7 +720,17 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
   const siteClause = pt
     ? `No terreno da organização${f.place.currentUse ? ` — ${f.place.currentUse.toLowerCase()}` : ''}${size ? `, ${size}` : ''}`
     : `On the organisation's site${f.place.currentUse ? ` — ${f.place.currentUse.toLowerCase()}` : ''}${size ? `, ${size}` : ''}`;
-  push('porque', f.solutions.map(s =>
+  // ⚠️ The decisive detail, printed as the exchange it was. "Mais barro, a água
+  // empoça" means nothing without the question it answers, and this is the
+  // sentence that turns a description of a solution into an argument about THIS
+  // site. See shared/w3-detail-questions.ts.
+  const detailAsked = String(input.w3?.detail_question_id ?? '').trim();
+  const detailAnswer = String(input.w3?.detail_answer ?? '').trim();
+  const detailQ = detailAsked
+    ? Object.values({ ...DECISIVE_DETAIL, ...CONCRETE_INSTANCE }).find(q => q.id === detailAsked)
+    : null;
+
+  push('porque', [...f.solutions.map(s =>
     s.howItWorks
       ? P(
           `**${s.label}.** ${s.howItWorks}${
@@ -734,7 +745,16 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
           [`ficha ${s.id} · comoFunciona`, pt ? 'mecanismos catalogados × registro do lugar' : 'catalogued mechanisms × the site record'],
         )
       : null,
-  ));
+  ),
+    // ⚠️ The document's framing, never the chat's question. The chat asks "o chão
+    // aí, quando VOCÊS cavam"; the page states what the organisation described.
+    detailQ && detailAnswer
+      ? P(
+          (pt ? detailQ.notePt : detailQ.noteEn).replace('{answer}', detailAnswer),
+          [pt ? 'pergunta do Encontro 3 e resposta da organização' : 'an Encontro 3 question and the organisation’s answer'],
+        )
+      : null,
+  ]);
 
   // ── 6 · Resultados esperados ──────────────────────────────────────────────
   push('resultados', [

@@ -476,11 +476,14 @@ export const PERSONAS: Persona[] = [
       { when: /outra solução|mais alguma solução/i, pick: /Levar mais uma/ },
       { when: /qual delas|adiante/i, pick: /Biovaletas/ },
       { pick: /^Desenhar no mapa$/ },
+      { when: /qual dessas|areia ou mais barro/i, pick: /Mais barro/ },
       { when: /quem constr/i, pick: /Mutirão com apoio técnico/ },
       { when: /medir|acompanh/i, pick: /Com uma universidade ou parceiro/ },
       { when: /cuida disso|quem cuida/i, pick: /A gente mesmo/ },
       { when: /frequ|cuidado/i, pick: /A cada três meses/ },
       { when: /dinheiro/i, pick: /Editais e projetos/ },
+      // The detail beat: whatever it asks, an organisation answers it.
+      { when: /qual dessas/i, pick: /./ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /1 ano/ },
@@ -544,6 +547,10 @@ export const PERSONAS: Persona[] = [
       { when: /cuida disso|quem cuida/i, pick: /Voluntários da comunidade/ },
       { when: /frequ|cuidado/i, pick: /Todo mês/ },
       { when: /dinheiro/i, pick: /Ainda não sabemos/ },
+      // The second road: who pays the bills there TODAY is a fact they hold.
+      { when: /quem paga as contas/i, pick: /Os moradores, na vaquinha/ },
+      // The detail beat: whatever it asks, an organisation answers it.
+      { when: /qual dessas/i, pick: /./ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /6 meses/ },
@@ -576,6 +583,11 @@ export const PERSONAS: Persona[] = [
       const fin = r.maturity.find(m => /financ/i.test(m.metric));
       if (!fin) f.push('nenhuma nota de pensamento financeiro');
       else if (fin.score !== 1) f.push(`nota financeira ${fin.score}, "ainda não sabemos" vale 1`);
+      // ⚠️ Asked once more, by another road, and the answer recorded as a fact
+      // about TODAY — never written into sustainability_model, which would put
+      // a funding source in the note that nobody committed to.
+      if (!r.ops.who_pays_today) f.push('"ainda não sabemos" e ninguém perguntou quem paga as contas hoje');
+      if (r.ops.sustainability_model !== 'indefinido') f.push('a resposta sobre hoje virou modelo de financiamento do projeto');
       // The gap the coordination carries to the municipality has to be on the page.
       if (!r.roadmap?.open.length) f.push('nada em aberto para uma organização que não sabe da manutenção');
       if (!has(r, 'em aberto') && !has(r, 'RASCUNHO')) f.push('o PDF não mostra o bloco de pendências');
@@ -606,11 +618,16 @@ export const PERSONAS: Persona[] = [
       { when: /qual delas|adiante/i, pick: /Muro de arrimo verde/ },
       { when: /qual delas|adiante/i, pick: /Ver todas as soluções/ },
       { pick: /^Ainda não sei o tamanho$/ },
+      // The retry: it could not give metres and can compare — which is the
+      // whole reason the beat asks a second time, by another road.
+      { when: /de grosso|compare com algo/i, pick: /quadra de vôlei/ },
       { when: /quem constr/i, pick: /^Empresa contratada$/ },
       { when: /medir|acompanh/i, pick: /Com uma universidade ou parceiro/ },
       { when: /cuida disso|quem cuida/i, pick: /^Empresa contratada$/ },
       { when: /frequ|cuidado/i, pick: /A cada três meses/ },
       { when: /dinheiro/i, pick: /Recursos próprios/ },
+      // The detail beat: whatever it asks, an organisation answers it.
+      { when: /qual dessas/i, pick: /./ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /2 anos/ },
@@ -635,11 +652,12 @@ export const PERSONAS: Persona[] = [
       if (!has(r, 'geotécnic')) f.push('o PDF não nomeia a avaliação geotécnica');
       if (!has(r, 'CYPE')) f.push('o preço do estudo chegou ao PDF sem a fonte');
       // No area: the honest failure is a NAMED gap, not a silent absence.
-      if (r.areaM2) f.push(`gravou ${r.areaM2} m² para quem disse não saber o tamanho`);
-      if (!r.dossier.gaps.some(g => /m²|footprint|desenh/i.test(g)))
-        f.push('sem área e sem lacuna dizendo que falta a área');
-      const b = budgetOf(r, 'muro-de-arrimo-verde');
-      if (b?.lowBrl != null) f.push('faixa de preço fechada sem ninguém ter dado o tamanho');
+      // ⚠️ It said it could not MEASURE, then compared — so there is an area,
+      // and it is rougher than a traced one. The record has to say which.
+      if (Math.abs(r.areaM2 - 160) > 20) f.push(`área ${r.areaM2} m², esperava ~160 pela comparação`);
+      if (!/compara[çc][ãa]o/i.test(r.site.site_area_source ?? '')) {
+        f.push(`site_area_source = "${r.site.site_area_source}" — uma área estimada precisa dizer que foi estimada`);
+      }
       // They hired a contractor and the ficha says a mutirão cannot build this.
       if (r.type.construction_model !== 'contratada')
         f.push(`quem constrói = "${r.type.construction_model}", esperava contratada`);
@@ -666,12 +684,18 @@ export const PERSONAS: Persona[] = [
       { when: /qual delas|adiante/i, pick: /Grade viva/ },
       { when: /qual delas|adiante/i, pick: /Ver todas as soluções/ },
       { pick: /^Ainda não sei o tamanho$/ },
+      // ⚠️ The way out. An organisation with no place marked cannot compare a
+      // site it has not chosen, and forcing a band would fabricate an area.
+      { when: /de grosso|compare com algo/i, pick: /Não dá pra chutar/ },
       { pick: /^Ainda não sei quantas$/ },
       { when: /quem constr/i, pick: /^Mutirão$/ },
       { when: /medir|acompanh/i, pick: /Ninguém ainda/ },
       { when: /cuida disso|quem cuida/i, pick: /Voluntários da comunidade/ },
       { when: /frequ|cuidado/i, pick: /Uma vez por ano/ },
       { when: /dinheiro/i, pick: /Ainda não sabemos/ },
+      { when: /quem paga as contas/i, pick: /Não sei dizer/ },
+      // The detail beat: whatever it asks, an organisation answers it.
+      { when: /qual dessas/i, pick: /./ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /2 anos/ },
@@ -687,7 +711,7 @@ export const PERSONAS: Persona[] = [
       // No coordinates: nothing can be sized or costed, and the verdict has to
       // say that rather than picking something more flattering.
       if (r.verdict !== 'needs_site') f.push(`veredito ${r.verdict}, sem coordenadas → needs_site`);
-      if (r.areaM2) f.push(`gravou ${r.areaM2} m² sem lugar marcado`);
+      if (r.areaM2) f.push(`gravou ${r.areaM2} m² sem lugar marcado — a saída da pergunta de comparação não funcionou`);
       if (r.dossier.budget.some(b => b.lowBrl != null)) f.push('preço fechado para um projeto sem lugar');
       // The dead end this whole flow was rebuilt to avoid: an organisation that
       // cannot answer must still LEAVE with something.
@@ -743,6 +767,8 @@ export const PERSONAS: Persona[] = [
       { when: /cuida disso|quem cuida/i, pick: /Voluntários da comunidade/ },
       { when: /frequ|cuidado/i, pick: /Todo mês/ },
       { when: /dinheiro/i, pick: /Doações e apoio local/ },
+      // The detail beat: whatever it asks, an organisation answers it.
+      { when: /qual dessas/i, pick: /./ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /1 ano/ },
@@ -800,6 +826,8 @@ export const PERSONAS: Persona[] = [
       { when: /cuida disso|quem cuida/i, pick: /A gente mesmo/ },
       { when: /frequ|cuidado/i, pick: /Duas vezes por ano/ },
       { when: /dinheiro/i, pick: /Recursos próprios/ },
+      // The detail beat: whatever it asks, an organisation answers it.
+      { when: /qual dessas/i, pick: /./ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /6 meses/ },
@@ -849,7 +877,10 @@ export const PERSONAS: Persona[] = [
       { when: /cuida disso|quem cuida/i, pick: /Voluntários da comunidade/ },
       { when: /frequ|cuidado/i, pick: /A cada três meses/ },
       { when: /dinheiro/i, pick: /Ainda não sabemos/ },
+      { when: /quem paga as contas/i, pick: /Não sei dizer/ },
       { pick: /^Parece pouco$/ },
+      // The detail beat: whatever it asks, an organisation answers it.
+      { when: /qual dessas/i, pick: /./ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /2 anos/ },
@@ -909,6 +940,8 @@ export const PERSONAS: Persona[] = [
       { when: /cuida disso|quem cuida/i, pick: /A gente mesmo/ },
       { when: /frequ|cuidado/i, pick: /A cada três meses/ },
       { when: /dinheiro/i, pick: /Recursos próprios/ },
+      // The detail beat: whatever it asks, an organisation answers it.
+      { when: /qual dessas/i, pick: /./ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /6 meses/ },
