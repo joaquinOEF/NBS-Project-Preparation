@@ -189,6 +189,15 @@ that follow from them (walk the whole path; look at the room past the door; ask
 who else is on this path; verify a landing on `main`, not in the PR list).
 
 
+### ⚠️ Use everything they gave us — `docs/context-first.md`
+Every model-facing pass declares what it does with all twelve context sources —
+fields, their own words, the transcript, document summaries and full text, the
+photographs, the map, the fichas, the evidence base, the knowledge slice, the
+cohort, and what earlier passes produced. **Declining a source is legitimate;
+forgetting one is not**, and `e2e/context-first.spec.ts` fails on any pass that
+has not decided. Images and documents reach a fact-checked pass PRE-DIGESTED as
+observations carrying their source, never as raw material.
+
 ### Encontro overlap audits — `docs/w2-w3-overlap-audit.md`, `docs/e1-e3-overlap-audit.md`
 Before adding a question to any encontro, check whether an earlier one already
 answered it — and before writing a document, check what the earlier encontros
