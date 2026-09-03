@@ -289,6 +289,46 @@ lesson as `docs/document-register.md`, in a new place.
 
 Gap ratchet: 13 → 10 → 7 → 6 → **5**.
 
+## The fifth gap closed: what an approval and a funder actually require (2026-09-03)
+
+The advisor's fourth task is to name what a funder or the municipality will ask
+and nobody can answer yet. It was doing that from general knowledge, which
+produces *plausible* gaps rather than this cohort's real ones — "seria bom ter
+mais informação" instead of "a SMP analisa em 30 dias e ninguém começou o
+pedido".
+
+Both approval routes and all eight funding paths now reach it, handed over
+whole. Pre-filtering them would be this file deciding which question matters,
+which is the model's job with the record in front of it. The funding side *is*
+matched against the organisation, because eligibility is a fact about it — a
+CNPJ it does or does not have, a funded project it has or has not run.
+
+What it wrote on the first live run, for an organisation with no CNPJ:
+
+> *A organização não tem CNPJ, o que bloqueia hoje o BNDES Periferias Verdes
+> (exige organização sem fins lucrativos formalizada) e pode complicar a adoção
+> formal do espaço via SMP, que analisa propostas em 30 dias mas formaliza com a
+> entidade proponente.*
+
+> *Nenhum dos caminhos de financiamento mapeados está aberto agora… o momento
+> certo para adiantar a formalização e o pedido de adoção do espaço na SMP, que
+> tem prazo de análise de 30 dias e ainda não foi iniciado.*
+
+Two rules came with it, both about the distance between knowing and promising:
+the pass may state what a funder requires and how long a body takes, and may not
+say the project will receive or be approved; and a published deadline is the
+**body's** deadline, never a commitment to this organisation.
+
+⚠️ **And the cap was already too tight.** The first live run returned
+`reason: timeout`. Measured twice, 26.8 s and 29.3 s, against a 25 s default —
+so the advisor was being cut off before it finished and the session carried on
+with no drafts, no chosen questions and no observations, saying nothing.
+**That is the third cap in this repo to have quietly disabled the pass behind
+it** (the concept note author at 30 s, the synergy report at 45 s). Now 90 s,
+and nothing waits on it: the cap bounds a hang, not a wait.
+
+Gap ratchet: 13 → 10 → 7 → 6 → 5 → **4**.
+
 ## What this becomes
 
 The workshops ahead ask more of this, not less. An organisation that has told us

@@ -41,6 +41,8 @@ import { eligibleQuestions, W3_QUESTION_IDS, type QuestionContext } from '@share
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { getSolution, NBS_FAMILIAS, NBS_SOLUTIONS } from '@shared/nbs-catalog';
 import type { CboState } from '@shared/cbo-schema';
+import { APPROVAL_ROUTES } from '@shared/nbs-knowledge';
+import { fundingMatches, FUNDING_CAVEAT, PHILANTHROPIC_VS_COMMERCIAL } from '@shared/funding-sources';
 
 /**
  * The reasoning model, not the chat tier.
@@ -52,7 +54,21 @@ import type { CboState } from '@shared/cbo-schema';
  * exactly the kind that gets better with a stronger model.
  */
 const ADVISOR_MODEL = process.env.CBO_ADVISOR_MODEL || '';
-const ADVISOR_TIMEOUT_MS = Number(process.env.CBO_ADVISOR_TIMEOUT_MS || 25_000);
+/**
+ * ⚠️ 90 s, not 25. Measured against a real record — one site story, one cohort
+ * line, both approval routes and eight funding paths — twice: 26.8 s and
+ * 29.3 s. The old default cut it off before either run finished, and a cut-off
+ * here is SILENT: `adviseW3` resolves with EMPTY_ADVICE, the session carries on
+ * with no drafts, no chosen questions and no observations, and nothing on the
+ * page says a pass was meant to run. That is the third time in this repo a cap
+ * set for a smaller prompt quietly disabled the pass behind it (the concept
+ * note author at 30 s, the synergy report at 45 s).
+ *
+ * Nothing waits on this — it is fired at phase start while the organisation is
+ * still reading the recap — so the cap exists to bound a hang, not to keep
+ * anyone waiting.
+ */
+const ADVISOR_TIMEOUT_MS = Number(process.env.CBO_ADVISOR_TIMEOUT_MS || 90_000);
 
 // ⚠️ These two were `z.enum([...])`, and an enum in a ONE-SHOT schema is the
 // same trap as a `.min(2)`: the call is a single forced tool use with no retry
@@ -202,7 +218,11 @@ export function verifyQuote(quote: string, documentText: string): boolean {
   return norm(documentText).includes(q);
 }
 
-function buildPrompt(input: AdvisorInput): string {
+/**
+ * Exported for the context-first spec: what a pass RECEIVES is the thing worth
+ * asserting, and the only way to assert it without a provider.
+ */
+export function buildPrompt(input: AdvisorInput): string {
   const { state, orgName, messages, docs, questionCtx, cohort } = input;
 
   const theirs = buildContextMarkdown({
@@ -233,6 +253,53 @@ function buildPrompt(input: AdvisorInput): string {
 
   const site: any = (state as any)?.sections?.intervention_site?.fields ?? {};
   const v = (k: string) => String(site[k]?.value ?? '').trim();
+  const org: any = (state as any)?.sections?.org_profile?.fields ?? {};
+  const o = (k: string) => String(org[k]?.value ?? '').trim();
+
+  /**
+   * ⚠️ The last thing this pass was reading nothing of, and the one that
+   * decides what a gap actually IS.
+   *
+   * The advisor's job includes naming what a funder or the municipality will
+   * ask and nobody can answer yet. It was doing that from general knowledge —
+   * which produces plausible gaps rather than this cohort's real ones. The
+   * routes are two, the funding paths eight, and both are small enough to hand
+   * over whole: pre-filtering them here would be this file deciding which
+   * question matters, which is the model's job with the record in front of it.
+   *
+   * The funding side IS matched against this organisation, because eligibility
+   * is a fact about it — a CNPJ it does or does not have, a funded project it
+   * has or has not run. See shared/funding-sources.ts.
+   */
+  const knowledge = (() => {
+    const rotas = APPROVAL_ROUTES
+      .map(r =>
+        `- **${r.labelPt}** — quem processa: ${r.bodyPt}. ${r.howPt}` +
+        (r.timingPt ? ` ${r.timingPt}` : '') +
+        (r.scopePt ? ` Cobre: ${r.scopePt}` : '') +
+        ` (${r.sourcePt}, lido em ${r.readOn})`,
+      )
+      .join('\n');
+    const matches = fundingMatches(
+      {
+        ...(o('has_cnpj') ? { hasCnpj: /^(sim|yes)/i.test(o('has_cnpj')) } : {}),
+        hasTrackRecord: o('prior_project_scale') === 'funded' || o('funding_history') === 'yes',
+      },
+      'pt',
+    );
+    const linha = (m: (typeof matches)[number]) =>
+      `- ${m.blocked ? '⛔' : '✅'} **${m.path.name}** (${m.path.status})` +
+      (m.path.sizePt ? ` · porte: ${m.path.sizePt}` : '') +
+      (m.fit ? ` — ${m.fit}` : '');
+    return [
+      '\n# COMO UMA APROVAÇÃO REALMENTE ACONTECE NESTA CIDADE',
+      rotas,
+      '\n# O QUE ESTE CENÁRIO DE FINANCIAMENTO PERMITE E BLOQUEIA HOJE',
+      PHILANTHROPIC_VS_COMMERCIAL.pt,
+      matches.map(linha).join('\n'),
+      FUNDING_CAVEAT.pt,
+    ].join('\n');
+  })();
 
   // ⚠️ Where they DISAGREED with our risk figures. Encontro 2 told them plainly
   // that their word counts for more than our number, and until now nothing
@@ -282,6 +349,7 @@ ${a.text}`)
     docText ? '\n# O QUE ELES MESMOS ESCREVERAM (arquivos enviados)\n' + docText : '',
     fichas ? '\n# A SOLUÇÃO QUE ESCOLHERAM (nosso conteúdo revisado)\n' + fichas : '',
     cohort.length ? '\n# AS OUTRAS ORGANIZAÇÕES DESTE GRUPO\n' + cohort.map(c => `- ${c}`).join('\n') : '',
+    knowledge,
     '\n# PERGUNTAS DISPONÍVEIS (escolha no máximo 3 destes ids, nada fora da lista)',
     bank || '(nenhuma elegível)',
   ].filter(Boolean).join('\n');
@@ -305,11 +373,13 @@ Quatro tarefas, e nada além delas:
 
 4. OBSERVAÇÕES. No máximo 4, uma frase cada, em português simples e direto:
    - "strength": algo que o projeto tem de forte e que eles talvez não saibam que é forte. Isso é mostrado a eles.
-   - "gap": algo que um financiador ou a prefeitura vai perguntar e que hoje não tem resposta. Isso vai para a coordenação.
+   - "gap": algo que um financiador ou a prefeitura vai perguntar e que hoje não tem resposta. Isso vai para a coordenação. ⚠️ Use as rotas de aprovação e o cenário de financiamento que você recebeu: uma lacuna real é "a SMP analisa em 30 dias e ninguém começou o pedido", não "seria bom ter mais informação". Uma lacuna que você poderia ter escrito sem ler o cenário não é uma lacuna deste projeto.
    - "cohort": algo que só se enxerga olhando as outras organizações do grupo (mesma necessidade técnica, mesmo órgão, mesmo bairro). Isso vai para a coordenação.
 
 Regras que não se quebram:
 - Nunca invente número, prazo, custo ou benefício. Os números do Encontro 3 são calculados por fórmula e não são sua tarefa.
+- ⚠️ NÃO PROMETA dinheiro nem aprovação. Você pode dizer o que um financiador exige e quanto tempo um órgão leva — está no material. Não pode dizer que o projeto vai receber, vai ser aprovado, ou que "se encaixa" numa chamada: quem decide isso não é você, e uma organização que lê uma promessa nossa organiza a vida em cima dela.
+- Um prazo publicado é o prazo do ÓRGÃO, não um compromisso com esta organização, e é assim que se escreve.
 - Use só ids que existem no catálogo fornecido.
 - Nunca escreva como se soubesse algo que a organização não contou.
 - Nunca julgue a organização. Uma lacuna é uma lacuna do documento, não uma falha das pessoas.

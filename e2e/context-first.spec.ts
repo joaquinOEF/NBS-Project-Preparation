@@ -69,8 +69,10 @@ test.describe('every model pass declares what it does with every source', () => 
     // 13 → 10 (the cohort's own artefacts) → 7 (photos and documents,
     // pre-digested) → 6 (the cohort layer, as counts through an allowlist) → 5
     // (the concept note carries those counts too, which is where a funder
-    // actually reads the programme's argument).
-    expect(gaps.length, 'gaps rose — either close it or change the ceiling on purpose').toBeLessThanOrEqual(5);
+    // actually reads the programme's argument) → 4 (the advisor reads the
+    // approval routes and the funding landscape, so a "gap" it names is a gap
+    // against what a body actually requires).
+    expect(gaps.length, 'gaps rose — either close it or change the ceiling on purpose').toBeLessThanOrEqual(4);
   });
 
   test('the pass that finds what a cohort shares reads what the cohort produced', () => {
@@ -312,6 +314,7 @@ test.describe('what the group has in common, without naming anyone', () => {
 
 // ── The programme's argument, on the page a funder reads ───────────────────
 import { conceptNoteFacts, acceptAuthored, claimedOrgCounts } from '../shared/concept-note';
+import { buildPrompt } from '../server/services/w3Advisor';
 
 test.describe('the cohort reaches the concept note', () => {
   const LINES = [
@@ -389,6 +392,33 @@ test.describe('the cohort reaches the concept note', () => {
     expect(claimedOrgCounts('três outras organizações precisam do mesmo estudo')).toEqual(['3']);
     expect(claimedOrgCounts('1 outra organização trabalha no mesmo bairro')).toEqual(['1']);
     expect(claimedOrgCounts('seven other organisations hit the same barrier')).toEqual(['7']);
+  });
+
+  test('⚠️ the advisor is handed how an approval actually happens, and what money exists', () => {
+    // The pass whose job includes naming what a funder or the municipality will
+    // ask was doing it from general knowledge — which yields plausible gaps
+    // rather than this cohort's real ones. Both routes and all eight funding
+    // paths now reach it, the funding side matched against this organisation.
+    const prompt = buildPrompt({
+      state: {
+        sections: {
+          intervention_site: { fields: { bairro: { value: 'Partenon' } } },
+          org_profile: { fields: { has_cnpj: { value: 'nao' } } },
+        },
+      } as any,
+      orgName: 'Associação Teste',
+      messages: [], docs: [], photos: [], cohort: [],
+      questionCtx: {
+        solutions: [], familias: [], tenure: 'public-informal', currentUse: '', siteName: '',
+        worry: 'alagamento', areaM2: 0, hasFundingHistory: false, needsStudy: false,
+      } as any,
+    });
+    // The channel and the stated processing time, not a paraphrase of them.
+    expect(prompt).toMatch(/apoiepoa@portoalegre\.rs\.gov\.br/);
+    expect(prompt).toMatch(/30 dias/);
+    // And what the money actually requires of THIS organisation.
+    expect(prompt).toMatch(/CENÁRIO DE FINANCIAMENTO/);
+    expect(prompt).toMatch(/CNPJ/i);
   });
 
   test('⚠️ and a peer named in authored prose still has nowhere to come from', () => {

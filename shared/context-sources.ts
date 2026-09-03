@@ -96,7 +96,13 @@ export const MODEL_PASSES: ModelPass[] = [
       geo: uses,
       fichas: uses,
       evidence: no('it selects and observes; it never produces a number — the benefit figures are computed'),
-      knowledge: gap('the approval routes with their timings, and the funding landscape, would sharpen its observations about what a project needs and what it could realistically apply to'),
+      // ⚠️ Both routes and all eight funding paths, handed over whole — the
+      // funding side matched against THIS organisation, because eligibility is
+      // a fact about it. A gap is only a real gap against what a body actually
+      // requires: "a SMP analisa em 30 dias e ninguém começou o pedido" is one,
+      // "seria bom ter mais informação" is not. The pass may state what a funder
+      // requires and how long a body takes; it may not promise either.
+      knowledge: uses,
       // ⚠️ As COUNTS, through an allowlist — no names, no quotes, no peer's
       // site or verdict. "Três outras organizações precisam do mesmo estudo" is
       // the advice; who they are is the coordination's business and lives in
