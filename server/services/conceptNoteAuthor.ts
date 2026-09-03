@@ -69,6 +69,8 @@ REGRAS, EM ORDEM DE IMPORTÂNCIA
 3. Cada parágrafo cita as fontes que o sustentam, copiadas EXATAMENTE da lista de fontes permitidas. Um parágrafo sem fonte reconhecida é descartado.
 4. Escreva prosa de documento técnico: afirmativa, específica, sem adjetivo de propaganda e sem tranquilizar quem lê. Nada de "incrível", "transformador", "essencial".
 5. Não repita o que outra seção já diz. Não explique como o documento foi montado.
+6. NÃO CONCLUA O PORTE DO PROJETO a partir de faixas regulamentares, tetos de edital ou limites de licença. O porte está no registro — a área desenhada ou a contagem de unidades — ou está em aberto, e nesse caso diga que está. Uma faixa que aparece no registro por outro motivo (o decreto que define pequena e média escala, o teto de uma chamada) descreve a REGRA, não este projeto.
+7. O mesmo vale para qualquer número: ele está no registro para responder a uma pergunta específica. Usá-lo para responder a outra é inventar, mesmo quando o número está certo.
 
 O QUE VOCÊ ESCREVE MELHOR QUE A ORGANIZAÇÃO
 Ela sabe o lugar. Você tem o catálogo técnico, a base de evidências, os dados do bairro e o que uma aprovação realmente exige. A seção "porque" é onde isso conta: ligue o MECANISMO da ficha às CONDIÇÕES do terreno — o que está no chão hoje, o risco nomeado, a escala — em vez de repetir a descrição da solução.
