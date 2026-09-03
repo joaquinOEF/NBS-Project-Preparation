@@ -17,6 +17,7 @@
 // ============================================================================
 
 import type { MaturityScore } from './cbo-schema';
+import { benefitFor } from './w3-benefits';
 
 const has = (v: string | undefined | null): boolean =>
   typeof v === 'string' && v.trim() !== '' && v.trim().toLowerCase() !== 'null';
@@ -52,7 +53,31 @@ export function scoreW3Maturity(input: W3MaturityInput): MaturityScore[] {
   // ── climate_nbs_impact — is there a figure, and did they weigh it? ─────────
   const impact = has(w3.expected_impact);
   const reacted = has(w3.expected_impact_reaction);
-  const impactScore = (!impact ? (baseline ? 1 : 0) : reacted ? 3 : 2) as 0 | 1 | 2 | 3;
+  // ⚠️ Whether the QUESTION was answerable at all. Fifteen of the twenty-seven
+  // solutions have no reference figure in the evidence base, and for those the
+  // impact beat returns early — nothing is stated, so nothing can be reacted to.
+  // Scoring that as an organisation which failed to engage grades it on a
+  // question nobody asked, and the justification then reads "ainda sem reação
+  // registrada" about a beat that never ran. The cap moves to what was
+  // reachable. (backlog #43)
+  // ⚠️ `solutions.length > 0` matters. With nothing chosen the beat was never
+  // reached at all, and 0 means "we never asked" — softening that would grade an
+  // empty record as though it had got somewhere. The relief applies only when a
+  // solution WAS chosen and our own evidence base had no figure for it.
+  const figureMissing =
+    solutions.length > 0 &&
+    !solutions.some(id => !!benefitFor(id, input.areaM2, input.units)?.headlinePt);
+  const impactScore = (
+    !impact
+      ? figureMissing
+        // The record is as complete as this beat allows; the missing number is
+        // a gap in OUR evidence base, named elsewhere.
+        ? (baseline ? 2 : 1)
+        : (baseline ? 1 : 0)
+      : reacted
+        ? 3
+        : 2
+  ) as 0 | 1 | 2 | 3;
 
   // ── financial_thinking — the recurring money, not the capital cost ─────────
   // "Ainda não sabemos" is a real answer and scores: an organisation that has
@@ -93,9 +118,13 @@ export function scoreW3Maturity(input: W3MaturityInput): MaturityScore[] {
       score: impactScore,
       justification: impact
         ? `número de impacto calculado${reacted ? ' e conferido com a organização' : ', ainda sem reação registrada'}`
-        : baseline
-          ? 'linha de base registrada, sem número de impacto para esta solução'
-          : 'sem linha de base e sem número de impacto',
+        : figureMissing
+          // Says whose gap it is. A coordinator reading the roster should not
+          // read this as the organisation having skipped something.
+          ? `a base de evidências não tem número de referência para esta solução${baseline ? '; linha de base registrada' : ''}`
+          : baseline
+            ? 'linha de base registrada, sem número de impacto para esta solução'
+            : 'sem linha de base e sem número de impacto',
     },
     {
       metric: 'financial_thinking',

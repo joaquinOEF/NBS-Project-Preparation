@@ -37,12 +37,24 @@ export function readsAsStartNext(message: string, currentPhase: number): boolean
   const m = message.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
   if (m.length > 120) return false;
   const next = currentPhase + 1;
+  // ⚠️ A bare phase token IS the request. "w3", "e3", "encontro 3" typed alone
+  // is unambiguous — nobody types it to mean anything else — and every one of
+  // these that fails to match here is a turn handed to the model, which then
+  // narrates an intent the gate goes on to refuse. That contradiction, four
+  // seconds apart, is backlog #41.
+  const bareToken = new RegExp(`^(o\\s+)?(encontro|workshop|fase|phase|w|e)\\s*0?${next}[.!?]?$`).test(m);
+  if (bareToken) return true;
+
   const wantsMove = /\b(vamos|quero|queremos|podemos|bora|comecar|comeca|iniciar|inicia|abrir|abre|ir para|passar para|seguir para|proximo|proxima|start|begin|next|go to|move on)\b/.test(m);
   if (!wantsMove) return false;
   // Either it names the encontro it wants, or it asks to move on generically.
   const namesNext = new RegExp(`\\b(encontro|workshop|fase|phase|w)\\s*0?${next}\\b`).test(m);
   const generic = /\b(proximo encontro|proxima etapa|next workshop|next step|seguir em frente|move on)\b/.test(m);
-  return namesNext || generic;
+  // A short reply that is only a move verb — "sim start", "bora", "vamos" —
+  // after an encontro is finished. Length-bounded so it cannot swallow a
+  // sentence that merely contains one of those words.
+  const shortMove = m.length <= 24 && /\b(start|begin|bora|vamos|comecar|proximo|next)\b/.test(m);
+  return namesNext || generic || shortMove;
 }
 
 export interface NextEncontroDeps {
