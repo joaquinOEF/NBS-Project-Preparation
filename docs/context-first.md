@@ -216,6 +216,36 @@ Three properties make this the architecture rather than a shortcut:
 
 Gap ratchet: 13 → 10 → **7**.
 
+## The third gap closed: the cohort (2026-09-03)
+
+The last one the advisor held back on purpose. `cohort: []` was passed
+deliberately, because it is **the only input that leaves an organisation's own
+record**. The question was never whether to pass it, but what.
+
+⚠️ **An allowlist, never a spread.** Every line is a COUNT — how many
+organisations share a need, an instrument, a barrier, a bairro. No names, no
+quotes, no peer's site, no peer's verdict. The last time a peer-facing view was
+built as a denylist over a member object, a `review` field and its reviewer's
+name reached an external partner; a spread leaks whatever is added to the type
+next, and this type is added to often. `peerFrom()` carries six fields and a
+test asserts it carries exactly those.
+
+The counts are what carry the advice anyway:
+
+> *3 outras organizações do grupo precisam do mesmo estudo: um teste de
+> infiltração do solo. Isso é contratável em conjunto.*
+> *2 outras organizações esbarram na mesma barreira de financiamento (Teia de
+> Soluções). É exatamente o caso que a agregação num portfólio resolve.*
+
+An organisation does not need to know **who** else needs the infiltration test —
+the coordination does, and it has the synergy report for that. It needs to know
+it is not alone in needing it, because that is what makes pooling worth asking
+for. And only what THIS organisation shares is reported: a study nobody else
+needs says nothing useful to it, and listing the group's every need would be the
+spread this avoids, in prose.
+
+Gap ratchet: 13 → 10 → 7 → **6**.
+
 ## What this becomes
 
 The workshops ahead ask more of this, not less. An organisation that has told us

@@ -66,7 +66,9 @@ test.describe('every model pass declares what it does with every source', () => 
     // the concept notes, the knowledge slice and the documents themselves.
     // 13 → 10 (the synergy pass gained the cohort's own artefacts) → 7 (photos
     // and documents reach the concept note pre-digested as observations).
-    expect(gaps.length, 'gaps rose — either close it or change the ceiling on purpose').toBeLessThanOrEqual(7);
+    // 13 → 10 (the cohort's own artefacts) → 7 (photos and documents,
+    // pre-digested) → 6 (the cohort layer, as counts through an allowlist).
+    expect(gaps.length, 'gaps rose — either close it or change the ceiling on purpose').toBeLessThanOrEqual(6);
   });
 
   test('the pass that finds what a cohort shares reads what the cohort produced', () => {
@@ -234,5 +236,64 @@ test.describe('what a cohort has in common, from what Encontro 3 concluded', () 
     expect(f.approvalInstruments).toContain('Termo de Permissão de Uso');
     expect(f.fundingBlocked.join(' ')).toMatch(/Teia de Soluções/);
     expect(f.fundingBlocked.join(' ')).toMatch(/BNDES/);
+  });
+});
+
+// ── The cohort layer: counts, never names ──────────────────────────────────
+import { cohortLines, peerFrom, type CohortPeer } from '../server/services/cohortContext';
+
+test.describe('what the group has in common, without naming anyone', () => {
+  const peer = (over: Partial<CohortPeer> = {}): CohortPeer => ({
+    bairro: 'Partenon', worry: 'alagamento',
+    studyNeeds: ['um teste de infiltração do solo'],
+    approvalInstruments: ['Termo de Adoção'],
+    fundingBlocked: ['Teia de Soluções'],
+    solutions: ['jardins-de-chuva'],
+    ...over,
+  });
+
+  test('⚠️ no name, no quote, no site reaches another organisation', () => {
+    // The only input that leaves an organisation's own record. An allowlist,
+    // never a spread: the last time a peer-facing view was a denylist over a
+    // member object, a `review` field and its reviewer reached a partner.
+    const lines = cohortLines(peer(), [peer(), peer()]).join(' ');
+    expect(lines).not.toMatch(/Associação|Rede |Coletivo|Grupo /);
+    expect(lines).toMatch(/2 outras organizações/);
+    // Counts, and what they are counting.
+    expect(lines).toMatch(/mesmo estudo: um teste de infiltração do solo/);
+    expect(lines).toMatch(/mesmo instrumento de aprovação \(Termo de Adoção\)/);
+    expect(lines).toMatch(/mesma barreira de financiamento \(Teia de Soluções\)/);
+  });
+
+  test('only what THIS organisation shares is reported', () => {
+    // A study nobody else needs says nothing useful to it, and listing the
+    // group's every need would be the spread this avoids, in prose.
+    const mine = peer({ studyNeeds: ['uma avaliação geotécnica'], fundingBlocked: [], approvalInstruments: [] });
+    const lines = cohortLines(mine, [peer(), peer()]).join(' ');
+    expect(lines).not.toMatch(/infiltração/);
+    expect(lines).not.toMatch(/Teia de Soluções/);
+    // The bairro and the risk it does share still come through.
+    expect(lines).toMatch(/mesmo bairro \(Partenon\)/);
+  });
+
+  test('an organisation alone in the cohort is told nothing', () => {
+    expect(cohortLines(peer(), [])).toEqual([]);
+  });
+
+  test('the allowlist is the type — peerFrom carries six fields and no more', () => {
+    // Adding a field here has to be a deliberate act, because this type is
+    // added to often and a spread would leak whatever lands in it next.
+    const p = peerFrom(
+      { studyNeeds: ['x'], approvalInstruments: ['y'], fundingBlocked: ['z'], solutions: ['s'] } as any,
+      'Partenon', 'alagamento',
+    );
+    expect(Object.keys(p).sort()).toEqual(
+      ['approvalInstruments', 'bairro', 'fundingBlocked', 'solutions', 'studyNeeds', 'worry'],
+    );
+  });
+
+  test('it stays bounded — a context, not a list nobody reads', () => {
+    const many = Array.from({ length: 30 }, () => peer());
+    expect(cohortLines(peer(), many).length).toBeLessThanOrEqual(6);
   });
 });

@@ -97,7 +97,11 @@ export const MODEL_PASSES: ModelPass[] = [
       fichas: uses,
       evidence: no('it selects and observes; it never produces a number — the benefit figures are computed'),
       knowledge: gap('the approval routes with their timings, and the funding landscape, would sharpen its observations about what a project needs and what it could realistically apply to'),
-      cohort: gap('`cohort: []` is passed deliberately — the one input that leaves this org’s own record, held back for its own review. Three other organisations needing the same infiltration test is advice no single org can reach.'),
+      // ⚠️ As COUNTS, through an allowlist — no names, no quotes, no peer's
+      // site or verdict. "Três outras organizações precisam do mesmo estudo" is
+      // the advice; who they are is the coordination's business and lives in
+      // the synergy report. See server/services/cohortContext.ts.
+      cohort: uses,
       artefacts: no('it runs BEFORE the dossier and the note exist'),
     },
   },
