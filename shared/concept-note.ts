@@ -118,6 +118,22 @@ export interface ConceptNoteFacts {
     yearsPresent?: number;
     fundedBefore: boolean;
     largestBudget?: string;
+    /**
+     * ⚠️ Everything below was captured in Encontro 1 and reached nothing.
+     *
+     * The E1↔E3 audit found the inverse of the W2↔W3 one: Encontro 3 asks
+     * almost nothing Encontro 1 already answered — which is right — and the
+     * document that argues FOR the organisation then ignored eleven of the
+     * eighteen facts that workshop spent an hour collecting. Legal status is
+     * the first thing a funder checks for eligibility, and it was nowhere on
+     * the page. See docs/e1-e3-overlap-audit.md.
+     */
+    mission?: string;
+    activities?: string;
+    legalStatus?: string;
+    groupsServed?: string;
+    nbsExperience?: string;
+    volunteerBase?: string;
   };
   place: {
     bairro?: string;
@@ -255,12 +271,41 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
   };
   const yearsPresent = num(org.year_founded) ? new Date().getFullYear() - Number(org.year_founded) : undefined;
 
+  // Legal status, as a funder reads it: the form and whether there is a CNPJ.
+  const legalForm = has(org.legal_form)
+    ? enumLabel('org_profile', 'legal_form', org.legal_form, lang) ?? org.legal_form
+    : null;
+  // The chip is an answer — "Sim, temos CNPJ" — and the document states a fact.
+  // Printing "CNPJ: Sim, temos CNPJ" is the chip-versus-document confusion
+  // REPORT_LABEL exists to end, in a new place.
+  const cnpjRaw = has(org.has_cnpj)
+    ? enumLabel('org_profile', 'has_cnpj', org.has_cnpj, lang) ?? org.has_cnpj
+    : null;
+  const cnpj = cnpjRaw
+    ? /^(sim|yes)/i.test(cnpjRaw.trim())
+      ? (pt ? 'com CNPJ' : 'with a CNPJ')
+      : /certeza|not sure/i.test(cnpjRaw)
+        ? (pt ? 'CNPJ a confirmar' : 'CNPJ to be confirmed')
+        : (pt ? 'sem CNPJ' : 'without a CNPJ')
+    : null;
+  const legalStatus = [legalForm, cnpj].filter(Boolean).join(' · ') || null;
+  const nbsExp = has(org.nbs_experience)
+    ? [enumLabel('org_profile', 'nbs_experience', org.nbs_experience, lang) ?? org.nbs_experience,
+       has(org.nbs_experience_detail) ? org.nbs_experience_detail.trim() : null]
+        .filter(Boolean).join(' — ')
+    : null;
+
   const contribution: string[] = [];
   if (/mutirao|mista/.test(buildModel ?? '')) {
     const label = enumLabel('intervention_type', 'construction_model', buildModel, lang);
     if (label) contribution.push(label);
   }
   if (has(org.team_size)) contribution.push(pt ? `${org.team_size} pessoas na organização` : `${org.team_size} people in the organisation`);
+  // ⚠️ An all-volunteer team IS the counterpart contribution, and a funder reads
+  // it as one — but only where the organisation is actually building.
+  if (has(org.paid_vs_volunteer) && /volunt/i.test(org.paid_vs_volunteer) && /mutirao|mista/.test(buildModel ?? '')) {
+    contribution.push(enumLabel('org_profile', 'paid_vs_volunteer', org.paid_vs_volunteer, lang) ?? org.paid_vs_volunteer);
+  }
   if (yearsPresent) contribution.push(pt ? `${yearsPresent} anos de presença no território` : `${yearsPresent} years present in the território`);
   if (['private-owned', 'formal-agreement', 'public-informal', 'mixed', 'public_land'].includes(site.land_tenure ?? '')) {
     contribution.push(pt ? 'terreno já em uso pela organização' : 'land already in use by the organisation');
@@ -279,6 +324,16 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
       ...(yearsPresent ? { yearsPresent } : {}),
       fundedBefore: org.prior_project_scale === 'funded' || org.funding_history === 'yes',
       ...(has(org.biggest_project_budget) ? { largestBudget: org.biggest_project_budget } : {}),
+      // Their own sentence about what the organisation is for — quoted, never
+      // paraphrased, like every other passage they wrote.
+      ...(has(org.mission_summary) ? { mission: org.mission_summary.trim() } : {}),
+      ...(has(org.main_activities) ? { activities: org.main_activities } : {}),
+      // ⚠️ Eligibility. Most editais open with "tem CNPJ?", and a concept note
+      // that does not answer it makes a funder go and ask.
+      ...(legalStatus ? { legalStatus } : {}),
+      ...(has(org.groups_served) ? { groupsServed: org.groups_served } : {}),
+      ...(nbsExp ? { nbsExperience: nbsExp } : {}),
+      ...(has(org.paid_vs_volunteer) ? { volunteerBase: enumLabel('org_profile', 'paid_vs_volunteer', org.paid_vs_volunteer, lang) ?? org.paid_vs_volunteer } : {}),
     },
     place: {
       ...(has(site.bairro) ? { bairro: site.bairro.split(',')[0].trim() } : {}),
@@ -532,8 +587,28 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
       return v && v >= 50 ? (pt ? `${label} (${v}º percentil)` : `${label} (${v}th percentile)`) : null;
     })
     .filter(Boolean) as string[];
+  // ⚠️ Legal status leads, because it is the first thing a funder checks and it
+  // decides eligibility before anything else on the page matters.
+  const identity = [f.org.legalStatus, ...orgBits].filter(Boolean);
   push('organizacao', [
-    orgBits.length ? P(`**${f.org.name}** — ${orgBits.join(' · ')}.`, [pt ? 'Encontro 1' : 'Encontro 1']) : P(`**${f.org.name}**`, [pt ? 'Encontro 1' : 'Encontro 1']),
+    identity.length ? P(`**${f.org.name}** — ${identity.join(' · ')}.`, ['Encontro 1']) : P(`**${f.org.name}**`, ['Encontro 1']),
+    // Their own sentence about what the organisation is for.
+    f.org.mission ? P(f.org.mission, [pt ? 'missão, nas palavras da organização (Encontro 1)' : "mission, in the organisation's own words (Encontro 1)"], 'quote') : null,
+    f.org.activities || f.org.groupsServed
+      ? P(
+          [
+            f.org.activities ? (pt ? `Atua em: ${f.org.activities}` : `Works on: ${f.org.activities}`) : null,
+            f.org.groupsServed ? (pt ? `Atende: ${f.org.groupsServed}` : `Serves: ${f.org.groupsServed}`) : null,
+          ].filter(Boolean).join('. ') + '.',
+          ['Encontro 1'],
+        )
+      : null,
+    f.org.nbsExperience
+      ? P(
+          pt ? `Experiência anterior com soluções baseadas na natureza: ${f.org.nbsExperience}.` : `Prior experience with nature-based solutions: ${f.org.nbsExperience}.`,
+          ['Encontro 1'],
+        )
+      : null,
     terr.length
       ? P(`${terr.join('; ')}.`, [pt ? 'dados oficiais do município' : 'official municipal data'], 'figure')
       : null,

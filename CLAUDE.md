@@ -189,6 +189,14 @@ that follow from them (walk the whole path; look at the room past the door; ask
 who else is on this path; verify a landing on `main`, not in the PR list).
 
 
+### Encontro overlap audits — `docs/w2-w3-overlap-audit.md`, `docs/e1-e3-overlap-audit.md`
+Before adding a question to any encontro, check whether an earlier one already
+answered it — and before writing a document, check what the earlier encontros
+collected and nobody used. The two audits found opposite failures: W2→W3 was
+asking four things cold that were already on the record; E1→E3 asks almost
+nothing twice and ignored eleven of the eighteen facts Encontro 1 collects,
+including the CNPJ that decides a funder's eligibility question.
+
 ### ⚠️ The workshop speaks, the document is written — `docs/document-register.md`
 Anything an organisation downloads is a nota técnica in the third person. Our
 own design principles — "nada fica descartado", "the map does not lead", "the

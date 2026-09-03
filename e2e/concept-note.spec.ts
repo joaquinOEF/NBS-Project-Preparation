@@ -329,3 +329,68 @@ test.describe('the concept note — phase 3, how a permission is asked for', () 
     }
   });
 });
+
+// ── What Encontro 1 collected and the document ignored ──────────────────────
+// The E1↔E3 audit found the inverse of the W2↔W3 one: E3 asks almost nothing E1
+// already answered, and the document that argues FOR the organisation ignored
+// eleven of the eighteen facts that workshop spends an hour collecting.
+// See docs/e1-e3-overlap-audit.md.
+
+test.describe('the concept note — what Encontro 1 knows', () => {
+  const RICH: W3Input = {
+    ...ESCOLA,
+    org: {
+      ...ESCOLA.org,
+      mission_summary: 'Cuidar das crianças do bairro e do espaço onde elas ficam.',
+      main_activities: 'Hortas e segurança alimentar, Educação ambiental',
+      has_cnpj: 'Sim, temos CNPJ', legal_form: 'Associação',
+      paid_vs_volunteer: 'Todas voluntárias',
+      nbs_experience: 'Sim', nbs_experience_detail: 'uma horta comunitária na creche',
+      groups_served: 'mulheres, jovens, comunidade do bairro',
+    },
+  };
+  const orgSection = (i: W3Input) =>
+    buildConceptNote(i, 'pt').sections.find(s => s.id === 'organizacao')!;
+
+  test('⚠️ legal status leads — it is what decides eligibility', () => {
+    // Most editais open by asking whether there is a CNPJ, and the answer had
+    // been in the record since the first workshop.
+    const text = orgSection(RICH).paragraphs.map(p => p.text).join(' ');
+    expect(text).toContain('Associação');
+    expect(text).toContain('com CNPJ');
+  });
+
+  test('a chip is an answer; a document states a fact', () => {
+    // The chip reads "Sim, temos CNPJ", so the first version printed
+    // "CNPJ: Sim, temos CNPJ" — the chip-versus-document confusion in a new
+    // place. See docs/document-register.md.
+    expect(orgSection(RICH).paragraphs.map(p => p.text).join(' ')).not.toMatch(/Sim, temos CNPJ/);
+  });
+
+  test('the mission is quoted, not paraphrased', () => {
+    const mission = orgSection(RICH).paragraphs.find(p => p.kind === 'quote');
+    expect(mission?.text).toBe('Cuidar das crianças do bairro e do espaço onde elas ficam.');
+    expect(mission?.sources.join(' ')).toMatch(/Encontro 1/);
+  });
+
+  test('what it works on, who it serves, and what it has built before', () => {
+    const text = orgSection(RICH).paragraphs.map(p => p.text).join(' ');
+    expect(text).toMatch(/Hortas e segurança alimentar/);
+    expect(text).toMatch(/mulheres, jovens/);
+    expect(text).toMatch(/horta comunitária na creche/);
+  });
+
+  test('an all-volunteer team is a contribution only where they build', () => {
+    const building = buildConceptNote(RICH, 'pt');
+    expect(building.facts.contribution.join(' ')).toMatch(/Todas voluntárias/);
+    // Hiring a contractor does not make the volunteers a counterpart to it.
+    const hiring = buildConceptNote({ ...RICH, w3: { ...RICH.w3, construction_model: 'contratada' } }, 'pt');
+    expect(hiring.facts.contribution.join(' ')).not.toMatch(/Todas voluntárias/);
+  });
+
+  test('a record with none of it still produces the section', () => {
+    const bare = orgSection({ ...ESCOLA, org: { org_name: 'Só o nome' } });
+    expect(bare.paragraphs.length).toBeGreaterThan(0);
+    expect(bare.paragraphs[0].text).toContain('Só o nome');
+  });
+});
