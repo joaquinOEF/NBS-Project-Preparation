@@ -110,6 +110,14 @@ export function renderSynergyHtml(r: SynergyReport, cohortName = 'a Rede'): stri
   <p class="hyp">Onde uma contratação conjunta economiza de verdade — é o que uma organização sozinha não consegue fazer.</p>
   <ul>${a.pooledStudies.map(p => `<li><strong>${esc(p.need)}</strong> — ${esc(p.memberIds.map(name).join(', '))}</li>`).join('')}</ul>` : ''}
 
+  ${a.pooledInstruments.length ? `<h2>Mesmo instrumento de aprovação</h2>
+  <p class="lead">Uma conversa com o órgão, em vez de uma por organização.</p>
+  <ul>${a.pooledInstruments.map(p => `<li><strong>${esc(p.instrument)}</strong> — ${esc(p.memberIds.map(name).join(', '))}</li>`).join('')}</ul>` : ''}
+
+  ${a.sharedFundingBarriers.length ? `<h2>Mesma barreira de financiamento</h2>
+  <p class="lead">O argumento da agregação, em números: nenhuma dessas organizações resolve isto sozinha, e juntas viram uma proposta que um financiador consegue processar.</p>
+  <ul>${a.sharedFundingBarriers.map(p => `<li><strong>${esc(p.path)}</strong> — ${esc(p.memberIds.map(name).join(', '))}</li>`).join('')}</ul>` : ''}
+
   ${a.pooledBodies.length ? `<h2>Órgãos em comum</h2>
   <ul>${a.pooledBodies.map(p => `<li><strong>${esc(p.body)}</strong> — ${esc(p.memberIds.map(name).join(', '))}</li>`).join('')}</ul>` : ''}
 

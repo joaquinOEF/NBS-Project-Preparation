@@ -2213,7 +2213,13 @@
     "tabFiles": "Arquivos",
     "tabChat": "Conversa",
     "tabProfile": "Perfil",
-    "tabInvite": "Convite"
+    "tabInvite": "Convite",
+    "tabDocuments": "Documentos",
+    "documentsHint": "Os documentos que a organização leva do Encontro 3. Abrem numa aba nova, exatamente como ela os vê.",
+    "docConceptNote": "Nota de conceito",
+    "docConceptNoteHint": "Para financiador ou prefeitura",
+    "docRoadmap": "Hoja de ruta",
+    "docRoadmapHint": "O caminho, com responsáveis"
   },
   "notFound": {
     "title": "Página não encontrada",

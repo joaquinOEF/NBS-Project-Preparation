@@ -188,6 +188,17 @@ test.describe('saying it moves them on', () => {
     }
   });
 
+  test('a bare phase token, and a two-word reply, are both the request', () => {
+    // ⚠️ Every phrasing that fails to match here is a turn handed to the model,
+    // which then narrates an intent the gate goes on to refuse — "Deixa eu abrir
+    // as 27 soluções…" followed four seconds later by "Opa, espera! 🛑". The
+    // contradiction is the defect; matching more of what people actually type is
+    // what removes it. (backlog #41)
+    for (const m of ['w3', 'e3', 'W3', 'Encontro 3', 'o encontro 3', 'sim start', 'bora', 'vamos']) {
+      expect(readsAsStartNext(m, 2), m).toBe(true);
+    }
+  });
+
   test('talking ABOUT the next encontro is not asking to go there', () => {
     // The org describing what comes later, mid-Encontro-2, must not be yanked
     // out of the encontro it is in.
@@ -195,6 +206,12 @@ test.describe('saying it moves them on', () => {
       'no encontro 3 a gente escolhe a solução, né?',
       'a coordenadora falou que o encontro 3 é em setembro',
       'ainda não terminamos aqui',
+      // The short-reply rule is length-bounded so it cannot swallow a sentence
+      // that merely contains a move verb.
+      'o pátio alaga quando chove e vamos ter que fazer alguma coisa sobre isso',
+      // And a phase token that is not the NEXT one is not this request.
+      'w2',
+      'quero voltar pro encontro 2',
     ]) {
       expect(readsAsStartNext(m, 2), m).toBe(false);
     }

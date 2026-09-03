@@ -39,6 +39,7 @@ import { scaleStatement } from '@shared/w3-scale';
 import { benefitFor } from '@shared/w3-benefits';
 import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
+import { siteInSentence } from '@shared/site-name';
 import { getSolution } from '@shared/nbs-catalog';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { E3_QUESTIONNAIRE, allowedOptionIds, checkOptionRule, askCopyFor, sectionsFieldReader } from '@shared/cbo-questionnaire';
@@ -123,6 +124,15 @@ const E3C = {
   parecePouco: { pt: 'Parece pouco', en: 'Sounds like little' },
   serve: { pt: 'Serve, é isso mesmo', en: "That works, that's it" },
   escreverZero: { pt: 'Prefiro escrever do zero', en: "I'd rather write it fresh" },
+  // ⚠️ The agent's own sentence offers to "confirmar, COMPLETAR ou escrever de
+  // outro jeito" and the chips offered no way to complete: take the paragraph
+  // whole, or retype it. An organisation wanting to add one sentence to a good
+  // paragraph took it unchanged and lost the detail. (backlog #37)
+  completar: { pt: 'Quero completar', en: 'I want to add to it' },
+  // The two that reach the composer instead of answering. Every open beat used
+  // to offer exactly one thing to tap — "Prefiro pular". (backlog #36)
+  escrever: { pt: '✍️ Quero escrever', en: '✍️ I want to write' },
+  gravar: { pt: '🎤 Quero gravar um áudio', en: '🎤 I want to record a voice note' },
 } as const;
 
 /**
@@ -180,7 +190,10 @@ export async function serveE3Checkpoint(
   const ask = (
     qPt: string,
     qEn: string,
-    opts: Array<{ pt: string; en: string; dPt?: string; dEn?: string }>,
+    // `action` reaches the composer instead of (or as well as) answering:
+    // 'write' focuses the input, 'record' starts the recorder,
+    // 'write_then_answer' does both. See the QuestionCard in cbo-profile.tsx.
+    opts: Array<{ pt: string; en: string; dPt?: string; dEn?: string; action?: string }>,
   ) =>
     pushEvent({
       type: 'ask_user',
@@ -188,6 +201,7 @@ export async function serveE3Checkpoint(
       options: opts.map(o => ({
         label: isPt ? o.pt : o.en,
         description: isPt ? (o.dPt ?? '') : (o.dEn ?? ''),
+        ...(o.action ? { action: o.action } : {}),
       })),
     } as any);
 
@@ -324,7 +338,12 @@ export async function serveE3Checkpoint(
       deps.startAdvisor?.();
       return finish('open-no-site');
     }
-    const place = siteName || bairro;
+    // ⚠️ Never the raw coordinate string. A pin dropped without a search result
+    // is stored as "Ponto marcado (-30.0577, -51.1936)" and the reverse-geocode
+    // that repairs it fails soft — so this sentence asked a real organisation to
+    // confirm a latitude, twice, in the line that opens the workshop.
+    // See shared/site-name.ts (backlog #40).
+    const place = siteInSentence(siteName, bairro, isPt ? 'pt' : 'en');
     say(
       `Bem-vindas ao Encontro 3. No Encontro 2 vocês marcaram **${place}** e me contaram o que preocupa ali. Hoje a gente transforma isso num projeto: uma solução, um tamanho, uma faixa de preço, e quem precisa dizer sim.\n\nSó pra começar do lugar certo — ainda é **${place}**?`,
       `Welcome to Encontro 3. In Encontro 2 you marked **${place}** and told me what worries you there. Today we turn that into a project: one solution, a size, a price range, and who has to say yes.\n\nJust so we start in the right place — is it still **${place}**?`,
@@ -718,13 +737,22 @@ export async function serveE3Checkpoint(
           ? `One thing first: back in **Encontro 2** you already wrote this about the place:\n\n> ${draft.quote}\n\n_${draft.whyPt}_`
           : `One thing first: in **${draft.sourceFilename}**, which you sent, it says:\n\n> ${draft.quote}\n\n_${draft.whyPt}_`,
       );
+      // Confirm it · add to it · rewrite it — and only then skip.
       ask('Isso já responde, ou vocês querem dizer de outro jeito?', 'Does that already answer it, or would you rather say it differently?', [
         { pt: E3C.serve.pt, en: E3C.serve.en, dPt: 'Usa o que vocês já escreveram', dEn: 'Uses what you already wrote' },
-        { pt: E3C.escreverZero.pt, en: E3C.escreverZero.en, dPt: 'Responde aqui do seu jeito', dEn: 'Answer here in your own way' },
+        { pt: E3C.completar.pt, en: E3C.completar.en, dPt: 'Acrescenta ao que já está escrito', dEn: 'Adds to what is already written', action: 'write_then_answer' },
+        { pt: E3C.escreverZero.pt, en: E3C.escreverZero.en, dPt: 'Responde aqui do seu jeito', dEn: 'Answer here in your own way', action: 'write_then_answer' },
         { pt: E3C.pular.pt, en: E3C.pular.en, dPt: 'Fica como pendência', dEn: 'Recorded as still open' },
       ]);
     } else {
+      // ⚠️ Not "Prefiro pular" alone. The input and the mic sit right below,
+      // but the only thing that LOOKED like an answer was the skip — so the
+      // affordance the eye landed on was the one that abandons a beat whose
+      // output is the first thing a funder reads. Neither of the first two
+      // answers the question; they hand it to the composer.
       ask('Quando quiser:', 'Whenever you like:', [
+        { pt: E3C.escrever.pt, en: E3C.escrever.en, dPt: 'Abre o teclado aqui embaixo', dEn: 'Opens the keyboard below', action: 'write' },
+        { pt: E3C.gravar.pt, en: E3C.gravar.en, dPt: 'Começa a gravar agora', dEn: 'Starts recording now', action: 'record' },
         { pt: E3C.pular.pt, en: E3C.pular.en, dPt: 'Fica como pendência', dEn: 'Recorded as still open' },
       ]);
     }
@@ -1016,9 +1044,27 @@ _For this one we do not yet have a reference figure — what the ficha says is a
   /** The two chips the draft beat adds. Neither is the answer — one commits the
    *  quote, the other reopens the box — so the free-text handlers below have to
    *  let them through rather than storing the label as their reply. */
+  /**
+   * Their new sentences, joined to the Encontro 2 paragraph they chose to add
+   * to — or standing alone when they did not.
+   *
+   * The flag is cleared here rather than at the chip, so a session interrupted
+   * between the two does not silently turn the next unrelated answer into an
+   * addition.
+   */
+  const joinWithDraft = (text: string): string => {
+    const t = text.slice(0, 4000).trim();
+    if (impact('_draft_append') !== 'yes') return t;
+    const quote = impact('_draft_quote').trim();
+    deps.writeFields(IMPACT, { _draft_append: '' });
+    return quote && !t.includes(quote) ? `${quote}\n\n${t}` : t;
+  };
+
   const isDraftChip = (s: string) => {
     const n = deps.normChip(s);
-    return [E3C.serve, E3C.escreverZero].some(c => n === deps.normChip(c.pt) || n === deps.normChip(c.en));
+    return [E3C.serve, E3C.escreverZero, E3C.completar].some(
+      c => n === deps.normChip(c.pt) || n === deps.normChip(c.en),
+    );
   };
 
   // ══ How many, waiting for its answer ═════════════════════════════════════
@@ -1055,7 +1101,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
   if (type('_why_pending') === 'yes' && raw && !raw.startsWith('Map selection (') && !isDraftChip(raw)) {
     deps.writeFields(TYPE, {
       _why_pending: '',
-      ...(isSkip(raw) ? {} : { justification_why_here: raw.slice(0, 4000) }),
+      ...(isSkip(raw) ? {} : { justification_why_here: joinWithDraft(raw) }),
     });
     if (!isSkip(raw)) say('Anotado — com as palavras de vocês.', 'Noted — in your own words.');
     return askBaseline();
@@ -1064,7 +1110,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
   if (impact('_baseline_pending') === 'yes' && raw && !raw.startsWith('Map selection (') && !isDraftChip(raw)) {
     deps.writeFields(IMPACT, {
       _baseline_pending: '',
-      ...(isSkip(raw) ? {} : { baseline_condition: raw.slice(0, 4000) }),
+      ...(isSkip(raw) ? {} : { baseline_condition: joinWithDraft(raw) }),
     });
     if (!isSkip(raw)) say('Guardado como linha de base.', 'Stored as the baseline.');
     return askImpact();
@@ -1301,8 +1347,25 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     }
   }
   if (is(E3C.escreverZero)) {
+    deps.writeFields(IMPACT, { _draft_append: '' });
     say('Claro — pode escrever ou gravar aí embaixo.', 'Of course — write or record below.');
     return finish('write-fresh');
+  }
+
+  // ⚠️ Not a replacement. The organisation's Encontro 2 paragraph stays where
+  // it is and what they write now is joined to it — asking "o que falta dizer?"
+  // is a smaller question than "edit this", which is the difference between an
+  // added sentence and an abandoned beat. Seeding the box with the old text was
+  // the first design and JVP revised it: on a phone that means scrolling
+  // through a paragraph to reach its end, and one careless clear wipes words
+  // they will not retype. (backlog #37)
+  if (is(E3C.completar)) {
+    deps.writeFields(IMPACT, { _draft_append: 'yes' });
+    say(
+      'Pode escrever só o que falta — eu junto com o que vocês já tinham escrito.',
+      'Just write what is missing — I will join it to what you had already written.',
+    );
+    return finish('draft-append');
   }
 
   if (is(E3C.outraSolucao)) {

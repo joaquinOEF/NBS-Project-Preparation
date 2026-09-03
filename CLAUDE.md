@@ -189,11 +189,22 @@ that follow from them (walk the whole path; look at the room past the door; ask
 who else is on this path; verify a landing on `main`, not in the PR list).
 
 
-### The authored concept note — `docs/concept-note-authoring.md`
-The deliverable is meant to be BETTER than what the organisation could write
-itself, not a tidy transcript of its answers. That plan (facts computed, prose
-written, every paragraph sourced, deterministic floor) is agreed and unbuilt;
-read it before adding anything to the W3 document.
+### ⚠️ Use everything they gave us — `docs/context-first.md`
+Every model-facing pass declares what it does with all twelve context sources —
+fields, their own words, the transcript, document summaries and full text, the
+photographs, the map, the fichas, the evidence base, the knowledge slice, the
+cohort, and what earlier passes produced. **Declining a source is legitimate;
+forgetting one is not**, and `e2e/context-first.spec.ts` fails on any pass that
+has not decided. Images and documents reach a fact-checked pass PRE-DIGESTED as
+observations carrying their source, never as raw material.
+
+### Encontro overlap audits — `docs/w2-w3-overlap-audit.md`, `docs/e1-e3-overlap-audit.md`
+Before adding a question to any encontro, check whether an earlier one already
+answered it — and before writing a document, check what the earlier encontros
+collected and nobody used. The two audits found opposite failures: W2→W3 was
+asking four things cold that were already on the record; E1→E3 asks almost
+nothing twice and ignored eleven of the eighteen facts Encontro 1 collects,
+including the CNPJ that decides a funder's eligibility question.
 
 ### ⚠️ The workshop speaks, the document is written — `docs/document-register.md`
 Anything an organisation downloads is a nota técnica in the third person. Our

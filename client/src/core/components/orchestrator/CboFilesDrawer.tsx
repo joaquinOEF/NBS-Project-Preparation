@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, Download } from 'lucide-react';
+import { ExternalLink, RefreshCw, Download } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/core/components/ui/sheet';
@@ -18,7 +18,7 @@ import { CboChatTranscript } from '@/core/components/orchestrator/CboChatTranscr
 import { CboProfileSummary } from '@/core/components/orchestrator/CboProfileSummary';
 import type { DocumentMeta } from '@shared/document-schema';
 
-export type CboDrawerTab = 'convite' | 'arquivos' | 'conversa' | 'perfil';
+export type CboDrawerTab = 'convite' | 'arquivos' | 'conversa' | 'perfil' | 'documentos';
 export type FilesDrawerMember = { id: string; orgName: string; inviteUrl: string };
 
 export function CboFilesDrawer({
@@ -109,11 +109,12 @@ export function CboFilesDrawer({
 
         {member && cohortSlug && (
           <Tabs value={tab} onValueChange={v => setTab(v as CboDrawerTab)} className="flex-1 min-h-0 flex flex-col mt-2">
-            <TabsList className="grid grid-cols-4">
+            <TabsList className="grid grid-cols-5">
               <TabsTrigger value="convite" data-testid="cbo-tab-convite">{t('cboView.tabInvite', { defaultValue: 'Invite' })}</TabsTrigger>
               <TabsTrigger value="arquivos" data-testid="cbo-tab-arquivos">{t('cboView.tabFiles', { defaultValue: 'Files' })}</TabsTrigger>
               <TabsTrigger value="conversa" data-testid="cbo-tab-conversa">{t('cboView.tabChat', { defaultValue: 'Chat' })}</TabsTrigger>
               <TabsTrigger value="perfil" data-testid="cbo-tab-perfil">{t('cboView.tabProfile', { defaultValue: 'Profile' })}</TabsTrigger>
+              <TabsTrigger value="documentos" data-testid="cbo-tab-documentos">{t('cboView.tabDocuments', { defaultValue: 'Documents' })}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="convite" className="flex-1 min-h-0 overflow-auto mt-2">
@@ -133,6 +134,40 @@ export function CboFilesDrawer({
             </TabsContent>
             <TabsContent value="perfil" className="flex-1 min-h-0 overflow-auto mt-2">
               <CboProfileSummary cohortSlug={cohortSlug} memberId={member.id} reloadKey={reloadKey} />
+            </TabsContent>
+            {/* ⚠️ What the ORGANISATION took away. Until now nobody on the
+                coordination side could read it: the portfolio exists to carry
+                these forward — pooling the studies, taking the recurring-money
+                gap to the prefeitura — and the only way to see one was to be
+                the org. Rebuilt from live state on open, so this is the same
+                document they hold, not a copy of it. */}
+            <TabsContent value="documentos" className="flex-1 min-h-0 overflow-auto mt-2">
+              <div className="space-y-2 px-1">
+                <p className="text-[12px] leading-snug text-muted-foreground">
+                  {t('cboView.documentsHint', {
+                    defaultValue: 'Os documentos que a organização leva do Encontro 3. Abrem numa aba nova, exatamente como ela os vê.',
+                  })}
+                </p>
+                {[
+                  { kind: 'nota', label: t('cboView.docConceptNote', { defaultValue: 'Nota de conceito' }), hint: t('cboView.docConceptNoteHint', { defaultValue: 'Para financiador ou prefeitura' }) },
+                  { kind: 'rota', label: t('cboView.docRoadmap', { defaultValue: 'Hoja de ruta' }), hint: t('cboView.docRoadmapHint', { defaultValue: 'O caminho, com responsáveis' }) },
+                ].map(d => (
+                  <a
+                    key={d.kind}
+                    href={`/api/cohort/${cohortSlug}/member/${member.id}/document/${d.kind}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    data-testid={`cbo-doc-${d.kind}`}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-card px-3 py-2.5 hover:bg-muted/50"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-[13px] font-semibold">{d.label}</span>
+                      <span className="block text-[11.5px] text-muted-foreground">{d.hint}</span>
+                    </span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  </a>
+                ))}
+              </div>
             </TabsContent>
           </Tabs>
         )}

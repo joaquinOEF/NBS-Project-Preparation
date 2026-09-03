@@ -41,12 +41,17 @@ import {
 } from './w3-dossier';
 import { approvalRequirement, type ApprovalBody } from './nbs-approvals';
 import { approvalRouteLine } from './nbs-knowledge';
+import {
+  fundingMatches, FUNDING_CAVEAT, AGGREGATION_ARGUMENT, FUNDER_KIND_LABEL,
+  PHILANTHROPIC_VS_COMMERCIAL,
+} from './funding-sources';
 import { budgetLineFor, SOLUTION_COSTS, type BuildModel } from './w3-sizing';
 import { benefitFor } from './w3-benefits';
 import { studyCostLine } from './w3-studies';
 import { scaleStatement, type ScaleStatement } from './w3-scale';
 import { buildRoadmap, reportLabel, type RoadmapStep } from './w3-roadmap';
 import { cboFieldEnumOptions } from './cbo-field-catalog';
+import { siteLabel } from './site-name';
 
 type Lang = 'pt' | 'en';
 
@@ -117,6 +122,22 @@ export interface ConceptNoteFacts {
     yearsPresent?: number;
     fundedBefore: boolean;
     largestBudget?: string;
+    /**
+     * ⚠️ Everything below was captured in Encontro 1 and reached nothing.
+     *
+     * The E1↔E3 audit found the inverse of the W2↔W3 one: Encontro 3 asks
+     * almost nothing Encontro 1 already answered — which is right — and the
+     * document that argues FOR the organisation then ignored eleven of the
+     * eighteen facts that workshop spent an hour collecting. Legal status is
+     * the first thing a funder checks for eligibility, and it was nowhere on
+     * the page. See docs/e1-e3-overlap-audit.md.
+     */
+    mission?: string;
+    activities?: string;
+    legalStatus?: string;
+    groupsServed?: string;
+    nbsExperience?: string;
+    volunteerBase?: string;
   };
   place: {
     bairro?: string;
@@ -154,6 +175,23 @@ export interface ConceptNoteFacts {
     recurringMoney?: string;
     monitoring?: string;
   };
+  /**
+   * ⚠️ What a reading pass SAW, each carrying what it was based on.
+   *
+   * This is how the photographs and the uploaded documents reach a pass that
+   * must stay auditable. The organisation walked its own site and photographed
+   * the ground; the advisor reads those images and the full text of what they
+   * uploaded, and emits one-sentence observations with their provenance. Those
+   * are facts with a source, so they enter the fact base like any other and
+   * pass the same guards — while the writing pass still sees only facts.
+   *
+   * Handing the images to the writer instead would widen the reach and lose the
+   * guarantee: the number guard cannot catch an invented noun, and "o pátio tem
+   * um ralo entupido" read off an ambiguous photograph is not a figure.
+   * See docs/context-first.md.
+   */
+  observations: Array<{ text: string; basedOn: string; kind: string }>;
+
   /** What the organisation itself puts in. Named, never priced. */
   contribution: string[];
   verdict: VerdictState;
@@ -254,16 +292,59 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
   };
   const yearsPresent = num(org.year_founded) ? new Date().getFullYear() - Number(org.year_founded) : undefined;
 
+  // Legal status, as a funder reads it: the form and whether there is a CNPJ.
+  const legalForm = has(org.legal_form)
+    ? enumLabel('org_profile', 'legal_form', org.legal_form, lang) ?? org.legal_form
+    : null;
+  // The chip is an answer — "Sim, temos CNPJ" — and the document states a fact.
+  // Printing "CNPJ: Sim, temos CNPJ" is the chip-versus-document confusion
+  // REPORT_LABEL exists to end, in a new place.
+  const cnpjRaw = has(org.has_cnpj)
+    ? enumLabel('org_profile', 'has_cnpj', org.has_cnpj, lang) ?? org.has_cnpj
+    : null;
+  const cnpj = cnpjRaw
+    ? /^(sim|yes)/i.test(cnpjRaw.trim())
+      ? (pt ? 'com CNPJ' : 'with a CNPJ')
+      : /certeza|not sure/i.test(cnpjRaw)
+        ? (pt ? 'CNPJ a confirmar' : 'CNPJ to be confirmed')
+        : (pt ? 'sem CNPJ' : 'without a CNPJ')
+    : null;
+  const legalStatus = [legalForm, cnpj].filter(Boolean).join(' · ') || null;
+  const nbsExp = has(org.nbs_experience)
+    ? [enumLabel('org_profile', 'nbs_experience', org.nbs_experience, lang) ?? org.nbs_experience,
+       has(org.nbs_experience_detail) ? org.nbs_experience_detail.trim() : null]
+        .filter(Boolean).join(' — ')
+    : null;
+
   const contribution: string[] = [];
   if (/mutirao|mista/.test(buildModel ?? '')) {
     const label = enumLabel('intervention_type', 'construction_model', buildModel, lang);
     if (label) contribution.push(label);
   }
   if (has(org.team_size)) contribution.push(pt ? `${org.team_size} pessoas na organização` : `${org.team_size} people in the organisation`);
+  // ⚠️ An all-volunteer team IS the counterpart contribution, and a funder reads
+  // it as one — but only where the organisation is actually building.
+  if (has(org.paid_vs_volunteer) && /volunt/i.test(org.paid_vs_volunteer) && /mutirao|mista/.test(buildModel ?? '')) {
+    contribution.push(enumLabel('org_profile', 'paid_vs_volunteer', org.paid_vs_volunteer, lang) ?? org.paid_vs_volunteer);
+  }
   if (yearsPresent) contribution.push(pt ? `${yearsPresent} anos de presença no território` : `${yearsPresent} years present in the território`);
   if (['private-owned', 'formal-agreement', 'public-informal', 'mixed', 'public_land'].includes(site.land_tenure ?? '')) {
     contribution.push(pt ? 'terreno já em uso pela organização' : 'land already in use by the organisation');
   }
+
+  // The advisor's reading of the photographs and the documents, if it ran.
+  // Absent in a deployment with no key, which is why nothing here depends on it.
+  const observations: ConceptNoteFacts['observations'] = (() => {
+    try {
+      const advice = JSON.parse(String(w3._advice_json ?? '') || '{}');
+      return (advice.observations ?? [])
+        .filter((o: any) => typeof o?.textPt === 'string' && o.textPt.trim().length > 12)
+        .map((o: any) => ({ text: String(o.textPt).trim(), basedOn: String(o.basedOn ?? '').trim(), kind: String(o.kind ?? '') }))
+        .filter((o: any) => o.basedOn);
+    } catch {
+      return [];
+    }
+  })();
 
   const priced = solutions.map(s => s.cost).filter(c => c?.lowBrl != null);
   const roadmap = buildRoadmap(input, lang);
@@ -278,10 +359,22 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
       ...(yearsPresent ? { yearsPresent } : {}),
       fundedBefore: org.prior_project_scale === 'funded' || org.funding_history === 'yes',
       ...(has(org.biggest_project_budget) ? { largestBudget: org.biggest_project_budget } : {}),
+      // Their own sentence about what the organisation is for — quoted, never
+      // paraphrased, like every other passage they wrote.
+      ...(has(org.mission_summary) ? { mission: org.mission_summary.trim() } : {}),
+      ...(has(org.main_activities) ? { activities: org.main_activities } : {}),
+      // ⚠️ Eligibility. Most editais open with "tem CNPJ?", and a concept note
+      // that does not answer it makes a funder go and ask.
+      ...(legalStatus ? { legalStatus } : {}),
+      ...(has(org.groups_served) ? { groupsServed: org.groups_served } : {}),
+      ...(nbsExp ? { nbsExperience: nbsExp } : {}),
+      ...(has(org.paid_vs_volunteer) ? { volunteerBase: enumLabel('org_profile', 'paid_vs_volunteer', org.paid_vs_volunteer, lang) ?? org.paid_vs_volunteer } : {}),
     },
     place: {
       ...(has(site.bairro) ? { bairro: site.bairro.split(',')[0].trim() } : {}),
-      ...(has(site.site_name) ? { siteName: site.site_name } : {}),
+      // ⚠️ Never the raw coordinate string. It is the document's title, its
+      // browser-tab name, and the first line a funder reads.
+      ...(siteLabel(site.site_name, lang) ? { siteName: siteLabel(site.site_name, lang)! } : {}),
       hasPin: hasSite(site),
       ...(areaM2 ? { areaM2 } : {}),
       ...(units ? { units } : {}),
@@ -327,6 +420,7 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
         ? { monitoring: enumLabel('impact_monitoring', 'monitoring_capacity', w3.monitoring_capacity, lang) }
         : {}),
     },
+    observations,
     contribution,
     verdict: portfolioState(dossier.verdicts),
     gaps: dossier.gaps,
@@ -346,7 +440,7 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
 
 export type ConceptSectionId =
   | 'resumo' | 'organizacao' | 'problema' | 'intervencao' | 'porque'
-  | 'resultados' | 'exige' | 'custo' | 'manutencao' | 'pendencias';
+  | 'resultados' | 'exige' | 'custo' | 'financiamento' | 'manutencao' | 'pendencias';
 
 export interface Paragraph {
   text: string;
@@ -380,7 +474,8 @@ const T = {
     resumo: 'Resumo', organizacao: 'A organização e o território', problema: 'O problema',
     intervencao: 'A intervenção proposta', porque: 'Por que esta solução aqui',
     resultados: 'Resultados esperados', exige: 'O que o projeto exige',
-    custo: 'Custo estimado e contrapartida', manutencao: 'Manutenção e recursos recorrentes',
+    custo: 'Custo estimado e contrapartida', financiamento: 'Caminhos de financiamento',
+    manutencao: 'Manutenção e recursos recorrentes',
     pendencias: 'Pendências e próximos passos',
     draft: 'RASCUNHO — para validar e ajustar',
   },
@@ -388,7 +483,8 @@ const T = {
     resumo: 'Summary', organizacao: 'The organisation and the territory', problema: 'The problem',
     intervencao: 'The proposed intervention', porque: 'Why this solution here',
     resultados: 'Expected results', exige: 'What the project requires',
-    custo: 'Estimated cost and counterpart contribution', manutencao: 'Upkeep and recurring resources',
+    custo: 'Estimated cost and counterpart contribution', financiamento: 'Funding paths',
+    manutencao: 'Upkeep and recurring resources',
     pendencias: 'Open items and next steps',
     draft: 'DRAFT — to validate and adjust',
   },
@@ -529,8 +625,28 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
       return v && v >= 50 ? (pt ? `${label} (${v}º percentil)` : `${label} (${v}th percentile)`) : null;
     })
     .filter(Boolean) as string[];
+  // ⚠️ Legal status leads, because it is the first thing a funder checks and it
+  // decides eligibility before anything else on the page matters.
+  const identity = [f.org.legalStatus, ...orgBits].filter(Boolean);
   push('organizacao', [
-    orgBits.length ? P(`**${f.org.name}** — ${orgBits.join(' · ')}.`, [pt ? 'Encontro 1' : 'Encontro 1']) : P(`**${f.org.name}**`, [pt ? 'Encontro 1' : 'Encontro 1']),
+    identity.length ? P(`**${f.org.name}** — ${identity.join(' · ')}.`, ['Encontro 1']) : P(`**${f.org.name}**`, ['Encontro 1']),
+    // Their own sentence about what the organisation is for.
+    f.org.mission ? P(f.org.mission, [pt ? 'missão, nas palavras da organização (Encontro 1)' : "mission, in the organisation's own words (Encontro 1)"], 'quote') : null,
+    f.org.activities || f.org.groupsServed
+      ? P(
+          [
+            f.org.activities ? (pt ? `Atua em: ${f.org.activities}` : `Works on: ${f.org.activities}`) : null,
+            f.org.groupsServed ? (pt ? `Atende: ${f.org.groupsServed}` : `Serves: ${f.org.groupsServed}`) : null,
+          ].filter(Boolean).join('. ') + '.',
+          ['Encontro 1'],
+        )
+      : null,
+    f.org.nbsExperience
+      ? P(
+          pt ? `Experiência anterior com soluções baseadas na natureza: ${f.org.nbsExperience}.` : `Prior experience with nature-based solutions: ${f.org.nbsExperience}.`,
+          ['Encontro 1'],
+        )
+      : null,
     terr.length
       ? P(`${terr.join('; ')}.`, [pt ? 'dados oficiais do município' : 'official municipal data'], 'figure')
       : null,
@@ -552,6 +668,16 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
     f.problem.baseline && f.problem.baseline !== f.problem.story
       ? P(f.problem.baseline, [pt ? 'linha de base registrada antes da obra' : 'baseline recorded before any works'], 'quote')
       : null,
+    // ⚠️ Our reading, said to be ours. The organisation photographed the ground
+    // and sent what it had already written; this is what a pass saw in that
+    // material, and it is attributed rather than blended into their account.
+    // Never presented as a statement they made — see docs/document-register.md.
+    ...f.observations.map(o =>
+      P(
+        pt ? `${o.text} _(leitura nossa — ${o.basedOn})_` : `${o.text} _(our reading — ${o.basedOn})_`,
+        [pt ? `leitura do material enviado · ${o.basedOn}` : `a reading of what was sent · ${o.basedOn}`],
+      ),
+    ),
   ], !f.problem.story);
 
   // ── 4 · A intervenção proposta ────────────────────────────────────────────
@@ -725,7 +851,58 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
       : null,
   ], f.totals.lowBrl == null);
 
-  // ── 9 · Manutenção e recursos recorrentes ─────────────────────────────────
+  // ── 9 · Caminhos de financiamento ─────────────────────────────────────────
+  // ⚠️ The workshop of 26 August told eighteen organisations, once, in a room,
+  // what the funding landscape actually looks like. The record already holds
+  // what decides eligibility for most of it — a CNPJ, a previous funded
+  // project, the size of this one. Matching one against the other is the
+  // consulting the deck asks for and no organisation can do alone, because it
+  // requires knowing what the deck knows. See shared/funding-sources.ts.
+  const matches = fundingMatches(
+    {
+      ...(input.org?.has_cnpj != null ? { hasCnpj: /^(sim|yes)/i.test(String(input.org.has_cnpj)) } : {}),
+      hasTrackRecord: f.org.fundedBefore,
+      ...(f.totals.lowBrl != null ? { costLowBrl: f.totals.lowBrl, costHighBrl: f.totals.highBrl } : {}),
+    },
+    lang,
+  );
+  const open = matches.filter(m => !m.blocked);
+  const blocked = matches.filter(m => m.blocked);
+  const fundingSource = [
+    pt
+      ? 'oficina de financiamento COUGAR · PxG ↔ OEF ↔ BwB, 26 de agosto de 2026'
+      : 'COUGAR funding workshop · PxG ↔ OEF ↔ BwB, 26 August 2026',
+  ];
+  push('financiamento', [
+    // Which KIND of money this asks for, in the deck's own words — the first
+    // thing a funder reading a concept note needs settled about it.
+    P(pt ? PHILANTHROPIC_VS_COMMERCIAL.pt : PHILANTHROPIC_VS_COMMERCIAL.en, fundingSource),
+    P(pt ? AGGREGATION_ARGUMENT.pt : AGGREGATION_ARGUMENT.en, fundingSource),
+    ...open.map(m =>
+      P(
+        `**${m.path.name}** (${pt ? FUNDER_KIND_LABEL[m.path.kind].pt : FUNDER_KIND_LABEL[m.path.kind].en}${m.path.reembolsavel ? '' : pt ? ', não reembolsável' : ', non-reimbursable'}). ` +
+          `${pt ? m.path.notePt : m.path.noteEn}` +
+          ((pt ? m.path.sizePt : m.path.sizeEn) ? ` ${pt ? 'Porte' : 'Size'}: ${pt ? m.path.sizePt : m.path.sizeEn}.` : '') +
+          (m.fit ? ` ${m.fit}` : ''),
+        fundingSource,
+      ),
+    ),
+    // ⚠️ Named, not hidden. An organisation that cannot yet meet a criterion is
+    // better off knowing which one and why — "histórico comprovado" is a thing
+    // this project itself starts to build.
+    blocked.length
+      ? P(
+          (pt
+            ? 'Fora de alcance por enquanto, e por um motivo que o próprio projeto começa a resolver: '
+            : 'Out of reach for now, for a reason this project itself starts to solve: ') +
+            blocked.map(m => `**${m.path.name}** — ${m.fit}`).join(' '),
+          fundingSource,
+        )
+      : null,
+    P(pt ? FUNDING_CAVEAT.pt : FUNDING_CAVEAT.en, fundingSource),
+  ]);
+
+  // ── 10 · Manutenção e recursos recorrentes ────────────────────────────────
   const upkeep: string[] = [];
   if (f.delivery.maintainer) upkeep.push(pt ? `Quem cuida: ${f.delivery.maintainer}` : `Who looks after it: ${f.delivery.maintainer}`);
   if (f.delivery.frequency) upkeep.push(pt ? `Frequência: ${f.delivery.frequency}` : `How often: ${f.delivery.frequency}`);

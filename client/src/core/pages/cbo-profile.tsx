@@ -162,27 +162,6 @@ function buildRiskSummary(result: MapSelectionResult, langRaw: string): string {
   const L = lang === 'pt';
   const zones = result.selectedAssets.filter(a => a.type === 'zone');
   const sites = result.selectedAssets.filter(a => a.type !== 'zone');
-  // ⚠️ A footprint session produced ONE fact: the area. Leading with the
-  // bairro's flood/heat/landslide bands there re-reads Encontro 2 back to an
-  // organisation that answered it weeks ago, and buries the m² they just traced
-  // under "1 local: Área desenhada (4 pontos)" — the number is the entire
-  // reason the map opened. Reported by JVP, 2026-09-02: "instead of this
-  // message can we show the area we drew… we already sent that info in w2".
-  //
-  // Keyed on a drawn polygon rather than on the preset, so any session where
-  // someone traces a shape reports the shape.
-  const drawn = result.selectedAssets.filter(a => a.geometry?.type === 'Polygon');
-  const drawnM2 = drawn.reduce((n, a) => n + roundAreaM2(polygonAreaM2(a.geometry as any)), 0);
-  if (drawnM2 > 0) {
-    const where = [zones[0]?.name, ...drawn.map(d => d.name).filter(n => !/desenhad|drawn/i.test(n))]
-      .filter(Boolean).join(' · ');
-    return [
-      L ? 'Contornei a área no mapa:' : 'I traced the area on the map:',
-      `📐 ${drawnM2.toLocaleString(L ? 'pt-BR' : 'en-US')} m²`,
-      ...(where ? [`📍 ${where}`] : []),
-    ].join('\n');
-  }
-
   const out: string[] = [L ? 'Selecionei no mapa:' : 'Selected on the map:'];
   for (const z of zones) {
     const p: any = z.properties || {};
@@ -190,10 +169,7 @@ function buildRiskSummary(result: MapSelectionResult, langRaw: string): string {
     out.push(`🔵 ${L ? 'inundação' : 'flood'} ${bandWord(hazardPercentile(p, 'flood'), lang)} · 🔴 ${L ? 'calor' : 'heat'} ${bandWord(hazardPercentile(p, 'heat'), lang)} · 🟤 ${L ? 'deslizamento' : 'landslide'} ${bandWord(hazardPercentile(p, 'landslide'), lang)}`);
     // The percentile is relative to the rest of the city — say so, or "alto"
     // reads as an absolute claim about danger.
-    // ⚠️ Plain parentheses: this bubble is rendered as text, not markdown, so
-    // the italic underscores printed literally — "_(comparado com os outros
-    // bairros de Porto Alegre)_".
-    out.push(L ? '(comparado com os outros bairros de Porto Alegre)' : '(compared with the other neighbourhoods in Porto Alegre)');
+    out.push(L ? '_(comparado com os outros bairros de Porto Alegre)_' : '_(compared with the other neighbourhoods in Porto Alegre)_');
     const pop = p.populationTotal || p.populationSum;
     const bits: string[] = [];
     if (pop) bits.push(`👥 ~${Number(pop).toLocaleString(L ? 'pt-BR' : 'en-US')} ${L ? 'moradores' : 'residents'}`);
@@ -1405,19 +1381,12 @@ export default function CboProfilePage() {
           // (the SSE stream emits the response in pieces as the model
           // generates it).
           if (last?.role === 'assistant' && last.messageType === 'content') {
-            // ⚠️ Always a paragraph break. A `chat` event is a WHOLE BLOCK,
-            // post-normalizer — token streaming arrives as `chat_delta` and
-            // never lands here (see the CboEvent union in shared/cbo-schema.ts).
-            // So there is no mid-word split to protect, and the sentence-boundary
-            // heuristic that used to guard one was corrupting real blocks: it
-            // required the previous block to END in . ! ? : ;, and a block that
-            // ends in a closing markdown marker does not.
-            //
-            // Seen by JVP, 2026-09-02: "…prova depois que alguma coisa
-            // mudou._Só uma coisa antes:" — two beats fused, and the closing
-            // underscore became intraword, so CommonMark stopped reading it as
-            // emphasis and the org saw the markers printed on screen.
-            return [...prev.slice(0, -1), { ...last, content: `${last.content}\n\n${event.content}` }];
+            // Join consecutive whole-block chat chunks with a paragraph break ONLY
+            // at a sentence boundary (prev ends with . ! ? : ; and next starts
+            // non-space), so two distinct sentences can't fuse ("profile:A few…")
+            // while a sub-block token split (mid-word) is never separated.
+            const sep = /[.!?:;]$/.test(last.content) && !/^\s/.test(event.content) ? '\n\n' : '';
+            return [...prev.slice(0, -1), { ...last, content: last.content + sep + event.content }];
           }
           return [...prev, { role: 'assistant' as const, content: event.content, messageType: 'content', timestamp: new Date().toISOString() }];
         });
@@ -2653,6 +2622,24 @@ export default function CboProfilePage() {
                     pendingUploadPurposeRef.current = purpose ?? null;
                     fileInputRef.current?.click();
                   }}
+                  onComposeAction={(mode, seed) => {
+                    // ⚠️ Neither of these answers the question — they hand the
+                    // beat to the composer. The pending question stays open, so
+                    // whatever is typed or spoken is routed through
+                    // handleSelectOption as the answer to it. (backlog #36/#37)
+                    if (mode === 'record') { void voice.toggle(); return; }
+                    if (seed) setInput(prev => (prev.trim() ? prev : seed));
+                    // The focus has to outlive this render: on a phone the
+                    // keyboard only opens for a focus tied to the tap, and the
+                    // option list re-renders underneath it.
+                    requestAnimationFrame(() => {
+                      const el = inputRef.current;
+                      if (!el) return;
+                      el.focus();
+                      const end = el.value.length;
+                      try { el.setSelectionRange(end, end); } catch { /* not all inputs support it */ }
+                    });
+                  }}
                   onShowExamples={() => setExamplesOpen(true)}
                 />
               </div>
@@ -3526,6 +3513,7 @@ function CboQuestionCard({
   onMultiConfirm,
   readOnly,
   onUploadAction,
+  onComposeAction,
   onShowExamples,
 }: {
   question: { question: string; options: any[]; multiSelect?: boolean; showExamples?: boolean };
@@ -3541,6 +3529,17 @@ function CboQuestionCard({
   readOnly?: boolean;
   /** Opens the file picker — for options with action 'upload'. */
   onUploadAction?: (purpose?: string) => void;
+  /**
+   * Puts the cursor in the text box, or starts the recorder — for options with
+   * action 'write' / 'record'.
+   *
+   * ⚠️ These options do NOT answer the question. Every open beat used to offer
+   * exactly one thing to tap — "Prefiro pular" — with the input and the mic
+   * below it, so the only affordance the eye landed on was the one that
+   * abandons the question. These beats produce the sentences a funder reads
+   * first; a skip here is expensive. (backlog #36)
+   */
+  onComposeAction?: (mode: 'write' | 'record', seed?: string) => void;
   /** Opens the real-cases sheet. Deliberately separate from onSelect: this must
    *  never answer the question (backlog #27). */
   onShowExamples?: () => void;
@@ -3566,6 +3565,16 @@ function CboQuestionCard({
     // answers, so a chip that only opened a picker would strand the flow.
     // Answer first, then open — the picker is modal and blocks the send.
     if (action === 'upload_then_answer') onUploadAction?.(uploadPurpose);
+    // Answers AND opens the keyboard. The server has to learn that this is an
+    // ADDITION rather than a replacement, so it cannot be a pure client action;
+    // and making it two taps is how an addition becomes an abandonment.
+    if (action === 'write_then_answer') onComposeAction?.('write');
+  };
+
+  /** Reaches the composer instead of answering. */
+  const compose = (mode: 'write' | 'record', seed?: string) => {
+    if (disabled || readOnly) return;
+    onComposeAction?.(mode, seed);
   };
 
   return (
@@ -3608,6 +3617,26 @@ function CboQuestionCard({
                   readOnly ? 'opacity-45 cursor-default border-muted' : disabled ? 'opacity-50 border-green-300' : 'border-green-500 bg-green-50/60 hover:bg-green-50 cursor-pointer'
                 }`}>
                 <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-green-600 text-white shrink-0"><Paperclip className="w-4 h-4" /></span>
+                <div className="flex-1">
+                  <span className="font-semibold">{opt.label}</span>
+                  {opt.description && <div className="text-muted-foreground text-xs mt-0.5">{opt.description}</div>}
+                </div>
+              </button>
+            );
+          }
+          // ✍️ / 🎤 — the two that reach the composer rather than answering.
+          if (opt.action === 'write' || opt.action === 'record') {
+            const Icon = opt.action === 'record' ? Mic : Pencil;
+            return (
+              <button key={i} type="button"
+                onClick={() => compose(opt.action, opt.seed)}
+                disabled={readOnly}
+                data-testid={readOnly ? `cbo-answered-option-${i}` : `cbo-option-${opt.action}`}
+                data-option-label={opt.label}
+                className={`w-full text-left px-3 py-3 rounded-md border text-sm transition-all flex items-center gap-3 ${
+                  readOnly ? 'opacity-45 cursor-default border-muted' : disabled ? 'opacity-50' : 'border-green-500 bg-green-50/60 hover:bg-green-50 cursor-pointer dark:bg-green-950/30 dark:border-green-800'
+                }`}>
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-600 text-white shrink-0"><Icon className="w-4 h-4" /></span>
                 <div className="flex-1">
                   <span className="font-semibold">{opt.label}</span>
                   {opt.description && <div className="text-muted-foreground text-xs mt-0.5">{opt.description}</div>}
