@@ -523,3 +523,63 @@ It is *Teia* (the government open call). Don't propagate the transcript's spelli
     Neither behaviour is obviously wrong — a unit price with the missing area named is arguably the more useful of the two — but the two surfaces have to agree, and today an organisation is told two different things about the same project ten seconds apart. This is a product call, not a bug fix: **does an organisation with no place marked see a price per m²?** Decide it once and make both surfaces read from the same answer, the way the verdict already does.
 
     Same-shape risk as the `dossier.studies` line, which the no-site early return also drops: the roadmap names the study as a step ("Quando houver um lugar: Grade viva vai precisar de um responsável técnico com ART") while the card carries nothing about it.
+
+35. **⚠️ The bairro risk percentiles stored in W2 disagree with the catalogue and with what the org was shown (P1, M)** — found while investigating the E3 footprint session for the test org `test w2 3 326` (Partenon), 2026-09-02.
+
+    | source | flood | heat | landslide |
+    |---|---|---|---|
+    | `porto-alegre-neighborhood-zones.json` (`floodRank`×100 etc.) | **88** | **83** | **85** |
+    | the chat bubble the org read in E3 | muito alto | muito alto | muito alto |
+    | `_bairro_*_pct` stored on the org's record (`_bairros_json`) | **0** | **43** | **1** |
+
+    The stored numbers are the ones that matter: they drive `rankFamiliasForSite` (which NBS families are recommended), the site card, the hazard read-back (*"nosso mapa diz que o risco de enchente é baixo"*) and the roadmap's *"está entre os X% mais expostos"*. With flood = 0 for a bairro in the city's top 12%, águas-pluviais is systematically down-ranked for that org — the exact failure [`CBO-RISK-SCALE`](../client/src/core/pages/cbo-profile.tsx) was fixed to end in August.
+
+    **What is known:** `flood 0` and `landslide 1` match `flood2024Pct = 0` and `landslideSusceptiblePct = 1` exactly, so some path reads those absolute-exposure fields where the rest of the system reads the within-city rank. **What is not:** nothing in this repo produces `heat = 43` for Partenon — neither the current formatter (`hazardPercentile` → 83) nor the pre-August one (`meanHeat × 100` → 52) — and no sample-data file contains that value. So the writer is either a deployed build that differs from `main` or a computation over a filtered set.
+
+    **RESOLVED — it is a legacy record, and the fix is a backfill.** The org's own transcript settles it. Its Encontro 2 map selection, `2026-08-03T18:35`, reads `priority: 0.43, flood: 0%, heat: 43%, landslide: 1%`; the *same org's* Encontro 3 selection, `2026-09-02T19:48`, reads `priority: 0.88, flood: 88%, heat: 83%, landslide: 85%` — same bairro, same map, one month apart. Commit `33ae4b19` ("every org was told its flood risk was baixo") landed at **20:05 on 2026-08-03**, ninety minutes after that first selection. Note `heat: 43%` = `priority: 0.43` × 100 — the pre-fix formatter read `meanHeat`, and on the older zone data Partenon's mean heat and priority were the same number.
+
+    So the writer is correct today and the stored values are frozen wrong for **every org whose Encontro 2 ran before 2026-08-03 20:05**. Those values still drive `rankFamiliasForSite`, the site card, the hazard read-back and the roadmap's exposure sentence — this org's flood shows as 0 for a bairro in the city's top 12%.
+
+    **✅ BUILT (PR #518).** `npm run backfill:bairro-risk` reports, `--apply` writes — same code path both ways, so the dry run is what the write would do. It compares every stored record against `shared/bairro-risk-table.ts`: 94 rows generated out of the 2.5 MB zones file by `scripts/generate-bairro-risk-table.ts`, so the server, the doctor and the backfill all check against the same numbers without loading a map. `_bairros_json` is corrected alongside the three fields, because the E2 checkpoint rebuilds a map payload from it and a stale copy would put the wrong figures straight back.
+
+    `cohort:doctor` now reports drift per organisation — beside the verdict, never inside it: drifted numbers do not stop anyone walking the journey, they change what the journey offers, and the doctor is the one report a coordinator actually opens.
+
+    ⚠️ **Still to be run against production.** On Replit the shell's `DATABASE_URL` is the DEV database; the backfill has to be pointed at the deployment's.
+
+36. **A free-text beat offers "Prefiro pular" as its only tappable option (P1, M)** — JVP, 2026-09-02: *"this prefiero pular… is weird as only option"*. Every open question in E3 (`askFreeText`'s no-draft branch, `askExtras`' prose branch) renders `ask('Quando quiser:', [Prefiro pular])`. The input box and the mic are right below, but the only thing that *looks* like an answer is the skip — so the affordance the eye lands on is the one that abandons the question. These are the beats that produce the sentences a funder reads first; a skip here is expensive.
+
+    JVP's proposal: the composer offers **"Quero escrever"** and **"Quero gravar um áudio"**, and tapping either performs a client action — focus the text input, or start the recorder — rather than sending a message. Needs a way for an `ask_user` option to carry an action instead of a payload; `useVoiceRecorder` already exists and the mic button already starts/stops it, so the recording half is wiring, not new capability.
+
+    **Decided (/refine, 2026-09-02):** three options, skip last — `✍️ Quero escrever` → focuses the input · `🎤 Quero gravar um áudio` → starts recording · `Prefiro pular`. Skip stays a peer option rather than becoming a hidden link: a recorded pendency is a legitimate outcome, and on a long session someone who needs it should not have to hunt. Worth it in one number: sessions using quick-reply buttons see ~2.4× the response rate of open text alone, and today the only quick reply on these beats is the one that abandons the question.
+
+37. **The draft beat offers "escrever do zero" but not "completar" — while its own sentence promises exactly that (P2, S)** — JVP, 2026-09-02. The agent says *"Isso já descreve como o lugar está hoje — dá pra confirmar, **completar** ou escrever de outro jeito"*, and the chips are `Serve, é isso mesmo` / `Prefiro escrever do zero` / `Prefiro pular`. There is no way to *add to* what they wrote in Encontro 2: the choice is take it whole or replace it whole.
+
+    An organisation that wants to add one sentence to a good paragraph has to retype the paragraph — so it takes the quote unchanged and the extra detail is lost.
+
+    **Decided (/refine, 2026-09-02, revised by JVP the same day):** add **"Quero completar"**, which leaves the Encontro 2 paragraph where it is and **asks for a second input — the two are then merged**. Not seeding the field with the old text to be edited: on a phone that means scrolling through a paragraph to reach its end, and one careless clear wipes words they will not retype. Asking "o que falta dizer?" is also a smaller question than "edit this", which is the difference between an added sentence and an abandoned beat.
+
+    The three chips then read as one coherent choice — **confirm it** / **add to it** / **rewrite it** — with `Prefiro escrever do zero` still there for the case where the Encontro 2 text is wrong rather than incomplete. Storage keeps both halves so the original stays attributable to Encontro 2 and the addition to Encontro 3. Pairs with #36: same beat, same composer.
+
+### Wave: full-run audit of `test w2 3 326`, 2026-09-02
+
+38. **⚠️ Adding a second solution ends the workshop on the spot (P0, S)** — JVP: *"it seemed to end abruptly when i chose i also wanted to do another nbs"*. Confirmed in the transcript, 19:57:16 → 19:57:25: they tap **Levar mais uma solução**, pick **Corredores verdes**, and nine seconds later the session closes.
+
+    `confirmSolution`'s `adding` branch prints the ficha and the price line and calls `closeE3()` immediately. The comment says only the price is per-solution — but the **size** is per-solution too whenever the two are priced on different bases, and here it is: parques-e-florestas is per m² (they drew 2 100 m²) while corredores-verdes is per planted tree. The drawn footprint buys nothing for the second solution, `askUnits` never ran, and the run closed with no `intervention_units` and no `_units_deferred`. The org saw the ficha, a price per tree, and "✓ Pronto, Maria."
+
+    Fix: after `adding`, ask what the second solution's own ficha asks — the count, or a footprint if its basis differs — then close. Everything about the *place* (why here, baseline, maintenance, money) is correctly reused; it is the sizing that cannot be.
+
+39. **⚠️ The organisation named its priority risk and the shortlist ignored it (P0, M)** — 17:06 the agent asks which of the two risks worries them day to day, they answer *"A água — alaga, fica parada, entra na escola"*, the agent replies *"Água é a prioridade 💧"*. Nothing was written: `site_worry` is still `heat, flood`. Twenty-four hours later the E3 shortlist opens with *"Todas respondem ao que vocês contaram — pra **sol forte, falta de sombra**"* and leads with Parques e florestas urbanas.
+
+    The model asked a clarifying question, acknowledged the answer in prose, and did not call the tool that stores it — so the deterministic engine, which reads `site_worry` and takes the first token, ranked on the stale order. Two fixes, and both are wanted: the E3 opening should not re-ask what W2 answered (it re-asked here), and any beat that says *"X é a prioridade"* must write X before saying it.
+
+40. **The place is called "Ponto marcado (-30.0577, -51.1936)" to its face (P1, S)** — `site_name` is the raw coordinate string, and the E3 opening uses it twice in one paragraph: *"No Encontro 2 vocês marcaram **Ponto marcado (-30.0577, -51.1936)**… ainda é **Ponto marcado (-30.0577, -51.1936)**?"*. It is also the header of the printed roadmap and the browser-tab title of the PDF.
+
+    A pin dropped without a search result has no name, so one is fabricated from the numbers. Better: reverse-geocode it once (the service already exists — `geocodeService`) and offer the street as the default name; failing that, say *"o ponto que vocês marcaram no Partenon"*, which is true and readable. Never print coordinates as a name.
+
+41. **A false start: the agent opens the 27 solutions, then takes it back four seconds later (P1, S)** — 17:06:32 *"Deixa eu abrir as 27 soluções de natureza pra vocês…"*, 17:06:36 *"Opa, espera! 🛑 … o Encontro 3 só aparece quando o coordenador abrir"*. The model promised an action the phase gate then refused. The gate is right; the promise should never have been made. The system prompt needs to know the gate state before the model narrates an intent, or the gate has to be checked before that sentence is emitted rather than after.
+
+42. **The verdict says "nada trava esse projeto" about two solutions that cannot legally start (P0, M)** — the run closed `project_verdict = ready` and the agent said *"Nada trava esse projeto daqui."* Three lines above, the fichas printed to the same org say: parques-e-florestas needs a **Termo de Adoção** with SMAMUS choosing species and location; corredores-verdes says *"a rua é pública — plantar sem autorização da SMAMUS é proibido"* and that a request filed after August only comes through in **May of the following year**.
+
+    `computeVerdict` derives `needs_permission` from `land_tenure` alone, and this org has `formal-agreement`, so it fell through to `ready`. But tenure answers *may we use the land*; the ficha's `quemPrecisaDizerSim` answers *may we do this thing here*, and for a street planting those are different questions with different doors. A verdict that contradicts the ficha printed beside it is worse than no verdict. Read the approval requirement out of the ficha the way `studyRequirement` already reads the study one, and let it produce `needs_permission` regardless of tenure.
+
+43. **A solution with no benefit figure silently costs a maturity point (P2, S)** — parques-e-florestas has no reference number, so `askImpact` returned early and the reaction beat never ran; `climate_nbs_impact` scored **2 — "número de impacto calculado, ainda sem reação registrada"**, which reads as the organisation not having engaged. They were never asked. Either the score should not penalise a beat the engine skipped, or the 15 solutions without a figure need one (the standing gap).

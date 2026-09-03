@@ -162,6 +162,27 @@ function buildRiskSummary(result: MapSelectionResult, langRaw: string): string {
   const L = lang === 'pt';
   const zones = result.selectedAssets.filter(a => a.type === 'zone');
   const sites = result.selectedAssets.filter(a => a.type !== 'zone');
+  // ⚠️ A footprint session produced ONE fact: the area. Leading with the
+  // bairro's flood/heat/landslide bands there re-reads Encontro 2 back to an
+  // organisation that answered it weeks ago, and buries the m² they just traced
+  // under "1 local: Área desenhada (4 pontos)" — the number is the entire
+  // reason the map opened. Reported by JVP, 2026-09-02: "instead of this
+  // message can we show the area we drew… we already sent that info in w2".
+  //
+  // Keyed on a drawn polygon rather than on the preset, so any session where
+  // someone traces a shape reports the shape.
+  const drawn = result.selectedAssets.filter(a => a.geometry?.type === 'Polygon');
+  const drawnM2 = drawn.reduce((n, a) => n + roundAreaM2(polygonAreaM2(a.geometry as any)), 0);
+  if (drawnM2 > 0) {
+    const where = [zones[0]?.name, ...drawn.map(d => d.name).filter(n => !/desenhad|drawn/i.test(n))]
+      .filter(Boolean).join(' · ');
+    return [
+      L ? 'Contornei a área no mapa:' : 'I traced the area on the map:',
+      `📐 ${drawnM2.toLocaleString(L ? 'pt-BR' : 'en-US')} m²`,
+      ...(where ? [`📍 ${where}`] : []),
+    ].join('\n');
+  }
+
   const out: string[] = [L ? 'Selecionei no mapa:' : 'Selected on the map:'];
   for (const z of zones) {
     const p: any = z.properties || {};
@@ -169,7 +190,10 @@ function buildRiskSummary(result: MapSelectionResult, langRaw: string): string {
     out.push(`🔵 ${L ? 'inundação' : 'flood'} ${bandWord(hazardPercentile(p, 'flood'), lang)} · 🔴 ${L ? 'calor' : 'heat'} ${bandWord(hazardPercentile(p, 'heat'), lang)} · 🟤 ${L ? 'deslizamento' : 'landslide'} ${bandWord(hazardPercentile(p, 'landslide'), lang)}`);
     // The percentile is relative to the rest of the city — say so, or "alto"
     // reads as an absolute claim about danger.
-    out.push(L ? '_(comparado com os outros bairros de Porto Alegre)_' : '_(compared with the other neighbourhoods in Porto Alegre)_');
+    // ⚠️ Plain parentheses: this bubble is rendered as text, not markdown, so
+    // the italic underscores printed literally — "_(comparado com os outros
+    // bairros de Porto Alegre)_".
+    out.push(L ? '(comparado com os outros bairros de Porto Alegre)' : '(compared with the other neighbourhoods in Porto Alegre)');
     const pop = p.populationTotal || p.populationSum;
     const bits: string[] = [];
     if (pop) bits.push(`👥 ~${Number(pop).toLocaleString(L ? 'pt-BR' : 'en-US')} ${L ? 'moradores' : 'residents'}`);
@@ -1381,12 +1405,19 @@ export default function CboProfilePage() {
           // (the SSE stream emits the response in pieces as the model
           // generates it).
           if (last?.role === 'assistant' && last.messageType === 'content') {
-            // Join consecutive whole-block chat chunks with a paragraph break ONLY
-            // at a sentence boundary (prev ends with . ! ? : ; and next starts
-            // non-space), so two distinct sentences can't fuse ("profile:A few…")
-            // while a sub-block token split (mid-word) is never separated.
-            const sep = /[.!?:;]$/.test(last.content) && !/^\s/.test(event.content) ? '\n\n' : '';
-            return [...prev.slice(0, -1), { ...last, content: last.content + sep + event.content }];
+            // ⚠️ Always a paragraph break. A `chat` event is a WHOLE BLOCK,
+            // post-normalizer — token streaming arrives as `chat_delta` and
+            // never lands here (see the CboEvent union in shared/cbo-schema.ts).
+            // So there is no mid-word split to protect, and the sentence-boundary
+            // heuristic that used to guard one was corrupting real blocks: it
+            // required the previous block to END in . ! ? : ;, and a block that
+            // ends in a closing markdown marker does not.
+            //
+            // Seen by JVP, 2026-09-02: "…prova depois que alguma coisa
+            // mudou._Só uma coisa antes:" — two beats fused, and the closing
+            // underscore became intraword, so CommonMark stopped reading it as
+            // emphasis and the org saw the markers printed on screen.
+            return [...prev.slice(0, -1), { ...last, content: `${last.content}\n\n${event.content}` }];
           }
           return [...prev, { role: 'assistant' as const, content: event.content, messageType: 'content', timestamp: new Date().toISOString() }];
         });
