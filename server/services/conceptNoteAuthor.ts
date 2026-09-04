@@ -24,21 +24,17 @@
 
 import { z } from 'zod';
 import { createStructured, structuredProvider } from './structuredModel';
+import { withBudget } from './passBudget';
 import {
   acceptAuthored, allowedSources, AUTHORABLE_SECTIONS,
   type ConceptNote, type AuthoredCandidate,
 } from '@shared/concept-note';
 
 const AUTHOR_MODEL = process.env.CBO_AUTHOR_MODEL || '';
-/**
- * ⚠️ 90 s, not 30. Measured: a real pass over a two-solution record takes ~45 s
- * — ~12 kB of facts in, six paragraphs of argued Portuguese out — and the first
- * live run of this file timed out on every organisation at the 30 s default it
- * shipped with. Nothing waits on this (it is fired at the close while the
- * organisation reads its card), so the cap exists to bound a hang, not to keep
- * anyone waiting, and it was set an order of magnitude too tight for that job.
- */
-const AUTHOR_TIMEOUT_MS = Number(process.env.CBO_AUTHOR_TIMEOUT_MS || 90_000);
+// ⚠️ The cap is NOT here any more. It lives with the measurement that justifies
+// it, in shared/model-pass-budgets.ts — this file shipped with 30 s against a
+// ~46 s call, so the pass built to write the concept note had never once
+// written one, and nothing said so.
 
 // ⚠️ Plain strings, never z.enum. This is a ONE-SHOT forced tool call with no
 // retry loop, so every schema constraint is a total-loss constraint: one
@@ -130,7 +126,8 @@ export async function authorConceptNote(
 
   let raced: { paragraphs?: Array<{ section: string; text: string; sources?: string[] }> } | null = null;
   try {
-    raced = await Promise.race([
+    raced = await withBudget(
+      'conceptNoteAuthor',
       createStructured(
         {
           input: [
@@ -146,8 +143,7 @@ export async function authorConceptNote(
         AuthoredSchema,
         'concept_note_sections',
       ),
-      new Promise<null>(resolve => setTimeout(() => resolve(null), AUTHOR_TIMEOUT_MS)),
-    ]);
+    );
   } catch (err) {
     return { note, reason: `failed: ${(err as Error)?.message ?? 'unknown'}`, accepted: 0, rejected: [] };
   }

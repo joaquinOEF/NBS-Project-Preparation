@@ -31,6 +31,7 @@
 
 import { z } from 'zod';
 import { createStructured, structuredProvider } from './structuredModel';
+import { withBudget } from './passBudget';
 import { analyseSynergies, type SynergyAnalysis, type SynergyMember } from '@shared/w3-synergies';
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { cboDisplayValue } from '@shared/cbo-field-catalog';
@@ -296,18 +297,12 @@ export function shapeNarrative(
   return { ...raw, lines, questionsForTheRoomPt: raw.questionsForTheRoomPt.slice(0, MAX_QUESTIONS) };
 }
 
-/**
- * ⚠️ Measured, not guessed. The pass had never been run with a model at all
- * until 2026-09-03, and the first real call — eight organisations, their own
- * words, their documents, their approval instruments and funding barriers —
- * took longer than the 45 s this shipped with, so the first thing the first run
- * produced was "a leitura automática demorou demais". The concept note's
- * authoring pass shipped with exactly the same defect and the same symptom.
- *
- * Nothing waits on this: the coordinator gets a row immediately and the pass
- * writes into it. The cap exists to bound a hang, not to keep anyone waiting.
- */
-const SYNERGY_TIMEOUT_MS = Number(process.env.CBO_SYNERGY_TIMEOUT_MS || 180_000);
+// ⚠️ The cap is NOT here any more. It lives with the measurement that justifies
+// it, in shared/model-pass-budgets.ts, because this file shipped with 45 s
+// against a ~49 s call and the pass had therefore never once run — the third
+// time in this repo a cap set for a smaller prompt silently disabled the pass
+// behind it. `withBudget` also makes losing the race loud, which is the half
+// that was actually missing.
 
 export async function buildSynergyReport(members: SynergyMember[]): Promise<SynergyReport> {
   const analysis = analyseSynergies(members);
@@ -329,7 +324,8 @@ export async function buildSynergyReport(members: SynergyMember[]): Promise<Syne
   }
 
   try {
-    const raw = await Promise.race([
+    const raw = await withBudget(
+      'synergyReport',
       createStructured(
         {
           input: [
@@ -341,8 +337,7 @@ export async function buildSynergyReport(members: SynergyMember[]): Promise<Syne
         NarrativeSchema,
         'synergy_narrative',
       ),
-      new Promise<null>(resolve => setTimeout(() => resolve(null), SYNERGY_TIMEOUT_MS)),
-    ]);
+    );
     if (!raw) return { analysis, narrative: null, narrativeReason: 'a leitura automática demorou demais e foi interrompida', generatedAt };
 
     // ⚠️ And a guard behind the fix. An id can reach the prompt by a route nobody
