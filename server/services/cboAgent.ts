@@ -70,6 +70,7 @@ import { parseNbsInventory } from "@shared/nbs-inventory";
 import { isImplementationNarration } from "./assistantNoise";
 import { checkCloseGate } from "./cboCloseGate";
 import { serveE3Checkpoint } from "./cboE3Checkpoint";
+import { warnIfOrphan } from '@shared/field-destiny';
 import { serveStartNext } from "./cboNextEncontroGate";
 import { adviseW3 } from "./w3Advisor";
 
@@ -1516,6 +1517,12 @@ function writeE2Fields(cboId: string, state: CboState, fields: Record<string, st
   const section = state.sections.intervention_site;
   if (!section) return;
   for (const [k, v] of Object.entries(fields)) {
+    // ⚠️ Runtime half of the destiny guarantee. A public field written with no
+    // declared destiny is on its way to being forgotten — eight of them were,
+    // for months — and the write funnel is the only place that sees every one.
+    // It warns rather than refusing: declining to store an organisation's
+    // answer would be worse than storing it undocumented.
+    warnIfOrphan('intervention_site', k);
     const oldValue = section.fields[k]?.value ?? null;
     section.fields[k] = { value: v, confidence: 'high', source, userEdited: false };
     state.editLog.push({ timestamp: new Date().toISOString(), sectionId: 'intervention_site', field: k, oldValue, newValue: v, source: 'agent' });
@@ -1543,6 +1550,7 @@ function writeSectionFields(
   const section = (state.sections as any)[sectionId];
   if (!section) return;
   for (const [k, v] of Object.entries(fields)) {
+    warnIfOrphan(sectionId, k);
     const oldValue = section.fields[k]?.value ?? null;
     section.fields[k] = { value: v, confidence: 'high', source, userEdited: false };
     state.editLog.push({ timestamp: new Date().toISOString(), sectionId, field: k, oldValue, newValue: v, source: 'agent' });
