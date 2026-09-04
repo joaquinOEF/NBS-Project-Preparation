@@ -42,6 +42,7 @@ import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { siteInSentence } from '@shared/site-name';
 import { GAP_RETRIES, areaBandFor, ROUGH_AREA_SOURCE, CANNOT_GUESS } from '@shared/w3-gap-questions';
 import { detailQuestionFor } from '@shared/w3-detail-questions';
+import { parseDig, pendingDig } from '@shared/w3-dig';
 import { getSolution } from '@shared/nbs-catalog';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { E3_QUESTIONNAIRE, allowedOptionIds, checkOptionRule, askCopyFor, sectionsFieldReader } from '@shared/cbo-questionnaire';
@@ -89,6 +90,18 @@ export interface E3Deps {
    * deterministic document, which is whole rather than degraded.
    */
   startConceptNote?(): void;
+  /**
+   * Write the questions THIS organisation should be asked, from what it has
+   * shared — and, once they are answered, follow up on what opened.
+   *
+   * ⚠️ Fire-and-forget, like every other pass here, and fired five beats before
+   * anything consumes it. Round 1 starts when the baseline is written (the
+   * richest input the record will ever hold) and is read at the dig beat, after
+   * money; round 2 starts the moment the last round-1 answer lands and is read
+   * after the second-solution beat. Nothing waits: a round that has not arrived
+   * falls back to the bank of eight, which is exactly today's behaviour.
+   */
+  startDig?(round: 1 | 2): void;
   /**
    * Resolve once the advisor pass has settled, or after a short cap.
    *
@@ -228,6 +241,8 @@ export async function serveE3Checkpoint(
   const liveSolutions = () =>
     read(TYPE)('chosen_solutions').split(',').map(v => v.trim()).filter(Boolean);
   const liveArea = () => Number(read(SITE)('site_area_m2')) || 0;
+  /** The dig, read live: the pass lands mid-session and the beat must see it. */
+  const liveDig = () => parseDig(read(TYPE)('dig_json'));
   const liveUnits = () => Number(read(TYPE)('intervention_units')) || 0;
   const liveBuild = () => (read(TYPE)('construction_model') || undefined) as BuildModel | undefined;
 
@@ -810,6 +825,17 @@ export async function serveE3Checkpoint(
    * that answer.
    */
   const askImpact = (): true => {
+    // ⚠️ HERE, and not in the baseline handler where it started. The baseline is
+    // the last of the three free-text answers, so this is the richest the record
+    // will ever be before the document is written — but there are three ways to
+    // give it (typed, recorded, or by accepting the offered draft) and only one
+    // of them passes through that handler. Six of the eight simulated
+    // organisations took a different road and the round never fired for them.
+    // Every road arrives HERE, and the flag makes it once.
+    if (!type('_dig_started')) {
+      deps.writeFields(TYPE, { _dig_started: 'yes' });
+      deps.startDig?.(1);
+    }
     const id = liveSolutions()[0];
     // Live, and including the count: the beat runs after askUnits wrote it, and
     // "5 cisternas guardam 80 mil litros" is the sentence that goes on a page —
@@ -943,7 +969,30 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     return finish(`ask-detail-${q.id}`);
   };
 
+  /**
+   * The questions written for this organisation, one at a time.
+   *
+   * ⚠️ The bank still stands behind this. A round that failed, timed out or was
+   * never configured falls through to `askExtras`, which is exactly what every
+   * session did before — the floor never drops.
+   */
+  const askDig = (round: 1 | 2): true | null => {
+    const q = pendingDig(liveDig(), round);
+    if (!q) return null;
+    deps.writeFields(TYPE, { _dig_pending: q.id });
+    say(q.askPt, q.askEn);
+    ask('Quando quiser:', 'Whenever you like:', [
+      { pt: E3C.escrever.pt, en: E3C.escrever.en, dPt: 'Abre o teclado aqui embaixo', dEn: 'Opens the keyboard below', action: 'write' },
+      { pt: E3C.gravar.pt, en: E3C.gravar.en, dPt: 'Começa a gravar agora', dEn: 'Starts recording now', action: 'record' },
+      { pt: E3C.pular.pt, en: E3C.pular.en, dPt: 'Fica como pendência', dEn: 'Recorded as still open' },
+    ]);
+    return finish(`ask-dig-${q.id}`);
+  };
+
   const askExtras = (): true => {
+    // Written questions first; the bank is what happens when there are none.
+    const dug = askDig(1);
+    if (dug) return dug;
     const ids = (advice?.questionIds ?? []).filter(id => !type(`_extra_${id}`));
     const q = ids.map(getW3Question).find(Boolean);
     if (!q) return askAnotherSolution();
@@ -1006,6 +1055,13 @@ _For this one we do not yet have a reference figure — what the ficha says is a
 
   // ── The close · the dossier ───────────────────────────────────────────────
   const closeE3 = async (): Promise<true> => {
+    // ⚠️ THE choke point for the follow-ups, not the "só essa" branch where they
+    // started. An organisation that takes a SECOND solution never passes through
+    // that branch — the offer is made once — so it reached the dossier with its
+    // follow-ups written and never asked. Everything that closes comes through
+    // here, which is the only place that is true of.
+    const followUp = askDig(2);
+    if (followUp) return followUp;
     const input = w3Input();
     const dossier = buildDossier(input, isPt ? 'pt' : 'en');
     const state4 = portfolioState(dossier.verdicts);
@@ -1176,6 +1232,31 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     });
     if (!isSkip(raw)) say('Guardado como linha de base.', 'Stored as the baseline.');
     return askImpact();
+  }
+
+  // ══ A dug question, waiting for its answer ═══════════════════════════════
+  // Above the chip gate for the same reason as the others: the answer arrives
+  // as prose or as a transcribed recording, never as a chip.
+  {
+    const pendingId = type('_dig_pending');
+    if (pendingId && raw && !raw.startsWith('Map selection (') && !isDraftChip(raw)) {
+      const all = liveDig();
+      const q = all.find(x => x.id === pendingId);
+      if (q) {
+        // ⚠️ '' means asked and declined, which is NOT the same as unasked —
+        // `pendingDig` looks for `undefined`, so an empty string closes the
+        // question instead of asking it again forever.
+        q.answer = isSkip(raw) ? '' : raw.slice(0, 1200);
+        deps.writeFields(TYPE, { dig_json: JSON.stringify(all), _dig_pending: '' });
+        if (!isSkip(raw)) say('Anotado.', 'Noted.');
+        // Round 1 finished → start round 2 now, while the next beats run. It is
+        // read after the second-solution beat, so it has that long to arrive.
+        if (q.round === 1 && !pendingDig(all, 1) && !all.some(x => x.round === 2)) {
+          deps.startDig?.(2);
+        }
+        return q.round === 1 ? askExtras() : await closeE3();
+      }
+    }
   }
 
   // ══ An extra question, waiting for its answer ════════════════════════════

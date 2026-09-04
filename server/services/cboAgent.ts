@@ -71,6 +71,9 @@ import { isImplementationNarration } from "./assistantNoise";
 import { checkCloseGate } from "./cboCloseGate";
 import { serveE3Checkpoint } from "./cboE3Checkpoint";
 import { warnIfOrphan } from '@shared/field-destiny';
+import { digRound1, digRound2 } from './w3Dig';
+import { buildContextMarkdown } from './contextBundle';
+import { parseDig } from '@shared/w3-dig';
 import { serveStartNext } from "./cboNextEncontroGate";
 import { adviseW3 } from "./w3Advisor";
 
@@ -3474,6 +3477,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
         },
         startAdvisor: () => { void runW3Advisor(cboId); },
         startConceptNote: () => { void runConceptNoteAuthor(cboId); },
+        startDig: (round: 1 | 2) => { void runW3Dig(cboId, round); },
         awaitAdvisor: () => waitForW3Advisor(cboId),
       });
       if (served) {
@@ -3675,6 +3679,75 @@ export async function cohortLinesFor(cboId: string, lang: 'pt' | 'en' = 'pt'): P
     if (p) peers.push(p);
   }
   return cohortLines(mine, peers, lang);
+}
+
+/**
+ * Write the questions this organisation should be asked — and then follow up.
+ *
+ * ⚠️ Fire-and-forget, and once per round per session. Everything it needs is
+ * what the advisor already assembles, so it reads the SAME bundle: their own
+ * words, the transcript, the documents in full, and the photographs they walked
+ * out and took. A round that fails leaves the bank of eight standing, which is
+ * what every session had before this existed.
+ */
+const digRuns = new Set<string>();
+
+async function runW3Dig(cboId: string, round: 1 | 2): Promise<void> {
+  const key = `${cboId}:${round}`;
+  if (digRuns.has(key)) return;
+  digRuns.add(key);
+  const started = Date.now();
+  try {
+    const state = getCboState(cboId);
+    if (!state) return;
+    const orgId = await getOrgIdForCboState(cboId).catch(() => null);
+    const docs = await listDocumentsForScope({ cboStateId: cboId, orgId }).catch(() => []);
+    const bundle = buildContextMarkdown({
+      orgName: state.orgName || 'organização',
+      state,
+      messages: getCboMessages(cboId) as any,
+      docs: docs.map((d: any) => ({ filename: d.filename, kind: null, purpose: d.purpose ?? null, summary: d.summary ?? null })) as any,
+      generatedAt: new Date().toISOString(),
+    });
+    // ⚠️ The full text, not the summary. A Teia Sprint proposal says what they
+    // already want to build, in their own words, at length — and a question
+    // that ignores it asks them to say again what they already wrote down.
+    const withDocs = docs.filter((d: any) => d.fullText);
+    const record = withDocs.length
+      ? bundle + '\n\n# O QUE ELAS MESMAS ESCREVERAM\n' +
+        withDocs.map((d: any) => '### ' + d.filename + '\n' + String(d.fullText).slice(0, 12_000)).join('\n\n')
+      : bundle;
+
+    const type: any = state.sections?.intervention_type?.fields ?? {};
+    const already = parseDig(String(type.dig_json?.value ?? ''));
+    const photos = round === 1 ? await sitePhotosForRanking(cboId).catch(() => []) : [];
+
+    const out = round === 1
+      ? await digRound1({ record, photos, already })
+      : await digRound2({ record, already });
+
+    if (!out.questions.length) {
+      console.log(`[dig] ${cboId} round ${round}: nenhuma pergunta${out.reason ? ` — ${out.reason}` : ''} (${Date.now() - started}ms)`);
+      return;
+    }
+    // ⚠️ Re-read. The organisation has been answering while this ran, so the
+    // copy captured at the top is stale by exactly the answers that matter.
+    const fresh = getCboState(cboId);
+    if (!fresh?.sections?.intervention_type) return;
+    const current = parseDig(String((fresh.sections.intervention_type.fields as any).dig_json?.value ?? ''));
+    (fresh.sections.intervention_type.fields as any).dig_json = {
+      value: JSON.stringify([...current, ...out.questions]),
+      confidence: 'high', source: 'agent', userEdited: false,
+    };
+    setCboState(cboId, fresh);
+    debouncedPersist(cboId);
+    console.log(
+      `[dig] ${cboId} round ${round}: ${out.questions.length} pergunta(s), ` +
+      `${out.dropped.length} descartada(s), ${photos.length} foto(s) lida(s), em ${Date.now() - started}ms`,
+    );
+  } catch (err: any) {
+    console.error(`[dig] ${cboId} round ${round} failed (session continues on the bank):`, err?.message || err);
+  }
 }
 
 async function runConceptNoteAuthor(cboId: string): Promise<void> {

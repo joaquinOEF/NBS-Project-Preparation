@@ -63,6 +63,13 @@ function collectedFields(): Set<string> {
 }
 
 test.describe('nothing an organisation tells us can be silently invisible', () => {
+  // ⚠️ THE SCANNER'S HONEST LIMIT. It reads `writeFields({ … })` literals, which
+  // is most of them — but three fields (role_preference, bairro_priority,
+  // site_photo_intent) reach the funnel through a HELPER that returns a record,
+  // and no static read of the source will ever see those. That is exactly why
+  // the runtime marker exists beside this file rather than instead of it: one
+  // covers what can be read from the source, the other covers what actually
+  // runs. Both were needed to find all of them.
   test('⚠️ every field the product writes has a declared destiny', () => {
     // The guard against the ninth. Declining is legitimate — forgetting is not,
     // and this is the line where the difference gets enforced.
@@ -101,6 +108,29 @@ test.describe('nothing an organisation tells us can be silently invisible', () =
     expect(failures, 'declared `feeds` and never arrived').toEqual([]);
   });
 
+  test('⚠️ a `feeds` field lands ONCE — the generic renderer must not duplicate', () => {
+    // Caught within the hour of the registry existing: `has_cnpj` was declared
+    // `feeds`, the page already said "com CNPJ" in the organisation line, and
+    // the renderer added **CNPJ:** "Sim, temos CNPJ" underneath — a chip label,
+    // quoted, on a nota técnica. The registry makes fields easy to place, which
+    // makes placing one that is already placed easy too.
+    const dupes: string[] = [];
+    for (const [field, d] of Object.entries(FIELD_DESTINY)) {
+      if (stateOf(d) !== 'feeds') continue;
+      const sentinel = `Sentinela ${field}`;
+      const note = buildConceptNote({
+        site: { site_lat: '-30.05', site_lng: '-51.20', bairro: 'Partenon', land_tenure: 'public-informal', [field]: sentinel },
+        org: { org_name: 'Associação Teste', [field]: sentinel },
+        solutions: ['jardins-de-chuva'], areaM2: 500,
+        w3: { construction_model: 'mutirao', [field]: sentinel },
+      } as any, 'pt');
+      const page = note.sections.flatMap(x => x.paragraphs).map(x => x.text).join('\n');
+      const hits = page.split(sentinel).length - 1;
+      if (hits > 1) dupes.push(`${field} appears ${hits}× — it is already on the page; declare it carriedBy`);
+    }
+    expect(dupes).toEqual([]);
+  });
+
   test('⚠️ a `carriedBy` field reaches the facts by the path it names', () => {
     const resolve = (o: any, p: string) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
     const failures: string[] = [];
@@ -120,15 +150,19 @@ test.describe('nothing an organisation tells us can be silently invisible', () =
           w3: { construction_model: 'mutirao', ...((d as any).probeWith ?? {}), [field]: value },
         } as any, 'pt');
         const page = note.sections.flatMap(x => x.paragraphs).map(x => x.text).join('\n');
-        if (!page.includes(value)) failures.push(`${field} → declared provenBy:'page' and never arrived`);
+        // What a reader sees is not always what is stored — a JSON block is
+        // stored, and one answer inside a sentence is what lands.
+        const expected = (d as any).probeExpect ?? value;
+        if (!page.includes(expected)) failures.push(`${field} → declared provenBy:'page' and never arrived`);
         continue;
       }
+      const companions = (d as any).probeWith ?? {};
       const facts = conceptNoteFacts({
-        site: { site_lat: '-30.05', site_lng: '-51.20', bairro: 'Partenon', land_tenure: 'public-informal', site_area_m2: '500', [field]: value },
-        org: { org_name: 'Associação Teste', [field]: value },
+        site: { site_lat: '-30.05', site_lng: '-51.20', bairro: 'Partenon', land_tenure: 'public-informal', site_area_m2: '500', ...companions, [field]: value },
+        org: { org_name: 'Associação Teste', ...companions, [field]: value },
         solutions: ['jardins-de-chuva'],
         areaM2: 500,
-        w3: { construction_model: 'mutirao', project_timeframe: '1-ano', [field]: value },
+        w3: { construction_model: 'mutirao', project_timeframe: '1-ano', ...companions, [field]: value },
       } as any, 'pt');
       const at = resolve(facts, (d as any).carriedBy);
       if (at == null || at === '' || (Array.isArray(at) && !at.length)) {

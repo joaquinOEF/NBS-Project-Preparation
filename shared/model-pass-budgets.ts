@@ -96,6 +96,30 @@ export const PASS_BUDGETS: PassBudget[] = [
       'run for an organisation that uploaded any. 25 s bounds a bad day; the expected wait is still the measured 12–16 s.',
   },
   {
+    id: 'w3Dig',
+    env: 'CBO_DIG_TIMEOUT_MS',
+    capMs: 90_000,
+    measuredMs: 22_000,
+    measuredOn: '2026-09-04',
+    how:
+      'Four runs against a full Humaitá record WITH its three real site photographs (231/383/141 kB): 16.9, 17.4, 20.6 and 22.0 s. ' +
+      'The photographs are the point of round 1 — the questions that come from them are the ones nobody could ask without looking — so they are in every measurement.',
+    costsWhenItFires:
+      'the round falls back to the bank of eight pre-written questions — the same for every organisation, which is what this pass exists to replace',
+    blocking: false,
+  },
+  {
+    id: 'w3DigFollowUp',
+    env: 'CBO_DIG_FOLLOWUP_TIMEOUT_MS',
+    capMs: 60_000,
+    measuredMs: 9_236,
+    measuredOn: '2026-09-04',
+    how: 'Two runs over three answered round-1 questions, text only: 5.3 and 9.2 s. Smaller prompt, no photographs, and closer to the room.',
+    costsWhenItFires:
+      'nobody follows up on the answers, so the round is three questions instead of a conversation — the half a bank could never do',
+    blocking: false,
+  },
+  {
     id: 'conceptNoteAuthor',
     env: 'CBO_AUTHOR_TIMEOUT_MS',
     capMs: 180_000,

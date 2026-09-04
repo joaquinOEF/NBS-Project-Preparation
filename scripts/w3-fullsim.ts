@@ -54,6 +54,7 @@ import { SOLUTION_COSTS } from '../shared/w3-sizing';
 import { getSolution } from '../shared/nbs-catalog';
 import type { MaturityScore } from '../shared/cbo-schema';
 import { synergyFactsFrom } from '../shared/w3-synergies';
+import { parseDig, answeredDig, type DigQuestion } from '../shared/w3-dig';
 import { cohortLines, peerFrom, type CohortPeer } from '../server/services/cohortContext';
 
 const OUT = process.env.W3_SIM_OUT || path.join(os.tmpdir(), 'w3-fullsim');
@@ -82,6 +83,9 @@ interface Persona {
   profile: string;
   /** What they would trace on the map, if they trace anything. */
   drawM2?: number;
+  /** Whether this organisation gets a dug round. Not everyone does — the pass
+   *  returns nothing often enough that a flow assuming it would be a fiction. */
+  dig?: boolean;
   state: any;
   leanings: Leaning[];
   /** What they type when the beat wants prose, in the order the beats come. */
@@ -118,6 +122,40 @@ interface Run {
 
 // ── Driving ─────────────────────────────────────────────────────────────────
 
+/**
+ * Two rounds of questions that could plausibly have been written for a place
+ * that floods. Deliberately in the shape the guards demand — third person in
+ * the note, {answer} inside the sentence — because a fixture that could not
+ * pass `acceptDig` would prove the beats against something that never ships.
+ */
+const SIM_DIG: Record<1 | 2, Array<Omit<DigQuestion, 'id' | 'round'>>> = {
+  1: [
+    {
+      askPt: 'Vocês falaram que a água volta pras casas. Quantas casas são?',
+      askEn: 'You said the water comes back into the houses. How many houses are there?',
+      notePt: 'O alagamento atinge {answer}, conforme o relato da organização.',
+      noteEn: 'The flooding affects {answer}, as the organisation reports it.',
+      feeds: 'problema', sourceKind: 'quote', basedOn: 'a água volta pras casas',
+    },
+    {
+      askPt: 'Quem cuida desse lugar hoje, quando ninguém pede?',
+      askEn: 'Who looks after the place today, when nobody asks?',
+      notePt: 'A manutenção informal do lugar é feita hoje por {answer}.',
+      noteEn: 'Informal upkeep of the place is currently done by {answer}.',
+      feeds: 'manutencao', sourceKind: 'field', basedOn: 'current_use',
+    },
+  ],
+  2: [
+    {
+      askPt: 'Dessas casas, alguma tem criança pequena ou pessoa idosa?',
+      askEn: 'Of those houses, do any have small children or elderly people?',
+      notePt: 'Entre os domicílios atingidos, {answer}.',
+      noteEn: 'Among the affected households, {answer}.',
+      feeds: 'problema', sourceKind: 'answer', basedOn: 'quantas casas são',
+    },
+  ],
+};
+
 const MAP_RESULT = (p: Persona) =>
   `Map selection (composite mode):\n- [custom] Área desenhada (5 vertices) (drawn area) at (${p.state.sections.intervention_site.fields._site_lat?.value ?? '-30.03'}, ${p.state.sections.intervention_site.fields._site_lng?.value ?? '-51.20'}) · ${p.drawM2 ?? 300} m²\nTotal: 1 asset, 0 sampled points`;
 
@@ -141,10 +179,32 @@ async function drive(p: Persona) {
     recordCheckpoint: (s: string) => beats.push(s),
     recordMaturity: (scores: MaturityScore[]) => { maturity = scores; },
     normChip,
+    /**
+     * ⚠️ Synthetic, and on purpose. The MODEL half of the dig is exercised by
+     * a live harness with a key; what this simulation has to prove is the other
+     * half, which is where the defects live: that a written question is asked,
+     * that its answer is stored against it, that declining closes it instead of
+     * asking forever, that round 2 is served after the second-solution beat,
+     * and that the answers arrive on the printed page in the third person.
+     * None of that needs a model, and all of it broke at least once.
+     */
+    startDig: (round: 1 | 2) => {
+      if (!p.dig) return;
+      const existing = parseDig(state.sections.intervention_type.fields.dig_json?.value as string | undefined);
+      const add = SIM_DIG[round].map((q, i) => ({ ...q, id: `sim-${round}-${i}`, round }));
+      state.sections.intervention_type.fields.dig_json = {
+        value: JSON.stringify([...existing, ...add]), confidence: 'high', source: 'agent',
+      } as any;
+    },
   };
 
   const countFields = () =>
     Object.values(state.sections).reduce((n: number, s: any) => n + Object.keys(s.fields).length, 0);
+  /** Content, not key count: three answers can accumulate inside one field. */
+  const fieldsDigest = () =>
+    Object.values(state.sections)
+      .map((s: any) => Object.entries(s.fields).map(([k, v]: any) => `${k}=${String(v?.value ?? '')}`).sort().join('|'))
+      .join('||');
 
   let turn: { msg: string; kind: string } = { msg: 'Vamos começar o Encontro 3.', kind: 'text' };
   let closed = false;
@@ -155,6 +215,7 @@ async function drive(p: Persona) {
     turns++;
     const before = events.length;
     const fieldsBefore = countFields();
+    const digestBefore = fieldsDigest();
     const served = await serveE3Checkpoint(
       'fullsim', turn.msg, state, (e: any) => events.push(e), 'pt', turn.kind, deps as any,
     );
@@ -194,10 +255,16 @@ async function drive(p: Persona) {
     }
 
     // A beat asked three times over is a beat whose answer changed nothing.
-    const key = String(ask.question).slice(0, 60);
+    //
+    // ⚠️ Keyed on the BEAT, not on the prompt above the chips. The dig asks a
+    // different question each time under the same "Quando quiser:" composer, and
+    // keying on that label called three good questions a stuck beat. And the
+    // "changed nothing" half counted field KEYS, which cannot see three answers
+    // accumulating inside one JSON field — so it has to compare content.
+    const key = String(beats[beats.length - 1] ?? ask.question).slice(0, 60);
     const n = (seen.get(key) ?? 0) + 1;
     seen.set(key, n);
-    if (n >= 3 && countFields() === fieldsBefore) {
+    if (n >= 3 && fieldsDigest() === digestBefore) {
       problems.push(`beat travado: "${key}" perguntado ${n}× sem gravar nada`);
       break;
     }
@@ -454,6 +521,7 @@ const budgetOf = (r: Run, id: string) => r.dossier.budget.find(b => b.solutionId
 export const PERSONAS: Persona[] = [
   {
     id: 'humaita-rede',
+    dig: true,
     name: 'Rede Solidária Humaitá',
     profile:
       'ALTA capacidade · terreno público sem documento · desenha 820 m² no mapa · leva DUAS soluções · mutirão com apoio técnico.',
@@ -494,6 +562,9 @@ export const PERSONAS: Persona[] = [
       'É a única área livre da vila e é onde toda a água do quarteirão se junta.',
       'Terra batida com entulho, sem escoamento nenhum. Depois da chuva fica poça uma semana.',
       'As famílias das dez casas do fundo, e as crianças que cortam caminho por ali.',
+      'Umas dez casas, todas as do fundo da vila.',
+      'A gente mesmo, quando dá — ninguém da prefeitura vem.',
+      'Tem três com criança pequena e duas com idoso.',
     ],
     expect(r) {
       const f: string[] = [];
@@ -736,6 +807,7 @@ export const PERSONAS: Persona[] = [
 
   {
     id: 'escola-partenon',
+    dig: true,
     name: 'Associação Escola do Partenon',
     profile:
       'O RUN QUE QUEBROU · duas preocupações nomeadas (calor E água) · diz que a água vem primeiro · terreno com acordo formal · escolhe um jardim de chuva e DEPOIS acrescenta cisternas, que se contam por unidade.',
@@ -779,7 +851,10 @@ export const PERSONAS: Persona[] = [
       'É onde as crianças já ficam todo dia e onde a água entra primeiro.',
       'Cimento quebrado, sem escoamento, e nenhuma sombra no pátio inteiro.',
       'As professoras, as famílias e as crianças da creche ao lado.',
-    ],
+          'Umas quinze famílias do entorno, além das duas turmas da escola.',
+      'A escola cuida do pátio, mas ninguém cuida da água que entra.',
+      'Quase todas têm criança pequena — é uma creche ao lado.',
+],
     expect(r) {
       const f: string[] = [];
       // ⚠️ #39. They said the water comes first; the record has to say so, and
