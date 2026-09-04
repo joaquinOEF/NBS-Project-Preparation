@@ -74,6 +74,12 @@ export type FieldDestiny =
        * records the dependency where somebody will find it.
        */
       probeWith?: Record<string, string>;
+      /**
+       * What must then appear on the page. Needed when the stored value is not
+       * the printed one — a JSON block is stored, and what a reader sees is one
+       * answer inside a sentence.
+       */
+      probeExpect?: string;
     }
   | {
       /** Not for the document, and why. Declining is legitimate. */
@@ -171,6 +177,25 @@ export const FIELD_DESTINY: Record<string, FieldDestiny> = {
     probeWith: { detail_question_id: 'soil-type' },
   },
 
+  // ⚠️ The dig round, as one field. Its questions are WRITTEN per organisation,
+  // so their answers cannot each have a pre-declared field name — but the block
+  // itself is declared, and the proof runs the same way: set it, build the
+  // document, find the answer on the page. Each entry names the section it
+  // belongs under and carries a third-person sentence to carry it there.
+  // See shared/w3-dig.ts.
+  dig_json: {
+    carriedBy: 'the dig block, rendered into the section each answer declares',
+    provenBy: 'page',
+    probe: JSON.stringify([{
+      id: 'dig-probe', round: 1,
+      askPt: 'Quantas casas ficam com água?', askEn: 'How many houses get flooded?',
+      notePt: 'O alagamento atinge {answer}, conforme o relato da organização.',
+      noteEn: 'The flooding affects {answer}, as the organisation reports it.',
+      feeds: 'problema', basedOn: 'site_story', answer: 'umas 8 casas do fundo',
+    }]),
+    probeExpect: 'O alagamento atinge umas 8 casas do fundo',
+  },
+
   who_pays_today: {
     feeds: 'manutencao',
     labelPt: 'Quem paga as contas do lugar hoje',
@@ -193,12 +218,13 @@ export const FIELD_DESTINY: Record<string, FieldDestiny> = {
   funding_history: { carriedBy: 'org.fundedBefore', probe: 'yes' },
   biggest_project_budget: { carriedBy: 'org.largestBudget' },
 
-  nbs_experience_detail: {
-    feeds: 'organizacao',
-    labelPt: 'Experiência anterior com soluções baseadas na natureza',
-    labelEn: 'Previous experience with nature-based solutions',
-    skipIf: NO_ANSWER,
-  },
+  // Already in the organisation paragraph, appended to nbs_experience — the
+  // generic renderer printed the same sentence twice.
+  // ⚠️ Only reaches the page when nbs_experience is set — it is appended to it,
+  // never rendered alone. Same companion dependency as detail_answer, declared
+  // for the same reason: it makes the proof runnable and records the
+  // dependency where somebody will look for it.
+  nbs_experience_detail: { carriedBy: 'org.nbsExperience', probeWith: { nbs_experience: 'sim' } },
   proud_moment: {
     feeds: 'organizacao',
     labelPt: 'O que a organização conta como sua maior realização',
@@ -224,16 +250,29 @@ export const FIELD_DESTINY: Record<string, FieldDestiny> = {
     skipIf: NO_ANSWER,
   },
 
-  // ⚠️ NOT carried by legal_form, though it looks like it: `fundingMatches`
-  // reads it to decide eligibility, and eligibility is the first thing a funder
-  // checks. It reaches no named fact, so it goes on the page as itself.
-  has_cnpj: {
+  // ⚠️ Declared `feeds` first, and the concept-note spec caught it within the
+  // hour: the page already says "com CNPJ" in the organisation line, and the
+  // generic renderer added **CNPJ:** "Sim, temos CNPJ" underneath — a chip
+  // label, quoted, on a nota técnica. "A chip is an answer; a document states a
+  // fact" is a rule this repo already had, and the generic renderer is exactly
+  // the thing that can break it at scale.
+  has_cnpj: { carriedBy: 'org.legalStatus', probe: 'sim' },
+  prior_project_scale: { carriedBy: 'org.fundedBefore', probe: 'funded' },
+
+  // ── Found by the runtime marker, not the scanner ──────────────────────────
+  // ⚠️ These three are written through a HELPER that returns a record, not a
+  // `writeFields({ … })` literal, so the static scan never saw them. That is the
+  // scanner's honest limit and the reason the runtime warning exists beside it:
+  // one covers what can be read from source, the other covers what actually
+  // happens. Both are needed, and neither alone would have found these.
+  role_preference: {
     feeds: 'organizacao',
-    labelPt: 'CNPJ',
-    labelEn: 'CNPJ (Brazilian legal entity number)',
+    labelPt: 'O papel que a organização quer ter no projeto',
+    labelEn: 'The role the organisation wants in the project',
     skipIf: NO_ANSWER,
   },
-  prior_project_scale: { carriedBy: 'org.fundedBefore', probe: 'funded' },
+  bairro_priority: { declines: 'our own priority score for the bairro, used to order a list on our side — a document that argues for this project does not carry our ranking of it' },
+  site_photo_intent: { declines: 'which photographs we asked them for, so the upload prompt knows what it is expecting — a fact about our request, not about their place' },
 
   // ── Deliberately not on the document ──────────────────────────────────────
   site_lat: { declines: 'a coordinate is not prose; the place reaches the page as its name and bairro, and the map as a figure' },

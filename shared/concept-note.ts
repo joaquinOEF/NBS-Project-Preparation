@@ -43,6 +43,7 @@ import { approvalRequirement, type ApprovalBody } from './nbs-approvals';
 import { approvalRouteLine } from './nbs-knowledge';
 import { DECISIVE_DETAIL, CONCRETE_INSTANCE } from './w3-detail-questions';
 import { FIELD_DESTINY } from './field-destiny';
+import { digParagraphs, parseDig } from './w3-dig';
 import {
   fundingMatches, FUNDING_CAVEAT, AGGREGATION_ARGUMENT, FUNDER_KIND_LABEL,
   PHILANTHROPIC_VS_COMMERCIAL,
@@ -205,6 +206,17 @@ export interface ConceptNoteFacts {
    * reached no document at all. See shared/field-destiny.ts.
    */
   collected: Array<{ field: string; labelPt: string; labelEn: string; value: string; feeds: ConceptSectionId }>;
+
+  /**
+   * ⚠️ What was dug out in the room, already written as document prose.
+   *
+   * A bank of pre-written questions cannot ask "vocês falaram que a água volta
+   * pras casas do fundo — quantas casas são?", because it does not know what
+   * they said. These were written for THIS organisation and followed up where
+   * an answer opened something, and each carries a third-person sentence that
+   * puts the answer back beside the question it answered. See shared/w3-dig.ts.
+   */
+  dug: Array<{ text: string; feeds: ConceptSectionId }>;
 
   /**
    * What this organisation shares with the rest of the cohort, in counts.
@@ -474,6 +486,7 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
     // field declared `feeds` reaches the page without anybody editing
     // concept-note.ts — which is the only version of this that cannot rot.
     collected: collectedFields({ ...(input.site ?? {}), ...(input.org ?? {}), ...(input.w3 ?? {}) }, lang),
+    dug: digParagraphs(parseDig(input.w3?.dig_json ?? input.site?.dig_json), lang),
     // ⚠️ Passed through untouched, never assembled here. The lines arrive
     // already de-identified from cohortContext.ts; building any of them from a
     // peer's record at this layer would put a name on someone else's document.
@@ -616,12 +629,20 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
    * is the difference between this and where these eight answers used to go,
    * which was nowhere.
    */
-  const collectedFor = (id: ConceptSectionId): Paragraph[] =>
-    f.collected
+  const collectedFor = (id: ConceptSectionId): Paragraph[] => [
+    ...f.collected
       .filter(c => c.feeds === id)
       .map(c => P(`**${pt ? c.labelPt : c.labelEn}:** “${c.value}”`, [
         pt ? 'a organização, nos encontros' : 'the organisation, during the workshops',
-      ], 'quote'));
+      ], 'quote')),
+    // Written prose, not a quoted label: the question was asked in the room and
+    // the ANSWER is what the page states, inside a sentence that carries it.
+    ...f.dug
+      .filter(d => d.feeds === id)
+      .map(d => P(d.text, [
+        pt ? 'pergunta do Encontro 3 e resposta da organização' : 'an Encontro 3 question and the organisation’s answer',
+      ])),
+  ];
 
   const placed = new Set<ConceptSectionId>();
   const push = (id: ConceptSectionId, paragraphs: Array<Paragraph | null>, open?: boolean) => {
