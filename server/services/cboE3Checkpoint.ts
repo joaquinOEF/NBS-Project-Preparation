@@ -990,9 +990,15 @@ _For this one we do not yet have a reference figure — what the ficha says is a
   };
 
   const askExtras = (): true => {
-    // Written questions first; the bank is what happens when there are none.
     const dug = askDig(1);
     if (dug) return dug;
+    // ⚠️ The bank is the FALLBACK, not a second helping. Falling through to it
+    // once the dug questions were exhausted gave an organisation three written
+    // questions, then three pre-written ones, then two follow-ups — eight
+    // questions at the end of a workshop, which is a form, not a conversation.
+    // The comment above this line said "the bank is what happens when there are
+    // none" for a day while the code said "after them".
+    if (liveDig().some(q => q.round === 1)) return askAnotherSolution();
     const ids = (advice?.questionIds ?? []).filter(id => !type(`_extra_${id}`));
     const q = ids.map(getW3Question).find(Boolean);
     if (!q) return askAnotherSolution();
