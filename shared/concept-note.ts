@@ -42,6 +42,7 @@ import {
 import { approvalRequirement, type ApprovalBody } from './nbs-approvals';
 import { approvalRouteLine } from './nbs-knowledge';
 import { DECISIVE_DETAIL, CONCRETE_INSTANCE } from './w3-detail-questions';
+import { FIELD_DESTINY } from './field-destiny';
 import {
   fundingMatches, FUNDING_CAVEAT, AGGREGATION_ARGUMENT, FUNDER_KIND_LABEL,
   PHILANTHROPIC_VS_COMMERCIAL,
@@ -194,6 +195,18 @@ export interface ConceptNoteFacts {
   observations: Array<{ text: string; basedOn: string; kind: string }>;
 
   /**
+   * ⚠️ EVERY collected field that declares it belongs on the page, gathered
+   * generically — never by hand.
+   *
+   * This exists because the hand-written contract below is a good rule for what
+   * the note MAY assert and a terrible one for what it MUST NOT forget: a field
+   * starts invisible and stays invisible until somebody remembers it. Nobody
+   * remembered eight times, and eight answers an organisation gave out loud
+   * reached no document at all. See shared/field-destiny.ts.
+   */
+  collected: Array<{ field: string; labelPt: string; labelEn: string; value: string; feeds: ConceptSectionId }>;
+
+  /**
    * What this organisation shares with the rest of the cohort, in counts.
    *
    * ⚠️ The programme's whole argument, and the one fact a single organisation
@@ -211,6 +224,29 @@ export interface ConceptNoteFacts {
   gaps: string[];
   steps: RoadmapStep[];
   totals: { lowBrl?: number; highBrl?: number };
+}
+
+/**
+ * Every field that declared it belongs on the page, with the value it holds.
+ *
+ * ⚠️ Reads the REGISTRY, never a list here. Adding a question anywhere in the
+ * product and declaring `feeds` is the whole of the work required to get its
+ * answer into the document — which is the property that was missing when eight
+ * answers went nowhere.
+ */
+function collectedFields(all: Record<string, string | undefined>, lang: Lang): ConceptNoteFacts['collected'] {
+  const out: ConceptNoteFacts['collected'] = [];
+  for (const [field, d] of Object.entries(FIELD_DESTINY)) {
+    if (!('feeds' in d)) continue;
+    const value = String(all[field] ?? '').trim();
+    // ⚠️ "Não sei" is a real and useful answer in the room — it tells the
+    // coordination where to look next — and a lie on a funder's page, where it
+    // reads as though somebody had told us something. It stays in the record
+    // and stays off the document.
+    if (!value || value.toLowerCase() === 'null' || (d.skipIf && d.skipIf.test(value))) continue;
+    out.push({ field, labelPt: d.labelPt, labelEn: d.labelEn, value, feeds: d.feeds });
+  }
+  return out;
 }
 
 /**
@@ -434,6 +470,10 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
         : {}),
     },
     observations,
+    // ⚠️ Gathered from the DESTINY REGISTRY, not from a list in this file. A
+    // field declared `feeds` reaches the page without anybody editing
+    // concept-note.ts — which is the only version of this that cannot rot.
+    collected: collectedFields({ ...(input.site ?? {}), ...(input.org ?? {}), ...(input.w3 ?? {}) }, lang),
     // ⚠️ Passed through untouched, never assembled here. The lines arrive
     // already de-identified from cohortContext.ts; building any of them from a
     // peer's record at this layer would put a name on someone else's document.
@@ -454,6 +494,12 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
 }
 
 // ── The document ────────────────────────────────────────────────────────────
+
+/** Every section, in the order the document uses. */
+export const SECTION_ORDER = [
+  'resumo', 'organizacao', 'problema', 'intervencao', 'porque',
+  'resultados', 'exige', 'custo', 'financiamento', 'manutencao', 'pendencias',
+] as const;
 
 export type ConceptSectionId =
   | 'resumo' | 'organizacao' | 'problema' | 'intervencao' | 'porque'
@@ -560,8 +606,30 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
   const sections: ConceptSection[] = [];
   const P = (text: string, sources: string[], kind: Paragraph['kind'] = 'written'): Paragraph =>
     ({ text, kind, sources, authored: false });
+  /**
+   * ⚠️ Their own answers, placed by the registry rather than by hand.
+   *
+   * Quoted, and attributed to the workshop that collected them: the deterministic
+   * FLOOR. The authoring pass may weave the same fact into an argument, and if it
+   * does the section's paragraphs are replaced wholesale — but if it times out,
+   * fails, or nothing survives the guards, the answer is still on the page. That
+   * is the difference between this and where these eight answers used to go,
+   * which was nowhere.
+   */
+  const collectedFor = (id: ConceptSectionId): Paragraph[] =>
+    f.collected
+      .filter(c => c.feeds === id)
+      .map(c => P(`**${pt ? c.labelPt : c.labelEn}:** “${c.value}”`, [
+        pt ? 'a organização, nos encontros' : 'the organisation, during the workshops',
+      ], 'quote'));
+
+  const placed = new Set<ConceptSectionId>();
   const push = (id: ConceptSectionId, paragraphs: Array<Paragraph | null>, open?: boolean) => {
-    const kept = paragraphs.filter((p): p is Paragraph => !!p && p.text.trim() !== '' && p.sources.length > 0);
+    placed.add(id);
+    const kept = [
+      ...paragraphs.filter((p): p is Paragraph => !!p && p.text.trim() !== '' && p.sources.length > 0),
+      ...collectedFor(id),
+    ];
     if (kept.length) sections.push({ id, n: sections.length + 1, title: t[id], paragraphs: kept, ...(open ? { open } : {}) });
   };
 
@@ -986,6 +1054,17 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
         [pt ? 'rota derivada do registro' : 'route derived from the record'], 'bullet'),
     ),
   ], f.gaps.length > 0);
+
+  // ⚠️ The hole the `push` hook alone would leave. A section is only pushed when
+  // it has something to say; a section that had nothing of its own would take
+  // its collected answers down with it — which is exactly the class of silent
+  // loss this whole mechanism exists to end. So anything that fed a section
+  // nobody built gets its own section, in the registry's order.
+  for (const id of SECTION_ORDER) {
+    if (placed.has(id)) continue;
+    const orphaned = collectedFor(id);
+    if (orphaned.length) sections.push({ id, n: sections.length + 1, title: t[id], paragraphs: orphaned });
+  }
 
   return {
     title: names.join(' + ') || (pt ? 'Projeto sem solução escolhida' : 'Project with no solution chosen'),
