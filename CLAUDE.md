@@ -215,6 +215,34 @@ reaches the hoja de ruta or the dossier card; it lists the seven sentences that
 had to come off the page and why each one was written in good faith.
 `npm run w3:fullsim` fails on second person in any authored line.
 
+### ⚠️ Nothing collected may be silently invisible — `shared/field-destiny.ts`
+Encontro 3's eight extra questions each wrote a field, and **nothing read any of
+them** — not the note, the dossier, the roadmap, the synergy facts or the UI. An
+organisation was asked *"quantas casas ficam com água?"*, answered, and every
+document ignored it. The cause was structural: `conceptNoteFacts()` is a
+hand-written allowlist, so a field is invisible by default until somebody
+remembers it. Nobody remembered, eight times.
+
+Every public field now declares `feeds` (the generic renderer places it),
+`carriedBy` (a named fact or dedicated rendering already carries it) or
+`declines` (with a reason). **Declining is legitimate; forgetting is not.**
+`e2e/field-destiny.spec.ts` PROVES each declaration — set a sentinel, build the
+document, find it — and both write funnels warn `[field-orphan]` at runtime for
+whatever the source scanner cannot see (three fields reach the funnel through a
+helper, so both halves are needed). Two traps: the generic renderer is not
+always the right one (declaring `detail_answer` printed a chip label stripped of
+its question), and a field already on the page must be `carriedBy`, or it prints
+twice.
+
+### The dig — questions written for one organisation — `shared/w3-dig.ts`
+Round 1 reads the record and their photographs and writes three questions; round
+2 reads the answers and follows up. **Two registers, always**: the question is
+spoken (second person, their words), the note is written (third person, on a
+funder's page), so each carries an authored `notePt` with an `{answer}` slot.
+Provenance is structured — only a `quote` is checkable, and a question born from
+a photograph can never be found in a text record. The bank of eight in
+`w3-questions.ts` is the FALLBACK, never a second helping.
+
 ### ⚠️ A timeout is not a wait — `shared/model-pass-budgets.ts`
 Four model passes in this repo were silently disabled by their own caps: the
 concept note author (30 s cap · ~46 s real), the synergy report (45 s · ~49 s),

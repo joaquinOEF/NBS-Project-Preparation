@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { acceptDig, digParagraphs, pendingDig, answeredDig, type DigQuestion } from '../shared/w3-dig';
+import { acceptDig, digParagraphs, pendingDig, answeredDig, DIG_ROUND_1, DIG_FOLLOW_UPS, type DigQuestion } from '../shared/w3-dig';
 
 const RECORD = `A praça alaga toda chuva forte. A água fica parada por dias e volta pras casas do fundo.
 É o único espaço livre do quarteirão. Antes tinha 4 árvores, cortaram tudo pra fazer estacionamento.
@@ -110,6 +110,18 @@ test.describe('a question written for this organisation, and the guards on it', 
 
   test('a statement is not a question', () => {
     expect(run([good({ askPt: 'Vocês deviam contar quantas casas alagam.' })]).dropped[0].why).toMatch(/não é uma pergunta/);
+  });
+});
+
+// ⚠️ The bank is a fallback, not a second helping. This is asserted at the unit
+// where the decision lives; the journey spec walks the beats.
+test.describe('how many questions a workshop actually gets', () => {
+  test('three written, at most two follow-ups, and never the bank on top', () => {
+    expect(DIG_ROUND_1).toBe(3);
+    expect(DIG_FOLLOW_UPS).toBe(2);
+    // Five is already the ceiling of what belongs at the end of an encontro.
+    // Adding the bank's three behind them made eight, which is a form.
+    expect(DIG_ROUND_1 + DIG_FOLLOW_UPS).toBeLessThanOrEqual(5);
   });
 });
 
