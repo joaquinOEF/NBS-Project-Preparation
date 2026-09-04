@@ -215,6 +215,23 @@ reaches the hoja de ruta or the dossier card; it lists the seven sentences that
 had to come off the page and why each one was written in good faith.
 `npm run w3:fullsim` fails on second person in any authored line.
 
+### ⚠️ A timeout is not a wait — `shared/model-pass-budgets.ts`
+Four model passes in this repo were silently disabled by their own caps: the
+concept note author (30 s cap · ~46 s real), the synergy report (45 s · ~49 s),
+the W3 advisor (25 s · ~29 s) and the W2 família ranking (12 s · 12–16 s **with
+the photographs that are the whole point of it**, so it fired 3 times out of 3).
+Every one was honest for the prompt it was written for and left behind when the
+prompt grew, and every one failed **silently** — the pass resolves empty, the
+flow continues, the output is merely thinner than it could have been.
+
+Caps therefore no longer live in the pass. They live in that registry beside the
+measurement that justifies them, `withBudget()` owns the race and says out loud
+when it fires (`[pass-timeout]`), and `e2e/model-pass-budgets.spec.ts` fails if a
+cap is under 3× the slowest observed run or if any service declares a cap of its
+own. Measure, never estimate: **the cap is not the wait.** The wait is how long
+the call takes; the cap only bounds a bad day. Setting the cap to the wait you
+want is exactly how all four died.
+
 ### CBO chat composers (inline widgets) — see `docs/cbo-chat-composers.md`
 Rules for any interactive widget rendered **inside the CBO chat** (NBS type/example
 strips, priority chips, anchoring): persist it as a `composer` transcript message or

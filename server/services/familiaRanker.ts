@@ -34,6 +34,8 @@
 
 import { z } from 'zod';
 import { createStructured, structuredProvider, type ContentPart, type Message } from './structuredModel';
+import { withBudget } from './passBudget';
+import { capFor } from '@shared/model-pass-budgets';
 import { NBS_FAMILIAS, type NbsFamiliaId } from '@shared/nbs-catalog';
 import {
   rankFamiliasForSite,
@@ -43,11 +45,13 @@ import {
 
 const FAMILIA_IDS: NbsFamiliaId[] = NBS_FAMILIAS.map(f => f.id);
 
-/** Hard ceiling on the call. JVP okayed ~15s at this beat because the tool
- *  activity is narrated ("especially if the tool call is explicit"), so this
- *  buys real reasoning instead of racing a spinner. Past it we serve the
- *  deterministic list — a slower right answer is not worth a stalled chat. */
-const TIMEOUT_MS = 12_000;
+// ⚠️ The cap lives in shared/model-pass-budgets.ts, with the measurement that
+// justifies it. This one is the reason that file exists in its current form:
+// 12 s was okayed as a WAIT, and written down as a CAP, and those are not the
+// same number. Measured with the organisation's own three photographs — which
+// is the entire reason this pass reads images — the call takes 12.0–15.7 s, so
+// it timed out THREE TIMES OUT OF THREE and every organisation that uploaded
+// photos got the arithmetic instead. Nothing said so.
 
 /** At most this many site photos go into the call. Beyond three the marginal
  *  photo says little and the request gets slow and expensive. */
@@ -259,22 +263,24 @@ export async function rankFamiliasWithContext(
   }
 
   try {
-    const result = await Promise.race([
+    const result = await withBudget(
+      'familiaRanker',
       createStructured(
         { input: buildPrompt(ctx), config: { reasoningEffort: 'low', maxCompletionTokens: 2000 } },
         RankingSchema,
         'familia_ranking',
       ),
-      new Promise<never>((_, rej) =>
-        setTimeout(() => rej(new Error('timeout')), TIMEOUT_MS),
-      ),
-    ]);
+    );
+    // ⚠️ The organisation IS waiting at this beat, so the fallback is a whole
+    // ranking rather than a degraded one — and `withBudget` has already said
+    // out loud that it fired, which is what nobody could see before.
+    if (!result) return fallback(`timeout after ${capFor('familiaRanker')}ms`);
 
     const validated = validateModelRanking(result.ranking, deterministic);
     if ('error' in validated) return fallback(validated.error);
     return { source: 'model', items: validated.items };
   } catch (e: any) {
-    const reason = e?.message === 'timeout' ? `timeout after ${TIMEOUT_MS}ms` : String(e?.message || e);
+    const reason = String(e?.message || e);
     console.error('[cbo] família ranking fell back to deterministic:', reason);
     return fallback(reason);
   }

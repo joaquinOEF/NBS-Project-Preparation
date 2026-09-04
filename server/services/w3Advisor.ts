@@ -36,6 +36,7 @@
 
 import { z } from 'zod';
 import { createStructured, structuredProvider, type ContentPart } from './structuredModel';
+import { withBudget } from './passBudget';
 import { buildContextMarkdown } from './contextBundle';
 import { eligibleQuestions, W3_QUESTION_IDS, type QuestionContext } from '@shared/w3-questions';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
@@ -54,21 +55,10 @@ import { fundingMatches, FUNDING_CAVEAT, PHILANTHROPIC_VS_COMMERCIAL } from '@sh
  * exactly the kind that gets better with a stronger model.
  */
 const ADVISOR_MODEL = process.env.CBO_ADVISOR_MODEL || '';
-/**
- * ⚠️ 90 s, not 25. Measured against a real record — one site story, one cohort
- * line, both approval routes and eight funding paths — twice: 26.8 s and
- * 29.3 s. The old default cut it off before either run finished, and a cut-off
- * here is SILENT: `adviseW3` resolves with EMPTY_ADVICE, the session carries on
- * with no drafts, no chosen questions and no observations, and nothing on the
- * page says a pass was meant to run. That is the third time in this repo a cap
- * set for a smaller prompt quietly disabled the pass behind it (the concept
- * note author at 30 s, the synergy report at 45 s).
- *
- * Nothing waits on this — it is fired at phase start while the organisation is
- * still reading the recap — so the cap exists to bound a hang, not to keep
- * anyone waiting.
- */
-const ADVISOR_TIMEOUT_MS = Number(process.env.CBO_ADVISOR_TIMEOUT_MS || 90_000);
+// ⚠️ The cap is NOT here any more. It lives with the measurement that justifies
+// it, in shared/model-pass-budgets.ts — this file shipped with 25 s against a
+// ~29 s call, so every session ran with no drafts, no chosen questions and no
+// observations, and the only sign was output nobody could tell was thin.
 
 // ⚠️ These two were `z.enum([...])`, and an enum in a ONE-SHOT schema is the
 // same trap as a `.min(2)`: the call is a single forced tool use with no retry
@@ -422,7 +412,8 @@ export async function adviseW3(input: AdvisorInput): Promise<{ advice: W3Advice;
   const eligibleIds = new Set(eligible.map(q => q.id));
 
   try {
-    const raced = await Promise.race([
+    const raced = await withBudget(
+      'w3Advisor',
       createStructured(
         {
           input: [
@@ -434,8 +425,7 @@ export async function adviseW3(input: AdvisorInput): Promise<{ advice: W3Advice;
         AdviceSchema,
         'w3_advice',
       ),
-      new Promise<null>(resolve => setTimeout(() => resolve(null), ADVISOR_TIMEOUT_MS)),
-    ]);
+    );
     if (!raced) return { advice: EMPTY_ADVICE, reason: 'timeout' };
 
     // ── The guards. Everything below here assumes the model got it wrong. ────
