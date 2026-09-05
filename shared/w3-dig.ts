@@ -190,6 +190,51 @@ export function digParagraphs(all: DigQuestion[], lang: 'pt' | 'en'): Array<{ te
   });
 }
 
+/**
+ * One solution that should go BESIDE the one they chose — never instead of it.
+ *
+ * ⚠️ The alignment rule, decided deliberately: this may propose an addition and
+ * may never question the first choice. Two reasons. Their Encontro 2 pick leads
+ * — they chose with intent and we do not walk over it — and a model asked to
+ * judge its own input is the sycophancy case the research warns about, where
+ * "is this right?" comes back "yes" nearly always. A factual statement about
+ * what a mechanism does cannot be flattery; an assessment usually is.
+ *
+ * So every observation about fit has to arrive as a proposal for what goes
+ * beside it. If nothing sensible goes beside it, the pass says nothing.
+ */
+export interface DigPairing {
+  /** A catalogue id. Validated against the catalogue and the shortlist. */
+  solutionId: string;
+  /** One sentence: the mechanism the pair adds, in their terms. Second person — it is spoken. */
+  reasonPt: string;
+  reasonEn: string;
+}
+
+/** Phrasings that turn an addition into a verdict on their choice. */
+// ⚠️ "Em vez DO jardim" is the sentence that got through the first version,
+// which matched only "em vez de". Substitution has more than one preposition.
+const SUBSTITUTION =
+  /\bem vez d[aeo]s?\b|\bao inv[ée]s d[aeo]s?\b|\bno lugar d[aeo]s?\b|\bn[ãa]o resolve\b|\bmelhor seria\b|\bo certo seria\b|\bdeveriam ter\b|\berrad[ao]s?\b|\bantes de pensar\b|\binstead of\b|\brather than\b|\bwon'?t work\b|\bdoes not solve\b|\bshould have\b|\bwrong\b/i;
+
+export function acceptPairing(
+  raw: Partial<DigPairing> | null | undefined,
+  opts: { eligibleIds: string[]; alreadyChosen: string[] },
+): { pairing: DigPairing | null; why?: string } {
+  if (!raw || !raw.solutionId) return { pairing: null };
+  const id = String(raw.solutionId).trim();
+  const reasonPt = String(raw.reasonPt ?? '').trim();
+  const reasonEn = String(raw.reasonEn ?? '').trim();
+  if (opts.alreadyChosen.includes(id)) return { pairing: null, why: 'já escolhida' };
+  if (!opts.eligibleIds.includes(id)) return { pairing: null, why: `fora do catálogo elegível: "${id}"` };
+  if (reasonPt.length < 25 || reasonEn.length < 25) return { pairing: null, why: 'sem motivo' };
+  if (reasonPt.length > 320) return { pairing: null, why: 'motivo longo demais para um beat' };
+  // ⚠️ The alignment rule, enforced rather than requested.
+  const bad = SUBSTITUTION.exec(`${reasonPt} ${reasonEn}`);
+  if (bad) return { pairing: null, why: `questiona a escolha delas: "${bad[0]}"` };
+  return { pairing: { solutionId: id, reasonPt, reasonEn } };
+}
+
 export function parseDig(json: string | undefined): DigQuestion[] {
   if (!json) return [];
   try {

@@ -118,9 +118,15 @@ export const MODEL_PASSES: ModelPass[] = [
     sources: {
       fields: uses,
       ownWords: uses,
-      transcript: gap('the org often describes the place in chat before any field captures it'),
-      docSummary: gap('a Teia Sprint proposal names what they already want to build'),
-      docFullText: gap('same, and the advisor already reads it — this pass runs earlier and sees less'),
+      // ⚠️ Closed together, because they were one gap wearing three hats: this
+      // pass read a 600-character excerpt of `summary || fullText` and nothing
+      // of the chat. It now reads the summary AND up to 2 000 characters of the
+      // text — a Teia Sprint proposal names the intervention outright — plus the
+      // last ten things they typed or recorded. Re-measured at 13.4–15.6 s
+      // against a 25 s cap, because this is the one pass an organisation waits on.
+      transcript: uses,
+      docSummary: uses,
+      docFullText: uses,
       photos: uses,
       geo: uses,
       fichas: uses,
@@ -220,7 +226,13 @@ export const MODEL_PASSES: ModelPass[] = [
       docFullText: uses,
       knowledge: uses,
       artefacts: uses,
-      photos: gap('two organisations photographing the same kind of failing wall is a synergy no field expresses, and the images are already loaded for the W2 ranking'),
+      // ⚠️ PRE-DIGESTED, never the images themselves. Handing eight
+      // organisations' photographs to one cross-organisation call would widen
+      // the reach and lose the provenance; the advisor already wrote one-sentence
+      // observations from them, each naming what it was based on, and only those
+      // that name a photograph are carried through. Same architecture as the
+      // concept note's observations, for the same reason.
+      photos: uses,
     },
   },
   {

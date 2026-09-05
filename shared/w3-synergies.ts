@@ -102,6 +102,18 @@ export interface SynergyMember {
   docs: Array<{ filename: string; purpose: string | null; summary: string | null; fullText?: string | null }>;
   /** Where the organisation corrected our risk numbers. Outranks the map. */
   correctionsPt: string | null;
+  /**
+   * ⚠️ What a reading pass SAW in their photographs, pre-digested.
+   *
+   * The last declared gap on this pass, and closed the way this repo closes
+   * every image gap: not by handing eight organisations' photographs to one
+   * call, but by taking the one-sentence observations the W3 advisor already
+   * wrote from them, each carrying what it was based on. Two organisations
+   * photographing the same failing wall is a synergy no field expresses — and
+   * an observation with a source can be checked, while a raw image in a
+   * cross-organisation prompt cannot. See docs/context-first.md.
+   */
+  photoNotesPt: string[];
 }
 
 export type GroupAxis = 'territory' | 'mechanism' | 'arrangement';
@@ -383,6 +395,8 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
 export type SynergyFacts = {
   ownWords: { story: string | null; whyHere: string | null; baseline: string | null };
   correctionsPt: string | null;
+  /** Pre-digested photograph observations — see the doc on SynergyMember. */
+  photoNotesPt: string[];
   /** What Encontro 3 concluded, and this pass could not previously see. */
   approvalInstruments: string[];
   fundingOpen: string[];
@@ -460,6 +474,22 @@ export function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
       baseline: f('impact_monitoring', 'baseline_condition') || null,
     },
     correctionsPt: hazardChecks,
+    // ⚠️ From the advisor's own observations, not from the images. Only the ones
+    // it says came from a photograph: an observation that names its source can
+    // be checked, and one that reached the page without a source is the defect
+    // the provenance was added to prevent.
+    photoNotesPt: (() => {
+      try {
+        const advice = JSON.parse(f('intervention_type', '_advice_json') || '{}');
+        return (advice?.observations ?? [])
+          .filter((o: any) => /foto|photo|imagem|image/i.test(String(o?.basedOn ?? '')))
+          .map((o: any) => String(o?.textPt ?? '').trim())
+          .filter(Boolean)
+          .slice(0, 3);
+      } catch {
+        return [];
+      }
+    })(),
     approvalInstruments,
     fundingOpen,
     fundingBlocked,

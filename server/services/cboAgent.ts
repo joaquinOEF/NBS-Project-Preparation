@@ -74,6 +74,8 @@ import { warnIfOrphan } from '@shared/field-destiny';
 import { digRound1, digRound2 } from './w3Dig';
 import { buildContextMarkdown } from './contextBundle';
 import { parseDig } from '@shared/w3-dig';
+import { topShortlist } from '@shared/w3-solutions';
+import { passBudget } from '@shared/model-pass-budgets';
 import { serveStartNext } from "./cboNextEncontroGate";
 import { adviseW3 } from "./w3Advisor";
 
@@ -1634,14 +1636,42 @@ async function sitePhotosForRanking(
 }
 
 /** Short excerpts from the org's uploaded documents, for the ranking call. */
+/**
+ * What they typed or recorded in the chat, most recent last.
+ *
+ * Bounded hard: this is a ranking, not a transcript reading, and the pass it
+ * feeds is the one an organisation waits on.
+ */
+function recentUserTurns(cboId: string): string[] {
+  try {
+    return (getCboMessages(cboId) as any[])
+      .filter(m => m.role === 'user' && typeof m.content === 'string')
+      .map(m => String(m.content).replace(/\s+/g, ' ').trim())
+      .filter(t => t.length > 15 && !t.startsWith('Map selection ('))
+      .slice(-10)
+      .map(t => t.slice(0, 400));
+  } catch {
+    return [];
+  }
+}
+
 async function siteDocExcerpts(cboId: string): Promise<string[]> {
   try {
     const orgId = await getOrgIdForCboState(cboId);
     const docs = await listDocumentsForScope({ cboStateId: cboId, orgId: orgId ?? undefined });
+    // ⚠️ Summary AND full text, not one or the other. A 280-character summary
+    // says what the document IS; the text says what they want to build, and a
+    // Teia Sprint proposal names the intervention outright. The ranker was
+    // reading 600 characters of whichever came first, which for a summarised
+    // document meant it never saw the proposal at all.
     return docs
       .filter(d => d.kind !== 'image' && (d.summary || d.fullText))
       .slice(0, 2)
-      .map(d => String(d.summary || d.fullText).replace(/\s+/g, ' ').trim().slice(0, 600))
+      .map(d => {
+        const summary = String(d.summary ?? '').replace(/\s+/g, ' ').trim();
+        const body = String(d.fullText ?? '').replace(/\s+/g, ' ').trim().slice(0, 2_000);
+        return [summary, body].filter(Boolean).join(' — ');
+      })
       .filter(Boolean);
   } catch {
     return [];
@@ -1699,6 +1729,11 @@ async function buildFamiliaReco(
     // the beat paid for it on every run that was always going to fall back.
     photos: canRun ? await sitePhotosForRanking(cboId) : [],
     docExcerpts: canRun ? await siteDocExcerpts(cboId) : [],
+    // ⚠️ What they said in the chat that no field captured. The story field is
+    // the voice note; this is everything around it — "ali no fundo é pior",
+    // "ano passado a gente plantou e morreu tudo" — and it was the last thing
+    // in the record that this pass could not see.
+    saidInChat: canRun ? recentUserTurns(cboId) : [],
   });
 
   // Record what was served and what the arithmetic alone would have said.
@@ -3526,24 +3561,50 @@ const advisorRuns = new Set<string>();
 const advisorInFlight = new Map<string, Promise<void>>();
 
 /**
- * Wait for the advisor, but never for long.
+ * Wait for the advisor — for what is left of it, not a fixed guess.
  *
- * Capped well below the pass's own timeout: if it is going to be slow, the
- * organisation gets today's deterministic list rather than a spinner. The pass
- * carries on regardless and its result lands for every later beat — the drafts,
- * the extra questions and the observations all still get it.
+ * ⚠️ This was a flat 12 s against a pass measured at 29.3 s, which is the worst
+ * of both: an organisation that arrives here quickly pays a 12-second stall AND
+ * still gets the deterministic list. The wait is ADDITIONAL to however long they
+ * spent reading the recap and tapping a chip, so the real question was never
+ * "how long should we wait" but "how much is left", and the budget registry now
+ * knows the answer.
+ *
+ * So: wait for the remainder of the measured duration, capped, and never
+ * longer than the pass itself may run. A group that spent forty seconds
+ * discussing the recap waits for nothing; one that tapped straight through
+ * waits the difference.
  */
-const ADVISOR_WAIT_MS = Number(process.env.CBO_ADVISOR_WAIT_MS || 12_000);
+const ADVISOR_WAIT_CAP_MS = Number(process.env.CBO_ADVISOR_WAIT_MS || 20_000);
+/** When each pass started, so the wait can be the remainder rather than a guess. */
+const advisorStartedAt = new Map<string, number>();
 
 async function waitForW3Advisor(cboId: string): Promise<void> {
   const inFlight = advisorInFlight.get(cboId);
   if (!inFlight) return;
-  await Promise.race([inFlight, new Promise<void>(r => setTimeout(r, ADVISOR_WAIT_MS))]);
+  const started = advisorStartedAt.get(cboId);
+  const expected = passBudget('w3Advisor')?.measuredMs ?? 30_000;
+  const elapsed = started ? Date.now() - started : 0;
+  const wait = Math.max(0, Math.min(ADVISOR_WAIT_CAP_MS, expected - elapsed));
+  const t0 = Date.now();
+  let arrived = true;
+  await Promise.race([
+    inFlight,
+    new Promise<void>(r => setTimeout(() => { arrived = false; r(); }, wait)),
+  ]);
+  // ⚠️ Logged so the next version of this is chosen from data rather than from
+  // another guess: how long the organisation actually took to get here, how
+  // much more we waited, and whether the reading was ready when it mattered.
+  console.log(
+    `[w3-advisor] ${cboId}: shortlist reached ${elapsed}ms after the pass started, ` +
+      `waited a further ${Date.now() - t0}ms (budget ${wait}ms) — advice ${arrived ? 'READY' : 'not ready'}`,
+  );
 }
 
 async function runW3Advisor(cboId: string): Promise<void> {
   if (advisorRuns.has(cboId)) return;
   advisorRuns.add(cboId);
+  advisorStartedAt.set(cboId, Date.now());
   const done = runW3AdvisorInner(cboId).finally(() => advisorInFlight.delete(cboId));
   advisorInFlight.set(cboId, done);
   return done;
@@ -3722,18 +3783,39 @@ async function runW3Dig(cboId: string, round: 1 | 2): Promise<void> {
     const already = parseDig(String(type.dig_json?.value ?? ''));
     const photos = round === 1 ? await sitePhotosForRanking(cboId).catch(() => []) : [];
 
+    const site: any = state.sections?.intervention_site?.fields ?? {};
+    const chosen = String(type.chosen_solutions?.value ?? '').split(',').map((x: string) => x.trim()).filter(Boolean);
     const out = round === 1
       ? await digRound1({ record, photos, already })
-      : await digRound2({ record, already });
+      : await digRound2({
+          record,
+          already,
+          // ⚠️ Only what is eligible for THIS site, and never what they already
+          // took. The model proposes from a list it cannot widen — the same
+          // belt-and-braces the shortlist uses, because a model is good at
+          // relevance and bad at knowing a slope solution makes no sense on a
+          // flat schoolyard.
+          pairing: {
+            eligibleIds: topShortlist({ site: Object.fromEntries(Object.entries(site).map(([k, v]: any) => [k, String(v?.value ?? '')])) } as any, 'pt', 27)
+              .map((x: any) => x.id)
+              .filter((id: string) => !chosen.includes(id)),
+            alreadyChosen: chosen,
+          },
+        });
 
-    if (!out.questions.length) {
-      console.log(`[dig] ${cboId} round ${round}: nenhuma pergunta${out.reason ? ` — ${out.reason}` : ''} (${Date.now() - started}ms)`);
+    if (!out.questions.length && !out.pairing) {
+      console.log(`[dig] ${cboId} round ${round}: nada${out.reason ? ` — ${out.reason}` : ''} (${Date.now() - started}ms)`);
       return;
     }
     // ⚠️ Re-read. The organisation has been answering while this ran, so the
     // copy captured at the top is stale by exactly the answers that matter.
     const fresh = getCboState(cboId);
     if (!fresh?.sections?.intervention_type) return;
+    if (out.pairing) {
+      (fresh.sections.intervention_type.fields as any).dig_pairing_json = {
+        value: JSON.stringify(out.pairing), confidence: 'high', source: 'agent', userEdited: false,
+      };
+    }
     const current = parseDig(String((fresh.sections.intervention_type.fields as any).dig_json?.value ?? ''));
     (fresh.sections.intervention_type.fields as any).dig_json = {
       value: JSON.stringify([...current, ...out.questions]),

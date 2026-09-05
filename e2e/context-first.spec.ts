@@ -72,7 +72,12 @@ test.describe('every model pass declares what it does with every source', () => 
     // actually reads the programme's argument) → 4 (the advisor reads the
     // approval routes and the funding landscape, so a "gap" it names is a gap
     // against what a body actually requires).
-    expect(gaps.length, 'gaps rose — either close it or change the ceiling on purpose').toBeLessThanOrEqual(4);
+    // → 0. The W2 ranker reads the chat and the documents properly, and the
+    // synergy pass reads the photographs the only way it safely can: as the
+    // advisor's pre-digested observations. Zero is not "finished" — it means
+    // every pass has DECIDED about every source, which is all this was ever
+    // asking for.
+    expect(gaps.length, 'gaps rose — either close it or change the ceiling on purpose').toBeLessThanOrEqual(0);
   });
 
   test('the pass that finds what a cohort shares reads what the cohort produced', () => {

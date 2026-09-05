@@ -196,6 +196,11 @@ export const FIELD_DESTINY: Record<string, FieldDestiny> = {
     probeExpect: 'O alagamento atinge umas 8 casas do fundo',
   },
 
+  // The paired solution, if round 2 proposed one. It reaches the page only if
+  // they TAKE it — and then it is a chosen solution like any other, with its own
+  // route and its own cost. The proposal itself is a thing we said in the room.
+  dig_pairing_json: { declines: 'a suggestion made in the workshop — if they took it, it is in chosen_solutions and priced; if they did not, a document that records what we proposed and they declined is a document about us' },
+
   who_pays_today: {
     feeds: 'manutencao',
     labelPt: 'Quem paga as contas do lugar hoje',

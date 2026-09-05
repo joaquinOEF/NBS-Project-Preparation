@@ -31,6 +31,7 @@
 
 import { z } from 'zod';
 import { createStructured, structuredProvider } from './structuredModel';
+import { approvalRouteLine } from '@shared/nbs-knowledge';
 import { withBudget } from './passBudget';
 import { analyseSynergies, type SynergyAnalysis, type SynergyMember } from '@shared/w3-synergies';
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
@@ -67,11 +68,34 @@ const NarrativeSchema = z.object({
   lines: z.array(LineSchema),
   /** Questions worth putting to the room, from what the data leaves open. */
   questionsForTheRoomPt: z.array(z.string()),
+  /**
+   * ⚠️ What looks poolable and is NOT.
+   *
+   * This pass could structurally only say positive things: `shapeNarrative`
+   * drops any line naming fewer than two known organisations, so the report
+   * could say "these four share an instrument" and never "this pooling looks
+   * obvious and breaks, because two of them are on private land and take a
+   * different route entirely". A coordinator planning a meeting needs the
+   * second at least as much as the first — it is the one that stops an hour
+   * being spent on a group that cannot be a group.
+   */
+  tensionsPt: z.array(z.string()).default([]),
+  /**
+   * What has to happen in the same window to be worth doing together.
+   *
+   * The approval routes carry real, published timings — the SMP analyses a
+   * Termo de Adoção in 30 days — and nothing in this report ever turned that
+   * into "these four should file inside the same window, so it is one
+   * conversation with the secretariat instead of four".
+   */
+  sequencingPt: z.array(z.string()).default([]),
 });
 
 /** The caps the schema used to enforce, applied where overshooting is survivable. */
 const MAX_LINES = 4;
 const MAX_QUESTIONS = 5;
+const MAX_TENSIONS = 3;
+const MAX_SEQUENCING = 3;
 
 export type SynergyNarrative = z.infer<typeof NarrativeSchema>;
 
@@ -87,7 +111,11 @@ const SYSTEM = `Você apoia a equipe do Vila Flores, que coordena uma rede de or
 
 Recebe uma análise JÁ CALCULADA: quem está onde, o que preocupa cada uma, que famílias de solução escolheram, que papéis querem, quem já colaborou com quem, e onde há necessidades técnicas ou órgãos em comum.
 
-Sua tarefa é escrever a leitura transversal: propor até 4 LINHAS DE PROGRAMA e o fio condutor do portfólio.
+Sua tarefa é escrever a leitura transversal: propor até 4 LINHAS DE PROGRAMA, o fio condutor do portfólio, e mais duas coisas que ninguém consegue ver de dentro de uma organização só:
+
+TENSÕES (tensionsPt, até 3). Onde um agrupamento PARECE óbvio e não funciona. Duas organizações com o mesmo risco mas em terreno de titularidade diferente seguem instrumentos diferentes; duas com a mesma solução em portes muito diferentes não compram junto. Diga qual é o agrupamento aparente e por que ele quebra, apontando o fato. ⚠️ Isto é tão útil quanto uma linha de programa: evita que a coordenação gaste uma reunião com um grupo que não é grupo. Nenhuma tensão é uma resposta válida.
+
+SEQUÊNCIA (sequencingPt, até 3). O que precisa acontecer na MESMA janela para valer a pena junto. Se a análise traz um prazo de órgão — "a Secretaria analisa em 30 dias" — e várias organizações passam pelo mesmo instrumento, isso é uma conversa com o órgão em vez de várias. Só escreva se a análise trouxer o prazo; não invente prazo nenhum.
 
 O que é uma linha de programa: um conjunto de organizações que faz sentido apoiar junto. Pode ser por território vizinho, pelo mesmo tipo de risco em lugares diferentes, ou por um arranjo em comum (área pública sem documento, por exemplo). NÃO precisa ser a mesma solução — precisa ter uma lógica compartilhada.
 
@@ -125,6 +153,10 @@ function analysisForModel(a: SynergyAnalysis): string {
     if (m.ownWords.whyHere) L.push(`    "por que aqui": ${m.ownWords.whyHere.slice(0, 500)}`);
     if (m.ownWords.baseline) L.push(`    "como está hoje": ${m.ownWords.baseline.slice(0, 400)}`);
     if (m.correctionsPt) L.push(`    ⚠️ corrigiu nossos dados de risco: ${m.correctionsPt} — a percepção dela vale mais que a nossa média`);
+    // ⚠️ Pre-digested, never the images. Two organisations photographing the
+    // same failing wall is a synergy no field expresses, and these sentences
+    // are the only place it exists.
+    for (const n of m.photoNotesPt ?? []) L.push(`    📷 nas fotos do lugar: ${n}`);
     // ⚠️ What Encontro 3 concluded. Until now this pass read the fields and
     // their own words and NOTHING the workshop produced — so the two most
     // poolable things a cohort has, the instrument each project goes through
@@ -160,6 +192,28 @@ function analysisForModel(a: SynergyAnalysis): string {
   if (a.pooledStudies.length) {
     L.push('\n# NECESSIDADES TÉCNICAS EM COMUM (onde uma contratação conjunta economiza de verdade)');
     for (const p of a.pooledStudies) L.push(`- ${p.need}: ${p.memberIds.map(name).join(', ')}`);
+  }
+  // ⚠️ The published timings, so "the same window" can mean something. Without
+  // them the sequencing section would be the model guessing at deadlines, which
+  // is the one thing it must never do with a date.
+  {
+    // ⚠️ Every instrument in the cohort, not only the POOLED ones. The first
+    // live run wrote nothing here — correctly, because the one pooled
+    // instrument was an ART, which has no published municipal timing, while a
+    // Termo de Permissão de Uso with its stated window sat in a member's record
+    // unread. The guard against inventing a deadline is right; starving it of
+    // the real ones is not.
+    const instruments = new Set([
+      ...a.pooledInstruments.map(p => p.instrument),
+      ...a.members.flatMap(m => m.approvalInstruments ?? []),
+    ]);
+    const timings = Array.from(instruments)
+      .map(i => approvalRouteLine(i, 'pt'))
+      .filter((x): x is string => !!x);
+    if (timings.length) {
+      L.push('', '# PRAZOS PUBLICADOS DOS ÓRGÃOS (use para a sequência; não invente nenhum outro)');
+      for (const t of timings) L.push(`- ${t}`);
+    }
   }
   if (a.pooledInstruments.length) {
     L.push('\n# INSTRUMENTO DE APROVAÇÃO EM COMUM (uma conversa, não sete)');
@@ -281,7 +335,7 @@ function fundingScaleWords(raw: string): string {
 }
 
 export function shapeNarrative(
-  raw: SynergyNarrative,
+  raw: z.input<typeof NarrativeSchema>,
   knownOrgNames: string[],
 ): SynergyNarrative | null {
   const known = new Set(knownOrgNames);
@@ -294,7 +348,15 @@ export function shapeNarrative(
     console.warn(`[synergy] dropped ${dropped} of ${raw.lines.length} line(s): fewer than two known organisations`);
   }
   if (!lines.length && !raw.portfolioThreadPt.trim()) return null;
-  return { ...raw, lines, questionsForTheRoomPt: raw.questionsForTheRoomPt.slice(0, MAX_QUESTIONS) };
+  return {
+    ...raw,
+    lines,
+    questionsForTheRoomPt: raw.questionsForTheRoomPt.slice(0, MAX_QUESTIONS),
+    // Bounded like everything else here: a list of caveats nobody reads is a
+    // list of caveats nobody acts on.
+    tensionsPt: (raw.tensionsPt ?? []).slice(0, MAX_TENSIONS),
+    sequencingPt: (raw.sequencingPt ?? []).slice(0, MAX_SEQUENCING),
+  };
 }
 
 // ⚠️ The cap is NOT here any more. It lives with the measurement that justifies
