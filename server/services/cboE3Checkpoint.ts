@@ -42,7 +42,7 @@ import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { siteInSentence } from '@shared/site-name';
 import { GAP_RETRIES, areaBandFor, ROUGH_AREA_SOURCE, CANNOT_GUESS } from '@shared/w3-gap-questions';
 import { detailQuestionFor } from '@shared/w3-detail-questions';
-import { parseDig, pendingDig } from '@shared/w3-dig';
+import { parseDig, pendingDig, type DigPairing } from '@shared/w3-dig';
 import { getSolution } from '@shared/nbs-catalog';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { E3_QUESTIONNAIRE, allowedOptionIds, checkOptionRule, askCopyFor, sectionsFieldReader } from '@shared/cbo-questionnaire';
@@ -243,6 +243,14 @@ export async function serveE3Checkpoint(
   const liveArea = () => Number(read(SITE)('site_area_m2')) || 0;
   /** The dig, read live: the pass lands mid-session and the beat must see it. */
   const liveDig = () => parseDig(read(TYPE)('dig_json'));
+  const livePairing = (): DigPairing | null => {
+    try {
+      const v = read(TYPE)('dig_pairing_json');
+      return v ? (JSON.parse(v) as DigPairing) : null;
+    } catch {
+      return null;
+    }
+  };
   const liveUnits = () => Number(read(TYPE)('intervention_units')) || 0;
   const liveBuild = () => (read(TYPE)('construction_model') || undefined) as BuildModel | undefined;
 
@@ -1025,10 +1033,24 @@ _For this one we do not yet have a reference figure — what the ficha says is a
    * with a single solution.
    */
   const askAnotherSolution = (): true => {
-    say(
-      'Antes de fechar: às vezes um lugar pede mais de uma coisa — uma horta e uma vala, por exemplo. Cada uma tem o seu próprio caminho e o seu próprio custo, e a gente separa isso no resumo.',
-      'Before we close: sometimes a place needs more than one thing — a garden and a swale, say. Each has its own route and its own cost, and the summary keeps them separate.',
-    );
+    // ⚠️ Named where we can name it. The generic sentence went to everybody —
+    // true, and useless, because "sometimes a place needs more than one thing"
+    // is not a proposal. When round 2 found a solution that belongs BESIDE
+    // theirs, it says which one and what it adds. It never says their choice is
+    // wrong: the rule is enforced in acceptPairing, not merely asked for.
+    const pair = livePairing();
+    if (pair) {
+      const label = getSolution(pair.solutionId)?.[isPt ? 'pt' : 'en']?.label ?? pair.solutionId;
+      say(
+        `Antes de fechar, uma ideia: **${label}**. ${pair.reasonPt}\n\nCada solução tem o seu próprio caminho e o seu próprio custo, e a gente separa isso no resumo.`,
+        `Before we close, one idea: **${label}**. ${pair.reasonEn}\n\nEach solution has its own route and its own cost, and the summary keeps them separate.`,
+      );
+    } else {
+      say(
+        'Antes de fechar: às vezes um lugar pede mais de uma coisa — uma horta e uma vala, por exemplo. Cada uma tem o seu próprio caminho e o seu próprio custo, e a gente separa isso no resumo.',
+        'Before we close: sometimes a place needs more than one thing — a garden and a swale, say. Each has its own route and its own cost, and the summary keeps them separate.',
+      );
+    }
     ask('Querem levar mais alguma solução nesse mesmo lugar?', 'Do you want to take another solution on this same place?', [
       { pt: E3C.soEssa.pt, en: E3C.soEssa.en },
       { pt: E3C.outraSolucao.pt, en: E3C.outraSolucao.en, dPt: 'Volta pra lista', dEn: 'Back to the list' },

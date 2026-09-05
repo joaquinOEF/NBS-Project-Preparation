@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { acceptDig, digParagraphs, pendingDig, answeredDig, DIG_ROUND_1, DIG_FOLLOW_UPS, type DigQuestion } from '../shared/w3-dig';
+import { acceptDig, acceptPairing, digParagraphs, pendingDig, answeredDig, DIG_ROUND_1, DIG_FOLLOW_UPS, type DigQuestion } from '../shared/w3-dig';
 
 const RECORD = `A praça alaga toda chuva forte. A água fica parada por dias e volta pras casas do fundo.
 É o único espaço livre do quarteirão. Antes tinha 4 árvores, cortaram tudo pra fazer estacionamento.
@@ -164,5 +164,51 @@ test.describe('what reaches the page', () => {
     const r2: DigQuestion = { ...(good() as any), id: 'd2', round: 2 };
     expect(pendingDig([r1, r2], 1)).toBeNull();
     expect(pendingDig([r1, r2], 2)?.id).toBe('d2');
+  });
+});
+
+// ── The pairing: beside, never instead ─────────────────────────────────────
+test.describe('a solution that goes beside the one they chose', () => {
+  const opts = { eligibleIds: ['biovaletas', 'hortas-urbanas'], alreadyChosen: ['jardins-de-chuva'] };
+  const pair = (over: any = {}) => ({
+    solutionId: 'biovaletas',
+    reasonPt: 'A biovaleta conduziria até o jardim a água que chega da rua de cima.',
+    reasonEn: 'A swale would carry the water arriving from the street up to the garden.',
+    ...over,
+  });
+
+  test('a proposal that adds something is kept', () => {
+    expect(acceptPairing(pair(), opts).pairing?.solutionId).toBe('biovaletas');
+  });
+
+  test('⚠️ a proposal that questions their choice is refused', () => {
+    // The alignment rule, enforced rather than requested. Their Encontro 2 pick
+    // leads: they chose with intent and we do not walk over it — and a model
+    // asked to judge its own input tends to agree with whatever it is handed,
+    // so "is this right?" is the wrong question to give it in the first place.
+    for (const bad of [
+      'Em vez do jardim de chuva, uma biovaleta resolveria melhor esse problema.',
+      'O jardim de chuva não resolve a água que vem da rua, o certo seria uma vala.',
+      'Melhor seria começar por uma biovaleta antes de pensar no jardim.',
+    ]) {
+      const out = acceptPairing(pair({ reasonPt: bad }), opts);
+      expect(out.pairing, bad).toBeNull();
+      expect(out.why).toMatch(/questiona a escolha/);
+    }
+  });
+
+  test('it cannot propose something the site is not eligible for', () => {
+    // Belt and braces, like the shortlist: a model is good at relevance and bad
+    // at knowing a slope solution makes no sense on a flat schoolyard.
+    expect(acceptPairing(pair({ solutionId: 'muro-de-arrimo-verde' }), opts).why).toMatch(/fora do catálogo/);
+  });
+
+  test('it cannot propose what they already took', () => {
+    expect(acceptPairing(pair({ solutionId: 'jardins-de-chuva' }), opts).why).toMatch(/já escolhida/);
+  });
+
+  test('no pairing is a correct and common answer', () => {
+    expect(acceptPairing(null, opts).pairing).toBeNull();
+    expect(acceptPairing(pair({ reasonPt: 'Boa.' }), opts).why).toMatch(/sem motivo/);
   });
 });

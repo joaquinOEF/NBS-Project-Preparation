@@ -83,6 +83,8 @@ export interface FamiliaRankerContext {
   photos?: Array<{ filename: string; dataUrl: string }>;
   /** Short excerpts from documents the org uploaded. */
   docExcerpts?: string[];
+  /** What they said in the chat that no field captured. */
+  saidInChat?: string[];
 }
 
 export interface RankedFamiliaItem {
@@ -145,6 +147,9 @@ function buildPrompt(ctx: FamiliaRankerContext): Message[] {
       : null,
     ctx.orgMission ? `Organization: ${ctx.orgMission}` : null,
     ctx.docExcerpts?.length ? `From their documents:\n${ctx.docExcerpts.map(e => `  "${e}"`).join('\n')}` : null,
+    ctx.saidInChat?.length
+      ? `What they said in the chat (no field captured this — read it as their own words):\n${ctx.saidInChat.map(e => `  "${e}"`).join('\n')}`
+      : null,
   ].filter(Boolean).join('\n');
 
   const system: Message = {
@@ -255,7 +260,7 @@ export async function rankFamiliasWithContext(
 
   // Nothing of theirs to read → the model has no advantage over the arithmetic,
   // and we skip a call that would only add latency.
-  if (!ctx.story?.trim() && !ctx.photos?.length && !ctx.docExcerpts?.length) {
+  if (!ctx.story?.trim() && !ctx.photos?.length && !ctx.docExcerpts?.length && !ctx.saidInChat?.length) {
     return fallback('no org-supplied context to read');
   }
   if (!rankerCanRun()) {

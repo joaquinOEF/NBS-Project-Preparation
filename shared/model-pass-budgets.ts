@@ -85,8 +85,8 @@ export const PASS_BUDGETS: PassBudget[] = [
     measuredOn: '2026-09-04',
     how:
       'Six runs against the Raízes do Sarandi test-kit record WITH its three real site photographs (231/383/141 kB): ' +
-      '12.0, 12.6, 13.1, 14.1, 14.6, 15.7 s. Without photographs: 9.2–12.0 s. ' +
-      'scripts in-session; reasoningEffort low, 2000 completion tokens.',
+      '12.0, 12.6, 13.1, 14.1, 14.6, 15.7 s. Without photographs: 9.2–12.0 s. Re-measured at 13.4–15.6 s after the pass ' +
+      'also began reading the chat and 2 000 characters of the uploaded documents. reasoningEffort low, 2000 completion tokens.',
     costsWhenItFires:
       'the organisation gets the arithmetic ranking instead of the one that read its story and its photographs — a whole list, and the wrong one for that place',
     blocking: true,
@@ -112,9 +112,11 @@ export const PASS_BUDGETS: PassBudget[] = [
     id: 'w3DigFollowUp',
     env: 'CBO_DIG_FOLLOWUP_TIMEOUT_MS',
     capMs: 60_000,
-    measuredMs: 9_236,
+    measuredMs: 12_323,
     measuredOn: '2026-09-04',
-    how: 'Two runs over three answered round-1 questions, text only: 5.3 and 9.2 s. Smaller prompt, no photographs, and closer to the room.',
+    how:
+      'Three runs over three answered round-1 questions, text only: 5.3, 9.2 and 12.3 s. The last is after the pass also began ' +
+      'proposing a paired solution, which grew the prompt — re-measured rather than assumed, which is the point of this file.',
     costsWhenItFires:
       'nobody follows up on the answers, so the round is three questions instead of a conversation — the half a bank could never do',
     blocking: false,
@@ -134,9 +136,11 @@ export const PASS_BUDGETS: PassBudget[] = [
     id: 'synergyReport',
     env: 'CBO_SYNERGY_TIMEOUT_MS',
     capMs: 180_000,
-    measuredMs: 48_956,
+    measuredMs: 55_220,
     measuredOn: '2026-09-04',
-    how: 'npx tsx scripts/w3-synergy-live.ts over all eight simulated organisations: 49.0 s.',
+    how:
+      'npx tsx scripts/w3-synergy-live.ts over all eight simulated organisations: 49.0 s, then 55.2 s after the pass also began ' +
+      'writing tensions and sequencing. ⚠️ 3× of this is 166 s against a 180 s cap — the next thing added here needs a re-measure, not a guess.',
     costsWhenItFires:
       'the coordinator gets the deterministic groupings with no narrative — the reading that says what to DO about them is missing',
     blocking: false,

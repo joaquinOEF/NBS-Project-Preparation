@@ -570,6 +570,10 @@ export function registerCohortRoutes(app: Express): void {
           hasSite: !!s.hasSite,
           tenure: s.tenure ?? null,
           currentUse: s.currentUse ?? null,
+          // ⚠️ Hand-assembled, so every new fact on SynergyFacts has to be added
+          // here too — a spread would carry whatever lands on that type next
+          // across an organisation boundary, and this list crosses one.
+          photoNotesPt: s.photoNotesPt ?? [],
           worry: m.w2?.worry ?? null,
           familias: s.familias ?? [],
           solutions: s.solutions ?? [],

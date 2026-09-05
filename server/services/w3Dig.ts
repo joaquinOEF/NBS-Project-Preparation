@@ -20,7 +20,7 @@ import { z } from 'zod';
 import { createStructured, structuredProvider, type ContentPart } from './structuredModel';
 import { withBudget } from './passBudget';
 import {
-  acceptDig, DIG_ROUND_1, DIG_FOLLOW_UPS, type DigQuestion,
+  acceptDig, acceptPairing, DIG_ROUND_1, DIG_FOLLOW_UPS, type DigQuestion, type DigPairing,
 } from '@shared/w3-dig';
 import { SECTION_ORDER } from '@shared/concept-note';
 
@@ -28,6 +28,15 @@ import { SECTION_ORDER } from '@shared/concept-note';
 // every other structured call here. `feeds` is validated after parsing, where a
 // bad value costs one question instead of the whole round.
 const DigSchema = z.object({
+  /**
+   * ⚠️ One solution that goes BESIDE theirs, never instead of it — see
+   * acceptPairing. Null is the common and correct answer; the beat that
+   * consumes it works perfectly without one.
+   */
+  pairing: z
+    .object({ solutionId: z.string(), reasonPt: z.string(), reasonEn: z.string() })
+    .nullable()
+    .default(null),
   questions: z
     .array(
       z.object({
@@ -103,11 +112,21 @@ O QUE NÃO MERECE
 
 Em "sourceKind" ponha "answer", e em "basedOn" a resposta que você está seguindo.
 
+TAMBÉM: UMA SOLUÇÃO AO LADO (campo "pairing", ou null)
+Às vezes um lugar pede mais de uma coisa — uma horta e uma vala, por exemplo — e cada uma tem seu próprio caminho e seu próprio custo. Se, pelo que elas contaram, houver UMA solução do catálogo que faça sentido AO LADO da que já escolheram, proponha: "solutionId" (id exato da lista de elegíveis), "reasonPt" e "reasonEn" (uma frase, falada para elas, dizendo o que essa segunda coisa faz que a primeira não faz).
+
+⚠️ A REGRA QUE NÃO SE QUEBRA AQUI: você propõe o que vai AO LADO, nunca no lugar. Elas escolheram com intenção e você não passa por cima disso. Nada de "em vez de", "não resolve", "o certo seria", "melhor seria". Se a única coisa honesta a dizer for que a escolha delas não responde ao problema, então não há pairing: devolva null. Null é a resposta mais comum e está certa.
+
 ${REGISTER}
 
 ${SECTIONS}`;
 
 export interface DigInput {
+  /**
+   * What a pairing may be drawn from, when round 2 is allowed to propose one.
+   * Absent means it may not — and then it never asks itself the question.
+   */
+  pairing?: { eligibleIds: string[]; alreadyChosen: string[] };
   /** Everything they have said, already assembled — the same bundle the advisor reads. */
   record: string;
   /** Their photographs, when the round can use them. */
@@ -119,6 +138,10 @@ export interface DigInput {
 export interface DigOutcome {
   questions: DigQuestion[];
   dropped: Array<{ ask: string; why: string }>;
+  /** The paired solution, when round 2 found one worth proposing. */
+  pairing?: DigPairing | null;
+  /** Why a proposed pairing was refused, when one was. */
+  pairingDropped?: string;
   reason?: string;
 }
 
@@ -176,7 +199,18 @@ async function run(
   if (process.env.CBO_DIG_DEBUG === '1') {
     for (const q of raw.questions ?? []) console.log(`   [debug] basedOn="${String((q as any).basedOn ?? '').slice(0, 110)}"`);
   }
-  return { questions: verdict.kept, dropped: verdict.dropped };
+  // The pairing, when round 2 proposed one. Refused silently and often — the
+  // beat behind it is complete without it.
+  const paired = round === 2 && input.pairing
+    ? acceptPairing((raw as any).pairing, input.pairing)
+    : { pairing: null as DigPairing | null };
+  if (paired.why) console.log(`[dig] pairing recusado — ${paired.why}`);
+  return {
+    questions: verdict.kept,
+    dropped: verdict.dropped,
+    pairing: paired.pairing,
+    ...(paired.why ? { pairingDropped: paired.why } : {}),
+  };
 }
 
 /** Round 1 — written from the record, with their photographs in front of it. */
@@ -208,7 +242,11 @@ export async function digRound2(input: DigInput): Promise<DigOutcome> {
   const user =
     `# O QUE ELAS JÁ CONTARAM\n${input.record}\n\n` +
     `# O QUE ACABARAM DE RESPONDER\n${answered}\n\n` +
-    `Escolha no máximo ${DIG_FOLLOW_UPS}. Zero é uma resposta correta.`;
+    (input.pairing?.eligibleIds.length
+      ? `# SOLUÇÕES ELEGÍVEIS PARA ESTE LUGAR (ids exatos, para o "pairing")\n${input.pairing.eligibleIds.join(', ')}\n` +
+        `# JÁ ESCOLHIDAS (não proponha estas)\n${input.pairing.alreadyChosen.join(', ') || '—'}\n\n`
+      : '') +
+    `Escolha no máximo ${DIG_FOLLOW_UPS} perguntas. Zero é uma resposta correta.`;
   // ⚠️ The answers ARE the record now. A follow-up that repeats a number they
   // just said — "essas 8 casas" — is repeating them, and checking it against a
   // record that predates the answer would call it an invention.
