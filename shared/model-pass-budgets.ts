@@ -81,7 +81,7 @@ export const PASS_BUDGETS: PassBudget[] = [
     id: 'familiaRanker',
     env: 'CBO_RANKER_TIMEOUT_MS',
     capMs: 25_000,
-    measuredMs: 15_746,
+    measuredMs: 16_697,
     measuredOn: '2026-09-04',
     how:
       'Six runs against the Raízes do Sarandi test-kit record WITH its three real site photographs (231/383/141 kB): ' +
@@ -135,12 +135,14 @@ export const PASS_BUDGETS: PassBudget[] = [
   {
     id: 'synergyReport',
     env: 'CBO_SYNERGY_TIMEOUT_MS',
-    capMs: 180_000,
-    measuredMs: 55_220,
+    capMs: 240_000,
+    measuredMs: 72_343,
     measuredOn: '2026-09-04',
     how:
-      'npx tsx scripts/w3-synergy-live.ts over all eight simulated organisations: 49.0 s, then 55.2 s after the pass also began ' +
-      'writing tensions and sequencing. ⚠️ 3× of this is 166 s against a 180 s cap — the next thing added here needs a re-measure, not a guess.',
+      'npx tsx scripts/w3-synergy-live.ts over all eight simulated organisations: 49.0 s, then 55.2 s, then 71.3 and 72.3 s once the ' +
+      'pass was actually reading the photo observations and the published timings AND writing tensions and sequencing. ⚠️ The 55.2 s ' +
+      'figure was measured on a checkout that did not yet contain those — a full test caught it, and the cap moved 180 → 240 s because ' +
+      '3× the real number no longer fitted. Measure the thing you shipped, not the thing you were about to.',
     costsWhenItFires:
       'the coordinator gets the deterministic groupings with no narrative — the reading that says what to DO about them is missing',
     blocking: false,
