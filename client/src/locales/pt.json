@@ -2173,7 +2173,7 @@
     "loadingSites": "Carregando locais…",
     "customSite": "Local marcado",
     "customPointName": "Ponto marcado",
-    "customAreaName": "Área desenhada ({{n}} pontos)",
+    "customAreaName": "Área desenhada (~{{m2}} m²)",
     "siteName": "Local",
     "howToRead": "Como ler este mapa",
     "helpTitle": "Como ler este mapa",

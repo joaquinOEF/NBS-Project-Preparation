@@ -281,8 +281,19 @@ export function buildRoadmap(
       // A solution counted per unit has no footprint to draw, and saying "falta
       // desenhar a área" to an organisation that answered "5 cisternas" reads
       // as a tool that lost the answer.
+      // ⚠️ "Área desenhada" only when it WAS drawn. There are three roads to
+      // this number now — a traced outline, a comparison chip, and a sentence
+      // ("uns 30 por 20") — and calling the last two a drawing is the tool
+      // putting a measurement in the organisation's mouth. `site_area_source`
+      // carries the provenance for exactly this; the sentence states it.
       ...(areaM2
-        ? [pt ? `Área desenhada: aproximadamente ${areaM2} m².` : `Drawn area: roughly ${areaM2} m².`]
+        ? [
+            (site.site_area_source ?? '').trim()
+              ? (pt
+                  ? `Área: aproximadamente ${areaM2} m² (${site.site_area_source}).`
+                  : `Area: roughly ${areaM2} m² (${site.site_area_source}).`)
+              : (pt ? `Área desenhada: aproximadamente ${areaM2} m².` : `Drawn area: roughly ${areaM2} m².`),
+          ]
         : units
           ? [pt ? `Escala: ${units} ${unitNoun(solutions, units, 'pt') ?? 'unidade(s)'}.` : `Scale: ${units} ${unitNoun(solutions, units, 'en') ?? 'unit(s)'}.`]
           : [pt ? 'Falta desenhar a área.' : 'The area is still to be drawn.']),

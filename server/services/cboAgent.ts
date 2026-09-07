@@ -3231,6 +3231,8 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'examples', cardIds: event.cardIds, mode: event.mode, intro: event.intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_site_card') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'site_card', card: (event as any).card }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_footprint_card') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'footprint_card', card: (event as any).card }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_familia_recommendation') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'familia_reco', items: (event as any).items, intro: (event as any).intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_solution_options') {

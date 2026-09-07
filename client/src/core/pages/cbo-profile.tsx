@@ -15,7 +15,8 @@ import {
 } from '@/core/components/ui/alert-dialog';
 import { useFileDrop } from '@/core/hooks/useFileDrop';
 import { useToast } from '@/core/hooks/use-toast';
-import { hazardPercentile, riskBand, dominantPercentile } from '@shared/risk-display';
+import { hazardPercentile } from '@shared/risk-display';
+import { buildMapSummary, drawnAreaM2 } from '@shared/map-summary';
 import {
   CBO_SECTIONS,
   phaseComplete,
@@ -57,6 +58,7 @@ import { familiesOfWorries } from '@shared/site-knowledge';
 import { NbsTypeStrip } from '@/core/components/cbo/NbsTypeStrip';
 import { NbsFamiliaStrip } from '@/core/components/cbo/NbsFamiliaStrip';
 import { CboSiteCard } from '@/core/components/cbo/CboSiteCard';
+import { CboFootprintCard } from '@/core/components/cbo/CboFootprintCard';
 import { CboFamiliaRecommendation } from '@/core/components/cbo/CboFamiliaRecommendation';
 import { RiskPriorityChips, type HazardId } from '@/core/components/cbo/RiskPriorityChips';
 import { CommunityAnchoringComposer, type CommunityAnchoringResult } from '@/core/components/cbo/CommunityAnchoringComposer';
@@ -83,6 +85,18 @@ import { localizedWorkshopName } from '@/lib/workshopHelpers';
 const MapMicroapp = lazy(() => import('@/core/components/maps/MapMicroapp'));
 const InterventionSelector = lazy(() => import('@/core/components/maps/InterventionSelector'));
 
+/** A polygon's outer ring, thinned to at most MAX_RING_PTS [lng, lat] pairs. */
+const MAX_RING_PTS = 60;
+function ringOf(geometry: any): Array<[number, number]> {
+  if (geometry?.type !== 'Polygon') return [];
+  const ring: Array<[number, number]> = (geometry.coordinates?.[0] ?? []).filter(
+    (c: any) => Array.isArray(c) && Number.isFinite(c[0]) && Number.isFinite(c[1]),
+  );
+  if (ring.length <= MAX_RING_PTS) return ring;
+  const step = Math.ceil(ring.length / MAX_RING_PTS);
+  return ring.filter((_, i) => i % step === 0 || i === ring.length - 1);
+}
+
 function formatMapResult(result: MapSelectionResult): string {
   const lines: string[] = [`Map selection (${result.selectionMode} mode):`];
   for (const asset of result.selectedAssets) {
@@ -107,6 +121,16 @@ function formatMapResult(result: MapSelectionResult): string {
         : 0;
       const areaInfo = areaM2 > 0 ? ` · ${areaM2} m²` : '';
       lines.push(`- [${asset.type}] ${asset.name}${geomType} at (${asset.coordinates[0].toFixed(4)}, ${asset.coordinates[1].toFixed(4)})${areaInfo}${rasterInfo ? ` | ${rasterInfo}` : ''}`);
+      // The RING, on its own line, so the checkpoint can show the room the
+      // shape it just traced instead of describing it (CboFootprintCard). It
+      // rides in the payload rather than in a new request field because the
+      // payload is already the one thing that survives to the server verbatim.
+      // Capped: a card is a picture, and the authoritative footprint is the one
+      // PUT to the member's site record beside this send.
+      const ring = ringOf(asset.geometry as any);
+      if (ring.length >= 3) {
+        lines.push(`- [footprint] ${ring.map(([lng, lat]) => `${lat.toFixed(5)},${lng.toFixed(5)}`).join(' ')}`);
+      }
     }
   }
   for (const pt of result.sampledPoints) {
@@ -118,75 +142,6 @@ function formatMapResult(result: MapSelectionResult): string {
   }
   lines.push(`Total: ${result.selectedAssets.length} assets, ${result.sampledPoints.length} sampled points`);
   return lines.join('\n');
-}
-
-// A clean, human risk summary shown in the chat bubble after a map selection —
-// the actual neighborhood stats, not just a color (Ana's ask), and NOT the raw
-// H×E×V/coordinate dump (CBO-MAP-PAYLOAD). The raw payload still goes to the
-// agent as hidden context; this is only what the user reads back.
-// ⚠️ CBO-RISK-SCALE (JVP, 2026-08-03: Site Explorer said Floresta was flood
-// "Muito Alto · 97", the CBO chat told the same org "inundação baixo").
-//
-// Both numbers were real. They are different statistics, and the CBO flow was
-// using the wrong one. `meanFlood` is the absolute (H×E×V)^⅓ product, which
-// shared/risk-display.ts documents as "structurally compressed (rarely > ~0.2)"
-// — and the words below were being applied to it with 0.33/0.66 thresholds.
-//
-// Measured over the 94 POA bairros: ZERO have meanFlood ≥ 0.33 (max 0.242) and
-// ZERO have meanLandslide ≥ 0.33. So the old code could not return anything but
-// "baixo" for flood and landslide, in every neighbourhood in the city, forever
-// — including the single worst flood bairro in Porto Alegre.
-//
-// That is not just a label: this string is parsed back into _bairro_*_pct,
-// which drives the site card, the hazard-check read-back ("nosso mapa diz que o
-// risco de enchente é baixo") and rankFamiliasForSite — so águas-pluviais and
-// encostas-e-solo were systematically down-ranked for every org in the cohort.
-//
-// Fixed by using the WITHIN-CITY PERCENTILE (floodRank/heatRank/landslideRank)
-// via shared/risk-display.ts — the same module and the same basis the
-// coordinator's Site Explorer already uses. One source of truth, as intended.
-const BAND_WORDS: Record<'pt' | 'en', Record<string, string>> = {
-  pt: { very_low: 'muito baixo', low: 'baixo', moderate: 'moderado', high: 'alto', very_high: 'muito alto' },
-  en: { very_low: 'very low', low: 'low', moderate: 'moderate', high: 'high', very_high: 'very high' },
-};
-const BAND_WORDS_F: Record<'pt' | 'en', Record<string, string>> = {
-  pt: { very_low: 'muito baixa', low: 'baixa', moderate: 'moderada', high: 'alta', very_high: 'muito alta' },
-  en: BAND_WORDS.en,
-};
-/** Band word for a 0–100 WITHIN-CITY percentile (never for a raw mean). */
-const bandWord = (pct: number, lang: 'pt' | 'en', fem = false) =>
-  (fem ? BAND_WORDS_F : BAND_WORDS)[lang][riskBand(pct).key];
-
-function buildRiskSummary(result: MapSelectionResult, langRaw: string): string {
-  const lang: 'pt' | 'en' = langRaw === 'pt' ? 'pt' : 'en';
-  const L = lang === 'pt';
-  const zones = result.selectedAssets.filter(a => a.type === 'zone');
-  const sites = result.selectedAssets.filter(a => a.type !== 'zone');
-  const out: string[] = [L ? 'Selecionei no mapa:' : 'Selected on the map:'];
-  for (const z of zones) {
-    const p: any = z.properties || {};
-    out.push(`${L ? 'Bairro' : 'Neighborhood'} ${z.name}`);
-    out.push(`🔵 ${L ? 'inundação' : 'flood'} ${bandWord(hazardPercentile(p, 'flood'), lang)} · 🔴 ${L ? 'calor' : 'heat'} ${bandWord(hazardPercentile(p, 'heat'), lang)} · 🟤 ${L ? 'deslizamento' : 'landslide'} ${bandWord(hazardPercentile(p, 'landslide'), lang)}`);
-    // The percentile is relative to the rest of the city — say so, or "alto"
-    // reads as an absolute claim about danger.
-    out.push(L ? '_(comparado com os outros bairros de Porto Alegre)_' : '_(compared with the other neighbourhoods in Porto Alegre)_');
-    const pop = p.populationTotal || p.populationSum;
-    const bits: string[] = [];
-    if (pop) bits.push(`👥 ~${Number(pop).toLocaleString(L ? 'pt-BR' : 'en-US')} ${L ? 'moradores' : 'residents'}`);
-    // Priority reads off the dominant hazard's display percentile — the same
-    // basis as the coordinator's priority badge (risk-display.dominantPercentile),
-    // not the compressed absolute priorityScore.
-    if (p.priorityScore != null) bits.push(`⭐ ${L ? 'prioridade' : 'priority'} ${bandWord(dominantPercentile(p), lang, L)}`);
-    if (bits.length) out.push(bits.join(' · '));
-  }
-  if (sites.length) {
-    const names = sites.slice(0, 3).map(s => s.name).join(', ');
-    const noun = L ? (sites.length === 1 ? 'local' : 'locais') : (sites.length === 1 ? 'site' : 'sites');
-    out.push(`📍 ${sites.length} ${noun}: ${names}${sites.length > 3 ? ` +${sites.length - 3}` : ''}`);
-  } else if (result.siteDeferred) {
-    out.push(L ? '📍 Sem local específico ainda — vamos trabalhar com o bairro todo por enquanto.' : '📍 No specific site yet — working with the whole neighborhood for now.');
-  }
-  return out.join('\n');
 }
 
 function fixMarkdownTables(text: string): string {
@@ -1527,13 +1482,16 @@ export default function CboProfilePage() {
         break;
       }
       case 'show_site_card':
+      case 'show_footprint_card':
       case 'show_familia_recommendation': {
         // E2 linear-flow composers — same persist-inline pattern as the strips
         // above (mirrors the server's composer row; mid-turn, so no
         // setIsStreaming(false) — the paired ask_user follows in this turn).
         const payload = event.type === 'show_site_card'
           ? { kind: 'site_card', card: (event as any).card }
-          : { kind: 'familia_reco', items: (event as any).items, intro: (event as any).intro };
+          : event.type === 'show_footprint_card'
+            ? { kind: 'footprint_card', card: (event as any).card }
+            : { kind: 'familia_reco', items: (event as any).items, intro: (event as any).intro };
         setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify(payload), messageType: 'composer', timestamp: new Date().toISOString() }]);
         break;
       }
@@ -2375,6 +2333,13 @@ export default function CboProfilePage() {
                   return (
                     <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
                       <CboSiteCard card={parsed.card} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'footprint_card' && parsed.card) {
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <CboFootprintCard card={parsed.card} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
                     </div>
                   );
                 }
@@ -3265,7 +3230,7 @@ export default function CboProfilePage() {
                       }
                       // Show the user a clean risk summary; send the raw payload
                       // to the agent as the message body (hidden context).
-                      const summary = buildRiskSummary(result, lang);
+                      const summary = buildMapSummary(result, lang);
                       // Same invariant as the chips (CHIP-TAP-LOST), and here the
                       // dropped payload is everything they just did on the map —
                       // bairro, site, risk numbers. Never clear ahead of a send

@@ -1680,19 +1680,40 @@ export default function MapMicroapp({
           if (val !== null) rasterValues[tileDef.name] = val;
         }
       }
+      // ⚠️ EVERYTHING THE UPDATER NEEDS IS READ HERE, NOT INSIDE IT.
+      //
+      // React runs a `setState(prev => …)` updater eagerly ONLY while the queue
+      // is empty; otherwise it defers it to render — and the line below this
+      // block empties `polygonPointsRef`. So a name built inside the updater
+      // wins or loses that race depending on what else is pending, which is why
+      // this reached a live workshop as "Área desenhada (0 pontos)" while
+      // drawing in a bare session looked fine.
+      //
+      // Measured, not deduced (2026-09-07). Drawing in a bare session, the same
+      // code read 4 vertices every time; with a raster layer enabled — so the
+      // `await sampleRasterAtPoint` above lands the setState outside the event
+      // handler — it read 0. It is a race, not a constant: reruns of that
+      // second case have come back 4. A name that is right most of the time is
+      // the worst kind, so the count is not what names the shape any more.
+      //
+      // The fallback coordinate below is the same trap one step worse: with no
+      // centroid it would index `[0]` of an emptied array and throw from a
+      // render, where no try/catch at this call site can see it.
+      const firstPt = polygonPointsRef.current[0];
+      // The size, not the vertex count. Nobody confirms a polygon by how many
+      // times they tapped; the m² is the number this whole step exists to get,
+      // and it is the one the chat, the site card and the price band all quote.
+      const nameM2 = roundAreaM2(polygonAreaM2(geometry as any));
       setSelectedAssets(prev => [
         ...prev,
         {
           type: 'custom',
           name: t('mapMicroapp.customAreaName', {
-            defaultValue: 'Custom area ({{n}} vertices)',
-            n: polygonPointsRef.current.length,
+            defaultValue: 'Drawn area (~{{m2}} m²)',
+            m2: nameM2.toLocaleString(provLang === 'pt' ? 'pt-BR' : 'en-US'),
           }),
           geometry,
-          coordinates: centroid || [
-            polygonPointsRef.current[0].lat,
-            polygonPointsRef.current[0].lng,
-          ],
+          coordinates: centroid || [firstPt.lat, firstPt.lng],
           properties: {},
           rasterValues,
         },
@@ -2037,6 +2058,13 @@ export default function MapMicroapp({
       )
     : 0;
 
+  // The names of everything picked or drawn, exposed on the root so a test can
+  // see what a map session actually produced. There is no other seam: in
+  // footprint mode the selection list is hidden, the confirm button quotes the
+  // geometry rather than the asset, and the name only becomes visible again
+  // after it has travelled to the server. That blind spot is exactly where
+  // "Área desenhada (0 pontos)" survived to a live workshop.
+  const selectionNames = selectedAssets.filter(a => a.type !== 'zone').map(a => a.name).join(' | ');
   const totalSelections = selectedAssets.length + sampledPoints.length;
   const availableTileLayers = (params.tileLayers || [])
     .map(id => ALL_TILE_LAYERS.find(l => l.id === id))
@@ -2131,7 +2159,7 @@ export default function MapMicroapp({
     // The ⓘ "De onde vêm estes dados" dialog opened *underneath* the hazard
     // legend because of this. Leaflet solves it for its own panes the same way
     // (.leaflet-container is z-index:0); we just do it for ours.
-    <div className='relative isolate flex flex-col h-full w-full bg-background overflow-hidden'>
+    <div data-selection-names={selectionNames} className='relative isolate flex flex-col h-full w-full bg-background overflow-hidden'>
       {/* Header */}
       <div className='px-3 py-2 border-b bg-muted/30 shrink-0 flex items-start gap-2'>
         <div className='min-w-0 flex-1'>
