@@ -2216,8 +2216,8 @@
     "tabInvite": "Convite",
     "tabDocuments": "Documentos",
     "documentsHint": "Os documentos que a organização leva do Encontro 3. Abrem numa aba nova, exatamente como ela os vê.",
-    "docConceptNote": "Nota de conceito",
-    "docConceptNoteHint": "Para financiador ou prefeitura",
+    "docConceptNote": "Resumo do projeto",
+    "docConceptNoteHint": "Para a coordenação — base para preparar uma proposta",
     "docRoadmap": "Hoja de ruta",
     "docRoadmapHint": "O caminho, com responsáveis"
   },

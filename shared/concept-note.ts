@@ -404,7 +404,8 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
   // The advisor's reading of the photographs and the documents, if it ran.
   // Absent in a deployment with no key, which is why nothing here depends on it.
   //
-  // ⚠️ A `gap` OBSERVATION NEVER REACHES THE PAGE, and the reason is timing.
+  // ⚠️ AN OBSERVATION GROUNDED IN AN ABSENCE EXPIRES; ONE GROUNDED IN EVIDENCE
+  // DOES NOT. The reason is timing.
   // The advisor runs when Encontro 3 OPENS; the document prints when it closes.
   // Everything in between is the workshop filling gaps — so by print time an
   // advisor gap is a snapshot of a record that no longer exists. Printed anyway,
@@ -418,17 +419,26 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
   //      — under a paragraph describing the yard, the two blocked drains, the
   //        wall and the single patch of shade.
   //
-  // Nothing is lost by dropping them: what is still missing is COMPUTED fresh
-  // at print time by the dossier and printed in §11, which is the authority and
-  // is never stale. A `strength` and a `cohort` observation age far better —
-  // they read the material rather than counting what is absent from it.
+  // ⚠️ AND THE TEST IS NOT `kind`. The first cut of this dropped every
+  // observation of kind 'gap' and broke two tests that were right to fail: "o
+  // piso do pátio é cimento liso e não há ralo visível em nenhuma das fotos" is
+  // also a gap, and it is one of the most valuable sentences in the document —
+  // nobody could write it without having looked at the photograph. What decides
+  // it is what the observation STANDS ON. A photograph, a document or a
+  // recorded field still exists at print time; an absence ("nenhuma resposta
+  // registrada", "ausência de arquivos enviados") is precisely what a workshop
+  // spends two hours removing.
+  //
+  // Nothing is lost: what is still missing is COMPUTED fresh at print time by
+  // the dossier and printed under Pendências, which is the authority and is
+  // never stale.
   const observations: ConceptNoteFacts['observations'] = (() => {
     try {
       const advice = JSON.parse(String(w3._advice_json ?? '') || '{}');
       return (advice.observations ?? [])
         .filter((o: any) => typeof o?.textPt === 'string' && o.textPt.trim().length > 12)
         .map((o: any) => ({ text: String(o.textPt).trim(), basedOn: String(o.basedOn ?? '').trim(), kind: String(o.kind ?? '') }))
-        .filter((o: any) => o.basedOn && o.kind !== 'gap');
+        .filter((o: any) => o.basedOn && !groundedInAbsence(o.basedOn));
     } catch {
       return [];
     }
@@ -565,6 +575,22 @@ export interface ConceptSection {
 }
 
 export interface ConceptNote {
+  /**
+   * ⚠️ WHAT THIS DOCUMENT IS, on the document.
+   *
+   * It went out titled "Biovaletas" — the solution's name and nothing else — so
+   * the PDF landed in a downloads folder as `Biovaletas.pdf` beside the hoja de
+   * ruta's `Biovaletas · Colégio Caldas Junior.pdf`, with nothing on either
+   * page saying which was which or who it was for (JVP, 2026-09-07). It was
+   * also called a nota de conceito "para financiador ou prefeitura" in the UI,
+   * which it is not: it carries our own readings, the named gaps and the open
+   * items, all of which belong to the coordination and none of which belongs in
+   * a document handed to a funder. A funder-facing note is written FROM this
+   * one, by someone who decides what to leave out.
+   */
+  docLabel: string;
+  /** Who it is for, in one clause. Printed under the title. */
+  docAudience: string;
   title: string;
   subtitle: string;
   state: VerdictState;
@@ -579,8 +605,11 @@ const T = {
     resultados: 'Resultados esperados', exige: 'O que o projeto exige',
     custo: 'Custo estimado e contrapartida', financiamento: 'Caminhos de financiamento',
     manutencao: 'Manutenção e recursos recorrentes',
-    pendencias: 'Pendências e próximos passos',
+    pendencias: 'Pendências',
     draft: 'RASCUNHO — para validar e ajustar',
+    docLabel: 'Resumo do Projeto',
+    docAudience: 'Para a organização e a coordenação — base para preparar uma proposta',
+    stepsElsewhere: 'Os próximos passos, com o responsável de cada um, estão no plano de trabalho da organização.',
   },
   en: {
     resumo: 'Summary', organizacao: 'The organisation and the territory', problema: 'The problem',
@@ -588,10 +617,20 @@ const T = {
     resultados: 'Expected results', exige: 'What the project requires',
     custo: 'Estimated cost and counterpart contribution', financiamento: 'Funding paths',
     manutencao: 'Upkeep and recurring resources',
-    pendencias: 'Open items and next steps',
+    pendencias: 'Open items',
     draft: 'DRAFT — to validate and adjust',
+    docLabel: 'Project Summary',
+    docAudience: 'For the organisation and the coordination — the basis for preparing a proposal',
+    stepsElsewhere: "The next steps, each with its owner, are in the organisation's work plan.",
   },
 } as const;
+
+/**
+ * Does this provenance describe something that EXISTS, or something that was
+ * missing when it was written? Only the second kind expires.
+ */
+const ABSENCE = /\bnenhum[ao]?\b|\baus[êe]ncia\b|\bn[ãa]o (?:foi|foram|h[áa]|existe|enviou|deixou|registr)|\bsem registro\b|\bpreferiu pular\b|\bno (?:answer|record|data|response)\b|\bnothing\b|\bnone\b|\babsence\b|\bnot (?:recorded|provided|sent|answered)\b|\bskipped\b/i;
+export const groundedInAbsence = (basedOn: string): boolean => ABSENCE.test(basedOn ?? '');
 
 const STATE_SENTENCE: Record<VerdictState, { pt: string; en: string }> = {
   ready: {
@@ -612,7 +651,7 @@ const STATE_SENTENCE: Record<VerdictState, { pt: string; en: string }> = {
   // the next three paragraphs state is the same defect as the rest of this
   // change: a true verdict wearing a sentence that is false beside it.
   needs_site: {
-    pt: 'O projeto ainda não tem o lugar marcado no mapa — sem isso, o que estiver dito abaixo sobre área, custo e aprovação fica sem endereço e não pode ser confirmado.',
+    pt: 'O projeto ainda não tem lugar marcado no mapa — sem isso, o que estiver dito abaixo sobre área, custo e aprovação fica sem endereço e não pode ser confirmado.',
     en: 'The project has no place marked on the map yet — so whatever is stated below about area, cost and approvals has no address and cannot be confirmed.',
   },
 };
@@ -1144,13 +1183,17 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
     ...f.solutions.map(s => (s.upkeep ? P(`**${s.label}.** ${s.upkeep}`, [`ficha ${s.id} · quemCuidaDepois`]) : null)),
   ], !f.delivery.recurringMoney || /indefinido/i.test(input.w3?.sustainability_model ?? ''));
 
-  // ── 10 · Pendências e próximos passos ─────────────────────────────────────
+  // ── 10 · Pendências ───────────────────────────────────────────────────────
+  // ⚠️ The seven numbered steps used to be reprinted here, verbatim from the
+  // hoja de ruta — so an organisation downloaded two documents that ended with
+  // the same list, and neither said which one it was supposed to act on. The
+  // steps are the ORGANISATION'S plan and live in the plan; what stays here is
+  // what is still MISSING, which is what a reader of this document needs.
   push('pendencias', [
     ...f.gaps.map(g => P(g.charAt(0).toUpperCase() + g.slice(1), [pt ? 'lacuna nomeada no fechamento' : 'gap named at the close'], 'bullet')),
-    ...f.steps.map(s =>
-      P(`${s.n}. ${s.title} — ${s.owner === 'org' ? (s.ownerName ?? (pt ? 'a organização' : 'the organisation')) : (pt ? 'coordenação' : 'coordination')}${s.blockedBy ? ` · ${s.blockedBy}` : ''}`,
-        [pt ? 'rota derivada do registro' : 'route derived from the record'], 'bullet'),
-    ),
+    f.steps.length
+      ? P(t.stepsElsewhere, [pt ? 'plano de trabalho do Encontro 3' : 'the Encontro 3 work plan'])
+      : null,
   ], f.gaps.length > 0);
 
   // ⚠️ The hole the `push` hook alone would leave. A section is only pushed when
@@ -1165,6 +1208,8 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
   }
 
   return {
+    docLabel: t.docLabel,
+    docAudience: t.docAudience,
     title: names.join(' + ') || (pt ? 'Projeto sem solução escolhida' : 'Project with no solution chosen'),
     subtitle: [where, f.org.name].filter(Boolean).join(' — '),
     state: f.verdict,

@@ -56,6 +56,12 @@ const STATE_LABEL: Record<string, { pt: string; en: string }> = {
 const T = {
   pt: {
     draft: 'RASCUNHO — para validar e ajustar',
+    // ⚠️ Both documents went out unlabelled, so a downloads folder held
+    // "Biovaletas.pdf" and "Biovaletas · Colégio Caldas Junior.pdf" with
+    // nothing on either page saying which was which. This is the one the
+    // organisation walks; the other one is the Resumo do Projeto.
+    docLabel: 'Plano de Trabalho',
+    docAudience: 'Para a organização — o caminho a percorrer depois do Encontro 3',
     p1: 'O projeto', p2: 'O que o projeto exige', road: 'Próximos passos', open: 'Pendências',
     openWhy: 'Itens pendentes no fechamento do Encontro 3. O responsável indicado consta em cada passo.',
     org: 'a organização', coord: 'coordenação', openTag: 'em aberto',
@@ -65,6 +71,8 @@ const T = {
   },
   en: {
     draft: 'DRAFT — to validate and adjust',
+    docLabel: 'Work Plan',
+    docAudience: 'For the organisation — the route to walk after Encontro 3',
     p1: 'The project', p2: 'What the project requires', road: 'Next steps', open: 'Open items',
     openWhy: 'Items still open at the close of Encontro 3. The proposed owner of each one appears in the steps.',
     org: 'the organisation', coord: 'coordination', openTag: 'open',
@@ -98,7 +106,7 @@ function block(b: { title: string; lines: string[]; from?: string; changedBy?: s
 export function renderRoadmapHtml(roadmap: Roadmap, lang: 'pt' | 'en' = 'pt'): string {
   const t = T[lang];
   const state = STATE_LABEL[roadmap.state]?.[lang] ?? roadmap.state;
-  const title = `${roadmap.solutions.join(' + ') || '—'} · ${roadmap.siteName || roadmap.bairro}`;
+  const title = `${T[lang].docLabel} — ${roadmap.solutions.join(' + ') || '—'} · ${roadmap.siteName || roadmap.bairro}`;
   const today = new Date().toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-GB');
 
   return `<!doctype html>
@@ -117,6 +125,11 @@ export function renderRoadmapHtml(roadmap: Roadmap, lang: 'pt' | 'en' = 'pt'): s
     -webkit-text-size-adjust: 100%;
   }
   .sheet { max-width: 760px; margin: 0 auto; padding: 26px 20px 60px; }
+  .doclabel {
+    font-size: 12px; font-weight: 800; letter-spacing: .14em;
+    text-transform: uppercase; color: #4a6b58; margin: 14px 0 2px;
+  }
+  .audience { font-size: 11.5px; color: #6b7b71; margin: 2px 0 0; }
   .draft {
     font-size: 11px; font-weight: 800; letter-spacing: .1em;
     color: #7a5a12; background: #fdf4e0; border: 1px solid #e8d5a6;
@@ -175,8 +188,10 @@ export function renderRoadmapHtml(roadmap: Roadmap, lang: 'pt' | 'en' = 'pt'): s
   </div>
 
   <div class="draft">${esc(t.draft)}</div>
+  <div class="doclabel">${esc(t.docLabel)}</div>
   <h1>${esc(roadmap.solutions.join(' + ') || '—')}</h1>
   <p class="sub">${esc([roadmap.siteName, roadmap.bairro].filter(Boolean).join(' · '))}${roadmap.orgName ? ` — ${esc(roadmap.orgName)}` : ''}</p>
+  <p class="audience">${esc(t.docAudience)}</p>
   <span class="verdict">${esc(state)}</span>
 
   <h2>${esc(t.p1)}</h2>
