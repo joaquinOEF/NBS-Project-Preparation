@@ -17,7 +17,8 @@
 // Content and copy: shared/w3-roadmap.ts. Nothing is rendered here that was not
 // computed there.
 
-import { FileText, ArrowRight, CircleAlert, Printer, RefreshCw } from 'lucide-react';
+import { FileText, ArrowRight, CircleAlert, Printer, RefreshCw, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import type { Roadmap, RoadmapBlock } from '@shared/w3-roadmap';
 
 type VerdictState = 'ready' | 'needs_study' | 'needs_permission' | 'needs_site';
@@ -62,6 +63,8 @@ const S = {
     // in a page handed to a funder. A funder-facing note is written FROM this
     // one, by someone who decides what to leave out. (JVP, 2026-09-07)
     note2: 'Resumo do projeto — a base para preparar uma proposta',
+    writing: 'Escrevendo o resumo…',
+    writingHint: 'Alguns segundos. O documento fica melhor com essa parte escrita.',
   },
   en: {
     eyebrow: 'Draft — to check and adjust',
@@ -78,6 +81,8 @@ const S = {
     note: 'No figure is settled. Every block states its source and what would revise it.',
     print: 'Download the work plan to print or take with you',
     note2: 'Project summary — the basis for preparing a proposal',
+    writing: 'Writing the summary…',
+    writingHint: 'A few seconds. The document is better with this part written.',
   },
 };
 
@@ -123,6 +128,43 @@ export function CboRoadmap({
 }) {
   const s = S[lang];
   const st = STATE[(roadmap.state as VerdictState) ?? 'needs_site'];
+
+  // ⚠️ THE PROSE IS WRITTEN AFTER THIS CARD APPEARS, and the same URL serves a
+  // different document once it lands. An organisation that tapped immediately
+  // got the assembled version and no hint that a fuller one was seconds away
+  // (JVP, CEA Bom Jesus, 2026-09-07). So the card waits, visibly, and says why.
+  //
+  // Three rules keep the wait honest. It only ever waits on a pass that is
+  // actually running — 'skipped' and 'unknown' both mean "there is nothing
+  // coming", and a deployment with no key must not sit here. It stops polling
+  // the moment the answer settles. And it gives up on its own after two
+  // minutes, because a card stuck on "escrevendo…" is worse than the thinner
+  // document it was trying to spare anyone.
+  const [authoring, setAuthoring] = useState<'unknown' | 'writing' | 'settled'>('unknown');
+  useEffect(() => {
+    if (!cboId) return;
+    let stop = false;
+    const startedAt = Date.now();
+    const GIVE_UP_MS = 120_000;
+    const poll = async () => {
+      if (stop) return;
+      try {
+        const r = await fetch(`/api/cbo/${cboId}/concept-note/status`);
+        const j = await r.json();
+        if (stop) return;
+        if (j?.status === 'writing' && Date.now() - startedAt < GIVE_UP_MS) {
+          setAuthoring('writing');
+          setTimeout(poll, 3000);
+          return;
+        }
+        setAuthoring('settled');
+      } catch {
+        setAuthoring('settled'); // a failed probe never holds the document back
+      }
+    };
+    void poll();
+    return () => { stop = true; };
+  }, [cboId]);
 
   return (
     <div
@@ -227,7 +269,18 @@ export function CboRoadmap({
           what the organisation walks; this is what it hands to someone who was
           not in the room — the project argued, with every figure sourced.
           Same rebuilt-from-live-state contract, so the two cannot disagree. */}
-      {cboId && (
+      {cboId && (authoring === 'writing' ? (
+        <div
+          data-testid="concept-note-writing"
+          className="mt-1.5 flex items-center justify-center gap-2 rounded-lg border border-dashed border-[#9fb3a6] bg-muted/40 px-3 py-2.5 text-[12.5px] font-semibold text-muted-foreground"
+        >
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <span>
+            {s.writing}
+            <span className="block text-[10.5px] font-normal">{s.writingHint}</span>
+          </span>
+        </div>
+      ) : (
         <a
           href={`/api/cbo/${cboId}/concept-note?lang=${lang}`}
           target="_blank"
@@ -238,7 +291,7 @@ export function CboRoadmap({
           <FileText className="h-3.5 w-3.5" />
           {s.note2}
         </a>
-      )}
+      ))}
 
       <p className="border-t border-border/60 pt-2 text-[10.5px] italic leading-snug text-muted-foreground">
         {s.note}
