@@ -176,11 +176,47 @@ export function answeredDig(all: DigQuestion[]): DigQuestion[] {
   });
 }
 
-/** The dig, rendered for the document: third person, the answer inside the sentence. */
-export function digParagraphs(all: DigQuestion[], lang: 'pt' | 'en'): Array<{ text: string; feeds: ConceptSectionId }> {
+/**
+ * ⚠️ A FRAME FITS A FRAGMENT, NOT A PARAGRAPH.
+ *
+ * The writing pass composes `notePt` as a sentence with a hole in it — "No
+ * evento de março de 2026, a água permaneceu {answer} nas salas do térreo" —
+ * built for the answer it expects: *oito horas*. An organisation asked how long
+ * the water stayed does not say "oito horas". It says:
+ *
+ *   "Ficou o dia inteiro. A chuva foi de manhã, por volta das nove, e a água só
+ *    começou a baixar umas cinco da tarde — quase oito horas com uns quinze
+ *    centímetros dentro das duas salas. O que segurou foi o ralo do corredor…"
+ *
+ * Dropped into the hole, that produced three ungrammatical paragraphs in a
+ * document that goes to a funder (JVP, CEA Bom Jesus, 2026-09-07) — each one
+ * ending with the frame's own tail hanging off the end of somebody's story.
+ *
+ * The answer is never the thing to trim: it is the most valuable material in
+ * the session, and the only part nobody else could have written. So the FRAME
+ * gives way. A short fragment still goes inside the sentence, which reads
+ * better than a bare quote; anything longer is printed as what it is — the
+ * organisation's own account, attributed, standing on its own.
+ */
+const FITS_A_FRAME = 140;
+
+export function digParagraphs(all: DigQuestion[], lang: 'pt' | 'en'): Array<{ text: string; feeds: ConceptSectionId; quoted?: true }> {
   return answeredDig(all).map(q => {
     const template = lang === 'pt' ? q.notePt : q.noteEn;
     let answer = (q.answer ?? '').trim();
+    // More than one sentence, or longer than a clause, and no frame will hold
+    // it. `.` inside a number ("2.900 m²") or an abbreviation is not a sentence
+    // break, hence the letter-space-capital test rather than a bare dot.
+    const multiSentence = /[.!?][)\"'”’]?\s+[A-ZÀ-ÖØ-Þ]/.test(answer);
+    if (answer.length > FITS_A_FRAME || multiSentence) {
+      return {
+        text: lang === 'pt'
+          ? `Perguntada sobre isso no Encontro 3, a organização relatou: “${answer}”`
+          : `Asked about this in Encontro 3, the organisation reported: “${answer}”`,
+        feeds: q.feeds,
+        quoted: true as const,
+      };
+    }
     // ⚠️ Somebody speaking ends a sentence; the template supplies its own
     // punctuation. Together they printed "…por ali.." on a funder's page. Strip
     // the speaker's full stop only where the sentence continues after it.

@@ -36,7 +36,7 @@
 import { getSolution, SOLUTION_MECHANISMS } from './nbs-catalog';
 import { getSolutionFicha } from './nbs-solution-fichas';
 import {
-  buildDossier, computeVerdict, portfolioState, studyRequirement, hasSite, worryLabel,
+  buildDossier, computeVerdict, portfolioState, studyRequirement, hasSite, worryLabel, labelOfWorry,
   type W3Input, type VerdictState,
 } from './w3-dossier';
 import { approvalRequirement, type ApprovalBody } from './nbs-approvals';
@@ -45,7 +45,7 @@ import { DECISIVE_DETAIL, CONCRETE_INSTANCE } from './w3-detail-questions';
 import { FIELD_DESTINY } from './field-destiny';
 import { digParagraphs, parseDig } from './w3-dig';
 import {
-  fundingMatches, FUNDING_CAVEAT, AGGREGATION_ARGUMENT, FUNDER_KIND_LABEL,
+  fundingMatches, FUNDING_CAVEAT, aggregationArgument, FUNDER_KIND_LABEL,
   PHILANTHROPIC_VS_COMMERCIAL,
 } from './funding-sources';
 import { budgetLineFor, SOLUTION_COSTS, type BuildModel } from './w3-sizing';
@@ -112,7 +112,7 @@ export interface SolutionFacts {
     /** Present when the published band assumes a builder they are not using. */
     buildModelCaveat?: string;
   };
-  benefit?: { claim: string; headline?: string; source: string; siteSpecific: boolean };
+  benefit?: { claim: string; headline?: string; nota?: string; source: string; siteSpecific: boolean };
 }
 
 export interface ConceptNoteFacts {
@@ -216,7 +216,7 @@ export interface ConceptNoteFacts {
    * an answer opened something, and each carries a third-person sentence that
    * puts the answer back beside the question it answered. See shared/w3-dig.ts.
    */
-  dug: Array<{ text: string; feeds: ConceptSectionId }>;
+  dug: Array<{ text: string; feeds: ConceptSectionId; quoted?: true }>;
 
   /**
    * What this organisation shares with the rest of the cohort, in counts.
@@ -339,6 +339,14 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
             benefit: {
               claim: pt ? ben.claimPt : ben.claimEn,
               ...(ben.headlinePt ? { headline: pt ? ben.headlinePt! : ben.headlineEn! } : {}),
+              // ⚠️ The qualification travels WITH the figure. The hoja de ruta
+              // printed "a biovaleta é cobrada por metro de comprimento, não
+              // por área — o contorno desenhado não fecha esse número sozinho",
+              // and the concept note printed the same 0,1–0,2 m³ per linear
+              // metre with nothing beside it. So the caveat reached the
+              // organisation, which already knows its own yard, and not the
+              // funder, who is the only reader who cannot tell.
+              ...(ben.notaPt ? { nota: pt ? ben.notaPt : (ben.notaEn ?? ben.notaPt) } : {}),
               source: pt ? ben.sourcePt : ben.sourceEn,
               siteSpecific: ben.siteSpecific,
             },
@@ -395,13 +403,32 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
 
   // The advisor's reading of the photographs and the documents, if it ran.
   // Absent in a deployment with no key, which is why nothing here depends on it.
+  //
+  // ⚠️ A `gap` OBSERVATION NEVER REACHES THE PAGE, and the reason is timing.
+  // The advisor runs when Encontro 3 OPENS; the document prints when it closes.
+  // Everything in between is the workshop filling gaps — so by print time an
+  // advisor gap is a snapshot of a record that no longer exists. Printed anyway,
+  // it contradicts the answer sitting directly above it. Both of these were on
+  // one funder-facing page (JVP, CEA Bom Jesus, 2026-09-07):
+  //
+  //   "Não há nenhum dado sobre quantas pessoas são afetadas pelo alagamento"
+  //      — under a quote reading "são 640 alunos em três turnos, mais as
+  //        famílias que usam a quadra no fim de semana";
+  //   "A organização não enviou fotos nem deixou relato descritivo do lugar"
+  //      — under a paragraph describing the yard, the two blocked drains, the
+  //        wall and the single patch of shade.
+  //
+  // Nothing is lost by dropping them: what is still missing is COMPUTED fresh
+  // at print time by the dossier and printed in §11, which is the authority and
+  // is never stale. A `strength` and a `cohort` observation age far better —
+  // they read the material rather than counting what is absent from it.
   const observations: ConceptNoteFacts['observations'] = (() => {
     try {
       const advice = JSON.parse(String(w3._advice_json ?? '') || '{}');
       return (advice.observations ?? [])
         .filter((o: any) => typeof o?.textPt === 'string' && o.textPt.trim().length > 12)
         .map((o: any) => ({ text: String(o.textPt).trim(), basedOn: String(o.basedOn ?? '').trim(), kind: String(o.kind ?? '') }))
-        .filter((o: any) => o.basedOn);
+        .filter((o: any) => o.basedOn && o.kind !== 'gap');
     } catch {
       return [];
     }
@@ -579,9 +606,14 @@ const STATE_SENTENCE: Record<VerdictState, { pt: string; en: string }> = {
     pt: 'O projeto está tecnicamente de pé e depende de autorização formal antes de começar.',
     en: 'The project stands up technically and depends on formal authorisation before it can start.',
   },
+  // ⚠️ Written for the case where nothing else exists — and printed directly
+  // above an area, a cost and an approval route whenever an organisation gave a
+  // size by comparison or in words without ever marking the map. Denying what
+  // the next three paragraphs state is the same defect as the rest of this
+  // change: a true verdict wearing a sentence that is false beside it.
   needs_site: {
-    pt: 'O projeto ainda não tem lugar marcado, e sem isso não há área, custo nem caminho de aprovação.',
-    en: 'The project has no place marked yet, and without one there is no area, no cost and no approval route.',
+    pt: 'O projeto ainda não tem o lugar marcado no mapa — sem isso, o que estiver dito abaixo sobre área, custo e aprovação fica sem endereço e não pode ser confirmado.',
+    en: 'The project has no place marked on the map yet — so whatever is stated below about area, cost and approvals has no address and cannot be confirmed.',
   },
 };
 
@@ -591,6 +623,13 @@ const STATE_SENTENCE: Record<VerdictState, { pt: string; en: string }> = {
  * preposition with the article, and a document that gets this wrong twice on
  * its first page reads as machine output whatever else it says.
  */
+/** "a, b e c" — the list the room would say out loud. */
+const joinList = (items: string[], lang: Lang): string => {
+  if (items.length <= 1) return items[0] ?? '';
+  const last = items[items.length - 1];
+  return `${items.slice(0, -1).join(', ')} ${lang === 'pt' ? 'e' : 'and'} ${last}`;
+};
+
 const toThe = (label: string, lang: Lang): string => {
   if (lang !== 'pt') return label;
   if (/^a /i.test(label)) return `à ${label.slice(2)}`;
@@ -641,7 +680,7 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
       .filter(d => d.feeds === id)
       .map(d => P(d.text, [
         pt ? 'pergunta do Encontro 3 e resposta da organização' : 'an Encontro 3 question and the organisation’s answer',
-      ])),
+      ], d.quoted ? 'quote' : 'written')),
   ];
 
   const placed = new Set<ConceptSectionId>();
@@ -676,6 +715,33 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
       : null;
 
   // ── 1 · Resumo ────────────────────────────────────────────────────────────
+  const namedWorries = (f.problem.worry ?? '').split(',').map(v => v.trim()).filter(Boolean);
+  /**
+   * ⚠️ WHICH of the named worries this solution answers — not whether, and not
+   * the first one on the list.
+   *
+   * The test and the label used to come from opposite ends: the test asked
+   * whether ANY named worry matched a catalogued mechanism (true — a bioswale
+   * answers enxurrada), and the sentence then printed `worryLabel`, which is
+   * the FIRST worry named (heat). So the document told a funder that biovaletas
+   * are the mechanism answering "sol forte, falta de sombra".
+   */
+  const worriesAnsweredBy = (id: string) =>
+    (SOLUTION_MECHANISMS[id] ?? []).filter(m => namedWorries.includes(m));
+  /**
+   * What the sentence a funder reads first may say the project responds to:
+   * the worries the chosen solutions actually answer. Falls back to the leading
+   * worry only when nothing chosen answers any of them — there the honest
+   * summary is still the problem they named.
+   */
+  const answeredLabel = (() => {
+    const hit = Array.from(new Set(f.solutions.flatMap(s => worriesAnsweredBy(s.id))));
+    return hit.length ? joinList(hit.map(w => labelOfWorry(w, pt)), lang) : f.problem.worryLabel ?? '';
+  })();
+  /** Named by the organisation and answered by nothing it chose. */
+  const worriesLeftOpen = namedWorries.filter(
+    w => !f.solutions.some(s => ((SOLUTION_MECHANISMS[s.id] ?? []) as string[]).includes(w)),
+  );
   // ⚠️ Written last, read first. Phase 2 replaces this paragraph — it is the
   // one place where a sentence a person would actually say beats a sentence a
   // template can assemble.
@@ -683,8 +749,8 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
     names.length
       ? P(
           pt
-            ? `A ${f.org.name} propõe ${names.join(' e ')}${where ? ` em ${where}` : ''}${size ? `, sobre ${size}` : ''}${f.problem.worryLabel ? `, em resposta ${toThe(f.problem.worryLabel, lang)}` : ''}.`
-            : `${f.org.name} proposes ${names.join(' and ')}${where ? ` at ${where}` : ''}${size ? `, over ${size}` : ''}${f.problem.worryLabel ? `, in response to ${f.problem.worryLabel}` : ''}.`,
+            ? `A ${f.org.name} propõe ${names.join(' e ')}${where ? ` em ${where}` : ''}${size ? `, sobre ${size}` : ''}${answeredLabel ? `, em resposta ${toThe(answeredLabel, lang)}` : ''}.`
+            : `${f.org.name} proposes ${names.join(' and ')}${where ? ` at ${where}` : ''}${size ? `, over ${size}` : ''}${answeredLabel ? `, in response to ${answeredLabel}` : ''}.`,
           [pt ? 'Encontros 2 e 3' : 'Encontros 2 and 3'],
         )
       : null,
@@ -818,10 +884,6 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
   // produced by a TEMPLATE rather than a model, in the section a funder reads
   // most closely. Where the mechanism does not match, the site is still named
   // and the claim is not.
-  const answersTheWorry = (id: string) => {
-    const named = (f.problem.worry ?? '').split(',').map(v => v.trim()).filter(Boolean);
-    return (SOLUTION_MECHANISMS[id] ?? []).some(m => named.includes(m));
-  };
   const siteClause = pt
     ? `No terreno da organização${f.place.currentUse ? ` — ${f.place.currentUse.toLowerCase()}` : ''}${size ? `, ${size}` : ''}`
     : `On the organisation's site${f.place.currentUse ? ` — ${f.place.currentUse.toLowerCase()}` : ''}${size ? `, ${size}` : ''}`;
@@ -839,10 +901,10 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
     s.howItWorks
       ? P(
           `**${s.label}.** ${s.howItWorks}${
-            answersTheWorry(s.id) && f.problem.worryLabel
+            worriesAnsweredBy(s.id).length
               ? pt
-                ? ` ${siteClause} — é esse o mecanismo que responde ${toThe(f.problem.worryLabel, lang)}.`
-                : ` ${siteClause} — that is the mechanism answering ${f.problem.worryLabel}.`
+                ? ` ${siteClause} — é esse o mecanismo que responde ${toThe(joinList(worriesAnsweredBy(s.id).map(w => labelOfWorry(w, true)), 'pt'), lang)}.`
+                : ` ${siteClause} — that is the mechanism answering ${joinList(worriesAnsweredBy(s.id).map(w => labelOfWorry(w, false)), 'en')}.`
               : pt
                 ? ` ${siteClause} — a ficha não classifica esta solução como resposta ao risco que a organização nomeou; ela entra pelo efeito descrito acima.`
                 : ` ${siteClause} — the catalogue does not classify this solution as an answer to the risk the organisation named; it is here for the effect described above.`
@@ -857,6 +919,20 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
       ? P(
           (pt ? detailQ.notePt : detailQ.noteEn).replace('{answer}', detailAnswer),
           [pt ? 'pergunta do Encontro 3 e resposta da organização' : 'an Encontro 3 question and the organisation’s answer'],
+        )
+      : null,
+    // ⚠️ A worry named and answered by nothing chosen. The document used to go
+    // silent on it, which reads as coverage: an organisation that named heat AND
+    // enxurrada and took a bioswale had a note describing the bioswale, and a
+    // reader had no way to see that half the problem was untouched. Saying it is
+    // not a criticism of the choice — one solution is the right size for a first
+    // project — it is the difference between a scope and an omission.
+    worriesLeftOpen.length
+      ? P(
+          pt
+            ? `A organização também nomeou ${joinList(worriesLeftOpen.map(w => labelOfWorry(w, true)), 'pt')} entre as preocupações do lugar. As soluções escolhidas não respondem a esse mecanismo; permanece em aberto.`
+            : `The organisation also named ${joinList(worriesLeftOpen.map(w => labelOfWorry(w, false)), 'en')} among the site's concerns. The chosen solutions do not answer that mechanism; it remains open.`,
+          [pt ? 'preocupações do Encontro 2 × mecanismos catalogados' : "the Encontro 2 concerns × catalogued mechanisms"],
         )
       : null,
   ]);
@@ -874,7 +950,8 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
                 ? ''
                 : pt
                   ? ' A base de evidências não traz um número de referência para esta solução — fica registrado como medição a buscar.'
-                  : ' The evidence base carries no reference figure for this solution — recorded as a measurement to seek.'),
+                  : ' The evidence base carries no reference figure for this solution — recorded as a measurement to seek.') +
+              (s.benefit.nota ? ` ${s.benefit.nota}` : ''),
             [s.benefit.source],
             s.benefit.headline ? 'figure' : 'written',
           )
@@ -1011,7 +1088,7 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
     // Which KIND of money this asks for, in the deck's own words — the first
     // thing a funder reading a concept note needs settled about it.
     P(pt ? PHILANTHROPIC_VS_COMMERCIAL.pt : PHILANTHROPIC_VS_COMMERCIAL.en, fundingSource),
-    P(pt ? AGGREGATION_ARGUMENT.pt : AGGREGATION_ARGUMENT.en, fundingSource),
+    P(aggregationArgument(lang, { lowBrl: f.totals.lowBrl, highBrl: f.totals.highBrl }), fundingSource),
     // ⚠️ And here the argument stops being general. The paragraph above is the
     // deck's case for aggregating a portfolio; these lines are the evidence
     // that THIS project is part of one — the same study three organisations

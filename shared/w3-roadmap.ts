@@ -357,8 +357,15 @@ export function buildRoadmap(
     title: t.problem,
     // Quoted, because the heading says the organisation described it and a
     // report that attributes a sentence has to show where the sentence ends.
+    // ⚠️ "Ainda não registrado." printed directly above the paragraph the
+    // organisation had just dictated (JVP, CEA Bom Jesus, 2026-09-07): the
+    // placeholder was gated on `site_story` alone, and this block prints TWO
+    // accounts. An account of the place given in Encontro 3 is still an account
+    // of the place. The block is empty only when neither is there.
     lines: [
-      has(site.site_story) ? `“${site.site_story!.trim()}”` : pt ? 'Ainda não registrado.' : 'Not recorded yet.',
+      ...(has(site.site_story)
+        ? [`“${site.site_story!.trim()}”`]
+        : has(w3.justification_why_here) ? [] : [pt ? 'Ainda não registrado.' : 'Not recorded yet.']),
       ...(has(w3.justification_why_here) ? [`${t.why}: “${w3.justification_why_here!.trim()}”`] : []),
     ],
     // ⚠️ No `changedBy` here, deliberately. The line that stood here said "essa
@@ -371,7 +378,7 @@ export function buildRoadmap(
     from: has(w3.justification_why_here)
       ? (pt ? 'palavras da organização, Encontros 2 e 3' : "the organisation's own words, Encontros 2 and 3")
       : (pt ? 'palavras da organização, no Encontro 2' : "the organisation's own words, in Encontro 2"),
-    open: !has(site.site_story),
+    open: !has(site.site_story) && !has(w3.justification_why_here),
   });
 
   // The benefit block, which is the one thing W3 supplies rather than collects.
