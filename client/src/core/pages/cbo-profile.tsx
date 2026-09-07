@@ -575,28 +575,55 @@ export default function CboProfilePage() {
   }, []);
   const totalQuestions = activeQuestions.length;
 
-  // question text -> the answer the user picked, from every persisted `answers`
-  // composer. Keyed on the question text because that is the only identifier the
-  // `ask_user` event carries; the server assigns no question id.
-  const answersByQuestion = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const m of messages) {
-      if (m.messageType !== 'composer' || m.role !== 'user') continue;
-      try {
-        const p = JSON.parse(m.content);
-        if (p?.kind !== 'answers') continue;
-        for (const pair of p.pairs ?? []) if (pair?.question) map.set(pair.question, pair.answer);
-      } catch { /* malformed - skip */ }
+  // ⚠️ ANSWERS ARE PAIRED TO ROWS BY POSITION, NOT BY QUESTION TEXT.
+  //
+  // The `ask_user` event carries no id, so both of these used to key on the
+  // question STRING — and six E3 beats ask with the very same words, "Quando
+  // quiser:" (por que aqui, linha de base, o detalhe, as perguntas do dig, o
+  // banco). Two consequences, both seen live on 2026-09-07 (JVP, CEA Bom Jesus):
+  //
+  //   • a Map keyed on that string keeps only the LAST answer, so the card under
+  //     "Por que aqui?" displayed the answer to "como é o lugar hoje" — the
+  //     right words under the wrong question, which is worse than a blank;
+  //   • while the next beat was live, its text was in the pending set, so the
+  //     ALREADY ANSWERED row above matched too and rendered as null. The
+  //     paragraph an organisation had just dictated — the one a funding call
+  //     reads first — left no trace in the chat at all. It was in the record;
+  //     the transcript simply never showed it.
+  //
+  // So walk the transcript in order and hand each answer to the earliest
+  // ask_user row still waiting for one, which is what actually happened.
+  const { answerByRow, liveRows } = useMemo(() => {
+    const answerByRow = new Map<number, string>();
+    /** question text -> indices of rows still waiting, oldest first. */
+    const waiting = new Map<string, number[]>();
+    messages.forEach((m, i) => {
+      if (m.messageType !== 'composer') return;
+      let p: any;
+      try { p = JSON.parse(m.content); } catch { return; }
+      if (m.role !== 'user' && p?.kind === 'ask_user' && p.question) {
+        waiting.set(p.question, [...(waiting.get(p.question) ?? []), i]);
+        return;
+      }
+      if (m.role === 'user' && p?.kind === 'answers') {
+        for (const pair of p.pairs ?? []) {
+          if (!pair?.question) continue;
+          const queue = waiting.get(pair.question);
+          const row = queue?.shift();
+          if (row !== undefined) answerByRow.set(row, pair.answer);
+        }
+      }
+    });
+    // The rows the interactive card at the bottom is currently showing: the
+    // LAST unanswered row for each live question. An older unanswered row with
+    // the same words is a different beat and still belongs in the transcript.
+    const liveRows = new Set<number>();
+    for (const q of activeQuestions as any[]) {
+      const queue = waiting.get(q.question);
+      if (queue?.length) liveRows.add(queue[queue.length - 1]);
     }
-    return map;
-  }, [messages]);
-
-  // Questions currently live in the interactive card. Their persisted composer
-  // rows must not also render, or the question would appear twice.
-  const pendingQuestionTexts = useMemo(
-    () => new Set(activeQuestions.map((q: any) => q.question)),
-    [activeQuestions]
-  );
+    return { answerByRow, liveRows };
+  }, [messages, activeQuestions]);
 
   const [highlightedSections, setHighlightedSections] = useState<string[]>([]);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -2413,9 +2440,9 @@ export default function CboProfilePage() {
                 if (parsed.kind === 'ask_user' && parsed.question) {
                   // PENDING - the question is still live in `activeQuestions`, and
                   // the interactive card at the bottom of the thread is its surface.
-                  if (pendingQuestionTexts.has(parsed.question)) return null;
+                  if (liveRows.has(i)) return null;
 
-                  const answer = answersByQuestion.get(parsed.question);
+                  const answer = answerByRow.get(i);
                   // ANSWERED - the card stays, with the chosen chip. This is the
                   // whole Q->A record; there is no separate green answer bubble.
                   if (answer && (parsed.options?.length ?? 0) > 0) {
