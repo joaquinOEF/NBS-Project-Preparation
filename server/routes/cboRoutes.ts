@@ -630,6 +630,48 @@ export function registerCboRoutes(app: Express): void {
     res.send(renderConceptNoteHtml(authored.note, lang));
   });
 
+  /**
+   * Is the written version of the Resumo do Projeto ready?
+   *
+   * ⚠️ The document is served with no model in the path, so it is ALWAYS
+   * downloadable — this endpoint never gates the route above, it only lets the
+   * card say "escrevendo…" for the forty-odd seconds the authoring pass takes,
+   * instead of handing over the assembled version without mentioning that a
+   * fuller one is on its way to the same URL.
+   *
+   * Four answers, and only one of them is worth waiting for:
+   *   writing  — the pass is running
+   *   done     — prose was written and stored
+   *   skipped  — it ran and produced nothing (no key, timeout, guards)
+   *   unknown  — it never started, or this session predates the flag
+   */
+  app.get("/api/cbo/:id/concept-note/status", async (req: Request, res: Response) => {
+    let state = getCboState(req.params.id);
+    if (!state) {
+      const persisted = await loadPersistedCboState(req.params.id);
+      if (persisted) state = persisted.state;
+    }
+    if (!state) return res.status(404).json({ status: 'unknown' });
+    const raw = String(
+      ((state.sections as any)?.intervention_type?.fields?._concept_note_authoring?.value ?? ''),
+    ).trim();
+    if (!raw) return res.json({ status: 'unknown' });
+    if (raw.startsWith('writing:')) {
+      // ⚠️ A `writing` flag outlives its pass if the process restarts mid-run,
+      // and a card that waits forever is worse than one that never waited. The
+      // cap is the pass's own budget with room to spare; past it the answer is
+      // "stop waiting", whatever the flag says.
+      const since = Number(raw.slice('writing:'.length));
+      const STALE_MS = 4 * 60_000;
+      if (Number.isFinite(since) && Date.now() - since < STALE_MS) {
+        return res.json({ status: 'writing', sinceMs: Date.now() - since });
+      }
+      return res.json({ status: 'skipped', reason: 'stale' });
+    }
+    if (raw === 'done') return res.json({ status: 'done' });
+    return res.json({ status: 'skipped', reason: raw.replace(/^skipped:/, '') });
+  });
+
   // Section registry
   app.get("/api/cbo-sections", async (_req: Request, res: Response) => {
     res.json(CBO_SECTIONS);

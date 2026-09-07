@@ -3834,8 +3834,33 @@ async function runW3Dig(cboId: string, round: 1 | 2): Promise<void> {
   }
 }
 
+/**
+ * ⚠️ WHAT THE DOWNLOAD IS WAITING FOR, written down.
+ *
+ * The prose is composed once, in the background, while the organisation reads
+ * the closing card — and the download button next to that card is live from the
+ * first millisecond. So the fast path served the assembled document and said
+ * nothing about it: an organisation that clicked immediately got the thinner
+ * version, and one that clicked a minute later got a different document from
+ * the same URL. Neither knew (JVP, CEA Bom Jesus, 2026-09-07).
+ *
+ * Every exit of the pass records its outcome here, including the ones that
+ * write no prose, because "no key" and "still running" look identical from the
+ * outside and only one of them is worth waiting for.
+ */
+function setAuthoringState(cboId: string, value: string): void {
+  const fresh = getCboState(cboId);
+  if (!fresh?.sections?.intervention_type) return;
+  fresh.sections.intervention_type.fields._concept_note_authoring = {
+    value, confidence: 'high', source: 'agent', userEdited: false,
+  } as any;
+  setCboState(cboId, fresh);
+  debouncedPersist(cboId);
+}
+
 async function runConceptNoteAuthor(cboId: string): Promise<void> {
   const started = Date.now();
+  setAuthoringState(cboId, `writing:${Date.now()}`);
   try {
     const state = getCboState(cboId);
     if (!state?.sections?.intervention_type) return;
@@ -3847,7 +3872,7 @@ async function runConceptNoteAuthor(cboId: string): Promise<void> {
     const site = asRecord('intervention_site');
     const type = asRecord('intervention_type');
     const solutions = (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean);
-    if (!solutions.length) return;
+    if (!solutions.length) { setAuthoringState(cboId, 'skipped:no solution'); return; }
     const areaM2 = Number(site.site_area_m2) || 0;
     const lang = (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
 
@@ -3868,6 +3893,7 @@ async function runConceptNoteAuthor(cboId: string): Promise<void> {
     const out = await authorConceptNote(note, lang);
     if (!out.accepted) {
       console.log(`[concept-note] ${cboId}: deterministic stands${out.reason ? ` — ${out.reason}` : ''}`);
+      setAuthoringState(cboId, `skipped:${out.reason ?? 'nothing written'}`);
       return;
     }
     const authored = out.note.sections
@@ -3882,6 +3908,9 @@ async function runConceptNoteAuthor(cboId: string): Promise<void> {
       source: 'agent',
       userEdited: false,
     } as any;
+    fresh.sections.intervention_type.fields._concept_note_authoring = {
+      value: 'done', confidence: 'high', source: 'agent', userEdited: false,
+    } as any;
     setCboState(cboId, fresh);
     debouncedPersist(cboId);
     console.log(
@@ -3890,6 +3919,7 @@ async function runConceptNoteAuthor(cboId: string): Promise<void> {
     );
   } catch (err: any) {
     console.error(`[concept-note] ${cboId} failed (the deterministic document stands):`, err?.message || err);
+    setAuthoringState(cboId, `skipped:${err?.message ?? 'failed'}`);
   }
 }
 

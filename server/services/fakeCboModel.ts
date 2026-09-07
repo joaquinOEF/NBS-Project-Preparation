@@ -69,6 +69,11 @@ export type FakeOp =
   | { op: 'show_examples'; cardIds?: string[]; mode?: 'browse' | 'favorites'; intro?: string }
   // E2 linear flow mirrors — passthrough payloads, same events the real tools emit.
   | { op: 'show_site_card'; card: Record<string, unknown> }
+  // The closing card of Encontro 3. A test seam, like show_site_card above: the
+  // real one is pushed by the checkpoint at the end of a full walk, and a test
+  // about what sits BESIDE the card should not have to replay the walk to get
+  // one on screen.
+  | { op: 'show_roadmap'; roadmap: Record<string, unknown> }
   | { op: 'show_familia_recommendation'; items: Array<{ familiaId: string; why: string; exampleSolutionIds?: string[] }>; intro?: string };
 
 export type FakeTurn = FakeOp[];
@@ -300,6 +305,10 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
     }
     case 'show_site_card': {
       pushEvent({ type: 'show_site_card', card: op.card as any } as any);
+      break;
+    }
+    case 'show_roadmap': {
+      pushEvent({ type: 'show_roadmap', roadmap: op.roadmap as any } as any);
       break;
     }
     case 'show_familia_recommendation': {
