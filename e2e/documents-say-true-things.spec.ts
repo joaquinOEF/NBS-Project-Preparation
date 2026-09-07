@@ -192,7 +192,7 @@ test.describe('the documents say true things', () => {
     const text = noteText();
     expect(text).toContain('R$');
     expect(text).not.toContain('sem isso não há área, custo nem caminho');
-    expect(text).toContain('não tem o lugar marcado no mapa');
+    expect(text).toContain('não tem lugar marcado no mapa');
   });
 
   // ── 6 · Not recorded means not recorded ──────────────────────────────────

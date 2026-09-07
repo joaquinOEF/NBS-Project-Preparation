@@ -149,7 +149,7 @@ export function CboFilesDrawer({
                   })}
                 </p>
                 {[
-                  { kind: 'nota', label: t('cboView.docConceptNote', { defaultValue: 'Nota de conceito' }), hint: t('cboView.docConceptNoteHint', { defaultValue: 'Para financiador ou prefeitura' }) },
+                  { kind: 'nota', label: t('cboView.docConceptNote', { defaultValue: 'Resumo do projeto' }), hint: t('cboView.docConceptNoteHint', { defaultValue: 'Para a coordenação — base para preparar uma proposta' }) },
                   { kind: 'rota', label: t('cboView.docRoadmap', { defaultValue: 'Hoja de ruta' }), hint: t('cboView.docRoadmapHint', { defaultValue: 'O caminho, com responsáveis' }) },
                 ].map(d => (
                   <a

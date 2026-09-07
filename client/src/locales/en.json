@@ -1993,8 +1993,8 @@
   "cboView": {
     "tabDocuments": "Documents",
     "documentsHint": "The documents the organisation takes away from Encontro 3. They open in a new tab, exactly as it sees them.",
-    "docConceptNote": "Concept note",
-    "docConceptNoteHint": "For a funder or the city",
+    "docConceptNote": "Project summary",
+    "docConceptNoteHint": "For the coordination — the basis for preparing a proposal",
     "docRoadmap": "Route",
     "docRoadmapHint": "The road ahead, with owners"
   }

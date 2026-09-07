@@ -55,8 +55,13 @@ const S = {
     source: 'Fonte',
     review: 'Revisar com',
     note: 'Nenhum valor está fechado. Cada bloco indica a sua fonte e o que o revisaria.',
-    print: 'Baixar o caminho pra imprimir ou levar',
-    note2: 'Nota de conceito — para financiador ou prefeitura',
+    print: 'Baixar o plano de trabalho pra imprimir ou levar',
+    // ⚠️ It was "Nota de conceito — para financiador ou prefeitura", and it is
+    // neither. The document carries our own readings, the named gaps and the
+    // open items — everything the coordination needs and none of what belongs
+    // in a page handed to a funder. A funder-facing note is written FROM this
+    // one, by someone who decides what to leave out. (JVP, 2026-09-07)
+    note2: 'Resumo do projeto — a base para preparar uma proposta',
   },
   en: {
     eyebrow: 'Draft — to check and adjust',
@@ -71,8 +76,8 @@ const S = {
     source: 'Source',
     review: 'Revise with',
     note: 'No figure is settled. Every block states its source and what would revise it.',
-    print: 'Download the route to print or take with you',
-    note2: 'Concept note — for a funder or the city',
+    print: 'Download the work plan to print or take with you',
+    note2: 'Project summary — the basis for preparing a proposal',
   },
 };
 

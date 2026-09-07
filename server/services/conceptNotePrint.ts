@@ -75,7 +75,7 @@ export function renderConceptNoteHtml(note: ConceptNote, lang: 'pt' | 'en' = 'pt
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(note.title)}</title>
+<title>${esc(`${note.docLabel} — ${note.title} · ${note.subtitle.split(' — ')[0]}`)}</title>
 <style>
   @page { size: A4; margin: 18mm 16mm; }
   * { box-sizing: border-box; }
@@ -86,6 +86,11 @@ export function renderConceptNoteHtml(note: ConceptNote, lang: 'pt' | 'en' = 'pt
     -webkit-text-size-adjust: 100%;
   }
   .sheet { max-width: 760px; margin: 0 auto; padding: 26px 20px 60px; }
+  .doclabel {
+    font-size: 12px; font-weight: 800; letter-spacing: .14em;
+    text-transform: uppercase; color: #4a6b58; margin: 14px 0 2px;
+  }
+  .audience { font-size: 11.5px; color: #6b7b71; margin: 2px 0 0; }
   .draft {
     font-size: 11px; font-weight: 800; letter-spacing: .1em;
     color: #7a5a12; background: #fdf4e0; border: 1px solid #e8d5a6;
@@ -134,8 +139,10 @@ export function renderConceptNoteHtml(note: ConceptNote, lang: 'pt' | 'en' = 'pt
   <div class="noprint"><button onclick="window.print()">${esc(t.print)}</button></div>
 
   <div class="draft">${esc(t.draft)}</div>
+  <div class="doclabel">${esc(note.docLabel)}</div>
   <h1>${esc(note.title)}</h1>
   <p class="sub">${esc(note.subtitle)}</p>
+  <p class="audience">${esc(note.docAudience)}</p>
   <span class="verdict">${esc(state)}</span>
 
   ${note.sections.map(s => `

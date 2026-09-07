@@ -693,11 +693,24 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
   }
 
   // ── What to measure, decided by the mechanism ─────────────────────────────
+  // ⚠️ THE FIELD HOLDS A LIST. `site_worry` is "heat, enxurrada" for any
+  // organisation that named more than one thing — and this lookup used the
+  // whole string as a key, so it matched nothing: no evidence instruction for
+  // either mechanism, and a gap saying the worry "é a família e não o
+  // mecanismo" about a string that names two mechanisms (JVP, CEA Bom Jesus,
+  // 2026-09-07). Each named worry is now resolved on its own, and only the
+  // entries that really are family-only ids raise the gap — by name, not by
+  // quoting the whole field back.
   const worry = site.site_worry ?? '';
-  const evidence = MECHANISM_EVIDENCE[worry];
-  if (evidence) {
+  const named = worry.split(',').map(v => v.trim()).filter(Boolean);
+  const resolved = named.filter(w => MECHANISM_EVIDENCE[w]);
+  const unresolved = named.filter(w => !MECHANISM_EVIDENCE[w]);
+  for (const w of resolved) {
+    const evidence = MECHANISM_EVIDENCE[w]!;
     add({ list: 'gather', text: pt ? evidence.pt : evidence.en, source: 'site-knowledge · WORRY_SUBTYPES', owner: 'org' });
-  } else if (has(worry)) {
+  }
+  if (unresolved.length) {
+    const worry = unresolved.join(', ');
     // A legacy family id ('flood') names the family but not the mechanism, and
     // the mechanism is what decides the evidence AND the solution. Resolve it
     // rather than guessing — Partenon's story says enxurrada while the stored
