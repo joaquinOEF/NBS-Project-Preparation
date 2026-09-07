@@ -73,7 +73,11 @@ test.describe('COUGAR — E2 site card confirms the place, not the risk', () => 
     // The thumbnail is the only way to answer "is the pin on the right block?".
     const thumb = page.getByTestId('cbo-site-thumb');
     await expect(thumb).toBeVisible();
-    await expect(thumb.locator('img').first()).toHaveAttribute('src', /basemaps\.cartocdn\.com/);
+    // ⚠️ Esri, not CARTO. CARTO now stamps "API KEY REQUIRED" diagonally across
+    // every tile it serves and still answers 200, so a src assertion on the old
+    // host would keep passing while the card showed a watermark. See
+    // client/src/core/lib/basemaps.ts.
+    await expect(thumb.locator('img').first()).toHaveAttribute('src', /arcgisonline\.com/);
 
     // Tiles must actually PAINT, not just carry a src. The first cut used
     // loading="lazy" and rendered an empty beige box.
