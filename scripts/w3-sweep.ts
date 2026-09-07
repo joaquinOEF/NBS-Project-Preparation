@@ -97,6 +97,12 @@ async function walk(solutionId: string, withSite: boolean): Promise<Violation[]>
   // last answer did not move anything, so the next option is tried instead of
   // the same one forever.
   const opensAMap = (o: any) => /mapa|map\b|desenh|marcar o lugar/i.test(`${o.label} ${o.description ?? ''}`);
+  // ⚠️ And anything that reaches the COMPOSER rather than answering. A chip
+  // carrying action 'write' or 'record' sends no message at all — the client
+  // focuses the input or starts the recorder — so a walker that "taps" one is
+  // testing a turn the product never sends. 'write_then_answer' is different:
+  // it answers AND opens the keyboard, so it stays in the walk.
+  const reachesTheComposer = (o: any) => o.action === 'write' || o.action === 'record';
   // Progress is measured by what got WRITTEN, not by the question text — two
   // different beats legitimately share the words "Quando quiser:", and counting
   // those as a repeat is how a walker invents a stall that is not there.
@@ -106,7 +112,7 @@ async function walk(solutionId: string, withSite: boolean): Promise<Violation[]>
   for (let i = 0; i < 40; i++) {
     if (events.some(e => e.type === 'show_dossier' || e.type === 'show_roadmap')) break;
     const last = [...events].reverse().find(e => e.type === 'ask_user');
-    const opts = (last?.options ?? []).filter((o: any) => !opensAMap(o));
+    const opts = (last?.options ?? []).filter((o: any) => !opensAMap(o) && !reachesTheComposer(o));
     const before = filled();
     // A beat whose only way out is "Prefiro pular" is a FREE-TEXT beat. Answer
     // it the way an organisation would; skipping every one of them walks the

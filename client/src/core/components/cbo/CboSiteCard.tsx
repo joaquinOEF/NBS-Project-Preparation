@@ -1,4 +1,5 @@
 import type { CboSiteCard as CboSiteCardPayload } from '@shared/cbo-schema';
+import { TILE, lngToTileX, latToTileY } from './tile-math';
 
 // E2 linear flow — the site card (decision B1): what the org picked on the map.
 // Served by the checkpoint right after the focused site session confirms; the
@@ -70,7 +71,6 @@ function levelIdx(pct: number): 0 | 1 | 2 {
 // [128, 384], which caps W at 256 — narrower than the card, which is exactly why
 // the first cut rendered a 512px strip floating in beige. 3×3 puts px in
 // [256, 512] and covers any frame up to 512 on both axes.
-const TILE = 256;
 const ZOOM = 16;
 const SPAN = 3; // tiles per side
 const MOSAIC = TILE * SPAN;
@@ -78,14 +78,6 @@ const MOSAIC = TILE * SPAN;
  *  of the map", which is what the card is for: orient, don't explore. */
 const FRAME_W = 360;
 const FRAME_H = 132;
-
-function lngToTileX(lng: number, z: number): number {
-  return ((lng + 180) / 360) * 2 ** z;
-}
-function latToTileY(lat: number, z: number): number {
-  const r = (lat * Math.PI) / 180;
-  return ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z;
-}
 
 function SiteThumb({ lat, lng, alt }: { lat: number; lng: number; alt: string }) {
   const fx = lngToTileX(lng, ZOOM);

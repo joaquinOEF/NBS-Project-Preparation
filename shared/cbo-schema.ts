@@ -404,6 +404,9 @@ export type CboEvent =
   // they picked, the bairro's risk profile (0–100 means), the inferred kind of
   // place. The serving checkpoint pairs it with a confirm ask_user.
   | { type: 'show_site_card'; card: CboSiteCard }
+  // E3 footprint step — the outline they just traced, with its area. The
+  // read-back for a map session whose whole output is one number.
+  | { type: 'show_footprint_card'; card: CboFootprintCard }
   // E2 linear flow closing — famílias worth studying for THIS site (always ≥2,
   // never a single verdict), each with a one-line why in the session language
   // and concrete example variants from the 27-solution catalog.
@@ -443,6 +446,20 @@ export interface CboSiteCard {
    * answer it never had. See shared/site-knowledge.ts → hazardCheckQuestion.
    */
   risks: { flood: number; heat: number; landslide: number };
+}
+
+// E3 footprint step — payload of show_footprint_card.
+export interface CboFootprintCard {
+  /** Rounded to the precision a finger-drawn polygon carries (w3-sizing). */
+  areaM2: number;
+  /**
+   * The traced ring as [lat, lng] pairs, for the static thumbnail. Capped
+   * client-side: a card is a picture, not a geometry store — the authoritative
+   * footprint is the one persisted on the member's site record.
+   */
+  points: Array<[number, number]>;
+  siteName?: string;
+  bairro?: string;
 }
 
 // E2 linear flow — one recommended família in show_familia_recommendation.

@@ -39,8 +39,9 @@ import { scaleStatement } from '@shared/w3-scale';
 import { benefitFor } from '@shared/w3-benefits';
 import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
-import { siteInSentence } from '@shared/site-name';
+import { siteInSentence, siteLabel } from '@shared/site-name';
 import { GAP_RETRIES, areaBandFor, ROUGH_AREA_SOURCE, CANNOT_GUESS } from '@shared/w3-gap-questions';
+import { parseSpokenArea, SPOKEN_AREA_SOURCE } from '@shared/w3-area-speech';
 import { detailQuestionFor } from '@shared/w3-detail-questions';
 import { parseDig, pendingDig, type DigPairing } from '@shared/w3-dig';
 import { getSolution } from '@shared/nbs-catalog';
@@ -148,6 +149,13 @@ const E3C = {
   // to offer exactly one thing to tap — "Prefiro pular". (backlog #36)
   escrever: { pt: '✍️ Quero escrever', en: '✍️ I want to write' },
   gravar: { pt: '🎤 Quero gravar um áudio', en: '🎤 I want to record a voice note' },
+  // ⚠️ The size beat offered two roads — trace it, or record that nobody knows
+  // — and an organisation that knows its yard is "uns trinta por vinte" had to
+  // take the second. A size said out loud is not a measurement, and it is not
+  // nothing either: it is recorded with its provenance and priced with the same
+  // caveat as a comparison. See shared/w3-area-speech.ts. (JVP, 2026-09-07)
+  dizerTamanho: { pt: '✍️ Escrever o tamanho', en: '✍️ Write the size' },
+  falarTamanho: { pt: '🎤 Falar o tamanho', en: '🎤 Say the size out loud' },
 } as const;
 
 /**
@@ -156,6 +164,22 @@ const E3C = {
  * swallows the other phase-3 surface.
  */
 const E3_ENTRY = /^\s*(vamos come[çc]ar o encontro 3|let'?s start encontro 3)\b/i;
+
+/**
+ * The traced ring, as [lat, lng] pairs, out of the map payload's `[footprint]`
+ * line. Absent on every other map session — E2 pins nothing to trace.
+ */
+export function footprintRing(payload: string): Array<[number, number]> {
+  const line = /^- \[footprint\] (.+)$/m.exec(payload);
+  if (!line) return [];
+  const pts = line[1]
+    .trim()
+    .split(/\s+/)
+    .map(pair => pair.split(',').map(Number))
+    .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng))
+    .map(([lat, lng]) => [lat, lng] as [number, number]);
+  return pts.length >= 3 ? pts : [];
+}
 
 const SITE = 'intervention_site';
 const TYPE = 'intervention_type';
@@ -591,8 +615,11 @@ export async function serveE3Checkpoint(
       ask('Ainda é esse o tamanho?', 'Is that still the size?', [
         { pt: E3C.areaConfere.pt, en: E3C.areaConfere.en },
         { pt: E3C.redesenhar.pt, en: E3C.redesenhar.en, dPt: 'Abre o mapa', dEn: 'Opens the map' },
+        // Correcting a number should not require redrawing a shape: "não, é
+        // mais pra 600" is a complete answer, and the same lane reads it.
+        { pt: E3C.dizerTamanho.pt, en: E3C.dizerTamanho.en, dPt: 'Ex.: "uns 30 por 20 metros"', dEn: 'e.g. "about 30 by 20 metres"', action: 'write' },
       ]);
-      deps.writeFields(SITE, { _area_asked: 'yes' });
+      deps.writeFields(SITE, { _area_asked: 'yes', _area_pending: 'yes' });
       return finish('confirm-area');
     }
     // Offering "Desenhar no mapa" to an organisation with no pin is offering a
@@ -607,9 +634,11 @@ export async function serveE3Checkpoint(
       );
       ask('Quer marcar agora?', 'Want to mark it now?', [
         { pt: E3C.marcarAgora.pt, en: E3C.marcarAgora.en, dPt: 'Abre o mapa', dEn: 'Opens the map' },
+        { pt: E3C.dizerTamanho.pt, en: E3C.dizerTamanho.en, dPt: 'Ex.: "uns 30 por 20 metros"', dEn: 'e.g. "about 30 by 20 metres"', action: 'write' },
+        { pt: E3C.falarTamanho.pt, en: E3C.falarTamanho.en, dPt: 'Começa a gravar agora', dEn: 'Starts recording now', action: 'record' },
         { pt: E3C.naoSeiTamanho.pt, en: E3C.naoSeiTamanho.en, dPt: 'Fica registrado como pendente', dEn: 'Recorded as still open' },
       ]);
-      deps.writeFields(SITE, { _area_asked: 'yes' });
+      deps.writeFields(SITE, { _area_asked: 'yes', _area_pending: 'yes' });
       return finish('ask-area-no-site');
     }
     say(
@@ -618,9 +647,13 @@ export async function serveE3Checkpoint(
     );
     ask('Como prefere?', 'How would you like to do it?', [
       { pt: E3C.desenhar.pt, en: E3C.desenhar.en, dPt: 'Abre o mapa no lugar de vocês', dEn: 'Opens the map at your place' },
+      { pt: E3C.dizerTamanho.pt, en: E3C.dizerTamanho.en, dPt: 'Ex.: "uns 30 por 20 metros"', dEn: 'e.g. "about 30 by 20 metres"', action: 'write' },
+      { pt: E3C.falarTamanho.pt, en: E3C.falarTamanho.en, dPt: 'Começa a gravar agora', dEn: 'Starts recording now', action: 'record' },
       { pt: E3C.naoSeiTamanho.pt, en: E3C.naoSeiTamanho.en, dPt: 'Fica registrado como pendente', dEn: 'Recorded as still open' },
     ]);
-    deps.writeFields(SITE, { _area_asked: 'yes' });
+    // The beat now accepts a sentence as well as a map session, so the next
+    // free-text turn belongs to it. Cleared by whoever consumes it.
+    deps.writeFields(SITE, { _area_asked: 'yes', _area_pending: 'yes' });
     return finish('ask-area');
   };
 
@@ -630,6 +663,7 @@ export async function serveE3Checkpoint(
    * and — for a cistern or a tree — the benefit figure.
    */
   const askUnits = (solutionId: string): true => {
+    deps.writeFields(SITE, { _area_pending: '' });
     const cost = SOLUTION_COSTS[solutionId];
     const nounPt = cost?.unitPluralPt ?? 'unidades';
     const nounEn = cost?.unitPluralEn ?? 'units';
@@ -675,6 +709,11 @@ export async function serveE3Checkpoint(
    * has just traced the outline is asking it to do arithmetic we already did.
    */
   const askConstruction = (): true => {
+    // Size is settled — by a trace, a sentence, a comparison or a deferral —
+    // so the free-text lane above belongs to the next beat again. Cleared HERE
+    // rather than on each road out, because a flag left standing would swallow
+    // the "por que aqui" paragraph and answer it with size chips.
+    deps.writeFields(SITE, { _area_pending: '' });
     const a = liveArea();
     if (a > 0) {
       deps.writeFields(TYPE, {
@@ -1231,6 +1270,67 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     }
   }
 
+  // ── The size, said rather than traced ──────────────────────────────────────
+  // ⚠️ Placed above the chip gate because this beat's answer is a SENTENCE, and
+  // ⚠️ NOT gated on turnKind. A dictated answer posts as 'text' but a TYPED one
+  // posts as 'chip' — the client routes anything typed while a question is
+  // pending through handleSelectOption — so a turnKind test would have caught
+  // the microphone and dropped the keyboard. (It did, on the first run of
+  // e2e/cougar-e3-footprint-draw.spec.ts.) The beat's own chips are excluded by
+  // label instead, which is what the other free-text handlers here do.
+  const isAreaChip = (str: string) => {
+    const n = deps.normChip(str);
+    return [E3C.desenhar, E3C.redesenhar, E3C.naoSeiTamanho, E3C.marcarAgora, E3C.seguirSemLugar, E3C.areaConfere, E3C.dizerTamanho, E3C.falarTamanho]
+      .some(c => n === deps.normChip(c.pt) || n === deps.normChip(c.en));
+  };
+  if (
+    site('_area_pending') === 'yes' &&
+    raw &&
+    !isAreaChip(raw) &&
+    !areaBandFor(raw, deps.normChip) &&
+    !raw.startsWith('Map selection (')
+  ) {
+    const spoken = parseSpokenArea(raw);
+    if (spoken) {
+      const said = roundAreaM2(spoken.m2);
+      deps.writeFields(SITE, {
+        _area_pending: '',
+        site_area_m2: String(said),
+        site_area_source: isPt ? SPOKEN_AREA_SOURCE[spoken.basis].pt : SPOKEN_AREA_SOURCE[spoken.basis].en,
+      });
+      const line = liveSolutions()[0]
+        ? budgetLineFor(liveSolutions()[0], said, liveUnits() || undefined, liveBuild())
+        : null;
+      // Read back, because a number heard from speech is the one most worth
+      // getting wrong — and priced with the provenance attached, never as a
+      // measurement.
+      say(
+        `Anotei **${said.toLocaleString('pt-BR')} m²**, pelo que vocês disseram — não é medida, é o que dá pra trabalhar agora.${line ? `\n\n${line.notePt}` : ''}`,
+        `Noted: **${said.toLocaleString('en-US')} m²**, from what you said — not a measurement, but enough to work with.${line ? `\n\n${line.noteEn}` : ''}`,
+      );
+      return askConstruction();
+    }
+    // ⚠️ Unreadable is not empty. They tried to answer, so the flow owes them
+    // the other road rather than a fall-through to the model: the comparison
+    // chips, which is the same place "ainda não sei" leads. Never invent a
+    // number out of a sentence that did not state one — a bare "uns 20 metros"
+    // is a length, and pricing it per m² would fabricate a measurement in the
+    // organisation's own voice.
+    if (!isSkip(raw)) {
+      deps.writeFields(SITE, { _area_pending: '' });
+      const retry = GAP_RETRIES.area;
+      if (!site(retry.askedFlag)) {
+        deps.writeFields(SITE, { [retry.askedFlag]: 'yes' });
+        say(
+          'Não consegui tirar um tamanho dessa frase — e não vou chutar um número que vira preço.',
+          "I could not get a size out of that — and I will not guess at a number that turns into a price.",
+        );
+        ask(retry.askPt, retry.askEn, retry.options);
+        return finish('area-said-unparsed');
+      }
+    }
+  }
+
   // The detail beat's answer. Kept as its own record — question and reply —
   // because "mais barro, a água empoça" means nothing without the question it
   // answers, and the concept note prints both.
@@ -1336,6 +1436,26 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     if (!m) return false; // not a footprint session — let E2/the model have it
     const drawn = roundAreaM2(Number(m[1]));
     deps.writeFields(SITE, { site_area_m2: String(drawn) });
+
+    // ⚠️ SHOW THE SHAPE. The room traced an outline on satellite imagery and
+    // got back prose — the Encontro 2 hazard bands, a vertex count, and not the
+    // one number the step exists to produce (JVP, 2026-09-07). The card is the
+    // read-back: their outline, over the imagery they drew it on, with the area
+    // and a yardstick beside it. Pushed BEFORE the sentence below, and before
+    // the implausible-size branch too — a footprint traced on a zoomed-out map
+    // is exactly the case where seeing the shape settles it in one look.
+    const ring = footprintRing(raw);
+    if (ring.length >= 3) {
+      pushEvent({
+        type: 'show_footprint_card',
+        card: {
+          areaM2: drawn,
+          points: ring,
+          siteName: siteLabel(siteName, isPt ? 'pt' : 'en') ?? undefined,
+          bairro: bairro || undefined,
+        },
+      } as any);
+    }
 
     // ⚠️ A traced shape can be wrong by orders of magnitude — a zoomed-out map,
     // a mis-tap, a finger that closed the polygon early — and a per-m² rate
