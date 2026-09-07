@@ -23,6 +23,7 @@ import { computeReadinessScores, determinePathway } from '@/core/utils/funding-r
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { assembleConceptNote, ConceptNote } from '@/core/types/concept-note';
+import { BASEMAPS } from '@/core/lib/basemaps';
 
 interface Project {
   id: string;
@@ -493,10 +494,12 @@ function SiteMapComponent({ zones }: { zones: SelectedZone[] }) {
         attributionControl: false,
       });
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: 'abcd',
-        maxZoom: 19,
+      L.tileLayer(BASEMAPS.light.url, {
+        attribution: `&copy; OpenStreetMap · ${BASEMAPS.light.attribution}`,
+        maxZoom: 19, maxNativeZoom: BASEMAPS.light.maxNativeZoom,
+      }).addTo(map);
+      L.tileLayer(BASEMAPS.light.labelsUrl!, {
+        maxZoom: 19, maxNativeZoom: BASEMAPS.light.maxNativeZoom,
       }).addTo(map);
 
       const allMarkers: L.Marker[] = [];

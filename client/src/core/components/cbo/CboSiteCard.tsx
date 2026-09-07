@@ -1,5 +1,6 @@
 import type { CboSiteCard as CboSiteCardPayload } from '@shared/cbo-schema';
 import { TILE, lngToTileX, latToTileY } from './tile-math';
+import { tileUrl } from '@/core/lib/basemaps';
 
 // E2 linear flow — the site card (decision B1): what the org picked on the map.
 // Served by the checkpoint right after the focused site session confirms; the
@@ -110,15 +111,31 @@ function SiteThumb({ lat, lng, alt }: { lat: number; lng: number; alt: string })
           top: `calc(50% - ${py}px)`,
         }}
       >
+        {/* Ground, then labels — two Esri services since CARTO started stamping
+            "API KEY REQUIRED" across every tile it serves. The names matter
+            here: this card asks "is this the right place?", and a grey square
+            with a pin in it cannot be answered. See core/lib/basemaps.ts. */}
         {tiles.map(([tx, ty], i) => (
           <img
             key={`${tx}-${ty}`}
-            src={`https://a.basemaps.cartocdn.com/light_all/${ZOOM}/${x0 + tx}/${y0 + ty}.png`}
+            src={tileUrl('light', ZOOM, x0 + tx, y0 + ty)}
             alt={i === 0 ? alt : ''}
             width={TILE}
             height={TILE}
             /* Not lazy: the card is one row in a transcript the user is looking
                at right now, and lazy left it rendering as an empty beige box. */
+            draggable={false}
+            className='absolute select-none max-w-none'
+            style={{ left: tx * TILE, top: ty * TILE }}
+          />
+        ))}
+        {tiles.map(([tx, ty]) => (
+          <img
+            key={`lbl-${tx}-${ty}`}
+            src={tileUrl('light', ZOOM, x0 + tx, y0 + ty, true)}
+            alt=''
+            width={TILE}
+            height={TILE}
             draggable={false}
             className='absolute select-none max-w-none'
             style={{ left: tx * TILE, top: ty * TILE }}

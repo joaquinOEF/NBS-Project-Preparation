@@ -57,6 +57,7 @@ import {
 } from '@shared/risk-display';
 import { normalizeZoneName } from '@shared/bairro-match';
 import { polygonAreaM2, roundAreaM2 } from '@shared/w3-sizing';
+import { BASEMAPS } from '@/core/lib/basemaps';
 import { RISK_BANDS } from '@shared/risk-display';
 import type { LegendSpec } from '@shared/legend-types';
 import { describeRamp } from '@shared/hazard-legend';
@@ -218,7 +219,8 @@ export default function MapMicroapp({
   // is removed on advanceToAssets, so this inert outline is what orients the
   // user while they drop points on satellite imagery.
   const focusOutlineRef = useRef<L.GeoJSON | null>(null);
-  const politicalBaseRef = useRef<L.TileLayer | null>(null);
+  // A GROUP since the switch to Esri: ground + labels are two services.
+  const politicalBaseRef = useRef<L.TileLayer | L.LayerGroup | null>(null);
   const satelliteBaseRef = useRef<L.TileLayer | null>(null);
   const customMarkersRef = useRef<L.Layer[]>([]);
   const selectedHighlightsRef = useRef<Map<string, L.Layer>>(new Map());
@@ -517,16 +519,22 @@ export default function MapMicroapp({
       // half-width panel and were never asked to frame a whole municipality.
       ...(params.allowDeferSite ? { zoomSnap: 0 } : {}),
     });
-    // Two base layers; the swap effect below shows one. Esri World Imagery is
-    // free (no key) and zooms to ~19 for site-level detail.
-    politicalBaseRef.current = L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      { maxZoom: 19 }
-    );
-    satelliteBaseRef.current = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      { maxZoom: 19, attribution: 'Tiles © Esri' }
-    );
+    // Two base layers; the swap effect below shows one. Both from Esri, both
+    // keyless — see client/src/core/lib/basemaps.ts for why CARTO left.
+    //
+    // ⚠️ The political base is a LAYER GROUP, because Esri ships the ground and
+    // the place names as separate services. Grey tiles with no labels are not a
+    // basemap anyone can find their own street on, and this is the map an
+    // organisation marks its site on.
+    politicalBaseRef.current = L.layerGroup([
+      L.tileLayer(BASEMAPS.light.url, {
+        maxZoom: 19, maxNativeZoom: BASEMAPS.light.maxNativeZoom, attribution: BASEMAPS.light.attribution,
+      }),
+      L.tileLayer(BASEMAPS.light.labelsUrl!, { maxZoom: 19, maxNativeZoom: BASEMAPS.light.maxNativeZoom }),
+    ]);
+    satelliteBaseRef.current = L.tileLayer(BASEMAPS.satellite.url, {
+      maxZoom: 19, maxNativeZoom: BASEMAPS.satellite.maxNativeZoom, attribution: BASEMAPS.satellite.attribution,
+    });
     politicalBaseRef.current.addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     mapRef.current = map;
@@ -565,7 +573,21 @@ export default function MapMicroapp({
     const [show, hide] = basemap === 'satellite' ? [sat, pol] : [pol, sat];
     if (!map.hasLayer(show)) show.addTo(map);
     if (map.hasLayer(hide)) map.removeLayer(hide);
-    show.bringToBack();
+    // ⚠️ A LayerGroup has no bringToBack(). The political base became one when
+    // Esri replaced CARTO (ground + labels are separate services), and calling
+    // the tile-layer method on it throws inside an effect — the whole map dies
+    // on the first tap of the basemap toggle. Children are sent back in REVERSE
+    // order so the ground ends up underneath its own labels.
+    const toBack = (l: L.TileLayer | L.LayerGroup) => {
+      if (l instanceof L.LayerGroup) {
+        const kids: L.Layer[] = [];
+        l.eachLayer(k => kids.push(k));
+        for (const k of kids.reverse()) (k as L.TileLayer).bringToBack?.();
+      } else {
+        l.bringToBack();
+      }
+    };
+    toBack(show);
   }, [basemap, mapReady]);
 
   // Every CBO step opens on the political basemap. The site step used to force

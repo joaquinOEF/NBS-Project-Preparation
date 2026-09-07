@@ -8,6 +8,7 @@ import { TILE_LAYERS, ALL_TILE_LAYERS, TILE_LAYER_GROUPS, OSM_LAYERS, SPATIAL_QU
 import { riskBand, hazardPercentile, type HazardKey } from '@shared/risk-display';
 import ValueTooltip from '@/core/components/maps/ValueTooltip';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
+import { BASEMAPS } from '@/core/lib/basemaps';
 
 // ============================================================================
 // TYPES
@@ -148,7 +149,10 @@ export default function ConceptNoteMap({ onConfirm, isActive }: ConceptNoteMapPr
             zoomControl: false,
             attributionControl: false,
           });
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 17 }).addTo(map);
+          L.tileLayer(BASEMAPS.light.url, {
+            maxZoom: 17, maxNativeZoom: BASEMAPS.light.maxNativeZoom, attribution: BASEMAPS.light.attribution,
+          }).addTo(map);
+          L.tileLayer(BASEMAPS.light.labelsUrl!, { maxZoom: 17, maxNativeZoom: BASEMAPS.light.maxNativeZoom }).addTo(map);
           L.control.zoom({ position: 'bottomright' }).addTo(map);
           mapRef.current = map;
           setMapReady(true);

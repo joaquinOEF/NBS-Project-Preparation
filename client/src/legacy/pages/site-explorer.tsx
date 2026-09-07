@@ -64,6 +64,7 @@ import { LayerLegend } from '@/core/components/map/LayerLegend';
 import type { LegendIndex } from '@shared/legend-types';
 import { buildSpatialQueryLayer } from '@/lib/spatialQueryBuilder';
 import ValueTooltip from '@/core/components/maps/ValueTooltip';
+import { BASEMAPS } from '@/core/lib/basemaps';
 
 interface BoundaryData {
   cityLocode: string;
@@ -999,15 +1000,22 @@ export default function SiteExplorerPage() {
       zoom: 11,
     });
 
-    const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      subdomains: 'abcd',
+    const tileLayer = L.tileLayer(BASEMAPS.dark.url, {
+      attribution: `&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · ${BASEMAPS.dark.attribution}`,
       maxZoom: 19,
+      maxNativeZoom: BASEMAPS.dark.maxNativeZoom,
       updateWhenZooming: true,
       updateWhenIdle: false,
       keepBuffer: 4,
     }).addTo(map);
     
+    // Place names, as a second layer: Esri publishes the dark ground and its
+    // labels separately, and a dark grey city with no names is not something a
+    // coordinator can locate a bairro in.
+    L.tileLayer(BASEMAPS.dark.labelsUrl!, {
+      maxZoom: 19, maxNativeZoom: BASEMAPS.dark.maxNativeZoom,
+    }).addTo(map);
+
     tileLayer.on('tileerror', (error: any) => {
       console.warn('Tile load error, retrying...', error.tile?.src);
       setTimeout(() => {

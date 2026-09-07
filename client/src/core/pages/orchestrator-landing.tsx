@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
+import { BASEMAPS } from '@/core/lib/basemaps';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, BookOpen, Check, Clock, Compass, Copy, Droplets, Eye, Leaf, LifeBuoy, Lightbulb, MapPin, Target,
@@ -715,10 +716,14 @@ function MapPanel({
       attributionControl: true,
       scrollWheelZoom: false, // keep page scrollable — zoom via + / –
     });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd',
-      attribution: '© <a href="https://carto.com/attributions">CARTO</a> · © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 19,
+    // Ground, then place names — two Esri services, no key. This is the map the
+    // "API KEY REQUIRED" watermark was painted across. See core/lib/basemaps.ts.
+    L.tileLayer(BASEMAPS.light.url, {
+      attribution: `${BASEMAPS.light.attribution} · © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>`,
+      maxZoom: 19, maxNativeZoom: BASEMAPS.light.maxNativeZoom,
+    }).addTo(map);
+    L.tileLayer(BASEMAPS.light.labelsUrl!, {
+      maxZoom: 19, maxNativeZoom: BASEMAPS.light.maxNativeZoom,
     }).addTo(map);
 
     const mapped = projects.filter(p => p.coords);
