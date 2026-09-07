@@ -28,6 +28,7 @@
 // ============================================================================
 
 import { NBS_FAMILIAS } from './nbs-catalog';
+import { digParagraphs, parseDig } from './w3-dig';
 import { familyOfWorry } from './site-knowledge';
 import { studyRequirement } from './w3-dossier';
 import { getSolutionFicha } from './nbs-solution-fichas';
@@ -93,7 +94,20 @@ export interface SynergyMember {
    * belong together than any field we canonicalised. A synergy pass that reads
    * only the enum answers is reading the thinnest version of the record.
    */
-  ownWords: { story: string | null; whyHere: string | null; baseline: string | null };
+  /**
+   * ⚠️ `dug` and `detail` reach this pass as of 2026-09-07. They are the half of
+   * "their own words" it most needs and never had — see the note on
+   * SynergyFacts. `areaM2` likewise: a cohort's total footprint is a fact about
+   * the cohort, and it was on every record already.
+   */
+  ownWords: {
+    story: string | null;
+    whyHere: string | null;
+    baseline: string | null;
+    dug?: string[];
+    detail?: string | null;
+  };
+  areaM2?: number | null;
   /**
    * What they uploaded. ⚠️ `fullText` where we have it, not only the summary:
    * this pass was reading a 280-character précis of a Teia Sprint proposal —
@@ -393,7 +407,27 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
  * the roster signals, which are shaped for a card rather than for reasoning.
  */
 export type SynergyFacts = {
-  ownWords: { story: string | null; whyHere: string | null; baseline: string | null };
+  /**
+   * ⚠️ `dug` and `detail` were missing until 2026-09-07, and they are the half
+   * of "their own words" that this pass most needs.
+   *
+   * This type was written before the dig existed (shared/w3-dig.ts), so an
+   * organisation could answer three questions written specifically for it —
+   * how long the water stood, who unblocks the drains, what the land agreement
+   * actually covers — and every one of those answers reached the Resumo do
+   * Projeto and NOTHING in the cohort report. They are exactly the sentences
+   * that put two organisations in the same room: "a escola está sem zelador,
+   * quem desentope somos nós" is a shared condition; "alagamento" is a label.
+   */
+  ownWords: {
+    story: string | null;
+    whyHere: string | null;
+    baseline: string | null;
+    /** The answered dig, already in the document's third person. */
+    dug: string[];
+    /** The one detail this solution's ficha says decides whether it works here. */
+    detail: string | null;
+  };
   correctionsPt: string | null;
   /** Pre-digested photograph observations — see the doc on SynergyMember. */
   photoNotesPt: string[];
@@ -414,6 +448,12 @@ export type SynergyFacts = {
   biggestBudget: string | null;
   studyNeeds: string[];
   bodies: string[];
+  /**
+   * The footprint, so the pass can add up what a cohort is proposing. Three
+   * organisations depaving 900 m² each is a different proposition from three
+   * proposing "a rain garden", and the number was on the record the whole time.
+   */
+  areaM2: number | null;
 };
 
 export function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
@@ -472,6 +512,11 @@ export function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
       story: f('intervention_site', 'site_story') || null,
       whyHere: f('intervention_type', 'justification_why_here') || null,
       baseline: f('impact_monitoring', 'baseline_condition') || null,
+      // Already written for a page — third person, the answer inside a sentence
+      // that says what it answers. The same rendering the Resumo prints, so the
+      // two documents cannot disagree about what an organisation said.
+      dug: digParagraphs(parseDig(f('intervention_type', 'dig_json')), 'pt').map(d => d.text),
+      detail: f('intervention_type', 'detail_answer') || null,
     },
     correctionsPt: hazardChecks,
     // ⚠️ From the advisor's own observations, not from the images. Only the ones
@@ -506,5 +551,6 @@ export function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
     biggestBudget: f('org_profile', 'biggest_project_budget') || null,
     studyNeeds,
     bodies,
+    areaM2: Number(f('intervention_site', 'site_area_m2')) || null,
   };
 }

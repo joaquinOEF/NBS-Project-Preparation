@@ -127,7 +127,13 @@ Regras que não se quebram:
 - Nunca julgue uma organização por não ter respondido ou por não ter escolhido nada. A falta de dado é uma lacuna do nosso lado.
 - Português do Brasil, direto, sem jargão de consultoria.`;
 
-function analysisForModel(a: SynergyAnalysis): string {
+/**
+ * Exported for the tests: this string IS the pass's product. Everything the
+ * model can say about a cohort has to be in here, and the failure this pass has
+ * had twice — reading fields and not what the workshop got out of the room — is
+ * invisible in the report and obvious in the block.
+ */
+export function analysisForModel(a: SynergyAnalysis): string {
   const name = (id: string) => a.members.find(m => m.id === id)?.orgName ?? id;
   const L: string[] = [];
 
@@ -152,6 +158,17 @@ function analysisForModel(a: SynergyAnalysis): string {
     if (m.ownWords.story) L.push(`    "nas palavras deles": ${m.ownWords.story.slice(0, 700)}`);
     if (m.ownWords.whyHere) L.push(`    "por que aqui": ${m.ownWords.whyHere.slice(0, 500)}`);
     if (m.ownWords.baseline) L.push(`    "como está hoje": ${m.ownWords.baseline.slice(0, 400)}`);
+    // ⚠️ The questions written for THIS organisation, and what it answered. The
+    // richest material any session produces, and it reached the organisation's
+    // own document and nothing here — so a pass looking for what a cohort has in
+    // common could see "alagamento" and never "a escola está sem zelador desde
+    // 2023, quem desentope somos nós", which is the sentence that puts two
+    // organisations in the same conversation. See shared/w3-dig.ts.
+    for (const d of m.ownWords.dug ?? []) L.push(`    perguntamos e responderam: ${d.slice(0, 500)}`);
+    if (m.ownWords.detail) L.push(`    o detalhe que decide: ${m.ownWords.detail.slice(0, 300)}`);
+    // The size, so "três organizações somam 6.000 m²" is available as a fact
+    // rather than as an impression.
+    if (m.areaM2) L.push(`    área desenhada: ${m.areaM2.toLocaleString('pt-BR')} m²`);
     if (m.correctionsPt) L.push(`    ⚠️ corrigiu nossos dados de risco: ${m.correctionsPt} — a percepção dela vale mais que a nossa média`);
     // ⚠️ Pre-digested, never the images. Two organisations photographing the
     // same failing wall is a synergy no field expresses, and these sentences
