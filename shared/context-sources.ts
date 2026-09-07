@@ -212,6 +212,17 @@ export const MODEL_PASSES: ModelPass[] = [
     file: 'server/services/synergyReport.ts',
     sources: {
       fields: uses,
+      // ⚠️ "uses" IS PER SOURCE, NOT PER FIELD — and that is how this one went
+      // half-empty for a fortnight. `ownWords` was declared and honestly so:
+      // the pass read site_story, why-here and the baseline. It did not read the
+      // DIG — three questions written for that organisation and answered in the
+      // room — because SynergyFacts was written before the dig existed and
+      // nobody had to declare anything to leave it out. Those answers reached
+      // the organisation's own document (field-destiny proves that) and stopped
+      // there, so the pass whose job is finding what a cohort has in common
+      // could see "alagamento" and never "a escola está sem zelador desde 2023,
+      // quem desentope somos nós". Closed 2026-09-07, together with the drawn
+      // area and the decisive detail.
       ownWords: uses,
       geo: uses,
       fichas: uses,

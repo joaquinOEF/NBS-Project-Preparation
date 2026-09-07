@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { TestApi } from './helpers/testApi';
-import { analyseSynergies, type SynergyMember } from '../shared/w3-synergies';
+import { analyseSynergies, synergyFactsFrom, type SynergyMember } from '../shared/w3-synergies';
 import { E3_QUESTIONNAIRE, askCopyFor, sectionsFieldReader } from '../shared/cbo-questionnaire';
-import { shapeNarrative } from '../server/services/synergyReport';
+import { analysisForModel, shapeNarrative } from '../server/services/synergyReport';
 
 // COHORT SYNERGIES — the grouping pass behind the "mapear sinergias" button.
 //
@@ -293,5 +293,101 @@ test.describe('a bad line is dropped, never fatal', () => {
 
   test('nothing left and nothing to say is an honest absence', () => {
     expect(shapeNarrative(raw([line('Eixo A', ['Ninguém'])], '  '), ['Ksa Rosa'])).toBeNull();
+  });
+});
+
+// ── What an organisation actually said reaches the pass that pools ──────────
+// ⚠️ SynergyFacts was written before the dig existed, so three questions
+// written for one organisation and answered in the room reached its own
+// document and NOTHING here. The pass whose entire job is finding what a cohort
+// has in common could see "alagamento" and never "a escola está sem zelador
+// desde 2023, quem desentope somos nós" — which is the sentence that puts two
+// organisations in the same conversation.
+
+test.describe('the synergy facts carry what the workshop got out of the room', () => {
+  const sections = (over: Record<string, Record<string, string>> = {}) => {
+    const mk = (fields: Record<string, string>) => ({
+      fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, { value: v }])),
+    });
+    return {
+      org_profile: mk({ org_name: 'CEA Bom Jesus', ...(over.org_profile ?? {}) }),
+      intervention_site: mk({
+        bairro: 'Partenon', site_name: 'Colégio Caldas Junior', site_worry: 'enxurrada',
+        site_area_m2: '2900', land_tenure: 'formal-agreement',
+        ...(over.intervention_site ?? {}),
+      }),
+      intervention_type: mk({
+        chosen_solutions: 'biovaletas',
+        detail_answer: 'Mais barro, a água empoça',
+        dig_json: JSON.stringify([{
+          id: 'd1', round: 1, feeds: 'operacao', sourceKind: 'answer',
+          basedOn: 'os ralos entopem',
+          askPt: 'Quem desentope?', askEn: 'Who unblocks them?',
+          notePt: 'A manutenção dos ralos é feita por {answer}, conforme informado pela organização.',
+          noteEn: 'The drains are cleared by {answer}, as the organisation reports.',
+          answer: 'a própria equipe da organização, porque a escola está sem zelador desde 2023',
+        }]),
+        ...(over.intervention_type ?? {}),
+      }),
+      impact_monitoring: mk({ baseline_condition: 'Hoje é tudo concreto.', ...(over.impact_monitoring ?? {}) }),
+      operations_sustain: mk({}),
+    } as any;
+  };
+
+  test('the dig answers arrive, in the document’s own register', () => {
+    const f = synergyFactsFrom(sections());
+    expect(f.ownWords.dug).toHaveLength(1);
+    expect(f.ownWords.dug[0]).toContain('sem zelador desde 2023');
+    // Third person, because this text is quoted into a report a room reads —
+    // the same rendering the organisation's own document uses, so the two
+    // cannot disagree about what was said.
+    expect(f.ownWords.dug[0]).toContain('A manutenção dos ralos é feita por');
+    expect(f.ownWords.dug[0]).not.toMatch(/\bvocês\b/i);
+  });
+
+  test('the decisive detail and the drawn area arrive too', () => {
+    const f = synergyFactsFrom(sections());
+    expect(f.ownWords.detail).toBe('Mais barro, a água empoça');
+    // A cohort's total footprint is a fact about the cohort, and it was on
+    // every record already.
+    expect(f.areaM2).toBe(2900);
+  });
+
+  test('an organisation that answered none of it carries nothing, not nulls in a list', () => {
+    const f = synergyFactsFrom(sections({ intervention_type: { chosen_solutions: 'biovaletas', dig_json: '', detail_answer: '' } }));
+    expect(f.ownWords.dug).toEqual([]);
+    expect(f.ownWords.detail).toBeNull();
+  });
+
+  test('a skipped dig question is not an answer', () => {
+    // "" means asked and skipped; "não sei" is a finding for the coordination,
+    // not a sentence for a report.
+    const skipped = JSON.stringify([
+      { id: 'a', round: 1, feeds: 'problema', sourceKind: 'answer', basedOn: 'x',
+        askPt: 'q?', askEn: 'q?', notePt: 'X {answer}.', noteEn: 'X {answer}.', answer: '' },
+      { id: 'b', round: 1, feeds: 'problema', sourceKind: 'answer', basedOn: 'x',
+        askPt: 'q?', askEn: 'q?', notePt: 'Y {answer}.', noteEn: 'Y {answer}.', answer: 'não sei' },
+    ]);
+    const f = synergyFactsFrom(sections({ intervention_type: { chosen_solutions: 'biovaletas', dig_json: skipped } }));
+    expect(f.ownWords.dug).toEqual([]);
+  });
+
+  test('and they reach the block the model actually reads', () => {
+    const f = synergyFactsFrom(sections());
+    const member: SynergyMember = {
+      id: 'm1', orgName: 'CEA Bom Jesus', bairro: 'Partenon', siteName: f.siteName,
+      hasSite: f.hasSite, tenure: f.tenure, currentUse: f.currentUse, worry: 'enxurrada',
+      familias: f.familias, solutions: f.solutions, roles: f.roles,
+      priorCollaboration: null, priorCollaborationDetail: f.priorCollaborationDetail,
+      nbsExperience: f.nbsExperience, fundingScale: f.fundingScale, biggestBudget: f.biggestBudget,
+      maturityScore: 12, verdict: 'needs_study', studyNeeds: f.studyNeeds, bodies: f.bodies,
+      docCount: 0, ownWords: f.ownWords, areaM2: f.areaM2, correctionsPt: f.correctionsPt,
+      docs: [], approvalInstruments: f.approvalInstruments, fundingOpen: f.fundingOpen,
+      fundingBlocked: f.fundingBlocked, photoNotesPt: f.photoNotesPt, started: true,
+    } as any;
+    const block = analysisForModel(analyseSynergies([member]));
+    expect(block).toContain('sem zelador desde 2023');
+    expect(block).toContain('o detalhe que decide');
+    expect(block).toContain('2.900 m²');
   });
 });

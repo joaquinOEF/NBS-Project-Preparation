@@ -588,7 +588,8 @@ export function registerCohortRoutes(app: Express): void {
           studyNeeds: s.studyNeeds ?? [],
           bodies: s.bodies ?? [],
           docCount: m.documentCount ?? 0,
-          ownWords: s.ownWords ?? { story: null, whyHere: null, baseline: null },
+          ownWords: s.ownWords ?? { story: null, whyHere: null, baseline: null, dug: [], detail: null },
+          areaM2: s.areaM2 ?? null,
           correctionsPt: s.correctionsPt ?? null,
           docs: docsByMember.get(m.id)
             ?? (m.docPreview?.filenames ?? []).map((filename: string) => ({
