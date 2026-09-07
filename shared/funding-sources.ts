@@ -175,9 +175,48 @@ export const FUNDING_CAVEAT = {
  * the reader knows it is one of eighteen in a pipeline.
  */
 export const AGGREGATION_ARGUMENT = {
-  pt: 'Um projeto comunitário pedindo R$ 20.000 a R$ 40.000 sozinho é difícil de colocar para um financiador maior: o custo de avaliar e administrar uma doação pequena é desproporcional ao valor. O mesmo conjunto de projetos, reunido num portfólio, é outra proposta — o financiador decide uma vez e alcança muitas organizações. Este projeto é apresentado como parte de uma rede, e isso é uma estratégia de acesso, não uma questão de porte individual.',
-  en: 'A community project asking for R$ 20,000–40,000 on its own is hard to place with a larger funder: the cost of assessing and administering a small grant is disproportionate to the amount. The same set of projects, gathered into a portfolio, is a different proposition — the funder decides once and reaches many organisations. This project is presented as part of a network, and that is an access strategy rather than a matter of individual size.',
+  pt: 'Um projeto comunitário pedindo uma quantia pequena sozinho é difícil de colocar para um financiador maior: o custo de avaliar e administrar uma doação pequena é desproporcional ao valor. O mesmo conjunto de projetos, reunido num portfólio, é outra proposta — o financiador decide uma vez e alcança muitas organizações. Este projeto é apresentado como parte de uma rede, e isso é uma estratégia de acesso, não uma questão de porte individual.',
+  en: 'A community project asking for a small amount on its own is hard to place with a larger funder: the cost of assessing and administering a small grant is disproportionate to the amount. The same set of projects, gathered into a portfolio, is a different proposition — the funder decides once and reaches many organisations. This project is presented as part of a network, and that is an access strategy rather than a matter of individual size.',
 };
+
+/**
+ * The same argument, said about THIS project's own number.
+ *
+ * ⚠️ The band above used to be written into the sentence — "um projeto
+ * comunitário pedindo R$ 20.000 a R$ 40.000" — and it printed unchanged inside
+ * a note whose own estimate was R$ 580.000–1.450.000 (JVP, CEA Bom Jesus,
+ * 2026-09-07). A reader takes the figure in the sentence for the ask; this one
+ * told a funder the project wanted forty thousand reais.
+ */
+/**
+ * Above this, "o custo de administrar uma doação pequena" is no longer the
+ * argument — the same paragraph would read as nonsense over a seven-figure
+ * band. The portfolio case still holds up there; it just rests on something
+ * else, so it is written out separately rather than patched with a number.
+ */
+const SMALL_ASK_BRL = 100_000;
+
+const LARGER_ASK = {
+  pt: 'Um projeto comunitário que chega sozinho a um financiador maior disputa atenção com propostas institucionais, e o trabalho de avaliar e acompanhar cada doação é praticamente o mesmo qualquer que seja o valor. O mesmo conjunto de projetos, reunido num portfólio, é outra proposta — o financiador decide uma vez e alcança muitas organizações. Este projeto é apresentado como parte de uma rede, e isso é uma estratégia de acesso, não uma questão de porte individual.',
+  en: 'A community project arriving alone at a larger funder competes for attention with institutional proposals, and the work of assessing and monitoring a grant is much the same whatever its size. The same set of projects, gathered into a portfolio, is a different proposition — the funder decides once and reaches many organisations. This project is presented as part of a network, and that is an access strategy rather than a matter of individual size.',
+};
+
+export function aggregationArgument(
+  lang: 'pt' | 'en',
+  cost?: { lowBrl?: number | null; highBrl?: number | null },
+): string {
+  const low = cost?.lowBrl;
+  const high = cost?.highBrl ?? cost?.lowBrl;
+  if (low == null) return lang === 'pt' ? AGGREGATION_ARGUMENT.pt : AGGREGATION_ARGUMENT.en;
+  if (low > SMALL_ASK_BRL) return lang === 'pt' ? LARGER_ASK.pt : LARGER_ASK.en;
+  const money = (n: number) =>
+    lang === 'pt' ? `R$ ${n.toLocaleString('pt-BR')}` : `R$ ${n.toLocaleString('en-US')}`;
+  const band = low === high ? money(low) : `${money(low)} a ${money(high!)}`;
+  const bandEn = low === high ? money(low) : `${money(low)}–${money(high!)}`;
+  return lang === 'pt'
+    ? AGGREGATION_ARGUMENT.pt.replace('uma quantia pequena', band)
+    : AGGREGATION_ARGUMENT.en.replace('a small amount', bandEn);
+}
 
 export interface OrgFundingProfile {
   hasCnpj?: boolean;

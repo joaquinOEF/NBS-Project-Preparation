@@ -165,8 +165,11 @@ export const SOLUTION_BENEFITS: Record<string, SolutionBenefit> = {
     claimPt: 'Conduz a água devagar em vez de deixar correr, e infiltra no caminho.',
     claimEn: 'Carries water slowly instead of letting it run, and infiltrates along the way.',
     sourcePt: GIZ.pt, sourceEn: GIZ.en, confidence: 'média',
-    notaPt: 'A biovaleta é cobrada por metro de comprimento, não por área — o contorno desenhado não fecha esse número sozinho. Falta o comprimento da vala.',
-    notaEn: 'A swale is measured by its length, not its area — so your drawing alone does not close this number. It needs the run length.',
+    // ⚠️ "cobrada" read as PRICING once this note started travelling beside the
+    // cost section, where the same solution is priced per m² from its ficha. It
+    // is the effect figure that is per metre of length, not the price.
+    notaPt: 'Este número é por metro de comprimento da vala, não por área — o contorno desenhado não o fecha sozinho. Falta o comprimento da vala.',
+    notaEn: 'This figure is per metre of swale length, not per area — the drawn outline does not close it on its own. It needs the run length.',
   },
   'bacia-de-retencao': {
     basis: 'volume_per_m2', low: 0.15, high: 0.35,

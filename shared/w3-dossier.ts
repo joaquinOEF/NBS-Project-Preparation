@@ -214,6 +214,28 @@ const PUBLIC_TENURE = new Set([
  * difference between a project they can start and one they cannot.
  */
 /** The words an organisation used for a worry, never the id we store it under. */
+/**
+ * ⚠️ The label of ONE worry, named explicitly.
+ *
+ * `worryLabel` below reads the FIRST of the listed worries, which is right for
+ * "what leads" and wrong for "what this solution answers". An organisation that
+ * named `heat, enxurrada` and chose biovaletas got, in the section a funder
+ * reads most closely: *"é esse o mecanismo que responde a sol forte, falta de
+ * sombra"* — a bioswale answering heat (JVP, CEA Bom Jesus, 2026-09-07). The
+ * test was right (the bioswale does answer enxurrada, which is on the list);
+ * only the label was taken from the wrong end of it.
+ */
+export function labelOfWorry(id: string, pt: boolean): string {
+  const sub = WORRY_SUBTYPES.find(w => w.id === id.trim());
+  if (sub) return (pt ? sub.dPt : sub.dEn).toLowerCase();
+  const family: Record<string, { pt: string; en: string }> = {
+    flood: { pt: 'a água', en: 'water' },
+    heat: { pt: 'o calor', en: 'heat' },
+    landslide: { pt: 'o barranco', en: 'the slope' },
+  };
+  return family[id.trim()] ? (pt ? family[id.trim()].pt : family[id.trim()].en) : id.trim();
+}
+
 export function worryLabel(id: string, pt: boolean): string {
   const first = id.split(',')[0].trim();
   const sub = WORRY_SUBTYPES.find(w => w.id === first);
