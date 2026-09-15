@@ -179,7 +179,7 @@ Open with Robson, listed in PR 1 and not blocking: reflorestamento is
 "complexa" at landscape scale and a Miyawaki pocket forest on a lot is not;
 escola verde is "simples" on his gradient while the deck says `parceria` (the
 school has to say yes — the two are not in tension, but he should see both);
-the thirteen he did not name carry `complexidadeFonte: 'derivada'`.
+the fourteen he did not name carry `complexidadeFonte: 'derivada'`.
 
 Also on his word: `terracos-de-chuva` moved from `mutirao` to `licenca` (July
 review — a structure cut into a slope goes through Defesa Civil). Its verdict
