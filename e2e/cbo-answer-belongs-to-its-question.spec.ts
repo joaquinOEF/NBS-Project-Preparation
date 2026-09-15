@@ -55,6 +55,13 @@ test.describe('COUGAR — the transcript', () => {
     // Size is already on the record, so this only has to be confirmed.
     await expect(chip('Confere ✓')).toBeVisible({ timeout: 15_000 });
     await chip('Confere ✓').click();
+    // The test card, the reaction, the comparison — then into the tail.
+    await expect(page.getByTestId('cbo-solution-test-biovaletas')).toBeVisible({ timeout: 15_000 });
+    await chip('Faz sentido pra gente').click();
+    await expect(chip('Ver a comparação')).toBeVisible({ timeout: 15_000 });
+    await chip('Ver a comparação').click();
+    await expect(chip('Detalhar agora')).toBeVisible({ timeout: 15_000 });
+    await chip('Detalhar agora').click();
     await expect(chip('Parceria com universidade ou ONG')).toBeVisible({ timeout: 15_000 });
     await chip('Parceria com universidade ou ONG').click();
 

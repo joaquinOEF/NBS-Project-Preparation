@@ -177,6 +177,31 @@ export const FIELD_DESTINY: Record<string, FieldDestiny> = {
     probeWith: { detail_question_id: 'soil-type' },
   },
 
+  // The solutions the organisation TESTED in Encontro 3, as one field — see
+  // shared/w3-tests.ts. The liked ones are `chosen_solutions` and argued all
+  // over the page; the set-aside ones reach it as one sentence in §intervenção,
+  // because knowing what was tried and set aside is part of the argument for
+  // what was kept. Proved the same way as the dig: set it, build, find it.
+  solution_tests_json: {
+    carriedBy: 'the "Soluções testadas no Encontro 3" sentence in §intervencao, plus chosen_solutions for the liked ones',
+    provenBy: 'page',
+    probe: JSON.stringify([
+      { solutionId: 'jardins-de-chuva', reaction: 'faz-sentido', testedAt: '2026-09-30T00:00:00.000Z' },
+      { solutionId: 'biovaletas', reaction: 'nao-e-pra-gente', testedAt: '2026-09-30T00:00:00.000Z' },
+    ]),
+    probeExpect: 'Biovaletas (descartada pela organização)',
+  },
+
+  // The coordination's technical reading — Robson's field visit, typed in by
+  // the coordinator (PATCH …/technical-note). Optional, and rendered under its
+  // own label so it is never mistaken for the organisation's words.
+  technical_note: {
+    feeds: 'intervencao',
+    labelPt: 'Leitura técnica da coordenação',
+    labelEn: "The coordination's technical reading",
+    skipIf: NO_ANSWER,
+  },
+
   // ⚠️ The dig round, as one field. Its questions are WRITTEN per organisation,
   // so their answers cannot each have a pre-declared field name — but the block
   // itself is declared, and the proof runs the same way: set it, build the

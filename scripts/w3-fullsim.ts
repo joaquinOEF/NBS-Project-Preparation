@@ -47,6 +47,9 @@ import { buildDossier, portfolioState, studyRequirement, type Dossier } from '..
 import { buildRoadmap, type Roadmap } from '../shared/w3-roadmap';
 import { renderRoadmapHtml } from '../server/services/roadmapPrint';
 import { renderConceptNoteHtml } from '../server/services/conceptNotePrint';
+import { renderComparisonHtml } from '../server/services/comparisonPrint';
+import { buildComparison, type Comparison } from '../shared/w3-comparison';
+import { parseTests } from '../shared/w3-tests';
 import { buildConceptNote } from '../shared/concept-note';
 import { authorConceptNote } from '../server/services/conceptNoteAuthor';
 import { structuredProvider } from '../server/services/structuredModel';
@@ -76,6 +79,8 @@ const normChip = (s: string) =>
 interface Leaning {
   when?: RegExp;
   pick: RegExp;
+  /** Spent on first use — for "Testar outra" once, then "Ver a comparação". */
+  once?: boolean;
 }
 interface Persona {
   id: string;
@@ -86,6 +91,9 @@ interface Persona {
   /** Whether this organisation gets a dug round. Not everyone does — the pass
    *  returns nothing often enough that a flow assuming it would be a fiction. */
   dig?: boolean;
+  /** Stops at the comparison ("Deixar pra depois") instead of detailing. A
+   *  real place to stop, so one persona has to stop there. */
+  parks?: boolean;
   state: any;
   leanings: Leaning[];
   /** What they type when the beat wants prose, in the order the beats come. */
@@ -118,6 +126,9 @@ interface Run {
   pdfBytes: number;
   pdfPages: number;
   pdfText: string;
+  comparison: Comparison | null;
+  comparisonText: string;
+  tests: ReturnType<typeof parseTests>;
 }
 
 // ── Driving ─────────────────────────────────────────────────────────────────
@@ -232,15 +243,19 @@ async function drive(p: Persona) {
     if (!served) { problems.push(`turno NÃO SERVIDO: "${turn.msg}"`); break; }
     if (!fresh.length) { problems.push(`silêncio depois de "${turn.msg}"`); break; }
     if (fresh.some(e => e.type === 'show_roadmap')) { closed = true; break; }
+    // A persona that parks at the comparison has reached its own end.
+    if (p.parks && beats[beats.length - 1] === 'parked') { closed = true; break; }
 
     // The shortlist may never re-offer something already taken. Checked HERE
     // rather than at the end, because the list is gone by then — and offering
     // it is how the last beat of the workshop dead-ended.
+    // ⚠️ Against what was TESTED, not what was liked: a solution set aside
+    // with "não é pra gente" must not come back either.
     for (const e of fresh.filter(x => x.type === 'show_solution_options')) {
-      const taken = String(state.sections.intervention_type.fields.chosen_solutions?.value ?? '')
-        .split(',').map((v: string) => v.trim()).filter(Boolean);
+      const taken = parseTests(String(state.sections.intervention_type.fields.solution_tests_json?.value ?? ''))
+        .map(t => t.solutionId);
       const dup = (e.items ?? []).map((i: any) => i.solutionId).filter((id: string) => taken.includes(id));
-      if (dup.length) problems.push(`lista ofereceu de novo o que já foi escolhido: ${dup.join(', ')}`);
+      if (dup.length) problems.push(`lista ofereceu de novo o que já foi testado: ${dup.join(', ')}`);
     }
 
     // The map: they tap "Desenhar no mapa", trace a shape, the client posts the
@@ -261,7 +276,12 @@ async function drive(p: Persona) {
     // keying on that label called three good questions a stuck beat. And the
     // "changed nothing" half counted field KEYS, which cannot see three answers
     // accumulating inside one JSON field — so it has to compare content.
-    const key = String(beats[beats.length - 1] ?? ask.question).slice(0, 60);
+    // ⚠️ The shelf is asked once per test BY DESIGN, and "Testar outra" writes
+    // nothing — so the shelf is keyed by how many tests exist, or the third
+    // trip to it reads as a stuck beat on a flow that is looping as intended.
+    const testsSoFar = parseTests(String(state.sections.intervention_type.fields.solution_tests_json?.value ?? '')).length;
+    const rawKey = String(beats[beats.length - 1] ?? ask.question);
+    const key = (rawKey === 'ask-solution' || rawKey === 'ask-next' ? `${rawKey}#${testsSoFar}` : rawKey).slice(0, 60);
     const n = (seen.get(key) ?? 0) + 1;
     seen.set(key, n);
     if (n >= 3 && fieldsDigest() === digestBefore) {
@@ -269,20 +289,26 @@ async function drive(p: Persona) {
       break;
     }
 
-    turn = choose(ask, p, prose, problems);
+    // The question a free-text beat asks is SAID, above a "Quando quiser:"
+    // composer — so the policy reads the last thing said as well as the ask.
+    const lastSaid = String([...fresh].filter(e => e.type === 'chat').pop()?.content ?? '');
+    turn = choose(ask, p, prose, problems, lastSaid);
   }
-  if (!closed) problems.push('o Encontro 3 nunca fechou — nenhuma hoja de ruta emitida');
+  if (!closed) problems.push(p.parks ? 'o Encontro 3 nunca parou na comparação' : 'o Encontro 3 nunca fechou — nenhuma hoja de ruta emitida');
 
   return { state, events, problems, transcript, beats, said, asked, maturity, turns };
 }
 
-function choose(ask: any, p: Persona, prose: string[], problems: string[]) {
+function choose(ask: any, p: Persona, prose: string[], problems: string[], lastSaid = '') {
   const opts: string[] = (ask.options ?? []).map((o: any) => String(o.label));
   const q = String(ask.question);
   for (const l of p.leanings) {
     if (l.when && !l.when.test(q)) continue;
     const hit = opts.find(o => l.pick.test(o));
-    if (hit) return { msg: hit, kind: 'chip' };
+    if (hit) {
+      if (l.once) p.leanings = p.leanings.filter(x => x !== l);
+      return { msg: hit, kind: 'chip' };
+    }
   }
   // A free-text beat, identified by what its options DO rather than by how many
   // there are: an option carrying a `write` or `record` action hands the turn to
@@ -292,6 +318,13 @@ function choose(ask: any, p: Persona, prose: string[], problems: string[]) {
   // answered in prose.
   const composes = (ask.options ?? []).some((o: any) => o?.action === 'write' || o?.action === 'record');
   const onlySkip = composes || !opts.length || (opts.length === 1 && /pular|skip/i.test(opts[0]));
+  // The concrete-instance question (shared/w3-detail-questions.ts) now sits at
+  // the head of the tail for everyone whose worry has one — before "por que
+  // aqui" — so it is answered on sight rather than eating the prose line the
+  // next beat was written for.
+  if (onlySkip && /me conta ess[ae] (vez|dia)|o que aconteceu naquele dia/i.test(`${lastSaid} ${q}`)) {
+    return { msg: 'Em maio de 2024 a água entrou nas casas do fundo e ficou dois dias; uma família perdeu a geladeira.', kind: 'text' };
+  }
   if (onlySkip) {
     const line = prose.shift();
     if (!line) {
@@ -343,7 +376,23 @@ function universal(r: Run): string[] {
   const add = (cond: boolean, msg: string) => { if (!cond) f.push(msg); };
 
   add(!r.problems.length, r.problems.join(' | '));
-  add(!!r.roadmap, 'nenhuma hoja de ruta');
+  const parked = !!r.persona.parks;
+  // ⚠️ Every organisation leaves with the comparison, parked or not — it is
+  // the document Encontro 3 hands back now. One column per test, every tested
+  // label on the printed page, and the page in the written register.
+  add(!!r.comparison, 'nenhuma comparação emitida');
+  if (r.comparison) {
+    add(r.comparison.columns.length === r.tests.length,
+      `comparação com ${r.comparison.columns.length} coluna(s) para ${r.tests.length} teste(s)`);
+    add(r.comparison.columns.length > 0, 'comparação vazia');
+    const squeeze = (t: string) => t.replace(/\s+/g, '');
+    for (const c of r.comparison.columns) {
+      add(squeeze(r.comparisonText).includes(squeeze(c.label)), `“${c.label}” não chegou ao PDF da comparação`);
+      add(!!c.reaction || parked === false, `coluna “${c.label}” sem a leitura da organização`);
+    }
+    add(squeeze(r.comparisonText).includes(squeeze('RASCUNHO')), 'a comparação impressa não diz RASCUNHO');
+  }
+  add(parked || !!r.roadmap, 'nenhuma hoja de ruta');
   if (r.roadmap) {
     add(r.roadmap.steps.length > 0, 'hoja de ruta sem nenhum passo');
     add(!!r.roadmap.orgName, 'hoja de ruta sem o nome da organização');
@@ -351,9 +400,10 @@ function universal(r: Run): string[] {
       `veredito fora dos quatro estados: ${r.roadmap.state}`);
     add(r.roadmap.what.length > 0 && r.roadmap.how.length > 0, 'hoja de ruta sem página 1 ou página 2');
   }
-  add(r.solutions.length > 0 || r.verdict === 'needs_site',
+  add(r.solutions.length > 0 || r.verdict === 'needs_site' || parked,
     'saiu do Encontro 3 sem nenhuma solução registrada');
-  add(r.maturity.length === 4, `${r.maturity.length} notas de maturidade gravadas, esperava 4`);
+  // Three at the comparison (financial_thinking is the tail's), four at the close.
+  add(r.maturity.length === (parked ? 3 : 4), `${r.maturity.length} notas de maturidade gravadas, esperava ${parked ? 3 : 4}`);
   add(r.maturity.every(m => !!m.justification?.trim()), 'nota de maturidade sem justificativa');
   add(r.maturity.every(m => m.score >= 0 && m.score <= 3), 'nota de maturidade fora de 0–3');
 
@@ -393,6 +443,8 @@ function universal(r: Run): string[] {
   const verbatim = [
     r.site.site_story, r.type.justification_why_here,
     r.impact.baseline_condition, r.site.site_name, r.persona.name,
+    // Their detail answers, quoted on the comparison.
+    ...r.tests.map(t => t.detailAnswer ?? ''),
   ].filter(v => String(v ?? '').trim().length > 3).map(String);
   const stripQuotes = (text: string) =>
     verbatim.reduce((acc, v) => acc.split(v).join(' '), String(text));
@@ -409,9 +461,12 @@ function universal(r: Run): string[] {
     const hit = SECOND_PERSON.exec(stripQuotes(line));
     if (hit) f.push(`segunda pessoa num documento técnico ("${hit[0]}"): “${String(line).slice(0, 66)}…”`);
   }
-  // And the printed sheet itself, which carries its own headings and footer.
+  // And the printed sheets themselves, which carry their own headings and footer.
   for (const m of stripQuotes(r.pdfText).match(new RegExp(SECOND_PERSON.source, 'gi')) ?? []) {
     f.push(`segunda pessoa no PDF: "${m}"`);
+  }
+  for (const m of stripQuotes(r.comparisonText).match(new RegExp(SECOND_PERSON.source, 'gi')) ?? []) {
+    f.push(`segunda pessoa na comparação impressa: "${m}"`);
   }
 
   // ⚠️ English, in a document a Portuguese organisation takes to an assembly.
@@ -484,7 +539,9 @@ function universal(r: Run): string[] {
   }
 
   // The artefact. A number that renders but does not print is a number the
-  // organisation does not have.
+  // organisation does not have. A parked persona's artefact is the comparison,
+  // checked above; the roadmap it never reached is not a missing PDF.
+  if (parked) return f;
   add(r.pdfBytes > 5000, `PDF pequeno demais: ${r.pdfBytes} bytes`);
   add(r.pdfPages >= 1, `PDF com ${r.pdfPages} páginas`);
   const inPdf = (s: string) => squeeze(r.pdfText).includes(squeeze(s));
@@ -542,9 +599,10 @@ export const PERSONAS: Persona[] = [
     }),
     leanings: [
       { pick: /^É isso ✓$/ },
-      { when: /qual delas|adiante/i, pick: /Jardins de chuva/ },
+      { when: /qual delas|adiante|testar/i, pick: /Jardins de chuva/ },
+      { when: /^E agora\?$/i, pick: /Testar outra/, once: true },
       { when: /outra solução|mais alguma solução/i, pick: /Levar mais uma/ },
-      { when: /qual delas|adiante/i, pick: /Biovaletas/ },
+      { when: /qual delas|adiante|testar/i, pick: /Biovaletas/ },
       { pick: /^Desenhar no mapa$/ },
       { when: /qual dessas|areia ou mais barro/i, pick: /Mais barro/ },
       { when: /quem constr/i, pick: /Mutirão com apoio técnico/ },
@@ -554,6 +612,9 @@ export const PERSONAS: Persona[] = [
       { when: /dinheiro/i, pick: /Editais e projetos/ },
       // The detail beat: whatever it asks, an organisation answers it.
       { when: /qual dessas/i, pick: /./ },
+      { when: /o que vocês acham/i, pick: /^Faz sentido pra gente$/ },
+      { when: /^E agora\?$/i, pick: /Ver a comparação/ },
+      { when: /detalhar o projeto/i, pick: /Detalhar agora/ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /1 ano/ },
@@ -613,7 +674,7 @@ export const PERSONAS: Persona[] = [
     }),
     leanings: [
       { pick: /^É isso ✓$/ },
-      { when: /qual delas|adiante/i, pick: /Hortas urbanas/ },
+      { when: /qual delas|adiante|testar/i, pick: /Hortas urbanas/ },
       { when: /quantas|quantos/i, pick: /^3$/ },
       { when: /quem constr/i, pick: /^Mutirão$/ },
       { when: /medir|acompanh/i, pick: /A gente mesmo/ },
@@ -624,6 +685,9 @@ export const PERSONAS: Persona[] = [
       { when: /quem paga as contas/i, pick: /Os moradores, na vaquinha/ },
       // The detail beat: whatever it asks, an organisation answers it.
       { when: /qual dessas/i, pick: /./ },
+      { when: /o que vocês acham/i, pick: /^Faz sentido pra gente$/ },
+      { when: /^E agora\?$/i, pick: /Ver a comparação/ },
+      { when: /detalhar o projeto/i, pick: /Detalhar agora/ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /6 meses/ },
@@ -688,8 +752,8 @@ export const PERSONAS: Persona[] = [
     }),
     leanings: [
       { pick: /^É isso ✓$/ },
-      { when: /qual delas|adiante/i, pick: /Muro de arrimo verde/ },
-      { when: /qual delas|adiante/i, pick: /Ver todas as soluções/ },
+      { when: /qual delas|adiante|testar/i, pick: /Muro de arrimo verde/ },
+      { when: /qual delas|adiante|testar/i, pick: /Ver todas as soluções/ },
       { pick: /^Ainda não sei o tamanho$/ },
       // The retry: it could not give metres and can compare — which is the
       // whole reason the beat asks a second time, by another road.
@@ -701,6 +765,9 @@ export const PERSONAS: Persona[] = [
       { when: /dinheiro/i, pick: /Recursos próprios/ },
       // The detail beat: whatever it asks, an organisation answers it.
       { when: /qual dessas/i, pick: /./ },
+      { when: /o que vocês acham/i, pick: /^Faz sentido pra gente$/ },
+      { when: /^E agora\?$/i, pick: /Ver a comparação/ },
+      { when: /detalhar o projeto/i, pick: /Detalhar agora/ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /2 anos/ },
@@ -754,8 +821,8 @@ export const PERSONAS: Persona[] = [
     }),
     leanings: [
       { pick: /^Seguir sem o lugar$/ },
-      { when: /qual delas|adiante/i, pick: /Grade viva/ },
-      { when: /qual delas|adiante/i, pick: /Ver todas as soluções/ },
+      { when: /qual delas|adiante|testar/i, pick: /Grade viva/ },
+      { when: /qual delas|adiante|testar/i, pick: /Ver todas as soluções/ },
       { pick: /^Ainda não sei o tamanho$/ },
       // ⚠️ The way out. An organisation with no place marked cannot compare a
       // site it has not chosen, and forcing a band would fabricate an area.
@@ -769,6 +836,9 @@ export const PERSONAS: Persona[] = [
       { when: /quem paga as contas/i, pick: /Não sei dizer/ },
       // The detail beat: whatever it asks, an organisation answers it.
       { when: /qual dessas/i, pick: /./ },
+      { when: /o que vocês acham/i, pick: /^Faz sentido pra gente$/ },
+      { when: /^E agora\?$/i, pick: /Ver a comparação/ },
+      { when: /detalhar o projeto/i, pick: /Detalhar agora/ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /2 anos/ },
@@ -830,10 +900,11 @@ export const PERSONAS: Persona[] = [
       { pick: /^É isso ✓$/ },
       // The beat that did not exist: which risk this project takes on first.
       { when: /pesa mais no dia a dia/i, pick: /Alagamento/ },
-      { when: /qual delas|adiante/i, pick: /Jardins de chuva/ },
+      { when: /qual delas|adiante|testar/i, pick: /Jardins de chuva/ },
+      { when: /^E agora\?$/i, pick: /Testar outra/, once: true },
       { when: /mais alguma solução/i, pick: /Levar mais uma/ },
-      { when: /qual delas|adiante/i, pick: /Captação de água da chuva/ },
-      { when: /qual delas|adiante/i, pick: /Ver todas as soluções/ },
+      { when: /qual delas|adiante|testar/i, pick: /Captação de água da chuva/ },
+      { when: /qual delas|adiante|testar/i, pick: /Ver todas as soluções/ },
       { when: /quantas|quantos/i, pick: /^2$/ },
       { pick: /^Desenhar no mapa$/ },
       { when: /quem constr/i, pick: /^Mutirão$/ },
@@ -843,6 +914,9 @@ export const PERSONAS: Persona[] = [
       { when: /dinheiro/i, pick: /Doações e apoio local/ },
       // The detail beat: whatever it asks, an organisation answers it.
       { when: /qual dessas/i, pick: /./ },
+      { when: /o que vocês acham/i, pick: /^Faz sentido pra gente$/ },
+      { when: /^E agora\?$/i, pick: /Ver a comparação/ },
+      { when: /detalhar o projeto/i, pick: /Detalhar agora/ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /1 ano/ },
@@ -895,8 +969,8 @@ export const PERSONAS: Persona[] = [
     }),
     leanings: [
       { pick: /^É isso ✓$/ },
-      { when: /qual delas|adiante/i, pick: /Captação de água da chuva/ },
-      { when: /qual delas|adiante/i, pick: /Ver todas as soluções/ },
+      { when: /qual delas|adiante|testar/i, pick: /Captação de água da chuva/ },
+      { when: /qual delas|adiante|testar/i, pick: /Ver todas as soluções/ },
       { when: /quantas|quantos/i, pick: /^2$/ },
       { when: /quem constr/i, pick: /^Mutirão$/ },
       { when: /medir|acompanh/i, pick: /A gente mesmo/ },
@@ -905,6 +979,9 @@ export const PERSONAS: Persona[] = [
       { when: /dinheiro/i, pick: /Recursos próprios/ },
       // The detail beat: whatever it asks, an organisation answers it.
       { when: /qual dessas/i, pick: /./ },
+      { when: /o que vocês acham/i, pick: /^Faz sentido pra gente$/ },
+      { when: /^E agora\?$/i, pick: /Ver a comparação/ },
+      { when: /detalhar o projeto/i, pick: /Detalhar agora/ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /6 meses/ },
@@ -946,8 +1023,8 @@ export const PERSONAS: Persona[] = [
     drawM2: 300,
     leanings: [
       { pick: /^É isso ✓$/ },
-      { when: /qual delas|adiante/i, pick: /Solo grampeado verde/ },
-      { when: /qual delas|adiante/i, pick: /Ver todas as soluções/ },
+      { when: /qual delas|adiante|testar/i, pick: /Solo grampeado verde/ },
+      { when: /qual delas|adiante|testar/i, pick: /Ver todas as soluções/ },
       { pick: /^Desenhar no mapa$/ },
       { when: /quem constr/i, pick: /^Mutirão$/ },
       { when: /medir|acompanh/i, pick: /Ninguém ainda/ },
@@ -958,6 +1035,9 @@ export const PERSONAS: Persona[] = [
       { pick: /^Parece pouco$/ },
       // The detail beat: whatever it asks, an organisation answers it.
       { when: /qual dessas/i, pick: /./ },
+      { when: /o que vocês acham/i, pick: /^Faz sentido pra gente$/ },
+      { when: /^E agora\?$/i, pick: /Ver a comparação/ },
+      { when: /detalhar o projeto/i, pick: /Detalhar agora/ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /2 anos/ },
@@ -1009,8 +1089,8 @@ export const PERSONAS: Persona[] = [
     drawM2: 60,
     leanings: [
       { pick: /^É isso ✓$/ },
-      { when: /qual delas|adiante/i, pick: /Teto verde/ },
-      { when: /qual delas|adiante/i, pick: /Ver todas as soluções/ },
+      { when: /qual delas|adiante|testar/i, pick: /Teto verde/ },
+      { when: /qual delas|adiante|testar/i, pick: /Ver todas as soluções/ },
       { pick: /^Desenhar no mapa$/ },
       { when: /quem constr/i, pick: /^Mutirão$/ },
       { when: /medir|acompanh/i, pick: /A gente mesmo/ },
@@ -1019,6 +1099,9 @@ export const PERSONAS: Persona[] = [
       { when: /dinheiro/i, pick: /Recursos próprios/ },
       // The detail beat: whatever it asks, an organisation answers it.
       { when: /qual dessas/i, pick: /./ },
+      { when: /o que vocês acham/i, pick: /^Faz sentido pra gente$/ },
+      { when: /^E agora\?$/i, pick: /Ver a comparação/ },
+      { when: /detalhar o projeto/i, pick: /Detalhar agora/ },
       { pick: /^Faz sentido$/ },
       { pick: /^Serve, é isso mesmo$/ },
       { pick: /6 meses/ },
@@ -1043,6 +1126,62 @@ export const PERSONAS: Persona[] = [
       if (Math.abs(r.areaM2 - 60) > 10) f.push(`área ${r.areaM2} m², esperava ~60`);
       // Their own laje: no external body, and the ART is conditional on method.
       if (!has(r, 'ART')) f.push('a ficha condiciona a ART ao método e o PDF não menciona');
+      return f;
+    },
+  },
+  {
+    id: 'compara-tres',
+    name: 'Coletivo Compara Três',
+    profile:
+      'TESTA TRÊS E PARA · o caminho do 30 de setembro: prova três soluções, descarta uma, deixa uma em aberto, e sai com a comparação sem detalhar — o lugar novo onde uma sessão pode parar.',
+    state: mkState({
+      org_profile: { org_name: 'Coletivo Compara Três', contact_name: 'Rita Nunes', prior_project_scale: 'small' },
+      intervention_site: {
+        bairro: 'Partenon', site_name: 'Pátio do centro comunitário', _site_lat: '-30.0577', _site_lng: '-51.1660',
+        current_use: 'paved', land_tenure: 'public-informal', site_worry: 'alagamento',
+        site_story: 'O pátio é cimentado e a água fica parada dois dias depois da chuva.',
+        site_knowledge_depth: 'strong', nbs_interest: 'aguas-pluviais', role_preference: 'executar',
+      },
+    }),
+    drawM2: 400,
+    parks: true,
+    leanings: [
+      { pick: /^É isso ✓$/ },
+      { when: /testar primeiro/i, pick: /Jardins de chuva/ },
+      // Second trip: the full catalogue, so the "ver todas" road is walked too.
+      { when: /testar agora/i, pick: /Ver todas as soluções/, once: true },
+      { when: /^Qual delas\?$/i, pick: /Pavimentos permeáveis|Hortas urbanas|Canteiro pluvial/ },
+      // Third trip: whatever the shelf offers that has not been tested.
+      { when: /testar agora/i, pick: /Biovaletas|Canteiro pluvial|Bacia de retenção|Wetland construído|Barraginha/ },
+      { pick: /^Desenhar no mapa$/ },
+      { when: /quantas|quantos/i, pick: /^2$/ },
+      { when: /o que vocês acham/i, pick: /^Faz sentido pra gente$/, once: true },
+      { when: /o que vocês acham/i, pick: /^Não é pra gente$/, once: true },
+      { when: /o que vocês acham/i, pick: /^Ainda não sabemos$/ },
+      { when: /^E agora\?$/i, pick: /Testar outra/, once: true },
+      { when: /^E agora\?$/i, pick: /Testar outra/, once: true },
+      { when: /^E agora\?$/i, pick: /Ver a comparação/ },
+      { when: /detalhar o projeto/i, pick: /Deixar pra depois/ },
+      { when: /qual dessas/i, pick: /./ },
+    ],
+    prose: [],
+    expect(r) {
+      const f: string[] = [];
+      if (r.tests.length !== 3) f.push(`esperava 3 testes, saiu com ${r.tests.length}: ${r.tests.map(t => t.solutionId).join(', ')}`);
+      const reactions = r.tests.map(t => t.reaction);
+      if (!reactions.includes('faz-sentido')) f.push('nenhum teste marcado "faz sentido"');
+      if (!reactions.includes('nao-e-pra-gente')) f.push('nenhum teste descartado — a comparação precisa mostrar um');
+      if (!reactions.includes('ainda-nao-sabemos')) f.push('nenhum teste em aberto');
+      // Derived: the liked one is the chosen one, and only it.
+      const liked = r.tests.filter(t => t.reaction === 'faz-sentido').map(t => t.solutionId).sort();
+      if (JSON.stringify(liked) !== JSON.stringify([...r.solutions].sort())) f.push(`chosen_solutions ${r.solutions.join(',')} ≠ os que fizeram sentido ${liked.join(',')}`);
+      if (r.roadmap) f.push('parou na comparação e mesmo assim saiu uma hoja de ruta');
+      if (r.type._detail_parked !== 'yes') f.push('"Deixar pra depois" não deixou o marcador de parada');
+      // The set-aside one is on the page, marked — nothing tested disappears.
+      const squeeze = (t: string) => t.replace(/\s+/g, '');
+      if (!squeeze(r.comparisonText).includes(squeeze('Descartada pela organização'))) f.push('a solução descartada não aparece marcada na comparação');
+      // The per-m² footprint was drawn ONCE and priced both per-m² solutions.
+      if (Math.abs(r.areaM2 - 400) > 40) f.push(`área ${r.areaM2} m², esperava ~400`);
       return f;
     },
   },
@@ -1124,6 +1263,18 @@ async function main() {
       pdfText = parsed.text;
     }
 
+    // The comparison — what the encontro hands back now. Same rebuilt-from-state
+    // contract as the route, so the harness prints what the phone prints.
+    const tests = parseTests(type.solution_tests_json);
+    const comparison = tests.length
+      ? buildComparison({ site, org: asRecord('org_profile'), solutions, ...(areaM2 ? { areaM2 } : {}), w3: { ...type, ...impact, ...ops } }, tests, 'pt', type.technical_note || null)
+      : null;
+    let comparisonText = '';
+    if (comparison) {
+      const cmpBuf = await printPdf(renderComparisonHtml(comparison, 'pt'), 'comparacao');
+      comparisonText = (await parsePdfBuffer(Buffer.from(cmpBuf))).text;
+    }
+
     // The concept note. Built with no model in the path — this is the floor the
     // authored version can never fall below (docs/concept-note-authoring.md).
     const note = buildConceptNote(input, 'pt');
@@ -1152,6 +1303,7 @@ async function main() {
       beats: d.beats, maturity: d.maturity, problems: d.problems, turns: d.turns,
       site, type, ops, impact, solutions, areaM2, units, dossier, roadmap,
       verdict: portfolioState(dossier.verdicts), html, pdfBytes, pdfPages, pdfText,
+      comparison, comparisonText, tests,
     };
     const fails = [...universal(r), ...p.expect(r)];
     for (const par of note.sections.flatMap(sec => sec.paragraphs)) {
@@ -1171,6 +1323,7 @@ async function main() {
     // ── The read-out ────────────────────────────────────────────────────────
     console.log(`\n${'═'.repeat(78)}\n${p.name}\n  ${p.profile}\n${'═'.repeat(78)}`);
     console.log(`  turnos       : ${d.turns}   beats: ${d.beats.length}`);
+    console.log(`  testadas     : ${tests.map(t => `${getSolution(t.solutionId)?.pt.label ?? t.solutionId}${t.reaction ? ` (${t.reaction})` : ''}`).join(' · ') || '(nenhuma)'}`);
     console.log(`  soluções     : ${solutions.map(s => getSolution(s)?.pt.label ?? s).join(' + ') || '(nenhuma)'}`);
     console.log(`  tamanho      : ${areaM2 ? `${areaM2.toLocaleString('pt-BR')} m² (desenhado)` : units ? `${units} unidade(s) (contado)` : '(em aberto)'}`);
     console.log(`  quem constrói: ${type.construction_model || '—'}   manutenção: ${ops.who_maintains || '—'}   dinheiro: ${ops.sustainability_model || '—'}`);

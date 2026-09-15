@@ -25,26 +25,7 @@
 
 import type { Roadmap } from '@shared/w3-roadmap';
 
-const esc = (s: unknown): string =>
-  String(s ?? '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-
-/**
- * The chat copy uses **bold** and _italics_; the page should too rather than
- * printing the delimiters.
- *
- * ⚠️ The italic half was missing, so the scale statement's own caveat — the one
- * sentence saying the reference volumes are for comparing scales and not for
- * sizing the works — printed as "_Ordem de grandeza: … não pra dimensionar a
- * obra._" on a page an organisation takes to a meeting. Underscores are matched
- * only at word boundaries, so nothing that merely contains one is touched.
- */
-const md = (s: unknown): string =>
-  esc(s)
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/(^|[\s(])_([^_\n]{1,400}?)_(?=[\s.,;:)!?]|$)/g, '$1<em>$2</em>')
-    .replace(/\n/g, '<br>');
+import { esc, md, printShell } from './printShell';
 
 const STATE_LABEL: Record<string, { pt: string; en: string }> = {
   ready: { pt: 'Pronto pra orçar', en: 'Ready to quote' },
@@ -107,93 +88,8 @@ export function renderRoadmapHtml(roadmap: Roadmap, lang: 'pt' | 'en' = 'pt'): s
   const t = T[lang];
   const state = STATE_LABEL[roadmap.state]?.[lang] ?? roadmap.state;
   const title = `${T[lang].docLabel} — ${roadmap.solutions.join(' + ') || '—'} · ${roadmap.siteName || roadmap.bairro}`;
-  const today = new Date().toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-GB');
 
-  return `<!doctype html>
-<html lang="${lang === 'pt' ? 'pt-BR' : 'en'}">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(title)}</title>
-<style>
-  @page { size: A4; margin: 16mm 14mm; }
-  * { box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    color: #16201a; background: #fff; margin: 0;
-    font-size: 15px; line-height: 1.55;
-    -webkit-text-size-adjust: 100%;
-  }
-  .sheet { max-width: 760px; margin: 0 auto; padding: 26px 20px 60px; }
-  .doclabel {
-    font-size: 12px; font-weight: 800; letter-spacing: .14em;
-    text-transform: uppercase; color: #4a6b58; margin: 14px 0 2px;
-  }
-  .audience { font-size: 11.5px; color: #6b7b71; margin: 2px 0 0; }
-  .draft {
-    font-size: 11px; font-weight: 800; letter-spacing: .1em;
-    color: #7a5a12; background: #fdf4e0; border: 1px solid #e8d5a6;
-    border-radius: 4px; padding: 5px 10px; display: inline-block; margin-bottom: 12px;
-  }
-  h1 { font-size: 22px; line-height: 1.2; margin: 0 0 4px; letter-spacing: -.01em; }
-  .sub { color: #5c665f; font-size: 14px; margin: 0 0 10px; }
-  .verdict {
-    display: inline-block; font-size: 12px; font-weight: 700;
-    border: 1px solid #9fb3a6; border-radius: 20px; padding: 3px 11px; color: #24493a;
-  }
-  h2 {
-    font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #6d776f;
-    border-bottom: 1px solid #d9e0da; padding-bottom: 5px; margin: 30px 0 12px;
-  }
-  .blk { margin-bottom: 15px; break-inside: avoid; page-break-inside: avoid; }
-  .blk h3 { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: #4c574f; margin: 0 0 4px; }
-  .blk .tag {
-    font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: none;
-    border: 1px solid #e0c98d; color: #7a5a12; border-radius: 20px; padding: 1px 7px; margin-left: 7px;
-  }
-  .blk p { margin: 0 0 4px; }
-  .blk .from { font-size: 11.5px; font-style: italic; color: #8a938c; }
-  .blk .chg { font-size: 11.5px; color: #5c665f; }
-  ol { list-style: none; padding: 0; margin: 0; }
-  ol li {
-    display: flex; gap: 11px; padding: 8px 0; border-bottom: 1px solid #ecefec;
-    break-inside: avoid; page-break-inside: avoid;
-  }
-  ol li .n { font-variant-numeric: tabular-nums; color: #8a938c; font-size: 13px; min-width: 20px; }
-  ol li .who { display: block; font-size: 11.5px; color: #5c665f; margin-top: 2px; }
-  .openbox { border: 1px solid #e8d5a6; background: #fdf9f0; border-radius: 6px; padding: 12px 14px; margin-top: 12px; }
-  .openbox p { margin: 0 0 5px; font-size: 14px; }
-  .openbox .why { font-size: 12px; font-style: italic; color: #5c665f; margin: 0; }
-  footer { margin-top: 34px; border-top: 1px solid #d9e0da; padding-top: 12px; font-size: 11.5px; color: #8a938c; }
-  .noprint { margin: 0 0 18px; }
-  .noprint button {
-    font: inherit; font-size: 14px; font-weight: 600; padding: 9px 16px;
-    border: 1px solid #2c6b4b; background: #2c6b4b; color: #fff; border-radius: 7px; cursor: pointer;
-  }
-  /* Printed: drop the control, keep the draft warning on every sheet, and make
-     sure nothing depends on a background colour surviving the printer. */
-  @media print {
-    .noprint { display: none !important; }
-    .sheet { padding: 0; max-width: none; }
-    .draft { border-color: #000; color: #000; background: transparent; }
-    .openbox { border-color: #999; background: transparent; }
-    a { color: inherit; text-decoration: none; }
-  }
-</style>
-</head>
-<body>
-<div class="sheet">
-  <div class="noprint">
-    <button onclick="window.print()">${lang === 'pt' ? 'Imprimir ou salvar em PDF' : 'Print or save as PDF'}</button>
-  </div>
-
-  <div class="draft">${esc(t.draft)}</div>
-  <div class="doclabel">${esc(t.docLabel)}</div>
-  <h1>${esc(roadmap.solutions.join(' + ') || '—')}</h1>
-  <p class="sub">${esc([roadmap.siteName, roadmap.bairro].filter(Boolean).join(' · '))}${roadmap.orgName ? ` — ${esc(roadmap.orgName)}` : ''}</p>
-  <p class="audience">${esc(t.docAudience)}</p>
-  <span class="verdict">${esc(state)}</span>
-
+  const body = `
   <h2>${esc(t.p1)}</h2>
   ${roadmap.what.map(b => block(b, t)).join('')}
 
@@ -218,13 +114,45 @@ export function renderRoadmapHtml(roadmap: Roadmap, lang: 'pt' | 'en' = 'pt'): s
   <div class="openbox">
     ${roadmap.open.map(g => `<p>• ${esc(g)}</p>`).join('')}
     <p class="why">${esc(t.openWhy)}</p>
-  </div>` : ''}
+  </div>` : ''}`;
 
-  <footer>
-    <p>${esc(t.foot)}</p>
-    <p>${esc(t.printed)} ${esc(today)}.</p>
-  </footer>
-</div>
-</body>
-</html>`;
+  return printShell({
+    lang,
+    title,
+    draft: t.draft,
+    docLabel: t.docLabel,
+    heading: roadmap.solutions.join(' + ') || '—',
+    sub: `${[roadmap.siteName, roadmap.bairro].filter(Boolean).join(' · ')}${roadmap.orgName ? ` — ${roadmap.orgName}` : ''}`,
+    audience: t.docAudience,
+    verdict: state,
+    bodyHtml: body,
+    foot: t.foot,
+    printed: t.printed,
+    printButton: lang === 'pt' ? 'Imprimir ou salvar em PDF' : 'Print or save as PDF',
+    extraCss: `
+  h2 {
+    font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #6d776f;
+    border-bottom: 1px solid #d9e0da; padding-bottom: 5px; margin: 30px 0 12px;
+  }
+  .blk { margin-bottom: 15px; break-inside: avoid; page-break-inside: avoid; }
+  .blk h3 { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: #4c574f; margin: 0 0 4px; }
+  .blk .tag {
+    font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: none;
+    border: 1px solid #e0c98d; color: #7a5a12; border-radius: 20px; padding: 1px 7px; margin-left: 7px;
+  }
+  .blk p { margin: 0 0 4px; }
+  .blk .from { font-size: 11.5px; font-style: italic; color: #8a938c; }
+  .blk .chg { font-size: 11.5px; color: #5c665f; }
+  ol { list-style: none; padding: 0; margin: 0; }
+  ol li {
+    display: flex; gap: 11px; padding: 8px 0; border-bottom: 1px solid #ecefec;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  ol li .n { font-variant-numeric: tabular-nums; color: #8a938c; font-size: 13px; min-width: 20px; }
+  ol li .who { display: block; font-size: 11.5px; color: #5c665f; margin-top: 2px; }
+  .openbox { border: 1px solid #e8d5a6; background: #fdf9f0; border-radius: 6px; padding: 12px 14px; margin-top: 12px; }
+  .openbox p { margin: 0 0 5px; font-size: 14px; }
+  .openbox .why { font-size: 12px; font-style: italic; color: #5c665f; margin: 0; }
+`,
+  });
 }

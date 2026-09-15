@@ -135,7 +135,7 @@ export function CboWelcome({
               {[
                 { label: t('cbo.welcome.step1', { defaultValue: 'Who you are' }), unlocked: unlockedPhases.includes(1) },
                 { label: t('cbo.welcome.step2', { defaultValue: 'Where you work' }), unlocked: unlockedPhases.includes(2) },
-                { label: t('cbo.welcome.step3', { defaultValue: 'What you build' }), unlocked: unlockedPhases.includes(3) },
+                { label: t('cbo.welcome.step3', { defaultValue: 'Test the solutions' }), unlocked: unlockedPhases.includes(3) },
                 { label: t('cbo.welcome.step4', { defaultValue: 'What you need' }), unlocked: unlockedPhases.includes(4) },
                 { label: t('cbo.welcome.step5', { defaultValue: 'Results & evidence' }), unlocked: unlockedPhases.includes(5) },
               ].map((s, i) => {

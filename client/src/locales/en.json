@@ -1859,7 +1859,7 @@
       "whatWeWillDoLabel": "What we'll do together",
       "step1": "Who you are",
       "step2": "Where you work",
-      "step3": "What you build",
+      "step3": "Test the solutions",
       "step4": "What you need",
       "step5": "Results & evidence",
       "ctaStart": "Start",
@@ -1873,7 +1873,7 @@
       "phase": {
         "who": "Who you are",
         "where": "Where you work",
-        "building": "What you build",
+        "building": "Test the solutions",
         "needs": "What you need",
         "results": "Results & evidence"
       },

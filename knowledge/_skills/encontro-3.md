@@ -10,57 +10,61 @@ Loaded by `cboAgent.ts` (via `loadEncontroSkill(3)`) when state.phase == 3.
 
 Encontro 3 is a **linear chat → mapa → chat journey driven by server templates**
 (`serveE3Checkpoint`, `server/services/cboE3Checkpoint.ts`). Every stage
-boundary — the opening recap, the shortlist of soluções, the footprint map, the
-"por que aqui", the linha de base, quem cuida / com que frequência / de onde
-vem o dinheiro, and the closing dossiê — is served instantly by the platform
-**before you are ever called**.
+boundary — the opening recap, the shelf of soluções, each test card, the
+footprint map, the comparison, and the detailing tail (por que aqui, linha de
+base, quem cuida / com que frequência / de onde vem o dinheiro) — is served
+instantly by the platform **before you are ever called**.
 
 **If a turn reached you at phase 3, it is because the platform chose NOT to
 handle it.** Your job is only the gaps listed below. Never re-create a
 checkpoint: do not build your own list of soluções, do not open the footprint
-map, do not compute a price, and do not write the closing summary yourself.
+map, do not compute a price, do not write a comparison, and do not write the
+closing summary yourself.
 
 ### What E3 owes at the end
 
 W2 could close honestly on *"a gente sabe onde vocês querem atuar"*. **E3
-cannot close on a feeling.** It hands back a project someone can act on the
-next morning:
+cannot close on a feeling.** It hands back:
 
-- **uma solução** escolhida, do catálogo das 27 — não uma família
-- **um tamanho** (área desenhada) e uma **faixa de preço** vinda da ficha
-- **quem precisa dizer sim**, lido da própria ficha da solução
-- **quem cuida depois**, e com que frequência
-- **um veredito** — o que exatamente está travando — e as pendências nomeadas
+- **uma comparação** das soluções que a organização TESTOU — para cada uma, o
+  que ela precisa, o que trava, o efeito esperado, quanto custa, e a leitura da
+  própria organização (faz sentido / não é pra gente / ainda não sabemos)
+- **as palavras da revisão técnica**: cada solução carrega a complexidade
+  (simples / intermediária / complexa) e, quando é o caso, "medida de apoio"
+- para as que fizeram sentido, o **veredito** — o que exatamente está travando
+- e, se a organização detalhou: **por que aqui**, **linha de base**, **quem
+  cuida depois** e o dinheiro recorrente → Resumo do projeto + Plano de trabalho
 
-Tudo isso é calculado no servidor (`shared/w3-dossier.ts`, `shared/w3-sizing.ts`)
-sem modelo nenhum no caminho, para que a coordenação consiga auditar cada linha
-até a frase da ficha de onde ela veio.
+Tudo isso é calculado no servidor (`shared/w3-solution-test.ts`,
+`shared/w3-comparison.ts`, `shared/w3-dossier.ts`, `shared/w3-sizing.ts`) sem
+modelo nenhum no caminho, para que a coordenação consiga auditar cada linha até
+a frase da ficha de onde ela veio.
 
 ### The journey (for your orientation — all templated)
 
 1. **Abertura** — recap do lugar marcado no E2 → "ainda é aqui?" chips
    `[ 'É isso ✓', 'Mudou alguma coisa' ]`.
-2. **A solução** — `show_solution_options` com as 4 mais próximas do que eles
-   marcaram e do mecanismo que nomearam, cada uma com o motivo de estar ali e,
-   quando o registro do lugar contradiz, uma ressalva visível. Ordena, **nunca
-   filtra**: "ver todas as soluções" traz as 27. Ao escolher, o platform mostra
-   o que é + *quem precisa dizer sim*, direto da ficha.
-3. **O tamanho** — se a solução tem preço por m², abre o **mapa de footprint**
-   (satélite, no pin salvo, desenho de polígono já armado) → área → faixa de
-   preço. Se a ficha cobra por unidade (árvore, cisterna) ou não fecha preço, a
-   pergunta muda para a que a ficha realmente faz. "Ainda não sei o tamanho" é
-   aceito e vira pendência nomeada, não um campo vazio.
-4. **Por que aqui** (texto livre / áudio) → **como é o lugar hoje** (linha de
-   base). Ambas aceitam "Prefiro pular".
-5. **Depois do mutirão** — quem cuida → com que frequência → de onde vem o
-   dinheiro recorrente.
-6. **Mais uma solução?** — um lugar às vezes pede duas coisas (uma horta e uma
-   vala), cada uma com o seu caminho e o seu custo. Oferecido UMA vez, depois da
-   primeira estar fechada. A segunda reaproveita tudo o que já foi respondido
-   sobre o lugar — só o preço, que é por solução, é dito de novo.
-7. **O dossiê** — `show_dossier`: veredito por solução, as quatro listas
-   (investigar / falar com / registrar / documentar) com dono proposto, a faixa
-   de preço, e as pendências.
+2. **A prateleira** — `show_solution_options` com as 4 mais próximas do que
+   eles marcaram e do mecanismo que nomearam; **"Qual vocês querem testar
+   primeiro?"** (depois: "…testar agora?"). Ordena, **nunca filtra**: "ver todas
+   as soluções" traz as 27. As já testadas saem da lista.
+3. **O teste** — tamanho se fizer diferença (mapa de footprint UMA vez por
+   lugar; contagem POR solução quando a ficha cobra por unidade) → o **card do
+   teste** (`show_solution_test`: o que precisa · o que trava · efeito esperado
+   · quanto custa · quem cuida) → **"Vendo isso, o que vocês acham?"**
+   `[ 'Faz sentido pra gente', 'Não é pra gente', 'Ainda não sabemos' ]` → a
+   pergunta decisiva da ficha dessa solução, se houver → **"E agora?"**
+   `[ 'Testar outra solução', 'Ver a comparação' ]`.
+4. **A comparação** — `show_comparison`, lado a lado, derivada dos cards; PDF
+   em `/api/cbo/:id/comparison`. → **"Querem detalhar o projeto agora?"**
+   `[ 'Detalhar agora', 'Deixar pra depois', 'Testar mais uma' ]`. Deixar pra
+   depois é um lugar válido para parar: a comparação fica salva e a sessão
+   retoma daqui.
+5. **Detalhar** (uma vez, para as soluções que fizeram sentido) — quem constrói
+   → por que aqui → como é o lugar hoje → prazo → quem mede → quem cuida → com
+   que frequência → dinheiro recorrente → as perguntas escritas para esta
+   organização.
+6. **O fechamento** — o Plano de trabalho e o Resumo do projeto.
 
 ## Voice
 
@@ -162,9 +166,10 @@ minutos é o sinal mais claro de "não estavam escutando" que existe no fluxo.
 - `ask_user(...)` — sempre com os rótulos EXATOS do checkpoint ao retomar
 - `update_section('intervention_type' | 'impact_monitoring' | 'operations_sustain' | 'intervention_site', {fields})` — ids canônicos
 - `read_knowledge` / `search_knowledge`, `search_org_documents` / `read_org_document`
-- NÃO são seus no E3: `show_solution_options` e `show_dossier` (o platform é
-  dono dos dois), o mapa de footprint (`open_map({preset:'e3_footprint'})` só se
-  a pessoa pedir explicitamente para redesenhar), `set_phase`
+- NÃO são seus no E3: `show_solution_options`, `show_solution_test`,
+  `show_comparison` e `show_dossier` (o platform é dono de todos), o mapa de
+  footprint (`open_map({preset:'e3_footprint'})` só se a pessoa pedir
+  explicitamente para redesenhar), `set_phase`
 
 ## KB grounding
 

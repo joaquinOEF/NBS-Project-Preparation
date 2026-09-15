@@ -46,7 +46,7 @@ export function CboProgress({
     defaultValue: {
       who: 'Who you are',
       where: 'Where you work',
-      building: 'What you build',
+      building: 'Test the solutions',
       needs: 'What you need',
       results: 'Results & evidence',
     }[PHASES[Math.max(0, Math.min(4, currentPhase - 1))].key],
@@ -77,7 +77,7 @@ export function CboProgress({
             defaultValue: {
               who: 'Who you are',
               where: 'Where you work',
-              building: 'What you build',
+              building: 'Test the solutions',
               needs: 'What you need',
               results: 'Results & evidence',
             }[p.key],

@@ -6,10 +6,70 @@
 import { useEffect, useState } from 'react';
 import { cboFieldLabel, cboDisplayValue } from '@shared/cbo-field-catalog';
 import { useTranslation } from 'react-i18next';
-import { Loader2, FileText } from 'lucide-react';
+import { Loader2, FileText, Check } from 'lucide-react';
 import { CBO_SECTIONS, isInternalCboField, type CboState } from '@shared/cbo-schema';
 
 type Profile = Pick<CboState, 'phase' | 'sections' | 'maturityScores' | 'totalMaturityScore' | 'gaps'>;
+
+/**
+ * The coordination's technical reading of this organisation — Robson's field
+ * visit (28–29 Sept), typed in here. Optional: the comparison and the synergy
+ * pass print it when it is there and nothing when it is not. Saved through
+ * PATCH …/technical-note into the organisation's own record.
+ */
+function TechnicalNoteEditor({ cohortSlug, memberId, initial }: { cohortSlug: string; memberId: string; initial: string }) {
+  const { t } = useTranslation();
+  const [note, setNote] = useState(initial);
+  const [saved, setSaved] = useState<string>(initial);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setNote(initial); setSaved(initial); }, [initial]);
+  const dirty = note.trim() !== saved.trim();
+  const save = async () => {
+    setBusy(true); setFailed(false);
+    const r = await fetch(`/api/cohort/${cohortSlug}/member/${memberId}/technical-note`, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: note.trim() }),
+    }).catch(() => null);
+    setBusy(false);
+    if (!r?.ok) { setFailed(true); return; }
+    setSaved(note.trim());
+  };
+  return (
+    <div className="rounded-lg border border-amber-200/70 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/20 px-3 py-2 space-y-1.5" data-testid="technical-note-editor">
+      <label htmlFor={`technical-note-${memberId}`} className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {t('cboView.technicalNote', { defaultValue: 'Leitura técnica da coordenação' })}
+      </label>
+      <p className="text-[11.5px] leading-snug text-muted-foreground">
+        {t('cboView.technicalNoteHint', { defaultValue: 'O que a visita técnica viu no lugar. Aparece na comparação da organização e no relatório de sinergias, com esta atribuição. Opcional.' })}
+      </p>
+      <textarea
+        id={`technical-note-${memberId}`}
+        value={note}
+        onChange={e => setNote(e.target.value)}
+        rows={4}
+        maxLength={4000}
+        className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm leading-snug"
+        data-testid="technical-note-input"
+      />
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={save}
+          disabled={!dirty || busy}
+          data-testid="technical-note-save"
+          className="inline-flex items-center gap-1 rounded-md bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-40"
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+          {t('cboView.technicalNoteSave', { defaultValue: 'Salvar' })}
+        </button>
+        {!dirty && saved && <span className="text-[11px] text-muted-foreground">{t('cboView.technicalNoteSaved', { defaultValue: 'Salvo' })}</span>}
+        {failed && <span className="text-[11px] text-destructive">{t('cboView.technicalNoteFailed', { defaultValue: 'Não salvou — tenta de novo' })}</span>}
+      </div>
+    </div>
+  );
+}
 
 export function CboProfileSummary({
   cohortSlug,
@@ -62,13 +122,21 @@ export function CboProfileSummary({
         <span className="font-semibold">{profile.totalMaturityScore}/27</span>
       </div>
 
+      <TechnicalNoteEditor
+        cohortSlug={cohortSlug}
+        memberId={memberId}
+        initial={String((profile.sections as any)?.intervention_type?.fields?.technical_note?.value ?? '')}
+      />
+
       {/* Sections → fields */}
       {CBO_SECTIONS.map(sec => {
         const section = profile.sections?.[sec.id];
         if (!section) return null;
         const rows = Object.entries(section.fields)
-          // "_"-prefixed = E2 checkpoint machine state, not an answer.
-          .filter(([k]) => !isInternalCboField(k))
+          // "_"-prefixed = E2 checkpoint machine state, not an answer. The
+          // JSON blocks (the dig, the tests) and the note have their own
+          // rendering — a raw JSON string in a field table helps nobody.
+          .filter(([k]) => !isInternalCboField(k) && !k.endsWith('_json') && k !== 'technical_note')
           .map(([k, f]) => {
             const v = fmt(f?.value);
             // org_profile enum fields may hold legacy machine ids ("funded") —

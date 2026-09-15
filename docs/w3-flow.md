@@ -117,14 +117,72 @@ All templated (`server/services/cboE3Checkpoint.ts`); the step is derived from
 the saved fields rather than counted, so resume and park-and-return come free.
 
 ```
-0  recap          the place W2 marked, named — never asked for again
-1  a solução      show_solution_options → ficha → quem precisa dizer sim
-2  o tamanho      footprint map (per-m² solutions only) → area → price range
-3  por que aqui   free text / voice
-4  linha de base  free text / voice
-5  quem cuida     → frequência → dinheiro recorrente
-6  o dossiê       show_dossier
+0  abertura       the place W2 marked, named — never asked for again · which worry leads
+1  a prateleira   show_solution_options — "Qual vocês querem testar primeiro?" (Robson's words)
+2  o teste        size if it buys a number (footprint ONCE per place · count PER solution)
+                  → show_solution_test: o que precisa · o que trava · efeito · custo · quem cuida
+                  → "Vendo isso, o que vocês acham?" [Faz sentido pra gente] [Não é pra gente] [Ainda não sabemos]
+                  → this solution's decisive-detail question, if its ficha has one
+                  → "E agora?" [Testar outra solução] [Ver a comparação]
+3  a comparação   show_comparison — one column per test, derived from the cards, printable
+                  → "Querem detalhar o projeto agora?" [Detalhar agora] [Deixar pra depois] [Testar mais uma]
+4  detalhar       once, for the liked solutions: quem constrói → (instância concreta) → por que aqui
+                  → linha de base [dig round 1 fires here] → prazo → quem mede → quem cuida → frequência
+                  → dinheiro (+ retry) → the dig and the extras
+5  fechamento     dig round 2 → dossier → roadmap → note author → closing line
 ```
+
+### A loop, not a funnel (10 September 2026)
+
+Until then the shelf asked *"Qual delas vocês querem levar adiante?"* and
+scoped the one answer to the end; a second solution was offered once, at the
+very last beat. The Vila Flores / PxG / OEF / BwB meeting of 10 September, and
+Ana's note after it, asked for the opposite shape: **test several, see what each
+needs and does, and leave with a comparison** the 30 September session can think
+about at portfolio level. Robson's wording — *"qual vocês querem testar
+primeiro?"* — is the question the shelf now asks.
+
+What that changed, and what it did not:
+
+- **Per-solution beats moved INSIDE the test** (who says yes, the count, the
+  price, the effect, the decisive-detail question, the verdict). They were
+  already per-solution functions; the card (`shared/w3-solution-test.ts`) only
+  puts them side by side for one id.
+- **Per-place beats run ONCE, after the comparison**, as the "detalhar" tail —
+  copy unchanged, order unchanged except that *quem constrói* now heads the tail
+  (it changes the price) and the separate "o que vocês acham desse número?"
+  beat is gone: the figure sits on the card with its scale note, and one
+  reaction covers the solution and the number both.
+- **`chosen_solutions` is derived**: the tests the organisation marked *faz
+  sentido* (`shared/w3-tests.ts`, `solution_tests_json`). Nothing downstream —
+  dossier, roadmap, note, synergy pass, roster badge — learned a second field.
+- **The footprint is per place and asked once; the count is per solution and
+  asked per test.** `intervention_units`, `detail_answer` and `expected_impact`
+  keep their single-value semantics for the documents and are filled by the
+  first LIKED test only, so a count given for a solution then set aside never
+  prints under a project made of something else.
+- **"Deixar pra depois" is a place to stop.** It ends on a question, because
+  the client restores a pending question only from a trailing `ask_user`; a
+  session that ended on a sentence came back to a dead transcript and typed its
+  way into the model. `resumeE3` serves the beat the record says they are on
+  when the entry line or the resume chip arrives on an open workshop.
+- **The bridge**: a session from before the loop holds a `chosen_solutions` and
+  no tests. `ensureTests()` seeds tests from it at the top of every beat that
+  reads them — not only at the entry, because the board's Fechar/reopen sets
+  `phase` and clears nothing, so such a session never passes through `openW3`
+  again. Stale chips ("Só essa por enquanto", "Faz sentido", "Parece pouco")
+  are still answered.
+- **Three of the four maturity scores are written at the comparison**, not
+  four: `financial_thinking` is the tail's, and `phaseComplete` reads "every
+  phase-3 metric scored" as "Encontro 3 finished" — which would hand a parked
+  organisation the door to Encontro 4 the day the coordination opens it.
+- **The comparison's "a favor / contra" are rules over facts the cards carry**
+  (`prosAndCons` in `shared/w3-comparison.ts`), each with a source. The
+  organisation's own reaction is the one row that is theirs, quoted as theirs.
+- **Robson's field reading** enters as an optional coordinator note
+  (`technical_note`, PATCH …/technical-note from the profile tab) and prints
+  under its own heading in the comparison and in the synergy pass. Absent, it
+  changes nothing.
 
 Beat 2 asks the question the chosen solution's ficha actually asks. Ten of the
 27 are not priced per m² — barraginhas by the lot, corredores verdes per planted
@@ -198,12 +256,13 @@ changes who can build it, not what blocks it.
 - `e2e/w3-questionnaire-cross-section.spec.ts` — the manifest rules across
   sections.
 - `docs/w3-test-kit/` — four hand-run scenarios, one per verdict state.
-- `scripts/w3-cohort-sim.ts` — four organisations end to end, then the
+- (retired) `scripts/w3-cohort-sim.ts` — four organisations end to end, then the
   portfolio pass over what W3 actually wrote. No browser, no model, no DB.
 
 ## What six simulations found
 
-`scripts/w3-sim-run.ts` drives six organisations through the real engine — no
+`scripts/w3-sim-run.ts` (retired 2026-09-15 — a fixed script cannot follow a beat
+that changed; `npm run w3:fullsim` drives policies instead) drove six organisations through the real engine — no
 browser, no model, no database. Every one of these was invisible to a passing
 test suite, because a test asserts what you thought to assert and a transcript
 shows you what you actually said.
@@ -337,8 +396,8 @@ Verified by dropping the column and watching it name it.
 
 ## What a four-organisation cohort simulation found
 
-`scripts/w3-sim-run.ts` drives one organisation at a time and stops at its hoja
-de ruta. `scripts/w3-cohort-sim.ts` runs **four with deliberately different
+`scripts/w3-sim-run.ts` drove one organisation at a time and stopped at its hoja
+de ruta; `scripts/w3-cohort-sim.ts` ran **four with deliberately different
 capacities and different paths** and then does what nothing had simulated: it
 takes the states W3 actually wrote and runs the portfolio pass over them,
 through the same pure mapping the coordinator's button uses.

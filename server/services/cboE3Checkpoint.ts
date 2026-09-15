@@ -35,9 +35,13 @@ import { eligibleQuestions, getW3Question, type QuestionContext } from '@shared/
 import type { W3Advice } from './w3Advisor';
 import { mergeShortlist, topShortlist } from '@shared/w3-solutions';
 import { budgetLineFor, roundAreaM2, SOLUTION_COSTS, type BuildModel } from '@shared/w3-sizing';
-import { scaleStatement } from '@shared/w3-scale';
-import { benefitFor } from '@shared/w3-benefits';
 import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
+import {
+  parseTests, serializeTests, upsertTest, testedIds, likedIds, testOf, seedTestsFromChosen,
+  REACTION, type SolutionTest, type TestReaction,
+} from '@shared/w3-tests';
+import { buildSolutionTest } from '@shared/w3-solution-test';
+import { buildComparison } from '@shared/w3-comparison';
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { siteInSentence, siteLabel } from '@shared/site-name';
 import { GAP_RETRIES, areaBandFor, ROUGH_AREA_SOURCE, CANNOT_GUESS } from '@shared/w3-gap-questions';
@@ -130,11 +134,25 @@ const E3C = {
   // exactly the scenario the workshop most needs to handle well.
   marcarAgora: { pt: 'Marcar o lugar agora', en: 'Mark the place now' },
   seguirSemLugar: { pt: 'Seguir sem o lugar', en: 'Carry on without it' },
+  // ── The loop (COUGAR meeting 2026-09-10, Ana 2026-09-15) ──────────────────
+  // "Qual vocês querem testar primeiro?" — Robson's wording. A test is one
+  // solution's card (what it needs, what blocks it, what it does, what it costs)
+  // and one reaction; then back to the shelf or on to the comparison. The
+  // reaction chips live in shared/w3-tests.ts (REACTION) because the same value
+  // has a written form on the page.
+  testarOutra: { pt: 'Testar outra solução', en: 'Test another solution' },
+  verComparacao: { pt: 'Ver a comparação', en: 'See the comparison' },
+  detalharAgora: { pt: 'Detalhar agora', en: 'Go into detail now' },
+  deixarPraDepois: { pt: 'Deixar pra depois', en: 'Leave it for later' },
+  testarMaisUma: { pt: 'Testar mais uma', en: 'Test one more' },
+  // ⚠️ Kept for sessions parked at the OLD second-solution ask. A card that is
+  // still on somebody's screen sends these labels, and dropping them hands the
+  // turn to the model at the last beat of the workshop.
   outraSolucao: { pt: 'Levar mais uma solução', en: 'Take one more solution' },
   soEssa: { pt: 'Só essa por enquanto', en: 'Just this one for now' },
-  // The impact beat's answers. Nobody is asked to produce a number — we state
-  // the range and they react to it, which is the only part of it they are
-  // actually the authority on.
+  // ⚠️ Likewise the old impact beat's answers. The figure now sits on the test
+  // card and the reaction is about the solution, but a session parked at "o
+  // que vocês acham desse número?" still answers with these.
   fazSentido: { pt: 'Faz sentido', en: 'That makes sense' },
   pareceMuito: { pt: 'Parece muito', en: 'Sounds like a lot' },
   parecePouco: { pt: 'Parece pouco', en: 'Sounds like little' },
@@ -164,6 +182,14 @@ const E3C = {
  * swallows the other phase-3 surface.
  */
 const E3_ENTRY = /^\s*(vamos come[çc]ar o encontro 3|let'?s start encontro 3)\b/i;
+/**
+ * What the client sends when an organisation comes back to a workshop it left
+ * open — the entry line again, or the resume chip. ⚠️ Neither was handled once
+ * `_e3_opened` was set: both fell through to the model, so an organisation
+ * that parked at the comparison and came back the next day got a free
+ * conversation instead of its own next beat.
+ */
+const E3_RESUME = /^\s*(continuar da fase 3|continue from phase 3|continuar\.?|continue\.?)\s*$/i;
 
 /**
  * The traced ring, as [lat, lng] pairs, out of the map payload's `[footprint]`
@@ -278,6 +304,31 @@ export async function serveE3Checkpoint(
   const liveUnits = () => Number(read(TYPE)('intervention_units')) || 0;
   const liveBuild = () => (read(TYPE)('construction_model') || undefined) as BuildModel | undefined;
 
+  /**
+   * The tests, read live — written mid-turn by the beats below.
+   *
+   * `ensureTests` is the bridge: a session from before the loop existed holds
+   * a `chosen_solutions` and no tests. It is called at the top of every beat
+   * that reads tests, NOT only at the entry, because the board's Fechar/reopen
+   * sets `phase` and clears nothing — so such a session never passes through
+   * openW3 again.
+   */
+  const liveTests = (): SolutionTest[] => parseTests(read(TYPE)('solution_tests_json'));
+  const writeTests = (tests: SolutionTest[]) => {
+    // `chosen_solutions` is derived from the reactions, every time, so nothing
+    // downstream has to learn a second field. See shared/w3-tests.ts.
+    deps.writeFields(TYPE, { solution_tests_json: serializeTests(tests), chosen_solutions: likedIds(tests).join(',') });
+  };
+  const ensureTests = (): SolutionTest[] => {
+    const have = liveTests();
+    if (have.length) return have;
+    const seeded = seedTestsFromChosen(have, liveSolutions());
+    if (seeded.length) deps.writeFields(TYPE, { solution_tests_json: serializeTests(seeded) });
+    return seeded;
+  };
+  /** The solution whose card is being built or reacted to right now. */
+  const openTest = () => read(TYPE)('_test_open');
+
   /** Whatever the advisor returned, if it finished. Never required. */
   const readAdvice = (): W3Advice | null => {
     try {
@@ -376,8 +427,8 @@ export async function serveE3Checkpoint(
     if (!hasSitePin) {
       const where = bairro.split(',')[0].trim();
       say(
-        `Bem-vindas ao Encontro 3. Hoje a gente transforma o que vocês contaram num projeto: uma solução, um tamanho, uma faixa de preço, e quem precisa dizer sim.\n\nUma coisa só: ${where ? `vocês falaram do **${where}**, mas` : ''} ainda não tem um lugar marcado no mapa. Dá pra seguir mesmo assim — o que der pra fechar hoje fica fechado, e o resto espera o ponto.`,
-        `Welcome to Encontro 3. Today we turn what you told us into a project: one solution, a size, a price range, and who has to say yes.\n\nOne thing first: ${where ? `you told us about **${where}**, but ` : ''}there is still no place marked on the map. We can carry on anyway — whatever can be settled today gets settled, and the rest waits for the pin.`,
+        `Bem-vindas ao Encontro 3. Hoje a gente testa soluções pra esse lugar: cada uma mostra o que precisa, o que se espera dela e quanto custa. No fim, vocês saem com uma comparação.\n\nUma coisa só: ${where ? `vocês falaram do **${where}**, mas` : ''} ainda não tem um lugar marcado no mapa. Dá pra seguir mesmo assim — o que der pra fechar hoje fica fechado, e o resto espera o ponto.`,
+        `Welcome to Encontro 3. Today we test solutions for this place: each one shows what it needs, what to expect from it and what it costs. At the end you leave with a comparison.\n\nOne thing first: ${where ? `you told us about **${where}**, but ` : ''}there is still no place marked on the map. We can carry on anyway — whatever can be settled today gets settled, and the rest waits for the pin.`,
       );
       ask('Como prefere?', 'How would you like to do it?', [
         { pt: E3C.marcarAgora.pt, en: E3C.marcarAgora.en, dPt: 'Abre o mapa', dEn: 'Opens the map' },
@@ -394,8 +445,8 @@ export async function serveE3Checkpoint(
     // See shared/site-name.ts (backlog #40).
     const place = siteInSentence(siteName, bairro, isPt ? 'pt' : 'en');
     say(
-      `Bem-vindas ao Encontro 3. No Encontro 2 vocês marcaram **${place}** e me contaram o que preocupa ali. Hoje a gente transforma isso num projeto: uma solução, um tamanho, uma faixa de preço, e quem precisa dizer sim.\n\nSó pra começar do lugar certo — ainda é **${place}**?`,
-      `Welcome to Encontro 3. In Encontro 2 you marked **${place}** and told me what worries you there. Today we turn that into a project: one solution, a size, a price range, and who has to say yes.\n\nJust so we start in the right place — is it still **${place}**?`,
+      `Bem-vindas ao Encontro 3. No Encontro 2 vocês marcaram **${place}** e me contaram o que preocupa ali. Hoje a gente testa soluções pra esse lugar: cada uma mostra o que precisa, o que se espera dela e quanto custa. No fim, vocês saem com uma comparação.\n\nSó pra começar do lugar certo — ainda é **${place}**?`,
+      `Welcome to Encontro 3. In Encontro 2 you marked **${place}** and told me what worries you there. Today we test solutions for this place: each one shows what it needs, what to expect from it and what it costs. At the end you leave with a comparison.\n\nJust so we start in the right place — is it still **${place}**?`,
     );
     ask('Confere?', 'Is that right?', [
       { pt: E3C.confirmar.pt, en: E3C.confirmar.en },
@@ -484,18 +535,18 @@ export async function serveE3Checkpoint(
     // Their Encontro 2 picks lead; the agent reorders inside them and may add
     // one below with the tension named. See mergeShortlist.
     //
-    // ⚠️ Minus what they already took. This beat runs a second time when an
-    // organisation taps "Levar mais uma solução", and the list came back
-    // identical — the garden they had just chosen still sitting at the top of
+    // ⚠️ Minus what they already TESTED — not what they liked. This beat runs
+    // every time they come back to the shelf, and the list once came back
+    // identical: the garden they had just chosen still sitting at the top of
     // it. Tapping it fell through to the model, which in a deployment with no
     // key is silence, at the last beat of the workshop. A simulation found it;
     // no test did, because every scripted organisation politely picked a
     // different second solution.
-    const already = liveSolutions();
+    const already = testedIds(ensureTests());
     const entries = mergeShortlist(base, fresh?.shortlist ?? [], isPt ? 'pt' : 'en')
       .filter(e => !already.includes(e.solution.id))
       .slice(0, 4);
-    if (!entries.length) return await closeE3();
+    if (!entries.length) return await showComparison();
     // ⚠️ Say the shared half ONCE. Every card used to open with the same eight
     // words — "Responde ao que vocês contaram — pra água que junta e não escoa"
     // — so four options read as one, and the choice got made by ordering. When
@@ -520,9 +571,11 @@ export async function serveE3Checkpoint(
         ...(e.caveatPt ? { caveat: isPt ? e.caveatPt : e.caveatEn } : {}),
       })),
     } as any);
+    // Robson's question, not ours. "Levar adiante" made the first tap a
+    // commitment; "testar" makes it a look, and the loop makes looking cheap.
     ask(
-      'Qual delas vocês querem levar adiante?',
-      'Which one do you want to take forward?',
+      already.length ? 'Qual vocês querem testar agora?' : 'Qual vocês querem testar primeiro?',
+      already.length ? 'Which one do you want to test now?' : 'Which one do you want to test first?',
       [
         ...entries.map(e => ({
           pt: e.solution.pt.label,
@@ -536,43 +589,50 @@ export async function serveE3Checkpoint(
     return finish('ask-solution');
   };
 
-  /** They picked one. Say what it will need, from its own ficha, before sizing. */
-  const confirmSolution = async (solutionId: string): Promise<true> => {
+  /**
+   * They picked one to TEST. Open the test, say what it is, and size it if
+   * sizing buys a number — then the card.
+   *
+   * ⚠️ The footprint is per PLACE and asked once; the count is per SOLUTION and
+   * asked per test. A real run added corredores verdes — priced per planted
+   * tree — to a project whose 2.100 m² footprint had been drawn for a per-m²
+   * solution, and printed a price per tree with no count (backlog #38). And
+   * the reverse: a second per-unit solution used to inherit the first one's
+   * count, because `intervention_units` was one field for the whole project.
+   */
+  const startTest = async (solutionId: string): Promise<true> => {
     const sol = getSolution(solutionId);
     const ficha = getSolutionFicha(solutionId);
-    const adding = type('_adding_solution') === 'yes';
-    deps.writeFields(TYPE, {
-      chosen_solutions: [...chosen, solutionId].join(','),
-      ...(adding ? { _adding_solution: '' } : {}),
-    });
-    if (sol && ficha) {
-      say(
-        `**${sol.pt.label}** ✓\n\n${sol.pt.whatItIs}\n\n_Quem precisa dizer sim:_ ${ficha.pt.quemPrecisaDizerSim}`,
-        `**${sol.en.label}** ✓\n\n${sol.en.whatItIs}\n\n_Who has to say yes:_ ${ficha.en.quemPrecisaDizerSim}`,
-      );
+    if (!sol || !ficha) return await askSolution();
+    const tests = upsertTest(ensureTests(), { solutionId });
+    deps.writeFields(TYPE, { solution_tests_json: serializeTests(tests), _test_open: solutionId });
+    say(
+      `Vamos testar **${sol.pt.label}**.\n\n${sol.pt.whatItIs}`,
+      `Let's test **${sol.en.label}**.\n\n${sol.en.whatItIs}`,
+    );
+    const cost = SOLUTION_COSTS[solutionId];
+    const test = testOf(tests, solutionId);
+    // askArea knows which question this basis actually asks — the footprint
+    // for a per-m² solution (once per place: a second per-m² test reuses the
+    // outline), the ficha's own note and then the count for one priced per
+    // unit or per project (per solution: two counted solutions do not share).
+    if (cost?.basis !== 'm2') {
+      if (test?.units !== undefined) return await showTestCard(solutionId);
+      return await askArea(solutionId);
     }
-    // A second solution reuses everything already answered about the place —
-    // the footprint, why here, the baseline, who maintains it. Re-asking any of
-    // that would be the "you weren't listening" signal in its purest form. Only
-    // the price, which is per solution, is restated.
-    if (adding) {
-      // ⚠️ …but the SIZE is per solution too, whenever the two are priced on
-      // different bases. A real run added corredores verdes — priced per
-      // planted tree — to a project whose 2.100 m² footprint had been drawn for
-      // a per-m² solution, and this branch printed the ficha, printed a price
-      // per tree, and closed. Nine seconds from picking it to "✓ Pronto,
-      // Maria", with no count, not even a recorded pendency. The footprint buys
-      // nothing for a solution counted rather than measured. (backlog #38)
-      const needsCount = !!SOLUTION_COSTS[solutionId]?.unitChips?.length && !liveUnits();
-      if (needsCount) {
-        deps.writeFields(TYPE, { _second_sizing: 'yes' });
-        return askUnits(solutionId);
-      }
-      const line = budgetLineFor(solutionId, areaM2 || undefined, liveUnits() || undefined, liveBuild());
-      if (line) say(line.notePt, line.noteEn);
-      return await closeE3();
-    }
-    return askArea(solutionId);
+    if (!site('_area_asked')) return await askArea(solutionId);
+    return await showTestCard(solutionId);
+  };
+
+  /**
+   * Where every road out of the size beat lands: the card of the test that is
+   * open. A stale size answer with no test open (a map result posted from an
+   * old tab, say) goes back to wherever the loop was.
+   */
+  const afterSize = async (): Promise<true> => {
+    const open = openTest();
+    if (open) return await showTestCard(open);
+    return ensureTests().length ? askNext() : await askSolution();
   };
 
   // ── Beat 2 · the size ─────────────────────────────────────────────────────
@@ -586,8 +646,8 @@ export async function serveE3Checkpoint(
    * corredores verdes (priced per planted tree) was sent to trace a footprint
    * that buys nothing.
    */
-  const askArea = (solutionId?: string): true => {
-    const id = solutionId ?? chosen[0];
+  const askArea = async (solutionId?: string): Promise<true> => {
+    const id = solutionId ?? openTest() ?? chosen[0];
     const line = id ? budgetLineFor(id) : null;
     // A per-m² solution is the only case where the drawing buys a number. For
     // one priced per tree or per cistern, asking for a footprint would be
@@ -605,7 +665,7 @@ export async function serveE3Checkpoint(
       // Nine of the 27 solutions left W3 with a price per unit, no count, no
       // total and nothing to put under "dimensões" in a concept note.
       if (id && SOLUTION_COSTS[id]?.unitChips?.length) return askUnits(id);
-      return askConstruction();
+      return await afterSize();
     }
     if (areaM2 > 0) {
       say(
@@ -710,9 +770,10 @@ export async function serveE3Checkpoint(
    */
   const askConstruction = (): true => {
     // Size is settled — by a trace, a sentence, a comparison or a deferral —
-    // so the free-text lane above belongs to the next beat again. Cleared HERE
-    // rather than on each road out, because a flag left standing would swallow
-    // the "por que aqui" paragraph and answer it with size chips.
+    // so the free-text lane above belongs to the next beat again. Cleared in
+    // showTestCard too, which is where the size roads land now; kept here for
+    // the tail, because a flag left standing would swallow the "por que aqui"
+    // paragraph and answer it with size chips.
     deps.writeFields(SITE, { _area_pending: '' });
     const a = liveArea();
     if (a > 0) {
@@ -830,10 +891,12 @@ export async function serveE3Checkpoint(
     // per m² to R$ 5. Restating it here is the difference between a concept
     // note that survives a quote and one that does not.
     const built = liveBuild();
+    const tests = liveTests();
     for (const id of liveSolutions()) {
       if (!SOLUTION_COSTS[id]?.buildModel) continue;
-      const before = budgetLineFor(id, liveArea() || undefined, liveUnits() || undefined);
-      const after = budgetLineFor(id, liveArea() || undefined, liveUnits() || undefined, built);
+      const units = testOf(tests, id)?.units || liveUnits() || undefined;
+      const before = budgetLineFor(id, liveArea() || undefined, units);
+      const after = budgetLineFor(id, liveArea() || undefined, units, built);
       if (!after || !before || after.notePt === before.notePt) continue;
       say(`Com isso o número muda: ${after.notePt}`, `That changes the number: ${after.noteEn}`);
     }
@@ -857,93 +920,156 @@ export async function serveE3Checkpoint(
     );
   };
 
+  // ── The test card · what it needs, what blocks it, what it does, what it costs
   /**
-   * Beat 3c · what we expect it to do.
+   * One solution, four answers, one reaction.
    *
-   * The one beat where the platform brings the number and the organisation
-   * brings the judgement. Asking "quantos litros vocês esperam segurar?" would
-   * get a blank or a guess, and a guess we store becomes data. So we state a
-   * sourced range over the footprint they drew, say plainly that it is a design
-   * estimate and not a measurement, and capture what they make of it.
+   * Everything on the card is a function that already existed — the verdict,
+   * the price band, the expected effect, the ficha, Robson's reading — put side
+   * by side for THIS solution (shared/w3-solution-test.ts). The figure that
+   * used to have its own beat ("o que vocês acham desse número?") sits on the
+   * card with its scale note attached, so one reaction covers the solution and
+   * the number both.
    *
-   * "Parece pouco" from an organisation that lived through 2024 is not a
-   * complaint to be smoothed over — it is the most accurate thing anyone says
-   * all session, and it is why the scale honesty note is attached to exactly
-   * that answer.
+   * ⚠️ Clears `_area_pending`. That flag used to be cleared only by
+   * askConstruction, which now lives in the tail — left standing, the reaction
+   * chip would have been read as a spoken size, failed to parse, and answered
+   * with "não vou chutar um número".
    */
-  const askImpact = (): true => {
-    // ⚠️ HERE, and not in the baseline handler where it started. The baseline is
-    // the last of the three free-text answers, so this is the richest the record
-    // will ever be before the document is written — but there are three ways to
-    // give it (typed, recorded, or by accepting the offered draft) and only one
-    // of them passes through that handler. Six of the eight simulated
-    // organisations took a different road and the round never fired for them.
-    // Every road arrives HERE, and the flag makes it once.
+  const showTestCard = async (solutionId: string): Promise<true> => {
+    deps.writeFields(SITE, { _area_pending: '' });
+    const tests = ensureTests();
+    const test = testOf(tests, solutionId);
+    const card = buildSolutionTest(solutionId, w3Input(), test, isPt ? 'pt' : 'en');
+    if (!card) {
+      deps.writeFields(TYPE, { _test_open: '' });
+      return askNext();
+    }
+    deps.writeFields(TYPE, { _test_open: solutionId });
+    // ⚠️ BEFORE the card and its reaction chips, not after: asking what they
+    // make of a number while withholding what it is a fraction of is asking
+    // for a judgement in the dark. Markdown, in a bubble — the card is a card.
+    if (card.scaleLines.length) say(card.scaleLines.join('\n'), card.scaleLines.join('\n'));
+    pushEvent({ type: 'show_solution_test', test: card } as any);
+    ask('Vendo isso, o que vocês acham?', 'Seeing this, what do you make of it?', [
+      { pt: REACTION['faz-sentido'].chipPt, en: REACTION['faz-sentido'].chipEn, dPt: 'Entra no projeto', dEn: 'Goes into the project' },
+      { pt: REACTION['nao-e-pra-gente'].chipPt, en: REACTION['nao-e-pra-gente'].chipEn, dPt: 'Fica na comparação, marcada', dEn: 'Stays in the comparison, marked' },
+      { pt: REACTION['ainda-nao-sabemos'].chipPt, en: REACTION['ainda-nao-sabemos'].chipEn, dPt: 'Fica em aberto', dEn: 'Stays open' },
+    ]);
+    return finish(`test-${solutionId}`);
+  };
+
+  /** Back to the shelf, or on to the comparison. Asked after every test. */
+  const askNext = (): true => {
+    ask('E agora?', 'And now?', [
+      { pt: E3C.testarOutra.pt, en: E3C.testarOutra.en, dPt: 'Volta pra lista', dEn: 'Back to the list' },
+      { pt: E3C.verComparacao.pt, en: E3C.verComparacao.en, dPt: 'Lado a lado, o que cada uma pede e faz', dEn: 'Side by side, what each one needs and does' },
+    ]);
+    return finish('ask-next');
+  };
+
+  /**
+   * The comparison — what Encontro 3 hands back now. Derived from the cards,
+   * never narrated; printed by GET /api/cbo/:id/comparison from the same
+   * function. Re-runnable: "Testar mais uma" comes back through here.
+   *
+   * The maturity scores are written HERE as well as at the close. An
+   * organisation that parks at the comparison and never details has still
+   * done the work of the encontro, and the coordinator's roster should say so.
+   */
+  const showComparison = async (): Promise<true> => {
+    const tests = ensureTests();
+    if (!tests.length) return await askSolution();
+    const input = w3Input();
+    const comparison = buildComparison(input, tests, isPt ? 'pt' : 'en', type('technical_note') || null);
+    pushEvent({ type: 'show_comparison', comparison } as any);
+    deps.writeFields(TYPE, { _comparison_shown: 'yes' });
+    const dossier = buildDossier(input, isPt ? 'pt' : 'en');
+    // ⚠️ Three of the four, not four. `financial_thinking` is what the tail
+    // scores (quem cuida, dinheiro recorrente), and `phaseComplete` reads
+    // "every phase-3 metric scored" as "Encontro 3 finished" — which would
+    // hand a parked organisation the door to Encontro 4 the day the
+    // coordination opens it, with the tail never walked.
+    deps.recordMaturity?.(scoreW3Maturity({
+      site: input.site,
+      w3: input.w3 ?? {},
+      solutions: liveSolutions(),
+      ...(liveArea() ? { areaM2: liveArea() } : {}),
+      ...(liveUnits() ? { units: liveUnits() } : {}),
+      hasCostBand: dossier.budget.some(b => b.lowBrl != null),
+    }).filter(m => m.metric !== 'financial_thinking'));
+    const n = tests.length;
+    say(
+      n === 1
+        ? 'Uma solução testada. A comparação fica salva aqui e dá pra baixar em PDF.'
+        : `${n} soluções testadas, lado a lado. A comparação fica salva aqui e dá pra baixar em PDF.`,
+      n === 1
+        ? 'One solution tested. The comparison is saved here and can be downloaded as a PDF.'
+        : `${n} solutions tested, side by side. The comparison is saved here and can be downloaded as a PDF.`,
+    );
+    ask('Querem detalhar o projeto agora?', 'Do you want to go into the project in detail now?', [
+      { pt: E3C.detalharAgora.pt, en: E3C.detalharAgora.en, dPt: 'Por que aqui, como está hoje, quem cuida', dEn: 'Why here, how it is today, who looks after it' },
+      { pt: E3C.deixarPraDepois.pt, en: E3C.deixarPraDepois.en, dPt: 'A comparação fica salva', dEn: 'The comparison stays saved' },
+      { pt: E3C.testarMaisUma.pt, en: E3C.testarMaisUma.en, dPt: 'Volta pra lista', dEn: 'Back to the list' },
+    ]);
+    return finish('show-comparison');
+  };
+
+  /**
+   * Parked at the comparison. Ends with a question on purpose: the client
+   * restores a pending question only from a trailing ask_user, so a session
+   * that ended on a sentence came back to a dead transcript and typed its way
+   * into the model.
+   */
+  const parkAtComparison = (): true => {
+    deps.writeFields(TYPE, { _detail_parked: 'yes' });
+    // The note is authored now for the organisation that never comes back to
+    // detail — the only path with no closeE3 after it. closeE3 runs it again
+    // with the fuller record if they do.
+    if (likedIds(liveTests()).length) deps.startConceptNote?.();
+    say(
+      'Fica salvo. A comparação está aqui em cima e no PDF; quando quiserem detalhar o projeto — por que aqui, como está hoje, quem cuida — é só voltar.',
+      'Saved. The comparison is above and in the PDF; whenever you want to go into detail — why here, how it is today, who looks after it — just come back.',
+    );
+    ask('Quando voltarem:', 'When you come back:', [
+      { pt: E3C.detalharAgora.pt, en: E3C.detalharAgora.en },
+      { pt: E3C.testarMaisUma.pt, en: E3C.testarMaisUma.en, dPt: 'Volta pra lista', dEn: 'Back to the list' },
+      { pt: E3C.verComparacao.pt, en: E3C.verComparacao.en },
+    ]);
+    return finish('parked');
+  };
+
+  /**
+   * Into the tail with no liked solution. The tail scopes `chosen_solutions`,
+   * so it needs one — asked rather than assumed, because "detalhar" after
+   * three "ainda não sabemos" is a real thing to want.
+   */
+  const askWhichToDetail = (): true => {
+    const tests = ensureTests();
+    deps.writeFields(TYPE, { _detail_which_pending: 'yes' });
+    say(
+      'Pra detalhar, preciso saber qual delas vira o projeto — dá pra mudar depois.',
+      'To go into detail I need to know which one becomes the project — it can change later.',
+    );
+    ask('Detalhar pra qual?', 'Detail which one?', tests.map(t => {
+      const sol = getSolution(t.solutionId);
+      return { pt: sol?.pt.label ?? t.solutionId, en: sol?.en.label ?? t.solutionId };
+    }));
+    return finish('ask-which-to-detail');
+  };
+
+  /**
+   * Both baseline roads end here. Round 1 of the dig fires at this point
+   * because the baseline is the richest the record will ever be before the
+   * document is written — and there are three ways to give it (typed,
+   * recorded, or by accepting the offered draft), only one of which passed
+   * through the handler it first lived in.
+   */
+  const afterBaseline = (): true => {
     if (!type('_dig_started')) {
       deps.writeFields(TYPE, { _dig_started: 'yes' });
       deps.startDig?.(1);
     }
-    const id = liveSolutions()[0];
-    // Live, and including the count: the beat runs after askUnits wrote it, and
-    // "5 cisternas guardam 80 mil litros" is the sentence that goes on a page —
-    // "16 mil litros por cisterna" is a specification.
-    const line = id ? benefitFor(id, liveArea() || undefined, liveUnits() || undefined) : null;
-    if (!line) return askTimeframe();
-
-    const conf = { alta: 'confiança alta', 'média': 'confiança média', baixa: 'confiança baixa' } as const;
-    const confEn = { alta: 'high confidence', 'média': 'medium confidence', baixa: 'low confidence' } as const;
-
-    if (line.headlinePt && line.siteSpecific) {
-      say(
-        `Uma coisa que a gente pode trazer pra vocês: **${line.headlinePt}**
-
-${line.claimPt}
-
-_Isso é estimativa de projeto, não medição — ${line.sourcePt}, ${conf[line.confidence]}. Serve pra pedir, não pra prometer._`,
-        `Something we can bring you: **${line.headlineEn}**
-
-${line.claimEn}
-
-_This is a design estimate, not a measurement — ${line.sourceEn}, ${confEn[line.confidence]}. It is for asking with, not for promising._`,
-      );
-      if (line.notaPt) say(`_${line.notaPt}_`, `_${line.notaEn ?? line.notaPt}_`);
-      line.extrasPt.forEach((e, i) => say(`· ${e}`, `· ${line.extrasEn[i] ?? e}`));
-      // ⚠️ BEFORE the reaction chips, not after. Introduced in the same change
-      // that added it: the organisation was asked "o que vocês acham desse
-      // número?" and only then told what the number is a fraction of — which is
-      // asking for a judgement while withholding the thing it turns on.
-      const scale = scaleStatement(liveSolutions(), liveArea(), site('site_worry'));
-      if (scale) say(scale.linesPt.join('\n'), scale.linesEn.join('\n'));
-      ask('O que vocês acham desse número?', 'What do you make of that number?', [
-        { pt: E3C.fazSentido.pt, en: E3C.fazSentido.en },
-        { pt: E3C.pareceMuito.pt, en: E3C.pareceMuito.en, dPt: 'Fica registrado', dEn: 'Noted on the record' },
-        { pt: E3C.parecePouco.pt, en: E3C.parecePouco.en, dPt: 'Fica registrado', dEn: 'Noted on the record' },
-      ]);
-      deps.writeFields(IMPACT, { expected_impact: line.headlinePt });
-      return finish('ask-impact');
-    }
-
-    // Either no number exists for this solution, or the one that exists is a
-    // property of the technique rather than of their site. State it and move on
-    // — asking them to react to a figure they have no standing to judge, and we
-    // have no way to act on, is a question for the sake of a question.
-    if (line.headlinePt) {
-      say(
-        `${line.claimPt}\n\n**${line.headlinePt}**${line.notaPt ? `\n\n_${line.notaPt}_` : ''}`,
-        `${line.claimEn}\n\n**${line.headlineEn}**${line.notaEn ? `\n\n_${line.notaEn}_` : ''}`,
-      );
-      deps.writeFields(IMPACT, { expected_impact: line.headlinePt });
-      return askTimeframe();
-    }
-    say(
-      `${line.claimPt}
-
-_Pra essa solução a gente ainda não tem um número de referência — o que a ficha diz é o que está acima. Isso também vira pendência: é uma medição que vale procurar._`,
-      `${line.claimEn}
-
-_For this one we do not yet have a reference figure — what the ficha says is above. That is a gap too: a measurement worth going after._`,
-    );
-    deps.writeFields(IMPACT, { expected_impact: line.claimPt });
     return askTimeframe();
   };
 
@@ -993,16 +1119,29 @@ _For this one we do not yet have a reference figure — what the ficha says is a
    * it. Asked at most once per session, and skipped entirely when there is
    * nothing worth asking. See shared/w3-detail-questions.ts.
    */
-  const askDetail = (): true | null => {
-    if (type('_detail_asked')) return null;
+  const askDetail = (solutionId?: string): true | null => {
+    const asked = type('_detail_asked').split(',').filter(Boolean);
+    // At most ONE detail question per session outside the tests, as before:
+    // the tail head asks the concrete instance only when no test asked its
+    // ficha's decisive question. Every solution with one already had its turn.
+    if (!solutionId && asked.length) return null;
+    // Inside a test: only the ficha's decisive condition for THIS solution
+    // (hasStory: false keeps the concrete-instance fallback for the tail, so
+    // the second test does not spend the one story question). At the tail
+    // head: whatever is left for the solutions they liked, then the instance.
     const q = detailQuestionFor({
-      solutions: liveSolutions(),
+      solutions: solutionId ? [solutionId] : liveSolutions(),
       worry: site('site_worry'),
-      hasStory: !!site('site_story').trim(),
-      alreadyAsked: type('_detail_asked').split(',').filter(Boolean),
+      hasStory: solutionId ? false : !!site('site_story').trim(),
+      alreadyAsked: asked,
     });
     if (!q) return null;
-    deps.writeFields(TYPE, { _detail_asked: q.id, _detail_pending: q.id });
+    // ⚠️ Appended, not overwritten. `_detail_asked` was written as one id, so a
+    // second test re-asked the first test's question.
+    deps.writeFields(TYPE, {
+      _detail_asked: [...asked, q.id].join(','),
+      _detail_pending: solutionId ? `${q.id}:${solutionId}` : q.id,
+    });
     say(q.askPt, q.askEn);
     if (q.options?.length) {
       ask('Qual dessas?', 'Which of these?', q.options);
@@ -1036,7 +1175,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     return finish(`ask-dig-${q.id}`);
   };
 
-  const askExtras = (): true => {
+  const askExtras = async (): Promise<true> => {
     const dug = askDig(1);
     if (dug) return dug;
     // ⚠️ The bank is the FALLBACK, not a second helping. Falling through to it
@@ -1045,10 +1184,10 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     // questions at the end of a workshop, which is a form, not a conversation.
     // The comment above this line said "the bank is what happens when there are
     // none" for a day while the code said "after them".
-    if (liveDig().some(q => q.round === 1)) return askAnotherSolution();
+    if (liveDig().some(q => q.round === 1)) return await closeE3();
     const ids = (advice?.questionIds ?? []).filter(id => !type(`_extra_${id}`));
     const q = ids.map(getW3Question).find(Boolean);
-    if (!q) return askAnotherSolution();
+    if (!q) return await closeE3();
     deps.writeFields(TYPE, { _extra_pending: q.id });
     if (q.kind === 'chips' && q.options?.length) {
       ask(q.askPt, q.askEn, q.options.map(o => ({ pt: o.pt, en: o.en })));
@@ -1059,43 +1198,6 @@ _For this one we do not yet have a reference figure — what the ficha says is a
       ]);
     }
     return finish(`ask-extra-${q.id}`);
-  };
-
-  /**
-   * One site, more than one solution.
-   *
-   * The whole four-state verdict rests on this being possible: a community
-   * garden that can take money now, beside a stormwater intervention that
-   * cannot be sized without a study, is what broke the two-way split agreed on
-   * 27 August. Until this beat existed the flow could not express the case its
-   * own design was argued from — the first six simulations closed Partenon
-   * with a single solution.
-   */
-  const askAnotherSolution = (): true => {
-    // ⚠️ Named where we can name it. The generic sentence went to everybody —
-    // true, and useless, because "sometimes a place needs more than one thing"
-    // is not a proposal. When round 2 found a solution that belongs BESIDE
-    // theirs, it says which one and what it adds. It never says their choice is
-    // wrong: the rule is enforced in acceptPairing, not merely asked for.
-    const pair = livePairing();
-    if (pair) {
-      const label = getSolution(pair.solutionId)?.[isPt ? 'pt' : 'en']?.label ?? pair.solutionId;
-      say(
-        `Antes de fechar, uma ideia: **${label}**. ${pair.reasonPt}\n\nCada solução tem o seu próprio caminho e o seu próprio custo, e a gente separa isso no resumo.`,
-        `Before we close, one idea: **${label}**. ${pair.reasonEn}\n\nEach solution has its own route and its own cost, and the summary keeps them separate.`,
-      );
-    } else {
-      say(
-        'Antes de fechar: às vezes um lugar pede mais de uma coisa — uma horta e uma vala, por exemplo. Cada uma tem o seu próprio caminho e o seu próprio custo, e a gente separa isso no resumo.',
-        'Before we close: sometimes a place needs more than one thing — a garden and a swale, say. Each has its own route and its own cost, and the summary keeps them separate.',
-      );
-    }
-    ask('Querem levar mais alguma solução nesse mesmo lugar?', 'Do you want to take another solution on this same place?', [
-      { pt: E3C.soEssa.pt, en: E3C.soEssa.en },
-      { pt: E3C.outraSolucao.pt, en: E3C.outraSolucao.en, dPt: 'Volta pra lista', dEn: 'Back to the list' },
-    ]);
-    deps.writeFields(TYPE, { _second_asked: 'yes' });
-    return finish('ask-second-solution');
   };
 
   /**
@@ -1118,6 +1220,32 @@ _For this one we do not yet have a reference figure — what the ficha says is a
       "And the money that comes back every year — upkeep, not construction. **\"We don't know yet\" is a real answer here**: it is exactly the conversation the coordination takes to the city.",
     );
     return askEnum(OPS, 'sustainability_model', 'De onde sai esse dinheiro?', 'Where does that money come from?');
+  };
+
+  /**
+   * Back in an open workshop. The record says where they are; serve that beat
+   * again rather than a welcome they have already read.
+   */
+  const resumeE3 = async (): Promise<true> => {
+    const tests = ensureTests();
+    const open = openTest();
+    if (open) return await showTestCard(open);
+    if (type('_e3_closed')) return await closeE3();
+    // In the tail: the first enum still empty, or the free-text beat before it.
+    if (type('construction_model')) {
+      if (!type('justification_why_here') && !impact('baseline_condition')) return askJustification();
+      if (!impact('baseline_condition') && !impact('project_timeframe')) return askBaseline();
+      if (!impact('project_timeframe')) return askTimeframe();
+      if (!impact('monitoring_capacity')) return askMonitoring();
+      if (!ops('who_maintains')) return askMaintains();
+      if (!ops('maintenance_frequency')) return askFrequency();
+      if (!ops('sustainability_model')) return askSustainability();
+      return await askExtras();
+    }
+    if (type('_detail_which_pending') === 'yes') return askWhichToDetail();
+    if (tests.length) return type('_comparison_shown') ? await showComparison() : askNext();
+    if (!hasSitePin && !site('_area_asked')) return await askSolution();
+    return await askSolution();
   };
 
   // ── The close · the dossier ───────────────────────────────────────────────
@@ -1247,26 +1375,28 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     const nChip = deps.normChip(raw);
     const saidNoIdea =
       nChip === deps.normChip(E3C.naoSeiQuantas.pt) || nChip === deps.normChip(E3C.naoSeiQuantas.en);
-    // Who builds it, and everything else about the place, was answered before
-    // the second solution was added — so that path closes here instead of
-    // interviewing them a second time about the same site.
-    const secondSizing = type('_second_sizing') === 'yes';
+    // ⚠️ The count is PER TEST. `intervention_units` (one field, for the
+    // documents) is written only when this test is liked — see the reaction
+    // handler — so a count given for a solution they then set aside never
+    // prints under "dimensões" of a project made of something else.
     if (saidNoIdea || isSkip(raw)) {
-      deps.writeFields(TYPE, { _units_pending: '', _units_deferred: 'yes', _second_sizing: '' });
+      const tests = upsertTest(ensureTests(), { solutionId: unitsPending, units: 0 });
+      deps.writeFields(TYPE, { solution_tests_json: serializeTests(tests), _units_pending: '', _units_deferred: 'yes' });
       say(
         'Sem problema — fica registrado que falta definir quantas, e a ficha já tem o preço de cada uma pra quando vocês souberem.',
         'No problem — it is recorded that the number is still open, and the ficha already has the price of each one for when you know.',
       );
-      return secondSizing ? await closeE3() : askConstruction();
+      return await afterSize();
     }
     // "umas 5", "5 cisternas", "5". Anything with no number at all is left to
     // fall through rather than guessed at.
     const n = Number((raw.match(/\d{1,5}/) ?? [])[0]);
     if (Number.isFinite(n) && n > 0) {
-      deps.writeFields(TYPE, { _units_pending: '', intervention_units: String(n), _units_deferred: '', _second_sizing: '' });
+      const tests = upsertTest(ensureTests(), { solutionId: unitsPending, units: n });
+      deps.writeFields(TYPE, { solution_tests_json: serializeTests(tests), _units_pending: '', _units_deferred: '' });
       const line = budgetLineFor(unitsPending, liveArea() || undefined, n, liveBuild());
       if (line) say(line.notePt, line.noteEn);
-      return secondSizing ? await closeE3() : askConstruction();
+      return await afterSize();
     }
   }
 
@@ -1298,9 +1428,8 @@ _For this one we do not yet have a reference figure — what the ficha says is a
         site_area_m2: String(said),
         site_area_source: isPt ? SPOKEN_AREA_SOURCE[spoken.basis].pt : SPOKEN_AREA_SOURCE[spoken.basis].en,
       });
-      const line = liveSolutions()[0]
-        ? budgetLineFor(liveSolutions()[0], said, liveUnits() || undefined, liveBuild())
-        : null;
+      const open = openTest();
+      const line = open ? budgetLineFor(open, said, testOf(liveTests(), open)?.units || undefined, liveBuild()) : null;
       // Read back, because a number heard from speech is the one most worth
       // getting wrong — and priced with the provenance attached, never as a
       // measurement.
@@ -1308,7 +1437,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
         `Anotei **${said.toLocaleString('pt-BR')} m²**, pelo que vocês disseram — não é medida, é o que dá pra trabalhar agora.${line ? `\n\n${line.notePt}` : ''}`,
         `Noted: **${said.toLocaleString('en-US')} m²**, from what you said — not a measurement, but enough to work with.${line ? `\n\n${line.noteEn}` : ''}`,
       );
-      return askConstruction();
+      return await afterSize();
     }
     // ⚠️ Unreadable is not empty. They tried to answer, so the flow owes them
     // the other road rather than a fall-through to the model: the comparison
@@ -1335,13 +1464,24 @@ _For this one we do not yet have a reference figure — what the ficha says is a
   // because "mais barro, a água empoça" means nothing without the question it
   // answers, and the concept note prints both.
   if (type('_detail_pending') && raw && !raw.startsWith('Map selection (')) {
-    const qid = type('_detail_pending');
+    const [qid, forSolution] = type('_detail_pending').split(':');
     deps.writeFields(TYPE, { _detail_pending: '' });
     if (!isSkip(raw)) {
-      deps.writeFields(TYPE, { detail_answer: raw.slice(0, 1000), detail_question_id: qid });
+      const answer = raw.slice(0, 1000);
+      if (forSolution) {
+        const tests = upsertTest(ensureTests(), { solutionId: forSolution, detailQuestionId: qid, detailAnswer: answer });
+        deps.writeFields(TYPE, { solution_tests_json: serializeTests(tests) });
+      }
+      // The document carries ONE detail (shared/w3-detail-questions.ts renders
+      // it beside its question). It is this one when it belongs to a solution
+      // they liked and nothing is there yet, or when it is the tail's own.
+      const liked = !forSolution || likedIds(liveTests()).includes(forSolution);
+      if (liked && !type('detail_answer')) {
+        deps.writeFields(TYPE, { detail_answer: answer, detail_question_id: qid });
+      }
       say('Anotado — isso muda o que a gente escreve sobre a solução.', 'Noted — that changes what we write about the solution.');
     }
-    return askJustification();
+    return forSolution ? askNext() : askJustification();
   }
 
   if (type('_why_pending') === 'yes' && raw && !raw.startsWith('Map selection (') && !isDraftChip(raw)) {
@@ -1359,7 +1499,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
       ...(isSkip(raw) ? {} : { baseline_condition: joinWithDraft(raw) }),
     });
     if (!isSkip(raw)) say('Guardado como linha de base.', 'Stored as the baseline.');
-    return askImpact();
+    return afterBaseline();
   }
 
   // ══ A dug question, waiting for its answer ═══════════════════════════════
@@ -1382,7 +1522,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
         if (q.round === 1 && !pendingDig(all, 1) && !all.some(x => x.round === 2)) {
           deps.startDig?.(2);
         }
-        return q.round === 1 ? askExtras() : await closeE3();
+        return q.round === 1 ? await askExtras() : await closeE3();
       }
     }
   }
@@ -1408,7 +1548,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
         });
         if (q.sectionId !== TYPE) deps.writeFields(TYPE, { [`_extra_${q.id}`]: 'done', _extra_pending: '' });
         else deps.writeFields(TYPE, { _extra_pending: '' });
-        return askExtras();
+        return await askExtras();
       }
     }
   }
@@ -1429,6 +1569,9 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     if (E3_ENTRY.test(raw)) return openW3();
     return false;
   }
+  // Already open, and they are back — the entry line again or the resume
+  // chip. Pick up exactly where the record says they are.
+  if (E3_ENTRY.test(raw) || E3_RESUME.test(raw)) return await resumeE3();
 
   // ══ Map results ══════════════════════════════════════════════════════════
   if (turnKind === 'map' || raw.startsWith('Map selection (')) {
@@ -1480,12 +1623,13 @@ _For this one we do not yet have a reference figure — what the ficha says is a
       return finish('area-implausible');
     }
 
-    const line = chosen[0] ? budgetLineFor(chosen[0], drawn) : null;
+    const open = openTest();
+    const line = open ? budgetLineFor(open, drawn, testOf(liveTests(), open)?.units || undefined, liveBuild()) : null;
     say(
       `**${drawn} m²** ✓${line ? `\n\n${line.notePt}` : ''}`,
       `**${drawn} m²** ✓${line ? `\n\n${line.noteEn}` : ''}`,
     );
-    return askConstruction();
+    return await afterSize();
   }
 
   // ══ Chip taps ════════════════════════════════════════════════════════════
@@ -1495,7 +1639,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
   const msg = deps.normChip(raw);
   const is = (c: { pt: string; en: string }) => msg === deps.normChip(c.pt) || msg === deps.normChip(c.en);
 
-  if (is(E3C.confirmar) && !chosen.length) {
+  if (is(E3C.confirmar) && !ensureTests().length && !openTest()) {
     // Which risk first, when they named more than one — before the shortlist,
     // because the shortlist ranks on it.
     if (namedWorries().length > 1 && !site('_worry_focus_done')) {
@@ -1555,13 +1699,28 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     return finish('all-solutions');
   }
 
+  // "Detalhar pra qual?" — a tested label, taken into the project.
+  if (type('_detail_which_pending') === 'yes') {
+    const tests = ensureTests();
+    const pick = tests.find(t => {
+      const sol = getSolution(t.solutionId);
+      return sol && (deps.normChip(sol.pt.label) === msg || deps.normChip(sol.en.label) === msg);
+    });
+    if (pick) {
+      deps.writeFields(TYPE, { _detail_which_pending: '' });
+      writeTests(upsertTest(tests, { solutionId: pick.solutionId, reaction: 'faz-sentido' }));
+      return askConstruction();
+    }
+  }
+
   // A solution name, from either list. Matched against the whole catalogue so
   // the "ver todas" sheet can be answered by typing a name we never chipped.
-  // Accepted while the first is unchosen AND while a second is being added.
-  if (!chosen.length || type('_adding_solution') === 'yes') {
+  // Accepted whenever no test is open — the loop comes back to the shelf.
+  if (!openTest()) {
+    const tested = testedIds(ensureTests());
     const hit = topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 27)
       .find(e => deps.normChip(e.solution.pt.label) === msg || deps.normChip(e.solution.en.label) === msg);
-    if (hit && !chosen.includes(hit.solution.id)) return await confirmSolution(hit.solution.id);
+    if (hit && !tested.includes(hit.solution.id)) return await startTest(hit.solution.id);
     // ⚠️ Filtering the list is not enough: the answer does not only arrive by
     // tapping a chip. A typed name, a dictated one, or a stale card still on
     // screen reaches here with the label intact, and returning false hands the
@@ -1570,12 +1729,55 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     if (hit) {
       const label = isPt ? hit.solution.pt.label : hit.solution.en.label;
       say(
-        `**${label}** já está no projeto de vocês — não precisa escolher de novo.`,
-        `**${label}** is already in your project — no need to choose it again.`,
+        `**${label}** já foi testada — está na comparação.`,
+        `**${label}** has already been tested — it is in the comparison.`,
       );
       return await askSolution();
     }
   }
+
+  // ══ The reaction to a test card ══════════════════════════════════════════
+  // Theirs, in their words on the chip and in the written register on the
+  // page. "Faz sentido" is what makes a tested solution a chosen one; the other
+  // two keep it in the comparison, marked, so nothing tested disappears.
+  for (const value of Object.keys(REACTION) as TestReaction[]) {
+    const c = REACTION[value];
+    if (!(msg === deps.normChip(c.chipPt) || msg === deps.normChip(c.chipEn))) continue;
+    const id = openTest();
+    if (!id) break; // a stale card — fall through to the old handlers below
+    let tests = upsertTest(ensureTests(), { solutionId: id, reaction: value });
+    writeTests(tests);
+    deps.writeFields(TYPE, { _test_open: '' });
+    if (value === 'faz-sentido') {
+      const t = testOf(tests, id);
+      const card = buildSolutionTest(id, w3Input(), t, isPt ? 'pt' : 'en');
+      // The single-value document fields, filled by the FIRST liked test only.
+      deps.writeFields(TYPE, {
+        ...(t?.units && !liveUnits() ? { intervention_units: String(t.units) } : {}),
+      });
+      deps.writeFields(IMPACT, {
+        expected_impact_reaction: 'faz-sentido',
+        ...(card && !impact('expected_impact') ? { expected_impact: card.effect.headline ?? card.effect.claim } : {}),
+      });
+      say('Anotado ✓ — entra no projeto.', 'Noted ✓ — it goes into the project.');
+    } else if (value === 'nao-e-pra-gente') {
+      say('Anotado — fica na comparação como descartada. Nada some.', 'Noted — it stays in the comparison as set aside. Nothing disappears.');
+    } else {
+      say('Anotado — fica em aberto na comparação.', 'Noted — it stays open in the comparison.');
+    }
+    // The ficha's decisive question deepens a solution they might take; asking
+    // it about one they just set aside is a question for the sake of a question.
+    if (value === 'nao-e-pra-gente') return askNext();
+    return askDetail(id) ?? askNext();
+  }
+
+  if (is(E3C.testarOutra) || is(E3C.testarMaisUma)) return await askSolution();
+  if (is(E3C.verComparacao)) return await showComparison();
+  if (is(E3C.detalharAgora)) {
+    deps.writeFields(TYPE, { _detail_parked: '' });
+    return likedIds(ensureTests()).length ? askConstruction() : askWhichToDetail();
+  }
+  if (is(E3C.deixarPraDepois)) return parkAtComparison();
 
   // The impact reaction. Stored as their words, and "parece pouco" gets the
   // scale honesty note attached — NBS absorb ~0.03% of a 2024-scale event but
@@ -1634,7 +1836,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
         _baseline_pending: '',
       });
       say('Guardado como linha de base.', 'Stored as the baseline.');
-      return askImpact();
+      return afterBaseline();
     }
   }
   if (is(E3C.escreverZero)) {
@@ -1659,11 +1861,11 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     return finish('draft-append');
   }
 
-  if (is(E3C.outraSolucao)) {
-    deps.writeFields(TYPE, { _adding_solution: 'yes' });
-    return await askSolution();
-  }
-  if (is(E3C.soEssa)) return await closeE3();
+  // Stale cards from before the loop. "Só essa" on a session already in the
+  // tail closes as it always did; on one that never reached the tail it goes to
+  // the comparison, which is where "só essa" now leads.
+  if (is(E3C.outraSolucao)) return await askSolution();
+  if (is(E3C.soEssa)) return type('construction_model') ? await closeE3() : await showComparison();
   if (is(E3C.marcarAgora)) return openSiteMap('open-site-map-from-e3');
   if (is(E3C.seguirSemLugar)) return await askSolution();
 
@@ -1677,7 +1879,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
     }
     return openFootprintMap();
   }
-  if (is(E3C.areaConfere)) return askConstruction();
+  if (is(E3C.areaConfere)) return await afterSize();
   if (is(E3C.naoSeiTamanho)) {
     // ⚠️ Once more, by another road. "Ainda não sei o tamanho" is an honest
     // answer to "how many square metres" — and the area is the single number
@@ -1697,7 +1899,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
       'Sem problema — fica registrado que falta medir, e a ficha já tem o preço por m² pra quando vocês souberem.',
       "No problem — it is recorded that the measurement is still missing, and the ficha already has the per-m² price for when you know.",
     );
-    return askConstruction();
+    return await afterSize();
   }
 
   // Their comparison, turned into a band. ⚠️ Recorded with its provenance: an
@@ -1715,7 +1917,7 @@ _For this one we do not yet have a reference figure — what the ficha says is a
         'Tudo bem — fica registrado que falta medir, e a ficha já tem o preço por m² pra quando vocês souberem.',
         'That is fine — it is recorded that the measurement is still missing, and the ficha already has the per-m² price for when you know.',
       );
-      return askConstruction();
+      return await afterSize();
     }
     const band = areaBandFor(raw, deps.normChip);
     if (band) {
@@ -1723,34 +1925,35 @@ _For this one we do not yet have a reference figure — what the ficha says is a
         site_area_m2: String(band),
         site_area_source: isPt ? ROUGH_AREA_SOURCE.pt : ROUGH_AREA_SOURCE.en,
       });
-      const line = liveSolutions()[0] ? budgetLineFor(liveSolutions()[0], band, liveUnits() || undefined, liveBuild()) : null;
+      const open = openTest();
+      const line = open ? budgetLineFor(open, band, testOf(liveTests(), open)?.units || undefined, liveBuild()) : null;
       say(
         `Anotei **cerca de ${band} m²** — por comparação, não por medida. Dá pra refazer a conta quando alguém medir.${line ? `\n\n${line.notePt}` : ''}`,
         `Noted: **about ${band} m²** — by comparison, not by measurement. The arithmetic can be redone when someone measures.${line ? `\n\n${line.noteEn}` : ''}`,
       );
-      return askConstruction();
+      return await afterSize();
     }
   }
 
   // Enum answers, resolved back to their catalog ids.
   for (const [sectionId, field, next] of [
-    // ⚠️ The detail beat runs BEFORE "por que aqui" — it is about the solution,
-    // and they have just finished choosing and sizing it. Returns null when
-    // there is nothing worth asking, and the flow is unchanged.
+    // ⚠️ The detail beat at the tail head is the CONCRETE INSTANCE (and any
+    // decisive question a liked solution still owes) — each test already asked
+    // its own. Returns null when there is nothing worth asking.
     [TYPE, 'construction_model', () => askDetail() ?? askJustification()],
     [IMPACT, 'project_timeframe', askMonitoring],
     [IMPACT, 'monitoring_capacity', askMaintains],
     [OPS, 'who_maintains', askFrequency],
     [OPS, 'maintenance_frequency', askSustainability],
-    // A second solution is offered once, after the first is fully scoped —
-    // asking earlier would interrupt the one thing they came to do.
     // ⚠️ "Ainda não sabemos" gets one more road before the flow moves on — and
-    // only once. Every other answer carries straight through.
+    // only once. Every other answer carries straight through to the dig and
+    // the close; the loop replaced the second-solution offer that used to sit
+    // here.
     [OPS, 'sustainability_model', () => {
       if (ops('sustainability_model') === 'indefinido' && !ops(GAP_RETRIES['recurring-money'].askedFlag)) {
         return askWhoPaysToday();
       }
-      return type('_second_asked') ? closeE3() : askExtras();
+      return askExtras();
     }],
   ] as Array<[string, string, () => true | Promise<true>]>) {
     if (read(sectionId)(field)) continue;
@@ -1777,12 +1980,12 @@ _For this one we do not yet have a reference figure — what the ficha says is a
         `Anotado: hoje quem banca é **${(isPt ? opt.pt : opt.en).toLowerCase()}**. Isso não fecha o dinheiro do projeto, mas é por onde a conversa com a prefeitura começa.`,
         `Noted: today it is **${(isPt ? opt.pt : opt.en).toLowerCase()}** who covers it. That does not settle the project's money, but it is where the conversation with the city starts.`,
       );
-      return type('_second_asked') ? await closeE3() : askExtras();
+      return await askExtras();
     }
     if (opt) {
       // Declined. The gap stands, named, exactly as it did before the retry.
       deps.writeFields(OPS, { who_pays_today: '' });
-      return type('_second_asked') ? await closeE3() : askExtras();
+      return await askExtras();
     }
   }
 

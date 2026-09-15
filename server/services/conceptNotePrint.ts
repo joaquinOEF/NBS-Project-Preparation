@@ -14,17 +14,7 @@
 
 import type { ConceptNote, Paragraph } from '@shared/concept-note';
 
-const esc = (s: unknown): string =>
-  String(s ?? '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-
-/** The same inline markdown the chat uses — bold, italics, and real breaks. */
-const md = (s: unknown): string =>
-  esc(s)
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/(^|[\s(])_([^_\n]{1,400}?)_(?=[\s.,;:)!?]|$)/g, '$1<em>$2</em>')
-    .replace(/\n/g, '<br>');
+import { esc, md, printShell } from './printShell';
 
 const STATE_LABEL: Record<string, { pt: string; en: string }> = {
   ready: { pt: 'Pronto para orçar', en: 'Ready to quote' },
@@ -68,40 +58,31 @@ function para(p: Paragraph): string {
 export function renderConceptNoteHtml(note: ConceptNote, lang: 'pt' | 'en' = 'pt'): string {
   const t = T[lang];
   const state = STATE_LABEL[note.state]?.[lang] ?? note.state;
-  const today = new Date().toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-GB');
 
-  return `<!doctype html>
-<html lang="${lang === 'pt' ? 'pt-BR' : 'en'}">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(`${note.docLabel} — ${note.title} · ${note.subtitle.split(' — ')[0]}`)}</title>
-<style>
-  @page { size: A4; margin: 18mm 16mm; }
-  * { box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    color: #16201a; background: #fff; margin: 0;
-    font-size: 15px; line-height: 1.6;
-    -webkit-text-size-adjust: 100%;
-  }
-  .sheet { max-width: 760px; margin: 0 auto; padding: 26px 20px 60px; }
-  .doclabel {
-    font-size: 12px; font-weight: 800; letter-spacing: .14em;
-    text-transform: uppercase; color: #4a6b58; margin: 14px 0 2px;
-  }
-  .audience { font-size: 11.5px; color: #6b7b71; margin: 2px 0 0; }
-  .draft {
-    font-size: 11px; font-weight: 800; letter-spacing: .1em;
-    color: #7a5a12; background: #fdf4e0; border: 1px solid #e8d5a6;
-    border-radius: 4px; padding: 5px 10px; display: inline-block; margin-bottom: 12px;
-  }
-  h1 { font-size: 23px; line-height: 1.2; margin: 0 0 4px; letter-spacing: -.01em; }
-  .sub { color: #5c665f; font-size: 14px; margin: 0 0 10px; }
-  .verdict {
-    display: inline-block; font-size: 12px; font-weight: 700;
-    border: 1px solid #9fb3a6; border-radius: 20px; padding: 3px 11px; color: #24493a;
-  }
+  const body = note.sections.map(s => `
+  <section>
+    <h2><span class="n">${s.n}</span>${esc(s.title)}${s.open ? `<span class="tag">${esc(t.openTag)}</span>` : ''}</h2>
+    ${s.paragraphs.map(para).join('')}
+    <p class="src">${esc(t.source)}: ${esc(Array.from(new Set(s.paragraphs.flatMap(p => p.sources))).join(' · '))}</p>
+  </section>`).join('');
+
+  return printShell({
+    lang,
+    title: `${note.docLabel} — ${note.title} · ${note.subtitle.split(' — ')[0]}`,
+    draft: t.draft,
+    docLabel: note.docLabel,
+    heading: note.title,
+    sub: note.subtitle,
+    audience: note.docAudience,
+    verdict: state,
+    bodyHtml: body,
+    foot: t.foot,
+    printed: t.printed,
+    printButton: t.print,
+    pageMargin: '18mm 16mm',
+    lineHeight: '1.6',
+    extraCss: `
+  h1 { font-size: 23px; }
   section { margin-top: 26px; break-inside: avoid-page; }
   h2 {
     font-size: 12px; letter-spacing: .09em; text-transform: uppercase; color: #4c574f;
@@ -120,43 +101,6 @@ export function renderConceptNoteHtml(note: ConceptNote, lang: 'pt' | 'en' = 'pt
     font-style: italic; color: #2c382f;
   }
   .src { font-size: 11.5px; font-style: italic; color: #8a938c; margin: 2px 0 0; }
-  footer { margin-top: 34px; border-top: 1px solid #d9e0da; padding-top: 12px; font-size: 11.5px; color: #8a938c; }
-  .noprint { margin: 0 0 18px; }
-  .noprint button {
-    font: inherit; font-size: 14px; font-weight: 600; padding: 9px 16px;
-    border: 1px solid #2c6b4b; background: #2c6b4b; color: #fff; border-radius: 7px; cursor: pointer;
-  }
-  @media print {
-    .noprint { display: none !important; }
-    .sheet { padding: 0; max-width: none; }
-    .draft { border-color: #000; color: #000; background: transparent; }
-    a { color: inherit; text-decoration: none; }
-  }
-</style>
-</head>
-<body>
-<div class="sheet">
-  <div class="noprint"><button onclick="window.print()">${esc(t.print)}</button></div>
-
-  <div class="draft">${esc(t.draft)}</div>
-  <div class="doclabel">${esc(note.docLabel)}</div>
-  <h1>${esc(note.title)}</h1>
-  <p class="sub">${esc(note.subtitle)}</p>
-  <p class="audience">${esc(note.docAudience)}</p>
-  <span class="verdict">${esc(state)}</span>
-
-  ${note.sections.map(s => `
-  <section>
-    <h2><span class="n">${s.n}</span>${esc(s.title)}${s.open ? `<span class="tag">${esc(t.openTag)}</span>` : ''}</h2>
-    ${s.paragraphs.map(para).join('')}
-    <p class="src">${esc(t.source)}: ${esc(Array.from(new Set(s.paragraphs.flatMap(p => p.sources))).join(' · '))}</p>
-  </section>`).join('')}
-
-  <footer>
-    <p>${esc(t.foot)}</p>
-    <p>${esc(t.printed)} ${esc(today)}.</p>
-  </footer>
-</div>
-</body>
-</html>`;
+`,
+  });
 }

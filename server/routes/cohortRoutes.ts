@@ -40,6 +40,10 @@ import { synergyReports } from '@shared/cohort-schema';
 import { renderSynergyHtml } from '../services/synergyPrint';
 import { renderRoadmapHtml } from '../services/roadmapPrint';
 import { renderConceptNoteHtml } from '../services/conceptNotePrint';
+import { renderComparisonHtml } from '../services/comparisonPrint';
+import { buildComparison } from '@shared/w3-comparison';
+import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
+import { writeSectionFields } from '../services/cboAgent';
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
 import { getCboMessages, getCboState, setCboState, loadCboFromDb, debouncedPersist, cohortLinesFor } from '../services/cboAgent';
@@ -271,10 +275,13 @@ export type MemberW3Signal = {
   /** Items proposed for the COORDINATION rather than the organisation: the
    *  coordinator's actual queue out of this workshop. */
   coordinationItems: number;
+  /** How many solutions the organisation TESTED in Encontro 3 — liked or not.
+   *  An org that tested three and liked none has done the work of the encontro. */
+  tested: number;
 };
 const EMPTY_W3: MemberW3Signal = {
   state: null, unblockedBy: null, capacity: null,
-  solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0,
+  solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0, tested: 0,
 };
 
 /** The dossier, computed from a member's live state — the same pure function the
@@ -288,9 +295,11 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
   const site = asRecord('intervention_site');
   const type = asRecord('intervention_type');
   const solutions = (type.chosen_solutions ?? '').split(',').map(s => s.trim()).filter(Boolean);
-  // Nothing chosen and no place marked = this org has not started W3. Reporting
-  // a verdict for it would put a badge on a row that has no project behind it.
-  if (!solutions.length && !site._site_lat && !site.site_lat) return EMPTY_W3;
+  const tested = parseTests(type.solution_tests_json).length;
+  // Nothing chosen, nothing tested and no place marked = this org has not
+  // started W3. Reporting a verdict for it would put a badge on a row that has
+  // no project behind it.
+  if (!solutions.length && !tested && !site._site_lat && !site.site_lat) return EMPTY_W3;
 
   const areaM2 = Number(site.site_area_m2) || 0;
   const dossier = buildDossier({
@@ -309,6 +318,7 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
     areaM2: areaM2 || null,
     gapCount: dossier.gaps.length,
     coordinationItems: dossier.items.filter(i => i.owner === 'coordination').length,
+    tested,
   };
 }
 
@@ -873,7 +883,7 @@ export function registerCohortRoutes(app: Express): void {
     const member = await memberInCohort(req);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
     const kind = String(req.params.kind);
-    if (kind !== 'nota' && kind !== 'rota') { res.status(404).json({ error: 'unknown document' }); return; }
+    if (kind !== 'nota' && kind !== 'rota' && kind !== 'comparacao') { res.status(404).json({ error: 'unknown document' }); return; }
     if (!member.cboStateId) { res.status(404).send('sem registro'); return; }
 
     let state = getCboState(member.cboStateId) ?? null;
@@ -901,6 +911,11 @@ export function registerCohortRoutes(app: Express): void {
     };
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    if (kind === 'comparacao') {
+      const tests = seedTestsFromChosen(parseTests(type.solution_tests_json), input.solutions);
+      res.send(renderComparisonHtml(buildComparison(input as any, tests, lang, type.technical_note || null), lang));
+      return;
+    }
     if (kind === 'rota') {
       let observations: any[] = [];
       try {
@@ -1342,6 +1357,29 @@ export function registerCohortRoutes(app: Express): void {
     const orgName = await setMaturityTierForCboState(member.cboStateId, tier);
     if (!orgName) { res.status(409).json({ error: 'member has no linked organization yet' }); return; }
     res.json({ ok: true, tier, orgName });
+  }));
+
+  /**
+   * The coordinator's technical reading of one organisation — Robson's field
+   * visit, typed in. Optional: nothing reads it as required, the comparison
+   * and the synergy pass print it when it is there and nothing when it is not.
+   *
+   * Stored in the organisation's own record (`intervention_type.technical_note`)
+   * rather than a new column — a column missing in prod takes down every route
+   * on the table, and the field lives beside the tests it comments on. Written
+   * through the same funnel the beats use, so the orphan warning and the
+   * field_update event fire like any other field.
+   */
+  app.patch('/api/cohort/:coordinatorSlug/member/:memberId/technical-note', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const note = String(req.body?.note ?? '').slice(0, 4000);
+    if (!member.cboStateId) { res.status(409).json({ error: 'member has no linked session yet' }); return; }
+    let state = getCboState(member.cboStateId) ?? null;
+    if (!state) state = (await loadCboFromDb(member.cboStateId))?.state ?? null;
+    if (!state) { res.status(409).json({ error: 'member has no record yet' }); return; }
+    writeSectionFields(member.cboStateId, state, 'intervention_type', { technical_note: note }, () => {}, 'coordinator');
+    res.json({ ok: true, note });
   }));
 
   /**

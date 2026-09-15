@@ -189,6 +189,18 @@ that follow from them (walk the whole path; look at the room past the door; ask
 who else is on this path; verify a landing on `main`, not in the PR list).
 
 
+### The workshop tests; the tail details — `docs/w3-flow.md` → "A loop, not a funnel"
+Encontro 3 asks *"qual vocês querem testar primeiro?"* (Robson's words), shows
+one card per solution tried (what it needs · what blocks it · what it does ·
+what it costs), takes one reaction, and hands back a **comparison**; the
+per-place beats run once, after it, as the optional "detalhar" tail.
+`chosen_solutions` is DERIVED from the reactions (`shared/w3-tests.ts`) — do not
+write it directly. The count is per test, the footprint per place; the
+single-value document fields are filled by the first LIKED test only. "Deixar
+pra depois" is a place to stop and must end on a question. Three of four
+maturity scores at the comparison, never four (`phaseComplete` would call the
+encontro finished).
+
 ### ⚠️ Use everything they gave us — `docs/context-first.md`
 Every model-facing pass declares what it does with all twelve context sources —
 fields, their own words, the transcript, document summaries and full text, the

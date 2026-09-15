@@ -1544,7 +1544,7 @@ function writeE2Fields(cboId: string, state: CboState, fields: Record<string, st
  * built, its expected impact, how it is kept alive), and copying the function
  * per section is how the two would drift.
  */
-function writeSectionFields(
+export function writeSectionFields(
   cboId: string,
   state: CboState,
   sectionId: string,
@@ -3237,6 +3237,12 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'familia_reco', items: (event as any).items, intro: (event as any).intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_solution_options') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'solution_options', items: (event as any).items, full: (event as any).full }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_solution_test') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'solution_test', test: (event as any).test }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_comparison') {
+      // The comparison IS what Encontro 3 hands back now — an org that reloads
+      // must find the side-by-side it left with, not an empty transcript.
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'comparison', comparison: (event as any).comparison }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_roadmap') {
       // The roadmap IS the workshop's product — an org that reloads must still
       // find the route it left with, not an empty transcript.
@@ -3860,7 +3866,15 @@ function setAuthoringState(cboId: string, value: string): void {
 
 async function runConceptNoteAuthor(cboId: string): Promise<void> {
   const started = Date.now();
-  setAuthoringState(cboId, `writing:${Date.now()}`);
+  // ⚠️ The token this run owns. The pass now starts at the comparison (for
+  // the organisation that parks there) AND at the close (with the fuller
+  // record); at ~46 s a run the two can overlap, and without a token the
+  // stale one could finish last and win. A run whose token has been replaced
+  // discards its own result.
+  const token = `writing:${started}`;
+  setAuthoringState(cboId, token);
+  const superseded = () =>
+    String(getCboState(cboId)?.sections?.intervention_type?.fields?._concept_note_authoring?.value ?? '') !== token;
   try {
     const state = getCboState(cboId);
     if (!state?.sections?.intervention_type) return;
@@ -3893,7 +3907,7 @@ async function runConceptNoteAuthor(cboId: string): Promise<void> {
     const out = await authorConceptNote(note, lang);
     if (!out.accepted) {
       console.log(`[concept-note] ${cboId}: deterministic stands${out.reason ? ` — ${out.reason}` : ''}`);
-      setAuthoringState(cboId, `skipped:${out.reason ?? 'nothing written'}`);
+      if (!superseded()) setAuthoringState(cboId, `skipped:${out.reason ?? 'nothing written'}`);
       return;
     }
     const authored = out.note.sections
@@ -3902,6 +3916,10 @@ async function runConceptNoteAuthor(cboId: string): Promise<void> {
 
     const fresh = getCboState(cboId);
     if (!fresh?.sections?.intervention_type) return;
+    if (superseded()) {
+      console.log(`[concept-note] ${cboId}: a newer run took over — this result is discarded`);
+      return;
+    }
     fresh.sections.intervention_type.fields._concept_note_json = {
       value: JSON.stringify(authored),
       confidence: 'medium',
@@ -3919,7 +3937,7 @@ async function runConceptNoteAuthor(cboId: string): Promise<void> {
     );
   } catch (err: any) {
     console.error(`[concept-note] ${cboId} failed (the deterministic document stands):`, err?.message || err);
-    setAuthoringState(cboId, `skipped:${err?.message ?? 'failed'}`);
+    if (!superseded()) setAuthoringState(cboId, `skipped:${err?.message ?? 'failed'}`);
   }
 }
 

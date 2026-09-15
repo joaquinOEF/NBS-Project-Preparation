@@ -149,6 +149,7 @@ export function CboFilesDrawer({
                   })}
                 </p>
                 {[
+                  { kind: 'comparacao', label: t('cboView.docComparison', { defaultValue: 'Comparação das soluções testadas' }), hint: t('cboView.docComparisonHint', { defaultValue: 'O que cada solução testada pede, faz e custa — base para a conversa de portfólio' }) },
                   { kind: 'nota', label: t('cboView.docConceptNote', { defaultValue: 'Resumo do projeto' }), hint: t('cboView.docConceptNoteHint', { defaultValue: 'Para a coordenação — base para preparar uma proposta' }) },
                   { kind: 'rota', label: t('cboView.docRoadmap', { defaultValue: 'Hoja de ruta' }), hint: t('cboView.docRoadmapHint', { defaultValue: 'O caminho, com responsáveis' }) },
                 ].map(d => (

@@ -34,6 +34,7 @@
 // ============================================================================
 
 import { COMPLEXIDADE_LABEL, TIPO_LABEL, getSolution, SOLUTION_MECHANISMS } from './nbs-catalog';
+import { parseTests, REACTION } from './w3-tests';
 import { getSolutionFicha } from './nbs-solution-fichas';
 import {
   buildDossier, computeVerdict, portfolioState, studyRequirement, hasSite, worryLabel, labelOfWorry,
@@ -902,6 +903,22 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
   ], !f.problem.story);
 
   // ── 4 · A intervenção proposta ────────────────────────────────────────────
+  // What was tested and set aside is part of the argument for what was kept —
+  // a funder reading "jardim de chuva" is better served knowing the biovaleta
+  // was tried and why it did not fit. One sentence, written register.
+  const tested = parseTests(input.w3?.solution_tests_json);
+  const testedLine = tested.length > 1 || tested.some(t => t.reaction && t.reaction !== 'faz-sentido')
+    ? P(
+        (pt ? 'Soluções testadas no Encontro 3: ' : 'Solutions tested in Encontro 3: ') +
+          tested.map(t => {
+            const sol = getSolution(t.solutionId);
+            const label = sol ? (pt ? sol.pt.label : sol.en.label) : t.solutionId;
+            const r = t.reaction ? (pt ? REACTION[t.reaction].pt : REACTION[t.reaction].en).toLowerCase() : (pt ? 'sem leitura registrada' : 'no reading recorded');
+            return `${label} (${r})`;
+          }).join('; ') + '.',
+        [pt ? 'testes da organização no Encontro 3' : "the organisation's tests in Encontro 3"],
+      )
+    : null;
   push('intervencao', [
     ...f.solutions.map(s =>
       P(
@@ -911,6 +928,7 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
         [`ficha ${s.id}`, 'Capretz, Pipeline Assessment COUGAR POA, ago. 2026'],
       ),
     ),
+    testedLine,
     size || f.delivery.buildModel
       ? P(
           [

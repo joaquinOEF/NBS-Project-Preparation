@@ -98,14 +98,24 @@ test.describe('COUGAR — E3 paths', () => {
     await expect(
       page.getByText('pedir cotação', { exact: false }).last(),
     ).toBeVisible({ timeout: 15_000 });
-    // And straight into who builds it — the pair that turns "a bioswale" into
+    // Then the test card. ⚠️ Bioswales are quoted per LINEAR metre, so even
+    // WITH a drawn area there is no volume for this yard — the card states the
+    // rate and says what is missing, and the one reaction asked is about the
+    // solution, never "o que acham desse número".
+    const card = page.getByTestId('cbo-solution-test-biovaletas');
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card.getByTestId('solution-test-effect')).toContainText('comprimento');
+    await expect(chip('Faz sentido')).toHaveCount(0);
+    await chip('Faz sentido pra gente').click();
+    await expect(chip('Ver a comparação')).toBeVisible({ timeout: 15_000 });
+    await chip('Ver a comparação').click();
+    await expect(chip('Detalhar agora')).toBeVisible({ timeout: 15_000 });
+    await chip('Detalhar agora').click();
+    // And into who builds it — the pair that turns "a bioswale" into
     // something with a number and a crew.
     await expect(chip('Mutirão')).toBeVisible({ timeout: 15_000 });
     await chip('Mutirão').click();
 
-    // ⚠️ Bioswales are quoted per LINEAR metre, so even WITH a drawn area there
-    // is no volume for this yard — the flow states the rate, says what is
-    // missing, and does NOT ask them to react to it.
     const inThread = (t: string) =>
       page.getByTestId('cbo-chat-thread').getByText(t, { exact: false }).last();
     await page.getByTestId('cbo-chat-input').fill('É onde a água desce.');
@@ -113,8 +123,6 @@ test.describe('COUGAR — E3 paths', () => {
     await expect(inThread('como é o lugar hoje')).toBeVisible({ timeout: 15_000 });
     await page.getByTestId('cbo-chat-input').fill('Vala de terra batida.');
     await page.getByTestId('cbo-chat-input').press('Enter');
-    await expect(inThread('comprimento')).toBeVisible({ timeout: 15_000 });
-    await expect(chip('Faz sentido')).toHaveCount(0);
 
     // ⚠️ FOOTPRINT-ZOOM. `> 0` is the assertion that let a four-orders-of-
     // magnitude bug ship: the draw session opened fitted to the whole bairro at
@@ -159,10 +167,13 @@ test.describe('COUGAR — E3 paths', () => {
     await chip('5').click();
 
     // The count does for a per-unit price what the footprint does for a per-m²
-    // one: it closes a total, with the reference still visible behind it.
+    // one: it closes a total, with the reference still visible behind it — on
+    // the card, which is where the reaction is asked.
     await expect(inThread('5 cisternas')).toBeVisible({ timeout: 15_000 });
-    await expect(inThread('pedir cotação')).toBeVisible({ timeout: 10_000 });
-    await expect(chip('Mutirão')).toBeVisible({ timeout: 15_000 });
+    const card = page.getByTestId('cbo-solution-test-captacao-agua-da-chuva');
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card.getByTestId('solution-test-cost')).toContainText('5 cisternas');
+    await expect(chip('Faz sentido pra gente')).toBeVisible({ timeout: 10_000 });
   });
 
   test('a city partnership is not offered on land the organisation owns', async ({ page, request }) => {
@@ -182,6 +193,12 @@ test.describe('COUGAR — E3 paths', () => {
     // before the retry existed. See shared/w3-gap-questions.ts.
     await expect(chip('Não dá pra chutar')).toBeVisible({ timeout: 10_000 });
     await chip('Não dá pra chutar').click();
+    await expect(page.getByTestId('cbo-solution-test-biovaletas')).toBeVisible({ timeout: 15_000 });
+    await chip('Faz sentido pra gente').click();
+    await expect(chip('Ver a comparação')).toBeVisible({ timeout: 15_000 });
+    await chip('Ver a comparação').click();
+    await expect(chip('Detalhar agora')).toBeVisible({ timeout: 15_000 });
+    await chip('Detalhar agora').click();
     await expect(chip('Mutirão')).toBeVisible({ timeout: 10_000 });
     await chip('Mutirão').click();
 
@@ -245,6 +262,15 @@ test.describe('COUGAR — E3 paths', () => {
       page.getByTestId('cbo-chat-thread').getByText('Quantas hortas', { exact: false }).last(),
     ).toBeVisible({ timeout: 15_000 });
     await chip('2').click();
+    // The card says what it can with no place: the verdict is the missing pin.
+    const card = page.getByTestId('cbo-solution-test-hortas-urbanas');
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card.getByTestId('solution-test-verdict-needs_site')).toBeVisible();
+    await chip('Faz sentido pra gente').click();
+    await expect(chip('Ver a comparação')).toBeVisible({ timeout: 15_000 });
+    await chip('Ver a comparação').click();
+    await expect(chip('Detalhar agora')).toBeVisible({ timeout: 15_000 });
+    await chip('Detalhar agora').click();
     await expect(chip('Mutirão')).toBeVisible({ timeout: 15_000 });
     await chip('Mutirão').click();
     await expect(page.getByText('Por que', { exact: false }).last()).toBeVisible({ timeout: 10_000 });
@@ -271,8 +297,6 @@ test.describe('COUGAR — E3 paths', () => {
     // is a fact the organisation holds. Declined here, and the gap stands.
     await expect(chip('Não sei dizer')).toBeVisible({ timeout: 10_000 });
     await chip('Não sei dizer').click();
-    await expect(chip('Só essa por enquanto')).toBeVisible({ timeout: 10_000 });
-    await chip('Só essa por enquanto').click();
 
     // The dossier is short, and honest about why: it does not manufacture a
     // scoped project over a place nobody has chosen.
