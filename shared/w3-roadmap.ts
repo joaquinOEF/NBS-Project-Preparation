@@ -27,7 +27,7 @@ import { buildDossier, portfolioState, type Dossier, type VerdictState, type W3I
 import { budgetLineFor, SOLUTION_COSTS, type BudgetLine, type BuildModel } from './w3-sizing';
 import { benefitFor, type BenefitLine } from './w3-benefits';
 import { scaleStatement } from './w3-scale';
-import { getSolution } from './nbs-catalog';
+import { COMPLEXIDADE_LABEL, TIPO_LABEL, getSolution } from './nbs-catalog';
 import { getSolutionFicha } from './nbs-solution-fichas';
 import { cboFieldEnumOptions } from './cbo-field-catalog';
 import { siteLabel } from './site-name';
@@ -257,9 +257,18 @@ export function buildRoadmap(
   what.push({
     title: t.what,
     lines: solutions.length
-      ? solutions.map(id => {
+      ? solutions.flatMap(id => {
           const sol = getSolution(id);
-          return sol ? `${sol[lang].label} — ${sol[lang].whatItIs}` : id;
+          if (!sol) return [id];
+          // Robson's two words, in the written register: the complexity level
+          // the technical review placed it at, and — only when it applies —
+          // that the IUCN standard would call it a supporting measure.
+          const cx = COMPLEXIDADE_LABEL[sol.complexidade][lang];
+          const reading = [
+            `${pt ? 'Complexidade' : 'Complexity'}: ${cx.label.toLowerCase()} — ${cx.detail}.`,
+            ...(sol.tipo === 'apoio' ? [`${TIPO_LABEL.apoio[lang].label} — ${TIPO_LABEL.apoio[lang].detail}.`] : []),
+          ].join(' ');
+          return [`${sol[lang].label} — ${sol[lang].whatItIs}`, reading];
         })
       : [pt ? 'Nenhuma solução escolhida ainda.' : 'No solution chosen yet.'],
     from: pt ? 'escolha da organização no Encontro 3' : "the organisation's choice in Encontro 3",

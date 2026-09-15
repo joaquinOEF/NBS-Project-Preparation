@@ -13,7 +13,7 @@
 
 import { ArrowRight } from 'lucide-react';
 import type { NbsSolution } from '@shared/nbs-catalog';
-import { getFamilia, nbsSolutionPhoto } from '@shared/nbs-catalog';
+import { COMPLEXIDADE_LABEL, TIPO_LABEL, getFamilia, nbsSolutionPhoto } from '@shared/nbs-catalog';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import type { NbsFichaCopy } from '@shared/nbs-solution-fichas';
 import type { NbsInterventionTypeId } from '@shared/cbo-schema';
@@ -27,6 +27,7 @@ const STRINGS = {
     quemDizSim: 'Quem precisa dizer sim',
     quemCuida: 'Quem cuida depois',
     estimado: 'estimado',
+    complexidade: 'Complexidade',
     fontes: 'Fontes',
     fotoCredito: 'Foto: cartas da Rede SCbN de POA',
     verTipo: (label: string) => `Ver croqui e conteúdo técnico: ${label}`,
@@ -39,6 +40,7 @@ const STRINGS = {
     quemDizSim: 'Who has to say yes',
     quemCuida: 'Who takes care of it',
     estimado: 'estimated',
+    complexidade: 'Complexity',
     fontes: 'Sources',
     fotoCredito: 'Photo: Rede SCbN de POA card deck',
     verTipo: (label: string) => `See croqui & technical content: ${label}`,
@@ -137,6 +139,26 @@ export function NbsSolutionDetail({
         <h3 className='m-0 text-base font-bold leading-tight'>
           {solution[lang].label}
         </h3>
+        {/* Robson's two words for the room — the complexity gradient, and
+            whether the IUCN standard would call this an NbS at all. The
+            second only appears when it is not: twenty cards saying "SbN" is
+            noise, seven saying "medida de apoio" is information. */}
+        <p
+          className='m-0 pt-1 text-[12px] leading-snug text-muted-foreground'
+          data-testid={`solution-reading-${solution.id}`}
+        >
+          <span className='font-semibold text-foreground/80'>{s.complexidade}: {COMPLEXIDADE_LABEL[solution.complexidade][lang].label}</span>
+          {' — '}
+          {COMPLEXIDADE_LABEL[solution.complexidade][lang].detail}
+          {solution.tipo === 'apoio' && (
+            <>
+              {' · '}
+              <span className='font-semibold text-foreground/80'>{TIPO_LABEL.apoio[lang].label}</span>
+              {' — '}
+              {TIPO_LABEL.apoio[lang].detail}
+            </>
+          )}
+        </p>
       </div>
 
       <Section title={s.oQueE} body={solution[lang].whatItIs} estimadoLabel={s.estimado} />

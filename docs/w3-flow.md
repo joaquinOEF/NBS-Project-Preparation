@@ -151,6 +151,41 @@ number and the module throws.
 ⚠️ This was a regex over the prose first, and it got three of the 27 wrong. See
 the comment at the top of the cost section for what and why.
 
+## Robson's reading of the deck
+
+Robson Capretz's *Pipeline Assessment — Strategic Partners for Urban NbS in
+Porto Alegre* (Aug 2026, §4) is the technical review the room will speak from on
+30 September. Two of its readings are now on every card, in his words, so the
+organisation sees the same thing in the tool that it hears at the table
+(`ROBSON_COMPLEXIDADE` and `APOIO` in `shared/nbs-catalog.ts`, one screen,
+next to `SOLUTION_MECHANISMS`):
+
+| | Robson named | Read off `delivery` (to confirm with him) |
+|---|---|---|
+| **Simples** — apoio técnico leve | jardins de chuva · compostagem · teto verde · hortas urbanas · escola verde | biovaletas · canteiro pluvial · barraginha · captação de água da chuva |
+| **Intermediária** — equipe técnica | wetland construído · muro de arrimo verde · terraços de chuva · corredores verdes | pavimentos permeáveis · ilhas filtrantes · parque naturalizado · cozinha com biodigestor · sistema alimentar · grade viva |
+| **Complexa** — escala de paisagem, prefeitura e licença | parques e florestas urbanas · parques lineares · restauração de áreas úmidas · reflorestamento | bacia de retenção · escada hidráulica · solo grampeado · geocélulas |
+
+**Medida de apoio** (not NbS under the IUCN standard, his list verbatim):
+pavimentos permeáveis, captação de água da chuva, escada hidráulica vegetada,
+contenções em geocélulas, solo grampeado verde, cozinha comunitária com
+biodigestor, sistema alimentar local. A label, never a filter — the seven stay
+on the list.
+
+Neither is a verdict. The verdict still comes from the ficha and `delivery`
+(above); these are the words the page uses to say what kind of thing it is.
+
+Open with Robson, listed in PR 1 and not blocking: reflorestamento is
+"complexa" at landscape scale and a Miyawaki pocket forest on a lot is not;
+escola verde is "simples" on his gradient while the deck says `parceria` (the
+school has to say yes — the two are not in tension, but he should see both);
+the fourteen he did not name carry `complexidadeFonte: 'derivada'`.
+
+Also on his word: `terracos-de-chuva` moved from `mutirao` to `licenca` (July
+review — a structure cut into a slope goes through Defesa Civil). Its verdict
+was already `needs_study` from the ficha's "estudo geotécnico"; the reclass
+changes who can build it, not what blocks it.
+
 ## Testing
 
 - `e2e/cougar-e3-linear-journey.spec.ts` — the full flow, both languages, no
