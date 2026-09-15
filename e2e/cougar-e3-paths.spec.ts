@@ -54,6 +54,8 @@ test.describe('COUGAR — E3 paths', () => {
 
     await expect(chip('É isso ✓')).toBeVisible({ timeout: 15_000 });
     await chip('É isso ✓').click();
+    await expect(chip('Seguir sem')).toBeVisible({ timeout: 15_000 });
+    await chip('Seguir sem').click();
     await expect(page.getByTestId('cbo-solution-options')).toBeVisible({ timeout: 10_000 });
     // Bioswales are priced per m², which is what makes the drawing buy a
     // number — the verdict is not what is under test here.
@@ -153,6 +155,8 @@ test.describe('COUGAR — E3 paths', () => {
 
     await expect(chip('É isso ✓')).toBeVisible({ timeout: 15_000 });
     await chip('É isso ✓').click();
+    await expect(chip('Seguir sem')).toBeVisible({ timeout: 15_000 });
+    await chip('Seguir sem').click();
     await expect(page.getByTestId('cbo-solution-options')).toBeVisible({ timeout: 10_000 });
     await expect(chip('Ver todas as soluções')).toBeVisible({ timeout: 10_000 });
     await chip('Ver todas as soluções').click();
@@ -184,6 +188,8 @@ test.describe('COUGAR — E3 paths', () => {
     const chip = chipFor(page);
     await expect(chip('É isso ✓')).toBeVisible({ timeout: 15_000 });
     await chip('É isso ✓').click();
+    await expect(chip('Seguir sem')).toBeVisible({ timeout: 15_000 });
+    await chip('Seguir sem').click();
     await expect(page.getByTestId('cbo-solution-options')).toBeVisible({ timeout: 10_000 });
     await chip('Biovaletas').click();
     await expect(chip('Ainda não sei o tamanho')).toBeVisible({ timeout: 10_000 });
@@ -244,6 +250,8 @@ test.describe('COUGAR — E3 paths', () => {
     await expect(chip('Marcar o lugar agora')).toBeVisible({ timeout: 15_000 });
     await expect(chip('É isso ✓')).toHaveCount(0);
     await chip('Seguir sem o lugar').click();
+    await expect(chip('Seguir sem')).toBeVisible({ timeout: 15_000 });
+    await chip('Seguir sem').click();
     await expect(page.getByTestId('cbo-solution-options')).toBeVisible({ timeout: 10_000 });
     // Nothing is filtered even here: the full catalogue is still reachable.
     await chip('Ver todas as soluções').click();

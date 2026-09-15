@@ -117,14 +117,20 @@ All templated (`server/services/cboE3Checkpoint.ts`); the step is derived from
 the saved fields rather than counted, so resume and park-and-return come free.
 
 ```
-0  abertura       the place W2 marked, named — never asked for again · which worry leads
+0  abertura       the place W2 marked, named — never asked for again
+0a a porta        "Falta mandar alguma coisa?" — site photos, the technical visit's material,
+                  documents, through the ordinary chat picker; an upload here is acknowledged by
+                  the beat (never the model); the ADVISOR STARTS when the door closes
+                  · which worry leads
 1  a prateleira   show_solution_options — "Qual vocês querem testar primeiro?" (Robson's words)
 2  o teste        size if it buys a number (footprint ONCE per place · count PER solution)
                   → show_solution_test: o que precisa · o que trava · efeito · custo · quem cuida
                   → "Vendo isso, o que vocês acham?" [Faz sentido pra gente] [Não é pra gente] [Ainda não sabemos]
                   → this solution's decisive-detail question, if its ficha has one
                   → "E agora?" [Testar outra solução] [Ver a comparação]
-3  a comparação   show_comparison — one column per test, derived from the cards, printable
+3  a comparação   show_comparison — one column per test, derived from the cards, printable —
+                  and each scenario on its own page (/api/cbo/:id/scenario/:solutionId), the
+                  "proto concept node" of the 15 Sept biweekly; "E agora?" nudges toward three
                   → "Querem detalhar o projeto agora?" [Detalhar agora] [Deixar pra depois] [Testar mais uma]
 4  detalhar       once, for the liked solutions: quem constrói → (instância concreta) → por que aqui
                   → linha de base [dig round 1 fires here] → prazo → quem mede → quem cuida → frequência
@@ -179,6 +185,20 @@ What that changed, and what it did not:
 - **The comparison's "a favor / contra" are rules over facts the cards carry**
   (`prosAndCons` in `shared/w3-comparison.ts`), each with a source. The
   organisation's own reaction is the one row that is theirs, quoted as theirs.
+- **The door (biweekly 2026-09-15).** "Photo/material upload will use the
+  standard platform chat flow… explicit prompt added to the Workshop 3 entry
+  asking for missing information before the module begins." The beat sits
+  between the place confirm and the shelf, and the advisor pass starts when it
+  closes — otherwise a photo uploaded at the door would be read one beat too
+  late by the very pass that reads photos. At phase 3 an upload turn routes to
+  the heavy model, whose reply would replace the pending chip; the beat owns
+  the upload turn while it is open (E2's `upload-during-photos` pattern).
+- **One page per scenario** (`renderScenarioHtml`) beside the comparison:
+  the same rows stacked, same sources, RASCUNHO, verdict pill — so one scenario
+  can be put on the portfolio table by itself. Linked from each comparison
+  column and listed per tested solution in the coordinator's drawer.
+- **The 3–4 nudge is a chip description**, never a gate: "com uma só não dá
+  pra comparar", "vale uma terceira".
 - **Robson's field reading** enters as an optional coordinator note
   (`technical_note`, PATCH …/technical-note from the profile tab) and prints
   under its own heading in the comparison and in the synergy pass. Absent, it

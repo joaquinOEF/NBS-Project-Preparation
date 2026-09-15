@@ -85,6 +85,8 @@ async function walk(solutionId: string, withSite: boolean): Promise<Violation[]>
   await reply('Vamos começar o Encontro 3.', 'text');
   // Opening chip: confirm the place, or carry on without one.
   await reply(withSite ? 'É isso ✓' : 'Seguir sem o lugar');
+  // The door: nothing to send in a sweep.
+  await reply('Seguir sem');
   await reply('Ver todas as soluções');
   await reply(sol.pt.label);
 

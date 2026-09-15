@@ -3522,6 +3522,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
         startConceptNote: () => { void runConceptNoteAuthor(cboId); },
         startDig: (round: 1 | 2) => { void runW3Dig(cboId, round); },
         awaitAdvisor: () => waitForW3Advisor(cboId),
+        docsBrief: () => siteDocsBrief(cboId),
       });
       if (served) {
         res.end();

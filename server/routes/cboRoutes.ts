@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { renderRoadmapHtml } from '../services/roadmapPrint';
 import { renderConceptNoteHtml } from '../services/conceptNotePrint';
-import { renderComparisonHtml } from '../services/comparisonPrint';
+import { renderComparisonHtml, renderScenarioHtml } from '../services/comparisonPrint';
 import { buildComparison } from '@shared/w3-comparison';
 import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
@@ -619,6 +619,35 @@ export function registerCboRoutes(app: Express): void {
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(renderComparisonHtml(comparison, lang));
+  });
+
+  /** One tested scenario, on its own page. 404 for a solution never tested. */
+  app.get("/api/cbo/:id/scenario/:solutionId", async (req: Request, res: Response) => {
+    let state = getCboState(req.params.id);
+    if (!state) {
+      const persisted = await loadPersistedCboState(req.params.id);
+      if (persisted) state = persisted.state;
+    }
+    if (!state) return res.status(404).send("Not found");
+    const lang = req.query.lang === 'en' || (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
+    const asRecord = (id: string) =>
+      Object.fromEntries(
+        Object.entries(((state!.sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
+          .map(([k, v]) => [k, String(v?.value ?? '')]),
+      );
+    const site = asRecord('intervention_site');
+    const type = asRecord('intervention_type');
+    const areaM2 = Number(site.site_area_m2) || 0;
+    const chosen = (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean);
+    const tests = seedTestsFromChosen(parseTests(type.solution_tests_json), chosen);
+    const comparison = buildComparison({
+      site, org: asRecord('org_profile'), solutions: chosen, ...(areaM2 ? { areaM2 } : {}),
+      w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
+    }, tests, lang, type.technical_note || null);
+    const col = comparison.columns.find(c => c.solutionId === req.params.solutionId);
+    if (!col) return res.status(404).send(lang === 'pt' ? 'Esse cenário não foi testado' : 'That scenario was not tested');
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(renderScenarioHtml(col, comparison, lang));
   });
 
   /**

@@ -26,6 +26,9 @@ const T = {
     printed: 'Gerado em',
     print: 'Imprimir ou salvar em PDF',
     tested: (n: number) => `${n} ${n === 1 ? 'solução testada' : 'soluções testadas'}`,
+    scenario: 'Cenário',
+    scenarioAudience: 'Um cenário testado no Encontro 3 — para levar à mesa do portfólio',
+    scenarioFoot: 'Rascunho gerado no Encontro 3 a partir de um cenário que a organização testou, da ficha técnica da solução e da revisão técnica do catálogo (Capretz, ago. 2026). Nenhum valor está fechado; cada bloco indica a sua fonte.',
   },
   en: {
     draft: 'DRAFT — to validate and adjust',
@@ -37,6 +40,9 @@ const T = {
     printed: 'Generated on',
     print: 'Print or save as PDF',
     tested: (n: number) => `${n} ${n === 1 ? 'solution tested' : 'solutions tested'}`,
+    scenario: 'Scenario',
+    scenarioAudience: 'One scenario tested in Encontro 3 — to take to the portfolio table',
+    scenarioFoot: "Draft generated in Encontro 3 from one scenario the organisation tested, the solution's technical ficha and the technical review of the catalogue (Capretz, Aug 2026). No figure is settled; every block states its source.",
   },
 };
 
@@ -79,6 +85,64 @@ function sources(cols: ComparisonColumn[], row: RowId, lang: 'pt' | 'en'): strin
     }
   }
   return Array.from(out);
+}
+
+/**
+ * ONE SCENARIO, ONE PAGE — the "proto concept node" of the 15 September
+ * biweekly: each tested solution as its own printable sheet, so a scenario can
+ * be put on the table by itself while the comparison stays the overview. The
+ * same rows as a comparison column, stacked, with the same sources.
+ */
+export function renderScenarioHtml(col: ComparisonColumn, cmp: Comparison, lang: 'pt' | 'en' = 'pt'): string {
+  const t = T[lang];
+  const place = [cmp.siteName, cmp.bairro].filter(Boolean).join(' · ');
+  const rows = cmp.rows.filter(r => r.id !== 'detail' || col.detail);
+  const body = `
+  ${rows.map(r => `
+  <section class="blk">
+    <h3>${esc(r.label)}</h3>
+    <div class="cell">${cell(col, r.id, lang)}</div>
+    <p class="src">${esc(t.source)}: ${esc(sources([col], r.id, lang).join(' · '))}</p>
+  </section>`).join('')}
+  ${cmp.technicalNote ? `
+  <section class="tech">
+    <h2>${esc(t.technical)}</h2>
+    <p>${md(cmp.technicalNote)}</p>
+  </section>` : ''}
+  <p class="sized">${col.card.sizedBy.areaM2
+    ? `${esc(t.sizedBy)} ${esc(col.card.sizedBy.areaM2.toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US'))} m². `
+    : col.card.sizedBy.units
+      ? `${esc(lang === 'pt' ? 'Calculado para' : 'Computed for')} ${col.card.sizedBy.units} ${esc(lang === 'pt' ? (col.card.sizedBy.units === 1 ? 'unidade' : 'unidades') : (col.card.sizedBy.units === 1 ? 'unit' : 'units'))}. `
+      : ''}${esc(t.sizedNote)}</p>`;
+
+  return printShell({
+    lang,
+    title: `${t.scenario} — ${col.label} · ${place || '—'}`,
+    draft: t.draft,
+    docLabel: `${t.scenario} · ${col.familia}`,
+    heading: col.label,
+    sub: `${place}${cmp.orgName ? ` — ${cmp.orgName}` : ''}`,
+    audience: t.scenarioAudience,
+    verdict: verdictText(col.card.verdict.state, lang),
+    bodyHtml: body,
+    foot: t.scenarioFoot,
+    printed: t.printed,
+    printButton: t.print,
+    extraCss: `
+  .blk { margin-top: 18px; break-inside: avoid; page-break-inside: avoid; }
+  .blk h3 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #4c574f; margin: 0 0 4px; }
+  .blk .cell { font-size: 14.5px; line-height: 1.5; }
+  .blk ul { margin: 0; padding-left: 17px; }
+  .blk li { margin: 0 0 3px; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; border: 1px solid #9fb3a6; border-radius: 20px; padding: 1px 8px; color: #24493a; margin-bottom: 3px; }
+  .src { font-size: 11px; font-style: italic; color: #8a938c; margin: 3px 0 0; }
+  .tech { margin-top: 22px; border: 1px solid #e8d5a6; background: #fdf9f0; border-radius: 6px; padding: 12px 14px; }
+  .tech h2 { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #6d776f; margin: 0 0 6px; }
+  .tech p { margin: 0; }
+  .sized { margin-top: 16px; font-size: 12px; font-style: italic; color: #5c665f; }
+  @media print { .tech { border-color: #999; background: transparent; } }
+`,
+  });
 }
 
 export function renderComparisonHtml(cmp: Comparison, lang: 'pt' | 'en' = 'pt'): string {

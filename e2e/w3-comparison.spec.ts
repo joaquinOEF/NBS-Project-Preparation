@@ -5,7 +5,7 @@ import { parseTests, serializeTests, upsertTest, likedIds, seedTestsFromChosen, 
 import { NBS_SOLUTIONS } from '../shared/nbs-catalog';
 import { SOLUTION_COSTS } from '../shared/w3-sizing';
 import type { W3Input } from '../shared/w3-dossier';
-import { renderComparisonHtml } from '../server/services/comparisonPrint';
+import { renderComparisonHtml, renderScenarioHtml } from '../server/services/comparisonPrint';
 
 // THE TEST CARD AND THE COMPARISON — what Encontro 3 hands back since the
 // 10 September meeting. Both are pure functions over the record and the
@@ -136,6 +136,23 @@ test.describe('the comparison — one column per test, nothing more or less', ()
     expect(html).toContain('RASCUNHO');
     expect(html).toContain('Leitura técnica da coordenação');
     for (const col of cmp.columns) expect(html).toContain(col.label);
+  });
+
+  test('each scenario prints alone, in the same register', () => {
+    const cmp = buildComparison(SARANDI, tests, 'pt', 'Visita de 28/09: o pátio drena para a rua de baixo.');
+    const SECOND = /\b(voc[eê]s|vcs|nosso|nossa|nossos|nossas)\b|\ba gente\b/i;
+    for (const col of cmp.columns) {
+      const html = renderScenarioHtml(col, cmp, 'pt')
+        .replace('Visita de 28/09: o pátio drena para a rua de baixo.', '')
+        .replace('Mais barro — a água empoça', '');
+      expect(html).toContain('RASCUNHO');
+      expect(html).toContain(col.label);
+      expect(html).toContain('Cenário');
+      const text = html.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ');
+      expect(text.match(new RegExp(SECOND.source, 'gi')) ?? [], col.solutionId).toEqual([]);
+      expect(text).not.toMatch(/\b(faz-sentido|nao-e-pra-gente|needs_study|public-informal|quemPrecisaDizerSim|intervention_site)\b/);
+    }
+    expect(renderScenarioHtml(cmp.columns[2], cmp, 'pt')).toContain('Calculado para 2 unidades');
   });
 
   test('no machine id reaches a person', () => {

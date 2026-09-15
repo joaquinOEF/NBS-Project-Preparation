@@ -50,8 +50,19 @@ test.describe('COUGAR — E3 test loop', () => {
     const chip = chipFor(page);
     const thread = page.getByTestId('cbo-chat-thread');
 
-    // 1 · The shelf asks Robson's question.
+    // 0 · The door: what is missing, before the reading starts. An upload here
+    //     is acknowledged by the beat, never handed to the model.
     await chip('É isso ✓').click();
+    await expect(chip('Já mandamos tudo')).toBeVisible({ timeout: 15_000 });
+    await expect(thread.getByText('ainda não tem nenhum arquivo aqui', { exact: false })).toBeVisible();
+    const input = page.getByTestId('cbo-chat-input');
+    await input.fill('I\'m uploading: "patio-hoje.jpg"');
+    await input.press('Enter');
+    await expect(chip('Pronto, pode seguir')).toBeVisible({ timeout: 15_000 });
+    await expect(thread.getByText('Vamos continuar', { exact: false })).toHaveCount(0);
+    await chip('Pronto, pode seguir').click();
+
+    // 1 · The shelf asks Robson's question.
     await expect(thread.getByText('Qual vocês querem testar primeiro?', { exact: false })).toBeVisible({ timeout: 15_000 });
     await chip('Jardins de chuva').click();
 
@@ -111,8 +122,10 @@ test.describe('COUGAR — E3 test loop', () => {
     await expect(card2.getByTestId('solution-test-complexity')).toContainText('Medida de apoio');
     await chip('Não é pra gente').click();
 
-    // 8 · The comparison: one column per test, the set-aside one marked.
+    // 8 · The comparison: one column per test, the set-aside one marked. The
+    //     nudge says how many are tested, and never blocks.
     await expect(chip('Ver a comparação')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('[data-option-label="Testar outra solução"]').last()).toContainText('terceira');
     await chip('Ver a comparação').click();
     const cmp = page.getByTestId('cbo-comparison');
     await expect(cmp).toBeVisible({ timeout: 20_000 });
@@ -128,6 +141,15 @@ test.describe('COUGAR — E3 test loop', () => {
     expect(html).toContain('RASCUNHO');
     expect(html).toContain('Jardins de chuva');
     expect(html).toContain('Descartada pela organização');
+    // And each scenario on its own page — the proto concept node.
+    const scen = await request.get(`/api/cbo/${cboId}/scenario/captacao-agua-da-chuva?lang=pt`);
+    expect(scen.ok()).toBe(true);
+    const scenHtml = await scen.text();
+    expect(scenHtml).toContain('Cenário');
+    expect(scenHtml).toContain('Captação de água da chuva');
+    expect(scenHtml).toContain('Descartada pela organização');
+    expect((await request.get(`/api/cbo/${cboId}/scenario/hortas-urbanas`)).status()).toBe(404);
+    await expect(cmp.getByTestId('scenario-print-jardins-de-chuva')).toBeVisible();
 
     // 9 · Park. It ends on a question, so a return finds one.
     await chip('Deixar pra depois').click();
@@ -154,6 +176,8 @@ test.describe('COUGAR — E3 test loop', () => {
     const metrics = (body.state?.maturityScores ?? []).map((m: any) => m.metric).sort();
     expect(metrics).toEqual(['climate_nbs_impact', 'problem_clarity', 'solution_clarity']);
 
+    expect(f('intervention_type', '_material_done')).toBe('yes');
+
     // 11 · Into the tail: who builds it heads it.
     await chip('Detalhar agora').click();
     await expect(chip('Mutirão')).toBeVisible({ timeout: 15_000 });
@@ -163,6 +187,8 @@ test.describe('COUGAR — E3 test loop', () => {
     const cboId = await boot(page, request, W2_STATE);
     const chip = chipFor(page);
     await chip('É isso ✓').click();
+    await expect(chip('Seguir sem')).toBeVisible({ timeout: 15_000 });
+    await chip('Seguir sem').click();
     await expect(chip('Ver todas as soluções')).toBeVisible({ timeout: 15_000 });
     // Leave, come back, and say the entry line again — the client does exactly
     // this when an organisation reopens a workshop it left open. Before, this

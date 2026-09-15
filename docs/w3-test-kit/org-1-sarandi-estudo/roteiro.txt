@@ -42,6 +42,13 @@ PASSO A PASSO
    respondido vinte minutos atrás.
    → toque em "É isso ✓"
 
+2b · A PORTA
+   "Falta mandar alguma coisa?" — foto do lugar, material da visita técnica,
+   documentos. ⚠️ Toque em "📎 Mandar agora", anexe uma foto qualquer e
+   confira que o chat responde "Recebi ✓" com um botão "Pronto, pode
+   seguir" — se em vez disso aparecer um texto longo do agente, é bug.
+   → toque em "Pronto, pode seguir"
+
 3 · A PRATELEIRA
    Aparecem 4 soluções, não 5 famílias, e a pergunta é a do Robson:
    "Qual vocês querem testar PRIMEIRO?" — testar, não escolher.
@@ -101,6 +108,8 @@ PASSO A PASSO
    Uma tabela, uma coluna por solução testada. A captação aparece como
    "Descartada pela organização" — nada some.
    → toque em "Baixar a comparação (PDF)" e confira que abre com RASCUNHO.
+   → em cima de cada coluna, "Este cenário (PDF)" abre UMA página só com
+     aquela solução — é o que vai pra mesa no dia 30.
    → "Querem detalhar o projeto agora?" → toque em "Detalhar agora"
    → "Quem constrói?" → "Mutirão com apoio técnico"
 
