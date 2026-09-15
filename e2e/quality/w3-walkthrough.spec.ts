@@ -150,6 +150,28 @@ test.describe('W3 walkthrough — a recording', () => {
       .toBeVisible({ timeout: 20_000 });
     await beat(page, READ + 1800);
 
+    // ── 5a · THE TEST CARD. What it needs, what blocks it, what it does, what
+    //         it costs — and one reaction, theirs. Hold on it: this is what the
+    //         room reads on 30 September.
+    const card = page.getByTestId('cbo-solution-test-jardins-de-chuva');
+    await expect(card).toBeVisible({ timeout: 20_000 });
+    await card.scrollIntoViewIfNeeded();
+    await beat(page, READ + 3200);
+    await chip('Faz sentido pra gente').click();
+    // The ficha's decisive detail for a rain garden: the soil.
+    await expect(chip('Mais barro — a água empoça')).toBeVisible({ timeout: 15_000 });
+    await beat(page, READ + 900);
+    await chip('Mais barro — a água empoça').click();
+    // The loop question, and — for the walkthrough — straight to the comparison.
+    await expect(chip('Ver a comparação')).toBeVisible({ timeout: 15_000 });
+    await beat(page, READ + 600);
+    await chip('Ver a comparação').click();
+    const cmp = page.getByTestId('cbo-comparison');
+    await expect(cmp).toBeVisible({ timeout: 20_000 });
+    await cmp.scrollIntoViewIfNeeded();
+    await beat(page, READ + 2600);
+    await chip('Detalhar agora').click();
+
     // ── 5b · Who builds it. The answer that moves the cost more than any
     //         other, and the one the original W3 design had and the build lost.
     await expect(chip('Mutirão com apoio técnico')).toBeVisible({ timeout: 15_000 });
@@ -163,18 +185,8 @@ test.describe('W3 walkthrough — a recording', () => {
     await beat(page, READ);
     await say('Terra batida com entulho de obra, sem drenagem nenhuma. Depois da chuva fica poça três dias.');
 
-    // ── 6b · THE BEAT THAT MAKES W3 MORE THAN W2 EXTENDED.
-    //          We state a sourced range over the footprint they just drew, and
-    //          ask what they make of it. Nobody is asked to produce a number.
-    await expect(inThread('estimativa de projeto')).toBeVisible({ timeout: 20_000 });
-    await beat(page, READ + 2600);
-    // "Parece pouco" from an org that lived through 2024 is the most accurate
-    // thing said all session — and it is answered with the scale honesty note,
-    // not with reassurance.
-    await chip('Parece pouco').click();
-    await expect(inThread('macrodrenagem')).toBeVisible({ timeout: 20_000 });
-    await beat(page, READ + 2600);
-
+    // ── 6b · The figure and its scale note were on the test card; the one
+    //          reaction there covered the solution and the number both.
     await expect(chip('1 ano')).toBeVisible({ timeout: 15_000 });
     await chip('1 ano').click();
     await expect(chip('Com uma universidade ou parceiro')).toBeVisible({ timeout: 15_000 });
@@ -195,11 +207,6 @@ test.describe('W3 walkthrough — a recording', () => {
       .toBeVisible({ timeout: 20_000 });
     await beat(page, READ + 1000);
     await chip('Ainda não sabemos').click();
-
-    // ── 9 · One site can carry two solutions ─────────────────────────────────
-    await expect(chip('Só essa por enquanto')).toBeVisible({ timeout: 20_000 });
-    await beat(page, READ + 900);
-    await chip('Só essa por enquanto').click();
 
     // ── 10 · The hoja de ruta — read it the way an organisation would ────────
     const roadmap = page.getByTestId('cbo-roadmap');

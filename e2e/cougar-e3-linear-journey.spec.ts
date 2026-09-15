@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { TestApi } from './helpers/testApi';
 
-// The FULL linear E3 journey: recap → solução → tamanho (footprint) → por que
-// aqui → linha de base → quem cuida → frequência → dinheiro → dossiê.
+// The FULL linear E3 journey: recap → a prateleira → o teste (tamanho → card →
+// reação → detalhe) → a comparação → detalhar (por que aqui → linha de base →
+// quem cuida → frequência → dinheiro) → dossiê.
 //
 // Same contract as the E2 journey spec: every stage boundary is a
 // server-templated checkpoint (serveE3Checkpoint), so this runs WITHOUT a
@@ -39,7 +40,10 @@ const LANGS = [
     confirm: 'É isso ✓',
     shortlistText: 'grupos que vocês marcaram',
     solution: 'Jardins de chuva',
-    approvalText: 'Quem precisa dizer sim',
+    shelfQuestion: 'Qual vocês querem testar primeiro?',
+    reaction: 'Faz sentido pra gente',
+    seeComparison: 'Ver a comparação',
+    detailNow: 'Detalhar agora',
     sizeText: 'Contorne no mapa',
     deferSize: 'Ainda não sei o tamanho',
     sizeByComparison: 'Do tamanho de uma quadra de vôlei',
@@ -62,11 +66,8 @@ const LANGS = [
     // ⚠️ Was 'por metro quadrado' — the RATE, which is what an organisation with
     // no area gets. It gave one by comparison at 4a, so the beat now states a
     // volume for its own site. That is the retry paying off, end to end.
-    impactText: 'litros de água que hoje vai pra rua',
-    impactPick: 'Faz sentido',
     timeframe: '1 ano',
     monitor: 'Com uma universidade ou parceiro',
-    onlyThis: 'Só essa por enquanto',
     closingText: 'Pronto',
   },
   {
@@ -77,7 +78,10 @@ const LANGS = [
     confirm: "That's it ✓",
     shortlistText: 'grupos you marked',
     solution: 'Rain gardens',
-    approvalText: 'Who has to say yes',
+    shelfQuestion: 'Which one do you want to test first?',
+    reaction: 'Makes sense for us',
+    seeComparison: 'See the comparison',
+    detailNow: 'Go into detail now',
     sizeText: 'Trace the area',
     deferSize: "I don't know the size yet",
     sizeByComparison: 'About the size of a volleyball court',
@@ -97,11 +101,8 @@ const LANGS = [
     moneyRetryText: 'who pays for that place',
     moneyRetry: 'The city',
     build: 'Mutirão with technical support',
-    impactText: 'litres of water that today goes to the street',
-    impactPick: 'That makes sense',
     timeframe: '1 year',
     monitor: 'With a university or partner',
-    onlyThis: 'Just this one for now',
     closingText: 'Done',
   },
 ] as const;
@@ -134,17 +135,14 @@ for (const L of LANGS) {
       await expect(page.getByText('Pátio da EMEI Solar', { exact: false }).first()).toBeVisible();
       await chip(L.confirm).click();
 
-      // 2 · The shortlist: solutions, not famílias. Ordered by the mechanism
-      //     they named (alagamento) inside the família they marked.
+      // 2 · The shelf: solutions, not famílias. Ordered by the mechanism
+      //     they named (alagamento) inside the família they marked — and it
+      //     asks to TEST, in Robson's words, not to commit.
       const options = page.getByTestId('cbo-solution-options');
       await expect(options).toBeVisible({ timeout: 10_000 });
       await expect(page.getByTestId('solution-option-jardins-de-chuva')).toBeVisible();
+      await expect(inThreadJ(L.shelfQuestion)).toBeVisible();
       await chip(L.solution).click();
-
-      // 3 · Choosing one immediately says who has to approve it — read out of
-      //     that solution's own ficha, not summarised by a model.
-      await expect(page.getByText(L.approvalText, { exact: false }).last()).toBeVisible({ timeout: 10_000 });
-      await expect(page.getByText('SMAMUS', { exact: false }).first()).toBeVisible();
 
       // 4 · Size. Deferring is a first-class answer: it becomes a named gap
       //     with the ficha's per-m² rate attached, not an empty field.
@@ -159,15 +157,31 @@ for (const L of LANGS) {
       await expect(chip(L.sizeByComparison)).toBeVisible({ timeout: 15_000 });
       await chip(L.sizeByComparison).click();
 
-      // 4b · Who builds it — the answer that moves the cost more than any other.
-      await expect(chip(L.build)).toBeVisible({ timeout: 15_000 });
-      await chip(L.build).click();
+      // 3 · The test card: who has to say yes (read out of the ficha and the
+      //     tenure, not summarised by a model), what blocks it, the effect, the
+      //     price — and one reaction.
+      const card = page.getByTestId('cbo-solution-test-jardins-de-chuva');
+      await expect(card).toBeVisible({ timeout: 15_000 });
+      await expect(card.getByText('SMAMUS', { exact: false }).first()).toBeVisible();
+      await expect(card.getByTestId('solution-test-verdict-needs_study')).toBeVisible();
+      await chip(L.reaction).click();
 
       // 4c · The one detail this solution's ficha says decides whether it works
       //      here. Specific and one tap, instead of an open question at minute
       //      forty. shared/w3-detail-questions.ts.
       await expect(chip(L.detailPick)).toBeVisible({ timeout: 15_000 });
       await chip(L.detailPick).click();
+
+      // 4d · The loop question → the comparison → into the tail.
+      await expect(chip(L.seeComparison)).toBeVisible({ timeout: 15_000 });
+      await chip(L.seeComparison).click();
+      await expect(page.getByTestId('cbo-comparison')).toBeVisible({ timeout: 15_000 });
+      await expect(chip(L.detailNow)).toBeVisible({ timeout: 10_000 });
+      await chip(L.detailNow).click();
+
+      // 4b · Who builds it — the answer that moves the cost more than any other.
+      await expect(chip(L.build)).toBeVisible({ timeout: 15_000 });
+      await chip(L.build).click();
 
       // 5 · Why here (free text) → baseline (free text).
       await expect(page.getByText(L.whyPlain, { exact: false }).first()).toBeVisible({ timeout: 10_000 });
@@ -177,21 +191,8 @@ for (const L of LANGS) {
       await input.fill(L.baseline);
       await input.press('Enter');
 
-      // 5b · The impact beat. This org DEFERRED the size, so the figure we can
-      //      state is a per-m² rate, not a volume for their yard — and a rate is
-      //      a property of the technique, not of their site. It is stated and the
-      //      flow moves on, rather than asking them to judge a number they have
-      //      no standing to judge. (cougar-e3-paths covers the drawn-area path,
-      //      where the reaction chips DO appear.)
-      // ⚠️ Rewritten when the area retry landed. This path used to reach here
-      // with NO area, so the benefit was a rate — a property of the technique,
-      // not of their site — and asking them to judge it would have been asking
-      // for an opinion they have no standing to give. Having compared their site
-      // to a volleyball court at 4a, the figure is now about THEIR place, rough
-      // but theirs, and the reaction is a fair question again.
-      await expect(inThreadJ(L.impactText)).toBeVisible({ timeout: 15_000 });
-      await expect(chip(L.impactPick)).toBeVisible({ timeout: 10_000 });
-      await chip(L.impactPick).click();
+      // 5b · The figure was on the test card, with its scale note — one
+      //      reaction covered the solution and the number both. Straight on.
       await expect(chip(L.timeframe)).toBeVisible({ timeout: 15_000 });
       await chip(L.timeframe).click();
       await expect(chip(L.monitor)).toBeVisible({ timeout: 15_000 });
@@ -222,13 +223,8 @@ for (const L of LANGS) {
       await expect(page.getByText(L.moneyRetryText, { exact: false }).last()).toBeVisible({ timeout: 10_000 });
       await chip(L.moneyRetry).click();
 
-      // 7b · One site can carry more than one solution, and that is offered
-      //      once, after the first is fully scoped — the case the four-state
-      //      verdict was argued from could not otherwise be expressed at all.
-      await expect(chip(L.onlyThis)).toBeVisible({ timeout: 10_000 });
-      await chip(L.onlyThis).click();
-
-      // 8 · The dossier. Public-informal tenure with no technical marker on
+      // 8 · The dossier. (More than one solution is the loop's job now — a
+      //     second test, not a last-beat offer.) Public-informal tenure with no technical marker on
       //     this solution… except the rain garden ficha DOES name a soil
       //     infiltration test, so the verdict is needs_study, not
       //     needs_permission: a technical unknown outranks a paperwork one,

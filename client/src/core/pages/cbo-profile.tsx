@@ -79,6 +79,8 @@ import { polygonAreaM2, roundAreaM2 } from '@shared/w3-sizing';
 import { CboSolutionOptions } from '@/core/components/cbo/CboSolutionOptions';
 import { CboDossier } from '@/core/components/cbo/CboDossier';
 import { CboRoadmap } from '@/core/components/cbo/CboRoadmap';
+import { CboSolutionTest } from '@/core/components/cbo/CboSolutionTest';
+import { CboComparison } from '@/core/components/cbo/CboComparison';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 import { localizedWorkshopName } from '@/lib/workshopHelpers';
 
@@ -1498,13 +1500,19 @@ export default function CboProfilePage() {
         break;
       }
       case 'show_solution_options':
+      case 'show_solution_test':
+      case 'show_comparison':
       case 'show_dossier': {
         // E3 composers — same persist-inline contract as the E2 ones below:
         // mid-turn, so no setIsStreaming(false); the paired ask_user follows in
         // this same turn, and ending early flashes the encontro banner.
         const payload = event.type === 'show_solution_options'
           ? { kind: 'solution_options', items: (event as any).items, full: (event as any).full }
-          : { kind: 'dossier', dossier: (event as any).dossier };
+          : event.type === 'show_solution_test'
+            ? { kind: 'solution_test', test: (event as any).test }
+            : event.type === 'show_comparison'
+              ? { kind: 'comparison', comparison: (event as any).comparison }
+              : { kind: 'dossier', dossier: (event as any).dossier };
         setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify(payload), messageType: 'composer', timestamp: new Date().toISOString() }]);
         break;
       }
@@ -2397,6 +2405,24 @@ export default function CboProfilePage() {
                         // "choose this" button in a transcript nobody is being
                         // asked anything by would send an answer into nothing.
                         onChoose={currentQuestion ? handleSelectOption : undefined}
+                      />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'solution_test' && parsed.test) {
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <CboSolutionTest test={parsed.test} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'comparison' && parsed.comparison) {
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <CboComparison
+                        comparison={parsed.comparison}
+                        lang={lang.startsWith('pt') ? 'pt' : 'en'}
+                        cboId={cboId ?? undefined}
                       />
                     </div>
                   );

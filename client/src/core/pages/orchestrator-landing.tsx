@@ -131,6 +131,7 @@ type CboDemoProject = {
     areaM2: number | null;
     gapCount: number;
     coordinationItems: number;
+    tested?: number;
   };
   docPreview: { total: number; imageIds: string[]; filenames: string[]; teiaSprint: boolean };
   /** Persisted org maturity tier (EF-5): set by the agent at E1 close,
@@ -551,7 +552,7 @@ function memberToView(m: CohortMember): CboDemoProject {
       : 0,
     documentCount: (m as any).documentCount ?? 0,
     w2: (m as any).w2 ?? { worry: null, worryCount: 0, depth: null, teiaSprint: null, priorCollaboration: null },
-    w3: (m as any).w3 ?? { state: null, unblockedBy: null, capacity: null, solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0 },
+    w3: (m as any).w3 ?? { state: null, unblockedBy: null, capacity: null, solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0, tested: 0 },
     docPreview: (m as any).docPreview ?? { total: 0, imageIds: [], filenames: [], teiaSprint: false },
     maturityTier: ((m as any).maturityTier as 'emerging' | 'developing' | 'advanced' | null) ?? null,
     siteDeferred: site?.deferred === true,
@@ -1128,6 +1129,15 @@ function ProjectCard({
             {/* An honest count of what W3 could not produce. Never hidden to
                 make a row look finished — these gaps ARE the coordinator's
                 agenda with the municipality. */}
+            {(project.w3.tested ?? 0) > 0 && (
+              <span
+                className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border border-foreground/15 text-foreground/70"
+                data-testid={`w3-tested-${project.id}`}
+                title={t('orchestrator.w3.testedHint', { defaultValue: 'Soluções testadas no Encontro 3 — gostadas ou não' })}
+              >
+                {t('orchestrator.w3.tested', { defaultValue: '{{n}} testadas', n: project.w3.tested })}
+              </span>
+            )}
             {project.w3.gapCount > 0 && (
               <span
                 className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border border-foreground/15 bg-foreground/5 text-foreground/70"

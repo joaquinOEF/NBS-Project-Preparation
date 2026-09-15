@@ -103,6 +103,15 @@ async function walk(solutionId: string, withSite: boolean): Promise<Violation[]>
   // testing a turn the product never sends. 'write_then_answer' is different:
   // it answers AND opens the keyboard, so it stays in the walk.
   const reachesTheComposer = (o: any) => o.action === 'write' || o.action === 'record';
+  // ⚠️ The loop. "E agora?" offers [Testar outra solução] first, and a walker
+  // that always takes the first chip would shelf → test → shelf forever and
+  // report `no-closing` on a flow that closes fine. It takes ONE solution to
+  // the comparison and then details it — the same shape every persona in the
+  // fullsim walks, and the one the checks below were written for.
+  const leaning = (opts: any[]) =>
+    opts.find(o => /^Ver a compara[çc][ãa]o$/i.test(o.label)) ??
+    opts.find(o => /^Detalhar agora$/i.test(o.label)) ??
+    null;
   // Progress is measured by what got WRITTEN, not by the question text — two
   // different beats legitimately share the words "Quando quiser:", and counting
   // those as a repeat is how a walker invents a stall that is not there.
@@ -119,7 +128,7 @@ async function walk(solutionId: string, withSite: boolean): Promise<Violation[]>
     // thinnest possible path and proves the least.
     const freeText = !opts.length || (opts.length === 1 && /pular|skip/i.test(opts[0].label));
     if (freeText) await reply('É um terreno de terra batida, sem drenagem, e a água fica dias parada.', 'text');
-    else await reply(opts[Math.min(stalled, opts.length - 1)].label);
+    else await reply((leaning(opts) ?? opts[Math.min(stalled, opts.length - 1)]).label);
     stalled = filled() === before ? stalled + 1 : 0;
     if (stalled >= 3) {
       v.push({
@@ -137,6 +146,25 @@ async function walk(solutionId: string, withSite: boolean): Promise<Violation[]>
   const chosen = (type.chosen_solutions ?? '').split(',').map(s => s.trim()).filter(Boolean);
   const areaM2 = Number(site.site_area_m2) || 0;
   const units = Number(type.intervention_units) || 0;
+
+  // 7 · the test card, whole. Every solution tested gets the four answers, and
+  //     the comparison has one column per test — a card missing a row is a
+  //     solution the organisation compared on less than the others.
+  const cards = events.filter(e => e.type === 'show_solution_test');
+  if (!cards.length) {
+    v.push({ solutionId, rule: 'test-card-never-shown', detail: `${asked.length} beats, no show_solution_test` });
+  }
+  for (const c of cards) {
+    const t = c.test ?? {};
+    const missing = ['needs', 'verdict', 'effect', 'upkeep', 'complexity'].filter(k => t[k] == null || (Array.isArray(t[k]) && !t[k].length));
+    if (!t.cost && cost?.basis !== 'none') missing.push('cost');
+    if (missing.length) v.push({ solutionId, rule: 'test-card-missing-row', detail: missing.join(', ') });
+  }
+  const cmp = [...events].reverse().find(e => e.type === 'show_comparison');
+  const testsJson = type.solution_tests_json ? JSON.parse(type.solution_tests_json) : [];
+  if (cmp && cmp.comparison?.columns?.length !== testsJson.length) {
+    v.push({ solutionId, rule: 'comparison-columns-ne-tests', detail: `${cmp.comparison?.columns?.length} coluna(s) para ${testsJson.length} teste(s)` });
+  }
 
   // 4 · it has to end somewhere.
   if (!events.some(e => e.type === 'show_dossier' || e.type === 'show_roadmap')) {

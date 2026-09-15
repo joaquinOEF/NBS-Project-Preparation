@@ -48,6 +48,12 @@ built for the coordinator's export button, and **one pass used it.**
 | `synergyReport` | ❌ | ❌ | ❌ *summary only* | ❌ | ✅ | ❌ |
 | `impactModelService` | ❌ | ❌ | ❌ | ❌ | — | ❌ |
 
+*(2026-09-15: the synergy pass also reads the solutions each organisation
+TESTED and set aside — `SynergyFacts.tested` — and the coordination's technical
+note, both under `fields`; and it carries Robson's four candidate territorial
+portfolios as the vocabulary for programme lines. See `docs/w3-flow.md` →
+"A loop, not a funnel".)*
+
 Three findings worth naming:
 
 1. **The cohort pass cannot see what the cohort produced.** `SynergyMember`

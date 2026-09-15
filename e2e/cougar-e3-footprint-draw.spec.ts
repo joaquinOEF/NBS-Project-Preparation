@@ -206,7 +206,10 @@ test.describe('COUGAR — E3 footprint', () => {
     // The number, read back with what it is — and what it is not.
     await expect(thread.getByText('600 m²', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
     await expect(thread.getByText('não é medida', { exact: false })).toBeVisible();
-    // And the flow carries on to the next beat rather than stalling on size.
-    await expect(page.getByText('quem constrói', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
+    // And the flow carries on to the next beat rather than stalling on size:
+    // the test card, priced over the size they said.
+    const card = page.getByTestId('cbo-solution-test-jardins-de-chuva');
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card.getByTestId('solution-test-cost')).toContainText('600 m²');
   });
 });

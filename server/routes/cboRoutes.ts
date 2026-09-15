@@ -2,6 +2,9 @@ import type { Express, Request, Response } from "express";
 import { buildRoadmap } from '@shared/w3-roadmap';
 import { renderRoadmapHtml } from '../services/roadmapPrint';
 import { renderConceptNoteHtml } from '../services/conceptNotePrint';
+import { renderComparisonHtml } from '../services/comparisonPrint';
+import { buildComparison } from '@shared/w3-comparison';
+import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
 import { buildConceptNote, applyStoredAuthoring } from '@shared/concept-note';
 import {
   streamCboChat,
@@ -577,6 +580,45 @@ export function registerCboRoutes(app: Express): void {
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(renderRoadmapHtml(roadmap, lang));
+  });
+
+  /**
+   * The comparison of the solutions tested, as a document.
+   *
+   * Same contract as the roadmap route above — rebuilt from live state on
+   * every request, no model in the path. A session from before the loop
+   * existed has a `chosen_solutions` and no tests; it prints as one column per
+   * chosen solution, marked "faz sentido", exactly as the chat would seed it.
+   */
+  app.get("/api/cbo/:id/comparison", async (req: Request, res: Response) => {
+    let state = getCboState(req.params.id);
+    if (!state) {
+      const persisted = await loadPersistedCboState(req.params.id);
+      if (persisted) state = persisted.state;
+    }
+    if (!state) return res.status(404).send("Not found");
+
+    const lang = req.query.lang === 'en' || (state as any)?.metadata?.language === 'en' ? 'en' : 'pt';
+    const asRecord = (id: string) =>
+      Object.fromEntries(
+        Object.entries(((state!.sections as any)?.[id]?.fields ?? {}) as Record<string, { value?: unknown }>)
+          .map(([k, v]) => [k, String(v?.value ?? '')]),
+      );
+    const site = asRecord('intervention_site');
+    const type = asRecord('intervention_type');
+    const areaM2 = Number(site.site_area_m2) || 0;
+    const chosen = (type.chosen_solutions ?? '').split(',').map(v => v.trim()).filter(Boolean);
+    const tests = seedTestsFromChosen(parseTests(type.solution_tests_json), chosen);
+    const comparison = buildComparison({
+      site,
+      org: asRecord('org_profile'),
+      solutions: chosen,
+      ...(areaM2 ? { areaM2 } : {}),
+      w3: { ...type, ...asRecord('impact_monitoring'), ...asRecord('operations_sustain') },
+    }, tests, lang, type.technical_note || null);
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(renderComparisonHtml(comparison, lang));
   });
 
   /**

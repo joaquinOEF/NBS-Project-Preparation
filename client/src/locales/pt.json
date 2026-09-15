@@ -290,9 +290,9 @@
         "expectedOutput": "Um local de projeto definido (coordenadas ou polígono) com a ordenação de risco primário/secundário, categoria de posse da terra e um detalhamento do engajamento comunitário. Mais duas notas de maturidade: Controle do Local + Enraizamento Comunitário."
       },
       "w3": {
-        "name": "Encontro 3 — O que construímos",
-        "description": "O CBO seleciona um tipo de intervenção SbN (floresta urbana, jardim de chuva, biovaleta, corredor verde etc.) a partir de um seletor visual calibrado aos seus riscos, e então especifica escala, modelo de construção, impacto esperado e operação.",
-        "expectedOutput": "Um tipo de SbN escolhido com dimensionamento, um modelo de construção, uma narrativa de impacto esperado e um plano de operação + sustentabilidade. Quatro notas de maturidade: Clareza do Problema, Clareza da Solução, Impacto Climático da SbN, Pensamento Financeiro."
+        "name": "Encontro 3 — Testar as soluções",
+        "description": "A organização testa soluções para o lugar marcado no Encontro 2, uma de cada vez: para cada uma, o que ela precisa, o que trava, o efeito esperado e quanto custa — nas palavras da revisão técnica do catálogo. Sai com uma comparação lado a lado das soluções testadas, e pode detalhar o projeto (por que aqui, como está hoje, quem cuida) na hora ou depois.",
+        "expectedOutput": "Uma comparação das soluções testadas, com a leitura da organização sobre cada uma. Para as que fizeram sentido: dimensionamento, faixa de custo e veredito (o que trava). Se detalhou: Resumo do projeto e Plano de trabalho. Notas de maturidade: Clareza do Problema, Clareza da Solução, Impacto Climático da SbN — e Pensamento Financeiro quando detalha."
       },
       "w4": {
         "name": "Encontro 4 — O que precisamos",
@@ -2045,7 +2045,7 @@
       "whatWeWillDoLabel": "O que vamos fazer juntos",
       "step1": "Quem somos",
       "step2": "Onde trabalhamos",
-      "step3": "O que construímos",
+      "step3": "Testar as soluções",
       "step4": "O que precisamos",
       "step5": "Resultados e evidências",
       "ctaStart": "Começar",
@@ -2059,7 +2059,7 @@
       "phase": {
         "who": "Quem somos",
         "where": "Onde trabalhamos",
-        "building": "O que construímos",
+        "building": "Testar as soluções",
         "needs": "O que precisamos",
         "results": "Resultados e evidências"
       },

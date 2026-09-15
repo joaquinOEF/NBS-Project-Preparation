@@ -197,11 +197,11 @@ export const DEFAULT_WORKSHOPS: WorkshopConfig[] = [
     expectedOutput: 'A located project site (coordinates or polygon) with a primary/secondary hazard ranking, land tenure category, and a community engagement breakdown. Two more maturity scores: Site Control + Community Anchoring.',
   },
   {
-    name: 'Workshop 3 — What We Build',
+    name: 'Workshop 3 — Test the Solutions',
     date: null,
     unlocksPhase: 3,
-    description: 'The CBO selects an NBS intervention type (urban forest, rain garden, bioswale, green corridor, etc.) from a visual selector calibrated to their hazards, then specifies scale, construction model, expected impact, and operations.',
-    expectedOutput: 'A chosen NBS type with sizing, a construction model, an expected-impact narrative, and an operations + sustainability plan. Four maturity scores: Problem Clarity, Solution Clarity, Climate NBS Impact, Financial Thinking.',
+    description: 'The organisation tests solutions for the place it marked in Workshop 2, one at a time: for each, what it needs, what blocks it, the expected effect and what it costs — in the words of the technical review of the catalogue. It leaves with a side-by-side comparison of the solutions tested, and can go into the project in detail (why here, how it is today, who looks after it) then or later.',
+    expectedOutput: 'A comparison of the solutions tested, with the organisation\'s reading of each. For the ones that made sense: sizing, a cost band and a verdict (what blocks it). If detailed: the project summary and the work plan. Maturity scores: Problem Clarity, Solution Clarity, Climate NBS Impact — and Financial Thinking once detailed.',
   },
   {
     name: 'Workshop 4 — What We Need',

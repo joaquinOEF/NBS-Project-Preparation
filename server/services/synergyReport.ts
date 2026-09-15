@@ -37,6 +37,7 @@ import { analyseSynergies, type SynergyAnalysis, type SynergyMember } from '@sha
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { cboDisplayValue } from '@shared/cbo-field-catalog';
 import { getSolution, NBS_SOLUTIONS, NBS_FAMILIAS } from '@shared/nbs-catalog';
+import { REACTION } from '@shared/w3-tests';
 
 // ⚠️ NOTHING HERE CONSTRAINS THE MODEL'S SHAPE — that is enforced below, after
 // parsing, where a bad element can be DROPPED instead of taking the reply with
@@ -119,6 +120,13 @@ SEQUÊNCIA (sequencingPt, até 3). O que precisa acontecer na MESMA janela para 
 
 O que é uma linha de programa: um conjunto de organizações que faz sentido apoiar junto. Pode ser por território vizinho, pelo mesmo tipo de risco em lugares diferentes, ou por um arranjo em comum (área pública sem documento, por exemplo). NÃO precisa ser a mesma solução — precisa ter uma lógica compartilhada.
 
+A revisão técnica do pipeline (Robson Capretz, ago. 2026) propôs quatro portfólios territoriais candidatos para a rede. Use estes nomes quando os fatos da análise couberem neles — são o vocabulário que a coordenação já usa — e proponha outro nome só quando nenhum couber:
+- "Resiliência climática do 4º Distrito" — enchente, calor e espaços públicos degradados, com o Vila Flores e a Rede como eixo
+- "Alimento, verde e resiliência" — hortas, compostagem, sistemas alimentares e economia local
+- "Água e enchentes" — jardins de chuva, biovaletas, wetlands, drenagem sustentável, com SMAMUS e RegeneraRS
+- "Calor e biodiversidade" — bosques de bolso, corredores verdes, escolas verdes, telhados verdes
+Se uma organização testou uma solução e a descartou ("não é pra gente"), isso é um fato sobre ela — não a coloque numa linha que depende dessa solução.
+
 Regras que não se quebram:
 - Use SOMENTE os nomes de organização que aparecem na análise, escritos exatamente igual.
 - Toda afirmação tem que se apoiar num fato da análise. Se você não consegue apontar o fato, não escreva a frase.
@@ -169,6 +177,15 @@ export function analysisForModel(a: SynergyAnalysis): string {
     // The size, so "três organizações somam 6.000 m²" is available as a fact
     // rather than as an impression.
     if (m.areaM2) L.push(`    área desenhada: ${m.areaM2.toLocaleString('pt-BR')} m²`);
+    // Everything they tested, not only what they kept. "Descartou biovaleta —
+    // não é pra gente" beside another organisation's "biovaleta, faz sentido"
+    // is the kind of line a portfolio conversation is made of.
+    if (m.tested?.length) {
+      L.push(`    testaram no Encontro 3: ${m.tested.map(t => `${solutionWords(t.id)}${t.reaction ? ` (${REACTION[t.reaction].pt.toLowerCase()})` : ''}`).join('; ')}`);
+    }
+    // The coordination's own reading — Robson's visit to the place. Attributed
+    // as the coordination's, never blended into the organisation's words.
+    if (m.technicalNote) L.push(`    leitura técnica da coordenação: ${m.technicalNote.slice(0, 600)}`);
     if (m.correctionsPt) L.push(`    ⚠️ corrigiu nossos dados de risco: ${m.correctionsPt} — a percepção dela vale mais que a nossa média`);
     // ⚠️ Pre-digested, never the images. Two organisations photographing the
     // same failing wall is a synergy no field expresses, and these sentences

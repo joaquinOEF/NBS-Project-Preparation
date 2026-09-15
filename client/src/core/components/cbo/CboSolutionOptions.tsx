@@ -30,8 +30,8 @@ export interface SolutionOption {
 }
 
 const STRINGS = {
-  pt: { eyebrow: 'Soluções pra esse lugar', ficha: 'Ficha técnica', all: 'as 27 do catálogo', choose: 'Escolher esta solução' },
-  en: { eyebrow: 'Solutions for this place', ficha: 'Details', all: 'all 27 in the catalogue', choose: 'Choose this solution' },
+  pt: { eyebrow: 'Soluções pra esse lugar', ficha: 'Ficha técnica', all: 'as 27 do catálogo', choose: 'Testar esta solução' },
+  en: { eyebrow: 'Solutions for this place', ficha: 'Details', all: 'all 27 in the catalogue', choose: 'Test this solution' },
 };
 
 export function CboSolutionOptions({

@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import type { Dossier as W3Dossier } from './w3-dossier';
 import type { Roadmap as W3Roadmap } from './w3-roadmap';
+import type { SolutionTestCard } from './w3-solution-test';
+import type { Comparison as W3Comparison } from './w3-comparison';
 import type { OpenMapParams } from './concept-note-schema';
 
 // ============================================================================
@@ -391,7 +393,7 @@ export type CboEvent =
   // options[].action 'upload': the chip renders as a prominent attach banner
   // (paperclip icon) and opens the file picker instead of answering — the
   // intake opening's "send your site or documents" affordance.
-  | { type: 'ask_user'; question: string; options: Array<{ label: string; description: string; recommended?: boolean; imageUrl?: string; location?: string; action?: 'upload' | 'upload_then_answer' }>; relatedSections?: string[]; showMap?: boolean;
+  | { type: 'ask_user'; question: string; options: Array<{ label: string; description: string; recommended?: boolean; imageUrl?: string; location?: string; action?: 'upload' | 'upload_then_answer' | 'write' | 'record' | 'write_then_answer' }>; relatedSections?: string[]; showMap?: boolean;
       /** Offer real cases beside this question, WITHOUT answering it. */
       showExamples?: boolean; multiSelect?: boolean }
   | { type: 'open_map'; params: OpenMapParams }
@@ -415,6 +417,11 @@ export type CboEvent =
   // and the closing dossier. Both are computed server-side with no model in the
   // path; see shared/w3-solutions.ts and shared/w3-dossier.ts.
   | { type: 'show_solution_options'; items: Array<{ solutionId: string; reason: string; caveat?: string }>; full?: boolean }
+  // E3 — one solution tested (what it needs · what blocks it · what it does ·
+  // what it costs) and the side-by-side of everything tested. Both pure; see
+  // shared/w3-solution-test.ts and shared/w3-comparison.ts.
+  | { type: 'show_solution_test'; test: SolutionTestCard }
+  | { type: 'show_comparison'; comparison: W3Comparison }
   | { type: 'show_dossier'; dossier: W3Dossier }
   | { type: 'show_roadmap'; roadmap: W3Roadmap }
   | { type: 'ask_priority_rank'; prompt: string; minRanked: number }

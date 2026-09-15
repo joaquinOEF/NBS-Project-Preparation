@@ -34,6 +34,7 @@ import { studyRequirement } from './w3-dossier';
 import { getSolutionFicha } from './nbs-solution-fichas';
 import type { CboState } from './cbo-schema';
 import { approvalRequirement } from './nbs-approvals';
+import { parseTests, REACTION, type TestReaction } from './w3-tests';
 import { fundingMatches } from './funding-sources';
 
 export interface SynergyMember {
@@ -51,6 +52,15 @@ export interface SynergyMember {
   familias: string[];
   /** Solutions chosen in W3, if they got that far. */
   solutions: string[];
+  /**
+   * Everything they TESTED in Encontro 3, liked or not. A solution set aside
+   * with "não é pra gente" is a fact about the organisation that the chosen
+   * list cannot carry — and two organisations setting aside the same thing for
+   * the same reason is a finding. Optional: fixtures predate it.
+   */
+  tested?: Array<{ id: string; reaction: TestReaction | null }>;
+  /** The coordination's technical reading of this organisation, when entered. */
+  technicalNote?: string | null;
   /** Roles they said they want to play. */
   roles: string[];
   priorCollaboration: string | null;
@@ -454,6 +464,8 @@ export type SynergyFacts = {
    * proposing "a rain garden", and the number was on the record the whole time.
    */
   areaM2: number | null;
+  tested?: Array<{ id: string; reaction: TestReaction | null }>;
+  technicalNote?: string | null;
 };
 
 export function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
@@ -552,5 +564,7 @@ export function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
     studyNeeds,
     bodies,
     areaM2: Number(f('intervention_site', 'site_area_m2')) || null,
+    tested: parseTests(f('intervention_type', 'solution_tests_json')).map(t => ({ id: t.solutionId, reaction: t.reaction })),
+    technicalNote: f('intervention_type', 'technical_note') || null,
   };
 }

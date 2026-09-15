@@ -17,12 +17,20 @@ O QUE MUDA DO ENCONTRO 2 PARA O 3
   O Encontro 2 fechava numa leitura: "a gente sabe onde vocês querem
   atuar". Isso era honesto porque era tudo o que ele prometia.
 
-  O Encontro 3 não pode fechar numa sensação. Ele devolve um projeto que
-  alguém consegue tocar na manhã seguinte:
+  O Encontro 3 não pode fechar numa sensação. Desde 15/09/2026 (encontro
+  de 10/09 com o Vila Flores e a nota da Ana) ele TESTA soluções — a
+  pergunta é "qual vocês querem testar primeiro?", nas palavras do Robson —
+  e devolve:
 
-      uma solução  ·  um tamanho  ·  uma faixa de preço
-      quem precisa dizer sim  ·  quem cuida depois
-      e um veredito: o que exatamente está travando
+      uma COMPARAÇÃO das soluções testadas, lado a lado:
+      o que cada uma precisa · o que trava · efeito esperado · quanto custa
+      · complexidade (simples / intermediária / complexa) · a leitura da
+      organização (faz sentido / não é pra gente / ainda não sabemos)
+
+  e, para quem detalha na hora ou depois, o projeto de sempre:
+
+      um tamanho  ·  uma faixa de preço  ·  quem precisa dizer sim
+      quem cuida depois  ·  e um veredito: o que exatamente está travando
 
   Tudo isso é calculado no servidor a partir das respostas do E2 e das
   fichas das 27 soluções. Não tem modelo de linguagem no caminho — o que
