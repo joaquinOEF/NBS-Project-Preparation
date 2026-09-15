@@ -33,6 +33,29 @@ export type NbsDrawingKind = 'cutaway' | 'before-after' | 'surface';
 
 export type NbsCostBand = 'baixo' | 'medio' | 'alto';
 
+/**
+ * Robson Capretz's gradient of implementation complexity (Pipeline Assessment
+ * for COUGAR Porto Alegre, Aug 2026, §4): "simpler interventions… can often be
+ * implemented by communities with limited technical support; intermediate
+ * interventions… require multidisciplinary expertise; at the highest level are
+ * landscape-scale initiatives which depend on public policies, master plans,
+ * environmental licensing and long-term governance."
+ *
+ * The same words the room hears on 30 September. Not a filter: the tool orders
+ * and labels, and the organisation keeps every one of the 27 in reach.
+ */
+export type NbsComplexidade = 'simples' | 'intermediaria' | 'complexa';
+
+/**
+ * Whether the measure is a Nature-based Solution under the IUCN Global
+ * Standard or an engineered / organisational measure that supports one.
+ * Robson (same assessment): "permeable pavements, rainwater harvesting…
+ * contribute to resilience, yet their primary functions rely on engineered
+ * solutions or social organisation rather than on ecosystems." Labelled
+ * honestly, never removed — a funder applying the standard will ask.
+ */
+export type NbsTipo = 'sbn' | 'apoio';
+
 export interface NbsRequirement {
   label: string;
   value: string;

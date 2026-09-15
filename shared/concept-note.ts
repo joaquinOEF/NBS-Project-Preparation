@@ -33,7 +33,7 @@
 //     own sentences appear as quotation and nothing else addresses the reader.
 // ============================================================================
 
-import { getSolution, SOLUTION_MECHANISMS } from './nbs-catalog';
+import { COMPLEXIDADE_LABEL, TIPO_LABEL, getSolution, SOLUTION_MECHANISMS } from './nbs-catalog';
 import { getSolutionFicha } from './nbs-solution-fichas';
 import {
   buildDossier, computeVerdict, portfolioState, studyRequirement, hasSite, worryLabel, labelOfWorry,
@@ -81,6 +81,10 @@ export interface SolutionFacts {
   whatItIs: string;
   /** The ficha's own account of the mechanism — how it actually works. */
   howItWorks: string;
+  /** Robson's complexity level, as a sentence for the page ("simples — dá pra fazer com apoio técnico leve"). */
+  complexity: string;
+  /** Present only for the seven the IUCN standard would call a supporting measure rather than an NbS. */
+  supportingMeasure?: string;
   /** What the ficha says about keeping it alive, survival rates included. */
   upkeep: string;
   /** A technical study the design cannot be settled without. */
@@ -298,6 +302,12 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
       label: sol ? (pt ? sol.pt.label : sol.en.label) : id,
       whatItIs: sol ? (pt ? sol.pt.whatItIs : sol.en.whatItIs) : '',
       howItWorks: ficha ? (pt ? ficha.pt.comoFunciona : ficha.en.comoFunciona) : '',
+      complexity: sol
+        ? `${COMPLEXIDADE_LABEL[sol.complexidade][lang].label.toLowerCase()} — ${COMPLEXIDADE_LABEL[sol.complexidade][lang].detail}`
+        : '',
+      ...(sol?.tipo === 'apoio'
+        ? { supportingMeasure: `${TIPO_LABEL.apoio[lang].label} — ${TIPO_LABEL.apoio[lang].detail}` }
+        : {}),
       upkeep: ficha ? (pt ? ficha.pt.quemCuidaDepois : ficha.en.quemCuidaDepois) : '',
       ...(need
         ? {
@@ -894,7 +904,12 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
   // ── 4 · A intervenção proposta ────────────────────────────────────────────
   push('intervencao', [
     ...f.solutions.map(s =>
-      P(`**${s.label}** — ${s.whatItIs}`, [`ficha ${s.id}`]),
+      P(
+        `**${s.label}** — ${s.whatItIs} ${pt ? 'Complexidade' : 'Complexity'}: ${s.complexity}.${
+          s.supportingMeasure ? ` ${s.supportingMeasure}.` : ''
+        }`,
+        [`ficha ${s.id}`, 'Capretz, Pipeline Assessment COUGAR POA, ago. 2026'],
+      ),
     ),
     size || f.delivery.buildModel
       ? P(

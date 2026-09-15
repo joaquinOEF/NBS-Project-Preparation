@@ -29,7 +29,7 @@
 
 import { WORRY_SUBTYPES, type WorryId } from './site-knowledge';
 import type { NbsInterventionTypeId } from './cbo-schema';
-import type { NbsCostBand, NbsDelivery } from './nbs-type-content';
+import type { NbsComplexidade, NbsCostBand, NbsDelivery, NbsTipo } from './nbs-type-content';
 
 export const NBS_FAMILIAS = [
   {
@@ -157,14 +157,23 @@ export interface NbsSolution {
   exampleCity: string;
   /** The card's "Fonte" line — governs the photo credit. */
   source: string;
+  /** Robson's complexity gradient — see ROBSON_COMPLEXIDADE below for where each value came from. */
+  complexidade: NbsComplexidade;
+  /** `robson-2026-08` when he named it; `derivada` when read off `delivery` and still to be confirmed with him. */
+  complexidadeFonte: 'robson-2026-08' | 'derivada';
+  /** NbS under the IUCN standard, or a supporting measure — see APOIO below. */
+  tipo: NbsTipo;
 }
+
+/** The catalogue entry as authored from the card deck, before Robson's reading is applied. */
+type NbsCard = Omit<NbsSolution, 'complexidade' | 'complexidadeFonte' | 'tipo'>;
 
 const MMA_MANUAL = 'MMA — Manual Prático Aplicabilidade de SbN nos Municípios Brasileiros';
 const GIZ_CATALOGO = 'GIZ — Catálogo de Soluções baseadas na Natureza para Espaços Livres';
 const CNM_CONTRIBUICOES = 'CNM — Contribuições das SbN para a gestão municipal';
 const MMA_COMUNITARIAS = 'MMA — Soluções Comunitárias Baseadas na Natureza';
 
-export const NBS_SOLUTIONS: NbsSolution[] = [
+const CARDS: NbsCard[] = [
   // ── Gestão de Águas Pluviais (11) ──────────────────────────────────────
   {
     id: 'jardins-de-chuva',
@@ -317,7 +326,11 @@ export const NBS_SOLUTIONS: NbsSolution[] = [
       whatItIs:
         'Concave structures set into sloping ground that collect and absorb surface runoff, inspired by Chinese terracing.',
     },
-    delivery: 'mutirao',
+    // Robson, Notion review 2026-07-22: a structure cut into a slope goes past
+    // Defesa Civil — mutirão was the deck's read, not his. Reclassified on his
+    // word; the ficha already names the geotechnical study, so the verdict was
+    // `needs_study` before this and is unchanged by it.
+    delivery: 'licenca',
     costBand: 'baixo',
     classificationEstimated: true,
     exampleCity: 'Campinas - SP',
@@ -699,6 +712,116 @@ export const NBS_SOLUTIONS: NbsSolution[] = [
     source: `${MMA_MANUAL} | ${MMA_COMUNITARIAS}`,
   },
 ];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROBSON'S READING OF THE DECK — complexity and what is (not) an NbS
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Source: Robson Capretz (W&C2 Consultoria for Pyxera Global), "Pipeline
+// Assessment — Strategic Partners for Urban Nature-based Solutions in Porto
+// Alegre", Aug 2026, §4 "Considerations about NbS mapped for COUGAR".
+//
+// Two things the room will say out loud on 30 September, kept on one screen so
+// they can be read and argued with in one sitting — the same status as
+// SOLUTION_MECHANISMS above. Neither is a filter. A "complexa" solution is
+// still on the list; a "medida de apoio" is still on the list. The organisation
+// sees the same word here that Robson uses at the table.
+//
+// ⚠️ Only the solutions he NAMED carry `robson-2026-08`. The rest are read off
+// `delivery` (mutirão → simples, parceria → intermediária, licença → complexa)
+// and say so, because a label with a borrowed source is the kind of thing a
+// technical reviewer finds and then stops trusting the rest of the page for.
+
+/** §4, verbatim groups. The 13 solutions Robson placed on the gradient. */
+export const ROBSON_COMPLEXIDADE: Record<string, NbsComplexidade> = {
+  // "Simpler interventions, such as rain gardens, composting, green roofs, urban
+  // gardens, and green schools, can often be implemented by communities or
+  // local organizations with limited technical support."
+  'jardins-de-chuva': 'simples',
+  'compostagem': 'simples',
+  'teto-verde': 'simples',
+  'hortas-urbanas': 'simples',
+  'escola-verde': 'simples',
+  // "Intermediate interventions, including wetlands, green retaining walls,
+  // rain terraces, and green corridors, require multidisciplinary expertise."
+  'wetland-construido': 'intermediaria',
+  'muro-de-arrimo-verde': 'intermediaria',
+  'terracos-de-chuva': 'intermediaria',
+  'corredores-verdes': 'intermediaria',
+  // "At the highest level of complexity are landscape-scale restoration
+  // initiatives, urban forests, river and wetland restoration, and linear
+  // parks, which depend on public policies, municipal master plans,
+  // environmental licensing, and long-term governance arrangements."
+  'parques-e-florestas-urbanas': 'complexa',
+  'parques-lineares': 'complexa',
+  'restauracao-areas-umidas': 'complexa',
+  // ⚠️ To confirm with Robson: this is the landscape reading. A Miyawaki
+  // pocket forest on a lot is a different animal — see NBS_SCALE_HONESTY.
+  'reflorestamento': 'complexa',
+};
+
+/**
+ * §4: "interventions that should be considered enabling technologies rather
+ * than Nature-based Solutions themselves… Permeable pavements, rainwater
+ * harvesting systems, vegetated hydraulic stairways, geocell retaining
+ * structures, soil nailing, community kitchens with biodigesters, and local
+ * agroecological food systems."
+ */
+export const APOIO: ReadonlySet<string> = new Set([
+  'pavimentos-permeaveis',
+  'captacao-agua-da-chuva',
+  'escada-hidraulica-vegetada',
+  'contencoes-em-geocelulas',
+  'solo-grampeado-verde',
+  'cozinha-comunitaria-biodigestor',
+  'sistema-alimentar-local',
+]);
+
+const COMPLEXIDADE_FROM_DELIVERY: Record<NbsDelivery, NbsComplexidade> = {
+  mutirao: 'simples',
+  parceria: 'intermediaria',
+  licenca: 'complexa',
+};
+
+export const NBS_SOLUTIONS: NbsSolution[] = CARDS.map(card => ({
+  ...card,
+  complexidade: ROBSON_COMPLEXIDADE[card.id] ?? COMPLEXIDADE_FROM_DELIVERY[card.delivery],
+  complexidadeFonte: ROBSON_COMPLEXIDADE[card.id] ? 'robson-2026-08' : 'derivada',
+  tipo: APOIO.has(card.id) ? 'apoio' : 'sbn',
+}));
+
+// A name in either table that is not a card is a typo that would otherwise
+// silently label nothing.
+for (const id of [...Object.keys(ROBSON_COMPLEXIDADE), ...Array.from(APOIO)]) {
+  if (!CARDS.some(c => c.id === id)) throw new Error(`nbs-catalog: Robson's reading names "${id}", which is not a solution`);
+}
+
+/** The words, both registers. `label` is what a chip or a pill says; `detail` is the sentence a page prints after it. */
+export const COMPLEXIDADE_LABEL: Record<NbsComplexidade, { pt: { label: string; detail: string }; en: { label: string; detail: string } }> = {
+  simples: {
+    pt: { label: 'Simples', detail: 'dá pra fazer com apoio técnico leve' },
+    en: { label: 'Simple', detail: 'can be built with light technical support' },
+  },
+  intermediaria: {
+    pt: { label: 'Intermediária', detail: 'precisa de equipe técnica (engenharia, paisagismo, ecologia)' },
+    en: { label: 'Intermediate', detail: 'needs a technical team (engineering, landscape, ecology)' },
+  },
+  complexa: {
+    pt: { label: 'Complexa', detail: 'escala de paisagem — depende da prefeitura, de licença e de gestão de longo prazo' },
+    en: { label: 'Complex', detail: 'landscape scale — depends on the city, a licence and long-term governance' },
+  },
+};
+
+export const TIPO_LABEL: Record<NbsTipo, { pt: { label: string; detail: string }; en: { label: string; detail: string } }> = {
+  sbn: {
+    pt: { label: 'Solução baseada na Natureza', detail: 'SbN pelo padrão IUCN' },
+    en: { label: 'Nature-based Solution', detail: 'NbS under the IUCN standard' },
+  },
+  apoio: {
+    pt: { label: 'Medida de apoio', detail: 'complementa uma SbN; não é SbN pelo padrão IUCN' },
+    en: { label: 'Supporting measure', detail: 'complements an NbS; not an NbS under the IUCN standard' },
+  },
+};
 
 export type NbsSolutionId = (typeof NBS_SOLUTIONS)[number]['id'];
 
