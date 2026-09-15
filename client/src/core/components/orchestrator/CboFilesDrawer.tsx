@@ -17,6 +17,7 @@ import { CboInviteView } from '@/core/components/orchestrator/CboInviteView';
 import { CboChatTranscript } from '@/core/components/orchestrator/CboChatTranscript';
 import { CboProfileSummary } from '@/core/components/orchestrator/CboProfileSummary';
 import type { DocumentMeta } from '@shared/document-schema';
+import { getSolution } from '@shared/nbs-catalog';
 
 export type CboDrawerTab = 'convite' | 'arquivos' | 'conversa' | 'perfil' | 'documentos';
 export type FilesDrawerMember = { id: string; orgName: string; inviteUrl: string };
@@ -150,6 +151,11 @@ export function CboFilesDrawer({
                 </p>
                 {[
                   { kind: 'comparacao', label: t('cboView.docComparison', { defaultValue: 'Comparação das soluções testadas' }), hint: t('cboView.docComparisonHint', { defaultValue: 'O que cada solução testada pede, faz e custa — base para a conversa de portfólio' }) },
+                  ...((member as any).w3?.testedIds ?? []).map((id: string) => ({
+                    kind: `cenario?solution=${id}`,
+                    label: t('cboView.docScenario', { defaultValue: 'Cenário: {{name}}', name: getSolution(id)?.pt.label ?? id }),
+                    hint: t('cboView.docScenarioHint', { defaultValue: 'Uma página só — pra levar à mesa do portfólio' }),
+                  })),
                   { kind: 'nota', label: t('cboView.docConceptNote', { defaultValue: 'Resumo do projeto' }), hint: t('cboView.docConceptNoteHint', { defaultValue: 'Para a coordenação — base para preparar uma proposta' }) },
                   { kind: 'rota', label: t('cboView.docRoadmap', { defaultValue: 'Hoja de ruta' }), hint: t('cboView.docRoadmapHint', { defaultValue: 'O caminho, com responsáveis' }) },
                 ].map(d => (

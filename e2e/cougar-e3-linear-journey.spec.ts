@@ -38,6 +38,7 @@ const LANGS = [
     entry: 'Vamos começar o Encontro 3.',
     recapText: 'Bem-vindas ao Encontro 3',
     confirm: 'É isso ✓',
+    door: 'Já mandamos tudo',
     shortlistText: 'grupos que vocês marcaram',
     solution: 'Jardins de chuva',
     shelfQuestion: 'Qual vocês querem testar primeiro?',
@@ -76,6 +77,7 @@ const LANGS = [
     entry: "Let's start Encontro 3.",
     recapText: 'Welcome to Encontro 3',
     confirm: "That's it ✓",
+    door: 'We already sent everything',
     shortlistText: 'grupos you marked',
     solution: 'Rain gardens',
     shelfQuestion: 'Which one do you want to test first?',
@@ -134,6 +136,9 @@ for (const L of LANGS) {
       await expect(page.getByText(L.recapText, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
       await expect(page.getByText('Pátio da EMEI Solar', { exact: false }).first()).toBeVisible();
       await chip(L.confirm).click();
+      // 1b · The door: what is missing, before the reading starts.
+      await expect(chip(L.door)).toBeVisible({ timeout: 15_000 });
+      await chip(L.door).click();
 
       // 2 · The shelf: solutions, not famílias. Ordered by the mechanism
       //     they named (alagamento) inside the família they marked — and it

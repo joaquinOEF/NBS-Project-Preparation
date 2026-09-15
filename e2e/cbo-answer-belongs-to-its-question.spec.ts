@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { TestApi } from './helpers/testApi';
 
+// The door before the shelf (biweekly 2026-09-15): what is missing, then the reading starts.
+const L_DOOR = 'Seguir sem';
+
 // ⚠️ SIX E3 BEATS ASK WITH THE SAME WORDS: "Quando quiser:" — por que aqui, a
 // linha de base, o detalhe, as duas rodadas do dig, o banco. The transcript
 // paired answers to questions by that STRING, so answering two of them in a row
@@ -50,6 +53,8 @@ test.describe('COUGAR — the transcript', () => {
     await input.fill('Vamos começar o Encontro 3.');
     await input.press('Enter');
     await chip('É isso ✓').click();
+    await expect(chip(L_DOOR)).toBeVisible({ timeout: 15_000 });
+    await chip(L_DOOR).click();
     await expect(page.getByTestId('cbo-solution-options')).toBeVisible({ timeout: 15_000 });
     await chip('Biovaletas').click();
     // Size is already on the record, so this only has to be confirmed.

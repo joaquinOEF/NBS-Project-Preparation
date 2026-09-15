@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { TestApi } from './helpers/testApi';
 
+const L_DOOR = 'Seguir sem';
+
 // TRACING THE FOOTPRINT — the one map session with no test until now.
 //
 // Drawing has been possible since the map shipped and nothing drove it in CI,
@@ -48,6 +50,8 @@ test.describe('COUGAR — E3 footprint', () => {
     await input.fill('Vamos começar o Encontro 3.');
     await input.press('Enter');
     await chip('É isso ✓').click();
+    await expect(chip(L_DOOR)).toBeVisible({ timeout: 15_000 });
+    await chip(L_DOOR).click();
     await expect(page.getByTestId('cbo-solution-options')).toBeVisible({ timeout: 15_000 });
     await chip('Jardins de chuva').click();
 
@@ -161,6 +165,8 @@ test.describe('COUGAR — E3 footprint', () => {
     await input.fill('Vamos começar o Encontro 3.');
     await input.press('Enter');
     await chip('É isso ✓').click();
+    await expect(chip(L_DOOR)).toBeVisible({ timeout: 15_000 });
+    await chip(L_DOOR).click();
     await expect(page.getByTestId('cbo-solution-options')).toBeVisible({ timeout: 15_000 });
     await chip('Jardins de chuva').click();
     await expect(page.getByText('Contorne no mapa', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
@@ -196,6 +202,8 @@ test.describe('COUGAR — E3 footprint', () => {
     await input.fill('Vamos começar o Encontro 3.');
     await input.press('Enter');
     await chip('É isso ✓').click();
+    await expect(chip(L_DOOR)).toBeVisible({ timeout: 15_000 });
+    await chip(L_DOOR).click();
     await expect(page.getByTestId('cbo-solution-options')).toBeVisible({ timeout: 15_000 });
     await chip('Jardins de chuva').click();
     await expect(page.getByText('Contorne no mapa', { exact: false }).last()).toBeVisible({ timeout: 15_000 });

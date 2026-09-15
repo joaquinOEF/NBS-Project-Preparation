@@ -18,6 +18,7 @@ const STRINGS = {
   pt: {
     eyebrow: 'Comparação das soluções testadas',
     print: 'Baixar a comparação (PDF)',
+    scenario: 'Este cenário (PDF)',
     sizedBy: (m2: number) => `Custos e efeitos calculados sobre ${m2.toLocaleString('pt-BR')} m²`,
     none: '—',
     technical: 'Leitura técnica da coordenação',
@@ -25,6 +26,7 @@ const STRINGS = {
   en: {
     eyebrow: 'Comparison of the solutions tested',
     print: 'Download the comparison (PDF)',
+    scenario: 'This scenario (PDF)',
     sizedBy: (m2: number) => `Costs and effects computed over ${m2.toLocaleString('en-US')} m²`,
     none: '—',
     technical: "The coordination's technical reading",
@@ -89,6 +91,17 @@ export function CboComparison({ comparison, lang, cboId }: { comparison: Compari
                 <th key={col.solutionId} className='min-w-[190px] p-1.5 text-left align-bottom' data-testid={`comparison-col-${col.solutionId}`}>
                   <span className='block text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground'>{col.familia}</span>
                   <span className='block text-[13px] font-bold leading-tight'>{col.label}</span>
+                  {cboId && (
+                    <a
+                      href={`/api/cbo/${cboId}/scenario/${col.solutionId}?lang=${lang}`}
+                      target='_blank'
+                      rel='noreferrer'
+                      data-testid={`scenario-print-${col.solutionId}`}
+                      className='mt-1 inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#6b5f3c] underline-offset-2 hover:underline dark:text-stone-300'
+                    >
+                      <Printer className='h-3 w-3' />{s.scenario}
+                    </a>
+                  )}
                 </th>
               ))}
             </tr>

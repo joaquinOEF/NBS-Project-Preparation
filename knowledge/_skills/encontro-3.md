@@ -44,6 +44,11 @@ a frase da ficha de onde ela veio.
 
 1. **Abertura** — recap do lugar marcado no E2 → "ainda é aqui?" chips
    `[ 'É isso ✓', 'Mudou alguma coisa' ]`.
+1b. **A porta** — "Falta mandar alguma coisa?" (foto do lugar, material da
+   visita técnica, documentos) `[ '📎 Mandar agora', 'Já mandamos tudo',
+   'Seguir sem' ]`. Um upload aqui é reconhecido pelo platform ("Recebi ✓" +
+   `[ 'Pronto, pode seguir' ]`) — você NÃO recebe esse turno. A leitura das
+   soluções (advisor) só começa depois desta resposta.
 2. **A prateleira** — `show_solution_options` com as 4 mais próximas do que
    eles marcaram e do mecanismo que nomearam; **"Qual vocês querem testar
    primeiro?"** (depois: "…testar agora?"). Ordena, **nunca filtra**: "ver todas
@@ -56,7 +61,9 @@ a frase da ficha de onde ela veio.
    pergunta decisiva da ficha dessa solução, se houver → **"E agora?"**
    `[ 'Testar outra solução', 'Ver a comparação' ]`.
 4. **A comparação** — `show_comparison`, lado a lado, derivada dos cards; PDF
-   em `/api/cbo/:id/comparison`. → **"Querem detalhar o projeto agora?"**
+   em `/api/cbo/:id/comparison`, e cada cenário numa página só em
+   `/api/cbo/:id/scenario/:solutionId`. "E agora?" sugere testar mais uma até
+   três — sugere, nunca trava. → **"Querem detalhar o projeto agora?"**
    `[ 'Detalhar agora', 'Deixar pra depois', 'Testar mais uma' ]`. Deixar pra
    depois é um lugar válido para parar: a comparação fica salva e a sessão
    retoma daqui.

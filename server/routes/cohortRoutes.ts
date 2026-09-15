@@ -40,7 +40,7 @@ import { synergyReports } from '@shared/cohort-schema';
 import { renderSynergyHtml } from '../services/synergyPrint';
 import { renderRoadmapHtml } from '../services/roadmapPrint';
 import { renderConceptNoteHtml } from '../services/conceptNotePrint';
-import { renderComparisonHtml } from '../services/comparisonPrint';
+import { renderComparisonHtml, renderScenarioHtml } from '../services/comparisonPrint';
 import { buildComparison } from '@shared/w3-comparison';
 import { parseTests, seedTestsFromChosen } from '@shared/w3-tests';
 import { writeSectionFields } from '../services/cboAgent';
@@ -278,10 +278,12 @@ export type MemberW3Signal = {
   /** How many solutions the organisation TESTED in Encontro 3 — liked or not.
    *  An org that tested three and liked none has done the work of the encontro. */
   tested: number;
+  /** Their ids, for the drawer's one-page-per-scenario links. */
+  testedIds: string[];
 };
 const EMPTY_W3: MemberW3Signal = {
   state: null, unblockedBy: null, capacity: null,
-  solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0, tested: 0,
+  solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0, tested: 0, testedIds: [],
 };
 
 /** The dossier, computed from a member's live state — the same pure function the
@@ -295,7 +297,8 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
   const site = asRecord('intervention_site');
   const type = asRecord('intervention_type');
   const solutions = (type.chosen_solutions ?? '').split(',').map(s => s.trim()).filter(Boolean);
-  const tested = parseTests(type.solution_tests_json).length;
+  const testedIds = parseTests(type.solution_tests_json).map(t => t.solutionId);
+  const tested = testedIds.length;
   // Nothing chosen, nothing tested and no place marked = this org has not
   // started W3. Reporting a verdict for it would put a badge on a row that has
   // no project behind it.
@@ -319,6 +322,7 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
     gapCount: dossier.gaps.length,
     coordinationItems: dossier.items.filter(i => i.owner === 'coordination').length,
     tested,
+    testedIds,
   };
 }
 
@@ -883,7 +887,7 @@ export function registerCohortRoutes(app: Express): void {
     const member = await memberInCohort(req);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }
     const kind = String(req.params.kind);
-    if (kind !== 'nota' && kind !== 'rota' && kind !== 'comparacao') { res.status(404).json({ error: 'unknown document' }); return; }
+    if (kind !== 'nota' && kind !== 'rota' && kind !== 'comparacao' && kind !== 'cenario') { res.status(404).json({ error: 'unknown document' }); return; }
     if (!member.cboStateId) { res.status(404).send('sem registro'); return; }
 
     let state = getCboState(member.cboStateId) ?? null;
@@ -911,9 +915,13 @@ export function registerCohortRoutes(app: Express): void {
     };
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    if (kind === 'comparacao') {
+    if (kind === 'comparacao' || kind === 'cenario') {
       const tests = seedTestsFromChosen(parseTests(type.solution_tests_json), input.solutions);
-      res.send(renderComparisonHtml(buildComparison(input as any, tests, lang, type.technical_note || null), lang));
+      const cmp = buildComparison(input as any, tests, lang, type.technical_note || null);
+      if (kind === 'comparacao') { res.send(renderComparisonHtml(cmp, lang)); return; }
+      const col = cmp.columns.find(c => c.solutionId === String(req.query.solution ?? ''));
+      if (!col) { res.status(404).send('cenário não testado'); return; }
+      res.send(renderScenarioHtml(col, cmp, lang));
       return;
     }
     if (kind === 'rota') {

@@ -599,6 +599,7 @@ export const PERSONAS: Persona[] = [
     }),
     leanings: [
       { pick: /^É isso ✓$/ },
+      { when: /falta mandar/i, pick: /^Seguir sem$/ },
       { when: /qual delas|adiante|testar/i, pick: /Jardins de chuva/ },
       { when: /^E agora\?$/i, pick: /Testar outra/, once: true },
       { when: /outra solução|mais alguma solução/i, pick: /Levar mais uma/ },
@@ -674,6 +675,7 @@ export const PERSONAS: Persona[] = [
     }),
     leanings: [
       { pick: /^É isso ✓$/ },
+      { when: /falta mandar/i, pick: /^Seguir sem$/ },
       { when: /qual delas|adiante|testar/i, pick: /Hortas urbanas/ },
       { when: /quantas|quantos/i, pick: /^3$/ },
       { when: /quem constr/i, pick: /^Mutirão$/ },
@@ -752,6 +754,7 @@ export const PERSONAS: Persona[] = [
     }),
     leanings: [
       { pick: /^É isso ✓$/ },
+      { when: /falta mandar/i, pick: /^Seguir sem$/ },
       { when: /qual delas|adiante|testar/i, pick: /Muro de arrimo verde/ },
       { when: /qual delas|adiante|testar/i, pick: /Ver todas as soluções/ },
       { pick: /^Ainda não sei o tamanho$/ },
@@ -821,6 +824,7 @@ export const PERSONAS: Persona[] = [
     }),
     leanings: [
       { pick: /^Seguir sem o lugar$/ },
+      { when: /falta mandar/i, pick: /^Seguir sem$/ },
       { when: /qual delas|adiante|testar/i, pick: /Grade viva/ },
       { when: /qual delas|adiante|testar/i, pick: /Ver todas as soluções/ },
       { pick: /^Ainda não sei o tamanho$/ },
@@ -898,6 +902,7 @@ export const PERSONAS: Persona[] = [
     drawM2: 2100,
     leanings: [
       { pick: /^É isso ✓$/ },
+      { when: /falta mandar/i, pick: /^Seguir sem$/ },
       // The beat that did not exist: which risk this project takes on first.
       { when: /pesa mais no dia a dia/i, pick: /Alagamento/ },
       { when: /qual delas|adiante|testar/i, pick: /Jardins de chuva/ },
@@ -969,6 +974,7 @@ export const PERSONAS: Persona[] = [
     }),
     leanings: [
       { pick: /^É isso ✓$/ },
+      { when: /falta mandar/i, pick: /^Seguir sem$/ },
       { when: /qual delas|adiante|testar/i, pick: /Captação de água da chuva/ },
       { when: /qual delas|adiante|testar/i, pick: /Ver todas as soluções/ },
       { when: /quantas|quantos/i, pick: /^2$/ },
@@ -1023,6 +1029,7 @@ export const PERSONAS: Persona[] = [
     drawM2: 300,
     leanings: [
       { pick: /^É isso ✓$/ },
+      { when: /falta mandar/i, pick: /^Seguir sem$/ },
       { when: /qual delas|adiante|testar/i, pick: /Solo grampeado verde/ },
       { when: /qual delas|adiante|testar/i, pick: /Ver todas as soluções/ },
       { pick: /^Desenhar no mapa$/ },
@@ -1089,6 +1096,7 @@ export const PERSONAS: Persona[] = [
     drawM2: 60,
     leanings: [
       { pick: /^É isso ✓$/ },
+      { when: /falta mandar/i, pick: /^Seguir sem$/ },
       { when: /qual delas|adiante|testar/i, pick: /Teto verde/ },
       { when: /qual delas|adiante|testar/i, pick: /Ver todas as soluções/ },
       { pick: /^Desenhar no mapa$/ },
@@ -1147,6 +1155,7 @@ export const PERSONAS: Persona[] = [
     parks: true,
     leanings: [
       { pick: /^É isso ✓$/ },
+      { when: /falta mandar/i, pick: /^Já mandamos tudo$/ },
       { when: /testar primeiro/i, pick: /Jardins de chuva/ },
       // Second trip: the full catalogue, so the "ver todas" road is walked too.
       { when: /testar agora/i, pick: /Ver todas as soluções/, once: true },

@@ -54,8 +54,10 @@ const W2_COMPLETE = [
 
 test.describe('W3 walkthrough — a recording', () => {
   test.skip(!RUN, 'Set RECORD_W3=1 (and E2E_VIDEO=on) to record.');
-  // The phone, because that is where the organisations are.
-  test.use({ locale: 'pt-BR', viewport: { width: 390, height: 844 } });
+  // The phone, because that is where the organisations are — and the
+  // projector, because on 30 September that is where the room looks.
+  const wide = process.env.RECORD_W3_WIDE === '1';
+  test.use({ locale: 'pt-BR', viewport: wide ? { width: 1366, height: 768 } : { width: 390, height: 844 } });
   test.setTimeout(300_000);
 
   test('do lugar marcado ao projeto com preço', async ({ page, request }) => {
@@ -100,6 +102,11 @@ test.describe('W3 walkthrough — a recording', () => {
     await beat(page);
     await chip('É isso ✓').click();
 
+    // ── 1b · The door: what is missing, before anything is read ─────────────
+    await expect(chip('Já mandamos tudo')).toBeVisible({ timeout: 20_000 });
+    await beat(page, READ + 1600);
+    await chip('Já mandamos tudo').click();
+
     // ── 2 · Solutions, not famílias — each with what it will cost in effort ──
     await expect(page.getByTestId('cbo-solution-options')).toBeVisible({ timeout: 15_000 });
     await beat(page, READ + 1500);
@@ -127,7 +134,10 @@ test.describe('W3 walkthrough — a recording', () => {
     const box = (await map.boundingBox())!;
     const cx = box.x + box.width / 2;
     const cy = box.y + box.height / 2;
-    const d = Math.min(box.width, box.height) / 5;
+    // At projector width the same gesture covers a hectare — a real yard is
+    // a few hundred square metres, and a demo that prices a R$ 6M rain garden
+    // is a demo about the wrong thing.
+    const d = wide ? 25 : Math.min(box.width, box.height) / 5;
     // Trace it slowly — the corners are the point of the shot.
     for (const [x, y] of [[cx - d, cy - d], [cx + d, cy - d], [cx + d, cy + d]] as const) {
       await page.mouse.move(x, y, { steps: 12 });
@@ -207,6 +217,11 @@ test.describe('W3 walkthrough — a recording', () => {
       .toBeVisible({ timeout: 20_000 });
     await beat(page, READ + 1000);
     await chip('Ainda não sabemos').click();
+
+    // ── 8b · "We don't know" gets one more road: who pays the bills TODAY ────
+    await expect(chip('A prefeitura')).toBeVisible({ timeout: 20_000 });
+    await beat(page, READ + 600);
+    await chip('A prefeitura').click();
 
     // ── 10 · The hoja de ruta — read it the way an organisation would ────────
     const roadmap = page.getByTestId('cbo-roadmap');

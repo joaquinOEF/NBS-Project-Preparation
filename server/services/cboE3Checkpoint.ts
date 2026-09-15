@@ -115,6 +115,9 @@ export interface E3Deps {
    * happens to be there.
    */
   awaitAdvisor?(): Promise<void>;
+  /** What is already in the organisation's drawer — so the material beat says
+   *  "vocês já mandaram 3 arquivos" instead of asking blind. */
+  docsBrief?(): Promise<{ count: number; images: number; names: string[] }>;
 }
 
 /** The chips E3 speaks, in one table — same rationale as E2C. */
@@ -140,6 +143,14 @@ const E3C = {
   // and one reaction; then back to the shelf or on to the comparison. The
   // reaction chips live in shared/w3-tests.ts (REACTION) because the same value
   // has a written form on the page.
+  // The door (COUGAR biweekly 2026-09-15): before testing, what is missing —
+  // site photos, what Robson's visit left, documents. Uploads go through the
+  // ordinary chat picker; the advisor starts only after this answer, so the
+  // shelf reads what arrives here instead of what was there a minute earlier.
+  mandarAgora: { pt: '📎 Mandar agora', en: '📎 Send now' },
+  jaMandamos: { pt: 'Já mandamos tudo', en: 'We already sent everything' },
+  seguirSemMaterial: { pt: 'Seguir sem', en: 'Carry on without' },
+  prontoSeguir: { pt: 'Pronto, pode seguir', en: "Done, let's continue" },
   testarOutra: { pt: 'Testar outra solução', en: 'Test another solution' },
   verComparacao: { pt: 'Ver a comparação', en: 'See the comparison' },
   detalharAgora: { pt: 'Detalhar agora', en: 'Go into detail now' },
@@ -435,7 +446,6 @@ export async function serveE3Checkpoint(
         { pt: E3C.seguirSemLugar.pt, en: E3C.seguirSemLugar.en, dPt: 'A gente marca depois', dEn: 'We will mark it later' },
       ]);
       deps.writeFields(TYPE, { _e3_opened: 'yes' });
-      deps.startAdvisor?.();
       return finish('open-no-site');
     }
     // ⚠️ Never the raw coordinate string. A pin dropped without a search result
@@ -453,13 +463,55 @@ export async function serveE3Checkpoint(
       { pt: E3C.mudou.pt, en: E3C.mudou.en, dPt: 'Me conta o que mudou', dEn: 'Tell me what changed' },
     ]);
     deps.writeFields(TYPE, { _e3_opened: 'yes' });
-    // ⚠️ HERE, not at the footprint map. The pass was firing when the map
-    // opened — which is AFTER the solution is chosen — so the model read their
-    // photos and their Teia Sprint proposal one beat too late to inform the one
-    // decision they were relevant to. It now runs while they read this recap
-    // and reach for the confirm chip.
-    deps.startAdvisor?.();
+    // The advisor no longer starts here: it starts when the material beat
+    // closes (afterMaterial), so a photo uploaded at the door is read by the
+    // shelf rather than arriving one beat too late — the same defect this pass
+    // was moved once already to fix.
     return finish('open');
+  };
+
+  // ── Beat 0a · what is missing, before the shelf ───────────────────────────
+  /**
+   * COUGAR biweekly 2026-09-15: "explicit prompt at the Workshop 3 entry asking
+   * for missing information (photos, expert visits, coordinator notes) before
+   * the module begins", through the ordinary chat upload. Asked once; skipped
+   * for a session already past the shelf.
+   */
+  const askMaterial = async (): Promise<true> => {
+    const docs = (await deps.docsBrief?.().catch(() => null)) ?? null;
+    const already = docs && docs.count > 0
+      ? {
+          pt: `vocês já mandaram ${docs.count === 1 ? 'um arquivo' : `${docs.count} arquivos`}${docs.images ? ` (${docs.images === 1 ? 'uma imagem' : `${docs.images} imagens`})` : ''}`,
+          en: `you have already sent ${docs.count === 1 ? 'one file' : `${docs.count} files`}${docs.images ? ` (${docs.images === 1 ? 'one image' : `${docs.images} images`})` : ''}`,
+        }
+      : { pt: 'ainda não tem nenhum arquivo aqui', en: 'there is no file here yet' };
+    say(
+      `Antes de começar a testar, uma coisa: ${already.pt}. O que mais ajuda agora é **foto do lugar como está hoje**, o que a **visita técnica** deixou (fotos, anotações) e qualquer **documento** que vocês tenham — proposta, orçamento, planta. Tudo isso entra na leitura das soluções.`,
+      `Before we start testing, one thing: ${already.en}. What helps most now is a **photo of the place as it is today**, whatever the **technical visit** left (photos, notes) and any **document** you have — a proposal, a quote, a plan. All of it goes into the reading of the solutions.`,
+    );
+    ask('Falta mandar alguma coisa?', 'Anything still to send?', [
+      { pt: E3C.mandarAgora.pt, en: E3C.mandarAgora.en, dPt: 'Abre pra escolher os arquivos', dEn: 'Opens the file chooser', action: 'upload_then_answer' },
+      { pt: E3C.jaMandamos.pt, en: E3C.jaMandamos.en, dPt: 'Seguir com o que tem', dEn: 'Continue with what is here' },
+      { pt: E3C.seguirSemMaterial.pt, en: E3C.seguirSemMaterial.en, dPt: 'Dá pra mandar depois', dEn: 'Can be sent later' },
+    ]);
+    deps.writeFields(TYPE, { _material_pending: 'yes' });
+    return finish('ask-material');
+  };
+
+  /** The door closes: the reading starts NOW, with whatever arrived. */
+  const afterMaterial = async (): Promise<true> => {
+    deps.writeFields(TYPE, { _material_pending: '', _material_done: 'yes' });
+    deps.startAdvisor?.();
+    return await toShelf();
+  };
+
+  /** Which risk first (when they named more than one), then the shelf. */
+  const toShelf = async (): Promise<true> => {
+    if (namedWorries().length > 1 && !site('_worry_focus_done')) {
+      const asked = askWhichWorry();
+      if (asked) return asked;
+    }
+    return await askSolution();
   };
 
   /**
@@ -961,9 +1013,17 @@ export async function serveE3Checkpoint(
 
   /** Back to the shelf, or on to the comparison. Asked after every test. */
   const askNext = (): true => {
+    // The soft nudge (biweekly 2026-09-15: "3–4 solutions per organisation").
+    // Said in the chip's description, never as a gate — the room steers.
+    const n = ensureTests().length;
+    const nudge = n <= 1
+      ? { pt: 'Com uma só não dá pra comparar', en: 'One alone cannot be compared' }
+      : n === 2
+        ? { pt: 'Vale uma terceira pra comparar', en: 'A third one is worth comparing' }
+        : { pt: 'Volta pra lista', en: 'Back to the list' };
     ask('E agora?', 'And now?', [
-      { pt: E3C.testarOutra.pt, en: E3C.testarOutra.en, dPt: 'Volta pra lista', dEn: 'Back to the list' },
-      { pt: E3C.verComparacao.pt, en: E3C.verComparacao.en, dPt: 'Lado a lado, o que cada uma pede e faz', dEn: 'Side by side, what each one needs and does' },
+      { pt: E3C.testarOutra.pt, en: E3C.testarOutra.en, dPt: nudge.pt, dEn: nudge.en },
+      { pt: E3C.verComparacao.pt, en: E3C.verComparacao.en, dPt: `${n} ${n === 1 ? 'testada' : 'testadas'} — lado a lado, o que cada uma pede e faz`, dEn: `${n} tested — side by side, what each one needs and does` },
     ]);
     return finish('ask-next');
   };
@@ -1001,11 +1061,11 @@ export async function serveE3Checkpoint(
     const n = tests.length;
     say(
       n === 1
-        ? 'Uma solução testada. A comparação fica salva aqui e dá pra baixar em PDF.'
-        : `${n} soluções testadas, lado a lado. A comparação fica salva aqui e dá pra baixar em PDF.`,
+        ? 'Uma solução testada. Dá pra ver, mas comparar mesmo começa com duas — "Testar mais uma" volta pra lista. Cada cenário também sai numa página só, pra levar pra mesa.'
+        : `${n} soluções testadas, lado a lado. A comparação fica salva aqui e sai em PDF; cada cenário também sai numa página só, pra levar pra mesa.`,
       n === 1
-        ? 'One solution tested. The comparison is saved here and can be downloaded as a PDF.'
-        : `${n} solutions tested, side by side. The comparison is saved here and can be downloaded as a PDF.`,
+        ? 'One solution tested. It can be seen, but comparing really starts with two — "Test one more" goes back to the list. Each scenario also prints on a single page, to take to the table.'
+        : `${n} solutions tested, side by side. The comparison is saved here and prints as a PDF; each scenario also prints on a single page, to take to the table.`,
     );
     ask('Querem detalhar o projeto agora?', 'Do you want to go into the project in detail now?', [
       { pt: E3C.detalharAgora.pt, en: E3C.detalharAgora.en, dPt: 'Por que aqui, como está hoje, quem cuida', dEn: 'Why here, how it is today, who looks after it' },
@@ -1243,6 +1303,7 @@ export async function serveE3Checkpoint(
       return await askExtras();
     }
     if (type('_detail_which_pending') === 'yes') return askWhichToDetail();
+    if (type('_material_pending') === 'yes') return await askMaterial();
     if (tests.length) return type('_comparison_shown') ? await showComparison() : askNext();
     if (!hasSitePin && !site('_area_asked')) return await askSolution();
     return await askSolution();
@@ -1569,6 +1630,18 @@ export async function serveE3Checkpoint(
     if (E3_ENTRY.test(raw)) return openW3();
     return false;
   }
+  // ⚠️ An upload while the door is open. At phase 3 an upload turn routes to
+  // the heavy model, whose reply would REPLACE the pending chip and strand the
+  // organisation on a file it just sent — exactly what three photos did to E2
+  // before its own handler existed. Acknowledge, and keep the door in control.
+  if ((turnKind === 'upload' || raw.startsWith("I'm uploading:") || raw.startsWith('Uploaded "')) && type('_material_pending') === 'yes') {
+    say('Recebi ✓', 'Got it ✓');
+    ask('Quando terminar de anexar:', 'When you finish attaching:', [
+      { pt: E3C.prontoSeguir.pt, en: E3C.prontoSeguir.en },
+    ]);
+    return finish('upload-during-material');
+  }
+
   // Already open, and they are back — the entry line again or the resume
   // chip. Pick up exactly where the record says they are.
   if (E3_ENTRY.test(raw) || E3_RESUME.test(raw)) return await resumeE3();
@@ -1640,13 +1713,20 @@ export async function serveE3Checkpoint(
   const is = (c: { pt: string; en: string }) => msg === deps.normChip(c.pt) || msg === deps.normChip(c.en);
 
   if (is(E3C.confirmar) && !ensureTests().length && !openTest()) {
-    // Which risk first, when they named more than one — before the shortlist,
-    // because the shortlist ranks on it.
-    if (namedWorries().length > 1 && !site('_worry_focus_done')) {
-      const asked = askWhichWorry();
-      if (asked) return asked;
-    }
-    return await askSolution();
+    return type('_material_done') ? await toShelf() : await askMaterial();
+  }
+  // The door's answers. "Mandar agora" has already opened the picker (the chip
+  // answers AND opens it); the upload turns land in the handler above the chip
+  // gate, and "Pronto" is what closes the door.
+  if (is(E3C.mandarAgora) && type('_material_pending') === 'yes') {
+    say('Pode anexar aqui embaixo — foto, PDF, o que tiver. Quando terminar, toca em **Pronto**.', 'Attach below — photos, PDFs, whatever you have. When you are done, tap **Done**.');
+    ask('Quando terminar de anexar:', 'When you finish attaching:', [
+      { pt: E3C.prontoSeguir.pt, en: E3C.prontoSeguir.en },
+    ]);
+    return finish('material-upload-open');
+  }
+  if ((is(E3C.jaMandamos) || is(E3C.seguirSemMaterial) || is(E3C.prontoSeguir)) && type('_material_pending') === 'yes') {
+    return await afterMaterial();
   }
 
   // Their answer to it. Reordered rather than replaced: the other worries are
@@ -1867,7 +1947,7 @@ export async function serveE3Checkpoint(
   if (is(E3C.outraSolucao)) return await askSolution();
   if (is(E3C.soEssa)) return type('construction_model') ? await closeE3() : await showComparison();
   if (is(E3C.marcarAgora)) return openSiteMap('open-site-map-from-e3');
-  if (is(E3C.seguirSemLugar)) return await askSolution();
+  if (is(E3C.seguirSemLugar)) return type('_material_done') ? await toShelf() : await askMaterial();
 
   if (is(E3C.desenhar) || is(E3C.redesenhar)) {
     if (!hasSitePin) {
