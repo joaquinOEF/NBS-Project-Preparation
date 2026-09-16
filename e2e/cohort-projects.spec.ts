@@ -25,6 +25,8 @@ const site = (org: string, bairro: string, worry: string, tests: string) => [
   { sectionId: 'intervention_site', field: 'site_story', value: `Na ${org} a água entra pelo fundo e fica dias.` },
   { sectionId: 'intervention_site', field: 'site_area_m2', value: '600' },
   { sectionId: 'intervention_type', field: 'solution_tests_json', value: tests },
+  // Derived from the reactions by Encontro 3 (shared/w3-tests.ts); seeded here as E3 would have left it.
+  { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'jardins-de-chuva' },
 ];
 
 const TESTED = JSON.stringify([
@@ -216,5 +218,133 @@ test.describe('projects — the board', () => {
     await page.reload();
     await expect(page.getByTestId('projects-grid')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('view-projects')).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+// THE PROJECT ENCONTRO — five templated beats that turn several
+// organisations' Encontro 3 tests into one project (docs/projects.md →
+// "The project encontro"). Walked in the browser with no model in the path,
+// including a reload mid-way and the document at the end.
+test.describe('projects — the project encontro', () => {
+  test.use({ locale: 'pt-BR' });
+
+  test('moldura → cenários → o que se compartilha → dinheiro → resumo, with a reload in the middle', async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const { cohort, ksa, coop, fresh } = await seedCohort(api, randomUUID().slice(0, 6));
+    const project = await api.createProject(cohort.coordinatorSlug, { title: 'Água e enchentes — Floresta', memberIds: [ksa.id, coop.id, fresh.id] });
+    const chip = (label: string) => page.locator(`[data-testid^="cbo-option-"][data-option-label="${label}"]`);
+    const input = page.getByTestId('cbo-chat-input');
+    const thread = page.getByTestId('cbo-chat-thread');
+
+    await page.goto(`/cbo-profile?p=${project.capabilityToken}`);
+    await expect(chip('Confere ✓')).toBeVisible({ timeout: 30_000 });
+    await chip('Confere ✓').click();
+    // The encontro is one chip away from the door.
+    await expect(chip('Montar o projeto')).toBeVisible({ timeout: 15_000 });
+    await chip('Montar o projeto').click();
+
+    // 1 · A moldura — their words first, free text.
+    await expect(thread.getByText('por que essas organizações fazem esse projeto juntas', { exact: false })).toBeVisible({ timeout: 15_000 });
+    await input.fill('As duas têm pátio alagado na mesma rua e a Ksa já fez projeto com a COOP20.');
+    await input.press('Enter');
+    // Then the frame, derived from the shared reading — Floresta groups two of them.
+    await expect(chip('Outra coisa')).toBeVisible({ timeout: 15_000 });
+    const floresta = page.locator('[data-testid^="cbo-option-"][data-option-label*="Floresta"]').first();
+    await expect(floresta).toBeVisible();
+    await floresta.click();
+
+    // 2 · Os cenários — one organisation at a time, over what IT tested.
+    await expect(thread.getByText('Da Ksa Rosa, o que entra no projeto?')).toBeVisible({ timeout: 15_000 });
+    await expect(chip('Jardins de chuva')).toBeVisible();
+    await expect(chip('Pavimentos permeáveis')).toBeVisible();
+    await chip('Jardins de chuva').click();
+    await expect(thread.getByText('Da COOP20, o que entra no projeto?')).toBeVisible({ timeout: 15_000 });
+
+    // A reload mid-encontro lands on the next organisation's question, not the door.
+    await page.reload();
+    await expect(chip('Nenhuma desta vez')).toBeVisible({ timeout: 30_000 });
+    await expect(thread.getByText('Da COOP20, o que entra no projeto?')).toBeVisible();
+    await expect(page.getByTestId('cbo-project-brief')).toHaveCount(1);
+    await chip('Jardins de chuva').click();
+    // The organisation that never reached Encontro 3 joins without a scenario — said, not hidden.
+    await expect(thread.getByText('Periferia Feminista', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
+    await chip('Nenhuma desta vez').click();
+
+    // 3 · O que se compartilha — the plan card, then who leads.
+    const plan = page.getByTestId('cbo-project-plan');
+    await expect(plan).toBeVisible({ timeout: 15_000 });
+    await expect(plan).toHaveAttribute('data-scenarios', '2');
+    await expect(plan.getByTestId(`plan-org-${ksa.id}`)).toContainText('Jardins de chuva');
+    await expect(plan.getByTestId('plan-shared')).toContainText('um teste de infiltração do solo');
+    await expect(plan.getByTestId('plan-shared')).toContainText('em vez de 2');
+    await expect(plan.getByTestId('plan-money')).toContainText('R$');
+    await expect(chip('A coordenação')).toBeVisible();
+    await chip('Ksa Rosa').click();
+
+    // 4 · O dinheiro — the summed band, then how the funding is sought.
+    await expect(thread.getByText('Somando as faixas', { exact: false })).toBeVisible({ timeout: 15_000 });
+    await expect(chip('Um recurso só pra tudo')).toBeVisible();
+    await chip('Um recurso só pra tudo').click();
+
+    // 5 · O documento — the note card and its printed page.
+    const note = page.getByTestId('cbo-project-note');
+    await expect(note).toBeVisible({ timeout: 15_000 });
+    await expect(note.getByTestId('note-section-porque')).toContainText('a Ksa já fez projeto com a COOP20');
+    await expect(note.getByTestId('note-section-intervencao')).toContainText('Ksa Rosa — Jardins de chuva');
+    await expect(note.getByTestId('note-section-intervencao')).toContainText('COOP20 — Jardins de chuva');
+    await expect(note.getByTestId('note-section-cuida')).toContainText('Quem puxa o projeto: Ksa Rosa');
+    await expect(note.getByTestId('note-section-custo')).toContainText('um projeto só');
+    await expect(note.getByTestId('note-section-pendencias')).toContainText('Periferia Feminista');
+    await expect(chip('Ajustar os cenários')).toBeVisible();
+
+    const r = await page.request.get(`/api/project/${project.id}/note?lang=pt`);
+    expect(r.ok()).toBe(true);
+    const text = (await r.text()).replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    expect(text).toContain('Resumo do Projeto — várias organizações');
+    expect(text).toContain('Ksa Rosa — Jardins de chuva');
+    expect(text).toContain('Quem puxa o projeto: Ksa Rosa');
+    expect(text).toMatch(/Fonte:/);
+    expect(text).not.toMatch(/\bvocês\b/i);
+    expect(text).not.toMatch(/shared\/|server\//);
+    expect(text).not.toMatch(/jardins-de-chuva|edital-unico/);
+    expect(text).toContain('RASCUNHO');
+
+    // After the encontro, a return lands on the summary, not on the door.
+    await page.reload();
+    await expect(chip('Ajustar os cenários')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('cbo-project-brief')).toHaveCount(1);
+  });
+
+  test('skipping is allowed, and an organisation with no tests is not asked what it tested', async ({ page }) => {
+    const api = new TestApi(page.request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model');
+    const { cohort, ksa, fresh } = await seedCohort(api, randomUUID().slice(0, 6));
+    const project = await api.createProject(cohort.coordinatorSlug, { title: 'Só a Ksa e a Periferia', memberIds: [ksa.id, fresh.id] });
+    const chip = (label: string) => page.locator(`[data-testid^="cbo-option-"][data-option-label="${label}"]`);
+    const thread = page.getByTestId('cbo-chat-thread');
+
+    await page.goto(`/cbo-profile?p=${project.capabilityToken}`);
+    await expect(chip('Confere ✓')).toBeVisible({ timeout: 30_000 });
+    await chip('Confere ✓').click();
+    await chip('Montar o projeto').click();
+    await expect(chip('Pular por agora')).toBeVisible({ timeout: 15_000 });
+    await chip('Pular por agora').click();
+    // One org with a site: nothing groups, so the frame is free text or skip.
+    await expect(chip('Pular por agora')).toBeVisible({ timeout: 15_000 });
+    await chip('Pular por agora').click();
+    await expect(thread.getByText('Da Ksa Rosa, o que entra no projeto?')).toBeVisible({ timeout: 15_000 });
+    await chip('Nenhuma desta vez').click();
+    await expect(thread.getByText('ainda não testou soluções no Encontro 3', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
+    await chip('Nenhuma desta vez').click();
+    const plan = page.getByTestId('cbo-project-plan');
+    await expect(plan).toBeVisible({ timeout: 15_000 });
+    await expect(plan).toHaveAttribute('data-scenarios', '0');
+    await expect(plan.getByTestId('plan-money')).toContainText('Nenhum cenário');
+    await chip('Ainda não sabemos').click();
+    await expect(chip('Ainda não sabemos')).toBeVisible({ timeout: 15_000 });
+    await chip('Ainda não sabemos').click();
+    await expect(page.getByTestId('cbo-project-note')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('cbo-project-note').getByTestId('note-section-pendencias')).toContainText('sem cenário neste projeto por enquanto');
   });
 });

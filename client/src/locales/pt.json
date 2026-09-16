@@ -375,7 +375,8 @@
       "suggestionsTitle": "Do relatório de sinergias",
       "suggestionsLede": "Linhas de programa que o relatório de sinergias propôs. Cada uma é um nome e um conjunto de organizações — o formato de um projeto. São hipóteses; criar uma não compromete ninguém.",
       "linkTitle": "Link do projeto",
-      "linkDesc": "Mande este único link para todas as organizações de {{title}}. Todas caem na mesma conversa, que abre com o que cada uma já contou."
+      "linkDesc": "Mande este único link para todas as organizações de {{title}}. Todas caem na mesma conversa, que abre com o que cada uma já contou.",
+      "note": "Resumo do projeto (PDF)"
     }
   },
   "citySelection": {

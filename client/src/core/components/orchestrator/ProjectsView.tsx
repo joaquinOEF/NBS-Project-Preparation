@@ -182,6 +182,16 @@ export function ProjectsView({
                       <FileText className="mr-1 h-3 w-3" />
                       {t('orchestrator.projects.brief', { defaultValue: 'Brief (PDF)' })}
                     </a>
+                    <a
+                      href={`/api/project/${p.id}/note?lang=${isPt ? 'pt' : 'en'}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-7 items-center rounded-md border px-2.5 text-[12px] font-medium hover:bg-muted"
+                      data-testid="link-project-note"
+                    >
+                      <FileText className="mr-1 h-3 w-3" />
+                      {t('orchestrator.projects.note', { defaultValue: 'Summary (PDF)' })}
+                    </a>
                     <span className="flex-1" />
                     <Button
                       size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground"

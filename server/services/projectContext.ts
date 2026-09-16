@@ -25,6 +25,7 @@ import { cboStates } from '@shared/cbo-db-schema';
 import { synergyFactsFrom, type SynergyMember } from '@shared/w3-synergies';
 import { parseTests } from '@shared/w3-tests';
 import { buildProjectBrief, briefMarkdown, type ProjectBrief, type ProjectMemberFacts } from '@shared/project-brief';
+import { parseChoices, buildProjectPlan, buildProjectNote, planMarkdown, type ProjectPlan, type ProjectNote } from '@shared/project-plan';
 import type { CboState } from '@shared/cbo-schema';
 import { buildDossier, portfolioState } from '@shared/w3-dossier';
 import { listDocumentsForScope } from './documentPersistence';
@@ -148,6 +149,29 @@ export async function projectBrief(project: CohortProject, lang: 'pt' | 'en' = '
   return buildProjectBrief({ id: project.id, title: project.title }, members, lang);
 }
 
+/** The brief and the members it was built from — one read for the checkpoint's beats. */
+export async function projectFacts(project: CohortProject, lang: 'pt' | 'en' = 'pt'): Promise<{ brief: ProjectBrief; members: ProjectMemberFacts[] }> {
+  const members = await loadProjectMembers(project);
+  return { brief: buildProjectBrief({ id: project.id, title: project.title }, members, lang), members };
+}
+
+/** The choices the project encontro wrote on the project's own state. */
+async function projectChoices(project: CohortProject) {
+  const st = getCboState(project.cboStateId) ?? (await loadCboFromDb(project.cboStateId).catch(() => null))?.state ?? null;
+  return parseChoices(asRecord(st, 'intervention_type'));
+}
+
+/** The plan (what is shared, the money) from the live records and the encontro's choices. */
+export async function projectPlan(project: CohortProject, lang: 'pt' | 'en' = 'pt'): Promise<ProjectPlan> {
+  const { brief, members } = await projectFacts(project, lang);
+  return buildProjectPlan(brief, members, await projectChoices(project), lang);
+}
+
+/** The multi-organisation note, rebuilt from the live records on every read. */
+export async function projectNote(project: CohortProject, lang: 'pt' | 'en' = 'pt'): Promise<ProjectNote> {
+  return buildProjectNote(await projectPlan(project, lang), lang);
+}
+
 /**
  * The model's CURRENT STATE for a project turn: the brief, then every
  * organisation's full bundle (the same `buildContextMarkdown` the coordinator
@@ -158,6 +182,12 @@ export async function buildProjectContext(project: CohortProject, lang: 'pt' | '
   const members = await loadProjectMembers(project);
   const brief = buildProjectBrief({ id: project.id, title: project.title }, members, lang);
   const L: string[] = [briefMarkdown(brief, lang), ''];
+  // What the project encontro decided, when it has started — so the model
+  // never re-asks a choice the room already made.
+  const choices = await projectChoices(project);
+  if (choices.whyTogether || choices.frame || choices.scenarios.length || choices.lead || choices.fundingMode) {
+    L.push(planMarkdown(buildProjectPlan(brief, members, choices, lang), lang), '');
+  }
   const generatedAt = new Date().toISOString().slice(0, 10);
   for (const m of members) {
     const row = (await db.select().from(cohortMembers).where(eq(cohortMembers.id, m.memberId)).limit(1))[0];

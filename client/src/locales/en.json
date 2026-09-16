@@ -171,7 +171,8 @@
       "suggestionsTitle": "From the synergy report",
       "suggestionsLede": "Programme lines the synergy report proposed. Each one is a name and a set of organisations — the shape of a project. They are hypotheses; creating one does not commit anybody.",
       "linkTitle": "Project link",
-      "linkDesc": "Share this one link with every organisation in {{title}}. They all land in the same conversation, which opens on what each of them already told us."
+      "linkDesc": "Share this one link with every organisation in {{title}}. They all land in the same conversation, which opens on what each of them already told us.",
+      "note": "Summary (PDF)"
     }
   },
   "citySelection": {

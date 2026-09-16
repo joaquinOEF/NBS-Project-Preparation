@@ -82,6 +82,8 @@ import { CboRoadmap } from '@/core/components/cbo/CboRoadmap';
 import { CboSolutionTest } from '@/core/components/cbo/CboSolutionTest';
 import { CboComparison } from '@/core/components/cbo/CboComparison';
 import { CboProjectBrief } from '@/core/components/cbo/CboProjectBrief';
+import { CboProjectPlan } from '@/core/components/cbo/CboProjectPlan';
+import { CboProjectNote } from '@/core/components/cbo/CboProjectNote';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 import { localizedWorkshopName } from '@/lib/workshopHelpers';
 
@@ -1550,9 +1552,16 @@ export default function CboProfilePage() {
         setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify({ kind: 'roadmap', roadmap: (event as any).roadmap }), messageType: 'composer', timestamp: new Date().toISOString() }]);
         break;
       }
-      case 'show_project_brief': {
-        // The project door — mid-turn, the roster ask_user follows.
-        setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify({ kind: 'project_brief', brief: (event as any).brief }), messageType: 'composer', timestamp: new Date().toISOString() }]);
+      case 'show_project_brief':
+      case 'show_project_plan':
+      case 'show_project_note': {
+        // The project's cards — mid-turn, an ask_user follows each.
+        const payload = event.type === 'show_project_brief'
+          ? { kind: 'project_brief', brief: (event as any).brief }
+          : event.type === 'show_project_plan'
+            ? { kind: 'project_plan', plan: (event as any).plan }
+            : { kind: 'project_note', note: (event as any).note };
+        setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify(payload), messageType: 'composer', timestamp: new Date().toISOString() }]);
         break;
       }
       case 'show_solution_options':
@@ -2506,6 +2515,20 @@ export default function CboProfilePage() {
                   return (
                     <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
                       <CboProjectBrief brief={parsed.brief} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'project_plan' && parsed.plan) {
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <CboProjectPlan plan={parsed.plan} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'project_note' && parsed.note) {
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <CboProjectNote note={parsed.note} projectId={projectInfo?.id ?? ''} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
                     </div>
                   );
                 }
