@@ -145,6 +145,37 @@ export const cohortMembers = pgTable('cohort_members', {
 export type Cohort = typeof cohorts.$inferSelect;
 export type CohortMember = typeof cohortMembers.$inferSelect;
 
+// ============================================================================
+// PROJECTS — the unit of work after Encontro 3
+// ============================================================================
+// COUGAR biweekly 2026-09-15: "platform logic post-portfolio formation will
+// shift from individual organization profiles to inter-organizational project
+// partnerships". A project is a coordinator-named bundle of member
+// organisations with ONE shared chat session (`cboStateId` — an ordinary
+// cbo_state carrying `metadata.project`) and one unguessable link, exactly
+// like a member's invite link. Membership is a jsonb list rather than a join
+// table: a cohort has a handful of projects, and a project changes members in
+// the room, as one edit.
+//
+// ⚠️ NEW TABLE — needs `npm run db:push` on Replit BEFORE the republish that
+// carries it; `npm run db:preflight` names it. A missing table 500s only the
+// project routes, but the orchestrator loads them on every visit.
+export const cohortProjects = pgTable('cohort_projects', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  cohortId: varchar('cohort_id').notNull(),
+  title: text('title').notNull(),
+  /** The link credential — same shape and rule as `cohortMembers.capabilityToken`. */
+  capabilityToken: text('capability_token').notNull().unique(),
+  /** The shared session. Created with the project, so the link always resolves. */
+  cboStateId: text('cbo_state_id').notNull(),
+  /** `cohortMembers.id` list, in the order the coordinator picked them. */
+  memberIds: jsonb('member_ids').$type<string[]>().notNull().default([]),
+  createdAt: timestamp('created_at').defaultNow(),
+  archivedAt: timestamp('archived_at'),
+});
+
+export type CohortProject = typeof cohortProjects.$inferSelect;
+
 // Default workshops seed — Vila Flores 6-meeting convening series.
 // W6 is the wrap-up; doesn't unlock new content (unlocksPhase = 5 = no-op).
 /**

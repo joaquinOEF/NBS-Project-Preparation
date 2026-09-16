@@ -48,6 +48,10 @@ for (const vp of [{ name: 'phone', width: 390, height: 844 }, { name: 'projector
     await input.fill('Vamos começar o Encontro 3.');
     await input.press('Enter');
     await chip('É isso ✓').click();
+    // The door (PR #539): what is missing, before the shelf.
+    await expect(chip('Já mandamos tudo')).toBeVisible({ timeout: 15_000 });
+    await shot('0-porta');
+    await chip('Já mandamos tudo').click();
     await expect(page.getByTestId('cbo-solution-options')).toBeVisible({ timeout: 15_000 });
     await shot('1-prateleira');
     await chip('Jardins de chuva').click();

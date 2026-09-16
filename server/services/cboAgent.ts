@@ -70,6 +70,9 @@ import { parseNbsInventory } from "@shared/nbs-inventory";
 import { isImplementationNarration } from "./assistantNoise";
 import { checkCloseGate } from "./cboCloseGate";
 import { serveE3Checkpoint } from "./cboE3Checkpoint";
+import { serveProjectCheckpoint } from "./cboProjectCheckpoint";
+import { findProjectByStateId, projectBrief, buildProjectContext } from "./projectContext";
+import { loadNamedSkill } from "./encontroSkills";
 import { warnIfOrphan } from '@shared/field-destiny';
 import { digRound1, digRound2 } from './w3Dig';
 import { buildContextMarkdown } from './contextBundle';
@@ -3237,6 +3240,8 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'familia_reco', items: (event as any).items, intro: (event as any).intro }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_solution_options') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'solution_options', items: (event as any).items, full: (event as any).full }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_project_brief') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'project_brief', brief: (event as any).brief }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_solution_test') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'solution_test', test: (event as any).test }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_comparison') {
@@ -3496,7 +3501,28 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   // E3 checkpoints \u2014 same architecture, one workshop on. The dependencies are
   // passed rather than imported so the arrow points one way: cboE3Checkpoint
   // knows nothing about this file.
-  if (state.phase === 3) {
+  // ── A PROJECT's shared session — not an organisation's ────────────────────
+  // Every branch below treats the state as one organisation walking the
+  // encontros. A project state (metadata.project) is a room of several; its
+  // door is its own template and its model turns read the project context.
+  if (state.metadata?.project) {
+    try {
+      const project = await findProjectByStateId(cboId);
+      if (project) {
+        const served = await serveProjectCheckpoint(cboId, userMessage, state, pushEvent, lang, turnKind, {
+          writeFields: (sectionId, fields) => writeSectionFields(cboId, state, sectionId, fields, pushEvent),
+          recordCheckpoint: (step) => recordCboEvent({ cboStateId: cboId, name: 'checkpoint', phase: state.phase, step }),
+          normChip,
+          brief: () => projectBrief(project, lang === 'en' ? 'en' : 'pt'),
+        });
+        if (served) { res.end(); return; }
+      }
+    } catch (err) {
+      console.error(`[cbo] project checkpoint error for ${cboId} — falling through to the model:`, err);
+    }
+  }
+
+  if (!state.metadata?.project && state.phase === 3) {
     try {
       const served = await serveE3Checkpoint(cboId, userMessage, state, pushEvent, lang, turnKind, {
         writeFields: (sectionId, fields) => writeSectionFields(cboId, state, sectionId, fields, pushEvent),
@@ -4050,7 +4076,23 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
     buildDocumentsBlock(cboId),
     getPhasePolicyForCbo(cboId),
   ]);
-  const stateSummary = buildStateSummary(state);
+  // A project turn reads the PROJECT context — the brief and every member's
+  // full record and documents — in place of the one-organisation summary.
+  // Built per turn from live state, like the summary it replaces.
+  let stateSummary = buildStateSummary(state);
+  let docsBlock = documentsBlock;
+  if (state.metadata?.project) {
+    try {
+      const project = await findProjectByStateId(cboId);
+      if (project) {
+        stateSummary = `## PROJECT CONTEXT — ${project.title}
+${await buildProjectContext(project, lang === 'en' ? 'en' : 'pt')}`;
+        docsBlock = '';
+      }
+    } catch (e: any) {
+      console.error('[cbo] project context failed, using the bare state:', e?.message || e);
+    }
+  }
   const decisionLog = buildDecisionLog(cboId);
   const accessPolicy = buildAccessPolicyPrompt(policy);
 
@@ -4061,7 +4103,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   // has no "check CURRENT STATE first" rule and the agent asks for the org
   // name even when the invite already prefilled it.
   const skillPhase = Math.max(1, state.phase);
-  const skill = await loadEncontroSkill(skillPhase);
+  const skill = state.metadata?.project ? await loadNamedSkill('projeto') : await loadEncontroSkill(skillPhase);
   const heavyModel = skill?.model ?? DEFAULT_CBO_MODEL;
   const { model, routing, reason } = resolveTurnModel(cboId, state, userMessage, turnKind, heavyModel);
   console.log(`[cbo] turn routing for ${cboId}: ${routing} (${reason}) kind=${turnKind ?? 'none'} model=${model}`);
@@ -4088,7 +4130,7 @@ async function streamWithSdk(cboId: string, userMessage: string, state: CboState
   // drifted — a site saying "fundada em 2013" got bucketed '5 a 10 anos'
   // instead of 'Mais de 10 anos' (live E1 run, 2026-07-08).
   const todayLine = `TODAY: ${new Date().toISOString().slice(0, 10)}\n`;
-  const turnContext = `## CURRENT STATE\n${todayLine}${stateSummary}${documentsBlock}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\n## NEW MESSAGE FROM THE USER\n`;
+  const turnContext = `## CURRENT STATE\n${todayLine}${stateSummary}${docsBlock}\n\n## RECENT CONVERSATION\n${decisionLog}${accessPolicy}\n\n## NEW MESSAGE FROM THE USER\n`;
   // The user tapped "Tenho outra dúvida" in the map's legend sheet. They are
   // parked mid-tour on the map tab; answer the question and give them the way
   // back. The tool fence below already blocks everything else, but saying so
@@ -4436,7 +4478,7 @@ async function buildSystemContext(state: CboState, lang: string = 'en'): Promise
   // calls set_phase(1) on its first turn) maps to E1 — otherwise the first
   // turn ignores the skill's "check CURRENT STATE first" rule.
   const skillPhase = Math.max(1, state.phase);
-  const encontroSkill = await loadEncontroSkill(skillPhase);
+  const encontroSkill = state.metadata?.project ? await loadNamedSkill('projeto') : await loadEncontroSkill(skillPhase);
   const phaseInstructions = encontroSkill?.markdown ?? buildPhaseInstructions(state.phase, isPt);
 
   // Persisted maturity tier (EF-5): E1 infers and persists it via
@@ -4445,7 +4487,7 @@ async function buildSystemContext(state: CboState, lang: string = 'en'): Promise
   // no longer contains the E1 signals. Stable per phase, so it lives in the
   // cached system prefix, not the volatile blocks.
   let tierBlock = '';
-  if (state.phase >= 2) {
+  if (state.phase >= 2 && !state.metadata?.project) {
     const tier = await getMaturityTierForCboState(state.id).catch(() => null);
     if (tier) {
       const guidance: Record<string, string> = {

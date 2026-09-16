@@ -731,9 +731,19 @@ export function BulkInviteSummaryDialog({
 //   - Used after an invite (audience: a CBO contact)
 //   - Used for "My link" (audience: the coordinator themselves)
 // ---------------------------------------------------------------------------
-type ShareLinkContext =
+export type ShareLinkContext =
   | { kind: 'cbo'; orgName: string }
-  | { kind: 'coordinator'; cohortName: string };
+  | { kind: 'coordinator'; cohortName: string }
+  /** A project's shared chat — one link for every organisation in it. */
+  | { kind: 'project'; title: string; orgNames: string[] };
+
+/** The WhatsApp message that carries a project link — everyone in the project gets the same one. */
+export function projectGreetingMessage(title: string, orgNames: string[], url: string, isPt: boolean): string {
+  const who = orgNames.join(', ');
+  return isPt
+    ? `Oi! Este é o link do projeto *${title}* (${who}) na Rede SCbN. É uma conversa só, de todas as organizações juntas — tudo o que cada uma contou nos encontros já está lá:\n${url}`
+    : `Hi! This is the link for the project *${title}* (${who}) in the Rede SCbN. It is one conversation for all the organisations together — everything each one told us in the encontros is already there:\n${url}`;
+}
 
 export function ShareLinkDialog({
   open, onOpenChange, url, context, cohortLanguage,
@@ -763,6 +773,9 @@ export function ShareLinkDialog({
     if (context.kind === 'cbo') {
       return cboGreetingMessage(context.orgName, url, cboIsPt);
     }
+    if (context.kind === 'project') {
+      return projectGreetingMessage(context.title, context.orgNames, url, cboIsPt);
+    }
     // Coordinator-facing — short, just for their own notes
     return isPt
       ? `Meu link de coordenador — ${context.cohortName}:\n${url}\n\n⚠️ Guarde este link. É a forma de voltar ao cohort em outro navegador.`
@@ -787,13 +800,20 @@ export function ShareLinkDialog({
             <LinkIcon className="w-4 h-4" />
             {isCoordinatorContext
               ? t('orchestrator.cohort.coordLinkTitle', { defaultValue: 'Your coordinator link' })
-              : t('orchestrator.cohort.cboLinkTitle', { defaultValue: 'Invitation ready' })}
+              : context?.kind === 'project'
+                ? t('orchestrator.projects.linkTitle', { defaultValue: 'Project link' })
+                : t('orchestrator.cohort.cboLinkTitle', { defaultValue: 'Invitation ready' })}
           </DialogTitle>
           <DialogDescription>
             {isCoordinatorContext
               ? t('orchestrator.cohort.coordLinkDesc', {
                   defaultValue: 'Save this somewhere safe. It\'s the only way back to this cohort if you switch browsers or clear cookies.',
                 })
+              : context?.kind === 'project'
+                ? t('orchestrator.projects.linkDesc', {
+                    defaultValue: 'Share this one link with every organisation in {{title}}. They all land in the same conversation, which opens on what each of them already told us.',
+                    title: context.title,
+                  })
               : context?.kind === 'cbo'
                 ? t('orchestrator.cohort.cboLinkDesc', {
                     defaultValue: 'Share this link with {{org}}. They\'ll land on the chat with Phase 1 unlocked.',
@@ -879,6 +899,172 @@ export function ShareLinkDialog({
 // member keeps its invite link and workshop unlocks; the working session and
 // run-derived progress are erased.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// CreateProjectDialog — a title and the organisations that make the project.
+// The link and the shared session are created with it (server side), so the
+// dialog closes on a project that already has a link to hand out.
+// ---------------------------------------------------------------------------
+export function CreateProjectDialog({
+  open, onOpenChange, members, initial, onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  members: Array<{ id: string; orgName: string; neighborhood?: string | null }>;
+  /** Pre-filled from a synergy line ("Criar projeto" on a programme line). */
+  initial?: { title?: string; memberIds?: string[] } | null;
+  onSubmit: (input: { title: string; memberIds: string[] }) => Promise<boolean>;
+}) {
+  const { t } = useTranslation();
+  const [title, setTitle] = useState('');
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setTitle(initial?.title ?? '');
+      setPicked(new Set(initial?.memberIds ?? []));
+    }
+  }, [open, initial]);
+
+  const toggle = (id: string) => setPicked(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const canSubmit = title.trim().length > 0 && picked.size > 0 && !busy;
+  const submit = async () => {
+    if (!canSubmit) return;
+    setBusy(true);
+    try {
+      const ok = await onSubmit({ title: title.trim(), memberIds: members.filter(m => picked.has(m.id)).map(m => m.id) });
+      if (ok) onOpenChange(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[520px]" data-testid="create-project-dialog">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            {t('orchestrator.projects.createTitle', { defaultValue: 'New project' })}
+          </DialogTitle>
+          <DialogDescription>
+            {t('orchestrator.projects.createDesc', {
+              defaultValue: 'A project is a group of organisations that will work on one solution together. It gets a single link to a shared conversation that opens on everything each of them already told us.',
+            })}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground" htmlFor="project-title">
+              {t('orchestrator.projects.titleLabel', { defaultValue: 'Project name' })}
+            </label>
+            <Input
+              id="project-title"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder={t('orchestrator.projects.titlePlaceholder', { defaultValue: 'e.g. Água e enchentes — Floresta' })}
+              onKeyDown={e => { if (e.key === 'Enter') void submit(); }}
+              data-testid="input-project-title"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs font-medium text-muted-foreground">
+                {t('orchestrator.projects.membersLabel', { defaultValue: 'Organisations in this project' })}
+              </span>
+              <span className="text-[11px] text-muted-foreground tabular-nums">{picked.size} / {members.length}</span>
+            </div>
+            {members.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t('orchestrator.projects.noMembers', { defaultValue: 'Invite organisations first — a project is made of them.' })}
+              </p>
+            ) : (
+              <div className="max-h-[260px] overflow-y-auto rounded-md border divide-y" data-testid="project-member-list">
+                {members.map(m => {
+                  const on = picked.has(m.id);
+                  return (
+                    <label
+                      key={m.id}
+                      className={`flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer transition-colors ${on ? 'bg-emerald-50 dark:bg-emerald-950/30' : 'hover:bg-muted/50'}`}
+                      data-testid={`project-member-${m.id}`}
+                    >
+                      <input type="checkbox" className="accent-emerald-600" checked={on} onChange={() => toggle(m.id)} />
+                      <span className="min-w-0 flex-1 truncate">
+                        {m.orgName}
+                        {m.neighborhood && <span className="ml-1.5 text-xs text-muted-foreground">· {m.neighborhood}</span>}
+                      </span>
+                      {on && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+            {t('common.cancel', { defaultValue: 'Cancel' })}
+          </Button>
+          <Button onClick={submit} disabled={!canSubmit} data-testid="button-create-project-submit">
+            <Plus className="w-3.5 h-3.5 mr-1.5" />
+            {t('orchestrator.projects.create', { defaultValue: 'Create project' })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// A project's delete: the link dies; the organisations and the transcript stay.
+export function ProjectDeleteConfirmDialog({
+  open, title, onOpenChange, onConfirm,
+}: {
+  open: boolean;
+  title: string;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => Promise<void> | void;
+}) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[440px]" data-testid="project-delete-dialog">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-destructive" />
+            {t('orchestrator.projects.deleteTitle', { defaultValue: 'Delete the project {{title}}?', title })}
+          </DialogTitle>
+          <DialogDescription>
+            {t('orchestrator.projects.deleteDesc', {
+              defaultValue: 'The project link stops working for everyone. The organisations and their own records are untouched. This can’t be undone.',
+            })}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
+            {t('common.cancel', { defaultValue: 'Cancel' })}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } }}
+            disabled={busy}
+            data-testid="button-confirm-project-delete"
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+            {busy ? t('common.working', { defaultValue: 'Working…' }) : t('orchestrator.projects.deleteConfirm', { defaultValue: 'Yes, delete the project' })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function MemberResetConfirmDialog({
   open, orgName, onOpenChange, onConfirm,
 }: {

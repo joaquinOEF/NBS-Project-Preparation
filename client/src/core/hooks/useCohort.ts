@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { Cohort, CohortMember, WorkshopConfig } from '@shared/cohort-schema';
+import type { Cohort, CohortMember, CohortProject, WorkshopConfig } from '@shared/cohort-schema';
 
 // ---------------------------------------------------------------------------
 // useCohort — loads the coordinator's OWN cohort from GET /api/cohort/mine.
@@ -58,6 +58,12 @@ export interface UseCohortResult {
   saveWorkshops: (workshops: WorkshopConfig[]) => Promise<void>;
   saveLanguage: (language: 'pt' | 'en' | null) => Promise<void>;
   deleteCohort: () => Promise<void>;
+  /** The cohort's projects — the unit of work after Encontro 3 (docs/projects.md). */
+  projects: CohortProject[];
+  refreshProjects: () => Promise<void>;
+  createProject: (input: { title: string; memberIds: string[] }) => Promise<CohortProject | null>;
+  updateProject: (projectId: string, patch: { title?: string; memberIds?: string[]; archived?: boolean }) => Promise<CohortProject | null>;
+  deleteProject: (projectId: string) => Promise<boolean>;
 }
 
 export function useCohort(): UseCohortResult {
@@ -65,6 +71,7 @@ export function useCohort(): UseCohortResult {
   const [members, setMembers] = useState<CohortMember[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [allCohorts, setAllCohorts] = useState<CohortSummary[]>([]);
+  const [projects, setProjects] = useState<CohortProject[]>([]);
   const [loading, setLoading] = useState(true);
   // The currently-loaded cohort's slug, kept in a ref so mutation callbacks
   // always target the cohort on screen — even after an admin switches away from
@@ -132,6 +139,48 @@ export function useCohort(): UseCohortResult {
   // Re-load whatever cohort is currently on screen (not always /mine — an admin
   // may have switched to another cohort). Mutations call this after writing.
   const refresh = useCallback(async () => { await loadCohort(slugRef.current); }, [loadCohort]);
+
+  // Projects ride beside the members: same cohort, same slug, their own list.
+  // Refetched whenever the cohort on screen changes and after every mutation.
+  const refreshProjects = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/cohort/${slugRef.current}/projects`);
+      if (!r.ok) { setProjects([]); return; }
+      const data = await r.json();
+      setProjects(data.projects ?? []);
+    } catch { setProjects([]); }
+  }, []);
+  useEffect(() => { if (cohort?.id) void refreshProjects(); else setProjects([]); }, [cohort?.id, refreshProjects]);
+
+  const createProject: UseCohortResult['createProject'] = useCallback(async ({ title, memberIds }) => {
+    const r = await fetch(`/api/cohort/${slugRef.current}/projects`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, memberIds }),
+    });
+    if (!r.ok) return null;
+    const { project } = await r.json();
+    await refreshProjects();
+    return project;
+  }, [refreshProjects]);
+
+  const updateProject: UseCohortResult['updateProject'] = useCallback(async (projectId, patch) => {
+    const r = await fetch(`/api/cohort/${slugRef.current}/projects/${projectId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    if (!r.ok) return null;
+    const { project } = await r.json();
+    await refreshProjects();
+    return project;
+  }, [refreshProjects]);
+
+  const deleteProject = useCallback(async (projectId: string) => {
+    const r = await fetch(`/api/cohort/${slugRef.current}/projects/${projectId}`, { method: 'DELETE' });
+    await refreshProjects();
+    return r.ok;
+  }, [refreshProjects]);
 
   const switchCohort = useCallback(async (cohortSlug: string) => {
     setLoading(true);
@@ -275,5 +324,6 @@ export function useCohort(): UseCohortResult {
     loading, cohort, members, isAdmin, allCohorts,
     refresh, refreshAllCohorts, switchCohort, provisionCohort, openWorkshopPhase,
     resetCohort, resetMember, removeMember, invite, unlockPhase, closeWorkshopPhase, saveWorkshops, saveLanguage, deleteCohort,
+    projects, refreshProjects, createProject, updateProject, deleteProject,
   };
 }

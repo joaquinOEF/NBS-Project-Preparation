@@ -21,7 +21,11 @@ import {
   type SupportRequestType,
   type WorkshopConfig,
   type MemberSite,
+  cohortProjects,
 } from '@shared/cohort-schema';
+import { createEmptyCboState } from '@shared/cbo-schema';
+import { findProjectByToken, findProjectById, projectBrief, projectCohort } from '../services/projectContext';
+import { renderProjectBriefHtml } from '../services/projectBriefPrint';
 import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } from '../services/orgPersistence';
 import { cboStates } from '@shared/cbo-db-schema';
 import { cboSectionsFilledCount, type CboState } from '@shared/cbo-schema';
@@ -493,6 +497,94 @@ export function registerCohortRoutes(app: Express): void {
    * failed. Status comes from the newest run; the payload comes from the newest
    * DONE one.
    */
+  // ═══ PROJECTS — the unit of work after Encontro 3 ══════════════════════════
+  // A coordinator-named bundle of members with one shared chat session and one
+  // link. See shared/cohort-schema.ts → cohortProjects and docs/projects.md.
+  const projectView = (p: typeof cohortProjects.$inferSelect) => ({
+    id: p.id,
+    cohortId: p.cohortId,
+    title: p.title,
+    capabilityToken: p.capabilityToken,
+    cboStateId: p.cboStateId,
+    memberIds: p.memberIds ?? [],
+    createdAt: p.createdAt,
+    archivedAt: p.archivedAt,
+  });
+
+  app.get('/api/cohort/:coordinatorSlug/projects', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const rows = await db.select().from(cohortProjects).where(eq(cohortProjects.cohortId, cohort.id)).orderBy(desc(cohortProjects.createdAt));
+    res.json({ projects: rows.map(projectView) });
+  }));
+
+  app.post('/api/cohort/:coordinatorSlug/projects', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const title = String(req.body?.title ?? '').trim().slice(0, 140);
+    const memberIds: string[] = Array.isArray(req.body?.memberIds) ? req.body.memberIds.map(String) : [];
+    if (!title) { res.status(400).json({ error: 'title is required' }); return; }
+    if (!memberIds.length) { res.status(400).json({ error: 'at least one member is required' }); return; }
+    // Only this cohort's members, in the order given.
+    const rows = await db.select({ id: cohortMembers.id }).from(cohortMembers)
+      .where(and(eq(cohortMembers.cohortId, cohort.id), inArray(cohortMembers.id, memberIds)));
+    const known = new Set(rows.map(r => r.id));
+    const kept = memberIds.filter(id => known.has(id));
+    if (!kept.length) { res.status(400).json({ error: 'no member belongs to this cohort' }); return; }
+
+    // The shared session, created WITH the project so the link always
+    // resolves — no snapshot dance, no "first opener creates it" race.
+    const state = createEmptyCboState('porto-alegre');
+    state.orgName = title;
+    state.phase = 3;
+    state.metadata.language = ((cohort.settings as CohortSettings | null)?.language ?? 'pt');
+    setCboState(state.id, state);
+    const [project] = await db.insert(cohortProjects).values({
+      cohortId: cohort.id,
+      title,
+      capabilityToken: slug(),
+      cboStateId: state.id,
+      memberIds: kept,
+    }).returning();
+    // The discriminator, written after the row exists so the id is real.
+    state.metadata.project = { id: project.id, cohortId: cohort.id };
+    setCboState(state.id, state);
+    debouncedPersist(state.id);
+    res.json({ project: projectView(project) });
+  }));
+
+  app.patch('/api/cohort/:coordinatorSlug/projects/:projectId', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const [project] = await db.select().from(cohortProjects)
+      .where(and(eq(cohortProjects.id, req.params.projectId), eq(cohortProjects.cohortId, cohort.id))).limit(1);
+    if (!project) { res.status(404).json({ error: 'project not found' }); return; }
+    const patch: Partial<typeof cohortProjects.$inferInsert> = {};
+    if (typeof req.body?.title === 'string' && req.body.title.trim()) patch.title = req.body.title.trim().slice(0, 140);
+    if (Array.isArray(req.body?.memberIds)) {
+      const ids = req.body.memberIds.map(String);
+      const rows = await db.select({ id: cohortMembers.id }).from(cohortMembers)
+        .where(and(eq(cohortMembers.cohortId, cohort.id), inArray(cohortMembers.id, ids.length ? ids : ['-'])));
+      const known = new Set(rows.map(r => r.id));
+      patch.memberIds = ids.filter((id: string) => known.has(id));
+    }
+    if (req.body?.archived === true) patch.archivedAt = new Date();
+    if (req.body?.archived === false) patch.archivedAt = null;
+    const [updated] = await db.update(cohortProjects).set(patch).where(eq(cohortProjects.id, project.id)).returning();
+    // The session's title follows the project's.
+    if (patch.title) {
+      const st = getCboState(project.cboStateId) ?? (await loadCboFromDb(project.cboStateId))?.state ?? null;
+      if (st) { st.orgName = patch.title; setCboState(st.id, st); debouncedPersist(st.id); }
+    }
+    res.json({ project: projectView(updated) });
+  }));
+
+  app.delete('/api/cohort/:coordinatorSlug/projects/:projectId', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const deleted = await db.delete(cohortProjects)
+      .where(and(eq(cohortProjects.id, req.params.projectId), eq(cohortProjects.cohortId, cohort.id))).returning();
+    if (!deleted.length) { res.status(404).json({ error: 'project not found' }); return; }
+    // The session row stays (a transcript is a record); the link no longer resolves.
+    res.json({ ok: true });
+  }));
+
   app.get('/api/cohort/:cohortId/synergies', wrap(async (req, res) => {
     const latest = await reapStaleRun(req.params.cohortId);
     if (!latest) return res.json({ report: null });
@@ -1300,6 +1392,37 @@ export function registerCohortRoutes(app: Express): void {
   // credential). Preferred over the legacy by-slug path. Returns memberSlug so
   // the client can keep making slug-based snapshot/support calls during the
   // backward-compatible transition (Phase 3a).
+  // A project link resolves like a member link: the token is the credential.
+  app.get('/api/project/by-token/:token', wrap(async (req, res) => {
+    const project = await findProjectByToken(req.params.token);
+    if (!project || project.archivedAt) { res.status(404).json({ error: 'project not found' }); return; }
+    const cohort = await projectCohort(project);
+    const rows = project.memberIds.length
+      ? await db.select().from(cohortMembers).where(inArray(cohortMembers.id, project.memberIds))
+      : [];
+    const byId = new Map(rows.map(r => [r.id, r]));
+    res.json({
+      id: project.id,
+      title: project.title,
+      cboStateId: project.cboStateId,
+      cohort: cohort ? { id: cohort.id, name: cohort.name, language: (cohort.settings as CohortSettings | null)?.language ?? null } : null,
+      members: project.memberIds.map(id => byId.get(id)).filter(Boolean).map(m => ({
+        id: m!.id, orgName: m!.orgName, neighborhood: m!.neighborhood ?? null,
+      })),
+    });
+  }));
+
+  // The brief as a document — rebuilt from every member's live record.
+  app.get('/api/project/:projectId/brief', wrap(async (req, res) => {
+    const project = await findProjectById(req.params.projectId);
+    if (!project) { res.status(404).send('Not found'); return; }
+    const cohort = await projectCohort(project);
+    const lang = req.query.lang === 'en' || (cohort?.settings as CohortSettings | null)?.language === 'en' ? 'en' : 'pt';
+    const brief = await projectBrief(project, lang);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(renderProjectBriefHtml(brief, lang));
+  }));
+
   app.get('/api/cbo-member/by-token/:token', wrap(async (req, res) => {
     const member = await findMemberByToken(req.params.token);
     if (!member) { res.status(404).json({ error: 'member not found' }); return; }

@@ -53,6 +53,17 @@ export class TestApi {
     return this.post(`/cohort/${cohortId}/member`, body);
   }
 
+  /**
+   * Create a project through the REAL coordinator route (needs createCoordinator
+   * first on the same request context — the cookie is the credential).
+   * `coordinatorSlug` is the cohort's slug, as every /api/cohort/:slug route.
+   */
+  async createProject(coordinatorSlug: string, body: { title: string; memberIds: string[] }): Promise<any> {
+    const r = await this.request.post(`/api/cohort/${coordinatorSlug}/projects`, { data: body });
+    if (!r.ok()) throw new Error(`POST /api/cohort/${coordinatorSlug}/projects → ${r.status()} ${await r.text()}`);
+    return (await r.json()).project;
+  }
+
   /** Create + log in a coordinator. Cookie is set on the request context. */
   createCoordinator(body: Record<string, unknown> = {}) {
     return this.post('/coordinator', body);

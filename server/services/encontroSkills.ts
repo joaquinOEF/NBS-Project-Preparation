@@ -36,6 +36,23 @@ const skillCache = new Map<number, EncontroSkill | null>();
  * keyed by phase number — skills change rarely and atomically per-phase.
  * (An mtime-based reload is planned in a follow-up PR.)
  */
+/** A skill by file name — `projeto` for the shared project session. Same cache, same frontmatter. */
+export async function loadNamedSkill(name: string): Promise<EncontroSkill | null> {
+  const key = `name:${name}`;
+  if (namedCache.has(key)) return namedCache.get(key) ?? null;
+  try {
+    const filePath = path.join(process.cwd(), 'knowledge', '_skills', `${name}.md`);
+    const content = await fs.readFile(filePath, 'utf-8');
+    const skill = parseFrontmatter(content);
+    namedCache.set(key, skill);
+    return skill;
+  } catch {
+    namedCache.set(key, null);
+    return null;
+  }
+}
+const namedCache = new Map<string, EncontroSkill | null>();
+
 export async function loadEncontroSkill(phase: number): Promise<EncontroSkill | null> {
   if (skillCache.has(phase)) return skillCache.get(phase) ?? null;
   try {

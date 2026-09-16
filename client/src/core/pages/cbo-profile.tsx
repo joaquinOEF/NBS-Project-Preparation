@@ -81,6 +81,7 @@ import { CboDossier } from '@/core/components/cbo/CboDossier';
 import { CboRoadmap } from '@/core/components/cbo/CboRoadmap';
 import { CboSolutionTest } from '@/core/components/cbo/CboSolutionTest';
 import { CboComparison } from '@/core/components/cbo/CboComparison';
+import { CboProjectBrief } from '@/core/components/cbo/CboProjectBrief';
 import type { WorkshopConfig } from '@shared/cohort-schema';
 import { localizedWorkshopName } from '@/lib/workshopHelpers';
 
@@ -333,7 +334,7 @@ function migrateCboState(state: CboState): CboState {
 function sessionStorageKey(): string {
   try {
     const p = new URLSearchParams(window.location.search);
-    const ref = p.get('t') || p.get('cbo');
+    const ref = p.get('t') || p.get('cbo') || p.get('p');
     return ref ? `${STORAGE_KEY}:${ref}` : STORAGE_KEY;
   } catch { return STORAGE_KEY; }
 }
@@ -685,9 +686,20 @@ export default function CboProfilePage() {
   const [viaInviteLink, setViaInviteLink] = useState(() => {
     if (typeof window === 'undefined') return false;
     const p = new URLSearchParams(window.location.search);
-    return !!(p.get('t') || p.get('cbo'));
+    return !!(p.get('t') || p.get('cbo') || p.get('p'));
   });
   const [memberInfo, setMemberInfo] = useState<{ orgName: string; neighborhood: string | null } | null>(null);
+  // A PROJECT link (?p=<token>): the shared session of several organisations
+  // (docs/projects.md). Resolved once via /api/project/by-token; the header
+  // shows the project's title and its organisations, there is no welcome
+  // screen (the door is the brief, served by the checkpoint), and the first
+  // turn is the entry line when the transcript is empty.
+  const [projectInfo, setProjectInfo] = useState<{ id: string; title: string; members: Array<{ id: string; orgName: string; neighborhood: string | null }> } | null>(null);
+  const [projectReady, setProjectReady] = useState(false);
+  // Decided from the SERVER's transcript before the session is resolved — the
+  // local messages state is not a safe witness here (a reload once re-sent the
+  // entry line because the effect ran before hydration had landed).
+  const projectNeedsKickoffRef = useRef(false);
   // Project-readiness triage from E1: 'has-project' | 'has-idea' | 'needs-help'
   // | null (until triaged). has-project + has-idea are project-forward.
   // Sourced from cohort_members.path via /api/cbo-member/:slug. Drives the
@@ -819,6 +831,42 @@ export default function CboProfilePage() {
     // unchanged during the Phase-3a transition.
     const token = params.get('t');
     const slugParam = params.get('cbo');
+    const projectToken = params.get('p');
+    if (projectToken) {
+      setViaInviteLink(true);
+      fetch(`/api/project/by-token/${projectToken}`, { signal: AbortSignal.timeout(15_000) })
+        .then(r => {
+          if (r.ok) return r.json();
+          throw new Error(r.status === 404 ? 'invalid-token' : 'network');
+        })
+        .then(async (data) => {
+          if (!data?.cboStateId) throw new Error('invalid-token');
+          setSessionError(null);
+          setProjectInfo({ id: data.id, title: data.title, members: data.members ?? [] });
+          setMemberInfo({
+            orgName: data.title,
+            neighborhood: (data.members ?? []).map((m: any) => m.orgName).join(' · ') || null,
+          });
+          if (data.cohort?.name) setCohortName(data.cohort.name);
+          const cohortLang = data.cohort ? (data.cohort.language ?? 'pt') : 'pt';
+          if ((cohortLang === 'pt' || cohortLang === 'en') && i18n.resolvedLanguage !== cohortLang) {
+            i18n.changeLanguage(cohortLang);
+          }
+          // Phase 3 is where a project lives; the gate must not read as locked.
+          setUnlockedPhases([1, 2, 3]);
+          try {
+            const mr = await fetch(`/api/cbo/${data.cboStateId}/messages`);
+            const existing = mr.ok ? await mr.json() : [];
+            projectNeedsKickoffRef.current = !Array.isArray(existing) || existing.length === 0;
+          } catch { projectNeedsKickoffRef.current = false; }
+          await resolveSession(data.cboStateId);
+          setProjectReady(true);
+        })
+        .catch((e: any) => {
+          setSessionError(e?.message === 'invalid-token' ? 'invalid-token' : 'network');
+        });
+      return;
+    }
     if (!token && !slugParam) return;
     setViaInviteLink(true);
     const memberUrl = token
@@ -920,6 +968,8 @@ export default function CboProfilePage() {
   useEffect(() => {
     if (prefillSentRef.current) return;
     if (!cboId || !memberInfo) return;
+    // A project's session belongs to no single organisation: nothing to seed.
+    if (projectInfo) { prefillSentRef.current = true; return; }
     prefillSentRef.current = true;
     fetch(`/api/cbo/${cboId}/prefill`, {
       method: 'POST',
@@ -1161,7 +1211,8 @@ export default function CboProfilePage() {
     // the source of truth so the link resumes on any device. Only the
     // standalone /cbo-profile flow (no token) self-inits from localStorage here.
     const p = new URLSearchParams(window.location.search);
-    if (p.get('t') || p.get('cbo')) return;
+    // A project link (?p=) resolves its shared session the same way.
+    if (p.get('t') || p.get('cbo') || p.get('p')) return;
     initRef.current = true;
     async function init() {
       const saved = getSavedId();
@@ -1497,6 +1548,11 @@ export default function CboProfilePage() {
       }
       case 'show_roadmap': {
         setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify({ kind: 'roadmap', roadmap: (event as any).roadmap }), messageType: 'composer', timestamp: new Date().toISOString() }]);
+        break;
+      }
+      case 'show_project_brief': {
+        // The project door — mid-turn, the roster ask_user follows.
+        setMessages(prev => [...prev, { role: 'assistant', content: JSON.stringify({ kind: 'project_brief', brief: (event as any).brief }), messageType: 'composer', timestamp: new Date().toISOString() }]);
         break;
       }
       case 'show_solution_options':
@@ -1888,6 +1944,18 @@ export default function CboProfilePage() {
     sendMessage(text, true, false, undefined, 'system');
   }, [cboId, lang, sendMessage]);
 
+  // A project's first turn: the entry line, as a system turn, once the
+  // session is resolved and the transcript is empty. The checkpoint answers
+  // it with the brief and the roster question (serveProjectCheckpoint).
+  const projectKickedRef = useRef(false);
+  useEffect(() => {
+    if (!projectReady || !projectInfo || !cboId || projectKickedRef.current) return;
+    projectKickedRef.current = true;
+    if (!projectNeedsKickoffRef.current || messages.length > 0) return;
+    sendMessage(lang === 'pt' ? 'Vamos começar o projeto.' : "Let's start the project.", true, false, undefined, 'system');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectReady, projectInfo, cboId]);
+
   // File drop handler
   const { isDragging, isUploading, dragHandlers } = useFileDrop({
     sessionId: cboId,
@@ -2158,6 +2226,11 @@ export default function CboProfilePage() {
               <div className="min-w-0 flex-1">
                 {memberInfo ? (
                   <h2 className="text-sm font-semibold tracking-tight truncate leading-tight">
+                    {projectInfo && (
+                      <span className="mr-1.5 rounded-full bg-emerald-600 px-1.5 py-px text-[9.5px] font-bold uppercase tracking-wider text-white align-middle" data-testid="project-badge">
+                        {lang === 'pt' ? 'Projeto' : 'Project'}
+                      </span>
+                    )}
                     {memberInfo.orgName}
                     {memberInfo.neighborhood && (
                       <span className="ml-1.5 text-xs text-muted-foreground font-normal">· {memberInfo.neighborhood}</span>
@@ -2267,7 +2340,9 @@ export default function CboProfilePage() {
                 </AlertDialog>
               </div>
             </div>
-            <CboProgress
+            {/* A project has no encontro strip: its session is not one
+                organisation's walk through the six encontros. */}
+            {!projectInfo && <CboProgress
               currentPhase={Math.max(1, Math.min(5, state.phase || 1))}
               unlockedPhases={unlockedPhases}
               workshops={workshops}
@@ -2280,7 +2355,7 @@ export default function CboProfilePage() {
                 const skip = p === 3 ? '3a' : String(p);
                 sendMessage(`[SKIP TO phase:${skip}]`, false, false, undefined, 'system');
               } : undefined}
-            />
+            />}
           </div>
 
           {/* overflow-x-hidden + the column's min-w-0: without them the NBS
@@ -2424,6 +2499,13 @@ export default function CboProfilePage() {
                         lang={lang.startsWith('pt') ? 'pt' : 'en'}
                         cboId={cboId ?? undefined}
                       />
+                    </div>
+                  );
+                }
+                if (parsed.kind === 'project_brief' && parsed.brief) {
+                  return (
+                    <div key={i} className="rounded-lg bg-muted/30 p-3 -mx-1">
+                      <CboProjectBrief brief={parsed.brief} lang={lang.startsWith('pt') ? 'pt' : 'en'} />
                     </div>
                   );
                 }
