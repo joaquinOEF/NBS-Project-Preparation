@@ -69,10 +69,7 @@ export function ProjectsView({
     <div data-testid="projects-view">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight">
-            {t('orchestrator.projects.title', { defaultValue: 'Projects' })}
-          </h2>
-          <p className="mt-0.5 max-w-[64ch] text-[13px] text-muted-foreground">
+          <p className="max-w-[64ch] text-[13px] text-muted-foreground">
             {t('orchestrator.projects.lede', {
               defaultValue: 'From Encontro 3 on, the work is by project: a group of organisations, one shared conversation, one link. The conversation opens on everything each organisation already told us.',
             })}

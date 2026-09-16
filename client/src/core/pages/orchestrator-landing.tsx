@@ -2047,48 +2047,6 @@ export default function OrchestratorLandingPage() {
           />
         </div>
 
-        {/* Organizações | Projetos. Organisations are the roster the cohort is
-            built from; projects are what the coordination works with from
-            Encontro 3 on (docs/projects.md). */}
-        <div className="mb-6 flex items-center gap-3" data-testid="orchestrator-view-switch">
-          <div className="inline-flex rounded-lg border border-foreground/10 bg-muted/40 p-0.5">
-            {([
-              ['orgs', t('orchestrator.views.orgs', { defaultValue: 'Organisations' }), members.length],
-              ['projects', t('orchestrator.views.projects', { defaultValue: 'Projects' }), cohortProjects.filter(p => !p.archivedAt).length],
-            ] as const).map(([key, label, n]) => {
-              const on = view === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => switchView(key)}
-                  aria-pressed={on}
-                  data-testid={`view-${key}`}
-                  className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
-                    on ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {label}
-                  <span className={`rounded-full px-1.5 text-[11px] tabular-nums ${on ? 'bg-emerald-600 text-white' : 'bg-foreground/10'}`}>{n}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {view === 'projects' && (
-          <ProjectsView
-            projects={cohortProjects}
-            members={members}
-            cohortId={cohort?.id ?? null}
-            onCreate={openCreateProject}
-            onShare={shareProject}
-            onArchive={handleArchiveProject}
-            onDelete={setProjectDeleteTarget}
-          />
-        )}
-
-        {view === 'orgs' && (<>
         {/* Aggregate stats — diagnostic pipeline */}
         <motion.div
           className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"
@@ -2251,7 +2209,51 @@ export default function OrchestratorLandingPage() {
             </div>
           </Tabs>
 
-          {/* Participants — full-width list/grid below the tabs, always visible */}
+          {/* Organizações | Projetos — below the map, where the roster lives.
+              Everything above (stats, diagnosis, synergies, the Encontro 3
+              piles, the map) is the cohort's and stays in both views; only
+              what is listed here swaps: the organisations, or the projects
+              made of them (docs/projects.md). */}
+          <div className="mb-3 flex items-center gap-3" data-testid="orchestrator-view-switch">
+            <div className="inline-flex rounded-lg border border-foreground/10 bg-muted/40 p-0.5">
+              {([
+                ['orgs', t('orchestrator.views.orgs', { defaultValue: 'Organisations' }), members.length],
+                ['projects', t('orchestrator.views.projects', { defaultValue: 'Projects' }), cohortProjects.filter(p => !p.archivedAt).length],
+              ] as const).map(([key, label, n]) => {
+                const on = view === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => switchView(key)}
+                    aria-pressed={on}
+                    data-testid={`view-${key}`}
+                    className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
+                      on ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {label}
+                    <span className={`rounded-full px-1.5 text-[11px] tabular-nums ${on ? 'bg-emerald-600 text-white' : 'bg-foreground/10'}`}>{n}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {view === 'projects' && (
+            <ProjectsView
+              projects={cohortProjects}
+              members={members}
+              cohortId={cohort?.id ?? null}
+              onCreate={openCreateProject}
+              onShare={shareProject}
+              onArchive={handleArchiveProject}
+              onDelete={setProjectDeleteTarget}
+            />
+          )}
+
+          {/* Participants — full-width list/grid below the tabs */}
+          {view === 'orgs' && (
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {projects.map((p, i) => {
               const member = memberById.get(p.id);
@@ -2302,8 +2304,8 @@ export default function OrchestratorLandingPage() {
               );
             })}
           </div>
+          )}
         </div>
-        </>)}
       </main>
 
       {/* Cohort flow dialogs */}
