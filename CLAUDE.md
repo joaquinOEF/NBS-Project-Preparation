@@ -201,6 +201,14 @@ pra depois" is a place to stop and must end on a question. Three of four
 maturity scores at the comparison, never four (`phaseComplete` would call the
 encontro finished).
 
+### Projects — the unit of work after Encontro 3 — `docs/projects.md`
+A project is a coordinator-named group of organisations with ONE shared
+session (`cbo_state` with `metadata.project`) and ONE link
+(`/cbo-profile?p=<token>`). The session is created with the project, the door
+is the brief rebuilt from every member's live record, and the model gets the
+project context instead of one organisation's state. ⚠️ New table
+`cohort_projects` — `db:push` before deploy.
+
 ### ⚠️ Use everything they gave us — `docs/context-first.md`
 Every model-facing pass declares what it does with all twelve context sources —
 fields, their own words, the transcript, document summaries and full text, the

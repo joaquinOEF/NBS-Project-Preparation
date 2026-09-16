@@ -44,7 +44,7 @@ import { RedeMark } from '@/core/components/RedeMark';
 import { useResetRole } from '@/core/contexts/role-context';
 import { useCohort } from '@/core/hooks/useCohort';
 import { useLocation } from 'wouter';
-import type { CohortMember, WorkshopConfig } from '@shared/cohort-schema';
+import type { CohortMember, CohortProject, WorkshopConfig } from '@shared/cohort-schema';
 import { TYPOLOGY_COLORS, zoneRiskOpacity } from '@shared/risk-display';
 import { HAZARD_TILE_RAMP } from '@shared/arvc-official';
 import {
@@ -56,8 +56,12 @@ import {
   MemberRemoveConfirmDialog,
   DeleteCohortConfirmDialog,
   ProvisionCohortDialog,
+  CreateProjectDialog,
+  ProjectDeleteConfirmDialog,
   type BulkInviteResult,
+  type ShareLinkContext,
 } from '@/core/components/orchestrator/CohortDialogs';
+import { ProjectsView, projectLinkUrl } from '@/core/components/orchestrator/ProjectsView';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/core/components/ui/select';
@@ -1457,7 +1461,25 @@ export default function OrchestratorLandingPage() {
     cohort, members, isAdmin, allCohorts,
     invite, unlockPhase, openWorkshopPhase, closeWorkshopPhase, saveWorkshops, resetCohort, resetMember, removeMember, saveLanguage, deleteCohort,
     switchCohort, provisionCohort, refresh,
+    projects: cohortProjects, createProject, updateProject, deleteProject,
   } = useCohort();
+
+  // Organizações | Projetos. The choice rides in the URL (?view=projects) for
+  // the same reason the cohort does: a reload must land where the coordinator
+  // was, and a link to "the projects" must be sendable.
+  const [view, setView] = useState<'orgs' | 'projects'>(() => {
+    if (typeof window === 'undefined') return 'orgs';
+    return new URLSearchParams(window.location.search).get('view') === 'projects' ? 'projects' : 'orgs';
+  });
+  const switchView = (v: 'orgs' | 'projects') => {
+    setView(v);
+    const url = new URL(window.location.href);
+    if (v === 'projects') url.searchParams.set('view', 'projects'); else url.searchParams.delete('view');
+    window.history.replaceState(null, '', url.toString());
+  };
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  const [createProjectInitial, setCreateProjectInitial] = useState<{ title?: string; memberIds?: string[] } | null>(null);
+  const [projectDeleteTarget, setProjectDeleteTarget] = useState<CohortProject | null>(null);
   const cohortLanguage = (cohort?.settings as { language?: 'pt' | 'en' } | null)?.language ?? null;
 
   // Stuck orgs rise (backlog #25). "Stuck" = parked mid-workshop with nothing
@@ -1594,10 +1616,7 @@ export default function OrchestratorLandingPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState<string>('');
-  const [shareContext, setShareContext] = useState<
-    | { kind: 'cbo'; orgName: string }
-    | null
-  >(null);
+  const [shareContext, setShareContext] = useState<ShareLinkContext | null>(null);
   const [bulkSummaryOpen, setBulkSummaryOpen] = useState(false);
   const [bulkInvitations, setBulkInvitations] = useState<BulkInviteResult[]>([]);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -1781,6 +1800,41 @@ export default function OrchestratorLandingPage() {
   };
 
   const workshops: WorkshopConfig[] = cohort?.settings?.workshops ?? [];
+
+  // ── Projects ──────────────────────────────────────────────────────────────
+  const openCreateProject = (initial?: { title?: string; memberIds?: string[] } | null) => {
+    setCreateProjectInitial(initial ?? null);
+    setCreateProjectOpen(true);
+  };
+  const projectOrgNames = (p: CohortProject) =>
+    p.memberIds.map(id => memberById.get(id)?.orgName).filter((n): n is string => !!n);
+  const shareProject = (p: CohortProject) =>
+    openShare(projectLinkUrl(p), { kind: 'project', title: p.title, orgNames: projectOrgNames(p) });
+  const handleCreateProject = async (input: { title: string; memberIds: string[] }) => {
+    const p = await createProject(input);
+    if (!p) {
+      toast({ title: t('orchestrator.projects.createFailed', { defaultValue: 'Could not create the project' }), variant: 'destructive' });
+      return false;
+    }
+    // The link is the point of the project — it is in hand the moment it exists.
+    shareProject(p);
+    return true;
+  };
+  const handleArchiveProject = async (p: CohortProject, archived: boolean) => {
+    const r = await updateProject(p.id, { archived });
+    if (!r) toast({ title: t('orchestrator.projects.updateFailed', { defaultValue: 'Could not update the project' }), variant: 'destructive' });
+  };
+  const handleDeleteProjectConfirm = async () => {
+    if (!projectDeleteTarget) return;
+    const ok = await deleteProject(projectDeleteTarget.id);
+    setProjectDeleteTarget(null);
+    toast({
+      title: ok
+        ? t('orchestrator.projects.deleted', { defaultValue: 'Project deleted' })
+        : t('orchestrator.projects.deleteFailed', { defaultValue: 'Could not delete the project' }),
+      variant: ok ? undefined : 'destructive',
+    });
+  };
 
   // Hold the dashboard until the coordinator session is confirmed — avoids a
   // flash of (now-empty, 401'd) cohort data before the redirect to login.
@@ -1993,7 +2047,48 @@ export default function OrchestratorLandingPage() {
           />
         </div>
 
+        {/* Organizações | Projetos. Organisations are the roster the cohort is
+            built from; projects are what the coordination works with from
+            Encontro 3 on (docs/projects.md). */}
+        <div className="mb-6 flex items-center gap-3" data-testid="orchestrator-view-switch">
+          <div className="inline-flex rounded-lg border border-foreground/10 bg-muted/40 p-0.5">
+            {([
+              ['orgs', t('orchestrator.views.orgs', { defaultValue: 'Organisations' }), members.length],
+              ['projects', t('orchestrator.views.projects', { defaultValue: 'Projects' }), cohortProjects.filter(p => !p.archivedAt).length],
+            ] as const).map(([key, label, n]) => {
+              const on = view === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => switchView(key)}
+                  aria-pressed={on}
+                  data-testid={`view-${key}`}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
+                    on ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {label}
+                  <span className={`rounded-full px-1.5 text-[11px] tabular-nums ${on ? 'bg-emerald-600 text-white' : 'bg-foreground/10'}`}>{n}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
+        {view === 'projects' && (
+          <ProjectsView
+            projects={cohortProjects}
+            members={members}
+            cohortId={cohort?.id ?? null}
+            onCreate={openCreateProject}
+            onShare={shareProject}
+            onArchive={handleArchiveProject}
+            onDelete={setProjectDeleteTarget}
+          />
+        )}
+
+        {view === 'orgs' && (<>
         {/* Aggregate stats — diagnostic pipeline */}
         <motion.div
           className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"
@@ -2208,9 +2303,23 @@ export default function OrchestratorLandingPage() {
             })}
           </div>
         </div>
+        </>)}
       </main>
 
       {/* Cohort flow dialogs */}
+      <CreateProjectDialog
+        open={createProjectOpen}
+        onOpenChange={setCreateProjectOpen}
+        members={members.map(m => ({ id: m.id, orgName: m.orgName, neighborhood: m.neighborhood }))}
+        initial={createProjectInitial}
+        onSubmit={handleCreateProject}
+      />
+      <ProjectDeleteConfirmDialog
+        open={projectDeleteTarget != null}
+        title={projectDeleteTarget?.title ?? ''}
+        onOpenChange={(open) => { if (!open) setProjectDeleteTarget(null); }}
+        onConfirm={handleDeleteProjectConfirm}
+      />
       <ResetConfirmDialog
         open={resetConfirmOpen}
         onOpenChange={setResetConfirmOpen}

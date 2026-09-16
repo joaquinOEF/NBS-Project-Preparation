@@ -3,6 +3,7 @@ import type { Dossier as W3Dossier } from './w3-dossier';
 import type { Roadmap as W3Roadmap } from './w3-roadmap';
 import type { SolutionTestCard } from './w3-solution-test';
 import type { Comparison as W3Comparison } from './w3-comparison';
+import type { ProjectBrief } from './project-brief';
 import type { OpenMapParams } from './concept-note-schema';
 
 // ============================================================================
@@ -249,6 +250,13 @@ export interface CboState {
     // detection) and never auto-flipped mid-session. Drives BOTH chat and
     // update_section content so the document isn't half-EN/half-PT.
     language?: 'pt' | 'en';
+    /**
+     * Set when this state is a PROJECT's shared session rather than one
+     * organisation's (shared/cohort-schema.ts → cohortProjects). Every reader
+     * that treats a state as "an organisation" — the roster snapshot, the
+     * path, the tier, the E1–E3 dispatch — must stand aside when it is set.
+     */
+    project?: { id: string; cohortId: string };
   };
 }
 
@@ -421,6 +429,9 @@ export type CboEvent =
   // what it costs) and the side-by-side of everything tested. Both pure; see
   // shared/w3-solution-test.ts and shared/w3-comparison.ts.
   | { type: 'show_solution_test'; test: SolutionTestCard }
+  // A project's shared session opens on this — every member's record, side by
+  // side, and what they share. Pure; see shared/project-brief.ts.
+  | { type: 'show_project_brief'; brief: ProjectBrief }
   | { type: 'show_comparison'; comparison: W3Comparison }
   | { type: 'show_dossier'; dossier: W3Dossier }
   | { type: 'show_roadmap'; roadmap: W3Roadmap }

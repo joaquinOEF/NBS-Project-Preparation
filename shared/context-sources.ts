@@ -247,6 +247,29 @@ export const MODEL_PASSES: ModelPass[] = [
     },
   },
   {
+    id: 'projectChat',
+    purpose: "a project's shared session — several organisations in one chat, opened on every member's record (docs/projects.md)",
+    file: 'server/services/projectContext.ts',
+    sources: {
+      // Every member's full record, one block per organisation, each fact
+      // attributed to the organisation it came from (buildProjectContext).
+      fields: uses,
+      ownWords: uses,
+      transcript: uses,
+      docSummary: uses,
+      docFullText: uses,
+      photos: no('the photographs belong to one organisation each and reach the room pre-digested through its own record (the observations the advisor wrote); the shared session never sees an image'),
+      geo: uses,
+      fichas: uses,
+      evidence: no('it reads and compares what each organisation already tested; the figures on those cards were computed then, and the session does not produce a number of its own'),
+      knowledge: no('the approval routes and the funding landscape were already matched against each organisation in its own Encontro 3; the session cites those verdicts rather than re-deriving them for a group that has not chosen a solution yet'),
+      // The members ARE the cohort slice here — named, with their records,
+      // because they are in the same room by the coordination's choice.
+      cohort: uses,
+      artefacts: uses,
+    },
+  },
+  {
     id: 'impactModelService',
     purpose: 'the legacy city-side impact model',
     file: 'server/services/impactModelService.ts',
