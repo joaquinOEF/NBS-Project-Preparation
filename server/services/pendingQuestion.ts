@@ -67,6 +67,7 @@ export async function withPendingQuestion(w: PendingWiring): Promise<boolean> {
     // no handler). The one exception is a file arriving mid-selection, which
     // leaves the door's question standing.
     const midUpload = w.turnKind === 'upload' || isUploadNotice(raw);
+    if (String((w.state.sections as any)?.[w.sectionId]?.fields?._pending_unhandled?.value ?? '')) w.writeFields(w.sectionId, { _pending_unhandled: '' });
     if (asked.length) w.writeFields(w.sectionId, { [PENDING_FIELD]: serializePending(asked) });
     else if (moved || !midUpload) w.writeFields(w.sectionId, { [PENDING_FIELD]: '' });
     return true;
@@ -78,6 +79,20 @@ export async function withPendingQuestion(w: PendingWiring): Promise<boolean> {
   // cannot advance a step it does not own. This is a bug in the checkpoint —
   // say so where it will be seen — and the organisation gets the question back.
   if (canon.matched && pending) {
+    // ⚠️ NEVER A TRAP. Asking again is right once: a second identical answer
+    // that still has no handler means the question can never be answered in
+    // this state, and re-asking it for ever is worse than the flaw this file
+    // exists to close. The record is cleared and the turn goes to the model —
+    // logged as the bug it is, where somebody will see it.
+    const stuckKey = `${pending.asks[pending.asks.length - 1].question}|${canon.text}`;
+    const fields = (w.state.sections as any)?.[w.sectionId]?.fields ?? {};
+    if (String(fields._pending_unhandled?.value ?? '') === stuckKey) {
+      console.error(`[answer-unhandled] ${w.label} ${w.cboId}: "${canon.text}" unhandled TWICE — releasing the turn to the model`);
+      recordHealth(w.state, 'answer-unhandled', `${w.label}: "${canon.text}" at "${pending.asks[pending.asks.length - 1].question}" — twice; released to the model`);
+      w.writeFields(w.sectionId, { [PENDING_FIELD]: '', _pending_unhandled: '' });
+      return false;
+    }
+    w.writeFields(w.sectionId, { _pending_unhandled: stuckKey });
     console.error(`[answer-unhandled] ${w.label} ${w.cboId}: "${canon.text}" matches the pending question "${pending.asks[pending.asks.length - 1].question}" and no handler took it`);
     recordHealth(w.state, 'answer-unhandled', `${w.label}: "${canon.text}" at "${pending.asks[pending.asks.length - 1].question}"`);
     w.pushEvent({ type: 'chat', role: 'assistant', content: w.lang === 'pt' ? 'Essa resposta não entrou aqui do meu lado — toca de novo, por favor.' : 'That answer did not register on my side — please tap it again.' });
@@ -86,4 +101,38 @@ export async function withPendingQuestion(w: PendingWiring): Promise<boolean> {
     return true;
   }
   return false;
+}
+
+/**
+ * Record the questions asked through `pushEvent` OUTSIDE a wrapped checkpoint —
+ * a templated entry turn, or a MODEL turn.
+ *
+ * ⚠️ The model's questions are recorded too, as hand-offs. Without that the
+ * record still held the last TEMPLATED question while a different one was on
+ * screen: an answer to the model's "Seguimos?" that happened to spell an old
+ * option ("Sim") was canonicalised against a question nobody was looking at,
+ * found no handler, and came back as "essa resposta não entrou" with the old
+ * question re-asked. Recorded as a hand-off, the same answer is simply the
+ * model's — and a return re-emits what was actually on screen.
+ */
+export function recordingPush(
+  state: CboState,
+  sectionId: string,
+  writeFields: (sectionId: string, fields: Record<string, string>) => void,
+  pushEvent: Push,
+  opts: { handoff: boolean },
+): { push: Push; commit: () => void } {
+  const asked: PendingAsk[] = [];
+  const push: Push = (e) => {
+    if (e?.type === 'ask_user' && typeof e.question === 'string') {
+      asked.push({ question: e.question, options: (e.options ?? []).map((o: any) => ({ label: String(o.label), description: o.description, action: o.action, ...(opts.handoff || o.handoff ? { handoff: true } : {}) })) });
+    }
+    pushEvent(e);
+  };
+  const commit = () => {
+    if (!asked.length) return;
+    if (!(state.sections as any)?.[sectionId]) return;
+    writeFields(sectionId, { [PENDING_FIELD]: serializePending(asked) });
+  };
+  return { push, commit };
 }

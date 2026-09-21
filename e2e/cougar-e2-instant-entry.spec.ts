@@ -85,15 +85,18 @@ test.describe('COUGAR — instant E2 entry', () => {
     await expect(page.locator('[data-testid^="familia-card-"]').first()).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId('cbo-option-0')).toHaveAttribute('data-option-label', 'Ver exemplos', { timeout: 10_000 });
 
-    // Non-virgin: sending the banner again falls through to the model
-    // (scripted turn consumed — template must NOT double-post the strip).
+    // Non-virgin: sending the banner again is a RETURN. The question that was
+    // on screen comes back exactly (shared/pending-question.ts, rule 4) — never
+    // a second strip, and never a model turn that greets again or re-derives
+    // where they were. It used to fall through to the model.
     await api.scriptCbo(cboId, [[
       { op: 'say', text: 'Seguindo de onde paramos.' },
       { op: 'ask_user', question: 'Continuar?', options: [{ label: 'Sim' }] },
     ]]);
     await input.fill('Vamos começar o Encontro 2.');
     await input.press('Enter');
-    await expect(page.getByText('Seguindo de onde paramos', { exact: false })).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('[data-testid^="cbo-option-"][data-option-label="Já conheço SbN — pular"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Seguindo de onde paramos', { exact: false })).toHaveCount(0); // the model never ran
     expect(await page.locator('[data-testid^="familia-card-"]').count()).toBe(5); // old strip still there, not duplicated as a second strip block
   });
 });

@@ -71,7 +71,8 @@ import { isImplementationNarration } from "./assistantNoise";
 import { checkCloseGate } from "./cboCloseGate";
 import { serveE3Checkpoint } from "./cboE3Checkpoint";
 import { serveProjectCheckpoint } from "./cboProjectCheckpoint";
-import { reemitPending } from "./pendingQuestion";
+import { reemitPending, withPendingQuestion, recordingPush } from "./pendingQuestion";
+import { parsePending, PENDING_FIELD } from "@shared/pending-question";
 import { findProjectByStateId, projectBrief, projectFacts, buildProjectContext } from "./projectContext";
 import { loadNamedSkill } from "./encontroSkills";
 import { warnIfOrphan, isGatedSection, routeModelWrite } from '@shared/field-destiny';
@@ -2021,7 +2022,55 @@ export async function placeSiteFromAddress(
   };
 }
 
+/**
+ * Write private bookkeeping WITHOUT emitting an event.
+ *
+ * ⚠️ The pending-question record for an entry turn or a model turn is written
+ * after that turn has already sent `done`. A `field_update` arriving after
+ * `done` leaves the client believing a stream is still open, and the next thing
+ * the organisation types is held back for ever (caught by w2-scenarios org 3,
+ * where a PDF goes in before the entry line). Nothing on screen reads this
+ * field, so nothing needs the event.
+ */
+function writeFieldsSilently(cboId: string, state: CboState, sectionId: string, fields: Record<string, string>): void {
+  const section = (state.sections as any)[sectionId];
+  if (!section) return;
+  for (const [k, v] of Object.entries(fields)) section.fields[k] = { value: v, confidence: 'high', source: 'agent', userEdited: false };
+  setCboState(cboId, state);
+  debouncedPersist(cboId);
+}
+
+/** Where Encontro 2's pending question lives (its flow flags are in this section too). */
+const E2_PENDING_SECTION = 'intervention_site';
+const E2_ENTRY_LINE = /^(vamos come\u00e7ar o encontro 2\.?|let'?s start encontro 2\.?)$/i;
+
+/**
+ * ⚠️ AN ANSWER IS READ — Encontro 2 behind the same contract as Encontro 3
+ * (shared/pending-question.ts). The flaw was spelled out in this very function:
+ * `if (turnKind !== 'chip') return false` — every answer typed or dictated
+ * instead of tapped went to the model, which cannot advance a step the flow
+ * owns. Now every question asked is recorded, the reply is matched against it
+ * before any handler runs (and reaches them AS the chip, whatever the turn kind
+ * said), and a matched option no handler takes is asked again rather than lost.
+ */
 async function serveE2Checkpoint(
+  cboId: string,
+  userMessage: string,
+  state: CboState,
+  pushEvent: EventPusher,
+  lang: string,
+  turnKind?: string,
+): Promise<boolean> {
+  if (state.phase !== 2) return false;
+  return withPendingQuestion({
+    label: 'E2', cboId, state, sectionId: E2_PENDING_SECTION, userMessage, turnKind, lang, pushEvent,
+    writeFields: (sectionId, fields) => writeSectionFields(cboId, state, sectionId, fields, pushEvent),
+    isControlLine: raw => E2_ENTRY_LINE.test(raw),
+    inner: (msg, kind, push) => serveE2Inner(cboId, msg, state, push as EventPusher, lang, kind),
+  });
+}
+
+async function serveE2Inner(
   cboId: string,
   userMessage: string,
   state: CboState,
@@ -2057,7 +2106,7 @@ async function serveE2Checkpoint(
   const ask = (
     qPt: string,
     qEn: string,
-    opts: Array<{ pt: string; en: string; dPt?: string; dEn?: string; action?: 'upload_then_answer'; uploadPurpose?: string }>,
+    opts: Array<{ pt: string; en: string; dPt?: string; dEn?: string; action?: 'upload_then_answer'; uploadPurpose?: string; /** Deliberately the model's to answer. */ handoff?: boolean }>,
     /** Offer "ver exemplos reais" beside this question — a SECONDARY control,
      *  not an option. See showExamples in the ask_user event. */
     withExamples = false,
@@ -2070,6 +2119,7 @@ async function serveE2Checkpoint(
         label: isPt ? o.pt : o.en,
         description: isPt ? (o.dPt ?? '') : (o.dEn ?? ''),
         ...(o.action ? { action: o.action } : {}),
+        ...(o.handoff ? { handoff: true } : {}),
         // Why the picker is opening, so the file arrives tagged. Without this
         // the Teia application lands as one more pdf among the site photos —
         // which is the thing the convening asked us to stop.
@@ -2298,7 +2348,8 @@ async function serveE2Checkpoint(
     pushEvent({ type: 'show_familia_recommendation', items } as any);
     ask('Faz sentido pra vocês?', 'Does this make sense to you?', [
       { pt: E2C.fazSentido.pt, en: E2C.fazSentido.en },
-      { pt: E2C.queroAjustar.pt, en: E2C.queroAjustar.en, dPt: 'Quero mexer na lista', dEn: 'I want to change the list' },
+      // The model's by design: adjusting the list is a conversation, not a beat.
+      { pt: E2C.queroAjustar.pt, en: E2C.queroAjustar.en, dPt: 'Quero mexer na lista', dEn: 'I want to change the list', handoff: true },
     ], true);
     return finish('familia-reco');
   };
@@ -2463,6 +2514,18 @@ async function serveE2Checkpoint(
       .map(m => ({ kind: m[1] as 'osm' | 'custom', name: m[2].trim(), lat: +m[3], lng: +m[4], areaM2: m[5] ? +m[5] : 0 }));
     if (zones.length === 0) return false;
 
+    if (sites.length === 0 && siteName) {
+      // ⚠️ A bairro confirmed AGAIN, with a place already on record — the map
+      // tab re-confirmed, a result replayed from another tab. Re-opening the
+      // "tem um lugar?" fork here put a question on screen whose chips had no
+      // handler in this state ("Ainda não" with a site saved), and the flow
+      // they were in the middle of was gone. The question that was on screen
+      // comes back instead; with none on record the turn is the model's.
+      say(`✓ **${zones.map(z => z.name).join(', ')}** — já estava marcado, e o lugar de vocês também.`, `✓ **${zones.map(z => z.name).join(', ')}** — already marked, and so is your place.`);
+      if (reemitPending(state, E2_PENDING_SECTION, pushEvent)) return finish('bairro-reconfirmed');
+      return false;
+    }
+
     if (sites.length === 0) {
       // CP: bairro confirmed (zone-only session) → the "tem um lugar?" fork.
       // ALL zones persist in _bairros_json (a multi-bairro org picks which one
@@ -2574,7 +2637,8 @@ async function serveE2Checkpoint(
     // tranquilo). Name what is being confirmed.
     ask('Esse é o lugar certo?', 'Is this the right place?', [
       { pt: E2C.confirmar.pt, en: E2C.confirmar.en },
-      { pt: E2C.outroTipo.pt, en: E2C.outroTipo.en, dPt: 'Me conta o que é', dEn: 'Tell me what it is' },
+      // The model's by design: "me conta o que é" is a conversation, and it records the type.
+      { pt: E2C.outroTipo.pt, en: E2C.outroTipo.en, dPt: 'Me conta o que é', dEn: 'Tell me what it is', handoff: true },
       { pt: E2C.outroLugar.pt, en: E2C.outroLugar.en, dPt: 'Voltar pro mapa', dEn: 'Back to the map' },
     ]);
     return finish('site-card');
@@ -2808,8 +2872,12 @@ async function serveE2Checkpoint(
     openMapPreset({ preset: 'e2_site_focused', focusZone: bairro.split(',')[0].trim() });
     return finish(detail);
   };
-  if (bairro && !siteName && (is(E2C.simTenho) || is(E2C.jaTenho))) {
-    return openSiteMapOrPicker('open-site-map');
+  // ⚠️ With or without a site already on record. The fork can be on screen
+  // again after a return or a stray map result, and "Sim, tenho um lugar" with
+  // a site saved had no handler at all — the fuzzer found it as a chip that
+  // could be tapped forever. Saying they have a place means: to the map.
+  if (bairro && (is(E2C.simTenho) || is(E2C.jaTenho))) {
+    return openSiteMapOrPicker(siteName ? 'open-site-map-again' : 'open-site-map');
   }
   if (bairro && siteName && is(E2C.outroLugar)) {
     return openSiteMapOrPicker('open-site-map-again');
@@ -3162,7 +3230,50 @@ async function serveE2Checkpoint(
     }
   }
 
+  // ══ An answer to the question ON SCREEN that no handler above took ═════════
+  // Every handler in this function is gated on where the RECORD says the flow
+  // is ("site saved and no current use yet…"). A question can be on screen from
+  // another state — re-asked after a return, put back by a replayed map result,
+  // tapped from an older bubble — and then its chips match nothing, the wrapper
+  // asks again, and the second tap is no better than the first. The fuzzer
+  // found four of these in an afternoon (scripts/w2-fuzz.ts). Encontro 3 has
+  // had the answer since it shipped: derive the step from the record and ask
+  // THAT. Hand-offs never reach here — the wrapper releases them first.
+  if (turnKind === 'chip' && val('bairro')) {
+    const pending = parsePending(val(PENDING_FIELD));
+    const onScreen = pending?.asks.some(a => a.options.some(o => !o.handoff && normChip(o.label) === msg));
+    if (onScreen) {
+      console.warn(`[cbo] e2 resume-from-record for ${cboId}: "${raw.slice(0, 50)}" matched the question on screen and no handler for this state`);
+      recordHealth(state, 'answer-unhandled', `E2: "${raw.slice(0, 60)}" had no handler for this state — resumed from the record`);
+      say('Vamos seguir de onde a gente estava.', "Let's carry on from where we were.");
+      return await resumeE2();
+    }
+  }
+
   return false;
+
+  /** The first thing the record says is still unanswered. Hoisted; uses the beats above. */
+  async function resumeE2(): Promise<boolean> {
+    if (val('site_name')) {
+      if (!val('current_use')) {
+        ask('Como é esse lugar hoje?', 'What is this place like today?', E2_CURRENT_USE.map(o => ({ pt: o.pt, en: o.en })));
+        return finish('resume-current-use');
+      }
+      if (!val('land_tenure')) {
+        ask('E vocês têm acesso a esse espaço hoje?', 'And do you have access to this space today?', E2_TENURE.map(o => ({ pt: o.pt, en: o.en })));
+        return finish('resume-tenure');
+      }
+    }
+    if (val('_worry_offered') !== 'yes') return startDiagnostic();
+    if (val('_worry_done') !== 'yes') { askWorry(val('site_worry') ? val('site_worry').split(',').map(x => x.trim()).filter(Boolean) : []); return finish('resume-worry'); }
+    if (val('_story_done') !== 'yes') { await askStory(); return finish('resume-story'); }
+    if (val('_photos_done') !== 'yes') { await askPhotos(); return finish('resume-photos'); }
+    if (val('_check_done') !== 'yes' && askHazardCheck()) return finish('resume-hazard-check');
+    if (val('_interest_offered') !== 'yes') return await serveFamiliaReco();
+    if (val('_interest_done') !== 'yes') { askInterest(val('nbs_interest') ? val('nbs_interest').split(',').map(x => x.trim()).filter(Boolean) : []); return finish('resume-interest'); }
+    if (val('_role_done') !== 'yes') { const r = val('role_preference') ? val('role_preference').split(',').map(x => x.trim()).filter(Boolean) : []; askRoles(r, r.length === 0); return finish('resume-roles'); }
+    return await closeOrAsk();
+  }
 }
 
 async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: EventPusher, lang: string): Promise<boolean> {
@@ -3216,7 +3327,8 @@ async function serveEncontro2Entry(cboId: string, state: CboState, pushEvent: Ev
         : "These are the 5 families of NbS — the same ones on the cards you'll use in the encontros. No need to memorize them: look at the ones that match your territory and tap below when you're done.",
     } as any);
     const options = [
-      { label: isPt ? 'Ver exemplos' : 'See examples', description: isPt ? 'Casos reais desses tipos' : 'Real cases of these types' },
+      // The model's by design: it opens the examples sheet and carries on from there.
+      { label: isPt ? 'Ver exemplos' : 'See examples', description: isPt ? 'Casos reais desses tipos' : 'Real cases of these types', handoff: true },
       ...(path === 'needs-help' ? [] : [{ label: isPt ? 'Já conheço SbN — pular' : 'I know NbS — skip', description: isPt ? 'Ir direto pro final' : 'Go straight to the end' }]),
     ];
     pushEvent({
@@ -3464,8 +3576,18 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   // Instant E2 entry — the banner's fixed message at phase 2 gets the
   // templated Turn 1 (see serveEncontro2Entry) instead of a model turn.
   const rawEntryMsg = userMessage.split('\n[LANGUAGE:')[0].trim();
-  if (state.phase === 2 && /^(vamos come\u00e7ar o encontro 2\.?|let'?s start encontro 2\.?)$/i.test(rawEntryMsg)) {
-    if (await serveEncontro2Entry(cboId, state, pushEvent, lang)) {
+  if (state.phase === 2 && E2_ENTRY_LINE.test(rawEntryMsg)) {
+    const rec = recordingPush(state, E2_PENDING_SECTION, (sid, f) => writeFieldsSilently(cboId, state, sid, f), pushEvent, { handoff: false });
+    if (await serveEncontro2Entry(cboId, state, rec.push as EventPusher, lang)) {
+      rec.commit();
+      res.end();
+      return;
+    }
+    // Not a first entry (the strip is already in the transcript): a return.
+    // The question that was on screen comes back, exactly — never a model turn
+    // that greets again or re-derives where they were.
+    if (reemitPending(state, E2_PENDING_SECTION, pushEvent)) {
+      pushEvent({ type: 'done', summary: 'E2 return (pending question re-asked)' } as any);
       res.end();
       return;
     }
@@ -3675,12 +3797,25 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     void runW3DocumentReader(cboId);
   };
 
+  // ⚠️ A question the MODEL asks is on screen too — record it (as a hand-off),
+  // so the pending record is never a templated question nobody is looking at.
+  // See recordingPush in pendingQuestion.ts. Only where a contract is wired.
+  const pendingSection = state.metadata?.project ? null : state.phase === 2 ? E2_PENDING_SECTION : state.phase === 3 ? 'intervention_type' : null;
+  const modelRec = pendingSection
+    ? recordingPush(state, pendingSection, (sid, f) => writeFieldsSilently(cboId, state, sid, f), pushEvent, { handoff: true })
+    : null;
+  const modelPush = (modelRec?.push ?? pushEvent) as EventPusher;
+  // The SDK's tools (ask_user among them) emit through the REGISTRY, not through
+  // the argument — so the recorder has to be what the registry holds from here on.
+  if (modelRec) setActivePushEvent(cboId, modelPush);
+
   // Test-only deterministic seam. When CBO_FAKE_MODEL=1 (set ONLY in the
   // test/preview env, never the prod Deployment), drive the turn from a scripted
   // fake instead of the live SDK — fast, free, and reproducible. The real path
   // below is byte-for-byte untouched. See server/services/fakeCboModel.ts.
   if (isFakeModelEnabled()) {
-    await streamWithFakeModel(cboId, userMessage, state, pushEvent, lang, { setCboState, countUserContentTurns });
+    await streamWithFakeModel(cboId, userMessage, state, modelPush, lang, { setCboState, countUserContentTurns });
+    modelRec?.commit();
     readConversationIfChanged();
     await reaskE3IfSilent();
     res.end();
@@ -3690,7 +3825,8 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   const isSdkReady = await loadSdk();
 
   if (isSdkReady) {
-    await streamWithSdk(cboId, userMessage, state, pushEvent, lang, turnKind);
+    await streamWithSdk(cboId, userMessage, state, modelPush, lang, turnKind);
+    modelRec?.commit();
     readConversationIfChanged();
     await reaskE3IfSilent();
   } else {
