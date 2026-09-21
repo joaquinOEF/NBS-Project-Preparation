@@ -1483,6 +1483,11 @@ export default function CboProfilePage() {
         const hasMap = !!(event as any).showMap;
         setActiveQuestions(prev => {
           if (prev.length === 0) { setCurrentQuestionIdx(0); setQuestionAnswers({}); }
+          // The same question asked again is the SAME pending question, not a
+          // second one. Stacked, one tap answered it twice ("Pronto; Pronto"),
+          // no beat recognised the joined string, and the turn fell to the model.
+          const sameLabels = (a: any[], b: any[]) => a.length === b.length && a.every((o, i) => o?.label === b[i]?.label);
+          prev = prev.filter(q => !(q.question === event.question && sameLabels(q.options ?? [], event.options ?? [])));
           return [...prev, { id: `q_${Date.now()}`, question: event.question, options: event.options, multiSelect: (event as any).multiSelect, showExamples: (event as any).showExamples, relatedSections: (event as any).relatedSections }];
         });
         // Append the composer the server is persisting for this same event
@@ -1952,6 +1957,22 @@ export default function CboProfilePage() {
       : "Let's begin.";
     sendMessage(text, true, false, undefined, 'system');
   }, [cboId, lang, sendMessage]);
+
+  // ⚠️ UPLOAD NOTICES MUST NEVER BE DROPPED. sendMessage returns silently while
+  // a turn is streaming — right for a double-tapped chip, wrong for a file: the
+  // file is stored, the chat never says so, and the beat that was waiting for
+  // it never asks its question (found 2026-09-21: files picked while the
+  // "Mandar agora" turn was still streaming — three uploads, no acknowledgement,
+  // the door stranded). The picker's loop also runs in the closure of the
+  // render it started in, so it must read the LATEST sendMessage, not its own.
+  const sendMessageRef = useRef(sendMessage);
+  sendMessageRef.current = sendMessage;
+  const sendWhenIdle = useCallback(async (text: string) => {
+    for (let i = 0; i < 600 && isStreamingRef.current; i++) await new Promise(r => setTimeout(r, 100));
+    // One more tick: the render that clears isStreaming also rebuilds sendMessage.
+    await new Promise(r => setTimeout(r, 0));
+    await sendMessageRef.current(text);
+  }, []);
 
   // A project's first turn: the entry line, as a system turn, once the
   // session is resolved and the transcript is empty. The checkpoint answers
@@ -3110,6 +3131,10 @@ export default function CboProfilePage() {
                   e.target.value = '';
                   if (!files.length || !cboId) return;
                   for (const file of files) {
+                    // Where this file sits in the selection — so the beat that
+                    // receives it can ask "done?" once, after the last, instead
+                    // of after every file (shared/cbo-upload-notices.ts).
+                    const batch = files.length > 1 ? { index: files.indexOf(file) + 1, total: files.length } : undefined;
                     setUploadingName(files.length > 1 ? `${file.name} (${files.indexOf(file) + 1}/${files.length})` : file.name);
                     try {
                       const formData = new FormData();
@@ -3124,7 +3149,7 @@ export default function CboProfilePage() {
                       // reported to the org as "could not parse", i.e. as if
                       // their document were corrupt.
                       if (!res.ok) {
-                        await sendMessage(uploadNotice.refused(file.name, data.reason, data.fix));
+                        await sendWhenIdle(uploadNotice.refused(file.name, data.reason, data.fix, batch));
                         continue;
                       }
                       // Gap 4 — link a site photo to the chosen site (best-effort;
@@ -3143,13 +3168,13 @@ export default function CboProfilePage() {
                         // was not, and does not re-upload the same file hoping
                         // for a different result (Ksa Rosa did, twice, and then
                         // left the session).
-                        await sendMessage(uploadNotice.storedUnread(file.name));
+                        await sendWhenIdle(uploadNotice.storedUnread(file.name, batch));
                       } else {
-                        await sendMessage(uploadNotice.parsed(file.name, (data.content || '').slice(0, 8000)));
+                        await sendWhenIdle(uploadNotice.parsed(file.name, (data.content || '').slice(0, 8000), batch));
                       }
                     } catch {
                       // Genuine transport failure — nothing reached the server.
-                      await sendMessage(uploadNotice.transport(file.name));
+                      await sendWhenIdle(uploadNotice.transport(file.name, batch));
                     }
                   }
                   setUploadingName(null);

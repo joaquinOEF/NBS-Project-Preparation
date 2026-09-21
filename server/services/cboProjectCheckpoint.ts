@@ -19,6 +19,7 @@
 // ============================================================================
 
 import type { CboState } from '@shared/cbo-schema';
+import { collapseRepeatedAnswer } from '@shared/cbo-chip-answers';
 import type { ProjectBrief, ProjectMemberFacts } from '@shared/project-brief';
 import {
   PROJECT_FIELDS, parseChoices, frameOptions, buildProjectPlan, buildProjectNote,
@@ -101,7 +102,7 @@ export async function serveProjectCheckpoint(
   if (!state.metadata?.project) return false;
   const isPt = lang === 'pt';
   const L = isPt ? 'pt' : 'en';
-  const raw = userMessage.split('\n[LANGUAGE:')[0].trim();
+  const raw = collapseRepeatedAnswer(userMessage.split('\n[LANGUAGE:')[0].trim());
   const fieldsOf = () =>
     Object.fromEntries(
       Object.entries(((state.sections as any)[TYPE]?.fields ?? {}) as Record<string, { value?: unknown }>)

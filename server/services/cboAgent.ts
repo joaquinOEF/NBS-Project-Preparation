@@ -24,7 +24,7 @@ import {
 } from "./cboPersistence";
 import { db } from "../db";
 import { cohortMembers, type SupportRequest } from "@shared/cohort-schema";
-import { classifyUploadNotice, isUnreadableUploadNotice } from '@shared/cbo-upload-notices';
+import { classifyUploadNotice, isUnreadableUploadNotice, moreUploadsComing, uploadBatchOf, uploadedFilename } from '@shared/cbo-upload-notices';
 import { resolveOpenMapParams } from "@shared/cbo-map-presets";
 import { rankFamiliasForSite, inferSiteTypeLabel } from "@shared/nbs-recommendation";
 import { rankFamiliasWithContext, rankerCanRun, type FamiliaRankingResult } from "./familiaRanker";
@@ -2533,7 +2533,15 @@ async function serveE2Checkpoint(
       return finish('upload-during-story');
     }
     if (val('_story_done') === 'yes' && val('_photos_done') !== 'yes') {
-      say('Recebi ✓', 'Got it ✓');
+      // Three photos are three turns: acknowledge the early ones by name and
+      // offer "Pronto" only after the last (shared/cbo-upload-notices.ts).
+      const batch = uploadBatchOf(raw);
+      const name = uploadedFilename(raw);
+      if (moreUploadsComing(raw)) {
+        say(`Recebi ✓ ${name ? `**${name}** ` : ''}(${batch!.index} de ${batch!.total})`, `Got it ✓ ${name ? `**${name}** ` : ''}(${batch!.index} of ${batch!.total})`);
+        return finish('upload-during-photos-more');
+      }
+      say(`Recebi ✓${name ? ` **${name}**` : ''}${batch ? ` (${batch.index} de ${batch.total})` : ''}`, `Got it ✓${name ? ` **${name}**` : ''}${batch ? ` (${batch.index} of ${batch.total})` : ''}`);
       ask('Quando terminar de anexar:', 'When you finish attaching:', [
         { pt: E2C.prontoSeguir.pt, en: E2C.prontoSeguir.en },
       ]);
@@ -3527,9 +3535,9 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     }
   }
 
-  if (!state.metadata?.project && state.phase === 3) {
-    try {
-      const served = await serveE3Checkpoint(cboId, userMessage, state, pushEvent, lang, turnKind, {
+  // Hoisted: the same dependencies serve the beat BEFORE the model and, when a
+  // model turn ends without asking anything, the re-ask AFTER it (below).
+  const e3Deps: Parameters<typeof serveE3Checkpoint>[6] = {
         writeFields: (sectionId, fields) => writeSectionFields(cboId, state, sectionId, fields, pushEvent),
         recordCheckpoint: (step) =>
           recordCboEvent({ cboStateId: cboId, name: 'checkpoint', phase: state.phase, step }),
@@ -3554,7 +3562,10 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
         startDig: (round: 1 | 2) => { void runW3Dig(cboId, round); },
         awaitAdvisor: () => waitForW3Advisor(cboId),
         docsBrief: () => siteDocsBrief(cboId),
-      });
+  };
+  if (!state.metadata?.project && state.phase === 3) {
+    try {
+      const served = await serveE3Checkpoint(cboId, userMessage, state, pushEvent, lang, turnKind, e3Deps);
       if (served) {
         res.end();
         return;
@@ -3564,12 +3575,33 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     }
   }
 
+  // ⚠️ ENCONTRO 3 NEVER ENDS A TURN IN SILENCE. Its beats are templates, but a
+  // free question, an unrecognised chip or an upload outside a beat still goes
+  // to the model — and a model turn can end on prose with nothing to tap
+  // (staging, 2026-09-21: "Deixa eu extrair tudo antes de seguirmos." and then
+  // nothing; the door still open behind it, the organisation stranded). When
+  // that happens inside an open Encontro 3, the encontro asks its own current
+  // question again. Derived from the record, like every resume.
+  const reaskE3IfSilent = async () => {
+    if (state.metadata?.project || state.phase !== 3) return;
+    const f = (state.sections as any).intervention_type?.fields ?? {};
+    if (String(f._e3_opened?.value ?? '') !== 'yes' || String(f._e3_closed?.value ?? '') === 'yes') return;
+    const last = getCboMessages(cboId).slice(-1)[0];
+    let kind = '';
+    if (last?.role === 'assistant' && last.messageType === 'composer') { try { kind = JSON.parse(last.content)?.kind ?? ''; } catch { /* prose */ } }
+    if (['ask_user', 'priority', 'anchoring', 'open_map', 'open_intervention_selector'].includes(kind)) return;
+    console.warn(`[cbo] e3 reask-after-silent-turn for ${cboId}`);
+    try { await serveE3Checkpoint(cboId, lang === 'pt' ? 'Vamos começar o Encontro 3.' : "Let's start Encontro 3.", state, pushEvent, lang, 'system', e3Deps); }
+    catch (err) { console.error(`[cbo] e3 reask failed for ${cboId}:`, err); }
+  };
+
   // Test-only deterministic seam. When CBO_FAKE_MODEL=1 (set ONLY in the
   // test/preview env, never the prod Deployment), drive the turn from a scripted
   // fake instead of the live SDK — fast, free, and reproducible. The real path
   // below is byte-for-byte untouched. See server/services/fakeCboModel.ts.
   if (isFakeModelEnabled()) {
     await streamWithFakeModel(cboId, userMessage, state, pushEvent, lang, { setCboState, countUserContentTurns });
+    await reaskE3IfSilent();
     res.end();
     return;
   }
@@ -3578,6 +3610,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
 
   if (isSdkReady) {
     await streamWithSdk(cboId, userMessage, state, pushEvent, lang, turnKind);
+    await reaskE3IfSilent();
   } else {
     pushEvent({ type: 'error', message: 'Claude Agent SDK not available.' });
   }

@@ -28,6 +28,8 @@
 // than a thin dossier that looks scoped.
 // ============================================================================
 
+import { isUploadNotice, moreUploadsComing, uploadBatchOf, uploadedFilename } from '@shared/cbo-upload-notices';
+import { collapseRepeatedAnswer } from '@shared/cbo-chip-answers';
 import type { CboState } from '@shared/cbo-schema';
 import { buildDossier, portfolioState, type W3Input } from '@shared/w3-dossier';
 import { buildRoadmap, type RoadmapObservation } from '@shared/w3-roadmap';
@@ -151,6 +153,7 @@ const E3C = {
   jaMandamos: { pt: 'Já mandamos tudo', en: 'We already sent everything' },
   seguirSemMaterial: { pt: 'Seguir sem', en: 'Carry on without' },
   prontoSeguir: { pt: 'Pronto, pode seguir', en: "Done, let's continue" },
+  mandarMais: { pt: '📎 Mandar mais', en: '📎 Send more' },
   testarOutra: { pt: 'Testar outra solução', en: 'Test another solution' },
   verComparacao: { pt: 'Ver a comparação', en: 'See the comparison' },
   detalharAgora: { pt: 'Detalhar agora', en: 'Go into detail now' },
@@ -239,7 +242,7 @@ export async function serveE3Checkpoint(
 ): Promise<boolean> {
   if (state.phase !== 3) return false;
   const isPt = lang === 'pt';
-  const raw = userMessage.split('\n[LANGUAGE:')[0].trim();
+  const raw = collapseRepeatedAnswer(userMessage.split('\n[LANGUAGE:')[0].trim());
 
   const fieldsOf = (sectionId: string) =>
     ((state.sections as any)[sectionId]?.fields ?? {}) as Record<string, { value?: unknown }>;
@@ -1634,10 +1637,27 @@ export async function serveE3Checkpoint(
   // the heavy model, whose reply would REPLACE the pending chip and strand the
   // organisation on a file it just sent — exactly what three photos did to E2
   // before its own handler existed. Acknowledge, and keep the door in control.
-  if ((turnKind === 'upload' || raw.startsWith("I'm uploading:") || raw.startsWith('Uploaded "')) && type('_material_pending') === 'yes') {
-    say('Recebi ✓', 'Got it ✓');
-    ask('Quando terminar de anexar:', 'When you finish attaching:', [
-      { pt: E3C.prontoSeguir.pt, en: E3C.prontoSeguir.en },
+  if ((turnKind === 'upload' || isUploadNotice(raw)) && type('_material_pending') === 'yes') {
+    const name = uploadedFilename(raw);
+    const batch = uploadBatchOf(raw);
+    // ⚠️ One question, at the END of the selection. Seven files are seven
+    // turns; answering each with "Recebi ✓" + the Pronto chip offered "done"
+    // after the first file and stacked the question once per file (JVP on
+    // staging, 2026-09-21). A file with more behind it is acknowledged by name
+    // and nothing else; the last one says how many are here now and asks once.
+    if (moreUploadsComing(raw)) {
+      say(`Recebi ✓ ${name ? `**${name}** ` : ''}(${batch!.index} de ${batch!.total})`, `Got it ✓ ${name ? `**${name}** ` : ''}(${batch!.index} of ${batch!.total})`);
+      return finish('upload-during-material-more');
+    }
+    const docs = (await deps.docsBrief?.().catch(() => null)) ?? null;
+    const n = docs?.count ?? 0;
+    say(
+      `Recebi ✓ ${name ? `**${name}**` : ''}${batch ? ` (${batch.index} de ${batch.total})` : ''}.${n > 1 ? ` Agora são **${n} arquivos** aqui.` : ''}`,
+      `Got it ✓ ${name ? `**${name}**` : ''}${batch ? ` (${batch.index} of ${batch.total})` : ''}.${n > 1 ? ` There are now **${n} files** here.` : ''}`,
+    );
+    ask('Tem mais algum pra mandar?', 'Anything else to send?', [
+      { pt: E3C.prontoSeguir.pt, en: E3C.prontoSeguir.en, dPt: 'Começar a testar as soluções', dEn: 'Start testing the solutions' },
+      { pt: E3C.mandarMais.pt, en: E3C.mandarMais.en, dPt: 'Abre pra escolher mais arquivos', dEn: 'Opens the file chooser again', action: 'upload' },
     ]);
     return finish('upload-during-material');
   }
@@ -1705,6 +1725,11 @@ export async function serveE3Checkpoint(
     return await afterSize();
   }
 
+  // "pronto" typed or spoken at the open door closes it, like the chip.
+  if (type('_material_pending') === 'yes' && /^\s*(pronto|pode seguir|terminei|[ée] s[óo] isso|s[óo] isso|segue|done|that'?s all)\b/i.test(raw)) {
+    return await afterMaterial();
+  }
+
   // ══ Chip taps ════════════════════════════════════════════════════════════
   // Anything else that is not a chip is free conversation — the model's job.
   if (turnKind !== 'chip') return false;
@@ -1727,6 +1752,20 @@ export async function serveE3Checkpoint(
   }
   if ((is(E3C.jaMandamos) || is(E3C.seguirSemMaterial) || is(E3C.prontoSeguir)) && type('_material_pending') === 'yes') {
     return await afterMaterial();
+  }
+  // ⚠️ THE DOOR NEVER LOSES THE TURN. While it is open, a chip it does not
+  // recognise must not reach the model: the model's turn extracts, scores and
+  // — as staging showed — can end without asking anything, with the door still
+  // open behind it and no chip on screen. Ask the door's own question again.
+  // A real question typed at the door (it posts as a chip turn too) still goes
+  // to the model — the re-ask after a silent turn (cboAgent → reaskE3IfSilent)
+  // is what makes that safe.
+  if (type('_material_pending') === 'yes' && raw.length <= 40 && !raw.includes('?')) {
+    ask('Tem mais algum pra mandar?', 'Anything else to send?', [
+      { pt: E3C.prontoSeguir.pt, en: E3C.prontoSeguir.en, dPt: 'Começar a testar as soluções', dEn: 'Start testing the solutions' },
+      { pt: E3C.mandarMais.pt, en: E3C.mandarMais.en, dPt: 'Abre pra escolher mais arquivos', dEn: 'Opens the file chooser again', action: 'upload' },
+    ]);
+    return finish('material-reask');
   }
 
   // Their answer to it. Reordered rather than replaced: the other worries are
