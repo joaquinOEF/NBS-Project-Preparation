@@ -160,7 +160,7 @@ export function CboSolutionTest({ test, lang }: { test: SolutionTestCard; lang: 
       {/* Their own files, beside our reading — quoted, with the file named. The
           rows above are functions and do not move; this is what THEY sent, so a
           card can never silently contradict the visit report they uploaded. */}
-      {(test.fromTheirFiles?.length ?? 0) > 0 && (
+      {((test.fromTheirFiles?.length ?? 0) > 0 || (test.placeNoteCount ?? 0) > 0) && (
         <div className='border-t border-[#e2d9c4] dark:border-stone-700 px-3 py-2.5' data-testid='solution-test-their-files'>
           <div className='mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#8a7d5c] dark:text-stone-400'>
             <FileText className='h-3.5 w-3.5' />{NOTES_HEADING[lang]}
@@ -175,6 +175,13 @@ export function CboSolutionTest({ test, lang }: { test: SolutionTestCard; lang: 
               </li>
             ))}
           </ul>
+          {(test.placeNoteCount ?? 0) > 0 && (
+            <p className='m-0 mt-2 text-[11.5px] italic text-muted-foreground' data-testid='solution-test-place-notes'>
+              {lang === 'pt'
+                ? `+ ${test.placeNoteCount} ${test.placeNoteCount === 1 ? 'condição que vale' : 'condições que valem'} pra qualquer solução nesse lugar (prazo, acesso, recursos…) — estão juntas na comparação.`
+                : `+ ${test.placeNoteCount} ${test.placeNoteCount === 1 ? 'condition that holds' : 'conditions that hold'} for any solution at this place (timing, access, resources…) — listed together in the comparison.`}
+            </p>
+          )}
         </div>
       )}
 

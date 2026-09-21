@@ -209,32 +209,64 @@ export function keepVerifiedMeasures(raw: Array<z.infer<typeof MeasureSchema>>, 
   return out.slice(0, 3);
 }
 
+/** One file (or the conversation) read on its own — the unit readTheirFiles runs in parallel. */
+async function readOne(doc: { filename: string; fullText?: string | null }, site: ReaderInput['site']) {
+  const raced = await withBudget(
+    'w3DocumentReader',
+    createStructured(
+      {
+        input: [
+          { role: 'system', content: READER_SYSTEM },
+          // Per file, fewer: the merge keeps the best 16 across files, and each note
+          // written costs time — the slowest file sets the wall clock.
+          { role: 'user', content: [{ type: 'input_text', text: `${buildReaderPrompt({ docs: [doc], site })}\n\n# NESTE ARQUIVO\nNo máximo ${PER_FILE_NOTES} notas e 2 medidas — as que mais mudam a leitura (o que é contra uma solução e um estudo já feito vêm primeiro).` }] },
+        ],
+        config: { ...(READER_MODEL ? { model: READER_MODEL } : {}), reasoningEffort: 'medium', maxCompletionTokens: 3000 },
+      },
+      NotesSchema,
+      'w3_document_notes',
+    ),
+  );
+  return raced;
+}
+
+/** Contra first, then a study shown done, then a-favor, then conditions — what survives the cap. */
+const STANCE_RANK = (n: { stance: string; studyDone?: string }) => (n.stance === 'contra' ? 0 : n.studyDone ? 1 : n.stance === 'a-favor' ? 2 : 3);
+const MAX_PARALLEL = 6;
+const PER_FILE_NOTES = 8;
+
+/**
+ * ⚠️ ONE CALL PER FILE, IN PARALLEL — not one call over all of them.
+ *
+ * Measured in an end-to-end run (2026-09-21): one call over five files took
+ * 64 s, because the time is the OUTPUT (a quote and two sentences per note), and
+ * the first test card — about 37 s after the door — waited its 25 s and showed
+ * nothing from the files. Read separately, the wall time is the slowest single
+ * file. What is lost is a note that needs two files at once; what the card
+ * shows is one quoted passage from one file anyway. A file that fails or times
+ * out costs its own notes, not everybody's.
+ */
 export async function readTheirFiles(input: ReaderInput): Promise<{ notes: DocumentNote[]; measures: DocumentMeasure[]; reason?: string }> {
   if (!structuredProvider()) return { notes: [], measures: [], reason: 'no API key' };
   const all = withConversation(input);
-  if (!measurableDocs(all).length) return { notes: [], measures: [], reason: 'no readable file' };
-  try {
-    const raced = await withBudget(
-      'w3DocumentReader',
-      createStructured(
-        {
-          input: [
-            { role: 'system', content: READER_SYSTEM },
-            { role: 'user', content: [{ type: 'input_text', text: buildReaderPrompt(input) }] },
-          ],
-          config: { ...(READER_MODEL ? { model: READER_MODEL } : {}), reasoningEffort: 'medium', maxCompletionTokens: 6000 },
-        },
-        NotesSchema,
-        'w3_document_notes',
-      ),
-    );
-    if (!raced) return { notes: [], measures: [], reason: 'timeout' };
-    const notes = keepVerifiedNotes(raced.notes, all);
-    const measures = keepVerifiedMeasures(raced.measures ?? [], all);
-    const dropped = raced.notes.length - notes.length;
-    return { notes, measures, ...(dropped > 0 ? { reason: `${dropped} of ${raced.notes.length} note(s) dropped by the guards` } : {}) };
-  } catch (err: any) {
-    console.error('[w3-reader] failed — the cards stay as they were:', err?.message || err);
-    return { notes: [], measures: [], reason: `error: ${err?.message ?? 'unknown'}` };
-  }
+  const chunks = measurableDocs(all)
+    .sort((a, b) => (b.fullText ?? '').length - (a.fullText ?? '').length)
+    .slice(0, MAX_PARALLEL);
+  if (!chunks.length) return { notes: [], measures: [], reason: 'no readable file' };
+  const results = await Promise.all(chunks.map(d => readOne(d, input.site).catch((err: any) => {
+    console.error(`[w3-reader] ${d.filename} failed — the others stand:`, err?.message || err);
+    return null;
+  })));
+  const ok = results.filter((r): r is NonNullable<typeof r> => !!r);
+  if (!ok.length) return { notes: [], measures: [], reason: results.length ? 'error: every file failed or timed out' : 'timeout' };
+  const rawNotes = ok.flatMap(r => r.notes).sort((a, b) => STANCE_RANK(a) - STANCE_RANK(b));
+  const notes = keepVerifiedNotes(rawNotes, all);
+  const measures = keepVerifiedMeasures(ok.flatMap(r => r.measures ?? []), all);
+  const lost = results.length - ok.length;
+  const dropped = rawNotes.length - notes.length;
+  const reason = [
+    lost ? `${lost} of ${results.length} file(s) not read (failed or timed out)` : '',
+    dropped ? `${dropped} of ${rawNotes.length} note(s) dropped by the guards or the cap` : '',
+  ].filter(Boolean).join('; ');
+  return { notes, measures, ...(reason ? { reason } : {}) };
 }

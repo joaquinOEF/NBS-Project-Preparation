@@ -863,6 +863,19 @@ people choosing FIRST, then the options set against it — and on keeping it lig
   hardest. Those two answers are the starting questions of the project-based
   Encontro 4. Also printed on the comparison PDF.
 
+**What the end-to-end run (three organisations, live file reading) changed.**
+- The file reading is ONE CALL PER FILE in parallel, ≤ 8 notes each (64 s → 31–34 s
+  on the kit); the first card had been giving up its 25 s wait with nothing from the
+  files. The size question now waits for the reading too — the measures come from it.
+- A card shows ITS notes and what was said; the place's conditions are counted
+  ("+ 4 condições que valem pra qualquer solução…") and listed once, in the comparison.
+- The "custo" criterion reads the card's own price at the size tested, not the
+  catalogue's class; "a gente, com um parceiro técnico" is ~ on "nossa gente", not ✔.
+- In Encontro 3 the model's questions are NOT recorded over the flow's: after any
+  model turn the flow's question comes back (it had looped on "Continuar").
+- Own words at "o que mais pega?" are captured by the pending question (≥ 12
+  characters, not a question), never by the turn kind.
+
 `_quick_tests: 'yes'` / `deps.quickTests` skips these beats for the specs and
 simulations that are about something else; the fuzzer and
 `e2e/cougar-e3-deliberation.spec.ts` run them. **After 30 Sept:** Encontro 4 as

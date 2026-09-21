@@ -61,6 +61,13 @@ export interface SolutionTestCard {
    * nothing was sent or nothing in it bears on this card. shared/w3-document-notes.ts
    */
   fromTheirFiles: CardNote[];
+  /**
+   * How many notes hold for the PLACE whatever is built (work window, access,
+   * money on hand…). Counted, not listed: listed on every card they buried each
+   * card's own findings under the same six lines (staging, 2026-09-21). They are
+   * listed once, under the comparison.
+   */
+  placeNoteCount: number;
 }
 
 /** First sentence of a ficha paragraph — the card is a summary, the sheet is the whole text. */
@@ -152,6 +159,7 @@ export function buildSolutionTest(
     // What THIS card's numbers rest on: the count for a counted solution, the
     // footprint for a measured one — never the footprint under a cistern.
     sizedBy: units ? { units } : perM2 && areaM2 ? { areaM2 } : {},
-    fromTheirFiles: notesFor(solutionId, notesFromInput(input)).map(n => toCardNote(n, lang)),
+    fromTheirFiles: notesFor(solutionId, notesFromInput(input)).map(n => toCardNote(n, lang)).filter(n => n.scope === 'solution' || n.stance === 'dito'),
+    placeNoteCount: notesFromInput(input).filter(n => n.solutionId === '*' && n.stance !== 'dito').length,
   };
 }

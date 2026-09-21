@@ -959,6 +959,14 @@ async function serveE3Inner(
   const askArea = async (solutionId?: string): Promise<true> => {
     const id = solutionId ?? openTest() ?? chosen[0];
     const line = id ? budgetLineFor(id) : null;
+    // The measures come from the reading of their files: the size question waits
+    // for it the same bounded way the card does, or a rain garden is priced over
+    // the whole site while the sketch's 12 × 8 m strip is still being read (seen
+    // in an end-to-end run, 2026-09-21).
+    if (line?.basis === 'm2' && deps.documentReaderBusy?.()) {
+      say('Um instante — estou terminando de ler os arquivos de vocês; pode ter uma medida do espaço ali.', 'One moment — I am finishing reading your files; there may be a measure of the space in them.');
+      await deps.awaitDocumentReader?.();
+    }
     // A per-m² solution is the only case where the drawing buys a number. For
     // one priced per tree or per cistern, asking for a footprint would be
     // theatre — so the question becomes the one its ficha actually asks.
@@ -1979,7 +1987,12 @@ async function serveE3Inner(
           return await showTestCardQuestions(id);
         }
         const flowChip = Object.values(E3C).some(c => said(c));
-        if (!flowChip && !isSkip(raw) && raw.length >= 3 && turnKind !== 'chip') {
+        // ⚠️ NOT gated on turnKind. A typed answer to a pending question posts as
+        // a 'chip' turn — so "turnKind !== 'chip'" sent their own words to the
+        // model, which is the exact trap docs/cbo-flow-building-guide.md §1 names.
+        // A QUESTION is not their answer ('o que é isso?') — it goes to the model,
+        // and the flow asks this again after it. A statement of a few words is.
+        if (!flowChip && !isSkip(raw) && raw.trim().length >= 12 && !/\?\s*$/.test(raw.trim())) {
           // Their own words — typed or dictated instead of tapping.
           writeTests(upsertTest(ensureTests(), { solutionId: id, hardest: 'outro' as HardestId, hardestNote: raw.slice(0, 400) }));
           deps.writeFields(TYPE, { _test_q: '' });
@@ -2389,7 +2402,9 @@ async function serveE3Inner(
         `Anotado: **${hit.dPt.toLowerCase()}** é o que esse projeto enfrenta primeiro. O resto continua registrado sobre o lugar.`,
         `Noted: **${hit.dEn.toLowerCase()}** is what this project takes on first. The rest stays on the record about the place.`,
       );
-      return await askSolution();
+      // Through toShelf, not straight to the shelf: "o que pesa mais?" comes next,
+      // and an organisation with two worries skipped it (end-to-end run, 2026-09-21).
+      return await toShelf();
     }
   }
   if (is(E3C.mudou)) return false; // free conversation — the model repairs it

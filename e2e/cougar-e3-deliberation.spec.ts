@@ -107,6 +107,15 @@ test.describe('an organisation with no files walks Encontro 3', () => {
     expect(close.said).toContain('o que mais pega, segundo a organização');
   });
 
+  test('two worries: "qual pesa mais?" first, THEN "o que pesa mais pra escolher?" — never skipped (end-to-end run, 21 Sept)', async () => {
+    const s = session();
+    s.state.sections.intervention_site.fields.site_worry = F('heat, enxurrada');
+    const focus = await s.send('Seguir sem');
+    expect(focus.ask.question).toBe('Qual delas pesa mais no dia a dia?');
+    const crit = await s.send(focus.ask.options[0].label);
+    expect(crit.ask.question).toContain('O que pesa mais?');
+  });
+
   test('"Prefiro não escolher agora" is respected: no criteria row, the order tested, nothing asked twice', async () => {
     const s = session();
     await s.send('Seguir sem');
@@ -141,6 +150,18 @@ test.describe('the pure half', () => {
     // The first criterion named counts double.
     expect(criteriaScore([{ id: 'custo', fit: 'bom', why: '', source: '' }, { id: 'efeito', fit: 'fraco', why: '', source: '' }]))
       .toBeGreaterThan(criteriaScore([{ id: 'custo', fit: 'fraco', why: '', source: '' }, { id: 'efeito', fit: 'bom', why: '', source: '' }]));
+  });
+
+  test('the cost reading agrees with the PRICE on the card, and "with a partner" is not "on our own" (end-to-end run, 21 Sept)', () => {
+    const slope: W3Input = { org: { org_name: 'X' }, site: { bairro: 'Morro da Cruz', site_name: 'Barranco', _site_lat: '-30', _site_lng: '-51', site_worry: 'landslide', current_use: 'vegetated', land_tenure: 'public-informal', nbs_interest: 'encostas-e-solo' }, areaM2: 40, w3: {} };
+    const t = (solutionId: string, extra = {}) => ({ solutionId, reaction: null, testedAt: at, areaM2: 40, ...extra });
+    const muro = buildSolutionTest('muro-de-arrimo-verde', slope, t('muro-de-arrimo-verde'), 'pt')!;
+    const grade = buildSolutionTest('grade-viva', slope, t('grade-viva'), 'pt')!;
+    const rank = { bom: 2, medio: 1, fraco: 0 } as const;
+    // The wall is priced BELOW the grade at 40 m²; its cost reading must not say worse.
+    expect(rank[fitFor('custo', muro, undefined, 'pt').fit]).toBeGreaterThanOrEqual(rank[fitFor('custo', grade, undefined, 'pt').fit]);
+    expect(fitFor('custo', muro, undefined, 'pt').source).toBe('faixa de preço da ficha, no tamanho testado');
+    expect(fitFor('nossa-gente', grade, t('grade-viva', { who: 'nos-com-parceiro' }) as any, 'pt').fit).toBe('medio');
   });
 
   test('a session from before these questions keeps exactly the comparison it had; the print carries the takeaway', () => {
