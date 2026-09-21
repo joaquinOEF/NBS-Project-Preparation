@@ -19,6 +19,7 @@ import { buildSolutionTest, type SolutionTestCard } from './w3-solution-test';
 import { REACTION, type SolutionTest } from './w3-tests';
 import type { W3Input } from './w3-dossier';
 import { getFamilia } from './nbs-catalog';
+import { parseCriteria, fitFor, criteriaScore, CRITERIA, WHO, HARDEST, FIT_MARK, type CriterionFit, type WhoId, type HardestId } from './w3-criteria';
 import { notesFromInput, placeNotes, toCardNote, STANCE_LABEL, NOTES_HEADING, type CardNote } from './w3-document-notes';
 
 type Lang = 'pt' | 'en';
@@ -40,6 +41,12 @@ export interface ComparisonColumn {
   reaction: { value: SolutionTest['reaction']; text: string } | null;
   /** Their answer to this solution's decisive-detail question, if any. */
   detail: string | null;
+  /** "Quem faria isso aí?" — theirs, in the written register; null when not asked. */
+  who: string | null;
+  /** "O que mais pega?" — theirs; their own words when they wrote them. */
+  hardest: string | null;
+  /** How this solution does on what THEY said weighs most — empty when they named nothing. */
+  criteria: Array<CriterionFit & { label: string; mark: string }>;
 }
 
 export interface Comparison {
@@ -58,13 +65,15 @@ export interface Comparison {
    * are in its column's prós / contras, each with the file as its source.
    */
   placeNotes: { heading: string; notes: CardNote[] };
+  /** What they said weighs most, in words — the columns are ordered by it. Empty when nothing was named. */
+  criteriaNamed: string[];
   docLabel: string;
   docAudience: string;
   rows: Array<{ id: RowId; label: string }>;
 }
 
 export type RowId =
-  | 'complexity' | 'type' | 'needs' | 'blocks' | 'effect' | 'cost' | 'upkeep' | 'pros' | 'cons' | 'reaction' | 'detail';
+  | 'criteria' | 'complexity' | 'type' | 'needs' | 'blocks' | 'effect' | 'cost' | 'upkeep' | 'pros' | 'cons' | 'who' | 'hardest' | 'reaction' | 'detail';
 
 const STATE_TEXT: Record<string, { pt: string; en: string }> = {
   ready: { pt: 'Nada trava', en: 'Nothing blocks it' },
@@ -79,6 +88,7 @@ export function verdictText(state: string, lang: Lang): string {
 
 const ROWS: Record<Lang, Array<{ id: RowId; label: string }>> = {
   pt: [
+    { id: 'criteria', label: 'No que pesa pra organização' },
     { id: 'complexity', label: 'Complexidade' },
     { id: 'type', label: 'Tipo' },
     { id: 'needs', label: 'O que precisa' },
@@ -88,10 +98,13 @@ const ROWS: Record<Lang, Array<{ id: RowId; label: string }>> = {
     { id: 'upkeep', label: 'Quem cuida depois' },
     { id: 'pros', label: 'A favor' },
     { id: 'cons', label: 'Contra' },
+    { id: 'who', label: 'Quem faria, segundo a organização' },
+    { id: 'hardest', label: 'O que mais pega, segundo a organização' },
     { id: 'reaction', label: 'Leitura da organização' },
     { id: 'detail', label: 'Detalhe informado' },
   ],
   en: [
+    { id: 'criteria', label: 'On what weighs for the organisation' },
     { id: 'complexity', label: 'Complexity' },
     { id: 'type', label: 'Type' },
     { id: 'needs', label: 'What it needs' },
@@ -101,6 +114,8 @@ const ROWS: Record<Lang, Array<{ id: RowId; label: string }>> = {
     { id: 'upkeep', label: 'Who looks after it' },
     { id: 'pros', label: 'For' },
     { id: 'cons', label: 'Against' },
+    { id: 'who', label: 'Who would do it, according to the organisation' },
+    { id: 'hardest', label: 'What would be hardest, according to the organisation' },
     { id: 'reaction', label: "The organisation's reading" },
     { id: 'detail', label: 'Detail given' },
   ],
@@ -194,6 +209,7 @@ export function buildComparison(
 ): Comparison {
   const pt = lang === 'pt';
   const columns: ComparisonColumn[] = [];
+  const criteria = parseCriteria(input.w3?._choice_criteria);
   for (const t of tests) {
     const card = buildSolutionTest(t.solutionId, input, t, lang);
     if (!card) continue;
@@ -208,7 +224,23 @@ export function buildComparison(
       cons,
       reaction: t.reaction ? { value: t.reaction, text: pt ? REACTION[t.reaction].pt : REACTION[t.reaction].en } : null,
       detail: t.detailAnswer?.trim() ? t.detailAnswer.trim() : null,
+      who: t.who && WHO[t.who as WhoId] ? (pt ? WHO[t.who as WhoId].reportPt : WHO[t.who as WhoId].reportEn) : null,
+      hardest: t.hardest === 'outro' && t.hardestNote?.trim()
+        ? `“${t.hardestNote.trim()}”`
+        : t.hardest && HARDEST[t.hardest as HardestId] ? (pt ? HARDEST[t.hardest as HardestId].reportPt : HARDEST[t.hardest as HardestId].reportEn) : null,
+      criteria: criteria.map(id => {
+        const f = fitFor(id, card, t, lang);
+        const c = CRITERIA.find(x => x.id === id)!;
+        return { ...f, label: pt ? c.rowPt : c.rowEn, mark: FIT_MARK[f.fit] };
+      }),
     });
+  }
+  // ⚠️ ORDERED BY WHAT THEY SAID WEIGHS MOST — not by the order they happened to
+  // test in. Stable: equal scores keep the order tried. With no criteria named
+  // the order is untouched, and the row is not shown at all.
+  if (criteria.length) {
+    const at = new Map(columns.map((c, i) => [c.solutionId, i]));
+    columns.sort((a, b) => criteriaScore(b.criteria) - criteriaScore(a.criteria) || at.get(a.solutionId)! - at.get(b.solutionId)!);
   }
   const areaM2 = input.areaM2 || undefined;
   return {
@@ -226,6 +258,40 @@ export function buildComparison(
     docAudience: pt
       ? 'Para a organização e a coordenação — base para a conversa de portfólio'
       : 'For the organisation and the coordination — the basis for the portfolio conversation',
-    rows: ROWS[lang],
+    // A row nobody has anything in is not a row: sessions from before these
+    // questions existed keep exactly the comparison they had.
+    rows: ROWS[lang].filter(r =>
+      r.id === 'criteria' ? criteria.length > 0
+      : r.id === 'who' ? columns.some(c => c.who)
+      : r.id === 'hardest' ? columns.some(c => c.hardest)
+      : true),
+    criteriaNamed: criteria.map(id => { const c = CRITERIA.find(x => x.id === id)!; return pt ? c.rowPt : c.rowEn; }),
   };
+}
+
+/**
+ * What this organisation takes to the portfolio table — one line per solution it
+ * kept: what it would pursue, what that needs from SOMEBODY ELSE, who would do
+ * it and what they said would be hardest. The hand-off to the project-based
+ * encontro: those last two are exactly its starting questions. Written register.
+ */
+export function portfolioTakeaway(cmp: Comparison, lang: Lang = 'pt'): string[] {
+  const pt = lang === 'pt';
+  const kept = cmp.columns.filter(c => c.reaction?.value === 'faz-sentido');
+  if (!kept.length) {
+    return [pt
+      ? `Nenhuma das ${cmp.columns.length} soluções testadas foi levada adiante pela organização — a comparação registra o motivo de cada uma.`
+      : `None of the ${cmp.columns.length} solutions tested was taken forward by the organisation — the comparison records why for each.`];
+  }
+  return kept.map(c => {
+    const needs = c.card.verdict.state === 'ready'
+      ? (pt ? 'nada trava' : 'nothing blocks it')
+      : (pt ? `depende de ${c.card.verdict.unblockedBy}` : `depends on ${c.card.verdict.unblockedBy}`);
+    const parts = [
+      `${c.label}: ${needs}`,
+      c.who ? (pt ? `quem faria — ${c.who.toLowerCase()}` : `who would do it — ${c.who.toLowerCase()}`) : null,
+      c.hardest ? (pt ? `o que mais pega, segundo a organização — ${c.hardest.replace(/^[A-ZÀ-Ú]/, m => m.toLowerCase())}` : `hardest, according to the organisation — ${c.hardest.replace(/^[A-Z]/, m => m.toLowerCase())}`) : null,
+    ].filter(Boolean);
+    return parts.join('; ') + '.';
+  });
 }

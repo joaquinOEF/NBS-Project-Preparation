@@ -231,7 +231,10 @@ a PROJECT's question and moves to Encontro 4. `closeAtComparison` writes
 tail beats are kept and tested behind `tailEnabled()` (`_tail_enabled`,
 `deps.tailEnabled`, or a session that already started it) — do not delete them.
 The size is per TEST (`SolutionTest.areaM2`), confirmed once per surface; a size
-given for a test never overwrites the place's footprint.
+given for a test never overwrites the place's footprint. Before the shelf E3 asks
+what weighs most (`shared/w3-criteria.ts`); each test asks who would do it and
+what is hardest; the comparison is ordered by their criteria. Specs about other
+things seed `_quick_tests: 'yes'` to skip those beats.
 
 ### The model proposes, they confirm, a function decides — `docs/w3-flow.md` (same heading)
 A verdict or a size NEVER moves on a model's say-so. A study shown done in their

@@ -36,6 +36,11 @@ export interface SolutionTest {
    * `0` = asked, and they could not say — never the site's area by default.
    */
   areaM2?: number;
+  /** "Quem faria isso aí?" — a WhoId from shared/w3-criteria.ts. Theirs; it outranks our delivery class. */
+  who?: string;
+  /** "O que mais pega?" — a HardestId; `hardestNote` holds their own words when it is 'outro'. */
+  hardest?: string;
+  hardestNote?: string;
   /** The ficha's decisive-detail question, if this solution has one and it was asked. */
   detailQuestionId?: string;
   detailAnswer?: string;

@@ -31,6 +31,7 @@
 import { isUploadNotice, moreUploadsComing, uploadBatchOf, uploadedFilename } from '@shared/cbo-upload-notices';
 import { collapseRepeatedAnswer } from '@shared/cbo-chip-answers';
 import { withPendingQuestion, reemitPending } from './pendingQuestion';
+import { CRITERIA, MAX_CRITERIA, parseCriteria, criteriaSentence, WHO, HARDEST, hardestOptions, type CriterionId, type WhoId, type HardestId } from '@shared/w3-criteria';
 import { parseDocumentNotes, parseDocumentMeasures, studyProposal, DOCUMENT_NOTES_FIELD, CONVERSATION_SOURCE, type DocumentMeasure } from '@shared/w3-document-notes';
 import { studyRequirement as studyStillNeeded, studiesDone, COMPLETABLE_STUDIES, STUDIES_DONE_FIELD } from '@shared/w3-dossier';
 import { PENDING_FIELD, parsePending } from '@shared/pending-question';
@@ -47,14 +48,14 @@ import {
   REACTION, type SolutionTest, type TestReaction,
 } from '@shared/w3-tests';
 import { buildSolutionTest, firstSentence } from '@shared/w3-solution-test';
-import { buildComparison } from '@shared/w3-comparison';
+import { portfolioTakeaway, buildComparison } from '@shared/w3-comparison';
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { siteInSentence, siteLabel } from '@shared/site-name';
 import { GAP_RETRIES, areaBandFor, ROUGH_AREA_SOURCE, CANNOT_GUESS } from '@shared/w3-gap-questions';
 import { parseSpokenArea, SPOKEN_AREA_SOURCE } from '@shared/w3-area-speech';
 import { detailQuestionFor } from '@shared/w3-detail-questions';
 import { parseDig, pendingDig, type DigPairing } from '@shared/w3-dig';
-import { getSolution } from '@shared/nbs-catalog';
+import { getSolution, SOLUTION_MECHANISMS } from '@shared/nbs-catalog';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
 import { E3_QUESTIONNAIRE, allowedOptionIds, checkOptionRule, askCopyFor, sectionsFieldReader } from '@shared/cbo-questionnaire';
 import { scoreW3Maturity } from '@shared/w3-maturity';
@@ -99,6 +100,13 @@ export interface E3Deps {
    * and the simulations that exercise them pass `true`.
    */
   tailEnabled?: boolean;
+  /**
+   * Skip the deliberation beats (the criteria question before the shelf, the two
+   * questions each test asks). For the simulations and the specs that are about
+   * something else; the product, the fuzzer and the deliberation spec run without it.
+   * Per session: `_quick_tests: 'yes'`.
+   */
+  quickTests?: boolean;
   startAdvisor?(): void;
   /**
    * Read their files for what they say about each solution (w3DocumentReader).
@@ -157,6 +165,9 @@ const E3C = {
   naoSeiQuantas: { pt: 'Ainda não sei quantas', en: "I don't know how many yet" },
   areaConfere: { pt: 'Confere ✓', en: 'That is right ✓' },
   fecharE3: { pt: 'Fechar o Encontro 3 ✓', en: 'Close Encontro 3 ✓' },
+  criteriosPronto: { pt: 'Pronto, é isso', en: 'That is it' },
+  criteriosPular: { pt: 'Prefiro não escolher agora', en: 'I would rather not choose now' },
+  outraCoisaPega: { pt: '✍️ Outra coisa', en: '✍️ Something else' },
   estudoFeito: { pt: 'Sim, já temos esse estudo', en: 'Yes, we already have that study' },
   estudoFalta: { pt: 'Ainda não temos', en: 'We do not have it yet' },
   redesenhar: { pt: 'Quero desenhar de novo', en: 'I want to draw it again' },
@@ -580,11 +591,39 @@ async function serveE3Inner(
   };
 
   /** Which risk first (when they named more than one), then the shelf. */
+  const quick = () => deps.quickTests === true || type('_quick_tests') === 'yes';
+
+  // ── What weighs most for them — once, before any option is on the table ───
+  // shared/w3-criteria.ts has the reasons. Up to two, one tap at a time; the
+  // comparison is ordered by them and says how each solution does on each.
+  const askCriteria = (picked: CriterionId[]): true => {
+    const left = CRITERIA.filter(c => !picked.includes(c.id));
+    if (!picked.length) {
+      say(
+        'Antes de olhar as soluções, uma pergunta: **o que pesa mais pra vocês na hora de escolher?** Não tem resposta certa — é o que vai ordenar a comparação no fim.',
+        'Before looking at the solutions, one question: **what weighs most for you when choosing?** There is no right answer — it is what orders the comparison at the end.',
+      );
+    }
+    deps.writeFields(TYPE, { _criteria_pending: 'yes' });
+    ask(
+      picked.length ? 'Marcado ✓ Mais uma coisa que pesa?' : 'O que pesa mais? Pode marcar até duas — uma por vez.',
+      picked.length ? 'Noted ✓ One more thing that weighs?' : 'What weighs most? You can pick up to two — one at a time.',
+      [
+        ...left.map(c => ({ pt: c.chipPt, en: c.chipEn, dPt: c.dPt, dEn: c.dEn })),
+        picked.length
+          ? { pt: E3C.criteriosPronto.pt, en: E3C.criteriosPronto.en, dPt: 'Seguir pras soluções', dEn: 'On to the solutions' }
+          : { pt: E3C.criteriosPular.pt, en: E3C.criteriosPular.en, dPt: 'Comparar sem ordenar', dEn: 'Compare without ordering' },
+      ],
+    );
+    return finish('ask-criteria');
+  };
+
   const toShelf = async (): Promise<true> => {
     if (namedWorries().length > 1 && !site('_worry_focus_done')) {
       const asked = askWhichWorry();
       if (asked) return asked;
     }
+    if (!quick() && type('_criteria_done') !== 'yes') return askCriteria(parseCriteria(type('_choice_criteria')));
     return await askSolution();
   };
 
@@ -706,8 +745,38 @@ async function serveE3Inner(
       let at = -1;
       // …and never a seat that answers what they said weighs most: those are
       // reserved (reserveFocusSeats), and the files do not outrank their own words.
-      for (let i = entries.length - 1; i >= 0; i--) if (!fromFiles.some(x => x.id === entries[i].solution.id) && !(entries[i] as any).answersFocus) { at = i; break; }
+      // (Read from the catalogue's mechanisms, not from the entry's `answersFocus`
+      // flag: the merged shelf does not carry it, and the first version of this
+      // guard protected nothing — the fuzzer's I5 found a shelf pinned empty of
+      // the worry they had named.)
+      const focusNow = namedWorries().find(w => w !== 'other');
+      const answersFocusNow = (id: string) => !!focusNow && (SOLUTION_MECHANISMS[id] ?? []).includes(focusNow as any);
+      const focusSeats = entries.filter(e => answersFocusNow(e.solution.id)).length;
+      for (let i = entries.length - 1; i >= 0; i--) {
+        const id = entries[i].solution.id;
+        if (fromFiles.some(x => x.id === id)) continue;
+        // Keep at least the two seats that answer their worry (or all of them, if fewer).
+        if (answersFocusNow(id) && focusSeats <= 2) continue;
+        at = i; break;
+      }
       if (entries.length < 4) entries.push(entry); else if (at >= 0) entries[at] = entry;
+    }
+    // ⚠️ THE GUARANTEE, stated where it can be checked: while something untested
+    // still answers the worry they said weighs most, the shelf shows at least one.
+    // reserveFocusSeats and the pin above both aim at this; one walk in 2,400 of
+    // the fuzzer (an advisor pick outside their grupos + files pinned) still
+    // reached a shelf without it, so the last word is here.
+    {
+      const focusNow = namedWorries().find(w => w !== 'other');
+      const answers = (id: string) => !!focusNow && (SOLUTION_MECHANISMS[id] ?? []).includes(focusNow as any);
+      if (focusNow && entries.length && !entries.some(e => answers(e.solution.id))) {
+        const best = base.find(e => answers(e.solution.id) && !already.includes(e.solution.id));
+        if (best) {
+          let at = entries.length - 1;
+          while (at > 0 && fromFiles.some(x => x.id === entries[at].solution.id)) at--;
+          if (entries.length < 4) entries.push(best); else entries[at] = best;
+        }
+      }
     }
     if (!entries.length) return await showComparison();
     // ⚠️ Say the shared half ONCE. Every card used to open with the same eight
@@ -1173,6 +1242,49 @@ async function serveE3Inner(
     );
   };
 
+  /**
+   * What follows a card that is ALREADY on screen: who would do it, what would
+   * be hardest, then the reaction. Separate from showTestCard so that answering
+   * one of them asks the next without pushing the card a second time.
+   */
+  const askAfterCard = (solutionId: string, card: NonNullable<ReturnType<typeof buildSolutionTest>>): true => {
+    // ⚠️ TWO QUESTIONS BEFORE THE THUMB. A staging run tested three solutions in
+    // 100 seconds and all three "made sense" — a card and a reaction asks for a
+    // judgement without asking for a thought. Who would actually do this, and
+    // what would be hardest, are things only they know; they make the reaction
+    // mean something, they are rows of the comparison, and they are exactly the
+    // needs the next encontro exists to collect. Each takes "não sei".
+    if (!quick()) {
+      const t = testOf(ensureTests(), solutionId);
+      if (!t?.who) {
+        deps.writeFields(TYPE, { _test_q: `who:${solutionId}` });
+        ask('Se fosse pra fazer isso aí: quem faria?', 'If this were to be done there: who would do it?',
+          (Object.keys(WHO) as WhoId[]).map(id => ({ pt: WHO[id].chipPt, en: WHO[id].chipEn })));
+        return finish(`test-who-${solutionId}`);
+      }
+      if (!t?.hardest) {
+        deps.writeFields(TYPE, { _test_q: `hard:${solutionId}` });
+        const hp = hardestOptions(card, 'pt');
+        const he = hardestOptions(card, 'en');
+        ask('E o que mais pega, pra vocês?', 'And what would be hardest, for you?', [
+          ...hp.map((o, i) => ({ pt: o.label, en: he[i].label, dPt: o.description, dEn: he[i].description })),
+          { pt: E3C.outraCoisaPega.pt, en: E3C.outraCoisaPega.en, dPt: 'Escrever com as palavras de vocês', dEn: 'Write it in your own words', action: 'write' },
+        ]);
+        return finish(`test-hardest-${solutionId}`);
+      }
+    }
+    ask('Vendo isso, o que vocês acham?', 'Seeing this, what do you make of it?', [
+      { pt: REACTION['faz-sentido'].chipPt, en: REACTION['faz-sentido'].chipEn, dPt: 'Entra no projeto', dEn: 'Goes into the project' },
+      { pt: REACTION['nao-e-pra-gente'].chipPt, en: REACTION['nao-e-pra-gente'].chipEn, dPt: 'Fica na comparação, marcada', dEn: 'Stays in the comparison, marked' },
+      { pt: REACTION['ainda-nao-sabemos'].chipPt, en: REACTION['ainda-nao-sabemos'].chipEn, dPt: 'Fica em aberto', dEn: 'Stays open' },
+    ]);
+    return finish(`test-${solutionId}`);
+  };
+  const showTestCardQuestions = async (solutionId: string): Promise<true> => {
+    const card = buildSolutionTest(solutionId, w3Input(), testOf(ensureTests(), solutionId), isPt ? 'pt' : 'en');
+    return card ? askAfterCard(solutionId, card) : await showTestCard(solutionId);
+  };
+
   // ── The test card · what it needs, what blocks it, what it does, what it costs
   /**
    * One solution, four answers, one reaction.
@@ -1255,12 +1367,7 @@ async function serveE3Inner(
         `The files you sent speak about this solution (**${own[0].source}**) — it is at the end of the card, with the passage.`,
       );
     }
-    ask('Vendo isso, o que vocês acham?', 'Seeing this, what do you make of it?', [
-      { pt: REACTION['faz-sentido'].chipPt, en: REACTION['faz-sentido'].chipEn, dPt: 'Entra no projeto', dEn: 'Goes into the project' },
-      { pt: REACTION['nao-e-pra-gente'].chipPt, en: REACTION['nao-e-pra-gente'].chipEn, dPt: 'Fica na comparação, marcada', dEn: 'Stays in the comparison, marked' },
-      { pt: REACTION['ainda-nao-sabemos'].chipPt, en: REACTION['ainda-nao-sabemos'].chipEn, dPt: 'Fica em aberto', dEn: 'Stays open' },
-    ]);
-    return finish(`test-${solutionId}`);
+    return askAfterCard(solutionId, card);
   };
 
   /** Back to the shelf, or on to the comparison. Asked after every test. */
@@ -1294,6 +1401,12 @@ async function serveE3Inner(
     if (!tests.length) return await askSolution();
     const input = w3Input();
     const comparison = buildComparison(input, tests, isPt ? 'pt' : 'en', type('technical_note') || null);
+    if (comparison.criteriaNamed.length && comparison.columns.length > 1) {
+      say(
+        `A comparação vem ordenada pelo que vocês disseram que pesa mais — **${comparison.criteriaNamed.join('** e **')}** — e a primeira linha mostra como cada solução se sai nisso.`,
+        `The comparison is ordered by what you said weighs most — **${comparison.criteriaNamed.join('** and **')}** — and its first row shows how each solution does on it.`,
+      );
+    }
     pushEvent({ type: 'show_comparison', comparison } as any);
     deps.writeFields(TYPE, { _comparison_shown: 'yes' });
     const dossier = buildDossier(input, isPt ? 'pt' : 'en');
@@ -1368,6 +1481,13 @@ async function serveE3Inner(
     const kept = liked.length
       ? { pt: `Vocês testaram ${tests.length} e ficaram com **${liked.join(', ')}**.`, en: `You tested ${tests.length} and kept **${liked.join(', ')}**.` }
       : { pt: `Vocês testaram ${tests.length} e nenhuma fechou ainda — isso também é resposta, e vai pra mesa assim.`, en: `You tested ${tests.length} and none has settled yet — that is an answer too, and it goes to the table as it is.` };
+    const take = (l: 'pt' | 'en') => portfolioTakeaway(buildComparison(input, tests, l, type('technical_note') || null), l);
+    if (liked.length) {
+      say(
+        `**Pra levar à mesa do portfólio:**\n${take('pt').map(x => `- ${x}`).join('\n')}`,
+        `**To take to the portfolio table:**\n${take('en').map(x => `- ${x}`).join('\n')}`,
+      );
+    }
     say(
       `✓ **Pronto${nome ? `, ${nome}` : ''}.** ${kept.pt} A comparação fica salva aqui e em PDF, com um cenário por página. É ela que vai pra conversa de portfólio — detalhar quem constrói, prazo e dinheiro vem depois, já com o projeto definido junto com as outras organizações.`,
       `✓ **Done${nome ? `, ${nome}` : ''}.** ${kept.en} The comparison is saved here and as a PDF, one scenario per page. It is what goes to the portfolio conversation — who builds, by when and with what money comes after, with the project defined together with the other organisations.`,
@@ -1816,6 +1936,65 @@ async function serveE3Inner(
   // the microphone and dropped the keyboard. (It did, on the first run of
   // e2e/cougar-e3-footprint-draw.spec.ts.) The beat's own chips are excluded by
   // label instead, which is what the other free-text handlers here do.
+  // ══ What weighs most · who would do it · what would be hardest ═══════════
+  {
+    const n = deps.normChip(raw);
+    const said = (c: { pt: string; en: string }) => n === deps.normChip(c.pt) || n === deps.normChip(c.en);
+    if (type('_criteria_pending') === 'yes' && raw) {
+      const picked = parseCriteria(type('_choice_criteria'));
+      const hit = CRITERIA.find(c => said({ pt: c.chipPt, en: c.chipEn }) && !picked.includes(c.id));
+      const closing = said(E3C.criteriosPronto) || said(E3C.criteriosPular);
+      if (hit || closing) {
+        const next = hit ? [...picked, hit.id] : picked;
+        if (hit && next.length < MAX_CRITERIA) {
+          deps.writeFields(TYPE, { _choice_criteria: next.join(',') });
+          return askCriteria(next);
+        }
+        deps.writeFields(TYPE, {
+          _criteria_pending: '', _criteria_done: 'yes', _choice_criteria: next.join(','),
+          // Words, not ids: this is the public field, and it is printed as it is.
+          choice_criteria: criteriaSentence(next, isPt ? 'pt' : 'en'),
+        });
+        if (next.length) say(`Anotado: **${criteriaSentence(next, 'pt')}**. A comparação vai ser ordenada por isso.`, `Noted: **${criteriaSentence(next, 'en')}**. The comparison will be ordered by that.`);
+        return await askSolution();
+      }
+    }
+    const tq = type('_test_q'); // 'who:<id>' | 'hard:<id>' | 'hard-other:<id>'
+    if (tq && raw && !raw.startsWith('Map selection (') && !isUploadNotice(raw)) {
+      const [kind, id] = tq.split(':');
+      if (kind === 'who') {
+        const who = (Object.keys(WHO) as WhoId[]).find(w => said({ pt: WHO[w].chipPt, en: WHO[w].chipEn }));
+        if (who) {
+          writeTests(upsertTest(ensureTests(), { solutionId: id, who }));
+          deps.writeFields(TYPE, { _test_q: '' });
+          return await showTestCardQuestions(id);
+        }
+      }
+      if (kind === 'hard') {
+        const card = buildSolutionTest(id, w3Input(), testOf(ensureTests(), id), isPt ? 'pt' : 'en');
+        const pick = card ? [...hardestOptions(card, 'pt'), ...hardestOptions(card, 'en')].find(o => n === deps.normChip(o.label)) : undefined;
+        if (pick) {
+          writeTests(upsertTest(ensureTests(), { solutionId: id, hardest: pick.id }));
+          deps.writeFields(TYPE, { _test_q: '' });
+          return await showTestCardQuestions(id);
+        }
+        const flowChip = Object.values(E3C).some(c => said(c));
+        if (!flowChip && !isSkip(raw) && raw.length >= 3 && turnKind !== 'chip') {
+          // Their own words — typed or dictated instead of tapping.
+          writeTests(upsertTest(ensureTests(), { solutionId: id, hardest: 'outro' as HardestId, hardestNote: raw.slice(0, 400) }));
+          deps.writeFields(TYPE, { _test_q: '' });
+          say('Anotado, com as palavras de vocês.', 'Noted, in your own words.');
+          return await showTestCardQuestions(id);
+        }
+        if (isSkip(raw)) {
+          writeTests(upsertTest(ensureTests(), { solutionId: id, hardest: 'nada' as HardestId }));
+          deps.writeFields(TYPE, { _test_q: '' });
+          return await showTestCardQuestions(id);
+        }
+      }
+    }
+  }
+
   // ══ A size from their own material, tapped ═══════════════════════════════
   // Above the spoken-size handler on purpose: the chip's label contains a
   // number and "m²", and read as SPEECH it would be recorded as something they
@@ -1928,7 +2107,21 @@ async function serveE3Inner(
   // The detail beat's answer. Kept as its own record — question and reply —
   // because "mais barro, a água empoça" means nothing without the question it
   // answers, and the concept note prints both.
-  if (type('_detail_pending') && raw && !raw.startsWith('Map selection (')) {
+  // ⚠️ One of the flow's OWN chips is never somebody's answer. A free-text beat
+  // accepts any sentence, so "Ver a comparação" tapped from an older bubble while
+  // a detail question was pending was stored as the detail ("A organização
+  // descreve o solo como: Ver a comparação") and printed. The beat is dropped —
+  // they moved on — and the chip goes to the handler that owns it.
+  // …except the free-text beat's OWN chips (write · record · skip): "Prefiro pular"
+  // IS an answer to it, and treating it as a stray chip dropped the question.
+  const BEAT_OWN: Array<{ pt: string; en: string }> = [E3C.escrever, E3C.gravar, E3C.pular];
+  const isFlowChip = (str: string) => {
+    if (isSkip(str)) return false;
+    const n = deps.normChip(str);
+    return Object.values(E3C).some(c => !BEAT_OWN.includes(c) && (n === deps.normChip(c.pt) || n === deps.normChip(c.en)));
+  };
+  // The question stays pending — a stray chip is not an answer, and it is not "they moved on" either.
+  if (type('_detail_pending') && raw && !isFlowChip(raw) && !raw.startsWith('Map selection (')) {
     const [qid, forSolution] = type('_detail_pending').split(':');
     deps.writeFields(TYPE, { _detail_pending: '' });
     if (!isSkip(raw)) {

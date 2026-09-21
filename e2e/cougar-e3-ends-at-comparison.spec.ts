@@ -31,6 +31,8 @@ function session(extraType: Record<string, string> = {}, deps: Record<string, un
     writeFields: (sid: string, kv: Record<string, string>) => put(sid, kv),
     recordCheckpoint: () => {}, normChip: norm,
     recordMaturity: (scores: any[]) => { for (const sc of scores) { state.maturityScores = state.maturityScores.filter((m: any) => m.metric !== sc.metric); state.maturityScores.push(sc); } },
+    // This spec is about the ending, the sizes and the files; the deliberation beats have their own.
+    quickTests: true,
     startDig: (r: number) => started.push(`dig${r}`), startAdvisor: () => started.push('advisor'), startDocumentReader: () => started.push('reader'),
     ...deps,
   };

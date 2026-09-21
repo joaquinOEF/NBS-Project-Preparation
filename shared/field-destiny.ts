@@ -91,6 +91,12 @@ const NO_ANSWER = /^(n[ãa]o sei|nao-sei|nenhuma|não informado|pular|skip|-|—
 
 export const FIELD_DESTINY: Record<string, FieldDestiny> = {
   // ── What the model noted under a name nothing reads (see the gate below) ───
+  // ── What weighs most for them when choosing (Encontro 3, before the shelf) ─
+  choice_criteria: {
+    feeds: 'porque',
+    labelPt: 'O que pesa mais na escolha, segundo a organização',
+    labelEn: 'What weighs most in the choice, according to the organisation',
+  },
   // ── Studies the place already has — confirmed by the organisation ─────────
   studies_done: {
     carriedBy: 'solutions.0.studyDone.label',

@@ -17,6 +17,8 @@ const BASE = [
   // Encontro 3 ends at the comparison since 2026-09-21 (e2e/cougar-e3-ends-at-comparison.spec.ts).
   // The beats are kept as Encontro 4's raw material, and this per-session switch keeps them tested.
   { sectionId: 'intervention_type', field: '_tail_enabled', value: 'yes' },
+  // …and the deliberation beats are skipped for the same reason (e2e/cougar-e3-deliberation.spec.ts covers them).
+  { sectionId: 'intervention_type', field: '_quick_tests', value: 'yes' },
 ];
 
 const SITED = [
@@ -27,6 +29,9 @@ const SITED = [
   { sectionId: 'intervention_site', field: '_site_lng', value: '-51.1726' },
   { sectionId: 'intervention_site', field: 'site_worry', value: 'alagamento' },
   { sectionId: 'intervention_site', field: 'nbs_interest', value: 'aguas-pluviais' },
+  // Skips Encontro 3's deliberation beats (criteria · who would do it · what is hardest) — this spec
+  // is about something else. They are covered by e2e/cougar-e3-deliberation.spec.ts and the fuzzer.
+  { sectionId: 'intervention_type', field: '_quick_tests', value: 'yes' },
 ];
 
 test.describe('COUGAR — E3 paths', () => {
