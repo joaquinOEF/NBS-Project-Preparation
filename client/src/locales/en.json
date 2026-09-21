@@ -2060,6 +2060,9 @@
     "cloneTest": "Test copy",
     "cloneTestHint": "Create a test copy of this organisation as it stood at the end of Encontro 2. The original is not touched.",
     "profile": "Profile (PDF)",
-    "profileHint": "A print-ready page with everything this organisation has shared so far"
+    "profileHint": "A print-ready page with everything this organisation has shared so far",
+    "encontroN": "Encontro {{n}}",
+    "testBadge": "Test copy — kept out of the portfolio",
+    "actions": "Actions"
   }
 }
