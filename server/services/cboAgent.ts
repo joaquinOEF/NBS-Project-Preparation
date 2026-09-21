@@ -24,7 +24,7 @@ import {
 } from "./cboPersistence";
 import { db } from "../db";
 import { cohortMembers, type SupportRequest } from "@shared/cohort-schema";
-import { classifyUploadNotice, isUnreadableUploadNotice, moreUploadsComing, uploadBatchOf, uploadedFilename } from '@shared/cbo-upload-notices';
+import { classifyUploadNotice, isUploadNotice, isUnreadableUploadNotice, moreUploadsComing, uploadBatchOf, uploadedFilename } from '@shared/cbo-upload-notices';
 import { resolveOpenMapParams } from "@shared/cbo-map-presets";
 import { rankFamiliasForSite, inferSiteTypeLabel } from "@shared/nbs-recommendation";
 import { rankFamiliasWithContext, rankerCanRun, type FamiliaRankingResult } from "./familiaRanker";
@@ -75,6 +75,9 @@ import { reemitPending } from "./pendingQuestion";
 import { findProjectByStateId, projectBrief, projectFacts, buildProjectContext } from "./projectContext";
 import { loadNamedSkill } from "./encontroSkills";
 import { warnIfOrphan, isGatedSection, routeModelWrite } from '@shared/field-destiny';
+import { neutraliseInjected, UNTRUSTED_RULE } from '@shared/untrusted-content';
+import { scoreWritePolicy, flagWritePolicy } from '@shared/score-write-policy';
+import { recordHealth } from '@shared/session-health';
 import { digRound1, digRound2 } from './w3Dig';
 import { buildContextMarkdown } from './contextBundle';
 import { parseDig } from '@shared/w3-dig';
@@ -412,6 +415,12 @@ const cboLangRegistry = new Map<string, 'pt' | 'en'>();
 function setActiveCboLang(id: string, lang: string) { cboLangRegistry.set(id, lang === 'en' ? 'en' : 'pt'); }
 function getActiveCboLang(id: string): 'pt' | 'en' { return cboLangRegistry.get(id) ?? 'pt'; }
 
+// What triggered the turn in flight, per CBO — read by the tools that must not
+// act on a file's content (shared/score-write-policy.ts). Same reason as the
+// language registry: the tool closures are cached per cboId.
+const cboUploadTurnRegistry = new Map<string, boolean>();
+const isUploadTurn = (id: string) => cboUploadTurnRegistry.get(id) === true;
+
 function createCboMcpTools(cboId: string) {
   if (!sdkTool || !sdkCreateMcpServer) return null;
 
@@ -489,6 +498,7 @@ function createCboMcpTools(cboId: string) {
           else {
             salvaged.push({ field: r.tried!, into: `${r.sectionId}.${r.field}`, suggestions: r.suggestions ?? [] });
             console.warn(`[model-write-rerouted] ${cboId}: ${args.sectionId}.${r.tried} has no reader — kept under ${r.sectionId}.${r.field}`);
+            recordHealth(state, 'model-write-rerouted', `${args.sectionId}.${r.tried} → ${r.field}`);
           }
         }
         writable = asIs;
@@ -1127,6 +1137,19 @@ STOP and wait for the user's map selection after calling this tool.`,
           isError: true,
         };
       }
+      // A score is the platform's and the organisation's, never a file's.
+      // shared/score-write-policy.ts — upload turns, the W3 four, the tenure ceiling.
+      const tenureOnRecord = String((state.sections as any)?.intervention_site?.fields?.land_tenure?.value ?? '');
+      const decision = scoreWritePolicy({ metric: args.metric, score: args.score, phase: state.phase, tenure: tenureOnRecord, uploadTurn: isUploadTurn(cboId) });
+      if (!decision.ok) {
+        console.warn(`[score-refused] ${cboId}: ${args.metric}=${args.score} at phase ${state.phase}${isUploadTurn(cboId) ? ' (upload turn)' : ''}`);
+        recordHealth(state, 'score-refused', `${args.metric}=${args.score}${isUploadTurn(cboId) ? ' in a turn triggered by an upload' : ''}`);
+        setCboState(cboId, state);
+        return { content: [{ type: "text" as const, text: decision.message }], isError: true };
+      }
+      if (decision.note) { console.warn(`[score-capped] ${cboId}: ${args.metric} ${args.score} → ${decision.score} (tenure ${tenureOnRecord})`); recordHealth(state, 'score-capped', `${args.metric} ${args.score} → ${decision.score} (tenure: ${tenureOnRecord})`); }
+      args = { ...args, score: decision.score };
+      const policyNote = decision.note ?? '';
       // CLOSE GATE (manifest): for phases scored at close (E1), scoring IS the
       // closing signal — so refuse it while required questionnaire fields (or
       // the set_path triage) are missing, naming exactly what's left. This is
@@ -1162,7 +1185,7 @@ STOP and wait for the user's map selection after calling this tool.`,
       state.totalMaturityScore = state.maturityScores.reduce((sum, s) => sum + s.score, 0);
       setCboState(cboId, state);
       pushEvent({ type: 'maturity_update', scores: state.maturityScores, total: state.totalMaturityScore, flags: state.priorityFlags });
-      return { content: [{ type: "text" as const, text: `Maturity: ${args.metric} = ${args.score}/3` }] };
+      return { content: [{ type: "text" as const, text: `Maturity: ${args.metric} = ${args.score}/3.${policyNote}` }] };
     },
     { annotations: { readOnlyHint: false } }
   );
@@ -1176,6 +1199,7 @@ STOP and wait for the user's map selection after calling this tool.`,
       notes: z.string().optional(),
     },
     async (args: any) => {
+      { const allowed = flagWritePolicy(isUploadTurn(cboId)); if (!allowed.ok) { console.warn(`[flag-refused] ${cboId}: ${args.flag} (upload turn)`); { const st = getCboState(cboId); if (st) { recordHealth(st, 'flag-refused', String(args.flag)); setCboState(cboId, st); } } return { content: [{ type: "text" as const, text: allowed.message }], isError: true }; } }
       const state = getCboState(cboId);
       if (!state) return { content: [{ type: "text" as const, text: "Error: not found" }], isError: true };
       const flag = canonicalPriorityFlag(args.flag);
@@ -1293,7 +1317,8 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
       if (!orgId) return { content: [{ type: "text" as const, text: "No documents available." }], isError: true };
       const doc = await getDocumentForOrg(args.id, orgId);
       if (!doc) return { content: [{ type: "text" as const, text: `Document ${args.id} not found for this organization.` }], isError: true };
-      const text = doc.fullText || doc.summary || '(no extracted text)';
+      // File text is data: a paragraph addressed to an AI never reaches the model.
+      const text = neutraliseInjected(doc.fullText || doc.summary || '(no extracted text)', getActiveCboLang(cboId)).text;
       return { content: [{ type: "text" as const, text: `# ${doc.filename}\n\n${text.length > 6000 ? text.slice(0, 6000) + '\n...(truncated — use search_org_documents to find a specific passage further in)' : text}` }] };
     },
     { annotations: { readOnlyHint: true } }
@@ -1320,7 +1345,7 @@ USE THIS TOOL PROACTIVELY when guiding the user. Don't just ask questions — re
         return { content: [{ type: "text" as const, text: `No matches for "${args.query}" in the org's documents. Use list_org_documents to see what's on file.` }] };
       }
       const lines = scored.map(({ d, score }) =>
-        `### [${d.id}] ${d.filename} (score ${score})\n${extractExcerpt(d.fullText || d.summary || '', terms)}`);
+        `### [${d.id}] ${d.filename} (score ${score})\n${neutraliseInjected(extractExcerpt(d.fullText || d.summary || '', terms), getActiveCboLang(cboId)).text}`);
       return { content: [{ type: "text" as const, text: `Top matches for "${args.query}":\n\n${lines.join('\n\n')}\n\nUse read_org_document([id]) for a document's full text.` }] };
     },
     { annotations: { readOnlyHint: true } }
@@ -3434,6 +3459,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
 
   setActivePushEvent(cboId, pushEvent);
   setActiveCboLang(cboId, lang);
+  cboUploadTurnRegistry.set(cboId, turnKind === 'upload' || isUploadNotice(userMessage.split('\n[LANGUAGE:')[0].trim()));
 
   // Instant E2 entry — the banner's fixed message at phase 2 gets the
   // templated Turn 1 (see serveEncontro2Entry) instead of a model turn.
@@ -3762,6 +3788,7 @@ async function runW3DocumentReader(cboId: string): Promise<void> {
         debouncedPersist(cboId);
       }
       console.log(`[w3-reader] ${cboId}: ${notes.length} note(s) from ${sig.split('|').length} file(s) in ${Date.now() - startedAt}ms${reason ? ` — ${reason}` : ''}`);
+      if (failed) { const st = getCboState(cboId); if (st) { recordHealth(st, 'pass-failed', `document reader: ${reason}`); setCboState(cboId, st); debouncedPersist(cboId); } }
     })().catch((err: any) => console.error(`[w3-reader] ${cboId} failed (cards unchanged):`, err?.message || err))
       .finally(() => { if (readerInFlight.get(cboId)?.sig === sig) readerInFlight.delete(cboId); });
     readerInFlight.set(cboId, { sig, startedAt, done });
@@ -3843,6 +3870,7 @@ async function runW3AdvisorInner(cboId: string): Promise<void> {
 
     const fresh = getCboState(cboId);
     if (!fresh?.sections?.intervention_type) return;
+    if (reason && /^(timeout|error)/.test(reason)) recordHealth(fresh, 'pass-failed', `advisor: ${reason.slice(0, 120)}`);
     fresh.sections.intervention_type.fields._advice_json = {
       value: JSON.stringify(advice),
       confidence: 'medium',
@@ -4213,6 +4241,9 @@ function formatCboToolLabel(tool: string, input: any, lang: string): string | nu
 }
 
 async function streamWithSdk(cboId: string, userMessage: string, state: CboState, pushEvent: EventPusher, lang: string = 'en', turnKind?: string) {
+  // What the MODEL reads, not what is stored: a paragraph of an uploaded file
+  // that is addressed to an AI is replaced before it reaches the prompt.
+  { const n = neutraliseInjected(userMessage, lang === 'en' ? 'en' : 'pt'); if (n.removed) { console.warn(`[file-text-neutralised] ${cboId}: ${n.removed} machine-addressed passage(s) removed from the turn's message`); recordHealth(state, 'file-text-neutralised', `${n.removed} passage(s) in ${uploadedFilename(userMessage) || 'the message'}`); setCboState(cboId, state); userMessage = n.text; } }
   const mcpServer = getMcpServer(cboId);
   // Independent reads — run concurrently instead of serially. Together with
   // the cohortLanguage JOIN this collapses the pre-model DB wait from 5
@@ -4271,7 +4302,7 @@ ${await buildProjectContext(project, lang === 'en' ? 'en' : 'pt')}`;
   // on the prefix). The section names stay identical — sysCtx rules that say
   // "check CURRENT STATE first" keep working; the blocks just arrive in the
   // conversation instead of the system message.
-  const systemPrompt = sysCtx;
+  const systemPrompt = sysCtx + UNTRUSTED_RULE;
   // TODAY rides in the volatile block (never the cached system prompt): the
   // model has no other way to know the date, so age arithmetic silently
   // drifted — a site saying "fundada em 2013" got bucketed '5 a 10 anos'
@@ -4496,7 +4527,7 @@ async function buildDocumentsBlock(cboId: string): Promise<string> {
     const docs = await listDocumentSummariesByOrg(orgId);
     if (docs.length === 0) return '';
     const lines = docs.slice(0, 20).map(d =>
-      `- [${d.id}] ${d.filename} (${d.kind ?? 'file'}${d.droppedInPhase ? `, Encontro ${d.droppedInPhase}` : ''}) — ${(d.summary || '').slice(0, 120)}`);
+      `- [${d.id}] ${d.filename} (${d.kind ?? 'file'}${d.droppedInPhase ? `, Encontro ${d.droppedInPhase}` : ''}) — ${neutraliseInjected((d.summary || '').slice(0, 120)).text}`);
     return `\n\n## DOCUMENTS ON FILE (${docs.length})\nThis org has already shared these. Read the full text with read_org_document([id]) before re-asking for information that's likely in them:\n${lines.join('\n')}`;
   } catch (e: any) {
     console.error('[cbo] buildDocumentsBlock failed:', e?.message || e);
@@ -4540,7 +4571,7 @@ function buildDecisionLog(cboId: string): string {
       return null;
     }
     const who = m.role === 'user' ? 'User' : 'You (agent)';
-    return `- ${who}: ${clipKeepingTail(m.content, 300)}`;
+    return `- ${who}: ${clipKeepingTail(m.role === 'user' ? neutraliseInjected(m.content).text : m.content, 300)}`;
   }).filter(Boolean).join('\n');
 }
 

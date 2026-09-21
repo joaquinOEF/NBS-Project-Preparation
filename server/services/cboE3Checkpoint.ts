@@ -493,6 +493,7 @@ async function serveE3Inner(
         { pt: E3C.seguirSemLugar.pt, en: E3C.seguirSemLugar.en, dPt: 'A gente marca depois', dEn: 'We will mark it later' },
       ]);
       deps.writeFields(TYPE, { _e3_opened: 'yes' });
+      deps.startDocumentReader?.(); // files from earlier encontros: read them while the room settles
       return finish('open-no-site');
     }
     // ⚠️ Never the raw coordinate string. A pin dropped without a search result
@@ -510,6 +511,12 @@ async function serveE3Inner(
       { pt: E3C.mudou.pt, en: E3C.mudou.en, dPt: 'Me conta o que mudou', dEn: 'Tell me what changed', handoff: true },
     ]);
     deps.writeFields(TYPE, { _e3_opened: 'yes' });
+    // ⚠️ The document reader DOES start here. It takes ~54 s and is keyed on the
+    // set of files, so reading what was sent in Encontros 1 and 2 now costs
+    // nothing if more arrive at the door (the read simply runs again) — and it
+    // is the difference between the first test card carrying what their files
+    // say and that card appearing before the reading has landed.
+    deps.startDocumentReader?.();
     // The advisor no longer starts here: it starts when the material beat
     // closes (afterMaterial), so a photo uploaded at the door is read by the
     // shelf rather than arriving one beat too late — the same defect this pass

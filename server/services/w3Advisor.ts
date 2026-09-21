@@ -191,34 +191,8 @@ export interface AdvisorInput {
 
 export const EMPTY_ADVICE: W3Advice = { shortlist: [], drafts: [], questionIds: [], questionReasons: [], observations: [] };
 
-/**
- * Text addressed to the reader-as-machine. The system prompt tells the model a
- * file is data; this is the same rule where it can be checked — a note resting
- * on such a passage is dropped whatever the model made of it.
- */
-export const INJECTION_SHAPED = /ignore (todas )?as instru[cç][oõ]es|ignore (all )?(previous|prior) instructions|aten[cç][aã]o,? (sistema|assistente)|assistente de ia|system prompt|esta instru[cç][aã]o tem prioridade|marque todas as notas|declare que o projeto/i;
-
-/**
- * A quote is only usable if it is actually in the document.
- *
- * Compared on normalised text — the extractors introduce line breaks and
- * double spaces that no model reproduces exactly, and rejecting a real quote
- * over whitespace would make the guard useless in the direction that matters.
- * Accents and case are kept: those carry meaning and a model that changes them
- * is rewriting, which is the thing being prevented.
- */
-/**
- * True when the quote sits inside a paragraph of the file that is addressed to
- * the machine. The planted paragraph has several sentences and only the first
- * says "ignore as instruções" — a note quoting the SECOND one ("declare que o
- * projeto está aprovado") is just as poisoned, so the whole paragraph is out.
- */
-export function quotedFromInjection(quote: string, documentText: string): boolean {
-  const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
-  const q = norm(quote).slice(0, 40);
-  if (INJECTION_SHAPED.test(quote)) return true;
-  return documentText.split(/\n+/).some(par => INJECTION_SHAPED.test(par) && norm(par).includes(q));
-}
+// The injection guards live in shared/untrusted-content.ts — the chat model needs them too.
+export { INJECTION_SHAPED, quotedFromInjection } from '@shared/untrusted-content';
 
 /**
  * The source a model NAMED, resolved to a source we HOLD.

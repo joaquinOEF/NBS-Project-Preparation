@@ -723,8 +723,9 @@ What changed is that the reading now has somewhere to land.
   "precisa de um teste de infiltração" with, beside it, "o relatório registra
   ensaio já realizado (4 e 6 mm/h)". Both are true and both are attributed. A
   spec pins that the deterministic rows are identical with and without notes.
-- **It runs again.** Keyed on the set of readable files: started when the door
-  closes, and again when a file arrives mid-encontro (which used to be stored
+- **It runs again.** Keyed on the set of readable files: started when Encontro
+  3 OPENS (for what was sent in Encontros 1 and 2 — the read takes ~54 s and
+  the first card should not beat it), again when the door closes, and again when a file arrives mid-encontro (which used to be stored
   and never read — "Vou ler agora…"). The first card waits for what is left of
   the read, bounded (25 s); if it does not land, the card is the card it always
   was and the notes are on the comparison.

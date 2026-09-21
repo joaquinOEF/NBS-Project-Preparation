@@ -1,3 +1,4 @@
+import { readHealth } from '@shared/session-health';
 import type { Express, Request, Response, RequestHandler } from 'express';
 import { eq, and, inArray, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -952,6 +953,8 @@ export function registerCohortRoutes(app: Express): void {
         maturityScores: state.maturityScores,
         totalMaturityScore: state.totalMaturityScore,
         gaps: state.gaps,
+        // Quiet incidents of this session — coordinator-only. shared/session-health.ts
+        health: readHealth(state),
       },
     });
   }));
