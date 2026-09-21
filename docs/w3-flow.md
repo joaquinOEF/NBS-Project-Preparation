@@ -831,10 +831,42 @@ different liked solutions — a project's question put to a shortlist.
   written while the organisation tests (started at the door) with a bounded wait.
 - A chip carries one sentence; the advisor's full reasoning stays on the list.
 
-**Next (PR B):** "o que pesa mais pra escolher?" once before the shelf, two
-questions per test built from the solution's ficha (who would do it · what would
-be hardest), and a comparison ordered by their criteria. **After 30 Sept:**
-Encontro 4 as the project-based detailing, designed with what the room decides.
+### Testing makes them think, not just tap (21 September 2026)
+
+JVP: *"are we getting enough information from the person? … if I hadn't added
+[the files], would it have been as fast?"* It would have been faster: a card and
+a thumb, three tests in 100 seconds. Decision-aid practice (IPDAS) and
+participatory multi-criteria work on NbS agree on the order — what matters to the
+people choosing FIRST, then the options set against it — and on keeping it light.
+`shared/w3-criteria.ts`:
+
+- **Once, before the shelf: "o que pesa mais?"** — up to two of *custar pouco ·
+  dar pra fazer com a nossa gente · depender de pouca autorização · resolver mais
+  o problema*, or "prefiro não escolher agora". Every criterion is read off the
+  card by a FUNCTION (catalogue cost band and delivery, the verdict, the mechanism
+  match), each with its source. "Light upkeep" is deliberately absent: the fichas
+  carry upkeep as prose, and a criterion we cannot rank honestly is a row of
+  guesses. Stored as ids (`_choice_criteria`) and as words (`choice_criteria`,
+  which `feeds` the Resumo).
+- **Two questions per test, after the card and before the reaction:** *quem
+  faria?* (a gente em mutirão · com parceiro técnico · teria que contratar ·
+  ninguém hoje · não sei) and *o que mais pega?* — offered only what THAT card
+  carries (the authorisation or the study it needs, the cost, the upkeep, the
+  space) plus "✍️ Outra coisa" in their own words. Their "who" OUTRANKS our
+  delivery class on the "nossa gente" criterion: they know their people.
+- **The comparison answers to it:** a first row "No que pesa pra organização"
+  (✔ / ~ / ✘ with the reason), rows for who and what is hardest, and the columns
+  ORDERED by their criteria (the first named counts double). Sessions from before
+  keep exactly the comparison they had — empty rows are not rows.
+- **The close hands over:** "Pra levar à mesa do portfólio" — per solution kept,
+  what it needs from somebody else, who would do it and what they said would be
+  hardest. Those two answers are the starting questions of the project-based
+  Encontro 4. Also printed on the comparison PDF.
+
+`_quick_tests: 'yes'` / `deps.quickTests` skips these beats for the specs and
+simulations that are about something else; the fuzzer and
+`e2e/cougar-e3-deliberation.spec.ts` run them. **After 30 Sept:** Encontro 4 as
+the project-based detailing, designed with what the room decides.
 
 ## The printed copy, and the context that was already there
 

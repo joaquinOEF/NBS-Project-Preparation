@@ -37,6 +37,9 @@ test.describe('an org that finished Encontro 2, from a real export', () => {
         { sectionId: 'intervention_site', field: 'land_tenure', value: 'public-informal' },
         { sectionId: 'intervention_site', field: 'current_use', value: 'vegetated' },
         { sectionId: 'intervention_site', field: 'nbs_interest', value: 'verde-urbano, aguas-pluviais' },
+  // Skips Encontro 3's deliberation beats (criteria · who would do it · what is hardest) — this spec
+  // is about something else. They are covered by e2e/cougar-e3-deliberation.spec.ts and the fuzzer.
+  { sectionId: 'intervention_type', field: '_quick_tests', value: 'yes' },
         { sectionId: 'intervention_site', field: 'role_preference', value: 'receber-administrar, executar' },
         { sectionId: 'intervention_site', field: 'site_knowledge_depth', value: 'strong' },
         { sectionId: 'intervention_site', field: '_site_confirmed', value: 'yes' },

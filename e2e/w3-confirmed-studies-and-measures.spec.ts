@@ -156,7 +156,8 @@ test.describe('Encontro 3 — in the room', () => {
     await api.seedState(cboId, { phase: 3, language: 'pt', sections: [
       ...S('org_profile', { org_name: 'APM Caldas Junior' }),
       ...S('intervention_site', { ...SITE, site_knowledge_depth: 'strong', site_area_m2: '836', site_area_source: 'drawn' }),
-      ...S('intervention_type', { [DOCUMENT_NOTES_FIELD]: JSON.stringify({
+      // The deliberation beats have their own spec (e2e/cougar-e3-deliberation.spec.ts).
+      ...S('intervention_type', { _quick_tests: 'yes', [DOCUMENT_NOTES_FIELD]: JSON.stringify({
         notes: [note({ studyDone: 'infiltration' })],
         measures: [{ labelPt: 'faixa de terra no canto nordeste', labelEn: 'strip of earth', quote: 'faixa de terra de aproximadamente 12 × 8 m', sourceFilename: 'relatorio.pdf', m2: 96 }],
       }) }),

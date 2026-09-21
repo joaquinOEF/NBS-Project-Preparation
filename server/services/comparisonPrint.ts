@@ -11,6 +11,7 @@
 // it was built. See docs/document-register.md.
 // ============================================================================
 
+import { portfolioTakeaway } from '@shared/w3-comparison';
 import type { Comparison, ComparisonColumn, RowId } from '@shared/w3-comparison';
 import { verdictText } from '@shared/w3-comparison';
 import { esc, md, printShell } from './printShell';
@@ -60,6 +61,9 @@ function cell(col: ComparisonColumn, row: RowId, lang: 'pt' | 'en'): string {
     case 'upkeep': return md(c.upkeep);
     case 'pros': return col.pros.length ? list(col.pros.map(p => p.text)) : '—';
     case 'cons': return col.cons.length ? list(col.cons.map(p => p.text)) : '—';
+    case 'criteria': return col.criteria.length ? list(col.criteria.map(c => `${c.mark} ${c.label} — ${c.why}`)) : '—';
+    case 'who': return col.who ? esc(col.who) : '—';
+    case 'hardest': return col.hardest ? esc(col.hardest) : '—';
     case 'reaction': return col.reaction ? `<strong>${esc(col.reaction.text)}</strong>` : '—';
     case 'detail': return col.detail ? `<em>“${esc(col.detail)}”</em>` : '—';
   }
@@ -80,6 +84,8 @@ function sources(cols: ComparisonColumn[], row: RowId, lang: 'pt' | 'en'): strin
       case 'upkeep': out.add(ficha); break;
       case 'pros': col.pros.forEach(p => out.add(p.source)); break;
       case 'cons': col.cons.forEach(p => out.add(p.source)); break;
+      case 'criteria': col.criteria.forEach(c => out.add(c.source)); break;
+      case 'who': case 'hardest': out.add(lang === 'pt' ? 'resposta da organização no Encontro 3' : "the organisation's answer in Encontro 3"); break;
       case 'reaction': out.add(lang === 'pt' ? 'resposta da organização no Encontro 3' : "the organisation's answer in Encontro 3"); break;
       case 'detail': out.add(lang === 'pt' ? 'resposta da organização no Encontro 3' : "the organisation's answer in Encontro 3"); break;
     }
@@ -179,6 +185,11 @@ export function renderComparisonHtml(cmp: Comparison, lang: 'pt' | 'en' = 'pt'):
   </table>
   </div>
 
+  <section class="tech">
+    <h2>${esc(lang === 'pt' ? 'Para a conversa de portfólio' : 'For the portfolio conversation')}</h2>
+    ${cmp.criteriaNamed.length ? `<p>${esc(lang === 'pt' ? 'O que pesa mais na escolha, segundo a organização: ' : 'What weighs most in the choice, according to the organisation: ')}${esc(cmp.criteriaNamed.join('; '))}. ${esc(lang === 'pt' ? 'As colunas estão nessa ordem.' : 'The columns are in that order.')}</p>` : ''}
+    <ul>${portfolioTakeaway(cmp, lang).map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+  </section>
   ${cmp.placeNotes?.notes.length ? `
   <section class="tech">
     <h2>${esc(cmp.placeNotes.heading)}</h2>

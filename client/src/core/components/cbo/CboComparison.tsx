@@ -61,6 +61,18 @@ function cell(col: ComparisonColumn, row: RowId, lang: 'pt' | 'en'): React.React
       return col.pros.length ? <ul className='m-0 list-disc space-y-0.5 pl-3.5'>{col.pros.map((p, i) => <li key={i}>{p.text}</li>)}</ul> : STRINGS[lang].none;
     case 'cons':
       return col.cons.length ? <ul className='m-0 list-disc space-y-0.5 pl-3.5'>{col.cons.map((p, i) => <li key={i}>{p.text}</li>)}</ul> : STRINGS[lang].none;
+    case 'criteria':
+      return col.criteria?.length ? (
+        <ul className='m-0 list-none space-y-0.5 p-0' data-testid={`comparison-criteria-${col.solutionId}`}>
+          {col.criteria.map((c, i) => (
+            <li key={i}><span className={c.fit === 'bom' ? 'font-semibold text-emerald-700 dark:text-emerald-400' : c.fit === 'fraco' ? 'font-semibold text-rose-700 dark:text-rose-400' : 'font-semibold text-amber-700 dark:text-amber-400'}>{c.mark}</span> <span className='font-medium'>{c.label}</span> — {c.why}</li>
+          ))}
+        </ul>
+      ) : STRINGS[lang].none;
+    case 'who':
+      return col.who ?? STRINGS[lang].none;
+    case 'hardest':
+      return col.hardest ?? STRINGS[lang].none;
     case 'reaction':
       return col.reaction ? <span className='font-semibold'>{col.reaction.text}</span> : STRINGS[lang].none;
     case 'detail':

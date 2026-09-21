@@ -194,6 +194,9 @@ async function drive(p: Persona) {
     // 2026-09-21) but its beats are Encontro 4's raw material — this harness keeps
     // walking them so they do not rot. The fuzzer and the e2e suite run the product default.
     tailEnabled: true,
+    // …and skips the deliberation beats (criteria, who, what is hardest): these walks are about
+    // the cards, the sizes and the documents. scripts/w3-fuzz.ts runs them, under hostile actors.
+    quickTests: true,
     /**
      * ⚠️ Synthetic, and on purpose. The MODEL half of the dig is exercised by
      * a live harness with a key; what this simulation has to prove is the other

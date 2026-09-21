@@ -88,6 +88,9 @@ const FULL = [
   { sectionId: 'intervention_site', field: 'site_story', value: 'Quando chove forte a água entra pelo portão e fica dois dias no pátio.' },
   { sectionId: 'intervention_site', field: 'site_knowledge_depth', value: 'strong' },
   { sectionId: 'intervention_site', field: 'nbs_interest', value: 'aguas-pluviais' },
+  // Skips Encontro 3's deliberation beats (criteria · who would do it · what is hardest) — this spec
+  // is about something else. They are covered by e2e/cougar-e3-deliberation.spec.ts and the fuzzer.
+  { sectionId: 'intervention_type', field: '_quick_tests', value: 'yes' },
   { sectionId: 'intervention_site', field: '_role_done', value: 'yes' },
   // …and a finished Encontro 3 on top, which the copy must not inherit.
   { sectionId: 'intervention_type', field: 'chosen_solutions', value: 'jardins-de-chuva' },

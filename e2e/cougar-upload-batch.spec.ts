@@ -47,6 +47,9 @@ const W2_STATE = [
   { sectionId: 'intervention_site', field: 'site_story', value: 'Quando chove forte a água entra pelo fundo e fica dias.' },
   { sectionId: 'intervention_site', field: 'site_knowledge_depth', value: 'strong' },
   { sectionId: 'intervention_site', field: 'nbs_interest', value: 'aguas-pluviais' },
+  // Skips Encontro 3's deliberation beats (criteria · who would do it · what is hardest) — this spec
+  // is about something else. They are covered by e2e/cougar-e3-deliberation.spec.ts and the fuzzer.
+  { sectionId: 'intervention_type', field: '_quick_tests', value: 'yes' },
 ];
 
 test.describe('Encontro 3 — the door, with several files at once', () => {

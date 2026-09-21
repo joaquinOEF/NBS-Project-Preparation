@@ -204,7 +204,8 @@ test.describe('Encontro 3 — their report argues against what they are testing'
     await api.seedState(cboId, { phase: 3, language: 'pt', sections: [
       ...S('org_profile', { org_name: 'APM Caldas Junior' }),
       ...S('intervention_site', { bairro: 'Partenon', site_name: 'Pátio dos fundos', _site_lat: '-30.0583', _site_lng: '-51.1672', current_use: 'paved', land_tenure: 'public-informal', site_worry: 'alagamento', site_story: 'A água empoça e fica dias.', site_knowledge_depth: 'strong', nbs_interest: 'aguas-pluviais', site_area_m2: '96', site_area_source: 'drawn' }),
-      ...S('intervention_type', { [DOCUMENT_NOTES_FIELD]: JSON.stringify({ notes: NOTES }) }),
+      // The deliberation beats have their own spec (e2e/cougar-e3-deliberation.spec.ts).
+      ...S('intervention_type', { _quick_tests: 'yes', [DOCUMENT_NOTES_FIELD]: JSON.stringify({ notes: NOTES }) }),
     ] });
     const chip = (label: string) => page.locator(`[data-testid^="cbo-option-"][data-option-label="${label}"]`);
     const thread = page.getByTestId('cbo-chat-thread');
