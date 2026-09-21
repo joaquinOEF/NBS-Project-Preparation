@@ -1986,10 +1986,73 @@ export default function CboProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectReady, projectInfo, cboId]);
 
+  // ONE UPLOADER, for the picker and for drag-and-drop. They used to be two
+  // copies: the picker learned to say where a file sits in its selection and
+  // to never drop a notice (#544), and drag-and-drop — a separate loop in
+  // useFileDrop with its own, older wording — kept asking "done?" after every
+  // file (JVP on staging, 2026-09-21, the same afternoon). Uploaded
+  // sequentially: each file posts its own notice as a chat turn, and the server
+  // writes one document row per file.
+  const uploadFiles = async (files: File[]) => {
+    if (!files.length || !cboId) return;
+    for (const file of files) {
+      // Where this file sits in the selection — so the beat that
+      // receives it can ask "done?" once, after the last, instead
+      // of after every file (shared/cbo-upload-notices.ts).
+      const batch = files.length > 1 ? { index: files.indexOf(file) + 1, total: files.length } : undefined;
+      setUploadingName(files.length > 1 ? `${file.name} (${files.indexOf(file) + 1}/${files.length})` : file.name);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (pendingUploadPurposeRef.current) {
+          formData.append('purpose', pendingUploadPurposeRef.current);
+        }
+        const res = await fetch(`/api/upload/cbo/${cboId}`, { method: 'POST', body: formData });
+        const data = await res.json();
+        // Refused before it was ever read — too large, or a type
+        // we don't take. Say which, with the fix. This used to be
+        // reported to the org as "could not parse", i.e. as if
+        // their document were corrupt.
+        if (!res.ok) {
+          await sendWhenIdle(uploadNotice.refused(file.name, data.reason, data.fix, batch));
+          continue;
+        }
+        // Gap 4 — link a site photo to the chosen site (best-effort;
+        // the server no-ops until a site exists). Images only.
+        if (file.type.startsWith('image/') && data.savedPath && memberSlug) {
+          fetch(`/api/cbo-member/${memberSlug}/site/photo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: data.savedPath }),
+          }).catch(() => {});
+        }
+        if (data.parsed === false) {
+          // The file IS stored — original kept, doc row written,
+          // retryable — we just cannot read it yet. Say that, so
+          // the org is not told their document was lost when it
+          // was not, and does not re-upload the same file hoping
+          // for a different result (Ksa Rosa did, twice, and then
+          // left the session).
+          await sendWhenIdle(uploadNotice.storedUnread(file.name, batch));
+        } else {
+          await sendWhenIdle(uploadNotice.parsed(file.name, (data.content || '').slice(0, 8000), batch));
+        }
+      } catch {
+        // Genuine transport failure — nothing reached the server.
+        await sendWhenIdle(uploadNotice.transport(file.name, batch));
+      }
+    }
+    setUploadingName(null);
+    setTimeout(refreshFileCount, 600);
+  };
+  const uploadFilesRef = useRef(uploadFiles);
+  uploadFilesRef.current = uploadFiles;
+
   // File drop handler
   const { isDragging, isUploading, dragHandlers } = useFileDrop({
     sessionId: cboId,
     sessionType: 'cbo',
+    onFiles: (files) => uploadFilesRef.current(files),
     onFileProcessed: (filename, content) => {
       sendMessage(`I'm uploading: "${filename}".\n\nParsed content:\n${content.slice(0, 8000)}\n\nPlease extract relevant information, auto-fill sections with update_section, and score maturity metrics based on what you find.`);
       setTimeout(refreshFileCount, 600);
@@ -2226,6 +2289,7 @@ export default function CboProfilePage() {
           className={`w-full min-w-0 md:flex flex-col relative ${
             desktopPanelOpen ? 'md:w-1/2 md:border-r' : 'md:w-full'
           } ${mobileActiveTab === 'chat' ? 'flex' : 'hidden'}`}
+          data-testid="cbo-drop-zone"
           {...dragHandlers}
         >
           {isDragging && (
@@ -3124,61 +3188,10 @@ export default function CboProfilePage() {
               <input ref={fileInputRef} type="file" multiple className="hidden" accept=".pdf,.pptx,.docx,.xlsx,.txt,.md,.csv,.tsv,.json,.png,.jpg,.jpeg,.gif,.webp,.heic,.heif,.mp3,.wav,.m4a,.webm,.ogg,.opus,.aac,.flac,audio/*,image/*"
                 onChange={async (e) => {
                   // E2 asks for THREE photos, so the picker takes several at
-                  // once. Uploaded sequentially: each one posts its own parsed
-                  // content as a chat turn, and the server writes one document
-                  // row per file. Selecting three used to fail outright.
+                  // once. One uploader for the picker AND drag-and-drop.
                   const files = Array.from(e.target.files ?? []);
                   e.target.value = '';
-                  if (!files.length || !cboId) return;
-                  for (const file of files) {
-                    // Where this file sits in the selection — so the beat that
-                    // receives it can ask "done?" once, after the last, instead
-                    // of after every file (shared/cbo-upload-notices.ts).
-                    const batch = files.length > 1 ? { index: files.indexOf(file) + 1, total: files.length } : undefined;
-                    setUploadingName(files.length > 1 ? `${file.name} (${files.indexOf(file) + 1}/${files.length})` : file.name);
-                    try {
-                      const formData = new FormData();
-                      formData.append('file', file);
-                      if (pendingUploadPurposeRef.current) {
-                        formData.append('purpose', pendingUploadPurposeRef.current);
-                      }
-                      const res = await fetch(`/api/upload/cbo/${cboId}`, { method: 'POST', body: formData });
-                      const data = await res.json();
-                      // Refused before it was ever read — too large, or a type
-                      // we don't take. Say which, with the fix. This used to be
-                      // reported to the org as "could not parse", i.e. as if
-                      // their document were corrupt.
-                      if (!res.ok) {
-                        await sendWhenIdle(uploadNotice.refused(file.name, data.reason, data.fix, batch));
-                        continue;
-                      }
-                      // Gap 4 — link a site photo to the chosen site (best-effort;
-                      // the server no-ops until a site exists). Images only.
-                      if (file.type.startsWith('image/') && data.savedPath && memberSlug) {
-                        fetch(`/api/cbo-member/${memberSlug}/site/photo`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ path: data.savedPath }),
-                        }).catch(() => {});
-                      }
-                      if (data.parsed === false) {
-                        // The file IS stored — original kept, doc row written,
-                        // retryable — we just cannot read it yet. Say that, so
-                        // the org is not told their document was lost when it
-                        // was not, and does not re-upload the same file hoping
-                        // for a different result (Ksa Rosa did, twice, and then
-                        // left the session).
-                        await sendWhenIdle(uploadNotice.storedUnread(file.name, batch));
-                      } else {
-                        await sendWhenIdle(uploadNotice.parsed(file.name, (data.content || '').slice(0, 8000), batch));
-                      }
-                    } catch {
-                      // Genuine transport failure — nothing reached the server.
-                      await sendWhenIdle(uploadNotice.transport(file.name, batch));
-                    }
-                  }
-                  setUploadingName(null);
-                  setTimeout(refreshFileCount, 600);
+                  await uploadFilesRef.current(files);
                 }}
               />
               <Tooltip><TooltipTrigger asChild>

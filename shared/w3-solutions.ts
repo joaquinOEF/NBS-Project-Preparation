@@ -49,6 +49,14 @@ export interface ShortlistEntry {
   /** The same, said of the whole list — "Todas respondem…". */
   whyPluralPt: string;
   whyPluralEn: string;
+  /**
+   * Answers the worry the organisation said weighs MOST — the first value of
+   * `site_worry`, which Encontro 3's "qual delas pesa mais?" sets when there
+   * is more than one.
+   */
+  answersFocus?: boolean;
+  /** The advisor's reading of their files and photographs, from OUTSIDE the grupos they marked. */
+  outsideTheirPicks?: boolean;
   /** True when the site's own physical state argues against it. Still offered. */
   caveatPt?: string;
   caveatEn?: string;
@@ -110,8 +118,19 @@ export function shortlistForSite(input: ShortlistInput, lang: 'pt' | 'en' = 'pt'
   const interest = new Set(splitList(site.nbs_interest));
   const worries = splitList(site.site_worry);
 
+  // ⚠️ THE ORDER OF THE WORRIES IS AN ANSWER. Encontro 3 asks an organisation
+  // with two worries "qual delas pesa mais no dia a dia?" and moves that one to
+  // the front of `site_worry`. This ranking then counted ANY named worry the
+  // same, under their Encontro 2 grupos — so a school that answered "calor —
+  // sol forte, falta de sombra" was told "anotado, é o que esse projeto
+  // enfrenta primeiro" and handed four drainage solutions "pra água que desce
+  // com força" (JVP on staging, 2026-09-21). Heat-first and water-first gave
+  // the identical shelf: a question whose answer changed nothing.
+  const focus = worries.find(w => w && w !== 'other') ?? null;
+
   const scored = NBS_SOLUTIONS.map(s => {
     const answersMechanism = (SOLUTION_MECHANISMS[s.id] ?? []).some(m => worries.includes(m));
+    const answersFocus = !!focus && (SOLUTION_MECHANISMS[s.id] ?? []).includes(focus as any);
     const inInterest = interest.has(s.familiaId);
     const fit = siteFit(s, site);
     // Interest outranks mechanism: the org told us what it wants to work on,
@@ -131,6 +150,7 @@ export function shortlistForSite(input: ShortlistInput, lang: 'pt' | 'en' = 'pt'
     // test before anyone can draw it, a permeable pavement does not. That is
     // the SAME read the closing verdict uses, so the card and the verdict can
     // never contradict each other inside one session.
+    // The reason names the worry THIS solution answers, the focus first.
     const note = mechanismNote(s.id, worries, lang);
     // Both numbers, authored rather than derived. The shared line reads "Todas
     // …" and Portuguese does not let you pluralise a verb by prefixing a word:
@@ -176,15 +196,41 @@ export function shortlistForSite(input: ShortlistInput, lang: 'pt' | 'en' = 'pt'
     const reasonPt = `${up(effort.pt)}, ${cost.pt}.`;
     const reasonEn = `${up(effort.en)}, ${cost.en}.`;
 
-    return { solution: s, score, reasonPt, reasonEn, whyPt: why.pt, whyEn: why.en, whyPluralPt: whyPlural.pt, whyPluralEn: whyPlural.en, ...fit };
+    return { solution: s, score, reasonPt, reasonEn, whyPt: why.pt, whyEn: why.en, whyPluralPt: whyPlural.pt, whyPluralEn: whyPlural.en, answersFocus, ...fit };
   });
 
   // Stable within a score, so the catalogue's own order survives — the deck's
   // ordering is editorial and worth keeping where nothing else decides.
-  return scored
+  const ranked = scored
     .map((e, i) => ({ e, i }))
     .sort((a, b) => b.e.score - a.e.score || a.i - b.i)
-    .map(({ e }) => ({
+    .map(({ e }) => e);
+
+  // Two of the four seats belong to what they said weighs most. Their Encontro
+  // 2 grupos still lead the REST of the list — nothing is filtered, all 27 are
+  // returned — but an explicit answer given a minute ago outranks a chip tapped
+  // a month ago for the seats the room will actually read. Only when the focus
+  // is under-represented: a shelf that already answers it is left alone.
+  const SEATS = 4, RESERVED = 2;
+  if (focus && ranked.slice(0, SEATS).filter(e => e.answersFocus).length < RESERVED) {
+    // Which two: the best-scored, and among equals the SIMPLEST to do (Robson's
+    // reading) — a paved schoolyard should meet "Escola verde" before "Parques
+    // e florestas urbanas". Catalogue order breaks what is left.
+    const ease: Record<string, number> = { simples: 0, intermediaria: 1, complexa: 2 };
+    const lifted = ranked
+      .map((e, i) => ({ e, i }))
+      .filter(x => x.e.answersFocus)
+      .sort((a, b) => b.e.score - a.e.score || (ease[a.e.solution.complexidade] ?? 1) - (ease[b.e.solution.complexidade] ?? 1) || a.i - b.i)
+      .slice(0, RESERVED)
+      .map(x => x.e);
+    if (lifted.length) {
+      const rest = ranked.filter(e => !lifted.includes(e));
+      ranked.splice(0, ranked.length, ...lifted, ...rest);
+    }
+  }
+
+  return ranked
+    .map(e => ({
       solution: e.solution,
       reasonPt: e.reasonPt,
       reasonEn: e.reasonEn,
@@ -192,6 +238,7 @@ export function shortlistForSite(input: ShortlistInput, lang: 'pt' | 'en' = 'pt'
       whyEn: e.whyEn,
       whyPluralPt: e.whyPluralPt,
       whyPluralEn: e.whyPluralEn,
+      ...(e.answersFocus ? { answersFocus: true } : {}),
       ...(e.caveatPt ? { caveatPt: e.caveatPt, caveatEn: e.caveatEn } : {}),
     }));
 }
@@ -265,6 +312,7 @@ export function mergeShortlist(
     if (!e) continue;
     appended.push({
       ...withReason(e, p),
+      outsideTheirPicks: true,
       // Not a caveat about the site — a caveat about US. It says plainly that
       // this is our reading arriving from outside their choice.
       caveatPt: 'Isso está fora dos grupos que vocês marcaram no Encontro 2 — é leitura nossa, e quem decide são vocês.',
@@ -275,4 +323,24 @@ export function mergeShortlist(
 
   const rest = base.filter(e => byId.has(e.solution.id));
   return [...lifted, ...rest, ...appended];
+}
+
+/**
+ * The seats the room actually reads.
+ *
+ * ⚠️ `mergeShortlist` returns all 27, with the advisor's outside-their-picks
+ * suggestion LAST — "below everything they chose". The shelf then took the
+ * first four, so the one thing a visit report or a photograph can add from
+ * outside their Encontro 2 grupos sat at position 27 and was never seen: the
+ * organisation uploaded evidence, the pass read it, and the shelf looked exactly
+ * as it would have without it (found 2026-09-21). The rule was always "below
+ * what they chose", not "out of sight": the LAST seat is the advisor's when it
+ * has an outside suggestion, still under their own picks, still carrying the
+ * caveat that says whose reading it is.
+ */
+export function visibleShelf(merged: ShortlistEntry[], seats = 4): ShortlistEntry[] {
+  const outside = merged.filter(e => e.outsideTheirPicks);
+  const own = merged.filter(e => !e.outsideTheirPicks);
+  if (!outside.length) return own.slice(0, seats);
+  return [...own.slice(0, seats - 1), outside[0]];
 }

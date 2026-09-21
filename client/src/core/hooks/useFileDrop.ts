@@ -4,10 +4,17 @@ interface UseFileDropOptions {
   sessionId: string | null;
   sessionType: 'concept-note' | 'cbo';
   onFileProcessed: (filename: string, content: string) => void;
+  /**
+   * Hand the dropped files to the caller's own uploader instead of uploading
+   * here. The CBO chat uses this so a drop and a pick are the SAME path —
+   * stored as documents, announced with the same notices, batch position and
+   * all (shared/cbo-upload-notices.ts).
+   */
+  onFiles?: (files: File[]) => void | Promise<void>;
   onError?: (error: string) => void;
 }
 
-export function useFileDrop({ sessionId, sessionType, onFileProcessed, onError }: UseFileDropOptions) {
+export function useFileDrop({ sessionId, sessionType, onFileProcessed, onFiles, onError }: UseFileDropOptions) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const dragCounter = useRef(0);
@@ -40,6 +47,7 @@ export function useFileDrop({ sessionId, sessionType, onFileProcessed, onError }
     if (!sessionId) return;
 
     const files = Array.from(e.dataTransfer.files);
+    if (onFiles) { await onFiles(files); return; }
     for (const file of files) {
       const ext = file.name.split('.').pop()?.toLowerCase() || '';
       const textTypes = ['txt', 'md', 'csv'];
@@ -86,7 +94,7 @@ export function useFileDrop({ sessionId, sessionType, onFileProcessed, onError }
         }
       }
     }
-  }, [sessionId, sessionType, onFileProcessed, onError]);
+  }, [sessionId, sessionType, onFileProcessed, onFiles, onError]);
 
   return {
     isDragging,

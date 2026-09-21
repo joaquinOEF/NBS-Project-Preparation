@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { topShortlist } from '../shared/w3-solutions';
+import { topShortlist, mergeShortlist, visibleShelf } from '../shared/w3-solutions';
 import { COMPLEXIDADE_LABEL, NBS_SOLUTIONS, ROBSON_COMPLEXIDADE, TIPO_LABEL, getSolution } from '../shared/nbs-catalog';
 import { studyRequirement } from '../shared/w3-dossier';
 
@@ -100,5 +100,68 @@ test.describe("Robson's reading is on every card", () => {
     // what blocks it.
     expect(getSolution('terracos-de-chuva')?.delivery).toBe('licenca');
     expect(studyRequirement('terracos-de-chuva')?.pt).toMatch(/geot[ée]cnic/);
+  });
+});
+
+// ⚠️ A QUESTION WHOSE ANSWER CHANGED NOTHING. Encontro 3 asks an organisation
+// with two worries "qual delas pesa mais no dia a dia?". A school answered
+// "calor — sol forte, falta de sombra", was told "anotado, é o que esse projeto
+// enfrenta primeiro", and was handed four drainage solutions "pra água que
+// desce com força" (JVP on staging, 2026-09-21). The ranking counted any named
+// worry the same, under their Encontro 2 grupos, so heat-first and water-first
+// produced the identical shelf.
+test.describe('the worry they said weighs most has seats on the shelf', () => {
+  const site = (worry: string, interest: string) => ({ site: { site_worry: worry, nbs_interest: interest, current_use: 'paved', land_tenure: 'private-owned' } } as any);
+  const ids = (worry: string, interest: string) => topShortlist(site(worry, interest), 'pt', 27).map(e => e.solution.id);
+
+  test('heat-first and water-first are different shelves', () => {
+    const heat = ids('heat, enxurrada', 'encostas-e-solo, aguas-pluviais').slice(0, 4);
+    const water = ids('enxurrada, heat', 'encostas-e-solo, aguas-pluviais').slice(0, 4);
+    expect(heat).not.toEqual(water);
+  });
+
+  test('two of the four answer the focus; the rest still come from their Encontro 2 grupos', () => {
+    const top = topShortlist(site('heat, enxurrada', 'encostas-e-solo, aguas-pluviais'), 'pt', 4);
+    expect(top.filter(e => e.answersFocus)).toHaveLength(2);
+    expect(top.filter(e => !e.answersFocus).every(e => ['encostas-e-solo', 'aguas-pluviais'].includes(e.solution.familiaId))).toBe(true);
+    // The simplest first: a paved yard meets "Escola verde" before a landscape-scale park.
+    expect(top[0].solution.id).toBe('escola-verde');
+    expect(top.map(e => e.solution.id)).not.toContain('parques-e-florestas-urbanas');
+  });
+
+  test('a single worry gets the same treatment; a shelf that already answers it is left alone', () => {
+    expect(topShortlist(site('heat', 'encostas-e-solo, aguas-pluviais'), 'pt', 4).filter(e => e.answersFocus)).toHaveLength(2);
+    const already = ids('enxurrada, heat', 'encostas-e-solo, aguas-pluviais').slice(0, 4);
+    expect(already).toEqual(['biovaletas', 'bacia-de-retencao', 'escada-hidraulica-vegetada', 'terracos-de-chuva']);
+  });
+
+  test('nothing is filtered: all 27, once each', () => {
+    const all = ids('heat, enxurrada', 'encostas-e-solo');
+    expect(all).toHaveLength(27);
+    expect(new Set(all).size).toBe(27);
+  });
+});
+
+// ⚠️ THE EVIDENCE WAS READ AND NEVER SHOWN. The advisor may propose one solution
+// from outside the grupos they marked, with the tension said out loud — the one
+// thing a visit report or a photograph can add. mergeShortlist put it LAST of
+// 27 and the shelf showed the first four.
+test.describe("the advisor's outside suggestion is visible, under their own picks", () => {
+  const site = { site: { site_worry: 'alagamento', nbs_interest: 'aguas-pluviais', current_use: 'paved', land_tenure: 'private-owned' } } as any;
+  const base = topShortlist(site, 'pt', 27);
+
+  test('it takes the last seat, with the caveat that says whose reading it is', () => {
+    const merged = mergeShortlist(base, [{ solutionId: 'escola-verde', reasonPt: 'O relatório da visita fala do pátio sem sombra.', outsideTheirPicks: true }], 'pt');
+    const shelf = visibleShelf(merged, 4);
+    expect(shelf).toHaveLength(4);
+    expect(shelf[3].solution.id).toBe('escola-verde');
+    expect(shelf[3].reasonPt).toContain('relatório da visita');
+    expect(shelf[3].caveatPt).toMatch(/leitura nossa/);
+    // Their own picks still hold the first three seats.
+    expect(shelf.slice(0, 3).every(e => e.solution.familiaId === 'aguas-pluviais')).toBe(true);
+  });
+
+  test('with no outside suggestion the shelf is the first four, as before', () => {
+    expect(visibleShelf(mergeShortlist(base, [], 'pt'), 4).map(e => e.solution.id)).toEqual(base.slice(0, 4).map(e => e.solution.id));
   });
 });
