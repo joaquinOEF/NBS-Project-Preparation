@@ -2270,6 +2270,22 @@ export default function OrchestratorLandingPage() {
             </div>
           </div>
 
+          {view === 'orgs' && members.length > 0 && cohort?.coordinatorSlug && (
+            <div className="-mt-1 mb-3 flex justify-end">
+              <a
+                href={`/api/cohort/${cohort.coordinatorSlug}/profiles`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-7 items-center rounded-md border px-2.5 text-[12px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                data-testid="link-all-profiles"
+                title={t('orchestrator.profiles.allHint', { defaultValue: 'One print-ready page per organisation, with everything each has shared so far' })}
+              >
+                <FileText className="mr-1 h-3 w-3" />
+                {t('orchestrator.profiles.all', { defaultValue: 'All profiles (PDF)' })}
+              </a>
+            </div>
+          )}
+
           {view === 'projects' && (
             <ProjectsView
               projects={cohortProjects}

@@ -209,6 +209,14 @@ is the brief rebuilt from every member's live record, and the model gets the
 project context instead of one organisation's state. ⚠️ New table
 `cohort_projects` — `db:push` before deploy.
 
+### The organisation's profile — `docs/org-profile.md`
+"Perfil (PDF)" in the org drawer and "Todos os perfis (PDF)" above the roster:
+everything an organisation has shared, stage-aware, print-first, pt/en from the
+bilingual field catalog. Anything the layout does not place still prints under
+"Também registrado"; scores, contact email/phone and our own readings never
+do. ⚠️ `…/member/:id/profile` is the drawer's JSON — the page is `…/profile/print`.
+Test copies of real records: `docs/test-orgs.md`.
+
 ### ⚠️ Use everything they gave us — `docs/context-first.md`
 Every model-facing pass declares what it does with all twelve context sources —
 fields, their own words, the transcript, document summaries and full text, the

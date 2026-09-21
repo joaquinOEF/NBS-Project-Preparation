@@ -560,6 +560,40 @@ export function cboDisplayValue(
   return stored.split(',').map(part => label(part.trim())).filter(Boolean).join(', ');
 }
 
+/**
+ * ⚠️ The Encontro 1 v2 fields and Encontro 2's collaboration answers had labels
+ * only in the client's locale files, so every SERVER-rendered page printed the
+ * humanised key — "YEAR FOUNDED", "HAS CNPJ" — on a Portuguese document
+ * (found on the organisation profile, 2026-09-21). Same words as pt.json /
+ * en.json `cbo.fields`, in the one catalog both sides can read.
+ * e2e/org-profile.spec.ts fails if a field the profile places has no entry.
+ */
+Object.assign(CBO_FIELD_LABELS, {
+  org_name: { pt: 'Nome da organização', en: 'Organisation name' },
+  contact_name: { pt: 'Contato', en: 'Contact' },
+  contact_role: { pt: 'Função do contato', en: 'Contact role' },
+  mission_summary: { pt: 'Missão', en: 'Mission' },
+  main_activities: { pt: 'Principais atividades', en: 'Main activities' },
+  year_founded: { pt: 'Fundação', en: 'Founded' },
+  legal_form: { pt: 'Forma legal', en: 'Legal form' },
+  has_cnpj: { pt: 'CNPJ', en: 'CNPJ' },
+  team_size: { pt: 'Tamanho da equipe', en: 'Team size' },
+  paid_vs_volunteer: { pt: 'Composição da equipe', en: 'Team composition' },
+  groups_served: { pt: 'Quem a organização atende', en: 'Who the organisation serves' },
+  nbs_experience: { pt: 'Experiência com SbN', en: 'NbS experience' },
+  nbs_experience_detail: { pt: 'O que já fez com soluções baseadas na natureza', en: 'What it has done with nature-based solutions' },
+  funding_history: { pt: 'Já recebeu financiamento', en: 'Has received funding' },
+  funded_project_count: { pt: 'Projetos financiados', en: 'Funded projects' },
+  biggest_project_budget: { pt: 'Maior orçamento já gerido', en: 'Largest budget managed' },
+  prior_project_scale: { pt: 'Escala dos projetos anteriores', en: 'Scale of earlier projects' },
+  prior_collaboration: { pt: 'Já trabalhou com outras organizações da rede', en: 'Has worked with other organisations in the network' },
+  prior_collaboration_detail: { pt: 'Com quem já trabalhou', en: 'Who it has worked with' },
+  site_story: { pt: 'Nas palavras da organização', en: "In the organisation's words" },
+  site_address: { pt: 'Endereço', en: 'Address' },
+  site_area_m2: { pt: 'Área marcada (m²)', en: 'Marked area (m²)' },
+  bairro: { pt: 'Bairro', en: 'Neighbourhood' },
+});
+
 /** Maturity metric names — the Placar reads these from pt.json, but the export
  *  runs on the server where there is no i18next. Same strings, one place. */
 Object.assign(CBO_FIELD_LABELS, {

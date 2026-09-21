@@ -390,6 +390,10 @@
       "failed": "Não foi possível criar a cópia",
       "tooltip": "Criar uma organização de teste a partir do snapshot de uma real",
       "button": "Importar org"
+    },
+    "profiles": {
+      "all": "Todos os perfis (PDF)",
+      "allHint": "Uma página pronta para imprimir por organização, com tudo o que cada uma compartilhou até agora"
     }
   },
   "citySelection": {
@@ -2277,7 +2281,9 @@
     "docRoadmap": "Hoja de ruta",
     "docRoadmapHint": "O caminho, com responsáveis",
     "cloneTest": "Cópia de teste",
-    "cloneTestHint": "Cria uma cópia de teste desta organização como ela estava no fim do Encontro 2. A original não é tocada."
+    "cloneTestHint": "Cria uma cópia de teste desta organização como ela estava no fim do Encontro 2. A original não é tocada.",
+    "profile": "Perfil (PDF)",
+    "profileHint": "Uma página pronta para imprimir com tudo o que esta organização compartilhou até agora"
   },
   "notFound": {
     "title": "Página não encontrada",
