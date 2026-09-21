@@ -206,30 +206,7 @@ export function shortlistForSite(input: ShortlistInput, lang: 'pt' | 'en' = 'pt'
     .sort((a, b) => b.e.score - a.e.score || a.i - b.i)
     .map(({ e }) => e);
 
-  // Two of the four seats belong to what they said weighs most. Their Encontro
-  // 2 grupos still lead the REST of the list — nothing is filtered, all 27 are
-  // returned — but an explicit answer given a minute ago outranks a chip tapped
-  // a month ago for the seats the room will actually read. Only when the focus
-  // is under-represented: a shelf that already answers it is left alone.
-  const SEATS = 4, RESERVED = 2;
-  if (focus && ranked.slice(0, SEATS).filter(e => e.answersFocus).length < RESERVED) {
-    // Which two: the best-scored, and among equals the SIMPLEST to do (Robson's
-    // reading) — a paved schoolyard should meet "Escola verde" before "Parques
-    // e florestas urbanas". Catalogue order breaks what is left.
-    const ease: Record<string, number> = { simples: 0, intermediaria: 1, complexa: 2 };
-    const lifted = ranked
-      .map((e, i) => ({ e, i }))
-      .filter(x => x.e.answersFocus)
-      .sort((a, b) => b.e.score - a.e.score || (ease[a.e.solution.complexidade] ?? 1) - (ease[b.e.solution.complexidade] ?? 1) || a.i - b.i)
-      .slice(0, RESERVED)
-      .map(x => x.e);
-    if (lifted.length) {
-      const rest = ranked.filter(e => !lifted.includes(e));
-      ranked.splice(0, ranked.length, ...lifted, ...rest);
-    }
-  }
-
-  return ranked
+  return reserveFocusSeats(ranked
     .map(e => ({
       solution: e.solution,
       reasonPt: e.reasonPt,
@@ -240,7 +217,35 @@ export function shortlistForSite(input: ShortlistInput, lang: 'pt' | 'en' = 'pt'
       whyPluralEn: e.whyPluralEn,
       ...(e.answersFocus ? { answersFocus: true } : {}),
       ...(e.caveatPt ? { caveatPt: e.caveatPt, caveatEn: e.caveatEn } : {}),
-    }));
+    })));
+}
+
+/**
+ * Two of the four seats belong to what they said weighs most.
+ *
+ * Their Encontro 2 grupos still lead the REST of the list — nothing is
+ * filtered — but an explicit answer given a minute ago outranks a chip tapped a
+ * month ago for the seats the room will actually read. Only when the focus is
+ * under-represented: a shelf that already answers it is left alone.
+ *
+ * ⚠️ Its own function because it must run AFTER what they already tested is
+ * removed. Decided once, up front, the two reserved seats were spent on
+ * solutions the organisation had just tested — and from the second trip to the
+ * shelf on, the focus was gone again (scripts/w3-fuzz.ts, I5).
+ */
+export function reserveFocusSeats(list: ShortlistEntry[], seats = 4, reserved = 2): ShortlistEntry[] {
+  const focusable = list.filter(e => e.answersFocus && !e.outsideTheirPicks);
+  if (!focusable.length || list.slice(0, seats).filter(e => e.answersFocus).length >= Math.min(reserved, focusable.length)) return list;
+  // Which ones: list order is already best-scored first; among the candidates
+  // prefer the SIMPLEST to do (Robson's reading) — a paved schoolyard should
+  // meet "Escola verde" before "Parques e florestas urbanas".
+  const ease: Record<string, number> = { simples: 0, intermediaria: 1, complexa: 2 };
+  const lifted = focusable
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => (ease[a.e.solution.complexidade] ?? 1) - (ease[b.e.solution.complexidade] ?? 1) || a.i - b.i)
+    .slice(0, reserved)
+    .map(x => x.e);
+  return [...lifted, ...list.filter(e => !lifted.includes(e))];
 }
 
 /** The handful a chat composer can show without becoming a catalogue. */

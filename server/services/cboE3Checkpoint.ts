@@ -30,12 +30,14 @@
 
 import { isUploadNotice, moreUploadsComing, uploadBatchOf, uploadedFilename } from '@shared/cbo-upload-notices';
 import { collapseRepeatedAnswer } from '@shared/cbo-chip-answers';
+import { withPendingQuestion, reemitPending } from './pendingQuestion';
+import { PENDING_FIELD, parsePending } from '@shared/pending-question';
 import type { CboState } from '@shared/cbo-schema';
 import { buildDossier, portfolioState, type W3Input } from '@shared/w3-dossier';
 import { buildRoadmap, type RoadmapObservation } from '@shared/w3-roadmap';
 import { eligibleQuestions, getW3Question, type QuestionContext } from '@shared/w3-questions';
 import type { W3Advice } from './w3Advisor';
-import { mergeShortlist, topShortlist, visibleShelf } from '@shared/w3-solutions';
+import { mergeShortlist, topShortlist, visibleShelf, reserveFocusSeats } from '@shared/w3-solutions';
 import { budgetLineFor, roundAreaM2, SOLUTION_COSTS, type BuildModel } from '@shared/w3-sizing';
 import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
 import {
@@ -231,7 +233,31 @@ const OPS = 'operations_sustain';
  *
  * Returns true when it has fully handled the turn (and pushed a `done`).
  */
+/**
+ * The door every caller uses. The question this encontro last asked is on the
+ * record, the incoming message is read against it BEFORE any handler runs, and
+ * an answer that matches an option can never be handed to the model — see
+ * shared/pending-question.ts for the contract and what it cost not to have it.
+ */
 export async function serveE3Checkpoint(
+  cboId: string,
+  userMessage: string,
+  state: CboState,
+  pushEvent: EventPusher,
+  lang: string,
+  turnKind: string | undefined,
+  deps: E3Deps,
+): Promise<boolean> {
+  if (state.phase !== 3) return false;
+  return withPendingQuestion({
+    label: 'e3', cboId, state, sectionId: TYPE, userMessage, turnKind, lang, pushEvent,
+    writeFields: (sectionId, fields) => deps.writeFields(sectionId, fields),
+    isControlLine: raw => E3_ENTRY.test(raw) || E3_RESUME.test(raw),
+    inner: (msg, kind, push) => serveE3Inner(cboId, msg, state, push, lang, kind, deps),
+  });
+}
+
+async function serveE3Inner(
   cboId: string,
   userMessage: string,
   state: CboState,
@@ -272,15 +298,24 @@ export async function serveE3Checkpoint(
     // `action` reaches the composer instead of (or as well as) answering:
     // 'write' focuses the input, 'record' starts the recorder,
     // 'write_then_answer' does both. See the QuestionCard in cbo-profile.tsx.
-    opts: Array<{ pt: string; en: string; dPt?: string; dEn?: string; action?: string }>,
+    // `handoff` marks an option whose answer is DELIBERATELY the model's
+    // ("Mudou alguma coisa" → a conversation that repairs the record). Without
+    // it, an option nobody handles is a bug (shared/pending-question.ts).
+    opts: Array<{ pt: string; en: string; dPt?: string; dEn?: string; action?: string; handoff?: boolean }>,
+    // Which field this question fills — recorded with the pending question, so
+    // an answer to a RE-ASKED question is accepted even though the field is
+    // already set (shared/pending-question.ts).
+    forField?: string,
   ) =>
     pushEvent({
       type: 'ask_user',
+      ...(forField ? { forField } : {}),
       question: isPt ? qPt : qEn,
       options: opts.map(o => ({
         label: isPt ? o.pt : o.en,
         description: isPt ? (o.dPt ?? '') : (o.dEn ?? ''),
         ...(o.action ? { action: o.action } : {}),
+        ...(o.handoff ? { handoff: true } : {}),
       })),
     } as any);
 
@@ -403,7 +438,7 @@ export async function serveE3Checkpoint(
   const askEnum = (sectionId: string, field: string, qPt: string, qEn: string): true => {
     const copy = askCopyFor(E3_QUESTIONNAIRE, field, manifestRead, isPt ? 'pt' : 'en');
     const opts = enumChips(sectionId, field);
-    ask(copy ?? qPt, copy ?? qEn, opts.map(o => ({ pt: o.pt, en: o.en })));
+    ask(copy ?? qPt, copy ?? qEn, opts.map(o => ({ pt: o.pt, en: o.en })), field);
     return finish(`ask-${field}`);
   };
   /**
@@ -463,7 +498,7 @@ export async function serveE3Checkpoint(
     );
     ask('Confere?', 'Is that right?', [
       { pt: E3C.confirmar.pt, en: E3C.confirmar.en },
-      { pt: E3C.mudou.pt, en: E3C.mudou.en, dPt: 'Me conta o que mudou', dEn: 'Tell me what changed' },
+      { pt: E3C.mudou.pt, en: E3C.mudou.en, dPt: 'Me conta o que mudou', dEn: 'Tell me what changed', handoff: true },
     ]);
     deps.writeFields(TYPE, { _e3_opened: 'yes' });
     // The advisor no longer starts here: it starts when the material beat
@@ -599,7 +634,7 @@ export async function serveE3Checkpoint(
     // different second solution.
     const already = testedIds(ensureTests());
     const entries = visibleShelf(
-      mergeShortlist(base, fresh?.shortlist ?? [], isPt ? 'pt' : 'en').filter(e => !already.includes(e.solution.id)),
+      reserveFocusSeats(mergeShortlist(base, fresh?.shortlist ?? [], isPt ? 'pt' : 'en').filter(e => !already.includes(e.solution.id))),
       4,
     );
     if (!entries.length) return await showComparison();
@@ -1305,6 +1340,11 @@ export async function serveE3Checkpoint(
    * again rather than a welcome they have already read.
    */
   const resumeE3 = async (): Promise<true> => {
+    // The question that was on screen, exactly — not a re-derived guess. A
+    // return used to land on a DIFFERENT step than the one they left (the shelf
+    // instead of "Confere?", skipping the files door; the card instead of the
+    // count). Derivation below is the fallback for sessions with no record.
+    if (reemitPending(state, TYPE, pushEvent)) return finish('resume-pending');
     const tests = ensureTests();
     const open = openTest();
     if (open) return await showTestCard(open);
@@ -1446,6 +1486,37 @@ export async function serveE3Checkpoint(
     );
   };
 
+  /** The field the question on screen is for, when the ask said so. */
+  const pendingField = (): string =>
+    String(parsePending(read(TYPE)(PENDING_FIELD))?.asks.slice(-1)[0]?.forField ?? '');
+
+  // ══ Navigation first ═════════════════════════════════════════════════════
+  // ⚠️ The entry line and "Continuar da Fase 3" are NAVIGATION, and they used to
+  // be read far below — after every handler that captures a bare reply. So
+  // "Continuar da Fase 3." sent while a count was pending recorded THREE units
+  // (the digit in the line), and the same line while a detail was pending was
+  // stored as the detail's answer. Found by scripts/w3-fuzz.ts.
+  if (type('_e3_opened') && (E3_ENTRY.test(raw) || E3_RESUME.test(raw))) return await resumeE3();
+
+  // ⚠️ A FILE IS NEVER AN ANSWER. Outside the door an upload notice used to fall
+  // into whichever handler captures a bare reply — sent while a size was
+  // pending it was read as a SPOKEN SIZE, failed to parse, and produced the
+  // rough-size question on top of an area that already existed (its chips then
+  // had no handler). Anywhere in an open Encontro 3: say it arrived, by name,
+  // and put the question that was on screen back. The file is stored and listed
+  // with the organisation's documents either way.
+  if ((turnKind === 'upload' || isUploadNotice(raw)) && type('_e3_opened') && type('_material_pending') !== 'yes') {
+    const name = uploadedFilename(raw);
+    const batch = uploadBatchOf(raw);
+    say(
+      `Recebi ✓ ${name ? `**${name}**` : ''}${batch ? ` (${batch.index} de ${batch.total})` : ''} — fica guardado com os arquivos de vocês.`,
+      `Got it ✓ ${name ? `**${name}**` : ''}${batch ? ` (${batch.index} of ${batch.total})` : ''} — it is kept with your files.`,
+    );
+    if (moreUploadsComing(raw)) return finish('upload-mid-flow-more');
+    if (reemitPending(state, TYPE, pushEvent)) return finish('upload-mid-flow');
+    return await resumeE3();
+  }
+
   // ══ How many, waiting for its answer ═════════════════════════════════════
   // Above everything else that reads a bare reply: a count arrives as "5", and
   // every generic handler below would rather have it than leave it alone.
@@ -1533,7 +1604,7 @@ export async function serveE3Checkpoint(
           'Não consegui tirar um tamanho dessa frase — e não vou chutar um número que vira preço.',
           "I could not get a size out of that — and I will not guess at a number that turns into a price.",
         );
-        ask(retry.askPt, retry.askEn, retry.options);
+        ask(retry.askPt, retry.askEn, retry.options, 'site_area_rough');
         return finish('area-said-unparsed');
       }
     }
@@ -1814,7 +1885,9 @@ export async function serveE3Checkpoint(
     // this card list was not — so the solution they had just chosen was still
     // shown, with no chip under it. A simulation caught it; a person would have
     // tapped the card and wondered why nothing happened.
-    const taken = liveSolutions();
+    // Tested ones too, and the one whose test is open — a name on this list
+    // must be a name the flow will accept.
+    const taken = Array.from(new Set([...liveSolutions(), ...testedIds(ensureTests()), ...(openTest() ? [openTest()] : [])]));
     pushEvent({
       type: 'show_solution_options',
       items: topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 27)
@@ -1827,7 +1900,7 @@ export async function serveE3Checkpoint(
       full: true,
     } as any);
     ask('Qual delas?', 'Which one?', topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 12)
-      .filter(e => !liveSolutions().includes(e.solution.id))
+      .filter(e => !taken.includes(e.solution.id))
       .slice(0, 8)
       .map(e => ({ pt: e.solution.pt.label, en: e.solution.en.label })));
     return finish('all-solutions');
@@ -1850,10 +1923,22 @@ export async function serveE3Checkpoint(
   // A solution name, from either list. Matched against the whole catalogue so
   // the "ver todas" sheet can be answered by typing a name we never chipped.
   // Accepted whenever no test is open — the loop comes back to the shelf.
+  // ⚠️ …or when the open test has NO REACTION yet and they picked another one:
+  // they changed their mind before answering. Refusing it ("a test is open")
+  // dead-ended a room that reopened the shelf mid-test — the list on screen, and
+  // no name on it accepted. The unanswered test is dropped, not kept as a
+  // column nobody reacted to.
+  const named = topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 27)
+    .find(e => deps.normChip(e.solution.pt.label) === msg || deps.normChip(e.solution.en.label) === msg);
+  const abandoning = !!openTest() && !!named && named.solution.id !== openTest() && !testOf(ensureTests(), openTest())?.reaction;
+  if (abandoning) {
+    writeTests(ensureTests().filter(t => t.solutionId !== openTest()));
+    deps.writeFields(TYPE, { _test_open: '', _units_pending: '' });
+    deps.writeFields(SITE, { _area_pending: '' });
+  }
   if (!openTest()) {
     const tested = testedIds(ensureTests());
-    const hit = topShortlist({ site: w3Input().site }, isPt ? 'pt' : 'en', 27)
-      .find(e => deps.normChip(e.solution.pt.label) === msg || deps.normChip(e.solution.en.label) === msg);
+    const hit = named;
     if (hit && !tested.includes(hit.solution.id)) return await startTest(hit.solution.id);
     // ⚠️ Filtering the list is not enough: the answer does not only arrive by
     // tapping a chip. A typed name, a dictated one, or a stale card still on
@@ -1869,6 +1954,11 @@ export async function serveE3Checkpoint(
       return await askSolution();
     }
   }
+
+  // The open test's own name (its card is still on screen and was tapped
+  // again), or another name while a reacted test waits on its detail: the
+  // step that test is waiting on comes back, never the model.
+  if (openTest() && named) return await resumeE3();
 
   // ══ The reaction to a test card ══════════════════════════════════════════
   // Theirs, in their words on the chip and in the written register on the
@@ -1941,6 +2031,12 @@ export async function serveE3Checkpoint(
   // Their own sentence, confirmed. Stored with provenance so the roadmap and
   // the coordinator can always tell what they wrote here from what they
   // approved from a file they wrote earlier.
+  // ⚠️ The three draft chips mean something only while a written answer is
+  // waiting. Tapped from an old bubble, "pode escrever aí embaixo" promised a
+  // beat that did not exist, and the sentence that followed went to the model.
+  if ([E3C.serve, E3C.escreverZero, E3C.completar].some(c => is(c))
+    && type('_why_pending') !== 'yes' && impact('_baseline_pending') !== 'yes') return await resumeE3();
+
   if (is(E3C.serve)) {
     const pendingField = type('_why_pending') === 'yes'
       ? 'justification_why_here'
@@ -2009,7 +2105,9 @@ export async function serveE3Checkpoint(
         'Pra desenhar eu preciso do lugar marcado primeiro — a gente resolve isso e volta pra cá.',
         'To draw it I need the place marked first — we will sort that and come back here.',
       );
-      return false;
+      // ⚠️ Said something and then returned false: the model answered ON TOP of
+      // the flow's own line. The next step is the place map, so open it.
+      return openSiteMap('open-site-map-from-redraw');
     }
     return openFootprintMap();
   }
@@ -2023,7 +2121,7 @@ export async function serveE3Checkpoint(
     const retry = GAP_RETRIES.area;
     if (!site(retry.askedFlag)) {
       deps.writeFields(SITE, { [retry.askedFlag]: 'yes' });
-      ask(retry.askPt, retry.askEn, retry.options);
+      ask(retry.askPt, retry.askEn, retry.options, 'site_area_rough');
       return finish('area-retry');
     }
     // It was already asked. Now it is a named gap with the rate attached,
@@ -2039,7 +2137,10 @@ export async function serveE3Checkpoint(
   // Their comparison, turned into a band. ⚠️ Recorded with its provenance: an
   // area obtained this way is rougher than one they traced, and it is about to
   // be multiplied by a price per square metre.
-  if (site(GAP_RETRIES.area.askedFlag) === 'yes' && !liveArea()) {
+  // ⚠️ …or whenever the rough-size question is the one ON SCREEN. It can be
+  // asked over an area that already exists (a size said and not understood at
+  // "Ainda é esse o tamanho?"), and its chips then had no handler at all.
+  if (site(GAP_RETRIES.area.askedFlag) === 'yes' && (!liveArea() || pendingField() === 'site_area_rough')) {
     // The way out, taken. It is a pendency, exactly as before the retry existed.
     const declined =
       deps.normChip(raw) === deps.normChip(CANNOT_GUESS.pt) ||
@@ -2090,7 +2191,10 @@ export async function serveE3Checkpoint(
       return askExtras();
     }],
   ] as Array<[string, string, () => true | Promise<true>]>) {
-    if (read(sectionId)(field)) continue;
+    // Already answered — unless THIS is the question on screen again
+    // ("Detalhar agora" a second time re-asks who builds it): then the answer
+    // replaces the old one instead of being dropped.
+    if (read(sectionId)(field) && pendingField() !== field) continue;
     const id = enumIdFromChip(sectionId, field, raw);
     if (!id) continue;
     deps.writeFields(sectionId, { [field]: id });
