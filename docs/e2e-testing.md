@@ -128,6 +128,11 @@ npm run test:e2e:ui        # interactive runner (watch it run live, time-travel)
 npm run test:e2e:video     # record a video + full trace for EVERY test
 npm run test:e2e:report    # open the HTML report (videos + traces)
 
+# Encontro 3 harnesses (in-process, no dev server, no DB):
+npm run w3:sweep           # 27 solutions × 2 paths, the polite walk
+npm run w3:fuzz            # hostile-room fuzzer, 12 invariants — docs/cbo-flow-building-guide.md §11
+npm run w3:fullsim         # personas as policies, end to end; prints the PDFs and reads them back
+
 # One-command "test it and share the video": sets up a throwaway Postgres DB,
 # pushes the schema, runs the whole suite with video + trace, leaves the report
 # ready. Then `npm run test:e2e:report` to watch.

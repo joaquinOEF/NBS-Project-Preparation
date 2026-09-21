@@ -148,6 +148,64 @@ incrementally, not at the end.**
 
 ---
 
+## 11 · ⚠️ An answer is read — the pending-question contract
+
+Added 2026-09-21, after a staging run where an organisation's answers were
+dropped and the chat went silent (JVP: *"a user responds, agent reads at some
+point — if not, what's the purpose?"*).
+
+**Why answers were lost.** A templated encontro had no memory of what it had
+just asked. Every turn, a long chain of handlers guessed what the message meant
+from private flags and exact chip text, so an answer counted only if it arrived
+as the exact label, as a tap, with the right flag set, and with no earlier
+handler grabbing it first. Anything else fell through to the model — which has
+no way to record an answer into a step the flow owns — and the flow never moved.
+"é isso" typed at "Confere?", one tap on a stacked question ("Pronto; Pronto"),
+the entry line read as *3 units* at a count question, a reload that re-derived a
+different question than the one on screen: all the same flaw.
+
+**The contract** (`shared/pending-question.ts`, wired by
+`server/services/pendingQuestion.ts` round `serveE3Checkpoint` and
+`serveProjectCheckpoint`):
+
+1. Every question a checkpoint asks is **recorded** on the session
+   (`_pending_asks_json`), options and all.
+2. Every incoming message is matched against it **before any handler runs** —
+   exact, stacked, typed, spoken, option letter, ordinal, unambiguous partial —
+   and a match becomes the canonical chip label, whatever `turnKind` said.
+3. A message that matches an option is **never handed to the model**. If no
+   handler takes it, that is a bug: `[answer-unhandled]` is logged, the
+   organisation is told the answer did not register, and the question is asked
+   again. The only exception is an option marked `handoff: true` ("Mudou alguma
+   coisa"), which exists so the model can take it.
+4. After a model turn, a silent turn or a return (the entry line), the **same**
+   pending question is re-emitted — never a re-derived guess.
+
+What is on record must be what is on screen: a served turn that asks nothing (a
+beat waiting for prose, the map, the close) clears it; a file arriving
+mid-selection leaves it standing.
+
+**When you add a beat:** ask through the checkpoint's `ask()` (pass `forField`
+when the question fills a field, so a re-answer is accepted), never `return
+false` after you have already said something, and never rely on `turnKind` to
+tell a tap from a typed answer. A chip that only means something while a flag is
+set (the three draft chips) must check the flag and fall back to `resumeE3()`.
+
+**How it is checked.** `npm run w3:fuzz` (`scripts/w3-fuzz.ts`) crosses a matrix
+of records with polite, random and hostile actors — stacked answers, stale
+chips, typed labels, uploads mid-question, reloads mid-test — and checks twelve
+invariants after every turn (I1: a turn the flow owns never reaches the model;
+I6: a return lands on the same question; I12: every option of the pending
+question has a handler…). A violation prints the shortest seeded repro.
+`e2e/pending-question.spec.ts` runs 250 walks as part of the gate; run
+`W3_FUZZ_WALKS=2000 W3_FUZZ_SEED=<n> npm run w3:fuzz` after touching
+`cboE3Checkpoint.ts`. The sweep and the full simulation walk the path its author
+expects; the fuzzer walks the ones nobody expects. Both are needed.
+
+**Not covered yet:** `serveE2Checkpoint` is not wrapped in the contract.
+
+---
+
 ## Leaflet: unmounting during an animation throws
 
 `Cannot read properties of undefined (reading '_leaflet_pos')`, stack ending in

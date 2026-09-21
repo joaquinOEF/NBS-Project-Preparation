@@ -189,6 +189,15 @@ that follow from them (walk the whole path; look at the room past the door; ask
 who else is on this path; verify a landing on `main`, not in the PR list).
 
 
+### ⚠️ An answer is read — `docs/cbo-flow-building-guide.md` §11
+Templated checkpoints record every question they ask (`_pending_asks_json`,
+`shared/pending-question.ts`) and match the incoming message against it before
+any handler runs — typed, spoken, stacked, by letter. A message that matches an
+option NEVER goes to the model; unhandled, it logs `[answer-unhandled]` and the
+question is asked again. A return re-emits the same question. After touching
+`cboE3Checkpoint.ts` run `npm run w3:fuzz` (hostile-room fuzzer, 12 invariants,
+seeded repros) as well as `w3:sweep` — the sweep only walks the polite path.
+
 ### The workshop tests; the tail details — `docs/w3-flow.md` → "A loop, not a funnel"
 Encontro 3 asks *"qual vocês querem testar primeiro?"* (Robson's words), shows
 one card per solution tried (what it needs · what blocks it · what it does ·

@@ -71,6 +71,7 @@ import { isImplementationNarration } from "./assistantNoise";
 import { checkCloseGate } from "./cboCloseGate";
 import { serveE3Checkpoint } from "./cboE3Checkpoint";
 import { serveProjectCheckpoint } from "./cboProjectCheckpoint";
+import { reemitPending } from "./pendingQuestion";
 import { findProjectByStateId, projectBrief, projectFacts, buildProjectContext } from "./projectContext";
 import { loadNamedSkill } from "./encontroSkills";
 import { warnIfOrphan } from '@shared/field-destiny';
@@ -3591,6 +3592,9 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     if (last?.role === 'assistant' && last.messageType === 'composer') { try { kind = JSON.parse(last.content)?.kind ?? ''; } catch { /* prose */ } }
     if (['ask_user', 'priority', 'anchoring', 'open_map', 'open_intervention_selector'].includes(kind)) return;
     console.warn(`[cbo] e3 reask-after-silent-turn for ${cboId}`);
+    // The question that was on screen, exactly (shared/pending-question.ts);
+    // the entry line — which re-derives the step — only when none is recorded.
+    if (reemitPending(state, 'intervention_type', pushEvent)) return;
     try { await serveE3Checkpoint(cboId, lang === 'pt' ? 'Vamos começar o Encontro 3.' : "Let's start Encontro 3.", state, pushEvent, lang, 'system', e3Deps); }
     catch (err) { console.error(`[cbo] e3 reask failed for ${cboId}:`, err); }
   };

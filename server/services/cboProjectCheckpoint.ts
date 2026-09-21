@@ -20,6 +20,7 @@
 
 import type { CboState } from '@shared/cbo-schema';
 import { collapseRepeatedAnswer } from '@shared/cbo-chip-answers';
+import { withPendingQuestion } from './pendingQuestion';
 import type { ProjectBrief, ProjectMemberFacts } from '@shared/project-brief';
 import {
   PROJECT_FIELDS, parseChoices, frameOptions, buildProjectPlan, buildProjectNote,
@@ -90,7 +91,26 @@ type Step =
   | { kind: 'why' } | { kind: 'frame' } | { kind: 'scen'; memberId: string }
   | { kind: 'plan' } | { kind: 'lead' } | { kind: 'money' } | { kind: 'note' } | { kind: 'done' };
 
+/** Same contract as every templated checkpoint: shared/pending-question.ts. */
 export async function serveProjectCheckpoint(
+  cboId: string,
+  userMessage: string,
+  state: CboState,
+  pushEvent: EventPusher,
+  lang: string,
+  turnKind: string | undefined,
+  deps: ProjectDeps,
+): Promise<boolean> {
+  if (!state.metadata?.project) return false;
+  return withPendingQuestion({
+    label: 'projeto', cboId, state, sectionId: TYPE, userMessage, turnKind, lang, pushEvent,
+    writeFields: (sectionId, fields) => deps.writeFields(sectionId, fields),
+    isControlLine: raw => PROJECT_ENTRY.test(raw) || ENCONTRO_ENTRY.test(raw),
+    inner: (msg, kind, push) => serveProjectInner(cboId, msg, state, push, lang, kind, deps),
+  });
+}
+
+async function serveProjectInner(
   cboId: string,
   userMessage: string,
   state: CboState,
