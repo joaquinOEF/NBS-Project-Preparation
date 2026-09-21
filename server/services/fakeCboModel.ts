@@ -23,6 +23,7 @@
 // ENABLE_TEST_ROUTES), so the real SDK path is the only one that ever runs in
 // the live deployment. The real turn machinery in cboAgent.ts is untouched.
 
+import { routeModelWrite } from '@shared/field-destiny';
 import {
   type CboState,
   type CboEvent,
@@ -147,6 +148,22 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
       // specs exercise the id -> label mapping deterministically — including
       // the document-source rules: containment fallback, and off-list values
       // rejected (not stored) instead of persisted as approximations.
+      // The model's writes are read too (shared/field-destiny.ts): an invented
+      // name is kept as a note, a notes field accumulates in its home section.
+      // The SAME function the real tool calls.
+      {
+        const readField = (sid: string, f: string) => String((state.sections as any)[sid]?.fields?.[f]?.value ?? '');
+        const r = routeModelWrite(op.sectionId, op.field, op.value, readField);
+        if (!r) break;
+        if (r.kind !== 'as-is') {
+          const home = (state.sections as any)[r.sectionId];
+          if (!home) break;
+          home.fields[r.field] = { value: r.value, confidence: op.confidence ?? 'medium', source: op.source ?? 'agent', userEdited: false };
+          pushEvent({ type: 'field_update', sectionId: r.sectionId, field: r.field, value: r.value, confidence: op.confidence ?? 'medium', source: op.source } as any);
+          deps.setCboState(cboId, state);
+          break;
+        }
+      }
       const isDocSource = String(op.source ?? '').toLowerCase() === 'document';
       const value = op.sectionId === 'org_profile'
         ? canonicalizeOrgProfileValue(op.field, op.value, lang === 'en' ? 'en' : 'pt', isDocSource)

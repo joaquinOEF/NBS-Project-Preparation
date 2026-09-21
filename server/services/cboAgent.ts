@@ -74,7 +74,7 @@ import { serveProjectCheckpoint } from "./cboProjectCheckpoint";
 import { reemitPending } from "./pendingQuestion";
 import { findProjectByStateId, projectBrief, projectFacts, buildProjectContext } from "./projectContext";
 import { loadNamedSkill } from "./encontroSkills";
-import { warnIfOrphan } from '@shared/field-destiny';
+import { warnIfOrphan, isGatedSection, routeModelWrite } from '@shared/field-destiny';
 import { digRound1, digRound2 } from './w3Dig';
 import { buildContextMarkdown } from './contextBundle';
 import { parseDig } from '@shared/w3-dig';
@@ -461,6 +461,39 @@ function createCboMcpTools(cboId: string) {
           return { content: [{ type: "text" as const, text: `Unknown org_profile field(s) ${rejected.map(b => `"${b}"`).join(', ')} — nothing saved. Use exactly: ${ORG_PROFILE_FIELDS.join(', ')}. If a fact fits none of these, mention it in chat but do not store it.` }], isError: true };
         }
       }
+      // ⚠️ THE SAME RULE FOR THE SECTIONS WHOSE ENCONTROS ARE BUILT (JVP,
+      // 2026-09-21: "everything written by the model should be read — if not,
+      // why?"). A name with no declared destiny has no reader: on staging the
+      // model stored `technical_notes`, `preferred_solutions` and
+      // `ipês_to_preserve`, and no card, comparison or note ever looked for
+      // them. The CONTENT is never dropped — it is kept, labelled, in the
+      // section's notes field, which the documents, the profile and every
+      // pass's context read — and the model is told which names exist.
+      // See shared/field-destiny.ts → "THE MODEL'S WRITES ARE READ TOO".
+      const salvaged: Array<{ field: string; into: string; suggestions: string[] }> = [];
+      const notesUpdated: string[] = [];
+      if (isGatedSection(args.sectionId)) {
+        const readField = (sid: string, f: string) => String((state.sections as any)[sid]?.fields?.[f]?.value ?? '');
+        const asIs: [string, string][] = [];
+        for (const [k, v] of writable) {
+          const r = routeModelWrite(args.sectionId, k, v, readField);
+          if (!r) continue;
+          if (r.kind === 'as-is') { asIs.push([k, v]); continue; }
+          const home = (state.sections as any)[r.sectionId];
+          if (!home) continue;
+          const oldValue = home.fields[r.field]?.value ?? null;
+          home.fields[r.field] = { value: r.value, confidence: args.confidence as Confidence, source: args.source ?? 'agent', userEdited: false };
+          state.editLog.push({ timestamp: new Date().toISOString(), sectionId: r.sectionId, field: r.field, oldValue, newValue: r.value, source: 'agent' });
+          pushEvent({ type: 'field_update', sectionId: r.sectionId, field: r.field, value: r.value, confidence: args.confidence as Confidence, source: args.source });
+          if (r.kind === 'notes') notesUpdated.push(r.field);
+          else {
+            salvaged.push({ field: r.tried!, into: `${r.sectionId}.${r.field}`, suggestions: r.suggestions ?? [] });
+            console.warn(`[model-write-rerouted] ${cboId}: ${args.sectionId}.${r.tried} has no reader — kept under ${r.sectionId}.${r.field}`);
+          }
+        }
+        writable = asIs;
+      }
+
       // Document-sourced extractions get the containment fallback ("Associação
       // comunitária de moradores" → 'ONG / Associação'), and anything STILL
       // off-list is rejected below — a link's paraphrase must land exactly on
@@ -471,7 +504,7 @@ function createCboMcpTools(cboId: string) {
       const offList: string[] = [];
       const ruleBlocked: { field: string; dependsOn: string; allowedIds: string[] }[] = [];
       const staged: string[] = [];
-      const updated: string[] = [];
+      const updated: string[] = [...notesUpdated];
       // Conditional-option rules (manifest): write dependency fields first so
       // a batch carrying { has_cnpj, legal_form } validates legal_form against
       // the has_cnpj value from THIS batch, not a stale one.
@@ -551,8 +584,11 @@ function createCboMcpTools(cboId: string) {
       const stagedNote = staged.length > 0
         ? ` STAGED (awaiting the user's confirmation — NOT in the document yet): ${staged.join(', ')}. Recap each staged value to the user verbatim, say WHERE you read it (which page/section of the site or document, e.g. "li na página Sobre nós"), and ask for confirmation with chips ("Confere tudo" / "Quero ajustar"). When the user confirms, call confirm_doc_fields to commit; if they correct something, resend it via update_section with source 'user'.`
         : '';
-      const summary = updated.length > 0 ? `Updated ${args.sectionId}: ${updated.join(', ')}.` : `Nothing stored in ${args.sectionId}.`;
-      return { content: [{ type: "text" as const, text: `${summary}${note}${offListNote}${ruleNote}${stagedNote}` }] };
+      const salvagedNote = salvaged.length > 0
+        ? ` KEPT AS A NOTE, NOT AS A FIELD: ${salvaged.map(x => `"${x.field}" is not a field anything reads, so its content was kept under ${x.into} (it reaches the documents and the context)${x.suggestions.length ? ` — if it is really one of [${x.suggestions.join(', ')}], resend it under that exact name so the flow can USE it` : ''}`).join('; ')}. Never invent field names: a fact that fits no field goes in site_notes (about the place) or project_notes (about the project).`
+        : '';
+      const summary = updated.length > 0 ? `Updated ${args.sectionId}: ${updated.join(', ')}.` : salvaged.length > 0 ? `No named field stored in ${args.sectionId}.` : `Nothing stored in ${args.sectionId}.`;
+      return { content: [{ type: "text" as const, text: `${summary}${note}${offListNote}${ruleNote}${stagedNote}${salvagedNote}` }] };
     },
     { annotations: { readOnlyHint: false } }
   );

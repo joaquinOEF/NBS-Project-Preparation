@@ -90,6 +90,17 @@ export type FieldDestiny =
 const NO_ANSWER = /^(n[ãa]o sei|nao-sei|nenhuma|não informado|pular|skip|-|—)$/i;
 
 export const FIELD_DESTINY: Record<string, FieldDestiny> = {
+  // ── What the model noted under a name nothing reads (see the gate below) ───
+  site_notes: {
+    feeds: 'problema',
+    labelPt: 'Outras informações registradas sobre o lugar',
+    labelEn: 'Other information recorded about the place',
+  },
+  project_notes: {
+    feeds: 'intervencao',
+    labelPt: 'Outras informações registradas sobre o projeto',
+    labelEn: 'Other information recorded about the project',
+  },
   // ── The eight that were collected and dropped ─────────────────────────────
   // Each was already worth asking; the `why` on every one of them argues its
   // own case, and every one of those arguments was wasted.
@@ -357,4 +368,116 @@ export function warnIfOrphan(sectionId: string, field: string): void {
     `⚠️ ${FIELD_ORPHAN_MARKER} ${sectionId}.${field} was written and has no declared destiny — ` +
       `it will not reach the concept note. Declare it in shared/field-destiny.ts (feeds / carriedBy / declines).`,
   );
+}
+
+// ============================================================================
+// THE MODEL'S WRITES ARE READ TOO — the gate on update_section
+// ============================================================================
+// JVP, 2026-09-21: "everything written by the model should be read — if not,
+// why?" The registry above covers every field the PRODUCT writes. The model's
+// own tool had no such rule outside org_profile: on staging it stored
+// `technical_notes`, `preferred_solutions` and `ipês_to_preserve` — real things
+// an organisation had said — under names no card, comparison, roadmap or note
+// will ever look for. Stored, and read by nothing but a raw export.
+//
+// So, for the sections whose encontros are built: a field name with no declared
+// destiny is NOT stored under that name. Its content is kept — appended, with a
+// readable label, to the section's notes field, which `feeds` the document, and
+// sits in the profile and the context every pass receives — and the tool tells
+// the model which names exist, so the next write lands where a reader is.
+// Nothing is dropped; nothing is stored where nobody looks.
+// ============================================================================
+
+/** Sections whose flows are built, and therefore whose every field has a reader. */
+export const NOTES_FIELD_BY_SECTION: Record<string, 'site_notes' | 'project_notes'> = {
+  intervention_site: 'site_notes',
+  intervention_type: 'project_notes',
+  impact_monitoring: 'project_notes',
+  operations_sustain: 'project_notes',
+};
+/** `project_notes` lives in ONE section, so the flat record the note reads has one value. */
+export const NOTES_HOME: Record<'site_notes' | 'project_notes', string> = {
+  site_notes: 'intervention_site',
+  project_notes: 'intervention_type',
+};
+
+export const isGatedSection = (sectionId: string) => sectionId in NOTES_FIELD_BY_SECTION;
+
+/** A name some reader looks for. Private (`_x`) fields are machinery and pass. */
+export const hasReader = (field: string) => field.startsWith('_') || !!FIELD_DESTINY[field];
+
+/** "ipês_to_preserve" → "Ipês to preserve" — a label a person can read on a page. */
+export function readableFieldName(field: string): string {
+  const words = field.replace(/[_\-]+/g, ' ').trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : field;
+}
+
+/** The notes value after salvaging one invented field. Idempotent per label+value. */
+export function appendNote(existing: string | undefined | null, field: string, value: string): string {
+  const line = `${readableFieldName(field)}: ${String(value).trim()}`;
+  const lines = String(existing ?? '').split('\n').map(l => l.trim()).filter(Boolean);
+  // The same name written again REPLACES its line — the model correcting itself
+  // must not leave both versions on a funder's page.
+  const prefix = `${readableFieldName(field)}:`;
+  const kept = lines.filter(l => !l.startsWith(prefix));
+  return [...kept, line].join('\n');
+}
+
+/**
+ * The declared names closest to an invented one — what the tool answers with.
+ * Seventy names is noise; the five that share a word with what the model tried
+ * is a correction it can act on in the same turn.
+ */
+export function suggestReaderFields(field: string, max = 6): string[] {
+  const norm = (w: string) => w.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const stem = (w: string) => norm(w).replace(/(s|es|ing|ed)$/, '');
+  const tokens = field.split(/[_\-\s]+/).map(stem).filter(t => t.length > 2);
+  const scored = Object.keys(FIELD_DESTINY)
+    .filter(name => name !== 'site_notes' && name !== 'project_notes')
+    .map(name => {
+      const parts = name.split('_').map(stem);
+      const score = tokens.reduce((n, t) => n + (parts.some(p => p === t || (t.length > 3 && (p.startsWith(t) || t.startsWith(p)))) ? 1 : 0), 0);
+      return { name, score };
+    })
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  return scored.slice(0, max).map(x => x.name);
+}
+
+export interface RoutedWrite {
+  sectionId: string;
+  field: string;
+  value: string;
+  /** as-is: a declared field · notes: a notes field, accumulated in its home · rerouted: an invented name, kept as a note */
+  kind: 'as-is' | 'notes' | 'rerouted';
+  /** For `rerouted`: the name the model tried, and the declared names nearest to it. */
+  tried?: string;
+  suggestions?: string[];
+}
+
+/**
+ * Where ONE model write lands. Pure, and the only copy of the rule: the real
+ * update_section tool and the fake model both call it, so a spec exercises what
+ * production runs. `readField` returns what is currently stored.
+ */
+export function routeModelWrite(
+  sectionId: string,
+  field: string,
+  value: string,
+  readField: (sectionId: string, field: string) => string,
+): RoutedWrite | null {
+  if (!isGatedSection(sectionId)) return { sectionId, field, value, kind: 'as-is' };
+  if (field === 'site_notes' || field === 'project_notes') {
+    const home = NOTES_HOME[field];
+    const old = readField(home, field);
+    const have = old.split('\n').map(l => l.trim());
+    const add = String(value).split('\n').map(l => l.trim()).filter(l => l && !have.includes(l));
+    if (!add.length) return null;
+    return { sectionId: home, field, value: [old.trim(), ...add].filter(Boolean).join('\n'), kind: 'notes' };
+  }
+  if (hasReader(field)) return { sectionId, field, value, kind: 'as-is' };
+  if (!String(value).trim()) return null;
+  const notesField = NOTES_FIELD_BY_SECTION[sectionId];
+  const home = NOTES_HOME[notesField];
+  return { sectionId: home, field: notesField, value: appendNote(readField(home, notesField), field, value), kind: 'rerouted', tried: field, suggestions: suggestReaderFields(field) };
 }

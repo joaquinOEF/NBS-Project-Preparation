@@ -172,6 +172,13 @@ minutos é o sinal mais claro de "não estavam escutando" que existe no fluxo.
 
 - `ask_user(...)` — sempre com os rótulos EXATOS do checkpoint ao retomar
 - `update_section('intervention_type' | 'impact_monitoring' | 'operations_sustain' | 'intervention_site', {fields})` — ids canônicos
+  ⚠️ **Nunca invente nome de campo.** Um nome que o platform não conhece não é
+  lido por nenhum cartão, comparação ou documento. Se a organização contou algo
+  que não cabe em nenhum campo (as árvores que ficam, o portão estreito, uma
+  preferência), grave em `site_notes` (sobre o lugar, em `intervention_site`)
+  ou `project_notes` (sobre o projeto, em `intervention_type`) — uma frase por
+  linha, nas palavras dela. O platform faz isso sozinho se você errar o nome,
+  e avisa qual campo existe; corrija e reenvie quando ele sugerir um.
 - `read_knowledge` / `search_knowledge`, `search_org_documents` / `read_org_document`
 - NÃO são seus no E3: `show_solution_options`, `show_solution_test`,
   `show_comparison` e `show_dossier` (o platform é dono de todos), o mapa de

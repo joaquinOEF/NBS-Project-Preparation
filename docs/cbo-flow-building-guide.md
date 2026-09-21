@@ -206,6 +206,41 @@ expects; the fuzzer walks the ones nobody expects. Both are needed.
 
 ---
 
+## 12 · ⚠️ Everything the model writes is read
+
+JVP, 2026-09-21: *"everything written by the model should be read — if not,
+why?"* It was not. `shared/field-destiny.ts` guaranteed a reader for every field
+the PRODUCT writes (a spec scans the writers), but the model's own
+`update_section` only checked names in `org_profile`. Anywhere else it could
+invent one, and on staging it did — `technical_notes`, `preferred_solutions`,
+`ipês_to_preserve` — real things an organisation had said, stored under names no
+card, comparison, roadmap or note looks for. The only trace was a
+`[field-orphan]` line in a log.
+
+The rule now (`routeModelWrite`, one pure function, called by the real tool and
+by the fake model so specs run what production runs):
+
+- a **declared** field is stored as itself;
+- an **invented** name is never a field. Its content is kept — `Ipês to
+  preserve: …` — in the section's notes field (`site_notes` for the place,
+  `project_notes` for type / impact / operations, one home each), and the tool
+  result names the nearest declared fields so the model can resend the answer
+  where the FLOW can use it;
+- a notes field **accumulates**; the same invented name written again replaces
+  its own line.
+
+The notes have readers, proved by the existing sentinel spec: both `feed` the
+Resumo do Projeto, both are labelled in the field catalogue (so the Perfil PDF
+prints them properly), and both are in the context every model pass receives.
+
+**What this does not do:** a note is prose, so the deterministic Encontro 3
+beats cannot act on it — "os ipês ficam" said in chat reaches the documents, not
+the test card. Sections whose encontros are not built yet (needs, results) are
+not gated: nothing declares their fields, and gating them would turn every
+write into a note.
+
+---
+
 ## Leaflet: unmounting during an animation throws
 
 `Cannot read properties of undefined (reading '_leaflet_pos')`, stack ending in

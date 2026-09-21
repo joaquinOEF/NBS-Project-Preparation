@@ -198,6 +198,15 @@ question is asked again. A return re-emits the same question. After touching
 `cboE3Checkpoint.ts` run `npm run w3:fuzz` (hostile-room fuzzer, 12 invariants,
 seeded repros) as well as `w3:sweep` — the sweep only walks the polite path.
 
+### The model's writes are read too — `shared/field-destiny.ts` → `routeModelWrite`
+`update_section` never stores an invented field name in a built section
+(site / type / impact / ops): the content is kept, labelled, in `site_notes` or
+`project_notes` — which `feeds` the Resumo, shows in the Perfil and sits in
+every pass's context — and the tool answers with the nearest declared names.
+One pure function, called by the real tool AND the fake model. A new field
+still needs a destiny; a new SECTION with a built flow joins
+`NOTES_FIELD_BY_SECTION`.
+
 ### Their files reach the card — `docs/w3-flow.md` → "What their own files say"
 The E3 test card is deterministic, so an uploaded visit report used to change
 nothing the organisation saw. `w3DocumentReader` (its own model pass, re-run
