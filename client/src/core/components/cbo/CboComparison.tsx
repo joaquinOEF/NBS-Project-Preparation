@@ -123,6 +123,16 @@ export function CboComparison({ comparison, lang, cboId }: { comparison: Compari
         </table>
       </div>
 
+      {(comparison.placeNotes?.notes.length ?? 0) > 0 && (
+        <div className='border-t border-[#e2d9c4] dark:border-stone-700 px-3 py-2.5 text-[12.5px] leading-snug' data-testid='comparison-place-notes'>
+          <div className='mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#8a7d5c] dark:text-stone-400'>{comparison.placeNotes.heading}</div>
+          <ul className='m-0 list-disc space-y-1 pl-4'>
+            {comparison.placeNotes.notes.map((n, i) => (
+              <li key={i}>{n.text} <span className='text-[10.5px] italic text-muted-foreground'>— {n.source}</span></li>
+            ))}
+          </ul>
+        </div>
+      )}
       {comparison.technicalNote && (
         <div className='rounded-lg border border-[#c9bd9a] bg-card px-2.5 py-2 text-[12px] leading-snug' data-testid='comparison-technical-note'>
           <span className='block text-[9.5px] font-extrabold uppercase tracking-widest text-[#8a7d5c] dark:text-stone-400'>{s.technical}</span>

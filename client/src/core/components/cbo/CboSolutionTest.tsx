@@ -9,10 +9,17 @@
 // Reading is this card's job; ANSWERING is the paired ask_user's — the reaction
 // chips follow in the same turn, exactly like the shortlist before it.
 
-import { Sprout, ShieldAlert, Wallet, Wrench, Droplets, TriangleAlert } from 'lucide-react';
+import { Sprout, ShieldAlert, Wallet, Wrench, Droplets, TriangleAlert, FileText } from 'lucide-react';
 import type { SolutionTestCard } from '@shared/w3-solution-test';
 import { getFamilia, nbsSolutionPhoto } from '@shared/nbs-catalog';
 import type { VerdictState } from '@shared/w3-dossier';
+import { NOTES_HEADING } from '@shared/w3-document-notes';
+
+const NOTE_TONE: Record<string, string> = {
+  'a-favor': 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+  contra: 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300',
+  condicao: 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300',
+};
 
 const STRINGS = {
   pt: {
@@ -148,6 +155,27 @@ export function CboSolutionTest({ test, lang }: { test: SolutionTestCard; lang: 
           )}
         </Row>
       </div>
+
+      {/* Their own files, beside our reading — quoted, with the file named. The
+          rows above are functions and do not move; this is what THEY sent, so a
+          card can never silently contradict the visit report they uploaded. */}
+      {(test.fromTheirFiles?.length ?? 0) > 0 && (
+        <div className='border-t border-[#e2d9c4] dark:border-stone-700 px-3 py-2.5' data-testid='solution-test-their-files'>
+          <div className='mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#8a7d5c] dark:text-stone-400'>
+            <FileText className='h-3.5 w-3.5' />{NOTES_HEADING[lang]}
+          </div>
+          <ul className='m-0 list-none space-y-2 p-0'>
+            {test.fromTheirFiles.map((n, i) => (
+              <li key={i} className='text-[12.5px] leading-snug' data-testid={`solution-test-note-${n.stance}`}>
+                <span className={`mr-1.5 inline-block rounded-full border px-1.5 py-px text-[10.5px] font-semibold ${NOTE_TONE[n.stance]}`}>{n.stanceLabel}</span>
+                {n.text}
+                <span className='mt-0.5 block border-l-2 border-[#e2d9c4] pl-2 text-[11.5px] italic text-muted-foreground dark:border-stone-600'>“{n.quote}”</span>
+                <span className='block pl-2 text-[10.5px] text-muted-foreground'>{lang === 'pt' ? 'Fonte' : 'Source'}: {n.source}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className='border-t border-[#e2d9c4] dark:border-stone-700 px-3 py-2 text-[12px] leading-snug'>
         <span className='font-semibold text-[#8a7d5c] dark:text-stone-400'>{s.upkeep}: </span>{test.upkeep}

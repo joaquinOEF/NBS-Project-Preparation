@@ -127,5 +127,71 @@ export async function createStructured<T>(
   const json: any = await res.json();
   const block = (json.content ?? []).find((c: any) => c.type === 'tool_use');
   if (!block) throw new Error('anthropic returned no tool_use block');
-  return schema.parse(block.input);
+  return schema.parse(reviveStringified(block.input));
+}
+
+/**
+ * ⚠️ A forced tool use sometimes returns an array AS A STRING — `"shortlist":
+ * "[{…}]"` — and zod then rejects the whole reply over a value that is one
+ * JSON.parse away from correct. Caught live on 2026-09-21: the W3 advisor's
+ * entire reading (shortlist, questions, observations) was discarded for an
+ * organisation with seven uploaded files, and the only sign was a log line.
+ * There is no retry on a one-shot call, so the repair happens here, for every
+ * pass: a top-level string that parses to an array or an object becomes it.
+ * Anything else is left exactly as it came, and the schema still decides.
+ */
+export function reviveStringified(input: unknown): unknown {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+  const out: Record<string, unknown> = { ...(input as Record<string, unknown>) };
+  for (const [k, v] of Object.entries(out)) {
+    if (typeof v !== 'string') continue;
+    const t = v.trim();
+    if (!t.startsWith('[') && !t.startsWith('{')) continue;
+    try {
+      const parsed = parseLenient(t);
+      if (parsed && typeof parsed === 'object') {
+        console.warn(`[structured] "${k}" arrived as a string and was revived (${Array.isArray(parsed) ? `${parsed.length} item(s)` : 'object'})`);
+        out[k] = parsed;
+      }
+    } catch {
+      // Not JSON as it stands — the schema will reject it. Say what arrived, so
+      // the next repair is chosen from the payload rather than from a guess.
+      console.warn(`[structured] "${k}" arrived as an unparseable string (${t.length} chars): ${t.slice(0, 160)} … ${t.slice(-80)}`);
+    }
+  }
+  return out;
+}
+
+/**
+ * JSON.parse, then one repair. Measured on 2026-09-21: 1 advisor call in 5
+ * returned `shortlist` as a string whose TEXT carried unescaped quotation marks
+ * — the model quoting the organisation's report, `anota que as calhas "despejam
+ * direto no piso"` — so the string was not valid JSON either, and the whole
+ * reading was lost. The repair: inside a string, a `"` only closes it when what
+ * follows (past whitespace) is `,` `}` `]` `:` or the end; any other `"` is
+ * text and is escaped, as is a raw line break. If that still does not parse,
+ * it throws and the schema rejects the reply exactly as before.
+ */
+export function parseLenient(text: string): unknown {
+  try { return JSON.parse(text); } catch { /* repair below */ }
+  let out = '';
+  let inString = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (!inString) { if (c === '"') inString = true; out += c; continue; }
+    if (c === '\\') { out += c + (text[i + 1] ?? ''); i++; continue; }
+    if (c === '\n') { out += '\\n'; continue; }
+    if (c === '\r') continue;
+    if (c === '\t') { out += '\\t'; continue; }
+    if (c === '"') {
+      let j = i + 1;
+      while (j < text.length && /\s/.test(text[j])) j++;
+      const next = text[j];
+      if (next === undefined || next === ',' || next === '}' || next === ']' || next === ':') { inString = false; out += c; }
+      else out += '\\"';
+      continue;
+    }
+    out += c;
+  }
+  return JSON.parse(out);
 }

@@ -104,6 +104,11 @@ export function renderScenarioHtml(col: ComparisonColumn, cmp: Comparison, lang:
     <div class="cell">${cell(col, r.id, lang)}</div>
     <p class="src">${esc(t.source)}: ${esc(sources([col], r.id, lang).join(' · '))}</p>
   </section>`).join('')}
+  ${cmp.placeNotes?.notes.length ? `
+  <section class="tech">
+    <h2>${esc(cmp.placeNotes.heading)}</h2>
+    <ul>${cmp.placeNotes.notes.map(n => `<li>${esc(n.text)}<br><span class="src">“${esc(n.quote)}” — ${esc(lang === 'pt' ? 'Fonte' : 'Source')}: ${esc(n.source)}</span></li>`).join('')}</ul>
+  </section>` : ''}
   ${cmp.technicalNote ? `
   <section class="tech">
     <h2>${esc(t.technical)}</h2>
@@ -174,6 +179,11 @@ export function renderComparisonHtml(cmp: Comparison, lang: 'pt' | 'en' = 'pt'):
   </table>
   </div>
 
+  ${cmp.placeNotes?.notes.length ? `
+  <section class="tech">
+    <h2>${esc(cmp.placeNotes.heading)}</h2>
+    <ul>${cmp.placeNotes.notes.map(n => `<li>${esc(n.text)}<br><span class="src">“${esc(n.quote)}” — ${esc(lang === 'pt' ? 'Fonte' : 'Source')}: ${esc(n.source)}</span></li>`).join('')}</ul>
+  </section>` : ''}
   ${cmp.technicalNote ? `
   <section class="tech">
     <h2>${esc(t.technical)}</h2>

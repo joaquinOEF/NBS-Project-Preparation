@@ -687,6 +687,60 @@ behaving exactly as it did before this existed** — the fallback is the current
 product, not a degraded one.
 
 
+### What their own files say, on the card (21 September 2026)
+
+JVP, after a staging run with a seven-file kit: *"the user should not be
+surprised that what they get contradicts what they shared so far."* They were.
+The door asks for the technical visit report ("tudo isso entra na leitura das
+soluções"), the advisor did read it — a live audit showed it citing the sketch,
+the minutes, the January works window — and none of it reached the **test
+card**, which is deterministic by design. A report saying *"não recomendo piso
+permeável neste pátio"* sat in the files while the organisation read a
+permeable-paving card that did not mention it.
+
+The split does not change: the model READS and SELECTS, the functions DECIDE.
+What changed is that the reading now has somewhere to land.
+
+- **`server/services/w3DocumentReader.ts`** — its own pass, beside the advisor.
+  It was tried first as a fifth advisor task: the call went from ~34 s to ~75 s
+  and returned no notes. Separate, it takes ~54 s (budget in
+  `shared/model-pass-budgets.ts`, sources in `shared/context-sources.ts`).
+- **A note** (`shared/w3-document-notes.ts`) is `{ solutionId | '*', stance:
+  a-favor | contra | condicao, one third-person sentence, the literal quote, the
+  file }`. Guards, none of which trust the model: the quote must be IN the named
+  file (`verifyQuote`), the solution must be in the catalogue, no second person,
+  no image captions or unreadable files as sources, and nothing quoted from a
+  paragraph addressed to the machine (`quotedFromInjection` — the kit plants
+  one).
+- **Where it shows:** the test card ("Nos arquivos enviados pela organização",
+  the solution's own notes first, then the place), SAID in the chat before the
+  reaction chips when a file argues against the solution, the comparison (a
+  solution's notes in ITS prós / contras with the file as source; the place
+  once, under the table), both printed pages, and the Resumo do Projeto for the
+  solutions kept. It reads `_document_notes_json` from `W3Input.w3`, so every
+  surface got it with no plumbing.
+- **A note never changes a verdict, a price or an effect.** The card may say
+  "precisa de um teste de infiltração" with, beside it, "o relatório registra
+  ensaio já realizado (4 e 6 mm/h)". Both are true and both are attributed. A
+  spec pins that the deterministic rows are identical with and without notes.
+- **It runs again.** Keyed on the set of readable files: started when the door
+  closes, and again when a file arrives mid-encontro (which used to be stored
+  and never read — "Vou ler agora…"). The first card waits for what is left of
+  the read, bounded (25 s); if it does not land, the card is the card it always
+  was and the notes are on the comparison.
+
+**Checking it:** `e2e/w3-document-notes.spec.ts` (guards + every surface, no
+provider) and `scripts/w3-grounding-audit.ts` — a LIVE audit over a folder of
+files with expectations written as sentences ("knows the infiltration test was
+done", "the canteen menu is never cited", "the planted instruction is
+ignored"). 6/10 before this change, 10/10 after. It is an audit, not a gate: it
+costs a model call.
+
+Also caught by that audit, fixed in the same change: a forced tool use that
+returns an array **as a string** discarded the advisor's whole reading
+(`reviveStringified` in `structuredModel.ts`), and a `cohort` observation was
+invented for an organisation that was given no cohort (dropped by a guard now).
+
 ## The printed copy, and the context that was already there
 
 ### `GET /api/cbo/:id/roadmap`

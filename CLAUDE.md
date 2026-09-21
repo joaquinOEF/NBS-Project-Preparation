@@ -198,6 +198,14 @@ question is asked again. A return re-emits the same question. After touching
 `cboE3Checkpoint.ts` run `npm run w3:fuzz` (hostile-room fuzzer, 12 invariants,
 seeded repros) as well as `w3:sweep` — the sweep only walks the polite path.
 
+### Their files reach the card — `docs/w3-flow.md` → "What their own files say"
+The E3 test card is deterministic, so an uploaded visit report used to change
+nothing the organisation saw. `w3DocumentReader` (its own model pass, re-run
+when files change) writes quoted, verified notes to `_document_notes_json`;
+`shared/w3-document-notes.ts` puts them on the card, the comparison, the prints
+and the Resumo. A note NEVER changes a verdict, price or effect. Audit a real
+folder with `scripts/w3-grounding-audit.ts` (live model, run by hand).
+
 ### The workshop tests; the tail details — `docs/w3-flow.md` → "A loop, not a funnel"
 Encontro 3 asks *"qual vocês querem testar primeiro?"* (Robson's words), shows
 one card per solution tried (what it needs · what blocks it · what it does ·
