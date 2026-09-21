@@ -377,6 +377,19 @@
       "linkTitle": "Link do projeto",
       "linkDesc": "Mande este único link para todas as organizações de {{title}}. Todas caem na mesma conversa, que abre com o que cada uma já contou.",
       "note": "Resumo do projeto (PDF)"
+    },
+    "importOrg": {
+      "title": "Importar uma organização",
+      "desc": "Cole um snapshot (o JSON de \"snapshot\" de uma organização, daqui ou de outro ambiente). Uma organização NOVA é criada a partir dele, com link próprio. A original nunca é tocada, os contatos não viajam e a cópia fica fora da análise de sinergias.",
+      "preview": "{{name}} · {{fields}} respostas · {{messages}} mensagens · {{docs}} documentos",
+      "name": "Nome da cópia (opcional)",
+      "asOf": "De onde a cópia começa",
+      "endOfE2": "Fim do Encontro 2",
+      "asIs": "Como está",
+      "submit": "Criar a cópia",
+      "failed": "Não foi possível criar a cópia",
+      "tooltip": "Criar uma organização de teste a partir do snapshot de uma real",
+      "button": "Importar org"
     }
   },
   "citySelection": {
@@ -2262,7 +2275,9 @@
     "docConceptNote": "Resumo do projeto",
     "docConceptNoteHint": "Para a coordenação — base para preparar uma proposta",
     "docRoadmap": "Hoja de ruta",
-    "docRoadmapHint": "O caminho, com responsáveis"
+    "docRoadmapHint": "O caminho, com responsáveis",
+    "cloneTest": "Cópia de teste",
+    "cloneTestHint": "Cria uma cópia de teste desta organização como ela estava no fim do Encontro 2. A original não é tocada."
   },
   "notFound": {
     "title": "Página não encontrada",

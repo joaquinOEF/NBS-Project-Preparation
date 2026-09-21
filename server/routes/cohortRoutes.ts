@@ -27,6 +27,9 @@ import { createEmptyCboState } from '@shared/cbo-schema';
 import { findProjectByToken, findProjectById, projectBrief, projectNote, projectCohort } from '../services/projectContext';
 import { renderProjectBriefHtml } from '../services/projectBriefPrint';
 import { renderProjectNoteHtml } from '../services/projectNotePrint';
+import { buildSnapshot, parseSnapshot, trimToEndOfE2, stripContacts, describeSnapshot, type StateSnapshot, type AsOf } from '@shared/state-snapshot';
+import { createDocument } from '../services/documentPersistence';
+import { addCboMessage, flushNow } from '../services/cboAgent';
 import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } from '../services/orgPersistence';
 import { cboStates } from '@shared/cbo-db-schema';
 import { cboSectionsFilledCount, type CboState } from '@shared/cbo-schema';
@@ -1187,6 +1190,146 @@ export function registerCohortRoutes(app: Express): void {
       unlockedPhases,
     }).returning();
     res.json({ member });
+  }));
+
+  // ═══ SNAPSHOTS — an organisation's record, portable (docs/test-orgs.md) ════
+  // Export one organisation's record as JSON; import it as a NEW member (here
+  // or in another environment); or clone a member in place. `asOf:
+  // 'end-of-e2'` lands the copy where the original stood when Encontro 3
+  // opened. Copies are kept out of the portfolio analysis by default and never
+  // touch the organisation they were made from.
+  async function snapshotOf(member: typeof cohortMembers.$inferSelect, cohortName: string | null): Promise<StateSnapshot | null> {
+    if (!member.cboStateId) return null;
+    let state = getCboState(member.cboStateId) ?? null;
+    let messages: any[] = getCboMessages(member.cboStateId);
+    if (!state || messages.length === 0) {
+      const persisted = await loadCboFromDb(member.cboStateId);
+      state = state ?? persisted?.state ?? null;
+      if (messages.length === 0) messages = persisted?.messages ?? [];
+    }
+    if (!state) return null;
+    const rows = await listDocumentsForScope({ orgId: member.orgId, cboStateId: member.cboStateId }).catch(() => []);
+    return buildSnapshot({
+      state,
+      orgName: member.orgName,
+      neighborhood: member.neighborhood,
+      cohortName,
+      messages: messages.map((m: any) => ({ role: m.role, content: m.content, messageType: m.messageType ?? null, timestamp: m.timestamp })),
+      docs: rows.map((d: any) => ({ filename: d.filename, kind: d.kind, purpose: d.purpose, droppedInPhase: d.droppedInPhase, summary: d.summary, fullText: d.fullText })),
+    });
+  }
+
+  async function createMemberFromSnapshot(
+    cohort: { id: string; settings: unknown },
+    raw: StateSnapshot,
+    opts: { orgName?: string; asOf: AsOf; keepContacts?: boolean; includeInPortfolio?: boolean },
+  ) {
+    let snap = opts.asOf === 'end-of-e2' ? trimToEndOfE2(raw) : raw;
+    if (!opts.keepContacts) snap = stripContacts(snap);
+    const orgName = (opts.orgName || '').trim() || `${snap.orgName} (teste)`;
+
+    const state = createEmptyCboState('porto-alegre');
+    state.orgName = orgName;
+    state.phase = Math.max(1, Math.min(6, snap.phase || 1));
+    if (snap.language) state.metadata.language = snap.language;
+    for (const [sectionId, fields] of Object.entries(snap.sections)) {
+      const section = (state.sections as any)[sectionId];
+      if (!section) continue;
+      for (const [k, f] of Object.entries(fields)) {
+        section.fields[k] = { value: String(f.value), confidence: (f.confidence ?? 'high') as any, source: f.source ?? 'user', userEdited: false };
+      }
+      section.lastUpdatedBy = 'agent';
+    }
+    // The copy carries its own name — the prefill would otherwise show the original's.
+    if ((state.sections as any).org_profile?.fields?.org_name) (state.sections as any).org_profile.fields.org_name.value = orgName;
+    state.maturityScores = snap.maturityScores
+      .filter(m => Number.isFinite(m.score))
+      .map(m => ({ metric: m.metric as any, score: Math.max(0, Math.min(3, Math.round(m.score))) as 0 | 1 | 2 | 3, justification: m.justification ?? 'snapshot' }));
+    state.totalMaturityScore = state.maturityScores.reduce((n, m) => n + m.score, 0);
+    state.priorityFlags = snap.priorityFlags.map(f => ({ flag: f.flag as any, met: !!f.met, notes: f.notes }));
+    setCboState(state.id, state);
+    for (const m of snap.messages ?? []) {
+      if (!m?.content || (m.role !== 'user' && m.role !== 'assistant')) continue;
+      addCboMessage(state.id, { role: m.role, content: m.content, messageType: (m.messageType ?? undefined) as any, timestamp: m.timestamp ?? new Date().toISOString() });
+    }
+    await flushNow(state.id);
+
+    let orgId: string | null = null;
+    try {
+      const org = await createOrganization({ name: orgName, city: 'porto-alegre', type: 'community', cohortId: cohort.id });
+      orgId = org.id;
+      await linkCboStateToOrg(state.id, orgId).catch(() => {});
+    } catch (e: any) {
+      console.error('[snapshot] org creation failed (continuing):', e?.message || e);
+    }
+    for (const d of snap.docs ?? []) {
+      if (!d?.filename) continue;
+      await createDocument({
+        orgId, cboStateId: state.id, filename: d.filename, kind: (d.kind ?? null) as any, purpose: (d.purpose ?? null) as any,
+        fullText: d.fullText ?? null, summary: d.summary ?? null, droppedInPhase: d.droppedInPhase ?? null, source: 'upload', parseStatus: 'parsed',
+      }).catch(e => console.error('[snapshot] document copy failed (continuing):', e?.message || e));
+    }
+
+    // Whatever the cohort has opened, plus everything up to the phase the copy
+    // is about to enter — an end-of-E2 copy must be able to start Encontro 3.
+    const workshops = (cohort.settings as CohortSettings | null)?.workshops ?? [];
+    const opened = workshops.filter(w => !!w.openedAt).map(w => Number(w.unlocksPhase)).filter(n => Number.isFinite(n) && n >= 1);
+    const upTo = opts.asOf === 'end-of-e2' ? 3 : state.phase;
+    const unlockedPhases = Array.from(new Set([...Array.from({ length: upTo }, (_, i) => i + 1), ...opened])).sort((a, b) => a - b);
+
+    const [member] = await db.insert(cohortMembers).values({
+      cohortId: cohort.id,
+      orgId,
+      memberSlug: await uniqueMemberSlug(slugify(orgName)),
+      capabilityToken: slug(),
+      orgName,
+      neighborhood: snap.neighborhood,
+      role: 'priority',
+      origin: 'cohort',
+      unlockedPhases,
+      cboStateId: state.id,
+      // A copy is for testing a flow. It stays on the roster and out of the
+      // synergy analysis unless the coordinator says otherwise.
+      excludeFromPortfolio: !opts.includeInPortfolio,
+    }).returning();
+    return { member, summary: describeSnapshot(snap) };
+  }
+
+  app.get('/api/cohort/:coordinatorSlug/member/:memberId/snapshot', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const cohort = (req as any).cohort;
+    const snap = await snapshotOf(member, cohort?.name ?? null);
+    if (!snap) { res.status(404).json({ error: 'this organisation has no session yet' }); return; }
+    const out = req.query.asOf === 'end-of-e2' ? trimToEndOfE2(snap) : snap;
+    const file = `${slugify(member.orgName)}${req.query.asOf === 'end-of-e2' ? '-fim-do-e2' : ''}.snapshot.json`;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${file}"`);
+    res.send(JSON.stringify(out, null, 2));
+  }));
+
+  app.post('/api/cohort/:coordinatorSlug/members/import', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    let snap: StateSnapshot;
+    try { snap = parseSnapshot(req.body?.snapshot); }
+    catch (e: any) { res.status(400).json({ error: e?.message || 'not a snapshot' }); return; }
+    const asOf: AsOf = req.body?.asOf === 'as-is' ? 'as-is' : 'end-of-e2';
+    const out = await createMemberFromSnapshot(cohort, snap, {
+      orgName: req.body?.orgName, asOf, keepContacts: req.body?.keepContacts === true, includeInPortfolio: req.body?.includeInPortfolio === true,
+    });
+    res.json(out);
+  }));
+
+  app.post('/api/cohort/:coordinatorSlug/member/:memberId/clone', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).json({ error: 'member not found' }); return; }
+    const cohort = (req as any).cohort;
+    const snap = await snapshotOf(member, cohort?.name ?? null);
+    if (!snap) { res.status(400).json({ error: 'this organisation has no session to copy' }); return; }
+    const asOf: AsOf = req.body?.asOf === 'as-is' ? 'as-is' : 'end-of-e2';
+    // Same environment, same cohort, same coordinator: the contacts stay.
+    const out = await createMemberFromSnapshot(cohort, snap, { orgName: req.body?.orgName, asOf, keepContacts: true, includeInPortfolio: false });
+    res.json(out);
   }));
 
   // Update workshops

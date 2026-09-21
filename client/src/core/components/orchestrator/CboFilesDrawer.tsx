@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ExternalLink, RefreshCw, Download } from 'lucide-react';
+import { ExternalLink, RefreshCw, Download, CopyPlus } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/core/components/ui/sheet';
@@ -28,12 +28,15 @@ export function CboFilesDrawer({
   cohortLanguage,
   initialTab = 'convite',
   onClose,
+  onCloneTest,
 }: {
   cohortSlug: string | null;
   member: FilesDrawerMember | null;
   cohortLanguage?: 'pt' | 'en' | null;
   initialTab?: CboDrawerTab;
   onClose: () => void;
+  /** Make a test copy of this organisation (end of Encontro 2). Absent = no button. */
+  onCloneTest?: (member: FilesDrawerMember) => void;
 }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<CboDrawerTab>(initialTab);
@@ -96,6 +99,23 @@ export function CboFilesDrawer({
                 </span>
               </a>
             </Button>
+            {/* A test copy, as the organisation stood when Encontro 2 closed —
+                so the next encontro can be tried on a real record without
+                touching the original (docs/test-orgs.md). */}
+            {onCloneTest && member && (
+              <Button
+                variant="ghost" size="sm"
+                className="shrink-0 h-7 px-2 gap-1"
+                onClick={() => onCloneTest(member)}
+                title={t('cboView.cloneTestHint', {
+                  defaultValue: 'Create a test copy of this organisation as it stood at the end of Encontro 2. The original is not touched.',
+                }) as string}
+                data-testid="cbo-drawer-clone-test"
+              >
+                <CopyPlus className="w-3.5 h-3.5" />
+                <span className="text-[11px] font-medium">{t('cboView.cloneTest', { defaultValue: 'Test copy' })}</span>
+              </Button>
+            )}
             <Button
               variant="ghost" size="sm"
               className="shrink-0 h-7 px-2"
