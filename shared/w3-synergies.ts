@@ -480,7 +480,9 @@ export function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
   const studyNeeds: string[] = [];
   const bodies: string[] = [];
   for (const id of solutions) {
-    const req = studyRequirement(id);
+    // What this organisation STILL needs — a study it confirmed it already has
+    // is not something to pool across the cohort.
+    const req = studyRequirement(id, { studies_done: f('intervention_site', 'studies_done') });
     if (req && !studyNeeds.includes(req.pt)) studyNeeds.push(req.pt);
     const ficha = getSolutionFicha(id);
     if (!ficha) continue;

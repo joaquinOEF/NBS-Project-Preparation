@@ -220,6 +220,15 @@ One pure function, called by the real tool AND the fake model. A new field
 still needs a destiny; a new SECTION with a built flow joins
 `NOTES_FIELD_BY_SECTION`.
 
+### The model proposes, they confirm, a function decides — `docs/w3-flow.md` (same heading)
+A verdict or a size NEVER moves on a model's say-so. A study shown done in their
+files is asked about ("Vocês já têm esse estudo?") and only the confirmed
+`studies_done` field changes what `studyRequirement(id, site)` returns — pass the
+site everywhere you ask what a solution still needs. A measure in their material
+is a PASSAGE; `parseSpokenArea` computes the m² and it is a chip until tapped.
+What they said in chat is placed on the card by the platform (`notesFromInput`),
+not left to the reader to cite. Advisor + reader are keyed on the set of files.
+
 ### Their files reach the card — `docs/w3-flow.md` → "What their own files say"
 The E3 test card is deterministic, so an uploaded visit report used to change
 nothing the organisation saw. `w3DocumentReader` (its own model pass, re-run

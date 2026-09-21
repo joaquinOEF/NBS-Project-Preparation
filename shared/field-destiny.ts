@@ -91,6 +91,13 @@ const NO_ANSWER = /^(n[ãa]o sei|nao-sei|nenhuma|não informado|pular|skip|-|—
 
 export const FIELD_DESTINY: Record<string, FieldDestiny> = {
   // ── What the model noted under a name nothing reads (see the gate below) ───
+  // ── Studies the place already has — confirmed by the organisation ─────────
+  studies_done: {
+    carriedBy: 'solutions.0.studyDone.label',
+    probe: 'infiltration',
+    probeWith: { studies_done_source: 'relatorio-visita.pdf' },
+  },
+  studies_done_source: { declines: 'WHERE the confirmed study was found qualifies the claim and is printed in the same sentence as the study (the verdict and the card\'s "o que precisa" row); on its own it is a filename.' },
   site_notes: {
     feeds: 'problema',
     labelPt: 'Outras informações registradas sobre o lugar',

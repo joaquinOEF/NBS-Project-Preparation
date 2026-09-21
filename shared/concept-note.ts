@@ -38,7 +38,7 @@ import { COMPLEXIDADE_LABEL, TIPO_LABEL, getSolution, SOLUTION_MECHANISMS } from
 import { parseTests, REACTION } from './w3-tests';
 import { getSolutionFicha } from './nbs-solution-fichas';
 import {
-  buildDossier, computeVerdict, portfolioState, studyRequirement, hasSite, worryLabel, labelOfWorry,
+  buildDossier, computeVerdict, portfolioState, studyRequirement, studyAlreadyDone, hasSite, worryLabel, labelOfWorry,
   type W3Input, type VerdictState,
 } from './w3-dossier';
 import { approvalRequirement, type ApprovalBody } from './nbs-approvals';
@@ -91,6 +91,8 @@ export interface SolutionFacts {
   upkeep: string;
   /** A technical study the design cannot be settled without. */
   study?: { needs: string; costLine?: string };
+  /** The study the ficha asks for that the place ALREADY HAS — confirmed by the organisation. */
+  studyDone?: { label: string; source: string };
   /** Who has to say yes, for THIS organisation's land. */
   approval?: {
     bodies: Array<{ name: string; what: string }>;
@@ -290,7 +292,8 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
   const solutions: SolutionFacts[] = ids.map((id): SolutionFacts => {
     const sol = getSolution(id);
     const ficha = getSolutionFicha(id);
-    const need = studyRequirement(id);
+    const need = studyRequirement(id, site);
+    const held = studyAlreadyDone(id, site);
     const appr = approvalRequirement(id, site.land_tenure);
     const line = budgetLineFor(id, areaM2, units, buildModel);
     const ben = benefitFor(id, areaM2, units);
@@ -319,6 +322,7 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
             },
           }
         : {}),
+      ...(held ? { studyDone: { label: pt ? held.pt : held.en, source: held.source } } : {}),
       ...(appr
         ? {
             approval: {
@@ -1072,6 +1076,14 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
         [`ficha ${s.id} · quemPrecisaDizerSim`],
       ));
     }
+    if (s.studyDone) {
+      exige.push(P(
+        pt
+          ? `**${s.label} — estudo técnico já realizado.** A ficha pede ${s.studyDone.label}; a organização confirmou que já tem${s.studyDone.source ? `, em ${s.studyDone.source}` : ''}. O que o estudo mostrou entra no desenho.`
+          : `**${s.label} — technical study already done.** The ficha asks for ${s.studyDone.label}; the organisation confirmed it already has one${s.studyDone.source ? `, in ${s.studyDone.source}` : ''}. What the study found goes into the design.`,
+        [pt ? 'confirmado pela organização no Encontro 3' : 'confirmed by the organisation in Encontro 3', `ficha ${s.id} · quemPrecisaDizerSim`],
+      ));
+    }
     if (s.approval) {
       const doors = s.approval.bodies.map(b => `**${b.name}** (${b.what})`).join('; ');
       exige.push(P(
@@ -1098,7 +1110,7 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
         ));
       }
     }
-    if (!s.study && !s.approval) {
+    if (!s.study && !s.studyDone && !s.approval) {
       exige.push(P(
         pt
           ? `**${s.label}.** A ficha não registra exigência de estudo nem de autorização externa para este arranjo de terreno.`

@@ -151,6 +151,18 @@ async function walk(s: Scenario, actor: Actor, seed: number) {
   const state = mkState({ org_profile: { org_name: 'Organização de teste' }, intervention_site: s.site }, s.lang);
   const adv = adviceFor(s);
   if (adv) state.sections.intervention_type.fields._advice_json = { value: adv, confidence: 'high', source: 'agent' };
+  // Files that were READ: a study shown as done, a measure of the free strip, a
+  // note against one solution. Exercises the confirmation beat and the measure
+  // chips under the same hostile actors as everything else.
+  if (s.docs >= 3) {
+    state.sections.intervention_type.fields._document_notes_json = { confidence: 'high', source: 'agent', value: JSON.stringify({
+      notes: [
+        { solutionId: 'jardins-de-chuva', stance: 'a-favor', studyDone: 'infiltration', textPt: 'O relatório registra ensaio de infiltração já realizado.', textEn: 'The report records an infiltration test already done.', quote: 'Foi feito um teste de infiltração com anel simples em dois pontos', sourceFilename: 'relatorio.pdf' },
+        { solutionId: 'pavimentos-permeaveis', stance: 'contra', textPt: 'O relatório desaconselha pavimento permeável no pátio.', textEn: 'The report advises against permeable paving.', quote: 'Não recomendo agora: pavimento permeável no pátio.', sourceFilename: 'relatorio.pdf' },
+      ],
+      measures: [{ labelPt: 'faixa de terra no canto', labelEn: 'strip of earth in the corner', quote: 'faixa de terra de aproximadamente 12 × 8 m', sourceFilename: 'relatorio.pdf', m2: 96 }],
+    }) };
+  }
   const events: any[] = [];
   const sent: Sent[] = [];
   const violations: Violation[] = [];
