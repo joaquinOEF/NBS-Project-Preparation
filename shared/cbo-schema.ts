@@ -258,6 +258,8 @@ export interface CboState {
      * path, the tier, the E1–E3 dispatch — must stand aside when it is set.
      */
     project?: { id: string; cohortId: string };
+    /** Quiet incidents of this session, newest last. shared/session-health.ts */
+    health?: Array<{ at: string; kind: string; detail: string; phase?: number }>;
   };
 }
 

@@ -3,6 +3,7 @@
 import type { CboState } from '@shared/cbo-schema';
 import { PENDING_FIELD, canonicaliseAnswer, parsePending, serializePending, type PendingAsk } from '@shared/pending-question';
 import { isUploadNotice } from '@shared/cbo-upload-notices';
+import { recordHealth } from '@shared/session-health';
 
 type Push = (event: any) => void;
 
@@ -78,6 +79,7 @@ export async function withPendingQuestion(w: PendingWiring): Promise<boolean> {
   // say so where it will be seen — and the organisation gets the question back.
   if (canon.matched && pending) {
     console.error(`[answer-unhandled] ${w.label} ${w.cboId}: "${canon.text}" matches the pending question "${pending.asks[pending.asks.length - 1].question}" and no handler took it`);
+    recordHealth(w.state, 'answer-unhandled', `${w.label}: "${canon.text}" at "${pending.asks[pending.asks.length - 1].question}"`);
     w.pushEvent({ type: 'chat', role: 'assistant', content: w.lang === 'pt' ? 'Essa resposta não entrou aqui do meu lado — toca de novo, por favor.' : 'That answer did not register on my side — please tap it again.' });
     for (const a of pending.asks) w.pushEvent({ type: 'ask_user', question: a.question, options: a.options });
     w.pushEvent({ type: 'done', summary: `${w.label} (answer-unhandled)` });

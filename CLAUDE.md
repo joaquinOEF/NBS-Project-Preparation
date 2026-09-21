@@ -198,6 +198,19 @@ question is asked again. A return re-emits the same question. After touching
 `cboE3Checkpoint.ts` run `npm run w3:fuzz` (hostile-room fuzzer, 12 invariants,
 seeded repros) as well as `w3:sweep` — the sweep only walks the polite path.
 
+### ⚠️ A file is data; a quiet incident is seen — `shared/untrusted-content.ts`, `shared/session-health.ts`
+Uploaded text can inform, never instruct. Three layers: `neutraliseInjected`
+replaces a paragraph addressed to an AI wherever file text enters the chat
+model's prompt (upload notice, `read_org_document`, search, summaries); the
+prompt carries `UNTRUSTED_RULE`; and `shared/score-write-policy.ts` refuses what
+a file could be buying — no score or flag in a turn triggered by an upload, the
+four E3 scores are the platform's at phase 3, `site_control` is capped by the
+tenure on record. Every such refusal — plus `[answer-unhandled]`, rerouted model
+writes and failed passes — is recorded in `metadata.health` (ring of 40): shown
+in the coordinator's drawer ("Ocorrências da sessão") and returned by
+`GET /api/cbo/:id`, so a diagnosis never needs the server console. When you add
+a detection, call `recordHealth` — a `console.warn` alone is nobody reading it.
+
 ### The model's writes are read too — `shared/field-destiny.ts` → `routeModelWrite`
 `update_section` never stores an invented field name in a built section
 (site / type / impact / ops): the content is kept, labelled, in `site_notes` or

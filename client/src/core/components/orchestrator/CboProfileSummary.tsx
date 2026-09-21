@@ -3,13 +3,14 @@
  * sections (field: value) + the maturity scorecard (coordinator-only). Compact;
  * snapshot-on-open (re-fetches on `reloadKey`).
  */
+import { HEALTH_LABEL, type HealthEntry, type HealthKind } from '@shared/session-health';
 import { useEffect, useState } from 'react';
 import { cboFieldLabel, cboDisplayValue } from '@shared/cbo-field-catalog';
 import { useTranslation } from 'react-i18next';
 import { Loader2, FileText, Check } from 'lucide-react';
 import { CBO_SECTIONS, isInternalCboField, type CboState } from '@shared/cbo-schema';
 
-type Profile = Pick<CboState, 'phase' | 'sections' | 'maturityScores' | 'totalMaturityScore' | 'gaps'>;
+type Profile = Pick<CboState, 'phase' | 'sections' | 'maturityScores' | 'totalMaturityScore' | 'gaps'> & { health?: HealthEntry[] };
 
 /**
  * The coordination's technical reading of this organisation — Robson's field
@@ -186,6 +187,33 @@ export function CboProfileSummary({
           </ul>
         </div>
       )}
+
+      {/* Quiet incidents of this session — for the coordination, never the
+          organisation. Closed by default; a red count when the flow itself
+          misbehaved. shared/session-health.ts */}
+      {(profile.health?.length ?? 0) > 0 && (() => {
+        const entries = [...(profile.health ?? [])].reverse();
+        const bugs = entries.filter(e => HEALTH_LABEL[e.kind as HealthKind]?.severity === 'bug').length;
+        return (
+          <details className="rounded-lg border border-foreground/10 px-3 py-2" data-testid="cbo-session-health">
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t('cboView.health', { defaultValue: isPt ? 'Ocorrências da sessão' : 'Session incidents' })} · {entries.length}
+              {bugs > 0 && <span className="ml-2 rounded-full bg-destructive/10 px-1.5 py-px text-[10.5px] font-semibold normal-case text-destructive" data-testid="cbo-session-health-bugs">{bugs} {isPt ? 'do fluxo' : 'in the flow'}</span>}
+            </summary>
+            <ul className="mt-2 space-y-1.5">
+              {entries.map((e, i) => {
+                const l = HEALTH_LABEL[e.kind as HealthKind];
+                return (
+                  <li key={i} className="text-xs leading-snug">
+                    <span className={l?.severity === 'bug' ? 'font-medium text-destructive' : 'font-medium'}>{l ? (isPt ? l.pt : l.en) : e.kind}</span>
+                    <span className="block text-muted-foreground">{e.detail} · {new Date(e.at).toLocaleString(isPt ? 'pt-BR' : 'en-GB', { dateStyle: 'short', timeStyle: 'short' })}{e.phase ? ` · E${e.phase}` : ''}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </details>
+        );
+      })()}
     </div>
   );
 }

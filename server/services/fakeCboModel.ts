@@ -23,6 +23,9 @@
 // ENABLE_TEST_ROUTES), so the real SDK path is the only one that ever runs in
 // the live deployment. The real turn machinery in cboAgent.ts is untouched.
 
+import { recordHealth } from '@shared/session-health';
+import { scoreWritePolicy, flagWritePolicy } from '@shared/score-write-policy';
+import { isUploadNotice } from '@shared/cbo-upload-notices';
 import { routeModelWrite } from '@shared/field-destiny';
 import {
   type CboState,
@@ -124,13 +127,13 @@ export async function streamWithFakeModel(
       await new Promise(r => setTimeout(r, Math.min(Math.max(op.ms || 0, 0), 25_000)));
       continue;
     }
-    runOp(cboId, op, state, pushEvent, deps, lang);
+    runOp(cboId, op, state, pushEvent, deps, lang, isUploadNotice(userMessage.split('\n[LANGUAGE:')[0].trim()));
   }
 
   pushEvent({ type: 'done', summary: 'Response complete (fake model)' });
 }
 
-function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent, deps: FakeDeps, lang: string): void {
+function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent, deps: FakeDeps, lang: string, uploadTurn = false): void {
   switch (op.op) {
     case 'say': {
       emitAssistantText(op.text, pushEvent);
@@ -155,6 +158,7 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
         const readField = (sid: string, f: string) => String((state.sections as any)[sid]?.fields?.[f]?.value ?? '');
         const r = routeModelWrite(op.sectionId, op.field, op.value, readField);
         if (!r) break;
+        if (r.kind === 'rerouted') recordHealth(state, 'model-write-rerouted', `${op.sectionId}.${r.tried} → ${r.field}`);
         if (r.kind !== 'as-is') {
           const home = (state.sections as any)[r.sectionId];
           if (!home) break;
@@ -267,7 +271,11 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
     }
     case 'score_maturity': {
       if (!isValidMaturityMetric(op.metric)) break;
-      const score = Math.max(0, Math.min(3, Math.round(Number(op.score) || 0))) as 0 | 1 | 2 | 3;
+      // Same policy as the real tool (shared/score-write-policy.ts).
+      const decision = scoreWritePolicy({ metric: op.metric, score: Math.max(0, Math.min(3, Math.round(Number(op.score) || 0))), phase: state.phase, tenure: String((state.sections as any)?.intervention_site?.fields?.land_tenure?.value ?? ''), uploadTurn });
+      if (!decision.ok) { recordHealth(state, 'score-refused', `${op.metric}=${op.score}${uploadTurn ? ' in a turn triggered by an upload' : ''}`); deps.setCboState(cboId, state); break; }
+      if (decision.note) recordHealth(state, 'score-capped', `${op.metric} ${op.score} → ${decision.score}`);
+      const score = decision.score as 0 | 1 | 2 | 3;
       // The close gate, from the same module the real tool uses. This used to
       // be absent here entirely: the fake model wrote the score unconditionally,
       // so no spec could trip the rule that stops an encontro closing with
@@ -305,6 +313,7 @@ function runOp(cboId: string, op: FakeOp, state: CboState, pushEvent: PushEvent,
       break;
     }
     case 'priority_flag': {
+      if (!flagWritePolicy(uploadTurn).ok) break;
       state.priorityFlags = state.priorityFlags.filter(f => f.flag !== op.flag);
       state.priorityFlags.push({ flag: op.flag, met: !!op.met, notes: op.notes });
       deps.setCboState(cboId, state);
