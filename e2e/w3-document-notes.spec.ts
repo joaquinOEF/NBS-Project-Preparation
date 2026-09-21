@@ -118,6 +118,11 @@ aparece no croqui.",
     // Valid JSON is untouched, and real junk still throws — the schema decides.
     expect(parseLenient('{"a":"b \\"c\\" d"}')).toEqual({ a: 'b "c" d' });
     expect(() => parseLenient('[not json')).toThrow();
+    // Seen live: a quoted phrase FOLLOWED BY A COMMA in prose is not the end of the string.
+    const prose = '[{"solutionId":"grade-viva","reasonPt":"descreveram o lugar como "barranco atrás das casas", e é o que a grade segura: "raiz", não muro.","outsideTheirPicks":true}]';
+    const r: any = parseLenient(prose);
+    expect(r[0].reasonPt).toBe('descreveram o lugar como "barranco atrás das casas", e é o que a grade segura: "raiz", não muro.');
+    expect(r[0].outsideTheirPicks).toBe(true);
   });
 });
 
@@ -141,15 +146,17 @@ const TESTS: SolutionTest[] = [
 ];
 
 test.describe('a note reaches the card, the comparison, both printed pages and the note', () => {
-  test('the card: its own notes first, then the place — and the verdict, price and effect do not move', () => {
+  test('the card: its OWN notes, and the place\'s conditions counted (listed once, in the comparison) — verdict, price and effect do not move', () => {
     const card = buildSolutionTest('pavimentos-permeaveis', INPUT, TESTS[1], 'pt')!;
-    expect(card.fromTheirFiles.map(n => `${n.scope}:${n.stance}`)).toEqual(['solution:contra', 'place:condicao']);
+    // Listed on every card, the same place-level lines buried each card's own findings (staging, 21 Sept).
+    expect(card.fromTheirFiles.map(n => `${n.scope}:${n.stance}`)).toEqual(['solution:contra']);
+    expect(card.placeNoteCount).toBe(1);
     expect(card.fromTheirFiles[0]).toMatchObject({ stanceLabel: 'Contra', source: 'relatorio.pdf', quote: 'Não recomendo agora: pavimento permeável no pátio.' });
     const bare = buildSolutionTest('pavimentos-permeaveis', { ...INPUT, w3: {} }, TESTS[1], 'pt')!;
     expect(bare.fromTheirFiles).toEqual([]);
     // A note is set BESIDE the deterministic rows. It never changes one.
-    const { fromTheirFiles: _a, ...withNotes } = card;
-    const { fromTheirFiles: _b, ...without } = bare;
+    const { fromTheirFiles: _a, placeNoteCount: _c, ...withNotes } = card;
+    const { fromTheirFiles: _b, placeNoteCount: _d, ...without } = bare;
     expect(withNotes).toEqual(without);
     expect(buildSolutionTest('pavimentos-permeaveis', INPUT, TESTS[1], 'en')!.fromTheirFiles[0].text).toContain('advises against');
   });
@@ -227,7 +234,7 @@ test.describe('Encontro 3 — their report argues against what they are testing'
     await expect(files).toContainText('No que a organização enviou e contou');
     await expect(files.getByTestId('solution-test-note-contra')).toContainText('Não recomendo agora: pavimento permeável no pátio.');
     await expect(files.getByTestId('solution-test-note-contra')).toContainText('relatorio.pdf');
-    await expect(files.getByTestId('solution-test-note-condicao')).toContainText('férias de janeiro');
+    await expect(files.getByTestId('solution-test-place-notes')).toContainText('1 condição que vale pra qualquer solução');
     await expect(thread.getByText(/fala contra esta solução neste lugar/)).toBeVisible();
     await expect(chip('Não é pra gente')).toBeVisible();
 

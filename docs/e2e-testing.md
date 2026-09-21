@@ -132,6 +132,13 @@ npm run test:e2e:report    # open the HTML report (videos + traces)
 npm run w3:sweep           # 27 solutions × 2 paths, the polite walk
 npm run w3:fuzz            # hostile-room fuzzer, 12 invariants — docs/cbo-flow-building-guide.md §11
 
+# Encontro 3 end to end as three real organisations, with a screenshot per step
+# (e2e/quality/w3-scenarios-e2e.spec.ts). Wants the file-reading passes LIVE: start the
+# dev server with the real key AND the fake chat model, then:
+#   set -a && . ./.env && set +a && CBO_FAKE_MODEL=1 … npm run dev      (see the env block above)
+W3_SCENARIOS=1 npx playwright test e2e/quality/w3-scenarios-e2e.spec.ts --project=chromium --workers=1
+#   → ~/Downloads/cougar-e3-scenarios/<scenario>/NN-*.png, summary.json, turns.txt
+
 # Encontro 2's fuzzer drives a RUNNING e2e dev server over HTTP (fake model + test routes):
 npm run w2:fuzz            # W2_FUZZ_WALKS=300 W2_FUZZ_SEED=7 W2_FUZZ_VERBOSE=1 for a longer, louder run
 npm run w3:fullsim         # personas as policies, end to end; prints the PDFs and reads them back

@@ -3784,9 +3784,16 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     if (String(f._e3_opened?.value ?? '') !== 'yes' || String(f._e3_closed?.value ?? '') === 'yes') return;
     const last = getCboMessages(cboId).slice(-1)[0];
     let kind = '';
-    if (last?.role === 'assistant' && last.messageType === 'composer') { try { kind = JSON.parse(last.content)?.kind ?? ''; } catch { /* prose */ } }
-    if (['ask_user', 'priority', 'anchoring', 'open_map', 'open_intervention_selector'].includes(kind)) return;
-    console.warn(`[cbo] e3 reask-after-silent-turn for ${cboId}`);
+    let lastQuestion = '';
+    if (last?.role === 'assistant' && last.messageType === 'composer') { try { const p = JSON.parse(last.content); kind = p?.kind ?? ''; lastQuestion = String(p?.question ?? ''); } catch { /* prose */ } }
+    if (['priority', 'anchoring', 'open_map', 'open_intervention_selector'].includes(kind)) return;
+    // The model answered something — fine. What is on screen LAST must still be
+    // the encontro's own question, or the room is left with the model's chips
+    // and no way back to the step (shared/pending-question.ts, rule 4).
+    const flowPending = parsePending(String(f[PENDING_FIELD]?.value ?? ''));
+    const flowQuestion = flowPending?.asks[flowPending.asks.length - 1]?.question ?? '';
+    if (kind === 'ask_user' && (!flowQuestion || lastQuestion === flowQuestion)) return;
+    console.warn(`[cbo] e3 reask-after-model-turn for ${cboId} (${kind || 'silent'})`);
     // The question that was on screen, exactly (shared/pending-question.ts);
     // the entry line — which re-derives the step — only when none is recorded.
     if (reemitPending(state, 'intervention_type', pushEvent)) return;
@@ -3806,7 +3813,13 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
   // ⚠️ A question the MODEL asks is on screen too — record it (as a hand-off),
   // so the pending record is never a templated question nobody is looking at.
   // See recordingPush in pendingQuestion.ts. Only where a contract is wired.
-  const pendingSection = state.metadata?.project ? null : state.phase === 2 ? E2_PENDING_SECTION : state.phase === 3 ? 'intervention_type' : null;
+  // ⚠️ Encontro 2 only. In Encontro 3 the model answers a question and HANDS
+  // BACK: recording its "Como deseja prosseguir? [Continuar]" over the flow's
+  // question lost the encontro's place — every "Continuar" went back to the
+  // model, and a return re-asked the model's question instead of the step they
+  // were on (seen in an end-to-end run, 2026-09-21). The flow's question stays
+  // on record there, and reaskE3 puts it back after every model turn.
+  const pendingSection = state.metadata?.project ? null : state.phase === 2 ? E2_PENDING_SECTION : null;
   const modelRec = pendingSection
     ? recordingPush(state, pendingSection, (sid, f) => writeFieldsSilently(cboId, state, sid, f), pushEvent, { handoff: true })
     : null;

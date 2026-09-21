@@ -248,10 +248,12 @@ export function buildComparison(
     siteName: input.site.site_name?.trim() || null,
     bairro: input.site.bairro?.trim() || null,
     orgName: input.org?.org_name?.trim() || null,
-    sizedBy: {
-      ...(areaM2 ? { areaM2 } : {}),
-      ...(input.site.site_area_source ? { source: input.site.site_area_source } : {}),
-    },
+    // One line "calculated over N m²" for the whole table was right when the
+    // place had one size. Since sizes are per TEST (a roof's, a strip's) it would
+    // be wrong under any column sized otherwise — each cost cell then says its own.
+    sizedBy: areaM2 && columns.every(c => !c.card.sizedBy.areaM2 || c.card.sizedBy.areaM2 === areaM2)
+      ? { areaM2, ...(input.site.site_area_source ? { source: input.site.site_area_source } : {}) }
+      : {},
     technicalNote: technicalNote?.trim() || null,
     placeNotes: { heading: NOTES_HEADING[lang], notes: placeNotes(notesFromInput(input)).map(n => toCardNote(n, lang)) },
     docLabel: pt ? 'Comparação das soluções testadas' : 'Comparison of the solutions tested',

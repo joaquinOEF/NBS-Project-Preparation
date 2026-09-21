@@ -20,6 +20,7 @@
 // ============================================================================
 import type { SolutionTestCard } from './w3-solution-test';
 import { getSolution } from './nbs-catalog';
+import { budgetLineFor } from './w3-sizing';
 import type { SolutionTest } from './w3-tests';
 
 export type CriterionId = 'custo' | 'nossa-gente' | 'pouco-papel' | 'efeito';
@@ -82,6 +83,17 @@ export function fitFor(id: CriterionId, card: SolutionTestCard, test: SolutionTe
   const pt = lang === 'pt';
   const sol = getSolution(card.solutionId);
   if (id === 'custo') {
+    // ⚠️ The PRICE this card shows, for the size it was tested at — not the
+    // catalogue's rough class. An end-to-end run read "custo alto" for a green
+    // retaining wall whose own price row said R$ 8–12 mil, below the solution it
+    // was ranked under. Thresholds are for a community organisation's budget.
+    const line = budgetLineFor(card.solutionId, card.sizedBy.areaM2, card.sizedBy.units);
+    if (line?.highBrl != null) {
+      const hi = line.highBrl;
+      const fit: Fit = hi <= 20_000 ? 'bom' : hi <= 100_000 ? 'medio' : 'fraco';
+      const fmt = (n: number) => `R$ ${Math.round(n / 1000).toLocaleString(pt ? 'pt-BR' : 'en-US')} mil`;
+      return { id, fit, why: pt ? `até ${fmt(hi)} nesse tamanho` : `up to ${fmt(hi).replace(' mil', 'k')} at this size`, source: pt ? 'faixa de preço da ficha, no tamanho testado' : 'the ficha\'s price band, at the size tested' };
+    }
     const band = sol?.costBand ?? 'medio';
     const fit: Fit = band === 'baixo' ? 'bom' : band === 'medio' ? 'medio' : 'fraco';
     return { id, fit, why: pt ? `custo ${band === 'medio' ? 'médio' : band}` : `${band === 'baixo' ? 'low' : band === 'medio' ? 'medium' : 'high'} cost`, source: pt ? 'catálogo (faixa de custo)' : 'catalogue (cost band)' };
@@ -90,6 +102,7 @@ export function fitFor(id: CriterionId, card: SolutionTestCard, test: SolutionTe
     // Their own answer outranks our classification: they know their people.
     const who = (test as any)?.who as WhoId | undefined;
     if (who === 'nos') return { id, fit: 'bom', why: pt ? 'a organização diz que faz em mutirão' : 'the organisation says it can, as a mutirão', source: pt ? 'resposta da organização' : "the organisation's answer" };
+    if (who === 'nos-com-parceiro') return { id, fit: 'medio', why: pt ? 'a organização faz, com um parceiro técnico' : 'the organisation does it, with a technical partner', source: pt ? 'resposta da organização' : "the organisation's answer" };
     if (who === 'contratar' || who === 'ninguem') return { id, fit: 'fraco', why: pt ? WHO[who].reportPt.toLowerCase() : WHO[who].reportEn.toLowerCase(), source: pt ? 'resposta da organização' : "the organisation's answer" };
     const d = sol?.delivery ?? 'parceria';
     const fit: Fit = d === 'mutirao' ? 'bom' : d === 'parceria' ? 'medio' : 'fraco';

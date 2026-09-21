@@ -199,7 +199,19 @@ export function parseLenient(text: string): unknown {
       let j = i + 1;
       while (j < text.length && /\s/.test(text[j])) j++;
       const next = text[j];
-      if (next === undefined || next === ',' || next === '}' || next === ']' || next === ':') { inString = false; out += c; }
+      // After a `,` or `:` look one token further: JSON continues with a key or
+      // a value; prose continues with a word. `como "o barranco", e tem…` was
+      // taken as the end of the string (seen live, 2026-09-21) — the next
+      // non-space after that comma is "e", not `"` / `{` / `[` / a literal.
+      let k = j + 1;
+      while (k < text.length && /\s/.test(text[k])) k++;
+      const after = text[k];
+      const jsonAfterComma = after === '"' || after === '{' || after === '[' || after === '}' || after === ']';
+      const jsonAfterColon = jsonAfterComma || (after !== undefined && /[-0-9tfn]/.test(after));
+      const closes = next === undefined || next === '}' || next === ']'
+        || (next === ',' && jsonAfterComma)
+        || (next === ':' && jsonAfterColon);
+      if (closes) { inString = false; out += c; }
       else out += '\\"';
       continue;
     }

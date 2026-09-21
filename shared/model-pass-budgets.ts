@@ -81,12 +81,13 @@ export const PASS_BUDGETS: PassBudget[] = [
     id: 'w3DocumentReader',
     env: 'CBO_DOC_READER_TIMEOUT_MS',
     capMs: 200_000,
-    measuredMs: 65_090,
+    measuredMs: 34_208,
     measuredOn: '2026-09-21',
     how:
       'Three live runs over the seven-file Caldas Junior test kit (four readable: a visit report, a quote, minutes, a note; ~6 k characters), 13–14 notes returned: 52.3 s beside the advisor, 54.5 s and 53.6 s alone. ' +
       'Reasoning effort low vs medium made no difference — the time is the output (a quoted passage and two sentences per note), so it grows with the number of notes, not the size of the files. ' +
       'Re-measured the same day after the prompt gained study proposals, measures and the conversation as a source (up to 16 notes): 52.1, 54.3, 55.7, 62.4, 64.2 and 65.1 s — the figure above is the slowest. ' +
+      'Then made ONE CALL PER FILE in parallel, at most 8 notes each (an end-to-end run showed the first card giving up at 25 s on a 64 s read): 32.0, 31.1, 34.2 and 31.1 s over the same kit — the figure above is the slowest — with the audit still at 13/13. ' +
       'scripts/w3-grounding-audit.ts repeats it.',
     costsWhenItFires:
       'the test cards and the comparison carry nothing from the files the organisation sent — a card can contradict their own technical visit report and say nothing',

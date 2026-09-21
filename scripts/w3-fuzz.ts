@@ -137,7 +137,11 @@ function nextTurn(actor: Actor, r: () => number, ask: any, history: any[], tests
   if (roll < 0.88) return { msg: 'Vamos começar o Encontro 3.', kind: 'system', why: 'reload / return', ownable: true };
   if (roll < 0.91) return chip('Continuar', 'generic "Continuar" chip', false);
   if (roll < 0.94) return { msg: MAP_RESULT, kind: 'map', why: 'a map result nobody asked for', ownable: false };
-  return { msg: pick(r, FREE_TEXT), kind: r() < 0.5 ? 'chip' : 'text', why: 'free text', ownable: false };
+  // Free words at "o que mais pega?" ARE the answer (its ✍️ Outra coisa), however the turn is tagged —
+  // an end-to-end run lost them to the model because the handler checked turnKind.
+  const msg = pick(r, FREE_TEXT);
+  const ownsProse = /mais pega|be hardest/.test(ask?.question ?? '') && msg.length >= 12 && !/\?$/.test(msg);
+  return { msg, kind: r() < 0.5 ? 'chip' : 'text', why: ownsProse ? 'own words for what is hardest' : 'free text', ownable: ownsProse };
 }
 
 // ── One walk ───────────────────────────────────────────────────────────────
