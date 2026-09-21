@@ -190,6 +190,10 @@ async function drive(p: Persona) {
     recordCheckpoint: (s: string) => beats.push(s),
     recordMaturity: (scores: MaturityScore[]) => { maturity = scores; },
     normChip,
+    // The detailing tail is off in the product (Encontro 3 ends at the comparison,
+    // 2026-09-21) but its beats are Encontro 4's raw material — this harness keeps
+    // walking them so they do not rot. The fuzzer and the e2e suite run the product default.
+    tailEnabled: true,
     /**
      * ⚠️ Synthetic, and on purpose. The MODEL half of the dig is exercised by
      * a live harness with a key; what this simulation has to prove is the other

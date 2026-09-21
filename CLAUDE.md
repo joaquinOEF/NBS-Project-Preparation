@@ -224,6 +224,15 @@ One pure function, called by the real tool AND the fake model. A new field
 still needs a destiny; a new SECTION with a built flow joins
 `NOTES_FIELD_BY_SECTION`.
 
+### ⚠️ Encontro 3 ENDS AT THE COMPARISON — `docs/w3-flow.md` (same heading)
+No "detalhar" tail in the product since 2026-09-21: who builds / when / money is
+a PROJECT's question and moves to Encontro 4. `closeAtComparison` writes
+`_e3_closed` + three scores; `encontroClosed(state, 3)` reads the marker. The
+tail beats are kept and tested behind `tailEnabled()` (`_tail_enabled`,
+`deps.tailEnabled`, or a session that already started it) — do not delete them.
+The size is per TEST (`SolutionTest.areaM2`), confirmed once per surface; a size
+given for a test never overwrites the place's footprint.
+
 ### The model proposes, they confirm, a function decides — `docs/w3-flow.md` (same heading)
 A verdict or a size NEVER moves on a model's say-so. A study shown done in their
 files is asked about ("Vocês já têm esse estudo?") and only the confirmed

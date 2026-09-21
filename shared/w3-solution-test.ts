@@ -80,7 +80,8 @@ export function buildSolutionTest(
   const ficha = getSolutionFicha(solutionId);
   if (!sol || !ficha) return null;
 
-  const areaM2 = input.areaM2 || undefined;
+  // The test's own size when it has one (0 = asked and unknown); the place's otherwise.
+  const areaM2 = test?.areaM2 !== undefined ? (test.areaM2 || undefined) : (input.areaM2 || undefined);
   const units = test?.units || undefined;
   const buildModel = (input.w3?.construction_model || undefined) as BuildModel | undefined;
 

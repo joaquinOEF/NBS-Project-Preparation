@@ -132,6 +132,14 @@ export function encontroClosed(
     // closing beat, and an org still mid-encontro has none of them.
     return E2_CLOSE_MARKERS.some(k => val(k) === 'yes');
   }
+  if (phase === 3) {
+    // Encontro 3 ends at the COMPARISON since 2026-09-21 and scores three of its
+    // four metrics there — the fourth (financial thinking) moved out with the
+    // detailing tail. "Every metric scored" would therefore never be true for a
+    // session that finished properly; the flow's own marker says it closed.
+    const f = (state.sections as any)?.intervention_type?.fields ?? {};
+    if (String(f._e3_closed?.value ?? '').trim() === 'yes') return true;
+  }
   return phaseComplete(state, phase);
 }
 

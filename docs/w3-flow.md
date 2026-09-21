@@ -788,6 +788,54 @@ log their quote; one retry on a transient provider error (a 500 cost one whole
 reading in eight); the reader's budget re-measured at 65 s. The audit is at
 13/13 (`scripts/w3-grounding-audit.ts`).
 
+### Encontro 3 ends at the comparison (21 September 2026)
+
+JVP, after a staging run read back from the API (session `c2a6ab61`): *"w3
+should stop once they chose the ones they want to compare… leave project
+detailing for w4, in which it is project based and not cbo based."* What the run
+showed: three solutions tested in 100 seconds; an eleven-question "detalhar"
+tail tapped through in fifty, asking *"quem constrói isso?"* ONCE across three
+different liked solutions — a project's question put to a shortlist.
+
+- **The comparison is the close.** `[Fechar o Encontro 3 ✓] [Testar mais uma]`.
+  `closeAtComparison` writes `_e3_closed`, the portfolio verdict and the
+  capacity grade, and three of the four scores; `financial_thinking` moved out
+  with the tail. `encontroClosed(state, 3)` reads `_e3_closed`, so the unscored
+  fourth no longer holds the door to Encontro 4 shut. The roadmap and the Resumo
+  do Projeto are no longer Encontro 3 outputs (the coordinator's Documentos tab
+  still builds them from whatever the record holds).
+- **The tail is OFF, not deleted** — it is Encontro 4's raw material.
+  `tailEnabled()` is true only for a session that already STARTED it (their
+  answers are half given), for `_tail_enabled: 'yes'` (the e2e specs that still
+  walk it) and for `deps.tailEnabled` (sweep, sim, fullsim). The fuzzer and
+  everything else run the product default. Old chips still land: "Detalhar
+  agora" → the comparison, "Deixar pra depois" → the close.
+- **The size belongs to the TEST** (`SolutionTest.areaM2`), like the count. The
+  run priced a green roof over the 2,900 m² drawn for the SITE (R$ 435 mil–1
+  mi): a counted solution tested first had set `_area_asked = not-applicable`
+  and the size question never came back. Now every measured solution confirms
+  its size ONCE PER SURFACE (ground / roof), is offered the measure that fits it
+  (the court's roof for a roof, the strip for a garden), and a size given for a
+  test never overwrites the place's footprint. `0` = asked and unknown — never
+  the site's area by default.
+- **What their files speak about is put in front of them.** The run uploaded a
+  visit report about rain gardens, cisterns and permeable paving, and tested
+  three solutions it never mentions (heat drove the shelf) — so every card
+  carried the same six place-level conditions and none of the findings. The
+  shelf pins up to two such solutions (never over a seat that answers their main
+  worry), names them with the file and its stance, and "Ver a comparação" asks
+  once before closing over them.
+- **The questions written for THIS organisation are asked before the
+  comparison** — two at most, skippable. They used to be generated at the end of
+  the tail, were not ready in time and were skipped silently; they are now
+  written while the organisation tests (started at the door) with a bounded wait.
+- A chip carries one sentence; the advisor's full reasoning stays on the list.
+
+**Next (PR B):** "o que pesa mais pra escolher?" once before the shelf, two
+questions per test built from the solution's ficha (who would do it · what would
+be hardest), and a comparison ordered by their criteria. **After 30 Sept:**
+Encontro 4 as the project-based detailing, designed with what the room decides.
+
 ## The printed copy, and the context that was already there
 
 ### `GET /api/cbo/:id/roadmap`

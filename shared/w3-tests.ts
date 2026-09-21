@@ -28,6 +28,14 @@ export interface SolutionTest {
   /** How many, for a solution counted rather than measured. Per test — two
    *  per-unit solutions do not share a count. */
   units?: number;
+  /**
+   * The size THIS solution was tested over, for one priced per m². Per test for
+   * the same reason the count is: a green roof, a strip of earth and a whole
+   * patio are different areas of one place. A staging run priced a roof over
+   * the 2,900 m² footprint drawn for the site in Encontro 2 (R$ 435 mil–1 mi).
+   * `0` = asked, and they could not say — never the site's area by default.
+   */
+  areaM2?: number;
   /** The ficha's decisive-detail question, if this solution has one and it was asked. */
   detailQuestionId?: string;
   detailAnswer?: string;

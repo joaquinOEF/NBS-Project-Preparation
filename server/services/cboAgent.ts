@@ -3747,6 +3747,12 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
         startAdvisor: () => { void runW3Advisor(cboId); },
         startConceptNote: () => { void runConceptNoteAuthor(cboId); },
         startDig: (round: 1 | 2) => { void runW3Dig(cboId, round); },
+        digBusy: () => digInFlight.has(`${cboId}:1`),
+        awaitDig: async () => {
+          const run = digInFlight.get(`${cboId}:1`);
+          if (!run) return;
+          await Promise.race([run, new Promise<void>(r => setTimeout(r, Number(process.env.CBO_DIG_WAIT_MS || 20_000)))]);
+        },
         awaitAdvisor: () => waitForW3Advisor(cboId),
         startDocumentReader: () => { void runW3DocumentReader(cboId); },
         documentReaderBusy: () => readerInFlight.has(cboId),
@@ -4144,10 +4150,20 @@ export async function cohortLinesFor(cboId: string, lang: 'pt' | 'en' = 'pt'): P
  */
 const digRuns = new Set<string>();
 
+/** In-flight dig passes, so the comparison can wait (bounded) for round 1 instead of skipping it silently. */
+const digInFlight = new Map<string, Promise<void>>();
+
 async function runW3Dig(cboId: string, round: 1 | 2): Promise<void> {
   const key = `${cboId}:${round}`;
   if (digRuns.has(key)) return;
   digRuns.add(key);
+  const run = runW3DigInner(cboId, round).finally(() => digInFlight.delete(key));
+  digInFlight.set(key, run);
+  return run;
+}
+
+async function runW3DigInner(cboId: string, round: 1 | 2): Promise<void> {
+  const key = `${cboId}:${round}`;
   const started = Date.now();
   try {
     const state = getCboState(cboId);

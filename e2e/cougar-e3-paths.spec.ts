@@ -13,6 +13,10 @@ import { TestApi } from './helpers/testApi';
 const BASE = [
   { sectionId: 'org_profile', field: 'org_name', value: 'Coletivo Encosta Viva' },
   { sectionId: 'org_profile', field: 'contact_name', value: 'Antônia Reis' },
+  // ⚠️ This spec walks the DETAILING TAIL, which the product no longer opens:
+  // Encontro 3 ends at the comparison since 2026-09-21 (e2e/cougar-e3-ends-at-comparison.spec.ts).
+  // The beats are kept as Encontro 4's raw material, and this per-session switch keeps them tested.
+  { sectionId: 'intervention_type', field: '_tail_enabled', value: 'yes' },
 ];
 
 const SITED = [
