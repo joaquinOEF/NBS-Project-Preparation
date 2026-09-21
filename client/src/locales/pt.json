@@ -291,8 +291,8 @@
       },
       "w3": {
         "name": "Encontro 3 — Testar as soluções",
-        "description": "A organização testa soluções para o lugar marcado no Encontro 2, uma de cada vez: para cada uma, o que ela precisa, o que trava, o efeito esperado e quanto custa — nas palavras da revisão técnica do catálogo. Sai com uma comparação lado a lado das soluções testadas, e pode detalhar o projeto (por que aqui, como está hoje, quem cuida) na hora ou depois.",
-        "expectedOutput": "Uma comparação das soluções testadas, com a leitura da organização sobre cada uma. Para as que fizeram sentido: dimensionamento, faixa de custo e veredito (o que trava). Se detalhou: Resumo do projeto e Plano de trabalho. Notas de maturidade: Clareza do Problema, Clareza da Solução, Impacto Climático da SbN — e Pensamento Financeiro quando detalha."
+        "description": "A organização testa soluções para o lugar marcado no Encontro 2, uma de cada vez: para cada uma, o que ela precisa, o que trava, o efeito esperado e quanto custa — com o que os próprios arquivos e relatos dela dizem ao lado. O encontro termina na comparação.",
+        "expectedOutput": "Uma comparação das soluções testadas, com a leitura da organização sobre cada uma e um cenário por página — a base para a conversa de portfólio. O detalhamento do projeto (quem constrói, prazo, dinheiro) fica para o Encontro 4."
       },
       "w4": {
         "name": "Encontro 4 — O que precisamos",

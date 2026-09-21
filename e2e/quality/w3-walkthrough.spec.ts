@@ -46,6 +46,10 @@ const W2_COMPLETE = [
   },
   { sectionId: 'intervention_site', field: 'site_knowledge_depth', value: 'strong' },
   { sectionId: 'intervention_site', field: 'nbs_interest', value: 'aguas-pluviais' },
+  // ⚠️ This spec walks the DETAILING TAIL, which the product no longer opens:
+  // Encontro 3 ends at the comparison since 2026-09-21 (e2e/cougar-e3-ends-at-comparison.spec.ts).
+  // The beats are kept as Encontro 4's raw material, and this per-session switch keeps them tested.
+  { sectionId: 'intervention_type', field: '_tail_enabled', value: 'yes' },
   // The territorial context the map already knew and the server used to discard.
   { sectionId: 'intervention_site', field: 'bairro_population', value: '59707' },
   { sectionId: 'intervention_site', field: 'bairro_poverty_pct', value: '23.4' },

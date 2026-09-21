@@ -196,7 +196,10 @@ test.describe('Encontro 3 — in the room', () => {
     const state = await (await request.get(`/api/cbo/${cboId}`)).json();
     const site = (state.state ?? state).sections.intervention_site.fields;
     expect(site.studies_done.value).toBe('infiltration');
-    expect(site.site_area_m2.value).toBe('96');
-    expect(site.site_area_source.value).toContain('relatorio.pdf');
+    // The PLACE keeps the footprint drawn in Encontro 2; the 96 m² belongs to
+    // THIS test — a roof's or a strip's size must never become the site's.
+    expect(site.site_area_m2.value).toBe('836');
+    const tests = JSON.parse((state.state ?? state).sections.intervention_type.fields.solution_tests_json.value);
+    expect(tests.find((t: any) => t.solutionId === 'jardins-de-chuva').areaM2).toBe(96);
   });
 });

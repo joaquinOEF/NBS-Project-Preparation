@@ -231,8 +231,8 @@ export const DEFAULT_WORKSHOPS: WorkshopConfig[] = [
     name: 'Workshop 3 — Test the Solutions',
     date: null,
     unlocksPhase: 3,
-    description: 'The organisation tests solutions for the place it marked in Workshop 2, one at a time: for each, what it needs, what blocks it, the expected effect and what it costs — in the words of the technical review of the catalogue. It leaves with a side-by-side comparison of the solutions tested, and can go into the project in detail (why here, how it is today, who looks after it) then or later.',
-    expectedOutput: 'A comparison of the solutions tested, with the organisation\'s reading of each. For the ones that made sense: sizing, a cost band and a verdict (what blocks it). If detailed: the project summary and the work plan. Maturity scores: Problem Clarity, Solution Clarity, Climate NBS Impact — and Financial Thinking once detailed.',
+    description: 'The organisation tests solutions for the place it marked in Workshop 2, one at a time: for each, what it needs, what blocks it, the expected effect and what it costs — with what its own files and accounts say set beside it. The workshop ends at the comparison.',
+    expectedOutput: 'A comparison of the solutions tested, with the organisation\'s reading of each and one scenario per page — the basis for the portfolio conversation. Project detailing (who builds, timeline, money) moves to Workshop 4.',
   },
   {
     name: 'Workshop 4 — What We Need',

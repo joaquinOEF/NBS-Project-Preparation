@@ -29,6 +29,10 @@ async function run(name: string, state: any, turns: Turn[], lang = 'pt') {
     },
     recordCheckpoint: (step: string) => log.push(`      · [beat: ${step}]`),
     normChip,
+    // The detailing tail is off in the product (Encontro 3 ends at the comparison,
+    // 2026-09-21) but its beats are Encontro 4's raw material — this harness keeps
+    // walking them so they do not rot. The fuzzer and the e2e suite run the product default.
+    tailEnabled: true,
   };
   const push = (e: any) => {
     events.push(e);

@@ -46,7 +46,7 @@ import {
   parseTests, serializeTests, upsertTest, testedIds, likedIds, testOf, seedTestsFromChosen,
   REACTION, type SolutionTest, type TestReaction,
 } from '@shared/w3-tests';
-import { buildSolutionTest } from '@shared/w3-solution-test';
+import { buildSolutionTest, firstSentence } from '@shared/w3-solution-test';
 import { buildComparison } from '@shared/w3-comparison';
 import { WORRY_SUBTYPES } from '@shared/site-knowledge';
 import { siteInSentence, siteLabel } from '@shared/site-name';
@@ -91,6 +91,14 @@ export interface E3Deps {
    * them, and nothing ever waits on the model. A session where it fails, times
    * out or was never configured runs exactly as it does today.
    */
+  /**
+   * Walk the old detailing tail after the comparison. OFF in the product since
+   * 2026-09-21 (JVP: "w3 should stop once they chose the ones they want to
+   * compare… leave project detailing for w4 in which it is project based and
+   * not cbo based"). The beats are kept — they are Encontro 4's raw material —
+   * and the simulations that exercise them pass `true`.
+   */
+  tailEnabled?: boolean;
   startAdvisor?(): void;
   /**
    * Read their files for what they say about each solution (w3DocumentReader).
@@ -122,6 +130,10 @@ export interface E3Deps {
    * falls back to the bank of eight, which is exactly today's behaviour.
    */
   startDig?(round: 1 | 2): void;
+  /** Round 1 is being written right now. */
+  digBusy?(): boolean;
+  /** Bounded wait for it — used once, before the comparison. */
+  awaitDig?(): Promise<void>;
   /**
    * Resolve once the advisor pass has settled, or after a short cap.
    *
@@ -144,6 +156,7 @@ const E3C = {
   naoSeiTamanho: { pt: 'Ainda não sei o tamanho', en: "I don't know the size yet" },
   naoSeiQuantas: { pt: 'Ainda não sei quantas', en: "I don't know how many yet" },
   areaConfere: { pt: 'Confere ✓', en: 'That is right ✓' },
+  fecharE3: { pt: 'Fechar o Encontro 3 ✓', en: 'Close Encontro 3 ✓' },
   estudoFeito: { pt: 'Sim, já temos esse estudo', en: 'Yes, we already have that study' },
   estudoFalta: { pt: 'Ainda não temos', en: 'We do not have it yet' },
   redesenhar: { pt: 'Quero desenhar de novo', en: 'I want to draw it again' },
@@ -561,6 +574,8 @@ async function serveE3Inner(
     deps.writeFields(TYPE, { _material_pending: '', _material_done: 'yes' });
     deps.startAdvisor?.();
     deps.startDocumentReader?.();
+    // Written while they test, asked before the comparison (not in a tail that no longer runs).
+    if (!tailEnabled()) deps.startDig?.(1);
     return await toShelf();
   };
 
@@ -623,6 +638,30 @@ async function serveE3Inner(
   };
 
   // ── Beat 1 · the solution ─────────────────────────────────────────────────
+  // ── What their own files speak about, and they have not tested ───────────
+  // ⚠️ A staging run uploaded a visit report that measures the soil, advises
+  // against one solution and recommends another — and then tested three
+  // solutions the report never mentions, because the worry they picked (heat)
+  // drove the shelf. Every card carried the same place-level conditions and
+  // not one of the report's findings. The shelf now pins what the files speak
+  // about, and the comparison asks once before closing over them.
+  const spokenByFiles = (): Array<{ id: string; stance: string; source: string }> => {
+    const tested = testedIds(ensureTests());
+    const seen = new Set<string>();
+    const rank = (st: string) => (st === 'a-favor' ? 0 : st === 'contra' ? 1 : 2);
+    return parseDocumentNotes(type(DOCUMENT_NOTES_FIELD))
+      .filter(n => n.solutionId !== '*' && !tested.includes(n.solutionId) && !!getSolution(n.solutionId))
+      .sort((a, b) => rank(a.stance) - rank(b.stance))
+      .filter(n => (seen.has(n.solutionId) ? false : (seen.add(n.solutionId), true)))
+      .map(n => ({ id: n.solutionId, stance: n.stance, source: n.sourceFilename }));
+  };
+  const stanceWord = (st: string) => (st === 'a-favor' ? { pt: 'a favor', en: 'in favour' } : st === 'contra' ? { pt: 'contra', en: 'against' } : { pt: 'com uma condição', en: 'with a condition' });
+  /** A chip carries ONE sentence. The advisor's full reasoning is on the list above it. */
+  const chipLine = (text: string) => {
+    const first = firstSentence(String(text ?? ''));
+    return first.length > 130 ? `${first.slice(0, 127).trimEnd()}…` : first;
+  };
+
   const askSolution = async (): Promise<true> => {
     // Give the reading a moment to land, and say what is happening.
     //
@@ -658,6 +697,18 @@ async function serveE3Inner(
       reserveFocusSeats(mergeShortlist(base, fresh?.shortlist ?? [], isPt ? 'pt' : 'en').filter(e => !already.includes(e.solution.id))),
       4,
     );
+    const fromFiles = spokenByFiles();
+    for (const f of fromFiles.slice(0, 2)) {
+      if (entries.some(e => e.solution.id === f.id)) continue;
+      const entry = base.find(e => e.solution.id === f.id);
+      if (!entry) continue;
+      // Into the last seat that is not itself something the files speak about.
+      let at = -1;
+      // …and never a seat that answers what they said weighs most: those are
+      // reserved (reserveFocusSeats), and the files do not outrank their own words.
+      for (let i = entries.length - 1; i >= 0; i--) if (!fromFiles.some(x => x.id === entries[i].solution.id) && !(entries[i] as any).answersFocus) { at = i; break; }
+      if (entries.length < 4) entries.push(entry); else if (at >= 0) entries[at] = entry;
+    }
     if (!entries.length) return await showComparison();
     // ⚠️ Say the shared half ONCE. Every card used to open with the same eight
     // words — "Responde ao que vocês contaram — pra água que junta e não escoa"
@@ -697,6 +748,16 @@ async function serveE3Inner(
         ...(e.caveatPt ? { caveat: isPt ? e.caveatPt : e.caveatEn } : {}),
       })),
     } as any);
+    {
+      const onShelf = fromFiles.filter(f => entries.some(e => e.solution.id === f.id));
+      if (onShelf.length) {
+        const list = (l: 'pt' | 'en') => onShelf.map(f => `**${l === 'pt' ? getSolution(f.id)!.pt.label : getSolution(f.id)!.en.label}** (${stanceWord(f.stance)[l]} — ${f.source})`).join('; ');
+        say(
+          `O que vocês mandaram fala de ${list('pt')}. ${onShelf.length === 1 ? 'Está' : 'Estão'} na lista — testar mostra o que o arquivo diz, no cartão.`,
+          `What you sent speaks about ${list('en')}. ${onShelf.length === 1 ? 'It is' : 'They are'} on the list — testing shows what the file says, on the card.`,
+        );
+      }
+    }
     // Robson's question, not ours. "Levar adiante" made the first tap a
     // commitment; "testar" makes it a look, and the loop makes looking cheap.
     ask(
@@ -706,8 +767,8 @@ async function serveE3Inner(
         ...entries.map(e => ({
           pt: e.solution.pt.label,
           en: e.solution.en.label,
-          dPt: e.caveatPt ? '⚠ ' + e.caveatPt : e.reasonPt,
-          dEn: e.caveatEn ? '⚠ ' + e.caveatEn : e.reasonEn,
+          dPt: e.caveatPt ? '⚠ ' + chipLine(e.caveatPt) : chipLine(e.reasonPt),
+          dEn: e.caveatEn ? '⚠ ' + chipLine(e.caveatEn ?? '') : chipLine(e.reasonEn),
         })),
         { pt: E3C.verTodas.pt, en: E3C.verTodas.en, dPt: 'As 27 do catálogo', dEn: 'All 27 in the catalogue' },
       ],
@@ -746,7 +807,20 @@ async function serveE3Inner(
       if (test?.units !== undefined) return await showTestCard(solutionId);
       return await askArea(solutionId);
     }
-    if (!site('_area_asked')) return await askArea(solutionId);
+    // ⚠️ Every measured solution confirms ITS size — one tap when the place's
+    // footprint is right for it. Gating this on `_area_asked` was the bug: a
+    // counted solution tested first set it to 'not-applicable', and the green
+    // roof tested next was priced over the whole site without a question.
+    // …ONCE PER SURFACE, though. Two ground solutions share the size already
+    // confirmed for the ground; the question returns only when the surface
+    // changes (a roof after a garden), because that is when the number does.
+    if (test?.areaM2 === undefined) {
+      const surfaceOf = (id: string) => (id === 'teto-verde' ? 'roof' : 'ground');
+      const prior = tests.find(t => t.solutionId !== solutionId && t.areaM2 !== undefined
+        && SOLUTION_COSTS[t.solutionId]?.basis === 'm2' && surfaceOf(t.solutionId) === surfaceOf(solutionId));
+      if (!prior) return await askArea(solutionId);
+      writeTests(upsertTest(ensureTests(), { solutionId, areaM2: prior.areaM2 }));
+    }
     return await showTestCard(solutionId);
   };
 
@@ -757,6 +831,15 @@ async function serveE3Inner(
    */
   const afterSize = async (): Promise<true> => {
     const open = openTest();
+    if (open && SOLUTION_COSTS[open]?.basis === 'm2') {
+      // The size just given belongs to THIS test. `_test_size` carries a value
+      // that is not the place's footprint (a measure from their files, a size
+      // they said); without it the place's own area was confirmed.
+      const given = type('_test_size');
+      const m2 = given !== '' ? Number(given) || 0 : (Number(site('site_area_m2')) || 0);
+      writeTests(upsertTest(ensureTests(), { solutionId: open, areaM2: m2 }));
+      deps.writeFields(TYPE, { _test_size: '' });
+    }
     if (open) return await showTestCard(open);
     return ensureTests().length ? askNext() : await askSolution();
   };
@@ -778,7 +861,14 @@ async function serveE3Inner(
   // size only when they tap it. An organisation that sent a measured sketch is
   // otherwise asked "how big?" as though it had sent nothing — or gets a
   // rain garden priced over the whole 836 m² patio it drew in Encontro 2.
-  const liveMeasures = (): DocumentMeasure[] => parseDocumentMeasures(type(DOCUMENT_NOTES_FIELD));
+  const ROOF = /telhad|laje|cobertura|roof|slab/i;
+  /** A roof's measure for a roof solution, the ground's for the rest — never a rain garden sized by the court's roof. */
+  const liveMeasures = (): DocumentMeasure[] => {
+    const all = parseDocumentMeasures(type(DOCUMENT_NOTES_FIELD));
+    const open = openTest();
+    const onRoof = open === 'teto-verde';
+    return all.filter(m => ROOF.test(`${m.labelPt} ${m.quote}`) === onRoof);
+  };
   const measureChip = (m: DocumentMeasure) => ({
     pt: `Usar ${m.m2.toLocaleString('pt-BR')} m² — ${m.labelPt}`,
     en: `Use ${m.m2.toLocaleString('en-US')} m² — ${m.labelEn}`,
@@ -823,6 +913,12 @@ async function serveE3Inner(
         `Vocês já desenharam **${areaM2} m²** no mapa no Encontro 2.`,
         `You already drew **${areaM2} m²** on the map back in Encontro 2.`,
       );
+      if (id === 'teto-verde') {
+        say(
+          'Pro teto verde o que conta é a área do **telhado ou da laje**, não a do terreno — se for outra, é só dizer o tamanho.',
+          'For a green roof what counts is the area of the **roof or slab**, not of the land — if it is different, just say the size.',
+        );
+      }
       const fromFiles = offerMeasures();
       ask('Ainda é esse o tamanho?', 'Is that still the size?', [
         { pt: E3C.areaConfere.pt, en: E3C.areaConfere.en },
@@ -1223,12 +1319,60 @@ async function serveE3Inner(
         ? 'One solution tested. It can be seen, but comparing really starts with two — "Test one more" goes back to the list. Each scenario also prints on a single page, to take to the table.'
         : `${n} solutions tested, side by side. The comparison is saved here and prints as a PDF; each scenario also prints on a single page, to take to the table.`,
     );
+    // ⚠️ THE COMPARISON IS THE END OF ENCONTRO 3. It used to open an optional
+    // "detalhar" tail — who builds, by when, who pays — asked ONCE across every
+    // solution they liked, which is a project's question put to a shortlist. A
+    // staging run tapped through its eleven questions in fifty seconds. The
+    // detailing belongs to a project (Encontro 4, after the 30 September
+    // convening); what this encontro owes is the comparison, and it ends on it.
+    if (!tailEnabled()) {
+      ask('E agora?', 'And now?', [
+        { pt: E3C.fecharE3.pt, en: E3C.fecharE3.en, dPt: 'A comparação fica salva e vai pra mesa do portfólio', dEn: 'The comparison is saved and goes to the portfolio table' },
+        { pt: E3C.testarMaisUma.pt, en: E3C.testarMaisUma.en, dPt: 'Volta pra lista', dEn: 'Back to the list' },
+      ]);
+      return finish('show-comparison');
+    }
     ask('Querem detalhar o projeto agora?', 'Do you want to go into the project in detail now?', [
       { pt: E3C.detalharAgora.pt, en: E3C.detalharAgora.en, dPt: 'Por que aqui, como está hoje, quem cuida', dEn: 'Why here, how it is today, who looks after it' },
       { pt: E3C.deixarPraDepois.pt, en: E3C.deixarPraDepois.en, dPt: 'A comparação fica salva', dEn: 'The comparison stays saved' },
       { pt: E3C.testarMaisUma.pt, en: E3C.testarMaisUma.en, dPt: 'Volta pra lista', dEn: 'Back to the list' },
     ]);
     return finish('show-comparison');
+  };
+
+  /**
+   * A session that STARTED the tail under the old flow finishes it (their
+   * answers are half given); everything else ends at the comparison.
+   */
+  function tailEnabled(): boolean {
+    return deps.tailEnabled === true || type('_tail_enabled') === 'yes' || (!!type('construction_model') && !type('_e3_closed'));
+  }
+
+  /** Encontro 3 closes here: the comparison is what it owes. */
+  const closeAtComparison = (): true => {
+    const input = w3Input();
+    const dossier = buildDossier(input, isPt ? 'pt' : 'en');
+    const state4 = portfolioState(dossier.verdicts);
+    deps.writeFields(TYPE, { _e3_closed: 'yes', _detail_parked: '', project_verdict: state4, project_capacity_grade: dossier.capacity.grade });
+    // Three of the four scores. `financial_thinking` was the tail's (who pays
+    // to keep it alive) and moves with it; `encontroClosed` reads `_e3_closed`
+    // for this phase, so an unscored fourth no longer holds the door shut.
+    deps.recordMaturity?.(scoreW3Maturity({
+      site: input.site, w3: input.w3 ?? {}, solutions: liveSolutions(),
+      ...(liveArea() ? { areaM2: liveArea() } : {}), ...(liveUnits() ? { units: liveUnits() } : {}),
+      hasCostBand: dossier.budget.some(b => b.lowBrl != null),
+    }).filter(m => m.metric !== 'financial_thinking'));
+    const tests = ensureTests();
+    const liked = likedIds(tests).map(id => getSolution(id)).filter(Boolean).map(sol => (isPt ? sol!.pt.label : sol!.en.label));
+    const nome = String((state.sections as any).org_profile?.fields?.contact_name?.value || '').trim().split(/\s+/)[0];
+    const kept = liked.length
+      ? { pt: `Vocês testaram ${tests.length} e ficaram com **${liked.join(', ')}**.`, en: `You tested ${tests.length} and kept **${liked.join(', ')}**.` }
+      : { pt: `Vocês testaram ${tests.length} e nenhuma fechou ainda — isso também é resposta, e vai pra mesa assim.`, en: `You tested ${tests.length} and none has settled yet — that is an answer too, and it goes to the table as it is.` };
+    say(
+      `✓ **Pronto${nome ? `, ${nome}` : ''}.** ${kept.pt} A comparação fica salva aqui e em PDF, com um cenário por página. É ela que vai pra conversa de portfólio — detalhar quem constrói, prazo e dinheiro vem depois, já com o projeto definido junto com as outras organizações.`,
+      `✓ **Done${nome ? `, ${nome}` : ''}.** ${kept.en} The comparison is saved here and as a PDF, one scenario per page. It is what goes to the portfolio conversation — who builds, by when and with what money comes after, with the project defined together with the other organisations.`,
+    );
+    return finish(`closing-at-comparison-${state4}`);
   };
 
   /**
@@ -1451,7 +1595,7 @@ async function serveE3Inner(
     const tests = ensureTests();
     const open = openTest();
     if (open) return await showTestCard(open);
-    if (type('_e3_closed')) return await closeE3();
+    if (type('_e3_closed')) return type('construction_model') ? await closeE3() : closeAtComparison();
     // In the tail: the first enum still empty, or the free-text beat before it.
     if (type('construction_model')) {
       if (!type('justification_why_here') && !impact('baseline_condition')) return askJustification();
@@ -1680,10 +1824,15 @@ async function serveE3Inner(
     const n = deps.normChip(raw);
     const picked = raw ? liveMeasures().find(m => { const c = measureChip(m); return n === deps.normChip(c.pt) || n === deps.normChip(c.en); }) : undefined;
     if (picked) {
+      deps.writeFields(TYPE, { _test_size: String(picked.m2) });
       deps.writeFields(SITE, {
         _area_pending: '', _area_asked: 'yes',
-        site_area_m2: String(picked.m2),
-        site_area_source: isPt ? `medida em ${picked.sourceFilename}: "${picked.quote.slice(0, 80)}"` : `measured in ${picked.sourceFilename}: "${picked.quote.slice(0, 80)}"`,
+        // The PLACE's footprint only when it has none: a roof's 600 m² must not
+        // become the size of the site for the next solution.
+        ...(Number(site('site_area_m2')) > 0 ? {} : {
+          site_area_m2: String(picked.m2),
+          site_area_source: isPt ? `medida em ${picked.sourceFilename}: "${picked.quote.slice(0, 80)}"` : `measured in ${picked.sourceFilename}: "${picked.quote.slice(0, 80)}"`,
+        }),
       });
       const open = openTest();
       const line = open ? budgetLineFor(open, picked.m2, testOf(liveTests(), open)?.units || undefined, liveBuild()) : null;
@@ -1736,10 +1885,13 @@ async function serveE3Inner(
     const spoken = parseSpokenArea(raw);
     if (spoken) {
       const said = roundAreaM2(spoken.m2);
+      if (openTest()) deps.writeFields(TYPE, { _test_size: String(said) });
       deps.writeFields(SITE, {
         _area_pending: '',
-        site_area_m2: String(said),
-        site_area_source: isPt ? SPOKEN_AREA_SOURCE[spoken.basis].pt : SPOKEN_AREA_SOURCE[spoken.basis].en,
+        ...(openTest() && Number(site('site_area_m2')) > 0 ? {} : {
+          site_area_m2: String(said),
+          site_area_source: isPt ? SPOKEN_AREA_SOURCE[spoken.basis].pt : SPOKEN_AREA_SOURCE[spoken.basis].en,
+        }),
       });
       const open = openTest();
       const line = open ? budgetLineFor(open, said, testOf(liveTests(), open)?.units || undefined, liveBuild()) : null;
@@ -1832,10 +1984,17 @@ async function serveE3Inner(
         if (!isSkip(raw)) say('Anotado.', 'Noted.');
         // Round 1 finished → start round 2 now, while the next beats run. It is
         // read after the second-solution beat, so it has that long to arrive.
-        if (q.round === 1 && !pendingDig(all, 1) && !all.some(x => x.round === 2)) {
-          deps.startDig?.(2);
+        if (tailEnabled()) {
+          if (q.round === 1 && !pendingDig(all, 1) && !all.some(x => x.round === 2)) {
+            deps.startDig?.(2);
+          }
+          return q.round === 1 ? await askExtras() : await closeE3();
         }
-        return q.round === 1 ? await askExtras() : await closeE3();
+        // Encontro 3 ends at the comparison: these are asked just before it,
+        // two at most — a third is a form — and then the comparison.
+        const askedSoFar = all.filter(x => x.round === 1 && x.answer !== undefined).length;
+        if (askedSoFar < 2) { const more = askDig(1); if (more) return more; }
+        return await showComparison();
       }
     }
   }
@@ -2159,7 +2318,46 @@ async function serveE3Inner(
   }
 
   if (is(E3C.testarOutra) || is(E3C.testarMaisUma)) return await askSolution();
-  if (is(E3C.verComparacao)) return await showComparison();
+  if (is(E3C.verComparacao)) {
+    const untested = spokenByFiles();
+    if (untested.length && type('_files_nudged') !== 'yes' && type('_comparison_shown') !== 'yes') {
+      deps.writeFields(TYPE, { _files_nudged: 'yes' });
+      const names = (l: 'pt' | 'en') => untested.slice(0, 3).map(f => `**${l === 'pt' ? getSolution(f.id)!.pt.label : getSolution(f.id)!.en.label}** (${stanceWord(f.stance)[l]})`).join(', ');
+      say(
+        `Antes de comparar: o que vocês mandaram fala de ${names('pt')}, e ${untested.length === 1 ? 'ela ainda não foi testada' : 'elas ainda não foram testadas'}. Se entrar na comparação, o que o arquivo diz aparece ao lado das outras.`,
+        `Before comparing: what you sent speaks about ${names('en')}, and ${untested.length === 1 ? 'it has not been tested' : 'they have not been tested'} yet. If it goes into the comparison, what the file says shows beside the others.`,
+      );
+      ask('Querem testar antes de comparar?', 'Do you want to test it before comparing?', [
+        ...untested.slice(0, 3).map(f => ({ pt: getSolution(f.id)!.pt.label, en: getSolution(f.id)!.en.label, dPt: `O arquivo fala ${stanceWord(f.stance).pt}`, dEn: `The file speaks ${stanceWord(f.stance).en}` })),
+        { pt: E3C.verComparacao.pt, en: E3C.verComparacao.en, dPt: 'Comparar só as que já testamos', dEn: 'Compare only what we have tested' },
+      ]);
+      return finish('files-nudge');
+    }
+    // ⚠️ The questions written for THIS organisation — from its sketch, its
+    // photos, its own words — are the best thing this encontro asks, and a
+    // staging run never saw them: they were generated at the end of the tail,
+    // were not ready in time, and were skipped without a word. They are written
+    // while the organisation tests (started at the door) and asked here, once,
+    // before the comparison they inform.
+    if (!tailEnabled() && type('_comparison_shown') !== 'yes') {
+      if (deps.digBusy?.()) {
+        say('Um instante — estou terminando de escrever duas perguntas sobre o lugar de vocês.', 'One moment — I am finishing two questions about your place.');
+        await deps.awaitDig?.();
+      }
+      if (liveDig().filter(x => x.round === 1 && x.answer !== undefined).length === 0) {
+        const dug = askDig(1);
+        if (dug) {
+          return dug;
+        }
+      }
+    }
+    return await showComparison();
+  }
+  if (is(E3C.fecharE3)) return ensureTests().length ? closeAtComparison() : await askSolution();
+  // Chips from before the comparison became the end (a parked session, an old
+  // bubble): "detalhar" no longer exists, and "deixar pra depois" was the close.
+  if (is(E3C.detalharAgora) && !tailEnabled()) return await showComparison();
+  if (is(E3C.deixarPraDepois) && !tailEnabled()) return closeAtComparison();
   if (is(E3C.detalharAgora)) {
     deps.writeFields(TYPE, { _detail_parked: '' });
     return likedIds(ensureTests()).length ? askConstruction() : askWhichToDetail();
@@ -2276,6 +2474,8 @@ async function serveE3Inner(
   }
   if (is(E3C.areaConfere)) return await afterSize();
   if (is(E3C.naoSeiTamanho)) {
+    // Unknown is unknown for THIS test — never the place's footprint by default.
+    if (openTest()) deps.writeFields(TYPE, { _test_size: '0' });
     // ⚠️ Once more, by another road. "Ainda não sei o tamanho" is an honest
     // answer to "how many square metres" — and the area is the single number
     // that decides whether this session produces a total at all. A person would
@@ -2319,10 +2519,13 @@ async function serveE3Inner(
     }
     const band = areaBandFor(raw, deps.normChip);
     if (band) {
-      deps.writeFields(SITE, {
-        site_area_m2: String(band),
-        site_area_source: isPt ? ROUGH_AREA_SOURCE.pt : ROUGH_AREA_SOURCE.en,
-      });
+      if (openTest()) deps.writeFields(TYPE, { _test_size: String(band) });
+      if (!(openTest() && Number(site('site_area_m2')) > 0)) {
+        deps.writeFields(SITE, {
+          site_area_m2: String(band),
+          site_area_source: isPt ? ROUGH_AREA_SOURCE.pt : ROUGH_AREA_SOURCE.en,
+        });
+      }
       const open = openTest();
       const line = open ? budgetLineFor(open, band, testOf(liveTests(), open)?.units || undefined, liveBuild()) : null;
       say(

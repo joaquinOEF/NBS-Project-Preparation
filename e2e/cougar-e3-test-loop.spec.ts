@@ -151,16 +151,19 @@ test.describe('COUGAR — E3 test loop', () => {
     expect((await request.get(`/api/cbo/${cboId}/scenario/hortas-urbanas`)).status()).toBe(404);
     await expect(cmp.getByTestId('scenario-print-jardins-de-chuva')).toBeVisible();
 
-    // 9 · Park. It ends on a question, so a return finds one.
-    await chip('Deixar pra depois').click();
-    await expect(chip('Detalhar agora')).toBeVisible({ timeout: 15_000 });
+    // 9 · THE COMPARISON IS THE END (JVP, 2026-09-21). No "detalhar" is offered:
+    //     who builds, by when and with what money is a PROJECT's question, and
+    //     moves to Encontro 4. The choice is to test one more, or to close.
+    await expect(chip('Fechar o Encontro 3 ✓')).toBeVisible({ timeout: 15_000 });
+    await expect(chip('Detalhar agora')).toHaveCount(0);
+    await expect(chip('Testar mais uma')).toBeVisible();
     await page.reload();
-    await expect(chip('Detalhar agora')).toBeVisible({ timeout: 30_000 });
+    await expect(chip('Fechar o Encontro 3 ✓')).toBeVisible({ timeout: 30_000 });
 
-    // 10 · The record, before detailing: derived chosen, per-test counts, and
+    // 10 · The record at the comparison: derived chosen, per-test counts, and
     //      the single-value document fields filled by the LIKED test only.
-    const body = await (await request.get(`/api/cbo/${cboId}`)).json();
-    const f = (s: string, k: string) => body.state?.sections?.[s]?.fields?.[k]?.value;
+    let body = await (await request.get(`/api/cbo/${cboId}`)).json();
+    let f = (s: string, k: string) => body.state?.sections?.[s]?.fields?.[k]?.value;
     expect(f('intervention_type', 'chosen_solutions')).toBe('jardins-de-chuva');
     const tests = JSON.parse(f('intervention_type', 'solution_tests_json'));
     expect(tests.map((t: any) => [t.solutionId, t.reaction])).toEqual([
@@ -168,19 +171,33 @@ test.describe('COUGAR — E3 test loop', () => {
       ['captacao-agua-da-chuva', 'nao-e-pra-gente'],
     ]);
     expect(tests[1].units).toBe(5);
+    // The size belongs to the TEST (the measured one), not only to the place.
+    expect(tests[0].areaM2).toBeGreaterThan(0);
     expect(f('intervention_type', 'intervention_units') ?? '').toBe('');
     expect(f('intervention_type', 'detail_question_id')).toBe('soil-type');
-    expect(f('intervention_type', '_detail_parked')).toBe('yes');
     expect(f('intervention_type', '_e3_closed') ?? '').toBe('');
-    // Three scores at the comparison; the fourth is the tail's.
+    expect(f('intervention_type', '_material_done')).toBe('yes');
+
+    // 11 · Close. Three of the four scores (the fourth was the tail's), the
+    //      close marker, a closing line that says what they kept — and nothing
+    //      from the tail was asked or written.
+    await chip('Fechar o Encontro 3 ✓').click();
+    await expect(thread.getByText('vai pra conversa de portfólio', { exact: false })).toBeVisible({ timeout: 15_000 });
+    await expect(thread.getByText('ficaram com', { exact: false })).toContainText('Jardins de chuva');
+    body = await (await request.get(`/api/cbo/${cboId}`)).json();
+    f = (s: string, k: string) => body.state?.sections?.[s]?.fields?.[k]?.value;
+    expect(f('intervention_type', '_e3_closed')).toBe('yes');
+    expect(f('intervention_type', 'project_verdict')).toBeTruthy();
+    expect(f('intervention_type', 'construction_model') ?? '', 'the tail was never entered').toBe('');
     const metrics = (body.state?.maturityScores ?? []).map((m: any) => m.metric).sort();
     expect(metrics).toEqual(['climate_nbs_impact', 'problem_clarity', 'solution_clarity']);
 
-    expect(f('intervention_type', '_material_done')).toBe('yes');
-
-    // 11 · Into the tail: who builds it heads it.
-    await chip('Detalhar agora').click();
-    await expect(chip('Mutirão')).toBeVisible({ timeout: 15_000 });
+    // 12 · A return to a closed Encontro 3 says so again — not the old roadmap.
+    await page.reload();
+    await input.fill('Vamos começar o Encontro 3.');
+    await input.press('Enter');
+    await expect(thread.getByText('vai pra conversa de portfólio', { exact: false }).last()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('cbo-roadmap')).toHaveCount(0);
   });
 
   test('the resume chip on an open workshop serves the beat the record is on', async ({ page, request }) => {

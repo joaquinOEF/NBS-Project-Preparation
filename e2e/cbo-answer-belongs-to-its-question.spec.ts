@@ -28,6 +28,10 @@ const W2_STATE = [
   { sectionId: 'intervention_site', field: 'site_worry', value: 'alagamento' },
   { sectionId: 'intervention_site', field: 'site_area_m2', value: '2900' },
   { sectionId: 'intervention_site', field: 'nbs_interest', value: 'aguas-pluviais' },
+  // ⚠️ This spec walks the DETAILING TAIL, which the product no longer opens:
+  // Encontro 3 ends at the comparison since 2026-09-21 (e2e/cougar-e3-ends-at-comparison.spec.ts).
+  // The beats are kept as Encontro 4's raw material, and this per-session switch keeps them tested.
+  { sectionId: 'intervention_type', field: '_tail_enabled', value: 'yes' },
 ];
 
 const WHY = 'Porque é para onde a água vai: a enxurrada desce a rua de cima e o pátio inteiro vira um lago.';
@@ -94,16 +98,19 @@ test.describe('COUGAR — the transcript', () => {
     await expect(cardWith(BASELINE)).toHaveCount(1);
 
     // And in the order they were given: why-here above the baseline.
-    const tops = await page.getByTestId('cbo-answered-card').evaluateAll(
+    // ⚠️ By DOCUMENT ORDER, not by viewport position. This used to read each
+    // card's getBoundingClientRect().top and require it to be > 0 — but a card
+    // the thread has scrolled past has a legitimately NEGATIVE top, and how far
+    // the thread has scrolled by this point depends on timing. That was the
+    // "flaky under load" failure in every full run: Received -244.97.
+    const order = await page.getByTestId('cbo-answered-card').evaluateAll(
       (els, [why, baseline]) => {
-        const topOf = (needle: string) =>
-          els.filter(el => (el.textContent ?? '').includes(needle))
-             .map(el => el.getBoundingClientRect().top)[0] ?? -1;
-        return [topOf(why), topOf(baseline)];
+        const indexOf = (needle: string) => els.findIndex(el => (el.textContent ?? '').includes(needle));
+        return [indexOf(why), indexOf(baseline)];
       },
       [WHY, BASELINE],
     );
-    expect(tops[0]).toBeGreaterThan(0);
-    expect(tops[1]).toBeGreaterThan(tops[0]);
+    expect(order[0], 'the why-here card is in the thread').toBeGreaterThanOrEqual(0);
+    expect(order[1], 'the baseline card comes after it').toBeGreaterThan(order[0]);
   });
 });
