@@ -69,10 +69,7 @@ export function ProjectsView({
     <div data-testid="projects-view">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight">
-            {t('orchestrator.projects.title', { defaultValue: 'Projects' })}
-          </h2>
-          <p className="mt-0.5 max-w-[64ch] text-[13px] text-muted-foreground">
+          <p className="max-w-[64ch] text-[13px] text-muted-foreground">
             {t('orchestrator.projects.lede', {
               defaultValue: 'From Encontro 3 on, the work is by project: a group of organisations, one shared conversation, one link. The conversation opens on everything each organisation already told us.',
             })}
@@ -181,6 +178,16 @@ export function ProjectsView({
                     >
                       <FileText className="mr-1 h-3 w-3" />
                       {t('orchestrator.projects.brief', { defaultValue: 'Brief (PDF)' })}
+                    </a>
+                    <a
+                      href={`/api/project/${p.id}/note?lang=${isPt ? 'pt' : 'en'}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-7 items-center rounded-md border px-2.5 text-[12px] font-medium hover:bg-muted"
+                      data-testid="link-project-note"
+                    >
+                      <FileText className="mr-1 h-3 w-3" />
+                      {t('orchestrator.projects.note', { defaultValue: 'Summary (PDF)' })}
                     </a>
                     <span className="flex-1" />
                     <Button

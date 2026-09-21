@@ -4,6 +4,7 @@ import type { Roadmap as W3Roadmap } from './w3-roadmap';
 import type { SolutionTestCard } from './w3-solution-test';
 import type { Comparison as W3Comparison } from './w3-comparison';
 import type { ProjectBrief } from './project-brief';
+import type { ProjectPlan, ProjectNote } from './project-plan';
 import type { OpenMapParams } from './concept-note-schema';
 
 // ============================================================================
@@ -432,6 +433,10 @@ export type CboEvent =
   // A project's shared session opens on this — every member's record, side by
   // side, and what they share. Pure; see shared/project-brief.ts.
   | { type: 'show_project_brief'; brief: ProjectBrief }
+  // The project encontro's two cards: what is shared (after the scenarios), and
+  // the multi-organisation summary at the end.
+  | { type: 'show_project_plan'; plan: ProjectPlan }
+  | { type: 'show_project_note'; note: ProjectNote }
   | { type: 'show_comparison'; comparison: W3Comparison }
   | { type: 'show_dossier'; dossier: W3Dossier }
   | { type: 'show_roadmap'; roadmap: W3Roadmap }

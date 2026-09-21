@@ -24,8 +24,9 @@ import {
   cohortProjects,
 } from '@shared/cohort-schema';
 import { createEmptyCboState } from '@shared/cbo-schema';
-import { findProjectByToken, findProjectById, projectBrief, projectCohort } from '../services/projectContext';
+import { findProjectByToken, findProjectById, projectBrief, projectNote, projectCohort } from '../services/projectContext';
 import { renderProjectBriefHtml } from '../services/projectBriefPrint';
+import { renderProjectNoteHtml } from '../services/projectNotePrint';
 import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } from '../services/orgPersistence';
 import { cboStates } from '@shared/cbo-db-schema';
 import { cboSectionsFilledCount, type CboState } from '@shared/cbo-schema';
@@ -1421,6 +1422,18 @@ export function registerCohortRoutes(app: Express): void {
     const brief = await projectBrief(project, lang);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(renderProjectBriefHtml(brief, lang));
+  }));
+
+  // The multi-organisation note — rebuilt from every member's live record and
+  // the project encontro's choices.
+  app.get('/api/project/:projectId/note', wrap(async (req, res) => {
+    const project = await findProjectById(req.params.projectId);
+    if (!project) { res.status(404).send('Not found'); return; }
+    const cohort = await projectCohort(project);
+    const lang = req.query.lang === 'en' || (cohort?.settings as CohortSettings | null)?.language === 'en' ? 'en' : 'pt';
+    const note = await projectNote(project, lang);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(renderProjectNoteHtml(note, lang));
   }));
 
   app.get('/api/cbo-member/by-token/:token', wrap(async (req, res) => {

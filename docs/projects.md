@@ -89,11 +89,53 @@ set of organisations, which is exactly what a project is made of.
 Creating a project opens the share dialog straight away with the link and the
 WhatsApp message (`projectGreetingMessage`): the link is the point.
 
-## Not built yet (PR B)
+## The project encontro (`serveProjectCheckpoint`, `shared/project-plan.ts`)
 
-The project's own encontro — a multi-organisation flow shaped like Encontro 3
-(test, compare, detail) over the group's scenarios. Until then the shared
-session reads and compares; it does not decide. The `projeto` skill says so.
+Started from the door with **Montar o projeto** (or the line "Vamos começar o
+encontro do projeto."). Five templated beats, the step derived from fields on
+the project's own state, every turn ending on a question:
+
+1. **A moldura** — *"por que essas organizações fazem esse projeto juntas?"*
+   in their words (free text or voice; skippable), then the frame, offered
+   from what the brief found in common (`frameOptions`: one per grouping
+   axis, plus the first pooled study) — never a frame the records do not
+   support; "Outra coisa" writes their own.
+2. **Os cenários** — one organisation at a time, over what IT tested in
+   Encontro 3: each tested solution as a chip (liked ones say so), "Todas
+   que fizeram sentido" when more than one did, "Nenhuma desta vez". An
+   organisation that never reached Encontro 3 is told so and joins without a
+   scenario; it is never asked what it tested.
+3. **O que se compartilha** — `show_project_plan`: the scenarios per
+   organisation with their verdicts and cost notes, what pooling saves (a
+   study contracted once for N, one conversation with a body, one instrument
+   request), the summed band, the gaps. Then *"Quem puxa o projeto?"* (the
+   organisations, the coordination, not yet).
+4. **O dinheiro** — the sum of the scenarios' bands, what has no band named,
+   and how the funding is sought (one line for everything · each seeks its
+   own with the project as the argument · not yet).
+5. **O documento** — `show_project_note` + `GET /api/project/:id/note`: as
+   organizações · por que juntas · a intervenção (one bullet per scenario) ·
+   o que exige e o que se compartilha · custo e caminho do recurso (with the
+   aggregation argument at the project's own number) · quem cuida ·
+   pendências. Then *"E agora?"* — adjust the scenarios (re-asks beat 2
+   onwards) or keep talking.
+
+The choices live on the project state under private names (`PROJECT_FIELDS`
+in `shared/project-plan.ts`): the project state is not an organisation's
+record, and the project note is the document that carries every one of them.
+After the encontro the model's context gains "O projeto — o que o encontro
+definiu" (`planMarkdown`), so the model never re-asks a decision the room made;
+the `projeto` skill sends any "decide for us" request back to the encontro.
+
+Every figure on the plan and the note comes from the same fichas and
+`budgetLineFor` the organisations' own comparison cards use — a number on the
+project note cannot disagree with a number on an organisation's document.
+
+## Not built yet
+
+- Per-scenario "who looks after it" beyond the ficha's upkeep sentence (each
+  part follows the organisation that brought it, by default).
+- A project-level maturity score. The organisations' own scores are untouched.
 
 ## Operational
 
@@ -102,4 +144,6 @@ session reads and compares; it does not decide. The `projeto` skill says so.
   touches it).
 - `e2e/cohort-projects.spec.ts` covers: create → link → by-token → brief; the
   door in the browser (brief card, roster confirm, reload lands on the same
-  question); the board (empty state, create dialog, card).
+  question); the board (empty state, create dialog, card); the project
+  encontro end to end with a reload mid-way, the note card and the printed
+  note; the skip paths.

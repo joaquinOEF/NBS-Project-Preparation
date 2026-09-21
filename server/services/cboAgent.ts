@@ -71,7 +71,7 @@ import { isImplementationNarration } from "./assistantNoise";
 import { checkCloseGate } from "./cboCloseGate";
 import { serveE3Checkpoint } from "./cboE3Checkpoint";
 import { serveProjectCheckpoint } from "./cboProjectCheckpoint";
-import { findProjectByStateId, projectBrief, buildProjectContext } from "./projectContext";
+import { findProjectByStateId, projectBrief, projectFacts, buildProjectContext } from "./projectContext";
 import { loadNamedSkill } from "./encontroSkills";
 import { warnIfOrphan } from '@shared/field-destiny';
 import { digRound1, digRound2 } from './w3Dig';
@@ -3242,6 +3242,10 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'solution_options', items: (event as any).items, full: (event as any).full }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_project_brief') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'project_brief', brief: (event as any).brief }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_project_plan') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'project_plan', plan: (event as any).plan }), messageType: 'composer', timestamp: new Date().toISOString() });
+    } else if (event.type === 'show_project_note') {
+      addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'project_note', note: (event as any).note }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_solution_test') {
       addCboMessage(cboId, { role: 'assistant', content: JSON.stringify({ kind: 'solution_test', test: (event as any).test }), messageType: 'composer', timestamp: new Date().toISOString() });
     } else if (event.type === 'show_comparison') {
@@ -3514,6 +3518,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
           recordCheckpoint: (step) => recordCboEvent({ cboStateId: cboId, name: 'checkpoint', phase: state.phase, step }),
           normChip,
           brief: () => projectBrief(project, lang === 'en' ? 'en' : 'pt'),
+          facts: () => projectFacts(project, lang === 'en' ? 'en' : 'pt'),
         });
         if (served) { res.end(); return; }
       }
