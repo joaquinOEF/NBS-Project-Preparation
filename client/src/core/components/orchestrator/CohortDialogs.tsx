@@ -1021,6 +1021,126 @@ export function CreateProjectDialog({
   );
 }
 
+// ---------------------------------------------------------------------------
+// ImportOrgDialog — a new organisation from a snapshot (docs/test-orgs.md).
+// The snapshot is the JSON the "snapshot" export gives, from this environment
+// or another one (production → staging). By default the copy lands where the
+// original stood when Encontro 2 closed, so Encontro 3 can be tried on a real
+// record. Contact details never travel.
+// ---------------------------------------------------------------------------
+export function ImportOrgDialog({
+  open, onOpenChange, onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (input: { snapshot: unknown; orgName?: string; asOf: 'end-of-e2' | 'as-is' }) => Promise<string | null>;
+}) {
+  const { t } = useTranslation();
+  const [text, setText] = useState('');
+  const [orgName, setOrgName] = useState('');
+  const [asOf, setAsOf] = useState<'end-of-e2' | 'as-is'>('end-of-e2');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => { if (!open) { setText(''); setOrgName(''); setAsOf('end-of-e2'); setError(null); } }, [open]);
+
+  // What the pasted JSON holds, said before anything is created.
+  const preview = useMemo(() => {
+    if (!text.trim()) return null;
+    try {
+      const o = JSON.parse(text);
+      const sections = o?.sections ?? {};
+      const count = (sec: any) => Object.keys(sec?.fields ?? sec ?? {}).filter(k => !k.startsWith('_')).length;
+      return {
+        ok: true as const,
+        name: String(o?.orgName ?? o?.from?.orgName ?? ''),
+        fields: Object.values(sections).reduce((n: number, sec: any) => n + count(sec), 0),
+        messages: Array.isArray(o?.messages) ? o.messages.length : 0,
+        docs: Array.isArray(o?.docs) ? o.docs.length : 0,
+      };
+    } catch (e: any) {
+      return { ok: false as const, error: String(e?.message ?? e) };
+    }
+  }, [text]);
+
+  const onFile = async (f: File | undefined) => { if (f) setText(await f.text()); };
+  const submit = async () => {
+    if (busy || !preview?.ok) return;
+    setBusy(true); setError(null);
+    try {
+      const err = await onSubmit({ snapshot: JSON.parse(text), orgName: orgName.trim() || undefined, asOf });
+      if (err) setError(err); else onOpenChange(false);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[560px]" data-testid="import-org-dialog">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            {t('orchestrator.importOrg.title', { defaultValue: 'Import an organisation' })}
+          </DialogTitle>
+          <DialogDescription>
+            {t('orchestrator.importOrg.desc', {
+              defaultValue: 'Paste a snapshot (the JSON from "snapshot" on an organisation, here or in another environment). A NEW organisation is created from it, with its own link. The original is never touched, contact details do not travel, and the copy stays out of the synergy analysis.',
+            })}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <input type="file" accept=".json,application/json" onChange={e => void onFile(e.target.files?.[0])} className="text-xs" data-testid="input-snapshot-file" />
+          </div>
+          <textarea
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder={'{ "version": 1, "orgName": "…", "sections": { … } }'}
+            className="h-36 w-full rounded-md border bg-background p-2 font-mono text-[11px]"
+            data-testid="input-snapshot-json"
+          />
+          {preview && (preview.ok ? (
+            <p className="text-[12px] text-emerald-700 dark:text-emerald-300" data-testid="snapshot-preview">
+              {t('orchestrator.importOrg.preview', {
+                defaultValue: '{{name}} · {{fields}} answers · {{messages}} messages · {{docs}} documents',
+                name: preview.name || '—', fields: preview.fields, messages: preview.messages, docs: preview.docs,
+              })}
+            </p>
+          ) : (
+            <p className="text-[12px] text-destructive" data-testid="snapshot-preview-error">{preview.error}</p>
+          ))}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="import-org-name">
+                {t('orchestrator.importOrg.name', { defaultValue: 'Name for the copy (optional)' })}
+              </label>
+              <Input id="import-org-name" value={orgName} onChange={e => setOrgName(e.target.value)} placeholder={preview?.ok && preview.name ? `${preview.name} (teste)` : ''} data-testid="input-import-org-name" />
+            </div>
+            <div className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">{t('orchestrator.importOrg.asOf', { defaultValue: 'Where the copy starts' })}</span>
+              <div className="inline-flex w-full rounded-md border p-0.5">
+                {([['end-of-e2', t('orchestrator.importOrg.endOfE2', { defaultValue: 'End of Encontro 2' })], ['as-is', t('orchestrator.importOrg.asIs', { defaultValue: 'As it is' })]] as const).map(([k, label]) => (
+                  <button key={k} type="button" onClick={() => setAsOf(k)} aria-pressed={asOf === k} data-testid={`import-asof-${k}`}
+                    className={`flex-1 rounded px-2 py-1.5 text-[12px] font-semibold ${asOf === k ? 'bg-emerald-600 text-white' : 'text-muted-foreground hover:bg-muted'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          {error && <p className="text-[12px] text-destructive" data-testid="import-org-error">{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>{t('common.cancel', { defaultValue: 'Cancel' })}</Button>
+          <Button onClick={submit} disabled={busy || !preview?.ok} data-testid="button-import-org-submit">
+            <Plus className="w-3.5 h-3.5 mr-1.5" />
+            {busy ? t('common.working', { defaultValue: 'Working…' }) : t('orchestrator.importOrg.submit', { defaultValue: 'Create the copy' })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // A project's delete: the link dies; the organisations and the transcript stay.
 export function ProjectDeleteConfirmDialog({
   open, title, onOpenChange, onConfirm,

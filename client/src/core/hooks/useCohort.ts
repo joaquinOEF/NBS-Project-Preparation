@@ -64,6 +64,10 @@ export interface UseCohortResult {
   createProject: (input: { title: string; memberIds: string[] }) => Promise<CohortProject | null>;
   updateProject: (projectId: string, patch: { title?: string; memberIds?: string[]; archived?: boolean }) => Promise<CohortProject | null>;
   deleteProject: (projectId: string) => Promise<boolean>;
+  /** A test copy of a member, as it stood at the end of Encontro 2 (docs/test-orgs.md). */
+  cloneMember: (memberId: string, opts?: { orgName?: string; asOf?: 'end-of-e2' | 'as-is' }) => Promise<{ member: CohortMember } | { error: string }>;
+  /** A new member from a snapshot exported here or in another environment. */
+  importMember: (input: { snapshot: unknown; orgName?: string; asOf?: 'end-of-e2' | 'as-is' }) => Promise<{ member: CohortMember } | { error: string }>;
 }
 
 export function useCohort(): UseCohortResult {
@@ -320,10 +324,31 @@ export function useCohort(): UseCohortResult {
     }
   }, [fetchCohort]);
 
+  const cloneMember: UseCohortResult['cloneMember'] = useCallback(async (memberId, opts) => {
+    const r = await fetch(`/api/cohort/${slugRef.current}/member/${memberId}/clone`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(opts ?? {}),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) return { error: body?.error || `HTTP ${r.status}` };
+    await refresh();
+    return { member: body.member };
+  }, [refresh]);
+
+  const importMember: UseCohortResult['importMember'] = useCallback(async (input) => {
+    const r = await fetch(`/api/cohort/${slugRef.current}/members/import`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) return { error: body?.error || `HTTP ${r.status}` };
+    await refresh();
+    return { member: body.member };
+  }, [refresh]);
+
   return {
     loading, cohort, members, isAdmin, allCohorts,
     refresh, refreshAllCohorts, switchCohort, provisionCohort, openWorkshopPhase,
     resetCohort, resetMember, removeMember, invite, unlockPhase, closeWorkshopPhase, saveWorkshops, saveLanguage, deleteCohort,
     projects, refreshProjects, createProject, updateProject, deleteProject,
+    cloneMember, importMember,
   };
 }

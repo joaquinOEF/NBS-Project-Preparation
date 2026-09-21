@@ -58,6 +58,7 @@ import {
   ProvisionCohortDialog,
   CreateProjectDialog,
   ProjectDeleteConfirmDialog,
+  ImportOrgDialog,
   type BulkInviteResult,
   type ShareLinkContext,
 } from '@/core/components/orchestrator/CohortDialogs';
@@ -1462,7 +1463,9 @@ export default function OrchestratorLandingPage() {
     invite, unlockPhase, openWorkshopPhase, closeWorkshopPhase, saveWorkshops, resetCohort, resetMember, removeMember, saveLanguage, deleteCohort,
     switchCohort, provisionCohort, refresh,
     projects: cohortProjects, createProject, updateProject, deleteProject,
+    cloneMember, importMember,
   } = useCohort();
+  const [importOrgOpen, setImportOrgOpen] = useState(false);
 
   // Organizações | Projetos. The choice rides in the URL (?view=projects) for
   // the same reason the cohort does: a reload must land where the coordinator
@@ -1801,6 +1804,25 @@ export default function OrchestratorLandingPage() {
 
   const workshops: WorkshopConfig[] = cohort?.settings?.workshops ?? [];
 
+  // ── Test copies (docs/test-orgs.md) ───────────────────────────────────────
+  // A copy of a real record, landed at the end of Encontro 2, with its own
+  // link — so Encontro 3 is tried on what an organisation actually said.
+  const handleCloneTest = async (m: FilesDrawerMember) => {
+    const r = await cloneMember(m.id, { asOf: 'end-of-e2' });
+    if ('error' in r) {
+      toast({ title: t('orchestrator.importOrg.failed', { defaultValue: 'Could not create the copy' }), description: r.error, variant: 'destructive' });
+      return;
+    }
+    setFilesMember(null);
+    openShare(memberInviteUrl(r.member), { kind: 'cbo', orgName: r.member.orgName });
+  };
+  const handleImportOrg = async (input: { snapshot: unknown; orgName?: string; asOf: 'end-of-e2' | 'as-is' }) => {
+    const r = await importMember(input);
+    if ('error' in r) return r.error;
+    openShare(memberInviteUrl(r.member), { kind: 'cbo', orgName: r.member.orgName });
+    return null;
+  };
+
   // ── Projects ──────────────────────────────────────────────────────────────
   const openCreateProject = (initial?: { title?: string; memberIds?: string[] } | null) => {
     setCreateProjectInitial(initial ?? null);
@@ -1909,6 +1931,7 @@ export default function OrchestratorLandingPage() {
         cohortLanguage={cohortLanguage}
         initialTab={filesTab}
         onClose={() => setFilesMember(null)}
+        onCloneTest={handleCloneTest}
       />
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
@@ -2031,6 +2054,13 @@ export default function OrchestratorLandingPage() {
                   {t('orchestrator.cohort.new', { defaultValue: 'New cohort' })}
                 </Button>
               )}
+              <Button
+                size="sm" variant="outline" onClick={() => setImportOrgOpen(true)} data-testid="button-import-org"
+                title={t('orchestrator.importOrg.tooltip', { defaultValue: 'Create a test organisation from a snapshot of a real one' })}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1.5" />
+                {t('orchestrator.importOrg.button', { defaultValue: 'Import org' })}
+              </Button>
               <Button size="sm" onClick={handleInviteOpen} data-testid="button-invite-cbo">
                 <Plus className="w-3.5 h-3.5 mr-1.5" />
                 {t('orchestrator.cohort.invite', { defaultValue: 'Invite CBO' })}
@@ -2309,6 +2339,7 @@ export default function OrchestratorLandingPage() {
       </main>
 
       {/* Cohort flow dialogs */}
+      <ImportOrgDialog open={importOrgOpen} onOpenChange={setImportOrgOpen} onSubmit={handleImportOrg} />
       <CreateProjectDialog
         open={createProjectOpen}
         onOpenChange={setCreateProjectOpen}

@@ -173,6 +173,19 @@
       "linkTitle": "Project link",
       "linkDesc": "Share this one link with every organisation in {{title}}. They all land in the same conversation, which opens on what each of them already told us.",
       "note": "Summary (PDF)"
+    },
+    "importOrg": {
+      "title": "Import an organisation",
+      "desc": "Paste a snapshot (the JSON from \"snapshot\" on an organisation, here or in another environment). A NEW organisation is created from it, with its own link. The original is never touched, contact details do not travel, and the copy stays out of the synergy analysis.",
+      "preview": "{{name}} · {{fields}} answers · {{messages}} messages · {{docs}} documents",
+      "name": "Name for the copy (optional)",
+      "asOf": "Where the copy starts",
+      "endOfE2": "End of Encontro 2",
+      "asIs": "As it is",
+      "submit": "Create the copy",
+      "failed": "Could not create the copy",
+      "tooltip": "Create a test organisation from a snapshot of a real one",
+      "button": "Import org"
     }
   },
   "citySelection": {
@@ -2039,6 +2052,8 @@
     "docConceptNote": "Project summary",
     "docConceptNoteHint": "For the coordination — the basis for preparing a proposal",
     "docRoadmap": "Route",
-    "docRoadmapHint": "The road ahead, with owners"
+    "docRoadmapHint": "The road ahead, with owners",
+    "cloneTest": "Test copy",
+    "cloneTestHint": "Create a test copy of this organisation as it stood at the end of Encontro 2. The original is not touched."
   }
 }
