@@ -1650,7 +1650,15 @@ export default function OrchestratorLandingPage() {
   const openCbo = (p: CboDemoProject, tab: CboDrawerTab) => {
     const member = memberById.get(p.id);
     const inviteUrl = member ? memberInviteUrl(member) : '';
-    setFilesMember({ id: p.id, orgName: p.name[locale], inviteUrl });
+    setFilesMember({
+      id: p.id, orgName: p.name[locale], inviteUrl,
+      // What the drawer shows under the name — and, for Documentos, the tested
+      // solutions: without `w3` the per-scenario links never rendered at all.
+      neighborhood: p.neighborhood || undefined,
+      encontro: (['who', 'where', 'building', 'impact', 'operations', 'needs', 'results'] as const).indexOf(p.currentPhase) + 1 || undefined,
+      isTest: p.excludeFromPortfolio,
+      w3: { testedIds: ((p.w3 as any)?.testedIds ?? []) as string[] },
+    });
     setFilesTab(tab);
   };
 

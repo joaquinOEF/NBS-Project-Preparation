@@ -53,12 +53,14 @@ export function CboInviteView({
         <ExternalLink className="w-3 h-3 opacity-70" />
       </a>
 
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="outline" onClick={() => copy(url, setCopiedLink)} data-testid="button-copy-link">
+      {/* Side by side when they fit; one under the other on a narrow phone, where
+          "Copiar mensagem" used to run into the edge of the drawer. */}
+      <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+        <Button variant="outline" className="min-w-0" onClick={() => copy(url, setCopiedLink)} data-testid="button-copy-link">
           {copiedLink ? <Check className="w-3.5 h-3.5 mr-1.5" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
           {copiedLink ? t('common.copied', { defaultValue: 'Copied!' }) : t('orchestrator.cohort.copyLink', { defaultValue: 'Copy link' })}
         </Button>
-        <Button variant="outline" onClick={() => copy(message, setCopiedMessage)} data-testid="button-copy-message">
+        <Button variant="outline" className="min-w-0" onClick={() => copy(message, setCopiedMessage)} data-testid="button-copy-message">
           {copiedMessage ? <Check className="w-3.5 h-3.5 mr-1.5" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
           {copiedMessage ? t('common.copied', { defaultValue: 'Copied!' }) : t('orchestrator.cohort.copyMessage', { defaultValue: 'Copy message' })}
         </Button>

@@ -2283,7 +2283,10 @@
     "cloneTest": "Cópia de teste",
     "cloneTestHint": "Cria uma cópia de teste desta organização como ela estava no fim do Encontro 2. A original não é tocada.",
     "profile": "Perfil (PDF)",
-    "profileHint": "Uma página pronta para imprimir com tudo o que esta organização compartilhou até agora"
+    "profileHint": "Uma página pronta para imprimir com tudo o que esta organização compartilhou até agora",
+    "encontroN": "Encontro {{n}}",
+    "testBadge": "Cópia de teste — fora do portfólio",
+    "actions": "Ações"
   },
   "notFound": {
     "title": "Página não encontrada",
