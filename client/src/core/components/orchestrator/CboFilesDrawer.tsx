@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ExternalLink, RefreshCw, Download, CopyPlus } from 'lucide-react';
+import { ExternalLink, RefreshCw, Download, CopyPlus, FileText } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/core/components/ui/sheet';
@@ -97,6 +97,21 @@ export function CboFilesDrawer({
                 <span className="text-[11px] font-medium">
                   {t('cboView.export', { defaultValue: 'Export' })}
                 </span>
+              </a>
+            </Button>
+            {/* The profile — everything the organisation has shared so far, laid
+                out for a person: printed for a convening, carried on a visit,
+                handed to the organisation (shared/org-profile.ts). */}
+            <Button asChild variant="ghost" size="sm" className="shrink-0 h-7 px-2 gap-1">
+              <a
+                href={`/api/cohort/${cohortSlug}/member/${member?.id}/profile/print`}
+                target="_blank"
+                rel="noreferrer"
+                title={t('cboView.profileHint', { defaultValue: 'A print-ready page with everything this organisation has shared so far' }) as string}
+                data-testid="cbo-drawer-profile"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span className="text-[11px] font-medium">{t('cboView.profile', { defaultValue: 'Profile (PDF)' })}</span>
               </a>
             </Button>
             {/* A test copy, as the organisation stood when Encontro 2 closed —

@@ -29,6 +29,8 @@ import { renderProjectBriefHtml } from '../services/projectBriefPrint';
 import { renderProjectNoteHtml } from '../services/projectNotePrint';
 import { buildSnapshot, parseSnapshot, trimToEndOfE2, stripContacts, describeSnapshot, type StateSnapshot, type AsOf } from '@shared/state-snapshot';
 import { createDocument } from '../services/documentPersistence';
+import { buildOrgProfile } from '@shared/org-profile';
+import { renderOrgProfilesHtml } from '../services/orgProfilePrint';
 import { addCboMessage, flushNow } from '../services/cboAgent';
 import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } from '../services/orgPersistence';
 import { cboStates } from '@shared/cbo-db-schema';
@@ -1190,6 +1192,67 @@ export function registerCohortRoutes(app: Express): void {
       unlockedPhases,
     }).returning();
     res.json({ member });
+  }));
+
+  // ═══ PROFILE — everything an organisation has shared, for a person ═════════
+  // (shared/org-profile.ts). One organisation, or the whole cohort with a page
+  // break between them — which is what gets printed before a convening.
+  async function profileOf(member: typeof cohortMembers.$inferSelect, lang: 'pt' | 'en') {
+    let state: CboState | null = null;
+    if (member.cboStateId) state = getCboState(member.cboStateId) ?? (await loadCboFromDb(member.cboStateId).catch(() => null))?.state ?? null;
+    const rows = await listDocumentsForScope({ orgId: member.orgId, cboStateId: member.cboStateId }).catch(() => []);
+    return buildOrgProfile({
+      orgName: member.orgName,
+      neighborhood: member.neighborhood,
+      state,
+      lang,
+      docs: rows.map((d: any) => ({ id: d.id, filename: d.filename, kind: d.kind, summary: d.summary, hasOriginal: !!d.storageKey })),
+    });
+  }
+  const profileLang = (req: Request, cohort: any): 'pt' | 'en' =>
+    req.query.lang === 'en' ? 'en' : req.query.lang === 'pt' ? 'pt' : ((cohort?.settings as CohortSettings | null)?.language === 'en' ? 'en' : 'pt');
+
+  // ⚠️ …/member/:id/profile is the drawer's Perfil tab (JSON). The printed page is its own path.
+  app.get('/api/cohort/:coordinatorSlug/member/:memberId/profile/print', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).send('Not found'); return; }
+    const cohort = (req as any).cohort;
+    const lang = profileLang(req, cohort);
+    const profile = await profileOf(member, lang);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(renderOrgProfilesHtml([profile], [{
+      cohortName: cohort?.name ?? null,
+      photoUrl: id => `/api/cohort/${req.params.coordinatorSlug}/member/${member.id}/documents/${id}/file`,
+    }], lang));
+  }));
+
+  // Every organisation on the roster, one per page — "baixar todos".
+  app.get('/api/cohort/:coordinatorSlug/profiles', wrap(async (req, res) => {
+    const cohort = (req as any).cohort;
+    const lang = profileLang(req, cohort);
+    const members = await db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohort.id));
+    members.sort((a, b) => a.orgName.localeCompare(b.orgName, 'pt-BR'));
+    const profiles = [];
+    const opts = [];
+    for (const m of members) {
+      profiles.push(await profileOf(m, lang));
+      opts.push({ cohortName: cohort?.name ?? null, photoUrl: (id: string) => `/api/cohort/${req.params.coordinatorSlug}/member/${m.id}/documents/${id}/file` });
+    }
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(renderOrgProfilesHtml(profiles, opts.length ? opts : [{ cohortName: cohort?.name ?? null, photoUrl: () => '' }], lang));
+  }));
+
+  // A document's original bytes, for the coordinator — the profile's photographs.
+  app.get('/api/cohort/:coordinatorSlug/member/:memberId/documents/:docId/file', wrap(async (req, res) => {
+    const member = await memberInCohort(req);
+    if (!member) { res.status(404).send('Not found'); return; }
+    const doc = await getDocumentForScope(req.params.docId, { orgId: member.orgId, cboStateId: member.cboStateId });
+    if (!doc?.storageKey) { res.status(404).send('Not found'); return; }
+    const bytes = await getObject(doc.storageKey).catch(() => null);
+    if (!bytes) { res.status(404).send('Not found'); return; }
+    res.setHeader('Content-Type', doc.mimeType || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.send(bytes);
   }));
 
   // ═══ SNAPSHOTS — an organisation's record, portable (docs/test-orgs.md) ════

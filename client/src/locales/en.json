@@ -186,6 +186,10 @@
       "failed": "Could not create the copy",
       "tooltip": "Create a test organisation from a snapshot of a real one",
       "button": "Import org"
+    },
+    "profiles": {
+      "all": "All profiles (PDF)",
+      "allHint": "One print-ready page per organisation, with everything each has shared so far"
     }
   },
   "citySelection": {
@@ -2054,6 +2058,8 @@
     "docRoadmap": "Route",
     "docRoadmapHint": "The road ahead, with owners",
     "cloneTest": "Test copy",
-    "cloneTestHint": "Create a test copy of this organisation as it stood at the end of Encontro 2. The original is not touched."
+    "cloneTestHint": "Create a test copy of this organisation as it stood at the end of Encontro 2. The original is not touched.",
+    "profile": "Profile (PDF)",
+    "profileHint": "A print-ready page with everything this organisation has shared so far"
   }
 }
