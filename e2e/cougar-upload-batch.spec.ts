@@ -125,6 +125,42 @@ test.describe('Encontro 3 — the door, with several files at once', () => {
     await expect(thread.getByText(/\(\d de \d\)/)).toHaveCount(0);
   });
 
+  // Drag-and-drop was a SECOND uploader (useFileDrop), with older wording and no
+  // idea where a file sat in its drop — so the fix for the picker left a drop of
+  // seven files asking "Tem mais algum?" seven times (staging, same afternoon).
+  test('dropped files take the same path as picked ones: named acks, one question', async ({ page, request }) => {
+    const api = new TestApi(request);
+    test.skip(!(await api.ping()).fakeModel, 'needs the fake model env (for seeding)');
+    await page.goto('/cbo-profile');
+    const marker = page.getByTestId('cbo-stream-status');
+    await expect(marker).toHaveAttribute('data-cbo-id', /.+/, { timeout: 30_000 });
+    const cboId = (await marker.getAttribute('data-cbo-id'))!;
+    await api.seedState(cboId, { phase: 3, language: 'pt', sections: W2_STATE });
+    const chip = (label: string) => page.locator(`[data-testid^="cbo-option-"][data-option-label="${label}"]`);
+    const thread = page.getByTestId('cbo-chat-thread');
+    const input = page.getByTestId('cbo-chat-input');
+    await input.fill('Vamos começar o Encontro 3.');
+    await input.press('Enter');
+    await chip('É isso ✓').click();
+    await expect(chip('Já mandamos tudo')).toBeVisible({ timeout: 15_000 });
+
+    const dt = await page.evaluateHandle(() => {
+      const d = new DataTransfer();
+      d.items.add(new File(['Relatório da visita: infiltração 4 mm/h.'], '01-visita.txt', { type: 'text/plain' }));
+      d.items.add(new File(['Ata: contrapartida de R$ 8.200.'], '02-ata.txt', { type: 'text/plain' }));
+      d.items.add(new File(['Obra só em janeiro.'], '03-observacoes.txt', { type: 'text/plain' }));
+      return d;
+    });
+    await page.dispatchEvent('[data-testid="cbo-drop-zone"]', 'drop', { dataTransfer: dt });
+
+    await expect(thread.getByText('(1 de 3)', { exact: false })).toBeVisible({ timeout: 30_000 });
+    await expect(thread.getByText('(3 de 3)', { exact: false })).toBeVisible({ timeout: 30_000 });
+    await expect(thread.getByText('Agora são 3 arquivos aqui', { exact: false })).toBeVisible({ timeout: 15_000 });
+    await expect(thread.getByText('Tem mais algum pra mandar?')).toHaveCount(1);
+    await expect(chip('Pronto, pode seguir')).toHaveCount(1);
+    await expect(page.getByText(/Pergunta \d de \d/)).toHaveCount(0);
+  });
+
   // ⚠️ THE DEAD END JVP HIT ON STAGING (2026-09-21). Seven files stacked the
   // same question twice; one tap posted "Pronto, pode seguir; Pronto, pode
   // seguir"; the door did not recognise it; the model took the turn, extracted

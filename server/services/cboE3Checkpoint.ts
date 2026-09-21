@@ -35,7 +35,7 @@ import { buildDossier, portfolioState, type W3Input } from '@shared/w3-dossier';
 import { buildRoadmap, type RoadmapObservation } from '@shared/w3-roadmap';
 import { eligibleQuestions, getW3Question, type QuestionContext } from '@shared/w3-questions';
 import type { W3Advice } from './w3Advisor';
-import { mergeShortlist, topShortlist } from '@shared/w3-solutions';
+import { mergeShortlist, topShortlist, visibleShelf } from '@shared/w3-solutions';
 import { budgetLineFor, roundAreaM2, SOLUTION_COSTS, type BuildModel } from '@shared/w3-sizing';
 import { NBS_SCALE_HONESTY } from '@shared/nbs-performance';
 import {
@@ -598,9 +598,10 @@ export async function serveE3Checkpoint(
     // no test did, because every scripted organisation politely picked a
     // different second solution.
     const already = testedIds(ensureTests());
-    const entries = mergeShortlist(base, fresh?.shortlist ?? [], isPt ? 'pt' : 'en')
-      .filter(e => !already.includes(e.solution.id))
-      .slice(0, 4);
+    const entries = visibleShelf(
+      mergeShortlist(base, fresh?.shortlist ?? [], isPt ? 'pt' : 'en').filter(e => !already.includes(e.solution.id)),
+      4,
+    );
     if (!entries.length) return await showComparison();
     // ⚠️ Say the shared half ONCE. Every card used to open with the same eight
     // words — "Responde ao que vocês contaram — pra água que junta e não escoa"
@@ -610,7 +611,21 @@ export async function serveE3Checkpoint(
     const shared = entries.length > 1 && entries.every(e => e.whyPt === entries[0].whyPt)
       ? (isPt ? entries[0].whyPluralPt : entries[0].whyPluralEn)
       : null;
-    say(
+    // A mixed shelf says which is which: the ones that answer what they said
+    // weighs most, by name, and where the others come from. Without this the
+    // room hears "sol forte é o que o projeto enfrenta" and then reads a list
+    // it cannot connect to that sentence.
+    const focusId = namedWorries().find(w => w !== 'other') ?? null;
+    const several = namedWorries().length > 1;
+    const focusSub = focusId ? WORRY_SUBTYPES.find(w => w.id === focusId) : null;
+    const forFocus = entries.filter(e => e.answersFocus);
+    if (focusSub && forFocus.length && forFocus.length < entries.length) {
+      const names = (l: 'pt' | 'en') => forFocus.map(e => `**${e.solution[l].label}**`).join(l === 'pt' ? ' e ' : ' and ');
+      say(
+        `${several ? 'Vocês disseram que o que pesa mais é' : 'O que preocupa vocês nesse lugar é'} **${focusSub.dPt.toLowerCase()}** — ${names('pt')} ${forFocus.length === 1 ? 'responde' : 'respondem'} a isso. As outras vêm dos grupos que vocês marcaram no Encontro 2. Não é uma lista fechada: **nada fica descartado**, e dá pra ver as 27 quando quiser.`,
+        `${several ? 'You said what weighs most is' : 'What worries you about this place is'} **${focusSub.dEn.toLowerCase()}** — ${names('en')} ${forFocus.length === 1 ? 'answers' : 'answer'} that. The others come from the grupos you marked in Encontro 2. It is not a closed list: **nothing is ruled out**, and you can see all 27 whenever you like.`,
+      );
+    } else say(
       shared
         ? `Os grupos que vocês marcaram viram isto aqui. **Todas ${shared}** — o que muda entre elas é o que cada uma exige. Não é uma lista fechada: **nada fica descartado**, e dá pra ver as 27 quando quiser.`
         : 'Os grupos que vocês marcaram viram isto aqui. Não é uma lista fechada — **nada fica descartado**, e dá pra ver as 27 quando quiser.',
