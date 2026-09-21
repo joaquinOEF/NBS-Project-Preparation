@@ -202,7 +202,37 @@ question has a handler…). A violation prints the shortest seeded repro.
 `cboE3Checkpoint.ts`. The sweep and the full simulation walk the path its author
 expects; the fuzzer walks the ones nobody expects. Both are needed.
 
-**Not covered yet:** `serveE2Checkpoint` is not wrapped in the contract.
+**Encontro 2 is behind it too (21 September 2026).** Its checkpoint had the flaw
+written into it — `if (turnKind !== 'chip') return false` — so every answer
+typed or dictated went to the model. Wrapping it taught three things, now part
+of the contract for every encontro:
+
+- **Never a trap.** Asking again is right once. The same unhandled answer TWICE
+  in a row means the question cannot be answered in this state; the record is
+  cleared and the turn is released to the model, logged as the bug it is
+  (`withPendingQuestion`).
+- **The model's questions are on record too — as hand-offs** (`recordingPush`).
+  Otherwise the record still held the last TEMPLATED question while a different
+  one was on screen, and an answer to the model's "Seguimos?" that spelled an
+  old option came back as "essa resposta não entrou". ⚠️ The SDK's tools emit
+  through the push REGISTRY, not the function argument, so the recorder is what
+  the registry holds for the model turn.
+- **State-gated handlers need a resume.** Every E2 handler is gated on where the
+  RECORD says the flow is; a question can be on screen from another state (a
+  return, a replayed map result, an old bubble) and then its chips match
+  nothing. `resumeE2()` derives the first unanswered beat from the saved flags
+  and asks that — what Encontro 3 has had since it shipped. A recovery is still
+  logged to session health: each one is a handler worth writing.
+
+Chips that are the model's BY DESIGN are marked `handoff: true` where they are
+offered ("Ver exemplos", "Quero ajustar", "É outro tipo de lugar").
+
+`npm run w2:fuzz` (`scripts/w2-fuzz.ts`) is Encontro 2's fuzzer. It drives a
+RUNNING e2e dev server over HTTP — E2's checkpoint lives inside `cboAgent.ts`
+with the database and the geocoder round it — so it sees real fall-throughs to
+the (fake) model. Eight invariants; 16 walks run inside the e2e gate
+(`e2e/e2-answer-contract.spec.ts`), 500 were clean on three seeds when it
+shipped.
 
 ---
 

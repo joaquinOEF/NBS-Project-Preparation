@@ -131,6 +131,9 @@ npm run test:e2e:report    # open the HTML report (videos + traces)
 # Encontro 3 harnesses (in-process, no dev server, no DB):
 npm run w3:sweep           # 27 solutions × 2 paths, the polite walk
 npm run w3:fuzz            # hostile-room fuzzer, 12 invariants — docs/cbo-flow-building-guide.md §11
+
+# Encontro 2's fuzzer drives a RUNNING e2e dev server over HTTP (fake model + test routes):
+npm run w2:fuzz            # W2_FUZZ_WALKS=300 W2_FUZZ_SEED=7 W2_FUZZ_VERBOSE=1 for a longer, louder run
 npm run w3:fullsim         # personas as policies, end to end; prints the PDFs and reads them back
 
 # One-command "test it and share the video": sets up a throwaway Postgres DB,

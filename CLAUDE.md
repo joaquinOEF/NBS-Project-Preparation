@@ -197,6 +197,10 @@ option NEVER goes to the model; unhandled, it logs `[answer-unhandled]` and the
 question is asked again. A return re-emits the same question. After touching
 `cboE3Checkpoint.ts` run `npm run w3:fuzz` (hostile-room fuzzer, 12 invariants,
 seeded repros) as well as `w3:sweep` — the sweep only walks the polite path.
+Encontro 2 is behind the same contract; after touching `serveE2Inner` run
+`npm run w2:fuzz` against the e2e dev server (it drives real sessions over HTTP).
+A chip the model owns by design is offered with `handoff: true`; a new E2 beat
+must be reachable from `resumeE2()`.
 
 ### ⚠️ A file is data; a quiet incident is seen — `shared/untrusted-content.ts`, `shared/session-health.ts`
 Uploaded text can inform, never instruct. Three layers: `neutraliseInjected`

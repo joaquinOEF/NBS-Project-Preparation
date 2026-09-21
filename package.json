@@ -15,6 +15,7 @@
     "w3:sweep": "tsx scripts/w3-sweep.ts",
     "w3:fullsim": "tsx scripts/w3-fullsim.ts",
     "w3:fuzz": "tsx scripts/w3-fuzz.ts",
+    "w2:fuzz": "tsx scripts/w2-fuzz.ts",
     "osm:refresh": "tsx scripts/refresh-osm-snapshots.ts",
     "official-risk:refresh": "tsx scripts/refresh-official-risk.ts",
     "format": "prettier --write .",

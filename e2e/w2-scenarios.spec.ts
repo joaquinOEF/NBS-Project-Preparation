@@ -105,6 +105,36 @@ async function pickZone(page: any) {
 }
 
 /** Chat up to the bairro confirmation — identical in all three roteiros. */
+/**
+ * After a hazard-check answer the flow offers EITHER another check or the
+ * recommendation card, and which one depends on the bairro's data.
+ *
+ * ⚠️ This used to be `if (await chip.isVisible()) tap()` — a check with no wait,
+ * evaluated the instant the previous tap returned. When the next question had
+ * not rendered yet it skipped the tap, the card never came, and the scenario
+ * failed about one run in four (it was in every "flaky under load" list). The
+ * wait is on what the SERVER says is on screen: the pending-question record
+ * changes when the next question is asked — a check, or the card's own.
+ */
+async function answerChecksUntilReco(c: Ctx, label: string, tap: (l: string) => Promise<void> = c.tap) {
+  const fieldsOf = async () => {
+    const j = await (await c.request.get(`/api/cbo/${c.cboId}`)).json();
+    return ((j.state ?? j).sections?.intervention_site?.fields ?? {}) as Record<string, { value?: string }>;
+  };
+  for (let i = 0; i < 4; i++) {
+    const before = (await fieldsOf())._pending_asks_json?.value ?? '';
+    if (!before.includes(label)) break;          // no check on screen: the card is next
+    await tap(label);
+    // ⚠️ Only the record of the question on screen. `_check_done` flips in the
+    // MIDDLE of the turn that builds the recommendation (the ranking takes a few
+    // seconds), before that turn has asked anything — waiting on it moved on too
+    // early and tapped a chip that was already gone.
+    await expect.poll(async () => ((await fieldsOf())._pending_asks_json?.value ?? '') !== before,
+      { timeout: 30_000, intervals: [200, 300, 500] }).toBe(true);
+  }
+  await expect(c.page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 25_000 });
+}
+
 async function toBairro(c: Ctx) {
   await c.type('Vamos começar o Encontro 2.');
   await c.tap('Já conheço SbN — pular');
@@ -204,12 +234,10 @@ test.describe('W2 test-kit scenarios', () => {
     // Passo 12 — the correction.
     await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 25_000 });
     notes.readbackText = await page.locator('text=/Nosso mapa diz/').first().textContent().catch(() => null);
-    await c.tap('Aqui é pior');
     // Two hazard checks are possible now — see CBO-RISK-SCALE.
-    if (await c.chip('Aqui é pior').isVisible().catch(() => false)) await c.tap('Aqui é pior');
+    await answerChecksUntilReco(c, 'Aqui é pior');
 
     // Passo 13 — did the correction reach the recommendation?
-    await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 20_000 });
     notes.recoWhys = await page.locator('[data-testid^="familia-reco-"]').allTextContents();
     notes.correctionEchoed = await page.getByText('Vocês disseram', { exact: false }).count() > 0;
     notes.nothingRuledOut = await page.getByText('Nada fica descartado', { exact: false }).count() > 0;
@@ -259,11 +287,8 @@ test.describe('W2 test-kit scenarios', () => {
     // "I can't say" — twice if a second check is offered.
     await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 15_000 });
     notes.readbackText = await page.locator('text=/Nosso mapa diz/').first().textContent().catch(() => null);
-    await tapCount('Não sei dizer');
-    if (await c.chip('Não sei dizer').isVisible().catch(() => false)) await tapCount('Não sei dizer');
-    if (await c.chip('Não sei dizer').isVisible().catch(() => false)) await tapCount('Não sei dizer');
+    await answerChecksUntilReco(c, 'Não sei dizer', tapCount);
 
-    await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 20_000 });
     notes.recoWhys = await page.locator('[data-testid^="familia-reco-"]').allTextContents();
     await tapCount('Faz sentido');
     await tapCount('Estabilização de Encostas e Solo');
@@ -328,11 +353,8 @@ test.describe('W2 test-kit scenarios', () => {
     await expect(page.getByText('média do bairro', { exact: false })).toBeVisible({ timeout: 20_000 });
     notes.readbackText = await page.locator('text=/Nosso mapa diz/').first().textContent().catch(() => null);
     notes.readbackUsesDayToDay = await page.getByText('dia a dia de vocês', { exact: false }).count() > 0;
-    await c.tap('Aqui é pior');
     // Two hazard checks are possible now — see CBO-RISK-SCALE.
-    if (await c.chip('Aqui é pior').isVisible().catch(() => false)) await c.tap('Aqui é pior');
-
-    await expect(page.getByTestId('cbo-familia-reco')).toBeVisible({ timeout: 20_000 });
+    await answerChecksUntilReco(c, 'Aqui é pior');
     notes.recoWhys = await page.locator('[data-testid^="familia-reco-"]').allTextContents();
     await c.tap('Faz sentido');
     await c.tap('Infraestrutura Verde Urbana');
