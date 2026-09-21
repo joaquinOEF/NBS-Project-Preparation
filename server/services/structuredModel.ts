@@ -97,7 +97,13 @@ export async function createStructured<T>(
     .filter(m => m.role === 'user' || m.role === 'assistant')
     .map(m => ({ role: m.role, content: toAnthropicContent(m.content) }));
 
-  const res = await fetch(ANTHROPIC_URL, {
+  // ⚠️ ONE retry on a transient provider failure (429, 5xx, 529 overloaded). A
+  // one-shot pass that meets a 500 loses everything it was for — measured live
+  // on 2026-09-21, one document reading in eight: no notes, no measure, no
+  // study proposal, and a card that contradicted the visit report again. The
+  // caller's budget (passBudget) still bounds the total; this only stops a
+  // blip from costing the whole pass.
+  const post = () => fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -119,6 +125,12 @@ export async function createStructured<T>(
       tool_choice: { type: 'tool', name: schemaName },
     }),
   });
+  let res = await post();
+  if (!res.ok && (res.status === 429 || res.status >= 500)) {
+    console.warn(`[structured] ${schemaName}: provider answered ${res.status} — retrying once`);
+    await new Promise(r => setTimeout(r, 1500));
+    res = await post();
+  }
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');

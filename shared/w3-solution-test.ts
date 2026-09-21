@@ -12,7 +12,7 @@
 // Pure. Same inputs, same card; every row carries where it came from.
 // ============================================================================
 
-import { computeVerdict, studyRequirement, type Verdict, type W3Input } from './w3-dossier';
+import { computeVerdict, studyRequirement, studyAlreadyDone, type Verdict, type W3Input } from './w3-dossier';
 import { budgetLineFor, SOLUTION_COSTS, type BudgetLine, type BuildModel } from './w3-sizing';
 import { benefitFor, type BenefitLine } from './w3-benefits';
 import { scaleStatement } from './w3-scale';
@@ -22,7 +22,7 @@ import { shortlistForSite } from './w3-solutions';
 import { labelOfWorry } from './w3-dossier';
 import { approvalRequirement } from './nbs-approvals';
 import type { SolutionTest } from './w3-tests';
-import { parseDocumentNotes, notesFor, toCardNote, type CardNote } from './w3-document-notes';
+import { notesFromInput, notesFor, toCardNote, type CardNote } from './w3-document-notes';
 
 type Lang = 'pt' | 'en';
 
@@ -85,7 +85,8 @@ export function buildSolutionTest(
   const buildModel = (input.w3?.construction_model || undefined) as BuildModel | undefined;
 
   const verdict = computeVerdict(solutionId, input, lang);
-  const study = studyRequirement(solutionId);
+  const study = studyRequirement(solutionId, input.site);
+  const studyHeld = studyAlreadyDone(solutionId, input.site);
   // Who has to say yes FOR THIS ORGANISATION'S LAND — the tenure-aware read the
   // concept note already uses, one line per door. The ficha's own first
   // sentence only when the approval reader has nothing for this solution.
@@ -95,6 +96,7 @@ export function buildSolutionTest(
     : [firstSentence(pt ? ficha.pt.quemPrecisaDizerSim : ficha.en.quemPrecisaDizerSim)];
   if (appr?.instrumentPt) needs.push(pt ? appr.instrumentPt : (appr.instrumentEn ?? appr.instrumentPt));
   if (study) needs.push(pt ? `Precisa de ${study.pt}.` : `Needs ${study.en}.`);
+  if (studyHeld) needs.push(pt ? `Pede ${studyHeld.pt} — já realizado, segundo a organização${studyHeld.source ? ` (${studyHeld.source})` : ''}.` : `Asks for ${studyHeld.en} — already done, according to the organisation${studyHeld.source ? ` (${studyHeld.source})` : ''}.`);
 
   const line = budgetLineFor(solutionId, SOLUTION_COSTS[solutionId]?.basis === 'm2' ? areaM2 : undefined, units, buildModel);
   const cost = line
@@ -149,6 +151,6 @@ export function buildSolutionTest(
     // What THIS card's numbers rest on: the count for a counted solution, the
     // footprint for a measured one — never the footprint under a cistern.
     sizedBy: units ? { units } : perM2 && areaM2 ? { areaM2 } : {},
-    fromTheirFiles: notesFor(solutionId, parseDocumentNotes(input.w3?._document_notes_json)).map(n => toCardNote(n, lang)),
+    fromTheirFiles: notesFor(solutionId, notesFromInput(input)).map(n => toCardNote(n, lang)),
   };
 }

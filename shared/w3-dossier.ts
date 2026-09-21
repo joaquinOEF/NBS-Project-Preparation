@@ -156,6 +156,11 @@ export interface Verdict {
   unblockedBy: string;
   /** Where the judgement came from, so a coordinator can check it. */
   source: string;
+  /**
+   * The study this solution asks for that the place ALREADY HAS — confirmed by
+   * the organisation, never inferred. Set only when it changed the verdict.
+   */
+  studyDone?: { label: string; source: string };
 }
 
 /**
@@ -168,24 +173,52 @@ export interface Verdict {
  * example, states that the layer design and the soil infiltration test need a
  * técnico, "porque um jardim de chuva mal calculado não drena".
  */
-const STUDY_MARKERS: { re: RegExp; pt: string; en: string }[] = [
-  { re: /teste de infiltraç/i, pt: 'um teste de infiltração do solo', en: 'a soil infiltration test' },
-  { re: /(estudo|avaliaç[aã]o) geot[eé]cnic/i, pt: 'uma avaliação geotécnica', en: 'a geotechnical assessment' },
-  { re: /estudo hidrol[oó]gic/i, pt: 'um estudo hidrológico', en: 'a hydrological study' },
-  { re: /estudo hidr[aá]ulic/i, pt: 'um estudo hidráulico', en: 'a hydraulic study' },
+/**
+ * What a ficha can ask for before a design is possible.
+ *
+ * ⚠️ Only some of these can be DONE ALREADY. An infiltration test, a
+ * geotechnical assessment, a hydrological or hydraulic study and a technical
+ * report are things an organisation may hold on paper; a licensed lead (ART)
+ * and a technician for the design are people the works need while they happen,
+ * and no uploaded report stands in for them. `studies_done` may only name the
+ * first kind — see COMPLETABLE_STUDIES.
+ */
+export type StudyId = 'infiltration' | 'geotechnical' | 'hydrological' | 'hydraulic' | 'report' | 'art' | 'technical-lead' | 'technician';
+export const COMPLETABLE_STUDIES: readonly StudyId[] = ['infiltration', 'geotechnical', 'hydrological', 'hydraulic', 'report'];
+export const STUDIES_DONE_FIELD = 'studies_done';
+
+/**
+ * The studies this PLACE already has, as the organisation CONFIRMED them.
+ *
+ * JVP, 2026-09-21: the card said "precisa de um teste de infiltração" beside a
+ * note quoting the visit report's test results. The split holds — the model
+ * reads the file and PROPOSES, the organisation confirms with a chip, and only
+ * then does this function change what the verdict says. A study belongs to the
+ * place, not to a solution: one infiltration test answers every solution that
+ * asks for one.
+ */
+export function studiesDone(site: Record<string, string | undefined> | undefined): StudyId[] {
+  return String(site?.[STUDIES_DONE_FIELD] ?? '').split(',').map(x => x.trim()).filter((x): x is StudyId => (COMPLETABLE_STUDIES as readonly string[]).includes(x));
+}
+
+const STUDY_MARKERS: { id: StudyId; re: RegExp; pt: string; en: string }[] = [
+  { id: 'infiltration', re: /teste de infiltraç/i, pt: 'um teste de infiltração do solo', en: 'a soil infiltration test' },
+  { id: 'geotechnical', re: /(estudo|avaliaç[aã]o) geot[eé]cnic/i, pt: 'uma avaliação geotécnica', en: 'a geotechnical assessment' },
+  { id: 'hydrological', re: /estudo hidrol[oó]gic/i, pt: 'um estudo hidrológico', en: 'a hydrological study' },
+  { id: 'hydraulic', re: /estudo hidr[aá]ulic/i, pt: 'um estudo hidráulico', en: 'a hydraulic study' },
   // ART (Anotação de Responsabilidade Técnica) / RRT is the Brazilian
   // instrument that makes an engineer or architect legally answerable for a
   // structure. Where a ficha names it, the design is not a community decision
   // — and five fichas name it in prose my first regex set walked straight past.
-  { re: /\bART\b|\bRRT\b|\bCREA\b/, pt: 'um responsável técnico com ART', en: 'a licensed technical lead (ART)' },
-  { re: /respons[aá]vel t[eé]cnico|projeto (assinado por|de) engenheiro|engenheiro\/arquiteto/i, pt: 'um responsável técnico', en: 'a licensed technical lead' },
+  { id: 'art', re: /\bART\b|\bRRT\b|\bCREA\b/, pt: 'um responsável técnico com ART', en: 'a licensed technical lead (ART)' },
+  { id: 'technical-lead', re: /respons[aá]vel t[eé]cnico|projeto (assinado por|de) engenheiro|engenheiro\/arquiteto/i, pt: 'um responsável técnico', en: 'a licensed technical lead' },
   // "precisa de um técnico" is only one of the ways a ficha says this. Biovaletas
   // says "o cálculo de vazão e a inclinação das barreiras (para não erodir)
   // pedem um técnico" — same requirement, different verb, and the first version
   // of this list walked past it and printed "dá pra construir com o que vocês já
   // sabem" on the card.
-  { re: /(precisa|pede|pedem|exige|exigem|requer)\s+(de\s+)?(um\s+)?t[eé]cnic/i, pt: 'um técnico para o desenho', en: 'a technician for the design' },
-  { re: /projeto de engenharia|laudo/i, pt: 'um laudo técnico', en: 'a technical report' },
+  { id: 'technician', re: /(precisa|pede|pedem|exige|exigem|requer)\s+(de\s+)?(um\s+)?t[eé]cnic/i, pt: 'um técnico para o desenho', en: 'a technician for the design' },
+  { id: 'report', re: /projeto de engenharia|laudo/i, pt: 'um laudo técnico', en: 'a technical report' },
 ];
 
 // Catalog ids are in shared/cbo-field-catalog.ts · E2_TENURE. The extra
@@ -250,15 +283,15 @@ export function worryLabel(id: string, pt: boolean): string {
   return family[first] ? (pt ? family[first].pt : family[first].en) : first;
 }
 
-function studyMarkerIn(prose: string): { pt: string; en: string } | null {
+function studyMarkerIn(prose: string): { id: StudyId; pt: string; en: string } | null {
   for (const m of STUDY_MARKERS) {
     const hit = m.re.exec(prose);
     if (!hit) continue;
     const sentence = prose.slice(prose.lastIndexOf('.', hit.index) + 1, prose.indexOf('.', hit.index) + 1 || undefined);
     const conditional = /\bse (for|a |o |vai|for[ae]m)|\bcaso\b|depend/i.test(sentence);
     return conditional
-      ? { pt: `${m.pt} — a ficha diz que depende de como for feito`, en: `${m.en} — the ficha says it depends how it is built` }
-      : { pt: m.pt, en: m.en };
+      ? { id: m.id, pt: `${m.pt} — a ficha diz que depende de como for feito`, en: `${m.en} — the ficha says it depends how it is built` }
+      : { id: m.id, pt: m.pt, en: m.en };
   }
   return null;
 }
@@ -272,11 +305,15 @@ function studyMarkerIn(prose: string): { pt: string; en: string } | null {
  * verdict that says "precisa de um técnico" would be the platform contradicting
  * itself inside one session. One read, two surfaces.
  */
-export function studyRequirement(solutionId: string): { pt: string; en: string } | null {
+export function studyRequirement(
+  solutionId: string,
+  /** Pass the site record to get what is STILL needed; omit it for what the ficha asks of anyone. */
+  site?: Record<string, string | undefined>,
+): { id: StudyId; pt: string; en: string } | null {
   const ficha = getSolutionFicha(solutionId);
   if (!ficha) return null;
   const named = studyMarkerIn(`${ficha.pt.quemPrecisaDizerSim} ${ficha.pt.comoFunciona}`);
-  if (named) return named;
+  if (named) return site && studiesDone(site).includes(named.id) ? null : named;
 
   // ⚠️ The prose is where the SPECIFIC requirement is named; `delivery` is
   // where the catalogue already classified how it can be built at all, and it
@@ -293,12 +330,43 @@ export function studyRequirement(solutionId: string): { pt: string; en: string }
   // easier than the catalogue already says it is.
   const sol = getSolution(solutionId);
   if (sol?.delivery === 'licenca') {
-    return { pt: 'um responsável técnico com ART', en: 'a licensed technical lead (ART)' };
+    return { id: 'art', pt: 'um responsável técnico com ART', en: 'a licensed technical lead (ART)' };
   }
   return null;
 }
 
+/** The study this solution asks for that the place ALREADY has, or null. */
+export function studyAlreadyDone(solutionId: string, site: Record<string, string | undefined> | undefined): { id: StudyId; pt: string; en: string; source: string } | null {
+  const asked = studyRequirement(solutionId);
+  if (!asked || !studiesDone(site).includes(asked.id)) return null;
+  return { ...asked, source: String(site?.studies_done_source ?? '').trim() };
+}
+
 export function computeVerdict(
+  solutionId: string | null,
+  input: W3Input,
+  lang: 'pt' | 'en' = 'pt',
+): Verdict {
+  const v = verdictFor(solutionId, input, lang);
+  const done = solutionId && v.state !== 'needs_site' ? studyAlreadyDone(solutionId, input.site) : null;
+  if (!done) return v;
+  // ⚠️ Done is not favourable. The test existing moves the verdict past "needs
+  // a study"; what it FOUND (4 mm/h, a clay fill) is the file's to say, in the
+  // note beside the card — so the sentence sends the reader there, not home.
+  const pt = lang === 'pt';
+  const label = pt ? done.pt : done.en;
+  const from = done.source ? (pt ? ` (${done.source})` : ` (${done.source})`) : '';
+  return {
+    ...v,
+    why: pt
+      ? `${v.why} A ficha pede ${label}, e a organização confirmou que já tem${from} — o que ele mostrou entra no desenho.`
+      : `${v.why} The ficha asks for ${label}, and the organisation confirmed it already has one${from} — what it found goes into the design.`,
+    source: `${v.source} · intervention_site.studies_done`,
+    studyDone: { label, source: done.source },
+  };
+}
+
+function verdictFor(
   solutionId: string | null,
   input: W3Input,
   lang: 'pt' | 'en' = 'pt',
@@ -318,7 +386,7 @@ export function computeVerdict(
     };
   }
 
-  const marker = solutionId ? studyRequirement(solutionId) : null;
+  const marker = solutionId ? studyRequirement(solutionId, site) : null;
 
   // A technical unknown outranks a paperwork one: a permission for something
   // that cannot yet be designed would be asking for the wrong thing.
@@ -521,7 +589,7 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
     // of. The first version returned a dossier that never mentioned the
     // solution they had just spent the session choosing.
     for (const id of solutions) {
-      const marker = studyRequirement(id);
+      const marker = studyRequirement(id, site);
       if (!marker) continue;
       add({
         list: 'investigate',
@@ -555,7 +623,7 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
       .filter((b): b is BudgetLine => !!b);
     const noSiteStudies: string[] = [];
     for (const id of solutions) {
-      const req = studyRequirement(id);
+      const req = studyRequirement(id, site);
       const line = req ? studyCostLine(req.pt, pt ? 'pt' : 'en') : null;
       if (line && !noSiteStudies.includes(line)) noSiteStudies.push(line);
     }
@@ -569,7 +637,7 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
     const approve = ficha.pt.quemPrecisaDizerSim;
     const upkeep = ficha.pt.quemCuidaDepois;
 
-    const marker = studyRequirement(id);
+    const marker = studyRequirement(id, site);
     if (marker) {
       add({
         list: 'investigate',
@@ -767,7 +835,7 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
     budget.push(line);
     // ⚠️ What the works cost does not include. The study is named in the verdict
     // and on the card and was missing from the only place a funder looks for it.
-    const req = studyRequirement(id);
+    const req = studyRequirement(id, site);
     const studyLine = req ? studyCostLine(req.pt, pt ? 'pt' : 'en') : null;
     if (studyLine && !studies.includes(studyLine)) studies.push(studyLine);
     // Naming the missing half is the point: "no cost band" is not actionable,

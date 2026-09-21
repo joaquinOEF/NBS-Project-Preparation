@@ -179,7 +179,7 @@ export function shortlistForSite(input: ShortlistInput, lang: 'pt' | 'en' = 'pt'
           ? 'It is in the grupo you marked in Encontro 2'
           : 'From the full catalogue — nothing is ruled out',
     };
-    const study = studyRequirement(s.id);
+    const study = studyRequirement(s.id, site); // what is STILL needed — a confirmed study is not
     const cost = { pt: `custo ${s.costBand}`, en: `${s.costBand === 'baixo' ? 'low' : s.costBand === 'medio' ? 'medium' : 'high'} cost` };
     const effort = study
       ? { pt: `precisa de ${study.pt}`, en: `needs ${study.en}` }

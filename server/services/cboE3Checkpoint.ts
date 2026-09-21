@@ -31,6 +31,8 @@
 import { isUploadNotice, moreUploadsComing, uploadBatchOf, uploadedFilename } from '@shared/cbo-upload-notices';
 import { collapseRepeatedAnswer } from '@shared/cbo-chip-answers';
 import { withPendingQuestion, reemitPending } from './pendingQuestion';
+import { parseDocumentNotes, parseDocumentMeasures, studyProposal, DOCUMENT_NOTES_FIELD, CONVERSATION_SOURCE, type DocumentMeasure } from '@shared/w3-document-notes';
+import { studyRequirement as studyStillNeeded, studiesDone, COMPLETABLE_STUDIES, STUDIES_DONE_FIELD } from '@shared/w3-dossier';
 import { PENDING_FIELD, parsePending } from '@shared/pending-question';
 import type { CboState } from '@shared/cbo-schema';
 import { buildDossier, portfolioState, type W3Input } from '@shared/w3-dossier';
@@ -142,6 +144,8 @@ const E3C = {
   naoSeiTamanho: { pt: 'Ainda não sei o tamanho', en: "I don't know the size yet" },
   naoSeiQuantas: { pt: 'Ainda não sei quantas', en: "I don't know how many yet" },
   areaConfere: { pt: 'Confere ✓', en: 'That is right ✓' },
+  estudoFeito: { pt: 'Sim, já temos esse estudo', en: 'Yes, we already have that study' },
+  estudoFalta: { pt: 'Ainda não temos', en: 'We do not have it yet' },
   redesenhar: { pt: 'Quero desenhar de novo', en: 'I want to draw it again' },
   pular: { pt: 'Prefiro pular', en: "I'd rather skip" },
   verDossie: { pt: 'Ver o resumo do projeto', en: 'See the project summary' },
@@ -768,6 +772,31 @@ async function serveE3Inner(
    * corredores verdes (priced per planted tree) was sent to trace a footprint
    * that buys nothing.
    */
+  // ── A size their own material states ────────────────────────────────────
+  // The document reader proposes the PASSAGE ("faixa de terra de 12 × 8 m");
+  // the area is computed from it (parseSpokenArea) and it becomes the project's
+  // size only when they tap it. An organisation that sent a measured sketch is
+  // otherwise asked "how big?" as though it had sent nothing — or gets a
+  // rain garden priced over the whole 836 m² patio it drew in Encontro 2.
+  const liveMeasures = (): DocumentMeasure[] => parseDocumentMeasures(type(DOCUMENT_NOTES_FIELD));
+  const measureChip = (m: DocumentMeasure) => ({
+    pt: `Usar ${m.m2.toLocaleString('pt-BR')} m² — ${m.labelPt}`,
+    en: `Use ${m.m2.toLocaleString('en-US')} m² — ${m.labelEn}`,
+    dPt: `"${m.quote.slice(0, 60)}" · ${m.sourceFilename}`,
+    dEn: `"${m.quote.slice(0, 60)}" · ${m.sourceFilename}`,
+  });
+  /** Said before the size question when their material carries a measure that differs from what is on record. */
+  const offerMeasures = (): ReturnType<typeof measureChip>[] => {
+    const current = Number(site('site_area_m2')) || 0;
+    const ms = liveMeasures().filter(m => m.m2 !== current);
+    if (!ms.length) return [];
+    say(
+      `No que vocês mandaram aparece uma medida do espaço: ${ms.map(m => `**${m.labelPt} — ${m.m2.toLocaleString('pt-BR')} m²** (${m.sourceFilename})`).join('; ')}. Se é aí que o projeto vai, dá pra usar esse tamanho.`,
+      `What you sent carries a measure of the space: ${ms.map(m => `**${m.labelEn} — ${m.m2.toLocaleString('en-US')} m²** (${m.sourceFilename})`).join('; ')}. If that is where the project goes, that size can be used.`,
+    );
+    return ms.map(measureChip);
+  };
+
   const askArea = async (solutionId?: string): Promise<true> => {
     const id = solutionId ?? openTest() ?? chosen[0];
     const line = id ? budgetLineFor(id) : null;
@@ -794,8 +823,10 @@ async function serveE3Inner(
         `Vocês já desenharam **${areaM2} m²** no mapa no Encontro 2.`,
         `You already drew **${areaM2} m²** on the map back in Encontro 2.`,
       );
+      const fromFiles = offerMeasures();
       ask('Ainda é esse o tamanho?', 'Is that still the size?', [
         { pt: E3C.areaConfere.pt, en: E3C.areaConfere.en },
+        ...fromFiles,
         { pt: E3C.redesenhar.pt, en: E3C.redesenhar.en, dPt: 'Abre o mapa', dEn: 'Opens the map' },
         // Correcting a number should not require redrawing a shape: "não, é
         // mais pra 600" is a complete answer, and the same lane reads it.
@@ -814,7 +845,9 @@ async function serveE3Inner(
         `Sobre o tamanho: ${line ? line.notePt : 'a ficha cobra por m²'}, e pra fechar um total falta o lugar no mapa.`,
         `On size: ${line ? line.noteEn : 'the ficha prices this per m²'}, and closing a total needs the place on the map.`,
       );
+      const fromFiles = offerMeasures();
       ask('Quer marcar agora?', 'Want to mark it now?', [
+        ...fromFiles,
         { pt: E3C.marcarAgora.pt, en: E3C.marcarAgora.en, dPt: 'Abre o mapa', dEn: 'Opens the map' },
         { pt: E3C.dizerTamanho.pt, en: E3C.dizerTamanho.en, dPt: 'Ex.: "uns 30 por 20 metros"', dEn: 'e.g. "about 30 by 20 metres"', action: 'write' },
         { pt: E3C.falarTamanho.pt, en: E3C.falarTamanho.en, dPt: 'Começa a gravar agora', dEn: 'Starts recording now', action: 'record' },
@@ -827,7 +860,9 @@ async function serveE3Inner(
       'Agora o tamanho. Contorne no mapa a área onde o projeto vai — não precisa ser exato, é pra ter uma ordem de grandeza e uma faixa de preço.',
       'Now the size. Trace the area the project will cover on the map — it does not have to be exact; it is for an order of magnitude and a price range.',
     );
+    const fromFiles = offerMeasures();
     ask('Como prefere?', 'How would you like to do it?', [
+      ...fromFiles,
       { pt: E3C.desenhar.pt, en: E3C.desenhar.en, dPt: 'Abre o mapa no lugar de vocês', dEn: 'Opens the map at your place' },
       { pt: E3C.dizerTamanho.pt, en: E3C.dizerTamanho.en, dPt: 'Ex.: "uns 30 por 20 metros"', dEn: 'e.g. "about 30 by 20 metres"', action: 'write' },
       { pt: E3C.falarTamanho.pt, en: E3C.falarTamanho.en, dPt: 'Começa a gravar agora', dEn: 'Starts recording now', action: 'record' },
@@ -1069,6 +1104,31 @@ async function serveE3Inner(
         'One moment — I am finishing reading the files you sent, so the card takes what they say into account.',
       );
       await deps.awaitDocumentReader?.();
+    }
+    // ⚠️ THE MODEL PROPOSES, THEY CONFIRM, A FUNCTION DECIDES. When the ficha
+    // asks for a study a paper can hold, and something they sent or said shows
+    // it done, the card is not shown saying "precisa de um teste de
+    // infiltração" beside a quote of the test's results. Asked once per study
+    // per place; their answer is what moves the verdict (shared/w3-dossier.ts).
+    {
+      const siteRecord = { [STUDIES_DONE_FIELD]: site(STUDIES_DONE_FIELD) };
+      const asked = studyStillNeeded(solutionId, siteRecord);
+      if (asked && (COMPLETABLE_STUDIES as readonly string[]).includes(asked.id) && !type('_study_asked').split(',').includes(asked.id)) {
+        const proposal = studyProposal(parseDocumentNotes(type(DOCUMENT_NOTES_FIELD)), asked.id, solutionId);
+        if (proposal) {
+          deps.writeFields(TYPE, { _test_open: solutionId, _study_pending: `${asked.id}:${solutionId}` });
+          const fromChat = proposal.sourceFilename === CONVERSATION_SOURCE;
+          say(
+            `Esta solução pede **${asked.pt}** antes do desenho. ${fromChat ? 'Na conversa, vocês contaram' : `**${proposal.sourceFilename}**, que vocês mandaram, traz`}:\n\n> ${proposal.quote}`,
+            `This solution asks for **${asked.en}** before it can be designed. ${fromChat ? 'In the conversation, you said' : `**${proposal.sourceFilename}**, which you sent, says`}:\n\n> ${proposal.quote}`,
+          );
+          ask('Vocês já têm esse estudo?', 'Do you already have that study?', [
+            { pt: E3C.estudoFeito.pt, en: E3C.estudoFeito.en, dPt: 'O cartão passa a contar com ele', dEn: 'The card will count on it' },
+            { pt: E3C.estudoFalta.pt, en: E3C.estudoFalta.en, dPt: 'Fica como algo a providenciar', dEn: 'Stays as something to arrange' },
+          ]);
+          return finish(`ask-study-done-${asked.id}`);
+        }
+      }
     }
     const tests = ensureTests();
     const test = testOf(tests, solutionId);
@@ -1561,6 +1621,7 @@ async function serveE3Inner(
     // they saw. It is read now, and they are told where it will show.
     if (deps.startDocumentReader) {
       deps.startDocumentReader();
+      deps.startAdvisor?.(); // keyed on the set of files: the shortlist, drafts and questions get the new one too
       say(
         'Vou ler agora. O que ele disser sobre as soluções aparece nos próximos cartões e na comparação.',
         'I am reading it now. What it says about the solutions will show on the next cards and in the comparison.',
@@ -1611,6 +1672,55 @@ async function serveE3Inner(
   // the microphone and dropped the keyboard. (It did, on the first run of
   // e2e/cougar-e3-footprint-draw.spec.ts.) The beat's own chips are excluded by
   // label instead, which is what the other free-text handlers here do.
+  // ══ A size from their own material, tapped ═══════════════════════════════
+  // Above the spoken-size handler on purpose: the chip's label contains a
+  // number and "m²", and read as SPEECH it would be recorded as something they
+  // said rather than something their sketch says.
+  {
+    const n = deps.normChip(raw);
+    const picked = raw ? liveMeasures().find(m => { const c = measureChip(m); return n === deps.normChip(c.pt) || n === deps.normChip(c.en); }) : undefined;
+    if (picked) {
+      deps.writeFields(SITE, {
+        _area_pending: '', _area_asked: 'yes',
+        site_area_m2: String(picked.m2),
+        site_area_source: isPt ? `medida em ${picked.sourceFilename}: "${picked.quote.slice(0, 80)}"` : `measured in ${picked.sourceFilename}: "${picked.quote.slice(0, 80)}"`,
+      });
+      const open = openTest();
+      const line = open ? budgetLineFor(open, picked.m2, testOf(liveTests(), open)?.units || undefined, liveBuild()) : null;
+      say(
+        `Fechado: **${picked.m2.toLocaleString('pt-BR')} m²**, a medida que está em **${picked.sourceFilename}** (${picked.labelPt}).${line ? `\n\n${line.notePt}` : ''}`,
+        `Settled: **${picked.m2.toLocaleString('en-US')} m²**, the measure in **${picked.sourceFilename}** (${picked.labelEn}).${line ? `\n\n${line.noteEn}` : ''}`,
+      );
+      return await afterSize();
+    }
+  }
+
+  // ══ "Já temos esse estudo" — confirmed, and only then does a verdict move ══
+  {
+    const pendingStudy = type('_study_pending'); // '<studyId>:<solutionId>'
+    const n = deps.normChip(raw);
+    const said = (c: { pt: string; en: string }) => n === deps.normChip(c.pt) || n === deps.normChip(c.en);
+    if (pendingStudy && (said(E3C.estudoFeito) || said(E3C.estudoFalta))) {
+      const [studyId, solutionId] = pendingStudy.split(':');
+      const asked = Array.from(new Set([...type('_study_asked').split(',').filter(Boolean), studyId]));
+      deps.writeFields(TYPE, { _study_pending: '', _study_asked: asked.join(',') });
+      if (said(E3C.estudoFeito)) {
+        const proposal = studyProposal(parseDocumentNotes(type(DOCUMENT_NOTES_FIELD)), studyId, solutionId);
+        const done = Array.from(new Set([...studiesDone({ [STUDIES_DONE_FIELD]: site(STUDIES_DONE_FIELD) }), studyId]));
+        const prior = site('studies_done_source');
+        const src = proposal?.sourceFilename ?? (isPt ? 'dito pela organização' : 'stated by the organisation');
+        deps.writeFields(SITE, { [STUDIES_DONE_FIELD]: done.join(','), studies_done_source: prior && !prior.includes(src) ? `${prior}; ${src}` : src });
+        say(
+          'Anotado — o cartão já conta com esse estudo. O que ele mostrou continua valendo pro desenho.',
+          'Noted — the card now counts on that study. What it found still applies to the design.',
+        );
+      } else {
+        say('Certo — fica como algo a providenciar.', 'Right — it stays as something to arrange.');
+      }
+      return await showTestCard(solutionId || openTest());
+    }
+  }
+
   const isAreaChip = (str: string) => {
     const n = deps.normChip(str);
     return [E3C.desenhar, E3C.redesenhar, E3C.naoSeiTamanho, E3C.marcarAgora, E3C.seguirSemLugar, E3C.areaConfere, E3C.dizerTamanho, E3C.falarTamanho]

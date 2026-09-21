@@ -712,7 +712,7 @@ What changed is that the reading now has somewhere to land.
   no image captions or unreadable files as sources, and nothing quoted from a
   paragraph addressed to the machine (`quotedFromInjection` — the kit plants
   one).
-- **Where it shows:** the test card ("Nos arquivos enviados pela organização",
+- **Where it shows:** the test card ("No que a organização enviou e contou",
   the solution's own notes first, then the place), SAID in the chat before the
   reaction chips when a file argues against the solution, the comparison (a
   solution's notes in ITS prós / contras with the file as source; the place
@@ -741,6 +741,52 @@ Also caught by that audit, fixed in the same change: a forced tool use that
 returns an array **as a string** discarded the advisor's whole reading
 (`reviveStringified` in `structuredModel.ts`), and a `cohort` observation was
 invented for an organisation that was given no cohort (dropped by a guard now).
+
+### The model proposes, they confirm, a function decides (21 September 2026)
+
+Three gaps left by the section above, closed the same way.
+
+**"We already have that study."** A card could say *"precisa de um teste de
+infiltração"* beside a note quoting the test's results. Now: the reader may mark
+a note `studyDone` (only a study a paper can hold — `COMPLETABLE_STUDIES` in
+`shared/w3-dossier.ts`; a licensed lead with ART is a person the works need, not
+a document). The PLATFORM finds the sentence in their file that names the study
+(`studyEvidenceIn`) — no such sentence, no mark. Before the card, Encontro 3
+shows that sentence and asks *"Vocês já têm esse estudo?"* once per study per
+place. Only **[Sim, já temos esse estudo]** writes `intervention_site.
+studies_done`, and only that field moves anything: `studyRequirement(id, site)`
+returns what is STILL needed, so the verdict, the card's "o que precisa", the
+shelf, the dossier's study line, the Resumo ("estudo técnico já realizado…
+confirmado pela organização") and the cohort's pooled-study count all agree.
+Done is not favourable: the verdict's sentence sends the reader to what the
+study found, which stays in the note beside it.
+
+**The size their material states.** The reader returns the PASSAGE ("faixa de
+terra de aproximadamente 12 × 8 m"); the area is computed from it by
+`parseSpokenArea` — the function that reads a size said aloud — never by the
+model. A sketch's transcription counts as a source here and only here, because
+a measure is never shown as a fact: it is a chip (**Usar 96 m² — faixa de
+terra…**) on all three size questions, and it becomes `site_area_m2` (source:
+"medida em <arquivo>: …") only when tapped. This is what stops a rain garden
+being priced over the 836 m² patio drawn in Encontro 2.
+
+**What they said in the chat.** `site_notes` / `project_notes` go to the reader
+as one more source, cited as "conversa com a organização", and the reader runs
+again after any model turn that changed them. But a live audit showed the model
+citing them in two runs of three — so `notesFromInput` also places every noted
+line on the card itself, as **Dito na conversa**, unless the model already cited
+the same words. A card orders its notes own → said → place, and the cap trims
+only the last group.
+
+**Late files reach the advisor too.** The advisor is now keyed on the set of
+files (`_advice_sig`), like the reader: a file sent mid-encontro re-runs it, the
+same set never does, and a failed run does not close the question.
+
+Live-audit hardening in the same change: a quote that ran a sentence into a
+flattened table keeps the sentence that verifies (`salvageQuote`); dropped notes
+log their quote; one retry on a transient provider error (a 500 cost one whole
+reading in eight); the reader's budget re-measured at 65 s. The audit is at
+13/13 (`scripts/w3-grounding-audit.ts`).
 
 ## The printed copy, and the context that was already there
 

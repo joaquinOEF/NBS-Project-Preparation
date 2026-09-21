@@ -3666,12 +3666,22 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
     catch (err) { console.error(`[cbo] e3 reask failed for ${cboId}:`, err); }
   };
 
+  // ⚠️ What the organisation just SAID may now be a note (site_notes /
+  // project_notes), and a note is a source for the cards. Free when nothing
+  // changed — the reader is keyed on its material.
+  const readConversationIfChanged = () => {
+    if (state.metadata?.project || state.phase !== 3) return;
+    if (String((state.sections as any).intervention_type?.fields?._e3_opened?.value ?? '') !== 'yes') return;
+    void runW3DocumentReader(cboId);
+  };
+
   // Test-only deterministic seam. When CBO_FAKE_MODEL=1 (set ONLY in the
   // test/preview env, never the prod Deployment), drive the turn from a scripted
   // fake instead of the live SDK — fast, free, and reproducible. The real path
   // below is byte-for-byte untouched. See server/services/fakeCboModel.ts.
   if (isFakeModelEnabled()) {
     await streamWithFakeModel(cboId, userMessage, state, pushEvent, lang, { setCboState, countUserContentTurns });
+    readConversationIfChanged();
     await reaskE3IfSilent();
     res.end();
     return;
@@ -3681,6 +3691,7 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
 
   if (isSdkReady) {
     await streamWithSdk(cboId, userMessage, state, pushEvent, lang, turnKind);
+    readConversationIfChanged();
     await reaskE3IfSilent();
   } else {
     pushEvent({ type: 'error', message: 'Claude Agent SDK not available.' });
@@ -3701,6 +3712,9 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
  * exactly as it did before this file existed.
  */
 const advisorRuns = new Set<string>();
+/** The signature the pass in flight was started for — written beside its advice when it lands. */
+const advisorPendingSig = new Map<string, string>();
+const advisorStarting = new Set<string>();
 /** In-flight passes, so the solution beat can wait on one rather than re-running it. */
 const advisorInFlight = new Map<string, Promise<void>>();
 
@@ -3759,8 +3773,13 @@ async function runW3DocumentReader(cboId: string): Promise<void> {
     const orgId = await getOrgIdForCboState(cboId).catch(() => null);
     const docs = (await listDocumentsForScope({ cboStateId: cboId, orgId }).catch(() => []))
       .map((d: any) => ({ filename: d.filename as string, fullText: (d.fullText ?? null) as string | null }));
-    const sig = docsSignature(docs);
     const type: any = state.sections.intervention_type.fields ?? {};
+    // What the organisation SAID and the assistant noted is a source too.
+    const conversationNotes = [
+      String((state.sections as any)?.intervention_site?.fields?.site_notes?.value ?? ''),
+      String(type.project_notes?.value ?? ''),
+    ].map(x => x.trim()).filter(Boolean).join('\n');
+    const sig = docsSignature(docs, conversationNotes);
     if (!sig || String(type._document_notes_sig?.value ?? '') === sig) return; // nothing to read, or already read
     if (readerInFlight.get(cboId)?.sig === sig) return;
 
@@ -3768,8 +3787,9 @@ async function runW3DocumentReader(cboId: string): Promise<void> {
     const v = (k: string) => String(site?.[k]?.value ?? '').trim();
     const startedAt = Date.now();
     const done = (async () => {
-      const { notes, reason } = await readTheirFiles({
+      const { notes, measures, reason } = await readTheirFiles({
         docs,
+        conversationNotes,
         site: { name: v('site_name'), bairro: v('bairro'), currentUse: v('current_use'), worry: v('site_worry'), story: v('site_story') },
       });
       // A newer read (more files) may have started while this one ran — its
@@ -3782,12 +3802,12 @@ async function runW3DocumentReader(cboId: string): Promise<void> {
       const failed = !!reason && /^(timeout|error|no API key)/.test(reason);
       const field = (value: string) => ({ value, confidence: 'medium', source: 'agent', userEdited: false }) as any;
       if (!failed) {
-        fresh.sections.intervention_type.fields[DOCUMENT_NOTES_FIELD] = field(JSON.stringify({ notes }));
+        fresh.sections.intervention_type.fields[DOCUMENT_NOTES_FIELD] = field(JSON.stringify({ notes, measures }));
         fresh.sections.intervention_type.fields._document_notes_sig = field(sig);
         setCboState(cboId, fresh);
         debouncedPersist(cboId);
       }
-      console.log(`[w3-reader] ${cboId}: ${notes.length} note(s) from ${sig.split('|').length} file(s) in ${Date.now() - startedAt}ms${reason ? ` — ${reason}` : ''}`);
+      console.log(`[w3-reader] ${cboId}: ${notes.length} note(s), ${measures.length} measure(s) from ${sig.split('|').length} file(s) in ${Date.now() - startedAt}ms${reason ? ` — ${reason}` : ''}`);
       if (failed) { const st = getCboState(cboId); if (st) { recordHealth(st, 'pass-failed', `document reader: ${reason}`); setCboState(cboId, st); debouncedPersist(cboId); } }
     })().catch((err: any) => console.error(`[w3-reader] ${cboId} failed (cards unchanged):`, err?.message || err))
       .finally(() => { if (readerInFlight.get(cboId)?.sig === sig) readerInFlight.delete(cboId); });
@@ -3810,8 +3830,28 @@ async function waitForW3DocumentReader(cboId: string): Promise<void> {
   console.log(`[w3-reader] ${cboId}: a card waited ${Date.now() - t0}ms (budget ${wait}ms) — notes ${arrived ? 'READY' : 'not ready; they will be on the comparison'}`);
 }
 
+/** Every file, pictures included — the advisor LOOKS at photographs, so a new one is new material. */
+const adviceSignature = (docs: Array<{ filename: string; fullText?: string | null }>) =>
+  docs.map(d => `${d.filename}:${(d.fullText ?? '').length}`).sort().join('|') || 'no-files';
+
 async function runW3Advisor(cboId: string): Promise<void> {
-  if (advisorRuns.has(cboId)) return;
+  // ⚠️ Once per SET OF FILES, no longer once per session. It used to run when
+  // the door closed and never again, so a visit report sent ten minutes later
+  // changed the cards (the document reader re-reads) but not the shortlist, the
+  // drafts or the questions written for this organisation. Same material, no
+  // second call; a pass already in flight is the one that counts.
+  if (advisorInFlight.has(cboId)) return advisorInFlight.get(cboId);
+  if (advisorStarting.has(cboId)) return; // two triggers in one breath (door + a late file) are one pass
+  advisorStarting.add(cboId);
+  try {
+    const st = getCboState(cboId);
+    const orgId = await getOrgIdForCboState(cboId).catch(() => null);
+    const docs = await listDocumentsForScope({ cboStateId: cboId, orgId }).catch(() => []);
+    const sig = adviceSignature(docs as any);
+    if (String((st?.sections as any)?.intervention_type?.fields?._advice_sig?.value ?? '') === sig) { advisorStarting.delete(cboId); return; }
+    advisorPendingSig.set(cboId, sig);
+  } catch { /* run anyway — the pass itself fails soft */ }
+  advisorStarting.delete(cboId);
   advisorRuns.add(cboId);
   advisorStartedAt.set(cboId, Date.now());
   const done = runW3AdvisorInner(cboId).finally(() => advisorInFlight.delete(cboId));
@@ -3877,6 +3917,11 @@ async function runW3AdvisorInner(cboId: string): Promise<void> {
       source: 'agent',
       userEdited: false,
     } as any;
+    // Only a reading that actually happened closes the question for this set of
+    // files; a timeout or an error leaves it open for the next trigger.
+    if (!(reason && /^(timeout|error|no API key)/.test(reason))) {
+      fresh.sections.intervention_type.fields._advice_sig = { value: advisorPendingSig.get(cboId) ?? '', confidence: 'medium', source: 'agent', userEdited: false } as any;
+    }
     setCboState(cboId, fresh);
     debouncedPersist(cboId);
     console.log(

@@ -19,7 +19,7 @@ import { buildSolutionTest, type SolutionTestCard } from './w3-solution-test';
 import { REACTION, type SolutionTest } from './w3-tests';
 import type { W3Input } from './w3-dossier';
 import { getFamilia } from './nbs-catalog';
-import { parseDocumentNotes, placeNotes, toCardNote, STANCE_LABEL, NOTES_HEADING, type CardNote } from './w3-document-notes';
+import { notesFromInput, placeNotes, toCardNote, STANCE_LABEL, NOTES_HEADING, type CardNote } from './w3-document-notes';
 
 type Lang = 'pt' | 'en';
 
@@ -221,7 +221,7 @@ export function buildComparison(
       ...(input.site.site_area_source ? { source: input.site.site_area_source } : {}),
     },
     technicalNote: technicalNote?.trim() || null,
-    placeNotes: { heading: NOTES_HEADING[lang], notes: placeNotes(parseDocumentNotes(input.w3?._document_notes_json)).map(n => toCardNote(n, lang)) },
+    placeNotes: { heading: NOTES_HEADING[lang], notes: placeNotes(notesFromInput(input)).map(n => toCardNote(n, lang)) },
     docLabel: pt ? 'Comparação das soluções testadas' : 'Comparison of the solutions tested',
     docAudience: pt
       ? 'Para a organização e a coordenação — base para a conversa de portfólio'
