@@ -22,6 +22,7 @@ import { shortlistForSite } from './w3-solutions';
 import { labelOfWorry } from './w3-dossier';
 import { approvalRequirement } from './nbs-approvals';
 import type { SolutionTest } from './w3-tests';
+import { parseDocumentNotes, notesFor, toCardNote, type CardNote } from './w3-document-notes';
 
 type Lang = 'pt' | 'en';
 
@@ -53,6 +54,13 @@ export interface SolutionTestCard {
   answersWorry: string | null;
   /** The number this card's cost and effect were computed from, so it can be read back. */
   sizedBy: { areaM2?: number; units?: number };
+  /**
+   * What the organisation's OWN files say about this solution and this place —
+   * quoted, with the file named. Set beside the rows above, never folded into
+   * them: the verdict, the price and the effect stay functions. Empty when
+   * nothing was sent or nothing in it bears on this card. shared/w3-document-notes.ts
+   */
+  fromTheirFiles: CardNote[];
 }
 
 /** First sentence of a ficha paragraph — the card is a summary, the sheet is the whole text. */
@@ -141,5 +149,6 @@ export function buildSolutionTest(
     // What THIS card's numbers rest on: the count for a counted solution, the
     // footprint for a measured one — never the footprint under a cistern.
     sizedBy: units ? { units } : perM2 && areaM2 ? { areaM2 } : {},
+    fromTheirFiles: notesFor(solutionId, parseDocumentNotes(input.w3?._document_notes_json)).map(n => toCardNote(n, lang)),
   };
 }

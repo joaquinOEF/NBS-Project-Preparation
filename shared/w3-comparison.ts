@@ -19,6 +19,7 @@ import { buildSolutionTest, type SolutionTestCard } from './w3-solution-test';
 import { REACTION, type SolutionTest } from './w3-tests';
 import type { W3Input } from './w3-dossier';
 import { getFamilia } from './nbs-catalog';
+import { parseDocumentNotes, placeNotes, toCardNote, STANCE_LABEL, NOTES_HEADING, type CardNote } from './w3-document-notes';
 
 type Lang = 'pt' | 'en';
 
@@ -51,6 +52,12 @@ export interface Comparison {
   sizedBy: { areaM2?: number; source?: string };
   /** The coordinator's technical reading, when one was entered. Attributed as theirs. */
   technicalNote: string | null;
+  /**
+   * What the organisation's own files say about the PLACE, whatever is built —
+   * once, under the table, not repeated in every column. A solution's own notes
+   * are in its column's prós / contras, each with the file as its source.
+   */
+  placeNotes: { heading: string; notes: CardNote[] };
   docLabel: string;
   docAudience: string;
   rows: Array<{ id: RowId; label: string }>;
@@ -169,6 +176,13 @@ export function prosAndCons(card: SolutionTestCard, lang: Lang): { pros: Compari
   if (card.cost?.basis === 'none') {
     cons.push({ text: pt ? 'A ficha não fecha um preço.' : 'The ficha does not close a price.', source: 'ficha' });
   }
+  // Their own files, for THIS solution. The place-wide ones are shown once,
+  // under the table (Comparison.placeNotes).
+  const fileSource = (n: CardNote) => (pt ? `arquivo enviado: ${n.source}` : `file sent: ${n.source}`);
+  for (const n of card.fromTheirFiles.filter(x => x.scope === 'solution')) {
+    if (n.stance === 'a-favor') pros.push({ text: n.text, source: fileSource(n) });
+    else cons.push({ text: n.stance === 'condicao' ? `${STANCE_LABEL.condicao[lang]}: ${n.text}` : n.text, source: fileSource(n) });
+  }
   return { pros, cons };
 }
 
@@ -207,6 +221,7 @@ export function buildComparison(
       ...(input.site.site_area_source ? { source: input.site.site_area_source } : {}),
     },
     technicalNote: technicalNote?.trim() || null,
+    placeNotes: { heading: NOTES_HEADING[lang], notes: placeNotes(parseDocumentNotes(input.w3?._document_notes_json)).map(n => toCardNote(n, lang)) },
     docLabel: pt ? 'Comparação das soluções testadas' : 'Comparison of the solutions tested',
     docAudience: pt
       ? 'Para a organização e a coordenação — base para a conversa de portfólio'

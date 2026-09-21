@@ -82,6 +82,8 @@ import { topShortlist } from '@shared/w3-solutions';
 import { passBudget } from '@shared/model-pass-budgets';
 import { serveStartNext } from "./cboNextEncontroGate";
 import { adviseW3 } from "./w3Advisor";
+import { readTheirFiles, docsSignature } from "./w3DocumentReader";
+import { DOCUMENT_NOTES_FIELD } from "@shared/w3-document-notes";
 
 /** Manifests whose rules govern this section (today: E1 ↔ org_profile). */
 function manifestsForSection(sectionId: string): QuestionnaireManifest[] {
@@ -3562,6 +3564,9 @@ export async function streamCboChat(cboId: string, userMessage: string, res: Res
         startConceptNote: () => { void runConceptNoteAuthor(cboId); },
         startDig: (round: 1 | 2) => { void runW3Dig(cboId, round); },
         awaitAdvisor: () => waitForW3Advisor(cboId),
+        startDocumentReader: () => { void runW3DocumentReader(cboId); },
+        documentReaderBusy: () => readerInFlight.has(cboId),
+        awaitDocumentReader: () => waitForW3DocumentReader(cboId),
         docsBrief: () => siteDocsBrief(cboId),
   };
   if (!state.metadata?.project && state.phase === 3) {
@@ -3676,6 +3681,70 @@ async function waitForW3Advisor(cboId: string): Promise<void> {
     `[w3-advisor] ${cboId}: shortlist reached ${elapsed}ms after the pass started, ` +
       `waited a further ${Date.now() - t0}ms (budget ${wait}ms) — advice ${arrived ? 'READY' : 'not ready'}`,
   );
+}
+
+// ── The document reader (server/services/w3DocumentReader.ts) ───────────────
+// Unlike the advisor it may run AGAIN: it is keyed on the set of readable files,
+// so a file that arrives after the door is read too — which is what an
+// organisation assumes happens when it sends one. Same set, no second call.
+const readerInFlight = new Map<string, { sig: string; startedAt: number; done: Promise<void> }>();
+const READER_WAIT_CAP_MS = Number(process.env.CBO_DOC_READER_WAIT_MS || 25_000);
+
+async function runW3DocumentReader(cboId: string): Promise<void> {
+  try {
+    const state = getCboState(cboId);
+    if (!state?.sections?.intervention_type) return;
+    const orgId = await getOrgIdForCboState(cboId).catch(() => null);
+    const docs = (await listDocumentsForScope({ cboStateId: cboId, orgId }).catch(() => []))
+      .map((d: any) => ({ filename: d.filename as string, fullText: (d.fullText ?? null) as string | null }));
+    const sig = docsSignature(docs);
+    const type: any = state.sections.intervention_type.fields ?? {};
+    if (!sig || String(type._document_notes_sig?.value ?? '') === sig) return; // nothing to read, or already read
+    if (readerInFlight.get(cboId)?.sig === sig) return;
+
+    const site: any = state.sections?.intervention_site?.fields ?? {};
+    const v = (k: string) => String(site?.[k]?.value ?? '').trim();
+    const startedAt = Date.now();
+    const done = (async () => {
+      const { notes, reason } = await readTheirFiles({
+        docs,
+        site: { name: v('site_name'), bairro: v('bairro'), currentUse: v('current_use'), worry: v('site_worry'), story: v('site_story') },
+      });
+      // A newer read (more files) may have started while this one ran — its
+      // result is the one that counts.
+      if (readerInFlight.get(cboId)?.sig !== sig) return;
+      const fresh = getCboState(cboId);
+      if (!fresh?.sections?.intervention_type) return;
+      // ⚠️ A timeout or an error is NOT "read, nothing found": leave the
+      // signature unset so the next trigger reads again.
+      const failed = !!reason && /^(timeout|error|no API key)/.test(reason);
+      const field = (value: string) => ({ value, confidence: 'medium', source: 'agent', userEdited: false }) as any;
+      if (!failed) {
+        fresh.sections.intervention_type.fields[DOCUMENT_NOTES_FIELD] = field(JSON.stringify({ notes }));
+        fresh.sections.intervention_type.fields._document_notes_sig = field(sig);
+        setCboState(cboId, fresh);
+        debouncedPersist(cboId);
+      }
+      console.log(`[w3-reader] ${cboId}: ${notes.length} note(s) from ${sig.split('|').length} file(s) in ${Date.now() - startedAt}ms${reason ? ` — ${reason}` : ''}`);
+    })().catch((err: any) => console.error(`[w3-reader] ${cboId} failed (cards unchanged):`, err?.message || err))
+      .finally(() => { if (readerInFlight.get(cboId)?.sig === sig) readerInFlight.delete(cboId); });
+    readerInFlight.set(cboId, { sig, startedAt, done });
+    await done;
+  } catch (err: any) {
+    console.error(`[w3-reader] ${cboId} failed (cards unchanged):`, err?.message || err);
+  }
+}
+
+/** The remainder of the measured duration, capped — the advisor's rule, for the same reason. */
+async function waitForW3DocumentReader(cboId: string): Promise<void> {
+  const run = readerInFlight.get(cboId);
+  if (!run) return;
+  const expected = passBudget('w3DocumentReader')?.measuredMs ?? 55_000;
+  const wait = Math.max(0, Math.min(READER_WAIT_CAP_MS, expected - (Date.now() - run.startedAt)));
+  const t0 = Date.now();
+  let arrived = true;
+  await Promise.race([run.done, new Promise<void>(r => setTimeout(() => { arrived = false; r(); }, wait))]);
+  console.log(`[w3-reader] ${cboId}: a card waited ${Date.now() - t0}ms (budget ${wait}ms) — notes ${arrived ? 'READY' : 'not ready; they will be on the comparison'}`);
 }
 
 async function runW3Advisor(cboId: string): Promise<void> {

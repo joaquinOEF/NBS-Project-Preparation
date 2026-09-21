@@ -73,7 +73,7 @@ test.describe('a cap cannot be written without a measurement', () => {
     // The three that call a provider. familiaRanker races nothing today; if it
     // ever does, `withBudget` will throw for want of a budget, which is the
     // failure mode this whole file prefers.
-    for (const id of ['w3Advisor', 'conceptNoteAuthor', 'synergyReport', 'familiaRanker']) {
+    for (const id of ['w3Advisor', 'w3DocumentReader', 'conceptNoteAuthor', 'synergyReport', 'familiaRanker']) {
       expect(passBudget(id), `${id} has no budget`).not.toBeNull();
     }
   });

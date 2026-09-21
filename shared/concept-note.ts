@@ -33,6 +33,7 @@
 //     own sentences appear as quotation and nothing else addresses the reader.
 // ============================================================================
 
+import { parseDocumentNotes, toCardNote, ALL_SOLUTIONS } from './w3-document-notes';
 import { COMPLEXIDADE_LABEL, TIPO_LABEL, getSolution, SOLUTION_MECHANISMS } from './nbs-catalog';
 import { parseTests, REACTION } from './w3-tests';
 import { getSolutionFicha } from './nbs-solution-fichas';
@@ -919,6 +920,17 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
         [pt ? 'testes da organização no Encontro 3' : "the organisation's tests in Encontro 3"],
       )
     : null;
+  // ⚠️ What the organisation's own files say about what was KEPT, and about the
+  // place. The card and the comparison carry these; a final document that drops
+  // them is the same surprise one step later ("we sent the visit report…").
+  // Only solutions in the note, plus the place-wide conditions; each with the
+  // file as its source. shared/w3-document-notes.ts
+  const keptIds = new Set(f.solutions.map(x => x.id));
+  const fileNotes = parseDocumentNotes(input.w3?._document_notes_json)
+    .filter(n => n.solutionId === ALL_SOLUTIONS || keptIds.has(n.solutionId))
+    .map(n => toCardNote(n, lang))
+    .map(n => P(`${n.stanceLabel}: ${n.text}`, [pt ? `arquivo enviado pela organização · ${n.source}` : `file sent by the organisation · ${n.source}`]));
+
   push('intervencao', [
     ...f.solutions.map(s =>
       P(
@@ -929,6 +941,7 @@ export function buildConceptNote(input: W3Input, lang: Lang = 'pt'): ConceptNote
       ),
     ),
     testedLine,
+    ...fileNotes,
     size || f.delivery.buildModel
       ? P(
           [

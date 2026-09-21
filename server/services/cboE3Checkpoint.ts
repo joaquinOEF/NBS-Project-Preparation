@@ -91,6 +91,15 @@ export interface E3Deps {
    */
   startAdvisor?(): void;
   /**
+   * Read their files for what they say about each solution (w3DocumentReader).
+   * Fire-and-forget and idempotent per set of files: calling it again with the
+   * same files does nothing, with a new file it reads again.
+   */
+  startDocumentReader?(): void;
+  documentReaderBusy?(): boolean;
+  /** Bounded wait, used once: before a test card, so it carries what their files say. */
+  awaitDocumentReader?(): Promise<void>;
+  /**
    * Write the concept note's authored sections, once, at the close.
    *
    * Fire-and-forget for the same reason as the advisor: the organisation is
@@ -540,6 +549,7 @@ async function serveE3Inner(
   const afterMaterial = async (): Promise<true> => {
     deps.writeFields(TYPE, { _material_pending: '', _material_done: 'yes' });
     deps.startAdvisor?.();
+    deps.startDocumentReader?.();
     return await toShelf();
   };
 
@@ -1043,6 +1053,16 @@ async function serveE3Inner(
    */
   const showTestCard = async (solutionId: string): Promise<true> => {
     deps.writeFields(SITE, { _area_pending: '' });
+    // Their files are still being read: wait for what is left of it (bounded),
+    // so the card carries what the files say. If it does not land in time the
+    // card is the card it always was, and the notes are on the comparison.
+    if (deps.documentReaderBusy?.()) {
+      say(
+        'Um instante — estou terminando de ler os arquivos que vocês mandaram, pra que o cartão leve em conta o que eles dizem.',
+        'One moment — I am finishing reading the files you sent, so the card takes what they say into account.',
+      );
+      await deps.awaitDocumentReader?.();
+    }
     const tests = ensureTests();
     const test = testOf(tests, solutionId);
     const card = buildSolutionTest(solutionId, w3Input(), test, isPt ? 'pt' : 'en');
@@ -1056,6 +1076,22 @@ async function serveE3Inner(
     // for a judgement in the dark. Markdown, in a bubble — the card is a card.
     if (card.scaleLines.length) say(card.scaleLines.join('\n'), card.scaleLines.join('\n'));
     pushEvent({ type: 'show_solution_test', test: card } as any);
+    // Said, not only shown: a card is skimmed, and the one line nobody should
+    // miss is that their own technical report argues against what they are
+    // about to react to.
+    const own = card.fromTheirFiles.filter(n => n.scope === 'solution');
+    const against = own.find(n => n.stance === 'contra');
+    if (against) {
+      say(
+        `⚠️ Um arquivo que vocês mandaram (**${against.source}**) fala **contra** esta solução neste lugar. O trecho está no fim do cartão — vale ler antes de responder.`,
+        `⚠️ A file you sent (**${against.source}**) argues **against** this solution in this place. The passage is at the end of the card — worth reading before you answer.`,
+      );
+    } else if (own.length) {
+      say(
+        `Os arquivos que vocês mandaram falam desta solução (**${own[0].source}**) — está no fim do cartão, com o trecho.`,
+        `The files you sent speak about this solution (**${own[0].source}**) — it is at the end of the card, with the passage.`,
+      );
+    }
     ask('Vendo isso, o que vocês acham?', 'Seeing this, what do you make of it?', [
       { pt: REACTION['faz-sentido'].chipPt, en: REACTION['faz-sentido'].chipEn, dPt: 'Entra no projeto', dEn: 'Goes into the project' },
       { pt: REACTION['nao-e-pra-gente'].chipPt, en: REACTION['nao-e-pra-gente'].chipEn, dPt: 'Fica na comparação, marcada', dEn: 'Stays in the comparison, marked' },
@@ -1513,6 +1549,16 @@ async function serveE3Inner(
       `Got it ✓ ${name ? `**${name}**` : ''}${batch ? ` (${batch.index} of ${batch.total})` : ''} — it is kept with your files.`,
     );
     if (moreUploadsComing(raw)) return finish('upload-mid-flow-more');
+    // ⚠️ Stored is not read. The reading used to happen once, at the door, so a
+    // visit report sent ten minutes later sat in the files and changed nothing
+    // they saw. It is read now, and they are told where it will show.
+    if (deps.startDocumentReader) {
+      deps.startDocumentReader();
+      say(
+        'Vou ler agora. O que ele disser sobre as soluções aparece nos próximos cartões e na comparação.',
+        'I am reading it now. What it says about the solutions will show on the next cards and in the comparison.',
+      );
+    }
     if (reemitPending(state, TYPE, pushEvent)) return finish('upload-mid-flow');
     return await resumeE3();
   }
