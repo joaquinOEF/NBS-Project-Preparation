@@ -78,7 +78,7 @@ test.describe('the size belongs to the test', () => {
     expect(buildSolutionTest('teto-verde', input, { ...t, areaM2: 0 }, 'pt')!.sizedBy).toEqual({});
   });
 
-  test('once per SURFACE: a second ground solution reuses the ground\'s size without asking again', async () => {
+  test('once per SURFACE — and OFFERED, never inherited in silence: one tap carries the ground\'s size', async () => {
     const s = session({ _document_notes_json: NOTES });
     await s.send('Vamos começar o Encontro 3.', 'system');
     await s.send('Jardins de chuva');
@@ -90,7 +90,16 @@ test.describe('the size belongs to the test', () => {
     expect(next.ask?.question).toBe('E agora?');
     await s.send('Testar outra solução');
     const second = await s.send('Biovaletas');
+    // Not the size question again — the number they already settled, shown with
+    // the solution it came from. "Ground" covers a strip of earth and a cemented
+    // yard alike, and taking the first test's number in silence priced two
+    // solutions over the whole patio on staging (22 Sept).
     expect(second.ask?.question).not.toBe('Ainda é esse o tamanho?');
+    expect(second.ask?.question).toContain('vale o mesmo tamanho');
+    expect(second.ask?.options?.map((o: any) => o.label)).toContain('Sim, o mesmo tamanho');
+    expect(s.tests().find(x => x.solutionId === 'biovaletas')?.areaM2, 'nothing is written until they say so').toBeUndefined();
+    const carried = await s.send('Sim, o mesmo tamanho');
+    expect(carried.events.some(e => e.type === 'show_solution_test')).toBe(true);
     expect(s.tests().find(x => x.solutionId === 'biovaletas')!.areaM2).toBe(96);
   });
 });

@@ -229,6 +229,47 @@ number and the module throws.
 ⚠️ This was a regex over the prose first, and it got three of the 27 wrong. See
 the comment at the top of the cost section for what and why.
 
+## ⚠️ A size that cannot be right — `shared/w3-size-check.ts`
+
+A price is the size times a number from the ficha, so a wrong size is a wrong
+price with every appearance of being right. On staging (22 Sept) a rain garden
+was priced over **836 m²** — the whole cemented patio, read out of the
+organisation's own sketch — while the same sketch carries the 12 × 8 m strip of
+earth the technical visit designates for it: **R$ 334.400–585.200** instead of
+**R$ 38.400–67.200**, shown to a parents' association with R$ 8.200 in hand. The
+bioswale tested next inherited the same number without a question, so the same
+ground was billed twice. Nothing was broken. There was no point at which the
+platform compared the number to the place.
+
+Three readings, none of which decides anything:
+
+1. **the surface.** All 27 solutions declare what they are built on
+   (`SOLUTION_SURFACE`, with a load-time invariant — a new solution must
+   declare one). A measure from their files is classified the same way from the
+   words it uses. A rain garden sized by the measure of the concrete is the
+   strongest signal there is; permeable paving sized by the same measure is
+   correct, which is why the surface is declared per solution and not guessed.
+2. **a smaller measure that fits.** Their own material named the planting area
+   and a bigger number was used.
+3. **bigger than the place.** A footprint larger than the polygon drawn in
+   Encontro 2. ⚠️ Not "most of the place": that polygon IS the area they mean to
+   work in, so a test sized at all of it is the ordinary answer — firing at 60 %
+   broke twelve journeys, which is the check working on the check.
+
+Then **one question**, once per test, before the card: *"Jardins de chuva ocupa
+esse tamanho todo?"* with the fitting measure beside it. `Sim, é isso mesmo` is
+a real answer and ends it — some organisations do mean the whole yard. The
+measures on the size chip list are ordered so the fitting one leads, and nothing
+is ever removed.
+
+A second solution on the same surface is **offered** the first one's size
+(*"Pra Biovaletas vale o mesmo tamanho — 96 m²?"*), never given it.
+
+**Auditing a real record:** `npx tsx scripts/w3-record-audit.ts <state.json>`
+prints, for a session exported from staging, every card row by row, the
+comparison and the maturity lines with their justifications — what the
+organisation actually saw, which is the only place these defects are visible.
+
 ## Robson's reading of the deck
 
 Robson Capretz's *Pipeline Assessment — Strategic Partners for Urban NbS in

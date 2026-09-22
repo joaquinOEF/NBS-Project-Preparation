@@ -34,6 +34,7 @@ import { withPendingQuestion, reemitPending } from './pendingQuestion';
 import { CRITERIA, MAX_CRITERIA, parseCriteria, criteriaSentence, WHO, HARDEST, hardestOptions, type CriterionId, type WhoId, type HardestId } from '@shared/w3-criteria';
 import { parseDocumentNotes, parseDocumentMeasures, studyProposal, DOCUMENT_NOTES_FIELD, CONVERSATION_SOURCE, type DocumentMeasure } from '@shared/w3-document-notes';
 import { studyRequirement as studyStillNeeded, studiesDone, COMPLETABLE_STUDIES, STUDIES_DONE_FIELD } from '@shared/w3-dossier';
+import { sizeDoubt, orderMeasuresFor, measureFits, type SizeDoubt } from '@shared/w3-size-check';
 import { PENDING_FIELD, parsePending } from '@shared/pending-question';
 import type { CboState } from '@shared/cbo-schema';
 import { buildDossier, portfolioState, type W3Input } from '@shared/w3-dossier';
@@ -171,6 +172,9 @@ const E3C = {
   estudoFeito: { pt: 'Sim, já temos esse estudo', en: 'Yes, we already have that study' },
   estudoFalta: { pt: 'Ainda não temos', en: 'We do not have it yet' },
   redesenhar: { pt: 'Quero desenhar de novo', en: 'I want to draw it again' },
+  tamanhoConfirma: { pt: 'Sim, é isso mesmo', en: 'Yes, that is right' },
+  mesmoTamanho: { pt: 'Sim, o mesmo tamanho', en: 'Yes, the same size' },
+  outroTamanho: { pt: 'Outro tamanho', en: 'A different size' },
   pular: { pt: 'Prefiro pular', en: "I'd rather skip" },
   verDossie: { pt: 'Ver o resumo do projeto', en: 'See the project summary' },
   // An organisation with no pin used to be offered "Desenhar no mapa", which
@@ -888,7 +892,23 @@ async function serveE3Inner(
       const prior = tests.find(t => t.solutionId !== solutionId && t.areaM2 !== undefined
         && SOLUTION_COSTS[t.solutionId]?.basis === 'm2' && surfaceOf(t.solutionId) === surfaceOf(solutionId));
       if (!prior) return await askArea(solutionId);
-      writeTests(upsertTest(ensureTests(), { solutionId, areaM2: prior.areaM2 }));
+      // ⚠️ SHOWN, never inherited in silence. "Ground" is two words for a strip
+      // of earth and a cemented yard, and the second test took the first one's
+      // number without asking — one tap on 836 m² priced two solutions over the
+      // whole patio (staging, 22 Sept). The number is offered; they confirm it.
+      const priorLabel = getSolution(prior.solutionId)?.pt.label ?? prior.solutionId;
+      const priorLabelEn = getSolution(prior.solutionId)?.en.label ?? prior.solutionId;
+      deps.writeFields(TYPE, { _size_from: `${prior.solutionId}:${prior.areaM2}` });
+      deps.writeFields(SITE, { _area_pending: 'yes' });
+      ask(
+        `Pra **${sol.pt.label}** vale o mesmo tamanho de **${priorLabel}** — ${prior.areaM2!.toLocaleString('pt-BR')} m²?`,
+        `For **${sol.en.label}**, does the same size as **${priorLabelEn}** hold — ${prior.areaM2!.toLocaleString('en-US')} m²?`,
+        [
+          { pt: E3C.mesmoTamanho.pt, en: E3C.mesmoTamanho.en },
+          { pt: E3C.outroTamanho.pt, en: E3C.outroTamanho.en, dPt: 'Pergunto de novo', dEn: 'I will ask again' },
+        ],
+      );
+      return finish('confirm-inherited-size');
     }
     return await showTestCard(solutionId);
   };
@@ -908,9 +928,54 @@ async function serveE3Inner(
       const m2 = given !== '' ? Number(given) || 0 : (Number(site('site_area_m2')) || 0);
       writeTests(upsertTest(ensureTests(), { solutionId: open, areaM2: m2 }));
       deps.writeFields(TYPE, { _test_size: '' });
+      const doubt = askedAboutSize(open) ? null : sizeDoubt({
+        solutionId: open, areaM2: m2,
+        siteAreaM2: Number(site('site_area_m2')) || 0,
+        measures: parseDocumentMeasures(type(DOCUMENT_NOTES_FIELD)),
+      });
+      if (doubt) return askAboutSize(open, m2, doubt);
     }
     if (open) return await showTestCard(open);
     return ensureTests().length ? askNext() : await askSolution();
+  };
+
+  // ── The size that does not fit the place ─────────────────────────────────
+  // ⚠️ ONE question, never a refusal. The platform does not know their yard;
+  // it knows that this number is the measure of the concrete, or that their own
+  // sketch names a smaller planting area, or that this covers most of what they
+  // drew. Any of those is worth asking before a price is printed — and "sim, é
+  // isso mesmo" is a real answer that ends it. Asked at most once per test.
+  const askedAboutSize = (solutionId: string) => type('_size_asked').split(',').includes(solutionId);
+  const askAboutSize = async (solutionId: string, m2: number, doubt: SizeDoubt): Promise<true> => {
+    const label = getSolution(solutionId)?.pt.label ?? solutionId;
+    const labelEn = getSolution(solutionId)?.en.label ?? solutionId;
+    const alt = doubt.alternative;
+    const n = (v: number) => v.toLocaleString('pt-BR');
+    const nEn = (v: number) => v.toLocaleString('en-US');
+    if (doubt.kind === 'wrong-surface' && doubt.matched) {
+      say(
+        `Uma conferida antes do preço: esses **${n(m2)} m²** são **${doubt.matched.labelPt}**, pelo que está em ${doubt.matched.sourceFilename}. **${label}** vai em terra.`,
+        `One check before the price: those **${nEn(m2)} m²** are **${doubt.matched.labelEn}**, from ${doubt.matched.sourceFilename}. **${labelEn}** goes on open ground.`,
+      );
+    } else if (doubt.kind === 'smaller-measure-fits' && alt) {
+      say(
+        `Uma conferida antes do preço: o projeto está dimensionado em **${n(m2)} m²**, e no que vocês mandaram aparece **${alt.labelPt} — ${n(alt.m2)} m²** (${alt.sourceFilename}).`,
+        `One check before the price: the project is sized at **${nEn(m2)} m²**, and what you sent carries **${alt.labelEn} — ${nEn(alt.m2)} m²** (${alt.sourceFilename}).`,
+      );
+    } else {
+      say(
+        `Uma conferida antes do preço: **${n(m2)} m²** é maior que o lugar que vocês desenharam no mapa. O preço sai em cima desse tamanho.`,
+        `One check before the price: **${nEn(m2)} m²** is larger than the place you drew on the map. The price is computed on that size.`,
+      );
+    }
+    deps.writeFields(TYPE, { _size_asked: Array.from(new Set([...type('_size_asked').split(',').filter(Boolean), solutionId])).join(',') });
+    deps.writeFields(SITE, { _area_pending: 'yes' });
+    ask(`**${label}** ocupa esse tamanho todo?`, `Does **${labelEn}** take up all of that?`, [
+      { pt: E3C.tamanhoConfirma.pt, en: E3C.tamanhoConfirma.en, dPt: `Segue com ${n(m2)} m²`, dEn: `Keeps ${nEn(m2)} m²` },
+      ...(alt ? [measureChip(alt)] : []),
+      { pt: E3C.dizerTamanho.pt, en: E3C.dizerTamanho.en, dPt: 'Ex.: "uns 12 por 8 metros"', dEn: 'e.g. "about 12 by 8 metres"', action: 'write' as const },
+    ]);
+    return finish(`confirm-size-${doubt.kind}`);
   };
 
   // ── Beat 2 · the size ─────────────────────────────────────────────────────
@@ -936,7 +1001,10 @@ async function serveE3Inner(
     const all = parseDocumentMeasures(type(DOCUMENT_NOTES_FIELD));
     const open = openTest();
     const onRoof = open === 'teto-verde';
-    return all.filter(m => ROOF.test(`${m.labelPt} ${m.quote}`) === onRoof);
+    const forSurface = all.filter(m => ROOF.test(`${m.labelPt} ${m.quote}`) === onRoof);
+    // The strip of earth above the concrete for a rain garden: both stay on
+    // offer — they know their place — but the one that fits leads.
+    return open ? orderMeasuresFor(open, forSurface) : forSurface;
   };
   const measureChip = (m: DocumentMeasure) => ({
     pt: `Usar ${m.m2.toLocaleString('pt-BR')} m² — ${m.labelPt}`,
@@ -2036,6 +2104,30 @@ async function serveE3Inner(
     }
   }
 
+  // ══ The size they were asked to confirm ══════════════════════════════════
+  {
+    const n = deps.normChip(raw);
+    const said = (c: { pt: string; en: string }) => n === deps.normChip(c.pt) || n === deps.normChip(c.en);
+    const open = openTest();
+    if (open && said(E3C.tamanhoConfirma)) {
+      deps.writeFields(SITE, { _area_pending: '' });
+      say('Certo — segue com esse tamanho.', 'Right — we keep that size.');
+      return await showTestCard(open);
+    }
+    const from = type('_size_from'); // '<solutionId>:<m2>'
+    if (open && from && (said(E3C.mesmoTamanho) || said(E3C.outroTamanho))) {
+      deps.writeFields(TYPE, { _size_from: '' });
+      deps.writeFields(SITE, { _area_pending: '' });
+      if (said(E3C.outroTamanho)) return await askArea(open);
+      const m2 = Number(from.split(':')[1]) || 0;
+      writeTests(upsertTest(ensureTests(), { solutionId: open, areaM2: m2 }));
+      // They have just seen the number beside this solution's name, so the
+      // doubt question would be the same question twice.
+      deps.writeFields(TYPE, { _size_asked: Array.from(new Set([...type('_size_asked').split(',').filter(Boolean), open])).join(',') });
+      return await showTestCard(open);
+    }
+  }
+
   // ══ "Já temos esse estudo" — confirmed, and only then does a verdict move ══
   {
     const pendingStudy = type('_study_pending'); // '<studyId>:<solutionId>'
@@ -2064,7 +2156,8 @@ async function serveE3Inner(
 
   const isAreaChip = (str: string) => {
     const n = deps.normChip(str);
-    return [E3C.desenhar, E3C.redesenhar, E3C.naoSeiTamanho, E3C.marcarAgora, E3C.seguirSemLugar, E3C.areaConfere, E3C.dizerTamanho, E3C.falarTamanho]
+    return [E3C.desenhar, E3C.redesenhar, E3C.naoSeiTamanho, E3C.marcarAgora, E3C.seguirSemLugar, E3C.areaConfere, E3C.dizerTamanho, E3C.falarTamanho,
+      E3C.tamanhoConfirma, E3C.mesmoTamanho, E3C.outroTamanho]
       .some(c => n === deps.normChip(c.pt) || n === deps.normChip(c.en));
   };
   if (
