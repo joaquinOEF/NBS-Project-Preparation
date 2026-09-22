@@ -113,7 +113,7 @@ const SYSTEM = `Você apoia a equipe do Vila Flores, que coordena uma rede de or
 
 Recebe uma análise JÁ CALCULADA: quem está onde, o que preocupa cada uma, que famílias de solução escolheram, que papéis querem, quem já colaborou com quem, e onde há necessidades técnicas ou órgãos em comum.
 
-Do Encontro 3 recebe também o que só as organizações podiam dizer, para cada solução que testaram: QUEM FARIA (elas mesmas, com um parceiro técnico, contratando, ou ninguém hoje) e O QUE MAIS PEGA (a autorização, o estudo, o custo, cuidar depois — ou nas palavras delas), além do que pesa mais para cada uma na hora de escolher e trechos verificados dos arquivos que mandaram (📄). ⚠️ São as respostas mais diretas à pergunta "o que o programa pode fazer por esse grupo": o mesmo obstáculo dito por várias é uma frente de trabalho; várias precisando de um parceiro técnico é um parceiro a encontrar para todas. Use-os, citando quem disse — nunca como se fossem leitura nossa.
+Do Encontro 3 recebe também o que só as organizações podiam dizer, para cada solução que testaram: QUEM FARIA (elas mesmas, com um parceiro técnico, contratando, ou ninguém hoje) e O QUE MAIS PEGA (a autorização, o estudo, o custo, cuidar depois — ou nas palavras delas), além do que pesa mais para cada uma na hora de escolher e trechos verificados dos arquivos que mandaram (📄). ⚠️ São as respostas mais diretas à pergunta "o que o programa pode fazer por esse grupo": o mesmo obstáculo dito por várias é uma frente de trabalho; várias precisando de um parceiro técnico é um parceiro a encontrar para todas. Use-os, citando quem disse — nunca como se fossem leitura nossa. INTERESSE EM COMUM POR SOLUÇÃO conta tudo o que testaram: "mantêm" (faz sentido) e "ainda avaliam" (ainda não sabemos) são interesse — uma organização ainda avaliando a mesma solução que outra manteve é parceira possível, não ausente; "descartaram" é informação, não oposição.
 
 Sua tarefa é escrever a leitura transversal: propor até 4 LINHAS DE PROGRAMA, o fio condutor do portfólio, e mais duas coisas que ninguém consegue ver de dentro de uma organização só:
 
@@ -274,6 +274,14 @@ export function analysisForModel(a: SynergyAnalysis): string {
   // ⚠️ What the organisations THEMSELVES said stands in their way, and who they
   // said they would need — Encontro 3 asks both for every solution tested. The
   // two most direct answers to "what should the programme do for this cohort".
+  // Interest counted from everything TESTED, not only what was kept — "ainda
+  // não sabemos" is a solution they looked at closely and did not rule out.
+  if (a.solutionInterest?.length) {
+    L.push('\n# INTERESSE EM COMUM POR SOLUÇÃO (mantêm · ainda avaliam · descartaram)');
+    for (const x of a.solutionInterest) {
+      L.push(`- ${solutionWords(x.solution)}: mantêm ${x.keptBy.map(name).join(', ') || '—'} · ainda avaliam ${x.consideringBy.map(name).join(', ') || '—'}${x.discardedBy.length ? ` · descartaram ${x.discardedBy.map(name).join(', ')}` : ''}${x.studyNeed ? ` · pede ${x.studyNeed}` : ''}`);
+    }
+  }
   if (a.sharedObstacles?.length) {
     L.push('\n# O QUE MAIS PEGA, SEGUNDO AS PRÓPRIAS ORGANIZAÇÕES (compartilhado)');
     for (const o of a.sharedObstacles) L.push(`- ${o.obstacle}: ${o.memberIds.map(name).join(', ')} (em ${o.solutions.map(solutionWords).join(', ')})`);
@@ -363,7 +371,7 @@ const MACHINE_IDS = new RegExp(
     ')\\b',
 );
 
-function worryWords(raw: string): string {
+export function worryWords(raw: string): string {
   return raw
     .split(',')
     .map(v => v.trim())
@@ -391,11 +399,11 @@ function tenureWords(raw: string): string {
  * at yet. Whatever is handed to the model in an id is what comes back in the
  * narrative, so nothing is handed to it in an id.
  */
-function solutionWords(id: string): string {
+export function solutionWords(id: string): string {
   return getSolution(id)?.pt.label ?? id;
 }
 
-function familiaWords(id: string): string {
+export function familiaWords(id: string): string {
   return NBS_FAMILIAS.find(f => (f.id as string) === id)?.pt.label ?? id;
 }
 

@@ -6,6 +6,8 @@
 // table, the groupings with their reasoning, transversal roles, pooling, and a
 // gaps section that comes before any conclusion about the network's shape.
 
+import { interestOf } from '@shared/w3-synergies';
+import { worryWords, solutionWords, familiaWords } from './synergyReport';
 import type { SynergyReport } from './synergyReport';
 
 const esc = (s: unknown): string =>
@@ -51,6 +53,7 @@ export function renderSynergyHtml(r: SynergyReport, cohortName = 'a Rede'): stri
   .grp ul { margin: 0 0 6px; padding-left: 17px; }
   .grp li { font-size: 13.5px; margin-bottom: 2px; }
   .grp .why { font-size: 13px; background: #f4f7f4; border-radius: 5px; padding: 8px 11px; margin-top: 7px; }
+  .muted { color: #6d776f; }
   .hyp { font-size: 12.5px; font-style: italic; color: #5c665f; margin: 0 0 14px; }
   .gaps { border: 1px solid #e8d5a6; background: #fdf9f0; border-radius: 6px; padding: 12px 14px; }
   .gaps li { font-size: 13.5px; }
@@ -74,8 +77,17 @@ export function renderSynergyHtml(r: SynergyReport, cohortName = 'a Rede'): stri
       <td><strong>${esc(m.orgName)}</strong></td>
       <td>${esc(m.bairro ?? '—')}</td>
       <td>${esc(m.siteName ?? (m.hasSite ? 'marcado' : 'a definir'))}</td>
-      <td>${esc(m.worry ?? '—')}</td>
-      <td>${esc(m.solutions.length ? m.solutions.join(', ') : (m.familias.length ? `família: ${m.familias.join(', ')}` : '—'))}</td>
+      <td>${esc(m.worry ? worryWords(m.worry) : '—')}</td>
+      <td>${(() => {
+        // Names, never ids — and what they are still considering, not only what they kept.
+        const i = interestOf(m);
+        const parts = [
+          i.kept.length ? `<strong>Mantém:</strong> ${esc(i.kept.map(solutionWords).join(', '))}` : '',
+          i.considering.length ? `<span class="muted">Avaliando:</span> ${esc(i.considering.map(solutionWords).join(', '))}` : '',
+          i.discarded.length ? `<span class="muted">Descartou:</span> ${esc(i.discarded.map(solutionWords).join(', '))}` : '',
+        ].filter(Boolean);
+        return parts.length ? parts.join('<br>') : esc(m.familias.length ? `família: ${m.familias.map(familiaWords).join(', ')}` : '—');
+      })()}</td>
     </tr>`).join('')}
   </table>
 
@@ -110,6 +122,9 @@ export function renderSynergyHtml(r: SynergyReport, cohortName = 'a Rede'): stri
   <p class="hyp">Onde uma contratação conjunta economiza de verdade — é o que uma organização sozinha não consegue fazer.</p>
   <ul>${a.pooledStudies.map(p => `<li><strong>${esc(p.need)}</strong> — ${esc(p.memberIds.map(name).join(', '))}</li>`).join('')}</ul>` : ''}
 
+  ${a.solutionInterest?.length ? `<h2>Interesse em comum por solução</h2>
+  <p class="hyp">Inclui as soluções testadas no Encontro 3 que ainda estão em avaliação, não só as mantidas.</p>
+  <ul>${a.solutionInterest.map(x => `<li><strong>${esc(solutionWords(x.solution))}</strong> — mantêm: ${esc(x.keptBy.map(name).join(', ') || '—')}; ainda avaliam: ${esc(x.consideringBy.map(name).join(', ') || '—')}${x.discardedBy.length ? `; descartaram: ${esc(x.discardedBy.map(name).join(', '))}` : ''}${x.studyNeed ? ` <span class="muted">· pede ${esc(x.studyNeed)}</span>` : ''}</li>`).join('')}</ul>` : ''}
   ${a.sharedObstacles?.length ? `<h2>O que mais pega, segundo as organizações</h2>
   <p class="lead">Dito por elas no Encontro 3, para cada solução testada. O mesmo obstáculo em várias organizações é uma frente de trabalho do programa, não de cada uma.</p>
   <ul>${a.sharedObstacles.map(o => `<li><strong>${esc(o.obstacle)}</strong> — ${esc(o.memberIds.map(name).join(', '))}</li>`).join('')}</ul>` : ''}

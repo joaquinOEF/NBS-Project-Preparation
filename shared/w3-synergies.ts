@@ -27,7 +27,7 @@
 // the room — and because the validation IS the value of the meeting.
 // ============================================================================
 
-import { NBS_FAMILIAS } from './nbs-catalog';
+import { NBS_FAMILIAS, getSolution } from './nbs-catalog';
 import { digParagraphs, parseDig } from './w3-dig';
 import { familyOfWorry } from './site-knowledge';
 import { studyRequirement, studiesDone } from './w3-dossier';
@@ -226,6 +226,15 @@ export interface SynergyAnalysis {
   partnerNeeds?: Array<{ need: string; memberIds: string[]; solutions: string[] }>;
   /** Studies an organisation already holds — a reference, and sometimes a shared one. */
   studiesHeld?: Array<{ study: string; memberIds: string[] }>;
+  /**
+   * Interest in the SAME solution, counted from everything tested — not only
+   * what was kept. "Ainda não sabemos" is interest too: it is a solution an
+   * organisation looked at closely and did not rule out, and three looking at
+   * rain gardens is one infiltration campaign, one designer, one purchase. Set
+   * aside ("não é pra gente") is carried beside it, because one organisation
+   * keeping what another discarded is a conversation worth having.
+   */
+  solutionInterest?: Array<{ solution: string; keptBy: string[]; consideringBy: string[]; discardedBy: string[]; studyNeed: string | null }>;
   /** Stated plainly, because a partial reading presented as complete is a lie. */
   gapsPt: string[];
 }
@@ -272,6 +281,22 @@ function arrangementBand(tenure: string | null): { key: string; labelPt: string 
 
 const listNames = (ids: string[], members: SynergyMember[]) =>
   ids.map(id => members.find(m => m.id === id)?.orgName ?? id).join(', ');
+
+/**
+ * What an organisation kept, is still considering, and set aside — from what it
+ * TESTED. A member with no tests (before the loop, or fixtures) keeps its chosen
+ * solutions and considers nothing.
+ */
+export function interestOf(m: Pick<SynergyMember, 'solutions' | 'tested'>): { kept: string[]; considering: string[]; discarded: string[] } {
+  const tested = m.tested ?? [];
+  if (!tested.length) return { kept: [...m.solutions], considering: [], discarded: [] };
+  return {
+    kept: tested.filter(t => t.reaction === 'faz-sentido').map(t => t.id),
+    // Tested with no answer yet counts as considering: the card was looked at.
+    considering: tested.filter(t => t.reaction === 'ainda-nao-sabemos' || !t.reaction).map(t => t.id),
+    discarded: tested.filter(t => t.reaction === 'nao-e-pra-gente').map(t => t.id),
+  };
+}
 
 export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
   // Organisations with nothing recorded are counted in the gaps and never
@@ -440,6 +465,24 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
   for (const m of members) for (const st of m.studiesDone ?? []) heldMap.set(st, (heldMap.get(st) ?? new Set()).add(m.id));
   const studiesHeld = Array.from(heldMap).map(([study, ids]) => ({ study, memberIds: Array.from(ids) }));
 
+  // ── Interest in the same solution — kept or still considered ────────────
+  const interestMap = new Map<string, { kept: Set<string>; considering: Set<string>; discarded: Set<string> }>();
+  for (const m of members) {
+    const i = interestOf(m);
+    for (const [bucket, ids] of [['kept', i.kept], ['considering', i.considering], ['discarded', i.discarded]] as const) {
+      for (const id of ids) {
+        const e = interestMap.get(id) ?? { kept: new Set(), considering: new Set(), discarded: new Set() };
+        e[bucket].add(m.id);
+        interestMap.set(id, e);
+      }
+    }
+  }
+  const solutionInterest = Array.from(interestMap)
+    .map(([solution, e]) => ({ solution, keptBy: Array.from(e.kept), consideringBy: Array.from(e.considering), discardedBy: Array.from(e.discarded), studyNeed: studyRequirement(solution)?.pt ?? null }))
+    // Worth a line when two organisations are interested, or when one keeps what another set aside.
+    .filter(x => x.keptBy.length + x.consideringBy.length >= 2 || (x.keptBy.length >= 1 && x.discardedBy.length >= 1))
+    .sort((a, b) => (b.keptBy.length + b.consideringBy.length) - (a.keptBy.length + a.consideringBy.length) || b.keptBy.length - a.keptBy.length);
+
   // ── Common denominators ───────────────────────────────────────────────────
   const commonPt: string[] = [];
   const famCount = new Map<string, number>();
@@ -455,6 +498,11 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
   }
   const topBand = Array.from(bands).sort((a, b) => b[1] - a[1])[0];
   if (topBand) commonPt.push(`A preocupação dominante é ${topBand[0]}, em ${topBand[1] === 1 ? '1 organização' : `${topBand[1]} organizações`}.`);
+  const topInterest = solutionInterest.find(x => x.keptBy.length + x.consideringBy.length >= 2);
+  if (topInterest) {
+    const n = topInterest.keptBy.length + topInterest.consideringBy.length;
+    commonPt.push(`${getSolution(topInterest.solution)?.pt.label ?? topInterest.solution} interessa a ${n} organizações — ${topInterest.keptBy.length} ${topInterest.keptBy.length === 1 ? 'mantém' : 'mantêm'}${topInterest.consideringBy.length ? `, ${topInterest.consideringBy.length} ainda ${topInterest.consideringBy.length === 1 ? 'avalia' : 'avaliam'}` : ''}.`);
+  }
   // What weighs most when choosing — their answer, not our reading of them.
   const critCount = new Map<string, number>();
   for (const m of members) for (const c of m.choiceCriteria ?? []) critCount.set(c, (critCount.get(c) ?? 0) + 1);
@@ -483,7 +531,7 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
   }
   gapsPt.push('Os índices de risco são médias de bairro, calculadas em células que cobrem quarteirões. Onde a organização discordou, a percepção dela vale mais.');
 
-  return { members, groups, transversal, commonPt, pooledStudies, pooledBodies, pooledInstruments, sharedFundingBarriers, sharedObstacles, partnerNeeds, studiesHeld, gapsPt };
+  return { members, groups, transversal, commonPt, pooledStudies, pooledBodies, pooledInstruments, sharedFundingBarriers, sharedObstacles, partnerNeeds, studiesHeld, solutionInterest, gapsPt };
 }
 
 // ============================================================================
