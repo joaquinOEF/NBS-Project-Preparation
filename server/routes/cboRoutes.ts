@@ -528,7 +528,10 @@ export function registerCboRoutes(app: Express): void {
 
   // Export
   app.get("/api/cbo/:id/export", async (req: Request, res: Response) => {
-    const state = getCboState(req.params.id);
+    // Live first, then the database — every neighbouring route has this
+    // fallback and this one did not, so the organisation's own download 404ed
+    // after a process recycle until something else rehydrated the session.
+    const state = getCboState(req.params.id) ?? (await loadCboFromDb(req.params.id))?.state;
     if (!state) return res.status(404).json({ error: "Not found" });
     const md = exportCboMarkdown(state);
     res.setHeader("Content-Type", "text/markdown");
@@ -790,6 +793,8 @@ function exportCboMarkdown(state: CboState): string {
     }
     lines.push('---', '');
   }
+
+  lines.push(`_${lang === 'pt' ? 'Sessão' : 'Session'} \`${state.id}\`${(state as any).metadata?.updatedAt ? ` · ${String((state as any).metadata.updatedAt).slice(0, 16).replace('T', ' ')}` : ''}_`, '');
 
   if (state.maturityScores.length > 0) {
     lines.push(`## ${T.scorecard}`, '', `**${T.total}: ${state.totalMaturityScore}/27**`, '');

@@ -27,7 +27,11 @@
 import type { CboState, CboChatMessage } from '@shared/cbo-schema';
 import { CBO_SECTIONS, isInternalCboField } from '@shared/cbo-schema';
 import { cboFieldLabel, cboDisplayValue, CBO_SECTION_TITLES } from '@shared/cbo-field-catalog';
-import { NBS_FAMILIAS } from '@shared/nbs-catalog';
+import { NBS_FAMILIAS, getSolution } from '@shared/nbs-catalog';
+import { parseTests, REACTION } from '@shared/w3-tests';
+import { WHO, HARDEST, CRITERIA, parseCriteria, type WhoId, type HardestId } from '@shared/w3-criteria';
+import { parseDocumentNotes, parseDocumentMeasures, STANCE_LABEL, DOCUMENT_NOTES_FIELD } from '@shared/w3-document-notes';
+import { readHealth } from '@shared/session-health';
 import { summarizeNbsInventory } from '@shared/nbs-inventory';
 import {
   FUNDING_PATHS, FUNDING_CAVEAT, AGGREGATION_ARGUMENT, FUNDER_KIND_LABEL,
@@ -61,17 +65,70 @@ const FAMILIA_LABEL = new Map<string, string>(NBS_FAMILIAS.map(f => [f.id as str
  * flood,heat`. Readable by a machine, but the whole point of the bundle is that
  * a person or another agent can read it without a decoder ring.
  */
+/**
+ * ⚠️ A FIELD WHOSE VALUE IS JSON IS STILL SOMETHING WE COLLECTED.
+ *
+ * The bundle exists so a person or another agent can read the whole record
+ * without a decoder ring, and three of the richest things Encontro 3 collects
+ * were reaching it as raw JSON on one line (`- **solution tests json**:
+ * [{"reaction":"faz-sentido","solutionId":"biovaletas",…}]`) or not at all,
+ * because they are stored under a `_` key. Who would build each solution, what
+ * they said is hardest, what weighs most in the choice, the verified passages
+ * from their own files — none of it was legible in the export a coordinator
+ * hands to a technical adviser.
+ *
+ * Every JSON field therefore declares how it reads. The spec walks this map
+ * against the record: a blob nobody renders is a blob nobody can read.
+ */
+export const BUNDLE_RENDERERS: Record<string, (raw: string) => string[]> = {
+  solution_tests_json: raw => parseTests(raw).map(t => {
+    const bits = [
+      REACTION[t.reaction ?? 'ainda-nao-sabemos']?.pt ?? 'sem reação',
+      t.who ? `quem faria: ${WHO[t.who as WhoId]?.reportPt ?? t.who}` : '',
+      t.hardest ? `o que mais pega: ${t.hardestNote?.trim() ? `"${t.hardestNote.trim()}"` : (HARDEST[t.hardest as HardestId]?.reportPt ?? t.hardest)}` : '',
+      t.areaM2 ? `${t.areaM2.toLocaleString('pt-BR')} m²` : '',
+      t.units ? `${t.units} ${t.units === 1 ? 'unidade' : 'unidades'}` : '',
+      t.detailAnswer ? `detalhe: "${t.detailAnswer}"` : '',
+    ].filter(Boolean);
+    return `  - **${getSolution(t.solutionId)?.pt.label ?? t.solutionId}** — ${bits.join(' · ')}`;
+  }),
+  _choice_criteria: raw => {
+    const ids = parseCriteria(raw);
+    return ids.length ? [`  - ${ids.map(id => CRITERIA.find(c => c.id === id)?.rowPt ?? id).join('; ')}`] : [];
+  },
+  [DOCUMENT_NOTES_FIELD]: raw => {
+    const notes = parseDocumentNotes(raw);
+    const measures = parseDocumentMeasures(raw);
+    return [
+      ...notes.map(n => `  - ${STANCE_LABEL[n.stance].pt}${n.solutionId !== '*' ? ` (${getSolution(n.solutionId)?.pt.label ?? n.solutionId})` : ''}: ${n.textPt} — _"${n.quote}"_, ${n.sourceFilename}`),
+      ...measures.map(m => `  - medida: ${m.labelPt} — ${m.m2.toLocaleString('pt-BR')} m² — _"${m.quote}"_, ${m.sourceFilename}`),
+    ];
+  },
+  dig_json: raw => {
+    try {
+      return (JSON.parse(raw) as any[]).map(q => `  - _${q.askPt}_${q.answer ? `\n    - resposta: ${q.answer}` : ' — sem resposta'}${q.basedOn ? `\n    - a partir de: ${q.basedOn}` : ''}`);
+    } catch { return []; }
+  },
+};
+
 function fieldRows(sectionId: string, fields: Record<string, any> | undefined): string[] {
   if (!fields) return [];
   return Object.entries(fields)
     // "_"-prefixed keys are checkpoint machinery (_bairro_flood_pct, _worry_done).
     // They belong in profile.json, not in the readable summary.
-    .filter(([k]) => !isInternalCboField(k))
+    // A `_` key is checkpoint machinery — except the few that hold content
+    // rather than flags, which declare a renderer above.
+    .filter(([k]) => !isInternalCboField(k) || !!BUNDLE_RENDERERS[k])
     .filter(([, v]) => v?.value != null && String(v.value).trim() !== '')
-    .map(([k, v]) => {
+    .flatMap(([k, v]) => {
       const src = v.source ? ` _(${v.source}${v.userEdited ? ', edited' : ''})_` : '';
+      const render = BUNDLE_RENDERERS[k];
+      if (render) {
+        const lines = render(String(v.value));
+        return lines.length ? [`- **${cboFieldLabel(k, 'pt')}**:`, ...lines] : [];
+      }
       const value = cboDisplayValue(sectionId, k, String(v.value), 'pt').replace(/\n+/g, ' ').trim();
-      return `- **${cboFieldLabel(k, 'pt')}**: ${value}${src}`;
+      return [`- **${cboFieldLabel(k, 'pt')}**: ${value}${src}`];
     });
 }
 
@@ -120,6 +177,19 @@ export function buildContextMarkdown(input: BundleInput): string {
   const L: string[] = [];
 
   L.push(`# ${orgName} — contexto completo`, '');
+  // ⚠️ WHICH SESSION THIS IS. Four roster cards can carry one organisation's
+  // name — a test copy is a whole new `cbo_state` — and on 22 Sept two exports
+  // of "the same" organisation, downloaded in the same minute, disagreed about
+  // how far Encontro 3 had got. Neither artefact said which record it came
+  // from. Every export now stamps it.
+  if (state?.id || (state as any)?.metadata?.updatedAt) {
+    L.push(
+      `_Sessão \`${state?.id ?? '—'}\` · fase ${state?.phase ?? '—'}` +
+      `${(state as any)?.metadata?.updatedAt ? ` · última atividade ${String((state as any).metadata.updatedAt).slice(0, 16).replace('T', ' ')}` : ''}` +
+      `${(state as any)?.metadata?.project ? ' · sessão de projeto' : ''}_`,
+      '',
+    );
+  }
   L.push(
     `_Gerado em ${input.generatedAt} pelo NBS Project Builder (COUGAR / Porto Alegre)._`,
     '',
@@ -215,6 +285,18 @@ export function buildContextMarkdown(input: BundleInput): string {
   }
 
   // 6 · Files, with their extracted text summarised.
+  // The session's own incidents — a refused write, an answer nothing handled, a
+  // reading that failed. Shown in the coordinator's drawer and, until now,
+  // dropped from every export: the one place a diagnosis was supposed to start.
+  {
+    const health = readHealth(state as any);
+    if (health.length) {
+      L.push('## Ocorrências da sessão', '');
+      for (const h of health) L.push(`- ${String(h.at ?? '').slice(0, 16).replace('T', ' ')} · ${h.kind} — ${h.detail ?? ''}`.trim());
+      L.push('');
+    }
+  }
+
   L.push('## Arquivos enviados', '');
   if (!docs.length) L.push('_Nenhum arquivo._', '');
   for (const d of docs) {

@@ -3935,6 +3935,16 @@ async function runW3DocumentReader(cboId: string): Promise<void> {
       String(type.project_notes?.value ?? ''),
     ].map(x => x.trim()).filter(Boolean).join('\n');
     const sig = docsSignature(docs, conversationNotes);
+    // ⚠️ "NOBODY READ YOUR FILES" MUST BE VISIBLE SOMEWHERE. An empty signature
+    // means no file carried extractable text — photographs with no caption, a
+    // PDF whose extraction failed — and the reader silently did nothing, which
+    // looked exactly like a reader that ran and found nothing. The advisor, which
+    // looks at photographs directly, ran and cited them, so the record showed
+    // advice and no notes, and no surface explained the difference.
+    if (!sig && docs.length) {
+      recordHealth(state, 'pass-failed', `document reader: ${docs.length} arquivo(s), nenhum com texto legível para ler`);
+      return;
+    }
     if (!sig || String(type._document_notes_sig?.value ?? '') === sig) return; // nothing to read, or already read
     if (readerInFlight.get(cboId)?.sig === sig) return;
 
