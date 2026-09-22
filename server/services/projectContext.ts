@@ -22,7 +22,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { db } from '../db';
 import { cohortMembers, cohortProjects, cohorts, type CohortProject } from '@shared/cohort-schema';
 import { cboStates } from '@shared/cbo-db-schema';
-import { synergyFactsFrom, type SynergyMember } from '@shared/w3-synergies';
+import { synergyFactsFrom, synergyExtrasFrom, type SynergyMember } from '@shared/w3-synergies';
 import { parseTests } from '@shared/w3-tests';
 import { buildProjectBrief, briefMarkdown, type ProjectBrief, type ProjectMemberFacts } from '@shared/project-brief';
 import { parseChoices, buildProjectPlan, buildProjectNote, planMarkdown, type ProjectPlan, type ProjectNote } from '@shared/project-plan';
@@ -127,8 +127,7 @@ export async function loadProjectMembers(project: CohortProject): Promise<Projec
       fundingOpen: facts?.fundingOpen ?? [],
       fundingBlocked: facts?.fundingBlocked ?? [],
       started: !!state && Object.values(state.sections).some(s => Object.keys(s.fields ?? {}).length > 0),
-      tested: facts?.tested,
-      technicalNote: facts?.technicalNote ?? null,
+      ...synergyExtrasFrom(facts),
     };
     out.push({
       memberId: m.id,

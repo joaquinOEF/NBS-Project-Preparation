@@ -44,7 +44,7 @@ import {
   type VerdictState,
 } from '@shared/w3-dossier';
 import { getSolutionFicha } from '@shared/nbs-solution-fichas';
-import { synergyFactsFrom, type SynergyFacts } from '@shared/w3-synergies';
+import { synergyFactsFrom, synergyExtrasFrom, type SynergyFacts } from '@shared/w3-synergies';
 import { orgHealth, VERDICT_ORDER } from '@shared/cohort-doctor';
 import { buildSynergyReport } from '../services/synergyReport';
 import { synergyReports } from '@shared/cohort-schema';
@@ -711,6 +711,10 @@ export function registerCohortRoutes(app: Express): void {
           approvalInstruments: s.approvalInstruments ?? [],
           fundingOpen: s.fundingOpen ?? [],
           fundingBlocked: s.fundingBlocked ?? [],
+          // What they tested and said about it, their criteria, their files — and the
+          // coordination's reading. `tested` and `technicalNote` were on the type and
+          // printed by the prompt, and never copied here: the report never saw them.
+          ...synergyExtrasFrom(m.synergy),
           // "Started" means a real answer exists, not that a row does. Three of
           // the ten in the hand-written report had an invite and nothing else.
           started: (m.derivedSectionsComplete ?? 0) > 0,

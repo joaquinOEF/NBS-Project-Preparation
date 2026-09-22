@@ -29,6 +29,7 @@
 //     disagreed with ours outranks it.
 // ============================================================================
 
+import { WHO, HARDEST, CRITERIA, type WhoId, type HardestId } from '@shared/w3-criteria';
 import { z } from 'zod';
 import { createStructured, structuredProvider } from './structuredModel';
 import { approvalRouteLine } from '@shared/nbs-knowledge';
@@ -112,6 +113,8 @@ const SYSTEM = `Você apoia a equipe do Vila Flores, que coordena uma rede de or
 
 Recebe uma análise JÁ CALCULADA: quem está onde, o que preocupa cada uma, que famílias de solução escolheram, que papéis querem, quem já colaborou com quem, e onde há necessidades técnicas ou órgãos em comum.
 
+Do Encontro 3 recebe também o que só as organizações podiam dizer, para cada solução que testaram: QUEM FARIA (elas mesmas, com um parceiro técnico, contratando, ou ninguém hoje) e O QUE MAIS PEGA (a autorização, o estudo, o custo, cuidar depois — ou nas palavras delas), além do que pesa mais para cada uma na hora de escolher e trechos verificados dos arquivos que mandaram (📄). ⚠️ São as respostas mais diretas à pergunta "o que o programa pode fazer por esse grupo": o mesmo obstáculo dito por várias é uma frente de trabalho; várias precisando de um parceiro técnico é um parceiro a encontrar para todas. Use-os, citando quem disse — nunca como se fossem leitura nossa.
+
 Sua tarefa é escrever a leitura transversal: propor até 4 LINHAS DE PROGRAMA, o fio condutor do portfólio, e mais duas coisas que ninguém consegue ver de dentro de uma organização só:
 
 TENSÕES (tensionsPt, até 3). Onde um agrupamento PARECE óbvio e não funciona. Duas organizações com o mesmo risco mas em terreno de titularidade diferente seguem instrumentos diferentes; duas com a mesma solução em portes muito diferentes não compram junto. Diga qual é o agrupamento aparente e por que ele quebra, apontando o fato. ⚠️ Isto é tão útil quanto uma linha de programa: evita que a coordenação gaste uma reunião com um grupo que não é grupo. Nenhuma tensão é uma resposta válida.
@@ -182,7 +185,26 @@ export function analysisForModel(a: SynergyAnalysis): string {
     // is the kind of line a portfolio conversation is made of.
     if (m.tested?.length) {
       L.push(`    testaram no Encontro 3: ${m.tested.map(t => `${solutionWords(t.id)}${t.reaction ? ` (${REACTION[t.reaction].pt.toLowerCase()})` : ''}`).join('; ')}`);
+      // What only they could say about each — who would do it, what is hardest,
+      // the size it was tested at. The poolable half of Encontro 3.
+      for (const t of m.tested) {
+        const bits = [
+          t.who && WHO[t.who as WhoId] ? `quem faria: ${WHO[t.who as WhoId].reportPt.toLowerCase()}` : null,
+          t.hardest === 'outro' && t.hardestNote ? `o que mais pega: "${t.hardestNote.slice(0, 200)}"` : t.hardest && HARDEST[t.hardest as HardestId] ? `o que mais pega: ${HARDEST[t.hardest as HardestId].reportPt.toLowerCase()}` : null,
+          t.areaM2 ? `testada sobre ${t.areaM2.toLocaleString('pt-BR')} m²` : t.units ? `${t.units} unidades` : null,
+        ].filter(Boolean);
+        if (bits.length) L.push(`      · ${solutionWords(t.id)}: ${bits.join(' · ')}`);
+      }
     }
+    if (m.choiceCriteria?.length) {
+      L.push(`    o que mais pesa pra escolher: ${m.choiceCriteria.map(id => CRITERIA.find(c => c.id === id)?.chipPt.toLowerCase() ?? id).join('; ')}`);
+    }
+    // Verified passages from their own files and their own words, already in the
+    // written register with the source named. The work window, the counterpart
+    // money, the report that advises against a solution — what two organisations
+    // share is often only here.
+    for (const n of m.fileNotesPt ?? []) L.push(`    📄 ${n.slice(0, 400)}`);
+    if (m.studiesDone?.length) L.push(`    já tem (confirmado): ${m.studiesDone.join(', ')}`);
     // The coordination's own reading — Robson's visit to the place. Attributed
     // as the coordination's, never blended into the organisation's words.
     if (m.technicalNote) L.push(`    leitura técnica da coordenação: ${m.technicalNote.slice(0, 600)}`);
@@ -248,6 +270,21 @@ export function analysisForModel(a: SynergyAnalysis): string {
       L.push('', '# PRAZOS PUBLICADOS DOS ÓRGÃOS (use para a sequência; não invente nenhum outro)');
       for (const t of timings) L.push(`- ${t}`);
     }
+  }
+  // ⚠️ What the organisations THEMSELVES said stands in their way, and who they
+  // said they would need — Encontro 3 asks both for every solution tested. The
+  // two most direct answers to "what should the programme do for this cohort".
+  if (a.sharedObstacles?.length) {
+    L.push('\n# O QUE MAIS PEGA, SEGUNDO AS PRÓPRIAS ORGANIZAÇÕES (compartilhado)');
+    for (const o of a.sharedObstacles) L.push(`- ${o.obstacle}: ${o.memberIds.map(name).join(', ')} (em ${o.solutions.map(solutionWords).join(', ')})`);
+  }
+  if (a.partnerNeeds?.length) {
+    L.push('\n# QUEM PRECISA DE ALGUÉM PRA FAZER (para soluções que mantiveram)');
+    for (const p of a.partnerNeeds) L.push(`- ${p.need}: ${p.memberIds.map(name).join(', ')} (em ${p.solutions.map(solutionWords).join(', ')})`);
+  }
+  if (a.studiesHeld?.length) {
+    L.push('\n# ESTUDOS QUE ALGUMA ORGANIZAÇÃO JÁ TEM');
+    for (const h of a.studiesHeld) L.push(`- ${h.study}: ${h.memberIds.map(name).join(', ')}`);
   }
   if (a.pooledInstruments.length) {
     L.push('\n# INSTRUMENTO DE APROVAÇÃO EM COMUM (uma conversa, não sete)');
