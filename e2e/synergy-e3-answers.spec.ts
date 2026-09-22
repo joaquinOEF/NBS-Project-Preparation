@@ -107,3 +107,38 @@ test.describe('the cohort, pooled on what they said', () => {
     expect(html).toContain('Estudos que já existem');
   });
 });
+
+// INTEREST IS WHAT THEY TESTED, NOT ONLY WHAT THEY KEPT (JVP, 21 Sept: "does it
+// also show the ones they considered, and tested, as showing interest?"). The
+// grouping and the printed table read `solutions` — the kept ones — so an
+// organisation still weighing rain gardens was invisible to the one that chose
+// them. "Ainda não sabemos" is interest; "não é pra gente" is carried beside it.
+test.describe('interest in the same solution, from everything tested', () => {
+  const T = (id: string, reaction: any) => ({ id, reaction });
+  const ROOM = [
+    member('a', 'APM Caldas', { solutions: ['jardins-de-chuva'], tested: [T('jardins-de-chuva', 'faz-sentido'), T('teto-verde', 'nao-e-pra-gente')] }),
+    member('b', 'Vila Nova', { solutions: [], tested: [T('jardins-de-chuva', 'ainda-nao-sabemos'), T('hortas-urbanas', 'ainda-nao-sabemos')] }),
+    member('c', 'Encosta Viva', { solutions: ['teto-verde'], tested: [T('teto-verde', 'faz-sentido'), T('jardins-de-chuva', 'nao-e-pra-gente')] }),
+    member('d', 'Sem teste', { solutions: ['hortas-urbanas'] }),   // before the loop: kept, nothing tested
+  ];
+
+  test('kept + still considering count as interest; set aside is beside it; one keeping what another discarded is a line', () => {
+    const a = analyseSynergies(ROOM);
+    const line = (id: string) => a.solutionInterest!.find(x => x.solution === id);
+    expect(line('jardins-de-chuva')).toMatchObject({ keptBy: ['a'], consideringBy: ['b'], discardedBy: ['c'] });
+    expect(line('hortas-urbanas'), 'an org with no tests keeps its chosen solutions').toMatchObject({ keptBy: ['d'], consideringBy: ['b'] });
+    expect(line('teto-verde'), 'one interested, one discarded — still worth a conversation').toMatchObject({ keptBy: ['c'], consideringBy: [], discardedBy: ['a'] });
+    expect(a.commonPt.join(' ')).toMatch(/interessa a 2 organizações — 1 mantém, 1 ainda avalia/);
+  });
+
+  test('the model sees it; the printed table shows names — kept, considering, discarded — never ids', () => {
+    const a = analyseSynergies(ROOM);
+    expect(analysisForModel(a)).toContain('# INTERESSE EM COMUM POR SOLUÇÃO');
+    expect(analysisForModel(a)).toMatch(/Jardins? de chuva.*: mantêm APM Caldas · ainda avaliam Vila Nova · descartaram Encosta Viva/i);
+    const html = renderSynergyHtml({ analysis: a, narrative: null, generatedAt: at, cohortName: 'Rede' } as any);
+    expect(html).toContain('Interesse em comum por solução');
+    expect(html).toContain('Avaliando:</span>');
+    expect(html).not.toMatch(/<td>[^<]*jardins-de-chuva/);
+    expect(html).not.toContain('<td>heat</td>');
+  });
+});
