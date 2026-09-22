@@ -156,6 +156,30 @@ export interface SolutionCost {
     notaDescribesTheOtherModel?: boolean;
   };
   /**
+   * ⚠️ When the per-unit figure was worked back from the price of a LOT.
+   *
+   * Barraginha's ficha prices "um lote de 100 barraginhas com mobilização
+   * comunitária" at R$ 20.000 with a hired machine, or R$ 7.000 if the city
+   * lends the tractor — from which R$ 70–200 per barraginha follows. Multiplied
+   * by a small count that arithmetic prints a number that cannot buy the
+   * machine that digs them: five barraginhas came back at **R$ 350–1.000** on
+   * staging, less than a day of excavator, beside a ficha that says in the same
+   * breath that this is not mutirão work.
+   *
+   * So a lot-derived band multiplies only once the total clears the lot's own
+   * floor. Below it the count and the reference stay on the card and the total
+   * is withheld — the same refusal `basis: 'project'` already makes, for the
+   * same reason: a confident wrong number is worse than a named gap.
+   */
+  lot?: {
+    units: number;
+    /** What the whole lot costs, both ends literal in the ficha. */
+    lowBrl: number;
+    highBrl: number;
+    notePt: string;
+    noteEn: string;
+  };
+  /**
    * Set when the figures are NOT literal in the ficha (a sum of two lines, a
    * rate worked back from a total). Required in that case, and always shown —
    * derived arithmetic an organisation cannot see is arithmetic it cannot
@@ -198,6 +222,11 @@ export const SOLUTION_COSTS: Record<string, SolutionCost> = {
     unitPt: 'barraginha', unitEn: 'barraginha', unitPluralPt: 'barraginhas', unitPluralEn: 'barraginhas',
     unitChips: [1, 2, 5, 10],
     unitFemininePt: true,
+    lot: {
+      units: 100, lowBrl: 7000, highBrl: 20000,
+      notePt: 'um lote de 100 com mobilização comunitária custa cerca de R$ 20.000 alugando máquina, ou R$ 7.000 se a prefeitura cede o trator',
+      noteEn: 'a lot of 100 with community mobilisation costs about R$ 20,000 hiring a machine, or R$ 7,000 if the city lends the tractor',
+    },
   },
   'captacao-agua-da-chuva': {
     basis: 'unit', low: 4500, high: 10500,
@@ -448,6 +477,25 @@ export function budgetLineFor(
     // Multiplying the small end by a count would hand an organisation a total
     // that reads authoritative and is wrong by an order of magnitude. The count
     // is still recorded and shown; only the arithmetic is withheld.
+    // A lot-derived band below the lot's own floor: the count is kept, the
+    // reference is kept, the total is withheld.
+    if (units && units > 0 && cost.lot && units * (highV ?? 0) < cost.lot.lowBrl) {
+      const nounPt = units === 1 ? cost.unitPt : cost.unitPluralPt;
+      const nounEn = units === 1 ? cost.unitEn : cost.unitPluralEn;
+      return {
+        ...base,
+        lowBrl: null,
+        highBrl: null,
+        units,
+        ...(areaM2 ? { areaM2 } : {}),
+        notePt:
+          `${units} ${nounPt ?? 'unidade(s)'}. A ficha orça ${brl(lowV)}–${brl(highV)} ${per} ${cost.scalePt}, mas esse valor sai de um lote de ${cost.lot.units}: ${cost.lot.notePt}. ` +
+          `Para ${units}, o que pesa é mobilizar a máquina, não a quantidade — a cotação a pedir é a da hora de máquina.${nota(true)}`,
+        noteEn:
+          `${units} ${nounEn ?? 'unit(s)'}. The ficha prices ${brlEn(lowV)}–${brlEn(highV)} ${perEn} ${cost.scaleEn}, but that figure comes from a lot of ${cost.lot.units}: ${cost.lot.noteEn}. ` +
+          `For ${units}, what weighs is getting the machine there, not the count — the quote to ask for is machine time.${nota(false)}`,
+      };
+    }
     if (units && units > 0 && cost.basis === 'project') {
       const nounPt = units === 1 ? cost.unitPt : cost.unitPluralPt;
       const nounEn = units === 1 ? cost.unitEn : cost.unitPluralEn;

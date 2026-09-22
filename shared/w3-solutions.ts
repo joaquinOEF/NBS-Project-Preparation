@@ -26,6 +26,7 @@ import {
   type NbsSolution,
 } from './nbs-catalog';
 import { studyRequirement } from './w3-dossier';
+import { solutionSurface } from './w3-size-check';
 
 export interface ShortlistInput {
   /** intervention_site fields, as stored. */
@@ -79,10 +80,37 @@ function siteFit(s: NbsSolution, site: Record<string, string | undefined>): Pick
   const use = site.current_use ?? '';
   const name = site.site_name ?? '';
 
-  if (s.id === 'teto-verde' && !/laje|telhad|roof|escola|emei|emef|posto|ubs|sede/i.test(name)) {
+  // ⚠️ KEYED ON THE DECLARED SURFACE, not on a list of solution ids. Every one
+  // of the 27 says what it is built on (`SOLUTION_SURFACE`, invariant-checked),
+  // so a place whose own record contradicts that surface is one comparison —
+  // and a solution added next year is covered without anyone remembering. What
+  // this closed: five barraginhas — earth basins up to 20 m across — offered
+  // first, with a blank "condição do lugar", on a schoolyard the organisation
+  // had itself recorded as fully cemented (staging, 22 Sept).
+  const surface = solutionSurface(s.id);
+  const story = `${name} ${site.site_story ?? ''} ${site.site_notes ?? ''}`;
+  if (surface === 'roof' && !/laje|telhad|roof|escola|emei|emef|posto|ubs|sede|gin[áa]sio|quadra cobert/i.test(story)) {
     return {
-      caveatPt: 'Precisa de uma laje que aguente o peso — vale confirmar que existe uma no lugar.',
-      caveatEn: 'Needs a roof slab that can take the weight — worth confirming there is one here.',
+      caveatPt: s.id === 'teto-verde'
+        ? 'Precisa de uma laje que aguente o peso — vale confirmar que existe uma no lugar.'
+        : 'Depende de um telhado com calha — vale confirmar que existe um no lugar.',
+      caveatEn: s.id === 'teto-verde'
+        ? 'Needs a roof slab that can take the weight — worth confirming there is one here.'
+        : 'Depends on a roof with guttering — worth confirming there is one here.',
+    };
+  }
+  // Open ground on a place the organisation itself recorded as sealed. Quiet
+  // when their own words already name earth somewhere in it.
+  if (surface === 'open-ground' && use === 'paved' && !/terra|solo|canteir|gramad|jardim|horta|[áa]rea verde|faixa/i.test(story)) {
+    return {
+      caveatPt: 'O lugar está registrado como todo pavimentado, e essa solução precisa de solo aberto — ou de abrir uma faixa.',
+      caveatEn: 'The place is on record as fully paved, and this one needs open ground — or a strip opened up.',
+    };
+  }
+  if (surface === 'water' && !/banhad|arroio|margem|wetland|lagoa|c[oó]rrego|canal|lago/i.test(story)) {
+    return {
+      caveatPt: 'Vale para banhado, lago ou margem de curso d\'água — o registro do lugar não menciona nenhum.',
+      caveatEn: 'Applies to a wetland, a pond or a watercourse margin — the site record mentions none.',
     };
   }
   if (s.familiaId === 'encostas-e-solo' && use && !/slope|encosta|barranc/i.test(use) && !/encosta|morro|barranc/i.test(name)) {
@@ -95,12 +123,6 @@ function siteFit(s: NbsSolution, site: Record<string, string | undefined>): Pick
     return {
       caveatPt: 'Faz mais sentido onde já existe piso impermeável para trocar.',
       caveatEn: 'Makes most sense where there is already impermeable paving to replace.',
-    };
-  }
-  if (s.id === 'restauracao-areas-umidas' && !/banhad|arroio|margem|wetland|lagoa|c[oó]rrego/i.test(`${name} ${site.site_story ?? ''}`)) {
-    return {
-      caveatPt: 'Vale para banhado ou margem de curso d\'água — o registro do lugar não menciona nenhum.',
-      caveatEn: "Applies to a wetland or a watercourse margin — the site record mentions neither.",
     };
   }
   return {};
