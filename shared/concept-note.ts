@@ -450,13 +450,22 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
   // Nothing is lost: what is still missing is COMPUTED fresh at print time by
   // the dossier and printed under Pendências, which is the authority and is
   // never stale.
+  // Addressing the organisation — not "seu/sua", which Portuguese uses for
+  // "its" in the third person ("a organização e sua equipe").
+  const SPOKEN = /\bvoc[eê]s?\b|\bvcs\b|\ba gente\b|\byou(r)?\b/i;
   const observations: ConceptNoteFacts['observations'] = (() => {
     try {
       const advice = JSON.parse(String(w3._advice_json ?? '') || '{}');
       return (advice.observations ?? [])
         .filter((o: any) => typeof o?.textPt === 'string' && o.textPt.trim().length > 12)
         .map((o: any) => ({ text: String(o.textPt).trim(), basedOn: String(o.basedOn ?? '').trim(), kind: String(o.kind ?? '') }))
-        .filter((o: any) => o.basedOn && !groundedInAbsence(o.basedOn));
+        .filter((o: any) => o.basedOn && !groundedInAbsence(o.basedOn))
+        // ⚠️ The advisor's `strength` is SPOKEN to the organisation ("Vocês
+        // chegam ao Encontro 3 com visita técnica feita…") and printed in the
+        // Resumo's third-person "O problema" section as it was (Caldas Junior,
+        // 22 Sept audit). A line in the spoken register does not go on a page —
+        // docs/document-register.md.
+        .filter((o: any) => !SPOKEN.test(o.text));
     } catch {
       return [];
     }

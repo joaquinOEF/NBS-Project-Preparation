@@ -471,6 +471,17 @@ test.describe('the concept note — what a reading pass saw', () => {
     expect(f.observations).toEqual([]);
   });
 
+  test('⚠️ an observation SPOKEN to the organisation stays off the page (Caldas Junior, 22 Sept audit)', () => {
+    // The advisor's strength is written for the org — "Vocês chegam ao Encontro
+    // 3 com visita técnica feita…" — and printed as it was in the Resumo's
+    // third-person "O problema". A third-person strength still reaches it.
+    const f = conceptNoteFacts(withAdvice([
+      { kind: 'strength', textPt: 'Vocês chegam ao Encontro 3 com visita técnica feita e 25 voluntários inscritos.', basedOn: '03-relatorio-visita-tecnica.pdf' },
+      { kind: 'strength', textPt: 'A organização e sua direção já aprovaram a contrapartida em assembleia.', basedOn: '05-ata.pdf' },
+    ]), 'pt');
+    expect(f.observations.map(o => o.basedOn)).toEqual(['05-ata.pdf']);
+  });
+
   test('its figures become quotable by the authoring pass', () => {
     // An observation is a fact with a source, so a number inside one is a number
     // the writer may use — which is the whole point of pre-digesting rather than

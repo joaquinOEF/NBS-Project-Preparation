@@ -32,7 +32,7 @@ export type FilesDrawerMember = {
   /** A test copy / demo member, kept out of the portfolio analysis. */
   isTest?: boolean;
   /** Ids of the solutions tested in Encontro 3 — one "Cenário" link each in Documentos. */
-  w3?: { testedIds?: string[] };
+  w3?: { testedIds?: string[]; detailed?: boolean };
 };
 
 export function CboFilesDrawer({
@@ -210,7 +210,7 @@ export function CboFilesDrawer({
               <div className="space-y-2 px-1">
                 <p className="text-[12px] leading-snug text-muted-foreground">
                   {t('cboView.documentsHint', {
-                    defaultValue: 'Os documentos que a organização leva do Encontro 3. Abrem numa aba nova, exatamente como ela os vê.',
+                    defaultValue: 'Os documentos do Encontro 3 — a comparação e uma página por cenário. Abrem numa aba nova, exatamente como a organização os vê.',
                   })}
                 </p>
                 {[
@@ -220,8 +220,19 @@ export function CboFilesDrawer({
                     label: t('cboView.docScenario', { defaultValue: 'Cenário: {{name}}', name: getSolution(id)?.pt.label ?? id }),
                     hint: t('cboView.docScenarioHint', { defaultValue: 'Uma página só — pra levar à mesa do portfólio' }),
                   })),
-                  { kind: 'nota', label: t('cboView.docConceptNote', { defaultValue: 'Resumo do projeto' }), hint: t('cboView.docConceptNoteHint', { defaultValue: 'Para a coordenação — base para preparar uma proposta' }) },
-                  { kind: 'rota', label: t('cboView.docRoadmap', { defaultValue: 'Hoja de ruta' }), hint: t('cboView.docRoadmapHint', { defaultValue: 'O caminho, com responsáveis' }) },
+                  // ⚠️ Encontro 3 ends at the comparison (#553). The Resumo and the
+                  // hoja de ruta are built from who builds / why here / how the
+                  // place is today — project detailing, Encontro 4's — so for an
+                  // organisation that closed at the comparison they print mostly
+                  // "ainda não definido". Offered beside the comparison as equals,
+                  // they read as the org's E3 result (22 Sept audit). A record that
+                  // ran the old tail keeps them as before.
+                  ...(member.w3?.detailed
+                    ? [
+                        { kind: 'nota', label: t('cboView.docConceptNote', { defaultValue: 'Resumo do projeto' }), hint: t('cboView.docConceptNoteHint', { defaultValue: 'Para a coordenação — base para preparar uma proposta' }) },
+                        { kind: 'rota', label: t('cboView.docRoadmap', { defaultValue: 'Hoja de ruta' }), hint: t('cboView.docRoadmapHint', { defaultValue: 'O caminho, com responsáveis' }) },
+                      ]
+                    : []),
                 ].map(d => (
                   <a
                     key={d.kind}
@@ -238,6 +249,32 @@ export function CboFilesDrawer({
                     <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   </a>
                 ))}
+                {!member.w3?.detailed && (
+                  <div className="pt-2" data-testid="cbo-docs-e4">
+                    <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t('cboView.docE4Heading', { defaultValue: 'Para o Encontro 4' })}
+                    </p>
+                    <p className="mb-1.5 text-[11.5px] leading-snug text-muted-foreground">
+                      {t('cboView.docE4Hint', { defaultValue: 'O Encontro 3 termina na comparação. Estes dois são montados com o detalhamento do projeto (quem constrói, por que aqui, como o lugar está hoje) e ficam quase vazios até lá.' })}
+                    </p>
+                    {[
+                      { kind: 'nota', label: t('cboView.docConceptNote', { defaultValue: 'Resumo do projeto' }) },
+                      { kind: 'rota', label: t('cboView.docRoadmap', { defaultValue: 'Hoja de ruta' }) },
+                    ].map(d => (
+                      <a
+                        key={d.kind}
+                        href={`/api/cohort/${cohortSlug}/member/${member.id}/document/${d.kind}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        data-testid={`cbo-doc-${d.kind}`}
+                        className="mb-1.5 flex items-center justify-between gap-2 rounded-lg border border-dashed border-border/70 px-3 py-2 text-muted-foreground hover:bg-muted/50"
+                      >
+                        <span className="text-[12.5px]">{d.label}</span>
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>

@@ -1657,7 +1657,7 @@ export default function OrchestratorLandingPage() {
       neighborhood: p.neighborhood || undefined,
       encontro: (['who', 'where', 'building', 'impact', 'operations', 'needs', 'results'] as const).indexOf(p.currentPhase) + 1 || undefined,
       isTest: p.excludeFromPortfolio,
-      w3: { testedIds: ((p.w3 as any)?.testedIds ?? []) as string[] },
+      w3: { testedIds: ((p.w3 as any)?.testedIds ?? []) as string[], detailed: !!(p.w3 as any)?.detailed },
     });
     setFilesTab(tab);
   };

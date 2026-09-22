@@ -291,10 +291,18 @@ export type MemberW3Signal = {
   tested: number;
   /** Their ids, for the drawer's one-page-per-scenario links. */
   testedIds: string[];
+  /**
+   * The record carries project DETAILING — who builds, why here, how the place
+   * is today. Encontro 3 ends at the comparison (#553), so only a session that
+   * ran the old tail has it; for everyone else the Resumo and the hoja de ruta
+   * print mostly "ainda não definido" and belong to Encontro 4. The drawer
+   * labels them so instead of offering them beside the comparison as equals.
+   */
+  detailed: boolean;
 };
 const EMPTY_W3: MemberW3Signal = {
   state: null, unblockedBy: null, capacity: null,
-  solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0, tested: 0, testedIds: [],
+  solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0, tested: 0, testedIds: [], detailed: false,
 };
 
 /** The dossier, computed from a member's live state. Since Encontro 3 ends at
@@ -318,6 +326,8 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
   if (!solutions.length && !tested && !site._site_lat && !site.site_lat) return EMPTY_W3;
 
   const areaM2 = Number(site.site_area_m2) || 0;
+  const impact = asRecord('impact_monitoring');
+  const detailed = !!(type.construction_model || type.justification_why_here || impact.baseline_condition);
   const dossier = buildDossier({
     site,
     org: asRecord('org_profile'),
@@ -336,6 +346,7 @@ function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
     coordinationItems: dossier.items.filter(i => i.owner === 'coordination').length,
     tested,
     testedIds,
+    detailed,
   };
 }
 
