@@ -1091,6 +1091,17 @@ export function registerCohortRoutes(app: Express): void {
     zip.file('context.md', buildContextMarkdown(input));
     zip.file('transcricao.md', buildTranscriptMarkdown(input));
     zip.file('perfil.json', JSON.stringify({
+      // ⚠️ WHICH RECORD THIS IS. A test copy is a whole new cbo_state under the
+      // same org name; two exports downloaded in one minute disagreed because
+      // they were two rows, and neither said so.
+      cboStateId: state?.id ?? member.cboStateId ?? null,
+      memberId: member.id,
+      exportedAt: new Date().toISOString(),
+      updatedAt: (state as any)?.metadata?.updatedAt ?? null,
+      excludeFromPortfolio: !!member.excludeFromPortfolio,
+      // The session's own incidents travel with the record — a coordinator
+      // diagnosing a bad export should not need the server console.
+      health: (state as any)?.metadata?.health ?? [],
       orgName: member.orgName,
       neighborhood: member.neighborhood,
       phase: state?.phase ?? null,

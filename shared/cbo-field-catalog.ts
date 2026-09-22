@@ -489,6 +489,12 @@ export const CBO_FIELD_LABELS: Record<string, { pt: string; en: string }> = {
   site_notes: { pt: 'Outras informações sobre o lugar', en: 'Other information about the place' },
   project_notes: { pt: 'Outras informações sobre o projeto', en: 'Other information about the project' },
   site_photo_intent: { pt: 'Fotos do lugar', en: 'Photos of the place' },
+  // What Encontro 3 collects, named for a person: these are rendered in the
+  // context bundle rather than dumped as JSON (BUNDLE_RENDERERS).
+  solution_tests_json: { pt: 'Soluções testadas no Encontro 3', en: 'Solutions tested in Encontro 3' },
+  _choice_criteria: { pt: 'O que pesa mais na escolha', en: 'What weighs most in the choice' },
+  _document_notes_json: { pt: 'O que os arquivos da organização dizem', en: "What the organisation's files say" },
+  dig_json: { pt: 'Perguntas escritas para esta organização', en: 'Questions written for this organisation' },
   site_knowledge_depth: { pt: 'Profundidade do que sabemos', en: 'Depth of what we know' },
   primary_hazard: { pt: 'Risco principal', en: 'Main hazard' },
   secondary_hazard: { pt: 'Risco secundário', en: 'Secondary hazard' },
