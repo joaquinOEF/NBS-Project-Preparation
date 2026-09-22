@@ -21,6 +21,7 @@ import type { W3Input } from './w3-dossier';
 import { getFamilia } from './nbs-catalog';
 import { parseCriteria, fitFor, criteriaScore, CRITERIA, WHO, HARDEST, FIT_MARK, type CriterionFit, type WhoId, type HardestId } from './w3-criteria';
 import { notesFromInput, placeNotes, toCardNote, STANCE_LABEL, NOTES_HEADING, type CardNote } from './w3-document-notes';
+import { studiesDone } from './w3-dossier';
 
 type Lang = 'pt' | 'en';
 
@@ -255,7 +256,7 @@ export function buildComparison(
       ? { areaM2, ...(input.site.site_area_source ? { source: input.site.site_area_source } : {}) }
       : {},
     technicalNote: technicalNote?.trim() || null,
-    placeNotes: { heading: NOTES_HEADING[lang], notes: placeNotes(notesFromInput(input)).map(n => toCardNote(n, lang)) },
+    placeNotes: { heading: NOTES_HEADING[lang], notes: placeNotes(notesFromInput(input)).map(n => toCardNote(n, lang, studiesDone(input.site))) },
     docLabel: pt ? 'Comparação das soluções testadas' : 'Comparison of the solutions tested',
     docAudience: pt
       ? 'Para a organização e a coordenação — base para a conversa de portfólio'

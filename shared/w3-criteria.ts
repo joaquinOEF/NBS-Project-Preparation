@@ -113,8 +113,21 @@ export function fitFor(id: CriterionId, card: SolutionTestCard, test: SolutionTe
     const fit: Fit = st === 'ready' ? 'bom' : st === 'needs_permission' ? 'fraco' : 'medio';
     return { id, fit, why: pt ? (st === 'ready' ? 'nada trava' : st === 'needs_permission' ? `depende de ${card.verdict.unblockedBy}` : 'o que trava é técnico, não papel') : (st === 'ready' ? 'nothing blocks it' : st === 'needs_permission' ? `depends on ${card.verdict.unblockedBy}` : 'what blocks it is technical, not paperwork'), source: pt ? 'veredito' : 'verdict' };
   }
-  const fit: Fit = card.answersWorry ? 'bom' : card.effect.headline ? 'medio' : 'fraco';
-  return { id, fit, why: pt ? (card.answersWorry ? 'responde ao que preocupa' : card.effect.headline ? 'tem efeito estimado, em outro problema' : 'sem número de referência') : (card.answersWorry ? 'answers the worry named' : card.effect.headline ? 'has an estimated effect, on another problem' : 'no reference figure'), source: pt ? 'catálogo (mecanismo) e ficha' : 'catalogue (mechanism) and ficha' };
+  // ⚠️ THE WORRY THEY PUT FIRST, not any worry they ever named. Encontro 3 asks
+  // which one this project faces first and moves it to the front of
+  // `site_worry`; the shelf already reserves seats on that reading. This line
+  // did not, so on a heat-first project a bioswale scored a full ✔ "responde ao
+  // que preocupa" (it answers enxurrada, named second) and ranked above the rain
+  // garden the technical visit had recommended (staging, 22 Sept).
+  const answersFocus = !!card.answersWorry && card.answersWorry === card.answersFocusWorry;
+  const fit: Fit = answersFocus ? 'bom' : card.answersWorry || card.effect.headline ? 'medio' : 'fraco';
+  const whyPt = answersFocus ? 'responde ao que pesa mais'
+    : card.answersWorry ? `o problema que resolve — ${card.answersWorry.toLowerCase()} — não é o foco deste projeto`
+    : card.effect.headline ? 'tem efeito estimado, em outro problema' : 'sem número de referência';
+  const whyEn = answersFocus ? 'answers what weighs most'
+    : card.answersWorry ? `what it answers — ${card.answersWorry.toLowerCase()} — is not this project's focus`
+    : card.effect.headline ? 'has an estimated effect, on another problem' : 'no reference figure';
+  return { id, fit, why: pt ? whyPt : whyEn, source: pt ? 'catálogo (mecanismo) e ficha' : 'catalogue (mechanism) and ficha' };
 }
 
 const POINTS: Record<Fit, number> = { bom: 2, medio: 1, fraco: 0 };

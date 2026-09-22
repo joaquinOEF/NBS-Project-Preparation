@@ -12,7 +12,7 @@
 // Pure. Same inputs, same card; every row carries where it came from.
 // ============================================================================
 
-import { computeVerdict, studyRequirement, studyAlreadyDone, type Verdict, type W3Input } from './w3-dossier';
+import { computeVerdict, studyRequirement, studyAlreadyDone, studiesDone, type Verdict, type W3Input } from './w3-dossier';
 import { budgetLineFor, SOLUTION_COSTS, type BudgetLine, type BuildModel } from './w3-sizing';
 import { benefitFor, type BenefitLine } from './w3-benefits';
 import { scaleStatement } from './w3-scale';
@@ -52,6 +52,8 @@ export interface SolutionTestCard {
   caveat: string | null;
   /** "responde a …" when the solution answers a mechanism the organisation named. */
   answersWorry: string | null;
+  /** The same, for the worry they put FIRST — what "responde ao que preocupa" may mean. */
+  answersFocusWorry: string | null;
   /** The number this card's cost and effect were computed from, so it can be read back. */
   sizedBy: { areaM2?: number; units?: number };
   /**
@@ -133,6 +135,11 @@ export function buildSolutionTest(
   const worries = String(input.site.site_worry ?? '').split(',').map(w => w.trim()).filter(Boolean);
   const hit = worries.find(w => (SOLUTION_MECHANISMS[solutionId] ?? []).includes(w as any));
   const answersWorry = hit ? labelOfWorry(hit, pt) : null;
+  // The worry they put FIRST — Encontro 3's focus question moves it there — so
+  // every reader can tell "answers what weighs most" from "answers something
+  // else they also named". Null when this solution answers neither.
+  const focus = worries.find(w => w && w !== 'other') ?? null;
+  const answersFocusWorry = focus && (SOLUTION_MECHANISMS[solutionId] ?? []).includes(focus as any) ? labelOfWorry(focus, pt) : null;
 
   const cx = COMPLEXIDADE_LABEL[sol.complexidade][lang];
   const label = pt ? sol.pt.label : sol.en.label;
@@ -156,10 +163,11 @@ export function buildSolutionTest(
     upkeep: firstSentence(pt ? ficha.pt.quemCuidaDepois : ficha.en.quemCuidaDepois),
     caveat,
     answersWorry,
+    answersFocusWorry,
     // What THIS card's numbers rest on: the count for a counted solution, the
     // footprint for a measured one — never the footprint under a cistern.
     sizedBy: units ? { units } : perM2 && areaM2 ? { areaM2 } : {},
-    fromTheirFiles: notesFor(solutionId, notesFromInput(input)).map(n => toCardNote(n, lang)).filter(n => n.scope === 'solution' || n.stance === 'dito'),
+    fromTheirFiles: notesFor(solutionId, notesFromInput(input)).map(n => toCardNote(n, lang, studiesDone(input.site))).filter(n => n.scope === 'solution' || n.stance === 'dito'),
     placeNoteCount: notesFromInput(input).filter(n => n.solutionId === '*' && n.stance !== 'dito').length,
   };
 }

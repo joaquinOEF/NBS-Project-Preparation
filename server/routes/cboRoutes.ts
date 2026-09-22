@@ -793,6 +793,13 @@ function exportCboMarkdown(state: CboState): string {
 
   if (state.maturityScores.length > 0) {
     lines.push(`## ${T.scorecard}`, '', `**${T.total}: ${state.totalMaturityScore}/27**`, '');
+    // The denominator covers all six encontros. Printed bare, a score earned in
+    // three of them reads as a verdict on the organisation.
+    if (state.maturityScores.length < 9) {
+      lines.push(lang === 'pt'
+        ? `_${state.maturityScores.length} de 9 métricas avaliadas até aqui — os Encontros 4 a 6 respondem pelo restante._`
+        : `_${state.maturityScores.length} of 9 metrics assessed so far — Encontros 4 to 6 account for the rest._`, '');
+    }
     lines.push(T.cols, '|---|---|---|');
     for (const s of state.maturityScores) {
       lines.push(`| ${cboFieldLabel(s.metric, lang)} | ${'█'.repeat(s.score)}${'░'.repeat(3 - s.score)} ${s.score}/3 | ${s.justification} |`);

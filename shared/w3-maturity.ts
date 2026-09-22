@@ -31,6 +31,17 @@ export interface W3MaturityInput {
   units?: number;
   /** True when the budget could close a total — not merely quote a rate. */
   hasCostBand: boolean;
+  /**
+   * Who would build each solution, as the organisation answered per test
+   * ("quem faria isso aí?" — `SolutionTest.who`).
+   *
+   * ⚠️ The scorer read only `construction_model`, a field the detail tail used
+   * to write and which nothing can set since Encontro 3 ends at the comparison
+   * (#553). An organisation that answered "nós, com um parceiro técnico" on all
+   * four tests was scored 2/3 and told on its own profile "sem definir quem
+   * constrói" (staging, 22 Sept) — and no organisation could ever reach 3.
+   */
+  who?: string[];
 }
 
 export function scoreW3Maturity(input: W3MaturityInput): MaturityScore[] {
@@ -46,8 +57,9 @@ export function scoreW3Maturity(input: W3MaturityInput): MaturityScore[] {
   const problemScore = Math.min(3, problem) as 0 | 1 | 2 | 3;
 
   // ── solution_clarity — is it one solution, on a place, at a size? ──────────
+  const whoAnswered = (input.who ?? []).some(w => has(w)) || has(w3.construction_model);
   const solutionScore = (
-    !solutions.length ? 0 : !sized ? 1 : solutions.length && sized && has(w3.construction_model) ? 3 : 2
+    !solutions.length ? 0 : !sized ? 1 : whoAnswered ? 3 : 2
   ) as 0 | 1 | 2 | 3;
 
   // ── climate_nbs_impact — is there a figure, and did they weigh it? ─────────
@@ -110,7 +122,7 @@ export function scoreW3Maturity(input: W3MaturityInput): MaturityScore[] {
         : [
             `solução escolhida: ${solutions.join(', ')}`,
             sized ? 'com tamanho' : 'sem tamanho definido',
-            has(w3.construction_model) ? 'com modelo de execução' : 'sem definir quem constrói',
+            whoAnswered ? 'com quem constrói definido' : 'sem definir quem constrói',
           ].join('; '),
     },
     {

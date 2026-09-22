@@ -1986,6 +1986,7 @@
       "investmentReadyConditions": "Pronto para Investimento com Condições",
       "developing": "Em Desenvolvimento — Promissor com Apoio",
       "earlyStage": "Estágio Inicial",
+      "metricsPending": "{{scored}} de 9 métricas avaliadas — os Encontros 4 a 6 respondem pelo restante",
       "maturityMetrics": "Métricas de Maturidade",
       "priorityFlags": "Sinais Prioritários",
       "completeInterview": "Complete a entrevista para ver seu placar de maturidade"
