@@ -574,6 +574,38 @@ export const MATURITY_METRICS = [
   'regulatory_awareness',
 ] as const;
 
+/**
+ * ⚠️ THE FOUR PHASE-3 METRICS WAIT FOR ENCONTRO 4 — on every surface a
+ * coordinator compares organisations on.
+ *
+ * `problem_clarity` reads why-here and the baseline; `financial_thinking`, the
+ * recurring money; `solution_clarity` and `climate_nbs_impact`, who builds and
+ * a checked impact figure. Encontro 3 has ended at the comparison since
+ * 21 Sept (#553) and asks none of those — they are Encontro 4's project
+ * questions. So a record from before scored 15/15 while one after scored 1/3 on
+ * problem clarity with three files about the problem in its Resumo (22 Sept
+ * audit, docs/w3-audit-2026-09-22.md). Until the organisation reaches phase 4
+ * the roster total and the drawer leave them out and SAY they are waiting.
+ * The scores themselves are still recorded — `phaseComplete` and the exports
+ * read the state, not this.
+ */
+export const METRICS_HELD_UNTIL_E4: readonly string[] = CBO_SECTIONS
+  .filter(s => s.phase === 3)
+  .flatMap(s => [...s.maturityMetrics]);
+
+export function shownMaturity(state: { phase?: number; maturityScores?: MaturityScore[] | null }): {
+  scores: MaturityScore[]; total: number; held: string[];
+} {
+  const all = state.maturityScores ?? [];
+  const hold = (state.phase ?? 0) < 4;
+  const scores = hold ? all.filter(s => !METRICS_HELD_UNTIL_E4.includes(s.metric)) : all;
+  return {
+    scores,
+    total: scores.reduce((n, s) => n + s.score, 0),
+    held: hold ? all.filter(s => METRICS_HELD_UNTIL_E4.includes(s.metric)).map(s => s.metric) : [],
+  };
+}
+
 export const PRIORITY_FLAG_DEFINITIONS = [
   'Land tenure secure or likely secure',
   'Baseline environmental data exists',

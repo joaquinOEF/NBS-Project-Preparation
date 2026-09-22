@@ -14,7 +14,7 @@
 import { db } from '../db';
 import { cboStates, cboMessages } from '@shared/cbo-db-schema';
 import { cohortMembers } from '@shared/cohort-schema';
-import { cboSectionsFilledCount } from '@shared/cbo-schema';
+import { cboSectionsFilledCount, shownMaturity } from '@shared/cbo-schema';
 import { eq, asc } from 'drizzle-orm';
 import type { CboState, CboChatMessage } from '@shared/cbo-schema';
 
@@ -216,7 +216,8 @@ async function syncMemberSnapshot(state: CboState): Promise<void> {
   await db.update(cohortMembers).set({
     snapshotPhase: state.phase ?? 1,
     snapshotSectionsComplete: sectionsComplete,
-    snapshotMaturityScore: state.totalMaturityScore ?? 0,
+    // What the roster compares organisations on — phase-3 metrics wait for E4 (`shownMaturity`).
+    snapshotMaturityScore: shownMaturity(state).total,
     snapshotFlagsMet: (state.priorityFlags ?? []).filter(f => f.met).length,
     ...(intervention ? { snapshotIntervention: String(intervention) } : {}),
     snapshotUpdatedAt: new Date(),

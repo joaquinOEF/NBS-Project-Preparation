@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { Loader2, FileText, Check } from 'lucide-react';
 import { CBO_SECTIONS, isInternalCboField, type CboState } from '@shared/cbo-schema';
 
-type Profile = Pick<CboState, 'phase' | 'sections' | 'maturityScores' | 'totalMaturityScore' | 'gaps'> & { health?: HealthEntry[] };
+type Profile = Pick<CboState, 'phase' | 'sections' | 'maturityScores' | 'totalMaturityScore' | 'gaps'> & { health?: HealthEntry[]; maturityHeld?: string[] };
 
 /**
  * The coordination's technical reading of this organisation — Robson's field
@@ -122,6 +122,18 @@ export function CboProfileSummary({
         <span className="text-muted-foreground">{t('cboView.maturity', { defaultValue: 'Maturity' })}</span>
         <span className="font-semibold">{profile.totalMaturityScore}/27</span>
       </div>
+      {/* ⚠️ Encontro 3 ends at the comparison; what these four read (why here,
+          baseline, who builds, recurring money) is Encontro 4's. Scored or not,
+          they are left out of the total until then, and the drawer says so
+          rather than letting a low number read as a weak organisation. */}
+      {(profile.maturityHeld?.length ?? 0) > 0 && (
+        <p className="-mt-2 px-1 text-[11.5px] leading-snug text-muted-foreground" data-testid="cbo-maturity-held">
+          {t('cboView.maturityHeld', {
+            defaultValue: 'Sem contar {{metrics}}: são lidas do detalhamento do projeto, que fica para o Encontro 4.',
+            metrics: profile.maturityHeld!.map(m => label(m).toLowerCase()).join(', '),
+          })}
+        </p>
+      )}
 
       <TechnicalNoteEditor
         cohortSlug={cohortSlug}

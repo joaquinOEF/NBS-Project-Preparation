@@ -2266,6 +2266,7 @@
     "noChat": "Nenhuma conversa ainda.",
     "noProfile": "Nada preenchido ainda.",
     "maturity": "Maturidade",
+    "maturityHeld": "Sem contar {{metrics}}: são lidas do detalhamento do projeto, que fica para o Encontro 4.",
     "empty": "—",
     "scorecard": "Quadro de maturidade",
     "refresh": "Atualizar",
