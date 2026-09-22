@@ -190,7 +190,7 @@ export function analysisForModel(a: SynergyAnalysis): string {
       for (const t of m.tested) {
         const bits = [
           t.who && WHO[t.who as WhoId] ? `quem faria: ${WHO[t.who as WhoId].reportPt.toLowerCase()}` : null,
-          t.hardest === 'outro' && t.hardestNote ? `o que mais pega: "${t.hardestNote.slice(0, 200)}"` : t.hardest && HARDEST[t.hardest as HardestId] ? `o que mais pega: ${HARDEST[t.hardest as HardestId].reportPt.toLowerCase()}` : null,
+          t.hardest === 'outro' && t.hardestNote ? `o que mais pega: "${t.hardestNote.slice(0, 200)}"` : t.hardest && t.hardest !== 'pulou' && HARDEST[t.hardest as HardestId] ? `o que mais pega: ${HARDEST[t.hardest as HardestId].reportPt.toLowerCase()}` : null,
           t.areaM2 ? `testada sobre ${t.areaM2.toLocaleString('pt-BR')} m²` : t.units ? `${t.units} unidades` : null,
         ].filter(Boolean);
         if (bits.length) L.push(`      · ${solutionWords(t.id)}: ${bits.join(' · ')}`);

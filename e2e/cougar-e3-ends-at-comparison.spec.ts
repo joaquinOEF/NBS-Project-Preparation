@@ -177,6 +177,18 @@ test.describe('the comparison is the end', () => {
   });
 });
 
+test('⚠️ a trace made during a test is that test\'s size — the place keeps its footprint (22 Sept audit)', async () => {
+  // Written straight to the place, a roof traced for a teto verde became the
+  // "Ainda é esse o tamanho?" offered to the next solution on the ground.
+  const s = session();
+  await s.send('Vamos começar o Encontro 3.', 'system');
+  await s.send('Teto verde');
+  const traced = await s.send('Map selection (e3 footprint): Colégio Caldas Junior · 450 m²', 'map');
+  expect(traced.said).toContain('450 m²');
+  expect(String(s.state.sections.intervention_site.fields.site_area_m2.value), 'the place keeps the 2,900 m² drawn in Encontro 2').toBe('2900');
+  expect(s.tests().find(t => t.solutionId === 'teto-verde')?.areaM2).toBe(450);
+});
+
 test.describe('the questions written for THIS organisation are asked — before the comparison', () => {
   const DIG = JSON.stringify([
     { id: 'dig-1-1', round: 1, askPt: 'No croqui a água vem também do muro dos fundos. O vizinho é um prédio, um galpão?', askEn: 'x', notePt: '{answer}', noteEn: '{answer}', feeds: 'problema', basedOn: 'croqui', sourceKind: 'photo' },

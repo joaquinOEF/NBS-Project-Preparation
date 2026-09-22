@@ -228,7 +228,7 @@ export function buildComparison(
       who: t.who && WHO[t.who as WhoId] ? (pt ? WHO[t.who as WhoId].reportPt : WHO[t.who as WhoId].reportEn) : null,
       hardest: t.hardest === 'outro' && t.hardestNote?.trim()
         ? `“${t.hardestNote.trim()}”`
-        : t.hardest && HARDEST[t.hardest as HardestId] ? (pt ? HARDEST[t.hardest as HardestId].reportPt : HARDEST[t.hardest as HardestId].reportEn) : null,
+        : t.hardest && t.hardest !== 'pulou' && HARDEST[t.hardest as HardestId] ? (pt ? HARDEST[t.hardest as HardestId].reportPt : HARDEST[t.hardest as HardestId].reportEn) : null,
       criteria: criteria.map(id => {
         const f = fitFor(id, card, t, lang);
         const c = CRITERIA.find(x => x.id === id)!;

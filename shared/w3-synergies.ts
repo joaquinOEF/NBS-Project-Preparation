@@ -442,7 +442,7 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
   const partnerMap = new Map<string, { ids: Set<string>; sols: Set<string> }>();
   for (const m of members) {
     for (const t of m.tested ?? []) {
-      if (t.hardest && t.hardest !== 'nada' && t.hardest !== 'outro' && HARDEST[t.hardest as HardestId]) {
+      if (t.hardest && t.hardest !== 'nada' && t.hardest !== 'outro' && t.hardest !== 'pulou' && HARDEST[t.hardest as HardestId]) {
         const k = HARDEST[t.hardest as HardestId].reportPt;
         const e = obstacleMap.get(k) ?? { ids: new Set(), sols: new Set() };
         e.ids.add(m.id); e.sols.add(t.id); obstacleMap.set(k, e);

@@ -2071,7 +2071,10 @@ async function serveE3Inner(
           return await showTestCardQuestions(id);
         }
         if (isSkip(raw)) {
-          writeTests(upsertTest(ensureTests(), { solutionId: id, hardest: 'nada' as HardestId }));
+          // ⚠️ A skip is not "nada disso pega". Stored as 'nada' it printed
+          // "Nada de grande" in the comparison under a question they never
+          // answered (22 Sept audit).
+          writeTests(upsertTest(ensureTests(), { solutionId: id, hardest: 'pulou' as HardestId }));
           deps.writeFields(TYPE, { _test_q: '' });
           return await showTestCardQuestions(id);
         }
@@ -2381,7 +2384,14 @@ async function serveE3Inner(
     const m = /· (\d+) m²/.exec(raw);
     if (!m) return false; // not a footprint session — let E2/the model have it
     const drawn = roundAreaM2(Number(m[1]));
-    deps.writeFields(SITE, { site_area_m2: String(drawn) });
+    // ⚠️ A trace made FOR A TEST is that test's size, like every other road to
+    // it (a measure chip, a size said aloud). Written straight to the place, a
+    // roof traced for a teto verde replaced the ground footprint the next
+    // solution is offered (22 Sept audit). The place takes the trace only when
+    // it has no footprint yet — or when no test is open (the place itself was
+    // being marked).
+    if (openTest() && Number(site('site_area_m2')) > 0) deps.writeFields(TYPE, { _test_size: String(drawn) });
+    else deps.writeFields(SITE, { site_area_m2: String(drawn) });
 
     // ⚠️ SHOW THE SHAPE. The room traced an outline on satellite imagery and
     // got back prose — the Encontro 2 hazard bands, a vertex count, and not the
