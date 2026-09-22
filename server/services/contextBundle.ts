@@ -85,7 +85,7 @@ export const BUNDLE_RENDERERS: Record<string, (raw: string) => string[]> = {
     const bits = [
       REACTION[t.reaction ?? 'ainda-nao-sabemos']?.pt ?? 'sem reação',
       t.who ? `quem faria: ${WHO[t.who as WhoId]?.reportPt ?? t.who}` : '',
-      t.hardest ? `o que mais pega: ${t.hardestNote?.trim() ? `"${t.hardestNote.trim()}"` : (HARDEST[t.hardest as HardestId]?.reportPt ?? t.hardest)}` : '',
+      t.hardest && t.hardest !== 'pulou' ? `o que mais pega: ${t.hardestNote?.trim() ? `"${t.hardestNote.trim()}"` : (HARDEST[t.hardest as HardestId]?.reportPt ?? t.hardest)}` : '',
       t.areaM2 ? `${t.areaM2.toLocaleString('pt-BR')} m²` : '',
       t.units ? `${t.units} ${t.units === 1 ? 'unidade' : 'unidades'}` : '',
       t.detailAnswer ? `detalhe: "${t.detailAnswer}"` : '',

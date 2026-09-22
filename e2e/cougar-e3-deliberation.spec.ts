@@ -107,6 +107,28 @@ test.describe('an organisation with no files walks Encontro 3', () => {
     expect(close.said).toContain('o que mais pega, segundo a organização');
   });
 
+  test('⚠️ skipping "o que mais pega?" is not "nada disso pega" (22 Sept audit)', async () => {
+    // Stored as 'nada', a skip printed "Nada de grande" in the comparison under
+    // a question they never answered.
+    const s = session();
+    await s.send('Seguir sem'); await s.send('Prefiro não escolher agora');
+    await s.send('Jardins de chuva'); await s.send('Confere ✓');
+    await s.send('Teria que contratar');
+    const after = await s.send('Prefiro pular', 'text');
+    expect(after.ask.question).toBe('Vendo isso, o que vocês acham?');
+    expect(s.tests()[0].hardest).toBe('pulou');
+    await s.send('Faz sentido pra gente');
+    const cmp = (await s.send('Ver a comparação')).cmp;
+    const col = cmp.columns.find((c: any) => c.solutionId === 'jardins-de-chuva');
+    expect(col.hardest, 'an unanswered question prints as nothing, not as an answer').toBeNull();
+    // And a tapped "Nada disso pega" is still an answer.
+    const t = session();
+    await t.send('Seguir sem'); await t.send('Prefiro não escolher agora');
+    await t.send('Jardins de chuva'); await t.send('Confere ✓');
+    await t.send('Teria que contratar'); await t.send('Nada disso pega');
+    expect(t.tests()[0].hardest).toBe('nada');
+  });
+
   test('two worries: "qual pesa mais?" first, THEN "o que pesa mais pra escolher?" — never skipped (end-to-end run, 21 Sept)', async () => {
     const s = session();
     s.state.sections.intervention_site.fields.site_worry = F('heat, enxurrada');

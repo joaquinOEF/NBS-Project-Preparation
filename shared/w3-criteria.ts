@@ -43,7 +43,8 @@ export const criteriaSentence = (ids: CriterionId[], lang: 'pt' | 'en') =>
 
 // ── The two questions every test asks ───────────────────────────────────────
 export type WhoId = 'nos' | 'nos-com-parceiro' | 'contratar' | 'ninguem' | 'nao-sei';
-export type HardestId = 'autorizacao' | 'estudo' | 'custo' | 'cuidar' | 'espaco' | 'nada' | 'outro';
+/** 'pulou' = they skipped the question — never 'nada', which is an answer ("nada disso pega"). */
+export type HardestId = 'autorizacao' | 'estudo' | 'custo' | 'cuidar' | 'espaco' | 'nada' | 'outro' | 'pulou';
 
 export const WHO: Record<WhoId, { chipPt: string; chipEn: string; reportPt: string; reportEn: string }> = {
   nos: { chipPt: 'A gente, em mutirão', chipEn: 'Us, in a mutirão', reportPt: 'A própria organização, em mutirão', reportEn: 'The organisation itself, as a mutirão' },
@@ -61,6 +62,7 @@ export const HARDEST: Record<HardestId, { reportPt: string; reportEn: string }> 
   espaco: { reportPt: 'O espaço no lugar', reportEn: 'The space at the place' },
   nada: { reportPt: 'Nada de grande', reportEn: 'Nothing major' },
   outro: { reportPt: 'Outra coisa', reportEn: 'Something else' },
+  pulou: { reportPt: 'Não respondeu', reportEn: 'Not answered' },
 };
 
 /** The "what would be hardest?" chips for ONE card — only what that card actually carries. */
