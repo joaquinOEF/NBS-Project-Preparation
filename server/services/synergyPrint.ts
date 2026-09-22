@@ -110,6 +110,14 @@ export function renderSynergyHtml(r: SynergyReport, cohortName = 'a Rede'): stri
   <p class="hyp">Onde uma contratação conjunta economiza de verdade — é o que uma organização sozinha não consegue fazer.</p>
   <ul>${a.pooledStudies.map(p => `<li><strong>${esc(p.need)}</strong> — ${esc(p.memberIds.map(name).join(', '))}</li>`).join('')}</ul>` : ''}
 
+  ${a.sharedObstacles?.length ? `<h2>O que mais pega, segundo as organizações</h2>
+  <p class="lead">Dito por elas no Encontro 3, para cada solução testada. O mesmo obstáculo em várias organizações é uma frente de trabalho do programa, não de cada uma.</p>
+  <ul>${a.sharedObstacles.map(o => `<li><strong>${esc(o.obstacle)}</strong> — ${esc(o.memberIds.map(name).join(', '))}</li>`).join('')}</ul>` : ''}
+  ${a.partnerNeeds?.length ? `<h2>Quem precisa de alguém pra fazer</h2>
+  <p class="lead">Para as soluções que mantiveram, segundo elas mesmas.</p>
+  <ul>${a.partnerNeeds.map(p => `<li><strong>${esc(p.need)}</strong> — ${esc(p.memberIds.map(name).join(', '))}</li>`).join('')}</ul>` : ''}
+  ${a.studiesHeld?.length ? `<h2>Estudos que já existem</h2>
+  <ul>${a.studiesHeld.map(h => `<li><strong>${esc(h.study)}</strong> — ${esc(h.memberIds.map(name).join(', '))}</li>`).join('')}</ul>` : ''}
   ${a.pooledInstruments.length ? `<h2>Mesmo instrumento de aprovação</h2>
   <p class="lead">Uma conversa com o órgão, em vez de uma por organização.</p>
   <ul>${a.pooledInstruments.map(p => `<li><strong>${esc(p.instrument)}</strong> — ${esc(p.memberIds.map(name).join(', '))}</li>`).join('')}</ul>` : ''}

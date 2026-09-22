@@ -30,12 +30,32 @@
 import { NBS_FAMILIAS } from './nbs-catalog';
 import { digParagraphs, parseDig } from './w3-dig';
 import { familyOfWorry } from './site-knowledge';
-import { studyRequirement } from './w3-dossier';
+import { studyRequirement, studiesDone } from './w3-dossier';
 import { getSolutionFicha } from './nbs-solution-fichas';
 import type { CboState } from './cbo-schema';
 import { approvalRequirement } from './nbs-approvals';
 import { parseTests, REACTION, type TestReaction } from './w3-tests';
 import { fundingMatches } from './funding-sources';
+import { HARDEST, CRITERIA, parseCriteria, type HardestId } from './w3-criteria';
+import { notesFromInput, toCardNote, DOCUMENT_NOTES_FIELD } from './w3-document-notes';
+
+/**
+ * One solution an organisation TESTED in Encontro 3, with what it said about it.
+ * Since 2026-09-21 a test carries two answers only the organisation can give —
+ * who would do it, what would be hardest — and its own size. Those are exactly
+ * what a cohort pools: four organisations naming "a autorização" as what stops
+ * them is one conversation with the city, three needing "um parceiro técnico"
+ * is one partner to find.
+ */
+export interface TestedFact {
+  id: string;
+  reaction: TestReaction | null;
+  who?: string | null;
+  hardest?: string | null;
+  hardestNote?: string | null;
+  areaM2?: number | null;
+  units?: number | null;
+}
 
 export interface SynergyMember {
   id: string;
@@ -58,9 +78,21 @@ export interface SynergyMember {
    * list cannot carry — and two organisations setting aside the same thing for
    * the same reason is a finding. Optional: fixtures predate it.
    */
-  tested?: Array<{ id: string; reaction: TestReaction | null }>;
+  tested?: TestedFact[];
   /** The coordination's technical reading of this organisation, when entered. */
   technicalNote?: string | null;
+  /** "O que pesa mais pra escolher?" — criterion ids (shared/w3-criteria.ts). */
+  choiceCriteria?: string[];
+  /**
+   * What their own files and their own words say about the PLACE and the
+   * solutions — already verified and in the written register (the document
+   * reader and the conversation notes). A work window, a counterpart sum, a
+   * technical report advising against a solution: the facts two organisations
+   * have in common are here, not in the fields.
+   */
+  fileNotesPt?: string[];
+  /** Studies the organisation CONFIRMED it already holds — a reference for the others. */
+  studiesDone?: string[];
   /** Roles they said they want to play. */
   roles: string[];
   priorCollaboration: string | null;
@@ -181,6 +213,19 @@ export interface SynergyAnalysis {
   sharedFundingBarriers: Array<{ path: string; memberIds: string[] }>;
   /** Shared approving bodies — one conversation instead of five. */
   pooledBodies: Array<{ body: string; memberIds: string[] }>;
+  /**
+   * What organisations said would be HARDEST, shared. Four naming "a
+   * autorização" is an articulation with the city; three naming "cuidar
+   * depois" is a maintenance programme. From "o que mais pega?" (Encontro 3).
+   */
+  sharedObstacles?: Array<{ obstacle: string; memberIds: string[]; solutions: string[] }>;
+  /**
+   * Who said they would need somebody — a technical partner, a contractor, or
+   * nobody yet — for a solution they KEPT. One partner found for several.
+   */
+  partnerNeeds?: Array<{ need: string; memberIds: string[]; solutions: string[] }>;
+  /** Studies an organisation already holds — a reference, and sometimes a shared one. */
+  studiesHeld?: Array<{ study: string; memberIds: string[] }>;
   /** Stated plainly, because a partial reading presented as complete is a lie. */
   gapsPt: string[];
 }
@@ -364,6 +409,37 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
   const pooledInstruments = poolBy(m => m.approvalInstruments ?? []).map(([instrument, memberIds]) => ({ instrument, memberIds }));
   const sharedFundingBarriers = poolBy(m => m.fundingBlocked ?? []).map(([path, memberIds]) => ({ path, memberIds }));
 
+  // ── What they SAID would be hardest, and who they would need ────────────
+  // Only for solutions they tested; the obstacle names are theirs, from the
+  // chips of "o que mais pega?" ('outro' carries their own words and is not
+  // pooled by label; 'nada' is not an obstacle).
+  const obstacleMap = new Map<string, { ids: Set<string>; sols: Set<string> }>();
+  const partnerMap = new Map<string, { ids: Set<string>; sols: Set<string> }>();
+  for (const m of members) {
+    for (const t of m.tested ?? []) {
+      if (t.hardest && t.hardest !== 'nada' && t.hardest !== 'outro' && HARDEST[t.hardest as HardestId]) {
+        const k = HARDEST[t.hardest as HardestId].reportPt;
+        const e = obstacleMap.get(k) ?? { ids: new Set(), sols: new Set() };
+        e.ids.add(m.id); e.sols.add(t.id); obstacleMap.set(k, e);
+      }
+      if (t.reaction === 'faz-sentido' && t.who && ['nos-com-parceiro', 'contratar', 'ninguem'].includes(t.who)) {
+        const k = t.who === 'nos-com-parceiro' ? 'um parceiro técnico' : t.who === 'contratar' ? 'execução contratada' : 'alguém que faça — hoje ninguém';
+        const e = partnerMap.get(k) ?? { ids: new Set(), sols: new Set() };
+        e.ids.add(m.id); e.sols.add(t.id); partnerMap.set(k, e);
+      }
+    }
+  }
+  const asPooled = (map: Map<string, { ids: Set<string>; sols: Set<string> }>, min: number) => Array.from(map)
+    .filter(([, e]) => e.ids.size >= min)
+    .sort((a, b) => b[1].ids.size - a[1].ids.size)
+    .map(([k, e]) => ({ k, memberIds: Array.from(e.ids), solutions: Array.from(e.sols) }));
+  const sharedObstacles = asPooled(obstacleMap, 2).map(x => ({ obstacle: x.k, memberIds: x.memberIds, solutions: x.solutions }));
+  // A single organisation needing a partner is already a line for the coordination.
+  const partnerNeeds = asPooled(partnerMap, 1).map(x => ({ need: x.k, memberIds: x.memberIds, solutions: x.solutions }));
+  const heldMap = new Map<string, Set<string>>();
+  for (const m of members) for (const st of m.studiesDone ?? []) heldMap.set(st, (heldMap.get(st) ?? new Set()).add(m.id));
+  const studiesHeld = Array.from(heldMap).map(([study, ids]) => ({ study, memberIds: Array.from(ids) }));
+
   // ── Common denominators ───────────────────────────────────────────────────
   const commonPt: string[] = [];
   const famCount = new Map<string, number>();
@@ -379,6 +455,15 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
   }
   const topBand = Array.from(bands).sort((a, b) => b[1] - a[1])[0];
   if (topBand) commonPt.push(`A preocupação dominante é ${topBand[0]}, em ${topBand[1] === 1 ? '1 organização' : `${topBand[1]} organizações`}.`);
+  // What weighs most when choosing — their answer, not our reading of them.
+  const critCount = new Map<string, number>();
+  for (const m of members) for (const c of m.choiceCriteria ?? []) critCount.set(c, (critCount.get(c) ?? 0) + 1);
+  const answeredCriteria = members.filter(m => (m.choiceCriteria ?? []).length).length;
+  const topCrit = Array.from(critCount).sort((a, b) => b[1] - a[1])[0];
+  if (topCrit && answeredCriteria >= 2) {
+    const label = CRITERIA.find(c => c.id === topCrit[0])?.chipPt.toLowerCase() ?? topCrit[0];
+    commonPt.push(`Na hora de escolher, "${label}" é o que mais pesa: ${topCrit[1]} de ${answeredCriteria} organizações que responderam.`);
+  }
 
   // ── Gaps, stated plainly ──────────────────────────────────────────────────
   const gapsPt: string[] = [];
@@ -398,7 +483,7 @@ export function analyseSynergies(all: SynergyMember[]): SynergyAnalysis {
   }
   gapsPt.push('Os índices de risco são médias de bairro, calculadas em células que cobrem quarteirões. Onde a organização discordou, a percepção dela vale mais.');
 
-  return { members, groups, transversal, commonPt, pooledStudies, pooledBodies, pooledInstruments, sharedFundingBarriers, gapsPt };
+  return { members, groups, transversal, commonPt, pooledStudies, pooledBodies, pooledInstruments, sharedFundingBarriers, sharedObstacles, partnerNeeds, studiesHeld, gapsPt };
 }
 
 // ============================================================================
@@ -464,8 +549,11 @@ export type SynergyFacts = {
    * proposing "a rain garden", and the number was on the record the whole time.
    */
   areaM2: number | null;
-  tested?: Array<{ id: string; reaction: TestReaction | null }>;
+  tested?: TestedFact[];
   technicalNote?: string | null;
+  choiceCriteria: string[];
+  fileNotesPt: string[];
+  studiesDone: string[];
 };
 
 export function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
@@ -566,7 +654,49 @@ export function synergyFactsFrom(sections: CboState['sections']): SynergyFacts {
     studyNeeds,
     bodies,
     areaM2: Number(f('intervention_site', 'site_area_m2')) || null,
-    tested: parseTests(f('intervention_type', 'solution_tests_json')).map(t => ({ id: t.solutionId, reaction: t.reaction })),
+    tested: parseTests(f('intervention_type', 'solution_tests_json')).map(t => ({
+      id: t.solutionId,
+      reaction: t.reaction,
+      who: t.who ?? null,
+      hardest: t.hardest ?? null,
+      hardestNote: t.hardestNote ?? null,
+      areaM2: t.areaM2 ?? null,
+      units: t.units ?? null,
+    })),
     technicalNote: f('intervention_type', 'technical_note') || null,
+    choiceCriteria: parseCriteria(f('intervention_type', '_choice_criteria')),
+    // Verified, third person, with the file named — the same notes the card and
+    // the comparison print. Their contras first (they decide), then the place.
+    fileNotesPt: (() => {
+      const notes = notesFromInput({
+        site: { site_notes: f('intervention_site', 'site_notes') },
+        w3: { [DOCUMENT_NOTES_FIELD]: f('intervention_type', DOCUMENT_NOTES_FIELD), project_notes: f('intervention_type', 'project_notes') },
+      });
+      const rank = (st: string) => (st === 'contra' ? 0 : st === 'a-favor' ? 1 : st === 'dito' ? 2 : 3);
+      return notes
+        .slice()
+        .sort((a, b) => rank(a.stance) - rank(b.stance))
+        .slice(0, 8)
+        .map(n => { const c = toCardNote(n, 'pt'); return `${c.stanceLabel}${n.solutionId !== '*' ? ` (${n.solutionId})` : ''}: ${c.text} — ${c.source}`; });
+    })(),
+    studiesDone: studiesDone({ studies_done: f('intervention_site', 'studies_done') })
+      .map(id => ({ infiltration: 'teste de infiltração', geotechnical: 'avaliação geotécnica', hydrological: 'estudo hidrológico', hydraulic: 'estudo hidráulico', report: 'laudo técnico' } as Record<string, string>)[id] ?? id),
+  };
+}
+
+/**
+ * The facts added to a member after 2026-09-21, in ONE place. Both
+ * hand-assembled member lists (the cohort report's route and the project
+ * context) spread this — and it was exactly that duplication that left
+ * `tested` and `technicalNote` out of the cohort report for weeks: declared on
+ * the type, printed by the prompt when present, never copied by the route.
+ */
+export function synergyExtrasFrom(facts: SynergyFacts | null | undefined): Pick<SynergyMember, 'tested' | 'technicalNote' | 'choiceCriteria' | 'fileNotesPt' | 'studiesDone'> {
+  return {
+    tested: facts?.tested ?? [],
+    technicalNote: facts?.technicalNote ?? null,
+    choiceCriteria: facts?.choiceCriteria ?? [],
+    fileNotesPt: facts?.fileNotesPt ?? [],
+    studiesDone: facts?.studiesDone ?? [],
   };
 }

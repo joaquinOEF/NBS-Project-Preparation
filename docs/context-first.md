@@ -343,3 +343,21 @@ should get back a reading it could not have assembled — what its neighbours ar
 about to ask the same secretariat for, what the evidence base says its solution
 does at its scale, what the ficha says will fail in year two. Every one of those
 is a source it already gave us, joined to one it never had.
+
+
+## Encontro 3's own answers reach the cohort report (2026-09-21)
+
+Encontro 3 now asks, for every solution tested, **who would do it** and **what
+would be hardest**, records each test's own size, asks what weighs most when
+choosing, reads their files into verified notes, and confirms studies already
+held. `shared/w3-synergies.ts` carries all of it (`TestedFact`, `choiceCriteria`,
+`fileNotesPt`, `studiesDone`) and pools it deterministically:
+`sharedObstacles`, `partnerNeeds` (only for solutions they KEPT), `studiesHeld`,
+and a common denominator for the criteria. The pass and the printed report both
+receive them.
+
+⚠️ The hand-assembled member lists (cohort route, project context) now spread
+ONE helper, `synergyExtrasFrom`. `tested` and `technicalNote` had been declared
+on the type and printed by the prompt for weeks while the route never copied
+them — the report never saw what was tested or the coordination's reading. A
+spec now fails if either list stops spreading the helper.
