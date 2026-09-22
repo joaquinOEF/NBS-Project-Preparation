@@ -88,4 +88,11 @@ for (const col of comparison.columns) {
 }
 
 console.log(rule('PLACAR'));
-for (const s of scoreW3Maturity(input)) console.log(`  ${s.metric}: ${s.score}/3 — ${s.justification}`);
+console.log('  (o placar é recalculado aqui a partir do registro — o valor gravado pode ser anterior a uma correção)');
+for (const s of scoreW3Maturity({
+  site, w3: input.w3 ?? {}, solutions: input.solutions ?? [],
+  ...(input.areaM2 ? { areaM2: input.areaM2 } : {}),
+  ...(type.intervention_units ? { units: Number(type.intervention_units) } : {}),
+  hasCostBand: true,
+  who: tests.map(t => String((t as any).who ?? '')).filter(Boolean),
+})) console.log(`  ${s.metric}: ${s.score}/3 — ${s.justification}`);

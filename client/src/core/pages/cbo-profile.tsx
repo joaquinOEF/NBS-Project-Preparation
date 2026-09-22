@@ -3503,6 +3503,14 @@ export default function CboProfilePage() {
                 <p className="text-sm text-muted-foreground mt-1">
                   {state.totalMaturityScore >= 25 ? t('cbo.scorecard.investmentReady') : state.totalMaturityScore >= 19 ? t('cbo.scorecard.investmentReadyConditions') : state.totalMaturityScore >= 10 ? t('cbo.scorecard.developing') : t('cbo.scorecard.earlyStage')}
                 </p>
+                {/* ⚠️ 15 of the 27 points belong to encontros that have not happened.
+                    Without this line a 9/27 read as a verdict on the organisation
+                    rather than on how far along the path it is. */}
+                {state.maturityScores.length < 9 && (
+                  <p className="text-xs text-muted-foreground mt-1" data-testid="scorecard-pending">
+                    {t('cbo.scorecard.metricsPending', { scored: state.maturityScores.length })}
+                  </p>
+                )}
               </div>
 
               {state.maturityScores.length > 0 && (

@@ -1800,6 +1800,7 @@
       "investmentReadyConditions": "Investment Ready with Conditions",
       "developing": "Developing — Promising with Support",
       "earlyStage": "Early Stage",
+      "metricsPending": "{{scored}} of 9 metrics assessed — Encontros 4 to 6 account for the rest",
       "maturityMetrics": "Maturity Metrics",
       "priorityFlags": "Priority Flags",
       "completeInterview": "Complete the interview to see your maturity scorecard"

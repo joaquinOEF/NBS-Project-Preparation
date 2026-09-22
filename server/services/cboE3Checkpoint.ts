@@ -1498,6 +1498,7 @@ async function serveE3Inner(
       ...(liveArea() ? { areaM2: liveArea() } : {}),
       ...(liveUnits() ? { units: liveUnits() } : {}),
       hasCostBand: dossier.budget.some(b => b.lowBrl != null),
+      who: liveTests().map(t => String((t as any).who ?? '')).filter(Boolean),
     }).filter(m => m.metric !== 'financial_thinking'));
     const n = tests.length;
     say(
@@ -1550,6 +1551,7 @@ async function serveE3Inner(
       site: input.site, w3: input.w3 ?? {}, solutions: liveSolutions(),
       ...(liveArea() ? { areaM2: liveArea() } : {}), ...(liveUnits() ? { units: liveUnits() } : {}),
       hasCostBand: dossier.budget.some(b => b.lowBrl != null),
+      who: liveTests().map(t => String((t as any).who ?? '')).filter(Boolean),
     }).filter(m => m.metric !== 'financial_thinking'));
     const tests = ensureTests();
     const liked = likedIds(tests).map(id => getSolution(id)).filter(Boolean).map(sol => (isPt ? sol!.pt.label : sol!.en.label));
@@ -1842,6 +1844,7 @@ async function serveE3Inner(
       ...(liveArea() ? { areaM2: liveArea() } : {}),
       ...(liveUnits() ? { units: liveUnits() } : {}),
       hasCostBand: dossier.budget.some(b => b.lowBrl != null),
+      who: liveTests().map(t => String((t as any).who ?? '')).filter(Boolean),
     }));
     // The hoja de ruta, not just the dossier. Same data, assembled as a route
     // they can follow and argue with — see shared/w3-roadmap.ts for why every
@@ -2602,9 +2605,19 @@ async function serveE3Inner(
       deps.writeFields(TYPE, {
         ...(t?.units && !liveUnits() ? { intervention_units: String(t.units) } : {}),
       });
+      // ⚠️ ONLY A FIGURE COMPUTED FOR THIS PLACE, and only one they were shown
+      // as a number. A rate ("0,1–0,2 m³ por metro linear de vala") is a
+      // property of the technique: nothing in the flow collects a swale's
+      // length, so it was never multiplied by anything, and the card's own nota
+      // says so. Stored as `expected_impact` it became the project's impact
+      // figure, and the chip "Faz sentido pra gente" — which is about the
+      // SOLUTION — became a reaction to it, scoring climate impact 3/3
+      // "número de impacto calculado e conferido com a organização" on a number
+      // that was neither (staging, 22 Sept).
+      const siteFigure = card?.effect.siteSpecific ? card.effect.headline : null;
       deps.writeFields(IMPACT, {
-        expected_impact_reaction: 'faz-sentido',
-        ...(card && !impact('expected_impact') ? { expected_impact: card.effect.headline ?? card.effect.claim } : {}),
+        ...(siteFigure ? { expected_impact_reaction: 'faz-sentido' } : {}),
+        ...(siteFigure && !impact('expected_impact') ? { expected_impact: siteFigure } : {}),
       });
       say('Anotado ✓ — entra no projeto.', 'Noted ✓ — it goes into the project.');
     } else if (value === 'nao-e-pra-gente') {

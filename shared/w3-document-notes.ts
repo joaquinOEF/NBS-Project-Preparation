@@ -187,11 +187,27 @@ export const placeNotes = (notes: DocumentNote[]) => notes.filter(n => n.solutio
 
 export interface CardNote { stance: NoteStance; stanceLabel: string; text: string; quote: string; source: string; /** About this solution, or about the place whatever is built. */ scope: 'solution' | 'place' }
 
-export const toCardNote = (n: DocumentNote, lang: 'pt' | 'en'): CardNote => ({
-  stance: n.stance,
-  stanceLabel: STANCE_LABEL[n.stance][lang],
-  text: (lang === 'en' && n.textEn?.trim()) ? n.textEn.trim() : n.textPt.trim(),
-  quote: n.quote.trim(),
-  source: n.sourceFilename,
-  scope: n.solutionId === ALL_SOLUTIONS ? 'place' : 'solution',
-});
+/**
+ * ⚠️ A note that says a study is already done is a CLAIM until the organisation
+ * confirms it. On staging (22 Sept) a comparison printed, four rows apart,
+ * "o que trava: precisa de um teste de infiltração do solo" and "o relatório
+ * documenta ensaio de infiltração já realizado no local … dispensando a
+ * necessidade de novo teste". Both were honest — the verdict moves only on a
+ * confirmed `studies_done`, by design — and together they read as a system that
+ * does not know what it is saying. So the note carries its own status:
+ * confirmed studies come from the site record, and anything else says so.
+ */
+export const toCardNote = (n: DocumentNote, lang: 'pt' | 'en', confirmedStudies: string[] = []): CardNote => {
+  const claimUnconfirmed = !!n.studyDone && !confirmedStudies.includes(n.studyDone);
+  const text = (lang === 'en' && n.textEn?.trim()) ? n.textEn.trim() : n.textPt.trim();
+  return {
+    stance: n.stance,
+    stanceLabel: STANCE_LABEL[n.stance][lang],
+    text: claimUnconfirmed
+      ? `${text.replace(/\s*$/, '').replace(/\.$/, '')} — ${lang === 'pt' ? 'a organização ainda não confirmou' : 'the organisation has not confirmed this yet'}.`
+      : text,
+    quote: n.quote.trim(),
+    source: n.sourceFilename,
+    scope: n.solutionId === ALL_SOLUTIONS ? 'place' : 'solution',
+  };
+};
