@@ -1173,6 +1173,9 @@ async function serveE3Inner(
     // the tail, because a flag left standing would swallow the "por que aqui"
     // paragraph and answer it with size chips.
     deps.writeFields(SITE, { _area_pending: '' });
+    // The tail's own stamp — what `tailEnabled()` reads, instead of trusting a
+    // `construction_model` anyone could have written.
+    deps.writeFields(TYPE, { _tail_enabled: 'yes' });
     const a = liveArea();
     if (a > 0) {
       deps.writeFields(TYPE, {
@@ -1533,10 +1536,24 @@ async function serveE3Inner(
   /**
    * A session that STARTED the tail under the old flow finishes it (their
    * answers are half given); everything else ends at the comparison.
+   *
+   * ⚠️ "Started" means the tail's own beats ran, not that `construction_model`
+   * holds a value. That field is declared, so a model turn can write it (the
+   * phase-3 fallback prompt asked for it until 22 Sept), and on its own it used
+   * to switch the whole tail back on: resume routed into it, the comparison
+   * offered "Detalhar" again, the dig's answers went to the extras. The tail
+   * head now stamps `_tail_enabled`; a session from before that stamp shows the
+   * tail by the beat after who-builds (`_why_pending`, the why-here answer, or
+   * the scale band only `askConstruction` writes).
    */
   function tailEnabled(): boolean {
-    return deps.tailEnabled === true || type('_tail_enabled') === 'yes' || (!!type('construction_model') && !type('_e3_closed'));
+    if (deps.tailEnabled === true || type('_tail_enabled') === 'yes') return true;
+    if (!type('construction_model') || type('_e3_closed')) return false;
+    return type('_why_pending') === 'yes' || !!type('justification_why_here') || !!type('intervention_scale_band');
   }
+  /** Closed or open: did this session ever run the tail? (What a closed session re-renders as its end.) */
+  const ranTail = (): boolean =>
+    type('_tail_enabled') === 'yes' || (!!type('construction_model') && (!!type('justification_why_here') || !!type('intervention_scale_band')));
 
   /** Encontro 3 closes here: the comparison is what it owes. */
   const closeAtComparison = (): true => {
@@ -1793,9 +1810,9 @@ async function serveE3Inner(
     const tests = ensureTests();
     const open = openTest();
     if (open) return await showTestCard(open);
-    if (type('_e3_closed')) return type('construction_model') ? await closeE3() : closeAtComparison();
+    if (type('_e3_closed')) return ranTail() ? await closeE3() : closeAtComparison();
     // In the tail: the first enum still empty, or the free-text beat before it.
-    if (type('construction_model')) {
+    if (type('construction_model') && tailEnabled()) {
       if (!type('justification_why_here') && !impact('baseline_condition')) return askJustification();
       if (!impact('baseline_condition') && !impact('project_timeframe')) return askBaseline();
       if (!impact('project_timeframe')) return askTimeframe();
@@ -2770,7 +2787,7 @@ async function serveE3Inner(
   // tail closes as it always did; on one that never reached the tail it goes to
   // the comparison, which is where "só essa" now leads.
   if (is(E3C.outraSolucao)) return await askSolution();
-  if (is(E3C.soEssa)) return type('construction_model') ? await closeE3() : await showComparison();
+  if (is(E3C.soEssa)) return tailEnabled() ? await closeE3() : await showComparison();
   if (is(E3C.marcarAgora)) return openSiteMap('open-site-map-from-e3');
   if (is(E3C.seguirSemLugar)) return type('_material_done') ? await toShelf() : await askMaterial();
 

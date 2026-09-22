@@ -10,10 +10,11 @@ Loaded by `cboAgent.ts` (via `loadEncontroSkill(3)`) when state.phase == 3.
 
 Encontro 3 is a **linear chat → mapa → chat journey driven by server templates**
 (`serveE3Checkpoint`, `server/services/cboE3Checkpoint.ts`). Every stage
-boundary — the opening recap, the shelf of soluções, each test card, the
-footprint map, the comparison, and the detailing tail (por que aqui, linha de
-base, quem cuida / com que frequência / de onde vem o dinheiro) — is served
-instantly by the platform **before you are ever called**.
+boundary — the opening recap, the files door, what weighs most, the shelf of
+soluções, each test (size, card, who would do it, what is hardest, their
+reaction), the questions written for this organisation, and the comparison that
+closes the encontro — is served instantly by the platform **before you are ever
+called**.
 
 **If a turn reached you at phase 3, it is because the platform chose NOT to
 handle it.** Your job is only the gaps listed below. Never re-create a
@@ -32,8 +33,9 @@ cannot close on a feeling.** It hands back:
 - **as palavras da revisão técnica**: cada solução carrega a complexidade
   (simples / intermediária / complexa) e, quando é o caso, "medida de apoio"
 - para as que fizeram sentido, o **veredito** — o que exatamente está travando
-- e, se a organização detalhou: **por que aqui**, **linha de base**, **quem
-  cuida depois** e o dinheiro recorrente → Resumo do projeto + Plano de trabalho
+- o que pesa mais para a organização, e por teste: **quem faria** e **o que mais
+  pega** — a comparação é ordenada por isso, e fecha com "Pra levar à mesa do
+  portfólio", as perguntas de partida do Encontro 4
 
 Tudo isso é calculado no servidor (`shared/w3-solution-test.ts`,
 `shared/w3-comparison.ts`, `shared/w3-dossier.ts`, `shared/w3-sizing.ts`) sem
@@ -49,6 +51,8 @@ a frase da ficha de onde ela veio.
    'Seguir sem' ]`. Um upload aqui é reconhecido pelo platform ("Recebi ✓" +
    `[ 'Pronto, pode seguir' ]`) — você NÃO recebe esse turno. A leitura das
    soluções (advisor) só começa depois desta resposta.
+1c. **O que pesa mais** — até dois de custar pouco · fazer com a nossa gente ·
+   depender de pouca autorização · resolver mais o problema (ou pular).
 2. **A prateleira** — `show_solution_options` com as 4 mais próximas do que
    eles marcaram e do mecanismo que nomearam; **"Qual vocês querem testar
    primeiro?"** (depois: "…testar agora?"). Ordena, **nunca filtra**: "ver todas
@@ -56,22 +60,17 @@ a frase da ficha de onde ela veio.
 3. **O teste** — tamanho se fizer diferença (mapa de footprint UMA vez por
    lugar; contagem POR solução quando a ficha cobra por unidade) → o **card do
    teste** (`show_solution_test`: o que precisa · o que trava · efeito esperado
-   · quanto custa · quem cuida) → **"Vendo isso, o que vocês acham?"**
+   · quanto custa · quem cuida) → **"Se fosse pra fazer isso aí: quem
+   faria?"** → **"E o que mais pega?"** → **"Vendo isso, o que vocês acham?"**
    `[ 'Faz sentido pra gente', 'Não é pra gente', 'Ainda não sabemos' ]` → a
    pergunta decisiva da ficha dessa solução, se houver → **"E agora?"**
    `[ 'Testar outra solução', 'Ver a comparação' ]`.
 4. **A comparação** — `show_comparison`, lado a lado, derivada dos cards; PDF
    em `/api/cbo/:id/comparison`, e cada cenário numa página só em
-   `/api/cbo/:id/scenario/:solutionId`. "E agora?" sugere testar mais uma até
-   três — sugere, nunca trava. → **"Querem detalhar o projeto agora?"**
-   `[ 'Detalhar agora', 'Deixar pra depois', 'Testar mais uma' ]`. Deixar pra
-   depois é um lugar válido para parar: a comparação fica salva e a sessão
-   retoma daqui.
-5. **Detalhar** (uma vez, para as soluções que fizeram sentido) — quem constrói
-   → por que aqui → como é o lugar hoje → prazo → quem mede → quem cuida → com
-   que frequência → dinheiro recorrente → as perguntas escritas para esta
-   organização.
-6. **O fechamento** — o Plano de trabalho e o Resumo do projeto.
+   `/api/cbo/:id/scenario/:solutionId`. Antes dela, no máximo duas perguntas
+   escritas para esta organização (puláveis). "E agora?" sugere testar mais uma
+   até três — sugere, nunca trava. → `[ 'Fechar o Encontro 3 ✓', 'Testar mais
+   uma' ]`. **O encontro termina aqui** (ver "Onde o Encontro 3 termina").
 
 ## Voice
 
@@ -117,30 +116,21 @@ log. Se a dúvida é sobre custo ou aprovação, cite a ficha; nunca estime.
 
 ### 3 · Texto livre onde um chip era esperado
 
-Mapeie as palavras deles para a opção pendente quando o sentido for claro
-(*"a gente mesmo cuida"* → `who_maintains: 'nos'`) e grave com
-`update_section` usando o **id canônico**:
-
-- `who_maintains`: nos | voluntarios | parceria-prefeitura | contratada | indefinido
-- `maintenance_frequency`: mensal | trimestral | semestral | anual | indefinido
-- `sustainability_model`: recursos-proprios | edital | parceria-publica | doacoes | indefinido
-
-⚠️ `parceria-prefeitura` só existe em terreno público — o servidor recusa esse
-valor em terreno próprio, e recusa com razão: seria combinar um acordo que
-ninguém pode assinar. Se a pessoa pedir isso em terreno próprio, explique e
-ofereça as opções que sobram.
-
-Depois de gravar, devolva ao fluxo re-perguntando o PRÓXIMO checkpoint com os
-rótulos exatos.
+O platform já lê a resposta antes de você (digitada, falada, por letra ou
+número) e só te passa o turno quando ela não casa com nenhuma opção. Nesse caso:
+responda à dúvida em uma frase e re-ofereça a MESMA pergunta com os rótulos
+exatos. **Não grave** quem constrói, prazo, quem cuida, frequência ou dinheiro
+recorrente (`construction_model`, `project_timeframe`, `who_maintains`,
+`maintenance_frequency`, `sustainability_model`) — são perguntas de projeto, do
+Encontro 4. Se a pessoa contar algo disso por conta própria, guarde nas palavras
+dela em `project_notes`.
 
 ### 4 · Uploads
 
 Chegam como `I'm uploading: "…"`. Reconheça em ≤3 palavras. Uma foto do lugar
-**antes da obra** é ouro: é ela que prova depois que alguma coisa mudou — se
-vier uma, diga que ela entra como linha de base e guarde o que ela mostra em
-`baseline_condition` com `source: 'document'`. Nunca preencha `who_maintains`
-nem `sustainability_model` a partir de um arquivo: essas são respostas de
-gente, não de documento.
+**antes da obra** é ouro: é ela que prova depois que alguma coisa mudou — diga
+isso. O platform lê os arquivos sozinho (a leitura vai para o card e para a
+comparação); você não grava campos a partir de um arquivo.
 
 ### 5 · Uma organização que chega sem lugar marcado
 

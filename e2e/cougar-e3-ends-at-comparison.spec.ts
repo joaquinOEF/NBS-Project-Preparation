@@ -167,7 +167,7 @@ test.describe('the comparison is the end', () => {
   });
 
   test('a session that STARTED the tail under the old flow finishes it; the switch keeps the tail testable', async () => {
-    const old = session({ solution_tests_json: JSON.stringify([{ solutionId: 'escola-verde', reaction: 'faz-sentido', units: 2, testedAt: '2026-09-20T12:00:00.000Z' }]), chosen_solutions: 'escola-verde', construction_model: 'mutirao', _comparison_shown: 'yes' });
+    const old = session({ solution_tests_json: JSON.stringify([{ solutionId: 'escola-verde', reaction: 'faz-sentido', units: 2, testedAt: '2026-09-20T12:00:00.000Z' }]), chosen_solutions: 'escola-verde', construction_model: 'mutirao', _why_pending: 'yes', _comparison_shown: 'yes' });
     const back = await old.send('Vamos começar o Encontro 3.', 'system');
     expect(back.ask?.question, 'mid-tail sessions are not dropped').not.toBe('E agora?');
     const sw = session({ _tail_enabled: 'yes' });
@@ -175,6 +175,19 @@ test.describe('the comparison is the end', () => {
     await sw.send('Escola verde'); await sw.send('2'); await sw.send('Faz sentido pra gente');
     expect(labels((await sw.send('Ver a comparação')).ask)).toContain('Detalhar agora');
   });
+});
+
+test('⚠️ a construction_model the MODEL wrote does not reopen the tail (22 Sept audit)', async () => {
+  // Same record as the legacy case above, minus any beat of the tail: the
+  // field alone is not "the tail started". It used to be — resume routed into
+  // who-builds/why-here, and the comparison offered "Detalhar" again.
+  const s = session({ solution_tests_json: JSON.stringify([{ solutionId: 'escola-verde', reaction: 'faz-sentido', units: 2, testedAt: '2026-09-20T12:00:00.000Z' }]), chosen_solutions: 'escola-verde', construction_model: 'mutirao', _comparison_shown: 'yes' });
+  const back = await s.send('Vamos começar o Encontro 3.', 'system');
+  expect(labels(back.ask)).not.toContain('Detalhar agora');
+  expect(labels(back.ask)).toContain('Fechar o Encontro 3 ✓');
+  await s.send('Fechar o Encontro 3 ✓');
+  expect(s.type('_e3_closed')).toBe('yes');
+  expect(s.type('_tail_enabled')).toBe('');
 });
 
 test.describe('the questions written for THIS organisation are asked — before the comparison', () => {
