@@ -5006,63 +5006,20 @@ Avaliar Controle do Local (0-3) quando land_tenure aparecer no estado.`
 Score Site Control (0-3) once land_tenure appears in state.`;
 
     case 3:
+      // ⚠️ Fallback only — phase 3 loads knowledge/_skills/encontro-3.md. This
+      // block used to be the June-era W3 (open the selector, then scale, who
+      // builds, why here, baseline, timeframe, upkeep, money), so any turn that
+      // reached it would run a workshop the platform no longer runs — and a
+      // model-written construction_model used to switch the old tail back on.
       return isPt
-        ? `**Fase 3a: O Que Construímos** (intervention_type)
-Abrir open_intervention_selector com siteHazards da Fase 2 (landslide = o HAZARD/suscetibilidade do terreno do local, não o risco — assim SbN que estabilizam encostas aparecem em encostas/morros). Se "Não sei": orientar via read_knowledge + exemplos.
-Após seleção, PERGUNTAS PRESCRITIVAS (cada uma é UMA chamada ask_user com chips):
-  • intervention_scale → chips: ['Pequeno (<200 m²)', 'Médio (200-1000 m²)', 'Grande (1000+ m²)', 'Não sei ainda']
-  • construction_model → chips: ['Mutirão comunitário', 'Empreiteira contratada', 'Parceria universidade/ONG', 'Misto', 'Ainda não decidido']
-  • Para florestas urbanas: species_preference → chips ['Espécies nativas POA', 'Frutíferas', 'Sombra (porte grande)', 'Misto', 'Equipe técnica decide']
-  • Para jardins de chuva/biovaletas: substrate_type → chips ['Solo permeável existente', 'Substrato modificado', 'Cascalho + plantas', 'Ainda não sabemos']
-  • justification_why_here → texto livre (1-2 frases): "Por que esse tipo nesse lugar?"
-Avaliar: Clareza do Problema (0-3), Clareza da Solução (0-3).
-
-**Fase 3b: Impacto Esperado** (impact_monitoring) — APROFUNDAR, NÃO REPETIR
-NÃO perguntar sobre riscos/população (já sabe da Fase 2).
-PERGUNTAS PRESCRITIVAS (cada uma uma ask_user com chips, exceto onde indicado):
-  • baseline_condition → texto livre: "Como está o lugar HOJE, antes da intervenção?"
-  • maintenance_frequency → chips: ['Semanal', 'Mensal', 'Trimestral', 'Anual', 'Sob demanda']
-  • project_timeframe → chips: ['6 meses', '1 ano', '2 anos', '3+ anos', 'Faseado em etapas']
-  • monitoring_capacity → chips: ['Nós medimos sozinhos', 'Parceria universidade', 'Sem capacidade', 'Aprender no caminho']
-read_knowledge(_co-benefits/ + _evidence/impact-benchmarks.md). Apresentar COM vs SEM com faixas + confiança.
-Avaliar: Impacto Climático/SbN (0-3).
-
-**Fase 3c: Operação e Sustentabilidade** (operations_sustain) — REFERENCIAR FASE 1
-NÃO perguntar sobre equipe de novo (Fase 1). Referenciar: "Na Fase 1, vocês mencionaram X..."
-PERGUNTAS PRESCRITIVAS (ask_user com chips):
-  • sustainability_model → chips: ['Orçamento municipal', 'Cooperativa/uso produtivo', 'Editais recorrentes', 'Misto', 'Não planejado ainda']
-  • opex_estimate_year1 → chips: ['<R$ 5k/ano', 'R$ 5-20k/ano', 'R$ 20-50k/ano', 'R$ 50k+/ano', 'Não estimei ainda']
-  • who_maintains → chips: ['Nossa organização', 'Comunidade voluntária', 'Parceria com prefeitura', 'Contratado externo', 'A definir']
-read_knowledge para OPEX do tipo de SbN. Créditos de carbono NÃO são práticos pra escala comunitária.
-Avaliar: Planejamento Financeiro (0-3).`
-        : `**Phase 3a: What We're Building** (intervention_type)
-Open open_intervention_selector with siteHazards from Phase 2 (landslide = the site's terrain HAZARD/susceptibility, not the risk — so slope-stabilizing NbS surface on the morros). If "I don't know": guide via read_knowledge + examples.
-After selection, PRESCRIPTIVE QUESTIONS (each is ONE ask_user call with chips):
-  • intervention_scale → chips: ['Small (<200 m²)', 'Medium (200-1000 m²)', 'Large (1000+ m²)', 'Not sure yet']
-  • construction_model → chips: ['Community mutirão', 'Hired contractor', 'University/NGO partnership', 'Mixed', 'Undecided']
-  • For urban forests: species_preference → chips ['Native POA species', 'Fruit trees', 'Shade trees', 'Mixed', 'Technical team decides']
-  • For rain gardens/bioswales: substrate_type → chips ['Existing permeable soil', 'Modified substrate', 'Gravel + plants', 'Not sure']
-  • justification_why_here → free-text (1-2 sentences): "Why this type in this place?"
-Score: Problem Clarity (0-3), Solution Clarity (0-3).
-
-**Phase 3b: Expected Impact** (impact_monitoring) — GO DEEPER, DON'T REPEAT
-DO NOT re-ask about hazards/population (already from Phase 2).
-PRESCRIPTIVE QUESTIONS (each one ask_user with chips, unless noted):
-  • baseline_condition → free-text: "How is the place TODAY, before the intervention?"
-  • maintenance_frequency → chips: ['Weekly', 'Monthly', 'Quarterly', 'Annual', 'On demand']
-  • project_timeframe → chips: ['6 months', '1 year', '2 years', '3+ years', 'Phased']
-  • monitoring_capacity → chips: ['We measure ourselves', 'University partnership', 'No capacity', 'Learn as we go']
-read_knowledge(_co-benefits/ + _evidence/impact-benchmarks.md). Present WITH vs WITHOUT with ranges + confidence.
-Score: Climate NBS Impact (0-3).
-
-**Phase 3c: Operations & Sustainability** (operations_sustain) — REFERENCE PHASE 1
-DO NOT re-ask about team (Phase 1). Reference: "In Phase 1, you mentioned X..."
-PRESCRIPTIVE QUESTIONS (ask_user with chips):
-  • sustainability_model → chips: ['Municipal budget', 'Cooperative/productive use', 'Recurring grants', 'Mixed', 'Not planned yet']
-  • opex_estimate_year1 → chips: ['<R$ 5k/yr', 'R$ 5-20k/yr', 'R$ 20-50k/yr', 'R$ 50k+/yr', 'Not estimated yet']
-  • who_maintains → chips: ['Our organization', 'Community volunteers', 'Municipal partnership', 'External contractor', 'TBD']
-read_knowledge for OPEX of chosen NBS type. Carbon credits NOT practical at community scale.
-Score: Financial Thinking (0-3).`;
+        ? `**Fase 3: Encontro 3** (intervention_type)
+⚠️ O Encontro 3 é conduzido por checkpoints do servidor (porta, o que pesa mais, prateleira, testes, comparação). Você só cuida de dúvidas, uploads e texto livre que não casou com nenhuma opção: responda em uma frase e re-ofereça a MESMA pergunta com os rótulos exatos.
+NUNCA abra o seletor de intervenções nem o mapa, nunca monte lista de soluções, preço ou comparação, e nunca pergunte quem constrói, prazo, quem cuida, frequência ou dinheiro recorrente — são perguntas de projeto, do Encontro 4. O que a organização contar sobre isso vai em project_notes, nas palavras dela.
+Os quatro escores da fase 3 são do platform — não os grave.`
+        : `**Phase 3: Encontro 3** (intervention_type)
+⚠️ Encontro 3 is driven by server checkpoints (files door, what weighs most, shelf, tests, comparison). You only handle doubts, uploads and free text that matched no option: answer in one sentence and re-offer the SAME question with the exact labels.
+NEVER open the intervention selector or the map, never build a solution list, price or comparison, and never ask who builds, timeframe, who maintains, frequency or recurring money — those are project questions for Encontro 4. Anything the organisation says about them goes to project_notes, in their words.
+The four phase-3 scores are the platform's — do not write them.`;
 
     case 4:
       return isPt
