@@ -21,7 +21,7 @@ import { getSolutionFicha } from './nbs-solution-fichas';
 import { shortlistForSite } from './w3-solutions';
 import { labelOfWorry } from './w3-dossier';
 import { approvalRequirement } from './nbs-approvals';
-import type { SolutionTest } from './w3-tests';
+import { sizeOf, type SolutionTest } from './w3-tests';
 import { notesFromInput, notesFor, toCardNote, type CardNote } from './w3-document-notes';
 
 type Lang = 'pt' | 'en';
@@ -90,8 +90,8 @@ export function buildSolutionTest(
   if (!sol || !ficha) return null;
 
   // The test's own size when it has one (0 = asked and unknown); the place's otherwise.
-  const areaM2 = test?.areaM2 !== undefined ? (test.areaM2 || undefined) : (input.areaM2 || undefined);
-  const units = test?.units || undefined;
+  // One rule for every surface that prices — see `sizeOf`.
+  const { areaM2, units } = sizeOf(solutionId, input, test);
   const buildModel = (input.w3?.construction_model || undefined) as BuildModel | undefined;
 
   const verdict = computeVerdict(solutionId, input, lang);

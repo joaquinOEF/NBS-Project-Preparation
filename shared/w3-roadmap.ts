@@ -24,8 +24,9 @@
 // ============================================================================
 
 import { buildDossier, portfolioState, type Dossier, type VerdictState, type W3Input } from './w3-dossier';
-import { budgetLineFor, SOLUTION_COSTS, type BudgetLine, type BuildModel } from './w3-sizing';
+import { SOLUTION_COSTS, type BudgetLine } from './w3-sizing';
 import { benefitFor, type BenefitLine } from './w3-benefits';
+import { sizeOf } from './w3-tests';
 import { scaleStatement } from './w3-scale';
 import { COMPLEXIDADE_LABEL, TIPO_LABEL, getSolution } from './nbs-catalog';
 import { getSolutionFicha } from './nbs-solution-fichas';
@@ -212,10 +213,15 @@ export function buildRoadmap(
   const dossier = buildDossier(input, lang);
   const state = portfolioState(dossier.verdicts);
   const units = Number(w3.intervention_units) || 0;
-  const buildModel = (w3.construction_model || undefined) as BuildModel | undefined;
   const scale = scaleStatement(solutions, areaM2, site.site_worry);
-  const budget = solutions.map(id => budgetLineFor(id, areaM2 || undefined, units || undefined, buildModel)).filter(Boolean) as BudgetLine[];
-  const benefits = solutions.map(id => benefitFor(id, areaM2 || undefined, units || undefined)).filter(Boolean) as BenefitLine[];
+  // ⚠️ The dossier's budget, not a second one: each solution at ITS OWN size,
+  // the number the card and the comparison print (`sizeOf`). This file used to
+  // price every line over the place's footprint and one project-wide count.
+  const budget: BudgetLine[] = dossier.budget;
+  const benefits = solutions.map(id => {
+    const size = sizeOf(id, input);
+    return benefitFor(id, SOLUTION_COSTS[id]?.basis === 'm2' ? size.areaM2 : undefined, size.units);
+  }).filter(Boolean) as BenefitLine[];
 
   const what: RoadmapBlock[] = [];
   const how: RoadmapBlock[] = [];

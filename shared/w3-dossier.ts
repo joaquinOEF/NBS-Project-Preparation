@@ -32,6 +32,7 @@
 import { getSolutionFicha } from './nbs-solution-fichas';
 import { SOLUTION_MECHANISMS, getSolution, NBS_SOLUTIONS } from './nbs-catalog';
 import { budgetLineFor, SOLUTION_COSTS, type BudgetLine, type BuildModel } from './w3-sizing';
+import { sizeOf } from './w3-tests';
 import { studyCostLine, STUDY_COSTS } from './w3-studies';
 import { approvalRequirement } from './nbs-approvals';
 import { WORRY_SUBTYPES, type WorryId } from './site-knowledge';
@@ -529,8 +530,8 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
    * than a missing caveat.
    */
   const buildModelForItems = (w3.construction_model || '') as string;
-  /** How many of them, for a solution counted rather than measured. */
-  const units = Number(w3.intervention_units) || undefined;
+  /** How many of them, for a solution counted rather than measured — PER SOLUTION (`sizeOf`). */
+  const unitsOf = (id: string) => sizeOf(id, input).units;
   const capacity = gradeCapacity(input, lang);
   const items: DossierItem[] = [];
   const gaps: string[] = [];
@@ -619,7 +620,7 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
     // needs in order to know whether marking the place is worth the trip. There
     // is still no total, and the gap above says why.
     const noSiteBudget = solutions
-      .map(id => budgetLineFor(id, undefined, units, buildModelForItems as BuildModel | undefined))
+      .map(id => budgetLineFor(id, undefined, unitsOf(id), buildModelForItems as BuildModel | undefined))
       .filter((b): b is BudgetLine => !!b);
     const noSiteStudies: string[] = [];
     for (const id of solutions) {
@@ -821,13 +822,17 @@ export function buildDossier(input: W3Input, lang: 'pt' | 'en' = 'pt'): Dossier 
   // drew. Not a budget — a range to take to a supplier, which is the thing an
   // organisation cannot produce on its own and the thing every funder asks for
   // first.
+  // ⚠️ Each solution at ITS OWN size — the one the card and the comparison
+  // print. The place's footprint for every line billed a rain garden tested
+  // over 836 m² at the 2,900 m² drawn for the site (see `sizeOf`).
   const areaM2 = input.areaM2 ?? (Number(site.site_area_m2) || undefined);
   // Who builds it changes the band — and W3 asks it one beat after showing it.
   const buildModel = (input.w3?.construction_model || undefined) as BuildModel | undefined;
   const budget: BudgetLine[] = [];
   const studies: string[] = [];
   for (const id of solutions) {
-    const line = budgetLineFor(id, areaM2, units, buildModel);
+    const size = sizeOf(id, input);
+    const line = budgetLineFor(id, size.areaM2, size.units, buildModel);
     if (!line) continue;
     // The budget rides in `budget[]` only. Adding the identical sentence as a
     // `document` item printed every price twice on the card — once under

@@ -35,7 +35,7 @@
 
 import { parseDocumentNotes, toCardNote, ALL_SOLUTIONS } from './w3-document-notes';
 import { COMPLEXIDADE_LABEL, TIPO_LABEL, getSolution, SOLUTION_MECHANISMS } from './nbs-catalog';
-import { parseTests, REACTION } from './w3-tests';
+import { parseTests, REACTION, sizeOf } from './w3-tests';
 import { getSolutionFicha } from './nbs-solution-fichas';
 import {
   buildDossier, computeVerdict, portfolioState, studyRequirement, studyAlreadyDone, hasSite, worryLabel, labelOfWorry,
@@ -295,8 +295,10 @@ export function conceptNoteFacts(input: W3Input, lang: Lang = 'pt'): ConceptNote
     const need = studyRequirement(id, site);
     const held = studyAlreadyDone(id, site);
     const appr = approvalRequirement(id, site.land_tenure);
-    const line = budgetLineFor(id, areaM2, units, buildModel);
-    const ben = benefitFor(id, areaM2, units);
+    // Each solution at ITS OWN size — what the card and the comparison print (`sizeOf`).
+    const size = sizeOf(id, input);
+    const line = budgetLineFor(id, size.areaM2, size.units, buildModel);
+    const ben = benefitFor(id, SOLUTION_COSTS[id]?.basis === 'm2' ? size.areaM2 : undefined, size.units);
     const cost = SOLUTION_COSTS[id];
     // ⚠️ The band on the page belongs to a contractor for most solutions. When
     // the organisation is building it themselves, saying so beside the figure
