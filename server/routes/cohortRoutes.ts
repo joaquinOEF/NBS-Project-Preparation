@@ -35,7 +35,7 @@ import { renderOrgProfilesHtml } from '../services/orgProfilePrint';
 import { addCboMessage, flushNow } from '../services/cboAgent';
 import { createOrganization, linkCboStateToOrg, setMaturityTierForCboState } from '../services/orgPersistence';
 import { cboStates } from '@shared/cbo-db-schema';
-import { cboSectionsFilledCount, type CboState } from '@shared/cbo-schema';
+import { cboSectionsFilledCount, shownMaturity, type CboState } from '@shared/cbo-schema';
 import {
   buildDossier,
   portfolioState,
@@ -954,8 +954,10 @@ export function registerCohortRoutes(app: Express): void {
       profile: {
         phase: state.phase,
         sections: state.sections,
-        maturityScores: state.maturityScores,
-        totalMaturityScore: state.totalMaturityScore,
+        // Phase-3 metrics wait for Encontro 4 (`shownMaturity`) — the drawer says so.
+        maturityScores: shownMaturity(state).scores,
+        totalMaturityScore: shownMaturity(state).total,
+        maturityHeld: shownMaturity(state).held,
         gaps: state.gaps,
         // Quiet incidents of this session — coordinator-only. shared/session-health.ts
         health: readHealth(state),

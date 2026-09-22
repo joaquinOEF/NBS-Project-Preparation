@@ -2058,6 +2058,7 @@
     "docConceptNoteHint": "For the coordination — the basis for preparing a proposal",
     "docRoadmap": "Route",
     "docRoadmapHint": "The road ahead, with owners",
+    "maturityHeld": "Not counting {{metrics}}: they are read from project detailing, which belongs to Encontro 4.",
     "cloneTest": "Test copy",
     "cloneTestHint": "Create a test copy of this organisation as it stood at the end of Encontro 2. The original is not touched.",
     "profile": "Profile (PDF)",
