@@ -297,8 +297,10 @@ const EMPTY_W3: MemberW3Signal = {
   solutions: [], areaM2: null, gapCount: 0, coordinationItems: 0, tested: 0, testedIds: [],
 };
 
-/** The dossier, computed from a member's live state — the same pure function the
- *  org's own closing card renders, so the two can never disagree. */
+/** The dossier, computed from a member's live state. Since Encontro 3 ends at
+ *  the comparison, the org's closing card is the COMPARISON, not the dossier —
+ *  they agree on money only because both price each solution through `sizeOf`
+ *  (shared/w3-tests.ts), at the size it was tested. */
 function w3SignalFrom(sections: CboState['sections']): MemberW3Signal {
   const asRecord = (id: string) =>
     Object.fromEntries(

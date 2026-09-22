@@ -114,3 +114,35 @@ export function seedTestsFromChosen(tests: SolutionTest[], chosen: string[]): So
   const at = new Date().toISOString();
   return chosen.map(solutionId => ({ solutionId, reaction: 'faz-sentido' as const, testedAt: at }));
 }
+
+/**
+ * THE SIZE A SOLUTION IS PRICED AT — one rule, for every surface that prices.
+ *
+ * The card read the test's own size; the dossier, the roadmap and the concept
+ * note read the place's footprint and ONE `intervention_units` for the whole
+ * project. So the coordinator's board, the hoja de ruta and the Resumo priced a
+ * rain garden over the 2,900 m² drawn in Encontro 2 (R$ 1,16–2,03 mi) while the
+ * card and the comparison priced it over the 836 m² tested (R$ 334–585 mil);
+ * and 25 street trees came out as 2, because escola-verde's "2 pátios" was
+ * tested first and filled the single field (staging records `c2a6ab61` and
+ * Caldas Junior, 22 Sept). Every function did what it said; they said
+ * different things.
+ *
+ * The rule is the card's:
+ *   · a test for this solution → ITS size (`areaM2: 0` = asked and unknown,
+ *     never the place's) and ITS count;
+ *   · a test with no size field at all (sessions from before sizes were per
+ *     test, when the footprint WAS the answer) → the place's footprint;
+ *   · no test (a record from before the loop) → the place's footprint and the
+ *     project-wide count, as those records were written.
+ */
+export function sizeOf(
+  solutionId: string,
+  input: { areaM2?: number; site?: Record<string, string | undefined>; w3?: Record<string, string | undefined> },
+  test?: SolutionTest | null,
+): { areaM2?: number; units?: number } {
+  const place = input.areaM2 || Number(input.site?.site_area_m2) || undefined;
+  const t = test ?? testOf(parseTests(input.w3?.solution_tests_json), solutionId);
+  if (t) return { areaM2: t.areaM2 !== undefined ? (t.areaM2 || undefined) : place, units: t.units || undefined };
+  return { areaM2: place, units: Number(input.w3?.intervention_units) || undefined };
+}
